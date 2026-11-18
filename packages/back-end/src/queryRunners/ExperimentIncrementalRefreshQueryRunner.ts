@@ -713,8 +713,8 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   // Full refresh will have a null incremental refresh model
   // Will recreate sources with new random id for metric sources
-  let existingSources = incrementalRefreshModel?.metricSources ?? [];
-  let existingCovariateSources =
+  const storedSources = incrementalRefreshModel?.metricSources ?? [];
+  const storedCovariateSources =
     incrementalRefreshModel?.metricCovariateSources ?? [];
 
   // Drop existing source records for FTs flagged for rebuild above (added /
@@ -724,20 +724,18 @@ export const startExperimentIncrementalRefreshQueries = async (
   // cache's schema/values may be out of shape with the desired metric set. The
   // matching covariate sources are dropped at the same time so CUPED state
   // stays consistent.
-  if (factTablesToRebuild.size > 0) {
-    const sourcesGroupIdsToDelete = new Set<string>();
-    existingSources.forEach((source) => {
-      if (factTablesToRebuild.has(source.factTableId)) {
-        sourcesGroupIdsToDelete.add(source.groupId);
-      }
-    });
-    existingSources = existingSources.filter(
-      (source) => !sourcesGroupIdsToDelete.has(source.groupId),
-    );
-    existingCovariateSources = existingCovariateSources.filter(
-      (source) => !sourcesGroupIdsToDelete.has(source.groupId),
-    );
-  }
+  const isReplaced = (source: { factTableId: string }) =>
+    factTablesToRebuild.has(source.factTableId);
+  const replacedSources = storedSources.filter(isReplaced);
+  const replacedGroupIds = new Set(replacedSources.map((s) => s.groupId));
+  const existingSources = storedSources.filter(
+    (source) => !replacedGroupIds.has(source.groupId),
+  );
+  const existingCovariateSources = storedCovariateSources.filter(
+    (source) => !replacedGroupIds.has(source.groupId),
+  );
+  // State writes of the caches replacing each rebuilt fact table's caches.
+  const replacementWritesByFactTable = new Map<string, string[]>();
 
   const metricSourceGroups = getIncrementalRefreshMetricSources({
     metrics: factMetrics,
@@ -1180,6 +1178,15 @@ export const startExperimentIncrementalRefreshQueries = async (
         queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
       });
       queries.push(maxTimestampMetricsSourceQuery);
+      if (isReplaced(group)) {
+        replacementWritesByFactTable.set(group.factTableId, [
+          ...(replacementWritesByFactTable.get(group.factTableId) ?? []),
+          maxTimestampMetricsSourceQuery.query,
+          ...(insertMetricCovariateDataQuery
+            ? [insertMetricCovariateDataQuery.query]
+            : []),
+        ]);
+      }
     }
 
     const writeQueryIds = [
@@ -1422,6 +1429,67 @@ export const startExperimentIncrementalRefreshQueries = async (
         queryType: "experimentTraffic",
       });
       queries.push(clusterHealthQuery);
+    }
+  }
+
+  // A rebuilt cache lives in a new table. Drop each table it replaces once
+  // the replacement is recorded, so replaced tables don't pile up.
+  for (const source of replacedSources) {
+    const dependencies =
+      replacementWritesByFactTable.get(source.factTableId) ?? [];
+    if (!dependencies.length) continue;
+    const covariateSource = storedCovariateSources.find(
+      (s) => s.groupId === source.groupId,
+    );
+    const replacedTables = [
+      {
+        name: `drop_replaced_metrics_source_${source.groupId}`,
+        tableFullName: source.tableFullName,
+      },
+      ...(covariateSource
+        ? [
+            {
+              name: `drop_replaced_metrics_covariate_table_${source.groupId}`,
+              tableFullName: covariateSource.tableFullName,
+            },
+          ]
+        : []),
+    ];
+    for (const { name, tableFullName } of replacedTables) {
+      const dropQuery = await startQuery({
+        name,
+        displayTitle: `Drop Replaced Metrics Table (${params.factTableMap.get(source.factTableId)?.name ?? source.factTableId})`,
+        query: integration.getDropMetricSourceTableQuery({
+          metricSourceTableFullName: tableFullName,
+        }),
+        dependencies,
+        run: fenced(async (query, setExternalId, queryMetadata) => {
+          // A dependency counts as succeeded before its state write lands.
+          const state =
+            await context.models.incrementalRefresh.getLockedBySnapshotId(
+              experimentId,
+              executionId,
+            );
+          const stillStored = [
+            ...(state?.metricSources ?? []),
+            ...(state?.metricCovariateSources ?? []),
+          ].some((s) => s.tableFullName === tableFullName);
+          if (stillStored) {
+            context.logger.warn(
+              `Kept replaced metrics table ${tableFullName}: the pipeline state still lists it`,
+            );
+            return { rows: [] };
+          }
+          return integration.runDropTableQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          );
+        }),
+        metadata: { factTableIds: [source.factTableId] },
+        queryType: "experimentIncrementalRefreshDropMetricsSourceTable",
+      });
+      queries.push(dropQuery);
     }
   }
   return queries;

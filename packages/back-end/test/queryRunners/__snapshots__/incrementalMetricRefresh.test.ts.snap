@@ -16,6 +16,8 @@ exports[`metric refresh (metrics-only runs) rebuilds a target's fact table cache
   "statistics_ft_c_9v8equapoto0 | experimentIncrementalRefreshStatistics | Compute Statistics (ft_c) | deps=[insert_metrics_source_data_ft_c_9v8equapoto0] | getIncrementalRefreshStatisticsQuery#c28acd1544bb | meta={"factTableIds":["ft_c"]}",
   "statistics_multi_ft_a_4xojcq9k7u0__ft_b_stored0 | experimentIncrementalRefreshStatistics | Compute Multi-Source Statistics (ft_a x ft_b) | deps=[insert_metrics_source_data_ft_a_4xojcq9k7u0,insert_metrics_covariate_data_ft_a_4xojcq9k7u0] | getIncrementalRefreshStatisticsQuery#f6df257bf288 | meta={"factTableIds":["ft_a","ft_b"]}",
   "traffic | experimentTraffic |  | deps=[] | getExperimentAggregateUnitsQuery#606f3c8911c9 | meta=null",
+  "drop_replaced_metrics_source_ft_a_stored0 | experimentIncrementalRefreshDropMetricsSourceTable | Drop Replaced Metrics Table (ft_a) | deps=[max_timestamp_metrics_source_ft_a_4xojcq9k7u0,insert_metrics_covariate_data_ft_a_4xojcq9k7u0] | getDropMetricSourceTableQuery#210114102ac9 | meta={"factTableIds":["ft_a"]}",
+  "drop_replaced_metrics_covariate_table_ft_a_stored0 | experimentIncrementalRefreshDropMetricsSourceTable | Drop Replaced Metrics Table (ft_a) | deps=[max_timestamp_metrics_source_ft_a_4xojcq9k7u0,insert_metrics_covariate_data_ft_a_4xojcq9k7u0] | getDropMetricSourceTableQuery#425f39183658 | meta={"factTableIds":["ft_a"]}",
 ]
 `;
 
@@ -65,6 +67,8 @@ exports[`normal incremental runs (pinned at trunk b29299f794) update after a3 an
   "statistics_ft_c_9v8equapoto0 | experimentIncrementalRefreshStatistics | Compute Statistics (ft_c) | deps=[insert_metrics_source_data_ft_c_9v8equapoto0] | getIncrementalRefreshStatisticsQuery#1500305dc981 | meta={"factTableIds":["ft_c"]}",
   "statistics_multi_ft_a_4xojcq9k7u0__ft_b_stored0 | experimentIncrementalRefreshStatistics | Compute Multi-Source Statistics (ft_a x ft_b) | deps=[insert_metrics_source_data_ft_a_4xojcq9k7u0,insert_metrics_source_data_ft_b_stored0,insert_metrics_covariate_data_ft_a_4xojcq9k7u0] | getIncrementalRefreshStatisticsQuery#f057b6251d2c | meta={"factTableIds":["ft_a","ft_b"]}",
   "traffic | experimentTraffic |  | deps=[alter_snp_run] | getExperimentAggregateUnitsQuery#430af0cdf642 | meta=null",
+  "drop_replaced_metrics_source_ft_a_stored0 | experimentIncrementalRefreshDropMetricsSourceTable | Drop Replaced Metrics Table (ft_a) | deps=[max_timestamp_metrics_source_ft_a_4xojcq9k7u0,insert_metrics_covariate_data_ft_a_4xojcq9k7u0] | getDropMetricSourceTableQuery#210114102ac9 | meta={"factTableIds":["ft_a"]}",
+  "drop_replaced_metrics_covariate_table_ft_a_stored0 | experimentIncrementalRefreshDropMetricsSourceTable | Drop Replaced Metrics Table (ft_a) | deps=[max_timestamp_metrics_source_ft_a_4xojcq9k7u0,insert_metrics_covariate_data_ft_a_4xojcq9k7u0] | getDropMetricSourceTableQuery#425f39183658 | meta={"factTableIds":["ft_a"]}",
 ]
 `;
 
