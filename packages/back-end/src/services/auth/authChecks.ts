@@ -91,9 +91,17 @@ export function meetsOrgMfaRequirement(
   return !org.requireMFA || !!sessionMfa;
 }
 
-// The MFA screen still needs the user, and their enrollment endpoints
-export function isMfaExemptPath(path: string): boolean {
-  return path === "/user" || path.startsWith("/user/mfa/");
+// Routes the MFA screen needs, or that pick their own org instead of the selected one
+const MFA_EXEMPT_ROUTES = new Set([
+  "GET /user",
+  "POST /invite/accept",
+  "GET /oauth/authorize/info",
+  "POST /oauth/authorize",
+]);
+export function isMfaExemptPath(method: string, path: string): boolean {
+  if (path.startsWith("/user/mfa/")) return true;
+  if (method === "GET" && /^\/invite\/[^/]+$/.test(path)) return true;
+  return MFA_EXEMPT_ROUTES.has(`${method} ${path}`);
 }
 
 // Super admin needs a login that proves who the user is, not just their email address

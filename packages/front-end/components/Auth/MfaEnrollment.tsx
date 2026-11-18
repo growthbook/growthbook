@@ -6,6 +6,8 @@ import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import RecoveryCodes from "./RecoveryCodes";
 
 // Enable/disable swap the session cookies, so a reload picks up the new token
@@ -85,20 +87,21 @@ export default function MfaEnrollment() {
     >
       <Flex direction="column" gap="3">
         <Text>Scan this QR code with your authenticator app:</Text>
-        <QRCodeSVG
-          value={setup.otpauthUrl}
-          size={176}
-          marginSize={2}
-          title="MFA setup QR code"
-          style={{ alignSelf: "center", background: "white" }}
-        />
+        <Flex justify="center">
+          <QRCodeSVG
+            value={setup.otpauthUrl}
+            size={176}
+            marginSize={2}
+            title="MFA setup QR code"
+            style={{ background: "white" }}
+          />
+        </Flex>
         <Text>
           Can&apos;t scan it? Enter this setup key instead, or{" "}
-          <a href={setup.otpauthUrl}>open it in your authenticator app</a>:
+          <Link href={setup.otpauthUrl}>open it in your authenticator app</Link>
+          :
         </Text>
-        <code style={{ fontSize: "1.1em", wordBreak: "break-all" }}>
-          {setup.secret.match(/.{1,4}/g)?.join(" ")}
-        </code>
+        <CopyableCode value={setup.secret} framed />
         <Field
           label="Authentication code"
           required

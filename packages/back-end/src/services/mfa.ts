@@ -7,6 +7,7 @@ import {
   claimMfaStep,
   consumeMfaRecoveryCode,
 } from "back-end/src/models/UserModel";
+import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 import { RefreshTokenCookie, setIdTokenCookie } from "back-end/src/util/cookie";
 import { getAuthConnection } from "back-end/src/services/auth";
 import { base32Encode, verifyTotp } from "back-end/src/util/totp";
@@ -94,13 +95,14 @@ export async function assertMfaCode(
   if (entry.count === 0) mfaFailures.delete(user.id);
 }
 
-// Gives this browser a session whose MFA state matches the account's
-export async function reissueLocalSession(
+// Signs out every session and gives this browser one matching the new MFA state
+export async function replaceLocalSessions(
   req: Request,
   res: Response,
   user: UserInterface,
   mfa: boolean,
 ) {
+  await AuthRefreshModel.deleteMany({ userId: user.id });
   const { idToken, refreshToken } = await getAuthConnection().processCallback(
     req,
     res,

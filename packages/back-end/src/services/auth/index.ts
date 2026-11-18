@@ -339,7 +339,7 @@ export async function processJWT(
 
         if (
           !meetsOrgMfaRequirement(req.organization, req.mfa) &&
-          !isMfaExemptPath(req.path)
+          !isMfaExemptPath(req.method, req.path)
         ) {
           res.status(403).json({
             status: 403,

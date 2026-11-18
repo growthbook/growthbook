@@ -5,6 +5,7 @@ import Field from "@/components/Forms/Field";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import MfaEnrollment from "./MfaEnrollment";
 import RecoveryCodes from "./RecoveryCodes";
 
@@ -13,18 +14,18 @@ export default function MfaModal({ close }: { close: () => void }) {
   const { apiCall } = useAuth();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState<"codes" | "disable" | null>(null);
   const [newCodes, setNewCodes] = useState<string[] | null>(null);
 
-  const run = async (fn: () => Promise<void>) => {
+  const run = async (action: "codes" | "disable", fn: () => Promise<void>) => {
     setError("");
-    setLoading(true);
+    setPending(action);
     try {
       await fn();
     } catch (e) {
       setError(e.message);
     }
-    setLoading(false);
+    setPending(null);
   };
 
   return (
@@ -45,11 +46,11 @@ export default function MfaModal({ close }: { close: () => void }) {
           <RecoveryCodes codes={newCodes} />
         ) : (
           <>
-            <p>
+            <Text as="p" mb="3">
               MFA is on for your account. You have{" "}
-              <strong>{mfaRecoveryCodesRemaining}</strong> unused recovery
-              codes.
-            </p>
+              <Text weight="semibold">{mfaRecoveryCodesRemaining}</Text> unused
+              recovery codes.
+            </Text>
             {mfaRecoveryCodesRemaining < 3 && (
               <Callout status="warning" mb="3">
                 You&apos;re running low on recovery codes. Get new ones so you
@@ -78,9 +79,10 @@ export default function MfaModal({ close }: { close: () => void }) {
           <>
             <Button
               variant="outline"
-              loading={loading}
+              loading={pending === "codes"}
+              disabled={pending === "disable"}
               onClick={() =>
-                run(async () => {
+                run("codes", async () => {
                   const res = await apiCall<{ recoveryCodes: string[] }>(
                     "/user/mfa/recovery-codes",
                     { method: "POST", body: JSON.stringify({ mfaCode: code }) },
@@ -94,9 +96,10 @@ export default function MfaModal({ close }: { close: () => void }) {
             </Button>
             <Button
               color="red"
-              loading={loading}
+              loading={pending === "disable"}
+              disabled={pending === "codes"}
               onClick={() =>
-                run(async () => {
+                run("disable", async () => {
                   await apiCall("/user/mfa/disable", {
                     method: "POST",
                     body: JSON.stringify({ mfaCode: code }),

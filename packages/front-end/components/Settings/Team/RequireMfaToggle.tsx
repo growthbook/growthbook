@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Switch from "@/ui/Switch";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import LabelWithHelp from "@/ui/LabelWithHelp";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -25,9 +25,18 @@ export default function RequireMfaToggle({ mutate }: { mutate: () => void }) {
           value={enabled}
           disabled={saving || (!enabled && !canEnable)}
           label={
-            <PremiumTooltip commercialFeature="require-mfa">
-              Require multi-factor authentication (MFA)
-            </PremiumTooltip>
+            <LabelWithHelp
+              label={
+                <PremiumTooltip commercialFeature="require-mfa">
+                  Require multi-factor authentication (MFA)
+                </PremiumTooltip>
+              }
+              help={
+                usingSSO()
+                  ? "Members must sign in through an identity provider that reports MFA. Others are blocked until they sign in again with MFA."
+                  : "Members must log in with a code from an authenticator app. Others are asked to set up MFA before they can continue."
+              }
+            />
           }
           onChange={async (on) => {
             setError("");
@@ -43,13 +52,6 @@ export default function RequireMfaToggle({ mutate }: { mutate: () => void }) {
             }
             setSaving(false);
           }}
-        />
-        <Tooltip
-          body={
-            usingSSO()
-              ? "Members must sign in through an identity provider that reports MFA. Others are blocked until they sign in again with MFA."
-              : "Members must log in with a code from an authenticator app. Others are asked to set up MFA before they can continue."
-          }
         />
       </Flex>
       {error && (

@@ -1,9 +1,13 @@
 import { Flex, Grid } from "@radix-ui/themes";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 
 export default function RecoveryCodes({ codes }: { codes: string[] }) {
   const text = codes.join("\n");
+  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
+    timeout: 1500,
+  });
   return (
     <Flex direction="column" gap="3">
       <Callout status="warning">
@@ -17,12 +21,11 @@ export default function RecoveryCodes({ codes }: { codes: string[] }) {
         ))}
       </Grid>
       <Flex gap="2">
-        <Button
-          variant="outline"
-          onClick={() => navigator.clipboard.writeText(text)}
-        >
-          Copy
-        </Button>
+        {copySupported && (
+          <Button variant="outline" onClick={() => performCopy(text)}>
+            {copySuccess ? "Copied" : "Copy"}
+          </Button>
+        )}
         <Button
           variant="outline"
           onClick={() => {

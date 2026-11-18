@@ -45,9 +45,8 @@ import {
   assertMfaCode,
   encryptMfaSecret,
   generateRecoveryCodes,
-  reissueLocalSession,
+  replaceLocalSessions,
 } from "back-end/src/services/mfa";
-import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 import {
   base32Encode,
   generateTotpSecret,
@@ -216,9 +215,7 @@ export async function postMfaEnable(
   if (!(await enableMfa(user.id, user.mfaSecret, hashes))) {
     throw new Error("MFA setup was restarted elsewhere. Start again.");
   }
-  // Every session left after turning MFA on is one that used it
-  await AuthRefreshModel.deleteMany({ userId: user.id, mfa: { $ne: true } });
-  await reissueLocalSession(req as Request, res, user, true);
+  await replaceLocalSessions(req as Request, res, user, true);
   res.status(200).json({ status: 200, recoveryCodes: codes });
 }
 
@@ -252,11 +249,7 @@ export async function postMfaDisable(
   }
   await assertMfaCode(user, req.body.mfaCode);
   await disableMfa(user.id);
-  await AuthRefreshModel.updateMany(
-    { userId: user.id },
-    { $set: { mfa: false } },
-  );
-  await reissueLocalSession(req as Request, res, user, false);
+  await replaceLocalSessions(req as Request, res, user, false);
   res.status(200).json({ status: 200 });
 }
 

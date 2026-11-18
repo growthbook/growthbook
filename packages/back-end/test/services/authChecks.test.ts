@@ -215,11 +215,23 @@ describe("meetsOrgMfaRequirement", () => {
 });
 
 describe("isMfaExemptPath", () => {
-  it("exempts only the user lookup and MFA enrollment", () => {
-    expect(isMfaExemptPath("/user")).toBe(true);
-    expect(isMfaExemptPath("/user/mfa/setup")).toBe(true);
-    expect(isMfaExemptPath("/user/history")).toBe(false);
-    expect(isMfaExemptPath("/user/mfa")).toBe(false);
-    expect(isMfaExemptPath("/organization")).toBe(false);
+  it("exempts the MFA screen's routes and those that pick their own org", () => {
+    expect(isMfaExemptPath("GET", "/user")).toBe(true);
+    expect(isMfaExemptPath("POST", "/user/mfa/setup")).toBe(true);
+    expect(isMfaExemptPath("POST", "/invite/accept")).toBe(true);
+    expect(isMfaExemptPath("GET", "/invite/abc123")).toBe(true);
+    expect(isMfaExemptPath("GET", "/oauth/authorize/info")).toBe(true);
+    expect(isMfaExemptPath("POST", "/oauth/authorize")).toBe(true);
+  });
+
+  it("keeps the selected org's own routes gated", () => {
+    expect(isMfaExemptPath("GET", "/user/history")).toBe(false);
+    expect(isMfaExemptPath("GET", "/user/mfa")).toBe(false);
+    expect(isMfaExemptPath("GET", "/organization")).toBe(false);
+    expect(isMfaExemptPath("POST", "/invite")).toBe(false);
+    expect(isMfaExemptPath("POST", "/invite/resend")).toBe(false);
+    expect(isMfaExemptPath("PUT", "/invite/abc123/role")).toBe(false);
+    expect(isMfaExemptPath("DELETE", "/invite")).toBe(false);
+    expect(isMfaExemptPath("GET", "/oauth/connected-apps")).toBe(false);
   });
 });

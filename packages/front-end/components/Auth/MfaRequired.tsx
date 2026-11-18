@@ -6,7 +6,11 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
 import TopNavLite from "@/components/Layout/TopNavLite";
 import MfaEnrollment from "./MfaEnrollment";
 
@@ -14,6 +18,7 @@ export default function MfaRequired() {
   const { mfaEnabled } = useUser();
   const { organizations, orgId, setOrgId } = useAuth();
   const otherOrgs = (organizations || []).filter((o) => o.id !== orgId);
+  const canEnroll = !usingSSO() && !mfaEnabled;
 
   return (
     <div>
@@ -30,12 +35,13 @@ export default function MfaRequired() {
                 ? "Your organization requires multi-factor authentication (MFA). Log out, then log back in with a code from your authenticator app."
                 : "Your organization requires multi-factor authentication (MFA). Set it up to continue."}
           </Callout>
-          {!usingSSO() && !mfaEnabled && <MfaEnrollment />}
+          {canEnroll && <MfaEnrollment />}
           <Flex justify="end" gap="3" mt="3">
             {otherOrgs.length > 0 && setOrgId && (
               <DropdownMenu
                 trigger={<Button variant="ghost">Switch organization</Button>}
               >
+                <DropdownMenuLabel>Organization</DropdownMenuLabel>
                 {otherOrgs.map((o) => (
                   <DropdownMenuItem
                     key={o.id}
@@ -53,7 +59,11 @@ export default function MfaRequired() {
                 ))}
               </DropdownMenu>
             )}
-            <Button variant="ghost" onClick={safeLogout}>
+            {/* Logging out is the only way forward unless they can enroll here */}
+            <Button
+              variant={canEnroll ? "ghost" : "solid"}
+              onClick={safeLogout}
+            >
               Log out
             </Button>
           </Flex>
