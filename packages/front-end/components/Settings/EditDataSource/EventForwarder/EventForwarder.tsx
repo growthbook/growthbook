@@ -594,8 +594,10 @@ function EventForwarderModal({
             }
 
             onClearError();
+            let refreshed = false;
             try {
               await onRefresh();
+              refreshed = true;
             } catch (e) {
               const detail = e instanceof Error ? ` ${e.message}` : "";
               onRefreshError(
@@ -603,7 +605,8 @@ function EventForwarderModal({
               );
             }
             onCancel();
-            if (!isEditingEventForwarder) onCreated?.();
+            // Its tab only exists once the reload shows it; else stay on the error
+            if (!isEditingEventForwarder && refreshed) onCreated?.();
           }}
         >
           <SyncSubmittingRef submittingRef={isSubmittingRef} />
