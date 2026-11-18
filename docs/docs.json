@@ -492,7 +492,7 @@
         "groups": [
           {
             "group": "Introduction",
-            "pages": ["api/introduction"]
+            "pages": ["api/introduction", "api/update-experiment-results"]
           },
           {
             "group": "Endpoints",

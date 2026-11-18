@@ -1,0 +1,197 @@
+---
+title: Update Experiment Results
+description: Add a metric to a running experiment and get its result through the REST API, without rerunning the whole analysis.
+sidebarTitle: Update Experiment Results
+---
+
+When you add a metric to an experiment that already has results, GrowthBook can compute only the new metric and show it next to the results you already have. The new metric covers the same dates as the other metrics, so you can compare them directly. The rest of the results are kept as they were.
+
+This page shows the calls a script or an AI agent makes to do this, and what each response tells you.
+
+## Before You Start
+
+- Use an API key that can edit the experiment and run queries on its Data Source.
+- The experiment must be running, and its latest phase must have results. See [What It Does Not Do](#what-it-does-not-do).
+- The API allows 60 requests a minute per key. Poll every 2 seconds or slower.
+
+## Add a Metric and Get Its Result
+
+### 1. Add the Metric to the Experiment
+
+Send the metric lists with [`POST /api/v1/experiments/{id}`](/api/experiments/operation/updateExperiment). `metrics` holds the goal metrics. `secondaryMetrics` and `guardrailMetrics` hold the others. Each list replaces the one stored, so send the metrics the experiment already has plus the new one. [`GET /api/v1/experiments/{id}`](/api/experiments/operation/getExperiment) returns the current lists under `settings.goals`, `settings.secondaryMetrics` and `settings.guardrails`.
+
+```bash
+curl -X POST https://api.growthbook.io/api/v1/experiments/exp_abc123 \
+  -H "Authorization: Bearer secret_abc123DEF456" \
+  -H "Content-Type: application/json" \
+  -d '{ "metrics": ["met_signup", "met_checkout"] }'
+```
+
+### 2. Start the Update
+
+Call [`POST /api/v1/experiments/{id}/snapshot`](/api/experiments/operation/postExperimentSnapshot). An empty body uses the default, which computes only the new metrics when it can (see [When the Default Computes Only New Metrics](#when-the-default-computes-only-new-metrics)). To ask for new metrics only, and get an error instead of a normal update when that isn't possible, send `"updateScope": "new_metrics"`.
+
+```bash
+curl -X POST https://api.growthbook.io/api/v1/experiments/exp_abc123/snapshot \
+  -H "Authorization: Bearer secret_abc123DEF456" \
+  -H "Content-Type: application/json" \
+  -d '{ "updateScope": "new_metrics" }'
+```
+
+The response is the snapshot the update creates:
+
+```json
+{
+  "snapshot": {
+    "id": "snp_new456",
+    "experiment": "exp_abc123",
+    "status": "running",
+    "updateScope": "new_metrics",
+    "metricRefresh": {
+      "baseSnapshotId": "snp_base123",
+      "metricIds": ["met_checkout"],
+      "dateEnd": "2026-11-18T09:00:00.000Z"
+    }
+  }
+}
+```
+
+- `updateScope` says which update ran: `new_metrics` or `all_metrics`.
+- `metricRefresh` is present only when `updateScope` is `new_metrics`. `metricIds` lists the metrics this update computes. `dateEnd` is the end date of the results, which is the end date of the earlier update named by `baseSnapshotId`.
+
+If the response is a 409, see [Errors](#errors).
+
+### 3. Poll the Snapshot
+
+Call [`GET /api/v1/snapshots/{id}`](/api/snapshots/operation/getExperimentSnapshot) with the snapshot `id` every 2 seconds or slower, until `status` is no longer `running`.
+
+```bash
+curl https://api.growthbook.io/api/v1/snapshots/snp_new456 \
+  -H "Authorization: Bearer secret_abc123DEF456"
+```
+
+| `status`  | Meaning                                                                                            |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| `running` | The update is still running. Poll again.                                                           |
+| `success` | The update finished. Read the results.                                                             |
+| `error`   | The update failed. `error` says why. The results endpoint keeps returning the results from before. |
+
+### 4. Read the Results
+
+Call [`GET /api/v1/experiments/{id}/results`](/api/experiments/operation/getExperimentResults).
+
+```bash
+curl https://api.growthbook.io/api/v1/experiments/exp_abc123/results \
+  -H "Authorization: Bearer secret_abc123DEF456"
+```
+
+```json
+{
+  "experiment": { "id": "exp_abc123", "...": "..." },
+  "result": {
+    "id": "snp_new456",
+    "dateUpdated": "2026-11-18T09:02:13.000Z",
+    "dateEnd": "2026-11-18T09:00:00.000Z",
+    "results": [
+      {
+        "dimension": "All",
+        "metrics": [
+          { "metricId": "met_signup", "variations": ["..."] },
+          { "metricId": "met_checkout", "variations": ["..."] }
+        ]
+      }
+    ]
+  },
+  "missingMetricIds": []
+}
+```
+
+- `result.id` is the snapshot the results come from.
+- After a new-metrics update, `result.dateEnd` and `result.dateUpdated` are the same as before the update. Only the new metrics were added.
+- `missingMetricIds` lists the experiment's metrics that `result` doesn't include yet, because they were added after it was computed. It is empty when every metric has results. See [Find Metrics Without Results](#find-metrics-without-results).
+
+## Choose What to Compute
+
+`updateScope` on `POST /api/v1/experiments/{id}/snapshot` sets which metrics the update computes:
+
+| `updateScope`    | What it does                                                                                                                                                                                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auto` (default) | Computes only the new metrics when the conditions below hold. Otherwise runs a normal update. Never answers `metrics_already_up_to_date` or `metric_refresh_unavailable`.                                                                                                                  |
+| `new_metrics`    | Computes only the metrics added since the latest results, whatever the window. Answers a 409 when it can't, for example when those results are more than a day old, and never falls back to a normal update. Can't be combined with `dimension` or with `"triggeredBy": "schedule"` (400). |
+| `all_metrics`    | Always runs a normal update, which computes every metric up to the time of the request.                                                                                                                                                                                                    |
+
+The snapshot's `updateScope` in the response says which update ran.
+
+### When the Default Computes Only New Metrics
+
+With no `updateScope`, or with `"updateScope": "auto"`, the update computes only the new metrics when all of these hold:
+
+- Metrics were added to the experiment since its latest results, and nothing else that affects the analysis changed.
+- The end date of those results is less than the organization's window before the request: 4 hours by default. An admin can change it, or set 0 to turn this off, with the [Update only new metrics when results are newer than](/app/experiment-results#new-metrics-update-window) setting.
+- The request has no `dimension` and isn't `"triggeredBy": "schedule"`.
+- Nothing in the [`metric_refresh_unavailable` reasons](#unavailable-reasons) applies.
+
+In every other case the default runs a normal update.
+
+### The End Date Stays the Same
+
+An update of new metrics computes them up to the end date of the latest results, not up to now. Every other metric keeps the result it had. This keeps old and new metrics on the same dates. It also means no result covers data newer than that end date.
+
+You can tell from the snapshot: `updateScope` is `new_metrics`, and `metricRefresh.dateEnd` is the end date. To bring every metric up to now, send `"updateScope": "all_metrics"`.
+
+## Errors
+
+A 409 response has a `message`, a `code` and `details`:
+
+```json
+{
+  "message": "The analysis dates changed by a day or more since the latest results, so newly added metrics would cover different dates than the other metrics. Run a full update instead.",
+  "code": "metric_refresh_unavailable",
+  "details": { "reason": "analysis_dates_changed" }
+}
+```
+
+| `code`                       | Meaning                                                                                   | What to do                                                                                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `snapshot_in_progress`       | Another update of the experiment's results is running.                                    | Poll the snapshot in `details.snapshotId` until it finishes, then send your request again. When `snapshotId` is absent, wait a few seconds before you send it again. |
+| `metrics_already_up_to_date` | Every metric already has results. `details.baseSnapshotId` is the snapshot that has them. | Read the results.                                                                                                                                                    |
+| `metric_refresh_unavailable` | The new metrics can't be computed on their own. `details.reason` says why.                | Send `"updateScope": "all_metrics"`.                                                                                                                                 |
+
+`metrics_already_up_to_date` and `metric_refresh_unavailable` come only from `"updateScope": "new_metrics"`. `snapshot_in_progress` can come with any `updateScope`. Two other 409 codes, `requires_full_refresh` and `dimension_already_up_to_date`, come only from requests with a `dimension`.
+
+### Unavailable Reasons
+
+`metric_refresh_unavailable` names one of these in `details.reason`. Every reason has the same way out: send `"updateScope": "all_metrics"`.
+
+| `reason`                      | Why                                                                                                                                        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `no_base_snapshot`            | The phase has no results yet.                                                                                                              |
+| `not_latest_phase`            | The request names a phase that isn't the latest.                                                                                           |
+| `phase_ended`                 | The phase has ended.                                                                                                                       |
+| `unsupported_experiment_type` | The experiment is a Bandit or a holdout.                                                                                                   |
+| `unsupported_data_source`     | The Data Source analyzes every metric in one query.                                                                                        |
+| `incremental_pipeline`        | The experiment's Incremental Pipeline tables don't match its latest results, for example because a later update failed.                    |
+| `metric_not_supported`        | The latest results ran on a different pipeline than the experiment's metrics need now.                                                     |
+| `settings_changed`            | An analysis setting changed since the latest results, or their queries can't be reused.                                                    |
+| `analysis_dates_changed`      | The analysis dates moved by a day or more since the latest results. This includes results that are more than a day old.                    |
+| `base_incomplete`             | The latest results are incomplete, come from too many updates of new metrics in a row, or were built from an update that no longer exists. |
+
+## Find Metrics Without Results
+
+`missingMetricIds` on `GET /api/v1/experiments/{id}/results` lists the metrics on the experiment that the results don't include yet. Use it to:
+
+- Check whether there is anything to compute before you start an update.
+- Confirm that the new metrics have results after the update finishes. The list is empty then.
+
+`missingMetricIds` leaves out metrics that no update can compute, such as a metric that can't join the experiment's assignment identifier. It is present only for the Overall results of the latest phase: it is absent when you pass `dimension` or an earlier `phase`.
+
+## On the Incremental Pipeline
+
+With [Incremental refresh](/app/data-pipeline), an update of new metrics skips the exposure scan and the fact tables of the other metrics. It still reads the full history of each new metric's fact table, up to the end date. Expect a shorter wait than a normal update, not an instant one.
+
+## What It Does Not Do
+
+- It computes only metrics that have no results yet. It never recomputes a metric that already has results.
+- It needs a running latest phase. Stopped experiments and earlier phases need a normal update.
+- Breakdowns by dimension always run a normal update.
+- Results more than a day old, or any changed analysis setting, need a normal update.
