@@ -87,6 +87,8 @@ type Props = {
   onRefresh: () => Promise<void>;
   /** Title the section when it isn't on its own Event Forwarder tab. */
   showTitle?: boolean;
+  /** After a new forwarder is saved and the Data Source reloaded. */
+  onCreated?: () => void;
 };
 
 type EventForwarderDatasourceDraft = {
@@ -485,12 +487,14 @@ function EventForwarderModal({
   onRefresh,
   onClearError,
   onRefreshError,
+  onCreated,
 }: {
   dataSource: DataSourceInterfaceWithParams;
   onCancel: () => void;
   onRefresh: () => Promise<void>;
   onClearError: () => void;
   onRefreshError: (message: string) => void;
+  onCreated?: () => void;
 }) {
   const { apiCall } = useAuth();
   const isSubmittingRef = useRef(false);
@@ -599,6 +603,7 @@ function EventForwarderModal({
               );
             }
             onCancel();
+            if (!isEditingEventForwarder) onCreated?.();
           }}
         >
           <SyncSubmittingRef submittingRef={isSubmittingRef} />
@@ -825,6 +830,7 @@ export default function EventForwarder({
   canEdit = true,
   onRefresh,
   showTitle = false,
+  onCreated,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -1233,6 +1239,7 @@ export default function EventForwarder({
           onClearError={() => setError(null)}
           onRefresh={onRefresh}
           onRefreshError={setError}
+          onCreated={onCreated}
         />
       ) : null}
     </Box>
