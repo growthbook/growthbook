@@ -2368,7 +2368,7 @@ export class RevisionModel extends BaseClass {
     // already closed, and the caller emits a false `revision.publishFailed`.
     expectedScheduledPublishAt?: Date | null,
   ): Promise<number> {
-    const doc = await this._dangerousGetCollection().findOneAndUpdate(
+    const { value } = await this._dangerousGetCollection().findOneAndUpdate(
       {
         organization: this.context.org.id,
         id,
@@ -2383,10 +2383,7 @@ export class RevisionModel extends BaseClass {
       },
       { returnDocument: "after", projection: { scheduledPublishAttempts: 1 } },
     );
-    return (
-      (doc as { scheduledPublishAttempts?: number } | null)
-        ?.scheduledPublishAttempts ?? 0
-    );
+    return value?.scheduledPublishAttempts ?? 0;
   }
 
   /**
