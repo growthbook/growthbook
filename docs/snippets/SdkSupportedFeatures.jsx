@@ -818,7 +818,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     kotlin: {
       name: "Kotlin SDK",
-      version: "10.0.0",
+      version: "10.2.0",
       github: "https://github.com/growthbook/growthbook-kotlin",
       examples: [],
       packageRepos: [
@@ -833,6 +833,12 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v10.2.0",
+        },
+        {
+          savedGroupReferencesV2: "≥ v10.2.0",
         },
         {
           savedGroupReferences: "≥ v10.0.0",
