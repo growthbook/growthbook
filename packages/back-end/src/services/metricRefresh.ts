@@ -342,12 +342,28 @@ export type MetricRefreshReplayLevel = {
   snapshotId: string;
   metricSettings: MetricForSnapshot[];
   refreshedMetricIds: string[] | null;
+  /**
+   * Null for a run with a cutoff. A run without one read the clock when it
+   * generated its SQL, at most this long after its end date.
+   */
+  maxSqlClockDriftMs: number | null;
+};
+
+/**
+ * Today's SQL for a stored query. A run without a cutoff wrote the
+ * skipPartialData exposure cutoff from its clock, so each such literal may be
+ * up to `maxDriftMs` later than in `sqlAsOfEndDate`.
+ */
+export type ReplayedQuerySql = {
+  sql: string;
+  clockedExposureCutoffs: { sqlAsOfEndDate: string; maxDriftMs: number } | null;
 };
 
 /**
  * The SQL each level would run today, by query name. A refresh numbers its
  * own metric groups after the groups it copied, so the levels replay base
- * first to reproduce the stored grouping. Each level names its own units table.
+ * first to reproduce the stored grouping. Each level names its own units
+ * table, and replays with or without a cutoff as it ran.
  */
 export async function replayMetricRefreshLineage({
   levels,
@@ -357,20 +373,43 @@ export async function replayMetricRefreshLineage({
   levels: readonly MetricRefreshReplayLevel[];
   settings: ExperimentSnapshotSettings;
   generateResultQuerySql: GenerateResultQuerySql;
-}): Promise<Map<string, string>> {
-  const sqlByName = new Map<string, string>();
+}): Promise<Map<string, ReplayedQuerySql>> {
+  const sqlByName = new Map<string, ReplayedQuerySql>();
   for (const level of levels) {
-    const levelSql = await generateResultQuerySql({
-      settings: { ...settings, metricSettings: level.metricSettings },
-      queryParentId: level.snapshotId,
-      scope: level.refreshedMetricIds
-        ? {
-            metricIds: new Set(level.refreshedMetricIds),
-            firstGroupIndex: getIndexAfterLastGroup([...sqlByName.keys()]),
-          }
-        : undefined,
-    });
-    levelSql.forEach((sql, name) => sqlByName.set(name, sql));
+    const scope = level.refreshedMetricIds
+      ? {
+          metricIds: new Set(level.refreshedMetricIds),
+          firstGroupIndex: getIndexAfterLastGroup([...sqlByName.keys()]),
+        }
+      : undefined;
+    const generate = (endDateIsCutoff: boolean) =>
+      generateResultQuerySql({
+        settings: {
+          ...settings,
+          metricSettings: level.metricSettings,
+          endDateIsCutoff,
+        },
+        queryParentId: level.snapshotId,
+        scope,
+      });
+    const driftMs = level.maxSqlClockDriftMs;
+    const levelSql = await generate(driftMs === null);
+    const asOfEndDate =
+      driftMs !== null && settings.skipPartialData
+        ? await generate(true)
+        : null;
+    levelSql.forEach((sql, name) =>
+      sqlByName.set(name, {
+        sql,
+        clockedExposureCutoffs:
+          asOfEndDate && driftMs !== null
+            ? {
+                sqlAsOfEndDate: asOfEndDate.get(name) ?? "",
+                maxDriftMs: driftMs,
+              }
+            : null,
+      }),
+    );
   }
   return sqlByName;
 }
@@ -382,6 +421,47 @@ const withoutCommentLines = (sql: string): string =>
     .filter((line) => !line.trimStart().startsWith("--"))
     .join("\n");
 
+// The clause skipPartialData adds, in each dialect's timestamp literal.
+const EXPOSURE_CUTOFF_CLAUSE =
+  /\b(first_(?:exposure|activation)_timestamp <= \w*\(?')(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d{3})?)Z?'/g;
+
+function splitExposureCutoffs(sql: string): {
+  sqlWithoutCutoffs: string;
+  cutoffs: number[];
+} {
+  const cutoffs: number[] = [];
+  const sqlWithoutCutoffs = sql.replace(
+    EXPOSURE_CUTOFF_CLAUSE,
+    (_, clause: string, utcTimestamp: string) => {
+      cutoffs.push(Date.parse(`${utcTimestamp.replace(" ", "T")}Z`));
+      return `${clause}'`;
+    },
+  );
+  return { sqlWithoutCutoffs, cutoffs };
+}
+
+function isSqlUnchanged(stored: string, today: ReplayedQuerySql): boolean {
+  const storedSql = withoutCommentLines(stored);
+  const todaysSql = withoutCommentLines(today.sql);
+  const clocked = today.clockedExposureCutoffs;
+  if (!clocked) return storedSql === todaysSql;
+
+  const storedParts = splitExposureCutoffs(storedSql);
+  const earliest = splitExposureCutoffs(
+    withoutCommentLines(clocked.sqlAsOfEndDate),
+  ).cutoffs;
+  return (
+    storedParts.sqlWithoutCutoffs ===
+      splitExposureCutoffs(todaysSql).sqlWithoutCutoffs &&
+    storedParts.cutoffs.length === earliest.length &&
+    storedParts.cutoffs.every((cutoff, i) => {
+      const drift = cutoff - earliest[i];
+      // Some dialects write whole seconds.
+      return drift >= 0 && drift < clocked.maxDriftMs + 1000;
+    })
+  );
+}
+
 /** The named queries whose stored SQL is missing or differs from today's. */
 export function getQueriesWithChangedSql({
   queryNames,
@@ -390,7 +470,7 @@ export function getQueriesWithChangedSql({
 }: {
   queryNames: readonly string[];
   storedSql: ReadonlyMap<string, string>;
-  todaysSql: ReadonlyMap<string, string>;
+  todaysSql: ReadonlyMap<string, ReplayedQuerySql>;
 }): string[] {
   return queryNames.filter((name) => {
     const stored = storedSql.get(name);
@@ -398,7 +478,7 @@ export function getQueriesWithChangedSql({
     return (
       stored === undefined ||
       today === undefined ||
-      withoutCommentLines(stored) !== withoutCommentLines(today)
+      !isSqlUnchanged(stored, today)
     );
   });
 }
@@ -458,6 +538,13 @@ async function assertCarriedQuerySqlUnchanged({
       snapshotId: level.id,
       metricSettings,
       refreshedMetricIds: getMetricRefresh(level)?.metricIds ?? null,
+      maxSqlClockDriftMs: getSnapshotCutoffDate(level.settings)
+        ? null
+        : Math.max(
+            0,
+            (level.runStarted ?? level.settings.endDate).getTime() -
+              level.settings.endDate.getTime(),
+          ),
     };
   });
 

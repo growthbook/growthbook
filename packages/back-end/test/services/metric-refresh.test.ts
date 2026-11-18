@@ -36,6 +36,7 @@ import {
   shouldUpdateNewMetricsOnly,
   type GenerateResultQuerySql,
   type MetricRefreshReplayLevel,
+  type ReplayedQuerySql,
 } from "back-end/src/services/metricRefresh";
 import {
   ExperimentResultsQueryRunner,
@@ -651,6 +652,25 @@ describe("planMetricRefresh", () => {
       });
     });
 
+    it("replays a base full update that had no cutoff without one", async () => {
+      findParentMock.mockResolvedValue(
+        makeParent({
+          settings: makeSettings(["met_a", "met_b"], {
+            endDateIsCutoff: false,
+          }),
+        }),
+      );
+      const generateResultQuerySql = jest.fn(storedSqlGenerator);
+
+      await planMetricRefresh(refreshArgs({ generateResultQuerySql }));
+
+      expect(
+        generateResultQuerySql.mock.calls.map(
+          ([{ settings }]) => settings.endDateIsCutoff,
+        ),
+      ).toEqual([false]);
+    });
+
     it("replays a refresh of a refresh base first, each run under its own id", async () => {
       // base snp_base ran met_a; snp_mid added met_b; the parent added met_d.
       findAncestorMock.mockImplementation(async (_, id) =>
@@ -795,10 +815,12 @@ describe("replayMetricRefreshLineage", () => {
     snapshotId: string,
     metricIds: string[],
     refreshedMetricIds: string[] | null = null,
+    maxSqlClockDriftMs: number | null = null,
   ): MetricRefreshReplayLevel => ({
     snapshotId,
     metricSettings: metricIds.map((id) => ({ id })),
     refreshedMetricIds,
+    maxSqlClockDriftMs,
   });
 
   it("numbers each refresh's groups after every earlier group and runs it under its own id", async () => {
@@ -830,7 +852,9 @@ describe("replayMetricRefreshLineage", () => {
       generateResultQuerySql: generate,
     });
 
-    expect(Object.fromEntries(sql)).toEqual({
+    expect(
+      Object.fromEntries([...sql].map(([name, { sql }]) => [name, sql])),
+    ).toEqual({
       snp_base: "units of snp_base",
       group_0: "met_a reads snp_base",
       group_1: "met_b reads snp_base",
@@ -840,6 +864,39 @@ describe("replayMetricRefreshLineage", () => {
       group_3: "met_d reads snp_top",
     });
   });
+
+  describe("a run without a cutoff", () => {
+    const generate: GenerateResultQuerySql = async ({ settings }) =>
+      new Map([
+        [
+          "group_0",
+          settings.endDateIsCutoff ? "capped at the end date" : "uncapped",
+        ],
+      ]);
+    const replay = (skipPartialData: boolean) =>
+      replayMetricRefreshLineage({
+        levels: [level("snp_base", ["met_a"], null, 5000)],
+        settings: makeSettings([], { skipPartialData }),
+        generateResultQuerySql: generate,
+      });
+
+    it("replays without a cutoff, as it ran", async () => {
+      expect((await replay(false)).get("group_0")).toEqual({
+        sql: "uncapped",
+        clockedExposureCutoffs: null,
+      });
+    });
+
+    it("with skipPartialData, also replays as of its end date to bound the cutoffs it took from its clock", async () => {
+      expect((await replay(true)).get("group_0")).toEqual({
+        sql: "uncapped",
+        clockedExposureCutoffs: {
+          sqlAsOfEndDate: "capped at the end date",
+          maxDriftMs: 5000,
+        },
+      });
+    });
+  });
 });
 
 describe("getQueriesWithChangedSql", () => {
@@ -847,11 +904,17 @@ describe("getQueriesWithChangedSql", () => {
     ["group_0", "-- Revenue\nSELECT 1\n  -- Fact Table: Orders\nFROM t"],
     ["traffic", "SELECT 2"],
   ]);
+  const replayed = (sql: string): ReplayedQuerySql => ({
+    sql,
+    clockedExposureCutoffs: null,
+  });
   const changed = (today: Record<string, string>) =>
     getQueriesWithChangedSql({
       queryNames: ["group_0", "traffic"],
       storedSql: stored,
-      todaysSql: new Map(Object.entries(today)),
+      todaysSql: new Map(
+        Object.entries(today).map(([name, sql]) => [name, replayed(sql)]),
+      ),
     });
 
   it("ignores whole comment lines, such as a renamed metric's", () => {
@@ -882,9 +945,65 @@ describe("getQueriesWithChangedSql", () => {
       getQueriesWithChangedSql({
         queryNames: ["group_1"],
         storedSql: stored,
-        todaysSql: new Map([["group_1", "SELECT 3"]]),
+        todaysSql: new Map([["group_1", replayed("SELECT 3")]]),
       }),
     ).toEqual(["group_1"]);
+  });
+
+  describe("a run that took its exposure cutoff from its clock", () => {
+    const groupAt = (cutoff: string, metricEnd = "'2026-11-13 12:00:00'") =>
+      `SELECT * FROM units\nWHERE\n  first_exposure_timestamp <= ${cutoff}\n  AND m.timestamp <= ${metricEnd}`;
+    const changedFrom = (
+      stored: string,
+      today = groupAt("'2026-11-18 09:00:00'"),
+      asOfEndDate = groupAt("'2026-11-07 12:00:00'", "'2026-11-10 12:00:00'"),
+    ) =>
+      getQueriesWithChangedSql({
+        queryNames: ["group_0"],
+        storedSql: new Map([["group_0", stored]]),
+        todaysSql: new Map([
+          [
+            "group_0",
+            {
+              sql: today,
+              clockedExposureCutoffs: {
+                sqlAsOfEndDate: asOfEndDate,
+                maxDriftMs: 5000,
+              },
+            },
+          ],
+        ]),
+      });
+
+    it("accepts a cutoff written up to when its queries started, in whole seconds", () => {
+      expect(changedFrom(groupAt("'2026-11-07 12:00:00'"))).toEqual([]);
+      expect(changedFrom(groupAt("'2026-11-07 12:00:05'"))).toEqual([]);
+    });
+
+    it("accepts a dialect's full ISO timestamp", () => {
+      expect(
+        changedFrom(
+          groupAt("TIMESTAMP'2026-11-07T12:00:04.250Z'"),
+          groupAt("TIMESTAMP'2026-11-18T09:00:00.000Z'"),
+          groupAt("TIMESTAMP'2026-11-07T12:00:00.000Z'"),
+        ),
+      ).toEqual([]);
+    });
+
+    it("refuses a cutoff before its end date's or after its queries started", () => {
+      expect(changedFrom(groupAt("'2026-11-07 11:59:59'"))).toEqual([
+        "group_0",
+      ]);
+      expect(changedFrom(groupAt("'2026-11-07 12:00:06'"))).toEqual([
+        "group_0",
+      ]);
+    });
+
+    it("still compares every other timestamp", () => {
+      expect(
+        changedFrom(groupAt("'2026-11-07 12:00:01'", "'2026-11-13 12:00:01'")),
+      ).toEqual(["group_0"]);
+    });
   });
 });
 

@@ -4,8 +4,12 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 import type { SegmentInterface } from "shared/types/segment";
 import type { ApiReqContext } from "back-end/types/api";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import { generateExperimentResultQuerySql } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import {
+  generateExperimentResultQuerySql,
+  getIndexAfterLastGroup,
+} from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import {
+  type GenerateResultQuerySql,
   getQueriesWithChangedSql,
   replayMetricRefreshLineage,
   type MetricRefreshReplayLevel,
@@ -43,10 +47,18 @@ const factTableMap = new Map([
   [events.id, events],
 ]);
 
+// Its conversion window lets a run without a cutoff read past its end date.
 const revenue = factMetricFactory.build({
   id: "fact_revenue",
   name: "Revenue",
   numerator: { factTableId: "orders", column: "amount" },
+  windowSettings: {
+    type: "conversion",
+    windowValue: 72,
+    windowUnit: "hours",
+    delayValue: 0,
+    delayUnit: "hours",
+  },
 });
 const clicks = factMetricFactory.build({
   id: "fact_clicks",
@@ -62,6 +74,7 @@ const segment = {
   userIdType: "user_id",
 } as SegmentInterface;
 
+// Today's plan, pinned to the base's end date as a cutoff.
 const settings: ExperimentSnapshotSettings = {
   dimensions: [],
   metricSettings: [],
@@ -93,32 +106,42 @@ const settings: ExperimentSnapshotSettings = {
   ],
 };
 
+// A manual full update has no cutoff. It generated its SQL a few seconds after
+// its end date, and its queries started soon after.
+const BASE_SQL_GENERATED_AT = new Date(settings.endDate.getTime() + 3_000);
+const BASE_QUERIES_STARTED_AFTER_MS = 5_000;
+
 // A full update with Revenue, then a refresh that added Clicks.
 const levels: MetricRefreshReplayLevel[] = [
   {
     snapshotId: "snp_base",
     metricSettings: [{ id: revenue.id }],
     refreshedMetricIds: null,
+    maxSqlClockDriftMs: BASE_QUERIES_STARTED_AFTER_MS,
   },
   {
     snapshotId: "snp_refresh",
     metricSettings: [{ id: revenue.id }, { id: clicks.id }],
     refreshedMetricIds: [clicks.id],
+    maxSqlClockDriftMs: null,
   },
 ];
 // The queries a refresh of snp_refresh compares: the groups it would copy and
 // the units table each of them reads.
 const comparedQueryNames = ["group_0", "group_1", "snp_base", "snp_refresh"];
 
-function replay({
-  exposureSql = exposureQuery.query,
-  segmentSql = segment.sql,
-  metrics = [revenue, clicks],
-}: {
+type Variant = {
   exposureSql?: string;
   segmentSql?: string;
   metrics?: FactMetricInterface[];
-} = {}) {
+  settings?: Partial<ExperimentSnapshotSettings>;
+};
+
+function makeGenerator({
+  exposureSql = exposureQuery.query,
+  segmentSql = segment.sql,
+  metrics = [revenue, clicks],
+}: Variant): GenerateResultQuerySql {
   // @ts-expect-error -- the integration only reads `.datasource` here
   const integration = new BigQuery("", {
     type: "bigquery",
@@ -139,42 +162,74 @@ function replay({
       segments: { getById: async () => ({ ...segment, sql: segmentSql }) },
     },
   } as unknown as ApiReqContext;
-  return replayMetricRefreshLineage({
-    levels,
-    settings,
-    generateResultQuerySql: ({ settings, queryParentId, scope }) =>
-      generateExperimentResultQuerySql(
-        context,
-        {
-          snapshotType: "standard",
-          snapshotSettings: settings,
-          variationNames: ["Control", "Treatment"],
-          metricMap: new Map(metrics.map((m) => [m.id, m])),
-          factTableMap,
-          queryParentId,
-          experimentQueryMetadata: null,
-        },
-        integration,
-        scope,
-      ),
+  return ({ settings, queryParentId, scope }) =>
+    generateExperimentResultQuerySql(
+      context,
+      {
+        snapshotType: "standard",
+        snapshotSettings: settings,
+        variationNames: ["Control", "Treatment"],
+        metricMap: new Map(metrics.map((m) => [m.id, m])),
+        factTableMap,
+        queryParentId,
+        experimentQueryMetadata: null,
+      },
+      integration,
+      scope,
+    );
+}
+
+/** The SQL each run stored when it ran. */
+async function storedSql(variant: Variant = {}): Promise<Map<string, string>> {
+  const generate = makeGenerator(variant);
+  const runSettings = { ...settings, ...variant.settings };
+  jest.useFakeTimers({ now: BASE_SQL_GENERATED_AT, doNotFake: ["nextTick"] });
+  const base = await generate({
+    settings: {
+      ...runSettings,
+      endDateIsCutoff: false,
+      metricSettings: levels[0].metricSettings,
+    },
+    queryParentId: levels[0].snapshotId,
+  }).finally(() => jest.useRealTimers());
+  const refresh = await generate({
+    settings: { ...runSettings, metricSettings: levels[1].metricSettings },
+    queryParentId: levels[1].snapshotId,
+    scope: {
+      metricIds: new Set(levels[1].refreshedMetricIds),
+      firstGroupIndex: getIndexAfterLastGroup([...base.keys()]),
+    },
+  });
+  return new Map([...base, ...refresh]);
+}
+
+async function getChangedQueries(stored: Variant, today: Variant) {
+  return getQueriesWithChangedSql({
+    queryNames: comparedQueryNames,
+    storedSql: await storedSql(stored),
+    todaysSql: await replayMetricRefreshLineage({
+      levels,
+      settings: { ...settings, ...today.settings },
+      generateResultQuerySql: makeGenerator(today),
+    }),
   });
 }
 
 describe("comparing a pipeline-mode lineage's generated SQL", () => {
-  it("reads each run's own units table, and regenerates identically", async () => {
-    const stored = await replay();
+  it.each([false, true])(
+    "regenerates an unchanged lineage whose base had no cutoff, with skipPartialData %s",
+    async (skipPartialData) => {
+      const unchanged = { settings: { skipPartialData } };
+      const stored = await storedSql(unchanged);
 
-    expect(stored.get("group_0")).toContain("growthbook_tmp_units_snp_base");
-    expect(stored.get("group_1")).toContain("growthbook_tmp_units_snp_refresh");
-    expect(stored.get("snp_base")).toContain("CREATE");
-    expect(
-      getQueriesWithChangedSql({
-        queryNames: comparedQueryNames,
-        storedSql: stored,
-        todaysSql: await replay(),
-      }),
-    ).toEqual([]);
-  });
+      expect(stored.get("group_0")).toContain("growthbook_tmp_units_snp_base");
+      expect(stored.get("group_1")).toContain(
+        "growthbook_tmp_units_snp_refresh",
+      );
+      expect(stored.get("snp_base")).toContain("CREATE");
+      expect(await getChangedQueries(unchanged, unchanged)).toEqual([]);
+    },
+  );
 
   it.each([
     ["the exposure query", { exposureSql: `${exposureQuery.query} WHERE 1=1` }],
@@ -182,13 +237,10 @@ describe("comparing a pipeline-mode lineage's generated SQL", () => {
   ])(
     "catches a change to %s only through the units table queries",
     async (_, change) => {
-      expect(
-        getQueriesWithChangedSql({
-          queryNames: comparedQueryNames,
-          storedSql: await replay(),
-          todaysSql: await replay(change),
-        }),
-      ).toEqual(["snp_base", "snp_refresh"]);
+      expect(await getChangedQueries({}, change)).toEqual([
+        "snp_base",
+        "snp_refresh",
+      ]);
     },
   );
 
@@ -201,23 +253,41 @@ describe("comparing a pipeline-mode lineage's generated SQL", () => {
       },
     };
     expect(
-      getQueriesWithChangedSql({
-        queryNames: comparedQueryNames,
-        storedSql: await replay(),
-        todaysSql: await replay({ metrics: [filtered, clicks] }),
-      }),
+      await getChangedQueries({}, { metrics: [filtered, clicks] }),
     ).toEqual(["group_0"]);
   });
 
   it("ignores a renamed metric", async () => {
     expect(
-      getQueriesWithChangedSql({
-        queryNames: comparedQueryNames,
-        storedSql: await replay(),
-        todaysSql: await replay({
-          metrics: [{ ...revenue, name: "Revenue (renamed)" }, clicks],
-        }),
-      }),
+      await getChangedQueries(
+        {},
+        { metrics: [{ ...revenue, name: "Revenue (renamed)" }, clicks] },
+      ),
     ).toEqual([]);
+  });
+
+  it("catches skipPartialData turned off since the copied runs", async () => {
+    expect(
+      await getChangedQueries(
+        { settings: { skipPartialData: true } },
+        { settings: { skipPartialData: false } },
+      ),
+    ).toEqual(["group_0", "group_1"]);
+  });
+
+  it("with skipPartialData, catches a conversion window that only moves the exposure cutoff", async () => {
+    const run = {
+      settings: {
+        skipPartialData: true,
+        attributionModel: "experimentDuration" as const,
+      },
+    };
+    const shorter = {
+      ...revenue,
+      windowSettings: { ...revenue.windowSettings, windowValue: 71 },
+    };
+    expect(
+      await getChangedQueries(run, { ...run, metrics: [shorter, clicks] }),
+    ).toEqual(["group_0"]);
   });
 });

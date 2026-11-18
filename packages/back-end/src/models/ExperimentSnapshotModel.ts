@@ -1266,9 +1266,12 @@ export async function getSnapshotQueryPointers(
 
 export type MetricRefreshAncestor = Pick<
   ExperimentSnapshotInterface,
-  "id" | "type" | "metricRefresh" | "queries"
+  "id" | "type" | "metricRefresh" | "queries" | "runStarted"
 > & {
-  settings: Pick<ExperimentSnapshotSettings, "metricSettings">;
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "metricSettings" | "endDate" | "endDateIsCutoff"
+  >;
 };
 
 export async function findMetricRefreshAncestor(
@@ -1283,7 +1286,10 @@ export async function findMetricRefreshAncestor(
       type: 1,
       metricRefresh: 1,
       queries: 1,
+      runStarted: 1,
       "settings.metricSettings": 1,
+      "settings.endDate": 1,
+      "settings.endDateIsCutoff": 1,
     },
   )
     .lean<MetricRefreshAncestor>()
