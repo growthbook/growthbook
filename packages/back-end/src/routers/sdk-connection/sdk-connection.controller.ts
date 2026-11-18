@@ -61,6 +61,7 @@ import {
 import { getAdapter } from "back-end/src/revisions";
 import { runValidateSdkConnectionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { publishRevision } from "back-end/src/revisions/revisionActions";
+import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import {
   CONNECTION_UPDATABLE_FIELDS,
   isSdkConnectionRevert,
@@ -535,6 +536,11 @@ export const putSDKConnection = async (
   );
 
   if (!wantsMerge) {
+    await getRevisionWebhookAdapter("sdk-connection")?.dispatch(
+      context,
+      revision,
+      { type: revision.id === revisionId ? "updated" : "created" },
+    );
     return res.status(202).json({
       status: 202,
       requiresApproval: needsApproval,

@@ -4,6 +4,7 @@ import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { WebhookInterface } from "shared/types/webhook";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { UpdateProps } from "shared/types/base-model";
+import { Revision } from "shared/enterprise";
 import {
   apiSdkWebhookDeleteReturn,
   apiSdkWebhookListReturn,
@@ -34,6 +35,7 @@ import {
   sdkWebhookApiSpec,
 } from "back-end/src/api/specs/sdk-webhook.spec";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
+import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import {
   assertDirectWriteAllowed,
   sdkWriteFields,
@@ -53,6 +55,7 @@ import {
   runValidateSdkConnectionHooks,
   runValidateSdkConnectionRevisionHooks,
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { assertWebhookSecrets } from "back-end/src/services/webhookSecretGuard";
 import { MakeModelClass } from "./BaseModel";
 import {
   assertCanUseSDKConnections,
@@ -284,6 +287,7 @@ export class SdkWebhookModel extends BaseClass {
       }
     }
     for (const { original, sdkWebhooks } of landings) {
+      await assertWebhookSecrets(context, original.sdkWebhooks, sdkWebhooks);
       const proposed = { ...original, sdkWebhooks };
       await runValidateSdkConnectionHooks({
         context,
@@ -300,7 +304,7 @@ export class SdkWebhookModel extends BaseClass {
       });
     }
 
-    const recorded: string[] = [];
+    const recorded: Revision[] = [];
     try {
       for (const { entity, original, sdkWebhooks } of landings) {
         await ensureLiveRevisionExists(context, "sdk-connection", entity);
@@ -314,12 +318,20 @@ export class SdkWebhookModel extends BaseClass {
           bypass,
           bypassPermission: true,
         });
-        recorded.push(merged.id);
+        recorded.push(merged);
       }
-      return await write();
+      const result = await write();
+      for (const merged of recorded) {
+        await getRevisionWebhookAdapter("sdk-connection")?.dispatch(
+          context,
+          merged,
+          { type: "published" },
+        );
+      }
+      return result;
     } catch (e) {
       // A record of a write that never happened is false history.
-      for (const id of recorded) {
+      for (const { id } of recorded) {
         await context.models.revisions
           .dangerousDeleteByIdBypassPermission(id)
           .catch((err) =>

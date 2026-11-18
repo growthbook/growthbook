@@ -291,7 +291,7 @@ export const sdkConnectionHookOverrideFields = {
     .boolean()
     .optional()
     .describe(
-      `Set to true to continue past a warning raised by a Custom Hook. On publish, it also force-publishes an out-of-date draft when the caller has Bypass draft approvals access. It never clears a Custom Hook rejection. ${HUMAN_OVERRIDE_NOTE}`,
+      `Set to true to continue past a warning: one raised by a Custom Hook, or a webhook that references a secret that doesn't exist. On publish, it also force-publishes an out-of-date draft when the caller has Bypass draft approvals access. It never clears a Custom Hook rejection. ${HUMAN_OVERRIDE_NOTE}`,
     ),
   skipHooks: z
     .boolean()

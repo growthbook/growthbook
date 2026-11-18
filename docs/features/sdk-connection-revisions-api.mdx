@@ -145,6 +145,8 @@ An SDK Connection has one live revision and any number of open drafts. Statuses 
 
 `POST .../schedule-publish` with `{"scheduledPublishAt": "2027-01-31T09:00:00Z"}` publishes the draft at that time. Send `null` to cancel. A draft that still needs approval must request review first.
 
+A warning that would apply at publish is raised when you schedule, and `ignoreWarnings` acknowledges it. The scheduled publish goes ahead with what was acknowledged. If something new appears before it fires, such as a secret a webhook references being deleted, the publish stops, the draft stays open, and `sdkConnection.revision.publishFailed` is emitted.
+
 ## Merge Conflicts
 
 A draft falls behind when the live connection changes after the draft was opened. Changes to different settings, and to different webhooks, merge on their own. A conflict is two different changes to the same setting or the same webhook.
@@ -208,10 +210,12 @@ A publish that can't go ahead returns one `422` listing every gate that blocks i
 }
 ```
 
-| Flag             | Clears                                                                          | Needs                                                            |
-| ---------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `ignoreWarnings` | Warnings, including warnings raised by a [Custom Hook](/features/custom-hooks). | Nothing further.                                                 |
-| `skipHooks`      | A Custom Hook rejection.                                                        | **Bypass draft approvals** for SDK Connections in every Project. |
+| Flag             | Clears                                                                                                                     | Needs                                                            |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `ignoreWarnings` | Warnings: one raised by a [Custom Hook](/features/custom-hooks), or a webhook that references a secret that doesn't exist. | Nothing further.                                                 |
+| `skipHooks`      | A Custom Hook rejection.                                                                                                   | **Bypass draft approvals** for SDK Connections in every Project. |
+
+A webhook that references a secret that doesn't exist, or one not allowed for its endpoint, would fail every send. Saving such a webhook directly, or publishing a draft that adds or changes one, raises a warning. Staging it in a draft does not.
 
 Both flags are accepted on every endpoint that runs a Custom Hook: the direct writes, the draft edits, rebase, publish, and revert. A successful publish reports what it bypassed in `bypassedGates`.
 

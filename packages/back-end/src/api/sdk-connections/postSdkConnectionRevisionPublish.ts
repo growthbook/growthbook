@@ -70,6 +70,12 @@ export const postSdkConnectionRevisionPublish = createApiRequestHandler(
       entity: live,
       revision,
     })),
+    ...((await adapter.collectPublishGates?.(
+      context,
+      live,
+      revision,
+      proposed,
+    )) ?? []),
     ...(await collectSdkConnectionPublishHookGates({
       context,
       live,

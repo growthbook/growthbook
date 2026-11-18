@@ -11,7 +11,7 @@ import {
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
   booleanQueryField,
-  ignoreWarningsBodyField,
+  HUMAN_OVERRIDE_NOTE,
   sdkConnectionHookOverrideFields,
   publishBypassedGatesField,
   revisionScheduleResponseFields,
@@ -132,7 +132,7 @@ const apiSdkConnectionRevisionWebhookValidator = namedSchema(
 
 // A revision holds the connection's settings and its webhooks together, so one
 // review covers both.
-const apiSdkConnectionRevisionValidator = namedSchema(
+export const apiSdkConnectionRevisionValidator = namedSchema(
   "SdkConnectionRevision",
   z
     .object({
@@ -567,7 +567,12 @@ export const postSdkConnectionRevisionSchedulePublishValidator = {
       lockEdits: z.boolean().optional(),
       lockOthers: z.boolean().optional(),
       bypassApproval: z.boolean().optional(),
-      ignoreWarnings: ignoreWarningsBodyField,
+      ignoreWarnings: z
+        .boolean()
+        .optional()
+        .describe(
+          `Set to true to acknowledge a warning the publish would raise, such as a webhook that references a secret that doesn't exist, and schedule it anyway. The scheduled publish goes ahead with what was acknowledged. ${HUMAN_OVERRIDE_NOTE}`,
+        ),
     })
     .strict(),
   querySchema: z.never(),

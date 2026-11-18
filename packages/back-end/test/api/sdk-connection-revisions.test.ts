@@ -4,6 +4,9 @@ import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
 import { sandboxEval } from "back-end/src/enterprise/sandbox/sandbox-core";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { getAdapter } from "back-end/src/revisions";
+import { maybePublishScheduledRevision } from "back-end/src/revisions/revisionActions";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
@@ -97,6 +100,8 @@ describe("SDK Connection revision endpoints", () => {
       "webhooks",
       "revisions",
       "customhooks",
+      "webhooksecrets",
+      "apikeys",
     ]) {
       await mongoose.connection
         .collection(name)
@@ -319,6 +324,146 @@ describe("SDK Connection revision endpoints", () => {
 
     expect(await status(await call("post", "/discard"))).toBe("discarded");
     expect(await status(await call("post", "/reopen"))).toBe("draft");
+  });
+
+  it("warns about a webhook secret that doesn't exist, at publish, when scheduled, and when the schedule fires", async () => {
+    useAdmin();
+    const id = await createConnection();
+    const collection = (name: string) => mongoose.connection.collection(name);
+    const now = new Date();
+    await collection("webhooksecrets").insertOne({
+      id: "secret_cdn",
+      organization: ORG_ID,
+      key: "CDN_TOKEN",
+      value: "abc",
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    // Whoever scheduled a publish is looked up again when it fires.
+    await collection("apikeys").insertOne({
+      id: "key_test",
+      organization: ORG_ID,
+      key: "secret_test",
+      secret: true,
+      description: "test",
+      role: "admin",
+      limitAccessByEnvironment: false,
+      environments: [],
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    const using = (secret: string) => ({
+      name: `Uses ${secret}`,
+      endpoint: "https://example.com/purge",
+      headers: `{"Authorization":"Bearer {{ ${secret} }}"}`,
+    });
+    const post = (path: string, body: Record<string, unknown> = {}) =>
+      request(app).post(path).send(body).set(auth);
+    const names = async () => (await liveWebhooks(id)).map((w) => w.name);
+    const fire = async (version: number) => {
+      await collection("revisions").updateOne(
+        { "target.id": id, version },
+        { $set: { scheduledPublishAt: new Date(Date.now() - 1000) } },
+      );
+      const job = getContextForAgendaJobByOrgObject(orgWith());
+      const revision = await job.models.revisions.getByTargetAndVersion(
+        "sdk-connection",
+        id,
+        version,
+      );
+      const live = await getAdapter("sdk-connection")
+        .getModel(job)
+        ?.getById(id);
+      await maybePublishScheduledRevision(
+        job,
+        revision!,
+        live as Record<string, unknown>,
+      );
+      return collection("revisions").findOne({ "target.id": id, version });
+    };
+
+    // A direct save asks first.
+    const warned = await post(
+      `/api/v1/sdk-connections/${id}/webhooks`,
+      using("NOPE"),
+    );
+    expect(warned.status).toBe(422);
+    expect(warned.body.warnings).toEqual([
+      expect.stringContaining('references the secret "NOPE"'),
+    ]);
+    expect(await names()).toEqual([]);
+
+    // Staging says nothing. Publishing lists it as a gate.
+    const staged = await post(`${BASE}/${id}/new/webhooks`, using("NOPE"));
+    expect(staged.status).toBe(200);
+    const { version } = staged.body.revision;
+    const draft = `${BASE}/${id}/${version}`;
+    const blocked = await post(`${draft}/publish`);
+    expect(blocked.status).toBe(422);
+    expect(blocked.body.gates).toMatchObject([
+      {
+        type: "missing-webhook-secret",
+        severity: "warning",
+        override: "ignoreWarnings",
+      },
+    ]);
+
+    // Scheduling asks too. What was acknowledged then stands when it fires.
+    const scheduledPublishAt = new Date(Date.now() + 3_600_000).toISOString();
+    expect(
+      (await post(`${draft}/schedule-publish`, { scheduledPublishAt })).status,
+    ).toBe(422);
+    expect(
+      (
+        await post(`${draft}/schedule-publish`, {
+          scheduledPublishAt,
+          ignoreWarnings: true,
+        })
+      ).status,
+    ).toBe(200);
+    expect((await fire(version))?.status).toBe("merged");
+    const [webhook] = await liveWebhooks(id);
+    expect(webhook.name).toBe("Uses NOPE");
+
+    // A secret that exists raises nothing. Removed after scheduling, it stops
+    // the publish.
+    const edited = await request(app)
+      .put(`${BASE}/${id}/new/webhooks/${webhook.id}`)
+      .send(using("CDN_TOKEN"))
+      .set(auth);
+    const second = edited.body.revision.version;
+    expect(
+      (
+        await post(`${BASE}/${id}/${second}/schedule-publish`, {
+          scheduledPublishAt,
+        })
+      ).status,
+    ).toBe(200);
+    await collection("webhooksecrets").deleteOne({ id: "secret_cdn" });
+    const parked = await fire(second);
+    expect(parked?.status).not.toBe("merged");
+    expect(parked?.scheduledPublishGaveUpAt).toBeTruthy();
+    expect(parked?.scheduledPublishLastError).toContain("went missing");
+    expect(await names()).toEqual(["Uses NOPE"]);
+
+    // Each step is announced, and no event carries a webhook's headers.
+    const events = await collection("events")
+      .find({ "data.event": /^sdkConnection\.revision\./ })
+      .sort({ dateCreated: 1 })
+      .toArray();
+    expect(events.map((e) => e.data.event.split(".")[2])).toEqual([
+      "created",
+      "publishScheduleChanged",
+      "published",
+      "created",
+      "publishScheduleChanged",
+      "publishFailed",
+    ]);
+    expect(events.at(-1)?.data.data.object).toMatchObject({
+      terminal: true,
+      failureReason: expect.stringContaining("went missing"),
+    });
+    expect(JSON.stringify(events)).not.toContain("Bearer");
   });
 
   it("lists every publish gate when approval is required, and reports a bypass", async () => {

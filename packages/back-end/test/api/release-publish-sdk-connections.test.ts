@@ -52,9 +52,19 @@ describe("SDK Connections in a release", () => {
       "customhooks",
       "constants",
       "projects",
+      "webhooksecrets",
     ]) {
       await collection(name).deleteMany({ organization: ORG_ID });
     }
+    // The secret the fixture webhooks' headers reference.
+    await collection("webhooksecrets").insertOne({
+      id: "secret_token",
+      organization: ORG_ID,
+      key: "TOKEN",
+      value: "abc",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
     mockFireSdkWebhook.mockClear();
     mockRunInSandbox.mockReset();
     mockRunInSandbox.mockImplementation(sandboxEval);
@@ -260,6 +270,35 @@ describe("SDK Connections in a release", () => {
       { entityType: "sdk-connection", id: a.id, type: "validation" },
     ]);
     expect(await constantValue("rel-sdk-shared")).toBe("before");
+  });
+
+  it("warns about a webhook secret that doesn't exist, until it is acknowledged", async () => {
+    const created = await send("post", "/api/v1/sdk-connections", {
+      name: "Web app",
+      language: "javascript",
+      environment: "production",
+    });
+    const id: string = created.body.sdkConnection.id;
+    const staged = await send("post", `${DRAFTS}/${id}/new/webhooks`, {
+      name: "Purge",
+      endpoint: "https://example.com/purge?token={{ NOPE }}",
+    });
+    const revisions = [
+      {
+        entityType: "sdk-connection",
+        id,
+        version: staged.body.revision.version,
+      },
+    ];
+
+    const blocked = await publish({ revisions });
+    expect(blocked.status).toBe(422);
+    expect(blocked.body.gates).toMatchObject([
+      { type: "missing-webhook-secret", override: "ignoreWarnings" },
+    ]);
+    expect((await publish({ revisions, ignoreWarnings: true })).status).toBe(
+      200,
+    );
   });
 
   it("records what landed when a draft behind live publishes in a release", async () => {

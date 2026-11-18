@@ -20,6 +20,7 @@ import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
+import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
@@ -137,7 +138,7 @@ export const putSdkConnection = createApiRequestHandler(
 
   // The engine's fences and authority checks read the root `id`, `projects`
   // and `dateUpdated` alongside the composite.
-  const { result: updatedSdkConnection } = await landDirectChange({
+  const { merged, result: updatedSdkConnection } = await landDirectChange({
     context: req.context,
     entityType: "sdk-connection",
     entity: {
@@ -168,6 +169,11 @@ export const putSdkConnection = createApiRequestHandler(
       }) as SDKConnectionRevisionSnapshot),
     }),
   });
+  await getRevisionWebhookAdapter("sdk-connection")?.dispatch(
+    req.context,
+    merged,
+    { type: "published" },
+  );
 
   return {
     sdkConnection: toApiSDKConnectionInterface(updatedSdkConnection),

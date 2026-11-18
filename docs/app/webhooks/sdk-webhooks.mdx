@@ -18,7 +18,7 @@ There are built-in webhook types for syncing to **Cloudflare KV**, **Fastly KV**
 
 Once an SDK webhook is created you will be able to view the status and fire a test event.
 
-A custom header or the endpoint can reference a [webhook secret](/app/webhooks#webhook-secrets) as `{{ SECRET_KEY }}`, so the token itself is never stored on the webhook.
+A custom header or the endpoint can reference a [webhook secret](/app/webhooks#webhook-secrets) as `{{ SECRET_KEY }}`, so the token itself is never stored on the webhook. GrowthBook warns you when a webhook you save or publish references a secret that doesn't exist, since it would fail to send.
 
 ### Drafts and Approval
 

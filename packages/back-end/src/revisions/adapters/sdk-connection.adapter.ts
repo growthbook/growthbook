@@ -17,6 +17,7 @@ import {
   sdkConnectionSettingsAfter,
   sdkConnectionSettingsEqual,
   withAbsentSdkSettings,
+  applyTopLevelPatchOps,
 } from "shared/enterprise";
 import {
   SDKConnectionRevisionSnapshot,
@@ -43,6 +44,13 @@ import {
   findSDKConnectionsByIds,
 } from "back-end/src/models/SdkConnectionModel";
 import { ConflictError } from "back-end/src/util/errors";
+import { buildArmAcknowledgments } from "back-end/src/services/armGuards";
+import {
+  assertWebhookSecrets,
+  captureWebhookSecretsAcknowledgment,
+  missingWebhookSecrets,
+  webhookSecretGates,
+} from "back-end/src/services/webhookSecretGuard";
 import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
@@ -566,6 +574,28 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       await runValidateSdkConnectionRevisionHooks({ context, ...write });
     },
 
+    async collectPublishGates(context, entity, revision, desiredState) {
+      return webhookSecretGates(
+        await missingWebhookSecrets(
+          context,
+          entity.sdkWebhooks,
+          webhookListValidator.parse(
+            desiredState.sdkWebhooks ?? entity.sdkWebhooks,
+          ),
+        ),
+      );
+    },
+
+    async captureArmAcknowledgment(context, entity, proposedChanges) {
+      return buildArmAcknowledgments({
+        "webhook-secrets": await captureWebhookSecretsAcknowledgment(
+          context,
+          entity.sdkWebhooks,
+          applyTopLevelPatchOps(entity, proposedChanges).sdkWebhooks,
+        ),
+      });
+    },
+
     // For the generic publish paths that skip the PUT controller. Runs before
     // the merge is claimed, so a rejection leaves the draft open.
     async assertPublishable(
@@ -573,7 +603,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       entity: SDKConnectionRevisionSnapshot,
       desiredState: Record<string, unknown>,
       revision: Revision,
-      options?: { hooksAlreadyRan?: boolean },
+      options?: { hooksAlreadyRan?: boolean; deferred?: boolean },
     ): Promise<void> {
       // A draft cut before the connection moved was judged against the rules
       // of where it used to be, so it takes on the new scope first. A claimed
@@ -677,7 +707,15 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         }
       }
 
+      // A caller that collected gates has already put the warnings to its
+      // caller, hooks' and this one alike.
       if (!options?.hooksAlreadyRan) {
+        await assertWebhookSecrets(
+          context,
+          entity.sdkWebhooks,
+          proposed.sdkWebhooks,
+          options?.deferred ? revision : undefined,
+        );
         const {
           runValidateSdkConnectionHooks,
           runValidateSdkConnectionRevisionHooks,

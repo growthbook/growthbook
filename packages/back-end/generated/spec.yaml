@@ -22640,12 +22640,14 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -22817,12 +22819,14 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23135,12 +23139,14 @@ paths:
                   description: Markdown. What changed and why, for reviewers.
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23437,12 +23443,14 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23533,12 +23541,14 @@ paths:
                     when `version` is "new"; ignored for existing drafts.
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23622,12 +23632,14 @@ paths:
                     when `version` is "new"; ignored for existing drafts.
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23747,12 +23759,14 @@ paths:
                     when `version` is "new"; ignored for existing drafts.
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -23868,12 +23882,14 @@ paths:
                     when `version` is "new"; ignored for existing drafts.
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24210,16 +24226,12 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to acknowledge the warnings listed in a blocked
-                    response and continue. This covers experiment guards, locked
-                    dependents, and references affected by an archive. When the
-                    organization treats schema failures as warnings, it also
-                    covers schema and invariant warnings. It never bypasses a
-                    rejected Custom Hook. On revision publish endpoints, it can
-                    also force-publish an out-of-date draft when the caller has
-                    Bypass draft approvals access. Only set this when a person
-                    has explicitly asked you to. If a check blocks you, stop and
-                    ask a person instead of working around it.
+                    Set to true to acknowledge a warning the publish would
+                    raise, such as a webhook that references a secret that
+                    doesn't exist, and schedule it anyway. The scheduled publish
+                    goes ahead with what was acknowledged. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
                   type: boolean
               required:
                 - scheduledPublishAt
@@ -24285,12 +24297,14 @@ paths:
                       - discard
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24352,12 +24366,14 @@ paths:
               properties:
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -24495,12 +24511,14 @@ paths:
                   description: Markdown. What changed and why, for reviewers.
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -69049,12 +69067,14 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -69176,12 +69196,14 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-
@@ -69263,12 +69285,14 @@ paths:
                   type: boolean
                 ignoreWarnings:
                   description: >-
-                    Set to true to continue past a warning raised by a Custom
-                    Hook. On publish, it also force-publishes an out-of-date
-                    draft when the caller has Bypass draft approvals access. It
-                    never clears a Custom Hook rejection. Only set this when a
-                    person has explicitly asked you to. If a check blocks you,
-                    stop and ask a person instead of working around it.
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
                   type: boolean
                 skipHooks:
                   description: >-

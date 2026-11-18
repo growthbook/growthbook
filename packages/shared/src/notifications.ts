@@ -335,6 +335,84 @@ export const notificationEventMetadata = {
       "Triggered when an SDK Connection's payload grows past half, 80%, or all of the 16 MB its cache can store. The `level` field is `warning`, `danger`, or `over-limit`, and `recommendations` lists ways to shrink it. Fires once per level reached, not on every publish.",
     subtitle: "Payload nearing or over the 16 MB cache limit.",
   },
+  "sdkConnection.revision.created": {
+    label: "New draft revision",
+    description:
+      "Triggered when a new draft revision is created for an SDK Connection",
+  },
+  "sdkConnection.revision.updated": {
+    label: "Draft edited",
+    description:
+      "Triggered when a draft revision's proposed changes are modified (settings, webhooks, or archive). The `change` field indicates the kind of mutation.",
+    subtitle: "Every edit to a draft.",
+  },
+  "sdkConnection.revision.reviewRequested": {
+    label: "Review requested",
+    description: "Triggered when a draft revision is submitted for review",
+  },
+  "sdkConnection.revision.approved": {
+    label: "Draft approved",
+    description: "Triggered when a draft revision is approved by a reviewer",
+  },
+  "sdkConnection.revision.changesRequested": {
+    label: "Changes requested",
+    description:
+      "Triggered when a reviewer requests changes on a draft revision",
+  },
+  "sdkConnection.revision.commented": {
+    label: "Comment on draft",
+    description: "Triggered when a comment is added to a draft revision",
+  },
+  "sdkConnection.revision.discarded": {
+    label: "Draft discarded",
+    description: "Triggered when a draft revision is discarded",
+  },
+  "sdkConnection.revision.rebased": {
+    label: "Draft rebased",
+    description:
+      "Triggered when a draft revision is rebased onto the latest live state",
+    subtitle: "The draft is moved onto the latest live version.",
+  },
+  "sdkConnection.revision.published": {
+    label: "New version published",
+    description:
+      "Triggered when a draft revision is published, changing the live SDK Connection's settings or webhooks.",
+    subtitle: "A draft becomes the live version.",
+  },
+  "sdkConnection.revision.reverted": {
+    label: "Reverted to previous version",
+    description:
+      "Triggered when an SDK Connection is reverted to a previous published revision",
+  },
+  "sdkConnection.revision.reopened": {
+    label: "Discarded draft reopened",
+    description: "Triggered when a discarded revision is reopened",
+  },
+  "sdkConnection.revision.recalled": {
+    label: "Review request withdrawn",
+    description:
+      "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
+    subtitle: "The author withdraws a review request. The draft stays open.",
+  },
+  "sdkConnection.revision.reviewRetracted": {
+    label: "Review retracted",
+    description:
+      "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
+    subtitle: "A reviewer withdraws their own approval or change request.",
+  },
+  "sdkConnection.revision.publishScheduleChanged": {
+    label: "Publish schedule changed",
+    description:
+      "Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.",
+    subtitle: "A scheduled publish is set, moved, or cancelled.",
+  },
+  "sdkConnection.revision.publishFailed": {
+    label: "Scheduled publishing failed",
+    description:
+      "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
+    subtitle:
+      "A scheduled or automatic publish failed and won't retry. The draft stays open.",
+  },
   "savedGroup.created": {
     label: "Created",
     description: "Triggered when a saved group is created",
@@ -734,6 +812,31 @@ export const notificationCategoryGroups: Record<
   ],
   sdkConnection: [
     {
+      label: "SDK Connection changes",
+      options: [
+        "sdkConnection.revision.published",
+        "sdkConnection.revision.reverted",
+      ],
+    },
+    {
+      label: "Draft & review",
+      options: [
+        "sdkConnection.revision.created",
+        "sdkConnection.revision.updated",
+        "sdkConnection.revision.reviewRequested",
+        "sdkConnection.revision.approved",
+        "sdkConnection.revision.changesRequested",
+        "sdkConnection.revision.commented",
+        "sdkConnection.revision.discarded",
+        "sdkConnection.revision.reopened",
+        "sdkConnection.revision.recalled",
+        "sdkConnection.revision.reviewRetracted",
+        "sdkConnection.revision.publishScheduleChanged",
+        "sdkConnection.revision.rebased",
+        "sdkConnection.revision.publishFailed",
+      ],
+    },
+    {
       label: "Health & warnings",
       options: ["sdkConnection.payloadSize.warning"],
     },
@@ -977,7 +1080,10 @@ export const notificationCategoryPresets: Record<
     all: eventsInCategory("experiment"),
   },
   sdkConnection: {
-    default: ["sdkConnection.payloadSize.warning"],
+    default: [
+      "sdkConnection.revision.published",
+      "sdkConnection.payloadSize.warning",
+    ],
     all: eventsInCategory("sdkConnection"),
   },
   holdout: {

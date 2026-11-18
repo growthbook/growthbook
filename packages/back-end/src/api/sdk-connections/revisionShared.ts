@@ -21,6 +21,7 @@ import {
 import { scrubRevisionForViewer } from "back-end/src/revisions/scrub";
 import { canDoRevisionAction } from "back-end/src/revisions/revisionActions";
 import { SDKConnectionLiveSnapshot } from "back-end/src/revisions/adapters/sdk-connection.adapter";
+import { dispatchSdkConnectionRevisionEvent } from "back-end/src/services/sdkConnectionRevisionEvents";
 import { revisionEnvelopeToApi } from "back-end/src/api/revisionApiEnvelope";
 import { isDraftStatus } from "back-end/src/api/revisionValidations";
 
@@ -117,7 +118,7 @@ export async function stageDraftChanges(
   }
   await ensureLiveRevisionExists(context, TYPE, entity);
 
-  return createOrUpdateRevision(
+  const revision = await createOrUpdateRevision(
     context,
     TYPE,
     entity,
@@ -132,6 +133,15 @@ export async function stageDraftChanges(
           direct: newDraft.direct,
         },
   );
+  // A direct landing reports itself when it publishes.
+  if (!newDraft.direct) {
+    await dispatchSdkConnectionRevisionEvent(
+      context,
+      revision,
+      draft ? { type: "updated" } : { type: "created" },
+    );
+  }
+  return revision;
 }
 
 const toApiSnapshot = (snapshot: SDKConnectionRevisionSnapshot) => {
