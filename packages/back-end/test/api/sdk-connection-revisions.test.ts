@@ -781,7 +781,7 @@ describe("SDK Connection revision endpoints", () => {
     // A direct write lands a revision already published, so both hooks run.
     expect(lastArgs()).not.toHaveProperty("revision");
     expect(lastArgs("revision").revision).toMatchObject({
-      status: "merged",
+      status: "published",
       sdkWebhooks: [{ name: "Purge", headers: { "X-Token": "abc" } }],
     });
 
@@ -811,10 +811,10 @@ describe("SDK Connection revision endpoints", () => {
       { type: "custom-hook", override: "skipHooks" },
     ]);
     // Publish runs both. The revision hook gets the draft's details and
-    // nothing of the snapshot it stores.
+    // nothing of the snapshot it stores, and is told it is a publish.
     expect(lastArgs("revision").revision).toMatchObject({
       version,
-      status: "draft",
+      status: "published",
       sdkConnection: { name: "Bad" },
     });
     expect(lastArgs("revision").revision).not.toHaveProperty("target");
@@ -897,7 +897,7 @@ describe("SDK Connection revision endpoints", () => {
     );
     expect(reverted.status).toBe(200);
     expect(lastArgs("revision").revision).toMatchObject({
-      status: "merged",
+      status: "published",
       sdkConnection: { name: "Web app" },
     });
   });

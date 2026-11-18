@@ -749,6 +749,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             context,
             live: entity,
             revision,
+            publishing: true,
             proposed,
             before: entity,
           });

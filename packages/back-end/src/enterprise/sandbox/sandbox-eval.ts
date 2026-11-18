@@ -695,6 +695,8 @@ type SdkConnectionRevisionHookInput = {
   // a draft, or one a direct write lands already published.
   revision: ConfigRevisionHookInput | null;
   direct?: boolean;
+  // The revision is being published, not saved.
+  publishing?: boolean;
   title?: string;
   comment?: string;
   // What the revision proposes once this write lands, and what it proposed
@@ -707,22 +709,24 @@ async function sdkConnectionRevisionHookCall({
   live,
   revision,
   direct,
+  publishing,
   title,
   comment,
   proposed,
   before,
 }: SdkConnectionRevisionHookInput) {
   if (!customHooksActive(context)) return null;
-  const details = await revisionHookArg(
-    context,
-    revision ?? {
-      status: direct ? "merged" : "draft",
+  const details = await revisionHookArg(context, {
+    ...(revision ?? {
       title,
       comment,
       authorId: context.actorId,
       reviews: [],
-    },
-  );
+    }),
+    // As a Feature revision hook is told: published once it is landing,
+    // whatever status is stored.
+    status: direct || publishing ? "published" : (revision?.status ?? "draft"),
+  });
   const liveArgs = sdkConnectionHookArgs(live);
   return [
     context,
@@ -778,6 +782,7 @@ export async function collectSdkConnectionPublishHookGates({
         context,
         live,
         revision,
+        publishing: true,
         proposed,
         before: live,
       }),
