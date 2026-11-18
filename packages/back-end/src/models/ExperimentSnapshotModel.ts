@@ -1264,6 +1264,32 @@ export async function getSnapshotQueryPointers(
   return doc?.queries ?? null;
 }
 
+export type MetricRefreshAncestor = Pick<
+  ExperimentSnapshotInterface,
+  "id" | "type" | "metricRefresh" | "queries"
+> & {
+  settings: Pick<ExperimentSnapshotSettings, "metricSettings">;
+};
+
+export async function findMetricRefreshAncestor(
+  context: Context,
+  id: string,
+): Promise<MetricRefreshAncestor | null> {
+  return ExperimentSnapshotModel.findOne(
+    { organization: context.org.id, id },
+    {
+      _id: 0,
+      id: 1,
+      type: 1,
+      metricRefresh: 1,
+      queries: 1,
+      "settings.metricSettings": 1,
+    },
+  )
+    .lean<MetricRefreshAncestor>()
+    .exec();
+}
+
 async function isParentStillLatestOverall(
   context: Context,
   snapshot: Pick<ExperimentSnapshotInterface, "id" | "experiment" | "phase">,

@@ -209,10 +209,34 @@ export function getIndexAfterLastGroup(queryNames: readonly string[]): number {
   }, 0);
 }
 
-type ResultQueryScope = {
+export type ResultQueryScope = {
   metricIds: ReadonlySet<string>;
   firstGroupIndex: number;
 };
+
+/**
+ * The SQL of every query startExperimentResultQueries would start, by query
+ * name, without running or saving anything.
+ */
+export async function generateExperimentResultQuerySql(
+  context: ApiReqContext,
+  params: ExperimentResultsQueryParams,
+  integration: SourceIntegrationInterface,
+  scope?: ResultQueryScope,
+): Promise<Map<string, string>> {
+  const sqlByName = new Map<string, string>();
+  await startExperimentResultQueries(
+    context,
+    params,
+    integration,
+    async ({ name, query }) => {
+      sqlByName.set(name, query);
+      return { name, query: name, status: "queued" };
+    },
+    scope,
+  );
+  return sqlByName;
+}
 
 export const startExperimentResultQueries = async (
   context: ApiReqContext,

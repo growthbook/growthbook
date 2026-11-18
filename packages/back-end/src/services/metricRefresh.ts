@@ -2,14 +2,17 @@ import groupBy from "lodash/groupBy";
 import isEqual from "lodash/isEqual";
 import omitBy from "lodash/omitBy";
 import pickBy from "lodash/pickBy";
+import uniq from "lodash/uniq";
 import {
   getDefinitionMetricId,
   getMetricIdsMissingFromSnapshot,
+  getMetricRefresh,
   getSnapshotDataAsOf,
 } from "shared/experiments";
 import {
   getIdentifierTypeForSettingsHash,
   getSnapshotCutoffDate,
+  isDefined,
 } from "shared/util";
 import type { IncrementalRefreshInterface } from "shared/validators";
 import type {
@@ -22,6 +25,7 @@ import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  MetricForSnapshot,
   SnapshotMetricRefresh,
   SnapshotVariation,
 } from "shared/types/experiment-snapshot";
@@ -34,9 +38,11 @@ import type { ApiReqContext } from "back-end/types/api";
 import type { PlannedExperimentSnapshot } from "back-end/src/services/experiments";
 import {
   findLatestSuccessfulOverallSnapshot,
+  findMetricRefreshAncestor,
   findSnapshotById,
   getLatestSnapshotStatus,
   getSnapshotQueryPointers,
+  type MetricRefreshAncestor,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   createNewQueryFromCached,
@@ -51,7 +57,9 @@ import { checkSrm } from "back-end/src/util/stats";
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   type AnalyzedSnapshotResults,
+  getIndexAfterLastGroup,
   isCarriedMetricRefreshQuery,
+  type ResultQueryScope,
 } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { isCarriedIncrementalQuery } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import {
@@ -78,7 +86,7 @@ const UNAVAILABLE_MESSAGES: Record<MetricRefreshUnavailableReason, string> = {
   incremental_pipeline:
     "The experiment's pipeline tables no longer match its latest results, so newly added metrics can't be updated on their own. Run a full update instead.",
   settings_changed:
-    "The experiment's analysis settings changed since the last update. Run a full update instead.",
+    "The last update's results can't be reused for newly added metrics. Run a full update instead.",
   base_incomplete:
     "Some queries of the last update failed, so its results can't be reused. Run a full update instead.",
 };
@@ -115,12 +123,22 @@ export function shouldUpdateNewMetricsOnly({
   );
 }
 
+/** The SQL of a dry run of the standard pipeline's result queries, by name. */
+export type GenerateResultQuerySql = (args: {
+  settings: ExperimentSnapshotSettings;
+  queryParentId: string;
+  scope?: ResultQueryScope;
+}) => Promise<Map<string, string>>;
+
 /**
  * Plans a snapshot that queries only the experiment's metrics missing from
  * the latest successful Overall snapshot (its parent) and copies the
  * parent's query results for every other metric, pinned to the parent's end
  * date. Throws a typed error before anything is written. With `window`, also
  * throws MetricRefreshOutsideWindowError when shouldUpdateNewMetricsOnly says no.
+ *
+ * `planSnapshotAt` with `extraMetricIds` plans as if those metrics were still
+ * in the experiment, so metrics removed since the parent ran can be replayed.
  */
 export async function planMetricRefresh({
   context,
@@ -131,6 +149,7 @@ export async function planMetricRefresh({
   useCache,
   metricGroups,
   planSnapshotAt,
+  generateResultQuerySql,
   window,
 }: {
   context: ReqContext | ApiReqContext;
@@ -140,7 +159,11 @@ export async function planMetricRefresh({
   dimension: string | undefined;
   useCache: boolean;
   metricGroups: MetricGroupInterface[];
-  planSnapshotAt: (cutoff: Date) => Promise<PlannedExperimentSnapshot>;
+  planSnapshotAt: (
+    cutoff: Date,
+    extraMetricIds?: readonly string[],
+  ) => Promise<PlannedExperimentSnapshot>;
+  generateResultQuerySql: GenerateResultQuerySql;
   window?: NewMetricsOnlyUpdateWindow;
 }): Promise<PlannedExperimentSnapshot> {
   if (dimension) {
@@ -234,15 +257,27 @@ export async function planMetricRefresh({
     throw new MetricsAlreadyUpToDateError(parent.id);
   }
   const analyzedMetricIds = new Set(settings.metricSettings.map((m) => m.id));
-  const isCarried =
-    (parent.runnerKind ?? "results") === "results"
-      ? (name: string) =>
-          isCarriedMetricRefreshQuery(name, parent.id, analyzedMetricIds)
-      : isCarriedIncrementalQuery;
+  const isResultsParent = (parent.runnerKind ?? "results") === "results";
+  const isCarried = isResultsParent
+    ? (name: string) =>
+        isCarriedMetricRefreshQuery(name, parent.id, analyzedMetricIds)
+    : isCarriedIncrementalQuery;
   if (
     parent.queries.some((q) => q.status !== "succeeded" && isCarried(q.name))
   ) {
     throw unavailable("base_incomplete");
+  }
+  // The Incremental Pipeline's carried SQL only reads its cache tables, so
+  // identical text there would prove nothing about the metrics behind them.
+  if (isResultsParent) {
+    await assertCarriedQuerySqlUnchanged({
+      context,
+      parent,
+      planned: plan.snapshot.settings,
+      carriedQueries: parent.queries.filter((q) => isCarried(q.name)),
+      planSnapshotAt,
+      generateResultQuerySql,
+    });
   }
 
   return {
@@ -266,6 +301,198 @@ function assertRefreshablePipeline({
   const expected = parentKind === "results" ? "results" : "incremental-update";
   if (planned.runnerKind !== expected) {
     throw unavailable("incremental_pipeline");
+  }
+}
+
+// Each refresh adds a level, and each level costs a dry run of its queries.
+const MAX_METRIC_REFRESH_LINEAGE_LENGTH = 10;
+
+/** Base full update first, parent last, at most the cap. */
+async function loadMetricRefreshLineage(
+  context: ReqContext | ApiReqContext,
+  parent: MetricRefreshAncestor,
+): Promise<MetricRefreshAncestor[]> {
+  const lineage = [parent];
+  for (
+    let metricRefresh = getMetricRefresh(parent);
+    metricRefresh;
+    metricRefresh = getMetricRefresh(lineage[0])
+  ) {
+    if (lineage.length >= MAX_METRIC_REFRESH_LINEAGE_LENGTH) {
+      throw unavailable("settings_changed");
+    }
+    const ancestor = await findMetricRefreshAncestor(
+      context,
+      metricRefresh.parentSnapshotId,
+    );
+    if (!ancestor) {
+      throw unavailable("settings_changed");
+    }
+    lineage.unshift(ancestor);
+  }
+  return lineage;
+}
+
+/**
+ * One snapshot of a refresh lineage as it would run today: its stored metrics
+ * in stored order with today's settings, and the metrics it queried itself
+ * when it is a refresh.
+ */
+export type MetricRefreshReplayLevel = {
+  snapshotId: string;
+  metricSettings: MetricForSnapshot[];
+  refreshedMetricIds: string[] | null;
+};
+
+/**
+ * The SQL each level would run today, by query name. A refresh numbers its
+ * own metric groups after the groups it copied, so the levels replay base
+ * first to reproduce the stored grouping. Each level names its own units table.
+ */
+export async function replayMetricRefreshLineage({
+  levels,
+  settings,
+  generateResultQuerySql,
+}: {
+  levels: readonly MetricRefreshReplayLevel[];
+  settings: ExperimentSnapshotSettings;
+  generateResultQuerySql: GenerateResultQuerySql;
+}): Promise<Map<string, string>> {
+  const sqlByName = new Map<string, string>();
+  for (const level of levels) {
+    const levelSql = await generateResultQuerySql({
+      settings: { ...settings, metricSettings: level.metricSettings },
+      queryParentId: level.snapshotId,
+      scope: level.refreshedMetricIds
+        ? {
+            metricIds: new Set(level.refreshedMetricIds),
+            firstGroupIndex: getIndexAfterLastGroup([...sqlByName.keys()]),
+          }
+        : undefined,
+    });
+    levelSql.forEach((sql, name) => sqlByName.set(name, sql));
+  }
+  return sqlByName;
+}
+
+// Comment lines carry metric and fact table names, which don't change results.
+const withoutCommentLines = (sql: string): string =>
+  sql
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("--"))
+    .join("\n");
+
+/** The named queries whose stored SQL is missing or differs from today's. */
+export function getQueriesWithChangedSql({
+  queryNames,
+  storedSql,
+  todaysSql,
+}: {
+  queryNames: readonly string[];
+  storedSql: ReadonlyMap<string, string>;
+  todaysSql: ReadonlyMap<string, string>;
+}): string[] {
+  return queryNames.filter((name) => {
+    const stored = storedSql.get(name);
+    const today = todaysSql.get(name);
+    return (
+      stored === undefined ||
+      today === undefined ||
+      withoutCommentLines(stored) !== withoutCommentLines(today)
+    );
+  });
+}
+
+/**
+ * Refuses unless every query the refresh would copy from a results parent,
+ * and every units table those queries read, would be generated with the same
+ * SQL today. This catches changed metric definitions, exposure and segment
+ * SQL, identity joins, and releases that change how SQL is generated.
+ */
+async function assertCarriedQuerySqlUnchanged({
+  context,
+  parent,
+  planned,
+  carriedQueries,
+  planSnapshotAt,
+  generateResultQuerySql,
+}: {
+  context: ReqContext | ApiReqContext;
+  parent: ExperimentSnapshotInterface;
+  planned: ExperimentSnapshotSettings;
+  carriedQueries: QueryPointer[];
+  planSnapshotAt: (
+    cutoff: Date,
+    extraMetricIds: readonly string[],
+  ) => Promise<PlannedExperimentSnapshot>;
+  generateResultQuerySql: GenerateResultQuerySql;
+}): Promise<void> {
+  const lineage = await loadMetricRefreshLineage(context, parent);
+
+  const todaysEntries = new Map(planned.metricSettings.map((m) => [m.id, m]));
+  const removedMetricIds = uniq(
+    lineage
+      .flatMap((level) => level.settings.metricSettings.map((m) => m.id))
+      .filter((id) => !todaysEntries.has(id))
+      .map(getDefinitionMetricId),
+  );
+  if (removedMetricIds.length) {
+    const withRemoved = await planSnapshotAt(
+      parent.settings.endDate,
+      removedMetricIds,
+    );
+    for (const entry of withRemoved.snapshot.settings.metricSettings) {
+      if (!todaysEntries.has(entry.id)) todaysEntries.set(entry.id, entry);
+    }
+  }
+
+  const levels = lineage.map((level): MetricRefreshReplayLevel => {
+    const metricSettings = level.settings.metricSettings.map((m) =>
+      todaysEntries.get(m.id),
+    );
+    // A deleted metric can't be regenerated, so its group can't be checked.
+    if (!metricSettings.every(isDefined)) {
+      throw unavailable("settings_changed");
+    }
+    return {
+      snapshotId: level.id,
+      metricSettings,
+      refreshedMetricIds: getMetricRefresh(level)?.metricIds ?? null,
+    };
+  });
+
+  // In pipeline mode, exposure and segment SQL live in each level's units table query.
+  const unitsQueries = lineage.flatMap((level) =>
+    level.queries.filter((q) => q.name === level.id),
+  );
+  const comparedQueries = [...carriedQueries, ...unitsQueries];
+  const sqlById = new Map(
+    (
+      await getQueriesByIds(
+        context,
+        comparedQueries.map((q) => q.query),
+        false,
+      )
+    ).map((doc) => [doc.id, doc.query]),
+  );
+  const storedSql = new Map(
+    comparedQueries.flatMap((q): [string, string][] => {
+      const sql = sqlById.get(q.query);
+      return sql === undefined ? [] : [[q.name, sql]];
+    }),
+  );
+
+  const changed = getQueriesWithChangedSql({
+    queryNames: comparedQueries.map((q) => q.name),
+    storedSql,
+    todaysSql: await replayMetricRefreshLineage({
+      levels,
+      settings: planned,
+      generateResultQuerySql,
+    }),
+  });
+  if (changed.length) {
+    throw unavailable("settings_changed");
   }
 }
 

@@ -25,13 +25,17 @@ import {
   getParentQueryCopiers,
   getMetricRefreshLineage,
   getQueriesStartedByRefresh,
+  getQueriesWithChangedSql,
   mergeMetricRefreshAnalyses,
   getSettingsChangedSinceParent,
   mergeMetricRefreshSettings,
   parseIncrementalRefreshBase,
   planMetricRefresh,
+  replayMetricRefreshLineage,
   resolveIncrementalMetricRefreshRun,
   shouldUpdateNewMetricsOnly,
+  type GenerateResultQuerySql,
+  type MetricRefreshReplayLevel,
 } from "back-end/src/services/metricRefresh";
 import {
   ExperimentResultsQueryRunner,
@@ -44,6 +48,7 @@ import {
 } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import {
   findLatestSuccessfulOverallSnapshot,
+  findMetricRefreshAncestor,
   findSnapshotById,
   getLatestSnapshotStatus,
   getSnapshotQueryPointers,
@@ -67,6 +72,7 @@ import { factMetricFactory } from "../factories/FactMetric.factory";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   findLatestSuccessfulOverallSnapshot: jest.fn(),
+  findMetricRefreshAncestor: jest.fn(),
   findSnapshotById: jest.fn(),
   getLatestSnapshotStatus: jest.fn(),
   getSnapshotQueryPointers: jest.fn(),
@@ -96,6 +102,7 @@ const getQueriesByIdsMock = jest.mocked(getQueriesByIds);
 const integrationMock = jest.mocked(getSourceIntegrationObject);
 const analyzeMock = jest.mocked(analyzeExperimentResults);
 const findSnapshotByIdMock = jest.mocked(findSnapshotById);
+const findAncestorMock = jest.mocked(findMetricRefreshAncestor);
 
 const context = {
   org: { id: "org_1", settings: {} },
@@ -226,8 +233,32 @@ function refreshArgs(
     useCache: true,
     metricGroups: [],
     planSnapshotAt: jest.fn(async () => makePlan()),
+    generateResultQuerySql: jest.fn(storedSqlGenerator),
     ...overrides,
   };
+}
+
+// A group's SQL names its metrics and its index, as real group SQL depends on both.
+const groupSql = (metricIds: readonly string[], index: number) =>
+  `SELECT ${metricIds.join(", ")}\nFROM group_${index}`;
+
+const storedSqlGenerator: GenerateResultQuerySql = async ({
+  settings,
+  scope,
+}) => {
+  const first = scope?.firstGroupIndex ?? 0;
+  const metricIds = settings.metricSettings
+    .map((m) => m.id)
+    .filter((id) => !scope || scope.metricIds.has(id));
+  return new Map([[`group_${first}`, groupSql(metricIds, first)]]);
+};
+
+function storeQueries(docs: Record<string, string>) {
+  getQueriesByIdsMock.mockImplementation(async (_, ids) =>
+    ids
+      .filter((id) => id in docs)
+      .map((id) => ({ id, query: docs[id] }) as QueryInterface),
+  );
 }
 
 function stubIntegration(separateExperimentResultQueries = true) {
@@ -241,6 +272,7 @@ beforeEach(() => {
   stubIntegration();
   latestStatusMock.mockResolvedValue(null);
   findParentMock.mockResolvedValue(makeParent());
+  storeQueries({ qry_group: groupSql(["met_a", "met_b"], 0) });
 });
 
 describe("planMetricRefresh", () => {
@@ -407,11 +439,28 @@ describe("planMetricRefresh", () => {
       expected: unavailable("settings_changed"),
     },
     {
-      name: "changed snapshot settings",
+      name: "changed variation weights",
       setup: () => ({
-        planSnapshotAt: async () =>
-          makePlan({ settings: { segment: "seg_new" } }),
+        planSnapshotAt: async () => makePlan({ settings: { coverage: 0.5 } }),
       }),
+      expected: unavailable("settings_changed"),
+    },
+    {
+      name: "a copied query whose SQL would differ today",
+      setup: () => ({
+        generateResultQuerySql: async () =>
+          new Map([["group_0", groupSql(["met_a", "met_b"], 0) + " WHERE x"]]),
+      }),
+      expected: unavailable("settings_changed"),
+    },
+    {
+      name: "a copied query today's plan would not generate",
+      setup: () => ({ generateResultQuerySql: async () => new Map() }),
+      expected: unavailable("settings_changed"),
+    },
+    {
+      name: "a copied query whose stored SQL is gone",
+      setup: () => storeQueries({}),
       expected: unavailable("settings_changed"),
     },
     {
@@ -499,8 +548,16 @@ describe("planMetricRefresh", () => {
           ],
         }),
       );
+      storeQueries({ qry_group: groupSql(["met_a", "met_b", "met_gone"], 0) });
 
-      const plan = await planMetricRefresh(refreshArgs());
+      const plan = await planMetricRefresh(
+        refreshArgs({
+          planSnapshotAt: async (_, extraMetricIds = []) =>
+            makePlan({
+              metricIds: ["met_a", "met_b", "met_c", ...extraMetricIds],
+            }),
+        }),
+      );
 
       expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
     },
@@ -551,19 +608,284 @@ describe("planMetricRefresh", () => {
   );
 
   it.each(["incremental-full", "incremental-update"] as const)(
-    "plans an incremental update after an %s parent",
+    "plans an incremental update after an %s parent without comparing SQL",
     async (parentKind) => {
       findParentMock.mockResolvedValue(makeParent({ runnerKind: parentKind }));
-      const plan = await planMetricRefresh(
-        refreshArgs({
-          planSnapshotAt: async () =>
-            makePlan({ runnerKind: "incremental-update" }),
-        }),
-      );
+      const args = refreshArgs({
+        planSnapshotAt: async () =>
+          makePlan({ runnerKind: "incremental-update" }),
+      });
+      const plan = await planMetricRefresh(args);
       expect(plan.snapshot.runnerKind).toBe("incremental-update");
       expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
+      expect(args.generateResultQuerySql).not.toHaveBeenCalled();
+      expect(getQueriesByIdsMock).not.toHaveBeenCalled();
     },
   );
+
+  describe("comparing the SQL it would copy", () => {
+    const refreshOf = (
+      id: string,
+      parentSnapshotId: string,
+      metricIds: string[],
+      overrides: Partial<ExperimentSnapshotInterface> = {},
+    ) =>
+      makeParent({
+        id,
+        metricRefresh: {
+          baseSnapshotId: "snp_base",
+          baseDateCreated: PARENT_CREATED,
+          baseCutoffDate: PARENT_END,
+          parentSnapshotId,
+          metricIds,
+        },
+        ...overrides,
+      });
+
+    it("accepts SQL that differs only in comment lines", async () => {
+      storeQueries({
+        qry_group: "-- Old metric name\n" + groupSql(["met_a", "met_b"], 0),
+      });
+      await expect(planMetricRefresh(refreshArgs())).resolves.toMatchObject({
+        snapshot: { metricRefresh: { metricIds: ["met_c"] } },
+      });
+    });
+
+    it("replays a refresh of a refresh base first, each run under its own id", async () => {
+      // base snp_base ran met_a; snp_mid added met_b; the parent added met_d.
+      findAncestorMock.mockImplementation(async (_, id) =>
+        id === "snp_mid"
+          ? refreshOf("snp_mid", "snp_base", ["met_b"], {
+              settings: makeSettings(["met_a", "met_b"]),
+            })
+          : makeParent({ id, settings: makeSettings(["met_a"]) }),
+      );
+      findParentMock.mockResolvedValue(
+        refreshOf("snp_parent", "snp_mid", ["met_d"], {
+          settings: makeSettings(["met_a", "met_b", "met_d"]),
+          queries: ["group_0", "group_1", "group_2"].map((name) => ({
+            name,
+            query: `qry_${name}`,
+            status: "succeeded",
+          })),
+        }),
+      );
+      storeQueries({
+        qry_group_0: groupSql(["met_a"], 0),
+        qry_group_1: groupSql(["met_b"], 1),
+        qry_group_2: groupSql(["met_d"], 2),
+      });
+      const args = refreshArgs({
+        experiment: makeExperiment({
+          goalMetrics: ["met_a", "met_b", "met_c", "met_d"],
+        }),
+        planSnapshotAt: jest.fn(async () =>
+          makePlan({ metricIds: ["met_a", "met_b", "met_c", "met_d"] }),
+        ),
+      });
+
+      const plan = await planMetricRefresh(args);
+
+      expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
+      expect(
+        jest
+          .mocked(args.generateResultQuerySql)
+          .mock.calls.map(([{ queryParentId, scope }]) => ({
+            queryParentId,
+            metricIds: scope && [...scope.metricIds],
+            firstGroupIndex: scope?.firstGroupIndex,
+          })),
+      ).toEqual([
+        { queryParentId: "snp_base", metricIds: undefined },
+        { queryParentId: "snp_mid", metricIds: ["met_b"], firstGroupIndex: 1 },
+        {
+          queryParentId: "snp_parent",
+          metricIds: ["met_d"],
+          firstGroupIndex: 2,
+        },
+      ]);
+    });
+
+    it("refuses a lineage whose ancestor is gone", async () => {
+      findAncestorMock.mockResolvedValue(null);
+      findParentMock.mockResolvedValue(
+        refreshOf("snp_parent", "snp_base", ["met_b"]),
+      );
+      await expect(planMetricRefresh(refreshArgs())).rejects.toMatchObject({
+        details: { reason: "settings_changed" },
+      });
+    });
+
+    it("refuses a lineage longer than ten runs without loading the rest", async () => {
+      findAncestorMock.mockImplementation(async (_, id) =>
+        refreshOf(id, `${id}_up`, ["met_b"]),
+      );
+      findParentMock.mockResolvedValue(
+        refreshOf("snp_parent", "snp_1", ["met_b"]),
+      );
+      const args = refreshArgs();
+
+      await expect(planMetricRefresh(args)).rejects.toMatchObject({
+        details: { reason: "settings_changed" },
+      });
+      expect(findAncestorMock).toHaveBeenCalledTimes(9);
+      expect(args.generateResultQuerySql).not.toHaveBeenCalled();
+    });
+
+    it("refuses when a copied group holds a metric that was deleted", async () => {
+      findParentMock.mockResolvedValue(
+        makeParent({ settings: makeSettings(["met_a", "met_b", "met_gone"]) }),
+      );
+      const args = refreshArgs();
+
+      await expect(planMetricRefresh(args)).rejects.toMatchObject({
+        details: { reason: "settings_changed" },
+      });
+      expect(args.planSnapshotAt).toHaveBeenLastCalledWith(PARENT_END, [
+        "met_gone",
+      ]);
+    });
+
+    it("compares each run's units table query, which holds the exposure SQL", async () => {
+      findParentMock.mockResolvedValue(
+        makeParent({
+          queries: [
+            { name: "snp_parent", query: "qry_units", status: "succeeded" },
+            { name: "group_0", query: "qry_group", status: "succeeded" },
+            {
+              name: "drop_snp_parent",
+              query: "qry_drop",
+              status: "succeeded",
+            },
+          ],
+        }),
+      );
+      storeQueries({
+        qry_units: "CREATE TABLE units_snp_parent AS old exposure",
+        qry_group: groupSql(["met_a", "met_b"], 0),
+      });
+      const generator =
+        (exposure: string): GenerateResultQuerySql =>
+        async (args) =>
+          new Map([
+            ...(await storedSqlGenerator(args)),
+            [
+              args.queryParentId,
+              `CREATE TABLE units_${args.queryParentId} AS ${exposure}`,
+            ],
+            [`drop_${args.queryParentId}`, "DROP TABLE changes freely"],
+          ]);
+
+      await expect(
+        planMetricRefresh(
+          refreshArgs({ generateResultQuerySql: generator("old exposure") }),
+        ),
+      ).resolves.toBeDefined();
+      await expect(
+        planMetricRefresh(
+          refreshArgs({ generateResultQuerySql: generator("new exposure") }),
+        ),
+      ).rejects.toMatchObject({ details: { reason: "settings_changed" } });
+    });
+  });
+});
+
+describe("replayMetricRefreshLineage", () => {
+  const level = (
+    snapshotId: string,
+    metricIds: string[],
+    refreshedMetricIds: string[] | null = null,
+  ): MetricRefreshReplayLevel => ({
+    snapshotId,
+    metricSettings: metricIds.map((id) => ({ id })),
+    refreshedMetricIds,
+  });
+
+  it("numbers each refresh's groups after every earlier group and runs it under its own id", async () => {
+    const generate: GenerateResultQuerySql = async ({
+      settings,
+      queryParentId,
+      scope,
+    }) => {
+      const ids = settings.metricSettings
+        .map((m) => m.id)
+        .filter((id) => !scope || scope.metricIds.has(id));
+      const first = scope?.firstGroupIndex ?? 0;
+      return new Map([
+        [queryParentId, `units of ${queryParentId}`],
+        ...ids.map((id, i): [string, string] => [
+          `group_${first + i}`,
+          `${id} reads ${queryParentId}`,
+        ]),
+      ]);
+    };
+
+    const sql = await replayMetricRefreshLineage({
+      levels: [
+        level("snp_base", ["met_a", "met_b"]),
+        level("snp_mid", ["met_a", "met_b", "met_c"], ["met_c"]),
+        level("snp_top", ["met_a", "met_b", "met_c", "met_d"], ["met_d"]),
+      ],
+      settings: makeSettings([]),
+      generateResultQuerySql: generate,
+    });
+
+    expect(Object.fromEntries(sql)).toEqual({
+      snp_base: "units of snp_base",
+      group_0: "met_a reads snp_base",
+      group_1: "met_b reads snp_base",
+      snp_mid: "units of snp_mid",
+      group_2: "met_c reads snp_mid",
+      snp_top: "units of snp_top",
+      group_3: "met_d reads snp_top",
+    });
+  });
+});
+
+describe("getQueriesWithChangedSql", () => {
+  const stored = new Map([
+    ["group_0", "-- Revenue\nSELECT 1\n  -- Fact Table: Orders\nFROM t"],
+    ["traffic", "SELECT 2"],
+  ]);
+  const changed = (today: Record<string, string>) =>
+    getQueriesWithChangedSql({
+      queryNames: ["group_0", "traffic"],
+      storedSql: stored,
+      todaysSql: new Map(Object.entries(today)),
+    });
+
+  it("ignores whole comment lines, such as a renamed metric's", () => {
+    expect(
+      changed({
+        group_0:
+          "-- Revenue (renamed)\nSELECT 1\n  -- Fact Table: Sales\nFROM t",
+        traffic: "SELECT 2",
+      }),
+    ).toEqual([]);
+  });
+
+  it("names a query whose SQL changed, even only after a comment on a code line", () => {
+    expect(
+      changed({ group_0: "SELECT 1\nFROM t -- note", traffic: "SELECT 2" }),
+    ).toEqual(["group_0"]);
+  });
+
+  it("does not normalize whitespace", () => {
+    expect(
+      changed({ group_0: "SELECT 1\nFROM t", traffic: "SELECT  2" }),
+    ).toEqual(["traffic"]);
+  });
+
+  it("names a query today's plan would not generate, or that has no stored SQL", () => {
+    expect(changed({ group_0: "SELECT 1\nFROM t" })).toEqual(["traffic"]);
+    expect(
+      getQueriesWithChangedSql({
+        queryNames: ["group_1"],
+        storedSql: stored,
+        todaysSql: new Map([["group_1", "SELECT 3"]]),
+      }),
+    ).toEqual(["group_1"]);
+  });
 });
 
 describe("shouldUpdateNewMetricsOnly", () => {

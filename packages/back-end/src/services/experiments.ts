@@ -230,7 +230,10 @@ import {
   type RevisionApprovalState,
 } from "back-end/src/services/featurePublishGates";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
-import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import {
+  ExperimentResultsQueryRunner,
+  generateExperimentResultQuerySql,
+} from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   FactTableMap,
@@ -3159,45 +3162,49 @@ export async function planExperimentSnapshot({
   const postStratificationEnabled = settings.postStratificationEnabled.value;
 
   const metricMap = await getMetricMap(context);
-  const allExperimentMetrics = metricIds.map(
-    (metricId) => metricMap.get(metricId) ?? null,
-  );
-  if (!allExperimentMetrics.some(isDefined)) {
+  if (!metricIds.some((metricId) => metricMap.has(metricId))) {
     throw new BadRequestError(
       "Experiment must have at least 1 metric selected to be analyzed.",
     );
   }
 
-  const denominatorMetricIds = uniq<string>(
-    allExperimentMetrics
-      .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[],
-  );
-  const denominatorMetrics = denominatorMetricIds
-    .map((m) => metricMap.get(m) || null)
-    .filter(isDefined) as MetricInterface[];
+  const getMetricSettingsForSnapshot = (exp: ExperimentInterface) => {
+    const allExperimentMetrics = getAllMetricIdsFromExperiment(
+      exp,
+      false,
+      metricGroups,
+    ).map((metricId) => metricMap.get(metricId) ?? null);
+    const denominatorMetricIds = uniq<string>(
+      allExperimentMetrics
+        .map((m) => m?.denominator)
+        .filter((d) => d && typeof d === "string") as string[],
+    );
+    const denominatorMetrics = denominatorMetricIds
+      .map((m) => metricMap.get(m) || null)
+      .filter(isDefined) as MetricInterface[];
+    return getAllMetricSettingsForSnapshot({
+      allExperimentMetrics,
+      denominatorMetrics,
+      orgSettings,
+      experimentRegressionAdjustmentEnabled: exp.regressionAdjustmentEnabled,
+      experimentMetricOverrides: exp.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature: true,
+      ...(exp.type === "multi-armed-bandit"
+        ? {
+            banditConversionWindowValue:
+              exp.banditConversionWindowValue ?? undefined,
+            banditConversionWindowUnit:
+              exp.banditConversionWindowUnit ?? undefined,
+          }
+        : {}),
+    });
+  };
 
   const factTableMap = await getFactTableMap(context);
 
   const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
-    getAllMetricSettingsForSnapshot({
-      allExperimentMetrics,
-      denominatorMetrics,
-      orgSettings,
-      experimentRegressionAdjustmentEnabled:
-        experiment.regressionAdjustmentEnabled,
-      experimentMetricOverrides: experiment.metricOverrides,
-      datasourceType: datasource?.type,
-      hasRegressionAdjustmentFeature: true,
-      ...(experiment.type === "multi-armed-bandit"
-        ? {
-            banditConversionWindowValue:
-              experiment.banditConversionWindowValue ?? undefined,
-            banditConversionWindowUnit:
-              experiment.banditConversionWindowUnit ?? undefined,
-          }
-        : {}),
-    });
+    getMetricSettingsForSnapshot(experiment);
 
   const analysisSettings = getDefaultExperimentAnalysisSettings({
     statsEngine,
@@ -3227,6 +3234,7 @@ export async function planExperimentSnapshot({
     throwIfRequiresFullRefresh,
   };
   if (missingMetricsOnly) {
+    const integration = getSourceIntegrationObject(context, datasource, true);
     return planMetricRefresh({
       context,
       experiment,
@@ -3235,8 +3243,43 @@ export async function planExperimentSnapshot({
       dimension,
       useCache,
       metricGroups,
-      planSnapshotAt: (cutoff) =>
-        planSnapshot({ ...planSnapshotArgs, cutoff, forMetricRefresh: true }),
+      planSnapshotAt: (cutoff, extraMetricIds = []) => {
+        const experimentToPlan = extraMetricIds.length
+          ? {
+              ...experiment,
+              secondaryMetrics: [
+                ...experiment.secondaryMetrics,
+                ...extraMetricIds,
+              ],
+            }
+          : experiment;
+        return planSnapshot({
+          ...planSnapshotArgs,
+          experiment: experimentToPlan,
+          settingsForSnapshotMetrics:
+            getMetricSettingsForSnapshot(experimentToPlan)
+              .settingsForSnapshotMetrics,
+          cutoff,
+          forMetricRefresh: true,
+        });
+      },
+      generateResultQuerySql: ({ settings, queryParentId, scope }) =>
+        generateExperimentResultQuerySql(
+          context,
+          {
+            snapshotType: "standard",
+            snapshotSettings: settings,
+            variationNames: getLatestPhaseVariations(experiment).map(
+              (v) => v.name,
+            ),
+            metricMap,
+            factTableMap,
+            queryParentId,
+            experimentQueryMetadata: null,
+          },
+          integration,
+          scope,
+        ),
       window: newMetricsOnlyWindow,
     });
   }

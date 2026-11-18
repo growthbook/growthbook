@@ -54,6 +54,8 @@ import {
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getQueriesByIds } from "back-end/src/models/QueryModel";
+import { generateExperimentResultQuerySql } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import {
@@ -77,6 +79,18 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/QueryModel", () => ({
+  ...jest.requireActual("back-end/src/models/QueryModel"),
+  getQueriesByIds: jest.fn(),
+}));
+
+jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
+  ...jest.requireActual(
+    "back-end/src/queryRunners/ExperimentResultsQueryRunner",
+  ),
+  generateExperimentResultQuerySql: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/MetricModel", () => ({
@@ -2607,6 +2621,15 @@ describe("planExperimentSnapshot output on trunk", () => {
       parent: ExperimentSnapshotInterface,
     ) {
       findLatestSuccessfulOverallSnapshotMock.mockResolvedValue(parent);
+      // The parent's copied query would be generated with the SQL it stored.
+      jest
+        .mocked(getQueriesByIds)
+        .mockResolvedValue([
+          { id: "qry_group_0", query: "SELECT group_0" },
+        ] as Awaited<ReturnType<typeof getQueriesByIds>>);
+      jest
+        .mocked(generateExperimentResultQuerySql)
+        .mockResolvedValue(new Map([["group_0", "SELECT group_0"]]));
       getSourceIntegrationObjectMock.mockReturnValue({
         getSourceProperties: () => ({ separateExperimentResultQueries: true }),
       } as never);
