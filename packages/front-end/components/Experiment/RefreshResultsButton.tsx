@@ -35,6 +35,7 @@ export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
   mutate: () => void;
   mutateAdditional?: () => void;
   setRefreshError: (error: string) => void;
+  setRefreshNotice?: (notice: string) => void;
   experimentSnapshotTrackingProps?: {
     trackingSource: string;
     datasourceType: string | null;
@@ -68,6 +69,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
   mutate,
   mutateAdditional,
   setRefreshError,
+  setRefreshNotice,
   experimentSnapshotTrackingProps,
   onSuccess,
   customValidation,
@@ -91,6 +93,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         mutate={mutate}
         mutateAdditional={mutateAdditional}
         setRefreshError={setRefreshError}
+        setRefreshNotice={setRefreshNotice}
         experimentSnapshotTrackingProps={experimentSnapshotTrackingProps}
         onSuccess={onSuccess}
         customValidation={customValidation}
@@ -121,6 +124,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         experiment={experiment}
         dimension={dimension}
         setError={(error) => setRefreshError(error ?? "")}
+        setRefreshNotice={setRefreshNotice}
         radixVariant="outline"
         customValidation={customValidation}
         onSuccess={onSuccess}
@@ -154,6 +158,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   mutate,
   mutateAdditional,
   setRefreshError,
+  setRefreshNotice,
   experimentSnapshotTrackingProps,
   onSuccess,
   customValidation,
@@ -178,6 +183,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
     mutate,
     mutateAdditional,
     setRefreshError,
+    setRefreshNotice,
     onSuccess,
     customValidation,
     onSnapshotRefreshBlocked,

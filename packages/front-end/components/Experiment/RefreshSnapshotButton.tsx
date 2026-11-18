@@ -18,6 +18,7 @@ const RefreshSnapshotButton: FC<{
   dimension?: string;
   radixVariant?: "outline" | "solid" | "soft";
   setError: (e: string | undefined) => void;
+  setRefreshNotice?: (notice: string) => void;
   // Return false to abort the refresh
   customValidation?: () => boolean | Promise<boolean>;
   onSuccess?: () => void;
@@ -37,6 +38,7 @@ const RefreshSnapshotButton: FC<{
   dimension,
   radixVariant = "outline",
   setError,
+  setRefreshNotice,
   customValidation,
   onSuccess,
   onSnapshotRefreshBlocked,
@@ -60,6 +62,7 @@ const RefreshSnapshotButton: FC<{
       dimension,
       mutate,
       setRefreshError: (error) => setError(error),
+      setRefreshNotice,
       onSuccess,
       customValidation,
       onSnapshotRefreshBlocked,
