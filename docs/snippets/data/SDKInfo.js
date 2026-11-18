@@ -711,7 +711,7 @@ export default {
   },
   csharp: {
     name: "C# SDK",
-    version: "2.0.0",
+    version: "2.1.0",
     github: "https://github.com/growthbook/growthbook-c-sharp",
     examples: [
       {
@@ -819,7 +819,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "10.1.1",
+    version: "10.2.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -834,6 +834,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v10.2.0",
+      },
+      {
+        savedGroupReferencesV2: "≥ v10.2.0",
       },
       {
         savedGroupReferences: "≥ v10.0.0",
