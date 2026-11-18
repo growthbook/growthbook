@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiCaretDownBold, PiLockBold, PiPlusBold } from "react-icons/pi";
 import {
@@ -17,6 +17,10 @@ import {
   QaOverrideFilterKind,
   completeQaOverrideFilters,
 } from "@/services/qaOverrides";
+import {
+  SummaryGrid,
+  SummaryRow,
+} from "@/components/Experiment/TabbedPage/StartSections";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
@@ -93,29 +97,6 @@ function ExperimentTargetingCard({
     (!!phase?.condition && phase.condition !== "{}") ||
     !!phase?.savedGroups?.length ||
     !!phase?.prerequisites?.length;
-  const rows: [string, React.ReactNode][] = [
-    [
-      "Targeting",
-      hasTargeting ? (
-        <ConditionDisplay
-          condition={phase?.condition}
-          savedGroups={phase?.savedGroups}
-          prerequisites={phase?.prerequisites}
-        />
-      ) : (
-        "Everyone"
-      ),
-    ],
-    ["Traffic", percent(phase?.coverage ?? 1)],
-    [
-      "Split",
-      variations
-        .map(
-          (v, i) => `${v.name} (${percent(phase?.variationWeights?.[i] ?? 0)})`,
-        )
-        .join(" · "),
-    ],
-  ];
   return (
     <Box
       role="group"
@@ -126,25 +107,33 @@ function ExperimentTargetingCard({
         <Text weight="semibold">From the experiment</Text>
         <PiLockBold size={12} color="var(--color-text-mid)" />
       </Flex>
-      <Box
-        style={{
-          display: "grid",
-          gridTemplateColumns: "90px 1fr",
-          rowGap: 6,
-          alignItems: "baseline",
-        }}
-      >
-        {rows.map(([label, value]) => (
-          <Fragment key={label}>
-            <Text size="sm" color="text-mid">
-              {label}
-            </Text>
-            <Text as="div" size="sm">
-              {value}
-            </Text>
-          </Fragment>
-        ))}
-      </Box>
+      {/* The same label/value grid the start popover summarizes with. */}
+      <SummaryGrid>
+        <SummaryRow label="Targeting">
+          {hasTargeting ? (
+            <ConditionDisplay
+              condition={phase?.condition}
+              savedGroups={phase?.savedGroups}
+              prerequisites={phase?.prerequisites}
+            />
+          ) : (
+            "Everyone"
+          )}
+        </SummaryRow>
+        <SummaryRow label="Traffic">{percent(phase?.coverage ?? 1)}</SummaryRow>
+        <SummaryRow label="Split">
+          <Flex display="inline-flex" wrap="wrap" gapX="4" gapY="1">
+            {variations.map((v, i) => (
+              <Flex key={v.id} align="center" gap="1" flexShrink="0">
+                <VariationLabel number={i} name={v.name} size="sm" />
+                <Text size="sm" color="text-mid">
+                  {percent(phase?.variationWeights?.[i] ?? 0)}
+                </Text>
+              </Flex>
+            ))}
+          </Flex>
+        </SummaryRow>
+      </SummaryGrid>
     </Box>
   );
 }
@@ -187,6 +176,9 @@ export default function QaOverrideModal({
   const { projects } = useDefinitions();
   const { data: connectionData } = useSDKConnections();
   const lookups = useQaOverrideNameLookups();
+  // Focus goes to a filter the user just added, not to ones an existing
+  // override already had when the modal opened.
+  const [justAdded, setJustAdded] = useState<QaOverrideFilterKind | null>(null);
   const { environments, eligibleEnvironments, canEditIn } =
     useQaOverridePermissions(experiment);
 
@@ -263,7 +255,10 @@ export default function QaOverrideModal({
             key={kind}
             // Two lines: menu items are one line tall unless told otherwise.
             className="multiline-item"
-            onClick={() => addFilter(kind)}
+            onClick={() => {
+              addFilter(kind);
+              setJustAdded(kind);
+            }}
             disabled={needsEnvironment}
             tooltip={
               needsEnvironment ? "Select an environment first" : undefined
@@ -321,7 +316,7 @@ export default function QaOverrideModal({
               onChange={(v) => form.setValue("sdkConnections", v)}
               options={connectionOptions}
               placeholder="Select SDK connections…"
-              autoFocus
+              autoFocus={justAdded === kind}
             />
           </>
         )}
@@ -334,7 +329,7 @@ export default function QaOverrideModal({
               onChange={(v) => form.setValue("projects", v)}
               options={projectOptions}
               placeholder="Select projects…"
-              autoFocus
+              autoFocus={justAdded === kind}
             />
           </>
         )}

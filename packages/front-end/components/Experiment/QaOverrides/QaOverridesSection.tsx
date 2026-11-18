@@ -123,7 +123,7 @@ export default function QaOverridesSection({
           style={{ ...MATCH_TABLE_WIDTH, ...SCROLL_TARGET }}
         >
           <Flex direction="column" align="center" gap="2">
-            <Heading as="h4" size="sm" mb="0">
+            <Heading as="h4" size="xs" mb="0">
               QA Overrides
             </Heading>
             <Text color="text-mid" align="center">

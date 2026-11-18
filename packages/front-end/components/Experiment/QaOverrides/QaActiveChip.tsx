@@ -44,9 +44,15 @@ export default function QaActiveChip({
         type="button"
         onClick={onClick}
         aria-label="QA active. Go to QA Overrides"
+        // Resets only what it must: `all: unset` would also remove the
+        // keyboard focus ring.
         style={{
-          all: "unset",
           display: "inline-flex",
+          padding: 0,
+          border: 0,
+          background: "none",
+          font: "inherit",
+          color: "inherit",
           cursor: "pointer",
           borderRadius: 9999,
         }}
