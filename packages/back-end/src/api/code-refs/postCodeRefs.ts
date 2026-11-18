@@ -1,6 +1,7 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { groupBy, values } from "lodash";
 import { postCodeRefsValidator } from "shared/validators";
+import { stringToBoolean } from "shared/util";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -12,11 +13,9 @@ import { getFeatureProjectsByIds } from "back-end/src/models/FeatureModel";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req) => {
-    const { deleteMissing: deleteMissingString } = req.query;
+    const deleteMissing = stringToBoolean(req.query.deleteMissing?.toString());
     const { branch, repoName: repo } = req.body;
     const refsByFeature = groupBy(req.body.refs, "flagKey");
-    // convert deleteMissing to boolean
-    const deleteMissing = deleteMissingString === "true";
 
     const existingFeatures = await getExistingFeaturesForRepoBranch({
       repo,

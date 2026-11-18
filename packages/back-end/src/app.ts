@@ -18,6 +18,7 @@ import { AI_PROVIDERS } from "shared/ai";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { revisionRouter } from "back-end/src/routers/revision/revision.router";
+import { scrubRevisionResponses } from "back-end/src/routers/revision/scrubRevisionResponses";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -603,6 +604,7 @@ const requireUserIdHandler: RequestHandler = async (req, res, next) => {
   next();
 };
 app.use(asyncHandler(requireUserIdHandler));
+app.use(scrubRevisionResponses);
 
 // OAuth consent helpers (authenticated)
 if (OAUTH_AS_ENABLED) {

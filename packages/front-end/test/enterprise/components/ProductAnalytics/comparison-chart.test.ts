@@ -4,6 +4,7 @@ import type {
 } from "shared/validators";
 import {
   alignComparisonOverlayToCategories,
+  compareBarFramePx,
   computeBigNumberComparisonTrendForMetricIndex,
   buildCompareChartLegendModel,
   computeBigNumberComparisonTrends,
@@ -483,5 +484,17 @@ describe("computeBigNumberComparisonTrends", () => {
     expect(trends).toHaveLength(2);
     expect(trends[0]?.pctChange).toBe(0.25);
     expect(trends[1]?.pctChange).toBe(0.25);
+  });
+});
+
+describe("compareBarFramePx", () => {
+  it("rounds a share of the bar width", () => {
+    expect(compareBarFramePx(50, 2, 20, 0.15)).toBe(8);
+    expect(compareBarFramePx(30, 2, 20, 0.15)).toBe(5);
+  });
+
+  it("keeps the frame within the limits", () => {
+    expect(compareBarFramePx(4, 2, 20, 0.15)).toBe(2);
+    expect(compareBarFramePx(500, 2, 20, 0.15)).toBe(20);
   });
 });

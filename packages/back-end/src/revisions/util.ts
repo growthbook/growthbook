@@ -6,6 +6,7 @@ import {
   JsonPatchOperation,
   Revision,
   RevisionTargetType,
+  landedOps,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { ReqContext } from "back-end/types/request";
@@ -113,34 +114,17 @@ export function isRevisionRequired(
 // Applying ops to live preserves out-of-band changes to fields the revision
 // did not touch.
 //
-// The op list is filtered to "effective" ops first:
-// - Drop ops whose top-level path isn't in `updatableFields` (the entity's
-// write allowlist).
-// - Drop `add`/`replace` ops whose value equals the baseline value (these
-// represent no real change vs the snapshot, so applying them to live
-// would overwrite legitimate live drift).
-// - Drop `remove` ops on fields the baseline didn't define.
-// - Drop `move` / `copy` / `test` ops outright (they're accepted by the
-// validator but not modelled by the rest of the revision pipeline).
+// Only the ops `landedOps` keeps are applied.
 export function buildMergeDesiredState<T extends Record<string, unknown>>(
   liveEntity: T,
   baseSnapshot: Record<string, unknown>,
   proposedChanges: JsonPatchOperation[] | unknown,
   updatableFields: ReadonlySet<string>,
 ): T {
-  const ops = normalizeProposedChanges(proposedChanges);
-  const effectiveOps = ops.filter((op) => {
-    const field = op.path.split("/")[1];
-    if (!field || !updatableFields.has(field)) return false;
-    if (op.op === "replace" || op.op === "add") {
-      return !isEqual(op.value, baseSnapshot[field]);
-    }
-    if (op.op === "remove") {
-      return baseSnapshot[field] !== undefined;
-    }
-    return false;
-  });
-  return applyPatchToSnapshot(liveEntity, effectiveOps);
+  return applyPatchToSnapshot(
+    liveEntity,
+    landedOps(liveEntity, baseSnapshot, proposedChanges, updatableFields),
+  );
 }
 
 // Whether a merge changes the entity's project ownership. Covers both the
@@ -246,6 +230,8 @@ export type CreateOrUpdateRevisionOptions = {
   comment?: string;
   revertedFrom?: string;
   revisionId?: string;
+  // The caller publishes the new revision at once, so it is a direct landing.
+  direct?: boolean;
 };
 
 /**
@@ -266,9 +252,33 @@ export async function createOrUpdateRevision(
     comment,
     revertedFrom,
     revisionId,
+    direct,
   } = options;
 
-  if (revisionId && !forceCreate) {
+  const adapter = getAdapter(entityType);
+  // Asked once, on the row as read. A CAS retry re-derives without asking again.
+  const validateWrite = async (row: Revision | null) => {
+    if (!adapter.validateRevisionWrite) return;
+    const live = adapter.buildSnapshot(entity);
+    const base = (row?.target.snapshot ?? live) as Record<string, unknown>;
+    const before = row
+      ? applyPatchToSnapshot(base, row.target.proposedChanges)
+      : live;
+    const derived =
+      typeof proposedChanges === "function"
+        ? await proposedChanges(row)
+        : proposedChanges;
+    await adapter.validateRevisionWrite(context, {
+      live,
+      revision: row,
+      direct: !row && direct,
+      ...(!row && { title, comment }),
+      proposed: applyPatchToSnapshot(replaceChanges ? base : before, derived),
+      before,
+    });
+  };
+
+  if (revisionId) {
     // Live-entity basis, matching the handlers that resolved this id: the
     // snapshot basis returns null for a moved entity, and falling through to
     // create would silently fork a new draft.
@@ -279,18 +289,18 @@ export async function createOrUpdateRevision(
       // never a new draft.
       throw new Error("Revision not found");
     }
-    if (targetRevision) {
-      // Guard against cross-entity writes: a caller could pass a revisionId
-      // that belongs to a different entity (same org) and we'd otherwise
-      // write entity A's proposed changes into entity B's draft. Reject
-      // any mismatched revision instead of silently corrupting the target.
-      if (
-        targetRevision.target.type !== entityType ||
-        targetRevision.target.id !== entity.id
-      ) {
-        throw new Error("Revision does not belong to the specified entity");
-      }
+    // Guard against cross-entity writes: a caller could pass a revisionId
+    // that belongs to a different entity (same org) and we'd otherwise
+    // write entity A's proposed changes into entity B's draft. Checked even
+    // when forceCreate is set.
+    if (
+      targetRevision.target.type !== entityType ||
+      targetRevision.target.id !== entity.id
+    ) {
+      throw new Error("Revision does not belong to the specified entity");
+    }
 
+    if (!forceCreate) {
       // A deriver's derivation and its merge with the draft's existing changes
       // both have to happen inside the CAS loop, against the row being written.
       const finalChanges =
@@ -311,6 +321,7 @@ export async function createOrUpdateRevision(
                 proposedChanges,
               );
 
+      await validateWrite(targetRevision);
       return context.models.revisions.updateProposedChanges(
         targetRevision.id,
         finalChanges,
@@ -348,6 +359,7 @@ export async function createOrUpdateRevision(
                 proposedChanges,
               );
 
+      await validateWrite(existingRevision);
       return context.models.revisions.updateProposedChanges(
         existingRevision.id,
         finalChanges,
@@ -357,8 +369,9 @@ export async function createOrUpdateRevision(
     }
   }
 
-  const snapshot = getAdapter(entityType).buildSnapshot(entity);
+  const snapshot = adapter.buildSnapshot(entity);
 
+  await validateWrite(null);
   return context.models.revisions.createRequest({
     type: entityType,
     id: entity.id,
@@ -413,9 +426,33 @@ export function isRevisionDiverged(
   snapshot: Record<string, unknown>,
   entity: Record<string, unknown>,
 ): boolean {
-  const base = adapter.buildSnapshot(snapshot);
-  const live = adapter.buildSnapshot(entity);
+  const view = (value: Record<string, unknown>) => {
+    const built = adapter.buildSnapshot(value);
+    return adapter.behindLiveView?.(built) ?? built;
+  };
+  const base = view(snapshot);
+  const live = view(entity);
   return [...adapter.getUpdatableFields()].some(
     (key) => !isEqual(deepOmitNullish(base[key]), deepOmitNullish(live[key])),
   );
+}
+
+// Behind live, what lands isn't what the draft holds: live keeps what changed
+// since, and history should say so. Undefined when the draft is up to date.
+export function landedTarget(
+  adapter: EntityRevisionAdapter,
+  revision: Revision,
+  entity: Record<string, unknown>,
+): Pick<Revision["target"], "snapshot" | "proposedChanges"> | undefined {
+  const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
+  if (!isRevisionDiverged(adapter, baseSnapshot, entity)) return undefined;
+  return {
+    snapshot: adapter.buildSnapshot(entity),
+    proposedChanges: landedOps(
+      entity,
+      baseSnapshot,
+      revision.target.proposedChanges,
+      adapter.getUpdatableFields(),
+    ),
+  } as Pick<Revision["target"], "snapshot" | "proposedChanges">;
 }

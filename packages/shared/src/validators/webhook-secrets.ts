@@ -47,3 +47,10 @@ export const apiUpdateWebhookSecretBody = apiCreateWebhookSecretBody.partial();
 
 export type CreateWebhookSecretProps = CreateProps<WebhookSecretInterface>;
 export type UpdateWebhookSecretProps = UpdateProps<WebhookSecretInterface>;
+
+// The secrets a webhook's endpoint or headers reference: `{{ KEY }}`, or
+// `{{[key with spaces]}}` as the sender rewrites those.
+export const referencedWebhookSecrets = (text: string): string[] =>
+  [...text.matchAll(/\{\{\s*\[?([^\]{}]+?)\]?\s*\}\}/g)].map((match) =>
+    match[1].trim(),
+  );

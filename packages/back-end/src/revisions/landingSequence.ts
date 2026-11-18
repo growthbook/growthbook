@@ -1,4 +1,4 @@
-import { isEqual } from "lodash";
+import { isEqual, uniqBy } from "lodash";
 import type { RevisionTargetType } from "shared/enterprise";
 import { getAdapter } from "back-end/src/revisions";
 import { CasConflictError, Context } from "back-end/src/models/BaseModel";
@@ -255,7 +255,12 @@ export function flushPayloadRefreshBuffer(
   // Closed: straggler producers fall through to live refreshes instead of
   // pushing into a drained array.
   buffer.closed = true;
-  if (!buffer.keys.length) return;
+  // The last write of a connection carries its settings as landed.
+  const sdkConnections = uniqBy(
+    [...(buffer.sdkConnections ?? [])].reverse(),
+    "key",
+  );
+  if (!buffer.keys.length && !sdkConnections.length) return;
   const seen = new Set<string>();
   const keys = buffer.keys.filter((k) => {
     const id = `${k.environment}||${k.project}`;
@@ -266,6 +271,7 @@ export function flushPayloadRefreshBuffer(
   queueSDKPayloadRefresh({
     context,
     payloadKeys: keys,
+    sdkConnections,
     treatEmptyProjectAsGlobal: buffer.treatEmptyProjectAsGlobal,
     auditContext: { event, model: "release" },
   });

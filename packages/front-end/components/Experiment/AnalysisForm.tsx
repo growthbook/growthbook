@@ -62,6 +62,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
+import AdvancedSection from "@/components/AdvancedSection";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
@@ -72,7 +73,6 @@ import {
 } from "./EditMetricsForm";
 import ActivationMetricRow from "./ActivationMetricRow";
 import {
-  AdvancedSection,
   ConversionWindowsRow,
   QueryFilterHelp,
   SettingsCard,
@@ -87,7 +87,7 @@ export type AnalysisFormFocus = "datasource" | "exposureQuery" | "goalMetrics";
 export const DATASOURCE_CHANGE_NOTE =
   "Metrics and segments that aren't from the new Data Source are removed.";
 
-const getIneligibleGroupsMessage = (groupNames: string[]) =>
+export const getIneligibleGroupsMessage = (groupNames: string[]) =>
   `Remove these metric groups before saving. They include metrics that cluster experiments can't analyze: ${groupNames.join(", ")}.`;
 
 export function IneligibleClusterMetricsCallouts({

@@ -3,6 +3,7 @@ import type { ApiRequestLocals } from "back-end/types/api";
 import { type OpenApiRoute, runApiHandler } from "back-end/src/util/handler";
 import { allRoutes } from "back-end/src/api/api.router";
 import { logger } from "back-end/src/util/logger";
+import { runAsRequestSource } from "back-end/src/services/growthbook";
 
 /**
  * In-process dispatcher for the public REST API surface. Lets internal callers
@@ -81,6 +82,17 @@ export async function dispatchInternal(
   }
 
   return result;
+}
+
+// A call GrowthBook's AI assistant makes. Its events say the assistant made it.
+export function dispatchForAgent(
+  ctx: ReqContext,
+  input: DispatchInput,
+  hooks?: DispatchHooks,
+): Promise<DispatchResult> {
+  return runAsRequestSource("assistant", () =>
+    dispatchInternal(ctx, input, hooks),
+  );
 }
 
 /**

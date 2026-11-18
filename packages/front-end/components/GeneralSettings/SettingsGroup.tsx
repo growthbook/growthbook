@@ -5,9 +5,9 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { useSettingsNarrow } from "@/components/Layout/SettingsNavContext";
+import UnsavedDot from "@/components/UnsavedDot";
 import { SettingsCard } from "./SettingsSection";
 import { useOptionalSettingsForm } from "./SettingsFormProvider";
-import styles from "./SettingsSection.module.scss";
 
 export function SettingsGroup({
   id,
@@ -80,9 +80,7 @@ export function SettingsField({
     <Box>
       {/* Bootstrap gives labels a 0.5rem bottom margin; the design wants 2px. */}
       <Box mb="2px" position="relative">
-        {dirty && (
-          <span className={styles.fieldDot} role="img" aria-label="Unsaved" />
-        )}
+        {dirty && <UnsavedDot />}
         <Flex align="center" justify="between" gap="3">
           <Text
             as={htmlFor ? "label" : "div"}
@@ -120,9 +118,7 @@ export function UnsavedMark({
     dirty ?? (!!isFieldDirty && [name ?? []].flat().some(isFieldDirty));
   return (
     <Box position="relative">
-      {show && (
-        <span className={styles.checkDot} role="img" aria-label="Unsaved" />
-      )}
+      {show && <UnsavedDot align="firstLine" />}
       {children}
     </Box>
   );
