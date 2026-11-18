@@ -75,6 +75,7 @@ router.put(
   "/member/:id/admin-password-reset",
   organizationsController.putAdminResetUserPassword,
 );
+router.put("/organization/require-mfa", organizationsController.putRequireMFA);
 router.put("/organization/license", organizationsController.putLicenseKey);
 router.put(
   "/organization/default-role",

@@ -87,6 +87,7 @@ const organizationSchema = new mongoose.Schema({
   },
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
+  requireMFA: Boolean,
   autoApproveMembers: Boolean,
   isVercelIntegration: Boolean,
   members: [

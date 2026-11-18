@@ -37,6 +37,7 @@ import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
 import Modal from "@/components/Modal";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
+import MfaModal from "@/components/Auth/MfaModal";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Checkbox from "@/ui/Checkbox";
@@ -66,6 +67,7 @@ const TopNav: FC<{
 }) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [mfaOpen, setMfaOpen] = useState(false);
   const [enableCelebrations, setEnableCelebrations] =
     useCelebrationLocalStorage();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -421,16 +423,26 @@ const TopNav: FC<{
   };
   const renderChangePassword = () => {
     if (!usingSSO()) {
-      return (
+      return [
         <DropdownMenuItem
+          key="password"
           onClick={() => {
             setDropdownOpen(false);
             setChangePasswordOpen(true);
           }}
         >
           Change Password
-        </DropdownMenuItem>
-      );
+        </DropdownMenuItem>,
+        <DropdownMenuItem
+          key="mfa"
+          onClick={() => {
+            setDropdownOpen(false);
+            setMfaOpen(true);
+          }}
+        >
+          Multi-factor authentication
+        </DropdownMenuItem>,
+      ];
     }
   };
 
@@ -460,6 +472,7 @@ const TopNav: FC<{
       {changePasswordOpen && (
         <ChangePasswordModal close={() => setChangePasswordOpen(false)} />
       )}
+      {mfaOpen && <MfaModal close={() => setMfaOpen(false)} />}
       <div
         className={`navbar ${styles.topbar} mb-2 position-fixed`}
         style={{

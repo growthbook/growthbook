@@ -50,6 +50,7 @@ import {
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
+import { mfaCodeRateLimit } from "./services/mfa";
 const authController = wrapController(authControllerRaw);
 
 import * as vercelControllerRaw from "./routers/vercel-native-integration/vercel-native-integration.controller";
@@ -524,7 +525,7 @@ const useSSO = usingOpenId();
 
 // Pre-auth requests when not using SSO
 if (!useSSO) {
-  app.post("/auth/login", authController.postLogin);
+  app.post("/auth/login", mfaCodeRateLimit, authController.postLogin);
   app.post("/auth/register", authController.postRegister);
   app.post("/auth/firsttime", authController.postFirstTimeRegister);
   app.post("/auth/forgot", authController.postForgotPassword);

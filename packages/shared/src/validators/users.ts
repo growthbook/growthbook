@@ -71,6 +71,13 @@ export const userInterface = z
     passwordHash: z.string().optional(),
     superAdmin: superAdminValidator,
     minTokenDate: z.date().optional(),
+    // Encrypted TOTP secret; set during enrollment, before mfaEnabled flips on
+    mfaSecret: z.string().optional(),
+    mfaEnabled: z.boolean().optional(),
+    // Last accepted TOTP time step, so a code can't be replayed
+    mfaLastUsedStep: z.number().optional(),
+    // SHA-256 hashes of unused recovery codes
+    mfaRecoveryCodes: z.array(z.string()).optional(),
     agreedToTerms: z.boolean().optional(),
     npsSurveyStatus: npsSurveyStatusValidator.optional(),
     npsSurveyAt: z.date().optional(),

@@ -4,13 +4,14 @@ import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth, safeLogout, switchToSSO } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
-import { isCloud } from "@/services/env";
+import { isCloud, usingSSO } from "@/services/env";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
+import MfaEnrollment from "./Auth/MfaEnrollment";
 import TopNavLite from "./Layout/TopNavLite";
 
 const LoggedInPageGuard = ({
@@ -20,8 +21,46 @@ const LoggedInPageGuard = ({
   children: ReactNode;
   organizationRequired: boolean;
 }) => {
-  const { error, requiredSSOConnectionId, ready, organization } = useUser();
+  const {
+    error,
+    requiredSSOConnectionId,
+    mfaRequired,
+    mfaEnabled,
+    ready,
+    organization,
+  } = useUser();
   const { organizations } = useAuth();
+
+  if (mfaRequired) {
+    return (
+      <div>
+        <TopNavLite />
+        <main className="container">
+          <div className="mt-5 pt-5">
+            <div
+              className="appbox p-4"
+              style={{ maxWidth: 500, margin: "auto" }}
+            >
+              <h3 className="mb-3">MFA Required</h3>
+              <Callout status="info" mb="3">
+                {usingSSO()
+                  ? "Your organization requires multi-factor authentication (MFA). Log out, then sign in again using MFA with your identity provider."
+                  : mfaEnabled
+                    ? "Your organization requires multi-factor authentication (MFA). Log out, then log back in with a code from your authenticator app."
+                    : "Your organization requires multi-factor authentication (MFA). Set it up to continue."}
+              </Callout>
+              {!usingSSO() && !mfaEnabled && <MfaEnrollment />}
+              <Flex justify="end" mt="3">
+                <Button variant="ghost" onClick={safeLogout}>
+                  Log out
+                </Button>
+              </Flex>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (error) {
     return (

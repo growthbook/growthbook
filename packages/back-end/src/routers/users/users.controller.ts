@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { hasSuperAdminPermission } from "shared/permissions";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   NPS_CATEGORY_META,
@@ -33,9 +33,25 @@ import {
 } from "back-end/src/services/organizations";
 import {
   createUser,
+  disableMfa,
+  enableMfa,
   getUserByEmail,
+  getUserById,
+  setMfaRecoveryCodes,
+  startMfaEnrollment,
   updateUser,
 } from "back-end/src/models/UserModel";
+import {
+  encryptMfaSecret,
+  generateRecoveryCodes,
+  reissueLocalSession,
+  verifyUserMfaCode,
+} from "back-end/src/services/mfa";
+import {
+  base32Encode,
+  generateTotpSecret,
+  getOtpauthUrl,
+} from "back-end/src/util/totp";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findRecentAuditByUserIdAndOrganization } from "back-end/src/models/AuditModel";
@@ -151,6 +167,8 @@ export async function getUser(req: AuthRequest, res: Response) {
     // the webhook URL is a post-to-channel capability and must not reach the
     // client.
     npsSurveyEnabled: !!NPS_SLACK_WEBHOOK,
+    mfaEnabled: !!req.currentUser?.mfaEnabled,
+    mfaRecoveryCodesRemaining: req.currentUser?.mfaRecoveryCodes?.length ?? 0,
     organizations: validOrgs.map((org) => {
       return {
         id: org.id,
@@ -158,6 +176,85 @@ export async function getUser(req: AuthRequest, res: Response) {
       };
     }),
   });
+}
+
+async function getMfaUser(req: AuthRequest) {
+  if (usingOpenId()) {
+    throw new Error("Your identity provider manages MFA for this account.");
+  }
+  const user = req.userId ? await getUserById(req.userId) : null;
+  if (!user) throw new Error("Must be logged in");
+  return user;
+}
+
+export async function postMfaSetup(req: AuthRequest, res: Response) {
+  const user = await getMfaUser(req);
+  if (user.mfaEnabled) {
+    throw new Error("MFA is already turned on for your account.");
+  }
+  const secret = generateTotpSecret();
+  await startMfaEnrollment(user.id, encryptMfaSecret(secret));
+  res.status(200).json({
+    status: 200,
+    secret: base32Encode(secret),
+    otpauthUrl: getOtpauthUrl(secret, user.email),
+  });
+}
+
+export async function postMfaEnable(
+  req: AuthRequest<{ mfaCode: unknown }>,
+  res: Response,
+) {
+  const user = await getMfaUser(req);
+  if (user.mfaEnabled) {
+    throw new Error("MFA is already turned on for your account.");
+  }
+  if (!user.mfaSecret) throw new Error("Start MFA setup first.");
+  if (!(await verifyUserMfaCode(user, req.body.mfaCode))) {
+    throw new Error("Invalid authentication code");
+  }
+  const { codes, hashes } = generateRecoveryCodes();
+  await enableMfa(user.id, hashes);
+  await reissueLocalSession(req as Request, res, user, true);
+  res.status(200).json({ status: 200, recoveryCodes: codes });
+}
+
+export async function postMfaRecoveryCodes(
+  req: AuthRequest<{ mfaCode: unknown }>,
+  res: Response,
+) {
+  const user = await getMfaUser(req);
+  if (!user.mfaEnabled) {
+    throw new Error("MFA is not turned on for your account.");
+  }
+  if (!(await verifyUserMfaCode(user, req.body.mfaCode))) {
+    throw new Error("Invalid authentication code");
+  }
+  const { codes, hashes } = generateRecoveryCodes();
+  await setMfaRecoveryCodes(user.id, hashes);
+  res.status(200).json({ status: 200, recoveryCodes: codes });
+}
+
+export async function postMfaDisable(
+  req: AuthRequest<{ mfaCode: unknown }>,
+  res: Response,
+) {
+  const user = await getMfaUser(req);
+  if (!user.mfaEnabled) {
+    throw new Error("MFA is not turned on for your account.");
+  }
+  const orgs = await findOrganizationsByMemberId(user.id);
+  if (orgs.some((org) => org.requireMFA)) {
+    throw new Error(
+      "An organization you belong to requires MFA, so it can't be turned off.",
+    );
+  }
+  if (!(await verifyUserMfaCode(user, req.body.mfaCode))) {
+    throw new Error("Invalid authentication code");
+  }
+  await disableMfa(user.id);
+  await reissueLocalSession(req as Request, res, user, false);
+  res.status(200).json({ status: 200 });
 }
 
 export async function putUserName(

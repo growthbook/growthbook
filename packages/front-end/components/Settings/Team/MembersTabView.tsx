@@ -14,6 +14,7 @@ import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
 import { isCloud, isMultiOrg } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
 import DefaultRoleCard from "@/components/Settings/Team/DefaultRoleCard";
+import RequireMfaToggle from "@/components/Settings/Team/RequireMfaToggle";
 import VerifyingEmailModal from "@/components/Settings/UpgradeModal/VerifyingEmailModal";
 import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVerifyEmailModal";
 import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
@@ -120,6 +121,9 @@ export const MembersTabView: FC = () => {
         />
       )}
       <SSOSettings ssoConnection={ssoConnection || null} />
+      <Frame px="0" py="0" mb="4" overflow="hidden">
+        <RequireMfaToggle mutate={refreshOrganization} />
+      </Frame>
       {(isMultiOrg() || hasCommercialFeature("sso")) && (
         <Frame px="0" py="0" mb="4" overflow="hidden">
           {isMultiOrg() && (

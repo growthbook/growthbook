@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema({
   npsSurveyStatus: String,
   npsSurveyAt: Date,
   minTokenDate: Date,
+  mfaSecret: String,
+  mfaEnabled: Boolean,
+  mfaLastUsedStep: Number,
+  mfaRecoveryCodes: [String],
   dateCreated: Date,
 });
 
@@ -96,10 +100,16 @@ export async function getAllUsersFiltered(
     .limit(50)
     .toArray();
 
-  // return the user interface but filter out password hash
-  return docs
-    .map((u) => toInterface(u))
-    .map((u) => ({ ...u, passwordHash: "" }));
+  return docs.map((u) => redactUserSecrets(toInterface(u)));
+}
+
+export function redactUserSecrets(user: UserInterface): UserInterface {
+  return {
+    ...user,
+    passwordHash: "",
+    mfaSecret: undefined,
+    mfaRecoveryCodes: undefined,
+  };
 }
 
 export async function getTotalNumUsers(
@@ -222,6 +232,72 @@ export async function updateUser(
       $set: updates,
     },
   );
+}
+
+export async function startMfaEnrollment(id: string, encryptedSecret: string) {
+  await UserModel.updateOne(
+    { id, mfaEnabled: { $ne: true } },
+    {
+      $set: { mfaSecret: encryptedSecret, mfaEnabled: false },
+      $unset: { mfaLastUsedStep: 1, mfaRecoveryCodes: 1 },
+    },
+  );
+}
+
+export async function enableMfa(id: string, recoveryCodeHashes: string[]) {
+  await UserModel.updateOne(
+    { id },
+    { $set: { mfaEnabled: true, mfaRecoveryCodes: recoveryCodeHashes } },
+  );
+}
+
+export async function setMfaRecoveryCodes(
+  id: string,
+  recoveryCodeHashes: string[],
+) {
+  await UserModel.updateOne(
+    { id, mfaEnabled: true },
+    { $set: { mfaRecoveryCodes: recoveryCodeHashes } },
+  );
+}
+
+// Atomic, so a recovery code works exactly once
+export async function consumeMfaRecoveryCode(
+  id: string,
+  hash: string,
+): Promise<boolean> {
+  const res = await UserModel.updateOne(
+    { id, mfaEnabled: true, mfaRecoveryCodes: hash },
+    { $pull: { mfaRecoveryCodes: hash } },
+  );
+  return res.modifiedCount === 1;
+}
+
+export async function disableMfa(id: string) {
+  await UserModel.updateOne(
+    { id },
+    {
+      $unset: {
+        mfaSecret: 1,
+        mfaEnabled: 1,
+        mfaLastUsedStep: 1,
+        mfaRecoveryCodes: 1,
+      },
+    },
+  );
+}
+
+// Conditional on the old step so two concurrent logins can't both spend one code
+export async function claimMfaStep(
+  id: string,
+  previousStep: number | undefined,
+  step: number,
+): Promise<boolean> {
+  const res = await UserModel.updateOne(
+    { id, mfaLastUsedStep: previousStep ?? { $exists: false } },
+    { $set: { mfaLastUsedStep: step } },
+  );
+  return res.modifiedCount === 1;
 }
 
 export async function hasUser() {

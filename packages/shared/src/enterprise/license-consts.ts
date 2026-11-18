@@ -91,7 +91,8 @@ export type CommercialFeature =
   | "contextual-bandits"
   | "interleaving"
   | "cluster-experiments"
-  | "human-in-the-loop";
+  | "human-in-the-loop"
+  | "require-mfa";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -259,6 +260,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "precomputed-dimensions",
   "product-analytics-dashboards",
   "cluster-experiments",
+  "require-mfa",
 ];
 
 const commercialFeaturesProSso: CommercialFeature[] = [

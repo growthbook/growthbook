@@ -79,6 +79,16 @@ export function loginMethodOwnsOrg(
   );
 }
 
+// OIDC `amr`: IdPs (Auth0, Okta) put "mfa" there; local logins set it themselves
+export function amrIncludesMfa(amr: unknown): boolean {
+  return Array.isArray(amr) && amr.includes("mfa");
+}
+
+// The MFA screen still needs the user, and their enrollment endpoints
+export function isMfaExemptPath(path: string): boolean {
+  return path === "/user" || path.startsWith("/user/mfa/");
+}
+
 // Super admin needs a login that proves who the user is, not just their email address
 export function canUseSuperAdmin({
   orgScopedLogin,

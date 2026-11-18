@@ -28,6 +28,7 @@ export interface AuthConnection {
     req: Request,
     res: Response,
     data: unknown,
+    mfa?: boolean,
   ): Promise<TokensResponse>;
   // Returns the URL to redirect to in order to complete the logout
   logout(req: Request, res: Response): Promise<string>;

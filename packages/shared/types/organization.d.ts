@@ -511,6 +511,7 @@ export interface OrganizationInterface {
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;
+  requireMFA?: boolean;
   isVercelIntegration?: boolean;
   freeSeats?: number;
   discountCode?: string;

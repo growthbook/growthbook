@@ -39,9 +39,13 @@ export type AuthRequest<
     | "superAdmin"
     | "npsSurveyAt"
     | "dateCreated"
+    | "mfaEnabled"
+    | "mfaRecoveryCodes"
   >;
   email: string;
   verified?: boolean;
+  // The session's login included a second factor
+  mfa?: boolean;
   userId?: string;
   loginMethod?: SSOConnectionInterface;
   authSubject?: string;

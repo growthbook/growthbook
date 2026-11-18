@@ -42,6 +42,7 @@ import {
 import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 import { RetriableAuthError } from "back-end/src/services/auth/authChecks";
 import { reissueAttributionCookie } from "back-end/src/util/signup-attribution";
+import { verifyUserMfaCode } from "back-end/src/services/mfa";
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD && !IS_LOCALHOST ? true : await hasOrganization();
@@ -153,8 +154,14 @@ export async function setResponseCookies(
   req: Request,
   res: Response,
   user: UserInterface,
+  mfa = false,
 ) {
-  const { idToken, refreshToken } = await auth.processCallback(req, res, user);
+  const { idToken, refreshToken } = await auth.processCallback(
+    req,
+    res,
+    user,
+    mfa,
+  );
 
   if (!idToken) {
     return res.status(400).json({
@@ -173,9 +180,9 @@ export async function sendLocalSuccessResponse(
   req: Request,
   res: Response,
   user: UserInterface,
-  projectId?: string,
+  { projectId, mfa = false }: { projectId?: string; mfa?: boolean } = {},
 ) {
-  const idToken = await setResponseCookies(req, res, user);
+  const idToken = await setResponseCookies(req, res, user, mfa);
 
   res.status(200).json({
     status: 200,
@@ -200,11 +207,16 @@ export async function postLogout(req: Request, res: Response) {
 }
 
 export async function postLogin(
-  // eslint-disable-next-line
-  req: Request<any, any, { email: unknown; password: unknown }>,
+  req: Request<
+    // eslint-disable-next-line
+    any,
+    // eslint-disable-next-line
+    any,
+    { email: unknown; password: unknown; mfaCode?: unknown }
+  >,
   res: Response,
 ) {
-  const { email, password } = req.body;
+  const { email, password, mfaCode } = req.body;
 
   if (typeof email !== "string" || typeof password !== "string") {
     throw new Error("Invalid email or password");
@@ -230,7 +242,19 @@ export async function postLogin(
     });
   }
 
-  sendLocalSuccessResponse(req, res, user);
+  if (user.mfaEnabled) {
+    if (!mfaCode) {
+      return res.status(200).json({ status: 200, mfaRequired: true });
+    }
+    if (!(await verifyUserMfaCode(user, mfaCode))) {
+      return res.status(400).json({
+        status: 400,
+        message: "Invalid authentication code",
+      });
+    }
+  }
+
+  sendLocalSuccessResponse(req, res, user, { mfa: !!user.mfaEnabled });
 }
 
 export async function postRegister(
@@ -255,7 +279,10 @@ export async function postRegister(
   const existingUser = await getUserByEmail(email);
   if (existingUser) {
     // Try to login to existing account
-    const valid = await verifyPassword(existingUser, password);
+    // An MFA account must go through the login form's second step
+    const valid =
+      !existingUser.mfaEnabled &&
+      (await verifyPassword(existingUser, password));
     if (!valid) {
       return res.status(400).json({
         status: 400,
@@ -333,7 +360,7 @@ export async function postFirstTimeRegister(
     name: "My First Project",
   });
 
-  sendLocalSuccessResponse(req, res, user, project.id);
+  sendLocalSuccessResponse(req, res, user, { projectId: project.id });
 }
 
 export async function postForgotPassword(
@@ -497,5 +524,5 @@ export async function postChangePassword(
   });
 
   // Send back an updated token for the current user so they are not logged out
-  sendLocalSuccessResponse(req as Request, res, user);
+  sendLocalSuccessResponse(req as Request, res, user, { mfa: !!req.mfa });
 }
