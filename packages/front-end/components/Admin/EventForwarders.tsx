@@ -84,7 +84,7 @@ function AdminEnvironmentField({
         allowAll={change ? onlyForwarder : undefined}
         helpText={
           change
-            ? `Currently forwards ${saved.length ? saved.join(", ") : "all environments"}.`
+            ? `Currently forwards events from ${saved.length ? new Intl.ListFormat("en").format(saved) : "all environments"}.`
             : undefined
         }
         value={value}
@@ -230,6 +230,8 @@ export default function EventForwarders({
               confirmation={{
                 confirmationTitle: "Change environment?",
                 cta: "Save",
+                // Reversible by a Super Admin, so not the destructive red
+                ctaColor: "violet",
                 submit: () =>
                   run(row.id, "/environments", "PUT", {
                     environments: pickedEnvironments.current,
