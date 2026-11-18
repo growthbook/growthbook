@@ -1185,7 +1185,11 @@ export default function EventForwarder({
                 </>
               ) : null}
               <EventForwarderConfigField
-                label="Environment"
+                label={
+                  (eventForwarderConfig.environments?.length ?? 0) > 1
+                    ? "Environments"
+                    : "Environment"
+                }
                 value={
                   eventForwarderConfig.environments?.join(", ") ||
                   "All Environments"

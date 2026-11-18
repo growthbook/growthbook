@@ -217,7 +217,7 @@ export function EventForwarderEnvironmentField({
   if (locked) {
     return (
       <EventForwarderLockedField
-        label="Environment"
+        label={saved.length > 1 ? "Environments" : "Environment"}
         value={saved.join(", ")}
         helpText={`${ENVIRONMENT_HELP_TEXT} Set at creation.`}
       />
@@ -234,8 +234,9 @@ export function EventForwarderEnvironmentField({
         .map((e) => e.environment)}
       savedAll={own.length > 0 && !saved.length}
       // Moving a live forwarder to one environment drops the rest on save
+      // - Also when it has several: the select shows and keeps only one
       helpText={
-        own.length && value && !saved.includes(value)
+        own.length && value && (saved.length > 1 || !saved.includes(value))
           ? `${ENVIRONMENT_HELP_TEXT} Events from other environments stop being forwarded when you save.`
           : undefined
       }
