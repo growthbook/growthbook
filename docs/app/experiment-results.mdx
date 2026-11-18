@@ -327,11 +327,11 @@ The results show the Outdated badge and a plain **Update** button instead, which
 
 If you click **Update new metrics** and the update can't compute only the new metrics, for example because a setting changed in a way the label doesn't show, GrowthBook runs a normal update instead and says that all metrics are being updated.
 
-An update of new metrics computes only metrics that have no results yet. Results more than a day old always need a normal update.
+An update of new metrics computes only metrics that have no results yet. When the analysis dates changed, the update is always a normal one. They changed when the phase's start or end date is a day or more away from the dates the results cover. A running phase ends now, so results that end more than a day ago need a normal update, unless they stop at a data cutoff because of a data lag: those count as ending when their update ran.
 
 ### New Metrics Update Window
 
-Under **Settings** → **General** → **Experiments**, **Update only new metrics when results are newer than** sets how recent the results must be for an update to compute only new metrics. The age of the results is counted from their end date. The default is 4 hours. Set 0 to always update all metrics. Because results more than a day old always need a normal update, a value above 24 hours has no further effect.
+Under **Settings** → **General** → **Experiments**, **Update only new metrics when results are newer than** sets how recent the results must be for an update to compute only new metrics. The age of the results is counted from their end date. The default is 4 hours. Set 0 to always update all metrics. Results that end more than a day ago need a normal update anyway, unless they stop at a data cutoff because of a data lag, so a value above 24 hours matters only for those.
 
 The setting applies to the Update button and to [API updates](/api/update-experiment-results) that don't set `updateScope`.
 

@@ -114,11 +114,11 @@ curl https://api.growthbook.io/api/v1/experiments/exp_abc123/results \
 
 `updateScope` on `POST /api/v1/experiments/{id}/snapshot` sets which metrics the update computes:
 
-| `updateScope`    | What it does                                                                                                                                                                                                                                                                               |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `auto` (default) | Computes only the new metrics when the conditions below hold. Otherwise runs a normal update. Never answers `metrics_already_up_to_date` or `metric_refresh_unavailable`.                                                                                                                  |
-| `new_metrics`    | Computes only the metrics added since the latest results, whatever the window. Answers a 409 when it can't, for example when those results are more than a day old, and never falls back to a normal update. Can't be combined with `dimension` or with `"triggeredBy": "schedule"` (400). |
-| `all_metrics`    | Always runs a normal update, which computes every metric up to the time of the request.                                                                                                                                                                                                    |
+| `updateScope`    | What it does                                                                                                                                                                                                                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto` (default) | Computes only the new metrics when the conditions below hold. Otherwise runs a normal update. Never answers `metrics_already_up_to_date` or `metric_refresh_unavailable`.                                                                                                                               |
+| `new_metrics`    | Computes only the metrics added since the latest results, whatever the window. Answers a 409 when it can't, for example when the [analysis dates changed](#unavailable-reasons), and never falls back to a normal update. Can't be combined with `dimension` or with `"triggeredBy": "schedule"` (400). |
+| `all_metrics`    | Always runs a normal update, which computes every metric up to the time of the request.                                                                                                                                                                                                                 |
 
 The snapshot's `updateScope` in the response says which update ran.
 
@@ -163,18 +163,18 @@ A 409 response has a `message`, a `code` and `details`:
 
 `metric_refresh_unavailable` names one of these in `details.reason`. Every reason has the same way out: send `"updateScope": "all_metrics"`.
 
-| `reason`                      | Why                                                                                                                                        |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `no_base_snapshot`            | The phase has no results yet.                                                                                                              |
-| `not_latest_phase`            | The request names a phase that isn't the latest.                                                                                           |
-| `phase_ended`                 | The phase has ended.                                                                                                                       |
-| `unsupported_experiment_type` | The experiment is a Bandit or a holdout.                                                                                                   |
-| `unsupported_data_source`     | The Data Source analyzes every metric in one query.                                                                                        |
-| `incremental_pipeline`        | The experiment's Incremental Pipeline tables are missing, or don't match its latest results, for example because a later update failed.    |
-| `metric_not_supported`        | The latest results ran on a different pipeline than the experiment's metrics need now.                                                     |
-| `settings_changed`            | An analysis setting changed since the latest results, or their queries can't be reused.                                                    |
-| `analysis_dates_changed`      | The analysis dates moved by a day or more since the latest results. This includes results that are more than a day old.                    |
-| `base_incomplete`             | The latest results are incomplete, come from too many updates of new metrics in a row, or were built from an update that no longer exists. |
+| `reason`                      | Why                                                                                                                                                                                                                                                                         |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no_base_snapshot`            | The phase has no results yet.                                                                                                                                                                                                                                               |
+| `not_latest_phase`            | The request names a phase that isn't the latest.                                                                                                                                                                                                                            |
+| `phase_ended`                 | The phase has ended.                                                                                                                                                                                                                                                        |
+| `unsupported_experiment_type` | The experiment is a Bandit or a holdout.                                                                                                                                                                                                                                    |
+| `unsupported_data_source`     | The Data Source analyzes every metric in one query.                                                                                                                                                                                                                         |
+| `incremental_pipeline`        | The experiment's Incremental Pipeline tables are missing, or don't match its latest results, for example because a later update failed.                                                                                                                                     |
+| `metric_not_supported`        | The latest results ran on a different pipeline than the experiment's metrics need now.                                                                                                                                                                                      |
+| `settings_changed`            | An analysis setting changed since the latest results, or their queries can't be reused.                                                                                                                                                                                     |
+| `analysis_dates_changed`      | The phase's start or end date is a day or more away from the dates the latest results cover. A running phase ends now, so results that end more than a day ago count, unless they stop at a data cutoff because of a data lag: those count as ending when their update ran. |
+| `base_incomplete`             | The latest results are incomplete, come from too many updates of new metrics in a row, or were built from an update that no longer exists.                                                                                                                                  |
 
 ## Find Metrics Without Results
 
@@ -194,4 +194,5 @@ With [Incremental refresh](/app/data-pipeline), an update of new metrics skips t
 - It computes only metrics that have no results yet. It never recomputes a metric that already has results.
 - It needs a running latest phase. Stopped experiments and earlier phases need a normal update.
 - Breakdowns by dimension always run a normal update.
-- Results more than a day old, or any changed analysis setting, need a normal update.
+- Results whose analysis dates changed, or any changed analysis setting, need a normal update. See `analysis_dates_changed` in [Unavailable Reasons](#unavailable-reasons).
+- It doesn't stop a second update. On a Data Source without the Incremental Pipeline, a request without `updateScope`, or with `"all_metrics"`, sent while another update is running starts a second update, as it did before. Only the Incremental Pipeline answers it with a 409 `snapshot_in_progress`.

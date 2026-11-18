@@ -18587,8 +18587,12 @@ paths:
                     409 "metrics_already_up_to_date" when no metric is missing,
                     and 409 "metric_refresh_unavailable" when the results can't
                     be reused, for example because a setting changed or the
-                    results end a day or more ago. Never falls back to a normal
-                    update. Can't be combined with "dimension" or with
+                    analysis dates changed. The analysis dates changed when the
+                    phase's start or end date is a day or more away from the
+                    dates the results cover; a running phase ends now, but
+                    results that stop at a data cutoff because of a data lag
+                    count as ending when their update ran. Never falls back to a
+                    normal update. Can't be combined with "dimension" or with
                     "triggeredBy": "schedule".
 
                     - "all_metrics": always runs a normal update, which computes
