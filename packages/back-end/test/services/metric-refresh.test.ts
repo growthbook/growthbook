@@ -1083,33 +1083,88 @@ describe("getSettingsChangedSinceParent", () => {
     ).toEqual([]);
   });
 
-  it("names every other difference, including fields only one side has", () => {
-    const parent = makeParent();
-    const planned = makePlan({
-      settings: { segment: "seg_new", queryFilter: "x > 1" },
-      analysisSettings: { regressionAdjusted: true },
-    }).snapshot;
-    Object.assign(planned.settings, { newSetting: true });
+  const incrementalParent = (overrides: Partial<ExperimentSnapshotInterface>) =>
+    makeParent({ runnerKind: "incremental-update", ...overrides });
+
+  it.each([
+    [
+      "the standard pipeline, which leaves SQL settings to the SQL check",
+      "results",
+      [],
+    ],
+    [
+      "the Incremental Pipeline",
+      "incremental-update",
+      ["queryFilter", "segment"],
+    ],
+  ] as const)(
+    "on %s, names every other difference, including fields only one side has",
+    (_, runnerKind, sqlSettings) => {
+      const parent = makeParent({ runnerKind });
+      const planned = makePlan({
+        settings: { segment: "seg_new", queryFilter: "x > 1" },
+        analysisSettings: { regressionAdjusted: true },
+      }).snapshot;
+      Object.assign(planned.settings, { newSetting: true });
+
+      expect(
+        getSettingsChangedSinceParent({
+          parent,
+          planned,
+          exposureQueries: [],
+        }).sort(),
+      ).toEqual(
+        ["analysis.regressionAdjusted", "newSetting", ...sqlSettings].sort(),
+      );
+    },
+  );
+
+  it("on the standard pipeline, ignores a custom field edit", () => {
+    const planned = makePlan().snapshot;
+    planned.settings.customFields = { team: "growth" };
 
     expect(
       getSettingsChangedSinceParent({
-        parent,
+        parent: makeParent(),
+        planned,
+        exposureQueries: [],
+      }),
+    ).toEqual([]);
+  });
+
+  it("on the standard pipeline, still names what the stats engine reads", () => {
+    const planned = makePlan({
+      settings: {
+        coverage: 0.5,
+        datasourceId: "ds_other",
+        defaultMetricPriorSettings: {
+          override: true,
+          proper: true,
+          mean: 0,
+          stddev: 1,
+        },
+      },
+      analysisSettings: { sequentialTesting: true, pValueThreshold: 0.01 },
+    }).snapshot;
+
+    expect(
+      getSettingsChangedSinceParent({
+        parent: makeParent(),
         planned,
         exposureQueries: [],
       }).sort(),
-    ).toEqual(
-      [
-        "analysis.regressionAdjusted",
-        "newSetting",
-        "queryFilter",
-        "segment",
-      ].sort(),
-    );
+    ).toEqual([
+      "analysis.pValueThreshold",
+      "analysis.sequentialTesting",
+      "coverage",
+      "datasourceId",
+      "defaultMetricPriorSettings",
+    ]);
   });
 
   describe("regression adjustment", () => {
     const parentWithAdjustment = (adjusted: boolean) =>
-      makeParent({
+      incrementalParent({
         settings: makeSettings(["met_a", "met_b"], {
           regressionAdjustmentEnabled: false,
           metricSettings: ["met_a", "met_b"].map((id) => ({
@@ -1160,6 +1215,19 @@ describe("getSettingsChangedSinceParent", () => {
           exposureQueries: [],
         }).sort(),
       ).toEqual(flags);
+    });
+
+    it("on the standard pipeline, names only the analysis flag and leaves the snapshot flag to the SQL check", () => {
+      expect(
+        getSettingsChangedSinceParent({
+          parent: {
+            ...parentWithAdjustment(true),
+            runnerKind: "results",
+          },
+          planned: planned(true),
+          exposureQueries: [],
+        }),
+      ).toEqual(["analysis.regressionAdjusted"]);
     });
 
     it("names its flags when turning it on would adjust a copied metric", () => {
@@ -1222,7 +1290,7 @@ describe("getSettingsChangedSinceParent", () => {
         userIdTypes: ["user_id", "anonymous_id"],
       },
     ];
-    const parent = makeParent();
+    const parent = incrementalParent({});
     const plannedWith = (identifierType: string) => {
       const planned = makePlan().snapshot;
       planned.settings.exposureQueryIdentifierType = identifierType;

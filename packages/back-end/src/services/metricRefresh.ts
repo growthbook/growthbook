@@ -505,6 +505,24 @@ const REFRESH_SPECIFIC_SETTINGS = [
   "endDateIsCutoff",
   "manual",
 ] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
+// Settings the stats engine never reads: they only shape result query SQL,
+// which a results parent's refresh regenerates and compares instead.
+const SETTINGS_ONLY_IN_RESULT_QUERY_SQL = [
+  "activationMetric",
+  "attributionModel",
+  "clusterSubUnitIdentifier",
+  "customFields",
+  "dimensions",
+  "exposureQueryId",
+  "exposureQueryIdentifierType",
+  "lookbackOverride",
+  "phase",
+  "precomputedUnitDimensionIds",
+  "queryFilter",
+  "regressionAdjustmentEnabled",
+  "segment",
+  "skipPartialData",
+] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
 const METRIC_COUNT_ANALYSIS_SETTINGS = [
   "numGoalMetrics",
   "numGuardrailMetrics",
@@ -530,12 +548,21 @@ function getChangedKeys(
   );
 }
 
+/**
+ * The parent's settings a refresh would not honor if it copied the parent's
+ * results. On the standard pipeline this leaves the analysis settings and the
+ * few snapshot settings the stats engine reads; the carried SQL check covers
+ * the rest.
+ */
 export function getSettingsChangedSinceParent({
   parent,
   planned,
   exposureQueries,
 }: {
-  parent: Pick<ExperimentSnapshotInterface, "settings" | "analyses">;
+  parent: Pick<
+    ExperimentSnapshotInterface,
+    "settings" | "analyses" | "runnerKind"
+  >;
   planned: Pick<ExperimentSnapshotInterface, "settings" | "analyses">;
   exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[];
 }): string[] {
@@ -567,7 +594,11 @@ export function getSettingsChangedSinceParent({
       comparable(planned.settings),
       [
         ...REFRESH_SPECIFIC_SETTINGS,
-        ...(noCopiedMetricIsAdjusted ? ["regressionAdjustmentEnabled"] : []),
+        ...((parent.runnerKind ?? "results") === "results"
+          ? SETTINGS_ONLY_IN_RESULT_QUERY_SQL
+          : noCopiedMetricIsAdjusted
+            ? ["regressionAdjustmentEnabled"]
+            : []),
       ],
     ),
     ...getChangedKeys(
