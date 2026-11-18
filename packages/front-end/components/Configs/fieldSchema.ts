@@ -80,8 +80,13 @@ export const FIELD_TYPE_OPTIONS = [
 // key | value | type | source | usage | actions. Right-hand columns are
 // fixed-width so they line up across rows (each row is its own grid); value
 // (1fr) absorbs slack.
-export const FIELD_GRID_TEMPLATE =
-  "minmax(110px, 200px) minmax(120px, 1fr) 110px 110px 48px 150px";
+// The pinned actions cell is opaque, so what scrolls under it stays hidden; a
+// tinted row's tint is laid over it.
+export function pinnedCellBackground(tint: string | null): string | undefined {
+  return tint
+    ? `linear-gradient(${tint}, ${tint}) var(--color-panel-solid)`
+    : undefined;
+}
 
 const PRESET_LABELS: Record<PresetKey, string> = {
   json: "JSON",

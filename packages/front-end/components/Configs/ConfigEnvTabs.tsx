@@ -154,14 +154,18 @@ export default function ConfigEnvTabs({
 
   return (
     <>
-      <Box mb="5">
+      {/* The button sits beside the tab list, not in it, so tabs that don't
+          fit fold into the list's More menu. Made for a card header's tabs
+          slot, whose rule is the tabs' underline. */}
+      <Flex align="center" gap="4">
         <Tabs
           value={currentKey}
           onValueChange={(v) => {
             if (v !== currentKey) router.push(`/configs/${v}`);
           }}
+          style={{ flex: 1, minWidth: 0 }}
         >
-          <TabsList>
+          <TabsList style={{ width: "100%", boxShadow: "none" }}>
             {tabs.map((t) => (
               <TabsTrigger key={t.key} value={t.key}>
                 {archivedByKey?.[t.key] ? (
@@ -175,27 +179,23 @@ export default function ConfigEnvTabs({
                 )}
               </TabsTrigger>
             ))}
-            {showCreate && (
-              <Flex
-                align="center"
-                ml="auto"
-                pl="4"
-                onKeyDown={(e) => e.stopPropagation()}
-              >
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setCreateEnv("");
-                    setCreateOpen(true);
-                  }}
-                >
-                  <PiPlus /> Environment override
-                </Button>
-              </Flex>
-            )}
           </TabsList>
         </Tabs>
-      </Box>
+        {showCreate && (
+          <Box flexShrink="0">
+            <Button
+              variant="ghost"
+              icon={<PiPlus />}
+              onClick={() => {
+                setCreateEnv("");
+                setCreateOpen(true);
+              }}
+            >
+              Environment override
+            </Button>
+          </Box>
+        )}
+      </Flex>
 
       {createOpen && (
         <ModalStandard

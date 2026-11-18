@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiXBold } from "react-icons/pi";
+import { PiX } from "react-icons/pi";
 import {
   evaluateInvariants,
   describeInvariantRule,
@@ -498,7 +498,7 @@ export default function ConfigInvariantsEditor({
                     size="1"
                     onClick={() => setG(g.filter((_, j) => j !== i))}
                   >
-                    <PiXBold size={14} />
+                    <PiX size={14} />
                   </IconButton>
                 ) : (
                   // Reserve the column so a single-condition row aligns with

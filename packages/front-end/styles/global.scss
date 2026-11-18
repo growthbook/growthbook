@@ -824,18 +824,6 @@ pre {
 // (not container) query on purpose — a container-query ancestor would establish a
 // containing block that re-clips the `position: fixed` react-select menus.
 // Keep the breakpoint in the two rules in sync.
-.config-table-scroll {
-  @media (max-width: 1400px) {
-    overflow-x: auto;
-  }
-}
-.config-table-sticky-header {
-  position: sticky;
-  @media (max-width: 1400px) {
-    position: static;
-  }
-}
-
 .experiment-results,
 .bandit-summary-results {
   tbody {

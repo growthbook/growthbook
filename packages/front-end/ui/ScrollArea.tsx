@@ -16,6 +16,9 @@ import styles from "./ScrollArea.module.scss";
 type Edge = "top" | "bottom" | "left" | "right";
 
 const WHEEL_DEADSPACE_PX = 100;
+// A trackpad's swipes carry some sideways movement, which a mouse wheel's never
+// do. For this long after any, the wheel is taken to be one.
+const TRACKPAD_MEMORY_MS = 600;
 
 /**
  * A scroll box whose scrollbars overlay the content, shown while hovered or
@@ -43,10 +46,18 @@ const ScrollArea = forwardRef<
     /** Shows the scrollbars whenever the content overflows, not just on hover. */
     alwaysShow?: boolean;
     /**
-     * A vertical wheel over a sideways-only scroll moves it sideways; a little
-     * past the end it reaches, the page takes over.
+     * The sideways scrollbar sits under the content and sticks to the window's
+     * bottom while the area runs past it, so a tall area can be scrolled
+     * sideways with a mouse from anywhere along it. Shown whenever it's needed.
      */
-    wheelScrollsSideways?: boolean;
+    pinScrollbar?: boolean;
+    /**
+     * Where a vertical wheel scrolls sideways. "scrollbar": over the sideways
+     * scrollbar (and a pinned one's gutter), until it reaches an end. "area":
+     * there and over the content too, a little past the end before the page
+     * takes over; there a trackpad, which scrolls sideways itself, is left alone.
+     */
+    wheelScrollsSideways?: "area" | "scrollbar";
     /**
      * Marks each edge with more content past it: the content fades out there,
      * or a shadow falls over it. `deep-shadow` is for a header the content
@@ -71,7 +82,8 @@ const ScrollArea = forwardRef<
     direction = "vertical",
     size = "sm",
     alwaysShow = false,
-    wheelScrollsSideways = false,
+    pinScrollbar = false,
+    wheelScrollsSideways,
     edgeCue,
     skipEdges = [],
     onScroll,
@@ -118,14 +130,19 @@ const ScrollArea = forwardRef<
 
   useEffect(() => {
     const el = viewport.current;
-    if (!wheelScrollsSideways || !el) return;
+    if (wheelScrollsSideways !== "area" || !el) return;
     // Wheel left to absorb at the end a wheel just reached, so finishing the
     // sideways scroll doesn't carry straight on into the page.
     let deadspace = 0;
+    let sidewaysAt = -Infinity;
     const onWheel = (e: WheelEvent) => {
+      if (e.deltaX !== 0) sidewaysAt = e.timeStamp;
       // A sideways swipe or shift-wheel already scrolls sideways; a pinch or
-      // modified wheel zooms.
+      // modified wheel zooms; something inside that scrolls itself (a code
+      // editor) has already taken it; and a trackpad can scroll sideways itself.
       if (
+        e.defaultPrevented ||
+        e.timeStamp - sidewaysAt < TRACKPAD_MEMORY_MS ||
         e.shiftKey ||
         e.ctrlKey ||
         e.metaKey ||
@@ -174,13 +191,49 @@ const ScrollArea = forwardRef<
     return () => el.removeEventListener("wheel", onWheel);
   }, [wheelScrollsSideways]);
 
+  // Over the scrollbar, or a pinned one's gutter, which sit outside what
+  // scrolls, a vertical wheel moves the bar: sideways, until it reaches an end,
+  // where the page takes over. Sideways wheels there are the scrollbar's own.
+  useEffect(() => {
+    const el = viewport.current;
+    const root = el?.parentElement;
+    if (!wheelScrollsSideways || !el || !root) return;
+    const onWheel = (e: WheelEvent) => {
+      const target = e.target instanceof Node ? e.target : null;
+      if (
+        !target ||
+        el.contains(target) ||
+        e.defaultPrevented ||
+        e.ctrlKey ||
+        e.metaKey ||
+        Math.abs(e.deltaY) <= Math.abs(e.deltaX)
+      ) {
+        return;
+      }
+      const max = el.scrollWidth - el.clientWidth;
+      const delta =
+        e.deltaY *
+        (e.deltaMode === WheelEvent.DOM_DELTA_LINE
+          ? 16
+          : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
+            ? el.clientWidth
+            : 1);
+      const atEnd = delta < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
+      if (max <= 0 || atEnd) return;
+      e.preventDefault();
+      el.scrollLeft += delta;
+    };
+    root.addEventListener("wheel", onWheel, { passive: false });
+    return () => root.removeEventListener("wheel", onWheel);
+  }, [wheelScrollsSideways]);
+
   const shadowed = edgeCue === "shadow" || edgeCue === "deep-shadow";
   const marked = more.filter((edge) => !skipEdges.includes(edge));
   const underPinned = more.filter((edge) => skipEdges.includes(edge));
   const scrollArea = (
     <RadixScrollArea
       ref={viewport}
-      type={alwaysShow ? "auto" : "hover"}
+      type={alwaysShow || pinScrollbar ? "auto" : "hover"}
       size={radixSize(size)}
       scrollbars={direction}
       onScroll={onScroll}
@@ -191,9 +244,16 @@ const ScrollArea = forwardRef<
         (fill || !sideways) && styles.fullWidth,
         fill && fillMinHeight !== undefined && styles.bounded,
         edgeCue === "fade" && styles.fades,
+        pinScrollbar && styles.pinsScrollbar,
         shadowed ? styles.fillsWrapper : className,
       )}
-      style={shadowed ? undefined : style}
+      style={{
+        ...(shadowed ? undefined : style),
+        // How thick the pinned scrollbar is, for its gutter.
+        ...(pinScrollbar && {
+          "--pinned-scrollbar-size": `var(--space-${radixSize(size)})`,
+        }),
+      }}
       // Lands on the viewport, the element that scrolls.
       data-more={marked.join(" ") || undefined}
       data-under-pinned={underPinned.join(" ") || undefined}
@@ -202,7 +262,9 @@ const ScrollArea = forwardRef<
         style={{
           width: "100%",
           ...(gutter && vertical && { paddingRight: "var(--space-3)" }),
+          // A pinned scrollbar takes its own room.
           ...(sidewaysGutter &&
+            !pinScrollbar &&
             overflowsSideways && {
               paddingBottom: `calc(var(--space-${radixSize(size)}) + var(--space-1))`,
             }),

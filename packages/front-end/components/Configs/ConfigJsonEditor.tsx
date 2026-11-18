@@ -555,16 +555,28 @@ export default function ConfigJsonEditor({
     setNewProjLang("typescript");
   };
 
-  const columnHeader = (text: string) => (
-    <Text weight="semibold" size="md" as="div" mb="1">
-      {text}
-    </Text>
+  // As tall as the value editor's label row, and as far from its editor, so
+  // both columns start at the same height.
+  const columnHeader = (text: string, actions: ReactNode = null) => (
+    <Flex
+      justify="between"
+      align="center"
+      gap="3"
+      mb="2"
+      style={{ minHeight: 40 }}
+    >
+      <Text weight="semibold" size="md" as="div">
+        {text}
+      </Text>
+      {actions}
+    </Flex>
   );
 
   const readonlyJsonSchema = (jsonString: string): ReactNode => (
     <ValueDisplay
       value={jsonString}
       type="json"
+      multiline
       showFullscreenButton
       fullStyle={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}
     />
@@ -721,13 +733,12 @@ export default function ConfigJsonEditor({
     },
   ): ReactNode => (
     <>
-      <Flex justify="between" align="center" mb="1" gap="3">
-        <Text weight="semibold" size="md" as="div">
-          {heading}
-        </Text>
-        {schemaFields.length > 0 &&
-          schemaFormatSelect(sel, setSel, opts?.projections)}
-      </Flex>
+      {columnHeader(
+        heading,
+        schemaFields.length > 0
+          ? schemaFormatSelect(sel, setSel, opts?.projections)
+          : null,
+      )}
       {schemaFields.length === 0 || jsonString === null
         ? (opts?.emptyState ?? (
             <Text size="md" color="text-low" as="div">
@@ -747,15 +758,17 @@ export default function ConfigJsonEditor({
     <ValueDisplay
       value={jsonString}
       type="json"
+      multiline
       showFullscreenButton
       fullStyle={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}
     />
   );
 
+  // Side by side while each gets 320px, stacked below that.
   const twoColumns = (left: ReactNode, right: ReactNode): ReactNode => (
-    <Flex gap="5" align="start">
-      <Box style={{ flex: "1 1 0", minWidth: 0 }}>{left}</Box>
-      <Box style={{ flex: "1 1 0", minWidth: 0 }}>{right}</Box>
+    <Flex gap="5" align="start" wrap="wrap">
+      <Box style={{ flex: "1 1 320px", minWidth: 0 }}>{left}</Box>
+      <Box style={{ flex: "1 1 320px", minWidth: 0 }}>{right}</Box>
     </Flex>
   );
 
@@ -774,57 +787,46 @@ export default function ConfigJsonEditor({
     </Flex>
   );
 
-  const schemaHeader = (
-    <Flex
-      justify="between"
-      align="center"
-      mb="1"
-      gap="3"
-      // Fixed label-row height so it lines up with the value editor's.
-      style={{ minHeight: 40 }}
-    >
-      <Text weight="semibold" size="md" as="div">
-        Schema
-      </Text>
-      <Flex align="center" gap="1">
-        {schemaFormatSelect(
-          schemaPreviewSel ?? schemaLang,
-          onEditorFormatSelect,
-          renderProjections,
-          unpublishedFormats,
-        )}
-        <DropdownMenu
-          variant="soft"
-          menuPlacement="end"
-          triggerStyle={{ marginLeft: 0, marginRight: 0 }}
-          trigger={
-            <IconButton
-              variant="ghost"
-              color="gray"
-              radius="full"
-              size="2"
-              highContrast
-            >
-              <BsThreeDotsVertical size={16} />
-            </IconButton>
-          }
-        >
-          <DropdownMenuItem onClick={() => setShowNewProjection(true)}>
-            New projection
+  const schemaHeader = columnHeader(
+    "Schema",
+    <Flex align="center" gap="1">
+      {schemaFormatSelect(
+        schemaPreviewSel ?? schemaLang,
+        onEditorFormatSelect,
+        renderProjections,
+        unpublishedFormats,
+      )}
+      <DropdownMenu
+        variant="soft"
+        menuPlacement="end"
+        triggerStyle={{ marginLeft: 0, marginRight: 0 }}
+        trigger={
+          <IconButton
+            variant="ghost"
+            color="gray"
+            radius="full"
+            size="2"
+            highContrast
+          >
+            <BsThreeDotsVertical size={16} />
+          </IconButton>
+        }
+      >
+        <DropdownMenuItem onClick={() => setShowNewProjection(true)}>
+          New projection
+        </DropdownMenuItem>
+        {editingProjection && (
+          <DropdownMenuItem
+            color="red"
+            onClick={() => {
+              if (!saving) handleRemoveProjection();
+            }}
+          >
+            Remove projection
           </DropdownMenuItem>
-          {editingProjection && (
-            <DropdownMenuItem
-              color="red"
-              onClick={() => {
-                if (!saving) handleRemoveProjection();
-              }}
-            >
-              Remove projection
-            </DropdownMenuItem>
-          )}
-        </DropdownMenu>
-      </Flex>
-    </Flex>
+        )}
+      </DropdownMenu>
+    </Flex>,
   );
 
   const projectionEditor = (

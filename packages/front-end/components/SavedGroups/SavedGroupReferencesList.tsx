@@ -22,14 +22,14 @@ interface SavedGroupReferencesListProps {
   savedGroups?: SavedGroupRef[];
 }
 
-const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
+export function savedGroupReferenceSections({
   features = [],
   experiments = [],
   contextualBandits = [],
   interleavings = [],
   savedGroups = [],
-}) => {
-  const sections: ReferenceSection[] = [
+}: SavedGroupReferencesListProps): ReferenceSection[] {
+  return [
     {
       title: "Features",
       resourceType: "feature",
@@ -85,8 +85,10 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
       })),
     },
   ];
+}
 
-  return <ReferencesList sections={sections} />;
-};
+const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = (props) => (
+  <ReferencesList sections={savedGroupReferenceSections(props)} />
+);
 
 export default SavedGroupReferencesList;

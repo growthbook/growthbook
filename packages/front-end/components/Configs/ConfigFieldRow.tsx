@@ -1,18 +1,17 @@
-import React from "react";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import React, { ReactNode, useEffect, useRef } from "react";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
-  PiPencilSimpleFill,
+  PiPencilSimple,
   PiInfo,
   PiRadioButton,
   PiArrowBendLeftUp,
-  PiPencil,
-  PiPlusBold,
+  PiPlus,
   PiMagnifyingGlass,
   PiWarningOctagonFill,
 } from "react-icons/pi";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -22,6 +21,7 @@ import Checkbox from "@/ui/Checkbox";
 import { Popover } from "@/ui/Popover";
 import ScrollArea from "@/ui/ScrollArea";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import { TableCell, TableRow, revealTableCell } from "@/ui/Table";
 import SelectField from "@/components/Forms/SelectField";
 import ConfigKeyUsageBadge from "@/components/Configs/ConfigKeyUsageBadge";
 import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
@@ -31,8 +31,8 @@ import ValueDisplay from "@/components/Features/ValueDisplay";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
-  FIELD_GRID_TEMPLATE,
   ResolvedField,
+  pinnedCellBackground,
   fieldTypeLabel,
   fieldValueType,
   fieldIsNullable,
@@ -41,6 +41,43 @@ import {
   valueToDisplayString,
 } from "@/components/Configs/fieldSchema";
 import styles from "./ConfigFieldRow.module.scss";
+
+// A row's ⋮ menu, in a slot every row keeps even without one, so the buttons
+// before it line up down the column.
+export function FieldRowMenu({ children }: { children: ReactNode }) {
+  return (
+    <Box
+      style={{
+        width: 28,
+        display: "flex",
+        justifyContent: "center",
+        flexShrink: 0,
+        marginLeft: -6,
+        marginRight: -12,
+      }}
+    >
+      {children ? (
+        <DropdownMenu
+          variant="soft"
+          trigger={
+            <IconButton
+              variant="ghost"
+              color="gray"
+              radius="full"
+              size="2"
+              highContrast
+            >
+              <BsThreeDotsVertical size={16} />
+            </IconButton>
+          }
+          menuPlacement="end"
+        >
+          {children}
+        </DropdownMenu>
+      ) : null}
+    </Box>
+  );
+}
 
 export default function ConfigFieldRow({
   field: f,
@@ -115,32 +152,39 @@ export default function ConfigFieldRow({
   // shape/validation; offer a click-to-inspect popover with the full JSON Schema.
   const schemaPreview = fieldSchemaPreview(f.field);
 
+  // Opening an editor on a narrow table scrolls its value out from under the
+  // pinned Save/Cancel column, and closing it scrolls back.
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    const valueCell = rowRef.current?.children[1];
+    if (!isEditing || !(valueCell instanceof HTMLElement)) return;
+    return revealTableCell(valueCell);
+  }, [isEditing]);
+
+  const tint = isEditing
+    ? "var(--violet-a2)"
+    : hasValidationError
+      ? "var(--red-a2)"
+      : null;
+  // Headroom over a JSON editor, whose "Insert constant" button floats above it.
+  const cellStyle = hasJsonEditor
+    ? { paddingTop: "var(--space-6)" }
+    : undefined;
+
   return (
-    <Grid
-      columns={FIELD_GRID_TEMPLATE}
-      gapX="5"
+    <TableRow
+      ref={rowRef}
       align="start"
-      pt={hasJsonEditor ? "6" : "2"}
-      pb="2"
-      px="3"
-      style={{
-        background: isEditing
-          ? "var(--violet-a2)"
-          : hasValidationError
-            ? "var(--red-a2)"
-            : undefined,
-        // Always reserve the 3px left border so toggling the edit/validation
-        // states never shifts row content on the x-axis.
-        borderLeft:
-          hasValidationError && !isEditing
-            ? "3px solid var(--red-9)"
-            : "3px solid transparent",
-        // Editing reads as a rounded (padded) box; the row divider is kept.
-        borderRadius: isEditing ? 8 : undefined,
-        borderBottom: "1px solid var(--slate-a3)",
-      }}
+      style={tint ? { background: tint } : undefined}
     >
-      <Box style={{ minWidth: 0 }}>
+      <TableCell
+        style={{
+          ...cellStyle,
+          // A failing row's marker, drawn inside so nothing shifts.
+          ...(hasValidationError &&
+            !isEditing && { boxShadow: "inset 3px 0 0 var(--red-9)" }),
+        }}
+      >
         <Flex align="center" gap="1" style={{ minHeight: 32 }}>
           <Box style={{ minWidth: 0, overflowWrap: "anywhere" }}>
             <code
@@ -152,34 +196,36 @@ export default function ConfigFieldRow({
             </code>
           </Box>
           {hasValidationError && (
-            <Tooltip
-              body={validationTooltip ?? "Fails a validation rule"}
-              style={{
-                display: "inline-flex",
-                flexShrink: 0,
-                color: "var(--red-9)",
-              }}
-            >
-              <PiWarningOctagonFill />
+            <Tooltip content={validationTooltip ?? "Fails a validation rule"}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  flexShrink: 0,
+                  color: "var(--red-9)",
+                }}
+              >
+                <PiWarningOctagonFill />
+              </span>
             </Tooltip>
           )}
           {nf?.description && (
-            <Tooltip
-              body={nf.description}
-              style={{
-                display: "inline-flex",
-                flexShrink: 0,
-                color: "var(--slate-9)",
-              }}
-            >
-              <PiInfo />
+            <Tooltip content={nf.description}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  flexShrink: 0,
+                  color: "var(--slate-9)",
+                }}
+              >
+                <PiInfo />
+              </span>
             </Tooltip>
           )}
         </Flex>
-      </Box>
-      <Box
+      </TableCell>
+      <TableCell
         className={styles.valueCell}
-        style={{ minWidth: 0, overflowWrap: "anywhere" }}
+        style={{ ...cellStyle, overflowWrap: "anywhere" }}
       >
         <Flex align="center" style={{ minHeight: 32 }}>
           <Box style={{ width: "100%", minWidth: 0 }}>
@@ -198,6 +244,7 @@ export default function ConfigFieldRow({
                     <>
                       {vt === "boolean" ? (
                         <SelectField
+                          size="md"
                           value={editText}
                           onChange={setEditText}
                           options={[
@@ -210,6 +257,7 @@ export default function ConfigFieldRow({
                         />
                       ) : enumValues.length > 0 ? (
                         <SelectField
+                          size="md"
                           value={editText}
                           onChange={setEditText}
                           options={enumValues.map((v) => ({
@@ -222,6 +270,7 @@ export default function ConfigFieldRow({
                         />
                       ) : (
                         <FeatureValueField
+                          size="md"
                           id={`config-value-${f.key}`}
                           value={disabled ? "" : editText}
                           setValue={setEditText}
@@ -232,18 +281,19 @@ export default function ConfigFieldRow({
                         />
                       )}
                       {vt === "json" && inheritsValue && !disabled && (
-                        <Tooltip
-                          body="Nested JSON objects deep-merge onto the inherited value — set only the keys you want to change."
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 3,
-                            marginTop: 4,
-                            color: "var(--slate-10)",
-                            fontSize: 11,
-                          }}
-                        >
-                          <PiInfo /> Deep merge
+                        <Tooltip content="Nested JSON objects deep-merge onto the inherited value — set only the keys you want to change.">
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                              marginTop: 4,
+                              color: "var(--slate-10)",
+                              fontSize: 11,
+                            }}
+                          >
+                            <PiInfo /> Deep merge
+                          </span>
                         </Tooltip>
                       )}
                       {((nullable && vt !== "json") || optional) && (
@@ -351,8 +401,8 @@ export default function ConfigFieldRow({
             )}
           </Box>
         </Flex>
-      </Box>
-      <Box style={{ minWidth: 0 }}>
+      </TableCell>
+      <TableCell style={cellStyle}>
         <Flex align="center" gap="1" style={{ minHeight: 32, minWidth: 0 }}>
           <code
             style={{
@@ -421,8 +471,8 @@ export default function ConfigFieldRow({
             />
           )}
         </Flex>
-      </Box>
-      <Box style={{ minWidth: 0 }}>
+      </TableCell>
+      <TableCell style={cellStyle}>
         <Flex align="center" style={{ minHeight: 32 }}>
           {isOwnField ? (
             <Badge
@@ -440,7 +490,7 @@ export default function ConfigFieldRow({
               variant="soft"
               label={
                 <>
-                  <PiPencil /> Override
+                  <PiPencilSimple /> Override
                 </>
               }
             />
@@ -491,95 +541,70 @@ export default function ConfigFieldRow({
             />
           )}
         </Flex>
-      </Box>
-      <Box style={{ minWidth: 0 }}>
+      </TableCell>
+      <TableCell style={cellStyle}>
         <Flex align="center" style={{ minHeight: 32 }}>
           <ConfigKeyUsageBadge implementations={keyImplementations} />
         </Flex>
-      </Box>
-      <Flex
-        gap="2"
-        align="center"
-        justify={isEditing ? "center" : "end"}
-        style={{ minWidth: 0, minHeight: 32 }}
+      </TableCell>
+      <TableCell
+        style={{ ...cellStyle, background: pinnedCellBackground(tint) }}
       >
-        {isEditing ? (
-          <Flex gap="3" align="center">
-            <Button size="md" onClick={onSubmit}>
-              Save
-            </Button>
-            <Link size="md" onClick={onCancelEdit}>
-              Cancel
-            </Link>
-          </Flex>
-        ) : (
-          canEditInline && (
-            <>
-              {isOwnField || here ? (
-                <Button
-                  variant="ghost"
-                  size="md"
-                  title={isOwnField ? "Edit field" : "Edit override"}
-                  icon={<PiPencilSimpleFill />}
-                  onClick={isOwnField ? onEditDefinition : onStartEdit}
-                >
-                  Edit
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="md"
-                  title="Add override"
-                  icon={<PiPlusBold />}
-                  onClick={onStartEdit}
-                >
-                  Override
-                </Button>
-              )}
-              {/* Reserve the menu slot even when there's no menu (override
-                  rows) so the Edit/Override buttons stay column-aligned. */}
-              <Box
-                style={{
-                  width: 28,
-                  display: "flex",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                  marginLeft: -6,
-                  marginRight: -12,
-                }}
-              >
-                {(isOwnField || here) && (
-                  <DropdownMenu
-                    variant="soft"
-                    trigger={
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        size="2"
-                        highContrast
-                      >
-                        <BsThreeDotsVertical size={16} />
-                      </IconButton>
-                    }
-                    menuPlacement="end"
+        <Flex
+          gap="2"
+          align="center"
+          justify={isEditing ? "center" : "end"}
+          style={{ minHeight: 32 }}
+        >
+          {isEditing ? (
+            <Flex gap="3" align="center">
+              <Button size="md" onClick={onSubmit}>
+                Save
+              </Button>
+              <Link size="md" onClick={onCancelEdit}>
+                Cancel
+              </Link>
+            </Flex>
+          ) : (
+            canEditInline && (
+              <>
+                {isOwnField || here ? (
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    title={isOwnField ? "Edit field" : "Edit override"}
+                    icon={<PiPencilSimple />}
+                    onClick={isOwnField ? onEditDefinition : onStartEdit}
                   >
-                    {isOwnField ? (
-                      <DropdownMenuItem color="red" onClick={onRemoveField}>
-                        Remove field
-                      </DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem color="red" onClick={onRemoveOverride}>
-                        Remove override
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenu>
+                    Edit
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    title="Add override"
+                    icon={<PiPlus />}
+                    onClick={onStartEdit}
+                  >
+                    Override
+                  </Button>
                 )}
-              </Box>
-            </>
-          )
-        )}
-      </Flex>
-    </Grid>
+                <FieldRowMenu>
+                  {isOwnField ? (
+                    <DropdownMenuItem color="red" onClick={onRemoveField}>
+                      Remove field
+                    </DropdownMenuItem>
+                  ) : here ? (
+                    <DropdownMenuItem color="red" onClick={onRemoveOverride}>
+                      Remove override
+                    </DropdownMenuItem>
+                  ) : null}
+                </FieldRowMenu>
+              </>
+            )
+          )}
+        </Flex>
+      </TableCell>
+    </TableRow>
   );
 }

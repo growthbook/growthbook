@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { SchemaField } from "shared/types/feature";
 import { simpleSchemaFieldToJSONSchema } from "shared/util";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiCaretDownFill,
   PiCaretRightFill,
@@ -12,6 +12,12 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import {
+  TableCell,
+  TableRow,
+  TableViewportCell,
+  revealTableCell,
+} from "@/ui/Table";
 import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import Field from "@/components/Forms/Field";
@@ -22,7 +28,7 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import {
-  FIELD_GRID_TEMPLATE,
+  pinnedCellBackground,
   FIELD_TYPE_OPTIONS,
   JSON_SCHEMA_PRESETS,
   OTHER_TYPE_VALUE,
@@ -287,6 +293,7 @@ export default function FieldDefForm({
       : FIELD_TYPE_OPTIONS;
   const typeSelect = (
     <SelectField
+      size="md"
       value={typeValue}
       onChange={onTypeChange}
       options={typeOptions}
@@ -298,6 +305,7 @@ export default function FieldDefForm({
   const valueInput =
     valueType === "boolean" ? (
       <SelectField
+        size="md"
         value={valueText === "true" ? "true" : "false"}
         onChange={setValueText}
         options={[
@@ -308,6 +316,7 @@ export default function FieldDefForm({
       />
     ) : enumValues.length > 0 ? (
       <SelectField
+        size="md"
         value={valueText}
         onChange={setValueText}
         options={enumValues.map((v) => ({ value: v, label: v }))}
@@ -316,6 +325,7 @@ export default function FieldDefForm({
       />
     ) : (
       <FeatureValueField
+        size="md"
         id="config-field-value"
         value={valueText}
         setValue={onValueChange}
@@ -500,6 +510,16 @@ export default function FieldDefForm({
     </Box>
   );
 
+  // An existing field opens scrolled to its value, its key being fixed, and
+  // scrolls back on close. A new one starts at its key, which takes focus.
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    const valueCell = rowRef.current?.children[1];
+    if (isNew || !(valueCell instanceof HTMLElement)) return;
+    return revealTableCell(valueCell);
+  }, [isNew]);
+  const showsDetails = configureOpen || !!err;
+
   const saveCancel = (
     <Flex gap="3" align="center">
       <Button size="md" onClick={save} disabled={saving}>
@@ -511,21 +531,15 @@ export default function FieldDefForm({
     </Flex>
   );
 
+  const tint = "var(--violet-a2)";
   return (
-    <Box
-      p="3"
-      style={{
-        background: "var(--violet-a2)",
-        borderRadius: 8,
-        borderBottom: "1px solid var(--slate-a3)",
-      }}
-    >
-      {/* Same grid template as the header/rows so the columns line up. */}
-      <Grid columns={FIELD_GRID_TEMPLATE} gapX="5" align="start">
-        <Box style={{ minWidth: 0 }}>
+    <>
+      <TableRow ref={rowRef} align="start" style={{ background: tint }}>
+        <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>
             <Box style={{ width: "100%" }}>
               <Field
+                size="md"
                 autoFocus={isNew}
                 placeholder="key"
                 value={field.key}
@@ -535,97 +549,105 @@ export default function FieldDefForm({
               />
             </Box>
           </Flex>
-        </Box>
-        {withValue && (
-          <Box style={{ minWidth: 0 }}>
-            <Flex align="center" style={{ minHeight: 32 }}>
-              <Box style={{ width: "100%", minWidth: 0 }}>
-                {valueIsUndefined ? (
-                  <Text color="text-low">
-                    <code>undefined</code>
-                  </Text>
-                ) : valueIsNull ? (
-                  <Text color="text-low">
-                    <code>null</code>
-                  </Text>
-                ) : (
-                  valueInput
-                )}
-              </Box>
-            </Flex>
-            {(() => {
-              const nullable = fieldIsNullable(field) && !valueIsJson;
-              // Keep the checkbox visible while checked so a required field
-              // seeded from a valueless state can still be given a value.
-              const optional = field.required === false || valueIsUndefined;
-              if (!nullable && !optional) return null;
-              return (
-                <Flex mt="1" gap="4" align="center">
-                  {nullable && (
-                    <Checkbox
-                      size="sm"
-                      weight="regular"
-                      disabled={valueIsUndefined}
-                      value={valueIsNull}
-                      setValue={(v) => {
-                        setValueIsNull(v);
-                        if (v) setValueIsUndefined(false);
-                      }}
-                      label={<code>null</code>}
-                    />
+        </TableCell>
+        <TableCell>
+          {withValue && (
+            <>
+              <Flex align="center" style={{ minHeight: 32 }}>
+                <Box style={{ width: "100%", minWidth: 0 }}>
+                  {valueIsUndefined ? (
+                    <Text color="text-low">
+                      <code>undefined</code>
+                    </Text>
+                  ) : valueIsNull ? (
+                    <Text color="text-low">
+                      <code>null</code>
+                    </Text>
+                  ) : (
+                    valueInput
                   )}
-                  {optional && (
-                    <Checkbox
-                      size="sm"
-                      weight="regular"
-                      value={valueIsUndefined}
-                      setValue={(v) => {
-                        setValueIsUndefined(v);
-                        if (v) setValueIsNull(false);
-                      }}
-                      label={<code>undefined</code>}
-                    />
-                  )}
-                </Flex>
-              );
-            })()}
-          </Box>
-        )}
-        <Box style={{ minWidth: 0 }}>
+                </Box>
+              </Flex>
+              {(() => {
+                const nullable = fieldIsNullable(field) && !valueIsJson;
+                // Keep the checkbox visible while checked so a required field
+                // seeded from a valueless state can still be given a value.
+                const optional = field.required === false || valueIsUndefined;
+                if (!nullable && !optional) return null;
+                return (
+                  <Flex mt="1" gap="4" align="center">
+                    {nullable && (
+                      <Checkbox
+                        size="sm"
+                        weight="regular"
+                        disabled={valueIsUndefined}
+                        value={valueIsNull}
+                        setValue={(v) => {
+                          setValueIsNull(v);
+                          if (v) setValueIsUndefined(false);
+                        }}
+                        label={<code>null</code>}
+                      />
+                    )}
+                    {optional && (
+                      <Checkbox
+                        size="sm"
+                        weight="regular"
+                        value={valueIsUndefined}
+                        setValue={(v) => {
+                          setValueIsUndefined(v);
+                          if (v) setValueIsNull(false);
+                        }}
+                        label={<code>undefined</code>}
+                      />
+                    )}
+                  </Flex>
+                );
+              })()}
+            </>
+          )}
+        </TableCell>
+        <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>
             <Box style={{ width: "100%" }}>{typeSelect}</Box>
           </Flex>
-        </Box>
-        <Flex
-          align="center"
-          justify="between"
-          gap="2"
-          style={{ gridColumn: "4 / -1", minHeight: 32 }}
-        >
-          <Link
-            onClick={() => setConfigureOpen((o) => !o)}
-            style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-          >
-            {configureOpen ? <PiCaretDownFill /> : <PiCaretRightFill />}
-            Configure
-          </Link>
-          {saveCancel}
-        </Flex>
-      </Grid>
-
-      {configureOpen && (
-        <Box>
-          {body}
-          <Flex justify="end" mt="2">
-            {modeToggle}
+        </TableCell>
+        <TableCell colSpan={2}>
+          <Flex align="center" style={{ minHeight: 32 }}>
+            <Link
+              onClick={() => setConfigureOpen((o) => !o)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+            >
+              {configureOpen ? <PiCaretDownFill /> : <PiCaretRightFill />}
+              Configure
+            </Link>
           </Flex>
-        </Box>
-      )}
-      {err && (
-        <Callout status="error" mt="2" size="sm">
-          <MarkdownLinks text={err} />
-        </Callout>
-      )}
-    </Box>
+        </TableCell>
+        <TableCell style={{ background: pinnedCellBackground(tint) }}>
+          <Flex align="center" justify="center" style={{ minHeight: 32 }}>
+            {saveCancel}
+          </Flex>
+        </TableCell>
+      </TableRow>
+      {showsDetails ? (
+        <TableRow style={{ background: tint }}>
+          <TableViewportCell colSpan={6}>
+            {configureOpen && (
+              <Box>
+                {body}
+                <Flex justify="end" mt="2">
+                  {modeToggle}
+                </Flex>
+              </Box>
+            )}
+            {err && (
+              <Callout status="error" mt="2" size="sm">
+                <MarkdownLinks text={err} />
+              </Callout>
+            )}
+          </TableViewportCell>
+        </TableRow>
+      ) : null}
+    </>
   );
 }

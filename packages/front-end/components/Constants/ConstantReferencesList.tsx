@@ -5,11 +5,11 @@ import ReferencesList, {
 import { ConstantReferences } from "@/hooks/useConstantReferences";
 
 // Features, constants, and configs that reference a constant via `@const:key`.
-const ConstantReferencesList: FC<ConstantReferences> = ({
+export function constantReferenceSections({
   features = [],
   constants = [],
-}) => {
-  const sections: ReferenceSection[] = [
+}: Partial<ConstantReferences>): ReferenceSection[] {
+  return [
     {
       title: "Features",
       resourceType: "feature",
@@ -45,8 +45,10 @@ const ConstantReferencesList: FC<ConstantReferences> = ({
         })),
     },
   ];
+}
 
-  return <ReferencesList sections={sections} />;
-};
+const ConstantReferencesList: FC<ConstantReferences> = (props) => (
+  <ReferencesList sections={constantReferenceSections(props)} />
+);
 
 export default ConstantReferencesList;

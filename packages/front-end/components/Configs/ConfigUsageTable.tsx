@@ -14,7 +14,7 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { Popover } from "@/ui/Popover";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { valueToDisplayString } from "@/components/Configs/fieldSchema";
@@ -184,35 +184,35 @@ function OverridePopoverTrigger({
 }): React.ReactElement {
   const [open, setOpen] = useState(false);
   return (
-    // While the popover is open, force the tooltip closed AND ignore hover so
-    // re-entering the trigger can't re-open it on top of the popover.
-    <Tooltip
-      body="View override values"
-      state={open ? false : undefined}
-      ignoreMouseEvents={open}
-    >
-      <Popover
-        open={open}
-        onOpenChange={setOpen}
-        side="left"
-        align="start"
-        triggerAsChild
-        trigger={
-          <Button
-            variant="ghost"
-            color="violet"
-            icon={<PiMagnifyingGlass />}
-            aria-label="View override values"
-          >
-            Override
-          </Button>
-        }
-        content={
-          <Box style={{ maxWidth: "min(92vw, 560px)" }}>
-            <OverrideValues impl={impl} keys={keys} />
-          </Box>
-        }
-      />
+    // Off while the popover is open, so it can't show on top of it.
+    <Tooltip content="View override values" enabled={!open}>
+      <span style={{ display: "inline-flex" }}>
+        <Popover
+          open={open}
+          onOpenChange={setOpen}
+          side="bottom"
+          align="end"
+          // Focus stays on the trigger: landing on a copy button would open its
+          // tooltip unasked.
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          triggerAsChild
+          trigger={
+            <Button
+              variant="ghost"
+              color="violet"
+              icon={<PiMagnifyingGlass />}
+              aria-label="View override values"
+            >
+              Override
+            </Button>
+          }
+          content={
+            <Box style={{ maxWidth: "min(92vw, 560px)" }}>
+              <OverrideValues impl={impl} keys={keys} />
+            </Box>
+          }
+        />
+      </span>
     </Tooltip>
   );
 }
@@ -401,8 +401,7 @@ function KeyCell({
       ))}
       {overflow.length > 0 && (
         <Tooltip
-          flipTheme={false}
-          body={
+          content={
             <Flex direction="column" gap="1" align="start">
               {overflow.map((k) => (
                 <KeyCode key={k} k={k} />
@@ -410,9 +409,11 @@ function KeyCell({
             </Flex>
           }
         >
-          <Text as="span" size="sm" color="text-low">
-            +{overflow.length} more
-          </Text>
+          <span>
+            <Text as="span" size="sm" color="text-low">
+              +{overflow.length} more
+            </Text>
+          </span>
         </Tooltip>
       )}
     </Flex>
@@ -427,39 +428,12 @@ const KEY_WIDTH = 200;
 const FEATURE_WIDTH = 200;
 const EXPERIMENT_WIDTH = 160;
 
-const GROUP_BORDER = "1px solid var(--slate-a3)";
+// The section tables below the editor scroll sideways once narrower than
+// this, the Override trigger pinned at the end.
+const SECTION_TABLE_MIN_WIDTH = 1000;
 
-// Grid column tracks for the section tables below the editor. Flexible so the
-// grid fits the container without a horizontal-scroll wrapper — that wrapper is
-// what stops a Radix table's header from sticking to the page.
-// Columns: Key | Feature | Revision status | Experiment | Exp status | Location | Config source | (override)
-const BY_KEY_COLS =
-  "minmax(120px, 180px) minmax(120px, 1.2fr) 80px minmax(110px, 1fr) 90px 100px 120px 110px";
-// Columns: Feature | Overrides | Revision status | Experiment | Exp status | Location | Config source | (override)
-const BY_REF_COLS =
-  "minmax(120px, 1.2fr) minmax(120px, 190px) 80px minmax(110px, 1fr) 90px 100px 120px 110px";
-
-function UsageGridHeader({
-  columns,
-  labels,
-}: {
-  columns: string;
-  labels: (string | null)[];
-}): React.ReactElement {
-  return (
-    <div
-      className={styles.headerRow}
-      style={{ gridTemplateColumns: columns }}
-      role="row"
-    >
-      {labels.map((label, i) => (
-        <div key={i} role="columnheader">
-          {label}
-        </div>
-      ))}
-    </div>
-  );
-}
+// A key's rows read as one group: no divider until its last row.
+const NO_DIVIDER = { boxShadow: "none" };
 
 export function FeatureUsageTable({
   implementations,
@@ -599,70 +573,68 @@ export function ByKeyUsageTable({
   groups: { key: string; impls: DedupedImplementation[] }[];
 }): React.ReactElement {
   return (
-    <div className={styles.gridTable} role="table">
-      <UsageGridHeader
-        columns={BY_KEY_COLS}
-        labels={[
-          "Key",
-          "Feature",
-          "Status",
-          "Experiment",
-          null,
-          "Location",
-          "Config source",
-          null,
-        ]}
-      />
-      {groups.map(({ key, impls }) =>
-        impls.map((impl, idx) => {
-          const last = idx === impls.length - 1;
-          return (
-            <div
-              key={`${key}|${idx}`}
-              className={styles.row}
-              style={{
-                gridTemplateColumns: BY_KEY_COLS,
-                borderBottom: last ? GROUP_BORDER : undefined,
-              }}
-              role="row"
-            >
-              <div role="cell">
-                {idx === 0 && (
-                  <code title={key} style={{ color: "var(--slate-12)" }}>
-                    {key}
-                  </code>
-                )}
-              </div>
-              <div role="cell">
-                <FeatureLink impl={impl} maxWidth="100%" />
-              </div>
-              <div role="cell">
-                <FlagRevisionBadge impl={impl} />
-              </div>
-              <div role="cell">
-                <ExperimentCell impl={impl} maxWidth="100%" />
-              </div>
-              <div role="cell">
-                <StatusCell impl={impl} />
-              </div>
-              <div role="cell">{locationLabel(impl)}</div>
-              <div role="cell">
-                <ConfigSourceCell impl={impl} />
-              </div>
-              <div role="cell">
-                <OverridePopoverTrigger impl={impl} keys={[key]} />
-              </div>
-            </div>
-          );
-        }),
-      )}
-    </div>
+    <Table
+      variant="ghost"
+      scrollX
+      stickyLastColumn
+      style={{ minWidth: SECTION_TABLE_MIN_WIDTH }}
+    >
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader width="160px">Key</TableColumnHeader>
+          <TableColumnHeader>Feature</TableColumnHeader>
+          <TableColumnHeader width="90px">Status</TableColumnHeader>
+          <TableColumnHeader>Experiment</TableColumnHeader>
+          <TableColumnHeader width="90px" />
+          <TableColumnHeader width="110px">Location</TableColumnHeader>
+          <TableColumnHeader width="130px">Config source</TableColumnHeader>
+          <TableColumnHeader width="110px" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {groups.map(({ key, impls }) =>
+          impls.map((impl, idx) => {
+            const cell = idx === impls.length - 1 ? undefined : NO_DIVIDER;
+            return (
+              <TableRow key={`${key}|${idx}`} align="start">
+                <TableCell style={cell}>
+                  {idx === 0 && (
+                    <code title={key} style={{ color: "var(--slate-12)" }}>
+                      {key}
+                    </code>
+                  )}
+                </TableCell>
+                <TableCell style={cell}>
+                  <FeatureLink impl={impl} maxWidth="100%" />
+                </TableCell>
+                <TableCell style={cell}>
+                  <FlagRevisionBadge impl={impl} />
+                </TableCell>
+                <TableCell style={cell}>
+                  <ExperimentCell impl={impl} maxWidth="100%" />
+                </TableCell>
+                <TableCell style={cell}>
+                  <StatusCell impl={impl} />
+                </TableCell>
+                <TableCell style={cell}>{locationLabel(impl)}</TableCell>
+                <TableCell style={cell}>
+                  <ConfigSourceCell impl={impl} />
+                </TableCell>
+                <TableCell style={cell}>
+                  <OverridePopoverTrigger impl={impl} keys={[key]} />
+                </TableCell>
+              </TableRow>
+            );
+          }),
+        )}
+      </TableBody>
+    </Table>
   );
 }
 
-// The "by reference" view: a flat grid, one bordered row per clickable
-// reference (never collapsed — a draft row links to its own revision). The
-// "Overrides" column lists the keys each row touches.
+// The "by reference" view: one row per clickable reference (never collapsed —
+// a draft row links to its own revision). "Overrides" lists the keys each row
+// touches.
 export function ByReferenceUsageTable({
   groups,
   keyOrder,
@@ -671,56 +643,54 @@ export function ByReferenceUsageTable({
   keyOrder?: string[];
 }): React.ReactElement {
   return (
-    <div className={styles.gridTable} role="table">
-      <UsageGridHeader
-        columns={BY_REF_COLS}
-        labels={[
-          "Feature",
-          "Overrides",
-          "Status",
-          "Experiment",
-          null,
-          "Location",
-          "Config source",
-          null,
-        ]}
-      />
-      {groups.flatMap(({ impls }) =>
-        impls.map((impl, idx) => (
-          <div
-            key={`${impl.featureId}|${idx}`}
-            className={styles.row}
-            style={{
-              gridTemplateColumns: BY_REF_COLS,
-              borderBottom: GROUP_BORDER,
-            }}
-            role="row"
-          >
-            <div role="cell">
-              <FeatureLink impl={impl} maxWidth="100%" />
-            </div>
-            <div role="cell">
-              <KeyCell keys={impl.keys} keyOrder={keyOrder} />
-            </div>
-            <div role="cell">
-              <FlagRevisionBadge impl={impl} />
-            </div>
-            <div role="cell">
-              <ExperimentCell impl={impl} maxWidth="100%" />
-            </div>
-            <div role="cell">
-              <StatusCell impl={impl} />
-            </div>
-            <div role="cell">{locationLabel(impl)}</div>
-            <div role="cell">
-              <ConfigSourceCell impl={impl} />
-            </div>
-            <div role="cell">
-              <OverridePopoverTrigger impl={impl} keys={impl.keys} />
-            </div>
-          </div>
-        )),
-      )}
-    </div>
+    <Table
+      variant="ghost"
+      scrollX
+      stickyLastColumn
+      style={{ minWidth: SECTION_TABLE_MIN_WIDTH }}
+    >
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader>Feature</TableColumnHeader>
+          <TableColumnHeader width="190px">Overrides</TableColumnHeader>
+          <TableColumnHeader width="90px">Status</TableColumnHeader>
+          <TableColumnHeader>Experiment</TableColumnHeader>
+          <TableColumnHeader width="90px" />
+          <TableColumnHeader width="110px">Location</TableColumnHeader>
+          <TableColumnHeader width="130px">Config source</TableColumnHeader>
+          <TableColumnHeader width="110px" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {groups.flatMap(({ impls }) =>
+          impls.map((impl, idx) => (
+            <TableRow key={`${impl.featureId}|${idx}`} align="start">
+              <TableCell>
+                <FeatureLink impl={impl} maxWidth="100%" />
+              </TableCell>
+              <TableCell>
+                <KeyCell keys={impl.keys} keyOrder={keyOrder} />
+              </TableCell>
+              <TableCell>
+                <FlagRevisionBadge impl={impl} />
+              </TableCell>
+              <TableCell>
+                <ExperimentCell impl={impl} maxWidth="100%" />
+              </TableCell>
+              <TableCell>
+                <StatusCell impl={impl} />
+              </TableCell>
+              <TableCell>{locationLabel(impl)}</TableCell>
+              <TableCell>
+                <ConfigSourceCell impl={impl} />
+              </TableCell>
+              <TableCell>
+                <OverridePopoverTrigger impl={impl} keys={impl.keys} />
+              </TableCell>
+            </TableRow>
+          )),
+        )}
+      </TableBody>
+    </Table>
   );
 }

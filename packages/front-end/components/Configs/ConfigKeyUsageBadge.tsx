@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiFlagBold, PiFlaskBold } from "react-icons/pi";
+import { PiFlag, PiFlask } from "react-icons/pi";
 import { Popover } from "@/ui/Popover";
 import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import {
@@ -27,9 +27,11 @@ function UsageBadge({
   content: React.ReactNode;
 }): React.ReactElement {
   return (
+    // Below and right-aligned, so a wide table slides to stay on screen rather
+    // than running off the left edge.
     <Popover
-      side="right"
-      align="start"
+      side="bottom"
+      align="end"
       openOnHover
       triggerAsChild
       trigger={
@@ -48,7 +50,7 @@ function UsageBadge({
             background: `var(--${color}-a3)`,
             color: `var(--${color}-11)`,
             fontSize: 12,
-            fontWeight: 600,
+            fontWeight: 500,
           }}
         >
           {icon}
@@ -111,7 +113,7 @@ export default function ConfigKeyUsageBadge({
     <Flex align="center" gap="2" wrap="wrap">
       {featureImpls.length > 0 && (
         <UsageBadge
-          icon={<PiFlagBold size={13} />}
+          icon={<PiFlag size={13} />}
           count={featureImpls.length}
           color="slate"
           dots={stateDots(featureImpls)}
@@ -120,7 +122,7 @@ export default function ConfigKeyUsageBadge({
       )}
       {experimentImpls.length > 0 && (
         <UsageBadge
-          icon={<PiFlaskBold size={13} />}
+          icon={<PiFlask size={13} />}
           count={experimentImpls.length}
           color={experimentStatusColor(experimentImpls)}
           dots={stateDots(experimentImpls)}

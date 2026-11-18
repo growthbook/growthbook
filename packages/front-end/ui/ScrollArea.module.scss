@@ -179,3 +179,44 @@
     background: linear-gradient(to left, var(--shadow-color), 30%, transparent);
   }
 }
+
+// The sideways scrollbar under the content rather than over it, held to the
+// window's bottom while the area runs past it. Clip, not hidden: hidden would
+// make the area the scrollbar's sticky container.
+.root.pinsScrollbar {
+  --pinned-scrollbar-gap: var(--space-2);
+  // The bar's own place in the flow: its margins and itself.
+  --pinned-scrollbar-box: calc(
+    var(--scrollarea-scrollbar-horizontal-margin-top) +
+      var(--pinned-scrollbar-size) +
+      var(--scrollarea-scrollbar-horizontal-margin-bottom)
+  );
+  overflow: clip;
+
+  > :global(.rt-ScrollAreaScrollbar[data-orientation="horizontal"]) {
+    position: sticky !important;
+    // Held off the window's edge while pinned.
+    bottom: var(--pinned-scrollbar-gap) !important;
+    z-index: 3;
+    // Opaque, so rows it's held over don't show through.
+    background-color: var(--color-panel-solid);
+    background-image: linear-gradient(var(--gray-a3), var(--gray-a3));
+  }
+
+  // The gutter behind it: from above the bar to the window's edge, the full
+  // width, opaque and taking clicks, so nothing under it can be clicked
+  // through. Drawn up over the bar's place, it adds only the gap below.
+  &::after {
+    content: "";
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    flex-shrink: 0;
+    height: calc(
+      var(--scrollarea-scrollbar-horizontal-margin-top) +
+        var(--pinned-scrollbar-size) + var(--pinned-scrollbar-gap)
+    );
+    margin-top: calc(-1 * var(--pinned-scrollbar-box));
+    background-color: var(--color-panel-solid);
+  }
+}

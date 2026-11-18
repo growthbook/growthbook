@@ -20,7 +20,10 @@ import {
   Revision,
   applyTopLevelPatchOps,
   getConstantRevisionChange,
+  getLiveRevision,
+  getRevisionNumberById,
 } from "shared/enterprise";
+import { isActiveDraftStatus } from "shared/validators";
 import {
   proposedArchivedValue,
   ConfigChainNode,
@@ -49,12 +52,11 @@ import {
   ConstantSource,
 } from "shared/sdk-versioning";
 import { isEqual } from "lodash";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
-  PiPlusBold,
+  PiPlus,
   PiCaretDown,
-  PiCheckBold,
+  PiCheck,
   PiCopy,
   PiLockSimple,
   PiInfo,
@@ -62,7 +64,14 @@ import {
 import useApi from "@/hooks/useApi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
-import SplitButton from "@/ui/SplitButton";
+import SegmentedControl from "@/ui/SegmentedControl";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -70,13 +79,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useEnvironments } from "@/services/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
-import Owner from "@/components/Avatar/Owner";
-import Markdown from "@/components/Markdown/Markdown";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
-import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
 import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import HelperText from "@/ui/HelperText";
@@ -93,12 +98,34 @@ import {
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
-import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
 import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
 import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
-import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
-import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
+import RevisionStatusBar, {
+  hasRevisionStatus,
+} from "@/components/Revision/RevisionStatusBar";
+import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import RevisionLabel from "@/components/Reviews/RevisionLabel";
+import NewDraftButton from "@/components/Reviews/NewDraftButton";
+import { useRevisionStatusBarHeight } from "@/components/Reviews/RevisionStatusBarView";
+import SectionFrame from "@/components/SectionFrame";
+import DetailsPanel, {
+  DetailsPanelLayout,
+  PanelSection,
+  useDetailsPanel,
+} from "@/components/DetailsPanel";
+import {
+  DetailsPageActions,
+  DetailsPageMenu,
+  DetailsPageTabs,
+  DetailsPageTitleBar,
+  REVISION_SELECTOR_WIDTH_PX,
+  ReviewTabCount,
+} from "@/components/Layout/DetailsPageHeader";
+import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
+import { useTabsTop } from "@/components/Layout/pageTopOffset";
+import ConfigDetailsPanel from "@/components/Configs/ConfigDetailsPanel";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
 import {
@@ -124,14 +151,15 @@ import ConfigModal from "@/components/Configs/ConfigModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LineageTree from "@/components/Configs/LineageTree";
 import ConfigFeatureReferences from "@/components/Configs/ConfigFeatureReferences";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import FieldDefForm from "@/components/Configs/FieldDefForm";
-import ConfigFieldRow from "@/components/Configs/ConfigFieldRow";
+import ConfigFieldRow, {
+  FieldRowMenu,
+} from "@/components/Configs/ConfigFieldRow";
 import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
 import ConfigCustomHooksSection from "@/components/Configs/ConfigCustomHooksSection";
 import ConfigUsageSection from "@/components/Configs/ConfigUsageSection";
 import {
-  FIELD_GRID_TEMPLATE,
   ResolvedField,
   LineageNode,
   blankField,
@@ -161,6 +189,8 @@ type ResolvedResponse = {
     "key" | "type" | "value" | "project" | "archived"
   > & { source: ConstantSource })[];
 };
+
+const LINEAGE_PANEL_WIDTH_PX = 280;
 
 const SCHEMA_EXPORT_FORMATS: { id: string; label: string }[] = [
   { id: "json", label: "JSON Schema" },
@@ -231,7 +261,7 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
       trigger={
         <Button variant="outline" size="md">
           <Flex align="center" gap="1">
-            {copySuccess ? <PiCheckBold /> : <PiCopy />}
+            {copySuccess ? <PiCheck /> : <PiCopy />}
             {/* Fixed width so the "Copied!" swap doesn't shift layout. */}
             <Box
               style={{ width: 92, textAlign: "center", whiteSpace: "nowrap" }}
@@ -291,10 +321,13 @@ export default function ConfigDetailPage(): React.ReactElement {
   const {
     configs,
     _configsIncludingArchived: allConfigsForGraph,
-    projects,
     mutateDefinitions,
   } = useDefinitions();
-  const { organization, hasCommercialFeature } = useUser();
+  const {
+    organization,
+    hasCommercialFeature,
+    userId: currentUserId,
+  } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
 
@@ -303,7 +336,6 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
     null,
   );
-  const [editDescriptionModal, setEditDescriptionModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -366,7 +398,26 @@ export default function ConfigDetailPage(): React.ReactElement {
       undefined,
       { shallow: true },
     );
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  // Open state is remembered per config; width is a global preference.
+  const details = useDetailsPanel({
+    openKey: `config-details-panel-open__${configKey}`,
+    widthKey: "config-details-panel-width",
+    tab,
+    homeTab: ["overview", "validation"],
+  });
+  // The family tree, open or not across every Config and tab.
+  const lineagePanel = useDetailsPanel({
+    openKey: "config-lineage-panel-open",
+    widthKey: "config-lineage-panel-width",
+    tab,
+    homeTab: ["overview", "review", "validation"],
+    defaultWidth: LINEAGE_PANEL_WIDTH_PX,
+  });
+  const tabsTop = useTabsTop();
+  const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
 
   // Forward the selected revision so a draft's unpublished lineage drives resolution server-side.
   const versionParam = typeof router.query.v === "string" ? router.query.v : "";
@@ -397,18 +448,12 @@ export default function ConfigDetailPage(): React.ReactElement {
     mutateRevisions,
   } = useConstantRevision(config?.id, mutate, config, "config");
 
-  // With no draft selected, fall back to the live (most-recently-merged) revision
-  // so the review tab renders its read-only Live view instead of the "select a
-  // revision" empty state, matching constants and saved groups.
-  const displayRevision = useMemo(() => {
-    if (selectedRevision) return selectedRevision;
-    return [...allRevisions]
-      .filter((r) => r.status === "merged")
-      .sort(
-        (a, b) =>
-          new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
-      )[0];
-  }, [selectedRevision, allRevisions]);
+  const liveRevision = useMemo(
+    () => getLiveRevision(allRevisions) ?? null,
+    [allRevisions],
+  );
+  // While viewing live, the review tab and the panel show the live revision.
+  const panelRevision = selectedRevision ?? liveRevision;
 
   // The page instance is reused across configs (and the selected revision can
   // change under an open editor), so clear in-progress edits when either changes.
@@ -425,19 +470,12 @@ export default function ConfigDetailPage(): React.ReactElement {
     // Also close any modal carried over from the previous config.
     setCompareOpen(false);
     setConfirmRevert(false);
-    setEditDescriptionModal(false);
     setShowArchiveModal(false);
     setShowAuditModal(false);
     setEditInfoOpen(false);
     setConfirmDelete(false);
     setMenuOpen(false);
   }, [configKey, selectedRevisionId]);
-
-  // Open-draft counts by status, for the Review & Publish tab badge tooltip.
-  const draftStatusCounts: Partial<Record<string, number>> = {};
-  for (const r of openRevisions) {
-    draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
-  }
 
   const {
     references: familyReferences,
@@ -503,11 +541,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       : (reviewRule?.featureRequireMetadataReview ?? true));
 
   const isDraft =
-    !!selectedRevision &&
-    (selectedRevision.status === "draft" ||
-      selectedRevision.status === "pending-review" ||
-      selectedRevision.status === "changes-requested" ||
-      selectedRevision.status === "approved");
+    !!selectedRevision && isActiveDraftStatus(selectedRevision.status);
 
   const selectedRevisionRequiresApproval =
     !!selectedRevision &&
@@ -829,7 +863,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   // empty footprint SKIPS the environment check rather than narrowing it.
   const revisionPublishEnvironments = useMemo(() => {
     if (!config) return [];
-    const pending = selectedRevision ?? displayRevision;
+    const pending = panelRevision;
     const scoped = configPublishEnvironments(config);
     if (!pending) return scoped;
     return revisionPublishFootprint({
@@ -840,7 +874,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       scoped,
       serving: serveFootprint(environments, config),
     });
-  }, [selectedRevision, displayRevision, config, environments]);
+  }, [panelRevision, config, environments]);
 
   if (error) {
     return (
@@ -852,14 +886,6 @@ export default function ConfigDetailPage(): React.ReactElement {
   if (!data || !config || !displayedConfig) {
     return <LoadingOverlay />;
   }
-
-  const handleNewDraft = async () => {
-    const res = await apiCall<{ revision?: Revision }>(
-      `/configs/${config.id}?forceCreateRevision=1`,
-      { method: "PUT", body: JSON.stringify({}) },
-    );
-    if (res?.revision) await onRevisionCreated(res.revision);
-  };
 
   const handleLock = async (reason?: string) => {
     await apiCall(`/configs/${config.id}/lock`, {
@@ -993,11 +1019,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     canBypassApproval,
     canPublish: canPublishNow,
   };
-
-  const projectName = displayedConfig.project
-    ? (projects.find((proj) => proj.id === displayedConfig.project)?.name ??
-      displayedConfig.project)
-    : "";
 
   const ownValue = (): Record<string, unknown> =>
     parsePlainJSONObject(displayedConfig.value ?? "") ?? {};
@@ -1217,7 +1238,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
   };
 
-  const renderAddField = () =>
+  const addFieldRows =
     schemaEdit === "add" ? (
       <FieldDefForm
         key="add"
@@ -1229,23 +1250,23 @@ export default function ConfigDetailPage(): React.ReactElement {
         onCancel={() => setSchemaEdit(null)}
         onSave={saveField}
       />
-    ) : (
-      canEditInline &&
-      schemaEdit === null && (
-        <Box mt="2" py="1">
-          <Link
-            size="md"
-            weight="medium"
-            onClick={() => {
-              setEditKey(null);
-              setSchemaEdit("add");
-            }}
-          >
-            <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
+    ) : null;
+  const renderAddField = () =>
+    canEditInline &&
+    schemaEdit === null && (
+      <Box mt="2" py="1">
+        <Link
+          onClick={() => {
+            setEditKey(null);
+            setSchemaEdit("add");
+          }}
+        >
+          <Flex align="center" gap="1">
+            <PiPlus />
             Add field
-          </Link>
-        </Box>
-      )
+          </Flex>
+        </Link>
+      </Box>
     );
 
   // Candidates exclude self, parent, current mixins, and descendants (cycle). The descendant
@@ -1271,118 +1292,67 @@ export default function ConfigDetailPage(): React.ReactElement {
     const name =
       allConfigsForGraph.find((c) => c.key === parentKey)?.name ?? parentKey;
     return (
-      <Grid
-        columns={FIELD_GRID_TEMPLATE}
-        gapX="5"
-        align="start"
-        py="2"
-        px="3"
-        style={{ borderBottom: "1px solid var(--slate-a3)" }}
-      >
-        <Box style={{ minWidth: 0 }}>
+      <TableRow align="start">
+        <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>
-            <Text
-              size="sm"
-              weight="medium"
-              color="text-low"
-              textTransform="uppercase"
-            >
-              Extends
-            </Text>
+            <Text color="text-low">Extends</Text>
           </Flex>
-        </Box>
-        <Box style={{ minWidth: 0, gridColumn: "span 4" }}>
+        </TableCell>
+        <TableCell colSpan={4}>
           <Flex align="center" gap="3" wrap="wrap" style={{ minHeight: 32 }}>
-            <Link href={`/configs/${parentKey}`} size="md">
-              {name}
-            </Link>
+            <Link href={`/configs/${parentKey}`}>{name}</Link>
           </Flex>
-        </Box>
-        <Box />
-      </Grid>
+        </TableCell>
+        <TableCell />
+      </TableRow>
     );
   };
 
   const renderComposeRow = () => {
     if (mixinKeys.length === 0) return null;
     return (
-      <Grid
-        columns={FIELD_GRID_TEMPLATE}
-        gapX="5"
-        align="start"
-        py="2"
-        px="3"
-        style={{ borderBottom: "1px solid var(--slate-a3)" }}
-      >
-        <Box style={{ minWidth: 0 }}>
+      <TableRow align="start">
+        <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>
-            <Text
-              size="sm"
-              weight="medium"
-              color="text-low"
-              textTransform="uppercase"
-            >
-              Composes
-            </Text>
+            <Text color="text-low">Composes</Text>
           </Flex>
-        </Box>
-
-        <Box style={{ minWidth: 0, gridColumn: "span 4" }}>
+        </TableCell>
+        <TableCell colSpan={4}>
           <Flex align="center" gap="3" wrap="wrap" style={{ minHeight: 32 }}>
             {mixinKeys.map((k) => {
               const name =
                 allConfigsForGraph.find((c) => c.key === k)?.name ?? k;
               return (
-                <Link key={k} href={`/configs/${k}`} size="md">
+                <Link key={k} href={`/configs/${k}`}>
                   {name}
                 </Link>
               );
             })}
           </Flex>
-        </Box>
-
-        <Flex
-          gap="2"
-          align="center"
-          justify="end"
-          style={{ minWidth: 0, minHeight: 32 }}
-        >
-          {canEditInline && (
-            <DropdownMenu
-              variant="soft"
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                >
-                  <BsThreeDotsVertical size={16} />
-                </IconButton>
-              }
-              triggerStyle={{ marginRight: 0, marginLeft: 0 }}
-              menuPlacement="end"
-            >
-              {mixinKeys.map((k) => {
-                const name =
-                  allConfigsForGraph.find((c) => c.key === k)?.name ?? k;
-                return (
-                  <DropdownMenuItem
-                    key={k}
-                    color="red"
-                    onClick={() =>
-                      saveExtends(mixinKeys.filter((x) => x !== k))
-                    }
-                  >
-                    Remove mixin &ldquo;{name}&rdquo;
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenu>
-          )}
-        </Flex>
-      </Grid>
+        </TableCell>
+        <TableCell>
+          <Flex gap="2" align="center" justify="end" style={{ minHeight: 32 }}>
+            <FieldRowMenu>
+              {canEditInline &&
+                mixinKeys.map((k) => {
+                  const name =
+                    allConfigsForGraph.find((c) => c.key === k)?.name ?? k;
+                  return (
+                    <DropdownMenuItem
+                      key={k}
+                      color="red"
+                      onClick={() =>
+                        saveExtends(mixinKeys.filter((x) => x !== k))
+                      }
+                    >
+                      Remove mixin &ldquo;{name}&rdquo;
+                    </DropdownMenuItem>
+                  );
+                })}
+            </FieldRowMenu>
+          </Flex>
+        </TableCell>
+      </TableRow>
     );
   };
 
@@ -1393,6 +1363,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         <Flex align="center" gap="3">
           <Box style={{ flex: 1 }}>
             <SelectField
+              size="md"
               value=""
               placeholder={
                 composeOptions.length
@@ -1419,9 +1390,11 @@ export default function ConfigDetailPage(): React.ReactElement {
       </Box>
     ) : (
       <Box mt="2" py="1">
-        <Link size="md" weight="medium" onClick={() => setComposeAdding(true)}>
-          <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
-          Add Config mixin
+        <Link onClick={() => setComposeAdding(true)}>
+          <Flex align="center" gap="1">
+            <PiPlus />
+            Add Config mixin
+          </Flex>
         </Link>
         {composeError && (
           <HelperText status="error" size="sm" mt="1">
@@ -1441,6 +1414,273 @@ export default function ConfigDetailPage(): React.ReactElement {
     : null;
   const parentName = parentKey ? (parentNode?.name ?? parentKey) : null;
 
+  const revisionNumbers = getRevisionNumberById(allRevisions);
+  const canPublishSelected = canPublishRevisionEntity(
+    permissionsUtil,
+    "config",
+    selectedRevision,
+    config,
+    revisionPublishEnvironments,
+  );
+  const showsStatusBar =
+    tab === "overview" &&
+    hasRevisionStatus(selectedRevision, liveRevision, allRevisions);
+  const stickyTop =
+    tabsTop + TABS_BAR_HEIGHT_PX + (showsStatusBar ? statusBarHeight : 0);
+
+  const newDraft =
+    canDraft && !isLocked ? (
+      <NewDraftButton
+        entityNoun="Config"
+        activeDraftCount={openRevisions.length}
+        nextVersion={Math.max(0, ...revisionNumbers.values()) + 1}
+        basedOn={
+          liveRevision ? (
+            <>
+              <Text
+                as="span"
+                size="inherit"
+                weight="semibold"
+                color="text-high"
+              >
+                <RevisionLabel
+                  version={revisionNumbers.get(liveRevision.id) ?? 1}
+                  title={liveRevision.title}
+                  numbered={!!liveRevision.title}
+                  minWidth={0}
+                  numberSize="inherit"
+                />
+              </Text>{" "}
+              {getStatusBadge("live", approvalRequired)}
+            </>
+          ) : (
+            <>the live Config</>
+          )
+        }
+        create={async ({ title, comment }) => {
+          const res = await apiCall<{ revision?: Revision }>(
+            `/configs/${config.id}?forceCreateRevision=1`,
+            { method: "PUT", body: JSON.stringify({}) },
+          );
+          const revision = res?.revision;
+          if (!revision) return;
+          if (title) {
+            await apiCall(`/revision/${revision.id}/title`, {
+              method: "PATCH",
+              body: JSON.stringify({ title }),
+            });
+          }
+          if (comment) {
+            await apiCall(`/revision/${revision.id}/description`, {
+              method: "PATCH",
+              body: JSON.stringify({ description: comment }),
+            });
+          }
+          await onRevisionCreated(revision);
+        }}
+      />
+    ) : null;
+
+  const menu = (
+    <DetailsPageMenu open={menuOpen} onOpenChange={setMenuOpen}>
+      <DropdownMenuGroup>
+        {allRevisions.length >= 2 && (
+          <DropdownMenuItem
+            onClick={() => {
+              setMenuOpen(false);
+              setCompareOpen(true);
+            }}
+          >
+            Compare revisions
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem
+          onClick={() => {
+            setMenuOpen(false);
+            setShowAuditModal(true);
+          }}
+        >
+          Audit history
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
+      {((!config.lock && canPublishNow) || !!config.lock) && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            {!config.lock ? (
+              <DropdownMenuItem
+                onClick={() => {
+                  setMenuOpen(false);
+                  setLockConfirm("lock");
+                }}
+              >
+                Lock…
+              </DropdownMenuItem>
+            ) : (
+              // Always shown while locked; disabled (not hidden) when
+              // the viewer lacks unlock permission, so it's discoverable.
+              <DropdownMenuItem
+                disabled={!canBypassApproval}
+                tooltip={
+                  !canBypassApproval
+                    ? "You don't have permission to unlock this Config."
+                    : undefined
+                }
+                onClick={() => {
+                  setMenuOpen(false);
+                  setLockConfirm("unlock");
+                }}
+              >
+                Unlock…
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+        </>
+      )}
+      {((!config.experimentGuard && canPublishNow) ||
+        !!config.experimentGuard) && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            {!config.experimentGuard ? (
+              <DropdownMenuItem
+                onClick={() => {
+                  setMenuOpen(false);
+                  handleExperimentGuard(true);
+                }}
+              >
+                Enable experiment guard
+              </DropdownMenuItem>
+            ) : (
+              // Disabling a protection is gated on bypass-approval
+              // (matches unlock); shown-but-disabled so it stays
+              // discoverable.
+              <DropdownMenuItem
+                disabled={!canBypassApproval}
+                tooltip={
+                  !canBypassApproval
+                    ? "You don't have permission to disable the experiment guard."
+                    : undefined
+                }
+                onClick={() => {
+                  setMenuOpen(false);
+                  handleExperimentGuard(false);
+                }}
+              >
+                Disable experiment guard
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+        </>
+      )}
+      {(canArchiveNow || canDeleteNow) && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            {canArchiveNow && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShowArchiveModal(true);
+                }}
+              >
+                {/* LIVE state: the endpoint flips against live, so the
+                    projected state labels the opposite action. */}
+                {config.archived ? "Unarchive" : "Archive"}
+              </DropdownMenuItem>
+            )}
+            {canDeleteNow && (
+              <DropdownMenuItem
+                color="red"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setConfirmDelete(true);
+                }}
+              >
+                Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+        </>
+      )}
+    </DetailsPageMenu>
+  );
+
+  const lineage = (
+    <DetailsPanel>
+      <PanelSection title={`Configs (${nonFlavorCount})`}>
+        <LineageTree
+          nodes={data.lineage}
+          currentKey={config.key}
+          fieldCounts={data.fieldCounts}
+          namesByKey={data.configNames}
+          archivedByKey={data.archivedByKey}
+          // Only this node's draft is merged into the tree, so flag only it.
+          draftKeys={isDraft ? { [config.key]: true } : undefined}
+          extensible={effectiveExtensible}
+        />
+        {/* Creating an override Config is a create, not an edit of the
+            parent — gating it on the parent's draft rights both offered
+            an action that fails and hid one create-only users hold. */}
+        {permissionsUtil.canCreateConfig({
+          project: config.project || "",
+        }) && (
+          <Box pl="1">
+            {hasConfigsFeature ? (
+              <Link onClick={() => setShowCreateChild(true)}>
+                <Flex align="center" gap="1">
+                  <PiPlus />
+                  Add override Config
+                </Flex>
+              </Link>
+            ) : (
+              <PremiumTooltip commercialFeature="feature-configs">
+                <Link color="gray">
+                  <Flex align="center" gap="1">
+                    <PiPlus />
+                    Add override Config
+                  </Flex>
+                </Link>
+              </PremiumTooltip>
+            )}
+          </Box>
+        )}
+      </PanelSection>
+      {data.composerFamilies?.length ? (
+        <>
+          <Separator size="4" />
+          <PanelSection title="Used as a mixin by">
+            {data.composerFamilies.map((fam) => (
+              <Box key={fam.rootKey} mb="2">
+                <LineageTree
+                  nodes={fam.lineage}
+                  currentKey={config.key}
+                  fieldCounts={data.fieldCounts}
+                  namesByKey={data.configNames}
+                  archivedByKey={data.archivedByKey}
+                  // This config is the mixin row in each composer tree; flag it as draft.
+                  draftKeys={isDraft ? { [config.key]: true } : undefined}
+                />
+              </Box>
+            ))}
+          </PanelSection>
+        </>
+      ) : null}
+      <Separator size="4" />
+      <PanelSection
+        title={`Feature Flags (${familyReferences?.features.length ?? 0})`}
+      >
+        <ConfigFeatureReferences
+          lineage={data.lineage}
+          currentKey={config.key}
+          references={familyReferences}
+          loading={familyReferencesLoading}
+          error={(familyReferencesError ?? null) !== null}
+        />
+      </PanelSection>
+    </DetailsPanel>
+  );
+
   return (
     <>
       <PageHead
@@ -1449,414 +1689,182 @@ export default function ConfigDetailPage(): React.ReactElement {
           { display: displayedConfig.name },
         ]}
       />
-      <Box className="contents container-fluid pagecontents" mt="2">
-        <Flex gap="6" align="start">
-          {/* Sidebar */}
-          <Box
-            style={{
-              width: 220,
-              flexShrink: 0,
-              position: "sticky",
-              // Stick at the column's natural top (below the top nav + page
-              // inset) so it doesn't jump a few px on scroll before sticking.
-              top: "calc(var(--page-top-offset) + var(--page-top-padding))",
-              alignSelf: "flex-start",
-              maxHeight:
-                "calc(100vh - var(--page-top-offset) - var(--page-top-padding) - 1rem)",
-              overflowY: "auto",
-            }}
-          >
-            <Tabs defaultValue="configs">
-              <TabsList size="sm">
-                <TabsTrigger value="configs">
-                  <Flex as="span" align="center" gap="2">
-                    Configs
-                    <Badge
-                      size="xs"
-                      color="gray"
-                      radius="full"
-                      label={`${nonFlavorCount}`}
-                      style={{ justifyContent: "center", textAlign: "center" }}
-                    />
-                  </Flex>
-                </TabsTrigger>
-                <TabsTrigger value="features">
-                  <Flex as="span" align="center" gap="2">
-                    Features
-                    <Badge
-                      size="xs"
-                      color="gray"
-                      radius="full"
-                      label={`${familyReferences?.features.length ?? 0}`}
-                      style={{ justifyContent: "center", textAlign: "center" }}
-                    />
-                  </Flex>
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="configs">
-                <Box mt="2">
-                  <LineageTree
-                    nodes={data.lineage}
-                    currentKey={config.key}
-                    fieldCounts={data.fieldCounts}
-                    namesByKey={data.configNames}
-                    archivedByKey={data.archivedByKey}
-                    // Only this node's draft is merged into the tree, so flag only it.
-                    draftKeys={isDraft ? { [config.key]: true } : undefined}
-                    extensible={effectiveExtensible}
-                  />
-                </Box>
-                {/* Creating an override Config is a create, not an edit of the
-                    parent — gating it on the parent's draft rights both offered
-                    an action that fails and hid one create-only users hold. */}
-                {permissionsUtil.canCreateConfig({
-                  project: config.project || "",
-                }) && (
-                  <Box mt="3" pl="1">
-                    {hasConfigsFeature ? (
-                      <Link
-                        size="md"
-                        weight="medium"
-                        onClick={() => setShowCreateChild(true)}
-                      >
-                        <PiPlusBold
-                          style={{ marginRight: 3, verticalAlign: "middle" }}
-                        />
-                        Add override Config
-                      </Link>
-                    ) : (
-                      <PremiumTooltip commercialFeature="feature-configs">
-                        <Link size="md" weight="medium" color="gray">
-                          <PiPlusBold
-                            style={{ marginRight: 3, verticalAlign: "middle" }}
-                          />
-                          Add override Config
-                        </Link>
-                      </PremiumTooltip>
-                    )}
-                  </Box>
-                )}
-                {!!data.composerFamilies?.length && (
-                  <Box mt="4">
-                    <Text
-                      as="div"
-                      size="sm"
-                      weight="medium"
-                      color="text-low"
-                      ml="1"
-                      mb="1"
-                    >
-                      Used as a mixin by
-                    </Text>
-                    {data.composerFamilies.map((fam) => (
-                      <Box key={fam.rootKey} mb="2">
-                        <LineageTree
-                          nodes={fam.lineage}
-                          currentKey={config.key}
-                          fieldCounts={data.fieldCounts}
-                          namesByKey={data.configNames}
-                          archivedByKey={data.archivedByKey}
-                          // This config is the mixin row in each composer tree; flag it as draft.
-                          draftKeys={
-                            isDraft ? { [config.key]: true } : undefined
-                          }
-                        />
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-              </TabsContent>
-              <TabsContent value="features">
-                <Box mt="2">
-                  <ConfigFeatureReferences
-                    lineage={data.lineage}
-                    currentKey={config.key}
-                    references={familyReferences}
-                    loading={familyReferencesLoading}
-                    error={(familyReferencesError ?? null) !== null}
-                  />
-                </Box>
-              </TabsContent>
-            </Tabs>
-          </Box>
 
-          <Box style={{ flex: 1, minWidth: 0 }}>
-            <Flex align="start" justify="between" gap="2" mb="2" wrap="wrap">
-              <Box>
-                <Flex align="center" gap="3">
-                  <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
-                    {displayedConfig.name}
-                  </Heading>
-                  {displayedConfig.archived && (
-                    <Badge label="Archived" color="gray" />
-                  )}
-                  {config.lock && (
-                    <Tooltip
-                      body={`Locked at v${config.lock.version}${
-                        config.lock.reason ? ` — ${config.lock.reason}` : ""
-                      }. Unlock to publish.`}
-                    >
-                      <Badge
-                        color="orange"
-                        label={
-                          <>
-                            <PiLockSimple />{" "}
-                            {`Locked · v${config.lock.version}`}
-                          </>
-                        }
-                      />
-                    </Tooltip>
-                  )}
-                </Flex>
-                {parentKey && (
-                  <Metadata
-                    label="Extends"
-                    style={{ marginTop: "var(--space-1)" }}
-                    value={
-                      <Link href={`/configs/${parentKey}`}>{parentName}</Link>
-                    }
-                  />
-                )}
-              </Box>
-              <Flex align="center" gap="4" pr="2">
-                <RevisionDropdown
-                  entityId={config.id}
-                  allRevisions={allRevisions}
-                  selectedRevisionId={selectedRevisionId}
-                  onSelectRevision={selectRevision}
-                  requiresApproval={approvalRequired}
-                  context="header"
-                />
-                <DropdownMenu
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                    >
-                      <BsThreeDotsVertical size={16} />
-                    </IconButton>
-                  }
-                  open={menuOpen}
-                  onOpenChange={setMenuOpen}
-                  menuPlacement="end"
-                >
-                  <DropdownMenuGroup>
-                    {canEditNow && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setEditInfoOpen(true);
-                        }}
-                      >
-                        Edit information
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setMenuOpen(false);
-                        setShowAuditModal(true);
-                      }}
-                    >
-                      Audit history
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  {((!config.lock && canPublishNow) || !!config.lock) && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        {!config.lock ? (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setMenuOpen(false);
-                              setLockConfirm("lock");
-                            }}
-                          >
-                            Lock…
-                          </DropdownMenuItem>
-                        ) : (
-                          // Always shown while locked; disabled (not hidden) when
-                          // the viewer lacks unlock permission, so it's discoverable.
-                          <DropdownMenuItem
-                            disabled={!canBypassApproval}
-                            tooltip={
-                              !canBypassApproval
-                                ? "You don't have permission to unlock this Config."
-                                : undefined
-                            }
-                            onClick={() => {
-                              setMenuOpen(false);
-                              setLockConfirm("unlock");
-                            }}
-                          >
-                            Unlock…
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuGroup>
-                    </>
-                  )}
-                  {((!config.experimentGuard && canPublishNow) ||
-                    !!config.experimentGuard) && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        {!config.experimentGuard ? (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setMenuOpen(false);
-                              handleExperimentGuard(true);
-                            }}
-                          >
-                            Enable experiment guard
-                          </DropdownMenuItem>
-                        ) : (
-                          // Disabling a protection is gated on bypass-approval
-                          // (matches unlock); shown-but-disabled so it stays
-                          // discoverable.
-                          <DropdownMenuItem
-                            disabled={!canBypassApproval}
-                            tooltip={
-                              !canBypassApproval
-                                ? "You don't have permission to disable the experiment guard."
-                                : undefined
-                            }
-                            onClick={() => {
-                              setMenuOpen(false);
-                              handleExperimentGuard(false);
-                            }}
-                          >
-                            Disable experiment guard
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuGroup>
-                    </>
-                  )}
-                  {(canEditNow || canArchiveNow || canDeleteNow) && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        {canArchiveNow && (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setMenuOpen(false);
-                              setShowArchiveModal(true);
-                            }}
-                          >
-                            {/* LIVE state: the endpoint flips against live, so the
-                                projected state labels the opposite action. */}
-                            {config.archived ? "Unarchive" : "Archive"}
-                          </DropdownMenuItem>
-                        )}
-                        {canDeleteNow && (
-                          <DropdownMenuItem
-                            color="red"
-                            onClick={() => {
-                              setMenuOpen(false);
-                              setConfirmDelete(true);
-                            }}
-                          >
-                            Delete
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuGroup>
-                    </>
-                  )}
-                </DropdownMenu>
-              </Flex>
-            </Flex>
-
-            <Flex align="center" gap="4" mb="4" wrap="wrap">
-              <Metadata label="Key" value={config.key} />
-              <Metadata label="Project" value={projectName || "All projects"} />
-              <Box>
-                <Text weight="medium">Owner: </Text>
-                <Owner ownerId={displayedConfig.owner} gap="1" />
-              </Box>
-            </Flex>
-
-            {displayedConfig.description && (
-              <Box mb="3">
-                <Markdown>{displayedConfig.description}</Markdown>
-              </Box>
+      <DetailsPageTitleBar
+        title={displayedConfig.name}
+        onRename={canEditNow ? () => setEditInfoOpen(true) : null}
+        badges={
+          <>
+            {displayedConfig.archived && (
+              <Badge label="Archived" color="gray" />
             )}
-
-            <Box mb="4">
-              <Tabs
-                value={tab}
-                onValueChange={(v) =>
-                  setTabAndScroll(v as "overview" | "validation" | "review")
-                }
+            {config.lock && (
+              <Tooltip
+                body={`Locked at v${config.lock.version}${
+                  config.lock.reason ? ` — ${config.lock.reason}` : ""
+                }. Unlock to publish.`}
               >
-                <TabsList size="lg">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="review">
-                    Review &amp; Publish
-                    {openRevisions.length > 0 && (
-                      <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                        <Badge
-                          label={String(openRevisions.length)}
-                          color="red"
-                          variant="solid"
-                          radius="full"
-                          ml="2"
-                          style={{ minWidth: 18, height: 18 }}
-                        />
-                      </Tooltip>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="validation">Validation</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </Box>
+                <Badge
+                  color="orange"
+                  label={
+                    <>
+                      <PiLockSimple /> {`Locked · v${config.lock.version}`}
+                    </>
+                  }
+                />
+              </Tooltip>
+            )}
+          </>
+        }
+        actions={
+          <DetailsPageActions
+            // A draft's way to review is on the status bar under the tabs.
+            newDraft={isDraft ? null : newDraft}
+            menu={menu}
+          />
+        }
+      />
 
+      <DetailsPageTabs
+        value={tab}
+        onValueChange={(v) =>
+          setTabAndScroll(v as "overview" | "validation" | "review")
+        }
+        triggers={
+          <>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="review">
+              Review &amp; Publish
+              <ReviewTabCount statuses={allRevisions.map((r) => r.status)} />
+            </TabsTrigger>
+            <TabsTrigger value="validation">Validation</TabsTrigger>
+          </>
+        }
+        revisionPicker={
+          <RevisionDropdown
+            entityId={config.id}
+            allRevisions={allRevisions}
+            selectedRevisionId={selectedRevisionId}
+            onSelectRevision={selectRevision}
+            requiresApproval={approvalRequired}
+            context="header"
+            width={REVISION_SELECTOR_WIDTH_PX}
+          />
+        }
+        detailsOpen={details.open}
+        setDetailsOpen={details.toggle}
+        leftPanel={{
+          name: "lineage",
+          open: lineagePanel.open,
+          setOpen: lineagePanel.toggle,
+        }}
+        statusBar={
+          showsStatusBar ? (
+            <div ref={setStatusBarEl}>
+              <RevisionStatusBar<ConfigInterface>
+                selectedRevision={selectedRevision}
+                liveRevision={liveRevision}
+                allRevisions={allRevisions}
+                liveSnapshot={config}
+                diffConfig={REVISION_CONFIG_DIFF_CONFIG}
+                entityNoun="Config"
+                requiresApproval={selectedRevisionRequiresApproval}
+                canDiscard={
+                  canDraft || selectedRevision?.authorId === currentUserId
+                }
+                onSelectRevision={selectRevision}
+                onReviewPublish={() => setTabAndScroll("review")}
+                onPublish={
+                  canPublishSelected && !config.lock ? handlePublish : null
+                }
+                onDiscard={handleDiscard}
+              />
+            </div>
+          ) : null
+        }
+      />
+
+      <DetailsPanelLayout
+        details={details}
+        stickyTop={stickyTop}
+        leftPanel={{ details: lineagePanel, panel: lineage }}
+        panel={
+          <ConfigDetailsPanel
+            config={displayedConfig}
+            parent={
+              parentKey
+                ? { key: parentKey, name: parentName ?? parentKey }
+                : null
+            }
+            onEditInfo={canEditNow ? () => setEditInfoOpen(true) : null}
+            revision={panelRevision}
+            allRevisions={allRevisions}
+            isLive={!selectedRevision}
+            requiresApproval={approvalRequired}
+            canEditRevision={canDraft && !isLocked}
+            onRenameRevision={async (title) => {
+              if (!selectedRevision) return;
+              await apiCall(`/revision/${selectedRevision.id}/title`, {
+                method: "PATCH",
+                body: JSON.stringify({ title }),
+              });
+              await mutateRevisions();
+            }}
+            onDescribeRevision={async (description) => {
+              if (!selectedRevision) return;
+              await apiCall(`/revision/${selectedRevision.id}/description`, {
+                method: "PATCH",
+                body: JSON.stringify({ description }),
+              });
+              await mutateRevisions();
+            }}
+          />
+        }
+      >
+        <div className="details-column">
+          <Box className="contents container-fluid pagecontents">
             {tab === "overview" && (
               <>
-                <RevisionSummaryCard
-                  allRevisions={allRevisions}
-                  selectedRevision={selectedRevision}
-                  entityNoun="Config"
-                  hasRevisions={allRevisions.length > 0}
-                  canEditTitle={canDraft && !isLocked}
-                  canEditDescription={canDraft && !isLocked}
-                  fallbackOwnerId={config.owner}
-                  fallbackDateCreated={config.dateCreated}
-                  onSelectRevision={selectRevision}
-                  onTitleCommit={async (revisionId, title) => {
-                    await apiCall(`/revision/${revisionId}/title`, {
-                      method: "PATCH",
-                      body: JSON.stringify({ title }),
-                    });
-                    await mutateRevisions();
-                  }}
-                  onNewDraft={
-                    canDraft && !isLocked ? handleNewDraft : undefined
+                <SectionFrame
+                  title="Fields"
+                  mb="4"
+                  // Pinned under the page's tabs while the fields scroll by.
+                  stickyTop={stickyTop}
+                  tabs={
+                    <ConfigEnvTabs
+                      currentKey={config.key}
+                      currentConfigId={config.id}
+                      lineage={data.lineage}
+                      configNames={data.configNames}
+                      archivedByKey={data.archivedByKey}
+                      canCreate={
+                        hasConfigsFeature &&
+                        permissionsUtil.canCreateConfig({
+                          project: config.project || "",
+                        })
+                      }
+                      mutate={mutate}
+                    />
                   }
-                  onReviewPublish={() => setTabAndScroll("review")}
-                  onEditDescription={
-                    canDraft && !isLocked
-                      ? () => setEditDescriptionModal(true)
-                      : undefined
+                  actions={
+                    <>
+                      <SegmentedControl
+                        aria-label="View"
+                        value={activeTab}
+                        setValue={(v) => {
+                          cancelEdits();
+                          setActiveTab(v);
+                        }}
+                        options={[
+                          { value: "form", label: "Form" },
+                          { value: "json", label: "JSON" },
+                          { value: "resolved", label: "Resolved" },
+                        ]}
+                      />
+                      <ConfigExportMenu payloads={exportPayloads} />
+                    </>
                   }
-                  disablePinning
-                />
-
-                <Box mb="4" pt="4" pb="5" px="6" className="appbox">
-                  <ConfigEnvTabs
-                    currentKey={config.key}
-                    currentConfigId={config.id}
-                    lineage={data.lineage}
-                    configNames={data.configNames}
-                    archivedByKey={data.archivedByKey}
-                    canCreate={
-                      hasConfigsFeature &&
-                      permissionsUtil.canCreateConfig({
-                        project: config.project || "",
-                      })
-                    }
-                    mutate={mutate}
-                  />
+                >
                   <Tabs
                     value={activeTab}
                     onValueChange={(v) => {
@@ -1870,46 +1878,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                       );
                     }}
                   >
-                    <Box mb="4">
-                      <Flex
-                        align="center"
-                        justify="between"
-                        width="100%"
-                        wrap="wrap"
-                        gap="2"
-                      >
-                        <SplitButton variant="outline">
-                          {(["form", "json", "resolved"] as const).map((t) => (
-                            <Button
-                              key={t}
-                              color="violet"
-                              variant={activeTab === t ? "solid" : "outline"}
-                              size="md"
-                              onClick={() => {
-                                cancelEdits();
-                                setActiveTab(t);
-                              }}
-                            >
-                              {t === "form"
-                                ? "Form"
-                                : t === "json"
-                                  ? "JSON"
-                                  : "Resolved"}
-                            </Button>
-                          ))}
-                        </SplitButton>
-                        <Flex align="center" gap="5" pl="4">
-                          <ConfigExportMenu payloads={exportPayloads} />
-                        </Flex>
-                      </Flex>
-                    </Box>
-
                     <TabsContent value="form">
-                      {/* Horizontal scroll for the fixed-min-width table (the
-                          inner `minWidth: 800` box) instead of squeezing the
-                          columns — but only below the breakpoint, where the
-                          header also goes static (see .config-table-scroll). */}
-                      <Box className="config-table-scroll">
+                      <Box>
                         {canEditInline && reconciliationPreview.length > 0 && (
                           <Callout status="info" mt="3">
                             Publishing will remove{" "}
@@ -1979,173 +1949,157 @@ export default function ConfigDetailPage(): React.ReactElement {
                             <MarkdownLinks text={deleteError} />
                           </Callout>
                         )}
-                        <Box style={{ minWidth: 800 }}>
-                          <Grid
-                            className="config-table-sticky-header"
-                            columns={FIELD_GRID_TEMPLATE}
-                            gapX="5"
-                            align="start"
-                            pt="3"
-                            pb="1"
-                            px="3"
-                            style={{
-                              borderBottom: "1px solid var(--slate-a4)",
-                              // Sticky below the fixed top nav on wide
-                              // screens; the class drops it to static once
-                              // x-scroll turns on (an overflow-x ancestor breaks
-                              // document-sticky). `top` is inert when static.
-                              top: "var(--page-top-offset)",
-                              zIndex: 2,
-                              background: "var(--color-panel-solid)",
-                            }}
-                          >
-                            {["Key", "Value", "Type", "Source", "Usage"].map(
-                              (label) => (
-                                <Box key={label} style={{ minWidth: 0 }}>
-                                  <Flex
-                                    align="center"
-                                    gap="1"
-                                    style={{ minHeight: 24 }}
-                                  >
-                                    <Text
-                                      size="sm"
-                                      weight="medium"
-                                      color="text-low"
-                                      textTransform="uppercase"
+                        <Table
+                          variant="ghost"
+                          scrollX
+                          stickyLastColumn
+                          pinScrollbar
+                          mt="2"
+                          // Room for a readable Value column before it scrolls.
+                          style={{ minWidth: 980 }}
+                        >
+                          <TableHeader>
+                            <TableRow>
+                              <TableColumnHeader width="200px">
+                                Key
+                              </TableColumnHeader>
+                              <TableColumnHeader>Value</TableColumnHeader>
+                              <TableColumnHeader width="110px">
+                                Type
+                              </TableColumnHeader>
+                              <TableColumnHeader width="120px">
+                                Source
+                              </TableColumnHeader>
+                              <TableColumnHeader width="72px">
+                                <Flex align="center" gap="1">
+                                  Usage
+                                  <UITooltip content="Flag rules and defaults that override this key.">
+                                    <span
+                                      style={{
+                                        display: "inline-flex",
+                                        color: "var(--slate-9)",
+                                      }}
                                     >
-                                      {label}
-                                    </Text>
-                                    {label === "Usage" && (
-                                      <Tooltip
-                                        body="Flag rules and defaults that override this key."
-                                        style={{
-                                          display: "inline-flex",
-                                          color: "var(--slate-9)",
-                                        }}
-                                      >
-                                        <PiInfo />
-                                      </Tooltip>
-                                    )}
-                                  </Flex>
-                                </Box>
-                              ),
-                            )}
-                            <Flex
-                              align="center"
-                              justify="end"
-                              style={{ minHeight: 24 }}
-                            >
-                              {overrideCount > 0 && (
-                                <Switch
-                                  value={showOverrides}
-                                  onChange={setShowOverrides}
-                                  label="Show overrides"
-                                />
-                              )}
-                            </Flex>
-                          </Grid>
-
-                          {renderExtendsRow()}
-                          {renderComposeRow()}
-
-                          {resolved.fields.map((f) => {
-                            if (schemaEdit === f.key) {
-                              const isJson = isJsonField(f.field);
-                              // JSON editors accept `null` as literal text, so only
-                              // non-JSON fields use the null flag/checkbox.
-                              const seedNull = f.value === null && !isJson;
-                              const seedVal =
-                                f.value !== undefined && f.value !== null
-                                  ? f.value
-                                  : typeDefault(f.field);
-                              return (
-                                <FieldDefForm
-                                  key={f.key}
-                                  withValue
-                                  initial={
-                                    ownSchema().fields.find(
-                                      (sf) => sf.key === f.key,
-                                    ) ?? blankField()
-                                  }
-                                  initialValue={
-                                    seedNull
-                                      ? ""
-                                      : isJson
-                                        ? JSON.stringify(
-                                            f.value !== undefined
-                                              ? f.value
-                                              : seedVal,
-                                            null,
-                                            2,
-                                          )
-                                        : String(seedVal)
-                                  }
-                                  initialNull={seedNull}
-                                  initialUndefined={f.value === undefined}
-                                  existingKeys={resolved.fields.map(
-                                    (rf) => rf.key,
+                                      <PiInfo />
+                                    </span>
+                                  </UITooltip>
+                                </Flex>
+                              </TableColumnHeader>
+                              <TableColumnHeader width="180px">
+                                <Flex align="center" justify="end">
+                                  {overrideCount > 0 && (
+                                    <Switch
+                                      value={showOverrides}
+                                      onChange={setShowOverrides}
+                                      label="Show overrides"
+                                    />
                                   )}
+                                </Flex>
+                              </TableColumnHeader>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {renderExtendsRow()}
+                            {renderComposeRow()}
+
+                            {resolved.fields.map((f) => {
+                              if (schemaEdit === f.key) {
+                                const isJson = isJsonField(f.field);
+                                // JSON editors accept `null` as literal text, so only
+                                // non-JSON fields use the null flag/checkbox.
+                                const seedNull = f.value === null && !isJson;
+                                const seedVal =
+                                  f.value !== undefined && f.value !== null
+                                    ? f.value
+                                    : typeDefault(f.field);
+                                return (
+                                  <FieldDefForm
+                                    key={f.key}
+                                    withValue
+                                    initial={
+                                      ownSchema().fields.find(
+                                        (sf) => sf.key === f.key,
+                                      ) ?? blankField()
+                                    }
+                                    initialValue={
+                                      seedNull
+                                        ? ""
+                                        : isJson
+                                          ? JSON.stringify(
+                                              f.value !== undefined
+                                                ? f.value
+                                                : seedVal,
+                                              null,
+                                              2,
+                                            )
+                                          : String(seedVal)
+                                    }
+                                    initialNull={seedNull}
+                                    initialUndefined={f.value === undefined}
+                                    existingKeys={resolved.fields.map(
+                                      (rf) => rf.key,
+                                    )}
+                                    constantContext={constantContext}
+                                    onCancel={() => setSchemaEdit(null)}
+                                    onSave={saveField}
+                                  />
+                                );
+                              }
+                              return (
+                                <ConfigFieldRow
+                                  key={f.key}
+                                  field={f}
+                                  configKey={config.key}
+                                  inheritsValue={!!parentKey}
+                                  isOwnField={ownSchemaKeys.includes(f.key)}
+                                  canEditInline={canEditInline}
                                   constantContext={constantContext}
-                                  onCancel={() => setSchemaEdit(null)}
-                                  onSave={saveField}
+                                  squashConstants={squashConstants}
+                                  editing={editKey === f.key}
+                                  editText={editText}
+                                  editKind={editKind}
+                                  editError={editError}
+                                  setEditText={setEditText}
+                                  setEditKind={setEditKind}
+                                  onStartEdit={() => startOverride(f)}
+                                  onSubmit={submitOverride}
+                                  onCancelEdit={() => setEditKey(null)}
+                                  onEditDefinition={() => {
+                                    setEditKey(null);
+                                    setSchemaEdit(f.key);
+                                  }}
+                                  onRemoveField={() => removeField(f.key)}
+                                  onRemoveOverride={() => removeOverride(f.key)}
+                                  showParentValue={
+                                    showOverrides && isOverrideField(f)
+                                  }
+                                  parentValue={parentFieldValues.get(f.key)}
+                                  hasValidationError={failingFieldInfo.has(
+                                    f.key,
+                                  )}
+                                  validationTooltip={failingFieldInfo
+                                    .get(f.key)
+                                    ?.join("; ")}
+                                  keyImplementations={implementationsByKey.get(
+                                    f.key,
+                                  )}
                                 />
                               );
-                            }
-                            return (
-                              <ConfigFieldRow
-                                key={f.key}
-                                field={f}
-                                configKey={config.key}
-                                inheritsValue={!!parentKey}
-                                isOwnField={ownSchemaKeys.includes(f.key)}
-                                canEditInline={canEditInline}
-                                constantContext={constantContext}
-                                squashConstants={squashConstants}
-                                editing={editKey === f.key}
-                                editText={editText}
-                                editKind={editKind}
-                                editError={editError}
-                                setEditText={setEditText}
-                                setEditKind={setEditKind}
-                                onStartEdit={() => startOverride(f)}
-                                onSubmit={submitOverride}
-                                onCancelEdit={() => setEditKey(null)}
-                                onEditDefinition={() => {
-                                  setEditKey(null);
-                                  setSchemaEdit(f.key);
-                                }}
-                                onRemoveField={() => removeField(f.key)}
-                                onRemoveOverride={() => removeOverride(f.key)}
-                                showParentValue={
-                                  showOverrides && isOverrideField(f)
-                                }
-                                parentValue={parentFieldValues.get(f.key)}
-                                hasValidationError={failingFieldInfo.has(f.key)}
-                                validationTooltip={failingFieldInfo
-                                  .get(f.key)
-                                  ?.join("; ")}
-                                keyImplementations={implementationsByKey.get(
-                                  f.key,
-                                )}
-                              />
-                            );
-                          })}
+                            })}
 
-                          {resolved.fields.length === 0 &&
-                            schemaEdit !== "add" && (
-                              <Text
-                                as="p"
-                                size="sm"
-                                color="text-low"
-                                mt="3"
-                                mb="1"
-                              >
-                                No fields yet.
-                              </Text>
-                            )}
-                          {renderAddField()}
-                          {renderAddMixin()}
-                        </Box>
+                            {resolved.fields.length === 0 &&
+                              schemaEdit !== "add" && (
+                                <TableRow>
+                                  <TableCell colSpan={6}>
+                                    <Text color="text-low">No fields yet.</Text>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            {addFieldRows}
+                          </TableBody>
+                        </Table>
+                        {renderAddField()}
+                        {renderAddMixin()}
                       </Box>
                     </TabsContent>
 
@@ -2173,15 +2127,14 @@ export default function ConfigDetailPage(): React.ReactElement {
                       />
                     )}
                   </Tabs>
-                </Box>
+                </SectionFrame>
 
                 {(keyUsage?.implementations?.length ?? 0) > 0 && (
-                  <Box mt="5" mb="4" py="4" px="6" className="appbox">
-                    <ConfigUsageSection
-                      implementations={keyUsage?.implementations ?? []}
-                      fieldKeys={resolved.fields.map((f) => f.key)}
-                    />
-                  </Box>
+                  <ConfigUsageSection
+                    implementations={keyUsage?.implementations ?? []}
+                    fieldKeys={resolved.fields.map((f) => f.key)}
+                    stickyTop={stickyTop}
+                  />
                 )}
               </>
             )}
@@ -2211,7 +2164,7 @@ export default function ConfigDetailPage(): React.ReactElement {
 
             {tab === "review" && (
               <ReviewAndPublishTab<ConfigInterface>
-                revision={selectedRevision ?? displayRevision ?? null}
+                revision={panelRevision}
                 allRevisions={allRevisions}
                 currentState={config}
                 diffConfig={REVISION_CONFIG_DIFF_CONFIG}
@@ -2251,20 +2204,20 @@ export default function ConfigDetailPage(): React.ReactElement {
                   permissionsUtil,
                   "config",
                   "publish",
-                  selectedRevision ?? displayRevision ?? null,
+                  panelRevision,
                   config,
                   configPublishEnvironments(config),
                 )}
                 canCommentOnEntity={canCommentOnRevisionEntity(
                   permissionsUtil,
                   "config",
-                  selectedRevision ?? displayRevision ?? null,
+                  panelRevision,
                   config,
                 )}
                 canReviewEntity={canReviewRevisionEntity(
                   permissionsUtil,
                   "config",
-                  selectedRevision ?? displayRevision ?? null,
+                  panelRevision,
                   config,
                   revisionPublishEnvironments,
                 )}
@@ -2276,7 +2229,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 canPublishEntity={canPublishRevisionEntity(
                   permissionsUtil,
                   "config",
-                  selectedRevision ?? displayRevision ?? null,
+                  panelRevision,
                   config,
                   revisionPublishEnvironments,
                 )}
@@ -2318,8 +2271,8 @@ export default function ConfigDetailPage(): React.ReactElement {
               />
             )}
           </Box>
-        </Flex>
-      </Box>
+        </div>
+      </DetailsPanelLayout>
 
       {editInfoOpen && (
         <ConfigModal
@@ -2455,20 +2408,6 @@ export default function ConfigDetailPage(): React.ReactElement {
           onRevisionCreated={async (rev) => {
             await onRevisionCreated(rev);
             setConfirmRevert(false);
-          }}
-        />
-      )}
-
-      {editDescriptionModal && selectedRevision && (
-        <EditRevisionDescriptionModal
-          initialValue={selectedRevision.comment || ""}
-          close={() => setEditDescriptionModal(false)}
-          onSubmit={async (description) => {
-            await apiCall(`/revision/${selectedRevision.id}/description`, {
-              method: "PATCH",
-              body: JSON.stringify({ description }),
-            });
-            await mutateRevisions();
           }}
         />
       )}

@@ -7,7 +7,7 @@ import {
   PiDotOutline,
   PiLinkBreak,
   PiWarningFill,
-  PiPlusBold,
+  PiPlus,
 } from "react-icons/pi";
 import { isScopedConfig } from "shared/util";
 import { LineageNode } from "@/components/Configs/fieldSchema";
@@ -207,7 +207,7 @@ export default function LineageTree({
             justify="center"
             style={{ width: 14, flexShrink: 0, color: "var(--slate-10)" }}
           >
-            <PiPlusBold size={10} />
+            <PiPlus size={10} />
           </Flex>
           <span
             style={{

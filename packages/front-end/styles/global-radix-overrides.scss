@@ -483,15 +483,16 @@
   &.rt-r-size-3 .rt-SegmentedControlItemLabel {
     padding-inline: calc(var(--space-4) + 4px);
   }
+  // As tall as a button of the same size, so the two sit level in a row.
   &:not(.gb-segmented-control--wrap) {
     &.rt-r-size-1 {
-      height: calc(var(--space-5) + 6px);
+      height: var(--space-5);
     }
     &.rt-r-size-2 {
-      height: calc(var(--space-6) + 6px);
+      height: var(--space-6);
     }
     &.rt-r-size-3 {
-      height: calc(var(--space-7) + 6px);
+      height: var(--space-7);
     }
   }
 }
@@ -503,14 +504,14 @@
   align-self: start;
 
   &.rt-r-size-1 {
-    min-height: calc(var(--space-5) + 6px);
+    min-height: var(--space-5);
     line-height: var(--line-height-1);
   }
   &.rt-r-size-2 {
-    min-height: calc(var(--space-6) + 6px);
+    min-height: var(--space-6);
   }
   &.rt-r-size-3 {
-    min-height: calc(var(--space-7) + 6px);
+    min-height: var(--space-7);
   }
 
   .rt-SegmentedControlItemLabel {

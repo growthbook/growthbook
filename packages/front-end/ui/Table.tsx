@@ -29,6 +29,8 @@ export type TableProps = Omit<
   scrollX?: boolean;
   /** Pins the last column to the right edge while the rest scrolls under it, in a `scrollX` region or once the table is too wide for the page. */
   stickyLastColumn?: boolean;
+  /** For a tall `scrollX` table: its sideways scrollbar sticks to the window's bottom, and the wheel is left to scroll the page. */
+  pinScrollbar?: boolean;
   /**
    * Height cap for the `scrollX` region, e.g. 480 or "60vh". Without it the
    * region grows to the viewport, which pushes anything below the table (such
@@ -43,6 +45,34 @@ export type TableProps = Omit<
   minTableWidth?: number;
 };
 
+// Scrolls a cell's table sideways so the cell shows in full beside a pinned
+// last column, or from its own left edge when it's wider than the room.
+// Returns what scrolls the table back.
+export function revealTableCell(cell: HTMLElement): () => void {
+  let scroller = cell.parentElement;
+  while (scroller && scroller.scrollWidth <= scroller.clientWidth) {
+    scroller = scroller.parentElement;
+  }
+  if (!scroller || scroller === document.documentElement) return () => {};
+  const el = scroller;
+  const before = el.scrollLeft;
+  const pinned = cell.parentElement?.lastElementChild;
+  const isPinned = (e: Element | null | undefined): e is HTMLElement =>
+    e instanceof HTMLElement && getComputedStyle(e).position === "sticky";
+  // A pinned cell is always in view.
+  if (pinned === cell && isPinned(cell)) return () => {};
+  const pinnedWidth = isPinned(pinned)
+    ? pinned.getBoundingClientRect().width
+    : 0;
+  const box = scroller.getBoundingClientRect();
+  const rect = cell.getBoundingClientRect();
+  let delta = Math.max(0, rect.right - (box.right - pinnedWidth));
+  if (rect.left - delta < box.left) delta = rect.left - box.left;
+  if (Math.abs(delta) < 1) return () => {};
+  el.scrollBy({ left: delta, behavior: "smooth" });
+  return () => el.scrollTo({ left: before, behavior: "smooth" });
+}
+
 export default function Table({
   children,
   variant,
@@ -52,6 +82,7 @@ export default function Table({
   roundedCorners,
   scrollX,
   stickyLastColumn,
+  pinScrollbar,
   maxHeight,
   minTableWidth,
   className,
@@ -218,6 +249,28 @@ export default function Table({
     pageTopOffset,
   ]);
 
+  // Whatever takes focus in a sideways-scrolling table comes into view, past
+  // the pinned column rather than under it.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Marks the region that scrolls sideways, for TableViewportCell.
+  useEffect(() => {
+    scrollRef.current?.setAttribute(TABLE_SCROLL_ATTR, "");
+  }, [scrollX]);
+  const pinnedScroll = !isListVariant && !!scrollX && !!stickyLastColumn;
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!pinnedScroll || !el) return;
+    const onFocus = (e: FocusEvent) => {
+      const cell =
+        e.target instanceof Element ? e.target.closest("td, th") : null;
+      if (cell instanceof HTMLElement && el.contains(cell)) {
+        revealTableCell(cell);
+      }
+    };
+    el.addEventListener("focusin", onFocus);
+    return () => el.removeEventListener("focusin", onFocus);
+  }, [pinnedScroll]);
+
   const radixVariant = variant === "list" ? "surface" : variant;
 
   const tableElement = (
@@ -246,10 +299,13 @@ export default function Table({
     if (!scrollX) return tableElement;
     return (
       <ScrollArea
+        ref={scrollRef}
         direction="horizontal"
         size="md"
         gutter
-        wheelScrollsSideways
+        // A tall table leaves the wheel to the page but over its scrollbar.
+        wheelScrollsSideways={pinScrollbar ? "scrollbar" : "area"}
+        pinScrollbar={pinScrollbar}
         edgeCue="fade"
         // A pinned column fades what's under it itself, above the row
         // borders a mask would fade too; the left edge goes unmarked to match.
@@ -339,6 +395,49 @@ export function TableColumnHeader({
     <RadixTable.ColumnHeaderCell {...props}>
       {children}
     </RadixTable.ColumnHeaderCell>
+  );
+}
+
+const TABLE_SCROLL_ATTR = "data-table-scroll";
+
+// A full-row cell (give it the row's colSpan) whose content spans what the
+// table shows rather than the whole table, and stays put while the table
+// scrolls sideways. For a panel under a row, such as an inline editor's.
+export function TableViewportCell({
+  children,
+  ...props
+}: React.ComponentProps<typeof RadixTable.Cell>) {
+  const cellRef = useRef<HTMLTableCellElement>(null);
+  const [box, setBox] = useState<{ left: number; width: number } | null>(null);
+  useEffect(() => {
+    const cell = cellRef.current;
+    const viewport = cell?.closest<HTMLElement>(`[${TABLE_SCROLL_ATTR}]`);
+    if (!cell || !viewport) return;
+    const measure = () => {
+      const { paddingLeft, paddingRight } = getComputedStyle(cell);
+      const left = parseFloat(paddingLeft);
+      setBox({
+        left,
+        width: viewport.clientWidth - left - parseFloat(paddingRight),
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <RadixTable.Cell ref={cellRef} {...props}>
+      <div
+        style={
+          box
+            ? { position: "sticky", left: box.left, width: box.width }
+            : undefined
+        }
+      >
+        {children}
+      </div>
+    </RadixTable.Cell>
   );
 }
 

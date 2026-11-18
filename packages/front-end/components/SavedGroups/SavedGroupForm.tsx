@@ -66,7 +66,7 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 type SavedGroupFormValues = CreateSavedGroupProps &
   Pick<UpdateSavedGroupProps, "currentUploadVersion">;
 
-const TYPE_LABELS: Record<SavedGroupType, string> = {
+export const SAVED_GROUP_TYPE_LABELS: Record<SavedGroupType, string> = {
   condition: "Condition Group",
   list: "ID List",
   remote: "Remote Group",
@@ -469,7 +469,7 @@ const SavedGroupForm: FC<{
             ? "Edit Information"
             : editConditionOnly
               ? "Edit Condition"
-              : `${current.id ? "Edit" : "Add"} ${TYPE_LABELS[type]}`
+              : `${current.id ? "Edit" : "Add"} ${SAVED_GROUP_TYPE_LABELS[type]}`
       }
       cta={
         !current.id

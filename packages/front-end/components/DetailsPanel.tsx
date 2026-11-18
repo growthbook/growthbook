@@ -34,21 +34,23 @@ const TAB_FILLS_RAIL = {
 // Whether a page's details panel shows, how wide, and on which of its tabs. On
 // the page's home tabs the open state is remembered; off them the panel starts
 // closed, and opening it there lasts until the tab changes. When narrow, it
-// opens only on request, over the content; the stored choice is for a wide
-// window, so narrowing never overwrites it.
+// opens only on request; the stored choice is for a wide window, so narrowing
+// never overwrites it.
 export function useDetailsPanel({
   openKey,
   widthKey,
   tab,
   homeTab,
+  defaultWidth = PANEL_WIDTH_PX,
 }: {
   openKey: string;
   widthKey: string;
   tab: string;
   homeTab: string | string[];
+  defaultWidth?: number;
 }) {
   const [storedOpen, setStoredOpen] = useLocalStorage(openKey, true);
-  const [width, setWidth] = useLocalStorage(widthKey, PANEL_WIDTH_PX);
+  const [width, setWidth] = useLocalStorage(widthKey, defaultWidth);
   const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
   const [openWhileNarrow, setOpenWhileNarrow] = useState(false);
   useEffect(() => setOpenWhileNarrow(false), [narrow]);
@@ -67,7 +69,7 @@ export function useDetailsPanel({
     setOpen,
     // The toggle is a fresh start: a width dragged out earlier is forgotten.
     toggle: (next: boolean) => {
-      setWidth(PANEL_WIDTH_PX);
+      setWidth(defaultWidth);
       setOpen(next);
     },
     width,
@@ -78,36 +80,60 @@ export function useDetailsPanel({
 }
 
 // The page's content, under its tab bar, beside its details panel; a null
-// panel leaves the content alone.
+// panel leaves the content alone. A page may keep a second panel on the left.
 export function DetailsPanelLayout({
   details,
   stickyTop,
   panel,
   footer,
   busy,
+  leftPanel,
   children,
 }: {
   details: ReturnType<typeof useDetailsPanel>;
-  // Where the panel sticks: under the page's tabs and whatever they carry.
+  // Where the panels stick: under the page's tabs and whatever they carry.
   stickyTop?: number;
+  leftPanel?: {
+    details: ReturnType<typeof useDetailsPanel>;
+    panel: ReactNode;
+  };
 } & Pick<
   CollapsiblePanelLayoutProps,
   "panel" | "footer" | "busy" | "children"
 >) {
+  const top = stickyTop === undefined ? "var(--tabs-bottom)" : `${stickyTop}px`;
+  const content = (
+    <CollapsiblePanelLayout
+      open={!!panel && details.open}
+      top={top}
+      width={details.width}
+      onWidthChange={details.setWidth}
+      onCollapse={() => details.setOpen(false)}
+      panel={panel}
+      footer={footer}
+      busy={busy}
+    >
+      <div className={styles.column}>{children}</div>
+    </CollapsiblePanelLayout>
+  );
   return (
     <div className={styles.layout}>
-      <CollapsiblePanelLayout
-        open={!!panel && details.open}
-        top={stickyTop === undefined ? "var(--tabs-bottom)" : `${stickyTop}px`}
-        width={details.width}
-        onWidthChange={details.setWidth}
-        onCollapse={() => details.setOpen(false)}
-        panel={panel}
-        footer={footer}
-        busy={busy}
-      >
-        <div className={styles.column}>{children}</div>
-      </CollapsiblePanelLayout>
+      {/* A page has a left panel or doesn't, so this never remounts it. */}
+      {leftPanel ? (
+        <CollapsiblePanelLayout
+          side="left"
+          open={leftPanel.details.open}
+          top={top}
+          width={leftPanel.details.width}
+          onWidthChange={leftPanel.details.setWidth}
+          onCollapse={() => leftPanel.details.setOpen(false)}
+          panel={leftPanel.panel}
+        >
+          {content}
+        </CollapsiblePanelLayout>
+      ) : (
+        content
+      )}
     </div>
   );
 }
