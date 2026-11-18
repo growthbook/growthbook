@@ -15,7 +15,8 @@ import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { DataRegion } from "@/services/dataRegions";
+import { DataRegion, getDataRegionLabel } from "@/services/dataRegions";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -30,8 +31,13 @@ export type EventForwarderDestination = {
   environment?: string;
 };
 
-export const ENVIRONMENT_HELP_TEXT =
-  "Only events from SDK Connections in this environment are forwarded. Each environment can go to only one Event Forwarder in each data region.";
+// Says what the current choice forwards
+function environmentHelpText(value: string, allowAll: boolean): string {
+  if (value) return `Only events from ${value} are forwarded.`;
+  return allowAll
+    ? "Events from all environments are forwarded."
+    : "Only events from the selected environment are forwarded.";
+}
 
 // A value fixed at creation, shown as text with a lock instead of an input
 export function EventForwarderLockedField({
@@ -92,7 +98,7 @@ export function EventForwarderEnvironmentSelect({
   others,
   savedAll = false,
   disabled = false,
-  helpText = ENVIRONMENT_HELP_TEXT,
+  helpText,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -124,7 +130,7 @@ export function EventForwarderEnvironmentSelect({
           isDisabled: taken,
         };
       })}
-      helpText={helpText}
+      helpText={helpText ?? environmentHelpText(value, allowAll)}
     />
   );
 }
@@ -152,36 +158,66 @@ export function useEventForwarderEnvironmentRequired(
   );
 }
 
-// Warning that another forwarder in the region receives all environments
-// - Separate from the field, so a caller can give it the full width
+// Another forwarder in the region receives all environments, so this one
+// can't be set up there
 // - Nothing while the region is unknown: the forwarder may be in the other one
-export function EventForwarderAllTakenCallout({
-  region,
-  datasourceId,
-  mb,
-}: {
-  region?: DataRegion | null;
-  datasourceId?: string;
-  mb?: "3";
-}) {
-  const { datasources } = useDefinitions();
+export function useEventForwarderAllTakenBy(
+  region?: DataRegion | null,
+  datasourceId?: string,
+): string | undefined {
   const inRegion = useEventForwardersInRegion(region);
   if (
     !region ||
     inRegion.some((e) => e.datasourceId === datasourceId && !e.environment)
   ) {
-    return null;
+    return undefined;
   }
-  const message = allEnvironmentsTakenMessage(
-    inRegion,
-    datasources,
-    datasourceId,
-  );
-  return message ? (
+  return inRegion.find((e) => !e.environment && e.datasourceId !== datasourceId)
+    ?.datasourceId;
+}
+
+// Warning for useEventForwarderAllTakenBy
+// - Separate from the field, so a caller can give it the full width
+// - Links that Data Source in a new tab, so this form keeps what was typed
+// - `regionSelectable`: suggests picking the other data region
+export function EventForwarderAllTakenCallout({
+  region,
+  datasourceId,
+  regionSelectable = false,
+  mb,
+}: {
+  region?: DataRegion | null;
+  datasourceId?: string;
+  regionSelectable?: boolean;
+  mb?: "3";
+}) {
+  const { datasources } = useDefinitions();
+  const takenBy = useEventForwarderAllTakenBy(region, datasourceId);
+  if (!takenBy || !region) return null;
+  const name = datasources.find((d) => d.id === takenBy)?.name;
+  const where = getDataRegionLabel(region);
+  const otherRegion = regionSelectable ? "Choose another data region, or " : "";
+  return (
     <Callout status="warning" mb={mb}>
-      {message}
+      {name ? (
+        <>
+          The Event Forwarder on{" "}
+          <Link href={`/datasources/${takenBy}#event-forwarder`} external>
+            {name}
+          </Link>{" "}
+          receives all environments in {where}.{" "}
+          {otherRegion ? `${otherRegion}set` : "Set"} that Event Forwarder to
+          one environment first, so events are not sent twice.
+        </>
+      ) : (
+        <>
+          An Event Forwarder you cannot access receives all environments in{" "}
+          {where}. {otherRegion ? `${otherRegion}ask` : "Ask"} an admin to set
+          it to one environment first, so events are not sent twice.
+        </>
+      )}
     </Callout>
-  ) : null;
+  );
 }
 
 // For the current organization; pass the Data Source once it exists.
@@ -204,6 +240,7 @@ export function EventForwarderEnvironmentField({
 }) {
   const environments = useEnvironments();
   const eventForwarderEnvironments = useEventForwardersInRegion(region);
+  const allTakenBy = useEventForwarderAllTakenBy(region, datasourceId);
   // One claim per environment, so a forwarder with several has several
   const own = eventForwarderEnvironments.filter(
     (e) => e.datasourceId === datasourceId,
@@ -219,7 +256,7 @@ export function EventForwarderEnvironmentField({
       <EventForwarderLockedField
         label={saved.length > 1 ? "Environments" : "Environment"}
         value={saved.join(", ")}
-        helpText={`${ENVIRONMENT_HELP_TEXT} Set at creation.`}
+        helpText={`Only events from ${saved.join(", ")} are forwarded. Set at creation.`}
       />
     );
   }
@@ -227,17 +264,22 @@ export function EventForwarderEnvironmentField({
     <EventForwarderEnvironmentSelect
       value={value}
       onChange={onChange}
-      disabled={disabled}
+      // Nothing can be picked while another forwarder receives all
+      disabled={disabled || !!allTakenBy}
       environments={environments.map((e) => e.id)}
       others={eventForwarderEnvironments
         .filter((e) => e.datasourceId !== datasourceId)
         .map((e) => e.environment)}
       savedAll={own.length > 0 && !saved.length}
-      // Moving a live forwarder to one environment drops the rest on save
+      // Narrowing a live forwarder locks it to that environment
       // - Also when it has several: the select shows and keeps only one
+      // - Not before it receives events, while it can still change
       helpText={
-        own.length && value && (saved.length > 1 || !saved.includes(value))
-          ? `${ENVIRONMENT_HELP_TEXT} Events from other environments stop being forwarded when you save.`
+        live &&
+        own.length &&
+        value &&
+        (saved.length > 1 || !saved.includes(value))
+          ? `After you save, only events from ${value} are forwarded. This can't be changed later, so set up another Event Forwarder for any other environments you need.`
           : undefined
       }
     />

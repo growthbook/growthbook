@@ -48,6 +48,7 @@ import DatabricksEventForwarderForm from "@/components/Settings/DatabricksEventF
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
 import {
   EventForwarderAllTakenCallout,
+  useEventForwarderAllTakenBy,
   EventForwarderEnvironmentField,
   EventForwarderLockedField,
 } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
@@ -388,12 +389,15 @@ function EventForwarderConfirmButton({
   usEventForwarderFlowConsent,
   editing,
   region,
+  datasourceId,
 }: {
   usEventForwarderFlowConsent: boolean;
   editing: boolean;
   region: DataRegion;
+  datasourceId: string;
 }) {
   const { loading } = useModalForm();
+  const allTaken = !!useEventForwarderAllTakenBy(region, datasourceId);
 
   if (editing) {
     return (
@@ -405,13 +409,17 @@ function EventForwarderConfirmButton({
 
   return (
     <UITooltip
-      content={`Confirm that event data flows through GrowthBook's servers in ${getDataRegionLabel(region)} to continue.`}
-      enabled={!usEventForwarderFlowConsent}
+      content={
+        allTaken
+          ? `Another Event Forwarder receives all environments in ${getDataRegionLabel(region)}.`
+          : `Confirm that event data flows through GrowthBook's servers in ${getDataRegionLabel(region)} to continue.`
+      }
+      enabled={allTaken || !usEventForwarderFlowConsent}
       side="top"
     >
       <Button
         type="submit"
-        disabled={!usEventForwarderFlowConsent}
+        disabled={allTaken || !usEventForwarderFlowConsent}
         loading={loading}
         icon={<PiCaretRight size={12} />}
         iconPosition="right"
@@ -622,6 +630,7 @@ function EventForwarderModal({
                 <EventForwarderAllTakenCallout
                   region={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
                   datasourceId={dataSource.id}
+                  regionSelectable={!isEditingEventForwarder}
                 />
               ) : null}
               {eventForwarderConfig ? (
@@ -702,6 +711,7 @@ function EventForwarderModal({
               usEventForwarderFlowConsent={usEventForwarderFlowConsent}
               editing={isEditingEventForwarder}
               region={eventForwarderConfig?.region ?? DEFAULT_DATA_REGION}
+              datasourceId={dataSource.id}
             />
           </Modal.Footer>
         </ModalForm>

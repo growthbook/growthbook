@@ -11,7 +11,6 @@ import {
 } from "@/ui/DropdownMenu";
 import HelperText from "@/ui/HelperText";
 import {
-  ENVIRONMENT_HELP_TEXT,
   EventForwarderEnvironmentSelect,
   EventForwarderLockedField,
 } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
@@ -61,7 +60,7 @@ function MigrateEnvironmentField({
         {...props}
         helpText={
           saved.length > 1
-            ? `${ENVIRONMENT_HELP_TEXT} Events from other environments stop being forwarded when you migrate.`
+            ? "Other environments stop being forwarded when you migrate."
             : undefined
         }
         value={value}
