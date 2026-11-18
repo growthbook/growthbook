@@ -573,14 +573,22 @@ async function assertCarriedQuerySqlUnchanged({
     }),
   );
 
+  const todaysSql = await replayMetricRefreshLineage({
+    levels,
+    settings: planned,
+    generateResultQuerySql,
+  }).catch((error: unknown) => {
+    // A normal update reports the error itself if it is real.
+    context.logger.warn(
+      error,
+      "Could not regenerate the SQL a metric refresh would copy",
+    );
+    throw unavailable("settings_changed");
+  });
   const changed = getQueriesWithChangedSql({
     queryNames: comparedQueries.map((q) => q.name),
     storedSql,
-    todaysSql: await replayMetricRefreshLineage({
-      levels,
-      settings: planned,
-      generateResultQuerySql,
-    }),
+    todaysSql,
   });
   if (changed.length) {
     throw unavailable("settings_changed");

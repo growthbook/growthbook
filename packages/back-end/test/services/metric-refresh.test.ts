@@ -108,6 +108,7 @@ const findAncestorMock = jest.mocked(findMetricRefreshAncestor);
 const context = {
   org: { id: "org_1", settings: {} },
   permissions: { canRunExperimentQueries: () => true },
+  logger: { warn: jest.fn() },
 } as unknown as ReqContext;
 
 const datasource = { id: "ds_1", settings: {} } as DataSourceInterface;
@@ -668,6 +669,23 @@ describe("planMetricRefresh", () => {
       await expect(planMetricRefresh(refreshArgs())).resolves.toMatchObject({
         snapshot: { metricRefresh: { metricIds: ["met_c"] } },
       });
+    });
+
+    it("refuses as changed settings when today's SQL can't be generated, and logs why", async () => {
+      const error = new Error("Unknown exposure query: user_id");
+      const promise = planMetricRefresh(
+        refreshArgs({
+          generateResultQuerySql: jest.fn().mockRejectedValue(error),
+        }),
+      );
+
+      await expect(promise).rejects.toMatchObject({
+        details: { reason: "settings_changed" },
+      });
+      expect(context.logger.warn).toHaveBeenCalledWith(
+        error,
+        "Could not regenerate the SQL a metric refresh would copy",
+      );
     });
 
     it("replays a base full update that had no cutoff without one", async () => {
