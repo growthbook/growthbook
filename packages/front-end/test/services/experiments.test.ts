@@ -340,15 +340,4 @@ describe("getMetricIdsNoSnapshotComputes", () => {
       }),
     ).toEqual(["met_conversion", "met_plain"]);
   });
-
-  it("keeps a holdout guardrail that is also a goal", () => {
-    expect(
-      uncomputable({
-        type: "holdout",
-        goalMetrics: ["met_plain"],
-        secondaryMetrics: [],
-        guardrailMetrics: ["met_plain"],
-      }),
-    ).toEqual([]);
-  });
 });

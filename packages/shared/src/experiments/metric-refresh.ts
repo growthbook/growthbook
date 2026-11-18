@@ -7,6 +7,7 @@ import type {
 import type { MetricGroupInterface } from "shared/types/metric-groups";
 import type { metricRefreshUnavailableReasons } from "../validators/api-errors";
 import {
+  expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getDefinitionMetricId,
 } from "./experiments";
@@ -33,6 +34,41 @@ export function getMetricIdsMissingFromSnapshot({
   const computed = new Set(snapshotSettings.metricSettings.map((m) => m.id));
   return getAllMetricIdsFromExperiment(experiment, false, metricGroups).filter(
     (id) => !computed.has(id) && getDefinitionMetricId(id) === id,
+  );
+}
+
+/**
+ * The experiment's metrics that no snapshot analyzes because of the
+ * experiment's type: a holdout analyzes neither guardrails, unless they are
+ * also goal or secondary metrics, nor conversion-window metrics.
+ */
+export function getMetricIdsExcludedByExperimentType({
+  experiment,
+  metricGroups,
+  getMetricById,
+}: {
+  experiment: Pick<
+    ExperimentInterface,
+    "type" | "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
+  >;
+  metricGroups: MetricGroupInterface[];
+  getMetricById: (
+    metricId: string,
+  ) => { windowSettings?: { type?: string } } | null | undefined;
+}): Set<string> {
+  if (experiment.type !== "holdout") return new Set();
+  const analyzed = new Set(
+    expandMetricGroups(
+      [...experiment.goalMetrics, ...experiment.secondaryMetrics],
+      metricGroups,
+    ),
+  );
+  return new Set(
+    getAllMetricIdsFromExperiment(experiment, false, metricGroups).filter(
+      (id) =>
+        !analyzed.has(id) ||
+        getMetricById(id)?.windowSettings?.type === "conversion",
+    ),
   );
 }
 

@@ -1,6 +1,7 @@
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
+  getMetricIdsExcludedByExperimentType,
   getMetricIdsMissingFromSnapshot,
   getSnapshotDataAsOf,
   getSnapshotSideEffects,
@@ -219,5 +220,58 @@ describe("getSnapshotDataAsOf", () => {
         },
       }),
     ).toEqual(rootRan);
+  });
+});
+
+describe("getMetricIdsExcludedByExperimentType", () => {
+  const windowTypes: Record<string, string> = { met_conversion: "conversion" };
+  const excluded = (
+    experiment: Parameters<
+      typeof getMetricIdsExcludedByExperimentType
+    >[0]["experiment"],
+    metricGroups: MetricGroupInterface[] = [],
+  ) =>
+    [
+      ...getMetricIdsExcludedByExperimentType({
+        experiment,
+        metricGroups,
+        getMetricById: (id) => ({ windowSettings: { type: windowTypes[id] } }),
+      }),
+    ].sort();
+
+  it("excludes nothing outside a holdout", () => {
+    expect(
+      excluded({
+        type: "standard",
+        goalMetrics: ["met_conversion"],
+        secondaryMetrics: [],
+        guardrailMetrics: ["met_plain"],
+      }),
+    ).toEqual([]);
+  });
+
+  it("excludes a holdout's guardrails and conversion-window metrics, groups expanded", () => {
+    expect(
+      excluded(
+        {
+          type: "holdout",
+          goalMetrics: ["met_plain", "met_conversion"],
+          secondaryMetrics: [],
+          guardrailMetrics: ["mg_guard"],
+        },
+        [metricGroup("mg_guard", ["met_guard"])],
+      ),
+    ).toEqual(["met_conversion", "met_guard"]);
+  });
+
+  it("keeps a holdout guardrail that is also a goal", () => {
+    expect(
+      excluded({
+        type: "holdout",
+        goalMetrics: ["met_plain"],
+        secondaryMetrics: [],
+        guardrailMetrics: ["met_plain"],
+      }),
+    ).toEqual([]);
   });
 });

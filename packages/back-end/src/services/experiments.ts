@@ -59,6 +59,7 @@ import {
 import {
   needsPercentileCapSubquery,
   expandMetricGroups,
+  getMetricIdsExcludedByExperimentType,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
@@ -734,17 +735,22 @@ export function createMetricEligibilityResolver(params: {
 
 /**
  * Whether a snapshot of the experiment would analyze a metric: one that no
- * longer exists, or that getSnapshotSettings finds ineligible, is never
- * computed.
+ * longer exists, that getSnapshotSettings finds ineligible, or that the
+ * experiment's type leaves out, is never computed.
  */
 export function createSnapshotComputesMetric({
   experiment,
   datasource,
   metricMap,
   factTableMap,
+  metricGroups,
 }: {
   experiment: Pick<
     ExperimentInterface,
+    | "type"
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
     | "exposureQueryId"
     | "exposureQueryIdentifierType"
     | "isClusterExperiment"
@@ -753,6 +759,7 @@ export function createSnapshotComputesMetric({
   datasource: DataSourceInterface | null;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  metricGroups: MetricGroupInterface[];
 }): (metricId: string) => boolean {
   const exposureQuery = datasource?.settings?.queries?.exposure?.find(
     (q) => q.id === experiment.exposureQueryId,
@@ -769,7 +776,13 @@ export function createSnapshotComputesMetric({
       ? experiment.clusterSubUnitIdentifier
       : undefined,
   });
-  return (metricId) => metricMap.has(metricId) && isEligible(metricId);
+  const excluded = getMetricIdsExcludedByExperimentType({
+    experiment,
+    metricGroups,
+    getMetricById: (id) => metricMap.get(id),
+  });
+  return (metricId) =>
+    metricMap.has(metricId) && !excluded.has(metricId) && isEligible(metricId);
 }
 
 export function getSnapshotSettings({

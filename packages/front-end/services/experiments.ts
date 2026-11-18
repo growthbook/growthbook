@@ -59,6 +59,7 @@ import {
   isSuspiciousUplift,
   quantileMetricType,
   expandMetricGroups,
+  getMetricIdsExcludedByExperimentType,
   createAutoSliceDataForMetric,
   generateSliceString,
   generateSelectAllSliceString,
@@ -327,22 +328,11 @@ export function getMetricIdsNoSnapshotComputes({
   const uncomputable = experiment.isClusterExperiment
     ? new Set<string>()
     : getUnjoinableMetricIds({ metricIds, ...joinInputs });
-  if (experiment.type === "holdout") {
-    const analyzed = new Set(
-      expandMetricGroups(
-        [...experiment.goalMetrics, ...experiment.secondaryMetrics],
-        metricGroups,
-      ),
-    );
-    metricIds
-      .filter(
-        (id) =>
-          !analyzed.has(id) ||
-          joinInputs.getExperimentMetricById(id)?.windowSettings?.type ===
-            "conversion",
-      )
-      .forEach((id) => uncomputable.add(id));
-  }
+  getMetricIdsExcludedByExperimentType({
+    experiment,
+    metricGroups,
+    getMetricById: joinInputs.getExperimentMetricById,
+  }).forEach((id) => uncomputable.add(id));
   return uncomputable;
 }
 

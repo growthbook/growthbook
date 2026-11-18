@@ -58,16 +58,18 @@ export const getExperimentResults = createApiRequestHandler(
     getMetricMapForExperiment(req.context, experiment),
     getExposureQueriesForDatasource(req.context, experiment.datasource),
   ]);
+  const metricGroups = await req.context.models.metricGroups.getAll();
   const missingMetricIds = await getMetricIdsMissingFromResults({
     experiment,
     snapshot,
-    metricGroups: await req.context.models.metricGroups.getAll(),
+    metricGroups,
     loadSnapshotComputesMetric: async () =>
       createSnapshotComputesMetric({
         experiment,
         datasource: await getDataSourceById(req.context, experiment.datasource),
         metricMap: metricsById,
         factTableMap: await getFactTableMap(req.context),
+        metricGroups,
       }),
   });
   const result = toSnapshotApiInterface(
