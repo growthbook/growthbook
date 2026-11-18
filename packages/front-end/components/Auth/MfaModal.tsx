@@ -58,7 +58,7 @@ export default function MfaModal({ close }: { close: () => void }) {
             <Text as="p">
               MFA is on for your account. You have{" "}
               <Text weight="semibold">{mfaRecoveryCodesRemaining}</Text> unused
-              recovery codes.
+              recovery {mfaRecoveryCodesRemaining === 1 ? "code" : "codes"}.
             </Text>
             {mfaRecoveryCodesRemaining < 3 && (
               <Callout status="warning">
@@ -89,7 +89,7 @@ export default function MfaModal({ close }: { close: () => void }) {
             <Button
               variant="outline"
               loading={pending === "codes"}
-              disabled={pending === "disable"}
+              disabled={!code.trim() || pending === "disable"}
               onClick={() =>
                 run("codes", async () => {
                   const res = await apiCall<{ recoveryCodes: string[] }>(
@@ -106,7 +106,7 @@ export default function MfaModal({ close }: { close: () => void }) {
             <Button
               color="red"
               loading={pending === "disable"}
-              disabled={pending === "codes"}
+              disabled={!code.trim() || pending === "codes"}
               onClick={() =>
                 run("disable", async () => {
                   await apiCall("/user/mfa/disable", {
