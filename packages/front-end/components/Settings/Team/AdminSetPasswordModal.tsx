@@ -35,7 +35,8 @@ export default function AdminSetPasswordModal({ member, close }: Props) {
       })}
     >
       <p>
-        Change password for <strong>{member.name}</strong>:
+        Change password for <strong>{member.name}</strong>. This also turns off
+        their multi-factor authentication (MFA) and signs them out everywhere.
       </p>
       <Field
         size="legacy"

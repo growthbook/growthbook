@@ -152,10 +152,13 @@ import {
 } from "back-end/src/util/namespaces";
 import {
   deleteUser,
+  disableMfa,
   getUserById,
   getAllUsers,
   getUserByEmail,
+  resetMinTokenDate,
 } from "back-end/src/models/UserModel";
+import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
@@ -2684,6 +2687,10 @@ export async function putAdminResetUserPassword(
   }
 
   await updatePassword(userToUpdateId, updatedPassword);
+  // The admin path back in for a member who lost their authenticator and recovery codes
+  await disableMfa(userToUpdateId);
+  await resetMinTokenDate(userToUpdateId);
+  await AuthRefreshModel.deleteMany({ userId: userToUpdateId });
 
   res.status(200).json({
     status: 200,
