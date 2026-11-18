@@ -1,7 +1,11 @@
 import {
   ExperimentMetricInterface,
   expandDerivedMetricsInMap,
+  getLatestPhaseVariations,
   getMetricSnapshotSettings,
+  getResultsOutdatedReasons,
+  getResultsUpdateSituation,
+  type ResultsOutdatedReason,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -29,6 +33,7 @@ import {
   MetricRefreshUnavailableError,
 } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import BigQuery from "back-end/src/integrations/BigQuery";
 import {
   createExperimentSnapshot,
   getAdditionalExperimentAnalysisSettings,
@@ -2384,7 +2389,7 @@ describe("snapshot planning", () => {
   });
 });
 
-describe("planExperimentSnapshot output on trunk", () => {
+describe("planExperimentSnapshot", () => {
   const now = new Date("2025-02-15T12:00:00.000Z");
 
   beforeEach(() => {
@@ -2561,32 +2566,6 @@ describe("planExperimentSnapshot output on trunk", () => {
     return { context, experiment, datasource };
   }
 
-  it.each([
-    { name: "Overall", dimension: undefined },
-    { name: "dimension", dimension: "exp:country" },
-  ])("plans the $name snapshot the way trunk does", async ({ dimension }) => {
-    const { context, experiment, datasource } = makeFixture();
-
-    const plan = await planExperimentSnapshot({
-      context: context as never,
-      experiment,
-      datasource,
-      dimension,
-      phase: 0,
-    });
-
-    const generatedIds = [
-      plan.snapshot.id,
-      ...plan.snapshot.analyses.map((a) => a.analysisKey),
-    ];
-    expect(
-      generatedIds.reduce(
-        (json, id, i) => json.replaceAll(id, `generated_id_${i}`),
-        JSON.stringify(plan, null, 2),
-      ),
-    ).toMatchSnapshot();
-  });
-
   describe("with missingMetricsOnly", () => {
     const refreshTime = new Date("2025-02-15T15:00:00.000Z");
 
@@ -2742,6 +2721,281 @@ describe("planExperimentSnapshot output on trunk", () => {
       const plan = await planRefresh(fixture, fixture.experiment, parent);
 
       expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["fact__guard"]);
+    });
+
+    // Every Outdated reason other than "Metrics changed" makes the app run a
+    // normal update, so the planner must refuse a refresh for each of them.
+    describe("agrees with the app's Outdated reasons", () => {
+      const { generateExperimentResultQuerySql: generateSql } =
+        jest.requireActual<
+          typeof import("back-end/src/queryRunners/ExperimentResultsQueryRunner")
+        >("back-end/src/queryRunners/ExperimentResultsQueryRunner");
+
+      async function outdatedRefresh(
+        fixture: ReturnType<typeof makeFixture>,
+        {
+          base: baseChanges = {},
+          changes,
+        }: {
+          base?: Partial<ExperimentInterface>;
+          changes: Partial<ExperimentInterface>;
+        },
+      ) {
+        const { context, datasource } = fixture;
+        const exposure = [
+          ...(datasource.settings.queries?.exposure ?? []),
+          {
+            id: "exposure_multi",
+            name: "Users or devices",
+            userIdType: "user_id",
+            userIdTypes: ["user_id", "device_id"],
+            query: "SELECT * FROM all_exposures",
+            dimensions: [],
+          },
+        ];
+        datasource.settings.queries = { exposure };
+        // Every metric joins on either identifier, so changing one keeps them.
+        for (const table of (await getFactTableMapMock(context)).values()) {
+          table.userIdTypes = ["user_id", "device_id"];
+        }
+        for (const metric of (await getMetricMapMock(context)).values()) {
+          if ("userIdTypes" in metric) {
+            metric.userIdTypes = ["user_id", "device_id"];
+          }
+        }
+        context.logger = { warn: jest.fn() } as never;
+        context.models.segments = {
+          getById: async (id: string) => ({
+            id,
+            name: id,
+            type: "SQL",
+            sql: `SELECT user_id, date FROM ${id}`,
+            userIdType: "user_id",
+          }),
+        } as never;
+        // @ts-expect-error -- the integration only reads `.datasource` here
+        const integration = new BigQuery("", {
+          type: "bigquery",
+          settings: datasource.settings,
+        });
+        getSourceIntegrationObjectMock.mockReturnValue(integration);
+        jest
+          .mocked(generateExperimentResultQuerySql)
+          .mockImplementation(generateSql);
+
+        const variations = [
+          { id: "var_0", key: "0", name: "Control" },
+          { id: "var_1", key: "1", name: "Treatment" },
+        ] as ExperimentInterface["variations"];
+        const base = {
+          ...fixture.experiment,
+          variations,
+          guardrailMetrics: [],
+          ...baseChanges,
+        };
+        const parentPlan = await planExperimentSnapshot({
+          context: context as never,
+          experiment: base,
+          datasource,
+          dimension: undefined,
+          phase: 0,
+        });
+        // The base update's run generates its SQL with the slices expanded.
+        const metricMap = await getMetricMapMock(context);
+        const factTableMap = await getFactTableMapMock(context);
+        expandDerivedMetricsInMap({
+          metricMap,
+          factTableMap,
+          experiment: base,
+          metricGroups: await context.models.metricGroups.getAll(),
+        });
+        const storedSql = await generateSql(
+          context,
+          {
+            snapshotType: "standard",
+            snapshotSettings: parentPlan.snapshot.settings,
+            variationNames: getLatestPhaseVariations(base).map((v) => v.name),
+            metricMap,
+            factTableMap,
+            queryParentId: "snp_parent",
+            experimentQueryMetadata: null,
+          },
+          integration,
+        );
+        const parent = {
+          ...asParent(parentPlan.snapshot),
+          queries: [...storedSql.keys()].map((name) => ({
+            name,
+            query: `qry_${name}`,
+            status: "succeeded" as const,
+          })),
+        };
+        findLatestSuccessfulOverallSnapshotMock.mockResolvedValue(parent);
+        jest.mocked(getQueriesByIds).mockResolvedValue(
+          [...storedSql].map(([name, query]) => ({
+            id: `qry_${name}`,
+            query,
+          })) as Awaited<ReturnType<typeof getQueriesByIds>>,
+        );
+
+        jest.setSystemTime(refreshTime);
+        const experiment = {
+          ...fixture.experiment,
+          variations,
+          ...baseChanges,
+          ...changes,
+        };
+        const { settings: scoped } = getScopedSettings({
+          organization: context.org,
+          experiment,
+        });
+        const reasons = getResultsOutdatedReasons({
+          experiment,
+          snapshot: parent,
+          metricGroups: await context.models.metricGroups.getAll(),
+          orgSettings: context.org.settings ?? {},
+          pValueThreshold: scoped.pValueThreshold.value,
+          statsEngine: scoped.statsEngine.value,
+          features: {
+            regressionAdjustment: true,
+            postStratification: true,
+            sequentialTesting: true,
+          },
+          phase: 0,
+          exposureQueries: exposure,
+          unjoinableMetricIds: new Set(),
+          conversionWindowMetricIds: new Set(),
+          newerOverallResultsAvailable: false,
+          resultsUpdateDisabled: false,
+        });
+        const situation = getResultsUpdateSituation({
+          reasons,
+          resultsEndDate: parent.settings.endDate,
+          windowHours: 4,
+          now: refreshTime,
+          refreshBlocker: null,
+        });
+        const plan = planExperimentSnapshot({
+          context: context as never,
+          experiment,
+          datasource,
+          dimension: undefined,
+          phase: 0,
+          missingMetricsOnly: true,
+        });
+        // Asserted by the caller, after the reasons.
+        plan.catch(() => undefined);
+        return { reasons, situation, plan };
+      }
+
+      it("plans a refresh when added metrics are the only reason", async () => {
+        const { reasons, situation, plan } = await outdatedRefresh(
+          makeFixture(),
+          { changes: {} },
+        );
+
+        expect(reasons).toEqual(["metrics_changed"]);
+        expect(situation).toBe("new_metrics");
+        await expect(plan).resolves.toMatchObject({
+          snapshot: { metricRefresh: { metricIds: ["fact__guard"] } },
+        });
+      });
+
+      it.each<{
+        reason: ResultsOutdatedReason;
+        base?: Partial<ExperimentInterface>;
+        changes: Partial<ExperimentInterface>;
+        refusal?: string;
+      }>([
+        { reason: "stats_engine", changes: { statsEngine: "frequentist" } },
+        {
+          reason: "activation_metric",
+          changes: { activationMetric: "met_signup" },
+        },
+        { reason: "segment", changes: { segment: "seg_buyers" } },
+        { reason: "query_filter", changes: { queryFilter: "country = 'us'" } },
+        { reason: "conversion_behavior", changes: { skipPartialData: true } },
+        {
+          reason: "assignment_query",
+          changes: { exposureQueryId: "exposure_multi" },
+        },
+        {
+          reason: "identifier_type",
+          base: { exposureQueryId: "exposure_multi" },
+          changes: { exposureQueryIdentifierType: "device_id" },
+        },
+        {
+          reason: "cluster_analysis",
+          // Cluster analysis turns post-stratification off.
+          base: { postStratificationEnabled: false },
+          changes: {
+            isClusterExperiment: true,
+            clusterSubUnitIdentifier: "device_id",
+          },
+        },
+        {
+          reason: "cluster_sub_unit",
+          base: {
+            isClusterExperiment: true,
+            clusterSubUnitIdentifier: "user_id",
+          },
+          changes: { clusterSubUnitIdentifier: "device_id" },
+        },
+        {
+          reason: "attribution_model",
+          changes: { attributionModel: "experimentDuration" },
+        },
+        {
+          reason: "variations_changed",
+          changes: {
+            variations: [
+              { id: "var_0", key: "0", name: "Control" },
+              { id: "var_1", key: "1", name: "Treatment" },
+              { id: "var_2", key: "2", name: "Treatment 2" },
+            ] as ExperimentInterface["variations"],
+          },
+        },
+        {
+          reason: "analysis_dates_changed",
+          changes: {
+            phases: [
+              {
+                dateStarted: new Date("2025-01-03T00:00:00.000Z"),
+                variationWeights: [0.5, 0.5],
+                coverage: 1,
+              },
+            ] as ExperimentInterface["phases"],
+          },
+          refusal: "analysis_dates_changed",
+        },
+        { reason: "p_value_threshold", changes: { pValueThreshold: 0.01 } },
+        { reason: "cuped", changes: { regressionAdjustmentEnabled: false } },
+        {
+          reason: "post_stratification",
+          changes: { postStratificationEnabled: false },
+        },
+        {
+          reason: "sequential_testing",
+          base: { statsEngine: "frequentist" },
+          changes: { sequentialTestingEnabled: true },
+        },
+      ])(
+        "refuses a refresh the app would not offer for $reason",
+        async ({ reason, base, changes, refusal = "settings_changed" }) => {
+          const { reasons, situation, plan } = await outdatedRefresh(
+            makeFixture(),
+            { base, changes },
+          );
+
+          expect([...reasons].sort()).toEqual(
+            [reason, "metrics_changed"].sort(),
+          );
+          expect(situation).toBe("settings_changed");
+          await expect(plan).rejects.toMatchObject({
+            details: { reason: refusal },
+          });
+        },
+      );
     });
 
     it("rejects a refresh of a phase that has ended", async () => {

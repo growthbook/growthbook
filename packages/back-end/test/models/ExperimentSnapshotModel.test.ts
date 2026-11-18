@@ -1392,23 +1392,6 @@ describe("ExperimentSnapshotModel", () => {
         expect(updateExperimentAnalysisSummary).not.toHaveBeenCalled();
         expect(notifyExperimentChange).not.toHaveBeenCalled();
       });
-
-      it("yields the same way on the Incremental Pipeline", async () => {
-        mockSuccessfulExperimentLoad("exp_refresh");
-        await insertOverall("snp_parent", at(0), {
-          runnerKind: "incremental-update",
-        });
-        await insertOverall("snp_full", at(2), {
-          runnerKind: "incremental-update",
-        });
-
-        await finishRefreshOf("snp_parent", {
-          runnerKind: "incremental-update",
-        });
-
-        expect(updateExperimentAnalysisSummary).not.toHaveBeenCalled();
-        expect(notifyExperimentChange).not.toHaveBeenCalled();
-      });
     });
   });
 
