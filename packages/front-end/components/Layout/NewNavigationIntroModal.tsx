@@ -4,6 +4,10 @@ import { Box, Flex } from "@radix-ui/themes";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import {
+  dismissNavIntro,
+  hasDismissedNavIntro,
+} from "@/services/nav-intro-cookie";
 import styles from "./NewNavigationIntroModal.module.scss";
 
 const PREVIEW_PARAM = "nav-intro";
@@ -12,22 +16,27 @@ const IMAGE_SRC = "/images/announcements/new-navigation.webp";
 /**
  * Introduces the new navigation (side nav and docked AI assistant).
  *
- * For now it only opens as a preview, with ?preview=nav-intro in the URL, so
- * it can't reach real users by accident. The real trigger is for engineering
- * to decide: e.g. the first app load after login, landing on Home, existing
- * users only (not those who never saw the old header), once per user, and not
- * alongside the NPS survey.
+ * Opens the first time a browser shows the new shell. Closing it any way sets
+ * a cookie (services/nav-intro-cookie), and it doesn't open there again.
+ * ?preview=nav-intro opens it regardless, for design and QA.
  */
 export default function NewNavigationIntroModal() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   // Opens with the page: the backdrop is there from the start, and the modal
-  // comes in a moment later (NewNavigationIntroModal.module.scss).
+  // comes in a moment later (NewNavigationIntroModal.module.scss). The cookie
+  // is read after mount so the server render and first paint agree.
   useEffect(() => {
-    if (router.isReady && router.query.preview === PREVIEW_PARAM) {
+    if (!router.isReady) return;
+    if (router.query.preview === PREVIEW_PARAM || !hasDismissedNavIntro()) {
       setOpen(true);
     }
   }, [router.isReady, router.query.preview]);
+
+  const onOpenChange = (next: boolean) => {
+    if (!next) dismissNavIntro();
+    setOpen(next);
+  };
 
   const descriptionId = useId();
   // Focus goes to the dialog itself, so no focus ring shows until you tab. The
@@ -45,15 +54,14 @@ export default function NewNavigationIntroModal() {
   return (
     <Modal.Root
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={onOpenChange}
       size="md"
       // "OK, got it", Escape and clicking outside all close it.
       dismissible
       // Described by the body instead (onOpenAutoFocus).
       hasDescription={false}
       onOpenAutoFocus={onOpenAutoFocus}
-      // Not tracked while it's preview-only.
-      trackingEventModalType=""
+      trackingEventModalType="new-navigation-intro"
     >
       {/* Full-bleed and decorative. The gradient stands in until the image
           loads, and keeps the space if it doesn't. */}
@@ -80,7 +88,7 @@ export default function NewNavigationIntroModal() {
         >
           <Box style={{ color: "var(--violet-11)" }}>
             <Text size="sm" weight="medium">
-              New Navigation
+              New navigation
             </Text>
           </Box>
           <Modal.Title>Less header. More room.</Modal.Title>
@@ -106,7 +114,7 @@ export default function NewNavigationIntroModal() {
         justify="end"
         style={{ padding: "0 var(--space-7) 20px" }}
       >
-        <Button onClick={() => setOpen(false)}>OK, got it</Button>
+        <Button onClick={() => onOpenChange(false)}>OK, got it</Button>
       </Flex>
     </Modal.Root>
   );
