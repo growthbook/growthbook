@@ -10,6 +10,12 @@ import LayoutLite from "./LayoutLite";
 import LegacyLayout from "./legacy/Layout";
 import LegacyLayoutLite from "./legacy/LayoutLite";
 import { NewAppShellContext, useNewAppShell } from "./newAppShellContext";
+import {
+  forgetFlagServiceTimeout,
+  readFlagServiceTimeout,
+  rememberFlagServiceTimeout,
+  skipFlagServiceWait,
+} from "./flagServiceTimeout";
 
 export { useNewAppShell };
 
@@ -46,7 +52,7 @@ export function AppShellProvider({
 
   const decide = useCallback(
     (on: boolean) => {
-      if (decided.current) return;
+      if (decided.current) return false;
       decided.current = true;
       // Before the shell renders, so nothing under it measures the wrong
       // header; the effect below only keeps it in step.
@@ -55,19 +61,34 @@ export function AppShellProvider({
         on && organizationRequired,
       );
       setNewShell(on);
+      return true;
     },
     [organizationRequired],
   );
 
   useEffect(() => {
-    if (decidable) decide(flagOn);
+    if (decidable && decide(flagOn)) forgetFlagServiceTimeout();
   }, [decidable, flagOn, decide]);
 
   useEffect(() => {
     if (!orgKnown || newShell !== null) return;
-    const timer = window.setTimeout(() => decide(false), DECISION_TIMEOUT_MS);
+    if (
+      skipFlagServiceWait({
+        now: Date.now(),
+        stored: readFlagServiceTimeout(),
+        sdkReady: growthbook.ready,
+      })
+    ) {
+      decide(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      if (decide(false) && !growthbook.ready) {
+        rememberFlagServiceTimeout(Date.now());
+      }
+    }, DECISION_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
-  }, [orgKnown, newShell, decide]);
+  }, [orgKnown, newShell, decide, growthbook]);
 
   useEffect(() => {
     if (newShell === null) return;
