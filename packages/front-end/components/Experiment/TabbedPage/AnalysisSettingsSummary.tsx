@@ -550,6 +550,8 @@ export default function AnalysisSettingsSummary({
         phase,
         separateExperimentResultQueries:
           !!datasource?.properties?.separateExperimentResultQueries,
+        pipelineChanged:
+          ((snapshot.runnerKind ?? "results") !== "results") !== isIncremental,
       }),
     }) === "new_metrics";
   const uncomputableMetricIds = offerNewMetricsUpdate

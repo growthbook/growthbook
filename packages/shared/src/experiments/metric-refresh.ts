@@ -133,19 +133,27 @@ export type MetricRefreshBlocker = Extract<
   | "not_latest_phase"
   | "phase_ended"
   | "unsupported_data_source"
+  | "metric_not_supported"
 >;
 
-/** Why no update can compute only new metrics for this phase, if anything. */
+/**
+ * Why no update can compute only new metrics for this phase, if anything.
+ * `pipelineChanged`: the next update would run on a different pipeline than
+ * the results did, for example because a new metric makes the Incremental
+ * Pipeline fall back.
+ */
 export function getMetricRefreshBlocker({
   experiment,
   phase,
   separateExperimentResultQueries,
+  pipelineChanged,
 }: {
   experiment: Pick<ExperimentInterface, "type"> & {
     phases: { dateEnded?: string | Date }[];
   };
   phase: number;
   separateExperimentResultQueries: boolean;
+  pipelineChanged: boolean;
 }): MetricRefreshBlocker | null {
   if ((experiment.type ?? "standard") !== "standard") {
     return "unsupported_experiment_type";
@@ -153,6 +161,7 @@ export function getMetricRefreshBlocker({
   if (phase !== experiment.phases.length - 1) return "not_latest_phase";
   if (experiment.phases[phase]?.dateEnded) return "phase_ended";
   if (!separateExperimentResultQueries) return "unsupported_data_source";
+  if (pipelineChanged) return "metric_not_supported";
   return null;
 }
 

@@ -75,6 +75,7 @@ describe("getMetricRefreshBlocker", () => {
       experiment: { type: "standard", phases },
       phase: 1,
       separateExperimentResultQueries: true,
+      pipelineChanged: false,
       ...overrides,
     });
 
@@ -100,5 +101,6 @@ describe("getMetricRefreshBlocker", () => {
     expect(blocker({ separateExperimentResultQueries: false })).toBe(
       "unsupported_data_source",
     );
+    expect(blocker({ pipelineChanged: true })).toBe("metric_not_supported");
   });
 });
