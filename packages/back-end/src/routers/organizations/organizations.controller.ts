@@ -2687,8 +2687,11 @@ export async function putAdminResetUserPassword(
   }
 
   await updatePassword(userToUpdateId, updatedPassword);
-  // The admin path back in for a member who lost their authenticator and recovery codes
-  await disableMfa(userToUpdateId);
+  // Recovers a lost authenticator, but never waives another org's MFA requirement
+  const memberOrgs = await findOrganizationsByMemberId(userToUpdateId);
+  if (memberOrgs.every((o) => o.id === org.id)) {
+    await disableMfa(userToUpdateId);
+  }
   await resetMinTokenDate(userToUpdateId);
   await AuthRefreshModel.deleteMany({ userId: userToUpdateId });
 
