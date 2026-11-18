@@ -53,6 +53,15 @@ const EPPO: EppoData = {
     },
   ],
   flags: [],
+  teams: [
+    {
+      id: 3,
+      name: "Growth",
+      feature_flags: [1],
+      experiments: [5],
+      metrics: [1],
+    },
+  ],
   entities: [{ id: 1, name: "User" }],
   factSources: [
     {
@@ -83,6 +92,7 @@ function mkCtx(overrides: Partial<TransformContext> = {}): TransformContext {
     factTableIds: new Map([[10, "ftb_purchases"]]),
     metricIds: new Map(),
     experiments: new Map(),
+    teamTags: new Map(),
     factTableColumns: new Map(),
     ...overrides,
   };
@@ -226,6 +236,14 @@ describe("widenValues", () => {
     expect(widenValues(["US"])).toEqual(["US"]);
     expect(widenValues(["001"])).toEqual(["001"]);
     expect(widenValues([" 2", "1.0", " true"])).toEqual([" 2", "1.0", " true"]);
+  });
+});
+
+describe("teamTag", () => {
+  it("tags what an imported team owns", () => {
+    const ctx = mkCtx({ teamTags: new Map([[3, "Growth"]]) });
+    expect(transformFlag(mkFlag([]), ctx).tags).toEqual(["checkout", "Growth"]);
+    expect(transformFlag(mkFlag([]), mkCtx()).tags).toEqual(["checkout"]);
   });
 });
 
@@ -1581,6 +1599,7 @@ describe("runEppoImport", () => {
   const data = (): EppoImportData => ({
     environments: [],
     tags: [],
+    teams: [],
     audiences: EPPO.audiences.map((a) => ({
       key: String(a.id),
       name: a.name,
