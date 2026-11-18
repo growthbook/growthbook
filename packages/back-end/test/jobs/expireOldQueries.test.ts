@@ -13,7 +13,9 @@ import expireOldQueries, {
 import {
   dangerousFindStalledRunningSnapshotsFromAllOrgs,
   errorSnapshotIfStillRunning,
+  findRunningSnapshotsByQueryId,
   findSnapshotById,
+  updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { recoverStalledSnapshot } from "back-end/src/queryRunners/rehydrate";
 import {
@@ -490,6 +492,30 @@ describe("expireOldQueries experiment snapshot reaper", () => {
     (findSnapshotById as jest.Mock).mockResolvedValue(candidate);
     return candidate;
   }
+
+  it("releases the lock before erroring a snapshot whose queries went stale", async () => {
+    const snapshot = runningSnapshot("snp_1", {});
+    snapshot.queries = [{ name: "main", query: "qry_1", status: "running" }];
+    (getStaleQueries as jest.Mock).mockResolvedValue([
+      { id: "qry_1", organization: "org_1" },
+    ]);
+    (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValueOnce([
+      snapshot,
+    ]);
+
+    await runJob();
+
+    expect(updateSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "snp_1",
+        updates: expect.objectContaining({ status: "error" }),
+      }),
+    );
+    expect(releaseLock).toHaveBeenCalledWith("exp_1", "snp_1");
+    expect(releaseLock.mock.invocationCallOrder[0]).toBeLessThan(
+      (updateSnapshot as jest.Mock).mock.invocationCallOrder[0],
+    );
+  });
 
   it("finalizes an all-succeeded stalled snapshot from persisted results", async () => {
     mockStalledSnapshot([
