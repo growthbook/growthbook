@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import { PanelSection } from "@/components/DetailsPanel";
 import Metadata from "@/ui/Metadata";
@@ -6,14 +7,13 @@ import Text from "@/ui/Text";
 import ScrollArea from "@/ui/ScrollArea";
 
 const MAX_HEIGHT_PX = 240;
+const ITEMS_SHOWN = 50;
 
 export type PanelReferenceRow = {
   title: string;
   items: { id: string; label: string; href?: string }[];
 };
 
-// A details panel's list of what uses the entity, one row per kind; nothing
-// while nothing does.
 export default function ReferencesPanelSection({
   title,
   intro,
@@ -43,24 +43,31 @@ export default function ReferencesPanelSection({
                 size="sm"
                 stacked
                 label={row.title}
-                value={
-                  <Flex direction="column" gap="1">
-                    {row.items.map((item) => (
-                      <Text key={item.id} size="sm">
-                        {item.href ? (
-                          <Link href={item.href}>{item.label}</Link>
-                        ) : (
-                          item.label
-                        )}
-                      </Text>
-                    ))}
-                  </Flex>
-                }
+                value={<ReferenceItems items={row.items} />}
               />
             ))}
           </Flex>
         </ScrollArea>
       </PanelSection>
     </>
+  );
+}
+
+function ReferenceItems({ items }: { items: PanelReferenceRow["items"] }) {
+  const [showAll, setShowAll] = useState(false);
+  const hidden = showAll ? 0 : Math.max(0, items.length - ITEMS_SHOWN);
+  return (
+    <Flex direction="column" gap="1">
+      {items.slice(0, items.length - hidden).map((item) => (
+        <Text key={item.id} size="sm">
+          {item.href ? <Link href={item.href}>{item.label}</Link> : item.label}
+        </Text>
+      ))}
+      {hidden > 0 ? (
+        <Text size="sm">
+          <Link onClick={() => setShowAll(true)}>Show {hidden} more</Link>
+        </Text>
+      ) : null}
+    </Flex>
   );
 }

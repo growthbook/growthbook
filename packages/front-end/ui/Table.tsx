@@ -45,10 +45,14 @@ export type TableProps = Omit<
   minTableWidth?: number;
 };
 
+const TABLE_SCROLL_ATTR = "data-table-scroll";
+
 // Scrolls a cell's table sideways so the cell shows in full beside a pinned
 // last column, or from its own left edge when it's wider than the room.
 // Returns what scrolls the table back.
 export function revealTableCell(cell: HTMLElement): () => void {
+  // A TableViewportCell's content already follows the scroll.
+  if (cell.hasAttribute("data-viewport-cell")) return () => {};
   let scroller = cell.parentElement;
   while (scroller && scroller.scrollWidth <= scroller.clientWidth) {
     scroller = scroller.parentElement;
@@ -398,8 +402,6 @@ export function TableColumnHeader({
   );
 }
 
-const TABLE_SCROLL_ATTR = "data-table-scroll";
-
 // A full-row cell (give it the row's colSpan) whose content spans what the
 // table shows rather than the whole table, and stays put while the table
 // scrolls sideways. For a panel under a row, such as an inline editor's.
@@ -427,7 +429,7 @@ export function TableViewportCell({
     return () => observer.disconnect();
   }, []);
   return (
-    <RadixTable.Cell ref={cellRef} {...props}>
+    <RadixTable.Cell ref={cellRef} data-viewport-cell {...props}>
       <div
         style={
           box

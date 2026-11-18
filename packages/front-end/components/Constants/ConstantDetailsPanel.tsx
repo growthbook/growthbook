@@ -75,7 +75,7 @@ export default function ConstantDetailsPanel({
         <OwnerField owner={constant.owner} action={pencil("Edit owner")} />
         <ProjectField
           project={constant.project}
-          action={pencil("Edit project")}
+          action={pencil("Edit Project")}
         />
       </PanelSection>
       <ReferencesPanelSection

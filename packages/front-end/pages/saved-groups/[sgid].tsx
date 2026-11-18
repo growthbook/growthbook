@@ -1446,7 +1446,7 @@ export default function EditSavedGroupPage() {
                   </SectionFrame>
                 ) : (
                   <SectionFrame
-                    title="List items"
+                    title="List Items"
                     titleAddon={<TabCount count={displayedValues.length} />}
                     actions={
                       <>

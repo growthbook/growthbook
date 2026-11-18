@@ -77,9 +77,6 @@ export const FIELD_TYPE_OPTIONS = [
   { value: "any", label: "Any" },
 ];
 
-// key | value | type | source | usage | actions. Right-hand columns are
-// fixed-width so they line up across rows (each row is its own grid); value
-// (1fr) absorbs slack.
 // The pinned actions cell is opaque, so what scrolls under it stays hidden; a
 // tinted row's tint is laid over it.
 export function pinnedCellBackground(tint: string | null): string | undefined {

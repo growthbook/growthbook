@@ -62,7 +62,7 @@ export default function ConfigDetailsPanel({
         <OwnerField owner={config.owner} action={pencil("Edit owner")} />
         <ProjectField
           project={config.project}
-          action={pencil("Edit project")}
+          action={pencil("Edit Project")}
         />
         {parent ? (
           <Metadata

@@ -88,7 +88,7 @@ export default function SavedGroupDetailsPanel({
             size="sm"
             stacked
             label="Projects"
-            action={pencil("Edit projects")}
+            action={pencil("Edit Projects")}
             value={
               projects.length ? (
                 <PanelText>
