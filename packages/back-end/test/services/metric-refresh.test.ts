@@ -1,10 +1,13 @@
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type {
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotMetric,
 } from "shared/types/experiment-snapshot";
+import type { ExperimentReportResultDimension } from "shared/types/report";
 import type { QueryInterface, QueryPointer } from "shared/types/query";
 import type { ExperimentMetricInterface } from "shared/experiments";
 import {
@@ -16,8 +19,12 @@ import type { PlannedExperimentSnapshot } from "back-end/src/services/experiment
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
+  analyzeMetricRefresh,
   carryMetricRefreshQueries,
+  getAnalysesToExtend,
   getMetricRefreshLineage,
+  getQueriesStartedByRefresh,
+  mergeMetricRefreshAnalyses,
   getSettingsChangedSinceParent,
   mergeMetricRefreshSettings,
   parseIncrementalRefreshBase,
@@ -36,6 +43,7 @@ import {
 } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import {
   findLatestSuccessfulOverallSnapshot,
+  findSnapshotById,
   getLatestSnapshotStatus,
   getSnapshotQueryPointers,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -58,6 +66,7 @@ import { factMetricFactory } from "../factories/FactMetric.factory";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   findLatestSuccessfulOverallSnapshot: jest.fn(),
+  findSnapshotById: jest.fn(),
   getLatestSnapshotStatus: jest.fn(),
   getSnapshotQueryPointers: jest.fn(),
   updateSnapshot: jest.fn(),
@@ -74,6 +83,7 @@ jest.mock("back-end/src/services/datasource", () => ({
 }));
 
 jest.mock("back-end/src/services/stats", () => ({
+  ...jest.requireActual("back-end/src/services/stats"),
   analyzeExperimentResults: jest.fn(),
 }));
 
@@ -84,6 +94,7 @@ const createFromCachedMock = jest.mocked(createNewQueryFromCached);
 const getQueriesByIdsMock = jest.mocked(getQueriesByIds);
 const integrationMock = jest.mocked(getSourceIntegrationObject);
 const analyzeMock = jest.mocked(analyzeExperimentResults);
+const findSnapshotByIdMock = jest.mocked(findSnapshotById);
 
 const context = {
   org: { id: "org_1", settings: {} },
@@ -1392,17 +1403,307 @@ describe("re-analysis of a stored metric refresh", () => {
     ]);
   });
 
-  it("is limited the same way when a runner rebuilt from the document analyzes it", async () => {
-    analyzeMock.mockResolvedValue({ results: [] });
-    await makeRunner(stored).runAnalysis(queryMap);
-
-    expect(analyzeMock.mock.calls[0][0].analyzedMetricIds).toEqual(
-      new Set(["met_a", "met_c"]),
-    );
-  });
-
   it("keeps a full run unfiltered", () => {
     expect(getMetricFilterForCarriedQueries(makeParent())).toBeUndefined();
+  });
+});
+
+const metricResult = (value: number) =>
+  ({ value, cr: value, users: 10 }) as SnapshotMetric;
+
+function resultDimension(
+  metrics: Record<string, number>,
+  name = "All",
+  users = [10, 10],
+): ExperimentReportResultDimension {
+  return {
+    name,
+    srm: 0.5,
+    variations: users.map((u) => ({
+      users: u,
+      metrics: Object.fromEntries(
+        Object.entries(metrics).map(([id, v]) => [id, metricResult(v)]),
+      ),
+    })),
+  };
+}
+
+function analysis(
+  settings: Partial<ExperimentSnapshotAnalysisSettings>,
+  results: ExperimentReportResultDimension[],
+  status: ExperimentSnapshotAnalysis["status"] = "success",
+): ExperimentSnapshotAnalysis {
+  return {
+    analysisKey: `key_${settings.baselineVariationIndex ?? 0}_${settings.differenceType ?? "relative"}`,
+    settings: { ...analysisSettings, ...settings },
+    status,
+    dateCreated: PARENT_CREATED,
+    results,
+  };
+}
+
+describe("getQueriesStartedByRefresh", () => {
+  const query = (cachedQueryUsed?: string) =>
+    ({ cachedQueryUsed }) as QueryInterface;
+
+  it("keeps what this run started and drops copies of the parent's queries", () => {
+    const queryMap: QueryMap = new Map([
+      ["group_0", query("qry_parent_group_0")],
+      ["traffic", query("qry_root_traffic")],
+      ["group_1", query()],
+      ["group_2", query("qry_unrelated_cache_hit")],
+      ["statistics_ft_1", query()],
+    ]);
+    const parentSources = new Map([
+      ["group_0", "qry_parent_group_0"],
+      ["traffic", "qry_root_traffic"],
+      ["statistics_ft_1", "qry_parent_statistics_ft_1"],
+    ]);
+
+    expect([
+      ...getQueriesStartedByRefresh(queryMap, parentSources).keys(),
+    ]).toEqual(["group_1", "group_2", "statistics_ft_1"]);
+  });
+});
+
+describe("getAnalysesToExtend", () => {
+  it("extends only the parent's finished analyses", () => {
+    const finished = analysis({}, []);
+    const failed = analysis({ baselineVariationIndex: 1 }, [], "error");
+    const running = analysis({ differenceType: "absolute" }, [], "running");
+
+    expect(getAnalysesToExtend([finished, failed, running])).toEqual([
+      finished,
+    ]);
+  });
+});
+
+describe("mergeMetricRefreshAnalyses", () => {
+  const merge = (
+    analyses: ExperimentSnapshotAnalysis[],
+    freshResults: ExperimentReportResultDimension[][],
+    freshMetricIds = ["met_c"],
+  ) =>
+    mergeMetricRefreshAnalyses({
+      analyses,
+      freshResults,
+      analyzedMetricIds: new Set(["met_a", "met_b", "met_c"]),
+      freshMetricIds: new Set(freshMetricIds),
+      variationWeights: [0.5, 0.5],
+    });
+
+  it("copies the parent's metrics verbatim and adds the fresh ones to each analysis", () => {
+    const relative = analysis({}, [resultDimension({ met_a: 1, met_b: 2 })]);
+    const absolute = analysis({ differenceType: "absolute" }, [
+      resultDimension({ met_a: 10, met_b: 20 }),
+    ]);
+
+    const [mergedRelative, mergedAbsolute] = merge(
+      [relative, absolute],
+      [[resultDimension({ met_c: 3 })], [resultDimension({ met_c: 30 })]],
+    );
+
+    expect(mergedRelative).toEqual({
+      ...relative,
+      results: [resultDimension({ met_a: 1, met_b: 2, met_c: 3 })],
+    });
+    expect(mergedAbsolute.settings).toEqual(absolute.settings);
+    expect(mergedAbsolute.results[0].variations[1].metrics).toEqual({
+      met_a: metricResult(10),
+      met_b: metricResult(20),
+      met_c: metricResult(30),
+    });
+  });
+
+  it("drops a metric the refresh no longer analyzes", () => {
+    const [merged] = merge(
+      [analysis({}, [resultDimension({ met_a: 1, met_gone: 9 })])],
+      [[resultDimension({ met_c: 3 })]],
+    );
+
+    expect(Object.keys(merged.results[0].variations[0].metrics)).toEqual([
+      "met_a",
+      "met_c",
+    ]);
+  });
+
+  it("never keeps the parent's numbers for a metric this run queried again", () => {
+    const parent = analysis({}, [resultDimension({ met_a: 1, met_b: 2 })]);
+
+    const [requeried] = merge(
+      [parent],
+      [[resultDimension({ met_b: 5 })]],
+      ["met_b"],
+    );
+    const [noOutput] = merge([parent], [[]], ["met_b"]);
+
+    expect(requeried.results[0].variations[0].metrics.met_b).toEqual(
+      metricResult(5),
+    );
+    expect(noOutput.results[0].variations[0].metrics).toEqual({
+      met_a: metricResult(1),
+    });
+  });
+
+  it("takes the most units any metric saw and recomputes SRM only when they change", () => {
+    const parent = analysis({}, [
+      resultDimension({ met_a: 1 }, "All", [10, 10]),
+    ]);
+
+    const [unchanged] = merge(
+      [parent],
+      [[resultDimension({ met_c: 3 }, "All", [10, 10])]],
+    );
+    const [grown] = merge(
+      [parent],
+      [[resultDimension({ met_c: 3 }, "All", [12, 30])]],
+    );
+
+    expect(unchanged.results[0].srm).toBe(0.5);
+    expect(grown.results[0].variations.map((v) => v.users)).toEqual([12, 30]);
+    expect(grown.results[0].srm).toBeLessThan(0.01);
+  });
+
+  it("keeps dimension values only one side has", () => {
+    const [merged] = merge(
+      [
+        analysis({ dimensions: ["dim:country"] }, [
+          resultDimension({ met_a: 1 }, "US"),
+        ]),
+      ],
+      [
+        [
+          resultDimension({ met_c: 3 }, "FR"),
+          { name: "All", srm: 1, variations: [] },
+        ],
+      ],
+    );
+
+    expect(merged.results).toEqual([
+      resultDimension({ met_a: 1 }, "US"),
+      resultDimension({ met_c: 3 }, "FR"),
+    ]);
+  });
+});
+
+describe("analyzeMetricRefresh", () => {
+  const refresh = makeParent({
+    id: "snp_refresh",
+    settings: makeSettings(["met_a", "met_c"]),
+    metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
+  });
+  const metricMap = new Map<string, ExperimentMetricInterface>(
+    ["met_a", "met_gone", "met_c"].map((id) => [
+      id,
+      factMetricFactory.build({ id }),
+    ]),
+  );
+  const row = (variation: string) => ({
+    variation,
+    dimension: "",
+    users: 10,
+    count: 10,
+    main_sum: 1,
+    main_sum_squares: 1,
+  });
+  const queryMap: QueryMap = new Map([
+    [
+      "group_0",
+      {
+        queryType: "experimentMultiMetric",
+        query: "",
+        cachedQueryUsed: "qry_group",
+        result: [
+          { ...row("0"), m0_id: "met_a", m1_id: "met_gone" },
+          { ...row("1"), m0_id: "met_a", m1_id: "met_gone" },
+        ],
+      } as unknown as QueryInterface,
+    ],
+    [
+      "group_1",
+      {
+        queryType: "experimentMultiMetric",
+        query: "",
+        result: [
+          { ...row("0"), m0_id: "met_c" },
+          { ...row("1"), m0_id: "met_c" },
+        ],
+      } as unknown as QueryInterface,
+    ],
+  ]);
+  const byBaseline = analysis({ baselineVariationIndex: 1 }, [
+    resultDimension({ met_a: 2, met_gone: 9 }),
+  ]);
+
+  beforeEach(() => {
+    findSnapshotByIdMock.mockResolvedValue(
+      makeParent({
+        unknownVariations: ["v_unknown"],
+        multipleExposures: 4,
+        analyses: [
+          analysis({}, [resultDimension({ met_a: 1, met_gone: 9 })]),
+          byBaseline,
+          analysis({ differenceType: "absolute" }, [], "error"),
+        ],
+      }),
+    );
+    getQueriesByIdsMock.mockResolvedValue([
+      { id: "qry_group", status: "succeeded" } as QueryInterface,
+    ]);
+    analyzeMock.mockImplementation(async ({ analysisSettings }) => ({
+      results: analysisSettings.map((s) => ({
+        unknownVariations: [],
+        multipleExposures: 1,
+        dimensions: [
+          resultDimension({ met_c: 3 + (s.baselineVariationIndex ?? 0) }),
+        ],
+      })),
+    }));
+  });
+
+  const analyze = () =>
+    analyzeMetricRefresh({
+      context,
+      snapshot: refresh,
+      metricRefresh: refresh.metricRefresh!,
+      queryMap,
+      metricMap,
+      variationNames: ["Control", "Treatment"],
+    });
+
+  it("analyzes only this run's queries under every finished analysis of the parent", async () => {
+    await analyze();
+
+    expect(analyzeMock).toHaveBeenCalledTimes(1);
+    const [{ queryData, analysisSettings: settings }] =
+      analyzeMock.mock.calls[0];
+    expect([...queryData.keys()]).toEqual(["group_1"]);
+    expect(settings).toEqual([analysisSettings, byBaseline.settings]);
+  });
+
+  it("holds the parent's analyses, each with its copied and fresh metrics", async () => {
+    const result = await analyze();
+
+    expect(result.analyses.map((a) => a.settings)).toEqual([
+      analysisSettings,
+      byBaseline.settings,
+    ]);
+    expect(result.analyses[1].results[0].variations[0].metrics).toEqual({
+      met_a: metricResult(2),
+      met_c: metricResult(4),
+    });
+    expect(result).toMatchObject({
+      unknownVariations: ["v_unknown"],
+      multipleExposures: 4,
+    });
+  });
+
+  it("refuses a parent whose default analysis is not finished", async () => {
+    findSnapshotByIdMock.mockResolvedValue(
+      makeParent({ analyses: [analysis({}, [], "error")] }),
+    );
+
+    await expect(analyze()).rejects.toThrow("no finished results");
   });
 });
 

@@ -6,7 +6,6 @@ import {
   getDefinitionMetricId,
   getFactMetricFactTableIds,
   getIsolatedDimensionIds,
-  getMetricFilterForCarriedQueries,
   getMetricRefresh,
   isFactMetric,
   isRegressionAdjusted,
@@ -56,7 +55,6 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import {
   analyzeExperimentClusterHealth,
-  analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import {
@@ -93,6 +91,7 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { carryMetricRefreshQueries } from "back-end/src/services/metricRefresh";
 import {
+  analyzeSnapshotResults,
   CLUSTER_HEALTH_QUERY_NAME,
   CLUSTER_TRAFFIC_QUERY_NAME,
   HEALTH_QUERY_NAMES,
@@ -1539,35 +1538,14 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
   // largely copied from ExperimentResultsQueryRunner
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const { results: analysesResults, banditResult } =
-      await analyzeExperimentResults({
-        queryData: queryMap,
-        snapshotSettings: this.model.settings,
-        analysisSettings: this.model.analyses.map((a) => a.settings),
-        variationNames: this.variationNames,
-        metricMap: this.metricMap,
-        analyzedMetricIds: getMetricFilterForCarriedQueries(this.model),
-      });
-
-    const result: SnapshotResult = {
-      analyses: this.model.analyses,
-      multipleExposures: 0,
-      unknownVariations: [],
-      banditResult,
-    };
-
-    analysesResults.forEach((results, i) => {
-      const analysis = this.model.analyses[i];
-      if (!analysis) return;
-
-      analysis.results = results.dimensions || [];
-      analysis.status = "success";
-      analysis.error = "";
-
-      // TODO: do this once, not per analysis
-      result.unknownVariations = results.unknownVariations || [];
-      result.multipleExposures = results.multipleExposures ?? 0;
+    const result: SnapshotResult = await analyzeSnapshotResults({
+      context: this.context,
+      snapshot: this.model,
+      queryMap,
+      metricMap: this.metricMap,
+      variationNames: this.variationNames,
     });
+    const { analyses } = result;
 
     //Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
@@ -1649,7 +1627,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       //     variationsSettings: this.model.settings.variations,
       //   });
       // }
-      const analysisForCovariateImbalance = this.model.analyses.find(
+      const analysisForCovariateImbalance = analyses.find(
         (a) => a.settings.useCovariateAsResponse === true,
       );
       const isEligibleForCovariateImbalanceAnalysis =

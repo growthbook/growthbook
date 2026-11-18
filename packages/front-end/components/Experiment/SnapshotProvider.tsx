@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  ReactNode,
-  useContext,
-  useCallback,
-  useEffect,
-} from "react";
+import React, { useState, ReactNode, useContext, useCallback } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SnapshotType,
@@ -21,10 +15,6 @@ import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import {
-  isAwaitingSelectedAnalysis,
-  showSameResults,
-} from "@/services/snapshots";
-import {
   useCoherentLatest,
   useRefetchHeavyOnStatusSuccess,
 } from "@/hooks/useCoherentSnapshotStatus";
@@ -34,7 +24,6 @@ const snapshotContext = React.createContext<{
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis | undefined;
   dimensionless?: ExperimentSnapshotInterface;
-  refreshAwaitingSelectedAnalysis?: ExperimentSnapshotInterface;
 
   latestSummary?: SnapshotStatusSummary;
   // Refreshes the snapshot data exposed by this provider.
@@ -219,6 +208,17 @@ export default function SnapshotProvider({
     [mutateHeavy, mutateStatus],
   );
 
+  const statusLatest = statusData?.latest ?? undefined;
+  const snapshotId = data?.snapshot?.id;
+  const heavyCaughtUp = heavyReflectsStatus(statusLatest, snapshotId);
+  useRefetchHeavyOnStatusSuccess(
+    statusLatest,
+    heavyCaughtUp,
+    isValidating,
+    mutateHeavy,
+  );
+  const latest = useCoherentLatest(statusLatest, heavyCaughtUp) ?? undefined;
+
   const defaultAnalysisSettings = data?.snapshot
     ? getSnapshotAnalysis(data?.snapshot)?.settings
     : null;
@@ -226,56 +226,24 @@ export default function SnapshotProvider({
     defaultAnalysisSettings,
   );
 
-  const awaitingSelectedAnalysis = isAwaitingSelectedAnalysis(
-    data?.snapshot,
-    analysisSettings,
-  );
-  const [shownData, setShownData] = useState(data);
-  useEffect(() => {
-    if (!awaitingSelectedAnalysis) setShownData(data);
-  }, [data, awaitingSelectedAnalysis]);
-  // The results shown before can belong to another experiment, phase or
-  // dimension when the user navigated here with a selection still set.
-  const keepShownData =
-    awaitingSelectedAnalysis &&
-    showSameResults(shownData?.snapshot, data?.snapshot);
-  const displayedData = keepShownData ? shownData : data;
-
-  const statusLatest = statusData?.latest ?? undefined;
-  useRefetchHeavyOnStatusSuccess(
-    statusLatest,
-    heavyReflectsStatus(statusLatest, data?.snapshot?.id),
-    isValidating,
-    mutateHeavy,
-  );
-  const latest =
-    useCoherentLatest(
-      statusLatest,
-      heavyReflectsStatus(statusLatest, displayedData?.snapshot?.id),
-    ) ?? undefined;
-
-  const snapshot = displayedData?.snapshot;
-  const dimensionlessSnapshot = displayedData?.dimensionless ?? snapshot;
+  const dimensionlessSnapshot = data?.dimensionless ?? data?.snapshot;
   const precomputedUnitDimensionIds = getPrecomputedUnitDimensionIds(
     experiment,
-    snapshot,
+    data?.snapshot,
     dimensionlessSnapshot,
   );
-  const sourceSnapshot = getExperimentSourceSnapshotRef(snapshot);
+  const sourceSnapshot = getExperimentSourceSnapshotRef(data?.snapshot);
 
   return (
     <snapshotContext.Provider
       value={{
         experiment,
-        snapshot,
+        snapshot: data?.snapshot,
         dimensionless: dimensionlessSnapshot,
-        refreshAwaitingSelectedAnalysis: awaitingSelectedAnalysis
-          ? data?.snapshot
-          : undefined,
         latestSummary: latest,
-        analysis: snapshot
+        analysis: data?.snapshot
           ? ((getSnapshotAnalysis(
-              snapshot,
+              data?.snapshot,
               analysisSettings,
             ) as ExperimentSnapshotAnalysis) ?? undefined)
           : undefined,
@@ -284,7 +252,7 @@ export default function SnapshotProvider({
         dimension,
         analysisSettings,
         precomputedDimensions: getPrecomputedDimensions(
-          snapshot,
+          data?.snapshot,
           dimensionlessSnapshot,
         ),
         precomputedUnitDimensionIds,
