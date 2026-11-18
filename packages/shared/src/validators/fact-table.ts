@@ -1,5 +1,6 @@
 import { z } from "zod";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import type { FactMetricInterface } from "shared/types/fact-table";
@@ -1156,24 +1157,33 @@ export const apiFactTableColumnValidator = namedSchema(
     .strict(),
 );
 
+const readOnlyColumnKeys = {
+  dataTypeFromWarehouse: true,
+  dateCreated: true,
+  dateUpdated: true,
+  topValues: true,
+  topValuesDate: true,
+} as const;
+
 export const apiFactTableColumnInputValidator = componentSchema(
   "FactTableColumnInput",
-  apiFactTableColumnValidator
-    .omit({
-      dataTypeFromWarehouse: true,
-      dateCreated: true,
-      dateUpdated: true,
-      topValues: true,
-      topValuesDate: true,
-    })
-    .extend({
-      datatype: apiFactTableColumnValidator.shape.datatype
-        .describe(
-          'The column\'s data type. Omit (or send "") to have it auto-detected from the SQL.',
-        )
-        .optional(),
-    })
-    .strict(),
+  // Drop the read-only keys a GET returns, so a column can be sent back as-is.
+  z.preprocess(
+    (raw) =>
+      raw && typeof raw === "object" && !Array.isArray(raw)
+        ? omit(raw, Object.keys(readOnlyColumnKeys))
+        : raw,
+    apiFactTableColumnValidator
+      .omit(readOnlyColumnKeys)
+      .extend({
+        datatype: apiFactTableColumnValidator.shape.datatype
+          .describe(
+            'The column\'s data type. Omit (or send "") to have it auto-detected from the SQL.',
+          )
+          .optional(),
+      })
+      .strict(),
+  ),
 );
 
 // Corresponds to schemas/FactTable.yaml
