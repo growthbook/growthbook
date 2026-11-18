@@ -1203,9 +1203,25 @@ describe("getSettingsChangedSinceParent", () => {
       expected: [],
     },
     {
-      name: "on the standard pipeline, names every other difference but leaves SQL settings to the SQL check",
-      planned: sqlAndNewSettings,
-      expected: ["analysis.regressionAdjusted", "newSetting"],
+      name: "on the standard pipeline, names the settings the Outdated badge counts but leaves the other SQL settings to the SQL check",
+      planned: planned(
+        {
+          segment: "seg_new",
+          queryFilter: "x > 1",
+          attributionModel: "experimentDuration",
+          precomputedUnitDimensionIds: ["country"],
+          lookbackOverride: { type: "window", value: 2, valueUnit: "days" },
+          newSetting: true,
+        },
+        { regressionAdjusted: true },
+      ),
+      expected: [
+        "analysis.regressionAdjusted",
+        "attributionModel",
+        "newSetting",
+        "queryFilter",
+        "segment",
+      ],
     },
     {
       name: "on the Incremental Pipeline, names every other difference, including fields only one side has",

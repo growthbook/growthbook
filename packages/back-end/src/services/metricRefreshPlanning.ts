@@ -629,23 +629,19 @@ const REFRESH_SPECIFIC_SETTINGS = [
   "endDateIsCutoff",
   "manual",
 ] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
-// Settings the stats engine never reads: they only shape result query SQL,
-// which a results parent's refresh regenerates and compares instead.
+// Settings the stats engine never reads and the Outdated badge doesn't count:
+// they only shape result query SQL, which a results parent's refresh
+// regenerates and compares instead. A setting the badge counts is compared on
+// both pipelines, because changing it can leave the SQL as it was (the
+// attribution model, when no metric has a conversion window). The badge's
+// CUPED reason reads the analysis's regressionAdjusted, compared below.
 const SETTINGS_ONLY_IN_RESULT_QUERY_SQL = [
-  "activationMetric",
-  "attributionModel",
-  "clusterSubUnitIdentifier",
   "customFields",
   "dimensions",
-  "exposureQueryId",
-  "exposureQueryIdentifierType",
   "lookbackOverride",
   "phase",
   "precomputedUnitDimensionIds",
-  "queryFilter",
   "regressionAdjustmentEnabled",
-  "segment",
-  "skipPartialData",
 ] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
 const METRIC_COUNT_ANALYSIS_SETTINGS = [
   "numGoalMetrics",
@@ -674,9 +670,9 @@ function getChangedKeys(
 
 /**
  * The parent's settings a refresh would not honor if it copied the parent's
- * results. On the standard pipeline this leaves the analysis settings and the
- * few snapshot settings the stats engine reads; the carried SQL check covers
- * the rest.
+ * results. On the standard pipeline this leaves the analysis settings, the
+ * snapshot settings the stats engine reads and those behind an Outdated
+ * reason; the carried SQL check covers the rest.
  */
 export function getSettingsChangedSinceParent({
   parent,

@@ -2739,10 +2739,13 @@ describe("planExperimentSnapshot", () => {
           base: baseChanges = {},
           changes,
           pipeline = "standard",
+          sql = "generated",
         }: {
           base?: Partial<ExperimentInterface>;
           changes: Partial<ExperimentInterface>;
           pipeline?: "standard" | "incremental";
+          // "unchanged": the planner regenerates exactly the SQL the base stored.
+          sql?: "generated" | "unchanged";
         },
       ) {
         const { context, datasource } = fixture;
@@ -2822,18 +2825,32 @@ describe("planExperimentSnapshot", () => {
           experiment: base,
           metricGroups: await context.models.metricGroups.getAll(),
         });
-        const storedSql = await generateSql(
-          context,
-          {
-            snapshotType: "standard",
-            snapshotSettings: parentPlan.snapshot.settings,
-            variationNames: getLatestPhaseVariations(base).map((v) => v.name),
-            metricMap,
-            factTableMap,
-            queryParentId: "snp_parent",
-            experimentQueryMetadata: null,
-          },
-          integration,
+        const sqlFor = (settings: ExperimentSnapshotSettings) =>
+          generateSql(
+            context,
+            {
+              snapshotType: "standard",
+              snapshotSettings: settings,
+              variationNames: getLatestPhaseVariations(base).map((v) => v.name),
+              metricMap,
+              factTableMap,
+              queryParentId: "snp_parent",
+              experimentQueryMetadata: null,
+            },
+            integration,
+          );
+        const storedSql = await sqlFor(parentPlan.snapshot.settings);
+        // The base's own update, run with the changed settings and no new metric.
+        const baseSqlWithChanges = await sqlFor(
+          (
+            await planExperimentSnapshot({
+              context: context as never,
+              experiment: { ...base, ...changes },
+              datasource,
+              dimension: undefined,
+              phase: 0,
+            })
+          ).snapshot.settings,
         );
         const parent = {
           ...asParent(parentPlan.snapshot),
@@ -2847,6 +2864,11 @@ describe("planExperimentSnapshot", () => {
           })),
         };
         findLatestSuccessfulOverallSnapshotMock.mockResolvedValue(parent);
+        if (sql === "unchanged") {
+          jest
+            .mocked(generateExperimentResultQuerySql)
+            .mockResolvedValue(new Map(storedSql));
+        }
         if (pipeline === "incremental") {
           // The tables the parent left, with no metric cache yet.
           wireIncrementalRefreshState(context, {
@@ -2917,7 +2939,7 @@ describe("planExperimentSnapshot", () => {
         });
         // Asserted by the caller, after the reasons.
         plan.catch(() => undefined);
-        return { reasons, situation, plan };
+        return { reasons, situation, plan, storedSql, baseSqlWithChanges };
       }
 
       it("plans a refresh when added metrics are the only reason", async () => {
@@ -3030,6 +3052,47 @@ describe("planExperimentSnapshot", () => {
           });
         },
       );
+
+      // The SQL identity check can't see these settings, so the settings
+      // comparison has to refuse them on its own.
+      it.each(blockingReasons)(
+        "refuses a refresh for $reason even when the SQL is unchanged",
+        async ({ reason, base, changes, refusal = "settings_changed" }) => {
+          const { reasons, plan } = await outdatedRefresh(makeFixture(), {
+            base,
+            changes,
+            sql: "unchanged",
+          });
+
+          expect([...reasons].sort()).toEqual(
+            [reason, "metrics_changed"].sort(),
+          );
+          await expect(plan).rejects.toMatchObject({
+            details: { reason: refusal },
+          });
+        },
+      );
+
+      it("refuses a refresh for attribution_model when no metric has a conversion window, which leaves the SQL unchanged", async () => {
+        const { reasons, plan, storedSql, baseSqlWithChanges } =
+          await outdatedRefresh(makeFixture(), {
+            base: {
+              goalMetrics: ["fact__revenue"],
+              secondaryMetrics: [],
+              activationMetric: "",
+              metricOverrides: [],
+            },
+            changes: { attributionModel: "experimentDuration" },
+          });
+
+        expect(baseSqlWithChanges).toEqual(storedSql);
+        expect([...reasons].sort()).toEqual(
+          ["attribution_model", "metrics_changed"].sort(),
+        );
+        await expect(plan).rejects.toMatchObject({
+          details: { reason: "settings_changed" },
+        });
+      });
 
       describe("on the Incremental Pipeline", () => {
         // The pipeline can't run legacy metrics, so the base has none.
