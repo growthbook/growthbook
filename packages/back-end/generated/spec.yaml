@@ -92118,29 +92118,15 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: >
-        If using Bearer auth, pass the Secret Key as the token:
-
-        ```bash
-
-        curl https://api.growthbook.io/api/v1/features   -H "Authorization:
-        Bearer secret_abc123DEF456"
-
-        ```
+      description: >-
+        Pass your API key as the Bearer token. See
+        [Authentication](/api/introduction#authentication).
     basicAuth:
       type: http
       scheme: basic
-      description: >
-        If using HTTP Basic auth, pass the Secret Key as the username and leave
-        the password blank:
-
-        ```bash
-
-        curl https://api.growthbook.io/api/v1/features   -u secret_abc123DEF456:
-
-        # The ":" at the end stops curl from asking for a password
-
-        ```
+      description: >-
+        Pass your API key as the username and leave the password blank. See
+        [Authentication](/api/introduction#authentication).
 x-tagGroups:
   - name: Endpoints
     tags:
