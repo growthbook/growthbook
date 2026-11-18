@@ -7,7 +7,13 @@ import {
   getEffectiveLookbackOverride,
   isExperimentResultsUpdateDisabled,
 } from "shared/experiments";
-import React, { useState, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+} from "react";
 import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
@@ -37,7 +43,7 @@ import {
   newMetricRowsOfferRefresh,
 } from "@/services/experiments";
 import { useNewMetricsRefresh } from "@/hooks/useExperimentSnapshotUpdate";
-import { useKeepAnalysisSelectionAcrossMetricRefresh } from "@/hooks/useKeepAnalysisSelectionAcrossMetricRefresh";
+import { refreshLacksSelectedAnalysis } from "@/services/snapshots";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDeepStableValue } from "@/hooks/useDeepStableValue";
 import track from "@/services/track";
@@ -130,6 +136,7 @@ export default function ResultsTab({
     latestSummary,
     phase,
     mutate: mutateSnapshot,
+    analysisSettings,
     setSnapshotType,
     setAnalysisSettings,
   } = useSnapshot();
@@ -280,7 +287,16 @@ export default function ResultsTab({
     honoredPrecomputedUnitDimensionIds,
   ]);
 
-  useKeepAnalysisSelectionAcrossMetricRefresh(onSnapshotSuccessfulUpdate);
+  // Checked only when another snapshot arrives: a chooser selects an analysis
+  // it just created before the snapshot is refetched with it.
+  const checkedSnapshotId = useRef(snapshot?.id);
+  useEffect(() => {
+    if (snapshot?.id === checkedSnapshotId.current) return;
+    checkedSnapshotId.current = snapshot?.id;
+    if (refreshLacksSelectedAnalysis(snapshot, analysisSettings)) {
+      onSnapshotSuccessfulUpdate();
+    }
+  }, [snapshot, analysisSettings, onSnapshotSuccessfulUpdate]);
 
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;

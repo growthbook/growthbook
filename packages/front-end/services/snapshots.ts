@@ -51,7 +51,12 @@ export async function analysisUpdate(
   return status;
 }
 
-export function isAwaitingSelectedAnalysis(
+/**
+ * A metric refresh copies its parent's finished analyses, so it lacks the
+ * selected one only when the parent's had failed or was added after the
+ * refresh copied them.
+ */
+export function refreshLacksSelectedAnalysis(
   snapshot: ExperimentSnapshotInterface | undefined,
   analysisSettings: ExperimentSnapshotAnalysisSettings | null | undefined,
 ): boolean {
@@ -60,24 +65,6 @@ export function isAwaitingSelectedAnalysis(
     !!getMetricRefresh(snapshot) &&
     !!analysisSettings &&
     !getSnapshotAnalysis(snapshot, analysisSettings)
-  );
-}
-
-type ResultsView = Pick<
-  ExperimentSnapshotInterface,
-  "experiment" | "phase" | "dimension"
->;
-
-export function showSameResults(
-  a: ResultsView | undefined,
-  b: ResultsView | undefined,
-): boolean {
-  return (
-    !!a &&
-    !!b &&
-    a.experiment === b.experiment &&
-    a.phase === b.phase &&
-    (a.dimension ?? null) === (b.dimension ?? null)
   );
 }
 
