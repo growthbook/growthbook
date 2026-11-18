@@ -261,14 +261,17 @@ export function EventForwarderNarrowingWarning({
   mt,
 }: {
   value: string;
-  action: "save" | "migrate";
+  // "change": Super Admin, who can change it again, so no lock sentence
+  action: "save" | "migrate" | "change";
   mt?: "3";
 }) {
   return (
     <Callout status="warning" mt={mt}>
-      After you {action}, only events from {value} are forwarded. This
-      can&apos;t be changed later, so set up another Event Forwarder for any
-      other environments you need.
+      After you {action === "migrate" ? "migrate" : "save"}, only events from{" "}
+      {value} are forwarded.
+      {action === "change"
+        ? null
+        : " This can't be changed later, so set up another Event Forwarder for any other environments you need."}
     </Callout>
   );
 }

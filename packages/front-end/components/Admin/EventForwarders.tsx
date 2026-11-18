@@ -59,7 +59,8 @@ function AdminEnvironmentField({
   useEffect(() => {
     onChange(picked === null ? saved : picked ? [picked] : []);
   }, [picked, saved, onChange]);
-  const value = picked ?? saved[0] ?? "";
+  // Change shows a single saved environment; the help text lists the rest
+  const value = picked ?? (!change || saved.length === 1 ? saved[0] : "") ?? "";
   if (props.disabled && !change) {
     return (
       <EventForwarderLockedField
@@ -81,21 +82,16 @@ function AdminEnvironmentField({
         {...props}
         disabled={change ? false : props.disabled}
         allowAll={change ? onlyForwarder : undefined}
+        helpText={
+          change
+            ? `Currently forwards ${saved.length ? saved.join(", ") : "all environments"}.`
+            : undefined
+        }
         value={value}
         onChange={setPicked}
       />
       {picked !== null && narrowsEventForwarderEnvironments(saved, picked) ? (
-        change ? (
-          <Callout status="warning" mt="3">
-            After you save, only events from {picked} are forwarded.
-          </Callout>
-        ) : (
-          <EventForwarderNarrowingWarning
-            value={picked}
-            action="migrate"
-            mt="3"
-          />
-        )
+        <EventForwarderNarrowingWarning value={picked} action={action} mt="3" />
       ) : null}
     </>
   );
