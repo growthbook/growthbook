@@ -2736,9 +2736,11 @@ describe("planExperimentSnapshot", () => {
         {
           base: baseChanges = {},
           changes,
+          pipeline = "standard",
         }: {
           base?: Partial<ExperimentInterface>;
           changes: Partial<ExperimentInterface>;
+          pipeline?: "standard" | "incremental";
         },
       ) {
         const { context, datasource } = fixture;
@@ -2754,6 +2756,15 @@ describe("planExperimentSnapshot", () => {
           },
         ];
         datasource.settings.queries = { exposure };
+        if (pipeline === "incremental") {
+          datasource.settings.pipelineSettings = {
+            allowWriting: true,
+            mode: "incremental",
+          } as DataSourceInterface["settings"]["pipelineSettings"];
+          assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+            undefined as never,
+          );
+        }
         // Every metric joins on either identifier, so changing one keeps them.
         for (const table of (await getFactTableMapMock(context)).values()) {
           table.userIdTypes = ["user_id", "device_id"];
@@ -2824,6 +2835,9 @@ describe("planExperimentSnapshot", () => {
         );
         const parent = {
           ...asParent(parentPlan.snapshot),
+          ...(pipeline === "incremental"
+            ? { runnerKind: "incremental-update" as const }
+            : {}),
           queries: [...storedSql.keys()].map((name) => ({
             name,
             query: `qry_${name}`,
@@ -2831,6 +2845,22 @@ describe("planExperimentSnapshot", () => {
           })),
         };
         findLatestSuccessfulOverallSnapshotMock.mockResolvedValue(parent);
+        if (pipeline === "incremental") {
+          // The tables the parent left, with no metric cache yet.
+          wireIncrementalRefreshState(context, {
+            phaseDoc: {
+              unitsTableFullName: "db.schema.units_exp_123",
+              unitsMaxTimestamp: parent.settings.endDate,
+              materializedBySnapshotId: parent.id,
+              experimentSettingsHash:
+                getExperimentSettingsHashForIncrementalRefresh(
+                  parent.settings,
+                  exposure,
+                ),
+              metricSources: [],
+            },
+          });
+        }
         jest.mocked(getQueriesByIds).mockResolvedValue(
           [...storedSql].map(([name, query]) => ({
             id: `qry_${name}`,
@@ -2901,12 +2931,12 @@ describe("planExperimentSnapshot", () => {
         });
       });
 
-      it.each<{
+      const blockingReasons: {
         reason: ResultsOutdatedReason;
         base?: Partial<ExperimentInterface>;
         changes: Partial<ExperimentInterface>;
         refusal?: string;
-      }>([
+      }[] = [
         { reason: "stats_engine", changes: { statsEngine: "frequentist" } },
         {
           reason: "activation_metric",
@@ -2979,7 +3009,9 @@ describe("planExperimentSnapshot", () => {
           base: { statsEngine: "frequentist" },
           changes: { sequentialTestingEnabled: true },
         },
-      ])(
+      ];
+
+      it.each(blockingReasons)(
         "refuses a refresh the app would not offer for $reason",
         async ({ reason, base, changes, refusal = "settings_changed" }) => {
           const { reasons, situation, plan } = await outdatedRefresh(
@@ -2996,6 +3028,52 @@ describe("planExperimentSnapshot", () => {
           });
         },
       );
+
+      describe("on the Incremental Pipeline", () => {
+        // The pipeline can't run legacy metrics, so the base has none.
+        const incrementalBase: Partial<ExperimentInterface> = {
+          goalMetrics: ["fact__revenue"],
+          activationMetric: "",
+        };
+
+        it("plans a refresh when added metrics are the only reason", async () => {
+          const { reasons, situation, plan } = await outdatedRefresh(
+            makeFixture(),
+            { base: incrementalBase, changes: {}, pipeline: "incremental" },
+          );
+
+          expect(reasons).toEqual(["metrics_changed"]);
+          expect(situation).toBe("new_metrics");
+          await expect(plan).resolves.toMatchObject({
+            snapshot: {
+              runnerKind: "incremental-update",
+              metricRefresh: { metricIds: ["fact__guard"] },
+            },
+          });
+        });
+
+        it.each(blockingReasons)(
+          "refuses a refresh the app would not offer for $reason",
+          async ({ reason, base, changes, refusal = "settings_changed" }) => {
+            const { reasons, situation, plan } = await outdatedRefresh(
+              makeFixture(),
+              {
+                base: { ...incrementalBase, ...base },
+                changes,
+                pipeline: "incremental",
+              },
+            );
+
+            expect([...reasons].sort()).toEqual(
+              [reason, "metrics_changed"].sort(),
+            );
+            expect(situation).toBe("settings_changed");
+            await expect(plan).rejects.toMatchObject({
+              details: { reason: refusal },
+            });
+          },
+        );
+      });
     });
 
     it("rejects a refresh of a phase that has ended", async () => {
