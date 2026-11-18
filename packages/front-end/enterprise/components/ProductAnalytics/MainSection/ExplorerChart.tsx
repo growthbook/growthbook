@@ -18,11 +18,10 @@ import {
 } from "shared/enterprise";
 import {
   shouldChartSectionShow,
-  getEffectiveMetricValue,
   computeDimensionTotals,
-  getIsRatioByIndex,
-  getEffectiveShowAs,
-  getDefaultValueAxisName,
+  getExplorationRenderOpts,
+  getEffectiveMetricValue,
+  getValueAxisName,
   formatDateByGranularity,
   type ResolvedGranularity,
   type RenderOpts,
@@ -195,26 +194,14 @@ export default function ExplorerChart({
   useEffect(() => () => resizeObserverRef.current?.disconnect(), []);
 
   const renderOpts: RenderOpts = useMemo(
-    () => ({
-      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-      isRatioByIndex: getIsRatioByIndex(
-        submittedExploreState,
-        getFactMetricById,
-      ),
-    }),
+    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
     [submittedExploreState, getFactMetricById],
   );
 
-  const defaultValueAxisName = getDefaultValueAxisName(
-    submittedExploreState,
-    getFactMetricById,
-  );
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
     submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
-  const customValueAxisName =
-    submittedExploreState.chartSettings?.valueAxisLabel?.trim();
-  const valueAxisName = customValueAxisName ?? defaultValueAxisName;
+  const valueAxisName = getValueAxisName(submittedExploreState, renderOpts);
 
   const bigNumberComparisonTrends = useMemo(() => {
     if (!compareEnabled) return null;
@@ -254,26 +241,12 @@ export default function ExplorerChart({
     const row = exploration.result.rows[0];
     if (submittedExploreState.dataset?.type === "funnel") return null;
     if (submittedExploreState.dataset?.type === "journey") return null;
-    const valuesMeta = submittedExploreState.dataset?.values ?? [];
-    return valuesMeta.map((v, metricIndex) => {
+    return renderOpts.values.map((opts, metricIndex) => {
       const cell = row?.values?.[metricIndex];
-      const value = cell
-        ? getEffectiveMetricValue(cell, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[metricIndex] ?? false,
-          })
-        : 0;
-      return {
-        value,
-        label: v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`,
-      };
+      const value = cell ? getEffectiveMetricValue(cell, opts) : 0;
+      return { value, label: opts.seriesName };
     });
-  }, [
-    exploration?.result?.rows,
-    submittedExploreState,
-    renderOpts.showAs,
-    renderOpts.isRatioByIndex,
-  ]);
+  }, [exploration?.result?.rows, submittedExploreState, renderOpts]);
 
   // Compare is on and the previous-period query finished, but returned no rows
   // (e.g. a grouped breakdown with no prior data that densification can't fill).

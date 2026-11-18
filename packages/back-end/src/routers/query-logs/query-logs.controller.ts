@@ -11,6 +11,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
 import { getRunningQueriesByDatasource } from "back-end/src/models/QueryModel";
+import { NotFoundError } from "back-end/src/util/errors";
 
 const USAGE_WINDOW_DAYS = 30;
 
@@ -31,7 +32,7 @@ export const getDataSourceUsage = async (
   const context = getContextFromReq(req);
   const datasource = await getDataSourceById(context, req.params.id);
   if (!datasource) {
-    throw new Error("Could not find Data Source");
+    throw new NotFoundError("Could not find Data Source");
   }
 
   const since = new Date(Date.now() - USAGE_WINDOW_DAYS * 24 * 60 * 60 * 1000);

@@ -423,6 +423,7 @@
                 "group": "Guides for Agents",
                 "pages": [
                   "guides-for-agents/start-here",
+                  "guides-for-agents/local-feature-flags-typescript",
                   "guides-for-agents/nextjs-app-router-production-feature-flags",
                   "guides-for-agents/free-ab-test-javascript",
                   "guides-for-agents/migrate-diy-feature-flags",
@@ -625,6 +626,7 @@
                   "api/ramp-schedules/operation/startRampSchedule",
                   "api/ramp-schedules/operation/pauseRampSchedule",
                   "api/ramp-schedules/operation/resumeRampSchedule",
+                  "api/ramp-schedules/operation/retryRampSchedule",
                   "api/ramp-schedules/operation/rollbackRampSchedule",
                   "api/ramp-schedules/operation/restartRampSchedule",
                   "api/ramp-schedules/operation/jumpRampSchedule",
@@ -652,7 +654,10 @@
                 "pages": [
                   "api/data-sources/operation/listDataSources",
                   "api/data-sources/operation/getDataSource",
+                  "api/data-sources/operation/updateDataSource",
+                  "api/data-sources/operation/deleteDataSource",
                   "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/postDataSourceInformationSchemaRefresh",
                   "api/data-sources/operation/searchWarehouseTables",
                   "api/data-sources/operation/getWarehouseTableSchema",
                   "api/data-sources/operation/previewWarehouseColumnValues",
@@ -1011,7 +1016,11 @@
               },
               {
                 "group": "Queries",
-                "pages": ["api/queries/operation/getQuery"]
+                "pages": [
+                  "api/queries/operation/getQuery",
+                  "api/queries/operation/listDataSourceQueries",
+                  "api/queries/operation/postQueryCancel"
+                ]
               },
               {
                 "group": "Settings",
@@ -1037,6 +1046,7 @@
                 "group": "Meta",
                 "pages": [
                   "api/meta/operation/getVersion",
+                  "api/meta/operation/listConfirmations",
                   "api/meta/operation/getConfirmation"
                 ]
               },
@@ -1067,6 +1077,12 @@
                   "api/ContextualBandits/operation/cancelContextualBandit",
                   "api/ContextualBandits/operation/listContextualBanditVisualChangesets",
                   "api/ContextualBandits/operation/postContextualBanditVisualChangesets"
+                ]
+              },
+              {
+                "group": "information-schema-tables",
+                "pages": [
+                  "api/information-schema-tables/operation/postInformationSchemaTableRefresh"
                 ]
               },
               {
@@ -1367,6 +1383,7 @@
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
+              "api/SdkConnectionApprovalRule_model",
               "api/SdkWebhook_model",
               "api/Segment_model",
               "api/Settings_model",

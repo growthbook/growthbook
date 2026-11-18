@@ -103,7 +103,7 @@ describe("snapshots API", () => {
       .set("Authorization", "Bearer foo");
     console.log(response.body);
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(404);
     expect(response.body).toEqual({
       message: "Snapshot not found or no permission to access",
     });

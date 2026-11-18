@@ -53,7 +53,7 @@ import {
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
 import { getExperimentQueryMetadata } from "back-end/src/services/experiments";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -336,7 +336,7 @@ export async function deleteReport(
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
-    throw new Error("Could not find report");
+    throw new NotFoundError("Could not find report");
   }
 
   // Only allow admins to delete other people's reports

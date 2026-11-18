@@ -14,7 +14,7 @@ export default function Dashboard({ experiments }: Props) {
 
   return (
     <>
-      <div className={"container-fluid dashboard p-3 " + styles.container}>
+      <div className={"dashboard " + styles.container}>
         <ExecReport />
       </div>
     </>

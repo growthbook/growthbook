@@ -92,7 +92,7 @@ export function useAnalysisResultSummary({
     const rowResults = rowsResults[metricRow][variationRow];
     if (!rowResults) return;
     if (rowResults === "query error") return;
-    if (!rowResults.hasScaledImpact && differenceType === "scaled") return;
+    if (!rowResults.scaledImpactEligible && differenceType === "scaled") return;
 
     return {
       metricRow,

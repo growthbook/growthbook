@@ -5,6 +5,7 @@ import {
   quoteColumnIdentifier,
   SQL_ROW_LIMIT,
   stripTrailingSemicolon,
+  getSqlStringRules,
 } from "shared/sql";
 import {
   buildPrevResolvedExpr,
@@ -315,11 +316,13 @@ function getFactTableGroups({
   factTableMap,
   metricMap,
   datasource,
+  dialect,
 }: {
   config: ExplorationConfig;
   factTableMap: FactTableMap;
   metricMap: Map<string, FactMetricInterface>;
   datasource: MinimalDatasourceInterface;
+  dialect: SqlDialect;
 }): FactTableGroup[] {
   if (!config.dataset) {
     throw new Error("Dataset is required");
@@ -357,7 +360,10 @@ function getFactTableGroups({
         {
           index: 0,
           factTable: createStubFactTable(
-            stripTrailingSemicolon(config.dataset.sql),
+            stripTrailingSemicolon(
+              config.dataset.sql,
+              getSqlStringRules(dialect),
+            ),
             config.dataset.timestampColumn,
             config.dataset.columnTypes,
             datasourceSettings,
@@ -1081,12 +1087,12 @@ function getMetricData(
 
   // Always expose a denominator (unit count) for unit-aggregated non-ratio,
   // non-quantile metrics so the frontend can render either the raw numerator
-  // (totals) or numerator/denominator (per-unit averages) based on the
-  // chart-level `showAs` setting.
+  // (totals) or numerator/denominator (per-unit averages) based on each
+  // value's `showAs` setting.
   //
   // Intentionally symmetric across dataset types: fact_table/data_source
-  // datasets (where `showAsAppliesTo` returns false and the denominator is
-  // never surfaced) still emit this column. The extra `COUNT(...)` is cheap
+  // datasets (which offer no Show as options, so the denominator is never
+  // surfaced) still emit this column. The extra `COUNT(...)` is cheap
   // relative to the rest of the rollup and keeps the SQL shape / result
   // column set identical regardless of dataset type, which simplifies the
   // downstream parser and test fixtures. If this ever becomes a measurable
@@ -2096,6 +2102,7 @@ export function generateProductAnalyticsSQL(
     factTableMap,
     metricMap,
     datasource,
+    dialect,
   });
 
   // Get all metric aliases
@@ -2321,7 +2328,7 @@ function generateProductAnalyticsRawTableSQL(
 
   return format(
     dialect.selectStarLimit(
-      `(\n${stripTrailingSemicolon(config.dataset.sql)}\n) t`,
+      `(\n${stripTrailingSemicolon(config.dataset.sql, getSqlStringRules(dialect))}\n) t`,
       SQL_ROW_LIMIT + 1,
       whereClause,
     ),

@@ -22,6 +22,7 @@ import type {
   OwnerVariation,
 } from "back-end/src/services/changesetOwner";
 import { ApiReqContext } from "back-end/types/api";
+import { NotFoundError } from "back-end/src/util/errors";
 
 const visualChangesetURLPatternSchema =
   new mongoose.Schema<VisualChangesetURLPattern>(
@@ -294,7 +295,7 @@ export async function createVisualChange(
   const visualChangeset = await findVisualChangesetById(id, organization);
 
   if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
+    throw new NotFoundError("Visual Changeset not found");
   }
 
   const visualChanges = [...visualChangeset.visualChanges, visualChange];
@@ -359,7 +360,7 @@ export async function updateVisualChange({
   );
 
   if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
+    throw new NotFoundError("Visual Changeset not found");
   }
 
   // Strip `id` from the payload so callers can't rename a visual change

@@ -46,7 +46,8 @@ const ExperimentWinRate: React.FC<ExperimentWinRateProps> = ({
   return (
     <Box>
       <Flex align="start" justify="between">
-        <Box flexBasis="100%" flexShrink="1">
+        {/* Shrinkable, so the dial re-measures when the card narrows. */}
+        <Box flexBasis="100%" flexShrink="1" minWidth="0">
           <Flex justify="between">
             <Heading as="h3" size="3">
               Win percentage{" "}
@@ -76,7 +77,7 @@ const ExperimentWinRate: React.FC<ExperimentWinRateProps> = ({
             {showProjectWinRate ? (
               <>
                 <Flex justify="between" gap="4" width="100%">
-                  <Box flexBasis="40%" flexGrow="0" flexShrink="1">
+                  <Box flexBasis="40%" flexGrow="0" flexShrink="1" minWidth="0">
                     <Tooltip
                       body={`A win percentage between ${goodPercentLow}% and ${goodPercentHigh}% is expected and standard.`}
                     >

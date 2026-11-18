@@ -103,8 +103,8 @@ export function canHaveTopValues(
   return (
     col.datatype === "string" &&
     !col.deleted &&
-    // Virtual columns aren't real columns in the SQL, so a top-values query
-    // keyed on their name would be invalid.
+    // Virtual columns get top values on demand (column modal, Auto Slice
+    // job), not from a schema refresh.
     !col.isVirtual &&
     canInlineFilterColumn(factTable, col.column)
   );

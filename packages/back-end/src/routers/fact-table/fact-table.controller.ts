@@ -94,6 +94,7 @@ import {
   testRowFiltersQuery,
   testVirtualColumnQuery,
 } from "back-end/src/services/factTableTestQueries";
+import { NotFoundError } from "back-end/src/util/errors";
 
 // Optional `ids` narrows the list to a specific set (e.g. the Explorer's
 // dimension picker, which needs full jsonFields that definitions strip) and
@@ -136,7 +137,7 @@ export const getFactTableById = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   res.status(200).json({
@@ -372,7 +373,7 @@ export const putFactTable = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   const datasource = await getDataSourceById(context, factTable.datasource);
@@ -563,7 +564,7 @@ export const archiveFactTable = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   if (!context.permissions.canUpdateFactTable(factTable, { archived: true })) {
@@ -585,7 +586,7 @@ export const unarchiveFactTable = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   if (!context.permissions.canUpdateFactTable(factTable, { archived: false })) {
@@ -607,7 +608,7 @@ export const deleteFactTable = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   // check if for fact segments using this before deleting
@@ -640,7 +641,7 @@ export const getAggregatedFactTables = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   const idTypes = factTable.aggregatedFactTableSettings?.idTypes ?? [];
@@ -698,7 +699,7 @@ export const getAggregatedFactTableRuns = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   const { idType } = req.params;
@@ -747,7 +748,7 @@ export const refreshAggregatedFactTables = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   if (!context.hasPremiumFeature("pipeline-mode")) {
@@ -812,7 +813,7 @@ export const cancelAggregatedFactTableRun = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
   const factTableDatasource = await getDataSourceById(
     context,
@@ -902,7 +903,7 @@ export const postColumnTopValues = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
@@ -918,7 +919,7 @@ export const postColumnTopValues = async (
     (col) => col.column === req.params.column,
   );
   if (!databaseColumn) {
-    throw new Error("Could not find column");
+    throw new NotFoundError("Could not find column");
   }
 
   // forceAutoSlice allows fetching when the front end demands top values
@@ -990,7 +991,7 @@ export const putColumn = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
@@ -999,10 +1000,10 @@ export const putColumn = async (
 
   const col = factTable.columns.find((c) => c.column === req.params.column);
   if (!col) {
-    throw new Error("Could not find column");
+    throw new NotFoundError("Could not find column");
   }
 
-  if (!data.name) {
+  if (data.name !== undefined && !data.name) {
     data.name = col.column;
   }
 
@@ -1104,7 +1105,7 @@ export const postFactFilterTest = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
@@ -1140,7 +1141,7 @@ export const postRowFiltersTest = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   const datasource = await getDataSourceById(context, factTable.datasource);
@@ -1171,7 +1172,7 @@ export const postFactFilter = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
@@ -1200,7 +1201,7 @@ export const putFactFilter = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
@@ -1222,7 +1223,7 @@ export const deleteFactFilter = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find filter table with that id");
+    throw new NotFoundError("Could not find filter table with that id");
   }
   if (!context.permissions.canDeleteFactFilter(factTable)) {
     context.permissions.throwPermissionError();
@@ -1257,7 +1258,7 @@ export const postVirtualColumn = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   if (!context.permissions.canManageFactTableVirtualColumn(factTable)) {
@@ -1285,7 +1286,7 @@ export const deleteColumn = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
@@ -1333,7 +1334,7 @@ export const postVirtualColumnTest = async (
 
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
-    throw new Error("Could not find fact table with that id");
+    throw new NotFoundError("Could not find fact table with that id");
   }
 
   if (!context.permissions.canManageFactTableVirtualColumn(factTable)) {
@@ -1407,7 +1408,7 @@ export const putFactMetric = async (
   const context = getContextFromReq(req);
 
   const existing = await context.models.factMetrics.getById(req.params.id);
-  if (!existing) throw new Error("Fact Metric not found");
+  if (!existing) throw new NotFoundError("Fact Metric not found");
   const body = withoutRiskThresholds(req.body);
   await context.models.factMetrics.update(existing, {
     ...body,

@@ -11,7 +11,9 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/router";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import { isSettingsRoute } from "./sidebarNav";
+import { SETTINGS_NAV_MIN_WIDTH_PX } from "./constants";
 
 type SettingsNavContextValue = {
   query: string;
@@ -24,17 +26,23 @@ type SettingsNavContextValue = {
   counts: Record<string, number>;
   setCount: (sectionId: string, count: number | null) => void;
   searchRef: RefObject<HTMLInputElement>;
+  navMode: "column" | "jumpMenu";
 };
 
 const SettingsNavContext = createContext<SettingsNavContextValue | null>(null);
 
 export function SettingsNavProvider({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
-  // Clears on leaving Settings, not when the nav hides below 1400px.
   const inSettings = isSettingsRoute(useRouter().route);
   useEffect(() => {
     if (!inSettings) setQuery("");
   }, [inSettings]);
+  const navMode: SettingsNavContextValue["navMode"] = useMediaQuery(
+    `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
+  )
+    ? "jumpMenu"
+    : "column";
+
   const [activeSection, setActiveSection] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});
   const searchRef = useRef<HTMLInputElement>(null);
@@ -65,8 +73,9 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
       counts,
       setCount,
       searchRef,
+      navMode,
     }),
-    [query, activeSection, counts, setCount, pinSection],
+    [query, activeSection, counts, setCount, pinSection, navMode],
   );
 
   return (

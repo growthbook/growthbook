@@ -145,14 +145,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Dimensions/DimensionForm.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
   "packages/front-end/components/EmptyState.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -172,9 +164,6 @@
     }
   },
   "packages/front-end/components/EventWebHooks/WebhookSecretModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 3
     }
@@ -487,22 +476,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/AttributeModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
-  "packages/front-end/components/Features/CodeSnippetModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ConditionInput.tsx": {
     "no-restricted-syntax": {
       "count": 6
@@ -677,19 +650,6 @@
   "packages/front-end/components/Features/RuleModal/index.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SDKConnections/ProxyTestButton.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SDKConnections/SDKConnectionForm.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/components/Features/SafeRollout/SafeRolloutStatusModal.tsx": {
@@ -1440,14 +1400,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Settings/WebhooksModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 20
-    }
-  },
   "packages/front-end/components/Settings/forms/StatsEngineSelect.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -1479,11 +1431,6 @@
   },
   "packages/front-end/components/StaleFeatureIcon.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SyntaxHighlighting/Snippets/EventTrackerSelector.tsx": {
-    "no-restricted-syntax": {
       "count": 1
     }
   },
@@ -1668,11 +1615,6 @@
   },
   "packages/front-end/enterprise/components/feature-promos/ExperimentTemplatePromoCard.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/attributes.tsx": {
-    "no-restricted-syntax": {
       "count": 1
     }
   },
