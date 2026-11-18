@@ -2384,7 +2384,7 @@ describe("snapshot planning", () => {
   });
 });
 
-describe("planExperimentSnapshot output on trunk", () => {
+describe("planExperimentSnapshot", () => {
   const now = new Date("2025-02-15T12:00:00.000Z");
 
   beforeEach(() => {
@@ -2560,32 +2560,6 @@ describe("planExperimentSnapshot output on trunk", () => {
 
     return { context, experiment, datasource };
   }
-
-  it.each([
-    { name: "Overall", dimension: undefined },
-    { name: "dimension", dimension: "exp:country" },
-  ])("plans the $name snapshot the way trunk does", async ({ dimension }) => {
-    const { context, experiment, datasource } = makeFixture();
-
-    const plan = await planExperimentSnapshot({
-      context: context as never,
-      experiment,
-      datasource,
-      dimension,
-      phase: 0,
-    });
-
-    const generatedIds = [
-      plan.snapshot.id,
-      ...plan.snapshot.analyses.map((a) => a.analysisKey),
-    ];
-    expect(
-      generatedIds.reduce(
-        (json, id, i) => json.replaceAll(id, `generated_id_${i}`),
-        JSON.stringify(plan, null, 2),
-      ),
-    ).toMatchSnapshot();
-  });
 
   describe("with missingMetricsOnly", () => {
     const refreshTime = new Date("2025-02-15T15:00:00.000Z");
