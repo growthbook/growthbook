@@ -6,6 +6,7 @@ import {
   getMetricIdsMissingFromSnapshot,
   getMetricRefresh,
   getSnapshotDataAsOf,
+  isAnalysisDateRangeOutdated,
 } from "shared/experiments";
 import {
   getIdentifierTypeForSettingsHash,
@@ -66,42 +67,44 @@ const UNAVAILABLE_MESSAGES: Record<MetricRefreshUnavailableReason, string> = {
   unsupported_data_source:
     "This Data Source analyzes every metric in one query, so newly added metrics can't be updated on their own. Run a full update instead.",
   incremental_pipeline:
-    "The experiment's pipeline tables no longer match its latest results, so newly added metrics can't be updated on their own. Run a full update instead.",
+    "The experiment's Incremental Pipeline tables don't match its latest results, for example because a later update failed. A full update fixes this.",
+  metric_not_supported:
+    "The latest results ran on a different pipeline than this experiment's metrics need now, so newly added metrics can't be updated on their own. Run a full update instead.",
   settings_changed:
     "The last update's results can't be reused for newly added metrics. Run a full update instead.",
+  analysis_dates_changed:
+    "The analysis dates changed by a day or more since the latest results, so newly added metrics would cover different dates than the other metrics. Run a full update instead.",
   base_incomplete:
     "The last update's results are incomplete, so they can't be reused. Run a full update instead.",
 };
 
 function unavailable(
   reason: MetricRefreshUnavailableReason,
+  message: string = UNAVAILABLE_MESSAGES[reason],
 ): MetricRefreshUnavailableError {
-  return new MetricRefreshUnavailableError(
-    reason,
-    UNAVAILABLE_MESSAGES[reason],
-  );
+  return new MetricRefreshUnavailableError(reason, message);
 }
 
-export type NewMetricsOnlyUpdateWindow = { windowMinutes: number; now: Date };
+export type NewMetricsUpdateWindow = { windowHours: number; now: Date };
 
 /**
- * Whether a request that didn't choose a path should update only the newly
- * added metrics: some are missing and the full update the latest results are
- * based on ran less than the window ago. A window of 0 never applies.
+ * Whether an update that didn't choose a scope should compute only the newly
+ * added metrics: some are missing and the latest results end less than the
+ * window before now. A window of 0 never applies.
  */
 export function shouldUpdateNewMetricsOnly({
   missingMetricIds,
-  baseComputedAt,
+  resultsEndDate,
   now,
-  windowMinutes,
-}: NewMetricsOnlyUpdateWindow & {
+  windowHours,
+}: NewMetricsUpdateWindow & {
   missingMetricIds: readonly string[];
-  baseComputedAt: Date;
+  resultsEndDate: Date;
 }): boolean {
   return (
     missingMetricIds.length > 0 &&
-    windowMinutes > 0 &&
-    now.getTime() - baseComputedAt.getTime() < windowMinutes * 60_000
+    windowHours > 0 &&
+    now.getTime() - resultsEndDate.getTime() < windowHours * 3_600_000
   );
 }
 
@@ -146,7 +149,7 @@ export async function planMetricRefresh({
     extraMetricIds?: readonly string[],
   ) => Promise<PlannedExperimentSnapshot>;
   generateResultQuerySql: GenerateResultQuerySql;
-  window?: NewMetricsOnlyUpdateWindow;
+  window?: NewMetricsUpdateWindow;
 }): Promise<PlannedExperimentSnapshot> {
   if (dimension) {
     throw new BadRequestError(
@@ -200,10 +203,19 @@ export async function planMetricRefresh({
     !shouldUpdateNewMetricsOnly({
       ...window,
       missingMetricIds,
-      baseComputedAt: getSnapshotDataAsOf(parent),
+      resultsEndDate: parent.settings.endDate,
     })
   ) {
     throw new MetricRefreshOutsideWindowError();
+  }
+  if (
+    isAnalysisDateRangeOutdated({
+      phase: experiment.phases[phase],
+      snapshotSettings: parent.settings,
+      snapshotDateCreated: getSnapshotDataAsOf(parent),
+    })
+  ) {
+    throw unavailable("analysis_dates_changed");
   }
   // A refresh extends the parent's default analysis.
   if (parent.analyses[0]?.status !== "success") {
@@ -223,7 +235,7 @@ export async function planMetricRefresh({
   if (!getSnapshotCutoffDate(plan.snapshot.settings)) {
     throw unavailable("phase_ended");
   }
-  assertRefreshablePipeline({ parent, planned: plan.snapshot });
+  assertRefreshablePipeline({ parent, plan });
   if (
     getSettingsChangedSinceParent({
       parent,
@@ -278,16 +290,26 @@ export async function planMetricRefresh({
 
 function assertRefreshablePipeline({
   parent,
-  planned,
+  plan,
 }: {
   parent: Pick<ExperimentSnapshotInterface, "runnerKind">;
-  planned: Pick<PlannedExperimentSnapshot["snapshot"], "runnerKind">;
+  plan: Pick<PlannedExperimentSnapshot, "incrementalFallbackReason"> & {
+    snapshot: Pick<PlannedExperimentSnapshot["snapshot"], "runnerKind">;
+  };
 }): void {
   const parentKind = parent.runnerKind ?? "results";
   const expected = parentKind === "results" ? "results" : "incremental-update";
-  if (planned.runnerKind !== expected) {
+  if (plan.snapshot.runnerKind === expected) return;
+  // The pipeline still runs this experiment but has no tables to append to.
+  if (plan.snapshot.runnerKind === "incremental-full") {
     throw unavailable("incremental_pipeline");
   }
+  throw plan.incrementalFallbackReason
+    ? unavailable(
+        "metric_not_supported",
+        `The latest results ran on the Incremental Pipeline, which can't run this experiment now. ${plan.incrementalFallbackReason} Run a full update instead.`,
+      )
+    : unavailable("metric_not_supported");
 }
 
 // Each refresh adds a level, and each level costs a dry run of its queries.
@@ -305,14 +327,20 @@ async function loadMetricRefreshLineage(
     metricRefresh = getMetricRefresh(lineage[0])
   ) {
     if (lineage.length >= MAX_METRIC_REFRESH_LINEAGE_LENGTH) {
-      throw unavailable("settings_changed");
+      throw unavailable(
+        "base_incomplete",
+        `The latest results come from ${MAX_METRIC_REFRESH_LINEAGE_LENGTH - 1} updates of newly added metrics in a row, the most that can build on each other. Run a full update instead.`,
+      );
     }
     const ancestor = await findMetricRefreshAncestor(
       context,
       metricRefresh.parentSnapshotId,
     );
     if (!ancestor) {
-      throw unavailable("settings_changed");
+      throw unavailable(
+        "base_incomplete",
+        "An earlier update the latest results were built from no longer exists, so they can't be reused. Run a full update instead.",
+      );
     }
     lineage.unshift(ancestor);
   }

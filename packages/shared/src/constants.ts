@@ -136,9 +136,9 @@ export const DEFAULT_SRM_THRESHOLD = 0.001;
 
 export const DEFAULT_DECISION_FRAMEWORK_ENABLED = false;
 
-// How recent an experiment's last full update must be for a REST snapshot
-// request to update only its newly added metrics by default.
-export const DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES = 60;
+// How recent the end date of an experiment's results must be for an update
+// that didn't choose a scope to compute only its newly added metrics.
+export const DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS = 4;
 
 // Default statuses for saved learnings (insights). Orgs can customize the
 // list in General Settings → Experiment Settings. Status IDs are persisted

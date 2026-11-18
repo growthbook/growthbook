@@ -3,10 +3,9 @@ import {
   statsEngines,
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
   MAX_DESCRIPTION_LENGTH,
-  DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES,
+  DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
 } from "shared/constants";
 import { REQUIRES_PERSON_NOTE } from "./event-user";
-import { metricRefreshUnavailableReasons } from "./api-errors";
 import { FEATURE_LANDING_ACTIONS } from "./confirmations";
 import {
   apiAssignmentQueryInputFields,
@@ -1273,22 +1272,8 @@ const apiExperimentSnapshotShape = z.object({
     .describe(
       '"new_metrics" when the update computed only the newly added metrics and kept the last full update\'s end date, so no result covers newer data. "all_metrics" for a normal update, which computes every metric up to the time of the request',
     ),
-  notice: z
-    .string()
-    .describe(
-      'Present only when "updateScope" is "new_metrics". States the end date the results still cover and how to request an update with newer data',
-    )
-    .optional(),
 });
 
-export const newMetricsOnlySkippedReasons = [
-  ...metricRefreshUnavailableReasons,
-  "outside_window",
-  "snapshot_in_progress",
-  "requires_full_refresh",
-] as const;
-export type NewMetricsOnlySkippedReason =
-  (typeof newMetricsOnlySkippedReasons)[number];
 export const apiExperimentSnapshotValidator = namedSchema(
   "ExperimentSnapshot",
   apiExperimentSnapshotShape.strict(),
@@ -1491,12 +1476,6 @@ export const apiExperimentResultsValidator = namedSchema(
       queryIds: z.array(z.string()),
       // Set by the experiment results endpoints; report results have none.
       health: apiExperimentResultHealthValidator.optional(),
-      missingMetricIds: z
-        .array(z.string())
-        .describe(
-          "Metrics on the experiment that these results don't include yet, because they were added after the results were computed. Create a snapshot (POST /experiments/{id}/snapshot) to compute them. Metrics no snapshot can compute, such as ones that can't join the experiment's assignment identifier, aren't listed. Present only on Overall Results of the latest phase.",
-        )
-        .optional(),
       results: z.array(
         z.object({
           dimension: z.string(),
@@ -2994,6 +2973,13 @@ export const putExperimentScheduleValidator = {
   possibleErrors: ["invalid_status"] as const,
 };
 
+export const snapshotUpdateScopes = [
+  "auto",
+  "new_metrics",
+  "all_metrics",
+] as const;
+export type SnapshotUpdateScope = (typeof snapshotUpdateScopes)[number];
+
 export const postExperimentSnapshotValidator = {
   bodySchema: z
     .object({
@@ -3017,10 +3003,10 @@ export const postExperimentSnapshotValidator = {
           "Zero-based phase index to snapshot, where 0 is the first experiment phase. Defaults to the latest phase.",
         )
         .optional(),
-      missingMetricsOnly: z
-        .boolean()
+      updateScope: z
+        .enum(snapshotUpdateScopes)
         .describe(
-          `Whether to compute only the metrics added to the experiment since its latest Overall Results, without rerunning the rest of the analysis. The new metrics are computed up to that update's end date, so they are as stale as the other results.\n\n- Omitted (default): computes only the newly added metrics when some are missing and the full update the latest Overall Results are based on ran less than ${DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES} minutes ago by default (the organization setting "newMetricsOnlyUpdateWindowMinutes"; 0 turns this off). Otherwise runs a normal update. Never returns the 409s listed for \`true\`. Does not apply with "dimension" or with "triggeredBy": "schedule".\n- \`true\`: computes only the newly added metrics, however old the last full update is. Returns 409 "metrics_already_up_to_date" when nothing is missing, and 409 "metric_refresh_unavailable" when a full update is needed instead; it never falls back to a full update. Cannot be combined with "dimension" or with "triggeredBy": "schedule".\n- \`false\`: always runs a normal update.\n\nThe returned snapshot's "updateScope" says which of the two ran.`,
+          `Which metrics the update computes.\n\n- "auto" (default): computes only the metrics added to the experiment since its latest Overall Results when they are the only change since then and those results end less than ${DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS} hours ago by default (the organization setting "newMetricsUpdateWindowHours"; 0 turns this off). Otherwise runs a normal update. Never returns the 409s listed for "new_metrics". With "dimension" or with "triggeredBy": "schedule", always runs a normal update.\n- "new_metrics": computes only the newly added metrics, however old the latest Overall Results are. The new metrics are computed up to those results' end date and every other result is copied, so no result covers newer data. Returns 409 "metrics_already_up_to_date" when no metric is missing, and 409 "metric_refresh_unavailable" when the results can't be reused, for example because a setting or the analysis dates changed. Never falls back to a normal update. Can't be combined with "dimension" or with "triggeredBy": "schedule".\n- "all_metrics": always runs a normal update, which computes every metric up to the time of the request.\n\nThe returned snapshot's "updateScope" says which ran. After a "metric_refresh_unavailable" error, send "all_metrics".`,
         )
         .optional(),
       ignoreWarnings: ignoreWarningsBodyField,
@@ -3036,16 +3022,10 @@ export const postExperimentSnapshotValidator = {
   responseSchema: z
     .object({
       snapshot: apiExperimentSnapshotShape,
-      newMetricsOnlySkippedReason: z
-        .enum(newMetricsOnlySkippedReasons)
-        .describe(
-          'Present only when "missingMetricsOnly" was omitted, the experiment has newly added metrics without results, and a normal update ran anyway. "outside_window": the last full update is older than the window. "snapshot_in_progress": another update was running. "requires_full_refresh": the incremental pipeline needs a Full Refresh. The other values are the "metric_refresh_unavailable" reasons',
-        )
-        .optional(),
     })
     .strict(),
   summary: "Create Experiment Snapshot",
-  description: `Starts an update of the experiment's results and returns the snapshot it creates. When metrics were added to the experiment since its latest Overall Results and that update ran less than ${DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES} minutes ago (configurable), only the new metrics are computed, up to that update's end date, and the snapshot's "updateScope" is "new_metrics". For newer data, send "missingMetricsOnly": false. See "missingMetricsOnly". Poll GET /snapshots/{id} until "status" is "success" or "error".`,
+  description: `Starts an update of the experiment's results and returns the snapshot it creates. By default, when metrics were added to the experiment since its latest Overall Results, nothing else changed, and those results end less than ${DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS} hours ago (configurable), only the new metrics are computed, up to the same end date, and the snapshot's "updateScope" is "new_metrics". See "updateScope". Poll GET /snapshots/{id} until "status" is "success" or "error". A 409 "snapshot_in_progress" means another update is running: wait for the snapshot it names to finish, then send the request again.`,
   confirmation: [],
   operationId: "postExperimentSnapshot",
   tags: ["experiments", "snapshots"],
@@ -3146,6 +3126,12 @@ export const getExperimentResultsValidator = {
     .object({
       experiment: apiExperimentWithEnhancedStatus,
       result: apiExperimentResultsValidator,
+      missingMetricIds: z
+        .array(z.string())
+        .describe(
+          "Metrics on the experiment that \"result\" doesn't include yet, because they were added after it was computed. Create a snapshot (POST /experiments/{id}/snapshot) to compute them. Metrics no snapshot can compute, such as ones that can't join the experiment's assignment identifier, aren't listed. Present only for Overall Results of the latest phase.",
+        )
+        .optional(),
     })
     .strict(),
   summary: "Get results for an experiment",

@@ -14,7 +14,6 @@ import {
 import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   MetricRefreshOutsideWindowError,
-  MetricRefreshUnavailableError,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
 } from "back-end/src/util/errors";
@@ -763,7 +762,7 @@ describe("snapshots API", () => {
     ],
   ])(
     "returns 409 requires_full_refresh when %s",
-    async (_, dimensionFullRefreshMessage) => {
+    async (situation, dimensionFullRefreshMessage) => {
       setReqContext({
         org,
         permissions: {
@@ -819,7 +818,7 @@ describe("snapshots API", () => {
     ["scheduled", "schedule" as const],
   ])(
     "returns 409 dimension_already_up_to_date for a %s dimension request already computed from the latest Overall Results",
-    async (_, triggeredBy) => {
+    async (kind, triggeredBy) => {
       setReqContext({
         org,
         permissions: {
@@ -1051,7 +1050,7 @@ describe("snapshots API", () => {
     expect(createExperimentSnapshot).not.toHaveBeenCalled();
   });
 
-  describe("missingMetricsOnly", () => {
+  describe("updateScope", () => {
     const refreshEndDate = new Date("2026-11-16T09:02:00.000Z");
     const setup = (orgSettings: object = {}) => {
       setReqContext({
@@ -1090,20 +1089,17 @@ describe("snapshots API", () => {
         .post(`/api/v1/experiments/${experimentId}/snapshot`)
         .set("Authorization", "Bearer foo")
         .send(body);
-    const expectedRefresh = {
-      baseSnapshotId: "snp_base",
-      metricIds: ["fact__new"],
-      dateEnd: refreshEndDate.toISOString(),
-    };
 
-    it("refreshes only the newly added metrics and reports what ran", async () => {
+    it('computes only the new metrics for "new_metrics" and says so', async () => {
       const { snapshot, experiment, datasource } = setup();
       createExperimentSnapshot.mockResolvedValueOnce({
         snapshot,
         queryRunner: {},
       });
 
-      const response = await post(experiment.id, { missingMetricsOnly: true });
+      const response = await post(experiment.id, {
+        updateScope: "new_metrics",
+      });
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -1111,9 +1107,12 @@ describe("snapshots API", () => {
           id: snapshot.id,
           experiment: snapshot.experiment,
           status: "running",
-          metricRefresh: expectedRefresh,
+          metricRefresh: {
+            baseSnapshotId: "snp_base",
+            metricIds: ["fact__new"],
+            dateEnd: refreshEndDate.toISOString(),
+          },
           updateScope: "new_metrics",
-          notice: `Only the newly added metrics were computed. Every result, including theirs, covers data up to ${refreshEndDate.toISOString()}. For newer data, run a normal update: POST /experiments/${snapshot.experiment}/snapshot with "missingMetricsOnly": false.`,
         },
       });
       expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
@@ -1125,81 +1124,45 @@ describe("snapshots API", () => {
         dimension: undefined,
         useCache: true,
         missingMetricsOnly: true,
+        newMetricsUpdateWindow: undefined,
       });
+      expect(auditMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          details: expect.stringContaining('"missingMetricsOnly":true'),
+        }),
+      );
     });
 
-    it("does not fall back to a Full Refresh when one is required", async () => {
-      const { experiment } = setup();
-      createExperimentSnapshot.mockRejectedValueOnce(
-        new ExperimentIncrementalPipelineRequiresFullRefreshError(
-          "The experiment configuration is outdated.",
-        ),
-      );
-
-      const response = await post(experiment.id, { missingMetricsOnly: true });
-
-      expect(response.status).toBe(409);
-      expect(response.body.code).toBe("requires_full_refresh");
-      expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
-    });
-
-    it("returns the reason when the refresh is unavailable", async () => {
-      const { experiment } = setup();
-      createExperimentSnapshot.mockRejectedValueOnce(
-        new MetricRefreshUnavailableError(
-          "settings_changed",
-          "Run a full update instead.",
-        ),
-      );
-
-      const response = await post(experiment.id, { missingMetricsOnly: true });
-
-      expect(response.status).toBe(409);
-      expect(response.body).toMatchObject({
-        code: "metric_refresh_unavailable",
-        details: { reason: "settings_changed" },
+    it("falls back to a normal update without a reason when the window from the organization setting has passed", async () => {
+      const { snapshot, experiment, datasource } = setup({
+        newMetricsUpdateWindowHours: 2,
       });
-    });
-
-    it.each([{ dimension: "pre:date" }, { triggeredBy: "schedule" }])(
-      "rejects the flag combined with %o",
-      async (extra) => {
-        const { experiment } = setup();
-
-        const response = await post(experiment.id, {
-          missingMetricsOnly: true,
-          ...extra,
+      createExperimentSnapshot
+        .mockRejectedValueOnce(new MetricRefreshOutsideWindowError())
+        .mockResolvedValueOnce({
+          snapshot: { ...snapshot, metricRefresh: undefined },
+          queryRunner: {},
         });
 
-        expect(response.status).toBe(400);
-        expect(response.body).toEqual({
-          message:
-            '"missingMetricsOnly" cannot be combined with "dimension" or with "triggeredBy": "schedule".',
-        });
-        expect(createExperimentSnapshot).not.toHaveBeenCalled();
-        expect(planExperimentSnapshot).not.toHaveBeenCalled();
-      },
-    );
-
-    it("runs a normal update when the flag is false", async () => {
-      const { snapshot, experiment } = setup();
-      createExperimentSnapshot.mockResolvedValueOnce({
-        snapshot: { ...snapshot, metricRefresh: undefined },
-        queryRunner: {},
-      });
-
-      const response = await post(experiment.id, { missingMetricsOnly: false });
+      const response = await post(experiment.id, {});
 
       expect(response.status).toBe(200);
-      expect(response.body.snapshot).not.toHaveProperty("metricRefresh");
-      expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
-      expect(createExperimentSnapshot).toHaveBeenCalledWith(
-        expect.not.objectContaining({ missingMetricsOnly: true }),
+      expect(response.body).toEqual({
+        snapshot: {
+          id: snapshot.id,
+          experiment: snapshot.experiment,
+          status: "running",
+          updateScope: "all_metrics",
+        },
+      });
+      expect(createExperimentSnapshot).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          missingMetricsOnly: true,
+          newMetricsUpdateWindow: { windowHours: 2, now: expect.any(Date) },
+        }),
       );
-    });
-
-    describe("when omitted", () => {
-      const normalUpdate = (experiment: object, datasource: object) => ({
+      expect(createExperimentSnapshot).toHaveBeenNthCalledWith(2, {
         context: expect.objectContaining({ org: expect.anything() }),
         experiment,
         datasource,
@@ -1208,191 +1171,22 @@ describe("snapshots API", () => {
         dimension: undefined,
         useCache: true,
       });
-
-      it("updates only the newly added metrics when the last full update is recent", async () => {
-        const { snapshot, experiment, datasource } = setup();
-        createExperimentSnapshot.mockResolvedValueOnce({
-          snapshot,
-          queryRunner: {},
-        });
-
-        const response = await post(experiment.id, {});
-
-        expect(response.status).toBe(200);
-        expect(response.body.snapshot.metricRefresh).toEqual(expectedRefresh);
-        expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
-        expect(createExperimentSnapshot).toHaveBeenCalledWith({
-          context: expect.objectContaining({ org: expect.anything() }),
-          experiment,
-          datasource,
-          phase: 1,
-          dimension: undefined,
-          useCache: true,
-          missingMetricsOnly: true,
-          newMetricsOnlyWindow: { windowMinutes: 60, now: expect.any(Date) },
-        });
-        expect(auditMock).toHaveBeenCalledWith(
-          expect.objectContaining({
-            details: expect.stringContaining('"missingMetricsOnly":true'),
-          }),
-        );
-      });
-
-      it("reads the window from the organization setting", async () => {
-        const { snapshot, experiment } = setup({
-          newMetricsOnlyUpdateWindowMinutes: 15,
-        });
-        createExperimentSnapshot.mockResolvedValueOnce({
-          snapshot,
-          queryRunner: {},
-        });
-
-        await post(experiment.id, {});
-
-        expect(createExperimentSnapshot).toHaveBeenCalledWith(
-          expect.objectContaining({
-            newMetricsOnlyWindow: { windowMinutes: 15, now: expect.any(Date) },
-          }),
-        );
-      });
-
-      it.each([
-        [
-          "the last full update is older than the window",
-          () => new MetricRefreshOutsideWindowError(),
-          "outside_window",
-        ],
-        [
-          "no metric is missing",
-          () => new MetricsAlreadyUpToDateError("snp_base"),
-          undefined,
-        ],
-        [
-          "the refresh is unavailable",
-          () =>
-            new MetricRefreshUnavailableError(
-              "settings_changed",
-              "Run a full update instead.",
-            ),
-          "settings_changed",
-        ],
-        [
-          "an update is running",
-          () => new SnapshotInProgressError("snp_running"),
-          "snapshot_in_progress",
-        ],
-        [
-          "the pipeline needs a Full Refresh",
-          () =>
-            new ExperimentIncrementalPipelineRequiresFullRefreshError(
-              "The experiment configuration is outdated.",
-            ),
-          "requires_full_refresh",
-        ],
-      ])("runs a normal update when %s", async (_, refusal, skippedReason) => {
-        const { snapshot, experiment, datasource } = setup();
-        const normal = { ...snapshot, metricRefresh: undefined };
-        createExperimentSnapshot
-          .mockRejectedValueOnce(refusal())
-          .mockResolvedValueOnce({ snapshot: normal, queryRunner: {} });
-
-        const response = await post(experiment.id, {});
-
-        expect(response.status).toBe(200);
-        expect(response.body.snapshot).not.toHaveProperty("metricRefresh");
-        expect(response.body.snapshot.updateScope).toBe("all_metrics");
-        expect(response.body.snapshot).not.toHaveProperty("notice");
-        expect(response.body.newMetricsOnlySkippedReason).toBe(skippedReason);
-        expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
-        expect(createExperimentSnapshot).toHaveBeenLastCalledWith(
-          normalUpdate(experiment, datasource),
-        );
-        expect(auditMock).toHaveBeenCalledWith(
-          expect.objectContaining({
-            details: expect.not.stringContaining("missingMetricsOnly"),
-          }),
-        );
-      });
-
-      it("passes on an error a normal update would hit too", async () => {
-        const { experiment } = setup();
-        createExperimentSnapshot.mockRejectedValueOnce(
-          new Error("Experiment must have at least 1 metric selected"),
-        );
-
-        const response = await post(experiment.id, {});
-
-        expect(response.status).toBe(400);
-        expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
-      });
-
-      it("runs only a normal update when the window is 0", async () => {
-        const { snapshot, experiment, datasource } = setup({
-          newMetricsOnlyUpdateWindowMinutes: 0,
-        });
-        createExperimentSnapshot.mockResolvedValueOnce({
-          snapshot: { ...snapshot, metricRefresh: undefined },
-          queryRunner: {},
-        });
-
-        const response = await post(experiment.id, {});
-
-        expect(response.status).toBe(200);
-        expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
-        expect(createExperimentSnapshot).toHaveBeenCalledWith(
-          normalUpdate(experiment, datasource),
-        );
-      });
-
-      it("runs only a normal update when scheduled", async () => {
-        const { snapshot, experiment, datasource } = setup();
-        createExperimentSnapshot.mockResolvedValueOnce({
-          snapshot: { ...snapshot, metricRefresh: undefined },
-          queryRunner: {},
-        });
-
-        const response = await post(experiment.id, {
-          triggeredBy: "schedule",
-        });
-
-        expect(response.status).toBe(200);
-        expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
-        expect(createExperimentSnapshot).toHaveBeenCalledWith({
-          ...normalUpdate(experiment, datasource),
-          triggeredBy: "schedule",
-        });
-      });
-
-      it("runs only the dimension update when a dimension is set", async () => {
-        const { experiment } = setup();
-        planExperimentSnapshot.mockResolvedValueOnce({
-          snapshot: { analyses: [] },
-        });
-        createExperimentSnapshotFromPlan.mockResolvedValueOnce({
-          snapshot: snapshotFactory.build({ organization: org.id }),
-          queryRunner: {},
-        });
-
-        const response = await post(experiment.id, { dimension: "pre:date" });
-
-        expect(response.status).toBe(200);
-        expect(createExperimentSnapshot).not.toHaveBeenCalled();
-        expect(planExperimentSnapshot).toHaveBeenCalledWith(
-          expect.not.objectContaining({ missingMetricsOnly: true }),
-        );
-      });
     });
 
-    it("reports the refresh when the snapshot is read back", async () => {
-      const { snapshot } = setup();
-      findSnapshotById.mockReturnValueOnce(snapshot);
+    it("returns 409 snapshot_in_progress when the normal update finds another update running", async () => {
+      const { experiment } = setup();
+      createExperimentSnapshot
+        .mockRejectedValueOnce(new SnapshotInProgressError("snp_running"))
+        .mockRejectedValueOnce(new SnapshotInProgressError("snp_running"));
 
-      const response = await request(app)
-        .get(`/api/v1/snapshots/${snapshot.id}`)
-        .set("Authorization", "Bearer foo");
+      const response = await post(experiment.id, {});
 
-      expect(response.status).toBe(200);
-      expect(response.body.snapshot.metricRefresh).toEqual(expectedRefresh);
+      expect(response.status).toBe(409);
+      expect(response.body).toMatchObject({
+        code: "snapshot_in_progress",
+        details: { snapshotId: "snp_running" },
+      });
+      expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
     });
   });
 });

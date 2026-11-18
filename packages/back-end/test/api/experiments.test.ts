@@ -2177,7 +2177,7 @@ describe("experiments API", () => {
           status: "draft",
         });
         (getDataSourceById as jest.Mock).mockImplementation(
-          async (_context, id: string) => ({
+          async (ctx, id: string) => ({
             id,
             type: "postgres",
             settings: {
@@ -3683,7 +3683,7 @@ describe("experiments API", () => {
         const res = await getResults();
 
         expect(res.status).toBe(200);
-        expect(res.body.result.missingMetricIds).toEqual(["met_3"]);
+        expect(res.body.missingMetricIds).toEqual(["met_3"]);
       });
 
       it("leaves out a metric no update computes, so it doesn't stay missing", async () => {
@@ -3698,8 +3698,8 @@ describe("experiments API", () => {
           metrics: [metric("met_1"), metric("met_2")],
         });
 
-        expect(unjoinable.body.result.missingMetricIds).toEqual([]);
-        expect(deleted.body.result.missingMetricIds).toEqual([]);
+        expect(unjoinable.body.missingMetricIds).toEqual([]);
+        expect(deleted.body.missingMetricIds).toEqual([]);
       });
 
       it("is an empty list when the results cover every metric", async () => {
@@ -3718,17 +3718,17 @@ describe("experiments API", () => {
         });
 
         expect(res.status).toBe(200);
-        expect(res.body.result.missingMetricIds).toEqual([]);
+        expect(res.body.missingMetricIds).toEqual([]);
       });
 
       it.each([
         ["a dimension breakdown", { snapshot: { dimension: "pre:date" } }],
         ["an earlier phase", { snapshot: { phase: 0 }, query: "?phase=0" }],
-      ])("is absent on %s", async (_, args) => {
+      ])("is absent on %s", async (results, args) => {
         const res = await getResults(args);
 
         expect(res.status).toBe(200);
-        expect(res.body.result).not.toHaveProperty("missingMetricIds");
+        expect(res.body).not.toHaveProperty("missingMetricIds");
       });
     });
 

@@ -292,7 +292,7 @@ import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/exper
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import {
   getMetricRefreshLockConflict,
-  type NewMetricsOnlyUpdateWindow,
+  type NewMetricsUpdateWindow,
   planMetricRefresh,
   resolveIncrementalMetricRefreshRun,
 } from "back-end/src/services/metricRefreshPlanning";
@@ -3050,7 +3050,7 @@ export async function createExperimentSnapshot({
   reweight,
   bypassResultsUpdateDisabled,
   missingMetricsOnly,
-  newMetricsOnlyWindow,
+  newMetricsUpdateWindow,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -3063,7 +3063,7 @@ export async function createExperimentSnapshot({
   reweight?: boolean;
   bypassResultsUpdateDisabled?: boolean;
   missingMetricsOnly?: boolean;
-  newMetricsOnlyWindow?: NewMetricsOnlyUpdateWindow;
+  newMetricsUpdateWindow?: NewMetricsUpdateWindow;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentSnapshotQueryRunner;
@@ -3080,7 +3080,7 @@ export async function createExperimentSnapshot({
     reweight,
     bypassResultsUpdateDisabled,
     missingMetricsOnly,
-    newMetricsOnlyWindow,
+    newMetricsUpdateWindow,
   });
 
   return createExperimentSnapshotFromPlan({
@@ -3136,7 +3136,7 @@ export async function planExperimentSnapshot({
   throwIfRequiresFullRefresh,
   bypassResultsUpdateDisabled,
   missingMetricsOnly,
-  newMetricsOnlyWindow,
+  newMetricsUpdateWindow,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -3152,7 +3152,7 @@ export async function planExperimentSnapshot({
   bypassResultsUpdateDisabled?: boolean;
   missingMetricsOnly?: boolean;
   // With missingMetricsOnly: refuse unless shouldUpdateNewMetricsOnly agrees.
-  newMetricsOnlyWindow?: NewMetricsOnlyUpdateWindow;
+  newMetricsUpdateWindow?: NewMetricsUpdateWindow;
 }): Promise<PlannedExperimentSnapshot> {
   if (
     !bypassResultsUpdateDisabled &&
@@ -3320,7 +3320,7 @@ export async function planExperimentSnapshot({
           integration,
           scope,
         ),
-      window: newMetricsOnlyWindow,
+      window: newMetricsUpdateWindow,
     });
   }
   return planSnapshot(planSnapshotArgs);

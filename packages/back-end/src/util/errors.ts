@@ -385,11 +385,11 @@ export class MetricRefreshUnavailableError extends ApiError<"metric_refresh_unav
   }
 }
 
-// The last full update is too old for an update the caller didn't ask for
-// explicitly. Callers run a normal update instead; it never reaches a client.
+// The results are too old for an update that didn't choose a scope. Callers
+// run a normal update instead; it never reaches a client.
 export class MetricRefreshOutsideWindowError extends Error {
   constructor() {
-    super("The last full update is outside the new-metrics-only update window");
+    super("The latest results end before the new metrics update window");
     this.name = "MetricRefreshOutsideWindowError";
   }
 }

@@ -1817,7 +1817,7 @@ export async function putOrganization(
       );
     }
 
-    const newMetricsWindow = settings?.newMetricsOnlyUpdateWindowMinutes;
+    const newMetricsWindow = settings?.newMetricsUpdateWindowHours;
     if (
       (newMetricsWindow ?? null) !== null &&
       (typeof newMetricsWindow !== "number" ||
@@ -1825,7 +1825,7 @@ export async function putOrganization(
         newMetricsWindow < 0)
     ) {
       context.throwBadRequestError(
-        "The new-metrics-only update window must be a number of minutes, at least 0",
+        "The new metrics update window must be a number of hours, at least 0",
       );
     }
 
