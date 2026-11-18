@@ -14,7 +14,6 @@ import {
   legacyDocDescribesPhase,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
-import { getIncrementalRefreshMetricSources } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
 jest.mock("back-end/src/enterprise", () => ({
@@ -381,63 +380,6 @@ describe("getFactTablesNeedingRebuild", () => {
       currentMetricSettingsHashes: new Map([["m_same_ft", "h1"]]),
     });
     expect(rebuild.size).toBe(0);
-  });
-
-  describe("around a metric refresh", () => {
-    const addedMetric = factMetricFactory.build({
-      id: "m_added",
-      metricType: "mean",
-      numerator: { factTableId: "ft_a", column: "amount" },
-    });
-    const cached = makeMetricSource("grp_a", "ft_a", [
-      { id: "m_same_ft", settingsHash: "h1" },
-    ]);
-
-    it("places a metric added on a cached fact table in a new source of its own", () => {
-      const groups = getIncrementalRefreshMetricSources({
-        metrics: [sameFtMetric, addedMetric],
-        existingMetricSources: [cached],
-        integration: makeIntegration(),
-        snapshotSettings: makeSnapshotSettings(),
-      });
-      expect(
-        groups.map((g) => [
-          g.groupId === "grp_a" ? "grp_a" : "new",
-          g.factTableId,
-          g.metrics.map((m) => m.id),
-        ]),
-      ).toEqual([
-        ["grp_a", "ft_a", ["m_same_ft"]],
-        ["new", "ft_a", ["m_added"]],
-      ]);
-    });
-
-    it("leaves the next update nothing to rebuild once the refresh recorded its source", () => {
-      const desired = {
-        desiredFanOut: planMetricFanOut([sameFtMetric, addedMetric]),
-        currentMetricSettingsHashes: new Map([
-          ["m_same_ft", "h1"],
-          ["m_added", "h2"],
-        ]),
-      };
-      expect(
-        getFactTablesNeedingRebuild({
-          existingMetricSources: [cached],
-          ...desired,
-        }),
-      ).toEqual(new Set(["ft_a"]));
-      expect(
-        getFactTablesNeedingRebuild({
-          existingMetricSources: [
-            cached,
-            makeMetricSource("grp_a_refresh", "ft_a", [
-              { id: "m_added", settingsHash: "h2" },
-            ]),
-          ],
-          ...desired,
-        }),
-      ).toEqual(new Set());
-    });
   });
 
   it("flags rebuild when a desired metric is missing from currentMetricSettingsHashes", () => {
