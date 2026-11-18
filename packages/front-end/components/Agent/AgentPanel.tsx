@@ -713,20 +713,12 @@ export default function AgentPanel({
       root.style.removeProperty("--agent-rail-width");
     }
     root.classList.toggle("agent-dock-full", dockedShown);
-    root.classList.toggle(
-      "agent-dock-full-expanded",
-      dockedShown && open && expanded,
-    );
-  }, [dockedShown, open, expanded, panelWidth]);
+  }, [dockedShown, panelWidth]);
   useEffect(
     () => () => {
       const root = document.documentElement;
       root.style.removeProperty("--agent-rail-width");
-      root.classList.remove(
-        "agent-dock-full",
-        "agent-dock-full-expanded",
-        "agent-dock-motion",
-      );
+      root.classList.remove("agent-dock-full", "agent-dock-motion");
     },
     [],
   );
