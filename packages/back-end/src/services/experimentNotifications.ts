@@ -409,7 +409,7 @@ export const notifyExperimentUpdateFailed = async ({
   experiment: ExperimentInterface;
   cause: QueryRunnerFailureCause | null;
 }) => {
-  if (cause === "cancelled") return;
+  if (cause === "cancelled" || cause === "superseded") return;
   const triggered = experiment.status === "running" && cause !== null;
   await memoizeNotification({
     context,

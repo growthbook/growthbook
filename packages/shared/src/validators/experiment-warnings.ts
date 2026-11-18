@@ -88,7 +88,7 @@ export const updateFailed = z
     experimentId: z.string(),
     experimentName: z.string(),
     ownerEmail: ownerEmailField,
-    cause: queryRunnerFailureCause.exclude(["cancelled"]),
+    cause: queryRunnerFailureCause.exclude(["cancelled", "superseded"]),
   })
   .strict();
 

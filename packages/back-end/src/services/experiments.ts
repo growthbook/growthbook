@@ -253,6 +253,7 @@ import {
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { INTERRUPTED_UPDATE_REASON } from "back-end/src/services/interruptedRefresh";
 import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
@@ -1637,6 +1638,7 @@ function getSnapshotQueryRunnerKind({
  * - There is no prior incremental state for this experiment.
  * - The state document exists but has no `unitsTableFullName`, meaning
  *   the warehouse units table was never created (e.g., the initial attempt failed).
+ * - A run stopped while changing the units table, leaving it marked dirty.
  */
 function resolveFullRefresh(
   useCache: boolean,
@@ -1661,6 +1663,13 @@ function resolveFullRefresh(
     return {
       fullRefresh: true,
       fullRefreshReason: "Units table was never materialized by a prior run.",
+    };
+  }
+
+  if (incrementalRefreshModel.unitsDirtyBy) {
+    return {
+      fullRefresh: true,
+      fullRefreshReason: INTERRUPTED_UPDATE_REASON,
     };
   }
 
@@ -2312,6 +2321,7 @@ export async function createSnapshotFromPlan({
   }
 
   let createdSnapshotId: string | null = null;
+  let incrementalRunner: ExperimentIncrementalRefreshQueryRunner | null = null;
   let experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
     null;
 
@@ -2386,12 +2396,13 @@ export async function createSnapshotFromPlan({
         break;
       case "incremental-full":
       case "incremental-update":
-        queryRunner = new ExperimentIncrementalRefreshQueryRunner(
+        incrementalRunner = new ExperimentIncrementalRefreshQueryRunner(
           context,
           snapshot,
           integration,
           false, // always ignore cache for incremental refresh queries
         );
+        queryRunner = incrementalRunner;
         break;
       case "results":
         queryRunner = new ExperimentResultsQueryRunner(
@@ -2482,7 +2493,11 @@ export async function createSnapshotFromPlan({
 
     return queryRunner;
   } catch (e) {
-    if (hasIncrementalRefreshLock) {
+    // Queries without dependencies start as soon as they are created, so
+    // stop the ones that have not started before releasing.
+    if (hasIncrementalRefreshLock && incrementalRunner) {
+      await incrementalRunner.stopAfterFailedStart();
+    } else if (hasIncrementalRefreshLock) {
       await context.models.incrementalRefresh
         .releaseLock(experiment.id, plan.snapshot.id)
         .catch((releaseErr) =>

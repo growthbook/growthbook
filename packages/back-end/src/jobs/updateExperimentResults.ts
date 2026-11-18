@@ -18,15 +18,13 @@ import {
 } from "back-end/src/services/experiments";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import { findLatestSuccessfulSnapshotEndDate } from "back-end/src/models/ExperimentSnapshotModel";
-import {
-  ConcurrentIncrementalRefreshError,
-  UnrecoverableSnapshotError,
-} from "back-end/src/util/errors";
+import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
+import { isSupersededRefreshError } from "back-end/src/services/interruptedRefresh";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 // Time between experiment result updates (default 6 hours)
@@ -267,12 +265,14 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       });
     }
   } catch (e) {
-    // Lock contention is transient so we don't disable auto-updates
-    if (e instanceof ConcurrentIncrementalRefreshError) {
+    // Another update holding or taking the lock is transient, so don't
+    // disable auto-updates.
+    if (isSupersededRefreshError(e)) {
       logger.info(
+        { err: e },
         "Skipping auto-update for experiment " +
           experimentId +
-          ": incremental refresh already in progress",
+          ": another incremental refresh holds it",
       );
       return;
     }

@@ -18,7 +18,8 @@ export async function notifySnapshotUpdateFailure({
   if (
     snapshot.type !== "standard" ||
     snapshot.report ||
-    failureCause === "cancelled"
+    failureCause === "cancelled" ||
+    failureCause === "superseded"
   )
     return;
   const computeFailed =
