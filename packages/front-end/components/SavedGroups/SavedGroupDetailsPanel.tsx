@@ -90,18 +90,16 @@ export default function SavedGroupDetailsPanel({
             label="Projects"
             action={pencil("Edit Projects")}
             value={
-              projects.length ? (
-                <PanelText>
-                  {projects.map((id, i) => (
-                    <span key={id}>
-                      {i > 0 ? ", " : ""}
-                      {getProjectById(id)?.name || <HiddenProject id={id} />}
-                    </span>
-                  ))}
-                </PanelText>
-              ) : (
-                <PanelText>All Projects</PanelText>
-              )
+              <PanelText>
+                {projects.length
+                  ? projects.map((id, i) => (
+                      <span key={id}>
+                        {i > 0 ? ", " : ""}
+                        {getProjectById(id)?.name || <HiddenProject id={id} />}
+                      </span>
+                    ))
+                  : "All Projects"}
+              </PanelText>
             }
           />
         ) : null}

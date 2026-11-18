@@ -93,7 +93,6 @@ export default function SectionFrame({
             {titleAddon}
           </Flex>
           {actions ? (
-            // Right-aligned, on the title's line or its own.
             <Flex
               align="center"
               justify="end"

@@ -767,7 +767,6 @@ export default function ConfigJsonEditor({
     />
   );
 
-  // Side by side while each gets 320px, stacked below that.
   const twoColumns = (left: ReactNode, right: ReactNode): ReactNode => (
     <Flex gap="5" align="start" wrap="wrap">
       <Box style={{ flex: "1 1 320px", minWidth: 0 }}>{left}</Box>

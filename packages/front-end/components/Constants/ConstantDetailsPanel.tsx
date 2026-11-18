@@ -16,7 +16,7 @@ import ReferencesPanelSection, {
 } from "@/components/References/ReferencesPanelSection";
 import Metadata from "@/ui/Metadata";
 
-export const CONSTANT_TYPE_LABEL: Record<ConstantInterface["type"], string> = {
+const CONSTANT_TYPE_LABEL: Record<ConstantInterface["type"], string> = {
   string: "String",
   json: "JSON",
 };

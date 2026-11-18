@@ -1249,11 +1249,7 @@ export default function EditSavedGroupPage() {
                   savedGroup,
                   NO_ENVIRONMENT_BINDING,
                 )}
-                canManageDraftsEntity={permissionsUtil.canRevisionAction(
-                  "saved-group",
-                  "draft",
-                  savedGroup,
-                )}
+                canManageDraftsEntity={canManageDrafts}
                 canPublishEntity={canPublishRevisionEntity(
                   permissionsUtil,
                   "saved-group",
@@ -1364,15 +1360,7 @@ export default function EditSavedGroupPage() {
                     viewing={isLive ? "live" : isDraft ? "draft" : "other"}
                     viewedVersion={displayedSavedGroup?.currentUploadVersion}
                     useVersionDisabledReason={
-                      remoteLocked
-                        ? REMOTE_LOCKED_REASON
-                        : isMerged
-                          ? "You cannot edit a published revision."
-                          : isDiscarded
-                            ? "You cannot edit a discarded revision."
-                            : !canDraft
-                              ? "You don't have permission to edit drafts for this Saved Group."
-                              : null
+                      remoteLocked ? REMOTE_LOCKED_REASON : editBlockedReason
                     }
                     onUseVersion={(version) => {
                       // Like editing the condition: work in the user's open draft.

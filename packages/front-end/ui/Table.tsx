@@ -253,13 +253,13 @@ export default function Table({
     pageTopOffset,
   ]);
 
-  // Whatever takes focus in a sideways-scrolling table comes into view, past
-  // the pinned column rather than under it.
   const scrollRef = useRef<HTMLDivElement>(null);
   // Marks the region that scrolls sideways, for TableViewportCell.
   useEffect(() => {
     scrollRef.current?.setAttribute(TABLE_SCROLL_ATTR, "");
   }, [scrollX]);
+  // Whatever takes focus in a sideways-scrolling table comes into view, past
+  // the pinned column rather than under it.
   const pinnedScroll = !isListVariant && !!scrollX && !!stickyLastColumn;
   useEffect(() => {
     const el = scrollRef.current;
