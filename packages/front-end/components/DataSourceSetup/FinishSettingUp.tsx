@@ -13,7 +13,6 @@ import isEqual from "lodash/isEqual";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
-  FeatureUsageQuery,
   UserIdType,
 } from "shared/types/datasource";
 import { SDKAttribute } from "shared/types/organization";
@@ -29,7 +28,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AttributeModal from "@/components/Features/AttributeModal";
 import Link from "@/ui/Link";
 import { ExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueryModal";
-import { FeatureEvaluationQueryModal } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueryModal";
 import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import { EventForwarderManagedBadge } from "@/components/Settings/EditDataSource/EventForwarderManaged";
 import { dataSourceConnections } from "@/services/eventSchema";
@@ -41,13 +39,7 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import ConfigureEventForwarderStep from "./ConfigureEventForwarderStep";
 
-type StepId =
-  | "connect"
-  | "forwarder"
-  | "identifiers"
-  | "queries"
-  | "factTable"
-  | "featureUsage";
+type StepId = "connect" | "forwarder" | "identifiers" | "queries" | "factTable";
 
 type IdentifierMode = "view" | "edit";
 
@@ -264,9 +256,6 @@ export default function FinishSettingUp({
     useState<AttributeModalState>(null);
   const [queryModal, setQueryModal] = useState<QueryModal>(null);
   const [factTableOpen, setFactTableOpen] = useState(false);
-  const [featureUsageOpen, setFeatureUsageOpen] = useState(false);
-  const hasFeatureUsageQuery =
-    (dataSource.settings?.queries?.featureUsage ?? []).length > 0;
 
   const identifierTypes = dataSource.settings?.userIdTypes ?? [];
   const exposureQueries = dataSource.settings?.queries?.exposure ?? [];
@@ -419,16 +408,6 @@ export default function FinishSettingUp({
     copy.settings = { ...copy.settings, queries: { ...queries, exposure } };
     await onSave(copy);
     setQueryModal(null);
-  };
-
-  const saveFeatureUsageQuery = async (query: FeatureUsageQuery) => {
-    const copy = cloneDeep(dataSource);
-    copy.settings = {
-      ...copy.settings,
-      queries: { ...copy.settings?.queries, featureUsage: [query] },
-    };
-    await onSave(copy);
-    setFeatureUsageOpen(false);
   };
 
   const stepCta = (
@@ -937,30 +916,6 @@ export default function FinishSettingUp({
         }
       />
 
-      {/* Optional, so it isn't part of `completion`. The Event Forwarder adds
-          its own feature usage query. */}
-      {!hasEventForwarder && (
-        <SetupStepRow
-          number={stepIds.length + 1}
-          complete={hasFeatureUsageQuery}
-          current={false}
-          expanded={false}
-          title="Add a feature usage query"
-          optional
-          description="Tell us where your Feature Flag evaluations are stored. This powers the Diagnostics tab, where you can see who got each Feature Flag and why."
-          actions={
-            hasFeatureUsageQuery
-              ? doneActions()
-              : stepCta(
-                  "featureUsage",
-                  "Add query",
-                  () => setFeatureUsageOpen(true),
-                  true,
-                )
-          }
-        />
-      )}
-
       {queryModal && (
         <ExperimentAssignmentQueryModal
           dataSource={dataSource}
@@ -972,13 +927,6 @@ export default function FinishSettingUp({
           defaultIdentifierTypes={queryModal.identifierTypes}
           onCancel={() => setQueryModal(null)}
           onSave={saveQuery}
-        />
-      )}
-      {featureUsageOpen && (
-        <FeatureEvaluationQueryModal
-          dataSource={dataSource}
-          onCancel={() => setFeatureUsageOpen(false)}
-          onSave={saveFeatureUsageQuery}
         />
       )}
       {factTableOpen && (
@@ -1053,7 +1001,6 @@ function SetupStepRow({
   current,
   expanded,
   title,
-  optional,
   description,
   actions,
   children,
@@ -1063,7 +1010,6 @@ function SetupStepRow({
   current: boolean;
   expanded: boolean;
   title: string;
-  optional?: boolean;
   description: string;
   actions?: ReactNode;
   children?: ReactNode;
@@ -1083,12 +1029,9 @@ function SetupStepRow({
       <Box flexGrow="1" minWidth="0">
         <Flex align="center" justify="between" gap="4">
           <Box>
-            <Flex align="center" gap="2">
-              <Text as="p" weight="semibold" mb="0">
-                {title}
-              </Text>
-              {optional && <Badge label="Optional" color="gray" />}
-            </Flex>
+            <Text as="p" weight="semibold" mb="0">
+              {title}
+            </Text>
             <Text as="p" color="text-mid" mb="0">
               {description}
             </Text>
