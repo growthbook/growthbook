@@ -24,8 +24,8 @@ export function SettingsGroup({
   keywords?: string;
   children: ReactNode;
 }) {
-  // Stacked in Settings' narrow layout, which a narrow window gets from the
-  // breakpoints below and the docked AI panel can bring on a wide one.
+  // A narrow window stacks by the breakpoints below; the docked AI panel can
+  // also narrow Settings on a wide one.
   const narrow = useSettingsNarrow();
   return (
     <SettingsCard id={id} keywords={keywords}>

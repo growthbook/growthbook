@@ -32,6 +32,8 @@ type SettingsNavContextValue = {
   setCount: (sectionId: string, count: number | null) => void;
   searchRef: RefObject<HTMLInputElement>;
   navMode: "column" | "jumpMenu";
+  /** The docked AI panel narrows Settings (html.settings-narrow). */
+  crowded: boolean;
 };
 
 const SettingsNavContext = createContext<SettingsNavContextValue | null>(null);
@@ -95,8 +97,17 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
       setCount,
       searchRef,
       navMode,
+      crowded: crowdedSettings,
     }),
-    [query, activeSection, counts, setCount, pinSection, navMode],
+    [
+      query,
+      activeSection,
+      counts,
+      setCount,
+      pinSection,
+      navMode,
+      crowdedSettings,
+    ],
   );
 
   return (
@@ -107,7 +118,7 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
 }
 
 export function useSettingsNarrow(): boolean {
-  return useContext(SettingsNavContext)?.navMode === "jumpMenu";
+  return useContext(SettingsNavContext)?.crowded === true;
 }
 
 export function useSettingsNav() {

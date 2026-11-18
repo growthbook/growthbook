@@ -179,7 +179,6 @@ body {
 .main {
   padding-left: var(--sidebar-width);
   padding-right: var(--agent-rail-width, 0px);
-  transition: padding-right var(--agent-dock-duration) var(--agent-dock-easing);
   // Only the new sidebar changes width.
   html.app-shell-new & {
     transition:
@@ -198,9 +197,6 @@ body {
     @media (prefers-reduced-motion: reduce) {
       transition: none;
     }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
   }
   html.agent-dock-resizing & {
     transition: none;

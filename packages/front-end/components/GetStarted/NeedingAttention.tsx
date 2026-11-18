@@ -319,14 +319,23 @@ const NeedingAttention = ({
       },
     );
 
+    const recentHeading = (
+      <Text size="4" weight="medium" as="div">
+        Recent
+      </Text>
+    );
     return recentFeatures.length > 0 ? (
       <Box className="recent-items-container">
-        <Flex align="center" justify="between" gap="3">
-          <Text size="4" weight="medium" as="div">
-            Recent
-          </Text>
-          {headingAction}
-        </Flex>
+        {/* The old shell's Home passes none; the new one always passes it,
+          null included. */}
+        {headingAction === undefined ? (
+          recentHeading
+        ) : (
+          <Flex align="center" justify="between" gap="3">
+            {recentHeading}
+            {headingAction}
+          </Flex>
+        )}
         <Grid
           columns={{
             initial: "1fr",
