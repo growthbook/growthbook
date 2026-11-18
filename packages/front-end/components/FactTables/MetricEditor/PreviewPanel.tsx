@@ -1,4 +1,3 @@
-import clsx from "clsx";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
@@ -24,13 +23,10 @@ export default function PreviewPanel({
   draft,
   previewSql,
   metric,
-  stacked = false,
 }: {
   metric?: FactMetricInterface | null;
   draft: CreateFactMetricFormProps | null;
   previewSql: MetricPreviewSql | null;
-  /** Below the form, as below 1024px, so not sticky. */
-  stacked?: boolean;
 }) {
   const [view, setView] = useState<"preview" | "sql">("preview");
   const liveDraftMetric = draft ? getDraftMetricPreview(draft) : null;
@@ -54,12 +50,7 @@ export default function PreviewPanel({
     : null;
 
   return (
-    <Frame
-      className={clsx(styles.panel, stacked && styles.stacked)}
-      px="0"
-      py="0"
-      mb="0"
-    >
+    <Frame className={styles.panel} px="0" py="0" mb="0" data-metric-preview>
       <Tabs
         className={styles.tabRoot}
         value={view}

@@ -1,0 +1,19 @@
+// Narrow layouts when the docked AI panel leaves the page area too little room,
+// as a narrow window does. The 957px and 767px are the widest page areas where
+// the form beside the 380px preview, and Description beside Tags, clip. The
+// 957px is repeated in PreviewPanel.module.scss.
+.layout {
+  @container page (max-width: 957px) {
+    :global(html.app-shell-new.agent-dock-full) & {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+  }
+}
+
+.fields {
+  @container page (max-width: 767px) {
+    :global(html.app-shell-new.agent-dock-full) & {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+  }
+}

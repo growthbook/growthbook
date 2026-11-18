@@ -57,6 +57,7 @@ import {
   UnrepresentableReason,
   windowOk,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
+import styles from "./MetricEditor.module.scss";
 
 const UNREPRESENTABLE_REASON_COPY: Record<UnrepresentableReason, string> = {
   "retention-lookback-window":
@@ -76,8 +77,6 @@ export default function MetricEditor({
   canEdit,
   onRepresentableChange,
   existingMetric,
-  stacked = false,
-  stackedFields = false,
 }: {
   existingMetric?: FactMetricInterface | null;
   form: UseFormReturn<CreateFactMetricFormProps>;
@@ -87,13 +86,6 @@ export default function MetricEditor({
   // definition Callout, instead of deriving formTypeFromStored a second time
   // from the same form fields.
   onRepresentableChange?: (representable: boolean) => void;
-  /**
-   * The preview below the form on a wide window too, as below 1024px: when
-   * the docked AI panel leaves too little room (MetricWorkspace).
-   */
-  stacked?: boolean;
-  /** Description above Tags on a wide window too, as below 768px. */
-  stackedFields?: boolean;
 }) {
   const {
     getFactTableById,
@@ -394,8 +386,9 @@ export default function MetricEditor({
 
   const grid = (
     <Grid
-      columns={stacked ? "1" : { initial: "1", md: "minmax(0, 1fr) 380px" }}
+      columns={{ initial: "1", md: "minmax(0, 1fr) 380px" }}
       gap="4"
+      className={styles.layout}
     >
       <Flex direction="column" gap="4" minWidth="0">
         <Frame px="4" py="4" mb="0">
@@ -416,8 +409,9 @@ export default function MetricEditor({
                 required
               />
               <Grid
-                columns={stackedFields ? "1" : { initial: "1", sm: "2" }}
+                columns={{ initial: "1", sm: "2" }}
                 gap="4"
+                className={styles.fields}
               >
                 <div style={{ minWidth: 0 }}>
                   {showDescription || form.watch("description") ? (
@@ -720,7 +714,6 @@ export default function MetricEditor({
 
       <Flex direction="column" gap="4" minWidth="0">
         <PreviewPanel
-          stacked={stacked}
           draft={canEdit ? form.watch() : null}
           previewSql={previewSql}
           metric={canEdit ? null : existingMetric}

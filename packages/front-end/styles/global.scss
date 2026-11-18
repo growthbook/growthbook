@@ -32,9 +32,8 @@
   --tabs-bottom: calc(var(--tabs-top) + var(--tabs-bar-height));
 
   // The page's side padding steps with the window's width; past a 1680px page
-  // (beside the side nav) the content centers. Computed, not a container
-  // query: containment would trap the fixed overlays inside. Classic
-  // scrollbars count toward the widths.
+  // (beside the side nav) the content centers. Computed from the window, so
+  // classic scrollbars count toward the widths.
   --page-nav-width: var(--sidebar-width);
   --page-area-width: calc(
     100vw - var(--page-nav-width) - var(--agent-rail-width, 0px)
@@ -81,6 +80,11 @@
 // The new app shell (components/Layout/AppShell.tsx).
 html.app-shell-new {
   --header-height: 44px;
+  // The page area, for `@container page` rules. Contained, a fixed overlay
+  // inside still positions against the viewport.
+  main.main {
+    container: page / inline-size;
+  }
 }
 html.app-sidebar-collapsed {
   --sidebar-width: 48px;
