@@ -1,8 +1,6 @@
 import { ReactNode, useState } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { IconButton, VisuallyHidden } from "@radix-ui/themes";
-import clsx from "clsx";
 import { IconType } from "react-icons";
 import {
   PiBuildingsBold,
@@ -20,7 +18,6 @@ import {
   PiSunDim,
   PiUserCircle,
 } from "react-icons/pi";
-import { DropdownMenu } from "@/ui/DropdownMenu";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import { Select, SelectItem } from "@/ui/Select";
@@ -41,12 +38,12 @@ import EditProfileModal from "./EditProfileModal";
 import { withOpticalWeight } from "./opticalWeight";
 import { useMenuTriggerTooltip } from "./SidebarTooltip";
 import {
-  DropdownEntries,
-  InPlaceMenu,
   MenuItemContent,
   SidebarItemLook,
+  SidebarItemMenu,
   SidebarMenuEntry,
   SidebarMenuInPlace,
+  sidebarMenuTriggerProps,
 } from "./SidebarMenu";
 import {
   useSwitchOrganization,
@@ -355,21 +352,15 @@ export default function ProfileMenu({
 
   const trigger = sidebarItem ? (
     <button
-      type="button"
-      className={clsx(
-        sidebarItem.className,
-        styles.sidebarItem,
-        (open || inPlace?.open) && sidebarItem.openClassName,
-      )}
-      aria-label={accountLabel}
-      data-sidebar-menu-trigger="profile"
-      {...tooltip.triggerProps}
-      {...(inPlace
-        ? {
-            "aria-expanded": inPlace.open,
-            onClick: (e: React.MouseEvent) => inPlace.onOpen(e.detail === 0),
-          }
-        : {})}
+      {...sidebarMenuTriggerProps({
+        look: sidebarItem,
+        menu: "profile",
+        label: accountLabel,
+        className: styles.sidebarItem,
+        open,
+        inPlace,
+        tooltip,
+      })}
     >
       <span className={styles.avatarWrap} aria-hidden="true">
         <UserAvatar
@@ -413,42 +404,21 @@ export default function ProfileMenu({
     </>
   );
 
-  if (inPlace) {
-    return (
-      <>
-        {modals}
-        {trigger}
-        {inPlace.open && inPlace.host
-          ? createPortal(
-              <InPlaceMenu
-                label="Profile"
-                entries={entries}
-                inPlace={inPlace}
-              />,
-              inPlace.host,
-            )
-          : null}
-      </>
-    );
-  }
-
   return (
     <>
       {modals}
-      <DropdownMenu
+      <SidebarItemMenu
+        trigger={trigger}
+        heading="Profile"
+        entries={entries}
+        inPlace={inPlace}
         open={open}
         onOpenChange={setOpen}
-        menuPlacement="end"
-        menuSide={sidebarItem ? "right" : "bottom"}
-        // 8px past the sidebar's edge: the item sits 8px inside it.
-        menuSideOffset={sidebarItem ? 16 : undefined}
+        placement="end"
+        inSidebar={!!sidebarItem}
         // Room for the name, email and organization.
-        menuWidth={280}
-        variant="soft"
-        trigger={trigger}
-      >
-        <DropdownEntries entries={entries} />
-      </DropdownMenu>
+        width={280}
+      />
     </>
   );
 }

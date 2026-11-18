@@ -1,5 +1,4 @@
 import { ReactNode, RefObject, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { PiMagnifyingGlassBold } from "react-icons/pi";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -14,6 +13,7 @@ import Tooltip from "@/ui/Tooltip";
 import LetterAvatar from "./LetterAvatar";
 import {
   InPlaceMenu,
+  SIDEBAR_MENU_SIDE_OFFSET,
   SidebarMenuEntry,
   SidebarMenuInPlace,
 } from "./SidebarMenu";
@@ -269,8 +269,7 @@ export function ProjectMenu({
       onOpenChange={onOpenChange}
       menuPlacement="start"
       menuSide="right"
-      // 8px past the sidebar's edge: the item sits 8px inside it.
-      menuSideOffset={16}
+      menuSideOffset={SIDEBAR_MENU_SIDE_OFFSET}
       menuAlignOffset={alignOffset}
       menuMaxHeight={maxHeight}
       menuClassName={showSearch ? styles.projectMenuWithSearch : undefined}
@@ -396,15 +395,7 @@ export function ProjectMenuInPlace({
     ),
   ];
 
-  return inPlace.host
-    ? createPortal(
-        <InPlaceMenu
-          label="Project"
-          entries={entries}
-          inPlace={inPlace}
-          pinBack
-        />,
-        inPlace.host,
-      )
-    : null;
+  return (
+    <InPlaceMenu label="Project" entries={entries} inPlace={inPlace} pinBack />
+  );
 }

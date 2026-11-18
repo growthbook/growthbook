@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { createPortal } from "react-dom";
-import clsx from "clsx";
 import { IconButton, VisuallyHidden } from "@radix-ui/themes";
 import { IconType } from "react-icons";
 import {
@@ -10,7 +8,6 @@ import {
   PiQuestion,
   PiSlackLogo,
 } from "react-icons/pi";
-import { DropdownMenu } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import { inferDocUrl } from "@/components/DocLink";
 import { getGrowthBookBuild, isCloud } from "@/services/env";
@@ -21,13 +18,13 @@ import { withOpticalWeight } from "./opticalWeight";
 import { useMenuTriggerTooltip } from "./SidebarTooltip";
 import { buildVersion } from "./buildVersion";
 import {
-  DropdownEntries,
-  InPlaceMenu,
   MenuItemContent,
   SIDEBAR_ICON_SIZE,
   SidebarItemLook,
+  SidebarItemMenu,
   SidebarMenuEntry,
   SidebarMenuInPlace,
+  sidebarMenuTriggerProps,
 } from "./SidebarMenu";
 import styles from "./HelpMenu.module.scss";
 
@@ -156,20 +153,14 @@ export default function HelpMenu({
 
   const trigger = sidebarItem ? (
     <button
-      type="button"
-      className={clsx(
-        sidebarItem.className,
-        (open || inPlace?.open) && sidebarItem.openClassName,
-      )}
-      aria-label="Help"
-      data-sidebar-menu-trigger="help"
-      {...tooltip.triggerProps}
-      {...(inPlace
-        ? {
-            "aria-expanded": inPlace.open,
-            onClick: (e: React.MouseEvent) => inPlace.onOpen(e.detail === 0),
-          }
-        : {})}
+      {...sidebarMenuTriggerProps({
+        look: sidebarItem,
+        menu: "help",
+        label: "Help",
+        open,
+        inPlace,
+        tooltip,
+      })}
     >
       <HelpIcon
         size={SIDEBAR_ICON_SIZE}
@@ -202,36 +193,19 @@ export default function HelpMenu({
     />
   ) : null;
 
-  if (inPlace) {
-    return (
-      <>
-        {upgradeModal}
-        {trigger}
-        {inPlace.open && inPlace.host
-          ? createPortal(
-              <InPlaceMenu label="Help" entries={entries} inPlace={inPlace} />,
-              inPlace.host,
-            )
-          : null}
-      </>
-    );
-  }
-
   return (
     <>
       {upgradeModal}
-      <DropdownMenu
+      <SidebarItemMenu
+        trigger={trigger}
+        heading="Help"
+        entries={entries}
+        inPlace={inPlace}
         open={open}
         onOpenChange={setOpen}
-        menuPlacement="end"
-        menuSide={sidebarItem ? "right" : "bottom"}
-        // 8px past the sidebar's edge: the item sits 8px inside it.
-        menuSideOffset={sidebarItem ? 16 : undefined}
-        variant="soft"
-        trigger={trigger}
-      >
-        <DropdownEntries entries={entries} />
-      </DropdownMenu>
+        placement="end"
+        inSidebar={!!sidebarItem}
+      />
     </>
   );
 }

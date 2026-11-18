@@ -1,20 +1,17 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import clsx from "clsx";
 import { VisuallyHidden } from "@radix-ui/themes";
 import { PiBuildings } from "react-icons/pi";
-import { DropdownMenu } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { withOpticalWeight } from "./opticalWeight";
 import { useMenuTriggerTooltip } from "./SidebarTooltip";
 import { TruncatedName } from "./ProjectMenu";
 import {
-  DropdownEntries,
-  InPlaceMenu,
   SIDEBAR_ICON_SIZE,
   SidebarItemLook,
+  SidebarItemMenu,
   SidebarMenuEntry,
   SidebarMenuInPlace,
+  sidebarMenuTriggerProps,
 } from "./SidebarMenu";
 import {
   useSwitchOrganization,
@@ -88,21 +85,14 @@ export default function OrgMenu({
 
   const trigger = (
     <button
-      type="button"
-      className={clsx(
-        sidebarItem.className,
-        (open || inPlace?.open) && sidebarItem.openClassName,
-      )}
-      aria-label={`Organization: ${name}`}
-      // Focus returns here from the drawer's menu (Sidebar.tsx).
-      data-sidebar-menu-trigger="organization"
-      {...tooltip.triggerProps}
-      {...(inPlace
-        ? {
-            "aria-expanded": inPlace.open,
-            onClick: (e: React.MouseEvent) => inPlace.onOpen(e.detail === 0),
-          }
-        : {})}
+      {...sidebarMenuTriggerProps({
+        look: sidebarItem,
+        menu: "organization",
+        label: `Organization: ${name}`,
+        open,
+        inPlace,
+        tooltip,
+      })}
     >
       <OrgIcon
         size={SIDEBAR_ICON_SIZE}
@@ -118,41 +108,19 @@ export default function OrgMenu({
     </button>
   );
 
-  if (inPlace) {
-    return (
-      <>
-        {trigger}
-        {inPlace.open && inPlace.host
-          ? createPortal(
-              <InPlaceMenu
-                label="Organizations"
-                entries={entries}
-                inPlace={inPlace}
-              />,
-              inPlace.host,
-            )
-          : null}
-      </>
-    );
-  }
-
   return (
-    <DropdownMenu
+    <SidebarItemMenu
+      trigger={trigger}
+      heading="Organizations"
+      entries={entries}
+      inPlace={inPlace}
       open={open}
       onOpenChange={setOpen}
-      menuPlacement="start"
-      menuSide="right"
-      // 8px past the sidebar's edge: the item sits 8px inside it.
-      menuSideOffset={16}
-      menuAlignOffset={-MENU_FIRST_ROW_OFFSET}
+      placement="start"
+      alignOffset={-MENU_FIRST_ROW_OFFSET}
       // Room for a long name before it truncates.
-      menuWidth={280}
-      variant="soft"
-      trigger={trigger}
-    >
-      <div className={styles.list}>
-        <DropdownEntries entries={entries} />
-      </div>
-    </DropdownMenu>
+      width={280}
+      listClassName={styles.list}
+    />
   );
 }

@@ -1,14 +1,25 @@
-import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  MouseEvent,
+  ReactElement,
+  ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { IconType } from "react-icons";
 import clsx from "clsx";
 import { PiArrowLeft, PiCaretRightBold } from "react-icons/pi";
 import {
+  DropdownMenu,
   DropdownMenuField,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
+import { useMenuTriggerTooltip } from "./SidebarTooltip";
 import styles from "./SidebarMenu.module.scss";
 
 /**
@@ -73,6 +84,12 @@ export type SidebarItemLook = {
   iconClassName?: string;
 };
 
+/** Which menu: the key Sidebar.tsx returns focus to from the drawer. */
+export type SidebarMenuName = "organization" | "project" | "profile" | "help";
+
+/** 8px past the sidebar's edge: the item sits 8px inside it. */
+export const SIDEBAR_MENU_SIDE_OFFSET = 16;
+
 export type SidebarMenuInPlace = {
   open: boolean;
   /** From the keyboard, the first item shows its focus ring. */
@@ -83,6 +100,97 @@ export type SidebarMenuInPlace = {
   host: HTMLElement | null;
   fromKeyboard: boolean;
 };
+
+/** A menu trigger button's props; in the drawer it opens the menu in place. */
+export function sidebarMenuTriggerProps({
+  look,
+  menu,
+  label,
+  open,
+  inPlace,
+  tooltip,
+  className,
+}: {
+  look: SidebarItemLook;
+  menu?: SidebarMenuName;
+  label: string;
+  /** The dropdown's. */
+  open: boolean;
+  inPlace?: SidebarMenuInPlace;
+  tooltip: ReturnType<typeof useMenuTriggerTooltip>;
+  className?: string | false;
+}) {
+  return {
+    type: "button" as const,
+    className: clsx(
+      look.className,
+      className,
+      (open || inPlace?.open) && look.openClassName,
+    ),
+    "aria-label": label,
+    "data-sidebar-menu-trigger": menu,
+    ...tooltip.triggerProps,
+    ...(inPlace
+      ? {
+          "aria-expanded": inPlace.open,
+          onClick: (e: MouseEvent) => inPlace.onOpen(e.detail === 0),
+        }
+      : {}),
+  };
+}
+
+/** A trigger's menu: in place in the drawer, otherwise a dropdown beside it. */
+export function SidebarItemMenu({
+  trigger,
+  heading,
+  entries,
+  inPlace,
+  open,
+  onOpenChange,
+  placement,
+  inSidebar = true,
+  width,
+  alignOffset,
+  listClassName,
+}: {
+  trigger: ReactElement;
+  heading: string;
+  entries: SidebarMenuEntry[];
+  inPlace?: SidebarMenuInPlace;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  placement: "start" | "end";
+  /** False for the header's button, whose menu opens below it. */
+  inSidebar?: boolean;
+  width?: number;
+  alignOffset?: number;
+  listClassName?: string;
+}) {
+  if (inPlace) {
+    return (
+      <>
+        {trigger}
+        <InPlaceMenu label={heading} entries={entries} inPlace={inPlace} />
+      </>
+    );
+  }
+  const list = <DropdownEntries entries={entries} />;
+  return (
+    <DropdownMenu
+      open={open}
+      onOpenChange={onOpenChange}
+      menuPlacement={placement}
+      menuSide={inSidebar ? "right" : "bottom"}
+      menuSideOffset={inSidebar ? SIDEBAR_MENU_SIDE_OFFSET : undefined}
+      menuAlignOffset={alignOffset}
+      menuWidth={width}
+      variant="soft"
+      trigger={trigger}
+    >
+      {listClassName ? <div className={listClassName}>{list}</div> : list}
+    </DropdownMenu>
+  );
+}
 
 export function DropdownEntries({ entries }: { entries: SidebarMenuEntry[] }) {
   return (
@@ -128,22 +236,30 @@ export function DropdownEntries({ entries }: { entries: SidebarMenuEntry[] }) {
   );
 }
 
-/**
- * Focus goes to the first item as a view opens, and back to a submenu's row on
- * returning from it.
- */
-export function InPlaceMenu({
-  label,
-  entries,
-  inPlace,
-  pinBack = false,
-}: {
+type InPlaceMenuProps = {
   label: string;
   entries: SidebarMenuEntry[];
   inPlace: SidebarMenuInPlace;
   /** Keeps Back at the top while a long list scrolls. */
   pinBack?: boolean;
-}) {
+};
+
+/** The drawer's menu, drawn into the sidebar's menu host while it's open. */
+export function InPlaceMenu(props: InPlaceMenuProps) {
+  const { host, open } = props.inPlace;
+  return open && host ? createPortal(<InPlaceView {...props} />, host) : null;
+}
+
+/**
+ * Focus goes to the first item as a view opens, and back to a submenu's row on
+ * returning from it.
+ */
+function InPlaceView({
+  label,
+  entries,
+  inPlace,
+  pinBack = false,
+}: InPlaceMenuProps) {
   const [stack, setStack] = useState<string[]>([]);
   const focusTarget = useRef<string | null>(null);
   const keyboard = useRef(inPlace.fromKeyboard);

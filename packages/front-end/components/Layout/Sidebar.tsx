@@ -77,6 +77,7 @@ import {
   SIDEBAR_ICON_SIZE,
   SidebarItemLook,
   SidebarMenuInPlace,
+  SidebarMenuName,
 } from "./SidebarMenu";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "./constants";
 import styles from "./Sidebar.module.scss";
@@ -666,9 +667,7 @@ export default function Sidebar() {
   // The layer's tooltips portal into it rather than to body, under it.
   const [drawerLayer, setDrawerLayer] = useState<HTMLDivElement | null>(null);
   // Drawn by the menu itself (SidebarMenu.tsx) into menuHost.
-  const [drawerMenu, setDrawerMenu] = useState<
-    "organization" | "project" | "profile" | "help" | null
-  >(null);
+  const [drawerMenu, setDrawerMenu] = useState<SidebarMenuName | null>(null);
   const [menuByKeyboard, setMenuByKeyboard] = useState(false);
   const [menuHost, setMenuHost] = useState<HTMLDivElement | null>(null);
   const drawerMenuRef = useRef(drawerMenu);
@@ -692,7 +691,7 @@ export default function Sidebar() {
   const backToNavRef = useRef(backToNav);
   backToNavRef.current = backToNav;
   const menuInPlace = (
-    name: "organization" | "project" | "profile" | "help",
+    name: SidebarMenuName,
   ): SidebarMenuInPlace | undefined =>
     isNarrow
       ? {

@@ -8,7 +8,11 @@ import {
   ProjectMenuInPlace,
   useProjectSelector,
 } from "./ProjectMenu";
-import { SidebarItemLook, SidebarMenuInPlace } from "./SidebarMenu";
+import {
+  SidebarItemLook,
+  SidebarMenuInPlace,
+  sidebarMenuTriggerProps,
+} from "./SidebarMenu";
 import { useMenuTriggerTooltip } from "./SidebarTooltip";
 import { useIsTruncated } from "./useIsTruncated";
 import styles from "./SidebarProjectSelector.module.scss";
@@ -68,11 +72,11 @@ export default function SidebarProjectSelector({
       {tooltip.anchor}
     </>
   );
-  const className = clsx(sidebarItem.className, !collapsed && styles.expanded);
+  const expanded = !collapsed && styles.expanded;
 
   if (heldToOneProject) {
     return (
-      <div className={clsx(className, styles.static)}>
+      <div className={clsx(sidebarItem.className, expanded, styles.static)}>
         <VisuallyHidden>Project: </VisuallyHidden>
         {collapsed ? <VisuallyHidden>{name}</VisuallyHidden> : null}
         {contents}
@@ -80,21 +84,28 @@ export default function SidebarProjectSelector({
     );
   }
 
+  const trigger = (
+    <button
+      ref={triggerRef}
+      {...sidebarMenuTriggerProps({
+        look: sidebarItem,
+        // Back in the drawer, focus returns to it from the menu (Sidebar.tsx).
+        menu: inPlace ? "project" : undefined,
+        label: `Project: ${name}`,
+        className: expanded,
+        open,
+        inPlace,
+        tooltip,
+      })}
+    >
+      {contents}
+    </button>
+  );
+
   if (inPlace) {
     return (
       <>
-        <button
-          type="button"
-          className={clsx(className, inPlace.open && sidebarItem.openClassName)}
-          aria-label={`Project: ${name}`}
-          aria-expanded={inPlace.open}
-          // Focus returns here from the menu (Sidebar.tsx).
-          data-sidebar-menu-trigger="project"
-          onClick={(e) => inPlace.onOpen(e.detail === 0)}
-          {...tooltip.triggerProps}
-        >
-          {contents}
-        </button>
+        {trigger}
         {inPlace.open ? <ProjectMenuInPlace inPlace={inPlace} /> : null}
       </>
     );
@@ -105,17 +116,7 @@ export default function SidebarProjectSelector({
       open={open}
       onOpenChange={setOpen}
       anchorRef={triggerRef}
-      trigger={
-        <button
-          ref={triggerRef}
-          type="button"
-          className={clsx(className, open && sidebarItem.openClassName)}
-          aria-label={`Project: ${name}`}
-          {...tooltip.triggerProps}
-        >
-          {contents}
-        </button>
-      }
+      trigger={trigger}
     />
   );
 }
