@@ -1857,6 +1857,24 @@ describe("Incremental Pipeline carry-over", () => {
       status(makeParent({ runnerKind: "incremental-update", queries })),
     ).toBe("partially-succeeded");
   });
+
+  it("keeps a normal update whose only failed query drops a replaced table", () => {
+    expect(
+      status(
+        makeParent({
+          runnerKind: "incremental-update",
+          queries: [
+            ...queries.filter((q) => q.status === "succeeded"),
+            {
+              name: "drop_replaced_metrics_source_ftc_0",
+              query: "qry_drop",
+              status: "failed",
+            },
+          ],
+        }),
+      ),
+    ).toBe("partially-succeeded");
+  });
 });
 
 describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
