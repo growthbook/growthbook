@@ -7,7 +7,8 @@ import NoticeBanner from "@/components/Reviews/NoticeBanner";
 export interface DivergenceNoticeProps {
   governance: PublishGovernanceResult;
   liveVersion: number;
-  baseVersion: number;
+  // Omitted where the engine records no base revision.
+  baseVersion?: number;
   // Invoked when the user opts to rebase the draft onto the current live
   // version. Omit (or pass canRebase=false) to hide the action. Used for the
   // diverged/stale-approval states (no manual conflict resolution required).
@@ -96,7 +97,9 @@ export default function DivergenceNotice({
 
   const body = staleApproval
     ? staleBody
-    : `Rebase the latest changes from v${liveVersion} into this draft (branched from v${baseVersion}).`;
+    : `Rebase the latest changes from v${liveVersion} into this draft${
+        baseVersion !== undefined ? ` (branched from v${baseVersion})` : ""
+      }.`;
 
   return (
     <NoticeBanner
