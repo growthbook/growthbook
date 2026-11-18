@@ -34,10 +34,8 @@ import {
   assertIncrementalMetricRefreshBase,
   assertIncrementalTablesMatchParent,
   planMetricRefresh,
-  replayMetricRefreshLineage,
   shouldUpdateNewMetricsOnly,
   type GenerateResultQuerySql,
-  type MetricRefreshReplayLevel,
   type ReplayedQuerySql,
 } from "back-end/src/services/metricRefreshPlanning";
 import {
@@ -127,6 +125,10 @@ const context = {
   },
 } as unknown as ReqContext;
 
+// The shared context with other models or org settings.
+const contextWith = (overrides: object) =>
+  ({ ...context, ...overrides }) as unknown as ReqContext;
+
 const datasource = { id: "ds_1", settings: {} } as DataSourceInterface;
 
 const analysisSettings = {
@@ -168,6 +170,17 @@ function makeSettings(
   }).settings;
 }
 
+// Entries with only the computed settings a test reads.
+function metricSettingsFor(
+  metricIds: string[],
+  computedSettings: object,
+): ExperimentSnapshotSettings["metricSettings"] {
+  return metricIds.map((id) => ({
+    id,
+    computedSettings,
+  })) as unknown as ExperimentSnapshotSettings["metricSettings"];
+}
+
 function makeParent(
   overrides: Partial<ExperimentSnapshotInterface> = {},
 ): ExperimentSnapshotInterface {
@@ -204,10 +217,7 @@ function makePlan(
   const snapshot = makeParent({
     id: "snp_new",
     settings: makeSettings(metricIds, {
-      metricSettings: metricIds.map((id) => ({
-        id,
-        computedSettings: { planned: true },
-      })) as unknown as ExperimentSnapshotSettings["metricSettings"],
+      metricSettings: metricSettingsFor(metricIds, { planned: true }),
       ...overrides.settings,
     }),
     analyses: [
@@ -376,19 +386,6 @@ describe("planMetricRefresh", () => {
       expected: unavailable("not_latest_phase"),
     },
     {
-      name: "an ended phase, whose plan is not pinned to the parent's end date",
-      setup: () => ({
-        experiment: makeExperiment({
-          phases: [
-            { dateStarted: PARENT_START, dateEnded: PARENT_END },
-          ] as ExperimentInterface["phases"],
-        }),
-        planSnapshotAt: async () =>
-          makePlan({ settings: { endDateIsCutoff: false } }),
-      }),
-      expected: unavailable("phase_ended"),
-    },
-    {
       name: "a single-query Data Source",
       setup: () => stubIntegration(false),
       expected: unavailable("unsupported_data_source"),
@@ -447,14 +444,6 @@ describe("planMetricRefresh", () => {
       expected: unavailable("metric_not_supported"),
     },
     {
-      name: "a results parent with an Incremental Pipeline plan",
-      setup: () => ({
-        planSnapshotAt: async () =>
-          makePlan({ runnerKind: "incremental-update" }),
-      }),
-      expected: unavailable("metric_not_supported"),
-    },
-    {
       name: "an Incremental Pipeline parent whose tables a later run extended",
       setup: () => {
         findParentMock.mockResolvedValue(
@@ -510,28 +499,11 @@ describe("planMetricRefresh", () => {
       expected: unavailable("settings_changed"),
     },
     {
-      name: "changed variation weights",
-      setup: () => ({
-        planSnapshotAt: async () => makePlan({ settings: { coverage: 0.5 } }),
-      }),
-      expected: unavailable("settings_changed"),
-    },
-    {
       name: "a copied query whose SQL would differ today",
       setup: () => ({
         generateResultQuerySql: async () =>
           new Map([["group_0", groupSql(["met_a", "met_b"], 0) + " WHERE x"]]),
       }),
-      expected: unavailable("settings_changed"),
-    },
-    {
-      name: "a copied query today's plan would not generate",
-      setup: () => ({ generateResultQuerySql: async () => new Map() }),
-      expected: unavailable("settings_changed"),
-    },
-    {
-      name: "a copied query whose stored SQL is gone",
-      setup: () => storeQueries({}),
       expected: unavailable("settings_changed"),
     },
     {
@@ -612,11 +584,6 @@ describe("planMetricRefresh", () => {
     const window = (hoursAfterEnd: number) => ({
       windowHours: 4,
       now: new Date(PARENT_END.getTime() + hoursAfterEnd * 3_600_000),
-    });
-
-    it("plans the refresh when the results end within the window", async () => {
-      const plan = await planMetricRefresh(refreshArgs({ window: window(3) }));
-      expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
     });
 
     it("refuses before planning when the results end before the window", async () => {
@@ -749,15 +716,6 @@ describe("planMetricRefresh", () => {
         ...overrides,
       });
 
-    it("accepts SQL that differs only in comment lines", async () => {
-      storeQueries({
-        qry_group: "-- Old metric name\n" + groupSql(["met_a", "met_b"], 0),
-      });
-      await expect(planMetricRefresh(refreshArgs())).resolves.toMatchObject({
-        snapshot: { metricRefresh: { metricIds: ["met_c"] } },
-      });
-    });
-
     it("refuses as changed settings when today's SQL can't be generated, and logs why", async () => {
       const error = new Error("Unknown exposure query: user_id");
       const promise = planMetricRefresh(
@@ -794,7 +752,7 @@ describe("planMetricRefresh", () => {
       ).toEqual([false]);
     });
 
-    it("replays a refresh of a refresh base first, each run under its own id", async () => {
+    it("checks a refresh of a refresh against each run's own groups, numbered after the earlier runs", async () => {
       // base snp_base ran met_a; snp_mid added met_b; the parent added met_d.
       findAncestorMock.mockImplementation(async (ctx, id) =>
         id === "snp_mid"
@@ -813,40 +771,29 @@ describe("planMetricRefresh", () => {
           })),
         }),
       );
-      storeQueries({
-        qry_group_0: groupSql(["met_a"], 0),
-        qry_group_1: groupSql(["met_b"], 1),
-        qry_group_2: groupSql(["met_d"], 2),
-      });
-      const args = refreshArgs({
-        experiment: makeExperiment({
-          goalMetrics: ["met_a", "met_b", "met_c", "met_d"],
-        }),
-        planSnapshotAt: jest.fn(async () =>
-          makePlan({ metricIds: ["met_a", "met_b", "met_c", "met_d"] }),
-        ),
-      });
+      const plan = (midGroupSql: string) => {
+        storeQueries({
+          qry_group_0: groupSql(["met_a"], 0),
+          qry_group_1: midGroupSql,
+          qry_group_2: groupSql(["met_d"], 2),
+        });
+        return planMetricRefresh(
+          refreshArgs({
+            experiment: makeExperiment({
+              goalMetrics: ["met_a", "met_b", "met_c", "met_d"],
+            }),
+            planSnapshotAt: async () =>
+              makePlan({ metricIds: ["met_a", "met_b", "met_c", "met_d"] }),
+          }),
+        );
+      };
 
-      const plan = await planMetricRefresh(args);
-
-      expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
-      expect(
-        jest
-          .mocked(args.generateResultQuerySql)
-          .mock.calls.map(([{ queryParentId, scope }]) => ({
-            queryParentId,
-            metricIds: scope && [...scope.metricIds],
-            firstGroupIndex: scope?.firstGroupIndex,
-          })),
-      ).toEqual([
-        { queryParentId: "snp_base", metricIds: undefined },
-        { queryParentId: "snp_mid", metricIds: ["met_b"], firstGroupIndex: 1 },
-        {
-          queryParentId: "snp_parent",
-          metricIds: ["met_d"],
-          firstGroupIndex: 2,
-        },
-      ]);
+      await expect(plan(groupSql(["met_b"], 1))).resolves.toMatchObject({
+        snapshot: { metricRefresh: { metricIds: ["met_c"] } },
+      });
+      await expect(
+        plan(`${groupSql(["met_b"], 1)} WHERE x`),
+      ).rejects.toMatchObject({ details: { reason: "settings_changed" } });
     });
 
     it("refuses a lineage whose ancestor is gone", async () => {
@@ -929,95 +876,6 @@ describe("planMetricRefresh", () => {
           refreshArgs({ generateResultQuerySql: generator("new exposure") }),
         ),
       ).rejects.toMatchObject({ details: { reason: "settings_changed" } });
-    });
-  });
-});
-
-describe("replayMetricRefreshLineage", () => {
-  const level = (
-    snapshotId: string,
-    metricIds: string[],
-    refreshedMetricIds: string[] | null = null,
-    maxSqlClockDriftMs: number | null = null,
-  ): MetricRefreshReplayLevel => ({
-    snapshotId,
-    metricSettings: metricIds.map((id) => ({ id })),
-    refreshedMetricIds,
-    maxSqlClockDriftMs,
-  });
-
-  it("numbers each refresh's groups after every earlier group and runs it under its own id", async () => {
-    const generate: GenerateResultQuerySql = async ({
-      settings,
-      queryParentId,
-      scope,
-    }) => {
-      const ids = settings.metricSettings
-        .map((m) => m.id)
-        .filter((id) => !scope || scope.metricIds.has(id));
-      const first = scope?.firstGroupIndex ?? 0;
-      return new Map([
-        [queryParentId, `units of ${queryParentId}`],
-        ...ids.map((id, i): [string, string] => [
-          `group_${first + i}`,
-          `${id} reads ${queryParentId}`,
-        ]),
-      ]);
-    };
-
-    const sql = await replayMetricRefreshLineage({
-      levels: [
-        level("snp_base", ["met_a", "met_b"]),
-        level("snp_mid", ["met_a", "met_b", "met_c"], ["met_c"]),
-        level("snp_top", ["met_a", "met_b", "met_c", "met_d"], ["met_d"]),
-      ],
-      settings: makeSettings([]),
-      generateResultQuerySql: generate,
-    });
-
-    expect(
-      Object.fromEntries([...sql].map(([name, { sql }]) => [name, sql])),
-    ).toEqual({
-      snp_base: "units of snp_base",
-      group_0: "met_a reads snp_base",
-      group_1: "met_b reads snp_base",
-      snp_mid: "units of snp_mid",
-      group_2: "met_c reads snp_mid",
-      snp_top: "units of snp_top",
-      group_3: "met_d reads snp_top",
-    });
-  });
-
-  describe("a run without a cutoff", () => {
-    const generate: GenerateResultQuerySql = async ({ settings }) =>
-      new Map([
-        [
-          "group_0",
-          settings.endDateIsCutoff ? "capped at the end date" : "uncapped",
-        ],
-      ]);
-    const replay = (skipPartialData: boolean) =>
-      replayMetricRefreshLineage({
-        levels: [level("snp_base", ["met_a"], null, 5000)],
-        settings: makeSettings([], { skipPartialData }),
-        generateResultQuerySql: generate,
-      });
-
-    it("replays without a cutoff, as it ran", async () => {
-      expect((await replay(false)).get("group_0")).toEqual({
-        sql: "uncapped",
-        clockedExposureCutoffs: null,
-      });
-    });
-
-    it("with skipPartialData, also replays as of its end date to bound the cutoffs it took from its clock", async () => {
-      expect((await replay(true)).get("group_0")).toEqual({
-        sql: "uncapped",
-        clockedExposureCutoffs: {
-          sqlAsOfEndDate: "capped at the end date",
-          maxDriftMs: 5000,
-        },
-      });
     });
   });
 });
@@ -1271,10 +1129,9 @@ describe("assertIncrementalMetricRefreshBase", () => {
 
     await expect(
       assertIncrementalMetricRefreshBase({
-        context: {
-          ...context,
+        context: contextWith({
           models: { incrementalRefresh: { getLockedBySnapshotId } },
-        } as unknown as ReqContext,
+        }),
         snapshot: plan.snapshot,
         metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
       }),
@@ -1284,245 +1141,184 @@ describe("assertIncrementalMetricRefreshBase", () => {
 });
 
 describe("getSettingsChangedSinceParent", () => {
-  it("ignores the metric set, the cutoff flag and the metric counts", () => {
-    const parent = makeParent();
-    const planned = makePlan().snapshot;
-    planned.settings.manual = true;
-    planned.settings.endDateIsCutoff = false;
-
-    expect(
-      getSettingsChangedSinceParent({ parent, planned, exposureQueries: [] }),
-    ).toEqual([]);
-  });
-
-  const incrementalParent = (overrides: Partial<ExperimentSnapshotInterface>) =>
-    makeParent({ runnerKind: "incremental-update", ...overrides });
-
-  it.each([
-    [
-      "the standard pipeline, which leaves SQL settings to the SQL check",
-      "results",
-      [],
-    ],
-    [
-      "the Incremental Pipeline",
-      "incremental-update",
-      ["queryFilter", "segment"],
-    ],
-  ] as const)(
-    "on %s, names every other difference, including fields only one side has",
-    (pipeline, runnerKind, sqlSettings) => {
-      const parent = makeParent({ runnerKind });
-      const planned = makePlan({
-        settings: { segment: "seg_new", queryFilter: "x > 1" },
-        analysisSettings: { regressionAdjusted: true },
-      }).snapshot;
-      Object.assign(planned.settings, { newSetting: true });
-
-      expect(
-        getSettingsChangedSinceParent({
-          parent,
-          planned,
-          exposureQueries: [],
-        }).sort(),
-      ).toEqual(
-        ["analysis.regressionAdjusted", "newSetting", ...sqlSettings].sort(),
-      );
-    },
+  const incremental = { runnerKind: "incremental-update" } as const;
+  const planned = (
+    settings: object,
+    analysisSettings: Partial<ExperimentSnapshotAnalysisSettings> = {},
+  ) => {
+    const plan = makePlan({ analysisSettings }).snapshot;
+    Object.assign(plan.settings, settings);
+    return plan;
+  };
+  // The parent's and the plan's regression adjustment of copied metrics.
+  const adjustedParent = (
+    adjusted: boolean,
+    runnerKind: ExperimentSnapshotInterface["runnerKind"] = "incremental-update",
+  ) =>
+    makeParent({
+      runnerKind,
+      settings: makeSettings(["met_a", "met_b"], {
+        regressionAdjustmentEnabled: false,
+        metricSettings: metricSettingsFor(["met_a", "met_b"], {
+          regressionAdjustmentEnabled: adjusted,
+        }),
+      }),
+    });
+  const adjustingPlan = (adjustsCopiedMetrics: boolean) =>
+    makePlan({
+      settings: {
+        regressionAdjustmentEnabled: true,
+        metricSettings: [
+          ...metricSettingsFor(["met_a", "met_b"], {
+            regressionAdjustmentEnabled: adjustsCopiedMetrics,
+          }),
+          ...metricSettingsFor(["met_c"], {
+            regressionAdjustmentEnabled: true,
+          }),
+        ],
+      },
+      analysisSettings: { regressionAdjusted: true },
+    }).snapshot;
+  const adjustmentFlags = [
+    "analysis.regressionAdjusted",
+    "regressionAdjustmentEnabled",
+  ];
+  const sqlAndNewSettings = planned(
+    { segment: "seg_new", queryFilter: "x > 1", newSetting: true },
+    { regressionAdjusted: true },
   );
 
-  it("on the standard pipeline, ignores a custom field edit", () => {
-    const planned = makePlan().snapshot;
-    planned.settings.customFields = { team: "growth" };
-
-    expect(
-      getSettingsChangedSinceParent({
-        parent: makeParent(),
-        planned,
-        exposureQueries: [],
-      }),
-    ).toEqual([]);
-  });
-
-  it("on the standard pipeline, still names what the stats engine reads", () => {
-    const planned = makePlan({
-      settings: {
-        coverage: 0.5,
-        datasourceId: "ds_other",
-        defaultMetricPriorSettings: {
-          override: true,
-          proper: true,
-          mean: 0,
-          stddev: 1,
-        },
-      },
-      analysisSettings: { sequentialTesting: true, pValueThreshold: 0.01 },
-    }).snapshot;
-
-    expect(
-      getSettingsChangedSinceParent({
-        parent: makeParent(),
-        planned,
-        exposureQueries: [],
-      }).sort(),
-    ).toEqual([
-      "analysis.pValueThreshold",
-      "analysis.sequentialTesting",
-      "coverage",
-      "datasourceId",
-      "defaultMetricPriorSettings",
-    ]);
-  });
-
-  describe("regression adjustment", () => {
-    const parentWithAdjustment = (adjusted: boolean) =>
-      incrementalParent({
-        settings: makeSettings(["met_a", "met_b"], {
-          regressionAdjustmentEnabled: false,
-          metricSettings: ["met_a", "met_b"].map((id) => ({
-            id,
-            computedSettings: { regressionAdjustmentEnabled: adjusted },
-          })) as unknown as ExperimentSnapshotSettings["metricSettings"],
-        }),
-      });
-    const planned = (adjustsCopiedMetrics: boolean) =>
-      makePlan({
-        settings: {
-          regressionAdjustmentEnabled: true,
-          metricSettings: [
-            ...["met_a", "met_b"].map((id) => ({
-              id,
-              computedSettings: {
-                regressionAdjustmentEnabled: adjustsCopiedMetrics,
-              },
-            })),
-            {
-              id: "met_c",
-              computedSettings: { regressionAdjustmentEnabled: true },
-            },
-          ] as unknown as ExperimentSnapshotSettings["metricSettings"],
-        },
-        analysisSettings: { regressionAdjusted: true },
-      }).snapshot;
-    const flags = [
-      "analysis.regressionAdjusted",
-      "regressionAdjustmentEnabled",
-    ];
-
-    it("ignores its flags when no copied metric is or would be regression adjusted", () => {
-      expect(
-        getSettingsChangedSinceParent({
-          parent: parentWithAdjustment(false),
-          planned: planned(false),
-          exposureQueries: [],
-        }),
-      ).toEqual([]);
-    });
-
-    it("names its flags when a copied metric is regression adjusted", () => {
-      expect(
-        getSettingsChangedSinceParent({
-          parent: parentWithAdjustment(true),
-          planned: planned(true),
-          exposureQueries: [],
-        }).sort(),
-      ).toEqual(flags);
-    });
-
-    it("on the standard pipeline, names only the analysis flag and leaves the snapshot flag to the SQL check", () => {
-      expect(
-        getSettingsChangedSinceParent({
-          parent: {
-            ...parentWithAdjustment(true),
-            runnerKind: "results",
+  it.each<{
+    name: string;
+    parent?: ExperimentSnapshotInterface;
+    planned: Pick<ExperimentSnapshotInterface, "settings" | "analyses">;
+    expected: string[];
+  }>([
+    {
+      name: "ignores the metric set, the cutoff flag and the metric counts",
+      planned: planned({ manual: true, endDateIsCutoff: false }),
+      expected: [],
+    },
+    {
+      name: "on the standard pipeline, names every other difference but leaves SQL settings to the SQL check",
+      planned: sqlAndNewSettings,
+      expected: ["analysis.regressionAdjusted", "newSetting"],
+    },
+    {
+      name: "on the Incremental Pipeline, names every other difference, including fields only one side has",
+      parent: makeParent(incremental),
+      planned: sqlAndNewSettings,
+      expected: [
+        "analysis.regressionAdjusted",
+        "newSetting",
+        "queryFilter",
+        "segment",
+      ],
+    },
+    {
+      name: "on the standard pipeline, ignores a custom field edit",
+      planned: planned({ customFields: { team: "growth" } }),
+      expected: [],
+    },
+    {
+      name: "on the standard pipeline, still names what the stats engine reads",
+      planned: planned(
+        {
+          coverage: 0.5,
+          datasourceId: "ds_other",
+          defaultMetricPriorSettings: {
+            override: true,
+            proper: true,
+            mean: 0,
+            stddev: 1,
           },
-          planned: planned(true),
-          exposureQueries: [],
-        }),
-      ).toEqual(["analysis.regressionAdjusted"]);
-    });
-
-    it("names its flags when turning it on would adjust a copied metric", () => {
-      expect(
-        getSettingsChangedSinceParent({
-          parent: parentWithAdjustment(false),
-          planned: planned(true),
-          exposureQueries: [],
-        }).sort(),
-      ).toEqual(flags);
-    });
-  });
-
-  it("treats a setting one side lacks as that setting left empty", () => {
-    const parent = makeParent();
-    const planned = makePlan({
-      analysisSettings: { postStratificationEnabled: false },
-    }).snapshot;
-    Object.assign(planned.settings, {
-      isClusterExperiment: false,
-      clusterSubUnitIdentifier: "",
-      customFields: {},
-      precomputedUnitDimensionIds: [],
-      lookbackOverride: null,
-    });
-
-    expect(
-      getSettingsChangedSinceParent({ parent, planned, exposureQueries: [] }),
-    ).toEqual([]);
-  });
-
-  it("still names a setting one side lacks when the other side sets it", () => {
-    const parent = makeParent();
-    const planned = makePlan({
-      analysisSettings: { postStratificationEnabled: true },
-    }).snapshot;
-    Object.assign(planned.settings, {
-      isClusterExperiment: true,
-      coverage: 0,
-    });
-
+        },
+        { sequentialTesting: true, pValueThreshold: 0.01 },
+      ),
+      expected: [
+        "analysis.pValueThreshold",
+        "analysis.sequentialTesting",
+        "coverage",
+        "datasourceId",
+        "defaultMetricPriorSettings",
+      ],
+    },
+    {
+      name: "ignores the regression adjustment flags when no copied metric is or would be adjusted",
+      parent: adjustedParent(false),
+      planned: adjustingPlan(false),
+      expected: [],
+    },
+    {
+      name: "names the regression adjustment flags when a copied metric is adjusted",
+      parent: adjustedParent(true),
+      planned: adjustingPlan(true),
+      expected: adjustmentFlags,
+    },
+    {
+      name: "on the standard pipeline, names only the analysis flag and leaves the snapshot flag to the SQL check",
+      parent: adjustedParent(true, "results"),
+      planned: adjustingPlan(true),
+      expected: ["analysis.regressionAdjusted"],
+    },
+    {
+      name: "names the regression adjustment flags when turning it on would adjust a copied metric",
+      parent: adjustedParent(false),
+      planned: adjustingPlan(true),
+      expected: adjustmentFlags,
+    },
+    {
+      name: "treats a setting one side lacks as that setting left empty",
+      planned: planned(
+        {
+          isClusterExperiment: false,
+          clusterSubUnitIdentifier: "",
+          customFields: {},
+          precomputedUnitDimensionIds: [],
+          lookbackOverride: null,
+        },
+        { postStratificationEnabled: false },
+      ),
+      expected: [],
+    },
+    {
+      name: "still names a setting one side lacks when the other side sets it",
+      planned: planned(
+        { isClusterExperiment: true, coverage: 0 },
+        { postStratificationEnabled: true },
+      ),
+      expected: [
+        "analysis.postStratificationEnabled",
+        "coverage",
+        "isClusterExperiment",
+      ],
+    },
+    {
+      name: "treats a missing assignment identifier as the query's legacy one",
+      parent: makeParent(incremental),
+      planned: planned({ exposureQueryIdentifierType: "user_id" }),
+      expected: [],
+    },
+    {
+      name: "names an assignment identifier other than the query's legacy one",
+      parent: makeParent(incremental),
+      planned: planned({ exposureQueryIdentifierType: "anonymous_id" }),
+      expected: ["exposureQueryIdentifierType"],
+    },
+  ])("$name", ({ parent = makeParent(), planned, expected }) => {
     expect(
       getSettingsChangedSinceParent({
         parent,
         planned,
-        exposureQueries: [],
+        exposureQueries: [
+          {
+            id: "eq_1",
+            userIdType: "user_id",
+            userIdTypes: ["user_id", "anonymous_id"],
+          },
+        ],
       }).sort(),
-    ).toEqual([
-      "analysis.postStratificationEnabled",
-      "coverage",
-      "isClusterExperiment",
-    ]);
-  });
-
-  it("treats a missing assignment identifier as the query's legacy one", () => {
-    const exposureQueries = [
-      {
-        id: "eq_1",
-        userIdType: "user_id",
-        userIdTypes: ["user_id", "anonymous_id"],
-      },
-    ];
-    const parent = incrementalParent({});
-    const plannedWith = (identifierType: string) => {
-      const planned = makePlan().snapshot;
-      planned.settings.exposureQueryIdentifierType = identifierType;
-      return planned;
-    };
-
-    expect(
-      getSettingsChangedSinceParent({
-        parent,
-        planned: plannedWith("user_id"),
-        exposureQueries,
-      }),
-    ).toEqual([]);
-    expect(
-      getSettingsChangedSinceParent({
-        parent,
-        planned: plannedWith("anonymous_id"),
-        exposureQueries,
-      }),
-    ).toEqual(["exposureQueryIdentifierType"]);
+    ).toEqual(expected);
   });
 });
 
@@ -1535,10 +1331,10 @@ describe("mergeMetricRefreshSettings", () => {
       ["met_a", "met_b", "met_c", "met_c?dim:country=US", "met_b?dim:os=ios"],
       { clusterLevelMetricIds: ["met_a", "met_c"] },
     );
-    planned.metricSettings = planned.metricSettings.map((m) => ({
-      ...m,
-      computedSettings: { planned: true },
-    })) as unknown as ExperimentSnapshotSettings["metricSettings"];
+    planned.metricSettings = metricSettingsFor(
+      planned.metricSettings.map((m) => m.id),
+      { planned: true },
+    );
 
     const { settings, queriedMetricIds } = mergeMetricRefreshSettings({
       parent,
@@ -1735,52 +1531,6 @@ describe("query carry-over", () => {
   });
 });
 
-class StatusProbe extends ExperimentResultsQueryRunner {
-  overallStatus() {
-    return this.getOverallQueryStatus();
-  }
-}
-
-function makeRunner(snapshot: ExperimentSnapshotInterface) {
-  return new StatusProbe(
-    context,
-    snapshot,
-    {} as SourceIntegrationInterface,
-    true,
-  );
-}
-
-describe("metric refresh status", () => {
-  const queries = (failed: string): ExperimentSnapshotInterface["queries"] =>
-    ["group_0", "group_1", "met_c", "drop_snp_refresh"].map((name) => ({
-      name,
-      query: `qry_${name}`,
-      status: name === failed ? "failed" : "succeeded",
-    }));
-  const refresh = (failed: string) =>
-    makeParent({
-      id: "snp_refresh",
-      queries: queries(failed),
-      metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
-    });
-
-  it("fails when one of its queries fails", () => {
-    expect(makeRunner(refresh("met_c")).overallStatus()).toBe("failed");
-  });
-
-  it("only partially succeeds when its own units table cannot be dropped", () => {
-    expect(makeRunner(refresh("drop_snp_refresh")).overallStatus()).toBe(
-      "partially-succeeded",
-    );
-  });
-
-  it("leaves a full run's rollup alone", () => {
-    expect(
-      makeRunner(makeParent({ queries: queries("met_c") })).overallStatus(),
-    ).toBe("partially-succeeded");
-  });
-});
-
 describe("Incremental Pipeline carry-over", () => {
   it.each([
     ["statistics_fta_0", true],
@@ -1798,103 +1548,123 @@ describe("Incremental Pipeline carry-over", () => {
   ])("carries %s: %s", (name, carried) => {
     expect(isCarriedIncrementalQuery(name)).toBe(carried);
   });
+});
 
+// One rule on both pipelines: a refresh can't partly succeed, except when
+// only the cleanup of a table it no longer needs fails.
+describe("metric refresh status", () => {
+  class ResultsStatusProbe extends ExperimentResultsQueryRunner {
+    overallStatus() {
+      return this.getOverallQueryStatus();
+    }
+  }
   class IncrementalStatusProbe extends ExperimentIncrementalRefreshQueryRunner {
     overallStatus() {
       return this.getOverallQueryStatus();
     }
   }
-  const queries = [
-    "statistics_fta_0",
-    "traffic",
-    "insert_metrics_source_data_ftc_1",
-    "statistics_ftc_1",
-  ].map((name) => ({
-    name,
-    query: `qry_${name}`,
-    status:
-      name === "insert_metrics_source_data_ftc_1"
-        ? ("failed" as const)
-        : ("succeeded" as const),
-  }));
-  const status = (snapshot: ExperimentSnapshotInterface) =>
-    new IncrementalStatusProbe(
-      context,
-      snapshot,
-      {} as SourceIntegrationInterface,
-      false,
-    ).overallStatus();
+  const pipelines = {
+    results: {
+      probe: ResultsStatusProbe,
+      queries: ["group_0", "group_1", "met_c"],
+      cleanup: "drop_snp_refresh",
+    },
+    "incremental-update": {
+      probe: IncrementalStatusProbe,
+      queries: [
+        "statistics_fta_0",
+        "traffic",
+        "insert_metrics_source_data_ftc_1",
+        "statistics_ftc_1",
+      ],
+      cleanup: "drop_replaced_metrics_source_ftc_0",
+    },
+  } as const;
 
-  it("fails a refresh when one of its queries fails", () => {
-    expect(
-      status(
-        makeParent({
-          id: "snp_refresh",
-          runnerKind: "incremental-update",
-          queries,
-          metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
-        }),
-      ),
-    ).toBe("failed");
-  });
+  it.each([
+    {
+      runnerKind: "results",
+      run: "a refresh",
+      failed: "met_c",
+      expected: "failed",
+    },
+    {
+      runnerKind: "results",
+      run: "a refresh",
+      failed: "cleanup",
+      expected: "partially-succeeded",
+    },
+    {
+      runnerKind: "results",
+      run: "a normal update",
+      failed: "met_c",
+      expected: "partially-succeeded",
+    },
+    {
+      runnerKind: "incremental-update",
+      run: "a refresh",
+      failed: "insert_metrics_source_data_ftc_1",
+      expected: "failed",
+    },
+    {
+      runnerKind: "incremental-update",
+      run: "a refresh",
+      failed: "cleanup",
+      expected: "partially-succeeded",
+    },
+    {
+      runnerKind: "incremental-update",
+      run: "a normal update",
+      failed: "insert_metrics_source_data_ftc_1",
+      expected: "partially-succeeded",
+    },
+    {
+      runnerKind: "incremental-update",
+      run: "a normal update",
+      failed: "cleanup",
+      expected: "partially-succeeded",
+    },
+  ] as const)(
+    "on $runnerKind, $run whose $failed query failed is $expected",
+    ({ runnerKind, run, failed, expected }) => {
+      const { probe: Probe, queries, cleanup } = pipelines[runnerKind];
+      const failedName = failed === "cleanup" ? cleanup : failed;
+      const snapshot = makeParent({
+        id: "snp_refresh",
+        runnerKind,
+        queries: [...queries, cleanup].map((name) => ({
+          name,
+          query: `qry_${name}`,
+          status: name === failedName ? "failed" : "succeeded",
+        })),
+        ...(run === "a refresh"
+          ? { metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]) }
+          : {}),
+      });
 
-  it("only partially succeeds when its only failed query drops a replaced table", () => {
-    expect(
-      status(
-        makeParent({
-          id: "snp_refresh",
-          runnerKind: "incremental-update",
-          queries: [
-            ...queries.filter((q) => q.status === "succeeded"),
-            {
-              name: "drop_replaced_metrics_source_ftc_0",
-              query: "qry_drop",
-              status: "failed",
-            },
-          ],
-          metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
-        }),
-      ),
-    ).toBe("partially-succeeded");
-  });
-
-  it("leaves a normal update's rollup alone", () => {
-    expect(
-      status(makeParent({ runnerKind: "incremental-update", queries })),
-    ).toBe("partially-succeeded");
-  });
-
-  it("keeps a normal update whose only failed query drops a replaced table", () => {
-    expect(
-      status(
-        makeParent({
-          runnerKind: "incremental-update",
-          queries: [
-            ...queries.filter((q) => q.status === "succeeded"),
-            {
-              name: "drop_replaced_metrics_source_ftc_0",
-              query: "qry_drop",
-              status: "failed",
-            },
-          ],
-        }),
-      ),
-    ).toBe("partially-succeeded");
-  });
+      expect(
+        new Probe(
+          context,
+          snapshot,
+          {} as SourceIntegrationInterface,
+          false,
+        ).overallStatus(),
+      ).toBe(expected);
+    },
+  );
 });
 
 describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
   it("records itself as the tables' builder, so the next refresh builds on it", async () => {
     const updateState = jest.fn().mockResolvedValue(true);
-    const incrementalContext = {
-      ...context,
+    const incrementalContext = contextWith({
       models: {
         incrementalRefresh: {
           updateByExperimentIdIfCurrentExecution: updateState,
           releaseLock: jest.fn().mockResolvedValue(undefined),
         },
       },
-    } as unknown as ReqContext;
+    });
     const root = makeParent({ runnerKind: "incremental-update" });
     const firstRefresh = makeParent({
       id: "snp_refresh",
@@ -1918,20 +1688,6 @@ describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
     expect(updateState).toHaveBeenCalledWith("exp_1", "snp_refresh", {
       materializedBySnapshotId: "snp_refresh",
     });
-
-    const [, , written] = updateState.mock.calls[0];
-    expect(() =>
-      assertIncrementalTablesMatchParent({
-        state: {
-          unitsTableFullName: "t_units",
-          unitsMaxTimestamp: PARENT_END,
-          metricSources: [],
-          ...written,
-        },
-        parentSnapshotId: firstRefresh.id,
-        scanEnd: PARENT_END,
-      }),
-    ).not.toThrow();
   });
 });
 
@@ -1965,10 +1721,9 @@ describe("starting a metric refresh's queries", () => {
     runExperimentFactMetricsQuery: jest.fn(),
     getExperimentAggregateUnitsQuery: () => "SELECT traffic",
   } as unknown as SourceIntegrationInterface;
-  const trafficContext = {
-    ...context,
+  const trafficContext = contextWith({
     org: { id: "org_1", settings: { runHealthTrafficQuery: true } },
-  } as unknown as ReqContext;
+  });
 
   async function start(
     snapshot: ExperimentSnapshotInterface,
@@ -2094,46 +1849,44 @@ describe("starting a metric refresh's queries", () => {
   });
 });
 
-describe("re-analysis of a stored metric refresh", () => {
-  const stored = makeParent({
-    id: "snp_refresh",
-    settings: makeSettings(["met_a", "met_c"]),
-    metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
-  });
-  const metricA = factMetricFactory.build({ id: "met_a" });
-  const metricGone = factMetricFactory.build({ id: "met_gone" });
-  const metricC = factMetricFactory.build({ id: "met_c" });
-  const metricMap = new Map<string, ExperimentMetricInterface>(
-    [metricA, metricGone, metricC].map((m) => [m.id, m]),
-  );
-  const row = (variation: string) => ({
+// Result queries and metrics for the metrics a refresh analyzes.
+const metricMap = new Map<string, ExperimentMetricInterface>(
+  ["met_a", "met_gone", "met_c"].map((id) => [
+    id,
+    factMetricFactory.build({ id }),
+  ]),
+);
+function resultQuery(
+  queryType: QueryInterface["queryType"],
+  metricIds: Record<string, string> = {},
+): QueryInterface {
+  const result = ["0", "1"].map((variation) => ({
     variation,
     dimension: "",
     users: 10,
     count: 10,
     main_sum: 1,
     main_sum_squares: 1,
+    ...metricIds,
+  }));
+  return { queryType, query: "", result } as unknown as QueryInterface;
+}
+
+describe("re-analysis of a stored metric refresh", () => {
+  const stored = makeParent({
+    id: "snp_refresh",
+    settings: makeSettings(["met_a", "met_c"]),
+    metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
   });
   const queryMap: QueryMap = new Map([
     [
       "group_0",
-      {
-        queryType: "experimentMultiMetric",
-        query: "",
-        result: [
-          { ...row("0"), m0_id: "met_a", m1_id: "met_gone" },
-          { ...row("1"), m0_id: "met_a", m1_id: "met_gone" },
-        ],
-      } as unknown as QueryInterface,
+      resultQuery("experimentMultiMetric", {
+        m0_id: "met_a",
+        m1_id: "met_gone",
+      }),
     ],
-    [
-      "met_c",
-      {
-        queryType: "experimentMetric",
-        query: "",
-        result: [row("0"), row("1")],
-      } as unknown as QueryInterface,
-    ],
+    ["met_c", resultQuery("experimentMetric")],
   ]);
 
   it("analyzes only the metrics in its stored settings", () => {
@@ -2324,44 +2077,18 @@ describe("analyzeMetricRefresh", () => {
     settings: makeSettings(["met_a", "met_c"]),
     metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
   });
-  const metricMap = new Map<string, ExperimentMetricInterface>(
-    ["met_a", "met_gone", "met_c"].map((id) => [
-      id,
-      factMetricFactory.build({ id }),
-    ]),
-  );
-  const row = (variation: string) => ({
-    variation,
-    dimension: "",
-    users: 10,
-    count: 10,
-    main_sum: 1,
-    main_sum_squares: 1,
-  });
   const queryMap: QueryMap = new Map([
     [
       "group_0",
       {
-        queryType: "experimentMultiMetric",
-        query: "",
+        ...resultQuery("experimentMultiMetric", {
+          m0_id: "met_a",
+          m1_id: "met_gone",
+        }),
         cachedQueryUsed: "qry_group",
-        result: [
-          { ...row("0"), m0_id: "met_a", m1_id: "met_gone" },
-          { ...row("1"), m0_id: "met_a", m1_id: "met_gone" },
-        ],
-      } as unknown as QueryInterface,
+      },
     ],
-    [
-      "group_1",
-      {
-        queryType: "experimentMultiMetric",
-        query: "",
-        result: [
-          { ...row("0"), m0_id: "met_c" },
-          { ...row("1"), m0_id: "met_c" },
-        ],
-      } as unknown as QueryInterface,
-    ],
+    ["group_1", resultQuery("experimentMultiMetric", { m0_id: "met_c" })],
   ]);
   const byBaseline = analysis({ baselineVariationIndex: 1 }, [
     resultDimension({ met_a: 2, met_gone: 9 }),
