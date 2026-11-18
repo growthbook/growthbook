@@ -13,6 +13,8 @@ import HelperText from "@/ui/HelperText";
 import {
   EventForwarderEnvironmentSelect,
   EventForwarderLockedField,
+  EventForwarderNarrowingWarning,
+  narrowsEventForwarderEnvironments,
 } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -64,11 +66,8 @@ function MigrateEnvironmentField({
           onChange(v);
         }}
       />
-      {saved.length > 1 ? (
-        <Callout status="warning" mt="3">
-          Other environments stop being forwarded when you migrate. This
-          can&apos;t be changed later.
-        </Callout>
+      {narrowsEventForwarderEnvironments(saved, value) ? (
+        <EventForwarderNarrowingWarning value={value} action="migrate" mt="3" />
       ) : null}
     </>
   );

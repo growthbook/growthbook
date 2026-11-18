@@ -223,9 +223,56 @@ export function EventForwarderAllTakenCallout({
   );
 }
 
-// Narrowing a live forwarder locks it to that environment
-// - Also when it has several: the select shows and keeps only one
+// This forwarder's saved environments in its region
+// - `own`: its claims; one per environment, or one "" for all
+// - `locked`: same rule as the server, fixed once live unless one was deleted
+function useSavedEventForwarderEnvironments(
+  region: DataRegion | null | undefined,
+  datasourceId: string | undefined,
+  live: boolean,
+) {
+  const environments = useEnvironments();
+  const own = useEventForwardersInRegion(region).filter(
+    (e) => e.datasourceId === datasourceId,
+  );
+  const saved = own.map((e) => e.environment).filter(Boolean);
+  const locked =
+    live &&
+    saved.length > 0 &&
+    saved.every((id) => environments.some((e) => e.id === id));
+  return { own, saved, locked };
+}
+
+// Picking `value` drops some of the saved environments ([] is all)
+export function narrowsEventForwarderEnvironments(
+  saved: string[],
+  value: string,
+): boolean {
+  return !!value && (saved.length !== 1 || saved[0] !== value);
+}
+
+// Shared copy for a narrowing that can't be undone
+export function EventForwarderNarrowingWarning({
+  value,
+  action,
+  mt,
+}: {
+  value: string;
+  action: "save" | "migrate";
+  mt?: "3";
+}) {
+  return (
+    <Callout status="warning" mt={mt}>
+      After you {action}, only events from {value} are forwarded. This
+      can&apos;t be changed later, so set up another Event Forwarder for any
+      other environments you need.
+    </Callout>
+  );
+}
+
+// Warns when narrowing a live forwarder, which locks it to that environment
 // - Not before it receives events, while it can still change
+// - Not while the field is locked, since nothing can change
 // - Separate from the field, so a caller can give it the full width
 export function EventForwarderNarrowingCallout({
   value,
@@ -238,25 +285,20 @@ export function EventForwarderNarrowingCallout({
   datasourceId?: string;
   live: boolean;
 }) {
-  const own = useEventForwardersInRegion(region).filter(
-    (e) => e.datasourceId === datasourceId,
+  const { own, saved, locked } = useSavedEventForwarderEnvironments(
+    region,
+    datasourceId,
+    live,
   );
-  const saved = own.map((e) => e.environment).filter(Boolean);
   if (
     !live ||
+    locked ||
     !own.length ||
-    !value ||
-    (saved.length <= 1 && saved.includes(value))
+    !narrowsEventForwarderEnvironments(saved, value)
   ) {
     return null;
   }
-  return (
-    <Callout status="warning">
-      After you save, only events from {value} are forwarded. This can&apos;t be
-      changed later, so set up another Event Forwarder for any other
-      environments you need.
-    </Callout>
-  );
+  return <EventForwarderNarrowingWarning value={value} action="save" />;
 }
 
 // For the current organization; pass the Data Source once it exists.
@@ -282,16 +324,11 @@ export function EventForwarderEnvironmentField({
   const environments = useEnvironments();
   const eventForwarderEnvironments = useEventForwardersInRegion(region);
   const allTakenBy = useEventForwarderAllTakenBy(region, datasourceId);
-  // One claim per environment, so a forwarder with several has several
-  const own = eventForwarderEnvironments.filter(
-    (e) => e.datasourceId === datasourceId,
+  const { own, saved, locked } = useSavedEventForwarderEnvironments(
+    region,
+    datasourceId,
+    live,
   );
-  const saved = own.map((e) => e.environment).filter(Boolean);
-  // Same rule as the server: fixed once live, unless an environment was deleted
-  const locked =
-    live &&
-    saved.length > 0 &&
-    saved.every((id) => environments.some((e) => e.id === id));
   if (locked) {
     return (
       <EventForwarderLockedField

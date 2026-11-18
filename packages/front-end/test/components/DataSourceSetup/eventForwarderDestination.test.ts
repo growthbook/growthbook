@@ -3,6 +3,7 @@ import {
   defaultEventForwarderDestination,
   eventDestinationWithConnectionSchema,
   eventForwarderDestinationFromDatasource,
+  narrowsEventForwarderEnvironments,
 } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 
 describe("eventDestinationWithConnectionSchema", () => {
@@ -190,5 +191,20 @@ describe("allEnvironmentsTakenMessage", () => {
         datasources,
       ),
     ).toContain("Ask an admin");
+  });
+});
+
+describe("narrowsEventForwarderEnvironments", () => {
+  it("is true when the pick drops some saved environments", () => {
+    expect(narrowsEventForwarderEnvironments([], "dev")).toBe(true);
+    expect(narrowsEventForwarderEnvironments(["prod", "dev"], "dev")).toBe(
+      true,
+    );
+    expect(narrowsEventForwarderEnvironments(["prod"], "dev")).toBe(true);
+  });
+
+  it("is false when nothing is dropped or nothing is picked", () => {
+    expect(narrowsEventForwarderEnvironments(["dev"], "dev")).toBe(false);
+    expect(narrowsEventForwarderEnvironments([], "")).toBe(false);
   });
 });
