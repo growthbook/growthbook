@@ -2,7 +2,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
   const sdkInfo = {
     js: {
       name: "JS SDK",
-      version: "2.0.0",
+      version: "2.1.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -94,7 +94,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     react: {
       name: "React SDK",
-      version: "2.0.0",
+      version: "2.1.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -247,7 +247,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     php: {
       name: "PHP SDK",
-      version: "3.0.0",
+      version: "3.0.1",
       github: "https://github.com/growthbook/growthbook-php",
       examples: [],
       packageRepos: [
@@ -306,7 +306,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     node: {
       name: "Node SDK",
-      version: "2.0.0",
+      version: "2.1.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -444,7 +444,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     python: {
       name: "Python SDK",
-      version: "4.0.0",
+      version: "4.0.1",
       github: "https://github.com/growthbook/growthbook-python",
       examples: [],
       packageRepos: [
@@ -710,7 +710,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     csharp: {
       name: "C# SDK",
-      version: "2.0.0",
+      version: "2.1.0",
       github: "https://github.com/growthbook/growthbook-c-sharp",
       examples: [
         {
@@ -948,7 +948,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     reactNative: {
       name: "React Native SDK",
-      version: "2.0.0",
+      version: "2.1.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -1040,7 +1040,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeCloudflare: {
       name: "Cloudflare Workers App & SDK",
-      version: "0.2.9",
+      version: "0.3.0",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
       examples: [
@@ -1061,6 +1061,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v0.3.0",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.3.0",
+        },
+        {
+          interleaving: "≥ v0.3.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v0.3.0",
         },
         {
           caseInsensitiveRegex: "≥ v0.2.7",
@@ -1111,7 +1123,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeFastly: {
       name: "Fastly Compute App & SDK",
-      version: "0.2.9",
+      version: "0.3.0",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
       examples: [
@@ -1132,6 +1144,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v0.3.0",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.3.0",
+        },
+        {
+          interleaving: "≥ v0.3.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v0.3.0",
         },
         {
           caseInsensitiveRegex: "≥ v0.2.7",
@@ -1182,7 +1206,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeLambda: {
       name: "Lambda@Edge App & SDK",
-      version: "0.0.29",
+      version: "0.3.0",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
       examples: [],
@@ -1198,6 +1222,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v0.3.0",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.3.0",
+        },
+        {
+          interleaving: "≥ v0.3.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v0.3.0",
         },
         {
           caseInsensitiveRegex: "≥ v0.0.27",
@@ -1248,7 +1284,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeUtils: {
       name: "Edge Utils",
-      version: "0.2.9",
+      version: "0.3.0",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
       examples: [],
@@ -1264,6 +1300,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v0.3.0",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.3.0",
+        },
+        {
+          interleaving: "≥ v0.3.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v0.3.0",
         },
         {
           caseInsensitiveRegex: "≥ v0.2.7",
