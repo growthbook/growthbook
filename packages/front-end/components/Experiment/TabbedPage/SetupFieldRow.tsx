@@ -22,6 +22,7 @@ export default function SetupFieldRow({
   label,
   labelSize = "md",
   tooltip,
+  labelBadge,
   content = "control",
   labelAlign = "top",
   stacked = false,
@@ -34,6 +35,8 @@ export default function SetupFieldRow({
   /** `lg` for a field whose label doubles as the section's title. */
   labelSize?: LabelSize;
   tooltip?: string;
+  /** Beside the label, for what is true of the field whatever its value. */
+  labelBadge?: ReactNode;
   /**
    * `text` for a row that only reads a value back, which needs no offset;
    * `panel` for values inside a padded panel.
@@ -89,6 +92,7 @@ export default function SetupFieldRow({
           {tooltip ? (
             <InfoTip content={<Text align="left">{tooltip}</Text>} />
           ) : null}
+          {labelBadge}
         </Flex>
       </Box>
       <Box

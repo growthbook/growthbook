@@ -8,12 +8,15 @@ import WebhookErrorDetails from "@/components/Features/SDKConnections/WebhookErr
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
+import { isCloud } from "@/services/env";
 import Tooltip from "@/ui/Tooltip";
 import { Popover } from "@/ui/Popover";
 import LinkButton from "@/ui/LinkButton";
 import Badge from "@/ui/Badge";
 
 const PROXIED = "Requests are routed through your GrowthBook Proxy.";
+const PROXY_FROM_ENV =
+  "Set for the whole instance by the PROXY_ENABLED and PROXY_HOST_PUBLIC environment variables, not on this SDK Connection.";
 
 // What an SDK's configuration names it, as the implementation instructions do.
 export function configSettingsTitle(connection: SDKConnectionInterface) {
@@ -99,7 +102,17 @@ export default function SDKConnectionCredentialsCard({
         </SetupFieldRow>
       ) : null}
       {showProxy ? (
-        <SetupFieldRow label="Proxy Host" content="text">
+        <SetupFieldRow
+          label="Proxy Host"
+          content="text"
+          labelBadge={
+            isCloud() ? null : (
+              <Tooltip content={PROXY_FROM_ENV}>
+                <Badge label="Env vars" color="gray" variant="soft" ml="1" />
+              </Tooltip>
+            )
+          }
+        >
           <Value>
             <CopyableCode
               value={
