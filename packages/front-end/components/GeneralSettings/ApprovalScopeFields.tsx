@@ -293,7 +293,7 @@ const APPROVAL_FLOW_COPY: Record<
     requireLabel: "Require approval to modify SDK Connections",
     contentId: "settings",
     contentLabel:
-      "Connection settings and webhooks (Projects, environment, payload options)",
+      "Connection settings (Projects, environment, payload options) and webhooks",
     metadataHelp: "The connection's name.",
   },
 };

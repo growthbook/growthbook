@@ -822,15 +822,7 @@ curl https://api.growthbook.io/api/v1/features \
       const jsonSchema = toOpenApiSchema(schemas.body);
       stripDefaultedFromRequired(jsonSchema);
       requestBody = {
-        // A request sent without a body is read as `{}`, so a revision route
-        // whose body has no required field can be called without one.
-        required:
-          !(schemas.body instanceof z.ZodOptional) &&
-          !(
-            path.includes("revisions") &&
-            jsonSchema.type === "object" &&
-            !jsonSchema.required?.length
-          ),
+        required: !(schemas.body instanceof z.ZodOptional),
         content: {
           "application/json": {
             schema: jsonSchema,

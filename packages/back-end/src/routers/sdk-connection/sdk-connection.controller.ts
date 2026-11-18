@@ -18,6 +18,7 @@ import {
   SDKConnectionRevisionSnapshot,
   SDKWebhookRevisionSnapshot,
   pickSdkConnectionSettings,
+  withNewSdkConnectionDefaults,
 } from "shared/validators";
 import {
   Revision,
@@ -61,7 +62,8 @@ import {
 import { getAdapter } from "back-end/src/revisions";
 import { runValidateSdkConnectionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { publishRevision } from "back-end/src/revisions/revisionActions";
-import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
+import { revertTargetState } from "back-end/src/revisions/revertActions";
+import { dispatchSdkConnectionRevisionEvent } from "back-end/src/services/sdkConnectionRevisionEvents";
 import {
   CONNECTION_UPDATABLE_FIELDS,
   isSdkConnectionRevert,
@@ -122,7 +124,9 @@ export const postSDKConnection = async (
     context,
     original: null,
     sdkConnection: {
-      sdkConnection: pickSdkConnectionSettings(createParams),
+      sdkConnection: pickSdkConnectionSettings(
+        withNewSdkConnectionDefaults(createParams),
+      ),
       sdkWebhooks: [],
     },
   });
@@ -233,8 +237,8 @@ export const putSDKConnection = async (
       ...currentState,
       ...patchedSnapshot.sdkConnection,
     };
-    draftWebhookSnapshots = (patchedSnapshot.sdkWebhooks ?? []).map((wh) =>
-      parseSdkWebhookSnapshot(wh),
+    draftWebhookSnapshots = (patchedSnapshot.sdkWebhooks ?? []).map(
+      parseSdkWebhookSnapshot,
     );
   }
 
@@ -295,13 +299,7 @@ export const putSDKConnection = async (
   // request is refused. It never becomes a draft the caller didn't ask for.
   const wantsMerge = explicitPublish || !wantsDraft;
 
-  // Rows predating `httpMethod` lack it, but the snapshot schema requires it.
-  const liveWebhookSnapshots = liveWebhooks.map((wh) =>
-    parseSdkWebhookSnapshot({
-      ...wh,
-      httpMethod: wh.httpMethod ?? "POST",
-    }),
-  );
+  const liveWebhookSnapshots = liveWebhooks.map(parseSdkWebhookSnapshot);
 
   const parseIncomingWebhooks = (
     value: unknown,
@@ -433,10 +431,7 @@ export const putSDKConnection = async (
     isSdkConnectionRevert(
       baselineSnapshot,
       adapter.buildSnapshot(
-        applyPatchToSnapshot(
-          revertTarget.target.snapshot as SDKConnectionRevisionSnapshot,
-          revertTarget.target.proposedChanges,
-        ),
+        revertTargetState(revertTarget),
       ) as SDKConnectionRevisionSnapshot,
       desiredChanges,
     );
@@ -536,11 +531,9 @@ export const putSDKConnection = async (
   );
 
   if (!wantsMerge) {
-    await getRevisionWebhookAdapter("sdk-connection")?.dispatch(
-      context,
-      revision,
-      { type: revision.id === revisionId ? "updated" : "created" },
-    );
+    await dispatchSdkConnectionRevisionEvent(context, revision, {
+      type: revision.id === revisionId ? "updated" : "created",
+    });
     return res.status(202).json({
       status: 202,
       requiresApproval: needsApproval,

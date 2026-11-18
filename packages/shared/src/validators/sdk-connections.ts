@@ -231,10 +231,20 @@ export function webhookHeadersObject(headers?: string): Record<string, string> {
     return parsed && typeof parsed === "object"
       ? (parsed as Record<string, string>)
       : {};
-  } catch (e) {
+  } catch {
     return {};
   }
 }
+
+// What a new connection is saved with where the request leaves a setting out.
+// Written explicitly so "absent" keeps one meaning: off, for the connections
+// that predate the setting.
+export const withNewSdkConnectionDefaults = <T extends object>(
+  params: T & { includeReferencedPrerequisites?: boolean },
+) => ({
+  ...params,
+  includeReferencedPrerequisites: params.includeReferencedPrerequisites ?? true,
+});
 
 // What a Custom Hook receives: the settings, and each webhook with its headers
 // as an object. A reference to a secret stays as written, never its value.

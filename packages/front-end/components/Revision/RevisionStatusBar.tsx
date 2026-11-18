@@ -7,6 +7,7 @@ import {
   PiLockSimple,
   PiPencil,
   PiProhibit,
+  PiWarningFill,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import {
@@ -109,6 +110,7 @@ export default function RevisionStatusBar<T>({
     ).success;
 
   const drafts = allRevisions.filter((r) => isActiveDraftStatus(r.status));
+  const gaveUp = isDraft && !!selectedRevision.scheduledPublishGaveUpAt;
   const switchToLive = (
     <Link onClick={() => onSelectRevision(null)}>Switch to live</Link>
   );
@@ -143,7 +145,7 @@ export default function RevisionStatusBar<T>({
           </Tooltip>
         ) : null}
         {/* Once publishing fails, the review tab is where to see why. */}
-        {publishable && onPublish && !publishError ? (
+        {publishable && onPublish && !publishError && !gaveUp ? (
           <Tooltip content={blockedReason} enabled={!!blockedReason}>
             <Button
               disabled={!!blockedReason}
@@ -189,6 +191,15 @@ export default function RevisionStatusBar<T>({
           {lockClauses.length ? `; ${lockClauses.join(" and ")}` : ""}.
         </>
       );
+    } else if (gaveUp) {
+      icon = <PiWarningFill />;
+      label = "Draft · publish failed";
+      message = (
+        <>
+          Its scheduled publish failed and won&apos;t be retried. SDKs keep
+          serving {liveRevisionLink} until you publish.
+        </>
+      );
     } else {
       icon = <PiPencil />;
       label = "Draft · not live";
@@ -212,11 +223,13 @@ export default function RevisionStatusBar<T>({
     message = <>SDKs serve {liveRevisionLink}.</>;
     actions = switchToLive;
   } else if (drafts.length) {
-    icon = <PiPencil />;
+    const failed = drafts.some((d) => d.scheduledPublishGaveUpAt);
+    icon = failed ? <PiWarningFill /> : <PiPencil />;
     message =
-      drafts.length === 1
+      (drafts.length === 1
         ? `This ${entityNoun} has a draft.`
-        : `This ${entityNoun} has ${drafts.length} drafts.`;
+        : `This ${entityNoun} has ${drafts.length} drafts.`) +
+      (failed ? " A scheduled publish failed." : "");
     actions =
       drafts.length === 1 ? (
         <Link onClick={() => onSelectRevision(drafts[0])}>Switch to draft</Link>

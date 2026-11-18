@@ -1,6 +1,7 @@
 import {
   postSdkConnectionValidator,
   pickSdkConnectionSettings,
+  withNewSdkConnectionDefaults,
 } from "shared/validators";
 import {
   toApiSDKConnectionInterface,
@@ -27,7 +28,9 @@ export const postSdkConnection = createApiRequestHandler(
     context: req.context,
     original: null,
     sdkConnection: {
-      sdkConnection: pickSdkConnectionSettings(params),
+      sdkConnection: pickSdkConnectionSettings(
+        withNewSdkConnectionDefaults(params),
+      ),
       sdkWebhooks: [],
     },
   });

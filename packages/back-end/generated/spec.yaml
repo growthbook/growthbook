@@ -4859,7 +4859,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/overrideDraftLimit'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -5049,7 +5049,7 @@ paths:
               - type: string
                 const: new
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -7582,7 +7582,7 @@ paths:
                 const: new
         - $ref: '#/components/parameters/ruleId'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -8144,7 +8144,7 @@ paths:
                 const: new
         - $ref: '#/components/parameters/ruleId'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -8216,7 +8216,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -8281,7 +8281,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -8430,7 +8430,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -8507,7 +8507,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -8615,7 +8615,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -8668,7 +8668,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -11244,7 +11244,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/overrideDraftLimit'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -11581,7 +11581,7 @@ paths:
               - type: string
                 const: new
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -13700,7 +13700,7 @@ paths:
                 const: new
         - $ref: '#/components/parameters/ruleId'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -13872,7 +13872,7 @@ paths:
                 const: new
         - $ref: '#/components/parameters/ruleId'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -14552,7 +14552,7 @@ paths:
                 const: new
         - $ref: '#/components/parameters/ruleId'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -14641,7 +14641,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -14831,7 +14831,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -14901,7 +14901,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -14955,7 +14955,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -15101,7 +15101,7 @@ paths:
         - $ref: '#/components/parameters/version'
         - $ref: '#/components/parameters/logId'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -15274,7 +15274,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -15443,7 +15443,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -15544,7 +15544,7 @@ paths:
         - $ref: '#/components/parameters/skipSchemaValidation'
         - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -15646,7 +15646,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -15694,7 +15694,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -15738,7 +15738,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -23125,7 +23125,7 @@ paths:
             type: string
             description: The SDK Connection id
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -23363,7 +23363,7 @@ paths:
               - type: string
                 const: new
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -23741,7 +23741,7 @@ paths:
                 const: new
         - $ref: '#/components/parameters/webhookId'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -23864,7 +23864,7 @@ paths:
                 const: new
         - $ref: '#/components/parameters/webhookId'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -23942,7 +23942,7 @@ paths:
             description: The SDK Connection id
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -24061,7 +24061,7 @@ paths:
             description: The SDK Connection id
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -24110,7 +24110,7 @@ paths:
             description: The SDK Connection id
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -24155,7 +24155,7 @@ paths:
             description: The SDK Connection id
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -24280,7 +24280,7 @@ paths:
             description: The SDK Connection id
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -24358,7 +24358,7 @@ paths:
             description: The SDK Connection id
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -24433,7 +24433,7 @@ paths:
             description: The SDK Connection id
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -24486,7 +24486,7 @@ paths:
             description: The SDK Connection id
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -26724,7 +26724,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -26884,7 +26884,7 @@ paths:
               - type: string
                 const: new
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -27411,7 +27411,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -27549,7 +27549,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -27596,7 +27596,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -27729,7 +27729,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -27838,7 +27838,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -27910,7 +27910,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -27986,7 +27986,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -28037,7 +28037,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -28824,7 +28824,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -28981,7 +28981,7 @@ paths:
               - type: string
                 const: new
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -29063,7 +29063,7 @@ paths:
               - type: string
                 const: new
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -29244,7 +29244,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -29405,7 +29405,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -29452,7 +29452,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -29608,7 +29608,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -29715,7 +29715,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -29776,7 +29776,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -29875,7 +29875,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -29926,7 +29926,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -31272,7 +31272,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -31431,7 +31431,7 @@ paths:
         - $ref: '#/components/parameters/skipSchemaValidation'
         - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -31583,7 +31583,7 @@ paths:
         - $ref: '#/components/parameters/skipSchemaValidation'
         - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -31899,7 +31899,7 @@ paths:
         - $ref: '#/components/parameters/skipSchemaValidation'
         - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -32305,7 +32305,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -32470,7 +32470,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -32518,7 +32518,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -32565,7 +32565,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -32778,7 +32778,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -32854,7 +32854,7 @@ paths:
         - $ref: '#/components/parameters/skipSchemaValidation'
         - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -32953,7 +32953,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -33006,7 +33006,7 @@ paths:
         - $ref: '#/components/parameters/skipSchemaValidation'
         - $ref: '#/components/parameters/ignoreWarnings'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:

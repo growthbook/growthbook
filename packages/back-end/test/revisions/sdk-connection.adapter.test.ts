@@ -552,11 +552,6 @@ describe("sdkConnectionAdapter", () => {
 
     it.each([
       {
-        change: "a value the revision never held",
-        overrides: { name: "Something else" },
-        withWebhook: true,
-      },
-      {
         change: "another setting changed alongside",
         overrides: { remoteEvalEnabled: true },
         withWebhook: true,
@@ -849,6 +844,16 @@ describe("sdkConnectionAdapter", () => {
       await expect(
         assert(makeContext({ webhookCount: 1 }), { sdkWebhooks: added }),
       ).rejects.toThrow("one SDK webhook");
+      // A scheduled publish gives up on a refusal instead of retrying it.
+      await expect(
+        sdkConnectionAdapter.assertPublishable!(
+          makeContext({ webhookCount: 1 }),
+          liveEntity,
+          { sdkWebhooks: added },
+          revision,
+          { deferred: true },
+        ),
+      ).rejects.toMatchObject({ terminalPublishFailure: true });
       await expect(
         assert(makeContext({ webhookCount: 0 }), { sdkWebhooks: added }),
       ).resolves.toBeUndefined();

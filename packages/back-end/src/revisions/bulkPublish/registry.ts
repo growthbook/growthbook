@@ -20,7 +20,6 @@ import {
 } from "back-end/src/services/savedGroupProjectScope";
 import { assertCanChangeSdkWebhooks } from "back-end/src/services/sdkConnectionApprovals";
 import { collectSdkConnectionPublishHookGates } from "back-end/src/enterprise/sandbox/sandbox-eval";
-import { getErrorMessage } from "back-end/src/util/errors";
 import type { ReqContext } from "back-end/types/request";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
@@ -168,13 +167,14 @@ async function sdkConnectionExtraGates(args: {
       { hooksAlreadyRan: true },
     );
   } catch (e) {
-    // The API reads an error with no status as a 400, so one is a refusal here.
-    if (((e as { status?: number }).status ?? 400) >= 500) throw e;
     return [
-      makeBlockingGate({
-        type: e instanceof PermissionError ? "permission-denied" : "validation",
-        messages: [getErrorMessage(e)],
-      }),
+      gateOr5xx(e, (message) =>
+        makeBlockingGate({
+          type:
+            e instanceof PermissionError ? "permission-denied" : "validation",
+          messages: [message],
+        }),
+      ),
     ];
   }
   return collectSdkConnectionPublishHookGates({

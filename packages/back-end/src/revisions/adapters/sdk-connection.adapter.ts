@@ -43,7 +43,12 @@ import {
   findSDKConnectionById,
   findSDKConnectionsByIds,
 } from "back-end/src/models/SdkConnectionModel";
-import { ConflictError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  TerminalPublishError,
+  getErrorMessage,
+} from "back-end/src/util/errors";
 import { buildArmAcknowledgments } from "back-end/src/services/armGuards";
 import {
   assertWebhookSecrets,
@@ -605,106 +610,114 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       revision: Revision,
       options?: { hooksAlreadyRan?: boolean; deferred?: boolean },
     ): Promise<void> {
-      // A draft cut before the connection moved was judged against the rules
-      // of where it used to be, so it takes on the new scope first. A claimed
-      // merge is past rebasing and still has to be recoverable.
-      const drafted = (
-        revision.target.snapshot as SDKConnectionRevisionSnapshot
-      ).sdkConnection;
-      const live = entity.sdkConnection;
-      if (
-        revision.status !== "merged" &&
-        isSdkConnectionApprovalRequired(context) &&
-        (drafted.environment !== live.environment ||
-          !isEqual([...drafted.projects].sort(), [...live.projects].sort()))
-      ) {
-        throw new ConflictError(
-          "This SDK connection's environment or Projects changed after this draft was created. Rebase the draft with live, then publish it.",
-        );
-      }
-
       const proposed = { ...entity };
-      if (desiredState.sdkConnection !== undefined) {
-        const settings = sdkConnectionSettingsSnapshotValidator.parse(
-          desiredState.sdkConnection,
-        );
-        proposed.sdkConnection = settings;
-        const changes = filterUpdatableChanges(
-          settings,
-          entity.sdkConnection,
-          CONNECTION_UPDATABLE_FIELDS,
-        );
-        const { premiumSettingsWithoutPlan, validateSdkConnectionChanges } =
-          await loadValidations();
-        await validateSdkConnectionChanges(
-          context,
-          changes,
-          entity.sdkConnection,
-        );
-        // `changes` holds only what differs, so true means turned on.
-        const [blocked] = premiumSettingsWithoutPlan(context, changes);
-        if (blocked) {
-          throw new Error(
-            `Enabling ${blocked[1]} requires the "${blocked[0]}" premium feature`,
+      try {
+        // A draft cut before the connection moved was judged against the rules
+        // of where it used to be, so it takes on the new scope first. A claimed
+        // merge is past rebasing and still has to be recoverable.
+        const drafted = (
+          revision.target.snapshot as SDKConnectionRevisionSnapshot
+        ).sdkConnection;
+        const live = entity.sdkConnection;
+        if (
+          revision.status !== "merged" &&
+          isSdkConnectionApprovalRequired(context) &&
+          (drafted.environment !== live.environment ||
+            !isEqual([...drafted.projects].sort(), [...live.projects].sort()))
+        ) {
+          throw new ConflictError(
+            "This SDK connection's environment or Projects changed after this draft was created. Rebase the draft with live, then publish it.",
           );
         }
-      }
 
-      if (desiredState.sdkWebhooks !== undefined) {
-        const webhooks = webhookListValidator.parse(desiredState.sdkWebhooks);
-        proposed.sdkWebhooks = webhooks;
-        const proposedIds = new Set(webhooks.map((w) => w.id));
-        const baselineIds = new Set(entity.sdkWebhooks.map((w) => w.id));
-        await assertSdkWebhookPlanLimit(
-          context,
-          webhooks.filter((w) => !baselineIds.has(w.id)).length,
-          entity.sdkWebhooks.filter((w) => !proposedIds.has(w.id)).length,
-        );
-        // Only the API can attach a webhook to several connections, and one
-        // connection's draft doesn't speak for the others.
-        const touchedIds = entity.sdkWebhooks
-          .filter((old) => {
-            const next = webhooks.find((w) => w.id === old.id);
-            return !next || !isEqual(next, old);
-          })
-          .map((w) => w.id);
-        // A restored webhook whose row now fires only for other connections
-        // would be skipped by the landing as already there.
-        for (const w of webhooks.filter((w) => !baselineIds.has(w.id))) {
-          const row = await context.models.sdkWebhooks.getById(w.id);
-          if (row?.sdks && !row.sdks.includes(entity.sdkConnection.id)) {
-            throw new Error(
-              `The webhook "${w.name}" now belongs to another SDK connection, so this one can't bring it back. Remove it from the draft, or move it back through the API.`,
-            );
-          }
-        }
-        // Refused here, before the merge is claimed, not partway through landing.
-        webhooks
-          .filter((w) => !baselineIds.has(w.id) || touchedIds.includes(w.id))
-          .forEach((w) => {
-            const old = entity.sdkWebhooks.find((o) => o.id === w.id) ?? null;
-            assertSdkWebhookNotManaged(old, w.payloadFormat);
-            assertSdkWebhookFields(w, old);
-          });
-        if (touchedIds.length) {
-          const rows =
-            await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
-              entity.sdkConnection.id,
-            ]);
-          rows
-            .filter((row) => touchedIds.includes(row.id))
-            .forEach((row) => assertSdkWebhookNotManaged(row));
-          const shared = rows.some(
-            (row) =>
-              touchedIds.includes(row.id) &&
-              row.sdks.some((id) => id !== entity.sdkConnection.id),
+        if (desiredState.sdkConnection !== undefined) {
+          const settings = sdkConnectionSettingsSnapshotValidator.parse(
+            desiredState.sdkConnection,
           );
-          if (shared) {
-            throw new Error(
-              "A webhook used by other SDK connections can't be changed from this one. Change it through the API.",
+          proposed.sdkConnection = settings;
+          const changes = filterUpdatableChanges(
+            settings,
+            entity.sdkConnection,
+            CONNECTION_UPDATABLE_FIELDS,
+          );
+          const { premiumSettingsWithoutPlan, validateSdkConnectionChanges } =
+            await loadValidations();
+          await validateSdkConnectionChanges(
+            context,
+            changes,
+            entity.sdkConnection,
+          );
+          // `changes` holds only what differs, so true means turned on.
+          const [blocked] = premiumSettingsWithoutPlan(context, changes);
+          if (blocked) {
+            throw new BadRequestError(
+              `Enabling ${blocked[1]} requires the "${blocked[0]}" premium feature`,
             );
           }
         }
+
+        if (desiredState.sdkWebhooks !== undefined) {
+          const webhooks = webhookListValidator.parse(desiredState.sdkWebhooks);
+          proposed.sdkWebhooks = webhooks;
+          const proposedIds = new Set(webhooks.map((w) => w.id));
+          const baselineIds = new Set(entity.sdkWebhooks.map((w) => w.id));
+          await assertSdkWebhookPlanLimit(
+            context,
+            webhooks.filter((w) => !baselineIds.has(w.id)).length,
+            entity.sdkWebhooks.filter((w) => !proposedIds.has(w.id)).length,
+          );
+          // Only the API can attach a webhook to several connections, and one
+          // connection's draft doesn't speak for the others.
+          const touchedIds = entity.sdkWebhooks
+            .filter((old) => {
+              const next = webhooks.find((w) => w.id === old.id);
+              return !next || !isEqual(next, old);
+            })
+            .map((w) => w.id);
+          // A restored webhook whose row now fires only for other connections
+          // would be skipped by the landing as already there.
+          for (const w of webhooks.filter((w) => !baselineIds.has(w.id))) {
+            const row = await context.models.sdkWebhooks.getById(w.id);
+            if (row?.sdks && !row.sdks.includes(entity.sdkConnection.id)) {
+              throw new BadRequestError(
+                `The webhook "${w.name}" now belongs to another SDK connection, so this one can't bring it back. Remove it from the draft, or move it back through the API.`,
+              );
+            }
+          }
+          // Refused here, before the merge is claimed, not partway through landing.
+          webhooks
+            .filter((w) => !baselineIds.has(w.id) || touchedIds.includes(w.id))
+            .forEach((w) => {
+              const old = entity.sdkWebhooks.find((o) => o.id === w.id) ?? null;
+              assertSdkWebhookNotManaged(old, w.payloadFormat);
+              assertSdkWebhookFields(w, old);
+            });
+          if (touchedIds.length) {
+            const rows =
+              await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
+                entity.sdkConnection.id,
+              ]);
+            rows
+              .filter((row) => touchedIds.includes(row.id))
+              .forEach((row) => assertSdkWebhookNotManaged(row));
+            const shared = rows.some(
+              (row) =>
+                touchedIds.includes(row.id) &&
+                row.sdks.some((id) => id !== entity.sdkConnection.id),
+            );
+            if (shared) {
+              throw new BadRequestError(
+                "A webhook used by other SDK connections can't be changed from this one. Change it through the API.",
+              );
+            }
+          }
+        }
+      } catch (e) {
+        // A refusal repeats on every retry, so a scheduled publish stops.
+        const refused = ((e as { status?: number }).status ?? 500) < 500;
+        throw options?.deferred && refused
+          ? new TerminalPublishError(getErrorMessage(e))
+          : e;
       }
 
       // A caller that collected gates has already put the warnings to its
@@ -765,7 +778,6 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         parseSdkWebhookSnapshot({
           ...wh,
           id: sdkWebhookStableId(entity.sdkConnection.id, wh.id),
-          httpMethod: wh.httpMethod ?? "POST",
         }),
       );
       const settingsChanges = newSettings
