@@ -137,6 +137,7 @@ Triggered when a feature is created
             description: string;
             /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner: string;
+            ownerEmail?: string | undefined;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
             defaultValue: string;
@@ -214,6 +215,7 @@ Triggered when a feature is updated
             description: string;
             /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner: string;
+            ownerEmail?: string | undefined;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
             defaultValue: string;
@@ -244,6 +246,7 @@ Triggered when a feature is updated
             description?: string | undefined;
             /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
+            ownerEmail?: string | undefined;
             project?: string | undefined;
             valueType?: ("boolean" | "string" | "number" | "json") | undefined;
             defaultValue?: string | undefined;
@@ -326,6 +329,7 @@ Triggered when a feature is deleted
             description: string;
             /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner: string;
+            ownerEmail?: string | undefined;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
             defaultValue: string;
