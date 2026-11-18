@@ -2125,6 +2125,55 @@ describe("analyzeMetricRefresh", () => {
 
     await expect(analyze()).rejects.toThrow("no finished results");
   });
+
+  it("counts a new goal metric among the refresh's goals when the parent had none", async () => {
+    const parentSettings = { numGoalMetrics: 0, numGuardrailMetrics: 0 };
+    findSnapshotByIdMock.mockResolvedValue(
+      makeParent({
+        analyses: [
+          analysis(parentSettings, [resultDimension({ met_a: 1 })]),
+          analysis({ ...parentSettings, baselineVariationIndex: 1 }, []),
+        ],
+      }),
+    );
+
+    const result = await analyzeMetricRefresh({
+      context,
+      snapshot: {
+        ...refresh,
+        analyses: [
+          analysis(
+            { numGoalMetrics: 1, numGuardrailMetrics: 2 },
+            [],
+            "running",
+          ),
+        ],
+      },
+      metricRefresh: refresh.metricRefresh!,
+      queryMap,
+      metricMap,
+      variationNames: ["Control", "Treatment"],
+    });
+
+    expect(
+      analyzeMock.mock.calls[0][0].analysisSettings.map((s) => [
+        s.numGoalMetrics,
+        s.numGuardrailMetrics,
+      ]),
+    ).toEqual([
+      [1, 2],
+      [1, 2],
+    ]);
+    expect(
+      result.analyses.map((a) => [
+        a.settings.numGoalMetrics,
+        a.settings.numGuardrailMetrics,
+      ]),
+    ).toEqual([
+      [0, 0],
+      [0, 0],
+    ]);
+  });
 });
 
 describe("getSnapshotSideEffects", () => {

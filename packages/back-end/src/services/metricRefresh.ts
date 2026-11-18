@@ -1015,6 +1015,12 @@ export async function analyzeMetricRefresh({
     ),
   );
 
+  // Stored analyses keep the parent's settings, which the front end matches
+  // by equality, but the fresh metrics count among today's goals and guardrails.
+  const { numGoalMetrics, numGuardrailMetrics } = (
+    snapshot.analyses[0] ?? parent.analyses[0]
+  ).settings;
+
   // One run per dimension: an isolated dimension reads its own queries.
   const freshResults: ExperimentReportResults[] = [];
   for (const indexes of Object.values(
@@ -1026,7 +1032,11 @@ export async function analyzeMetricRefresh({
     const { results } = await analyzeExperimentResults({
       queryData: freshQueries,
       snapshotSettings: snapshot.settings,
-      analysisSettings: indexes.map((i) => analyses[i].settings),
+      analysisSettings: indexes.map((i) => ({
+        ...analyses[i].settings,
+        numGoalMetrics,
+        numGuardrailMetrics,
+      })),
       variationNames,
       metricMap,
       analyzedMetricIds,
