@@ -707,6 +707,12 @@ tags:
     description: >-
       Webhooks that fire when an SDK Connection's payload changes. Signing keys
       and headers are only returned by GET.
+  - name: AdobeExperiencePlatformQueryServiceConnection_model
+    x-displayName: Adobe Experience Platform Query Service Connection
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/AdobeExperiencePlatformQueryServiceConnection"
+      />
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -716,6 +722,9 @@ tags:
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
+  - name: AthenaConnection_model
+    x-displayName: Athena Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/AthenaConnection" />
   - name: Attribute_model
     x-displayName: Attribute
     description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
@@ -725,6 +734,12 @@ tags:
   - name: AutoRun_model
     x-displayName: Auto Run
     description: <SchemaDefinition schemaRef="#/components/schemas/AutoRun" />
+  - name: BigQueryConnection_model
+    x-displayName: Big Query Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/BigQueryConnection" />
+  - name: ClickHouseConnection_model
+    x-displayName: Click House Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/ClickHouseConnection" />
   - name: CodeRef_model
     x-displayName: Code Ref
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
@@ -814,6 +829,9 @@ tags:
   - name: DataSource_model
     x-displayName: Data Source
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
+  - name: DatabricksConnection_model
+    x-displayName: Databricks Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/DatabricksConnection" />
   - name: Dimension_model
     x-displayName: Dimension
     description: <SchemaDefinition schemaRef="#/components/schemas/Dimension" />
@@ -1004,6 +1022,15 @@ tags:
   - name: MetricUsage_model
     x-displayName: Metric Usage
     description: <SchemaDefinition schemaRef="#/components/schemas/MetricUsage" />
+  - name: MixpanelConnection_model
+    x-displayName: Mixpanel Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/MixpanelConnection" />
+  - name: MssqlConnection_model
+    x-displayName: Mssql Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/MssqlConnection" />
+  - name: MysqlConnection_model
+    x-displayName: Mysql Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/MysqlConnection" />
   - name: Namespace_model
     x-displayName: Namespace
     description: <SchemaDefinition schemaRef="#/components/schemas/Namespace" />
@@ -1021,6 +1048,12 @@ tags:
   - name: Population_model
     x-displayName: Population
     description: <SchemaDefinition schemaRef="#/components/schemas/Population" />
+  - name: PostgresConnection_model
+    x-displayName: Postgres Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/PostgresConnection" />
+  - name: PrestoConnection_model
+    x-displayName: Presto Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/PrestoConnection" />
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
@@ -1033,6 +1066,9 @@ tags:
   - name: RampScheduleTemplate_model
     x-displayName: Ramp Schedule Template
     description: <SchemaDefinition schemaRef="#/components/schemas/RampScheduleTemplate" />
+  - name: RedshiftConnection_model
+    x-displayName: Redshift Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/RedshiftConnection" />
   - name: Report_model
     x-displayName: Report
     description: <SchemaDefinition schemaRef="#/components/schemas/Report" />
@@ -1110,6 +1146,9 @@ tags:
   - name: Settings_model
     x-displayName: Settings
     description: <SchemaDefinition schemaRef="#/components/schemas/Settings" />
+  - name: SnowflakeConnection_model
+    x-displayName: Snowflake Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/SnowflakeConnection" />
   - name: Targeting Rule_model
     x-displayName: Targeting Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/Targeting Rule" />
@@ -1119,6 +1158,9 @@ tags:
   - name: Team_model
     x-displayName: Team
     description: <SchemaDefinition schemaRef="#/components/schemas/Team" />
+  - name: VerticaConnection_model
+    x-displayName: Vertica Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/VerticaConnection" />
   - name: VisualChange_model
     x-displayName: Visual Change
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChange" />
@@ -22900,6 +22942,282 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/data-sources' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postDataSource
+      summary: Create a data source
+      description: >-
+        Tests the connection and validates each assignment query against the
+        warehouse before saving. The Managed Warehouse, Google Analytics and
+        Event Forwarders are set up in the app.
+      tags:
+        - data-sources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                  maxLength: 10000
+                projectIds:
+                  type: array
+                  items:
+                    type: string
+                connection:
+                  oneOf:
+                    - title: Postgres Connection
+                      $ref: '#/components/schemas/PostgresConnection'
+                    - title: Redshift Connection
+                      $ref: '#/components/schemas/RedshiftConnection'
+                    - title: Vertica Connection
+                      $ref: '#/components/schemas/VerticaConnection'
+                    - title: Mysql Connection
+                      $ref: '#/components/schemas/MysqlConnection'
+                    - title: Mssql Connection
+                      $ref: '#/components/schemas/MssqlConnection'
+                    - title: Snowflake Connection
+                      $ref: '#/components/schemas/SnowflakeConnection'
+                    - title: Big Query Connection
+                      $ref: '#/components/schemas/BigQueryConnection'
+                    - title: Athena Connection
+                      $ref: '#/components/schemas/AthenaConnection'
+                    - title: Presto Connection
+                      $ref: '#/components/schemas/PrestoConnection'
+                    - title: Databricks Connection
+                      $ref: '#/components/schemas/DatabricksConnection'
+                    - title: Click House Connection
+                      $ref: '#/components/schemas/ClickHouseConnection'
+                    - title: Mixpanel Connection
+                      $ref: '#/components/schemas/MixpanelConnection'
+                    - title: Adobe Experience Platform Query Service Connection
+                      $ref: >-
+                        #/components/schemas/AdobeExperiencePlatformQueryServiceConnection
+                  description: Credentials are stored encrypted and never returned
+                eventTracker:
+                  description: '`eventForwarder` is only accepted unchanged'
+                  type: string
+                  enum:
+                    - segment
+                    - snowplow
+                    - jitsu
+                    - freshpaint
+                    - ga4
+                    - fullstory
+                    - matomo
+                    - heap
+                    - rudderstack
+                    - amplitude
+                    - mparticle
+                    - mixpanel
+                    - firebase
+                    - keen
+                    - clevertap
+                    - langfuse
+                    - phoenix
+                    - eventForwarder
+                    - custom
+                identifierTypes:
+                  description: >-
+                    Replaces the list. An entry matching an existing id keeps
+                    its description if left out; send `""` to clear it.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                    required:
+                      - id
+                    additionalProperties: false
+                assignmentQueries:
+                  description: >-
+                    Replaces the list. An entry with an existing `id` keeps
+                    `description`, `identifierTypes`, `includesNameColumns`,
+                    `dimensionColumns`, `projects` and `columnMapping` if left
+                    out; clear the others with `""`, `false` or `[]`. Each query
+                    is validated against the warehouse.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        description: Omit to create a new query
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                      identifierTypes:
+                        description: Required for a new query unless identifierType is set
+                        minItems: 1
+                        type: array
+                        items:
+                          type: string
+                      identifierType:
+                        description: >-
+                          Deprecated: use identifierTypes, which wins if both
+                          are set
+                        deprecated: true
+                        type: string
+                      sql:
+                        type: string
+                      includesNameColumns:
+                        type: boolean
+                      dimensionColumns:
+                        type: array
+                        items:
+                          type: string
+                      projects:
+                        description: >-
+                          Project IDs that can use this. An empty list means all
+                          Projects. Projects control access and availability, so
+                          don't use them as labels.
+                        type: array
+                        items:
+                          type: string
+                      columnMapping:
+                        description: >-
+                          Columns `sql` returns under a non-canonical name, by
+                          role. Replaces the stored mapping; send `{}` to clear
+                          it.
+                        type: object
+                        properties:
+                          experimentIdColumn:
+                            type: string
+                          variationIdColumn:
+                            type: string
+                          timestampColumn:
+                            type: string
+                          userIdColumns:
+                            description: Column for each identifier type, keyed by type
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                          experimentNameColumn:
+                            type: string
+                          variationNameColumn:
+                            type: string
+                        additionalProperties: false
+                    required:
+                      - name
+                      - sql
+                    additionalProperties: false
+                identifierJoinQueries:
+                  description: Replaces the list
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      identifierTypes:
+                        type: array
+                        items:
+                          type: string
+                      sql:
+                        type: string
+                    required:
+                      - identifierTypes
+                      - sql
+                    additionalProperties: false
+                mixpanelSettings:
+                  type: object
+                  properties:
+                    viewedExperimentEventName:
+                      type: string
+                    experimentIdProperty:
+                      type: string
+                    variationIdProperty:
+                      type: string
+                    extraUserIdProperty:
+                      type: string
+                  additionalProperties: false
+                pipelineSettings:
+                  description: >-
+                    Merged into the stored settings: fields left out keep their
+                    values, but any change must leave `allowWriting`, `mode`,
+                    `writeDataset` and `unitsTableRetentionHours` set, with a
+                    non-empty `writeDataset` when `allowWriting` is true. Send
+                    `[]` to clear `excludedExperimentIds` or
+                    `incrementalOptInExperimentIds`, and `includedExperimentIds:
+                    null` to apply the mode to every experiment again (`[]`
+                    applies it to none).
+                  type: object
+                  properties:
+                    allowWriting:
+                      type: boolean
+                      description: >-
+                        Let GrowthBook write temporary tables to speed up
+                        analysis
+                    mode:
+                      type: string
+                      enum:
+                        - ephemeral
+                        - incremental
+                    writeDatabase:
+                      type: string
+                    writeDataset:
+                      type: string
+                      description: Schema (or dataset) to write tables to
+                    unitsTableRetentionHours:
+                      type: number
+                      exclusiveMinimum: 0
+                    unitsTableDeletion:
+                      type: boolean
+                    includedExperimentIds:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: 'null'
+                    excludedExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                    incrementalOptInExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                  additionalProperties: false
+                maxConcurrentQueries:
+                  type: integer
+                  minimum: 0
+                queryCacheTTLMins:
+                  type: integer
+                  minimum: 0
+              required:
+                - name
+                - connection
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dataSource:
+                    $ref: '#/components/schemas/DataSource'
+                required:
+                  - dataSource
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/data-sources' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{id}:
     get:
@@ -75633,6 +75951,491 @@ components:
         - assignmentQueries
         - identifierJoinQueries
       additionalProperties: false
+    PostgresConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: postgres
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        user:
+          type: string
+        password:
+          type: string
+        defaultSchema:
+          type: string
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+      required:
+        - type
+        - host
+        - port
+        - database
+        - user
+        - password
+      additionalProperties: false
+    RedshiftConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: redshift
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        user:
+          type: string
+        password:
+          type: string
+        defaultSchema:
+          type: string
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+      required:
+        - type
+        - host
+        - port
+        - database
+        - user
+        - password
+      additionalProperties: false
+    VerticaConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: vertica
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        user:
+          type: string
+        password:
+          type: string
+        defaultSchema:
+          type: string
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+      required:
+        - type
+        - host
+        - port
+        - database
+        - user
+        - password
+      additionalProperties: false
+    MysqlConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: mysql
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        user:
+          type: string
+        password:
+          type: string
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+      required:
+        - type
+        - host
+        - port
+        - database
+        - user
+        - password
+      additionalProperties: false
+    MssqlConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: mssql
+        server:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        user:
+          type: string
+        password:
+          type: string
+        defaultSchema:
+          type: string
+        requestTimeout:
+          type: integer
+        options:
+          type: object
+          properties:
+            encrypt:
+              type: boolean
+            trustServerCertificate:
+              type: boolean
+          additionalProperties: false
+      required:
+        - type
+        - server
+        - port
+        - database
+        - user
+        - password
+      additionalProperties: false
+    SnowflakeConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: snowflake
+        account:
+          type: string
+        accessUrl:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+        database:
+          type: string
+        schema:
+          type: string
+        role:
+          type: string
+        warehouse:
+          type: string
+        authMethod:
+          type: string
+          enum:
+            - password
+            - key-pair
+            - workload-identity
+        privateKey:
+          type: string
+        privateKeyPassword:
+          type: string
+        workloadIdentityProvider:
+          type: string
+          enum:
+            - AWS
+            - AZURE
+            - GCP
+      required:
+        - type
+        - account
+        - username
+        - password
+        - database
+        - schema
+      additionalProperties: false
+    BigQueryConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: bigquery
+        authType:
+          description: '`auto` uses the server''s own credentials: self-hosted only'
+          type: string
+          enum:
+            - auto
+            - json
+        projectId:
+          type: string
+        clientEmail:
+          type: string
+        privateKey:
+          type: string
+        apiEndpoint:
+          type: string
+        reservation:
+          type: string
+        defaultProject:
+          type: string
+        defaultDataset:
+          type: string
+      required:
+        - type
+        - defaultProject
+        - defaultDataset
+      additionalProperties: false
+    AthenaConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: athena
+        authType:
+          description: '`auto` uses the server''s own credentials: self-hosted only'
+          type: string
+          enum:
+            - auto
+            - accessKey
+            - assumeRole
+        accessKeyId:
+          type: string
+        secretAccessKey:
+          type: string
+        assumeRoleARN:
+          type: string
+        roleSessionName:
+          type: string
+        durationSeconds:
+          type: integer
+        externalId:
+          type: string
+        region:
+          type: string
+        database:
+          type: string
+        bucketUri:
+          type: string
+        workGroup:
+          type: string
+        catalog:
+          type: string
+        resultReuseMaxAgeInMinutes:
+          type: string
+      required:
+        - type
+        - region
+        - bucketUri
+      additionalProperties: false
+    PrestoConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: presto
+        engine:
+          type: string
+          enum:
+            - presto
+            - trino
+        authType:
+          type: string
+          enum:
+            - basicAuth
+            - none
+            - customAuth
+            - kerberos
+        host:
+          type: string
+        port:
+          type: integer
+        user:
+          description: Presto only
+          type: string
+        trinoUser:
+          description: Trino only
+          type: string
+        username:
+          description: For basicAuth
+          type: string
+        password:
+          description: For basicAuth
+          type: string
+        customAuth:
+          type: string
+        kerberosServicePrincipal:
+          type: string
+        kerberosClientPrincipal:
+          type: string
+        kerberosUser:
+          type: string
+        source:
+          type: string
+        catalog:
+          type: string
+        schema:
+          type: string
+        requestTimeout:
+          type: integer
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+      required:
+        - type
+        - engine
+        - host
+        - port
+        - catalog
+        - schema
+      additionalProperties: false
+    DatabricksConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: databricks
+        authType:
+          type: string
+          enum:
+            - pat
+            - oauth-m2m
+        token:
+          description: For pat
+          type: string
+        oauthClientId:
+          description: For oauth-m2m
+          type: string
+        oauthClientSecret:
+          description: For oauth-m2m
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+        path:
+          type: string
+        catalog:
+          type: string
+      required:
+        - type
+        - authType
+        - host
+        - port
+        - path
+        - catalog
+      additionalProperties: false
+    ClickHouseConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: clickhouse
+        url:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        password:
+          type: string
+        database:
+          type: string
+        maxExecutionTime:
+          type: integer
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+        caCertPath:
+          type: string
+        clientCertPath:
+          type: string
+        clientKeyPath:
+          type: string
+        clientCertChainPath:
+          description: >-
+            The `*Path` fields read PEM files on the GrowthBook server:
+            self-hosted with a single organization only
+          type: string
+      required:
+        - type
+        - url
+        - port
+        - password
+        - database
+      additionalProperties: false
+    MixpanelConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: mixpanel
+        username:
+          type: string
+        secret:
+          type: string
+        projectId:
+          type: string
+        server:
+          type: string
+          enum:
+            - standard
+            - eu
+      required:
+        - type
+        - username
+        - secret
+        - projectId
+      additionalProperties: false
+    AdobeExperiencePlatformQueryServiceConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: adobe_experience_platform_query_service
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        username:
+          type: string
+        technicalAccountId:
+          type: string
+        credential:
+          type: string
+      required:
+        - type
+        - host
+        - port
+        - database
+        - username
+        - technicalAccountId
+        - credential
+      additionalProperties: false
     InformationSchema:
       type: object
       properties:
@@ -92476,12 +93279,16 @@ x-tagGroups:
       - SdkWebhooks
   - name: Models
     tags:
+      - AdobeExperiencePlatformQueryServiceConnection_model
       - AggregatedFactTable_model
       - AnalyticsExploration_model
       - Archetype_model
+      - AthenaConnection_model
       - Attribute_model
       - Audit_model
       - AutoRun_model
+      - BigQueryConnection_model
+      - ClickHouseConnection_model
       - CodeRef_model
       - Config_model
       - ConfigKeyUsage_model
@@ -92509,6 +93316,7 @@ x-tagGroups:
       - CustomHook_model
       - Dashboard_model
       - DataSource_model
+      - DatabricksConnection_model
       - Dimension_model
       - Environment_model
       - Event_model
@@ -92563,15 +93371,21 @@ x-tagGroups:
       - MetricAnalysis_model
       - MetricGroup_model
       - MetricUsage_model
+      - MixpanelConnection_model
+      - MssqlConnection_model
+      - MysqlConnection_model
       - Namespace_model
       - NamespaceExperimentMember_model
       - Organization_model
       - PaginationFields_model
       - Population_model
+      - PostgresConnection_model
+      - PrestoConnection_model
       - Project_model
       - Query_model
       - RampSchedule_model
       - RampScheduleTemplate_model
+      - RedshiftConnection_model
       - Report_model
       - RequireReviewRule_model
       - RequireReviewRuleInput_model
@@ -92593,9 +93407,11 @@ x-tagGroups:
       - SdkWebhook_model
       - Segment_model
       - Settings_model
+      - SnowflakeConnection_model
       - Targeting Rule_model
       - TargetingReviewRule_model
       - Team_model
+      - VerticaConnection_model
       - VisualChange_model
       - VisualChangeset_model
       - VisualEditorCbExperimentStub_model

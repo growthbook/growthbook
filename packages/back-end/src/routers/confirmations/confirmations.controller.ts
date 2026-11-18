@@ -5,6 +5,7 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
   overridesIn,
+  redactSecretFields,
   toApiConfirmation,
 } from "back-end/src/services/confirmations";
 import {
@@ -62,7 +63,12 @@ export const getConfirmation = async (
     links: c.links,
     notices: c.notices,
     lastAttemptAt: c.lastAttemptAt,
-    request: { method: c.method, path: c.path, query: c.query, body: c.body },
+    request: {
+      method: c.method,
+      path: c.path,
+      query: c.query,
+      body: redactSecretFields(c.body, c.secretBodyFields),
+    },
     overrides: [
       ...new Set([
         ...overridesIn(c),

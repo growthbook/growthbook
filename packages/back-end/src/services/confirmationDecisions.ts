@@ -3,7 +3,10 @@ import type { ReqContext } from "back-end/types/request";
 import { dispatchInternal, HttpMethod } from "back-end/src/agent/dispatcher";
 import { getContextForApiKeyIdInOrg } from "back-end/src/services/organizations";
 import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
-import { toApiConfirmation } from "back-end/src/services/confirmations";
+import {
+  openSecretFields,
+  toApiConfirmation,
+} from "back-end/src/services/confirmations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 
@@ -115,14 +118,15 @@ export async function decideConfirmation(
       };
     }
     requester.confirmationId = id;
-    requester.dispatchedRequest = { body: c.body, query: c.query };
+    const body = openSecretFields(c.body, c.secretBodyFields);
+    requester.dispatchedRequest = { body, query: c.query };
     response = await dispatchInternal(
       requester,
       {
         method: c.method as HttpMethod,
         path: c.path,
         query: c.query,
-        body: c.body,
+        body,
       },
       { includeDeprecated: true },
     ).catch(failure);

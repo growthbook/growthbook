@@ -110,6 +110,7 @@ import {
   deleteDataSourceWithChecks,
   assertCanUpdateDataSource,
   updateDataSourceWithChecks,
+  withDefaultEventSettings,
 } from "back-end/src/services/datasourceChanges";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -204,19 +205,11 @@ export async function postDataSources(
     eventForwarderConfig,
     eventForwarderRegion,
   } = req.body;
-  const settings = req.body.settings || {};
+  const settings = withDefaultEventSettings(req.body.settings || {});
 
   if (!context.permissions.canCreateDataSource({ projects, type })) {
     context.permissions.throwPermissionError();
   }
-
-  // Set default event properties and queries
-  settings.events = {
-    experimentEvent: "$experiment_started",
-    experimentIdProperty: "Experiment name",
-    variationIdProperty: "Variant name",
-    ...settings?.events,
-  };
 
   let datasource;
   try {
