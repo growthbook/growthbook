@@ -599,6 +599,8 @@ export type AppEvents = {
   // Sent once the license server has created the Pro subscription.
   "Pro subscription started": {
     flow: "initial-signup" | "upgrade-modal";
+    // Org members, excluding pending invites, matching the seats Pro bills
+    seats: number;
     // The upgrade modal's CTA source; only sent by the upgrade modal
     source?: string;
     // Only sent by the initial signup flow

@@ -234,7 +234,11 @@ export default function CloudProUpgradeModal({
               : undefined,
         }),
       });
-      track("Pro subscription started", { flow: "upgrade-modal", source });
+      track("Pro subscription started", {
+        flow: "upgrade-modal",
+        seats: organization.members?.length ?? 0,
+        source,
+      });
     } catch (e) {
       setLoading(false);
       throw new Error(e.message);

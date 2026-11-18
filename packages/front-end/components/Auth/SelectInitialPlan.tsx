@@ -541,7 +541,11 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
               : undefined,
         }),
       });
-      track("Pro subscription started", { flow: "initial-signup", urlPlan });
+      track("Pro subscription started", {
+        flow: "initial-signup",
+        seats: organization?.members?.length ?? 0,
+        urlPlan,
+      });
     } catch (e) {
       setLoading(false);
       const message = e instanceof Error ? e.message : "Something went wrong";
