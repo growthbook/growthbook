@@ -1,0 +1,307 @@
+import {
+  getResultsOutdatedReasons,
+  getResultsOutdatedReasonLabel,
+  RESULTS_OUTDATED_REASON_LABELS,
+  type ResultsOutdatedReason,
+} from "../src/experiments/outdated-reasons";
+
+type Input = Parameters<typeof getResultsOutdatedReasons>[0];
+
+const START = new Date("2026-01-01T00:00:00Z");
+const END = new Date("2026-01-10T00:00:00Z");
+
+function experiment(
+  overrides: Partial<Input["experiment"]> = {},
+): Input["experiment"] {
+  return {
+    type: "standard",
+    variations: [
+      { id: "v0", key: "0", name: "Control" },
+      { id: "v1", key: "1", name: "Treatment" },
+    ],
+    phases: [
+      {
+        dateStarted: START.toISOString(),
+        dateEnded: END.toISOString(),
+        variations: [],
+      },
+    ],
+    goalMetrics: ["fact__a"],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    activationMetric: "",
+    segment: "",
+    queryFilter: "",
+    skipPartialData: false,
+    exposureQueryId: "user_exposure",
+    exposureQueryIdentifierType: "user_id",
+    attributionModel: "firstExposure",
+    regressionAdjustmentEnabled: false,
+    ...overrides,
+  } as Input["experiment"];
+}
+
+function snapshot(
+  settings: Partial<Input["snapshot"]["settings"]> = {},
+  extra: Partial<Input["snapshot"]> = {},
+): Input["snapshot"] {
+  return {
+    type: "standard",
+    dateCreated: END,
+    settings: {
+      goalMetrics: ["fact__a"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      activationMetric: null,
+      segment: "",
+      queryFilter: "",
+      skipPartialData: false,
+      exposureQueryId: "user_exposure",
+      exposureQueryIdentifierType: "user_id",
+      attributionModel: "firstExposure",
+      startDate: START,
+      endDate: END,
+      variations: [
+        { id: "0", weight: 0.5 },
+        { id: "1", weight: 0.5 },
+      ],
+      ...settings,
+    },
+    analyses: [
+      {
+        settings: {
+          statsEngine: "bayesian",
+          pValueThreshold: 0.05,
+          regressionAdjusted: false,
+          postStratificationEnabled: false,
+          sequentialTesting: false,
+        },
+      },
+    ],
+    ...extra,
+  } as Input["snapshot"];
+}
+
+function reasons(overrides: Partial<Input> = {}): ResultsOutdatedReason[] {
+  return getResultsOutdatedReasons({
+    experiment: experiment(),
+    snapshot: snapshot(),
+    metricGroups: [],
+    orgSettings: {},
+    pValueThreshold: 0.05,
+    statsEngine: "bayesian",
+    features: {
+      regressionAdjustment: true,
+      postStratification: false,
+      sequentialTesting: true,
+    },
+    phase: 0,
+    exposureQueries: [],
+    unjoinableMetricIds: new Set(),
+    conversionWindowMetricIds: new Set(),
+    newerOverallResultsAvailable: false,
+    resultsUpdateDisabled: false,
+    ...overrides,
+  });
+}
+
+describe("getResultsOutdatedReasons", () => {
+  it("is empty when the results match the experiment", () => {
+    expect(reasons()).toEqual([]);
+  });
+
+  it("is empty when the snapshot has no analysis", () => {
+    expect(
+      reasons({
+        experiment: experiment({ segment: "seg_1" }),
+        snapshot: snapshot({}, { analyses: [] }),
+      }),
+    ).toEqual([]);
+  });
+
+  it.each<[ResultsOutdatedReason, Partial<Input>]>([
+    ["stats_engine", { statsEngine: "frequentist" }],
+    [
+      "activation_metric",
+      { experiment: experiment({ activationMetric: "m" }) },
+    ],
+    ["segment", { experiment: experiment({ segment: "seg_1" }) }],
+    ["query_filter", { experiment: experiment({ queryFilter: "x > 1" }) }],
+    [
+      "conversion_behavior",
+      { experiment: experiment({ skipPartialData: true }) },
+    ],
+    [
+      "assignment_query",
+      { experiment: experiment({ exposureQueryId: "other" }) },
+    ],
+    [
+      "identifier_type",
+      { experiment: experiment({ exposureQueryIdentifierType: "anon_id" }) },
+    ],
+    [
+      "cluster_analysis",
+      { experiment: experiment({ isClusterExperiment: true }) },
+    ],
+    [
+      "attribution_model",
+      { experiment: experiment({ attributionModel: "experimentDuration" }) },
+    ],
+    [
+      "metrics_changed",
+      { experiment: experiment({ goalMetrics: ["fact__a", "fact__b"] }) },
+    ],
+    [
+      "variations_changed",
+      {
+        experiment: experiment({
+          variations: [
+            { id: "v0", key: "0", name: "Control" },
+            { id: "v2", key: "2", name: "Other" },
+          ],
+        }),
+      },
+    ],
+    [
+      "analysis_dates_changed",
+      {
+        experiment: experiment({
+          phases: [
+            {
+              dateStarted: START.toISOString(),
+              dateEnded: "2026-01-12T00:00:00Z",
+              variations: [],
+            },
+          ],
+        }),
+      },
+    ],
+    ["p_value_threshold", { pValueThreshold: 0.1 }],
+    [
+      "cuped",
+      { experiment: experiment({ regressionAdjustmentEnabled: true }) },
+    ],
+    ["newer_overall_results", { newerOverallResultsAvailable: true }],
+  ])("returns %s for its change alone", (expected, overrides) => {
+    expect(reasons(overrides)).toEqual([expected]);
+  });
+
+  it("returns cluster_sub_unit when only the cluster subunit changed", () => {
+    expect(
+      reasons({
+        experiment: experiment({
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "user_id",
+        }),
+        snapshot: snapshot({
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "device_id",
+        }),
+      }),
+    ).toEqual(["cluster_sub_unit"]);
+  });
+
+  it("lists every reason in the badge's order", () => {
+    expect(
+      reasons({
+        experiment: experiment({
+          goalMetrics: ["fact__a", "fact__b"],
+          segment: "seg_1",
+        }),
+        pValueThreshold: 0.1,
+      }),
+    ).toEqual(["segment", "metrics_changed", "p_value_threshold"]);
+  });
+
+  it("does not count a removed metric as a change", () => {
+    expect(reasons({ experiment: experiment({ goalMetrics: [] }) })).toEqual(
+      [],
+    );
+  });
+
+  it("leaves out metrics that no update computes", () => {
+    expect(
+      reasons({
+        experiment: experiment({
+          goalMetrics: ["fact__a", "fact__unjoinable"],
+        }),
+        unjoinableMetricIds: new Set(["fact__unjoinable"]),
+      }),
+    ).toEqual([]);
+    expect(
+      reasons({
+        experiment: experiment({
+          type: "holdout",
+          goalMetrics: ["fact__a", "fact__conversion"],
+        }),
+        conversionWindowMetricIds: new Set(["fact__conversion"]),
+      }),
+    ).toEqual([]);
+  });
+
+  it("measures a lagged running phase from the base update of a refresh", () => {
+    const now = Date.now();
+    const runningExperiment = experiment({
+      phases: [{ dateStarted: START.toISOString(), variations: [] }],
+    });
+    const laggedSettings = {
+      endDate: new Date(now - 6 * 60 * 60 * 1000),
+      endDateIsCutoff: true,
+    };
+    const threeDaysAgo = new Date(now - 3 * 24 * 60 * 60 * 1000);
+    expect(
+      reasons({
+        experiment: runningExperiment,
+        snapshot: snapshot(laggedSettings, { dateCreated: new Date(now) }),
+      }),
+    ).toEqual([]);
+    expect(
+      reasons({
+        experiment: runningExperiment,
+        snapshot: snapshot(laggedSettings, {
+          dateCreated: new Date(now),
+          metricRefresh: {
+            baseSnapshotId: "snp_base",
+            parentSnapshotId: "snp_base",
+            metricIds: ["fact__a"],
+            baseDateCreated: threeDaysAgo,
+            baseCutoffDate: laggedSettings.endDate,
+          },
+        }),
+      }),
+    ).toEqual(["analysis_dates_changed"]);
+  });
+
+  it("never flags dates when updates are disabled", () => {
+    expect(
+      reasons({
+        experiment: experiment({
+          phases: [
+            {
+              dateStarted: START.toISOString(),
+              dateEnded: "2026-01-12T00:00:00Z",
+              variations: [],
+            },
+          ],
+        }),
+        resultsUpdateDisabled: true,
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("getResultsOutdatedReasonLabel", () => {
+  it("labels every reason", () => {
+    for (const reason of Object.keys(
+      RESULTS_OUTDATED_REASON_LABELS,
+    ) as ResultsOutdatedReason[]) {
+      expect(getResultsOutdatedReasonLabel(reason)).toMatch(/\S/);
+    }
+    expect(getResultsOutdatedReasonLabel("metrics_changed")).toBe(
+      "Metrics changed",
+    );
+    expect(getResultsOutdatedReasonLabel("analysis_dates_changed")).toBe(
+      "Analysis dates changed",
+    );
+  });
+});

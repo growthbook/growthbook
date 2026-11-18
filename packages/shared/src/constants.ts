@@ -140,6 +140,8 @@ export const DEFAULT_DECISION_FRAMEWORK_ENABLED = false;
 // request to update only its newly added metrics by default.
 export const DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES = 60;
 
+export const DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS = 4;
+
 // Default statuses for saved learnings (insights). Orgs can customize the
 // list in General Settings → Experiment Settings. Status IDs are persisted
 // on each saved learning, so they must remain stable across renames.
