@@ -548,15 +548,24 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   }
 
   /**
-   * Persist error only while still running; release the incremental refresh
-   * lock if the write wins.
+   * Release the incremental refresh lock, then persist the error only while
+   * still running. Releasing first matches updateModel; a writer that already
+   * concluded the snapshot would have released it anyway.
    */
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
+    await this.context.models.incrementalRefresh
+      .releaseLock(this.model.experiment, this.model.id)
+      .catch((e) =>
+        this.context.logger.warn(
+          e,
+          "Failed to release incremental refresh lock on shutdown error",
+        ),
+      );
     // Reached from the runner's own failure paths, where neither the queries
     // nor the analysis is known to be at fault.
-    const wrote = await errorSnapshotIfStillRunning(
+    await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
       { queries: this.model.queries, error },
@@ -564,16 +573,6 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       { concludedBy: this.concludedBy },
       this.experimentUpdateExecutionLogger,
     );
-    if (wrote) {
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on shutdown error",
-          ),
-        );
-    }
   }
 
   async updateModel({
@@ -603,6 +602,23 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
             ? "error"
             : "success",
     };
+
+    // This runner holds the lock (see createSnapshotFromPlan) so it does not
+    // read the pipeline tables while a refresh mutates them. Release before the
+    // terminal status write, as the standard incremental runner does: its
+    // reads are done, and a client that sees the snapshot finish may start the
+    // next update at once.
+    if (updates.status !== "running") {
+      await this.context.models.incrementalRefresh
+        .releaseLock(this.model.experiment, this.model.id)
+        .catch((e) =>
+          this.context.logger.warn(
+            e,
+            "Failed to release incremental refresh lock on terminal status",
+          ),
+        );
+    }
+
     await updateSnapshot({
       context: this.context,
       id: this.model.id,
@@ -618,20 +634,6 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       await updateReport(this.model.organization, this.model.report, {
         snapshot: this.model.id,
       });
-    }
-
-    // Release the incremental refresh lock on any terminal status. This runner
-    // acquires the lock (see createSnapshotFromPlan) so that it does not read
-    // the shared pipeline tables while an incremental refresh is mutating them.
-    if (updates.status !== "running") {
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on terminal status",
-          ),
-        );
     }
 
     return {
