@@ -93,6 +93,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeTagsInMetadata: Boolean,
   includeExperimentScheduleInMetadata: Boolean,
   includeReferencedPrerequisites: Boolean,
+  noDirectAccess: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   tracesEnabled: Boolean,
@@ -379,6 +380,7 @@ export async function createSDKConnection(
   const connection: SDKConnectionInterface = {
     ...withLegacySavedGroupFlag(otherParams),
     includeReferencedPrerequisites,
+    noDirectAccess: true,
     organization: context.org.id,
     languages: languages as SDKLanguage[],
     id: uniqid("sdk_"),

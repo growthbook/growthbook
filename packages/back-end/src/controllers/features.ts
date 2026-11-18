@@ -266,6 +266,7 @@ import {
   CACHE_CONTROL_STALE_IF_ERROR,
   CACHE_CONTROL_STALE_WHILE_REVALIDATE,
   FASTLY_SERVICE_ID,
+  IS_CLOUD,
 } from "back-end/src/util/secrets";
 import { getSurrogateKeysFromEnvironments } from "back-end/src/util/cdn.util";
 import {
@@ -562,8 +563,11 @@ export type SDKPayloadParams = Pick<
 export async function getPayloadParamsFromApiKey(
   key: string,
   req: Request,
-  // Reject a foreign key before side effects run.
-  expectedOrganization?: string,
+  // Both reject the request before side effects run.
+  {
+    expectedOrganization,
+    requireCdnOrProxy,
+  }: { expectedOrganization?: string; requireCdnOrProxy?: boolean } = {},
 ): Promise<SDKPayloadParams> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
@@ -576,6 +580,19 @@ export async function getPayloadParamsFromApiKey(
       connection.organization !== expectedOrganization
     ) {
       throw new UnrecoverableApiError("Invalid API key");
+    }
+    if (
+      requireCdnOrProxy &&
+      IS_CLOUD &&
+      connection.noDirectAccess &&
+      // Pre-#147 proxies forward misses with the client's UA; host survives webhook-failure auto-disable
+      !(connection.proxy.enabled || connection.proxy.host) &&
+      !req.get("fastly-client-ip") &&
+      !req.get("user-agent")?.startsWith("GrowthBook Proxy")
+    ) {
+      throw new UnrecoverableApiError(
+        "You must use cdn.growthbook.io or a GrowthBook Proxy to access this endpoint",
+      );
     }
 
     // If this is the first time the SDK Connection is being used, mark it as successfully connected
@@ -766,7 +783,9 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-    const params = await getPayloadParamsFromApiKey(key, req);
+    const params = await getPayloadParamsFromApiKey(key, req, {
+      requireCdnOrProxy: true,
+    });
 
     if (!params.organization) {
       throw new UnrecoverableApiError("Organization not found for API key");
