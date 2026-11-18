@@ -392,6 +392,8 @@ export type OpenApiRoute<
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
   confirmation?: readonly ConfirmAction[];
+  /** Registered before API authentication; see ApiEndpointSpec. */
+  unauthenticated?: boolean;
 };
 
 export function createApiRequestHandler<
@@ -427,6 +429,7 @@ export function createApiRequestHandler<
     possibleErrors,
     confirmation,
     confirmationInHandler,
+    unauthenticated,
   } = data;
 
   return (
@@ -475,7 +478,8 @@ export function createApiRequestHandler<
           },
           handler,
         );
-        if (refusal) {
+        // Without a key there is nobody to keep a refused request for.
+        if (refusal && !unauthenticated) {
           const { context } = req as unknown as ApiRequestLocals;
           await recordRefusal(context, req, refusal).catch((e) =>
             logger.error(
@@ -521,6 +525,7 @@ export function createApiRequestHandler<
       excludeFromSpec,
       possibleErrors,
       confirmation,
+      unauthenticated,
     };
 
     return route;

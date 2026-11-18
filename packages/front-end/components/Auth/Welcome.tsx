@@ -25,13 +25,16 @@ type LoginHeroContent = {
 export default function Welcome({
   onSuccess,
   firstTime = false,
+  register = false,
 }: {
   onSuccess: (token: string, projectId?: string) => void;
   firstTime?: boolean;
+  // Open on the create-account form instead of the login form.
+  register?: boolean;
 }): ReactElement {
   const [state, setState] = useState<
     "login" | "register" | "forgot" | "forgotSuccess" | "firsttime"
-  >(firstTime ? "firsttime" : "login");
+  >(firstTime ? "firsttime" : register ? "register" : "login");
   const form = useForm({
     defaultValues: {
       companyname: "",

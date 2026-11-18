@@ -10,6 +10,8 @@ const REDACTED_HEADERS = new Set([
 const REDACTED_URL_PATTERNS = [
   /(\/auth\/reset\/)[^/?#]+/gi,
   /(\/invite\/)[^/?#]+/gi,
+  /(\/claim\/)[^/?#]+/gi,
+  /(\/flag-imports\/)[^/?#]+/gi,
   // `^` for `query_string`, which Sentry stores without the leading `?`
   /((?:[?&#]|^)(?:id_token|access_token|refresh_token|token|code|key)=)[^&#]*/gi,
 ];
