@@ -893,16 +893,3 @@ export async function resolveIncrementalMetricRefreshRun({
     scanEnd,
   });
 }
-
-export async function getMetricRefreshLockConflict(
-  context: ReqContext | ApiReqContext,
-  experimentId: string,
-  phase: number,
-): Promise<SnapshotInProgressError> {
-  const state =
-    await context.models.incrementalRefresh.getByExperimentIdAndPhase(
-      experimentId,
-      phase,
-    );
-  return new SnapshotInProgressError(state?.currentExecutionSnapshotId ?? "");
-}

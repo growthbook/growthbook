@@ -271,9 +271,9 @@ import {
 import {
   getErrorMessage,
   BadRequestError,
-  ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   InvalidTrackingKeyError,
+  SnapshotInProgressError,
   SoftWarningError,
 } from "back-end/src/util/errors";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
@@ -291,7 +291,6 @@ import {
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import {
-  getMetricRefreshLockConflict,
   type NewMetricsUpdateWindow,
   planMetricRefresh,
   resolveIncrementalMetricRefreshRun,
@@ -2340,15 +2339,15 @@ export async function createSnapshotFromPlan({
           ),
       });
     if (!hasIncrementalRefreshLock) {
-      if (metricRefresh) {
-        throw await getMetricRefreshLockConflict(
-          context,
+      const state =
+        await context.models.incrementalRefresh.getByExperimentIdAndPhase(
           experiment.id,
           plan.snapshot.phase,
         );
-      }
-      throw new ConcurrentIncrementalRefreshError(
-        "There is already an update in progress for this experiment.",
+      const holder = state?.currentExecutionSnapshotId ?? null;
+      // A phase deletion holds the lock under a token that is no snapshot.
+      throw new SnapshotInProgressError(
+        holder?.startsWith("snp_") ? holder : null,
       );
     }
   }
