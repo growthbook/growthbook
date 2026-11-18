@@ -232,11 +232,17 @@ describe("comparing a pipeline-mode lineage's generated SQL", () => {
   );
 
   it.each([
-    ["the exposure query", { exposureSql: `${exposureQuery.query} WHERE 1=1` }],
-    ["the segment", { segmentSql: `${segment.sql} WHERE 1=1` }],
+    {
+      name: "the exposure query",
+      change: { exposureSql: `${exposureQuery.query} WHERE 1=1` },
+    },
+    {
+      name: "the segment",
+      change: { segmentSql: `${segment.sql} WHERE 1=1` },
+    },
   ])(
-    "catches a change to %s only through the units table queries",
-    async (_, change) => {
+    "catches a change to $name only through the units table queries",
+    async ({ change }) => {
       expect(await getChangedQueries({}, change)).toEqual([
         "snp_base",
         "snp_refresh",
