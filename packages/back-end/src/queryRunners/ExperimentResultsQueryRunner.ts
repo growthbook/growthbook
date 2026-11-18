@@ -75,7 +75,7 @@ import { updateReport } from "back-end/src/models/ReportModel";
 import {
   analyzeMetricRefresh,
   carryMetricRefreshQueries,
-} from "back-end/src/services/metricRefresh";
+} from "back-end/src/services/metricRefreshExecution";
 import {
   QueryRunner,
   QueryMap,

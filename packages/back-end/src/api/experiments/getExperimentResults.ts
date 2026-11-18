@@ -17,7 +17,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { getMetricIdsMissingFromResults } from "back-end/src/services/metricRefresh";
+import { getMetricIdsMissingFromResults } from "back-end/src/services/metricRefreshPlanning";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 import { toApiResultHealth } from "./resultHealth";
 

@@ -88,7 +88,7 @@ import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { getParentQueryCopiers } from "back-end/src/services/metricRefresh";
+import { getParentQueryCopiers } from "back-end/src/services/metricRefreshExecution";
 import {
   analyzeSnapshotResults,
   CLUSTER_HEALTH_QUERY_NAME,

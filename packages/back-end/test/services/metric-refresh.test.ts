@@ -22,11 +22,13 @@ import {
   analyzeMetricRefresh,
   carryMetricRefreshQueries,
   getParentQueryCopiers,
+  getQueriesStartedByRefresh,
+  mergeMetricRefreshAnalyses,
+} from "back-end/src/services/metricRefreshExecution";
+import {
   getMetricIdsMissingFromResults,
   getMetricRefreshLineage,
-  getQueriesStartedByRefresh,
   getQueriesWithChangedSql,
-  mergeMetricRefreshAnalyses,
   getSettingsChangedSinceParent,
   mergeMetricRefreshSettings,
   parseIncrementalRefreshBase,
@@ -37,7 +39,7 @@ import {
   type GenerateResultQuerySql,
   type MetricRefreshReplayLevel,
   type ReplayedQuerySql,
-} from "back-end/src/services/metricRefresh";
+} from "back-end/src/services/metricRefreshPlanning";
 import {
   ExperimentResultsQueryRunner,
   getIndexAfterLastGroup,

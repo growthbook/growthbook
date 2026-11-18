@@ -13,7 +13,7 @@ import {
   getQueriesWithChangedSql,
   replayMetricRefreshLineage,
   type MetricRefreshReplayLevel,
-} from "back-end/src/services/metricRefresh";
+} from "back-end/src/services/metricRefreshPlanning";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 import { factTableFactory } from "back-end/test/factories/FactTable.factory";
 

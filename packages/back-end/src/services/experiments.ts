@@ -295,7 +295,7 @@ import {
   type NewMetricsOnlyUpdateWindow,
   planMetricRefresh,
   resolveIncrementalMetricRefreshRun,
-} from "back-end/src/services/metricRefresh";
+} from "back-end/src/services/metricRefreshPlanning";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getMetricForSnapshot } from "./reports";
 import {

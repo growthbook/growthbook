@@ -19,7 +19,7 @@ import {
   createApiRequestHandler,
 } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
-import { getMetricIdsMissingFromResults } from "back-end/src/services/metricRefresh";
+import { getMetricIdsMissingFromResults } from "back-end/src/services/metricRefreshPlanning";
 import { toApiResultHealth } from "./resultHealth";
 
 export const listExperimentResults = createApiRequestHandler(
