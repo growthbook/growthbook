@@ -100,6 +100,7 @@ export function EventForwarderEnvironmentSelect({
   disabled = false,
   helpText,
   markRequired = true,
+  allowAll: allowAllOverride,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -110,8 +111,10 @@ export function EventForwarderEnvironmentSelect({
   helpText?: string;
   // Off where the other fields mark "(optional)" instead
   markRequired?: boolean;
+  // Replaces the region rule for offering "All Environments"
+  allowAll?: boolean;
 }) {
-  const allowAll = !others.length || savedAll;
+  const allowAll = allowAllOverride ?? (!others.length || savedAll);
   return (
     <SelectField
       size="md"

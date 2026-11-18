@@ -845,8 +845,9 @@ export function toEventForwarderConfigWithMetadata(
 
 // Super admin: changes only which environments a forwarder receives, on
 // either transport. Nothing to re-provision: the ingestor routes by it.
-// - Same rules as an edit: the lock and the overlap check
-// - Rechecked on the fresh row inside the guarded write
+// - Not held by the environment lock: may switch between environments
+// - All environments only for the organization's only forwarder
+// - Otherwise the usual overlap check (no shared environment in a region)
 export async function setEventForwarderEnvironments(
   context: ReqContext,
   existing: EventForwarderConfigInterface,
@@ -855,19 +856,26 @@ export async function setEventForwarderEnvironments(
   const environments = normalizeEventForwarderEnvironments(
     requestedEnvironments,
   );
-  assertEventForwarderEnvironmentUnchanged(context, existing, environments);
-  await assertNoEventForwarderEnvironmentOverlap(context, environments, {
-    current: existing,
-    adding: hasNeverReceivedEvents(existing),
-  });
+  if (!environments.length) {
+    const others = (
+      await context.models.eventForwarderConfigs.getAllBypassingReadPermissions()
+    ).filter((c) => c.id !== existing.id);
+    if (others.length) {
+      throw new Error(
+        "All environments is only allowed for the organization's only Event Forwarder. Choose an environment.",
+      );
+    }
+  } else {
+    await assertNoEventForwarderEnvironmentOverlap(context, environments, {
+      current: existing,
+      adding: true,
+    });
+  }
   const updated = await claimingEnvironment(environments, () =>
     context.models.eventForwarderConfigs.updateWithCas(
       existing.id,
       ["environments", "status"],
-      (fresh) => {
-        assertEventForwarderEnvironmentUnchanged(context, fresh, environments);
-        return { environments };
-      },
+      () => ({ environments }),
     ),
   );
   if (!updated) {

@@ -34,12 +34,13 @@ function neverReceivedEvents(r: { status: string; connectorName?: string }) {
 // Environment picker for an admin action
 // - Reports its value from an effect: the menu re-runs the confirmation
 //   content on parent re-renders, which must not reset the pick
-// - Kept environments show as locked text, all of them
-// - Narrowing warns that it can't be undone
+// - migrate: edit rules; kept environments show as locked text, and
+//   narrowing warns that it can't be undone
+// - change (Super Admin): never locked; All only for the org's only forwarder
 function AdminEnvironmentField({
   saved,
   action,
-  lockedHelpText,
+  onlyForwarder,
   onChange,
   ...props
 }: {
@@ -48,22 +49,23 @@ function AdminEnvironmentField({
   savedAll: boolean;
   disabled: boolean;
   saved: string[];
-  action: "save" | "migrate";
-  lockedHelpText: string;
+  action: "change" | "migrate";
+  onlyForwarder: boolean;
   onChange: (environments: string[]) => void;
 }) {
+  const change = action === "change";
   // null until picked, so an untouched field keeps every saved environment
   const [picked, setPicked] = useState<string | null>(null);
   useEffect(() => {
     onChange(picked === null ? saved : picked ? [picked] : []);
   }, [picked, saved, onChange]);
   const value = picked ?? saved[0] ?? "";
-  if (props.disabled) {
+  if (props.disabled && !change) {
     return (
       <EventForwarderLockedField
         label={saved.length > 1 ? "Environments" : "Environment"}
         value={saved.join(", ")}
-        helpText={lockedHelpText}
+        helpText="Kept when migrating."
       />
     );
   }
@@ -77,11 +79,23 @@ function AdminEnvironmentField({
       ) : null}
       <EventForwarderEnvironmentSelect
         {...props}
+        disabled={change ? false : props.disabled}
+        allowAll={change ? onlyForwarder : undefined}
         value={value}
         onChange={setPicked}
       />
       {picked !== null && narrowsEventForwarderEnvironments(saved, picked) ? (
-        <EventForwarderNarrowingWarning value={picked} action={action} mt="3" />
+        change ? (
+          <Callout status="warning" mt="3">
+            After you save, only events from {picked} are forwarded.
+          </Callout>
+        ) : (
+          <EventForwarderNarrowingWarning
+            value={picked}
+            action="migrate"
+            mt="3"
+          />
+        )
       ) : null}
     </>
   );
@@ -205,7 +219,7 @@ export default function EventForwarders({
                         <AdminEnvironmentField
                           {...environmentFieldProps(row)}
                           action="migrate"
-                          lockedHelpText="Kept when migrating."
+                          onlyForwarder={data.length === 1}
                           onChange={setPickedEnvironments}
                         />
                       </Flex>
@@ -227,8 +241,8 @@ export default function EventForwarders({
                 getConfirmationContent: async () => (
                   <AdminEnvironmentField
                     {...environmentFieldProps(row)}
-                    action="save"
-                    lockedHelpText="This Event Forwarder has received events, so its environments can't be changed."
+                    action="change"
+                    onlyForwarder={data.length === 1}
                     onChange={setPickedEnvironments}
                   />
                 ),

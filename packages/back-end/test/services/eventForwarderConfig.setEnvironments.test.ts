@@ -45,16 +45,17 @@ describe("setEventForwarderEnvironments", () => {
     expect(updateWithCas.mock.calls[0][1]).toEqual(["environments", "status"]);
   });
 
-  it("keeps the lock on a live forwarder that has an environment", async () => {
+  it("switches a live forwarder to another environment", async () => {
     const current = row("a", { environments: ["production"] });
     const { context } = mockContext([current], current);
-    await expect(
-      setEventForwarderEnvironments(context, current, ["dev"]),
-    ).rejects.toThrow(/cannot be changed/);
+    const updated = await setEventForwarderEnvironments(context, current, [
+      "dev",
+    ]);
+    expect(updated.environments).toEqual(["dev"]);
   });
 
   it("rejects an environment another forwarder in the region holds", async () => {
-    const current = row("a");
+    const current = row("a", { environments: ["production"] });
     const { context } = mockContext([
       current,
       row("b", { environments: ["dev"] }),
@@ -64,14 +65,21 @@ describe("setEventForwarderEnvironments", () => {
     ).rejects.toThrow(/already receives/);
   });
 
-  it("rechecks the lock against a binding saved after the read", async () => {
-    const current = row("a");
-    const { context } = mockContext(
-      [current],
-      row("a", { environments: ["production"] }),
-    );
+  it("allows all environments only for the organization's only forwarder", async () => {
+    const current = row("a", { environments: ["production"] });
+    const alone = mockContext([current], current);
+    expect(
+      (await setEventForwarderEnvironments(alone.context, current, []))
+        .environments,
+    ).toEqual([]);
+
+    // Another forwarder anywhere in the organization, even another region
+    const withOther = mockContext([
+      current,
+      row("b", { environments: ["dev"], region: "eu-west-1" }),
+    ]);
     await expect(
-      setEventForwarderEnvironments(context, current, ["dev"]),
-    ).rejects.toThrow(/cannot be changed/);
+      setEventForwarderEnvironments(withOther.context, current, []),
+    ).rejects.toThrow(/only Event Forwarder/);
   });
 });
