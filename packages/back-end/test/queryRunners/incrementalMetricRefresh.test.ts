@@ -341,7 +341,14 @@ async function buildDag({
     startQuery,
     null,
   );
-  return { queries, recorded, calls, updateState, runDropTableQuery };
+  return {
+    queries,
+    recorded,
+    calls,
+    updateState,
+    runDropTableQuery,
+    models: context.models,
+  };
 }
 
 function describeDag(
@@ -651,6 +658,31 @@ describe("metric refresh (metrics-only runs)", () => {
     expect(refresh.runDropTableQuery.mock.calls.map((c) => c[0])).toEqual(
       drops.map((r) => r.query),
     );
+  });
+
+  describe("dropping a replaced table", () => {
+    const replacedSourceDrop = async (state: IncrementalRefreshInterface) => {
+      const refresh = await refreshDag(["a3"], { state });
+      Object.assign(state, await finishWrites(refresh, baseState()));
+      const drop = refresh.recorded.find(
+        (r) => r.name === "drop_replaced_metrics_source_ft_a_stored0",
+      );
+      if (!drop) throw new Error("no drop of the replaced source table");
+      return {
+        ...refresh,
+        runDrop: () => drop.run(drop.query, jest.fn(), {} as RunQueryMetadata),
+      };
+    };
+
+    it("keeps the table when the pipeline state cannot be read", async () => {
+      const refresh = await replacedSourceDrop(baseState());
+      jest
+        .mocked(refresh.models.incrementalRefresh.getLockedBySnapshotId)
+        .mockResolvedValue(null);
+
+      await expect(refresh.runDrop()).resolves.toEqual({ rows: [] });
+      expect(refresh.runDropTableQuery).not.toHaveBeenCalled();
+    });
   });
 
   it("rebuilds every cache of a fact table split across several, so no stored entry is lost", async () => {

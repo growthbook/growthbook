@@ -1470,9 +1470,15 @@ export const startExperimentIncrementalRefreshQueries = async (
               experimentId,
               executionId,
             );
+          if (!state) {
+            context.logger.warn(
+              `Kept replaced metrics table ${tableFullName}: the pipeline state could not be read`,
+            );
+            return { rows: [] };
+          }
           const stillStored = [
-            ...(state?.metricSources ?? []),
-            ...(state?.metricCovariateSources ?? []),
+            ...state.metricSources,
+            ...state.metricCovariateSources,
           ].some((s) => s.tableFullName === tableFullName);
           if (stillStored) {
             context.logger.warn(
