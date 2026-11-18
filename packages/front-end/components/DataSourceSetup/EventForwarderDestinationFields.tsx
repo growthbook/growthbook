@@ -30,7 +30,7 @@ export type EventForwarderDestination = {
   environment?: string;
 };
 
-const ENVIRONMENT_HELP_TEXT =
+export const ENVIRONMENT_HELP_TEXT =
   "Only events from SDK Connections in this environment are forwarded. Each environment can go to only one Event Forwarder in each data region.";
 
 // A value fixed at creation, shown as text with a lock instead of an input

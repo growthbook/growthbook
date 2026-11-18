@@ -3,7 +3,6 @@ import LabelWithHelp from "@/ui/LabelWithHelp";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 
-// Text field whose label carries an info tooltip
 export default function TextFieldWithHelp({
   label,
   name,

@@ -876,9 +876,11 @@ export async function migrateEventForwarderToInHouseConsumer(
   const migrated = await claimingEnvironment(environments, () =>
     context.models.eventForwarderConfigs.updateWithCas(
       existing.id,
-      ["topic", "status", "config"],
+      ["topic", "status", "config", "environments"],
       (fresh) => {
         previous = fresh;
+        // An edit may have bound it since the read above
+        assertEventForwarderEnvironmentUnchanged(context, fresh, environments);
         if (isInHouseConsumerTopic(fresh.topic, fresh.sinkType)) {
           throw new Error(
             "Event forwarder is already on the in-house consumer",

@@ -35,13 +35,14 @@ export function getEventIngestorHost(region: DataRegion): string {
 }
 
 // Data regions with an Event Forwarder that receives the environment
-// - Empty with a Managed Warehouse, which uses the org's region instead
-export function useEventForwarderRegions(environment?: string): DataRegion[] {
-  const { hasManagedWarehouse, eventForwarderEnvironments } = useDefinitions();
-  if (hasManagedWarehouse) return [];
+// ("" in a claim is all environments)
+export function eventForwarderRegionsFor(
+  claims: { environment: string; region: DataRegion }[],
+  environment?: string,
+): DataRegion[] {
   return [
     ...new Set(
-      eventForwarderEnvironments
+      claims
         .filter((e) => !e.environment || e.environment === environment)
         .map((e) => e.region),
     ),
@@ -51,12 +52,28 @@ export function useEventForwarderRegions(environment?: string): DataRegion[] {
 // Ingestor region for an SDK Connection's setup snippets
 // - Follows the Event Forwarder that receives the connection's environment
 // - Forwarders in both regions receive it: undefined, so the SDK default host
-// - Managed Warehouse, or no forwarder for the environment: the org's region
+// - No forwarder for the environment: the org's region
+export function eventIngestorRegionFor(
+  regions: DataRegion[],
+  orgRegion: DataRegion | undefined,
+): DataRegion | undefined {
+  if (regions.length > 1) return undefined;
+  return regions[0] ?? orgRegion;
+}
+
+// Empty with a Managed Warehouse, which uses the org's region instead
+export function useEventForwarderRegions(environment?: string): DataRegion[] {
+  const { hasManagedWarehouse, eventForwarderEnvironments } = useDefinitions();
+  if (hasManagedWarehouse) return [];
+  return eventForwarderRegionsFor(eventForwarderEnvironments, environment);
+}
+
 export function useEventIngestorRegion(
   environment?: string,
 ): DataRegion | undefined {
   const { eventIngestorRegion } = useDefinitions();
-  const regions = useEventForwarderRegions(environment);
-  if (regions.length > 1) return undefined;
-  return regions[0] ?? eventIngestorRegion;
+  return eventIngestorRegionFor(
+    useEventForwarderRegions(environment),
+    eventIngestorRegion,
+  );
 }

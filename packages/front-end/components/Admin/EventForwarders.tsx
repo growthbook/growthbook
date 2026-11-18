@@ -10,7 +10,11 @@ import {
   MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import HelperText from "@/ui/HelperText";
-import { EventForwarderEnvironmentSelect } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
+import {
+  ENVIRONMENT_HELP_TEXT,
+  EventForwarderEnvironmentSelect,
+  EventForwarderLockedField,
+} from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 
@@ -21,8 +25,10 @@ const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
 };
 
 // Own state: the confirmation content is rendered once and kept
+// - Kept environments show as locked text, all of them
+// - Narrowing a forwarder with several warns that the rest are dropped
 function MigrateEnvironmentField({
-  initial,
+  saved,
   onChange,
   ...props
 }: {
@@ -30,10 +36,19 @@ function MigrateEnvironmentField({
   others: string[];
   savedAll: boolean;
   disabled: boolean;
-  initial: string;
+  saved: string[];
   onChange: (value: string) => void;
 }) {
-  const [value, setValue] = useState(initial);
+  const [value, setValue] = useState(saved[0] ?? "");
+  if (props.disabled) {
+    return (
+      <EventForwarderLockedField
+        label={saved.length > 1 ? "Environments" : "Environment"}
+        value={saved.join(", ")}
+        helpText="Kept when migrating."
+      />
+    );
+  }
   return (
     <>
       {props.others.includes("") && !props.savedAll ? (
@@ -44,6 +59,11 @@ function MigrateEnvironmentField({
       ) : null}
       <EventForwarderEnvironmentSelect
         {...props}
+        helpText={
+          saved.length > 1
+            ? `${ENVIRONMENT_HELP_TEXT} Events from other environments stop being forwarded when you migrate.`
+            : undefined
+        }
         value={value}
         onChange={(v) => {
           setValue(v);
@@ -171,7 +191,7 @@ export default function EventForwarders({
                             )
                           }
                           // Single select for now: sends a one-item list when changed
-                          initial={row.environments?.[0] ?? ""}
+                          saved={row.environments ?? []}
                           onChange={(v) =>
                             (migrateEnvironments.current = v ? [v] : [])
                           }
