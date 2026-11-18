@@ -1,15 +1,29 @@
+import { partition } from "lodash";
 import type {
   FactMetricInterface,
   FactTableDefinition,
 } from "shared/types/fact-table";
-import type { MetricValue } from "shared/validators";
+import type {
+  ExplorationPopulation,
+  MetricDataset,
+  MetricValue,
+  PopulationInterface,
+  ProductAnalyticsDimension,
+} from "shared/validators";
 import {
   getChosenUnits,
   getMetricIdentifierTypes,
   getMetricMixClass,
+  getPopulationMetricFactTableId,
+  isSupportedWithPopulation,
   metricSupportsUnitSelection,
+  parseMetricExplorationPopulation,
+  resolveSavedPopulation,
 } from "shared/enterprise";
+import type { PopulationRuleFactTable } from "shared/populations";
+import { isProjectListValidForProject } from "shared/util";
 import type { MetricMixClass } from "shared/enterprise";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
 /**
  * Given the other already-selected metrics in the dataset (excluding the slot
@@ -54,6 +68,32 @@ export function getAddMetricConflict(
   const classes = metricTypes.map(getMetricMixClass);
   if (classes.includes("ratio")) return RATIO_CONFLICT;
   if (classes.includes("quantile")) return QUANTILE_CONFLICT;
+  return null;
+}
+
+/**
+ * Why a metric can't join a chart whose Population reads from
+ * `populationFactTable`, or null if it can (or the chart has no Population,
+ * or its definition hasn't loaded). Populations only support proportion
+ * metrics on their own Fact Table, which the reason names so it says what to
+ * pick instead.
+ */
+export function getPopulationConflict(
+  metric: FactMetricInterface,
+  populationFactTable: { id: string; name: string | null } | null,
+): string | null {
+  if (populationFactTable === null) return null;
+  const { id, name } = populationFactTable;
+  if (!isSupportedWithPopulation(metric)) {
+    return name
+      ? `Charts with this Population only support proportion metrics on the ${name} Fact Table.`
+      : "Charts with a Population only support proportion metrics.";
+  }
+  if (getPopulationMetricFactTableId(metric) !== id) {
+    return name
+      ? `Charts with this Population only support metrics on the ${name} Fact Table.`
+      : "This metric doesn't use the Population's Fact Table.";
+  }
   return null;
 }
 
@@ -165,4 +205,134 @@ export function getReadOnlyUnit(
   return metricSupportsUnitSelection(getFactMetricById(value.metricId))
     ? value.unit
     : null;
+}
+
+/**
+ * The Fact Table a Population must read from to be combined with these
+ * metrics, or null when they can't take one. Populations only support
+ * proportion metrics, and every metric must share the Population's Fact Table.
+ * Empty slots and metrics that haven't loaded yet are skipped, so they don't
+ * hide the picker; null when no loaded proportion is left.
+ */
+export function getPopulationFactTableId(
+  values: MetricValue[],
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string | null {
+  let sharedFactTableId: string | null = null;
+  for (const value of values) {
+    if (!value.metricId) continue;
+    const metric = getFactMetricById(value.metricId);
+    // Unknown until it loads, which isn't the same as incompatible.
+    if (!metric) continue;
+    if (!isSupportedWithPopulation(metric)) return null;
+    const factTableId = getPopulationMetricFactTableId(metric);
+    if (sharedFactTableId === null) {
+      sharedFactTableId = factTableId;
+    } else if (factTableId !== sharedFactTableId) {
+      return null;
+    }
+  }
+  return sharedFactTableId;
+}
+
+/**
+ * Whether a saved Population can be offered for a metric chart: it's in the
+ * current Project, the query would accept it (`resolveSavedPopulation`: the
+ * chart's Data Source, a single step, the chart's identifier type, or any
+ * when none is chosen yet), and its step reads from the metrics' shared Fact
+ * Table.
+ */
+export function populationFitsMetricChart(
+  candidate: Pick<
+    PopulationInterface,
+    "id" | "projects" | "datasource" | "userIdTypes" | "steps"
+  >,
+  chart: {
+    project: string;
+    datasource: string;
+    /** The metrics' shared Fact Table; null when they don't share one. */
+    factTableId: string | null;
+    unit: string | null;
+  },
+): boolean {
+  if (!isProjectListValidForProject(candidate.projects, chart.project)) {
+    return false;
+  }
+  const units = chart.unit ? [chart.unit] : candidate.userIdTypes;
+  return units.some((unit) => {
+    const resolved = resolveSavedPopulation({
+      population: { populationId: candidate.id, unit },
+      savedPopulation: candidate,
+      datasource: chart.datasource,
+    });
+    return (
+      resolved.ok &&
+      resolved.population.source.factTableId === chart.factTableId
+    );
+  });
+}
+
+/**
+ * Why a metric chart's Population can't be used, for the editor. Values
+ * without a metric chosen yet are skipped.
+ */
+export function getMetricChartPopulationViolations({
+  population,
+  savedPopulation,
+  values,
+  dimensions,
+  datasource,
+  getFactMetricById,
+  factTables,
+}: {
+  population: ExplorationPopulation;
+  /** Null when the saved Population was deleted or can't be read. */
+  savedPopulation: Pick<
+    PopulationInterface,
+    "datasource" | "userIdTypes" | "steps"
+  > | null;
+  values: MetricDataset["values"];
+  dimensions: ProductAnalyticsDimension[];
+  datasource: string;
+  getFactMetricById: (id: string) => FactMetricInterface | null;
+  factTables: PopulationRuleFactTable[];
+}): string[] {
+  if (!savedPopulation) {
+    return [
+      "This Population was deleted or you don't have access to it. Choose another Population or None.",
+    ];
+  }
+  const chosenValues = values.filter((value) => value.metricId);
+  const metricMap = new Map<string, FactMetricInterface>();
+  for (const value of chosenValues) {
+    const metric = getFactMetricById(value.metricId);
+    if (metric) metricMap.set(metric.id, metric);
+  }
+  const parsed = parseMetricExplorationPopulation({
+    population,
+    savedPopulation,
+    values: chosenValues,
+    dimensions,
+    datasource,
+    metricMap,
+    factTableMap: new Map(factTables.map((table) => [table.id, table])),
+  });
+  return parsed.ok ? [] : parsed.violations;
+}
+
+/**
+ * Moves the enabled options ahead of the disabled ones, within each group and
+ * otherwise keeping their order.
+ */
+export function orderEnabledOptionsFirst(
+  options: (SingleValue | GroupedValue)[],
+  isDisabled: (value: string) => boolean,
+): (SingleValue | GroupedValue)[] {
+  const enabledFirst = (opts: SingleValue[]) =>
+    partition(opts, (o) => !isDisabled(o.value)).flat();
+  return options.some((o) => "options" in o)
+    ? options.map((o) =>
+        "options" in o ? { ...o, options: enabledFirst(o.options) } : o,
+      )
+    : enabledFirst(options as SingleValue[]);
 }
