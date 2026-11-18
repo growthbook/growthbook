@@ -13,6 +13,7 @@ import {
   fillPopulationSeriesGaps,
   buildExplorerChartComparisonSeriesList,
   sortDateXValues,
+  compareBarFramePx,
   computeBigNumberComparisonTrendForMetricIndex,
   buildCompareChartLegendModel,
   computeBigNumberComparisonTrends,
@@ -930,5 +931,17 @@ describe("fillPopulationSeriesGaps", () => {
     expect(series[0].data.map((d) => d.value[1])).toEqual([50, null, null]);
     // Counts keep reading 0 there.
     expect(series[1].data.map((d) => d.value[1])).toEqual([7, 0, 0]);
+  });
+});
+
+describe("compareBarFramePx", () => {
+  it("rounds a share of the bar width", () => {
+    expect(compareBarFramePx(50, 2, 20, 0.15)).toBe(8);
+    expect(compareBarFramePx(30, 2, 20, 0.15)).toBe(5);
+  });
+
+  it("keeps the frame within the limits", () => {
+    expect(compareBarFramePx(4, 2, 20, 0.15)).toBe(2);
+    expect(compareBarFramePx(500, 2, 20, 0.15)).toBe(20);
   });
 });

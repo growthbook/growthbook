@@ -10,7 +10,7 @@ import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import {
-  dispatchInternal,
+  dispatchForAgent,
   type DispatchInput,
 } from "back-end/src/agent/dispatcher";
 import {
@@ -897,7 +897,7 @@ async function resolvePendingAction(
       query: pendingAction.query,
     };
     try {
-      const dispatched = await dispatchInternal(context, dispatchInput);
+      const dispatched = await dispatchForAgent(context, dispatchInput);
       result = dispatched;
       isError = !(dispatched.status >= 200 && dispatched.status < 300);
     } finally {

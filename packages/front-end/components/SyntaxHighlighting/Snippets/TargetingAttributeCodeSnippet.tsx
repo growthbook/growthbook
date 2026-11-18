@@ -449,10 +449,7 @@ export default function TargetingAttributeCodeSnippet({
           <Box>
             The Auto Attributes Plugin automatically sets some common targeting
             attributes for you. Read more about this{" "}
-            <DocLink useRadix={false} docSection="javascriptAutoAttributes">
-              here
-            </DocLink>
-            .
+            <DocLink docSection="javascriptAutoAttributes">here</DocLink>.
           </Box>
         </>,
       );

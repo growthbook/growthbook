@@ -67,6 +67,7 @@ export const gbContext: Context = {
     session_id: getOrGenerateSessionId(),
     device_id: getOrGenerateDeviceId(),
     page_id: getOrGeneratePageId(),
+    requestSource: "app",
   },
 };
 export const growthbook = new GrowthBook(gbContext);

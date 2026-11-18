@@ -595,6 +595,18 @@ const COMPARE_OVERLAY_Z_PREVIOUS_LINE_ON_TOP = 3;
 
 const COMPARE_OVERLAY_BAR_GAP = "-100%";
 /**
+ * How far the previous period extends past the current bar on each side, in px:
+ * a share of the bar width, kept within [minPx, maxPx].
+ */
+export function compareBarFramePx(
+  barWidth: number,
+  minPx: number,
+  maxPx: number,
+  fraction: number,
+): number {
+  return Math.max(minPx, Math.min(maxPx, Math.round(barWidth * fraction)));
+}
+/**
  * Compare-mode bar widths (see `currentBarWidth` / `previousBarWidth`). The
  * current bar uses a responsive percentage so it scales with the available width,
  * and the previous bar is sized in px as `current + 2 * frame` (computed from the

@@ -58,7 +58,8 @@ import {
   findGoogleAnalytics4Exports,
 } from "back-end/src/services/datasource";
 import {
-  assertNoEventForwarderInOrg,
+  assertNoEventForwarderEnvironmentOverlap,
+  setEventForwarderEnvironments,
   createUnconfiguredEventForwarderConfig,
   recordEventForwarderCreateFailure,
   getEventForwarderForDatasource,
@@ -103,7 +104,7 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import {
   cancelRunningQuery,
@@ -131,7 +132,7 @@ export async function deleteDataSource(
 
   const datasource = await getDataSourceById(context, id);
   if (!datasource) {
-    throw new Error("Cannot find datasource");
+    throw new NotFoundError("Cannot find datasource");
   }
 
   await deleteDataSourceWithChecks(context, datasource);
@@ -227,7 +228,16 @@ export async function postDataSources(
       eventForwarderRegion === "us-east-1" ||
       eventForwarderRegion === "eu-west-1"
     ) {
-      await assertNoEventForwarderInOrg(context);
+      await assertNoEventForwarderEnvironmentOverlap(
+        context,
+        eventForwarderConfig?.environments,
+        {
+          allowUnset: !eventForwarderConfig,
+          region:
+            eventForwarderConfig?.region ??
+            (eventForwarderConfig ? "us-east-1" : eventForwarderRegion),
+        },
+      );
     }
     datasource = await createDataSource(
       context,
@@ -778,6 +788,16 @@ export async function deleteEventForwarderForDataSource(
     !context.permissions.canDeleteEventForwarderConfig(eventForwarderConfig)
   ) {
     context.permissions.throwPermissionError();
+  }
+  // Super admins skip this to clean up from the admin page
+  if (
+    eventForwarderConfig.status === "ready" &&
+    !hasSuperAdminPermission(context.superAdmin, "provision")
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: "Pause the Event Forwarder before deleting it.",
+    });
   }
 
   try {
@@ -1640,7 +1660,7 @@ export async function cancelDataSourceQuery(
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
-    throw new Error("Could not find datasource");
+    throw new NotFoundError("Could not find datasource");
   }
 
   req.checkPermissions(
@@ -1650,7 +1670,7 @@ export async function cancelDataSourceQuery(
 
   const query = await getQueryById(context, queryId);
   if (!query) {
-    throw new Error("Could not find query");
+    throw new NotFoundError("Could not find query");
   }
   if (query.datasource !== datasourceId) {
     throw new Error("Query does not belong to this datasource");
@@ -1847,7 +1867,7 @@ export async function postRecreateManagedWarehouse(
   const { datasourceId } = req.params;
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
-    throw new Error("Cannot find datasource");
+    throw new NotFoundError("Cannot find datasource");
   }
 
   if (datasource.type !== "growthbook_clickhouse") {
@@ -1895,7 +1915,7 @@ export async function postRemoveManagedWarehouseLegacyIdentifier(
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
-    throw new Error("Cannot find datasource");
+    throw new NotFoundError("Cannot find datasource");
   }
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
@@ -1927,7 +1947,7 @@ export async function putManagedWarehouseIdAttributeIdentifier(
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
-    throw new Error("Cannot find datasource");
+    throw new NotFoundError("Cannot find datasource");
   }
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
@@ -1972,10 +1992,57 @@ function getManagedWarehouseJsonSettings(
   };
 }
 
+const eventForwarderEnvironmentsBody = z.object({
+  environments: z.array(z.string()),
+});
+
+// Super admin only: sets which environments a forwarder receives, whether or
+// not it was migrated. Same rules as an edit.
+export async function putEventForwarderEnvironments(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
+) {
+  const context = getContextFromReq(req);
+  if (!hasSuperAdminPermission(context.superAdmin, "provision")) {
+    context.permissions.throwPermissionError();
+  }
+  const body = eventForwarderEnvironmentsBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ status: 400, message: "Invalid environments" });
+    return;
+  }
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    res.status(404).json({ status: 404, message: "Cannot find Data Source" });
+    return;
+  }
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  if (!existing) {
+    res
+      .status(404)
+      .json({ status: 404, message: "Cannot find event forwarder config" });
+    return;
+  }
+  try {
+    await setEventForwarderEnvironments(
+      context,
+      existing,
+      body.data.environments,
+    );
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to set event forwarder environments");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
 // Super admin only: moves a Confluent-connector forwarder onto the in-house
 // consumer and provisions it. Confluent resources are torn down manually later.
 export async function postMigrateEventForwarder(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<{ environments?: string[] } | null, { id: string }>,
   res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
 ) {
   const context = getContextFromReq(req);
@@ -2004,6 +2071,10 @@ export async function postMigrateEventForwarder(
       context,
       existing,
       datasourceParams,
+      Array.isArray(req.body?.environments) &&
+        req.body.environments.every((e) => typeof e === "string")
+        ? req.body.environments
+        : undefined,
     );
     try {
       await provisionEventForwarderThroughLicenseServer(
@@ -2014,9 +2085,26 @@ export async function postMigrateEventForwarder(
     } catch (e) {
       // Restore the pre-migrate row so the Confluent connector keeps serving it
       // and Migrate can be retried; lastProvisioningError keeps the cause.
+      // - Environments go back only if that no longer overlaps: another
+      //   forwarder may have been added while this one was narrowed
+      let environments = migrated.environments ?? [];
+      try {
+        await assertNoEventForwarderEnvironmentOverlap(
+          context,
+          previous.environments,
+          { current: migrated },
+        );
+        environments = previous.environments ?? [];
+      } catch (overlapError) {
+        req.log.warn(
+          { err: overlapError, datasourceId: previous.datasourceId },
+          "Keeping the migrated environments on revert",
+        );
+      }
       const ids = {
         topic: previous.topic,
         status: previous.status,
+        environments,
         schemaId: previous.schemaId,
         connectorName: previous.connectorName,
         connectorId: previous.connectorId,

@@ -2,6 +2,11 @@ import { z } from "zod";
 import { managedByValidator } from "./managed-by";
 import { namedSchema } from "./openapi-helpers";
 import { apiBaseSchema } from "./base-model";
+import {
+  publishBypassedGatesField,
+  sdkConnectionBypassApprovalBodyField,
+  sdkConnectionHookOverrideFields,
+} from "./shared";
 
 export const payloadFormatValidator = z.enum([
   "standard",
@@ -117,7 +122,7 @@ export const apiSdkWebhookValidator = namedSchema(
   }),
 );
 
-const sdkWebhookFields = {
+export const sdkWebhookFields = {
   name: z.string(),
   endpoint: z.string().url(),
   httpMethod: z
@@ -132,6 +137,8 @@ const sdkWebhookFields = {
     .optional()
     .describe('JSON-encoded object, e.g. "{\\"X-Token\\": \\"abc\\"}"'),
   timeoutSeconds: apiWebhookTimeoutSeconds.optional(),
+  bypassApproval: sdkConnectionBypassApprovalBodyField,
+  ...sdkConnectionHookOverrideFields,
 };
 
 // Unused: SDK webhooks are created through their SDK Connection
@@ -139,13 +146,19 @@ export const apiCreateSdkWebhookBody = z.strictObject({});
 export const apiUpdateSdkWebhookBody = z.strictObject({});
 
 export const apiSdkWebhookReturn = z
-  .object({ sdkWebhook: apiSdkWebhookValidator })
+  .object({
+    sdkWebhook: apiSdkWebhookValidator,
+    bypassedGates: publishBypassedGatesField,
+  })
   .strict();
+export const apiSdkWebhookTestReturn = apiSdkWebhookReturn.omit({
+  bypassedGates: true,
+});
 export const apiSdkWebhookListReturn = z
   .object({ sdkWebhooks: z.array(apiSdkWebhookValidator) })
   .strict();
 export const apiSdkWebhookDeleteReturn = z
-  .object({ deletedId: z.string() })
+  .object({ deletedId: z.string(), bypassedGates: publishBypassedGatesField })
   .strict();
 
 const connectionParams = z
@@ -181,6 +194,18 @@ export const putSdkWebhookValidator = {
     })
     .partial()
     .strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+};
+
+export const deleteSdkWebhookValidator = {
+  bodySchema: z
+    .object({
+      bypassApproval: sdkConnectionBypassApprovalBodyField,
+      ...sdkConnectionHookOverrideFields,
+    })
+    .strict()
+    .optional(),
   querySchema: z.never(),
   paramsSchema: idParams,
 };

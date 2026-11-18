@@ -726,7 +726,7 @@ export default abstract class SqlIntegration
   processExperimentFactMetricsQueryRows(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rows: Record<string, any>[],
-  ): ExperimentFactMetricsQueryResponseRows {
+  ): Promise<ExperimentFactMetricsQueryResponseRows> {
     return processExperimentFactMetricsQueryRowsFromSql(rows);
   }
 
@@ -741,7 +741,7 @@ export default abstract class SqlIntegration
       queryMetadata,
     );
     return {
-      rows: this.processExperimentFactMetricsQueryRows(rows),
+      rows: await this.processExperimentFactMetricsQueryRows(rows),
       statistics: statistics,
     };
   }
@@ -3951,7 +3951,7 @@ export default abstract class SqlIntegration
       queryMetadata,
     );
     return {
-      rows: this.processExperimentFactMetricsQueryRows(rows),
+      rows: await this.processExperimentFactMetricsQueryRows(rows),
       statistics: statistics,
     };
   }

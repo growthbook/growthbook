@@ -77,6 +77,7 @@ import {
   queueSDKPayloadRefresh,
   synthesizeRuleId,
 } from "back-end/src/services/features";
+import { getOwnerEmail } from "back-end/src/services/owner";
 import {
   advancedGuardStamp,
   CasConflictError,
@@ -1286,6 +1287,14 @@ export async function deleteAllFeaturesForAProject({
   }
 }
 
+async function withOwnerEmail<T extends { owner: string }>(
+  feature: T,
+  context: ReqContext,
+): Promise<T> {
+  const ownerEmail = await getOwnerEmail(feature.owner, context);
+  return ownerEmail ? { ...feature, ownerEmail } : feature;
+}
+
 export const createFeatureEvent = async <
   Event extends ResourceEvents<"feature">,
 >(eventData: {
@@ -1322,14 +1331,17 @@ export const createFeatureEvent = async <
       version: eventData.data.object.version,
     });
 
-    const currentApiFeature = getApiFeatureObj({
-      feature: eventData.data.object,
-      organization: eventData.context.org,
-      groupMap,
-      experimentMap,
-      revision: currentRevision,
-      safeRolloutMap,
-    });
+    const currentApiFeature = await withOwnerEmail(
+      getApiFeatureObj({
+        feature: eventData.data.object,
+        organization: eventData.context.org,
+        groupMap,
+        experimentMap,
+        revision: currentRevision,
+        safeRolloutMap,
+      }),
+      eventData.context,
+    );
 
     if (!hasPreviousObject<"feature", Event, FeatureInterface>(eventData.data))
       return {
@@ -1355,14 +1367,17 @@ export const createFeatureEvent = async <
       version: eventData.data.previous_object.version,
     });
 
-    const previousApiFeature = getApiFeatureObj({
-      feature: eventData.data.previous_object,
-      organization: eventData.context.org,
-      groupMap,
-      experimentMap,
-      revision: previousRevision,
-      safeRolloutMap,
-    });
+    const previousApiFeature = await withOwnerEmail(
+      getApiFeatureObj({
+        feature: eventData.data.previous_object,
+        organization: eventData.context.org,
+        groupMap,
+        experimentMap,
+        revision: previousRevision,
+        safeRolloutMap,
+      }),
+      eventData.context,
+    );
 
     let changes: DiffResult | undefined;
     try {

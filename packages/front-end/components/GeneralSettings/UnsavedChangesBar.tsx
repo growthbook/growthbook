@@ -102,8 +102,8 @@ export default function UnsavedChangesBar() {
             role="region"
             aria-label="Unsaved changes"
           >
-            <Flex align="center" gap="3" wrap="wrap">
-              <Box flexGrow="1" aria-live="polite">
+            <Flex align="center" gap="3">
+              <Box flexGrow="1" minWidth="0" aria-live="polite">
                 {dirtyCount > 0 && (
                   <Popover
                     side="top"
@@ -124,6 +124,7 @@ export default function UnsavedChangesBar() {
                         color="gray"
                         icon={<PiCaretUp />}
                         iconPosition="right"
+                        truncate
                       >
                         {describeUnsavedChanges(dirtyCount, dirtySectionIds)}
                       </Button>
@@ -142,14 +143,14 @@ export default function UnsavedChangesBar() {
                 )}
               </Box>
               {dirtyCount > 0 && (
-                <>
+                <Flex align="center" gap="3" flexShrink="0">
                   <Button variant="ghost" onClick={discard}>
                     Discard
                   </Button>
                   <Button onClick={save} setError={setSubmitError}>
                     Save changes
                   </Button>
-                </>
+                </Flex>
               )}
             </Flex>
           </Box>
