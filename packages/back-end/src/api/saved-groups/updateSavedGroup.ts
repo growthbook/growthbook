@@ -104,7 +104,7 @@ export const updateSavedGroup = createApiRequestHandler(
   }
   if (
     savedGroup.type === "condition" &&
-    condition &&
+    condition !== undefined &&
     condition !== savedGroup.condition
   ) {
     const referencedGroups =

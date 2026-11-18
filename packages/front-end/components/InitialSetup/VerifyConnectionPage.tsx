@@ -13,6 +13,8 @@ import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/In
 import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EventIngestorRegionWarning from "@/components/SyntaxHighlighting/Snippets/EventIngestorRegionWarning";
+import { useEventIngestorRegion } from "@/services/dataRegions";
 import { useAttributeSchema } from "@/services/features";
 import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import { GBHashLock } from "@/components/Icons";
@@ -58,10 +60,13 @@ const VerifyConnectionPage = ({
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
   const { data, error, mutate } = useSDKConnections();
-  const { ready: definitionsReady, eventIngestorRegion } = useDefinitions();
+  const { ready: definitionsReady } = useDefinitions();
 
   const currentConnection: SDKConnectionInterface | null =
     data?.connections.find((c) => c.id === connection) || null;
+  const eventIngestorRegion = useEventIngestorRegion(
+    currentConnection?.environment,
+  );
 
   useEffect(() => {
     if (currentConnection) {
@@ -253,6 +258,10 @@ const VerifyConnectionPage = ({
             </h4>
             {installationOpen && (
               <div className="appbox bg-light p-3">
+                <EventIngestorRegionWarning
+                  environment={currentConnection?.environment}
+                  eventTracker={eventTracker}
+                />
                 <InstallationCodeSnippet
                   language={currentConnection.languages[0]}
                   eventTracker={eventTracker}

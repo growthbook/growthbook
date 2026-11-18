@@ -67,7 +67,8 @@ describe("updateFactTableValidator", () => {
 
   it("excludes every response-only column field", () => {
     const updateColumnShape =
-      updateFactTableValidator.bodySchema.shape.columns.unwrap().element.shape;
+      updateFactTableValidator.bodySchema.shape.columns.unwrap().element.out
+        .shape;
     const responseOnlyFields = Object.entries(apiFactTableColumnValidator.shape)
       .filter(([, schema]) => isResponseOnly(schema))
       .map(([field]) => field);
@@ -82,7 +83,9 @@ describe("updateFactTableValidator", () => {
     ["dataTypeFromWarehouse", "string"],
     ["dateCreated", "2026-01-01T00:00:00.000Z"],
     ["dateUpdated", "2026-01-01T00:00:00.000Z"],
-  ])("rejects the response-only column field %s", (field, value) => {
+    ["topValues", ["a", "b"]],
+    ["topValuesDate", "2026-01-01T00:00:00.000Z"],
+  ])("drops the response-only column field %s", (field, value) => {
     const result = updateFactTableValidator.bodySchema.safeParse({
       columns: [
         {
@@ -91,6 +94,15 @@ describe("updateFactTableValidator", () => {
           [field]: value,
         },
       ],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.columns?.[0]).not.toHaveProperty(field);
+  });
+
+  it("still rejects unknown column fields", () => {
+    const result = updateFactTableValidator.bodySchema.safeParse({
+      columns: [{ column: "payload", notAField: true }],
     });
 
     expect(result.success).toBe(false);

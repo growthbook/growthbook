@@ -150,8 +150,9 @@ Triggered when a feature is created
             dateUpdated: string;
             archived: boolean;
             description: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner: string;
+            ownerEmail?: string | undefined;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
             defaultValue: string;
@@ -227,8 +228,9 @@ Triggered when a feature is updated
             dateUpdated: string;
             archived: boolean;
             description: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner: string;
+            ownerEmail?: string | undefined;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
             defaultValue: string;
@@ -257,8 +259,9 @@ Triggered when a feature is updated
             dateUpdated?: string | undefined;
             archived?: boolean | undefined;
             description?: string | undefined;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
+            ownerEmail?: string | undefined;
             project?: string | undefined;
             valueType?: ("boolean" | "string" | "number" | "json") | undefined;
             defaultValue?: string | undefined;
@@ -339,8 +342,9 @@ Triggered when a feature is deleted
             dateUpdated: string;
             archived: boolean;
             description: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner: string;
+            ownerEmail?: string | undefined;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
             defaultValue: string;
@@ -3545,7 +3549,7 @@ Triggered when an experiment is created
             hypothesis: string;
             description: string;
             tags: string[];
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner: string;
             ownerEmail?: string | undefined;
             archived: boolean;
@@ -3844,7 +3848,7 @@ Triggered when an experiment is updated
             hypothesis: string;
             description: string;
             tags: string[];
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner: string;
             ownerEmail?: string | undefined;
             archived: boolean;
@@ -4096,7 +4100,7 @@ Triggered when an experiment is updated
             hypothesis?: string | undefined;
             description?: string | undefined;
             tags?: string[] | undefined;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             archived?: boolean | undefined;
@@ -4400,7 +4404,7 @@ Triggered when an experiment is deleted
             hypothesis: string;
             description: string;
             tags: string[];
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner: string;
             ownerEmail?: string | undefined;
             archived: boolean;
@@ -9690,7 +9694,7 @@ Triggered when a saved group is created
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -9766,7 +9770,7 @@ Triggered when a saved group is updated
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -9795,7 +9799,7 @@ Triggered when a saved group is updated
             dateCreated?: string | undefined;
             dateUpdated?: string | undefined;
             name?: string | undefined;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -9876,7 +9880,7 @@ Triggered when a saved group is deleted
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -10021,7 +10025,7 @@ Triggered when a new draft revision is created for a saved group
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -10050,7 +10054,7 @@ Triggered when a new draft revision is created for a saved group
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -10260,7 +10264,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -10289,7 +10293,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -10500,7 +10504,7 @@ Triggered when a draft revision is submitted for review
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -10529,7 +10533,7 @@ Triggered when a draft revision is submitted for review
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -10739,7 +10743,7 @@ Triggered when a draft revision is approved by a reviewer
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -10768,7 +10772,7 @@ Triggered when a draft revision is approved by a reviewer
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -11000,7 +11004,7 @@ Triggered when a reviewer requests changes on a draft revision
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -11029,7 +11033,7 @@ Triggered when a reviewer requests changes on a draft revision
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -11261,7 +11265,7 @@ Triggered when a comment is added to a draft revision
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -11290,7 +11294,7 @@ Triggered when a comment is added to a draft revision
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -11522,7 +11526,7 @@ Triggered when a draft revision is discarded
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -11551,7 +11555,7 @@ Triggered when a draft revision is discarded
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -11761,7 +11765,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -11790,7 +11794,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -12000,7 +12004,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -12029,7 +12033,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -12240,7 +12244,7 @@ Triggered when a saved group is reverted to a previous published revision
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -12269,7 +12273,7 @@ Triggered when a saved group is reverted to a previous published revision
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -12481,7 +12485,7 @@ Triggered when a discarded revision is reopened
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -12510,7 +12514,7 @@ Triggered when a discarded revision is reopened
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -12720,7 +12724,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -12749,7 +12753,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -12959,7 +12963,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -12988,7 +12992,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -13198,7 +13202,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -13227,7 +13231,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -13437,7 +13441,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -13466,7 +13470,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 dateCreated: string;
                 dateUpdated: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** When type = 'condition', this is the JSON-encoded condition for the group */
@@ -13611,7 +13615,7 @@ Triggered when a constant is created
             key: string;
             name: string;
             type: "string" | "json";
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -13678,7 +13682,7 @@ Triggered when a constant is updated
             key: string;
             name: string;
             type: "string" | "json";
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -13698,7 +13702,7 @@ Triggered when a constant is updated
             key?: string | undefined;
             name?: string | undefined;
             type?: ("string" | "json") | undefined;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -13770,7 +13774,7 @@ Triggered when a constant is deleted
             key: string;
             name: string;
             type: "string" | "json";
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -13907,7 +13911,7 @@ Triggered when a new draft revision is created for a constant
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -13927,7 +13931,7 @@ Triggered when a new draft revision is created for a constant
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -14129,7 +14133,7 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -14149,7 +14153,7 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -14352,7 +14356,7 @@ Triggered when a draft revision is submitted for review
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -14372,7 +14376,7 @@ Triggered when a draft revision is submitted for review
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -14574,7 +14578,7 @@ Triggered when a draft revision is approved by a reviewer
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -14594,7 +14598,7 @@ Triggered when a draft revision is approved by a reviewer
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -14818,7 +14822,7 @@ Triggered when a reviewer requests changes on a draft revision
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -14838,7 +14842,7 @@ Triggered when a reviewer requests changes on a draft revision
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -15062,7 +15066,7 @@ Triggered when a comment is added to a draft revision
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -15082,7 +15086,7 @@ Triggered when a comment is added to a draft revision
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -15306,7 +15310,7 @@ Triggered when a draft revision is discarded
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -15326,7 +15330,7 @@ Triggered when a draft revision is discarded
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -15528,7 +15532,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -15548,7 +15552,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -15750,7 +15754,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -15770,7 +15774,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -15973,7 +15977,7 @@ Triggered when a constant is reverted to a previous published revision
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -15993,7 +15997,7 @@ Triggered when a constant is reverted to a previous published revision
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -16197,7 +16201,7 @@ Triggered when a discarded revision is reopened
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -16217,7 +16221,7 @@ Triggered when a discarded revision is reopened
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -16419,7 +16423,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -16439,7 +16443,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -16641,7 +16645,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -16661,7 +16665,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -16863,7 +16867,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -16883,7 +16887,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -17085,7 +17089,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -17105,7 +17109,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 key: string;
                 name: string;
                 type: "string" | "json";
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
@@ -17240,7 +17244,7 @@ Triggered when a config is created
             /** Stable reference handle; used as `@config:key` in values */
             key: string;
             name: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -17356,7 +17360,7 @@ Triggered when a config is updated
             /** Stable reference handle; used as `@config:key` in values */
             key: string;
             name: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -17425,7 +17429,7 @@ Triggered when a config is updated
             /** Stable reference handle; used as `@config:key` in values */
             key?: string | undefined;
             name?: string | undefined;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -17546,7 +17550,7 @@ Triggered when a config is deleted
             /** Stable reference handle; used as `@config:key` in values */
             key: string;
             name: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
+            /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
             owner?: string | undefined;
             ownerEmail?: string | undefined;
             /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -17732,7 +17736,7 @@ Triggered when a new draft revision is created for a config
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -17801,7 +17805,7 @@ Triggered when a new draft revision is created for a config
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -18052,7 +18056,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -18121,7 +18125,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -18373,7 +18377,7 @@ Triggered when a draft revision is submitted for review
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -18442,7 +18446,7 @@ Triggered when a draft revision is submitted for review
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -18693,7 +18697,7 @@ Triggered when a draft revision is approved by a reviewer
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -18762,7 +18766,7 @@ Triggered when a draft revision is approved by a reviewer
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -19035,7 +19039,7 @@ Triggered when a reviewer requests changes on a draft revision
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -19104,7 +19108,7 @@ Triggered when a reviewer requests changes on a draft revision
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -19377,7 +19381,7 @@ Triggered when a comment is added to a draft revision
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -19446,7 +19450,7 @@ Triggered when a comment is added to a draft revision
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -19719,7 +19723,7 @@ Triggered when a draft revision is discarded
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -19788,7 +19792,7 @@ Triggered when a draft revision is discarded
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -20039,7 +20043,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -20108,7 +20112,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -20359,7 +20363,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -20428,7 +20432,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -20680,7 +20684,7 @@ Triggered when a config is reverted to a previous published revision
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -20749,7 +20753,7 @@ Triggered when a config is reverted to a previous published revision
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -21002,7 +21006,7 @@ Triggered when a discarded revision is reopened
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -21071,7 +21075,7 @@ Triggered when a discarded revision is reopened
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -21322,7 +21326,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -21391,7 +21395,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -21642,7 +21646,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -21711,7 +21715,7 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -21962,7 +21966,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -22031,7 +22035,7 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -22282,7 +22286,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
@@ -22351,7 +22355,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 /** Stable reference handle; used as `@config:key` in values */
                 key: string;
                 name: string;
-                /** The userId of the owner (or raw owner name/email for legacy records) */
+                /** The userId of the owner (or raw owner name/email for legacy records). An owner set by email comes back here as its userId; compare against `ownerEmail` instead. */
                 owner?: string | undefined;
                 ownerEmail?: string | undefined;
                 /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */

@@ -1073,6 +1073,7 @@
                 "group": "Meta",
                 "pages": [
                   "api/meta/operation/getVersion",
+                  "api/meta/operation/listConfirmations",
                   "api/meta/operation/getConfirmation"
                 ]
               },

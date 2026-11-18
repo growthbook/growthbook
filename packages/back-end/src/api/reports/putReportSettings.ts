@@ -13,6 +13,7 @@ import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { NotFoundError } from "back-end/src/util/errors";
+import { assertValidReportClusterConfig } from "back-end/src/services/reports";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const putReportSettings = createApiRequestHandler(
@@ -107,6 +108,11 @@ export const putReportSettings = createApiRequestHandler(
   if (skipPartialData !== undefined)
     newSettings.skipPartialData = skipPartialData;
 
+  await assertValidReportClusterConfig(
+    req.context,
+    newSettings,
+    currentSettings,
+  );
   updates.experimentAnalysisSettings = newSettings;
 
   // Merge variation metadata — update only the variations provided by index match on id.

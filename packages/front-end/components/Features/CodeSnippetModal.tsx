@@ -30,6 +30,8 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { StopSubmit } from "@/ui/Modal/StopSubmit";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EventIngestorRegionWarning from "@/components/SyntaxHighlighting/Snippets/EventIngestorRegionWarning";
+import { useEventIngestorRegion } from "@/services/dataRegions";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useAttributeSchema } from "@/services/features";
@@ -159,7 +161,10 @@ export default function CodeSnippetModal({
 
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
-  const { ready: definitionsReady, eventIngestorRegion } = useDefinitions();
+  const { ready: definitionsReady } = useDefinitions();
+  const eventIngestorRegion = useEventIngestorRegion(
+    currentConnection?.environment,
+  );
 
   const permissionsUtil = usePermissionsUtil();
   const canUpdate = currentConnection
@@ -386,6 +391,10 @@ export default function CodeSnippetModal({
               </Callout>
             </Box>
           ) : null}
+          <EventIngestorRegionWarning
+            environment={currentConnection?.environment}
+            eventTracker={eventTracker}
+          />
           <InstallationCodeSnippet
             language={language}
             eventTracker={eventTracker}

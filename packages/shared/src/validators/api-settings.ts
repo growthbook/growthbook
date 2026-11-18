@@ -166,7 +166,6 @@ export const apiSettingsValidator = namedSchema(
       loseRisk: retiredRiskDefault(),
       secureAttributeSalt: z.string(),
       killswitchConfirmation: z.boolean(),
-      featureKillSwitchBehavior: z.enum(["off", "warn"]).optional(),
       requireReviews: z.array(apiRequireReviewRule),
       approvalFlows: apiApprovalFlows,
       targetingReviewMode: z.array(apiTargetingReviewRule).optional(),

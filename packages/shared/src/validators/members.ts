@@ -34,7 +34,17 @@ export const apiMemberValidator = namedSchema(
       environments: z.array(z.string()).optional(),
       limitAccessByEnvironment: z.boolean().optional(),
       additionalRoles: apiAdditionalRoles,
-      managedbyIdp: z.boolean().optional(),
+      managedByIdp: z
+        .boolean()
+        .describe(
+          "Whether the member is provisioned and managed by an identity provider (SCIM).",
+        )
+        .optional(),
+      managedbyIdp: z
+        .boolean()
+        .describe("Deprecated: use `managedByIdp`.")
+        .meta({ deprecated: true })
+        .optional(),
       teams: z.array(z.string()).optional(),
       projectRoles: z
         .array(
