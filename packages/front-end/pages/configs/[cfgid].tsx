@@ -408,12 +408,12 @@ export default function ConfigDetailPage(): React.ReactElement {
     tab,
     homeTab: ["overview", "validation"],
   });
-  // The family tree, open or not across every Config and tab.
+  // The family tree, open or not across every Config.
   const lineagePanel = useDetailsPanel({
     openKey: "config-lineage-panel-open",
     widthKey: "config-lineage-panel-width",
     tab,
-    homeTab: ["overview", "review", "validation"],
+    homeTab: "overview",
     defaultWidth: LINEAGE_PANEL_WIDTH_PX,
   });
   const tabsTop = useTabsTop();

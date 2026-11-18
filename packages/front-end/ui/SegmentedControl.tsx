@@ -4,6 +4,12 @@ import { ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
 
+// Each ladder size is as tall as a button of that size, so the control sits
+// level in a row of buttons. "normal" sits between sm and md, off the shared
+// ladder on purpose: sm's type with breathing room, for a control that stands
+// on its own, where legibility matters more than matching a row.
+type SegmentedControlSize = Size<"sm" | "md" | "lg"> | "normal";
+
 export type SegmentedControlOption<T extends string> = {
   value: T;
   label: ReactNode;
@@ -58,7 +64,7 @@ export default function SegmentedControl<T extends string>({
   value: T;
   setValue: (value: NoInfer<T>) => void;
   options: SegmentedControlOption<NoInfer<T>>[];
-  size?: Size<"sm" | "md" | "lg">;
+  size?: SegmentedControlSize;
   /** Long labels wrap onto more lines rather than overflow a narrow container. */
   wrap?: boolean;
   "aria-label": string;
@@ -81,11 +87,12 @@ export default function SegmentedControl<T extends string>({
     <RadixSegmentedControl.Root
       ref={rootRef}
       {...marginProps}
-      size={radixSize(size)}
+      size={radixSize(size === "normal" ? "sm" : size)}
       value={value}
       onValueChange={(v) => setValue(v as T)}
       aria-label={ariaLabel}
       className={clsx("gb-segmented-control", {
+        "gb-segmented-control--normal": size === "normal",
         "gb-segmented-control--wrap": wrap,
       })}
     >
