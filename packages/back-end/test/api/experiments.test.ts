@@ -3594,6 +3594,110 @@ describe("experiments API", () => {
       );
     });
 
+    describe("missingMetricIds", () => {
+      const resultsPhase = {
+        name: "Main",
+        dateStarted: new Date("2024-01-01"),
+        dateEnded: null,
+        reason: "",
+        seed: "test-seed",
+        coverage: 1,
+        variationWeights: [0.5, 0.5],
+        condition: "",
+        savedGroups: [],
+        prerequisites: [],
+        namespace: { enabled: false },
+      };
+      const getResults = async ({
+        snapshot = {},
+        query = "",
+      }: {
+        snapshot?: object;
+        query?: string;
+      } = {}) => {
+        updateReqContext({
+          org,
+          permissions: { canViewExperiment: () => true },
+          models: {
+            metricGroups: {
+              getAll: jest
+                .fn()
+                .mockResolvedValue([
+                  { id: "mg_1", metrics: ["met_2", "met_3"] },
+                ]),
+            },
+          },
+        });
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...experiment,
+          goalMetrics: ["met_1", "mg_1"],
+          secondaryMetrics: [],
+          guardrailMetrics: [],
+          phases: [resultsPhase, resultsPhase],
+        });
+        (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
+          id: "snap_123",
+          organization: "org_1",
+          experiment: "exp_123",
+          phase: 1,
+          dimension: null,
+          dateCreated: new Date(),
+          runStarted: new Date(),
+          queries: [],
+          unknownVariations: [],
+          multipleExposures: 0,
+          hasCorrectedStats: false,
+          results: [],
+          settings: {
+            experimentId: "exp_123",
+            statsEngine: "bayesian",
+            variations: [],
+            metricSettings: [{ id: "met_1" }, { id: "met_2" }],
+          },
+          ...snapshot,
+        });
+        return request(app)
+          .get(`/api/v1/experiments/exp_123/results${query}`)
+          .set("Authorization", "Bearer foo");
+      };
+
+      it("lists the metrics added after the latest phase's Overall Results, expanding groups", async () => {
+        const res = await getResults();
+
+        expect(res.status).toBe(200);
+        expect(res.body.result.missingMetricIds).toEqual(["met_3"]);
+      });
+
+      it("is an empty list when the results cover every metric", async () => {
+        const res = await getResults({
+          snapshot: {
+            settings: {
+              experimentId: "exp_123",
+              variations: [],
+              metricSettings: [
+                { id: "met_1" },
+                { id: "met_2" },
+                { id: "met_3" },
+              ],
+            },
+          },
+        });
+
+        expect(res.status).toBe(200);
+        expect(res.body.result.missingMetricIds).toEqual([]);
+      });
+
+      it.each([
+        ["a dimension breakdown", { snapshot: { dimension: "pre:date" } }],
+        ["an earlier phase", { snapshot: { phase: 0 }, query: "?phase=0" }],
+      ])("is absent on %s", async (_, args) => {
+        const res = await getResults(args);
+
+        expect(res.status).toBe(200);
+        expect(res.body.result).not.toHaveProperty("missingMetricIds");
+      });
+    });
+
     it("returns 404 when experiment not found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(null);
 

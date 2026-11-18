@@ -12,6 +12,7 @@ import {
   createApiRequestHandler,
 } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { getMetricIdsMissingFromResults } from "back-end/src/services/metricRefresh";
 import { toApiResultHealth } from "./resultHealth";
 
 export const listExperimentResults = createApiRequestHandler(
@@ -80,6 +81,9 @@ export const listExperimentResults = createApiRequestHandler(
   // reflects the response array, not the page slice.
   const experimentResults = filtered.flatMap((experiment) => {
     const snapshot = snapshotsByExperiment.get(experiment.id);
+    const missingMetricIds =
+      snapshot &&
+      getMetricIdsMissingFromResults({ experiment, snapshot, metricGroups });
     return snapshot
       ? [
           {
@@ -90,6 +94,7 @@ export const listExperimentResults = createApiRequestHandler(
               exposureQueriesByDatasource.get(experiment.datasource) ?? [],
             ),
             health: toApiResultHealth({ experiment, snapshot, healthSettings }),
+            ...(missingMetricIds ? { missingMetricIds } : {}),
           },
         ]
       : [];

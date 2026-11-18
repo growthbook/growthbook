@@ -1469,6 +1469,12 @@ export const apiExperimentResultsValidator = namedSchema(
       queryIds: z.array(z.string()),
       // Set by the experiment results endpoints; report results have none.
       health: apiExperimentResultHealthValidator.optional(),
+      missingMetricIds: z
+        .array(z.string())
+        .describe(
+          "Metrics on the experiment that these results don't include yet, because they were added after the results were computed. Create a snapshot (POST /experiments/{id}/snapshot) to compute them. Present only on Overall Results of the latest phase.",
+        )
+        .optional(),
       results: z.array(
         z.object({
           dimension: z.string(),

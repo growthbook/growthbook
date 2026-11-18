@@ -14,6 +14,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
+import { getMetricIdsMissingFromResults } from "back-end/src/services/metricRefresh";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 import { toApiResultHealth } from "./resultHealth";
 
@@ -38,6 +39,12 @@ export const getExperimentResults = createApiRequestHandler(
   if (!snapshot) {
     throw new Error("No results found for that experiment");
   }
+
+  const missingMetricIds = getMetricIdsMissingFromResults({
+    experiment,
+    snapshot,
+    metricGroups: await req.context.models.metricGroups.getAll(),
+  });
 
   const [apiExperiment, metricsById, exposureQueries] = await Promise.all([
     // Holdouts have no enhanced status. Non-holdout requests do have enhanced status
@@ -70,6 +77,7 @@ export const getExperimentResults = createApiRequestHandler(
         snapshot,
         healthSettings: getHealthSettingsForOrg(req.context),
       }),
+      ...(missingMetricIds ? { missingMetricIds } : {}),
     },
   };
 });

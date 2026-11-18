@@ -346,6 +346,41 @@ export function mergeMetricRefreshSettings({
   };
 }
 
+/**
+ * The experiment's metrics that a results snapshot does not cover yet, or
+ * undefined when the snapshot is not the latest phase's Overall results, the
+ * only results an update adds newly added metrics to.
+ */
+export function getMetricIdsMissingFromResults({
+  experiment,
+  snapshot,
+  metricGroups,
+}: {
+  experiment: Pick<
+    ExperimentInterface,
+    "phases" | "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
+  >;
+  snapshot: Pick<ExperimentSnapshotInterface, "dimension" | "phase"> & {
+    settings: Partial<Pick<ExperimentSnapshotSettings, "metricSettings">>;
+  };
+  metricGroups: MetricGroupInterface[];
+}): string[] | undefined {
+  const { metricSettings } = snapshot.settings;
+  // Legacy snapshots predate per-metric settings, so they can't say which metrics they hold.
+  if (
+    snapshot.dimension ||
+    snapshot.phase !== experiment.phases.length - 1 ||
+    !metricSettings
+  ) {
+    return undefined;
+  }
+  return getMetricIdsMissingFromSnapshot({
+    experiment,
+    snapshotSettings: { metricSettings },
+    metricGroups,
+  });
+}
+
 export function getMetricRefreshLineage(
   parent: Pick<
     ExperimentSnapshotInterface,
