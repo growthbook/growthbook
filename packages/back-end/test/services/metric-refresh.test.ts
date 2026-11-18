@@ -1957,13 +1957,17 @@ describe("mergeMetricRefreshAnalyses", () => {
   const merge = (
     analyses: ExperimentSnapshotAnalysis[],
     freshResults: ExperimentReportResultDimension[][],
-    freshMetricIds = ["met_c"],
   ) =>
     mergeMetricRefreshAnalyses({
       analyses,
       freshResults,
-      analyzedMetricIds: new Set(["met_a", "met_b", "met_c"]),
-      freshMetricIds: new Set(freshMetricIds),
+      analyzedMetricIds: new Set([
+        "met_a",
+        "met_b",
+        "met_c",
+        "met_c?dim:country=US",
+      ]),
+      newMetricIds: new Set(["met_c"]),
       variationWeights: [0.5, 0.5],
     });
 
@@ -2002,22 +2006,43 @@ describe("mergeMetricRefreshAnalyses", () => {
     ]);
   });
 
-  it("never keeps the parent's numbers for a metric this run queried again", () => {
+  it("keeps the parent's numbers for a metric this run returned rows for again", () => {
     const parent = analysis({}, [resultDimension({ met_a: 1, met_b: 2 })]);
 
-    const [requeried] = merge(
+    const [merged] = merge(
       [parent],
-      [[resultDimension({ met_b: 5 })]],
-      ["met_b"],
+      [
+        [
+          resultDimension({
+            met_a: 7,
+            met_b: 5,
+            met_c: 3,
+            "met_c?dim:country=US": 4,
+          }),
+        ],
+      ],
     );
-    const [noOutput] = merge([parent], [[]], ["met_b"]);
+    const [noOutput] = merge([parent], [[]]);
 
-    expect(requeried.results[0].variations[0].metrics.met_b).toEqual(
-      metricResult(5),
-    );
+    expect(merged.results[0].variations[0].metrics).toEqual({
+      met_a: metricResult(1),
+      met_b: metricResult(2),
+      met_c: metricResult(3),
+      "met_c?dim:country=US": metricResult(4),
+    });
     expect(noOutput.results[0].variations[0].metrics).toEqual({
       met_a: metricResult(1),
+      met_b: metricResult(2),
     });
+  });
+
+  it("adds only the new metrics from a dimension value the parent lacks", () => {
+    const [merged] = merge(
+      [analysis({}, [resultDimension({ met_a: 1 }, "US")])],
+      [[resultDimension({ met_a: 7, met_c: 3 }, "FR")]],
+    );
+
+    expect(merged.results[1]).toEqual(resultDimension({ met_c: 3 }, "FR"));
   });
 
   it("takes the most units any metric saw and recomputes SRM only when they change", () => {
@@ -2144,6 +2169,90 @@ describe("analyzeMetricRefresh", () => {
     expect(result).toMatchObject({
       unknownVariations: ["v_unknown"],
       multipleExposures: 4,
+    });
+  });
+
+  describe("on the Incremental Pipeline, where the rebuilt cache returns rows for every metric of its fact table", () => {
+    const parentSettings = makeSettings(["met_a"], {
+      metricSettings: metricSettingsFor(["met_a"], { window: "base" }),
+    });
+    const editedPlan = makeSettings(["met_a", "met_c"], {
+      metricSettings: metricSettingsFor(["met_a", "met_c"], {
+        window: "edited",
+      }),
+    });
+    const statisticsQueryMap: QueryMap = new Map([
+      [
+        "statistics_fta_1",
+        resultQuery("experimentIncrementalRefreshStatistics", {
+          m0_id: "met_a",
+          m1_id: "met_c",
+        }),
+      ],
+    ]);
+
+    beforeEach(() => {
+      findSnapshotByIdMock.mockResolvedValue(
+        makeParent({
+          runnerKind: "incremental-update",
+          settings: parentSettings,
+          queries: [
+            {
+              name: "statistics_fta_0",
+              query: "qry_stats",
+              status: "succeeded",
+            },
+          ],
+          analyses: [analysis({}, [resultDimension({ met_a: 1 })])],
+        }),
+      );
+      analyzeMock.mockResolvedValue({
+        results: [
+          {
+            unknownVariations: [],
+            multipleExposures: 0,
+            dimensions: [resultDimension({ met_a: 7, met_c: 3 })],
+          },
+        ],
+      });
+    });
+
+    const analyzeIncremental = (settings: ExperimentSnapshotSettings) =>
+      analyzeMetricRefresh({
+        context,
+        snapshot: { ...refresh, runnerKind: "incremental-update", settings },
+        metricRefresh: refresh.metricRefresh!,
+        queryMap: statisticsQueryMap,
+        metricMap,
+        variationNames: ["Control", "Treatment"],
+      });
+
+    it("keeps the parent's numbers for a metric on the rebuilt fact table and adds the new metric's", async () => {
+      const result = await analyzeIncremental(makeSettings(["met_a", "met_c"]));
+
+      expect(result.analyses[0].results[0].variations[1].metrics).toEqual({
+        met_a: metricResult(1),
+        met_c: metricResult(3),
+      });
+    });
+
+    it("keeps the parent's numbers and settings for a metric edited since the parent", async () => {
+      const { settings } = mergeMetricRefreshSettings({
+        parent: parentSettings,
+        planned: editedPlan,
+        targetMetricIds: ["met_c"],
+      });
+
+      const result = await analyzeIncremental(settings);
+
+      expect(settings.metricSettings).toEqual([
+        parentSettings.metricSettings[0],
+        editedPlan.metricSettings[1],
+      ]);
+      expect(result.analyses[0].results[0].variations[0].metrics).toEqual({
+        met_a: metricResult(1),
+        met_c: metricResult(3),
+      });
     });
   });
 

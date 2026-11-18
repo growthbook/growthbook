@@ -9,7 +9,10 @@ import type {
 } from "shared/types/experiment-snapshot";
 import type { ExperimentReportResults } from "shared/types/report";
 import type { Queries, QueryPointer } from "shared/types/query";
-import type { ExperimentMetricInterface } from "shared/experiments";
+import {
+  getDefinitionMetricId,
+  type ExperimentMetricInterface,
+} from "shared/experiments";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import {
@@ -20,10 +23,7 @@ import {
   createNewQueryFromCached,
   getQueriesByIds,
 } from "back-end/src/models/QueryModel";
-import {
-  analyzeExperimentResults,
-  getMetricsAndQueryDataForStatsEngine,
-} from "back-end/src/services/stats";
+import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { checkSrm } from "back-end/src/util/stats";
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import type { AnalyzedSnapshotResults } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -93,29 +93,34 @@ export function getQueriesStartedByRefresh(
 
 /**
  * Each parent analysis with the copied metrics' results kept verbatim and the
- * fresh metrics' results added. A copied metric is one the refresh still
- * analyzes and no query of this run returned rows for. Units are the most any
- * metric saw, as in a full analysis, and SRM is recomputed when they change.
+ * new metrics' results added. Only the new metrics, with their slices and
+ * funnel steps, take fresh results: a rebuilt Incremental Pipeline cache also
+ * returns rows for the other metrics of its fact table, and those keep the
+ * parent's numbers. Units are the most any metric saw, as in a full analysis,
+ * and SRM is recomputed when they change.
  */
 export function mergeMetricRefreshAnalyses({
   analyses,
   freshResults,
   analyzedMetricIds,
-  freshMetricIds,
+  newMetricIds,
   variationWeights,
 }: {
   analyses: ExperimentSnapshotAnalysis[];
   freshResults: ExperimentReportResults["dimensions"][];
   analyzedMetricIds: ReadonlySet<string>;
-  freshMetricIds: ReadonlySet<string>;
+  newMetricIds: ReadonlySet<string>;
   variationWeights: number[];
 }): ExperimentSnapshotAnalysis[] {
+  const isNew = (metricId: string) =>
+    newMetricIds.has(getDefinitionMetricId(metricId));
   const copiedMetrics = (metrics: SnapshotVariation["metrics"]) =>
     pickBy(
       metrics,
-      (_, metricId) =>
-        analyzedMetricIds.has(metricId) && !freshMetricIds.has(metricId),
+      (_, metricId) => analyzedMetricIds.has(metricId) && !isNew(metricId),
     );
+  const addedMetrics = (metrics: SnapshotVariation["metrics"]) =>
+    pickBy(metrics, (_, metricId) => isNew(metricId));
   return analyses.map((analysis, i) => {
     const fresh = new Map(
       (freshResults[i] ?? [])
@@ -148,7 +153,7 @@ export function mergeMetricRefreshAnalyses({
             users: Math.max(copied?.users ?? 0, added?.users ?? 0),
             metrics: {
               ...copiedMetrics(copied?.metrics ?? {}),
-              ...added?.metrics,
+              ...addedMetrics(added?.metrics ?? {}),
             },
           };
         },
@@ -165,14 +170,21 @@ export function mergeMetricRefreshAnalyses({
         variations,
       };
     });
-    return { ...analysis, results: [...merged, ...fresh.values()] };
+    const added = [...fresh.values()].map((dimension) => ({
+      ...dimension,
+      variations: dimension.variations.map((v) => ({
+        ...v,
+        metrics: addedMetrics(v.metrics),
+      })),
+    }));
+    return { ...analysis, results: [...merged, ...added] };
   });
 }
 
 /**
- * Extends every analysis of the parent with the metrics this run queried. The
- * stats engine sees only this run's query rows, so a copied metric keeps the
- * numbers its parent computed under the definition it had then.
+ * Extends every analysis of the parent with the new metrics. The stats engine
+ * sees only this run's query rows, and every other metric keeps the numbers
+ * its parent computed under the definition it had then.
  */
 export async function analyzeMetricRefresh({
   context,
@@ -205,16 +217,6 @@ export async function analyzeMetricRefresh({
   const freshQueries = getQueriesStartedByRefresh(queryMap, parent.queries);
   const analyzedMetricIds = new Set(
     snapshot.settings.metricSettings.map((m) => m.id),
-  );
-  const freshMetricIds = new Set(
-    Object.keys(
-      getMetricsAndQueryDataForStatsEngine(
-        freshQueries,
-        metricMap,
-        snapshot.settings,
-        analyzedMetricIds,
-      ).metricSettings,
-    ),
   );
 
   // Stored analyses keep the parent's settings, which the front end matches
@@ -253,7 +255,7 @@ export async function analyzeMetricRefresh({
       analyses,
       freshResults: freshResults.map((r) => r?.dimensions ?? []),
       analyzedMetricIds,
-      freshMetricIds,
+      newMetricIds: new Set(metricRefresh.metricIds),
       variationWeights: snapshot.settings.variations.map((v) => v.weight),
     }),
     unknownVariations: [
