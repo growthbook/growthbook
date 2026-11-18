@@ -59,6 +59,7 @@ import {
 } from "back-end/src/services/datasource";
 import {
   assertNoEventForwarderEnvironmentOverlap,
+  setEventForwarderEnvironments,
   createUnconfiguredEventForwarderConfig,
   recordEventForwarderCreateFailure,
   getEventForwarderForDatasource,
@@ -1989,6 +1990,53 @@ function getManagedWarehouseJsonSettings(
       ),
     },
   };
+}
+
+const eventForwarderEnvironmentsBody = z.object({
+  environments: z.array(z.string()),
+});
+
+// Super admin only: sets which environments a forwarder receives, whether or
+// not it was migrated. Same rules as an edit.
+export async function putEventForwarderEnvironments(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
+) {
+  const context = getContextFromReq(req);
+  if (!hasSuperAdminPermission(context.superAdmin, "provision")) {
+    context.permissions.throwPermissionError();
+  }
+  const body = eventForwarderEnvironmentsBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ status: 400, message: "Invalid environments" });
+    return;
+  }
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    res.status(404).json({ status: 404, message: "Cannot find Data Source" });
+    return;
+  }
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  if (!existing) {
+    res
+      .status(404)
+      .json({ status: 404, message: "Cannot find event forwarder config" });
+    return;
+  }
+  try {
+    await setEventForwarderEnvironments(
+      context,
+      existing,
+      body.data.environments,
+    );
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to set event forwarder environments");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
 }
 
 // Super admin only: moves a Confluent-connector forwarder onto the in-house

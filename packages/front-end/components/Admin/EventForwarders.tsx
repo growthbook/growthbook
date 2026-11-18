@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { Flex } from "@radix-ui/themes";
 import { EventForwarderSinkType } from "shared/types/event-forwarder";
@@ -25,11 +25,22 @@ const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
   databricks: "Databricks",
 };
 
-// Own state: the confirmation content is rendered once and kept
-// - Kept environments show as locked text, all of them
-// - Narrowing a forwarder with several warns that the rest are dropped
-function MigrateEnvironmentField({
+function neverReceivedEvents(r: { status: string; connectorName?: string }) {
+  return (
+    r.status === "unconfigured" || (r.status === "error" && !r.connectorName)
+  );
+}
+
+// Environment picker for an admin action
+// - Reports its value from an effect: the menu re-runs the confirmation
+//   content on parent re-renders, which must not reset the pick
+// - migrate: edit rules; kept environments show as locked text, and
+//   narrowing warns that it can't be undone
+// - change (Super Admin): never locked; All only for the org's only forwarder
+function AdminEnvironmentField({
   saved,
+  action,
+  onlyForwarder,
   onChange,
   ...props
 }: {
@@ -38,10 +49,19 @@ function MigrateEnvironmentField({
   savedAll: boolean;
   disabled: boolean;
   saved: string[];
-  onChange: (value: string) => void;
+  action: "change" | "migrate";
+  onlyForwarder: boolean;
+  onChange: (environments: string[]) => void;
 }) {
-  const [value, setValue] = useState(saved[0] ?? "");
-  if (props.disabled) {
+  const change = action === "change";
+  // null until picked, so an untouched field keeps every saved environment
+  const [picked, setPicked] = useState<string | null>(null);
+  useEffect(() => {
+    onChange(picked === null ? saved : picked ? [picked] : []);
+  }, [picked, saved, onChange]);
+  // Change shows a single saved environment; the help text lists the rest
+  const value = picked ?? (!change || saved.length === 1 ? saved[0] : "") ?? "";
+  if (props.disabled && !change) {
     return (
       <EventForwarderLockedField
         label={saved.length > 1 ? "Environments" : "Environment"}
@@ -60,14 +80,18 @@ function MigrateEnvironmentField({
       ) : null}
       <EventForwarderEnvironmentSelect
         {...props}
+        disabled={change ? false : props.disabled}
+        allowAll={change ? onlyForwarder : undefined}
+        helpText={
+          change
+            ? `Currently forwards events from ${saved.length ? new Intl.ListFormat("en").format(saved) : "all environments"}.`
+            : undefined
+        }
         value={value}
-        onChange={(v) => {
-          setValue(v);
-          onChange(v);
-        }}
+        onChange={setPicked}
       />
-      {narrowsEventForwarderEnvironments(saved, value) ? (
-        <EventForwarderNarrowingWarning value={value} action="migrate" mt="3" />
+      {picked !== null && narrowsEventForwarderEnvironments(saved, picked) ? (
+        <EventForwarderNarrowingWarning value={picked} action={action} mt="3" />
       ) : null}
     </>
   );
@@ -82,7 +106,11 @@ export default function EventForwarders({
   orgId: string;
   environments: string[];
 }) {
-  const migrateEnvironments = useRef<string[]>([]);
+  // Set by the open dialog's AdminEnvironmentField
+  const pickedEnvironments = useRef<string[]>([]);
+  const setPickedEnvironments = useCallback((environments: string[]) => {
+    pickedEnvironments.current = environments;
+  }, []);
   const { apiCall } = useAuth();
   // Not useApi, which can only fetch for the current organization
   const { data, error, mutate } = useSWR(
@@ -111,6 +139,28 @@ export default function EventForwarders({
       });
       await mutate();
     };
+
+  // Same rules as the server
+  // - others: same region's bound rows, plus live unbound ones ("" = all)
+  // - disabled: a live forwarder keeps its environments, unless one was deleted
+  type Row = NonNullable<typeof data>[number];
+  const environmentFieldProps = (row: Row) => ({
+    environments,
+    others: (data ?? [])
+      .filter(
+        (r) =>
+          r.id !== row.id &&
+          (r.region ?? "us-east-1") === (row.region ?? "us-east-1") &&
+          (r.environments?.length || !neverReceivedEvents(r)),
+      )
+      .flatMap((r) => (r.environments?.length ? r.environments : [""])),
+    savedAll: !row.environments?.length,
+    disabled:
+      !neverReceivedEvents(row) &&
+      !!row.environments?.length &&
+      row.environments.every((e) => environments.includes(e)),
+    saved: row.environments ?? [],
+  });
 
   // Controlled, so Pause and Resume can stay open to show a failed request
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -154,46 +204,19 @@ export default function EventForwarders({
                   cta: "Migrate",
                   submit: () =>
                     run(row.id, "/migrate", "POST", {
-                      environments: migrateEnvironments.current,
+                      environments: pickedEnvironments.current,
                     })(),
                   getConfirmationContent: async () => {
-                    migrateEnvironments.current = row.environments ?? [];
                     return (
                       <Flex direction="column" gap="3">
                         <Text>
                           {`New events for ${row.name} go to the in-house consumer right away. Events already queued still go through the Confluent connector. Tear it down manually once it has drained. This cannot be undone from the UI.`}
                         </Text>
-                        <MigrateEnvironmentField
-                          environments={environments}
-                          // Same rule as the server: same region's bound rows, plus live unbound ones
-                          others={data
-                            .filter(
-                              (r) =>
-                                r.id !== row.id &&
-                                (r.region ?? "us-east-1") ===
-                                  (row.region ?? "us-east-1") &&
-                                (r.environments?.length ||
-                                  !(
-                                    r.status === "unconfigured" ||
-                                    (r.status === "error" && !r.connectorName)
-                                  )),
-                            )
-                            .flatMap((r) =>
-                              r.environments?.length ? r.environments : [""],
-                            )}
-                          savedAll={!row.environments?.length}
-                          // Server keeps a live forwarder's environments, unless one was deleted
-                          disabled={
-                            !!row.environments?.length &&
-                            row.environments.every((e) =>
-                              environments.includes(e),
-                            )
-                          }
-                          // Single select for now: sends a one-item list when changed
-                          saved={row.environments ?? []}
-                          onChange={(v) =>
-                            (migrateEnvironments.current = v ? [v] : [])
-                          }
+                        <AdminEnvironmentField
+                          {...environmentFieldProps(row)}
+                          action="migrate"
+                          onlyForwarder={data.length === 1}
+                          onChange={setPickedEnvironments}
                         />
                       </Flex>
                     );
@@ -203,6 +226,28 @@ export default function EventForwarders({
                 Migrate to in-house consumer
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem
+              confirmation={{
+                confirmationTitle: "Change environment?",
+                cta: "Save",
+                // Reversible by a Super Admin, so not the destructive red
+                ctaColor: "violet",
+                submit: () =>
+                  run(row.id, "/environments", "PUT", {
+                    environments: pickedEnvironments.current,
+                  })(),
+                getConfirmationContent: async () => (
+                  <AdminEnvironmentField
+                    {...environmentFieldProps(row)}
+                    action="change"
+                    onlyForwarder={data.length === 1}
+                    onChange={setPickedEnvironments}
+                  />
+                ),
+              }}
+            >
+              Change environment
+            </DropdownMenuItem>
             {(row.status === "ready" || row.status === "paused") && (
               <DropdownMenuItem
                 onClick={async (e) => {

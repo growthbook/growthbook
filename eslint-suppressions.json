@@ -1431,7 +1431,7 @@
       "count": 1
     },
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/StaleFeatureIcon.tsx": {

@@ -108,6 +108,7 @@ function describeExplorerDisplay(config: ExplorationConfig) {
         v,
         config.showAs,
         getFactMetricById,
+        false,
       );
       return {
         showAsOptions: options,

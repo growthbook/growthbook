@@ -843,6 +843,47 @@ export function toEventForwarderConfigWithMetadata(
   };
 }
 
+// Super admin: changes only which environments a forwarder receives, on
+// either transport. Nothing to re-provision: the ingestor routes by it.
+// - Not held by the environment lock: may switch between environments
+// - All environments only for the organization's only forwarder
+// - Otherwise the usual overlap check (no shared environment in a region)
+export async function setEventForwarderEnvironments(
+  context: ReqContext,
+  existing: EventForwarderConfigInterface,
+  requestedEnvironments: string[],
+): Promise<EventForwarderConfigInterface> {
+  const environments = normalizeEventForwarderEnvironments(
+    requestedEnvironments,
+  );
+  if (!environments.length) {
+    const others = (
+      await context.models.eventForwarderConfigs.getAllBypassingReadPermissions()
+    ).filter((c) => c.id !== existing.id);
+    if (others.length) {
+      throw new Error(
+        "All environments is only allowed for the organization's only Event Forwarder. Choose an environment.",
+      );
+    }
+  } else {
+    await assertNoEventForwarderEnvironmentOverlap(context, environments, {
+      current: existing,
+      adding: true,
+    });
+  }
+  const updated = await claimingEnvironment(environments, () =>
+    context.models.eventForwarderConfigs.updateWithCas(
+      existing.id,
+      ["environments", "status"],
+      () => ({ environments }),
+    ),
+  );
+  if (!updated) {
+    throw new Error("Cannot find event forwarder config");
+  }
+  return updated;
+}
+
 // Moves a pre-consumer (Confluent connector) config onto the shared consumer
 // topic. Re-normalizes the stored config so it carries `tables`. Confluent
 // resources are left for manual teardown. Only claims the row; the caller

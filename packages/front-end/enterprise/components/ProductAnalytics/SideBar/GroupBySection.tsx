@@ -7,6 +7,7 @@ import type {
   ProductAnalyticsDynamicDimension,
   ProductAnalyticsStaticDimension,
 } from "shared/validators";
+import { configHasPopulation } from "shared/enterprise";
 import Button from "@/ui/Button";
 import {
   getMaxDimensions,
@@ -64,6 +65,7 @@ export default function GroupBySection() {
     getFullFactTableById,
   } = useExplorerContext();
   const { getFactMetricById } = useDefinitions();
+  const hasPopulation = configHasPopulation(draftExploreState);
   const defaultMaxValues =
     draftExploreState.type === "journey" ? 3 : DEFAULT_MAX_VALUES;
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(
@@ -264,13 +266,18 @@ export default function GroupBySection() {
       <Flex justify="between" align="center">
         <Text weight="medium">Group By</Text>
         <Tooltip
-          enabled={commonColumns.length === 0}
-          content="No group by columns are available."
+          enabled={hasPopulation || commonColumns.length === 0}
+          content={
+            hasPopulation
+              ? "Charts with a Population can only be grouped by date."
+              : "No group by columns are available."
+          }
         >
           <Button
             size="sm"
             variant="ghost"
             disabled={
+              hasPopulation ||
               getMaxDimensions(draftExploreState.dataset) <=
                 draftExploreState.dimensions.length ||
               availableColumns.length === 0 ||

@@ -64,6 +64,8 @@ export type {
   Helpers,
   GrowthBookPayload,
   Payload,
+  LocalFeatures,
+  LocalFeatureRule,
   PayloadMetadata,
   PayloadFilters,
   ReducePayloadOptions,
