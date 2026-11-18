@@ -213,7 +213,11 @@ export async function postMfaEnable(
   if (!user.mfaSecret) throw new Error("Start MFA setup first.");
   await assertMfaCode(user, req.body.mfaCode);
   const { codes, hashes } = generateRecoveryCodes();
-  await enableMfa(user.id, hashes);
+  if (!(await enableMfa(user.id, user.mfaSecret, hashes))) {
+    throw new Error("MFA setup was restarted elsewhere. Start again.");
+  }
+  // Every session left after turning MFA on is one that used it
+  await AuthRefreshModel.deleteMany({ userId: user.id, mfa: { $ne: true } });
   await reissueLocalSession(req as Request, res, user, true);
   res.status(200).json({ status: 200, recoveryCodes: codes });
 }

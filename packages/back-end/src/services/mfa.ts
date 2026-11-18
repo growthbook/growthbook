@@ -7,7 +7,6 @@ import {
   claimMfaStep,
   consumeMfaRecoveryCode,
 } from "back-end/src/models/UserModel";
-import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 import { RefreshTokenCookie, setIdTokenCookie } from "back-end/src/util/cookie";
 import { getAuthConnection } from "back-end/src/services/auth";
 import { base32Encode, verifyTotp } from "back-end/src/util/totp";
@@ -83,24 +82,25 @@ export async function assertMfaCode(
   }
   // Counted before the await so concurrent guesses can't overshoot the limit
   entry.count++;
-  if (await verifyUserMfaCode(user, code)) {
+  let valid: boolean;
+  try {
+    valid = await verifyUserMfaCode(user, code);
+  } catch (e) {
     entry.count--;
-    return;
+    throw e;
   }
-  throw new Error("Invalid authentication code");
+  if (!valid) throw new Error("Invalid authentication code");
+  entry.count--;
+  if (entry.count === 0) mfaFailures.delete(user.id);
 }
 
-// Swaps the current local-auth session for one whose MFA state matches the account's
+// Gives this browser a session whose MFA state matches the account's
 export async function reissueLocalSession(
   req: Request,
   res: Response,
   user: UserInterface,
   mfa: boolean,
 ) {
-  const oldToken = RefreshTokenCookie.getValue(req);
-  if (oldToken) {
-    await AuthRefreshModel.deleteOne({ token: { $eq: String(oldToken) } });
-  }
   const { idToken, refreshToken } = await getAuthConnection().processCallback(
     req,
     res,

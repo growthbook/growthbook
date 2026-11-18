@@ -244,11 +244,17 @@ export async function startMfaEnrollment(id: string, encryptedSecret: string) {
   );
 }
 
-export async function enableMfa(id: string, recoveryCodeHashes: string[]) {
-  await UserModel.updateOne(
-    { id },
+// Only enables the secret that was verified, in case setup restarted meanwhile
+export async function enableMfa(
+  id: string,
+  verifiedSecret: string,
+  recoveryCodeHashes: string[],
+): Promise<boolean> {
+  const res = await UserModel.updateOne(
+    { id, mfaEnabled: false, mfaSecret: verifiedSecret },
     { $set: { mfaEnabled: true, mfaRecoveryCodes: recoveryCodeHashes } },
   );
+  return res.modifiedCount === 1;
 }
 
 export async function setMfaRecoveryCodes(

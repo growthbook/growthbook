@@ -729,7 +729,10 @@ export async function putRequireMFA(
     context.permissions.throwPermissionError();
   }
   const { org } = context;
-  const requireMFA = req.body.requireMFA === true;
+  const { requireMFA } = z
+    .object({ requireMFA: z.boolean() })
+    .strict()
+    .parse(req.body);
 
   // Turning it off stays allowed, so a downgraded org isn't stuck with it
   if (requireMFA && !context.hasPremiumFeature("require-mfa")) {

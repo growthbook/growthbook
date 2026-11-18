@@ -411,7 +411,7 @@ export default function Welcome({
           >
             {cta}
           </Button>
-          {state === "login" && (
+          {state === "login" && !mfaStep && (
             <Flex justify="center" align="center">
               <Text color="text-mid" weight="regular" align="center">
                 Don&apos;t have an account yet?{" "}
