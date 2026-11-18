@@ -166,6 +166,15 @@ export function getConfigFileHash(): string | null {
 export function getConfigDatasources(
   organization: string,
 ): DataSourceInterface[] {
+  return getConfigDatasourcesWithoutUpgrade(organization).map(
+    upgradeDatasourceObject,
+  );
+}
+
+// Callers must run upgradeDatasourceObject on whatever they return.
+export function getConfigDatasourcesWithoutUpgrade(
+  organization: string,
+): DataSourceInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.datasources) return [];
   const datasources = config.datasources;
@@ -173,7 +182,7 @@ export function getConfigDatasources(
   return Object.keys(datasources).map((id) => {
     const d = datasources[id];
 
-    return upgradeDatasourceObject({
+    return {
       id,
       name: d.name,
       description: d.description,
@@ -183,7 +192,7 @@ export function getConfigDatasources(
       type: d.type,
       dateCreated: null,
       dateUpdated: null,
-    });
+    };
   });
 }
 
