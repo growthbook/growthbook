@@ -348,6 +348,7 @@ async function buildDag({
     updateState,
     runDropTableQuery,
     models: context.models,
+    logger: context.logger,
   };
 }
 
@@ -682,6 +683,18 @@ describe("metric refresh (metrics-only runs)", () => {
 
       await expect(refresh.runDrop()).resolves.toEqual({ rows: [] });
       expect(refresh.runDropTableQuery).not.toHaveBeenCalled();
+    });
+
+    it("logs the table it failed to drop, which no later run will drop", async () => {
+      const refresh = await replacedSourceDrop(baseState());
+      const failure = new Error("Access Denied");
+      refresh.runDropTableQuery.mockRejectedValue(failure);
+
+      await expect(refresh.runDrop()).rejects.toBe(failure);
+      expect(refresh.logger.error).toHaveBeenCalledWith(
+        failure,
+        "Failed to drop replaced metrics table proj.ds.gb_metrics_exp_1_ft_a_stored0",
+      );
     });
   });
 

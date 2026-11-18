@@ -1705,6 +1705,26 @@ describe("Incremental Pipeline carry-over", () => {
     ).toBe("failed");
   });
 
+  it("only partially succeeds when its only failed query drops a replaced table", () => {
+    expect(
+      status(
+        makeParent({
+          id: "snp_refresh",
+          runnerKind: "incremental-update",
+          queries: [
+            ...queries.filter((q) => q.status === "succeeded"),
+            {
+              name: "drop_replaced_metrics_source_ftc_0",
+              query: "qry_drop",
+              status: "failed",
+            },
+          ],
+          metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
+        }),
+      ),
+    ).toBe("partially-succeeded");
+  });
+
   it("leaves a normal update's rollup alone", () => {
     expect(
       status(makeParent({ runnerKind: "incremental-update", queries })),

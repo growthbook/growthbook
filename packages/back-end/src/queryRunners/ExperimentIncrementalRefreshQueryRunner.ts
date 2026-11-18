@@ -124,6 +124,11 @@ export function isCarriedIncrementalQuery(name: string): boolean {
   return baseName.startsWith(STATISTICS_QUERY_PREFIX);
 }
 
+const REPLACED_TABLE_DROP_QUERY_PREFIX = "drop_replaced_";
+
+const isReplacedTableDropQuery = (name: string): boolean =>
+  name.startsWith(REPLACED_TABLE_DROP_QUERY_PREFIX);
+
 function tableNameFromFullName(fullName: string) {
   const segments = fullName.replace(/`/g, "").split(".");
   return segments[segments.length - 1];
@@ -1443,13 +1448,13 @@ export const startExperimentIncrementalRefreshQueries = async (
     );
     const replacedTables = [
       {
-        name: `drop_replaced_metrics_source_${source.groupId}`,
+        name: `${REPLACED_TABLE_DROP_QUERY_PREFIX}metrics_source_${source.groupId}`,
         tableFullName: source.tableFullName,
       },
       ...(covariateSource
         ? [
             {
-              name: `drop_replaced_metrics_covariate_table_${source.groupId}`,
+              name: `${REPLACED_TABLE_DROP_QUERY_PREFIX}metrics_covariate_table_${source.groupId}`,
               tableFullName: covariateSource.tableFullName,
             },
           ]
@@ -1486,11 +1491,16 @@ export const startExperimentIncrementalRefreshQueries = async (
             );
             return { rows: [] };
           }
-          return integration.runDropTableQuery(
-            query,
-            setExternalId,
-            queryMetadata,
-          );
+          return integration
+            .runDropTableQuery(query, setExternalId, queryMetadata)
+            .catch((error: unknown) => {
+              // The state no longer lists the table, so no later run drops it.
+              context.logger.error(
+                error,
+                `Failed to drop replaced metrics table ${tableFullName}`,
+              );
+              throw error;
+            });
         }),
         metadata: { factTableIds: [source.factTableId] },
         queryType: "experimentIncrementalRefreshDropMetricsSourceTable",
@@ -1601,9 +1611,17 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
   protected override getOverallQueryStatus(): QueryStatus {
     const status = super.getOverallQueryStatus();
-    return status === "partially-succeeded" && getMetricRefresh(this.model)
+    return status === "partially-succeeded" && this.isIncompleteMetricRefresh()
       ? "failed"
       : status;
+  }
+
+  // Dropping a replaced table cleans up after results that already landed.
+  private isIncompleteMetricRefresh(): boolean {
+    if (!getMetricRefresh(this.model)) return false;
+    return this.model.queries.some(
+      (q) => q.status === "failed" && !isReplacedTableDropQuery(q.name),
+    );
   }
 
   // largely copied from ExperimentResultsQueryRunner
