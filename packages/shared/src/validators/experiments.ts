@@ -1242,6 +1242,10 @@ const apiExperimentSnapshotShape = z.object({
   id: z.string(),
   experiment: z.string(),
   status: z.string(),
+  error: z
+    .string()
+    .describe('Why the update failed. Present only when "status" is "error"')
+    .optional(),
   metricRefresh: z
     .object({
       baseSnapshotId: z

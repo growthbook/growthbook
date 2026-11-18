@@ -11,6 +11,9 @@ export function toApiExperimentSnapshot(
     id: snapshot.id,
     experiment: snapshot.experiment,
     status: snapshot.status,
+    ...(snapshot.status === "error" && snapshot.error
+      ? { error: snapshot.error }
+      : {}),
     ...(metricRefresh
       ? {
           metricRefresh: {

@@ -86,6 +86,47 @@ describe("snapshots API", () => {
     });
   });
 
+  it("returns why a failed snapshot failed", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const failed = snapshotFactory.build({
+      organization: org.id,
+      status: "error",
+      error: "Query timed out",
+    });
+    const succeeded = snapshotFactory.build({
+      organization: org.id,
+      status: "success",
+      error: "a stale message from an earlier attempt",
+    });
+    findSnapshotById.mockReturnValueOnce(failed).mockReturnValueOnce(succeeded);
+    getExperimentById
+      .mockReturnValueOnce({ id: failed.experiment })
+      .mockReturnValueOnce({ id: succeeded.experiment });
+
+    const get = () =>
+      request(app)
+        .get("/api/v1/snapshots/snp_1")
+        .set("Authorization", "Bearer foo");
+
+    const failedResponse = await get();
+    expect(failedResponse.status).toBe(200);
+    expect(failedResponse.body.snapshot).toEqual({
+      id: failed.id,
+      experiment: failed.experiment,
+      status: "error",
+      error: "Query timed out",
+    });
+
+    const succeededResponse = await get();
+    expect(succeededResponse.body.snapshot).not.toHaveProperty("error");
+  });
+
   it("checks permission on experiment when getting a snapshot", async () => {
     setReqContext({
       org,

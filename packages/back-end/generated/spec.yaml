@@ -90083,6 +90083,9 @@ components:
           type: string
         status:
           type: string
+        error:
+          type: string
+          description: Why the update failed. Present only when "status" is "error"
         metricRefresh:
           type: object
           properties:
@@ -91558,6 +91561,9 @@ components:
           type: string
         status:
           type: string
+        error:
+          type: string
+          description: Why the update failed. Present only when "status" is "error"
         metricRefresh:
           type: object
           properties:
