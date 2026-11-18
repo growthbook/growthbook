@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "2.0.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -95,7 +95,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "2.0.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -248,7 +248,7 @@ export default {
   },
   php: {
     name: "PHP SDK",
-    version: "3.0.0",
+    version: "3.0.1",
     github: "https://github.com/growthbook/growthbook-php",
     examples: [],
     packageRepos: [
@@ -307,7 +307,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "2.0.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -445,7 +445,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "4.0.0",
+    version: "4.0.1",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -711,7 +711,7 @@ export default {
   },
   csharp: {
     name: "C# SDK",
-    version: "2.0.0",
+    version: "2.1.0",
     github: "https://github.com/growthbook/growthbook-c-sharp",
     examples: [
       {
@@ -819,7 +819,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "10.0.0",
+    version: "10.2.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -834,6 +834,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v10.2.0",
+      },
+      {
+        savedGroupReferencesV2: "≥ v10.2.0",
       },
       {
         savedGroupReferences: "≥ v10.0.0",
@@ -943,7 +949,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "2.0.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [

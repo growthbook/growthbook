@@ -95,6 +95,7 @@
                     "pages": [
                       "features/publishing-and-approval-flows",
                       "features/saved-group-revisions-api",
+                      "features/sdk-connection-revisions-api",
                       "features/json-schema-validation",
                       "features/stale-detection",
                       "features/code-references",
@@ -157,6 +158,7 @@
                     "root": "app/metrics",
                     "pages": [
                       "app/metrics",
+                      "app/metrics/compound",
                       "app/metrics/funnel",
                       "app/metrics/examples",
                       "app/metrics/legacy"
@@ -422,6 +424,7 @@
                 "group": "Guides for Agents",
                 "pages": [
                   "guides-for-agents/start-here",
+                  "guides-for-agents/local-feature-flags-typescript",
                   "guides-for-agents/nextjs-app-router-production-feature-flags",
                   "guides-for-agents/free-ab-test-javascript",
                   "guides-for-agents/migrate-diy-feature-flags",
@@ -624,6 +627,7 @@
                   "api/ramp-schedules/operation/startRampSchedule",
                   "api/ramp-schedules/operation/pauseRampSchedule",
                   "api/ramp-schedules/operation/resumeRampSchedule",
+                  "api/ramp-schedules/operation/retryRampSchedule",
                   "api/ramp-schedules/operation/rollbackRampSchedule",
                   "api/ramp-schedules/operation/restartRampSchedule",
                   "api/ramp-schedules/operation/jumpRampSchedule",
@@ -651,7 +655,10 @@
                 "pages": [
                   "api/data-sources/operation/listDataSources",
                   "api/data-sources/operation/getDataSource",
+                  "api/data-sources/operation/updateDataSource",
+                  "api/data-sources/operation/deleteDataSource",
                   "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/postDataSourceInformationSchemaRefresh",
                   "api/data-sources/operation/searchWarehouseTables",
                   "api/data-sources/operation/getWarehouseTableSchema",
                   "api/data-sources/operation/previewWarehouseColumnValues",
@@ -787,6 +794,32 @@
                   "api/sdk-connections/operation/putSdkConnection",
                   "api/sdk-connections/operation/deleteSdkConnection",
                   "api/sdk-connections/operation/lookupSdkConnectionByKey"
+                ]
+              },
+              {
+                "group": "SDK Connection Revisions",
+                "pages": [
+                  "api/sdk-connection-revisions/operation/listSdkConnectionRevisions",
+                  "api/sdk-connection-revisions/operation/getSdkConnectionRevisions",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevision",
+                  "api/sdk-connection-revisions/operation/getSdkConnectionRevisionLatest",
+                  "api/sdk-connection-revisions/operation/getSdkConnectionRevision",
+                  "api/sdk-connection-revisions/operation/getSdkConnectionRevisionMergeStatus",
+                  "api/sdk-connection-revisions/operation/putSdkConnectionRevisionSettings",
+                  "api/sdk-connection-revisions/operation/putSdkConnectionRevisionArchive",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionWebhook",
+                  "api/sdk-connection-revisions/operation/putSdkConnectionRevisionWebhook",
+                  "api/sdk-connection-revisions/operation/deleteSdkConnectionRevisionWebhook",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionRequestReview",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionSubmitReview",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionRecallReview",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionUndoReview",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionReopen",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionSchedulePublish",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionRebase",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionPublish",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionDiscard",
+                  "api/sdk-connection-revisions/operation/postSdkConnectionRevisionRevert"
                 ]
               },
               {
@@ -971,6 +1004,26 @@
                 ]
               },
               {
+                "group": "Event Webhooks",
+                "pages": [
+                  "api/event-webhooks/operation/listEventWebhooks",
+                  "api/event-webhooks/operation/postEventWebhook",
+                  "api/event-webhooks/operation/getEventWebhook",
+                  "api/event-webhooks/operation/putEventWebhook",
+                  "api/event-webhooks/operation/deleteEventWebhook",
+                  "api/event-webhooks/operation/listEventWebhookLogs",
+                  "api/event-webhooks/operation/postEventWebhookTest"
+                ]
+              },
+              {
+                "group": "Audit Logs",
+                "pages": [
+                  "api/audits/operation/listAudits",
+                  "api/audits/operation/listEvents",
+                  "api/audits/operation/getEvent"
+                ]
+              },
+              {
                 "group": "Code References",
                 "pages": [
                   "api/code-references/operation/listCodeRefs",
@@ -990,7 +1043,11 @@
               },
               {
                 "group": "Queries",
-                "pages": ["api/queries/operation/getQuery"]
+                "pages": [
+                  "api/queries/operation/getQuery",
+                  "api/queries/operation/listDataSourceQueries",
+                  "api/queries/operation/postQueryCancel"
+                ]
               },
               {
                 "group": "Settings",
@@ -1016,6 +1073,7 @@
                 "group": "Meta",
                 "pages": [
                   "api/meta/operation/getVersion",
+                  "api/meta/operation/listConfirmations",
                   "api/meta/operation/getConfirmation"
                 ]
               },
@@ -1046,6 +1104,12 @@
                   "api/ContextualBandits/operation/cancelContextualBandit",
                   "api/ContextualBandits/operation/listContextualBanditVisualChangesets",
                   "api/ContextualBandits/operation/postContextualBanditVisualChangesets"
+                ]
+              },
+              {
+                "group": "information-schema-tables",
+                "pages": [
+                  "api/information-schema-tables/operation/postInformationSchemaTableRefresh"
                 ]
               },
               {
@@ -1209,6 +1273,24 @@
                   "api/Populations/operation/updatePopulation",
                   "api/Populations/operation/deletePopulation"
                 ]
+              },
+              {
+                "group": "Webhook Secrets",
+                "pages": [
+                  "api/WebhookSecrets/operation/getWebhookSecret",
+                  "api/WebhookSecrets/operation/deleteWebhookSecret",
+                  "api/WebhookSecrets/operation/listWebhookSecrets"
+                ]
+              },
+              {
+                "group": "SDK Webhooks",
+                "pages": [
+                  "api/SdkWebhooks/operation/listSdkConnectionWebhooks",
+                  "api/SdkWebhooks/operation/postSdkConnectionWebhook",
+                  "api/SdkWebhooks/operation/putSdkWebhook",
+                  "api/SdkWebhooks/operation/deleteSdkWebhook",
+                  "api/SdkWebhooks/operation/postSdkWebhookTest"
+                ]
               }
             ]
           },
@@ -1219,6 +1301,7 @@
               "api/AnalyticsExploration_model",
               "api/Archetype_model",
               "api/Attribute_model",
+              "api/Audit_model",
               "api/AutoRun_model",
               "api/CodeRef_model",
               "api/Config_model",
@@ -1249,7 +1332,10 @@
               "api/DataSource_model",
               "api/Dimension_model",
               "api/Environment_model",
+              "api/Event_model",
               "api/EventUser_model",
+              "api/EventWebhook_model",
+              "api/EventWebhookLog_model",
               "api/Experiment_model",
               "api/Experiment Rule_model",
               "api/ExperimentAnalysisSettings_model",
@@ -1324,6 +1410,14 @@
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
+              "api/SdkConnectionApprovalRule_model",
+              "api/SdkConnectionRevision_model",
+              "api/SdkConnectionRevisionActivityLogEntry_model",
+              "api/SdkConnectionRevisionRef_model",
+              "api/SdkConnectionRevisionReview_model",
+              "api/SdkConnectionRevisionSettings_model",
+              "api/SdkConnectionRevisionWebhook_model",
+              "api/SdkWebhook_model",
               "api/Segment_model",
               "api/Settings_model",
               "api/Targeting Rule_model",
@@ -1331,7 +1425,8 @@
               "api/Team_model",
               "api/VisualChange_model",
               "api/VisualChangeset_model",
-              "api/VisualEditorCbExperimentStub_model"
+              "api/VisualEditorCbExperimentStub_model",
+              "api/WebhookSecret_model"
             ]
           }
         ]
@@ -1340,10 +1435,6 @@
     "global": {
       "anchors": []
     }
-  },
-  "banner": {
-    "content": "**New:** See what we've shipped lately on our [Product Updates](https://growthbook.io/product-updates) page.",
-    "dismissible": true
   },
   "navbar": {
     "links": [
@@ -1356,11 +1447,15 @@
         "label": "Github",
         "type": "github",
         "href": "https://github.com/growthbook/growthbook"
+      },
+      {
+        "label": "Open App",
+        "href": "https://app.growthbook.io/"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Open App",
+      "label": "Start For Free",
       "href": "https://app.growthbook.io/"
     }
   },

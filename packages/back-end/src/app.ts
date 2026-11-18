@@ -18,6 +18,7 @@ import { AI_PROVIDERS } from "shared/ai";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { revisionRouter } from "back-end/src/routers/revision/revision.router";
+import { scrubRevisionResponses } from "back-end/src/routers/revision/scrubRevisionResponses";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -135,6 +136,7 @@ import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router
 import {
   constantsRouter,
   constantDraftStatesRouter,
+  constantResolvablesRouter,
 } from "./routers/constant/constant.router";
 import {
   configsRouter,
@@ -602,6 +604,7 @@ const requireUserIdHandler: RequestHandler = async (req, res, next) => {
   next();
 };
 app.use(asyncHandler(requireUserIdHandler));
+app.use(scrubRevisionResponses);
 
 // OAuth consent helpers (authenticated)
 if (OAUTH_AS_ENABLED) {
@@ -701,6 +704,7 @@ app.use("/custom-fields", customFieldsRouter);
 
 app.use("/constants", constantsRouter);
 app.use("/constants-draft-states", constantDraftStatesRouter);
+app.use("/constants-resolvables", constantResolvablesRouter);
 app.use("/configs", configsRouter);
 app.use("/configs-draft-states", configDraftStatesRouter);
 
@@ -1126,6 +1130,10 @@ app.post(
 app.post(
   "/datasource/:id/event-forwarder/migrate",
   datasourcesController.postMigrateEventForwarder,
+);
+app.put(
+  "/datasource/:id/event-forwarder/environments",
+  datasourcesController.putEventForwarderEnvironments,
 );
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.post(

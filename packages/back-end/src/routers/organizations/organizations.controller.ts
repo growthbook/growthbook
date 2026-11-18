@@ -82,7 +82,7 @@ import {
   setLicenseKey,
   assertProjectRulesReferenceProjects,
 } from "back-end/src/services/organizations";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { updatePassword } from "back-end/src/services/users";
 import {
   auditDetailsCreate,
@@ -91,6 +91,7 @@ import {
   getRecentWatchedAudits,
   isValidAuditEntityType,
 } from "back-end/src/services/audit";
+import { parseDateCursor } from "back-end/src/util/dateCursor";
 import {
   getAllFeatures,
   hasNonDemoFeature,
@@ -156,18 +157,16 @@ import {
   getExperimentsForActivityFeed,
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { getAuditHistory } from "back-end/src/models/AuditModel";
 import {
-  getAuditHistory,
-  getAuditedApiKeyKinds,
-} from "back-end/src/models/AuditModel";
-import { ReqContext } from "back-end/types/request";
-import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
+  canReadApiKeyHistory,
+  getApiKeyIdsHiddenFromKeyViewers,
+} from "back-end/src/services/apiKeyHistory";
 import {
   getInstallationName,
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
 import {
   getLicense,
   licenseInit,
@@ -327,51 +326,12 @@ export async function getHistory(
     parseIntWithDefaultCapped(req.query.limit, 50, 100), // Max 100 per page
     {
       event: parseEventParam(req.query.event),
-      before: req.query.cursor ? new Date(req.query.cursor) : undefined,
+      before: parseDateCursor(context, req.query.cursor),
       excludeIds,
     },
   );
 
   res.status(200).json({ status: 200, ...history });
-}
-
-async function canReadApiKeyHistory(
-  context: ReqContext,
-  id: string | undefined,
-): Promise<boolean> {
-  const { permissions } = context;
-  if (!id) return permissions.canViewApiKeys();
-  const key = await context.models.apiKeys.dangerousGetById(id);
-  if (key) {
-    return key.userId
-      ? key.userId === context.userId ||
-          permissions.canManagePersonalAccessTokens()
-      : permissions.canViewApiKeys();
-  }
-  // A deleted key is known only by its audits. One they can't place needs both.
-  const kinds = await getAuditedApiKeyKinds(context.org.id);
-  if (kinds.tokens.has(id)) return permissions.canManagePersonalAccessTokens();
-  if (kinds.orgKeys.has(id)) return permissions.canViewApiKeys();
-  return (
-    permissions.canViewApiKeys() && permissions.canManagePersonalAccessTokens()
-  );
-}
-
-// Members' tokens, and deleted keys their audits can't place as org keys.
-async function getApiKeyIdsHiddenFromKeyViewers(
-  context: ReqContext,
-): Promise<string[]> {
-  const [keys, kinds] = await Promise.all([
-    context.models.apiKeys.dangerousGetAllApiKeysInOrg(),
-    getAuditedApiKeyKinds(context.org.id),
-  ]);
-  const live = new Map(keys.map((k) => [k.id, k]));
-  return kinds.all.filter((id) => {
-    // Org-wide entries, like applying the expiration policy, name no key.
-    if (!id) return false;
-    const key = live.get(id);
-    return key ? !!key.userId : !kinds.orgKeys.has(id);
-  });
 }
 
 export async function putMemberRole(
@@ -1239,7 +1199,7 @@ export async function putNamespaces(
   // Make sure this namespace exists
   const target = namespaces.find((n) => n.name === name);
   if (!target) {
-    throw new Error("Namespace not found.");
+    throw new NotFoundError("Namespace not found.");
   }
 
   await assertNamespaceHashAttributeChangeAllowed(
@@ -1313,7 +1273,7 @@ export async function deleteNamespace(
   });
 
   if (namespaces.length === updatedNamespaces.length) {
-    throw new Error("Namespace not found.");
+    throw new NotFoundError("Namespace not found.");
   }
 
   await assertNamespaceNotInUse(context, name, "delete");
@@ -1739,6 +1699,13 @@ export async function putOrganization(
       if (settings?.approvalFlows?.savedGroups?.some((sg) => sg?.required)) {
         throw new Error(
           "Saved Groups approval flows require the Require Approvals enterprise feature.",
+        );
+      }
+      if (
+        settings?.approvalFlows?.sdkConnections?.some((rule) => rule?.required)
+      ) {
+        throw new Error(
+          "SDK Connections approval flows require the Require Approvals enterprise feature.",
         );
       }
     }
@@ -2370,26 +2337,8 @@ export async function testSDKWebhook(
   req: AuthRequest<Record<string, unknown>, { id: string }>,
   res: Response,
 ) {
-  const webhookId = req.params.id;
-
   const context = getContextFromReq(req);
-  const webhook = await context.models.sdkWebhooks.getById(webhookId);
-  if (!webhook) {
-    throw new Error("Could not find webhook");
-  }
-
-  const conns = await findSDKConnectionsByIds(context, webhook.sdks);
-  if (!conns.length) {
-    throw new Error("Could not find any SDK connection tied to this webhook");
-  }
-
-  if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
-    context.permissions.throwPermissionError();
-  }
-
-  await fireSdkWebhook(context, webhook).catch(() => {
-    // Do nothing, already being logged in Mongo
-  });
+  await context.models.sdkWebhooks.testDirect(req.params.id);
   res.status(200).json({
     status: 200,
   });
@@ -2400,42 +2349,13 @@ export async function putSDKWebhook(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-
-  const { id } = req.params;
-  const webhook = await context.models.sdkWebhooks.getById(id);
-  if (!webhook) {
-    throw new Error("Could not find webhook");
-  }
-
-  const conns = await findSDKConnectionsByIds(context, webhook.sdks);
-  if (!conns.length) {
-    throw new Error("Could not find any SDK connection tied to this webhook");
-  }
-
-  if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
-    context.permissions.throwPermissionError();
-  }
-
-  const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
-
-  // Reset failure state when endpoint changes
-  const resetFields =
-    parsedUpdates.endpoint && parsedUpdates.endpoint !== webhook.endpoint
-      ? { consecutiveFailures: 0, disabled: false }
-      : {};
-
-  const updatedWebhook = await context.models.sdkWebhooks.update(webhook, {
-    ...parsedUpdates,
-    ...resetFields,
-  });
-
-  // Fire the webhook now that it has changed
-  fireSdkWebhook(context, updatedWebhook).catch(() => {
-    // Do nothing, already being logged in Mongo
-  });
+  const { webhook } = await context.models.sdkWebhooks.updateDirect(
+    req.params.id,
+    updateSdkWebhookValidator.parse(req.body),
+  );
   res.status(200).json({
     status: 200,
-    webhook: updatedWebhook,
+    webhook,
   });
 }
 
@@ -2461,20 +2381,7 @@ export async function deleteSDKWebhook(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { id } = req.params;
-
-  const webhook = await context.models.sdkWebhooks.getById(id);
-  if (webhook) {
-    // It's ok if conns is empty here
-    // We still want to allow deleting orphaned webhooks
-    const conns = await findSDKConnectionsByIds(context, webhook.sdks);
-    if (!conns.every((c) => context.permissions.canDeleteSDKWebhook(c))) {
-      context.permissions.throwPermissionError();
-    }
-  }
-
-  await context.models.sdkWebhooks.deleteById(id);
-
+  await context.models.sdkWebhooks.deleteDirect(req.params.id);
   res.status(200).json({
     status: 200,
   });
@@ -2581,8 +2488,8 @@ export async function addOrphanedUser(
   // Make sure user exists
   const user = await getUserById(id);
   if (!user) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(404).json({
+      status: 404,
       message: "Cannot find user with that id",
     });
   }
@@ -2662,8 +2569,8 @@ export async function deleteOrphanedUser(
   // Make sure user exists
   const user = await getUserById(id);
   if (!user) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(404).json({
+      status: 404,
       message: "Cannot find user with that id",
     });
   }

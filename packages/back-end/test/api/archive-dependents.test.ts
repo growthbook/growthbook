@@ -1,6 +1,5 @@
 import request from "supertest";
 import mongoose from "mongoose";
-import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setupApp } from "./api.setup";
@@ -28,18 +27,11 @@ const org = {
 
 // Engineer can edit these entities but cannot bypass approval checks, so the
 // soft guard actually blocks (an admin would clear it via FlagsBypassApprovals).
-// `ignoreWarnings` is baked onto the context's own request — context.ignoreWarnings
-// reads context.req, not the HTTP body the mock middleware discards.
-function engineer(opts: { ignoreWarnings?: boolean } = {}): ReqContextClass {
+function engineer(): ReqContextClass {
   return new ReqContextClass({
     org,
     auditUser: { type: "api_key", apiKey: "key_engineer" },
     role: "engineer",
-    req: {
-      query: {},
-      headers: {},
-      body: opts.ignoreWarnings ? { ignoreWarnings: true } : {},
-    } as unknown as Request,
   });
 }
 
@@ -153,10 +145,9 @@ describe("Archive-dependents soft guard", () => {
       expect(!!still?.archived).toBe(false);
 
       // Acknowledge with ignoreWarnings → archives.
-      setReqContext(engineer({ ignoreWarnings: true }));
       const ok = await request(app)
         .post(`/api/v1/configs/${key}/archive`)
-        .send({})
+        .send({ ignoreWarnings: true })
         .set("Authorization", "Bearer foo");
       expect(ok.status).toBe(200);
       const archived = await mongoose.connection
@@ -228,10 +219,9 @@ describe("Archive-dependents soft guard", () => {
       expect(blocked.status).toBe(422);
       expect(blocked.body.message).toMatch(/feature/i);
 
-      setReqContext(engineer({ ignoreWarnings: true }));
       const ok = await request(app)
         .post(`/api/v1/constants/${key}/archive`)
-        .send({})
+        .send({ ignoreWarnings: true })
         .set("Authorization", "Bearer foo");
       expect(ok.status).toBe(200);
     });
@@ -269,10 +259,9 @@ describe("Archive-dependents soft guard", () => {
         .findOne({ id });
       expect(!!still?.archived).toBe(false);
 
-      setReqContext(engineer({ ignoreWarnings: true }));
       const ok = await request(app)
         .post(`/api/v1/saved-groups/${id}/archive`)
-        .send({})
+        .send({ ignoreWarnings: true })
         .set("Authorization", "Bearer foo");
       expect(ok.status).toBe(200);
       const archived = await mongoose.connection

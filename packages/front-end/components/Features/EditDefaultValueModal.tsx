@@ -161,7 +161,6 @@ export default function EditDefaultValueModal({
           valueType={feature.valueType}
           feature={feature}
           renderJSONInline={true}
-          showFullscreenButton={true}
           allowConfigBacking={isConfigBacked}
           configBackingOptionKeys={configBackingOptionKeys}
           // A config-backed default is exactly a config (base or a descendant) —

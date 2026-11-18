@@ -5,13 +5,14 @@ import {
   getFactTable,
 } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const updateFactTableFilter = createApiRequestHandler(
   updateFactTableFilterValidator,
 )(async (req) => {
   const factTable = await getFactTable(req.context, req.params.factTableId);
   if (!factTable) {
-    throw new Error("Could not find factTable with that id");
+    throw new NotFoundError("Could not find factTable with that id");
   }
 
   if (!req.context.permissions.canCreateAndUpdateFactFilter(factTable)) {

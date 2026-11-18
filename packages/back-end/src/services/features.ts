@@ -8,6 +8,7 @@ import uniqBy from "lodash/uniqBy";
 import uniqWith from "lodash/uniqWith";
 import type { Request } from "express";
 import {
+  Attributes,
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
   GrowthBook,
@@ -153,7 +154,10 @@ import {
 import { measureSdkPayloadSize } from "shared/health";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { armerActor } from "back-end/src/util/armingApiKeyId";
-import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
+import {
+  FeatureValues,
+  mapChangedFeatureValues,
+} from "back-end/src/util/featureValues";
 import {
   FeatureDefinitionSources,
   getSafeRolloutIdsForFeatureDefinitions,
@@ -205,6 +209,7 @@ import {
   getVisualExperimentPrerequisiteDependents,
   getVisualExperimentPrerequisiteIds,
   getReferenceIdsInFeatures,
+  filterRefreshableSDKConnections,
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
@@ -1215,11 +1220,18 @@ export function queueSDKPayloadRefresh(data: QueueSDKPayloadRefreshData) {
   // collect the affected keys instead of refreshing per write — the publisher
   // flushes one deduped refresh (at most one rebuild per SDK connection) after
   // the whole commit lands, or none if it compensated. Buffered calls drop the
-  // narrowing options (skipRefreshForProject, explicit sdkConnections) but
-  // carry treatEmptyProjectAsGlobal so global-entity keys keep their reach.
+  // narrowing skipRefreshForProject but keep explicit sdkConnections (a
+  // connection's own settings change has no keys) and carry
+  // treatEmptyProjectAsGlobal so global-entity keys keep their reach.
   const buffer = data.context.sdkPayloadRefreshBuffer;
   if (buffer && !buffer.closed) {
     buffer.keys.push(...data.payloadKeys);
+    if (data.sdkConnections?.length) {
+      buffer.sdkConnections = [
+        ...(buffer.sdkConnections ?? []),
+        ...data.sdkConnections,
+      ];
+    }
     buffer.treatEmptyProjectAsGlobal ||= !!data.treatEmptyProjectAsGlobal;
     return;
   }
@@ -1549,9 +1561,11 @@ export async function refreshSDKPayloadCache({
 
   // Everything that decides which connections are affected (the widening above
   // and this match) must stay above the early returns below.
-  const sdkConnections = payloadKeys.length
-    ? await findSDKConnectionsByOrganization(context)
-    : sdkConnectionsToUpdate;
+  const sdkConnections = filterRefreshableSDKConnections(
+    payloadKeys.length
+      ? await findSDKConnectionsByOrganization(context)
+      : sdkConnectionsToUpdate,
+  );
 
   const connectionsUpdated = sdkConnections.filter(
     (connection) =>
@@ -2170,11 +2184,12 @@ export async function buildSDKPayloadForConnection(
     includeReferencedPrerequisites &&
     canEvaluatePrerequisites &&
     projectList.length > 0
-      ? featuresWithPrerequisiteClosure(
-          scopedFeatures,
-          data.featuresMap ?? new Map(data.features.map((f) => [f.id, f])),
-          data.experimentMap,
-          [
+      ? featuresWithPrerequisiteClosure({
+          features: scopedFeatures,
+          featuresMap:
+            data.featuresMap ?? new Map(data.features.map((f) => [f.id, f])),
+          experimentMap: data.experimentMap,
+          seedIds: [
             ...getVisualExperimentPrerequisiteIds(
               servedAutoExperiments(filteredExperimentMap.values(), {
                 includeVisualExperiments,
@@ -2190,7 +2205,8 @@ export async function buildSDKPayloadForConnection(
                 )
               : []),
           ],
-        )
+          environment,
+        })
       : { features: scopedFeatures, carried: new Set<string>() };
 
   const featureExperimentMap = experimentMapForFeatures(
@@ -2391,16 +2407,25 @@ const MAX_PREREQUISITE_LOAD_ROUNDS = 10;
 // A project-filtered load can't see a prerequisite targeting other projects, so
 // closure would find nothing to carry. Costs no extra query when nothing crosses
 // a project boundary.
-async function loadMissingPrerequisites(
-  context: ReqContext | ApiReqContext,
-  features: FeatureInterface[],
-  seedIds: string[] = [],
-): Promise<FeatureInterface[]> {
+async function loadMissingPrerequisites({
+  context,
+  features,
+  seedIds = [],
+  environment,
+}: {
+  context: ReqContext | ApiReqContext;
+  features: FeatureInterface[];
+  seedIds?: string[];
+  environment: string;
+}): Promise<FeatureInterface[]> {
   const present = new Set(features.map((f) => f.id));
   const out = [...features];
 
   let wanted = [
-    ...new Set([...getPrerequisiteIdsInFeatures(features), ...seedIds]),
+    ...new Set([
+      ...getPrerequisiteIdsInFeatures({ features, environment }),
+      ...seedIds,
+    ]),
   ].filter((id) => !present.has(id));
 
   for (
@@ -2414,9 +2439,10 @@ async function loadMissingPrerequisites(
       present.add(f.id);
       out.push(f);
     });
-    wanted = getPrerequisiteIdsInFeatures(loaded).filter(
-      (id) => !present.has(id),
-    );
+    wanted = getPrerequisiteIdsInFeatures({
+      features: loaded,
+      environment,
+    }).filter((id) => !present.has(id));
   }
 
   return out;
@@ -2436,11 +2462,16 @@ export async function getFeatureDefinitions(
     ? await getAllCbVisualExperiments(context)
     : [];
   if (projectFilter && args.includeReferencedPrerequisites) {
-    allFeatures = await loadMissingPrerequisites(
+    allFeatures = await loadMissingPrerequisites({
       context,
-      allFeatures,
-      interleavingPrerequisiteIds(interleavings, environment, projectFilter),
-    );
+      features: allFeatures,
+      seedIds: interleavingPrerequisiteIds(
+        interleavings,
+        environment,
+        projectFilter,
+      ),
+      environment,
+    });
   }
   let experimentMap = await getAllPayloadExperiments(
     context,
@@ -2455,13 +2486,22 @@ export async function getFeatureDefinitions(
       args.capabilities,
     );
     for (let round = 0; round < MAX_PREREQUISITE_LOAD_ROUNDS; round++) {
-      const expanded = await loadMissingPrerequisites(context, allFeatures, [
-        ...getPrerequisiteIdsInFeatures(allFeatures, experimentMap),
-        ...getVisualExperimentPrerequisiteIds(
-          servedAutoExperiments(experimentMap.values(), args),
-        ),
-        ...cbSeeds,
-      ]);
+      const expanded = await loadMissingPrerequisites({
+        context,
+        features: allFeatures,
+        seedIds: [
+          ...getPrerequisiteIdsInFeatures({
+            features: allFeatures,
+            experimentMap,
+            environment,
+          }),
+          ...getVisualExperimentPrerequisiteIds(
+            servedAutoExperiments(experimentMap.values(), args),
+          ),
+          ...cbSeeds,
+        ],
+        environment,
+      });
       if (expanded.length === allFeatures.length) break;
       allFeatures = expanded;
       const referenced = getReferenceIdsInFeatures(
@@ -2646,7 +2686,8 @@ export function evaluateFeature({
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const log: [string, any][] = [];
-        const gb = new GrowthBook({
+        // Evaluates a customer's feature, so opt out of our own registered types
+        const gb = new GrowthBook<Record<string, unknown>, Attributes>({
           features: {
             [feature.id]: definition,
           },
@@ -2750,8 +2791,9 @@ export async function evaluateAllFeatures({
       organization: context.org,
     });
 
-    // now we have all the definitions, lets evaluate them
-    const gb = new GrowthBook({
+    // now we have all the definitions, lets evaluate them. These are a
+    // customer's features, so opt out of our own registered types
+    const gb = new GrowthBook<Record<string, unknown>, Attributes>({
       features: featureDefinitions,
       savedGroups: savedGroups,
       attributes: attributeValues,
@@ -4026,8 +4068,8 @@ export function validateFeatureRuleValues(
 export function assertFeatureValuesValid(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
-  previous?: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
+  previous?: FeatureValues,
 ): void {
   const valueFeature = context.canSkipSchemaValidationFor("feature")
     ? { valueType: feature.valueType }
@@ -4036,6 +4078,22 @@ export function assertFeatureValuesValid(
     values,
     (value, label) => assertStorableFeatureValue(valueFeature, value, label),
     previous,
+  );
+}
+
+// A holdout's value as written, checked as other values are; one it keeps
+// unchanged isn't re-checked.
+export function assertHoldoutValueValid(
+  context: ReqContext | ApiReqContext,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema" | "holdout">,
+  holdout: FeatureInterface["holdout"] | null | undefined,
+): void {
+  if (!holdout) return;
+  assertFeatureValuesValid(
+    context,
+    feature,
+    { holdout },
+    { holdout: feature.holdout },
   );
 }
 
@@ -4051,8 +4109,8 @@ export function assertFeatureValuesValid(
 // the REST publish handler's gate collector.
 export function collectFeatureValueErrorsForPublish(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
-  previous?: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
+  previous?: FeatureValues,
 ): string[] {
   const errors: string[] = [];
   mapChangedFeatureValues(
@@ -4073,8 +4131,8 @@ export function collectFeatureValueErrorsForPublish(
 export function assertFeatureValuesValidForPublish(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
-  values: { defaultValue?: string; rules?: FeatureRule[] },
-  previous?: { defaultValue?: string; rules?: FeatureRule[] },
+  values: FeatureValues,
+  previous?: FeatureValues,
 ): void {
   const typeErrors = collectFeatureValueErrorsForPublish(
     { valueType: feature.valueType },

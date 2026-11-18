@@ -3471,6 +3471,7 @@ describe("experiments API", () => {
           pValueThreshold: 0.05,
           pValueCorrection: null,
           differenceType: "relative",
+          variations: [],
         },
       });
 
@@ -3571,6 +3572,7 @@ describe("experiments API", () => {
           pValueThreshold: 0.05,
           pValueCorrection: null,
           differenceType: "relative",
+          variations: [],
         },
       });
 
@@ -3673,6 +3675,7 @@ describe("experiments API", () => {
         pValueThreshold: 0.05,
         pValueCorrection: null,
         differenceType: "relative",
+        variations: [],
       },
     });
 

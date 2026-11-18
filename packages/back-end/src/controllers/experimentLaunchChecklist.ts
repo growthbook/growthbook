@@ -22,7 +22,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 const hiddenBuiltInItemsValidator = z
   .array(builtInChecklistItemKeyValidator)
@@ -253,7 +253,7 @@ export async function putManualLaunchChecklist(
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
-    throw new Error("Could not find experiment");
+    throw new NotFoundError("Could not find experiment");
   }
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {

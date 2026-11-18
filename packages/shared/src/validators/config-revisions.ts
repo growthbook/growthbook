@@ -170,9 +170,9 @@ const revisionResponseWithWarnings = revisionResponse.extend({
 const mergeConflictSchema = z
   .object({
     field: z.string(),
-    baseValue: z.unknown(),
-    liveValue: z.unknown(),
-    proposedValue: z.unknown(),
+    baseValue: z.unknown().optional(),
+    liveValue: z.unknown().optional(),
+    proposedValue: z.unknown().optional(),
   })
   .strict();
 
@@ -510,7 +510,7 @@ export const postConfigRevisionReopenValidator = {
     "Returns a previously discarded revision to `draft` status so it can be edited and published again. Only discarded revisions can be reopened.",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -525,7 +525,7 @@ export const postConfigRevisionRecallReviewValidator = {
     "Pulls a revision in review (`pending-review`, `changes-requested`, or `approved`) back to `draft`, clearing existing reviews and disarming any auto-publish-on-approval.",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -764,7 +764,7 @@ export const postConfigRevisionUndoReviewValidator = {
   description: `Retracts the calling user's own active \`approve\` or \`request-changes\` verdict, returning the revision to \`pending-review\`. Review comments stay in the log. Retracting a \`request-changes\` can leave the revision approved by someone else, in which case an armed auto-publish fires. ${REVIEW_VERDICT_NOTE}`,
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };

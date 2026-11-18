@@ -2,6 +2,7 @@ jest.mock("back-end/src/services/features", () => ({
   queueSDKPayloadRefresh: jest.fn(),
 }));
 
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
   flushPayloadRefreshBuffer,
@@ -101,6 +102,22 @@ describe("flushPayloadRefreshBuffer", () => {
 
     expect(detached.closed).toBe(true);
     expect(context.sdkPayloadRefreshBuffer).toBeNull();
+  });
+
+  it("refreshes a connection written twice from its last write", () => {
+    const context = makeContext();
+    const first = { key: "sdk-1", encryptPayload: false };
+    const last = { key: "sdk-1", encryptPayload: true };
+    context.sdkPayloadRefreshBuffer = {
+      keys: [],
+      sdkConnections: [first, last] as SDKConnectionInterface[],
+      treatEmptyProjectAsGlobal: false,
+    };
+
+    flushPayloadRefreshBuffer(context, "test");
+
+    expect(queueRefresh).toHaveBeenCalledTimes(1);
+    expect(queueRefresh.mock.calls[0][0].sdkConnections).toEqual([last]);
   });
 });
 

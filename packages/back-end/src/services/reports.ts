@@ -87,6 +87,8 @@ import {
   getSnapshotQueryMetadata,
   getDefaultExperimentAnalysisSettings,
   createMetricEligibilityResolver,
+  assertValidClusterExperimentConfig,
+  ClusterExperimentConfigFields,
 } from "back-end/src/services/experiments";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
@@ -377,6 +379,23 @@ export function getMetricForSnapshot({
   };
 }
 
+export async function assertValidReportClusterConfig(
+  context: ReqContext | ApiReqContext,
+  current: ClusterExperimentConfigFields,
+  previous: ClusterExperimentConfigFields,
+) {
+  if (!current.isClusterExperiment) return;
+  const datasource = current.datasource
+    ? await getDataSourceById(context, current.datasource)
+    : null;
+  await assertValidClusterExperimentConfig({
+    context,
+    datasource,
+    current,
+    previous,
+  });
+}
+
 export async function createReportSnapshot({
   report,
   previousSnapshot: snapshotData,
@@ -525,6 +544,9 @@ export async function createReportSnapshot({
     queries: [],
     unknownVariations: [],
     multipleExposures: 0,
+    // Report snapshots don't run health queries, so drop the health carried
+    // over from the experiment; warnings then use the report's own results.
+    health: undefined,
     hasChunkedAnalyses: false,
     chunkedAnalysesMeta: {},
     analyses: [
@@ -537,13 +559,6 @@ export async function createReportSnapshot({
       },
     ],
   };
-  if (
-    snapshotData?.health?.traffic &&
-    !snapshotData?.health?.traffic?.dimension
-  ) {
-    // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
-    snapshotData.health.traffic.dimension = {};
-  }
 
   const snapshot = await createExperimentSnapshotModel({
     context,
@@ -630,6 +645,7 @@ export function getReportSnapshotSettings({
   if (isClusterExperiment && exposureQuery) {
     const clusterValidation = validateClusterExperimentIdentifiers(
       exposureQuery,
+      datasource,
       exposureQueryIdentifierType,
       clusterSubUnitIdentifier,
     );

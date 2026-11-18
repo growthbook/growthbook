@@ -9,7 +9,8 @@ export type ArmGuardId =
   | "experiment"
   | "config-lock"
   | "schema-break"
-  | "archive-dependents";
+  | "archive-dependents"
+  | "webhook-secrets";
 
 // The per-guard arm-time acknowledgment fingerprint stored on a revision.
 export type ArmAcknowledgments = Partial<Record<ArmGuardId, string[]>>;

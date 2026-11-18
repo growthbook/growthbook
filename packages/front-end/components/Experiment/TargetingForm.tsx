@@ -5,6 +5,7 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { experimentHasLinkedChanges } from "shared/util";
 import { useEnvironments } from "@/services/features";
 import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
 import NamespaceSelector from "@/components//Features/NamespaceSelector";
@@ -44,8 +45,7 @@ export default function TargetingForm({
       allProjects: form.watch("attributeScopeAllProjects"),
       setAllProjects: (v) => form.setValue("attributeScopeAllProjects", v),
     });
-  const hasLinkedChanges =
-    !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
+  const hasLinkedChanges = experimentHasLinkedChanges(experiment);
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);

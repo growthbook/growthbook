@@ -28,6 +28,12 @@ export const incrementalRefreshMetricCovariateSourceValidator = z.object({
   lastSuccessfulMaxTimestampRaw: z.string().nullable().optional(),
 });
 
+// Identifies an exploratory analysis: two requests with equal fields are the
+// same analysis. Becomes a discriminated union when a second kind is added.
+export const exploratoryAnalysisRequestValidator = z
+  .object({ type: z.literal("dimension"), dimension: z.string() })
+  .strict();
+
 const incrementalRefresh = z
   .object({
     // Refs
@@ -58,9 +64,21 @@ const incrementalRefresh = z
       incrementalRefreshMetricCovariateSourceValidator,
     ),
 
-    // Incremental refresh lock
+    // Incremental refresh lock: one exclusive writer...
     currentExecutionSnapshotId: z.string().nullable(),
     lockHeartbeatAt: z.date().nullable().optional(),
+    // ...or any number of exploratory analyses reading the tables together.
+    readers: z
+      .array(
+        z
+          .object({
+            snapshotId: z.string(),
+            heartbeatAt: z.date(),
+            request: exploratoryAnalysisRequestValidator,
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict();
 
@@ -70,6 +88,10 @@ export const incrementalRefreshValidator = baseSchema
 
 export type IncrementalRefreshInterface = z.infer<
   typeof incrementalRefreshValidator
+>;
+
+export type ExploratoryAnalysisRequest = z.infer<
+  typeof exploratoryAnalysisRequestValidator
 >;
 
 export type IncrementalRefreshMetricSourceInterface = z.infer<

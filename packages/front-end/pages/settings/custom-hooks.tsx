@@ -84,6 +84,9 @@ export default function CustomHooksPage() {
   const featureHooks = allHooks.filter((h) => h.entityType === "feature");
   const configHooks = allHooks.filter((h) => h.entityType === "config");
   const experimentHooks = allHooks.filter((h) => h.entityType === "experiment");
+  const sdkConnectionHooks = allHooks.filter(
+    (h) => h.entityType === "sdkConnection",
+  );
 
   const deletedProjects = new Set(data.deletedProjects);
   const projectsLabel = (projects: string[]) => {
@@ -181,6 +184,15 @@ export default function CustomHooksPage() {
             entityLabel="Config"
             entityHref={(hook) => `/configs/${hook.entityId}#validation`}
             hooks={configHooks}
+            mutate={mutate}
+          />
+
+          <EntityScopedHooksSection
+            title="SDK Connection-specific Hooks"
+            description="These hooks are scoped to a single SDK Connection and managed from that connection's Validation tab."
+            entityLabel="SDK Connection"
+            entityHref={(hook) => `/sdks/${hook.entityId}#validation`}
+            hooks={sdkConnectionHooks}
             mutate={mutate}
           />
 

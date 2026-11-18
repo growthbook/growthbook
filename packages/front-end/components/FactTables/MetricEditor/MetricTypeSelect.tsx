@@ -8,6 +8,7 @@ import {
   PiFingerprint,
   PiFunnel,
   PiHash,
+  PiIntersect,
   PiPercent,
   PiRepeat,
   PiSigma,
@@ -23,6 +24,7 @@ export const TYPE_LABELS: Record<FormMetricType, string> = {
   proportion: "Proportion",
   threshold: "Threshold",
   retention: "Retention",
+  compound: "Compound",
   funnel: "Funnel",
   rowCount: "Count",
   colSum: "Sum",
@@ -41,6 +43,8 @@ export const TYPE_DESCRIPTIONS: Record<FormMetricType, string> = {
     "Percent of units that crossed a threshold, e.g. placed 3+ orders.",
   retention:
     "Percent of units active again after a set time, e.g. week 2 retention.",
+  compound:
+    "Percent of units that did multiple actions in any order, e.g. viewed pricing and subscribed.",
   funnel:
     "Percent of units that completed steps in order, e.g. cart → checkout → purchase.",
   rowCount: "Average number of events per unit, e.g. orders per user.",
@@ -56,7 +60,7 @@ export const TYPE_DESCRIPTIONS: Record<FormMetricType, string> = {
 const GROUPS: { label: string; types: readonly FormMetricType[] }[] = [
   {
     label: "Conversion rate",
-    types: ["proportion", "threshold", "retention", "funnel"],
+    types: ["proportion", "threshold", "retention", "compound", "funnel"],
   },
   {
     label: "Average per unit",
@@ -69,6 +73,7 @@ const TYPE_ICONS = {
   proportion: PiPercent,
   threshold: PiTarget,
   retention: PiRepeat,
+  compound: PiIntersect,
   funnel: PiFunnel,
   rowCount: PiHash,
   colSum: PiSigma,
@@ -84,6 +89,7 @@ type Gate = { kind: "commercial" } | { kind: "datasource"; suffix: string };
 
 const PREMIUM_FEATURES: Partial<Record<FormMetricType, CommercialFeature>> = {
   retention: "retention-metrics",
+  compound: "compound-metrics",
   funnel: "funnel-metrics",
   quantile: "quantile-metrics",
 };
@@ -93,6 +99,7 @@ export default function MetricTypeSelect({
   onChange,
   hasRetentionMetrics,
   hasFunnelMetrics,
+  hasCompoundMetrics,
   hasQuantileMetrics,
   quantileAvailableForDatasource,
 }: {
@@ -100,6 +107,7 @@ export default function MetricTypeSelect({
   onChange: (type: FormMetricType) => void;
   hasRetentionMetrics: boolean;
   hasFunnelMetrics: boolean;
+  hasCompoundMetrics: boolean;
   hasQuantileMetrics: boolean;
   quantileAvailableForDatasource: boolean;
 }) {
@@ -110,6 +118,7 @@ export default function MetricTypeSelect({
   const gate: Partial<Record<FormMetricType, Gate>> = {
     retention: !hasRetentionMetrics ? { kind: "commercial" } : undefined,
     funnel: !hasFunnelMetrics ? { kind: "commercial" } : undefined,
+    compound: !hasCompoundMetrics ? { kind: "commercial" } : undefined,
     quantile: !hasQuantileMetrics
       ? { kind: "commercial" }
       : !quantileAvailableForDatasource

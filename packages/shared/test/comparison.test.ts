@@ -18,6 +18,7 @@ import {
   computeExplorationComparisonPayload,
   createComparisonAlignmentResolver,
   densifyComparisonExplorationTimeseries,
+  densifyPopulationTimeseriesRows,
   enumerateProductAnalyticsDateBuckets,
   explorerDimensionDateToUtcYyyyMmDd,
   extendDateBucketsForward,
@@ -1058,6 +1059,25 @@ describe("buildAlignedComparisonRowLookup", () => {
     expect(lookup(["2024-01-06"])?.values[0]?.numerator).toBe(200);
   });
 
+  it("ranks against every current bucket when one has no row", () => {
+    // Sep 2 had no Population members, so it has no row.
+    const primary = [row(["2026-09-01"], 10), row(["2026-09-03"], 30)];
+    const comparison = [
+      row(["2026-08-29"], 1),
+      row(["2026-08-30"], 2),
+      row(["2026-08-31"], 3),
+    ];
+    const lookup = buildAlignedComparisonRowLookup(
+      primary,
+      comparison,
+      true,
+      "chronological",
+      ["2026-09-01", "2026-09-02T00:00:00.000Z", "2026-09-03"],
+    );
+    expect(lookup(["2026-09-01"])?.values[0]?.numerator).toBe(1);
+    expect(lookup(["2026-09-03"])?.values[0]?.numerator).toBe(3);
+  });
+
   it("pairs breakdown rows by the full dimension tuple, not just the date", () => {
     const primary: ProductAnalyticsResultRow[] = [
       row(["2024-01-01", "Chrome"], 10),
@@ -1436,12 +1456,38 @@ describe("densifyComparisonExplorationTimeseries", () => {
     queries: [],
   });
 
+  it("fills days with no Population members only when one is applied", () => {
+    const withPopulation: ExplorationConfig = {
+      ...baseConfig,
+      dataset: {
+        ...baseConfig.dataset,
+        type: "metric",
+        values:
+          baseConfig.dataset.type === "metric" ? baseConfig.dataset.values : [],
+        population: { populationId: "pop_1", unit: "user_id" },
+      },
+    };
+    const sparse = shellExploration([
+      {
+        dimensions: ["2024-01-01"],
+        values: [{ metricId: "m1", numerator: 1, denominator: 1 }],
+        populationCount: 10,
+      },
+    ]);
+    const filled = densifyPopulationTimeseriesRows(sparse, withPopulation);
+    expect(filled).toHaveLength(7);
+    // Filled days have no member count, so "% of Population" reads no data.
+    expect(filled.filter((r) => r.populationCount === undefined)).toHaveLength(
+      6,
+    );
+    expect(densifyPopulationTimeseriesRows(sparse, baseConfig)).toHaveLength(1);
+  });
+
   it("fills an empty comparison with one zero row per day", () => {
     const out = densifyComparisonExplorationTimeseries({
       comparison: shellExploration([]),
       submittedConfig: baseConfig,
       previousTimeFrame: prevFrame,
-      getFactMetricById,
     });
     expect(out?.result.rows).toHaveLength(7);
     expect(out?.result.rows.every((r) => r.values[0]?.numerator === 0)).toBe(
@@ -1459,7 +1505,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
       ]),
       submittedConfig: baseConfig,
       previousTimeFrame: prevFrame,
-      getFactMetricById,
     });
     expect(out?.result.rows).toHaveLength(7);
     const jan3 = out?.result.rows.find(
@@ -1488,7 +1533,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
       ]),
       submittedConfig: baseConfig,
       previousTimeFrame: prevFrame,
-      getFactMetricById,
     });
     const jan3 = out?.result.rows.find(
       (r) =>
@@ -1530,7 +1574,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
       comparison: shellExploration([]),
       submittedConfig: weekConfig,
       previousTimeFrame: weekPrev,
-      getFactMetricById,
     });
     expect(out?.result.rows).toHaveLength(2);
   });
@@ -1554,7 +1597,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
         comparison: shellExploration([]),
         submittedConfig: groupedConfig,
         previousTimeFrame: shortPrev,
-        getFactMetricById,
         primaryRows: [
           {
             dimensions: ["2024-01-01", "Chrome"],
@@ -1586,7 +1628,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
         ]),
         submittedConfig: groupedConfig,
         previousTimeFrame: shortPrev,
-        getFactMetricById,
         primaryRows: [
           {
             dimensions: ["2024-01-01", "Chrome"],
@@ -1628,7 +1669,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
         ]),
         submittedConfig: groupedConfig,
         previousTimeFrame: shortPrev,
-        getFactMetricById,
         primaryRows: [
           {
             dimensions: ["2024-01-01", "Chrome"],
@@ -1647,7 +1687,6 @@ describe("densifyComparisonExplorationTimeseries", () => {
         comparison: shellExploration([]),
         submittedConfig: groupedConfig,
         previousTimeFrame: shortPrev,
-        getFactMetricById,
       });
       expect(out?.result.rows).toHaveLength(0);
     });

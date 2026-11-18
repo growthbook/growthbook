@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
+import { apiBaseSchema } from "./base-model";
+import { namedSchema } from "./openapi-helpers";
 
 export const webhookSecretSchema = z
   .object({
@@ -20,5 +22,35 @@ export type WebhookSecretFrontEndInterface = Omit<
   "value"
 >;
 
+// `value` is write-only: never returned by the API.
+export const apiWebhookSecretValidator = namedSchema(
+  "WebhookSecret",
+  apiBaseSchema.safeExtend({
+    key: z.string(),
+    description: z.string().optional(),
+    allowedOrigins: z
+      .array(z.string())
+      .optional()
+      .describe("Origins the secret may be sent to. Empty allows any."),
+  }),
+);
+
+export const apiCreateWebhookSecretBody = z.strictObject({
+  key: z
+    .string()
+    .describe("Reference it in a webhook URL or header as `{{ KEY }}`"),
+  value: z.string(),
+  description: z.string().optional(),
+  allowedOrigins: z.array(z.string()).optional(),
+});
+export const apiUpdateWebhookSecretBody = apiCreateWebhookSecretBody.partial();
+
 export type CreateWebhookSecretProps = CreateProps<WebhookSecretInterface>;
 export type UpdateWebhookSecretProps = UpdateProps<WebhookSecretInterface>;
+
+// The secrets a webhook's endpoint or headers reference: `{{ KEY }}`, or
+// `{{[key with spaces]}}` as the sender rewrites those.
+export const referencedWebhookSecrets = (text: string): string[] =>
+  [...text.matchAll(/\{\{\s*\[?([^\]{}]+?)\]?\s*\}\}/g)].map((match) =>
+    match[1].trim(),
+  );

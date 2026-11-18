@@ -12,6 +12,8 @@ import {
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { NotFoundError } from "back-end/src/util/errors";
+import { assertValidReportClusterConfig } from "back-end/src/services/reports";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const putReportSettings = createApiRequestHandler(
@@ -21,7 +23,7 @@ export const putReportSettings = createApiRequestHandler(
 
   const report = await getReportById(org.id, req.params.id);
   if (!report) {
-    throw new Error("Could not find report with that id");
+    throw new NotFoundError("Could not find report with that id");
   }
 
   if (report.type !== "experiment-snapshot") {
@@ -33,7 +35,7 @@ export const putReportSettings = createApiRequestHandler(
     : null;
 
   if (report.experimentId && !experiment) {
-    throw new Error("Could not find report with that id");
+    throw new NotFoundError("Could not find report with that id");
   }
 
   if (!req.context.permissions.canUpdateReport(experiment || {})) {
@@ -106,6 +108,11 @@ export const putReportSettings = createApiRequestHandler(
   if (skipPartialData !== undefined)
     newSettings.skipPartialData = skipPartialData;
 
+  await assertValidReportClusterConfig(
+    req.context,
+    newSettings,
+    currentSettings,
+  );
   updates.experimentAnalysisSettings = newSettings;
 
   // Merge variation metadata — update only the variations provided by index match on id.
