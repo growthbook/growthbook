@@ -265,6 +265,7 @@ export abstract class QueryRunner<
   /** A pass is on refreshChain but has not started; it covers any new finish. */
   private refreshPassQueued = false;
   private consecutiveRefreshFailures = 0;
+  private emptyQueryListSeen = false;
   /** Serializes refresh passes so two cannot analyze or mutate model at once. */
   private refreshChain: Promise<void> = Promise.resolve();
   private finishedQueryMapCache: QueryMap = new Map();
@@ -567,17 +568,27 @@ export abstract class QueryRunner<
         return;
       }
       if (this.isFinished()) return;
-      this.model = latest;
       if (this.isModelTerminal(latest)) {
+        this.model = latest;
         this.standDown("model is already terminal in the database");
         return;
       }
       // startAnalysis never runs with an empty DAG, so empty queries here
-      // means cancelQueries() on another instance wrote queries: [].
+      // means cancelQueries() on another instance wrote queries: []. A read
+      // from a replica that lags the DAG write looks the same, so confirm
+      // with a second pass before standing down.
       if (this.status === "running" && latest.queries.length === 0) {
+        if (!this.emptyQueryListSeen && this.model.queries.length > 0) {
+          this.emptyQueryListSeen = true;
+          this.onQueryFinish();
+          return;
+        }
+        this.model = latest;
         this.standDown("query list was emptied by a cancel");
         return;
       }
+      this.emptyQueryListSeen = false;
+      this.model = latest;
       try {
         const queryMap = await this.refreshQueryStatuses();
         if (this.isFinished()) return;

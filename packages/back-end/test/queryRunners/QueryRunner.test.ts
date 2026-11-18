@@ -1645,12 +1645,42 @@ describe("QueryRunner", () => {
           Promise.resolve({ ...runner.model, queries: [] });
 
         await jest.advanceTimersByTimeAsync(0);
+        expect(runner.status).toBe("running");
+
+        await jest.advanceTimersByTimeAsync(100);
 
         expect(runner.status).toBe("finished");
         expect(runner.error).toBe("");
         expect(runner.runAnalysisSpy).not.toHaveBeenCalled();
         expect(runner.updateModelSpy).not.toHaveBeenCalled();
         expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("keeps running when one stale read shows an empty query list", async () => {
+      jest.useFakeTimers();
+      try {
+        const runner = new StallTestQueryRunner(
+          mockContext,
+          makeModel([]),
+          mockIntegration,
+        );
+        await runner.startAnalysis({
+          pointers: [{ name: "a", query: "qry_a", status: "running" }],
+        });
+        const persisted = runner.model;
+        const reads = [{ ...persisted, queries: [] }, persisted];
+        runner.getLatestModelImpl = () =>
+          Promise.resolve(reads.shift() ?? persisted);
+
+        await jest.advanceTimersByTimeAsync(100);
+
+        expect(reads).toHaveLength(0);
+        expect(runner.status).toBe("running");
+        expect(runner.model.queries).toHaveLength(1);
       } finally {
         jest.clearAllTimers();
         jest.useRealTimers();
