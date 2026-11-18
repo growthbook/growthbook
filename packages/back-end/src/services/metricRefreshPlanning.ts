@@ -7,6 +7,7 @@ import {
   getMetricRefresh,
   getSnapshotDataAsOf,
   isAnalysisDateRangeOutdated,
+  isWithinNewMetricsUpdateWindow,
 } from "shared/experiments";
 import {
   getIdentifierTypeForSettingsHash,
@@ -103,8 +104,7 @@ export function shouldUpdateNewMetricsOnly({
 }): boolean {
   return (
     missingMetricIds.length > 0 &&
-    windowHours > 0 &&
-    now.getTime() - resultsEndDate.getTime() < windowHours * 3_600_000
+    isWithinNewMetricsUpdateWindow({ resultsEndDate, windowHours, now })
   );
 }
 
