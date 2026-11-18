@@ -86,7 +86,7 @@ export const getExperimentResults = createApiRequestHandler(
         snapshot,
         healthSettings: getHealthSettingsForOrg(req.context),
       }),
-      ...(missingMetricIds ? { missingMetricIds } : {}),
     },
+    ...(missingMetricIds ? { missingMetricIds } : {}),
   };
 });

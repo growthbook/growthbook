@@ -318,13 +318,6 @@ export class InternalServerError extends Error {
   }
 }
 
-export class ConcurrentIncrementalRefreshError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ConcurrentIncrementalRefreshError";
-  }
-}
-
 // Another advance holds a ramp schedule's advance lock. Transient: callers
 // either retry briefly (user-initiated actions) or defer to the scheduler.
 export class RampAdvanceLockBusyError extends Error {
@@ -365,11 +358,11 @@ export class MetricsAlreadyUpToDateError extends ApiError<"metrics_already_up_to
 }
 
 export class SnapshotInProgressError extends ApiError<"snapshot_in_progress"> {
-  constructor(snapshotId: string) {
+  constructor(snapshotId: string | null) {
     super(
       "snapshot_in_progress",
       "An update is already running for this experiment. Try again when it finishes.",
-      { snapshotId },
+      snapshotId ? { snapshotId } : {},
     );
     this.name = "SnapshotInProgressError";
   }
@@ -385,11 +378,11 @@ export class MetricRefreshUnavailableError extends ApiError<"metric_refresh_unav
   }
 }
 
-// The last full update is too old for an update the caller didn't ask for
-// explicitly. Callers run a normal update instead; it never reaches a client.
+// The results are too old for an update that didn't choose a scope. Callers
+// run a normal update instead; it never reaches a client.
 export class MetricRefreshOutsideWindowError extends Error {
   constructor() {
-    super("The last full update is outside the new-metrics-only update window");
+    super("The latest results end before the new metrics update window");
     this.name = "MetricRefreshOutsideWindowError";
   }
 }

@@ -214,7 +214,7 @@ function baseState(): IncrementalRefreshInterface {
 
 function digest(value: unknown): string {
   const seen = new WeakSet<object>();
-  const json = JSON.stringify(value, (_key, v: unknown) => {
+  const json = JSON.stringify(value, (key, v: unknown) => {
     if (v instanceof Map) return Object.fromEntries(v);
     if (v instanceof Set) return [...v];
     if (v && typeof v === "object") {
@@ -659,6 +659,17 @@ describe("metric refresh (metrics-only runs)", () => {
     expect(refresh.runDropTableQuery.mock.calls.map((c) => c[0])).toEqual(
       drops.map((r) => r.query),
     );
+  });
+
+  it("drops the table a normal update replaced, and none when no cache was rebuilt", async () => {
+    const dropsOf = (dag: Dag) =>
+      namesOf(dag).filter((name) => name.startsWith("drop_replaced_"));
+
+    expect(dropsOf(await updateDag([...BASE_METRICS, "a3"]))).toEqual([
+      "drop_replaced_metrics_source_ft_a_stored0",
+      "drop_replaced_metrics_covariate_table_ft_a_stored0",
+    ]);
+    expect(dropsOf(await updateDag(BASE_METRICS))).toEqual([]);
   });
 
   describe("dropping a replaced table", () => {

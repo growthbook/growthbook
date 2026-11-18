@@ -142,22 +142,6 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
     ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
   });
 
-  it("throws on a metric refresh when the stored hash differs", async () => {
-    await expect(
-      assertIncrementalRefreshPrerequisites({
-        org,
-        integration,
-        snapshotSettings: makeSnapshotSettings({ segment: "seg_changed" }),
-        metricMap,
-        experiment,
-        incrementalRefreshModel: makeIncrementalRefreshModel({
-          experimentSettingsHash: "stale_hash",
-        }),
-        analysisType: "metric-refresh",
-      }),
-    ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
-  });
-
   it("throws on main-update when the stored hash differs", async () => {
     await expect(
       assertIncrementalRefreshPrerequisites({
@@ -254,7 +238,7 @@ describe("assertIncrementalRefreshPrerequisites analysis end date cutoff", () =>
     endDateIsCutoff: boolean;
     unitsMaxTimestamp: Date;
     metricMaxTimestamp: Date;
-    analysisType: "main-update" | "main-fullRefresh" | "metric-refresh";
+    analysisType: "main-update" | "main-fullRefresh";
   }) => {
     const snapshotSettings = makeSnapshotSettings({
       endDate: cutoff,
@@ -326,17 +310,6 @@ describe("assertIncrementalRefreshPrerequisites analysis end date cutoff", () =>
         unitsMaxTimestamp: after,
         metricMaxTimestamp: after,
         analysisType: "main-update",
-      }),
-    ).resolves.toBeUndefined();
-  });
-
-  it("leaves the tables of a metric refresh to its check under the lock", async () => {
-    await expect(
-      check({
-        endDateIsCutoff: true,
-        unitsMaxTimestamp: after,
-        metricMaxTimestamp: after,
-        analysisType: "metric-refresh",
       }),
     ).resolves.toBeUndefined();
   });

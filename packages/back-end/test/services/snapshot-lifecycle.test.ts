@@ -23,7 +23,7 @@ import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/Experime
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
+import { SnapshotInProgressError } from "back-end/src/util/errors";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   updateExperiment: jest.fn(),
@@ -49,7 +49,7 @@ jest.mock("back-end/src/enterprise/services/dashboards", () => ({
 jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
   ExperimentResultsQueryRunner: jest
     .fn()
-    .mockImplementation((_context, snapshot) => ({
+    .mockImplementation((ctx, snapshot) => ({
       model: snapshot,
       startAnalysis: jest.fn(),
       setExperimentUpdateExecutionLogger: jest.fn(),
@@ -61,7 +61,7 @@ jest.mock(
   () => ({
     ExperimentIncrementalRefreshQueryRunner: jest
       .fn()
-      .mockImplementation((_context, snapshot) => ({
+      .mockImplementation((ctx, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
         setExperimentUpdateExecutionLogger: jest.fn(),
@@ -74,7 +74,7 @@ jest.mock(
   () => ({
     ExperimentIncrementalRefreshExploratoryQueryRunner: jest
       .fn()
-      .mockImplementation((_context, snapshot) => ({
+      .mockImplementation((ctx, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
         setExperimentUpdateExecutionLogger: jest.fn(),
@@ -462,27 +462,42 @@ describe("snapshot lifecycle", () => {
       },
     );
 
-    it("throws ConcurrentIncrementalRefreshError when lock cannot be acquired", async () => {
-      const context = makeContext();
-      (
-        context.models.incrementalRefresh.acquireLock as jest.Mock
-      ).mockResolvedValue(false);
-      const experiment = makeExperiment();
-      const plan = makePlan({ runnerKind: "incremental-update" });
+    it.each([
+      { holder: "snp_running", details: { snapshotId: "snp_running" } },
+      { holder: "irdel_phase", details: {} },
+      { holder: null, details: {} },
+    ])(
+      "refuses a normal update while $holder holds the lock, naming only a snapshot",
+      async ({ holder, details }) => {
+        const context = makeContext();
+        Object.assign(context.models.incrementalRefresh, {
+          acquireLock: jest.fn().mockResolvedValue(false),
+          getByExperimentIdAndPhase: jest
+            .fn()
+            .mockResolvedValue({ currentExecutionSnapshotId: holder }),
+        });
+        const plan = makePlan({ runnerKind: "incremental-update" });
 
-      await expect(
-        createSnapshotFromPlan({
+        const promise = createSnapshotFromPlan({
           plan,
           context,
-          experiment,
+          experiment: makeExperiment(),
           metricMap: new Map<string, ExperimentMetricInterface>(),
           factTableMap: new Map() as FactTableMap,
-        }),
-      ).rejects.toThrow(ConcurrentIncrementalRefreshError);
+        });
 
-      expect(incrementalQueryRunnerMock).not.toHaveBeenCalled();
-      expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
-    });
+        await expect(promise).rejects.toBeInstanceOf(SnapshotInProgressError);
+        await expect(promise).rejects.toMatchObject({
+          status: 409,
+          code: "snapshot_in_progress",
+        });
+        await promise.catch((error: SnapshotInProgressError) =>
+          expect(error.details).toEqual(details),
+        );
+        expect(incrementalQueryRunnerMock).not.toHaveBeenCalled();
+        expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+      },
+    );
 
     it("releases lock when snapshot creation fails", async () => {
       const context = makeContext();

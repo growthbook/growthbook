@@ -31,10 +31,10 @@ import {
   getQueriesWithChangedSql,
   getSettingsChangedSinceParent,
   mergeMetricRefreshSettings,
-  parseIncrementalRefreshBase,
+  assertIncrementalMetricRefreshBase,
+  assertIncrementalTablesMatchParent,
   planMetricRefresh,
   replayMetricRefreshLineage,
-  resolveIncrementalMetricRefreshRun,
   shouldUpdateNewMetricsOnly,
   type GenerateResultQuerySql,
   type MetricRefreshReplayLevel,
@@ -107,17 +107,21 @@ const analyzeMock = jest.mocked(analyzeExperimentResults);
 const findSnapshotByIdMock = jest.mocked(findSnapshotById);
 const findAncestorMock = jest.mocked(findMetricRefreshAncestor);
 
+const PARENT_START = new Date("2026-11-01T00:00:00Z");
+const PARENT_END = new Date("2026-11-10T12:00:00Z");
+const PARENT_CREATED = new Date("2026-11-10T12:05:00Z");
+
+const pipelineStateMock = jest.fn();
 const context = {
   org: { id: "org_1", settings: {} },
   permissions: { canRunExperimentQueries: () => true },
   logger: { warn: jest.fn() },
+  models: {
+    incrementalRefresh: { getByExperimentIdAndPhase: pipelineStateMock },
+  },
 } as unknown as ReqContext;
 
 const datasource = { id: "ds_1", settings: {} } as DataSourceInterface;
-
-const PARENT_START = new Date("2026-11-01T00:00:00Z");
-const PARENT_END = new Date("2026-11-10T12:00:00Z");
-const PARENT_CREATED = new Date("2026-11-10T12:05:00Z");
 
 const analysisSettings = {
   dimensions: [],
@@ -133,7 +137,7 @@ function makeExperiment(
   return {
     id: "exp_1",
     type: "standard",
-    phases: [{}],
+    phases: [{ dateStarted: PARENT_START }],
     goalMetrics: ["met_a", "met_b", "met_c"],
     secondaryMetrics: [],
     guardrailMetrics: [],
@@ -258,7 +262,7 @@ const storedSqlGenerator: GenerateResultQuerySql = async ({
 };
 
 function storeQueries(docs: Record<string, string>) {
-  getQueriesByIdsMock.mockImplementation(async (_, ids) =>
+  getQueriesByIdsMock.mockImplementation(async (ctx, ids) =>
     ids
       .filter((id) => id in docs)
       .map((id) => ({ id, query: docs[id] }) as QueryInterface),
@@ -277,9 +281,38 @@ beforeEach(() => {
   latestStatusMock.mockResolvedValue(null);
   findParentMock.mockResolvedValue(makeParent());
   storeQueries({ qry_group: groupSql(["met_a", "met_b"], 0) });
+  pipelineStateMock.mockResolvedValue({
+    unitsTableFullName: "t_units",
+    unitsMaxTimestamp: PARENT_END,
+    materializedBySnapshotId: "snp_parent",
+    metricSources: [],
+  });
 });
 
 describe("planMetricRefresh", () => {
+  // The analysis dates are outdated once the results are a day old.
+  const NOW = new Date(PARENT_CREATED.getTime() + 60 * 60_000);
+  beforeAll(() => {
+    jest.useFakeTimers({
+      now: NOW,
+      doNotFake: [
+        "hrtime",
+        "nextTick",
+        "performance",
+        "queueMicrotask",
+        "setImmediate",
+        "clearImmediate",
+        "setInterval",
+        "clearInterval",
+        "setTimeout",
+        "clearTimeout",
+      ],
+    });
+  });
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   it("queries only the missing metric, pinned to the parent's end date", async () => {
     const args = refreshArgs();
     const plan = await planMetricRefresh(args);
@@ -340,7 +373,9 @@ describe("planMetricRefresh", () => {
       name: "an ended phase, whose plan is not pinned to the parent's end date",
       setup: () => ({
         experiment: makeExperiment({
-          phases: [{ dateEnded: PARENT_END }] as ExperimentInterface["phases"],
+          phases: [
+            { dateStarted: PARENT_START, dateEnded: PARENT_END },
+          ] as ExperimentInterface["phases"],
         }),
         planSnapshotAt: async () =>
           makePlan({ settings: { endDateIsCutoff: false } }),
@@ -403,7 +438,7 @@ describe("planMetricRefresh", () => {
           makeParent({ runnerKind: "incremental-update" }),
         );
       },
-      expected: unavailable("incremental_pipeline"),
+      expected: unavailable("metric_not_supported"),
     },
     {
       name: "a results parent with an Incremental Pipeline plan",
@@ -411,7 +446,33 @@ describe("planMetricRefresh", () => {
         planSnapshotAt: async () =>
           makePlan({ runnerKind: "incremental-update" }),
       }),
+      expected: unavailable("metric_not_supported"),
+    },
+    {
+      name: "an Incremental Pipeline parent whose tables a later run extended",
+      setup: () => {
+        findParentMock.mockResolvedValue(
+          makeParent({ runnerKind: "incremental-update" }),
+        );
+        pipelineStateMock.mockResolvedValue({
+          unitsTableFullName: "t_units",
+          unitsMaxTimestamp: new Date(PARENT_END.getTime() + 60_000),
+          materializedBySnapshotId: "snp_parent",
+          metricSources: [],
+        });
+      },
       expected: unavailable("incremental_pipeline"),
+    },
+    {
+      name: "analysis dates that moved by a day",
+      setup: () => ({
+        experiment: makeExperiment({
+          phases: [
+            { dateStarted: new Date("2026-10-31T00:00:00Z") },
+          ] as ExperimentInterface["phases"],
+        }),
+      }),
+      expected: unavailable("analysis_dates_changed"),
     },
     {
       name: "a planned full refresh of the Incremental Pipeline",
@@ -514,43 +575,61 @@ describe("planMetricRefresh", () => {
     },
   );
 
+  it("names why the Incremental Pipeline can't run the experiment now", async () => {
+    findParentMock.mockResolvedValue(
+      makeParent({ runnerKind: "incremental-update" }),
+    );
+    const plan = makePlan();
+    plan.incrementalFallbackReason =
+      "Legacy metrics aren't supported with Incremental Pipeline mode.";
+
+    await expect(
+      planMetricRefresh(refreshArgs({ planSnapshotAt: async () => plan })),
+    ).rejects.toMatchObject({
+      details: { reason: "metric_not_supported" },
+      message: expect.stringContaining("Legacy metrics aren't supported"),
+    });
+  });
+
+  it("refuses once the results are a day old, as the analysis dates moved", async () => {
+    jest.setSystemTime(new Date(PARENT_CREATED.getTime() + 24 * 3_600_000));
+    try {
+      await expect(planMetricRefresh(refreshArgs())).rejects.toMatchObject({
+        details: { reason: "analysis_dates_changed" },
+      });
+    } finally {
+      jest.setSystemTime(NOW);
+    }
+  });
+
   describe("with a window", () => {
-    const window = (minutesAfterParent: number) => ({
-      windowMinutes: 60,
-      now: new Date(PARENT_CREATED.getTime() + minutesAfterParent * 60_000),
+    const window = (hoursAfterEnd: number) => ({
+      windowHours: 4,
+      now: new Date(PARENT_END.getTime() + hoursAfterEnd * 3_600_000),
     });
 
-    it("plans the refresh when the parent ran within the window", async () => {
-      const plan = await planMetricRefresh(refreshArgs({ window: window(30) }));
+    it("plans the refresh when the results end within the window", async () => {
+      const plan = await planMetricRefresh(refreshArgs({ window: window(3) }));
       expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
     });
 
-    it("refuses before planning when the parent ran before the window", async () => {
-      const args = refreshArgs({ window: window(90) });
+    it("refuses before planning when the results end before the window", async () => {
+      const args = refreshArgs({ window: window(5) });
       await expect(planMetricRefresh(args)).rejects.toBeInstanceOf(
         MetricRefreshOutsideWindowError,
       );
       expect(args.planSnapshotAt).not.toHaveBeenCalled();
     });
 
-    it("measures from the base full update when the latest results are a refresh", async () => {
-      const refreshRanAt = new Date(PARENT_CREATED.getTime() + 80 * 60_000);
+    it("measures from the end date the results cover, not from when they ran", async () => {
       findParentMock.mockResolvedValue(
         makeParent({
-          id: "snp_refresh",
-          dateCreated: refreshRanAt,
-          metricRefresh: {
-            baseSnapshotId: "snp_parent",
-            baseDateCreated: PARENT_CREATED,
-            baseCutoffDate: PARENT_END,
-            parentSnapshotId: "snp_parent",
-            metricIds: ["met_b"],
-          },
+          dateCreated: new Date(PARENT_END.getTime() + 3 * 3_600_000),
         }),
       );
 
       await expect(
-        planMetricRefresh(refreshArgs({ window: window(90) })),
+        planMetricRefresh(refreshArgs({ window: window(5) })),
       ).rejects.toBeInstanceOf(MetricRefreshOutsideWindowError);
     });
   });
@@ -560,7 +639,7 @@ describe("planMetricRefresh", () => {
     ["the query of a metric since removed", "met_gone"],
   ])(
     "accepts a parent whose only failed query is %s, which it does not copy",
-    async (_, failed) => {
+    async (name, failed) => {
       findParentMock.mockResolvedValue(
         makeParent({
           settings: makeSettings(["met_a", "met_b", "met_gone"]),
@@ -574,7 +653,7 @@ describe("planMetricRefresh", () => {
 
       const plan = await planMetricRefresh(
         refreshArgs({
-          planSnapshotAt: async (_, extraMetricIds = []) =>
+          planSnapshotAt: async (cutoff, extraMetricIds = []) =>
             makePlan({
               metricIds: ["met_a", "met_b", "met_c", ...extraMetricIds],
             }),
@@ -595,7 +674,7 @@ describe("planMetricRefresh", () => {
     ],
   ])(
     "on the Incremental Pipeline, a parent with a failed %s",
-    async (_, failed, rejected) => {
+    async (name, failed, rejected) => {
       findParentMock.mockResolvedValue(
         makeParent({
           runnerKind: "incremental-update",
@@ -711,7 +790,7 @@ describe("planMetricRefresh", () => {
 
     it("replays a refresh of a refresh base first, each run under its own id", async () => {
       // base snp_base ran met_a; snp_mid added met_b; the parent added met_d.
-      findAncestorMock.mockImplementation(async (_, id) =>
+      findAncestorMock.mockImplementation(async (ctx, id) =>
         id === "snp_mid"
           ? refreshOf("snp_mid", "snp_base", ["met_b"], {
               settings: makeSettings(["met_a", "met_b"]),
@@ -770,12 +849,12 @@ describe("planMetricRefresh", () => {
         refreshOf("snp_parent", "snp_base", ["met_b"]),
       );
       await expect(planMetricRefresh(refreshArgs())).rejects.toMatchObject({
-        details: { reason: "settings_changed" },
+        details: { reason: "base_incomplete" },
       });
     });
 
     it("refuses a lineage longer than ten runs without loading the rest", async () => {
-      findAncestorMock.mockImplementation(async (_, id) =>
+      findAncestorMock.mockImplementation(async (ctx, id) =>
         refreshOf(id, `${id}_up`, ["met_b"]),
       );
       findParentMock.mockResolvedValue(
@@ -784,7 +863,7 @@ describe("planMetricRefresh", () => {
       const args = refreshArgs();
 
       await expect(planMetricRefresh(args)).rejects.toMatchObject({
-        details: { reason: "settings_changed" },
+        details: { reason: "base_incomplete" },
       });
       expect(findAncestorMock).toHaveBeenCalledTimes(9);
       expect(args.generateResultQuerySql).not.toHaveBeenCalled();
@@ -1046,28 +1125,28 @@ describe("getQueriesWithChangedSql", () => {
 });
 
 describe("shouldUpdateNewMetricsOnly", () => {
-  const baseComputedAt = new Date("2026-11-18T10:00:00Z");
-  const minutesLater = (minutes: number) =>
-    new Date(baseComputedAt.getTime() + minutes * 60_000);
+  const resultsEndDate = new Date("2026-11-18T10:00:00Z");
+  const hoursLater = (hours: number) =>
+    new Date(resultsEndDate.getTime() + hours * 3_600_000);
   const decide = (
     overrides: Partial<Parameters<typeof shouldUpdateNewMetricsOnly>[0]>,
   ) =>
     shouldUpdateNewMetricsOnly({
       missingMetricIds: ["met_c"],
-      baseComputedAt,
-      now: minutesLater(30),
-      windowMinutes: 60,
+      resultsEndDate,
+      now: hoursLater(1),
+      windowHours: 4,
       ...overrides,
     });
 
-  it("applies when metrics are missing and the base ran within the window", () => {
+  it("applies when metrics are missing and the results end within the window", () => {
     expect(decide({})).toBe(true);
-    expect(decide({ now: minutesLater(59.9) })).toBe(true);
+    expect(decide({ now: hoursLater(3.99) })).toBe(true);
   });
 
   it("does not apply once the window has passed", () => {
-    expect(decide({ now: minutesLater(60) })).toBe(false);
-    expect(decide({ now: minutesLater(600) })).toBe(false);
+    expect(decide({ now: hoursLater(4) })).toBe(false);
+    expect(decide({ now: hoursLater(30) })).toBe(false);
   });
 
   it("does not apply when nothing is missing", () => {
@@ -1075,11 +1154,11 @@ describe("shouldUpdateNewMetricsOnly", () => {
   });
 
   it("never applies with a window of 0", () => {
-    expect(decide({ windowMinutes: 0, now: baseComputedAt })).toBe(false);
+    expect(decide({ windowHours: 0, now: resultsEndDate })).toBe(false);
   });
 });
 
-describe("parseIncrementalRefreshBase", () => {
+describe("assertIncrementalTablesMatchParent", () => {
   const SCAN_END = PARENT_END;
   const before = (minutes: number) =>
     new Date(SCAN_END.getTime() - minutes * 60_000);
@@ -1087,7 +1166,7 @@ describe("parseIncrementalRefreshBase", () => {
     new Date(SCAN_END.getTime() + minutes * 60_000);
 
   type State = NonNullable<
-    Parameters<typeof parseIncrementalRefreshBase>[0]["state"]
+    Parameters<typeof assertIncrementalTablesMatchParent>[0]["state"]
   >;
   const source = (
     groupId: string,
@@ -1116,15 +1195,15 @@ describe("parseIncrementalRefreshBase", () => {
     s.metricSources.push(...extra);
     return s;
   };
-  const parse = (s: State | null) =>
-    parseIncrementalRefreshBase({
+  const parse = (s: State | null) => () =>
+    assertIncrementalTablesMatchParent({
       state: s,
       parentSnapshotId: "snp_parent",
       scanEnd: SCAN_END,
     });
 
   it("accepts the state the parent left", () => {
-    expect(parse(state())).toEqual({ scanEnd: SCAN_END });
+    expect(parse(state())).not.toThrow();
   });
 
   it.each<[string, () => State]>([
@@ -1136,8 +1215,8 @@ describe("parseIncrementalRefreshBase", () => {
       "a rebuilt cache sharing a target with a metric the refresh copies",
       () => withSource(source("fta_1", ["met_d", "met_c"], before(1))),
     ],
-  ])("accepts %s", (_name, makeState) => {
-    expect(parse(makeState())).toEqual({ scanEnd: SCAN_END });
+  ])("accepts %s", (name, makeState) => {
+    expect(parse(makeState())).not.toThrow();
   });
 
   it.each<[string, () => State | null]>([
@@ -1167,64 +1246,34 @@ describe("parseIncrementalRefreshBase", () => {
       "a cache a failed update filled past the parent's end",
       () => withSource(source("ftc_1", ["met_c"], after(1))),
     ],
-  ])("rejects %s", (_name, makeState) => {
-    expect(() => parse(makeState())).toThrow(
+  ])("rejects %s", (name, makeState) => {
+    expect(parse(makeState())).toThrow(
       expect.objectContaining({ details: { reason: "incremental_pipeline" } }),
     );
   });
 });
 
-describe("resolveIncrementalMetricRefreshRun", () => {
-  function resolve(plan: PlannedExperimentSnapshot) {
+describe("assertIncrementalMetricRefreshBase", () => {
+  it("checks the state read under the lock up to the plan's end date", async () => {
     const getLockedBySnapshotId = jest.fn().mockResolvedValue({
       unitsTableFullName: "t_units",
       unitsMaxTimestamp: PARENT_END,
-      materializedBySnapshotId: "snp_parent",
+      materializedBySnapshotId: "snp_other",
       metricSources: [],
     });
-    const run = resolveIncrementalMetricRefreshRun({
-      context: {
-        ...context,
-        models: { incrementalRefresh: { getLockedBySnapshotId } },
-      } as unknown as ReqContext,
-      snapshot: plan.snapshot,
-      metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
-    });
-    return { run, getLockedBySnapshotId };
-  }
+    const plan = makePlan({ runnerKind: "incremental-update" });
 
-  it("scans to the plan's cutoff over the state read under the lock", async () => {
-    const { run, getLockedBySnapshotId } = resolve(
-      makePlan({ runnerKind: "incremental-update" }),
-    );
-
-    await expect(run).resolves.toEqual({ scanEnd: PARENT_END });
-    expect(getLockedBySnapshotId).toHaveBeenCalledWith("exp_1", "snp_new");
-  });
-
-  it.each(["results", "incremental-full"] as const)(
-    "rejects a plan for the %s runner",
-    async (runnerKind) => {
-      const { run, getLockedBySnapshotId } = resolve(makePlan({ runnerKind }));
-
-      await expect(run).rejects.toMatchObject({
-        details: { reason: "incremental_pipeline" },
-      });
-      expect(getLockedBySnapshotId).not.toHaveBeenCalled();
-    },
-  );
-
-  it("rejects a plan with no cutoff as an ended phase", async () => {
-    const { run } = resolve(
-      makePlan({
-        runnerKind: "incremental-update",
-        settings: { endDateIsCutoff: false },
+    await expect(
+      assertIncrementalMetricRefreshBase({
+        context: {
+          ...context,
+          models: { incrementalRefresh: { getLockedBySnapshotId } },
+        } as unknown as ReqContext,
+        snapshot: plan.snapshot,
+        metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
       }),
-    );
-
-    await expect(run).rejects.toMatchObject({
-      details: { reason: "phase_ended" },
-    });
+    ).rejects.toMatchObject({ details: { reason: "incremental_pipeline" } });
+    expect(getLockedBySnapshotId).toHaveBeenCalledWith("exp_1", "snp_new");
   });
 });
 
@@ -1256,7 +1305,7 @@ describe("getSettingsChangedSinceParent", () => {
     ],
   ] as const)(
     "on %s, names every other difference, including fields only one side has",
-    (_, runnerKind, sqlSettings) => {
+    (pipeline, runnerKind, sqlSettings) => {
       const parent = makeParent({ runnerKind });
       const planned = makePlan({
         settings: { segment: "seg_new", queryFilter: "x > 1" },
@@ -1609,7 +1658,7 @@ describe("query carry-over", () => {
       { name: "group_0", query: "qry_group", status: "succeeded" },
       { name: "traffic", query: "qry_traffic", status: "succeeded" },
     ]);
-    getQueriesByIdsMock.mockImplementation(async (_ctx, ids) =>
+    getQueriesByIdsMock.mockImplementation(async (ctx, ids) =>
       ids.map((id) => ({ id, status: "succeeded" }) as QueryInterface),
     );
     createFromCachedMock.mockImplementation(
@@ -1638,7 +1687,7 @@ describe("query carry-over", () => {
       { name: "statistics_a", query: "qry_a", status: "succeeded" },
       { name: "statistics_b", query: "qry_b", status: "succeeded" },
     ]);
-    getQueriesByIdsMock.mockImplementation(async (_ctx, ids) =>
+    getQueriesByIdsMock.mockImplementation(async (ctx, ids) =>
       ids.map((id) => ({ id, status: "succeeded" }) as QueryInterface),
     );
     createFromCachedMock.mockImplementation(
@@ -1808,6 +1857,24 @@ describe("Incremental Pipeline carry-over", () => {
       status(makeParent({ runnerKind: "incremental-update", queries })),
     ).toBe("partially-succeeded");
   });
+
+  it("keeps a normal update whose only failed query drops a replaced table", () => {
+    expect(
+      status(
+        makeParent({
+          runnerKind: "incremental-update",
+          queries: [
+            ...queries.filter((q) => q.status === "succeeded"),
+            {
+              name: "drop_replaced_metrics_source_ftc_0",
+              query: "qry_drop",
+              status: "failed",
+            },
+          ],
+        }),
+      ),
+    ).toBe("partially-succeeded");
+  });
 });
 
 describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
@@ -1846,37 +1913,19 @@ describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
       materializedBySnapshotId: "snp_refresh",
     });
 
-    findParentMock.mockResolvedValue(firstRefresh);
-    const allMetrics = ["met_a", "met_b", "met_c", "met_d"];
-    const plan = await planMetricRefresh(
-      refreshArgs({
-        experiment: makeExperiment({ goalMetrics: allMetrics }),
-        planSnapshotAt: async () =>
-          makePlan({ runnerKind: "incremental-update", metricIds: allMetrics }),
-      }),
-    );
-    const lineage = plan.snapshot.metricRefresh;
-    expect(lineage).toEqual({
-      baseSnapshotId: "snp_parent",
-      baseDateCreated: PARENT_CREATED,
-      baseCutoffDate: PARENT_END,
-      parentSnapshotId: "snp_refresh",
-      metricIds: ["met_d"],
-    });
-
     const [, , written] = updateState.mock.calls[0];
-    expect(
-      parseIncrementalRefreshBase({
+    expect(() =>
+      assertIncrementalTablesMatchParent({
         state: {
           unitsTableFullName: "t_units",
           unitsMaxTimestamp: PARENT_END,
           metricSources: [],
           ...written,
         },
-        parentSnapshotId: lineage?.parentSnapshotId ?? "",
+        parentSnapshotId: firstRefresh.id,
         scanEnd: PARENT_END,
       }),
-    ).toEqual({ scanEnd: PARENT_END });
+    ).not.toThrow();
   });
 });
 
@@ -1954,7 +2003,7 @@ describe("starting a metric refresh's queries", () => {
         (name) => ({ name, query: `qry_parent_${name}`, status: "succeeded" }),
       ),
     );
-    getQueriesByIdsMock.mockImplementation(async (_ctx, ids) =>
+    getQueriesByIdsMock.mockImplementation(async (ctx, ids) =>
       ids.map((id) => ({ id, status: "succeeded" }) as QueryInterface),
     );
     createFromCachedMock.mockImplementation(
@@ -2080,26 +2129,20 @@ function analysis(
 }
 
 describe("getQueriesStartedByRefresh", () => {
-  const query = (cachedQueryUsed?: string) =>
-    ({ cachedQueryUsed }) as QueryInterface;
-
   it("keeps what this run started and drops copies of the parent's queries", () => {
-    const queryMap: QueryMap = new Map([
-      ["group_0", query("qry_parent_group_0")],
-      ["traffic", query("qry_root_traffic")],
-      ["group_1", query()],
-      ["group_2", query("qry_unrelated_cache_hit")],
-      ["statistics_ft_1", query()],
-    ]);
-    const parentSources = new Map([
-      ["group_0", "qry_parent_group_0"],
-      ["traffic", "qry_root_traffic"],
-      ["statistics_ft_1", "qry_parent_statistics_ft_1"],
-    ]);
+    const queryMap: QueryMap = new Map(
+      ["group_0", "traffic", "group_1", "statistics_fta_1"].map((name) => [
+        name,
+        {} as QueryInterface,
+      ]),
+    );
+    const parentQueries = ["group_0", "traffic", "statistics_fta_0"].map(
+      (name) => ({ name, query: `qry_${name}`, status: "succeeded" as const }),
+    );
 
     expect([
-      ...getQueriesStartedByRefresh(queryMap, parentSources).keys(),
-    ]).toEqual(["group_1", "group_2", "statistics_ft_1"]);
+      ...getQueriesStartedByRefresh(queryMap, parentQueries).keys(),
+    ]).toEqual(["group_1", "statistics_fta_1"]);
   });
 });
 

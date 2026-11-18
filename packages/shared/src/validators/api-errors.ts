@@ -20,7 +20,9 @@ export const metricRefreshUnavailableReasons = [
   "unsupported_experiment_type",
   "unsupported_data_source",
   "incremental_pipeline",
+  "metric_not_supported",
   "settings_changed",
+  "analysis_dates_changed",
   "base_incomplete",
 ] as const;
 
@@ -100,9 +102,14 @@ export const apiErrorRegistry = {
   },
   snapshot_in_progress: {
     status: 409,
-    description: "An update of the experiment's Overall Results is running",
+    description: "An update of the experiment's results is running",
     detailsSchema: z.object({
-      snapshotId: z.string(),
+      snapshotId: z
+        .string()
+        .describe(
+          "The running update's snapshot. Poll it until it finishes. Absent when it isn't known",
+        )
+        .optional(),
     }),
   },
   metric_refresh_unavailable: {

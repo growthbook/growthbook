@@ -78,40 +78,17 @@ export async function getParentQueryCopiers(
 }
 
 /**
- * The refresh's queries that this run started. A carried query is a copy of
- * the parent's query with the same name, so it shares that query's source.
+ * The refresh's queries that this run started. A carried query keeps its
+ * parent query's name, and every query a refresh starts has a new name: new
+ * result groups are numbered after the parent's, and a rebuilt Incremental
+ * Pipeline cache gets a new group id.
  */
 export function getQueriesStartedByRefresh(
   queryMap: QueryMap,
-  parentQuerySources: ReadonlyMap<string, string>,
-): QueryMap {
-  return new Map(
-    [...queryMap].filter(
-      ([name, query]) =>
-        !query.cachedQueryUsed ||
-        parentQuerySources.get(name) !== query.cachedQueryUsed,
-    ),
-  );
-}
-
-async function getParentQuerySources(
-  context: ReqContext | ApiReqContext,
   parentQueries: Queries,
-): Promise<Map<string, string>> {
-  const docs = await getQueriesByIds(
-    context,
-    parentQueries.map((q) => q.query),
-    false,
-  );
-  const sourceById = new Map(
-    docs.map((doc) => [doc.id, doc.cachedQueryUsed || doc.id]),
-  );
-  return new Map(
-    parentQueries.flatMap((q): [string, string][] => {
-      const source = sourceById.get(q.query);
-      return source ? [[q.name, source]] : [];
-    }),
-  );
+): QueryMap {
+  const parentNames = new Set(parentQueries.map((q) => q.name));
+  return new Map([...queryMap].filter(([name]) => !parentNames.has(name)));
 }
 
 /**
@@ -225,10 +202,7 @@ export async function analyzeMetricRefresh({
   // An analysis that failed or is still being computed is left out, so a
   // request for it computes it like any analysis a snapshot lacks.
   const analyses = parent.analyses.filter((a) => a.status === "success");
-  const freshQueries = getQueriesStartedByRefresh(
-    queryMap,
-    await getParentQuerySources(context, parent.queries),
-  );
+  const freshQueries = getQueriesStartedByRefresh(queryMap, parent.queries);
   const analyzedMetricIds = new Set(
     snapshot.settings.metricSettings.map((m) => m.id),
   );

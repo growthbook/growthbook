@@ -23,7 +23,6 @@ export function toApiExperimentSnapshot(
             dateEnd,
           },
           updateScope: "new_metrics" as const,
-          notice: `Only the newly added metrics were computed. Every result, including theirs, covers data up to ${dateEnd}. For newer data, run a normal update: POST /experiments/${snapshot.experiment}/snapshot with "missingMetricsOnly": false.`,
         }
       : { updateScope: "all_metrics" as const }),
   };

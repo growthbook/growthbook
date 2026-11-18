@@ -408,8 +408,7 @@ export interface OrganizationSettings {
   requireExperimentTemplates?: boolean;
   disableResultsUpdateForStoppedExperiments?: boolean;
   disableResultsUpdateForStoppedExperimentGraceHours?: number;
-  // 0 turns the REST API's default new-metrics-only update off.
-  newMetricsOnlyUpdateWindowMinutes?: number;
+  // 0 turns the default new-metrics update off.
   newMetricsUpdateWindowHours?: number;
   requireUniqueExperimentTrackingKeys?: boolean;
   experimentKeyExample?: string;
