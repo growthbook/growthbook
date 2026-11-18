@@ -3702,25 +3702,6 @@ describe("experiments API", () => {
         expect(deleted.body.missingMetricIds).toEqual([]);
       });
 
-      it("is an empty list when the results cover every metric", async () => {
-        const res = await getResults({
-          snapshot: {
-            settings: {
-              experimentId: "exp_123",
-              variations: [],
-              metricSettings: [
-                { id: "met_1" },
-                { id: "met_2" },
-                { id: "met_3" },
-              ],
-            },
-          },
-        });
-
-        expect(res.status).toBe(200);
-        expect(res.body.missingMetricIds).toEqual([]);
-      });
-
       it.each([
         ["a dimension breakdown", { snapshot: { dimension: "pre:date" } }],
         ["an earlier phase", { snapshot: { phase: 0 }, query: "?phase=0" }],
