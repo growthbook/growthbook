@@ -24,7 +24,7 @@ export const PANEL_MAX_WIDTH = 900;
  * the same room: when docking the rail would leave less, the rail floats over
  * the content instead (CollapsiblePanelLayout).
  */
-export const PAGE_MIN_WIDTH = 540;
+const PAGE_MIN_WIDTH = 540;
 /**
  * Expanding by dragging is deliberate: this far past the widest, and held
  * there this long, before releasing expands it. A quick, hard drag just
@@ -32,8 +32,8 @@ export const PAGE_MIN_WIDTH = 540;
  */
 export const SNAP_PAST_PX = 120;
 export const SNAP_HOLD_MS = 500;
-export const KEY_STEP_PX = 16;
-export const KEY_STEP_LARGE_PX = 64;
+const KEY_STEP_PX = 16;
+const KEY_STEP_LARGE_PX = 64;
 
 /**
  * The widest it can be now. Never under the minimum: on a small window it

@@ -71,7 +71,6 @@ export function useProjectSelector() {
   };
 }
 
-/** Shows the full name in a tooltip once it's cut off. */
 /** A menu row's name: cut off, it shows in full in a tooltip. */
 export function TruncatedName({
   name,

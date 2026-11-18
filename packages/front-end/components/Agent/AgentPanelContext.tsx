@@ -20,7 +20,7 @@ import track from "@/services/track";
  * panel has DOM in "open" and "closing", and none in "opening". The old
  * shell's panel only ever sees "closed" and "opening".
  */
-export type AgentPanelPresence = "closed" | "opening" | "open" | "closing";
+type AgentPanelPresence = "closed" | "opening" | "open" | "closing";
 
 interface AgentPanelContextValue {
   /** Whether the agent UI should be available to the current user/org. */

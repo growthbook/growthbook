@@ -1,4 +1,4 @@
-export type BuildVersion = {
+type BuildVersion = {
   /** What the Help menu shows and copies, e.g. "4.2.0+bd13c78". */
   label: string;
   /** The build's day, YYYY-MM-DD. */

@@ -1,9 +1,8 @@
 import { useCallback } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   PiCaretDownBold,
   PiChatCircleDots,
-  PiClockCounterClockwise,
   PiPlus,
   PiSparkleBold,
 } from "react-icons/pi";
@@ -31,20 +30,15 @@ interface AgentChatHistoryProps {
   activeConversationId: string;
   /** Switch the panel to a previously persisted conversation. */
   onSelect: (id: string) => void;
-  /**
-   * Opt-in: one control for history and new conversations, the current
-   * conversation's title as its trigger.
-   */
-  onNewChat?: () => void;
-  /** With onNewChat: no new conversations (e.g. at the usage limit). */
+  onNewChat: () => void;
+  /** No new conversations (e.g. at the usage limit). */
   newChatDisabled?: boolean;
 }
 
 /**
- * Clock-icon dropdown in the agent panel header listing the user's recent
- * conversations (newest-first). Selecting one loads it into the panel. The
- * list is refetched each time the menu opens so freshly persisted chats
- * appear without a manual refresh.
+ * The agent panel header's title: a dropdown to start a new conversation or
+ * open a recent one (newest-first). The list is refetched each time the menu
+ * opens so freshly persisted chats appear without a manual refresh.
  */
 export default function AgentChatHistory({
   activeConversationId,
@@ -65,7 +59,6 @@ export default function AgentChatHistory({
     [mutate],
   );
 
-  const combined = !!onNewChat;
   const currentTitle =
     conversations.find((c) => c.conversationId === activeConversationId)
       ?.title || "New Conversation";
@@ -73,81 +66,66 @@ export default function AgentChatHistory({
   return (
     <DropdownMenu
       onOpenChange={handleOpenChange}
-      menuPlacement={combined ? "start" : "end"}
+      menuPlacement="start"
       menuWidth={MENU_WIDTH}
       menuMaxHeight={420}
       menuZIndex={AGENT_PANEL_PORTAL_Z_INDEX}
       variant="soft"
       trigger={
-        combined ? (
-          // Pulled left by its 12px padding, so its text lines up with the content
-          // below.
-          <Button
-            variant="ghost"
-            color="gray"
-            size="md"
-            icon={<PiCaretDownBold size={12} />}
-            iconPosition="right"
-            className={styles.titleButton}
-            aria-label={`${currentTitle}. Conversations: start a new one or open a recent one`}
-            style={{
-              maxWidth: "100%",
-              // Shifted, not a margin: the app forces ghost buttons'
-              // margins to 0 (.rt-Button.rt-variant-ghost, !important).
-              position: "relative",
-              left: "calc(-1 * var(--space-3))",
-              color: "var(--slate-12)",
-            }}
-          >
-            {/* On one line with the title: Button wraps its children, where they'd
-              stack. */}
-            <Flex as="span" align="center" gap="2" minWidth="0">
-              <PiSparkleBold
-                size={16}
-                aria-hidden="true"
-                style={{ flexShrink: 0 }}
-              />
-              <span
-                style={{
-                  display: "block",
-                  minWidth: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  fontWeight: 500,
-                }}
-              >
-                {currentTitle}
-              </span>
-            </Flex>
-          </Button>
-        ) : (
-          <IconButton
-            variant="ghost"
-            size="1"
-            title="Chat history"
-            aria-label="Chat history"
-          >
-            <PiClockCounterClockwise size={18} />
-          </IconButton>
-        )
+        // Pulled left by its 12px padding, so its text lines up with the content
+        // below.
+        <Button
+          variant="ghost"
+          color="gray"
+          size="md"
+          icon={<PiCaretDownBold size={12} />}
+          iconPosition="right"
+          className={styles.titleButton}
+          aria-label={`${currentTitle}. Conversations: start a new one or open a recent one`}
+          style={{
+            maxWidth: "100%",
+            // Shifted, not a margin: the app forces ghost buttons'
+            // margins to 0 (.rt-Button.rt-variant-ghost, !important).
+            position: "relative",
+            left: "calc(-1 * var(--space-3))",
+            color: "var(--slate-12)",
+          }}
+        >
+          {/* On one line with the title: Button wraps its children, where they'd
+            stack. */}
+          <Flex as="span" align="center" gap="2" minWidth="0">
+            <PiSparkleBold
+              size={16}
+              aria-hidden="true"
+              style={{ flexShrink: 0 }}
+            />
+            <span
+              style={{
+                display: "block",
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontWeight: 500,
+              }}
+            >
+              {currentTitle}
+            </span>
+          </Flex>
+        </Button>
       }
     >
-      {onNewChat ? (
-        <>
-          <DropdownMenuItem
-            onClick={onNewChat}
-            disabled={newChatDisabled}
-            style={{ padding: "8px 10px" }}
-          >
-            <Flex align="center" gap="2">
-              <PiPlus size={14} aria-hidden="true" />
-              New Conversation
-            </Flex>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-        </>
-      ) : null}
+      <DropdownMenuItem
+        onClick={onNewChat}
+        disabled={newChatDisabled}
+        style={{ padding: "8px 10px" }}
+      >
+        <Flex align="center" gap="2">
+          <PiPlus size={14} aria-hidden="true" />
+          New Conversation
+        </Flex>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
       {groups.length === 0 ? (
         <Flex direction="column" align="center" gap="2" px="4" py="6">
           <PiChatCircleDots

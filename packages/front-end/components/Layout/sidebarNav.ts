@@ -66,7 +66,7 @@ export type NavGroupId =
   | "sdkConfiguration"
   | "settings"
   | "admin";
-export type NavGroup = SidebarLinkProps & { id: NavGroupId };
+type NavGroup = SidebarLinkProps & { id: NavGroupId };
 
 export const navlinks: NavGroup[] = [
   {

@@ -192,7 +192,7 @@ export function SidebarItemMenu({
   );
 }
 
-export function DropdownEntries({ entries }: { entries: SidebarMenuEntry[] }) {
+function DropdownEntries({ entries }: { entries: SidebarMenuEntry[] }) {
   return (
     <>
       {entries.map((entry) => {
