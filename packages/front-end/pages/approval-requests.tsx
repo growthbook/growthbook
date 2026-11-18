@@ -42,7 +42,10 @@ import {
   FilterDropdown,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
-import { buildSavedGroupRevisionUrl } from "@/components/Revision/revisionUtils";
+import {
+  buildSavedGroupRevisionUrl,
+  buildSDKConnectionRevisionUrl,
+} from "@/components/Revision/revisionUtils";
 import { useRevisions } from "@/hooks/useRevisions";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -115,6 +118,7 @@ function getEntityTypeLabel(entityType: string): string {
     "saved-group": "Saved Group",
     constant: "Constant",
     feature: "Feature",
+    "sdk-connection": "SDK Connection",
   };
   return labels[entityType] || entityType;
 }
@@ -164,20 +168,29 @@ function revisionToRow(revision: Revision): ApprovalRow {
   const entityName =
     revision.target.type === "saved-group"
       ? revision.target.snapshot?.groupName || revision.target.id
-      : revision.target.id;
+      : revision.target.type === "sdk-connection"
+        ? revision.target.snapshot?.sdkConnection?.name || revision.target.id
+        : revision.target.id;
 
-  // Saved Groups carry `projects[]`; Configs and Constants a scalar `project`.
+  // Saved Groups carry `projects[]`; Configs and Constants a scalar `project`;
+  // SDK connections nest theirs under the composite snapshot's `sdkConnection`.
   // Reading only the array left the scalar entities with no project, so a
   // project-filtered "needs my review" view dropped them entirely.
   const snapshot = revision.target.snapshot as
-    | { projects?: string[]; project?: string }
+    | {
+        projects?: string[];
+        project?: string;
+        sdkConnection?: { projects?: string[] };
+      }
     | undefined;
   const projects =
     revision.target.type === "saved-group"
       ? (snapshot?.projects ?? [])
-      : snapshot?.project
-        ? [snapshot.project]
-        : [];
+      : revision.target.type === "sdk-connection"
+        ? (snapshot?.sdkConnection?.projects ?? [])
+        : snapshot?.project
+          ? [snapshot.project]
+          : [];
 
   return {
     id: revision.id,
@@ -201,6 +214,9 @@ function revisionToRow(revision: Revision): ApprovalRow {
 function buildRevisionUrl(revision: Revision): string {
   if (revision.target.type === "saved-group") {
     return buildSavedGroupRevisionUrl(revision.target.id, revision);
+  }
+  if (revision.target.type === "sdk-connection") {
+    return buildSDKConnectionRevisionUrl(revision.target.id, revision);
   }
   const key = getRevisionKey(revision.target.type);
   const base = `/${key ?? revision.target.type}/${revision.target.id}`;
@@ -407,6 +423,13 @@ const ApprovalRequests: FC = () => {
           "review",
           { projects: row.projects },
           NO_ENVIRONMENT_BINDING,
+        );
+      }
+      if (row.entityType === "sdk-connection") {
+        // The row has no environment; "" checks against any environment.
+        return permissionsUtil.canUpdateSDKConnection(
+          { projects: row.projects, environment: "" },
+          { projects: row.projects, environment: "" },
         );
       }
       return false;

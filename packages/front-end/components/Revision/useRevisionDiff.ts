@@ -17,6 +17,12 @@ export interface RevisionDiffSection<T> {
 export interface RevisionDiffConfig<T> {
   sections: RevisionDiffSection<T>[];
   normalizeSnapshot?: (snapshot: T) => T;
+  // What publishing a draft would make of live. Defaults to overlaying the
+  // draft's top-level ops; supplied where the server merges them more finely.
+  proposedStateFor?: (
+    revision: { target: { snapshot: unknown; proposedChanges: unknown } },
+    live: T,
+  ) => T;
 }
 
 export interface DiffItem {

@@ -142,7 +142,10 @@ import {
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
-import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
+import {
+  cancelExperimentSnapshot,
+  interruptIncrementalReaders,
+} from "back-end/src/services/snapshotCancellation";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
   auditDetailsCreate,
@@ -2145,6 +2148,8 @@ export async function deleteExperimentPhase(
   }
 
   try {
+    await interruptIncrementalReaders(context, id, mutationToken);
+
     const updated = await updateExperiment({
       context,
       experiment,

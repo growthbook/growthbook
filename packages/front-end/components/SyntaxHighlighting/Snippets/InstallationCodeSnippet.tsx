@@ -80,9 +80,7 @@ export default function InstallationCodeSnippet({
           <>
             Add the GrowthBook snippet to your Google Tag Manager as a Custom
             HTML tag.{" "}
-            <DocLink useRadix={false} docSection="gtmSetup">
-              View Documentation
-            </DocLink>
+            <DocLink docSection="gtmSetup">View documentation</DocLink>
             <Code language="html" code={nocodeSnippet} />
           </>
         );
@@ -188,7 +186,7 @@ dependencies {
       if (language === "ios") {
         return (
           <>
-            <div className="mb-3">
+            <Box mb="4">
               Cocoapods
               <Code
                 language="javascript"
@@ -202,8 +200,8 @@ end
           `.trim()}
               />
               <Code language="sh" code={"pod install"} />
-            </div>
-            <div className="mb-3">
+            </Box>
+            <Box mb="4">
               Swift Package Manager (SPM)
               <Code
                 language="swift"
@@ -214,7 +212,7 @@ dependencies: [
 ]
             `.trim()}
               />
-            </div>
+            </Box>
           </>
         );
       }
@@ -245,7 +243,7 @@ dependencies: [
       if (language === "java") {
         return (
           <>
-            <div className="mb-3">
+            <Box mb="4">
               Maven
               <Code
                 language="xml"
@@ -264,8 +262,8 @@ dependencies: [
 </dependency>
 `.trim()}
               />
-            </div>
-            <div className="mb-3">
+            </Box>
+            <Box mb="4">
               Gradle
               <Code
                 language="javascript"
@@ -280,7 +278,7 @@ dependencies {
     implementation 'com.github.growthbook:growthbook-sdk-java:${getLatestSDKVersion("java")}'
 }`.trim()}
               />
-            </div>
+            </Box>
           </>
         );
       }

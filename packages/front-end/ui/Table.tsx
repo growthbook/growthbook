@@ -2,6 +2,7 @@ import React, { forwardRef, useEffect, useRef, useState } from "react";
 import { Box, Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
+import ScrollArea from "@/ui/ScrollArea";
 import { usePageTopOffset } from "@/components/Layout/pageTopOffset";
 import styles from "./Table.module.scss";
 
@@ -22,7 +23,8 @@ export type TableProps = Omit<
    * Opt in to a bounded scroll region so wide tables scroll horizontally. The
    * header then sticks to that region instead of the viewport — the list variant
    * neutralises Radix's own scroll area to get viewport-sticky headers, and
-   * overflow-x can't scroll without overflow-y doing the same.
+   * overflow-x can't scroll without overflow-y doing the same. Other variants
+   * scroll sideways in a ScrollArea once narrower than their `minWidth`.
    */
   scrollX?: boolean;
   /** Pins the last column to the right edge while the rest scrolls under it, in a `scrollX` region or once the table is too wide for the page. */
@@ -241,7 +243,25 @@ export default function Table({
   );
 
   if (!isListVariant) {
-    return tableElement;
+    if (!scrollX) return tableElement;
+    return (
+      <ScrollArea
+        direction="horizontal"
+        size="md"
+        gutter
+        wheelScrollsSideways
+        edgeCue="fade"
+        // A pinned column fades what's under it itself, above the row
+        // borders a mask would fade too; the left edge goes unmarked to match.
+        skipEdges={stickyLastColumn ? ["left", "right"] : []}
+        className={clsx(
+          styles.scrollPlain,
+          stickyLastColumn && styles.pinLastColumn,
+        )}
+      >
+        {tableElement}
+      </ScrollArea>
+    );
   }
 
   return (

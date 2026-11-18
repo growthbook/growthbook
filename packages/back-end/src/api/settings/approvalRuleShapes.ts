@@ -1,9 +1,13 @@
+import { z } from "zod";
 import {
+  apiApprovalFlowsInput,
   apiRequireReviewRule,
   apiSavedGroupApprovalRule,
+  apiSdkConnectionApprovalRule,
 } from "shared/validators";
 import {
   ApprovalFlowConfiguration,
+  ApprovalFlowConfigurations,
   RequireReview,
 } from "shared/types/organization";
 
@@ -26,3 +30,22 @@ export const toApiRequireReviews = (rules: RequireReview[]) =>
 
 export const toApiSavedGroupApprovals = (rules: ApprovalFlowConfiguration[]) =>
   rules.map((rule) => pickDeclared(rule, apiSavedGroupApprovalRule.shape));
+
+export const toApiSdkConnectionApprovals = (
+  rules: ApprovalFlowConfiguration[],
+) =>
+  rules.map((rule) => pickDeclared(rule, apiSdkConnectionApprovalRule.shape));
+
+// Each family the update supplies replaces the stored one; an omitted family
+// keeps its stored rules.
+export function mergeApprovalFlows(
+  stored: ApprovalFlowConfigurations | undefined,
+  update: z.infer<typeof apiApprovalFlowsInput>,
+): ApprovalFlowConfigurations {
+  const sdkConnections = update.sdkConnections ?? stored?.sdkConnections;
+  return {
+    ...stored,
+    savedGroups: update.savedGroups ?? stored?.savedGroups ?? [],
+    ...(sdkConnections ? { sdkConnections } : {}),
+  };
+}
