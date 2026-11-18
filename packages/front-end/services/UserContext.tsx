@@ -155,6 +155,9 @@ export interface UserContextValue {
   mfaRequired?: boolean;
   mfaEnabled?: boolean;
   mfaRecoveryCodesRemaining?: number;
+  // From the server, which knows the real login method
+  mfaSession?: boolean;
+  mfaManagedByIdp?: boolean;
   orgSuspended: boolean;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
@@ -184,6 +187,8 @@ interface UserResponse {
   npsSurveyEnabled?: boolean;
   mfaEnabled?: boolean;
   mfaRecoveryCodesRemaining?: number;
+  mfaSession?: boolean;
+  mfaManagedByIdp?: boolean;
   organizations?: UserOrganizations;
   currentUserPermissions: UserPermissions;
 }
@@ -663,6 +668,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           orgLoadingError.code === "mfa_required",
         mfaEnabled: data?.mfaEnabled,
         mfaRecoveryCodesRemaining: data?.mfaRecoveryCodesRemaining,
+        mfaSession: data?.mfaSession,
+        mfaManagedByIdp: data?.mfaManagedByIdp,
         orgSuspended:
           organization?.suspended === true &&
           !hasSuperAdminPermission(data?.superAdmin, "impersonate"),

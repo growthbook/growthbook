@@ -123,18 +123,19 @@ export const MembersTabView: FC = () => {
       <SSOSettings ssoConnection={ssoConnection || null} />
       <Frame px="0" py="0" mb="4" overflow="hidden">
         <RequireMfaToggle mutate={refreshOrganization} />
-      </Frame>
-      {(isMultiOrg() || hasCommercialFeature("sso")) && (
-        <Frame px="0" py="0" mb="4" overflow="hidden">
-          {isMultiOrg() && (
-            <AutoApproveMembersToggle mutate={refreshOrganization} />
-          )}
-          {isMultiOrg() && hasCommercialFeature("sso") && (
+        {isMultiOrg() && (
+          <>
             <Separator size="4" />
-          )}
-          {hasCommercialFeature("sso") && <DefaultRoleCard />}
-        </Frame>
-      )}
+            <AutoApproveMembersToggle mutate={refreshOrganization} />
+          </>
+        )}
+        {hasCommercialFeature("sso") && (
+          <>
+            <Separator size="4" />
+            <DefaultRoleCard />
+          </>
+        )}
+      </Frame>
       <MemberList
         mutate={refreshOrganization}
         project={currentProject}

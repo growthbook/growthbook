@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import TextField from "@/ui/TextField";
@@ -53,14 +54,14 @@ export default function MfaModal({ close }: { close: () => void }) {
             }}
           />
         ) : (
-          <>
-            <Text as="p" mb="3">
+          <Flex direction="column" gap="3">
+            <Text as="p">
               MFA is on for your account. You have{" "}
               <Text weight="semibold">{mfaRecoveryCodesRemaining}</Text> unused
               recovery codes.
             </Text>
             {mfaRecoveryCodesRemaining < 3 && (
-              <Callout status="warning" mb="3">
+              <Callout status="warning">
                 You&apos;re running low on recovery codes. Get new ones so you
                 can still log in if you lose your authenticator app.
               </Callout>
@@ -74,12 +75,12 @@ export default function MfaModal({ close }: { close: () => void }) {
               onChange={(e) => setCode(e.target.value)}
             />
             {error && <Callout status="error">{error}</Callout>}
-          </>
+          </Flex>
         )}
       </Modal.Body>
       <Modal.Footer>
         <Modal.Close>
-          <Button variant="ghost" onClick={finish}>
+          <Button variant={newCodes ? "solid" : "ghost"} onClick={finish}>
             {newCodes ? "Done" : "Cancel"}
           </Button>
         </Modal.Close>

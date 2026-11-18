@@ -79,8 +79,14 @@ const TopNav: FC<{
     ...useKeyExpiryNotices(),
   ];
 
-  const { updateUser, name, email, organization, hasCommercialFeature } =
-    useUser();
+  const {
+    updateUser,
+    name,
+    email,
+    organization,
+    hasCommercialFeature,
+    mfaManagedByIdp,
+  } = useUser();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
 
@@ -423,26 +429,30 @@ const TopNav: FC<{
   };
   const renderChangePassword = () => {
     if (!usingSSO()) {
-      return [
+      return (
         <DropdownMenuItem
-          key="password"
           onClick={() => {
             setDropdownOpen(false);
             setChangePasswordOpen(true);
           }}
         >
           Change Password
-        </DropdownMenuItem>,
+        </DropdownMenuItem>
+      );
+    }
+  };
+  const renderMfa = () => {
+    if (mfaManagedByIdp === false) {
+      return (
         <DropdownMenuItem
-          key="mfa"
           onClick={() => {
             setDropdownOpen(false);
             setMfaOpen(true);
           }}
         >
           Multi-factor authentication
-        </DropdownMenuItem>,
-      ];
+        </DropdownMenuItem>
+      );
     }
   };
 
@@ -579,6 +589,7 @@ const TopNav: FC<{
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {renderChangePassword()}
+            {renderMfa()}
             {renderLogoutDropDown()}
           </DropdownMenu>
         </div>

@@ -169,6 +169,9 @@ export async function getUser(req: AuthRequest, res: Response) {
     npsSurveyEnabled: !!NPS_SLACK_WEBHOOK,
     mfaEnabled: !!req.currentUser?.mfaEnabled,
     mfaRecoveryCodesRemaining: req.currentUser?.mfaRecoveryCodes?.length ?? 0,
+    // Lets the app mirror the server's MFA rules instead of guessing from its own env
+    mfaSession: !!req.mfa,
+    mfaManagedByIdp: usingOpenId(),
     organizations: validOrgs.map((org) => {
       return {
         id: org.id,

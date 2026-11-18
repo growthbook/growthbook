@@ -1,7 +1,6 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { safeLogout, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import { usingSSO } from "@/services/env";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
@@ -15,10 +14,10 @@ import TopNavLite from "@/components/Layout/TopNavLite";
 import MfaEnrollment from "./MfaEnrollment";
 
 export default function MfaRequired() {
-  const { mfaEnabled } = useUser();
+  const { mfaEnabled, mfaManagedByIdp } = useUser();
   const { organizations, orgId, setOrgId } = useAuth();
   const otherOrgs = (organizations || []).filter((o) => o.id !== orgId);
-  const canEnroll = !usingSSO() && !mfaEnabled;
+  const canEnroll = !mfaManagedByIdp && !mfaEnabled;
 
   return (
     <div>
@@ -29,7 +28,7 @@ export default function MfaRequired() {
             MFA Required
           </Heading>
           <Callout status="info" mb="3">
-            {usingSSO()
+            {mfaManagedByIdp
               ? "Your organization requires multi-factor authentication (MFA). Log out, then sign in again using MFA with your identity provider."
               : mfaEnabled
                 ? "Your organization requires multi-factor authentication (MFA). Log out, then log back in with a code from your authenticator app."
