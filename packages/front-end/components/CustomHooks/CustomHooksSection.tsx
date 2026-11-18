@@ -117,7 +117,7 @@ export default function CustomHooksSection({
         "Custom Hooks",
         hasAccess ? (
           <Tooltip
-            content="You don't have permission to manage these custom hooks."
+            content="You don't have permission to manage these Custom Hooks."
             enabled={!canManage}
           >
             <Button onClick={() => setModalData(true)} disabled={!canManage}>

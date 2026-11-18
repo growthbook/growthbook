@@ -1,6 +1,5 @@
 import request from "supertest";
 import mongoose from "mongoose";
-import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
@@ -63,7 +62,6 @@ describe("SDK Connections in a release", () => {
       org,
       auditUser: { type: "api_key", apiKey: "key_test" },
       role: "admin",
-      req: { query: {}, headers: {}, body: {} } as unknown as Request,
     });
     context.hasPremiumFeature = () => true;
     setReqContext(context);
@@ -318,7 +316,6 @@ describe("SDK Connections in a release", () => {
       } as OrganizationInterface,
       auditUser: { type: "api_key", apiKey: "key_test" },
       role: "admin",
-      req: { query: {}, headers: {}, body: {} } as unknown as Request,
     });
     context.hasPremiumFeature = () => true;
     context.permissions.canBypassSDKConnectionApprovalChecks = (scope) =>

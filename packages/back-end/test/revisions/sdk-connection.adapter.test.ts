@@ -551,10 +551,22 @@ describe("sdkConnectionAdapter", () => {
     });
 
     it.each([
-      ["a value the revision never held", { name: "Something else" }, true],
-      ["another setting changed alongside", { remoteEvalEnabled: true }, true],
-      ["only part of the revert", { name: "Prod Web" }, false],
-    ])("refuses %s", (_case, overrides, withWebhook) => {
+      {
+        change: "a value the revision never held",
+        overrides: { name: "Something else" },
+        withWebhook: true,
+      },
+      {
+        change: "another setting changed alongside",
+        overrides: { remoteEvalEnabled: true },
+        withWebhook: true,
+      },
+      {
+        change: "only part of the revert",
+        overrides: { name: "Prod Web" },
+        withWebhook: false,
+      },
+    ])("refuses $change", ({ overrides, withWebhook }) => {
       expect(
         isSdkConnectionRevert(live, then, {
           sdkConnection: settings({ name: "Prod Web", ...overrides }),

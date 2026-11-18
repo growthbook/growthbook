@@ -132,7 +132,7 @@ const apiSdkConnectionRevisionWebhookValidator = namedSchema(
 
 // A revision holds the connection's settings and its webhooks together, so one
 // review covers both.
-export const apiSdkConnectionRevisionValidator = namedSchema(
+const apiSdkConnectionRevisionValidator = namedSchema(
   "SdkConnectionRevision",
   z
     .object({

@@ -64,10 +64,11 @@ export class CustomHookModel extends BaseClass {
     return this.getForeignRefs(doc, false).experiment ?? null;
   }
 
-  // Config-scoped hooks fall through to the generic `canCreate/Update/Delete
-  // CustomHook` gates below (org-level `manageCustomHooks`) rather than a
-  // per-config permission: configs aren't a `getForeignRefs` type, so a
-  // per-config check can't run in these synchronous permission methods. Managing
+  // Config- and SDK Connection-scoped hooks fall through to the generic
+  // `canCreate/Update/Delete CustomHook` gates below (org-level
+  // `manageCustomHooks`) rather than a per-entity permission: neither is a
+  // `getForeignRefs` type, so a per-entity check can't run in these
+  // synchronous permission methods. Managing
   // sandboxed hooks is an org-level operation, so this is a deliberate (safe)
   // simplification vs the feature-scoped `canManageFeatureCustomHooks` path.
 

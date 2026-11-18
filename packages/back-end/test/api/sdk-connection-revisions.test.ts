@@ -1,6 +1,5 @@
 import request from "supertest";
 import mongoose from "mongoose";
-import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
@@ -49,19 +48,13 @@ describe("SDK Connection revision endpoints", () => {
     {
       canBypass = true,
       webhooksOnly = false,
-      body = {},
-    }: {
-      canBypass?: boolean;
-      webhooksOnly?: boolean;
-      // The override flags a request carries are read from the context.
-      body?: Record<string, unknown>;
-    } = {},
+      actor = "key_test",
+    }: { canBypass?: boolean; webhooksOnly?: boolean; actor?: string } = {},
   ) {
     const context = new ReqContextClass({
       org: orgWith(settings),
-      auditUser: { type: "api_key", apiKey: "key_test" },
+      auditUser: { type: "api_key", apiKey: actor },
       role: "admin",
-      req: { query: {}, headers: {}, body } as unknown as Request,
     });
     context.hasPremiumFeature = () => true;
     if (!canBypass) {
@@ -258,6 +251,74 @@ describe("SDK Connection revision endpoints", () => {
       .set(auth);
     expect(late.status).toBe(400);
     expect(late.body.message).toMatch(/status "merged"/);
+  });
+
+  it("walks a draft through review, scheduling, a conflict, and discard", async () => {
+    useAdmin(approvalRule);
+    const id = await createConnection();
+    const staged = await request(app)
+      .put(`${BASE}/${id}/new/settings`)
+      .send({ name: "Web 2" })
+      .set(auth);
+    const draft = `${BASE}/${id}/${staged.body.revision.version}`;
+    const call = (
+      method: "get" | "post",
+      path: string,
+      body: Record<string, unknown> = {},
+    ) => request(app)[method](`${draft}${path}`).send(body).set(auth);
+    const status = async (res: request.Response) => {
+      expect(res.status).toBe(200);
+      return res.body.revision.status;
+    };
+
+    expect(await status(await call("get", ""))).toBe("draft");
+    const upToDate = await call("get", "/merge-status");
+    expect(upToDate.body).toMatchObject({ hasConflicts: false });
+    expect(await status(await call("post", "/request-review"))).toBe(
+      "pending-review",
+    );
+    expect(await status(await call("post", "/recall-review"))).toBe("draft");
+    await call("post", "/request-review");
+
+    useAdmin(approvalRule, { actor: "key_reviewer" });
+    const approve = () =>
+      call("post", "/submit-review", { decision: "approve" });
+    expect(await status(await approve())).toBe("approved");
+    expect(await status(await call("post", "/undo-review"))).toBe(
+      "pending-review",
+    );
+    expect(await status(await approve())).toBe("approved");
+
+    useAdmin(approvalRule);
+    for (const scheduledPublishAt of ["2099-01-01T00:00:00Z", null]) {
+      expect(
+        await status(
+          await call("post", "/schedule-publish", { scheduledPublishAt }),
+        ),
+      ).toBe("approved");
+    }
+
+    // Live changes the setting the draft changes: a conflict to resolve.
+    await request(app)
+      .put(`/api/v1/sdk-connections/${id}`)
+      .send({ name: "Live name", bypassApproval: true })
+      .set(auth);
+    const behind = await call("get", "/merge-status");
+    expect(behind.body).toMatchObject({
+      hasConflicts: true,
+      conflicts: [{ field: "sdkConnection" }],
+    });
+    const rebased = await call("post", "/rebase", {
+      conflictResolutions: { sdkConnection: "overwrite" },
+    });
+    expect(rebased.status).toBe(200);
+    expect(rebased.body.revision).toMatchObject({
+      baseSdkConnection: { name: "Live name" },
+      proposedSdkConnection: { name: "Web 2" },
+    });
+
+    expect(await status(await call("post", "/discard"))).toBe("discarded");
+    expect(await status(await call("post", "/reopen"))).toBe("draft");
   });
 
   it("lists every publish gate when approval is required, and reports a bypass", async () => {
@@ -646,7 +707,7 @@ describe("SDK Connection revision endpoints", () => {
     expect(lastArgs().sdkWebhooks[0]).not.toHaveProperty("signingKey");
 
     // The flag alone clears nothing.
-    useAdmin({}, { canBypass: false, body: { skipHooks: true } });
+    useAdmin({}, { canBypass: false });
     const unskipped = await request(app)
       .put(`/api/v1/sdk-connections/${id}`)
       .send({ name: "Bad", skipHooks: true })
@@ -656,7 +717,7 @@ describe("SDK Connection revision endpoints", () => {
 
     // Past a hook too, for someone who can bypass approvals everywhere. The
     // flag is part of every body that runs a hook, and no part of the change.
-    useAdmin({}, { body: { skipHooks: true } });
+    useAdmin();
     const direct = await request(app)
       .put(`/api/v1/sdk-connections/${id}`)
       .send({ name: "Bad", skipHooks: true })
