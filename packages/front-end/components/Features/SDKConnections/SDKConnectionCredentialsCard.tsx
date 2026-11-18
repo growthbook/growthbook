@@ -108,7 +108,10 @@ export default function SDKConnectionCredentialsCard({
           labelBadge={
             isCloud() ? null : (
               <Tooltip content={PROXY_FROM_ENV}>
-                <Badge label="Env vars" color="gray" variant="soft" ml="1" />
+                {/* Focusable, so the tip opens from the keyboard too. */}
+                <span tabIndex={0}>
+                  <Badge label="Env vars" color="gray" variant="soft" ml="1" />
+                </span>
               </Tooltip>
             )
           }

@@ -21,6 +21,7 @@ import {
 import { isActiveDraftStatus } from "shared/validators";
 import DiscardDraftModal from "@/components/Reviews/DiscardDraftModal";
 import RevisionStatusBarView from "@/components/Reviews/RevisionStatusBarView";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -121,6 +122,9 @@ export default function RevisionStatusBar<T>({
 
   const drafts = allRevisions.filter((r) => isActiveDraftStatus(r.status));
   const gaveUp = isDraft && !!selectedRevision.scheduledPublishGaveUpAt;
+  const barError =
+    publishError ??
+    (gaveUp ? selectedRevision.scheduledPublishLastError : null);
   const switchToLive = (
     <Link onClick={() => onSelectRevision(null)}>Switch to live</Link>
   );
@@ -263,7 +267,17 @@ export default function RevisionStatusBar<T>({
                   Revision {numberOf(d)}
                   {d.title ? ` · ${d.title}` : ""}
                 </Text>
-                {getStatusBadge(d.status, requiresApproval)}
+                <Flex align="center" gap="2">
+                  {d.scheduledPublishGaveUpAt ? (
+                    <Badge
+                      label="Publish failed"
+                      color="red"
+                      variant="soft"
+                      radius="full"
+                    />
+                  ) : null}
+                  {getStatusBadge(d.status, requiresApproval)}
+                </Flex>
               </Flex>
             </DropdownMenuItem>
           ))}
@@ -286,9 +300,9 @@ export default function RevisionStatusBar<T>({
         }
         message={message}
         error={
-          publishError ? (
+          barError ? (
             <HelperText status="error" size="sm">
-              {publishError}
+              {barError}
             </HelperText>
           ) : null
         }

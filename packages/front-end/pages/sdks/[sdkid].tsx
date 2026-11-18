@@ -140,15 +140,15 @@ function buildDisplayedConnection(
     revision.target.snapshot as SDKConnectionRevisionSnapshot,
     revision.target.proposedChanges,
   ) as Record<string, unknown>;
-  // Self-hosted reads the proxy from its environment, whatever a revision says.
-  const settings = isCloud() ? held : omitProxySettings(held);
   // A setting history left out was off then, whatever live says now. A draft
   // keeps live's, as publishing it would.
+  const settings = isActiveDraftStatus(revision.status)
+    ? held
+    : withAbsentSdkSettings(held);
+  // Self-hosted reads the proxy from its environment, whatever a revision says.
   return overlayFlattenedOnConnection(
     connection,
-    isActiveDraftStatus(revision.status)
-      ? settings
-      : withAbsentSdkSettings(settings),
+    isCloud() ? settings : omitProxySettings(settings),
   );
 }
 
