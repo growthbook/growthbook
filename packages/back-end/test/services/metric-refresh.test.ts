@@ -62,6 +62,7 @@ import {
 } from "back-end/src/models/QueryModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   BadRequestError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
@@ -90,6 +91,11 @@ jest.mock("back-end/src/models/QueryModel", () => ({
 
 jest.mock("back-end/src/services/datasource", () => ({
   getSourceIntegrationObject: jest.fn(),
+}));
+
+jest.mock("back-end/src/enterprise", () => ({
+  ...jest.requireActual("back-end/src/enterprise"),
+  orgHasPremiumFeature: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/stats", () => ({
@@ -1964,11 +1970,14 @@ describe("starting a metric refresh's queries", () => {
     org: { id: "org_1", settings: { runHealthTrafficQuery: true } },
   } as unknown as ReqContext;
 
-  async function start(snapshot: ExperimentSnapshotInterface) {
+  async function start(
+    snapshot: ExperimentSnapshotInterface,
+    sourceIntegration = integration,
+  ) {
     const runner = new ExperimentResultsQueryRunner(
       trafficContext,
       snapshot,
-      integration,
+      sourceIntegration,
       true,
     );
     const started: string[] = [];
@@ -2020,6 +2029,61 @@ describe("starting a metric refresh's queries", () => {
 
     expect(started).toEqual(["group_2"]);
     expect(names).toEqual(["group_0", "group_1", "traffic", "group_2"]);
+  });
+
+  it("on a Data Source that materializes units tables, builds and drops its own, pinned to the base's end", async () => {
+    jest.mocked(orgHasPremiumFeature).mockReturnValue(true);
+    const getExperimentUnitsTableQuery = jest.fn(() => "CREATE units");
+    const getExperimentFactMetricsQuery = jest.fn(() => "SELECT metrics");
+    const unitsTable = "gb_tmp.growthbook_tmp_units_snp_refresh";
+
+    const { started, names } = await start(refresh(), {
+      ...integration,
+      datasource: {
+        ...integration.datasource,
+        settings: {
+          ...integration.datasource.settings,
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "ephemeral",
+            writeDataset: "gb_tmp",
+            unitsTableDeletion: true,
+          },
+        },
+      },
+      getSourceProperties: () => ({
+        separateExperimentResultQueries: true,
+        supportsWritingTables: true,
+        dropUnitsTable: true,
+      }),
+      generateTablePath: (name: string, dataset?: string) =>
+        `${dataset}.${name}`,
+      getExperimentUnitsTableQuery,
+      getExperimentFactMetricsQuery,
+      getDropUnitsTableQuery: () => "DROP units",
+    } as unknown as SourceIntegrationInterface);
+
+    expect(started).toEqual(["snp_refresh", "group_2", "drop_snp_refresh"]);
+    expect(names).toEqual([
+      "group_0",
+      "group_1",
+      "traffic",
+      "snp_refresh",
+      "group_2",
+      "drop_snp_refresh",
+    ]);
+    expect(getExperimentUnitsTableQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unitsTableFullName: unitsTable,
+        unitsSettings: expect.objectContaining({
+          endDate: PARENT_END,
+          endDateIsCutoff: true,
+        }),
+      }),
+    );
+    expect(getExperimentFactMetricsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ unitsTableFullName: unitsTable }),
+    );
   });
 
   it("runs every query of a report snapshot that still carries a refresh lineage", async () => {
