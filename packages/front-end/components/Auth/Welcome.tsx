@@ -330,7 +330,22 @@ export default function Welcome({
           {mfaStep && (
             <Field
               label="Authentication code"
-              helpText="Enter the code from your authenticator app, or a recovery code"
+              helpText={
+                <>
+                  Enter the code from your authenticator app, or a recovery
+                  code.{" "}
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setMfaStep(false);
+                      form.setValue("mfaCode", "");
+                    }}
+                  >
+                    Use a different account
+                  </a>
+                </>
+              }
               required
               autoFocus
               autoComplete="one-time-code"

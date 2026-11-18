@@ -29,6 +29,7 @@ function toDisplayName(feature: CommercialFeature): string {
     "url-redirects": "URL Redirects",
     "regression-adjustment": "CUPED",
     saveSqlExplorerQueries: "Save SQL Explorer Queries",
+    "require-mfa": "Require MFA",
   };
 
   if (specialCases[feature]) {

@@ -84,6 +84,13 @@ export function amrIncludesMfa(amr: unknown): boolean {
   return Array.isArray(amr) && amr.includes("mfa");
 }
 
+export function meetsOrgMfaRequirement(
+  org: { requireMFA?: boolean },
+  sessionMfa: boolean | undefined,
+): boolean {
+  return !org.requireMFA || !!sessionMfa;
+}
+
 // The MFA screen still needs the user, and their enrollment endpoints
 export function isMfaExemptPath(path: string): boolean {
   return path === "/user" || path.startsWith("/user/mfa/");

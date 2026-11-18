@@ -1,11 +1,14 @@
 import {
+  amrIncludesMfa,
   canUseSuperAdmin,
   createNonce,
   deriveAuthChecks,
   getAuthSubjectAction,
   getSignInMethodName,
+  isMfaExemptPath,
   isNonceExpired,
   loginMethodOwnsOrg,
+  meetsOrgMfaRequirement,
   nonceFromState,
 } from "back-end/src/services/auth/authChecks";
 
@@ -188,5 +191,35 @@ describe("canUseSuperAdmin", () => {
         requiredSubPrefix: "",
       }),
     ).toBe(true);
+  });
+});
+
+describe("amrIncludesMfa", () => {
+  it("is true only when the amr array names mfa", () => {
+    expect(amrIncludesMfa(["pwd", "mfa"])).toBe(true);
+    expect(amrIncludesMfa(["mfa"])).toBe(true);
+    expect(amrIncludesMfa(["pwd"])).toBe(false);
+    expect(amrIncludesMfa("mfa")).toBe(false);
+    expect(amrIncludesMfa(undefined)).toBe(false);
+  });
+});
+
+describe("meetsOrgMfaRequirement", () => {
+  it("only demands MFA from orgs that require it", () => {
+    expect(meetsOrgMfaRequirement({}, false)).toBe(true);
+    expect(meetsOrgMfaRequirement({ requireMFA: false }, undefined)).toBe(true);
+    expect(meetsOrgMfaRequirement({ requireMFA: true }, true)).toBe(true);
+    expect(meetsOrgMfaRequirement({ requireMFA: true }, false)).toBe(false);
+    expect(meetsOrgMfaRequirement({ requireMFA: true }, undefined)).toBe(false);
+  });
+});
+
+describe("isMfaExemptPath", () => {
+  it("exempts only the user lookup and MFA enrollment", () => {
+    expect(isMfaExemptPath("/user")).toBe(true);
+    expect(isMfaExemptPath("/user/mfa/setup")).toBe(true);
+    expect(isMfaExemptPath("/user/history")).toBe(false);
+    expect(isMfaExemptPath("/user/mfa")).toBe(false);
+    expect(isMfaExemptPath("/organization")).toBe(false);
   });
 });

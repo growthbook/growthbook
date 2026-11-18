@@ -42,11 +42,12 @@ import {
   updateUser,
 } from "back-end/src/models/UserModel";
 import {
+  assertMfaCode,
   encryptMfaSecret,
   generateRecoveryCodes,
   reissueLocalSession,
-  verifyUserMfaCode,
 } from "back-end/src/services/mfa";
+import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 import {
   base32Encode,
   generateTotpSecret,
@@ -210,9 +211,7 @@ export async function postMfaEnable(
     throw new Error("MFA is already turned on for your account.");
   }
   if (!user.mfaSecret) throw new Error("Start MFA setup first.");
-  if (!(await verifyUserMfaCode(user, req.body.mfaCode))) {
-    throw new Error("Invalid authentication code");
-  }
+  await assertMfaCode(user, req.body.mfaCode, res);
   const { codes, hashes } = generateRecoveryCodes();
   await enableMfa(user.id, hashes);
   await reissueLocalSession(req as Request, res, user, true);
@@ -227,9 +226,7 @@ export async function postMfaRecoveryCodes(
   if (!user.mfaEnabled) {
     throw new Error("MFA is not turned on for your account.");
   }
-  if (!(await verifyUserMfaCode(user, req.body.mfaCode))) {
-    throw new Error("Invalid authentication code");
-  }
+  await assertMfaCode(user, req.body.mfaCode, res);
   const { codes, hashes } = generateRecoveryCodes();
   await setMfaRecoveryCodes(user.id, hashes);
   res.status(200).json({ status: 200, recoveryCodes: codes });
@@ -249,10 +246,12 @@ export async function postMfaDisable(
       "An organization you belong to requires MFA, so it can't be turned off.",
     );
   }
-  if (!(await verifyUserMfaCode(user, req.body.mfaCode))) {
-    throw new Error("Invalid authentication code");
-  }
+  await assertMfaCode(user, req.body.mfaCode, res);
   await disableMfa(user.id);
+  await AuthRefreshModel.updateMany(
+    { userId: user.id },
+    { $set: { mfa: false } },
+  );
   await reissueLocalSession(req as Request, res, user, false);
   res.status(200).json({ status: 200 });
 }

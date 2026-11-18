@@ -247,7 +247,7 @@ export default {
   },
   "require-mfa": {
     plan: "pro",
-    displayName: "Require Mfa",
+    displayName: "Require MFA",
   },
   "require-project-for-features-setting": {
     plan: "enterprise",

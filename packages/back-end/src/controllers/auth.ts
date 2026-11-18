@@ -42,7 +42,7 @@ import {
 import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 import { RetriableAuthError } from "back-end/src/services/auth/authChecks";
 import { reissueAttributionCookie } from "back-end/src/util/signup-attribution";
-import { verifyUserMfaCode } from "back-end/src/services/mfa";
+import { assertMfaCode } from "back-end/src/services/mfa";
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD && !IS_LOCALHOST ? true : await hasOrganization();
@@ -246,12 +246,7 @@ export async function postLogin(
     if (!mfaCode) {
       return res.status(200).json({ status: 200, mfaRequired: true });
     }
-    if (!(await verifyUserMfaCode(user, mfaCode))) {
-      return res.status(400).json({
-        status: 400,
-        message: "Invalid authentication code",
-      });
-    }
+    await assertMfaCode(user, mfaCode, res);
   }
 
   sendLocalSuccessResponse(req, res, user, { mfa: !!user.mfaEnabled });

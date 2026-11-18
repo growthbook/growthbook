@@ -72,6 +72,7 @@ import {
   getAuthSubjectAction,
   getSignInMethodName,
   isMfaExemptPath,
+  meetsOrgMfaRequirement,
 } from "./authChecks";
 
 type JWTInfo = {
@@ -337,8 +338,7 @@ export async function processJWT(
         }
 
         if (
-          req.organization.requireMFA &&
-          !req.mfa &&
+          !meetsOrgMfaRequirement(req.organization, req.mfa) &&
           !isMfaExemptPath(req.path)
         ) {
           res.status(403).json({

@@ -46,7 +46,7 @@ export function generateRecoveryCodes(): { codes: string[]; hashes: string[] } {
 }
 
 // Accepts an authenticator code or an unused recovery code
-export async function verifyUserMfaCode(
+async function verifyUserMfaCode(
   user: Pick<UserInterface, "id" | "mfaSecret" | "mfaLastUsedStep">,
   code: unknown,
 ): Promise<boolean> {
@@ -62,14 +62,27 @@ export async function verifyUserMfaCode(
   return claimMfaStep(user.id, user.mfaLastUsedStep, step);
 }
 
-// Only failed attempts that carry a code count, so password typos don't lock anyone out
+// Throws, and flags the response for mfaCodeRateLimit, when the code is wrong
+export async function assertMfaCode(
+  user: Pick<UserInterface, "id" | "mfaSecret" | "mfaLastUsedStep">,
+  code: unknown,
+  res: Response,
+) {
+  if (!(await verifyUserMfaCode(user, code))) {
+    res.locals.mfaCodeRejected = true;
+    throw new Error("Invalid authentication code");
+  }
+}
+
+// Counts only rejected codes, so a wrong password can't lock the real user out
 export const mfaCodeRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
-  skip: (req: Request) => !req.body?.mfaCode,
+  requestWasSuccessful: (_req: Request, res: Response) =>
+    !res.locals.mfaCodeRejected,
   keyGenerator: (req: Request) =>
     (req as AuthRequest).userId ||
     String(req.body?.email || "").toLowerCase() ||
