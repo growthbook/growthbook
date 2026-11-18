@@ -22,6 +22,7 @@ import {
   analyzeMetricRefresh,
   carryMetricRefreshQueries,
   getAnalysesToExtend,
+  getParentQueryCopiers,
   getMetricRefreshLineage,
   getQueriesStartedByRefresh,
   mergeMetricRefreshAnalyses,
@@ -640,15 +641,24 @@ describe("parseIncrementalRefreshBase", () => {
     parseIncrementalRefreshBase({
       state: s,
       parentSnapshotId: "snp_parent",
-      definitionMetricIds: new Set(["met_c"]),
       scanEnd: SCAN_END,
     });
 
-  it("accepts the state the parent left and names the targets", () => {
-    expect(parse(state())).toEqual({
-      definitionMetricIds: new Set(["met_c"]),
-      scanEnd: SCAN_END,
-    });
+  it("accepts the state the parent left", () => {
+    expect(parse(state())).toEqual({ scanEnd: SCAN_END });
+  });
+
+  it.each<[string, () => State]>([
+    [
+      "a cache that already holds a target, left by a refresh that failed after rebuilding it",
+      () => withSource(source("ftc_1", ["met_c"], SCAN_END)),
+    ],
+    [
+      "a rebuilt cache sharing a target with a metric the refresh copies",
+      () => withSource(source("fta_1", ["met_d", "met_c"], before(1))),
+    ],
+  ])("accepts %s", (_name, makeState) => {
+    expect(parse(makeState())).toEqual({ scanEnd: SCAN_END });
   });
 
   it.each<[string, () => State | null]>([
@@ -675,16 +685,8 @@ describe("parseIncrementalRefreshBase", () => {
       },
     ],
     [
-      "a cache that already holds a target",
-      () => withSource(source("ftc_1", ["met_c"], before(1))),
-    ],
-    [
-      "a cache that already holds a target's slice",
-      () => withSource(source("ftc_1", ["met_c?dim:country=US"], before(1))),
-    ],
-    [
-      "a target sharing a cache with a metric the refresh doesn't compute",
-      () => withSource(source("fta_1", ["met_d", "met_c"], before(1))),
+      "a cache a failed update filled past the parent's end",
+      () => withSource(source("ftc_1", ["met_c"], after(1))),
     ],
   ])("rejects %s", (_name, makeState) => {
     expect(() => parse(makeState())).toThrow(
@@ -717,10 +719,7 @@ describe("resolveIncrementalMetricRefreshRun", () => {
       makePlan({ runnerKind: "incremental-update" }),
     );
 
-    await expect(run).resolves.toEqual({
-      definitionMetricIds: new Set(["met_c"]),
-      scanEnd: PARENT_END,
-    });
+    await expect(run).resolves.toEqual({ scanEnd: PARENT_END });
     expect(getLockedBySnapshotId).toHaveBeenCalledWith("exp_1", "snp_new");
   });
 
@@ -1046,6 +1045,38 @@ describe("query carry-over", () => {
     ]);
   });
 
+  it("copies a selected parent query only when asked, by name", async () => {
+    queryPointersMock.mockResolvedValue([
+      { name: "snp_parent", query: "qry_units", status: "succeeded" },
+      { name: "statistics_a", query: "qry_a", status: "succeeded" },
+      { name: "statistics_b", query: "qry_b", status: "succeeded" },
+    ]);
+    getQueriesByIdsMock.mockImplementation(async (_ctx, ids) =>
+      ids.map((id) => ({ id, status: "succeeded" }) as QueryInterface),
+    );
+    createFromCachedMock.mockImplementation(
+      async ({ existing }) =>
+        ({
+          id: `copy_of_${existing.id}`,
+          status: "succeeded",
+        }) as QueryInterface,
+    );
+
+    const copiers = await getParentQueryCopiers(
+      context,
+      getMetricRefreshLineage(makeParent(), ["met_c"]),
+      ({ name }: QueryPointer) => name.startsWith("statistics_"),
+    );
+
+    expect([...copiers.keys()]).toEqual(["statistics_a", "statistics_b"]);
+    await expect(copiers.get("statistics_b")?.()).resolves.toEqual({
+      name: "statistics_b",
+      query: "copy_of_qry_b",
+      status: "succeeded",
+    });
+    expect(createFromCachedMock).toHaveBeenCalledTimes(1);
+  });
+
   it("refuses to copy a query that is gone or unfinished", async () => {
     queryPointersMock.mockResolvedValue([
       { name: "group_0", query: "qry_group", status: "succeeded" },
@@ -1236,10 +1267,9 @@ describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
           ...written,
         },
         parentSnapshotId: lineage?.parentSnapshotId ?? "",
-        definitionMetricIds: new Set(["met_d"]),
         scanEnd: PARENT_END,
       }),
-    ).toEqual({ definitionMetricIds: new Set(["met_d"]), scanEnd: PARENT_END });
+    ).toEqual({ scanEnd: PARENT_END });
   });
 });
 

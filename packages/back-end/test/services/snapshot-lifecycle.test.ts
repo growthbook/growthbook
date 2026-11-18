@@ -602,10 +602,7 @@ describe("snapshot lifecycle", () => {
         expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
           expect.objectContaining({
             incrementalRefreshStartTime: cutoff,
-            mode: {
-              kind: "metrics-only",
-              definitionMetricIds: new Set(["met_new"]),
-            },
+            mode: { kind: "metrics-only" },
           }),
         );
       });

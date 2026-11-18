@@ -456,15 +456,17 @@ export function getMetricRefreshLineage(
   return { ...root, parentSnapshotId: parent.id, metricIds };
 }
 
-export type IncrementalMetricRefreshRun = {
-  definitionMetricIds: ReadonlySet<string>;
-  scanEnd: Date;
-};
+export type IncrementalMetricRefreshRun = { scanEnd: Date };
 
+/**
+ * Accepts the pipeline state only when every stored table still holds no data
+ * past the parent's end and the parent is the last run that succeeded on it.
+ * A failed run since then may have rebuilt some caches; those hold data only
+ * up to the parent's end as well, so the refresh reads them like the others.
+ */
 export function parseIncrementalRefreshBase({
   state,
   parentSnapshotId,
-  definitionMetricIds,
   scanEnd,
 }: {
   state: Pick<
@@ -475,27 +477,21 @@ export function parseIncrementalRefreshBase({
     | "metricSources"
   > | null;
   parentSnapshotId: string;
-  definitionMetricIds: ReadonlySet<string>;
   scanEnd: Date;
 }): IncrementalMetricRefreshRun {
-  const sources = state?.metricSources ?? [];
   const pastScanEnd = (timestamp: Date | null) =>
     !!timestamp && timestamp > scanEnd;
   const tablesMatchParent =
     !!state?.unitsTableFullName &&
     state.materializedBySnapshotId === parentSnapshotId &&
-    ![state.unitsMaxTimestamp, ...sources.map((s) => s.maxTimestamp)].some(
-      pastScanEnd,
-    );
-  const storesTarget = sources.some((source) =>
-    source.metrics.some((m) =>
-      definitionMetricIds.has(getDefinitionMetricId(m.id)),
-    ),
-  );
-  if (!tablesMatchParent || storesTarget) {
+    ![
+      state.unitsMaxTimestamp,
+      ...state.metricSources.map((s) => s.maxTimestamp),
+    ].some(pastScanEnd);
+  if (!tablesMatchParent) {
     throw unavailable("incremental_pipeline");
   }
-  return { definitionMetricIds, scanEnd };
+  return { scanEnd };
 }
 
 export async function resolveIncrementalMetricRefreshRun({
@@ -520,7 +516,6 @@ export async function resolveIncrementalMetricRefreshRun({
       snapshot.id,
     ),
     parentSnapshotId: metricRefresh.parentSnapshotId,
-    definitionMetricIds: new Set(metricRefresh.metricIds),
     scanEnd,
   });
 }
@@ -539,14 +534,14 @@ export async function getMetricRefreshLockConflict(
 }
 
 /**
- * Copies the parent's finished queries that `keep` selects into new query
- * documents under the same names.
+ * The parent's queries that `keep` selects, by name. Calling one copies that
+ * finished query into a new query document under the same name.
  */
-export async function carryMetricRefreshQueries(
+export async function getParentQueryCopiers(
   context: ReqContext | ApiReqContext,
   metricRefresh: SnapshotMetricRefresh,
   keep: (pointer: QueryPointer) => boolean,
-): Promise<Queries> {
+): Promise<Map<string, () => Promise<QueryPointer>>> {
   const parentQueries = await getSnapshotQueryPointers(
     context,
     metricRefresh.parentSnapshotId,
@@ -566,21 +561,24 @@ export async function carryMetricRefreshQueries(
       )
     ).map((doc) => [doc.id, doc]),
   );
-  return Promise.all(
-    pointers.map(async (pointer) => {
-      const existing = docs.get(pointer.query);
-      if (existing?.status !== "succeeded") {
-        throw new Error(
-          `Query "${pointer.name}" of snapshot ${metricRefresh.parentSnapshotId} is no longer available`,
-        );
-      }
-      const copy = await createNewQueryFromCached({
-        existing,
-        dependencies: [],
-        runAtEnd: false,
-      });
-      return { name: pointer.name, query: copy.id, status: copy.status };
-    }),
+  return new Map(
+    pointers.map((pointer) => [
+      pointer.name,
+      async () => {
+        const existing = docs.get(pointer.query);
+        if (existing?.status !== "succeeded") {
+          throw new Error(
+            `Query "${pointer.name}" of snapshot ${metricRefresh.parentSnapshotId} is no longer available`,
+          );
+        }
+        const copy = await createNewQueryFromCached({
+          existing,
+          dependencies: [],
+          runAtEnd: false,
+        });
+        return { name: pointer.name, query: copy.id, status: copy.status };
+      },
+    ]),
   );
 }
 
@@ -799,4 +797,14 @@ export async function analyzeMetricRefresh({
       ...freshResults.map((r) => r?.multipleExposures ?? 0),
     ),
   };
+}
+
+/** Copies every parent query that `keep` selects. */
+export async function carryMetricRefreshQueries(
+  context: ReqContext | ApiReqContext,
+  metricRefresh: SnapshotMetricRefresh,
+  keep: (pointer: QueryPointer) => boolean,
+): Promise<Queries> {
+  const copiers = await getParentQueryCopiers(context, metricRefresh, keep);
+  return Promise.all([...copiers.values()].map((copy) => copy()));
 }

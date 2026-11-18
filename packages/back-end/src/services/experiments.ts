@@ -2440,10 +2440,7 @@ export async function createSnapshotFromPlan({
             plan.snapshot.settings,
           ),
         mode: incrementalMetricRefresh
-          ? {
-              kind: "metrics-only",
-              definitionMetricIds: incrementalMetricRefresh.definitionMetricIds,
-            }
+          ? { kind: "metrics-only" }
           : { kind: runnerKind === "incremental-full" ? "full" : "update" },
       });
     } else if (runnerKind === "incremental-exploratory") {

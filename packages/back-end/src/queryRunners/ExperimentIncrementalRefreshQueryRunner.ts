@@ -3,7 +3,6 @@ import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
   getClusterSubUnit,
-  getDefinitionMetricId,
   getFactMetricFactTableIds,
   getIsolatedDimensionIds,
   getMetricRefresh,
@@ -89,7 +88,7 @@ import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { carryMetricRefreshQueries } from "back-end/src/services/metricRefresh";
+import { getParentQueryCopiers } from "back-end/src/services/metricRefresh";
 import {
   analyzeSnapshotResults,
   CLUSTER_HEALTH_QUERY_NAME,
@@ -170,7 +169,7 @@ export function getStatisticsQueryVariants({
 export type IncrementalRunMode =
   | { kind: "full" }
   | { kind: "update" }
-  | { kind: "metrics-only"; definitionMetricIds: ReadonlySet<string> };
+  | { kind: "metrics-only" };
 
 const PREREQUISITE_ANALYSIS = {
   full: "main-fullRefresh",
@@ -354,9 +353,9 @@ export const startExperimentIncrementalRefreshQueries = async (
 ): Promise<Queries> => {
   const { snapshotSettings, queryParentId, experimentId, metricMap, mode } =
     params;
-  const inRun = (metric: { id: string }) =>
-    mode.kind !== "metrics-only" ||
-    mode.definitionMetricIds.has(getDefinitionMetricId(metric.id));
+  // A metric refresh reads every stored table as its parent left it and
+  // writes only the caches it builds or rebuilds.
+  const appendsToStoredTables = mode.kind !== "metrics-only";
 
   const { org } = context;
 
@@ -499,14 +498,11 @@ export const startExperimentIncrementalRefreshQueries = async (
   // sees no `existingSource` for these tables and rebuilds from scratch.
   // Experiment-level setting changes are handled upstream by
   // assertIncrementalRefreshPrerequisites (they force a full refresh).
-  const factTablesToRebuild =
-    mode.kind === "metrics-only"
-      ? new Set<string>()
-      : getFactTablesNeedingRebuild({
-          existingMetricSources: incrementalRefreshModel?.metricSources ?? [],
-          desiredFanOut,
-          currentMetricSettingsHashes,
-        });
+  const factTablesToRebuild = getFactTablesNeedingRebuild({
+    existingMetricSources: incrementalRefreshModel?.metricSources ?? [],
+    desiredFanOut,
+    currentMetricSettingsHashes,
+  });
 
   // Begin Queries
   const lastMaxTimestamp = incrementalRefreshModel?.unitsMaxTimestamp;
@@ -748,18 +744,18 @@ export const startExperimentIncrementalRefreshQueries = async (
     existingMetricSources: existingSources ?? [],
     integration,
     snapshotSettings,
-  }).filter((group) => group.metrics.some(inRun));
+  });
   let runningSourceData = existingSources ?? [];
   let runningCovariateSourceData = existingCovariateSources ?? [];
 
   // Track per-group state we need from the per-FT pass for the cross-FT
   // pair pass below: each pipeline's cache table name (so the stats query
-  // can build its `metricSources` array) and the insert query (so the
-  // stats query can declare it as a dependency).
+  // can build its `metricSources` array) and the insert query, when this run
+  // writes the cache (so the stats query can declare it as a dependency).
   interface SourcePipeline {
     group: MetricSourceGroups;
     tableFullName: string;
-    insertQuery: QueryPointer;
+    insertQuery?: QueryPointer;
     // Optional covariate cache + insert query for this group, populated
     // only when at least one metric in the group is regression-adjusted.
     // The cross-FT pair pass below pairs both pipelines' covariate caches
@@ -806,7 +802,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     // across caches; their stats are computed in dedicated passes below.
     const sameFtMetrics = group.metrics.filter((m) => {
       const ftIds = getFactMetricFactTableIds(m);
-      return ftIds.length === 1 && ftIds[0] === group.factTableId && inRun(m);
+      return ftIds.length === 1 && ftIds[0] === group.factTableId;
     });
 
     let createMetricsSourceQuery: QueryPointer | null = null;
@@ -836,38 +832,41 @@ export const startExperimentIncrementalRefreshQueries = async (
       queries.push(createMetricsSourceQuery);
     }
 
-    const insertParams: InsertMetricSourceDataQueryParams = {
-      settings: snapshotSettings,
-      exposureQuery: resolvedExposureQuery,
-      activationMetric: activationMetric,
-      factTableMap: params.factTableMap,
-      factTableId: group.factTableId,
-      metricSourceTableFullName,
-      unitsSourceTableFullName: unitsTableFullName,
-      metrics: group.metrics,
-      lastMaxTimestamp: existingSource?.maxTimestamp || null,
-      lastMaxTimestampRaw: existingSource?.maxTimestampRaw ?? null,
-      incrementalRefreshStartTime: params.incrementalRefreshStartTime,
-    };
+    let insertMetricsSourceDataQuery: QueryPointer | null = null;
+    if (!existingSource || appendsToStoredTables) {
+      const insertParams: InsertMetricSourceDataQueryParams = {
+        settings: snapshotSettings,
+        exposureQuery: resolvedExposureQuery,
+        activationMetric: activationMetric,
+        factTableMap: params.factTableMap,
+        factTableId: group.factTableId,
+        metricSourceTableFullName,
+        unitsSourceTableFullName: unitsTableFullName,
+        metrics: group.metrics,
+        lastMaxTimestamp: existingSource?.maxTimestamp || null,
+        lastMaxTimestampRaw: existingSource?.maxTimestampRaw ?? null,
+        incrementalRefreshStartTime: params.incrementalRefreshStartTime,
+      };
 
-    const insertMetricsSourceDataQuery = await startQuery({
-      name: `insert_metrics_source_data_${group.groupId}`,
-      displayTitle: `Update Metrics Source ${sourceName}`,
-      query: integration.getInsertMetricSourceDataQuery(insertParams),
-      dependencies: [
-        ...(createMetricsSourceQuery ? [createMetricsSourceQuery.query] : []),
-        ...afterUnits.alter,
-      ],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runIncrementalWithNoOutputQuery(
-          query,
-          setExternalId,
-          queryMetadata,
-        ),
-      metadata: { factTableIds: [group.factTableId] },
-      queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
-    });
-    queries.push(insertMetricsSourceDataQuery);
+      insertMetricsSourceDataQuery = await startQuery({
+        name: `insert_metrics_source_data_${group.groupId}`,
+        displayTitle: `Update Metrics Source ${sourceName}`,
+        query: integration.getInsertMetricSourceDataQuery(insertParams),
+        dependencies: [
+          ...(createMetricsSourceQuery ? [createMetricsSourceQuery.query] : []),
+          ...afterUnits.alter,
+        ],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalWithNoOutputQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        metadata: { factTableIds: [group.factTableId] },
+        queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
+      });
+      queries.push(insertMetricsSourceDataQuery);
+    }
 
     // CUPED tables — one covariate cache per group, holding only the
     // side(s) this FT actually materializes for each metric. Same-FT
@@ -902,7 +901,10 @@ export const startExperimentIncrementalRefreshQueries = async (
     const anyMetricHasCuped = regressionAdjustedMetrics.length > 0;
     let createMetricCovariateTableQuery: QueryPointer | null = null;
     let insertMetricCovariateDataQuery: QueryPointer | null = null;
-    if (anyMetricHasCuped) {
+    if (
+      anyMetricHasCuped &&
+      (!existingCovariateSource || appendsToStoredTables)
+    ) {
       if (!existingCovariateSource) {
         // Safety net in case our data model is out of sync with the database
         const dropMetricCovariateTableQuery = await startQuery({
@@ -1088,98 +1090,106 @@ export const startExperimentIncrementalRefreshQueries = async (
       queries.push(insertMetricCovariateDataQuery);
     }
 
-    const maxTimestampMetricsSourceQuery = await startQuery({
-      name: `max_timestamp_metrics_source_${group.groupId}`,
-      displayTitle: `Find Latest Metrics Source Timestamp ${sourceName}`,
-      query: integration.getMaxTimestampMetricSourceQuery({
-        metricSourceTableFullName,
-        lastMaxTimestamp: existingSource?.maxTimestamp || null,
-      }),
-      dependencies: [insertMetricsSourceDataQuery.query],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runMaxTimestampQuery(query, setExternalId, queryMetadata),
-      onFailure: async () => {
-        // Remove the source from the running data if max timestamp fails
-        runningSourceData = runningSourceData.filter(
-          (s) => s.groupId !== group.groupId,
-        );
-        // Note: onFailure is not awaited by QueryRunner, so we must catch
-        // errors here to avoid unhandled promise rejections.
-        context.models.incrementalRefresh
-          .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
-            metricSources: runningSourceData,
-          })
-          .catch((e) =>
-            context.logger.error(
-              e,
-              "Failed to update metric sources on query failure",
-            ),
+    if (insertMetricsSourceDataQuery) {
+      const maxTimestampMetricsSourceQuery = await startQuery({
+        name: `max_timestamp_metrics_source_${group.groupId}`,
+        displayTitle: `Find Latest Metrics Source Timestamp ${sourceName}`,
+        query: integration.getMaxTimestampMetricSourceQuery({
+          metricSourceTableFullName,
+          lastMaxTimestamp: existingSource?.maxTimestamp || null,
+        }),
+        dependencies: [insertMetricsSourceDataQuery.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runMaxTimestampQuery(query, setExternalId, queryMetadata),
+        onFailure: async () => {
+          // Remove the source from the running data if max timestamp fails
+          runningSourceData = runningSourceData.filter(
+            (s) => s.groupId !== group.groupId,
           );
-      },
-      onSuccess: async (rows) => {
-        // MAX() is NULL on an empty cache; persist null rather than skip
-        // the source so the table isn't rebuilt on the next refresh.
-        const { maxTimestamp, maxTimestampRaw } = parseMaxTimestampRow(rows[0]);
-        // TODO(incremental-refresh): Clean up metadata handling in query runner
-        const updatedSource: IncrementalRefreshMetricSourceInterface =
-          existingSource
-            ? { ...existingSource, maxTimestamp, maxTimestampRaw }
-            : {
-                groupId: group.groupId,
-                factTableId: group.factTableId,
-                maxTimestamp,
-                maxTimestampRaw,
-                // (factTableId, metricId) is the persisted key. Which side
-                // of the metric this cache materializes is derived at read
-                // time by comparing the metric's column refs to
-                // `factTableId` (see metric-source-table-schema.ts).
-                metrics: group.metrics.map((m) => ({
-                  id: m.id,
-                  settingsHash: getMetricSettingsHashForIncrementalRefresh({
-                    factMetric: m,
-                    factTableMap: params.factTableMap,
-                    metricSettings: insertParams.settings.metricSettings.find(
-                      (ms) => ms.id === m.id,
-                    ),
-                    clusterMetricLevel: getClusterMetricCacheLevel(
-                      insertParams.settings,
-                      m.id,
-                    ),
-                  }),
-                })),
-                tableFullName: metricSourceTableFullName,
-              };
-        if (!existingSource) {
-          runningSourceData = runningSourceData.concat(updatedSource);
-        } else {
-          runningSourceData = runningSourceData.map((s) =>
-            s.groupId === group.groupId ? updatedSource : s,
-          );
-        }
-        const lockHeld =
-          await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-            experimentId,
-            executionId,
-            {
+          // Note: onFailure is not awaited by QueryRunner, so we must catch
+          // errors here to avoid unhandled promise rejections.
+          context.models.incrementalRefresh
+            .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
               metricSources: runningSourceData,
-            },
+            })
+            .catch((e) =>
+              context.logger.error(
+                e,
+                "Failed to update metric sources on query failure",
+              ),
+            );
+        },
+        onSuccess: async (rows) => {
+          // MAX() is NULL on an empty cache; persist null rather than skip
+          // the source so the table isn't rebuilt on the next refresh.
+          const { maxTimestamp, maxTimestampRaw } = parseMaxTimestampRow(
+            rows[0],
           );
-        if (lockHeld !== true) {
-          context.logger.warn(
-            "Incremental refresh execution lock lost for experiment: " +
+          // TODO(incremental-refresh): Clean up metadata handling in query runner
+          const updatedSource: IncrementalRefreshMetricSourceInterface =
+            existingSource
+              ? { ...existingSource, maxTimestamp, maxTimestampRaw }
+              : {
+                  groupId: group.groupId,
+                  factTableId: group.factTableId,
+                  maxTimestamp,
+                  maxTimestampRaw,
+                  // (factTableId, metricId) is the persisted key. Which side
+                  // of the metric this cache materializes is derived at read
+                  // time by comparing the metric's column refs to
+                  // `factTableId` (see metric-source-table-schema.ts).
+                  metrics: group.metrics.map((m) => ({
+                    id: m.id,
+                    settingsHash: getMetricSettingsHashForIncrementalRefresh({
+                      factMetric: m,
+                      factTableMap: params.factTableMap,
+                      metricSettings: snapshotSettings.metricSettings.find(
+                        (ms) => ms.id === m.id,
+                      ),
+                      clusterMetricLevel: getClusterMetricCacheLevel(
+                        snapshotSettings,
+                        m.id,
+                      ),
+                    }),
+                  })),
+                  tableFullName: metricSourceTableFullName,
+                };
+          if (!existingSource) {
+            runningSourceData = runningSourceData.concat(updatedSource);
+          } else {
+            runningSourceData = runningSourceData.map((s) =>
+              s.groupId === group.groupId ? updatedSource : s,
+            );
+          }
+          const lockHeld =
+            await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
               experimentId,
-          );
-        }
-      },
-      metadata: { factTableIds: [group.factTableId] },
-      queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
-    });
-    queries.push(maxTimestampMetricsSourceQuery);
+              executionId,
+              {
+                metricSources: runningSourceData,
+              },
+            );
+          if (lockHeld !== true) {
+            context.logger.warn(
+              "Incremental refresh execution lock lost for experiment: " +
+                experimentId,
+            );
+          }
+        },
+        metadata: { factTableIds: [group.factTableId] },
+        queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
+      });
+      queries.push(maxTimestampMetricsSourceQuery);
+    }
 
+    const writeQueryIds = [
+      insertMetricsSourceDataQuery,
+      insertMetricCovariateDataQuery,
+    ].flatMap((q) => (q ? [q.query] : []));
     pipelineByGroupId.set(group.groupId, {
       group,
       tableFullName: metricSourceTableFullName,
-      insertQuery: insertMetricsSourceDataQuery,
+      insertQuery: insertMetricsSourceDataQuery ?? undefined,
       covariateTableFullName: anyMetricHasCuped
         ? metricSourceCovariateTableFullName
         : undefined,
@@ -1214,12 +1224,6 @@ export const startExperimentIncrementalRefreshQueries = async (
               : {}),
           },
         ];
-        const statisticsDependencies = [
-          insertMetricsSourceDataQuery.query,
-          ...(insertMetricCovariateDataQuery
-            ? [insertMetricCovariateDataQuery.query]
-            : []),
-        ];
         const baseStatisticsName = `${STATISTICS_QUERY_PREFIX}${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`;
 
         for (const variant of getStatisticsQueryVariants({
@@ -1245,7 +1249,7 @@ export const startExperimentIncrementalRefreshQueries = async (
               dimensionsForAnalysis: [],
               metricSources,
             }),
-            dependencies: statisticsDependencies,
+            dependencies: writeQueryIds,
             run: (query, setExternalId, queryMetadata) =>
               integration.runIncrementalRefreshStatisticsQuery(
                 query,
@@ -1267,15 +1271,7 @@ export const startExperimentIncrementalRefreshQueries = async (
   // only when they resolve to the same cache table for every FT; a fact table
   // chunked into several caches yields one query per chunk combination in use.
   const multiSourceSubGroups = buildMultiSourceSubGroups<SourcePipeline>({
-    multiSourceGroups: desiredFanOut.multiSourceGroups
-      .map((group) => ({
-        ...group,
-        metrics: group.metrics.filter(inRun),
-        crossFtRatioMetrics: group.crossFtRatioMetrics.filter((c) =>
-          inRun(c.metric),
-        ),
-      }))
-      .filter((group) => group.metrics.length > 0),
+    multiSourceGroups: desiredFanOut.multiSourceGroups,
     metricSourceGroups,
     pipelineByGroupId,
     onMissingPipeline: "throw",
@@ -1313,7 +1309,9 @@ export const startExperimentIncrementalRefreshQueries = async (
         : {}),
     }));
     const statisticsDependencies = [
-      ...subGroup.pipelines.map((p) => p.insertQuery.query),
+      ...subGroup.pipelines.flatMap((p) =>
+        p.insertQuery ? [p.insertQuery.query] : [],
+      ),
       ...subGroup.pipelines.flatMap((p) =>
         p.covariateInsertQuery ? [p.covariateInsertQuery.query] : [],
       ),
@@ -1359,13 +1357,11 @@ export const startExperimentIncrementalRefreshQueries = async (
     }
   }
 
-  const runTrafficQuery =
-    mode.kind !== "metrics-only" &&
-    shouldRunHealthTrafficQuery({
-      snapshotType: params.snapshotType,
-      snapshotDimensions: snapshotSettings.dimensions,
-      runHealthTrafficQuery: org.settings?.runHealthTrafficQuery,
-    });
+  const runTrafficQuery = shouldRunHealthTrafficQuery({
+    snapshotType: params.snapshotType,
+    snapshotDimensions: snapshotSettings.dimensions,
+    runHealthTrafficQuery: org.settings?.runHealthTrafficQuery,
+  });
 
   if (runTrafficQuery) {
     const trafficQuery = await startQuery({
@@ -1511,22 +1507,22 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.experimentUpdateExecutionLogger.execution.covariateSources = [];
     }
 
+    // A metric refresh copies each statistics or health query its parent
+    // has under the same name and runs the rest. Queries reading a cache
+    // rebuilt in this run are named after its new group id, so they run.
     const metricRefresh = getMetricRefresh(this.model);
-    const carried = metricRefresh
-      ? await carryMetricRefreshQueries(
-          this.context,
-          metricRefresh,
-          ({ name }) => isCarriedIncrementalQuery(name),
+    const parentQueries = metricRefresh
+      ? await getParentQueryCopiers(this.context, metricRefresh, ({ name }) =>
+          isCarriedIncrementalQuery(name),
         )
-      : [];
-    const started = await startExperimentIncrementalRefreshQueries(
+      : new Map<string, () => Promise<QueryPointer>>();
+    return startExperimentIncrementalRefreshQueries(
       this.context,
       params,
       this.integration,
-      this.startQuery.bind(this),
+      (query) => parentQueries.get(query.name)?.() ?? this.startQuery(query),
       this.experimentUpdateExecutionLogger,
     );
-    return [...carried, ...started];
   }
 
   protected override getOverallQueryStatus(): QueryStatus {

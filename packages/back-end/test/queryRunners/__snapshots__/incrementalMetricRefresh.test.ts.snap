@@ -1,18 +1,21 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`metric refresh (metrics-only runs) builds only the targets' caches and statistics on the base's units table 1`] = `
+exports[`metric refresh (metrics-only runs) rebuilds a target's fact table cache like an update, on the base's units table and end 1`] = `
 [
-  "create_metrics_source_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshCreateMetricsSourceTable | Create Metrics Source (ft_a) | deps=[] | getCreateMetricSourceTableQuery#68f7b7df7fae | meta={"factTableIds":["ft_a"]}",
-  "insert_metrics_source_data_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshInsertMetricsSourceData | Update Metrics Source (ft_a) | deps=[create_metrics_source_ft_a_4xojcq9k7u0] | getInsertMetricSourceDataQuery#6858087a9884 | meta={"factTableIds":["ft_a"]}",
+  "statistics_ft_b_stored0 | experimentIncrementalRefreshStatistics | Compute Statistics (ft_b) | deps=[] | getIncrementalRefreshStatisticsQuery#e384465fd4c8 | meta={"factTableIds":["ft_b"]}",
+  "create_metrics_source_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshCreateMetricsSourceTable | Create Metrics Source (ft_a) | deps=[] | getCreateMetricSourceTableQuery#8d2654630c5b | meta={"factTableIds":["ft_a"]}",
+  "insert_metrics_source_data_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshInsertMetricsSourceData | Update Metrics Source (ft_a) | deps=[create_metrics_source_ft_a_4xojcq9k7u0] | getInsertMetricSourceDataQuery#05abecccf3a4 | meta={"factTableIds":["ft_a"]}",
   "drop_metrics_covariate_table_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshDropMetricsCovariateTable | Drop Old Metric Covariate Table (ft_a) | deps=[] | getDropMetricSourceCovariateTableQuery#d7e4933a3f18 | meta={"factTableIds":["ft_a"]}",
-  "create_metrics_covariate_table_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshCreateMetricsCovariateTable | Create Metric Covariate Table (ft_a) | deps=[drop_metrics_covariate_table_ft_a_4xojcq9k7u0] | getCreateMetricSourceCovariateTableQuery#0815df71fc29 | meta={"factTableIds":["ft_a"]}",
-  "insert_metrics_covariate_data_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshInsertMetricsCovariateData | Update Metric Covariate Data (ft_a) | deps=[create_metrics_covariate_table_ft_a_4xojcq9k7u0] | getInsertMetricSourceCovariateDataQuery#ca7765b99f00 | meta={"factTableIds":["ft_a"]}",
+  "create_metrics_covariate_table_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshCreateMetricsCovariateTable | Create Metric Covariate Table (ft_a) | deps=[drop_metrics_covariate_table_ft_a_4xojcq9k7u0] | getCreateMetricSourceCovariateTableQuery#c5f3b6b7692c | meta={"factTableIds":["ft_a"]}",
+  "insert_metrics_covariate_data_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshInsertMetricsCovariateData | Update Metric Covariate Data (ft_a) | deps=[create_metrics_covariate_table_ft_a_4xojcq9k7u0] | getInsertMetricSourceCovariateDataQuery#54753edfd5a8 | meta={"factTableIds":["ft_a"]}",
   "max_timestamp_metrics_source_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshMaxTimestampMetricsSource | Find Latest Metrics Source Timestamp (ft_a) | deps=[insert_metrics_source_data_ft_a_4xojcq9k7u0] | getMaxTimestampMetricSourceQuery#02213b9bcc9e | meta={"factTableIds":["ft_a"]}",
-  "statistics_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshStatistics | Compute Statistics (ft_a) | deps=[insert_metrics_source_data_ft_a_4xojcq9k7u0,insert_metrics_covariate_data_ft_a_4xojcq9k7u0] | getIncrementalRefreshStatisticsQuery#02736621f16a | meta={"factTableIds":["ft_a"]}",
+  "statistics_ft_a_4xojcq9k7u0 | experimentIncrementalRefreshStatistics | Compute Statistics (ft_a) | deps=[insert_metrics_source_data_ft_a_4xojcq9k7u0,insert_metrics_covariate_data_ft_a_4xojcq9k7u0] | getIncrementalRefreshStatisticsQuery#b6560ef55681 | meta={"factTableIds":["ft_a"]}",
   "create_metrics_source_ft_c_9v8equapoto0 | experimentIncrementalRefreshCreateMetricsSourceTable | Create Metrics Source (ft_c) | deps=[] | getCreateMetricSourceTableQuery#976475cd25bd | meta={"factTableIds":["ft_c"]}",
   "insert_metrics_source_data_ft_c_9v8equapoto0 | experimentIncrementalRefreshInsertMetricsSourceData | Update Metrics Source (ft_c) | deps=[create_metrics_source_ft_c_9v8equapoto0] | getInsertMetricSourceDataQuery#c0ac905cf0a3 | meta={"factTableIds":["ft_c"]}",
   "max_timestamp_metrics_source_ft_c_9v8equapoto0 | experimentIncrementalRefreshMaxTimestampMetricsSource | Find Latest Metrics Source Timestamp (ft_c) | deps=[insert_metrics_source_data_ft_c_9v8equapoto0] | getMaxTimestampMetricSourceQuery#0c2e04029987 | meta={"factTableIds":["ft_c"]}",
   "statistics_ft_c_9v8equapoto0 | experimentIncrementalRefreshStatistics | Compute Statistics (ft_c) | deps=[insert_metrics_source_data_ft_c_9v8equapoto0] | getIncrementalRefreshStatisticsQuery#c28acd1544bb | meta={"factTableIds":["ft_c"]}",
+  "statistics_multi_ft_a_4xojcq9k7u0__ft_b_stored0 | experimentIncrementalRefreshStatistics | Compute Multi-Source Statistics (ft_a x ft_b) | deps=[insert_metrics_source_data_ft_a_4xojcq9k7u0,insert_metrics_covariate_data_ft_a_4xojcq9k7u0] | getIncrementalRefreshStatisticsQuery#f6df257bf288 | meta={"factTableIds":["ft_a","ft_b"]}",
+  "traffic | experimentTraffic |  | deps=[] | getExperimentAggregateUnitsQuery#606f3c8911c9 | meta=null",
 ]
 `;
 

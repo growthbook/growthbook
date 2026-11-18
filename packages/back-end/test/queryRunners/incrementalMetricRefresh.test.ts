@@ -231,7 +231,7 @@ function digest(value: unknown): string {
 
 type BuilderCall = { method: string; args: Record<string, unknown> };
 
-function fakeIntegration(): {
+function fakeIntegration(maxColumns: number): {
   integration: SourceIntegrationInterface;
   calls: Map<string, BuilderCall>;
 } {
@@ -251,7 +251,7 @@ function fakeIntegration(): {
         },
       },
     },
-    getSourceProperties: () => ({ maxColumns: 1000 }),
+    getSourceProperties: () => ({ maxColumns }),
     generateTablePath: (name: string, dataset?: string, database?: string) =>
       `${database}.${dataset}.${name}`,
   };
@@ -280,11 +280,13 @@ type Recorded = StartQueryParams<unknown, unknown> & {
 async function buildDag({
   params,
   state,
+  maxColumns = 1000,
 }: {
   params: Partial<ExperimentIncrementalRefreshQueryParams>;
   state: IncrementalRefreshInterface | null;
+  maxColumns?: number;
 }) {
-  const { integration, calls } = fakeIntegration();
+  const { integration, calls } = fakeIntegration(maxColumns);
   const recorded: Recorded[] = [];
   const updateState = jest.fn().mockResolvedValue(true);
   const context = {
@@ -400,13 +402,18 @@ describe("normal incremental runs (pinned at trunk b29299f794)", () => {
   });
 });
 
+type DagOptions = {
+  state?: IncrementalRefreshInterface;
+  maxColumns?: number;
+};
+
 function refreshDag(
   targets: string[],
-  state: IncrementalRefreshInterface = baseState(),
+  { state = baseState(), maxColumns }: DagOptions = {},
 ) {
   return buildDag({
     params: {
-      mode: { kind: "metrics-only", definitionMetricIds: new Set(targets) },
+      mode: { kind: "metrics-only" },
       snapshotSettings: snapshotSettings(
         [...BASE_METRICS, ...targets],
         BASE_END,
@@ -414,18 +421,28 @@ function refreshDag(
       incrementalRefreshStartTime: BASE_END,
     },
     state,
+    maxColumns,
   });
 }
 
-function byName(recorded: Recorded[], name: string): Recorded {
-  const query = recorded.find((r) => r.name === name);
-  if (!query) throw new Error(`no query ${name}`);
-  return query;
+function updateDag(
+  metricIds: string[],
+  { state = baseState(), maxColumns }: DagOptions = {},
+) {
+  return buildDag({
+    params: {
+      snapshotSettings: snapshotSettings(metricIds, LATER_END),
+      incrementalRefreshStartTime: LATER_END,
+    },
+    state,
+    maxColumns,
+  });
 }
 
+type Dag = Awaited<ReturnType<typeof buildDag>>;
+
 function argsOf(
-  recorded: Recorded[],
-  calls: Map<string, BuilderCall>,
+  { recorded, calls }: Dag,
   prefix: string,
 ): (BuilderCall["args"] & { name: string })[] {
   return recorded
@@ -436,199 +453,245 @@ function argsOf(
 const metricIdsOf = (args: Record<string, unknown>) =>
   (args.metrics as FactMetricInterface[]).map((m) => m.id);
 
-const UNITS_OR_TRAFFIC =
-  /^(update|drop|alter|max_timestamp|create)_snp_run|^drop_snp_run_old$|^(traffic|clusterTraffic|clusterHealth)$/;
+const namesOf = (dag: Dag) => dag.recorded.map((r) => r.name);
+
+// The caches a run creates, as "factTableId:metricIds".
+const createdCaches = (dag: Dag) =>
+  argsOf(dag, "create_metrics_source_")
+    .map((a) => `${a.factTableId}:${metricIdsOf(a).join(",")}`)
+    .sort();
+
+// Settles every state write of the run and returns the state it leaves.
+async function finishWrites(
+  dag: Dag,
+  state: IncrementalRefreshInterface,
+): Promise<IncrementalRefreshInterface> {
+  for (const r of dag.recorded) {
+    if (r.name.startsWith("max_timestamp_metrics_source_")) {
+      await r.onSuccess?.([{ max_timestamp: "2026-11-10T11:59:30Z" }]);
+    }
+    if (r.name.startsWith("insert_metrics_covariate_data_")) {
+      await r.onSuccess?.([]);
+    }
+  }
+  return Object.assign(
+    { ...state },
+    ...dag.updateState.mock.calls.map((c) => c[2]),
+  );
+}
+
+const UNITS =
+  /^(update|drop|alter|max_timestamp|create)_snp_run|^drop_snp_run_old$/;
 
 describe("metric refresh (metrics-only runs)", () => {
-  it("builds only the targets' caches and statistics on the base's units table", async () => {
-    const { recorded, calls } = await refreshDag(["a3", "c1"]);
-    const names = recorded.map((r) => r.name);
+  it("rebuilds a target's fact table cache like an update, on the base's units table and end", async () => {
+    const refresh = await refreshDag(["a3", "c1"]);
+    const update = await updateDag([...BASE_METRICS, "a3", "c1"]);
 
-    expect(names.filter((n) => UNITS_OR_TRAFFIC.test(n))).toEqual([]);
-    expect(names.filter((n) => n.includes("stored0"))).toEqual([]);
+    expect(createdCaches(refresh)).toEqual(["ft_a:a1,a2,r1,a3", "ft_c:c1"]);
+    expect(createdCaches(refresh)).toEqual(createdCaches(update));
 
-    const inserts = argsOf(recorded, calls, "insert_metrics_source_data_");
+    expect(namesOf(refresh).filter((n) => UNITS.test(n))).toEqual([]);
     expect(
-      inserts.map((a) => [a.factTableId, metricIdsOf(a), a.lastMaxTimestamp]),
-    ).toEqual([
-      ["ft_a", ["a3"], null],
-      ["ft_c", ["c1"], null],
-    ]);
-    inserts.forEach((a) => {
+      namesOf(refresh).filter(
+        (n) => n.includes("ft_b_stored0") && !n.startsWith("statistics_"),
+      ),
+    ).toEqual([]);
+    argsOf(refresh, "insert_metrics_source_data_").forEach((a) => {
+      expect(a.lastMaxTimestamp).toBeNull();
       expect(a.unitsSourceTableFullName).toBe("proj.ds.gb_units_exp_1_base");
       expect(a.incrementalRefreshStartTime).toEqual(BASE_END);
     });
 
-    const statistics = argsOf(recorded, calls, "statistics_");
-    expect(statistics.flatMap(metricIdsOf).sort()).toEqual(["a3", "c1"]);
+    const statistics = argsOf(refresh, "statistics_");
+    expect(statistics.flatMap(metricIdsOf).sort()).toEqual([
+      "a1",
+      "a2",
+      "a3",
+      "b1",
+      "c1",
+      "r1",
+    ]);
     statistics.forEach((a) => expect(a.asOf).toEqual(BASE_END));
 
-    recorded
-      .filter((r) =>
-        /^(create_metrics_source|drop_metrics_covariate)_/.test(r.name),
-      )
-      .forEach((r) => expect(r.dependencyNames).toEqual([]));
-    const covariateInsert = recorded.find((r) =>
-      r.name.startsWith("insert_metrics_covariate_data_"),
+    expect(describeDag(refresh.recorded, refresh.calls)).toMatchSnapshot();
+  });
+
+  it("names only the statistics and traffic of untouched caches like the parent did, so only they are copied", async () => {
+    const parent = await updateDag(BASE_METRICS);
+    const refresh = await refreshDag(["a3", "c1"]);
+    const parentNames = new Set(namesOf(parent));
+
+    const copied = refresh.recorded.filter((r) => parentNames.has(r.name));
+    expect(copied.map((r) => r.name)).toEqual([
+      "statistics_ft_b_stored0",
+      "traffic",
+    ]);
+    copied.forEach((r) => expect(r.dependencies).toEqual([]));
+
+    const rerun = argsOf(refresh, "statistics_").filter(
+      (a) => !parentNames.has(a.name),
     );
-    expect(covariateInsert?.dependencyNames).toEqual([
-      covariateInsert?.name.replace(
-        "insert_metrics_covariate_data_",
-        "create_metrics_covariate_table_",
-      ),
+    expect(rerun.flatMap(metricIdsOf).sort()).toEqual([
+      "a1",
+      "a2",
+      "a3",
+      "c1",
+      "r1",
     ]);
-
-    expect(describeDag(recorded, calls)).toMatchSnapshot();
   });
 
-  it("computes a cross-fact-table ratio from new caches on both of its fact tables", async () => {
-    const { recorded, calls } = await refreshDag(["r3"]);
-    const names = recorded.map((r) => r.name);
+  it("rebuilds both fact tables of a cross-fact-table ratio target", async () => {
+    const refresh = await refreshDag(["r3"]);
 
-    expect(names.filter((n) => UNITS_OR_TRAFFIC.test(n))).toEqual([]);
-    expect(names.filter((n) => n.includes("stored0"))).toEqual([]);
-    expect(
-      argsOf(recorded, calls, "insert_metrics_source_data_").map((a) => [
-        a.factTableId,
-        metricIdsOf(a),
-      ]),
-    ).toEqual([
-      ["ft_a", ["r3"]],
-      ["ft_b", ["r3"]],
+    expect(createdCaches(refresh)).toEqual([
+      "ft_a:a1,a2,r1,r3",
+      "ft_b:b1,r1,r3",
     ]);
-    const statistics = argsOf(recorded, calls, "statistics_");
+    expect(createdCaches(refresh)).toEqual(
+      createdCaches(await updateDag([...BASE_METRICS, "r3"])),
+    );
+    expect(namesOf(refresh).filter((n) => n.includes("stored0"))).toEqual([]);
     expect(
-      statistics.map((a) => [
-        a.name.startsWith("statistics_multi_"),
-        metricIdsOf(a),
-      ]),
-    ).toEqual([[true, ["r3"]]]);
+      argsOf(refresh, "statistics_multi_").flatMap(metricIdsOf).sort(),
+    ).toEqual(["r1", "r3"]);
   });
 
-  it("adds a target's cache to the stored ones and keeps every other entry", async () => {
-    const { recorded, updateState } = await refreshDag(["a3", "c1"]);
-    const base = baseState();
-    const a3Group = recorded
-      .find((r) => r.name.startsWith("max_timestamp_metrics_source_ft_a_"))
-      ?.name.replace("max_timestamp_metrics_source_", "");
-    if (!a3Group) throw new Error("no ft_a target cache");
+  it("replaces the rebuilt fact table's stored entries and keeps the others", async () => {
+    const refresh = await refreshDag(["a3", "c1"]);
+    const state = await finishWrites(refresh, baseState());
 
-    await byName(
-      recorded,
-      `max_timestamp_metrics_source_${a3Group}`,
-    ).onSuccess?.([{ max_timestamp: "2026-11-10T11:59:30Z" }]);
-    await byName(
-      recorded,
-      `insert_metrics_covariate_data_${a3Group}`,
-    ).onSuccess?.([]);
-
-    const written = updateState.mock.calls.map((c) => c[2]);
-    expect(written).toEqual([
-      {
-        metricSources: [
-          ...base.metricSources,
-          {
-            groupId: a3Group,
-            factTableId: "ft_a",
-            metrics: [storedMetric("a3")],
-            maxTimestamp: new Date("2026-11-10T11:59:30Z"),
-            maxTimestampRaw: null,
-            tableFullName: `proj.ds.gb_metrics_exp_1_${a3Group}`,
-          },
-        ],
-      },
-      {
-        metricCovariateSources: [
-          ...base.metricCovariateSources,
-          expect.objectContaining({
-            groupId: a3Group,
-            lastSuccessfulMaxTimestamp: base.unitsMaxTimestamp,
-          }),
-        ],
-      },
+    const groupIds = (sources: { groupId: string }[]) =>
+      sources.map((s) => s.groupId);
+    const builtA = refresh.recorded
+      .find((r) => r.name.startsWith("create_metrics_source_ft_a_"))
+      ?.name.replace("create_metrics_source_", "");
+    expect(groupIds(state.metricSources)).toEqual([
+      "ft_b_stored0",
+      builtA,
+      expect.stringMatching(/^ft_c_/),
     ]);
+    expect(groupIds(state.metricCovariateSources)).toEqual([builtA]);
     expect(
-      written.some(
-        (w) => "unitsMaxTimestamp" in w || "unitsTableFullName" in w,
+      refresh.updateState.mock.calls.some(
+        (c) => "unitsMaxTimestamp" in c[2] || "unitsTableFullName" in c[2],
       ),
     ).toBe(false);
   });
 
-  it("leaves the stored caches as the base left them when a target's cache fails", async () => {
-    const { recorded, updateState } = await refreshDag(["a3"]);
-    const maxTimestamp = recorded.find((r) =>
-      r.name.startsWith("max_timestamp_metrics_source_"),
-    );
-    maxTimestamp?.onFailure?.();
-    await Promise.resolve();
+  it("rebuilds a fact table whose stored metric drifted from its definition, so its statistics are not copied", async () => {
+    const parent = await updateDag(BASE_METRICS);
+    const drifted = baseState();
+    drifted.metricSources[1].metrics = [
+      { id: "b1", settingsHash: "before-the-edit" },
+      storedMetric("r1"),
+    ];
 
-    expect(updateState.mock.calls.map((c) => c[2])).toEqual([
-      { metricSources: baseState().metricSources },
+    const refresh = await refreshDag(["c1"], { state: drifted });
+
+    expect(createdCaches(refresh)).toEqual(["ft_b:b1,r1", "ft_c:c1"]);
+    const parentNames = new Set(namesOf(parent));
+    expect(namesOf(refresh).filter((n) => parentNames.has(n))).toEqual([
+      "statistics_ft_a_stored0",
+      "traffic",
+    ]);
+    expect(
+      argsOf(refresh, "statistics_")
+        .filter((a) => !parentNames.has(a.name))
+        .flatMap(metricIdsOf)
+        .sort(),
+    ).toEqual(["b1", "c1", "r1"]);
+  });
+
+  it("rebuilds every cache of a fact table split across several, so no stored entry is lost", async () => {
+    const maxColumns = 112;
+    const split = baseState();
+    split.metricSources = [
+      { ...split.metricSources[0], metrics: ["a1", "a2"].map(storedMetric) },
+      {
+        ...split.metricSources[0],
+        groupId: "ft_a_stored1",
+        metrics: [storedMetric("r1")],
+        tableFullName: "proj.ds.gb_metrics_exp_1_ft_a_stored1",
+      },
+      split.metricSources[1],
+    ];
+    expect(
+      createdCaches(await updateDag(BASE_METRICS, { state: split })),
+    ).toEqual([]);
+
+    const refresh = await refreshDag(["a3"], { state: split, maxColumns });
+    const builtA = argsOf(refresh, "create_metrics_source_").filter(
+      (a) => a.factTableId === "ft_a",
+    );
+    expect(builtA.length).toBeGreaterThan(1);
+    expect(builtA.flatMap(metricIdsOf).sort()).toEqual([
+      "a1",
+      "a2",
+      "a3",
+      "r1",
+    ]);
+
+    const state = await finishWrites(refresh, split);
+    const storedA = state.metricSources.filter((s) => s.factTableId === "ft_a");
+    expect(storedA.map((s) => s.groupId).sort()).toEqual(
+      builtA.map((a) => a.name.replace("create_metrics_source_", "")).sort(),
+    );
+    expect(
+      createdCaches(
+        await updateDag([...BASE_METRICS, "a3"], { state, maxColumns }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("leaves state that the next update and the next refresh rebuild from when a rebuild fails", async () => {
+    const refresh = await refreshDag(["a3"]);
+    refresh.recorded
+      .find((r) => r.name.startsWith("max_timestamp_metrics_source_ft_a_"))
+      ?.onFailure?.();
+    await Promise.resolve();
+    const state = baseState();
+    Object.assign(state, ...refresh.updateState.mock.calls.map((c) => c[2]));
+    expect(state.metricSources.map((s) => s.groupId)).toEqual(["ft_b_stored0"]);
+
+    expect(
+      createdCaches(await updateDag([...BASE_METRICS, "a3"], { state })),
+    ).toEqual(["ft_a:a1,a2,r1,a3"]);
+    expect(createdCaches(await refreshDag(["a3"], { state }))).toEqual([
+      "ft_a:a1,a2,r1,a3",
     ]);
   });
 
-  it("keeps a finished target's cache and every stored one when another target's cache fails", async () => {
-    const { recorded, updateState } = await refreshDag(["a3", "c1"]);
-    const maxTimestampOf = (factTableId: string) => {
-      const query = recorded.find((r) =>
-        r.name.startsWith(`max_timestamp_metrics_source_${factTableId}_`),
-      );
-      if (!query) throw new Error(`no ${factTableId} target cache`);
-      return query;
-    };
-    const a3 = maxTimestampOf("ft_a");
-    const c1 = maxTimestampOf("ft_c");
+  it("reruns only the statistics of caches the parent has no statistics for when retried after a statistics failure", async () => {
+    const parent = await updateDag(BASE_METRICS);
+    const failed = await refreshDag(["a3", "c1"]);
+    const state = await finishWrites(failed, baseState());
 
-    await a3.onSuccess?.([{ max_timestamp: "2026-11-10T11:59:30Z" }]);
-    c1.onFailure?.();
-    await Promise.resolve();
+    const retry = await refreshDag(["a3", "c1"], { state });
+    const parentNames = new Set(namesOf(parent));
 
-    const stored = [
-      ...baseState().metricSources,
-      expect.objectContaining({
-        groupId: a3.name.replace("max_timestamp_metrics_source_", ""),
-        factTableId: "ft_a",
-        metrics: [storedMetric("a3")],
-      }),
-    ];
+    expect(namesOf(retry).filter((n) => !n.startsWith("statistics_"))).toEqual([
+      "traffic",
+    ]);
     expect(
-      updateState.mock.calls
-        .map((c) => c[2])
-        .filter((w) => "metricSources" in w),
-    ).toEqual([{ metricSources: stored }, { metricSources: stored }]);
+      argsOf(retry, "statistics_")
+        .filter((a) => !parentNames.has(a.name))
+        .flatMap(metricIdsOf)
+        .sort(),
+    ).toEqual(["a1", "a2", "a3", "c1", "r1"]);
+    retry.recorded.forEach((r) => expect(r.dependencies).toEqual([]));
   });
 
-  it("lets the next update append to every cache, the refresh's included", async () => {
-    const refreshed = await refreshDag(["a3", "c1"]);
-    const state = baseState();
-    for (const r of refreshed.recorded.filter((q) =>
-      q.name.startsWith("max_timestamp_metrics_source_"),
-    )) {
-      await r.onSuccess?.([{ max_timestamp: "2026-11-10T11:59:30Z" }]);
-    }
-    const lastWrite = refreshed.updateState.mock.calls
-      .map((c) => c[2])
-      .filter((w) => "metricSources" in w)
-      .pop();
-    state.metricSources = lastWrite.metricSources;
+  it("lets the next update append to every cache, so it runs no extra queries", async () => {
+    const refresh = await refreshDag(["a3", "c1"]);
+    const state = await finishWrites(refresh, baseState());
 
-    const { recorded, calls } = await buildDag({
-      params: {
-        snapshotSettings: snapshotSettings(
-          [...BASE_METRICS, "a3", "c1"],
-          LATER_END,
-        ),
-        incrementalRefreshStartTime: LATER_END,
-      },
+    const afterRefresh = await updateDag([...BASE_METRICS, "a3", "c1"], {
       state,
     });
-    const names = recorded.map((r) => r.name);
-
-    expect(names.some((n) => n.startsWith("create_metrics_source_"))).toBe(
-      false,
-    );
+    expect(createdCaches(afterRefresh)).toEqual([]);
     expect(
-      argsOf(recorded, calls, "insert_metrics_source_data_")
+      argsOf(afterRefresh, "insert_metrics_source_data_")
         .map((a) => (a.lastMaxTimestamp === null ? null : a.name))
         .sort(),
     ).toEqual(
@@ -636,5 +699,11 @@ describe("metric refresh (metrics-only runs)", () => {
         .map((s) => `insert_metrics_source_data_${s.groupId}`)
         .sort(),
     );
+
+    const update = await updateDag([...BASE_METRICS, "a3", "c1"]);
+    const afterUpdate = await updateDag([...BASE_METRICS, "a3", "c1"], {
+      state: await finishWrites(update, baseState()),
+    });
+    expect(afterRefresh.recorded.length).toBe(afterUpdate.recorded.length);
   });
 });
