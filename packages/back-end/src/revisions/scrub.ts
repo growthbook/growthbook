@@ -23,11 +23,13 @@ const scrubOps = (ops: unknown, scrub: Scrub) =>
 export async function scrubRevisionForViewer(
   context: Context,
   revision: Revision,
+  hideAll = false,
 ): Promise<Revision> {
   const { target } = revision;
   const { scrubForViewer } = getAdapter(target.type);
   if (!scrubForViewer) return revision;
-  const scrub: Scrub = (fragment) => scrubForViewer(context, target, fragment);
+  const scrub: Scrub = (fragment) =>
+    scrubForViewer(context, target, fragment, hideAll);
   return {
     ...revision,
     target: {

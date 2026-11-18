@@ -1,4 +1,5 @@
 import { deleteSdkConnectionValidator } from "shared/validators";
+import { PermissionError } from "shared/util";
 import {
   findSDKConnectionById,
   deleteSDKConnectionModel,
@@ -6,10 +7,6 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
-import {
-  ARCHIVE_BEFORE_DELETE,
-  assertDirectWriteAllowed,
-} from "back-end/src/services/sdkConnectionApprovals";
 
 export const deleteSdkConnection = createApiRequestHandler(
   deleteSdkConnectionValidator,
@@ -23,23 +20,17 @@ export const deleteSdkConnection = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  // Under an approval rule, archiving is the reviewable step.
-  const bypassedGates = sdkConnection.archived
-    ? []
-    : assertDirectWriteAllowed(
-        req.context,
-        [sdkConnection],
-        {
-          bypassApproval: req.body?.bypassApproval,
-          restBypass: canUseRestApiBypassSetting(req),
-        },
-        ARCHIVE_BEFORE_DELETE,
-      );
+  // Archiving takes a connection out of service, in a draft when its changes
+  // need review. As for Feature Flags, a live one deletes only when the org
+  // has opted in to unrestricted REST writes.
+  if (!sdkConnection.archived && !canUseRestApiBypassSetting(req)) {
+    throw new PermissionError(
+      "Cannot delete a live SDK Connection via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
+        "Archive the SDK Connection first (`PUT /sdk-connections/{id}` with `archived: true`, or in a draft revision), or enable the bypass setting in organization settings.",
+    );
+  }
 
   await deleteSDKConnectionModel(req.context, sdkConnection);
 
-  return {
-    deletedId: req.params.id,
-    ...(bypassedGates.length ? { bypassedGates } : {}),
-  };
+  return { deletedId: req.params.id };
 });

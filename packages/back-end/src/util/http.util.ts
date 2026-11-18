@@ -1,5 +1,6 @@
 import nodeFetch, { type RequestInit, type Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
+import { BadRequestError } from "./errors";
 import { logger } from "./logger";
 import {
   API_USER_AGENT,
@@ -32,7 +33,7 @@ export function validateWebhookTimeoutSeconds(timeoutSeconds?: number | null) {
     typeof timeoutSeconds === "number" &&
     timeoutSeconds > MAX_WEBHOOK_TIMEOUT_SECONDS
   ) {
-    throw new Error(
+    throw new BadRequestError(
       `Webhook timeout must be at most ${MAX_WEBHOOK_TIMEOUT_SECONDS} seconds`,
     );
   }

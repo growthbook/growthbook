@@ -20,12 +20,15 @@ import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
+import { dispatchSdkConnectionRevisionEvent } from "back-end/src/services/sdkConnectionRevisionEvents";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   assertNoLockingScheduledDraft,
   sdkConnectionReviewRules,
+  sdkWriteFields,
 } from "back-end/src/services/sdkConnectionApprovals";
+import { runValidateSdkConnectionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { validatePutPayload } from "./validations";
 
 export const putSdkConnection = createApiRequestHandler(
@@ -36,8 +39,12 @@ export const putSdkConnection = createApiRequestHandler(
     throw new NotFoundError("Could not find sdkConnection with that id");
   }
 
-  const { bypassApproval, ...body } = req.body;
-  const params = await validatePutPayload(req.context, body, sdkConnection);
+  const { bypassApproval } = req.body;
+  const params = await validatePutPayload(
+    req.context,
+    sdkWriteFields(req.body),
+    sdkConnection,
+  );
 
   if (!req.context.permissions.canUpdateSDKConnection(sdkConnection, params))
     req.context.permissions.throwPermissionError();
@@ -103,7 +110,7 @@ export const putSdkConnection = createApiRequestHandler(
     if (!bypassApproval) {
       throw new BadRequestError(
         "This organization requires approvals on SDK connections. " +
-          "Open a draft from the SDK connection page, " +
+          `Use \`PUT /sdk-connections-revisions/${sdkConnection.id}/new/settings\` to stage the change in a draft, ` +
           'or pass `{ "bypassApproval": true }` if you have the `bypassApprovalSDKConnections` permission.',
       );
     }
@@ -121,11 +128,17 @@ export const putSdkConnection = createApiRequestHandler(
     await assertNoLockingScheduledDraft(req.context, sdkConnection.id);
   }
 
+  await runValidateSdkConnectionHooks({
+    context: req.context,
+    original: baseline,
+    sdkConnection: { ...baseline, sdkConnection: proposedSettings },
+  });
+
   await ensureLiveRevisionExists(req.context, "sdk-connection", liveEntity);
 
   // The engine's fences and authority checks read the root `id`, `projects`
   // and `dateUpdated` alongside the composite.
-  const { result: updatedSdkConnection } = await landDirectChange({
+  const { merged, result: updatedSdkConnection } = await landDirectChange({
     context: req.context,
     entityType: "sdk-connection",
     entity: {
@@ -155,6 +168,9 @@ export const putSdkConnection = createApiRequestHandler(
         _webhooks: liveWebhooks,
       }) as SDKConnectionRevisionSnapshot),
     }),
+  });
+  await dispatchSdkConnectionRevisionEvent(req.context, merged, {
+    type: "published",
   });
 
   return {
