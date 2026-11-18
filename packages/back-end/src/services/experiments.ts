@@ -292,8 +292,8 @@ import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/exper
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import {
   type NewMetricsUpdateWindow,
+  assertIncrementalMetricRefreshBase,
   planMetricRefresh,
-  resolveIncrementalMetricRefreshRun,
 } from "back-end/src/services/metricRefreshPlanning";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getMetricForSnapshot } from "./reports";
@@ -1853,7 +1853,6 @@ async function planSnapshotQueryRunner({
   triggeredBy,
   throwOnErrorInsteadOfFallback,
   isLatestPhase,
-  forMetricRefresh,
 }: {
   organization: OrganizationInterface;
   datasource: DataSourceInterface;
@@ -1869,7 +1868,6 @@ async function planSnapshotQueryRunner({
   triggeredBy: SnapshotTriggeredBy;
   throwOnErrorInsteadOfFallback: boolean;
   isLatestPhase: boolean;
-  forMetricRefresh: boolean;
 }): Promise<{
   runnerFamily: SnapshotQueryRunnerFamily;
   incrementalFallbackReason: string | null;
@@ -1960,9 +1958,7 @@ async function planSnapshotQueryRunner({
         ? "main-fullRefresh"
         : snapshotType !== "standard"
           ? "exploratory"
-          : forMetricRefresh
-            ? "metric-refresh"
-            : "main-update",
+          : "main-update",
     });
     return {
       ...decision,
@@ -2039,7 +2035,6 @@ export async function planSnapshot({
   reweight,
   throwIfRequiresFullRefresh,
   cutoff,
-  forMetricRefresh = false,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -2055,7 +2050,6 @@ export async function planSnapshot({
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
   cutoff?: Date | null;
-  forMetricRefresh?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -2239,7 +2233,6 @@ export async function planSnapshot({
       throwIfRequiresFullRefresh,
     ),
     isLatestPhase: phaseIndex === experiment.phases.length - 1,
-    forMetricRefresh,
   });
 
   if (runnerPlan.runnerFamily === "incremental-exploratory") {
@@ -2358,14 +2351,13 @@ export async function createSnapshotFromPlan({
 
   const sideEffects = getSnapshotSideEffects(plan.snapshot);
   try {
-    const incrementalMetricRefresh =
-      metricRefresh && hasIncrementalRefreshLock
-        ? await resolveIncrementalMetricRefreshRun({
-            context,
-            snapshot: plan.snapshot,
-            metricRefresh,
-          })
-        : null;
+    if (metricRefresh && hasIncrementalRefreshLock) {
+      await assertIncrementalMetricRefreshBase({
+        context,
+        snapshot: plan.snapshot,
+        metricRefresh,
+      });
+    }
 
     let scheduleNextSnapshot = sideEffects.advanceUpdateSchedule;
     if (
@@ -2475,13 +2467,13 @@ export async function createSnapshotFromPlan({
       ).startAnalysis({
         ...analysisProps,
         experimentId: experiment.id,
-        incrementalRefreshStartTime:
-          incrementalMetricRefresh?.scanEnd ??
-          getIncrementalMetricScanEnd(
-            experiment.phases[plan.snapshot.phase],
-            plan.snapshot.settings,
-          ),
-        mode: incrementalMetricRefresh
+        incrementalRefreshStartTime: metricRefresh
+          ? plan.snapshot.settings.endDate
+          : getIncrementalMetricScanEnd(
+              experiment.phases[plan.snapshot.phase],
+              plan.snapshot.settings,
+            ),
+        mode: metricRefresh
           ? { kind: "metrics-only" }
           : { kind: runnerKind === "incremental-full" ? "full" : "update" },
       });
@@ -3299,7 +3291,6 @@ export async function planExperimentSnapshot({
             getMetricSettingsForSnapshot(experimentToPlan)
               .settingsForSnapshotMetrics,
           cutoff,
-          forMetricRefresh: true,
         });
       },
       generateResultQuerySql: ({ settings, queryParentId, scope }) =>

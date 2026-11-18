@@ -61,7 +61,6 @@ import {
   getMetricSettingsHashForIncrementalRefresh,
   getFactTablesNeedingRebuild,
   assertIncrementalRefreshPrerequisites,
-  IncrementalPrerequisiteAnalysis,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import {
@@ -175,15 +174,6 @@ export type IncrementalRunMode =
   | { kind: "full" }
   | { kind: "update" }
   | { kind: "metrics-only" };
-
-const PREREQUISITE_ANALYSIS = {
-  full: "main-fullRefresh",
-  update: "main-update",
-  "metrics-only": "metric-refresh",
-} as const satisfies Record<
-  IncrementalRunMode["kind"],
-  IncrementalPrerequisiteAnalysis
->;
 
 export type ExperimentIncrementalRefreshQueryParams = {
   snapshotType: SnapshotType;
@@ -1580,7 +1570,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       metricMap: params.metricMap,
       experiment,
       incrementalRefreshModel,
-      analysisType: PREREQUISITE_ANALYSIS[params.mode.kind],
+      analysisType:
+        params.mode.kind === "full" ? "main-fullRefresh" : "main-update",
     });
 
     if (this.experimentUpdateExecutionLogger) {

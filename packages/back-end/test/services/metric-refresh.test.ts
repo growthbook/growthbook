@@ -31,10 +31,10 @@ import {
   getQueriesWithChangedSql,
   getSettingsChangedSinceParent,
   mergeMetricRefreshSettings,
-  parseIncrementalRefreshBase,
+  assertIncrementalMetricRefreshBase,
+  assertIncrementalTablesMatchParent,
   planMetricRefresh,
   replayMetricRefreshLineage,
-  resolveIncrementalMetricRefreshRun,
   shouldUpdateNewMetricsOnly,
   type GenerateResultQuerySql,
   type MetricRefreshReplayLevel,
@@ -447,6 +447,21 @@ describe("planMetricRefresh", () => {
           makePlan({ runnerKind: "incremental-update" }),
       }),
       expected: unavailable("metric_not_supported"),
+    },
+    {
+      name: "an Incremental Pipeline parent whose tables a later run extended",
+      setup: () => {
+        findParentMock.mockResolvedValue(
+          makeParent({ runnerKind: "incremental-update" }),
+        );
+        pipelineStateMock.mockResolvedValue({
+          unitsTableFullName: "t_units",
+          unitsMaxTimestamp: new Date(PARENT_END.getTime() + 60_000),
+          materializedBySnapshotId: "snp_parent",
+          metricSources: [],
+        });
+      },
+      expected: unavailable("incremental_pipeline"),
     },
     {
       name: "analysis dates that moved by a day",
@@ -1143,7 +1158,7 @@ describe("shouldUpdateNewMetricsOnly", () => {
   });
 });
 
-describe("parseIncrementalRefreshBase", () => {
+describe("assertIncrementalTablesMatchParent", () => {
   const SCAN_END = PARENT_END;
   const before = (minutes: number) =>
     new Date(SCAN_END.getTime() - minutes * 60_000);
@@ -1151,7 +1166,7 @@ describe("parseIncrementalRefreshBase", () => {
     new Date(SCAN_END.getTime() + minutes * 60_000);
 
   type State = NonNullable<
-    Parameters<typeof parseIncrementalRefreshBase>[0]["state"]
+    Parameters<typeof assertIncrementalTablesMatchParent>[0]["state"]
   >;
   const source = (
     groupId: string,
@@ -1180,15 +1195,15 @@ describe("parseIncrementalRefreshBase", () => {
     s.metricSources.push(...extra);
     return s;
   };
-  const parse = (s: State | null) =>
-    parseIncrementalRefreshBase({
+  const parse = (s: State | null) => () =>
+    assertIncrementalTablesMatchParent({
       state: s,
       parentSnapshotId: "snp_parent",
       scanEnd: SCAN_END,
     });
 
   it("accepts the state the parent left", () => {
-    expect(parse(state())).toEqual({ scanEnd: SCAN_END });
+    expect(parse(state())).not.toThrow();
   });
 
   it.each<[string, () => State]>([
@@ -1201,7 +1216,7 @@ describe("parseIncrementalRefreshBase", () => {
       () => withSource(source("fta_1", ["met_d", "met_c"], before(1))),
     ],
   ])("accepts %s", (name, makeState) => {
-    expect(parse(makeState())).toEqual({ scanEnd: SCAN_END });
+    expect(parse(makeState())).not.toThrow();
   });
 
   it.each<[string, () => State | null]>([
@@ -1232,63 +1247,33 @@ describe("parseIncrementalRefreshBase", () => {
       () => withSource(source("ftc_1", ["met_c"], after(1))),
     ],
   ])("rejects %s", (name, makeState) => {
-    expect(() => parse(makeState())).toThrow(
+    expect(parse(makeState())).toThrow(
       expect.objectContaining({ details: { reason: "incremental_pipeline" } }),
     );
   });
 });
 
-describe("resolveIncrementalMetricRefreshRun", () => {
-  function resolve(plan: PlannedExperimentSnapshot) {
+describe("assertIncrementalMetricRefreshBase", () => {
+  it("checks the state read under the lock up to the plan's end date", async () => {
     const getLockedBySnapshotId = jest.fn().mockResolvedValue({
       unitsTableFullName: "t_units",
       unitsMaxTimestamp: PARENT_END,
-      materializedBySnapshotId: "snp_parent",
+      materializedBySnapshotId: "snp_other",
       metricSources: [],
     });
-    const run = resolveIncrementalMetricRefreshRun({
-      context: {
-        ...context,
-        models: { incrementalRefresh: { getLockedBySnapshotId } },
-      } as unknown as ReqContext,
-      snapshot: plan.snapshot,
-      metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
-    });
-    return { run, getLockedBySnapshotId };
-  }
+    const plan = makePlan({ runnerKind: "incremental-update" });
 
-  it("scans to the plan's cutoff over the state read under the lock", async () => {
-    const { run, getLockedBySnapshotId } = resolve(
-      makePlan({ runnerKind: "incremental-update" }),
-    );
-
-    await expect(run).resolves.toEqual({ scanEnd: PARENT_END });
-    expect(getLockedBySnapshotId).toHaveBeenCalledWith("exp_1", "snp_new");
-  });
-
-  it.each(["results", "incremental-full"] as const)(
-    "rejects a plan for the %s runner",
-    async (runnerKind) => {
-      const { run, getLockedBySnapshotId } = resolve(makePlan({ runnerKind }));
-
-      await expect(run).rejects.toMatchObject({
-        details: { reason: "incremental_pipeline" },
-      });
-      expect(getLockedBySnapshotId).not.toHaveBeenCalled();
-    },
-  );
-
-  it("rejects a plan with no cutoff as an ended phase", async () => {
-    const { run } = resolve(
-      makePlan({
-        runnerKind: "incremental-update",
-        settings: { endDateIsCutoff: false },
+    await expect(
+      assertIncrementalMetricRefreshBase({
+        context: {
+          ...context,
+          models: { incrementalRefresh: { getLockedBySnapshotId } },
+        } as unknown as ReqContext,
+        snapshot: plan.snapshot,
+        metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
       }),
-    );
-
-    await expect(run).rejects.toMatchObject({
-      details: { reason: "phase_ended" },
-    });
+    ).rejects.toMatchObject({ details: { reason: "incremental_pipeline" } });
+    expect(getLockedBySnapshotId).toHaveBeenCalledWith("exp_1", "snp_new");
   });
 });
 
@@ -1911,8 +1896,8 @@ describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
     });
 
     const [, , written] = updateState.mock.calls[0];
-    expect(
-      parseIncrementalRefreshBase({
+    expect(() =>
+      assertIncrementalTablesMatchParent({
         state: {
           unitsTableFullName: "t_units",
           unitsMaxTimestamp: PARENT_END,
@@ -1922,7 +1907,7 @@ describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
         parentSnapshotId: firstRefresh.id,
         scanEnd: PARENT_END,
       }),
-    ).toEqual({ scanEnd: PARENT_END });
+    ).not.toThrow();
   });
 });
 
@@ -2126,26 +2111,20 @@ function analysis(
 }
 
 describe("getQueriesStartedByRefresh", () => {
-  const query = (cachedQueryUsed?: string) =>
-    ({ cachedQueryUsed }) as QueryInterface;
-
   it("keeps what this run started and drops copies of the parent's queries", () => {
-    const queryMap: QueryMap = new Map([
-      ["group_0", query("qry_parent_group_0")],
-      ["traffic", query("qry_root_traffic")],
-      ["group_1", query()],
-      ["group_2", query("qry_unrelated_cache_hit")],
-      ["statistics_ft_1", query()],
-    ]);
-    const parentSources = new Map([
-      ["group_0", "qry_parent_group_0"],
-      ["traffic", "qry_root_traffic"],
-      ["statistics_ft_1", "qry_parent_statistics_ft_1"],
-    ]);
+    const queryMap: QueryMap = new Map(
+      ["group_0", "traffic", "group_1", "statistics_fta_1"].map((name) => [
+        name,
+        {} as QueryInterface,
+      ]),
+    );
+    const parentQueries = ["group_0", "traffic", "statistics_fta_0"].map(
+      (name) => ({ name, query: `qry_${name}`, status: "succeeded" as const }),
+    );
 
     expect([
-      ...getQueriesStartedByRefresh(queryMap, parentSources).keys(),
-    ]).toEqual(["group_1", "group_2", "statistics_ft_1"]);
+      ...getQueriesStartedByRefresh(queryMap, parentQueries).keys(),
+    ]).toEqual(["group_1", "statistics_fta_1"]);
   });
 });
 

@@ -222,6 +222,18 @@ export async function planMetricRefresh({
     throw unavailable("base_incomplete");
   }
 
+  // Planning reports tables past the cutoff as changed settings, so check the
+  // tables a later run may have left first.
+  if ((parent.runnerKind ?? "results") !== "results") {
+    assertIncrementalTablesMatchParent({
+      state: await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+        experiment.id,
+        phase,
+      ),
+      parentSnapshotId: parent.id,
+      scanEnd: parent.settings.endDate,
+    });
+  }
   const plan = await planSnapshotAt(parent.settings.endDate).catch(
     (error: unknown) => {
       if (
@@ -830,15 +842,13 @@ export function getMetricRefreshLineage(
   return { ...root, parentSnapshotId: parent.id, metricIds };
 }
 
-export type IncrementalMetricRefreshRun = { scanEnd: Date };
-
 /**
  * Accepts the pipeline state only when every stored table still holds no data
  * past the parent's end and the parent is the last run that succeeded on it.
  * A failed run since then may have rebuilt some caches; those hold data only
  * up to the parent's end as well, so the refresh reads them like the others.
  */
-export function parseIncrementalRefreshBase({
+export function assertIncrementalTablesMatchParent({
   state,
   parentSnapshotId,
   scanEnd,
@@ -852,7 +862,7 @@ export function parseIncrementalRefreshBase({
   > | null;
   parentSnapshotId: string;
   scanEnd: Date;
-}): IncrementalMetricRefreshRun {
+}): void {
   const pastScanEnd = (timestamp: Date | null) =>
     !!timestamp && timestamp > scanEnd;
   const tablesMatchParent =
@@ -865,10 +875,10 @@ export function parseIncrementalRefreshBase({
   if (!tablesMatchParent) {
     throw unavailable("incremental_pipeline");
   }
-  return { scanEnd };
 }
 
-export async function resolveIncrementalMetricRefreshRun({
+/** Checks, under the run's lock, the tables an incremental refresh reads. */
+export async function assertIncrementalMetricRefreshBase({
   context,
   snapshot,
   metricRefresh,
@@ -876,20 +886,13 @@ export async function resolveIncrementalMetricRefreshRun({
   context: ReqContext | ApiReqContext;
   snapshot: PlannedExperimentSnapshot["snapshot"];
   metricRefresh: SnapshotMetricRefresh;
-}): Promise<IncrementalMetricRefreshRun> {
-  if (snapshot.runnerKind !== "incremental-update") {
-    throw unavailable("incremental_pipeline");
-  }
-  const scanEnd = getSnapshotCutoffDate(snapshot.settings);
-  if (!scanEnd) {
-    throw unavailable("phase_ended");
-  }
-  return parseIncrementalRefreshBase({
+}): Promise<void> {
+  assertIncrementalTablesMatchParent({
     state: await context.models.incrementalRefresh.getLockedBySnapshotId(
       snapshot.experiment,
       snapshot.id,
     ),
     parentSnapshotId: metricRefresh.parentSnapshotId,
-    scanEnd,
+    scanEnd: snapshot.settings.endDate,
   });
 }
