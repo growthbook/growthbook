@@ -13,6 +13,17 @@ const checklistItemSchema = z.object({
   hardBlock: z.boolean().optional(),
 });
 
+export const metricRefreshUnavailableReasons = [
+  "no_base_snapshot",
+  "not_latest_phase",
+  "phase_ended",
+  "unsupported_experiment_type",
+  "unsupported_data_source",
+  "incremental_pipeline",
+  "settings_changed",
+  "base_incomplete",
+] as const;
+
 const pendingDraftFailureSchema = z.object({
   featureId: z.string(),
   revisionVersion: z.number(),
@@ -99,16 +110,7 @@ export const apiErrorRegistry = {
     description:
       "Newly added metrics can't be updated on their own; run a full update instead",
     detailsSchema: z.object({
-      reason: z.enum([
-        "no_base_snapshot",
-        "not_latest_phase",
-        "phase_ended",
-        "unsupported_experiment_type",
-        "unsupported_data_source",
-        "incremental_pipeline",
-        "settings_changed",
-        "base_incomplete",
-      ]),
+      reason: z.enum(metricRefreshUnavailableReasons),
     }),
   },
   invalid_tracking_key: {

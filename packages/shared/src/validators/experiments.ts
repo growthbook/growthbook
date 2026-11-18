@@ -6,6 +6,7 @@ import {
   DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES,
 } from "shared/constants";
 import { REQUIRES_PERSON_NOTE } from "./event-user";
+import { metricRefreshUnavailableReasons } from "./api-errors";
 import { FEATURE_LANDING_ACTIONS } from "./confirmations";
 import {
   apiAssignmentQueryInputFields,
@@ -1267,7 +1268,27 @@ const apiExperimentSnapshotShape = z.object({
       "Present only on a snapshot that computed just the experiment's newly added metrics",
     )
     .optional(),
+  updateScope: z
+    .enum(["all_metrics", "new_metrics"])
+    .describe(
+      '"new_metrics" when the update computed only the newly added metrics and kept the last full update\'s end date, so no result covers newer data. "all_metrics" for a normal update, which computes every metric up to the time of the request',
+    ),
+  notice: z
+    .string()
+    .describe(
+      'Present only when "updateScope" is "new_metrics". States the end date the results still cover and how to request an update with newer data',
+    )
+    .optional(),
 });
+
+export const newMetricsOnlySkippedReasons = [
+  ...metricRefreshUnavailableReasons,
+  "outside_window",
+  "snapshot_in_progress",
+  "requires_full_refresh",
+] as const;
+export type NewMetricsOnlySkippedReason =
+  (typeof newMetricsOnlySkippedReasons)[number];
 export const apiExperimentSnapshotValidator = namedSchema(
   "ExperimentSnapshot",
   apiExperimentSnapshotShape.strict(),
@@ -2999,7 +3020,7 @@ export const postExperimentSnapshotValidator = {
       missingMetricsOnly: z
         .boolean()
         .describe(
-          `Whether to compute only the metrics added to the experiment since its latest Overall Results, without rerunning the rest of the analysis. The new metrics are computed up to that update's end date, so they are as stale as the other results.\n\n- Omitted (default): computes only the newly added metrics when some are missing and the full update the latest Overall Results are based on ran less than ${DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES} minutes ago by default (the organization setting "newMetricsOnlyUpdateWindowMinutes"; 0 turns this off). Otherwise runs a normal update. Never returns the 409s listed for \`true\`. Does not apply with "dimension" or with "triggeredBy": "schedule".\n- \`true\`: computes only the newly added metrics, however old the last full update is. Returns 409 "metrics_already_up_to_date" when nothing is missing, and 409 "metric_refresh_unavailable" when a full update is needed instead; it never falls back to a full update. Cannot be combined with "dimension" or with "triggeredBy": "schedule".\n- \`false\`: always runs a normal update.\n\nThe returned snapshot has "metricRefresh" only when it computes just the newly added metrics.`,
+          `Whether to compute only the metrics added to the experiment since its latest Overall Results, without rerunning the rest of the analysis. The new metrics are computed up to that update's end date, so they are as stale as the other results.\n\n- Omitted (default): computes only the newly added metrics when some are missing and the full update the latest Overall Results are based on ran less than ${DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES} minutes ago by default (the organization setting "newMetricsOnlyUpdateWindowMinutes"; 0 turns this off). Otherwise runs a normal update. Never returns the 409s listed for \`true\`. Does not apply with "dimension" or with "triggeredBy": "schedule".\n- \`true\`: computes only the newly added metrics, however old the last full update is. Returns 409 "metrics_already_up_to_date" when nothing is missing, and 409 "metric_refresh_unavailable" when a full update is needed instead; it never falls back to a full update. Cannot be combined with "dimension" or with "triggeredBy": "schedule".\n- \`false\`: always runs a normal update.\n\nThe returned snapshot's "updateScope" says which of the two ran.`,
         )
         .optional(),
       ignoreWarnings: ignoreWarningsBodyField,
@@ -3015,10 +3036,16 @@ export const postExperimentSnapshotValidator = {
   responseSchema: z
     .object({
       snapshot: apiExperimentSnapshotShape,
+      newMetricsOnlySkippedReason: z
+        .enum(newMetricsOnlySkippedReasons)
+        .describe(
+          'Present only when "missingMetricsOnly" was omitted, the experiment has newly added metrics without results, and a normal update ran anyway. "outside_window": the last full update is older than the window. "snapshot_in_progress": another update was running. "requires_full_refresh": the incremental pipeline needs a Full Refresh. The other values are the "metric_refresh_unavailable" reasons',
+        )
+        .optional(),
     })
     .strict(),
   summary: "Create Experiment Snapshot",
-  description: `Starts an update of the experiment's results and returns the snapshot it creates. When metrics were added to the experiment since its latest Overall Results and that update ran less than ${DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES} minutes ago (configurable), only the new metrics are computed and the snapshot has "metricRefresh". See "missingMetricsOnly". Poll GET /snapshots/{id} until "status" is "success" or "error".`,
+  description: `Starts an update of the experiment's results and returns the snapshot it creates. When metrics were added to the experiment since its latest Overall Results and that update ran less than ${DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES} minutes ago (configurable), only the new metrics are computed, up to that update's end date, and the snapshot's "updateScope" is "new_metrics". For newer data, send "missingMetricsOnly": false. See "missingMetricsOnly". Poll GET /snapshots/{id} until "status" is "success" or "error".`,
   confirmation: [],
   operationId: "postExperimentSnapshot",
   tags: ["experiments", "snapshots"],

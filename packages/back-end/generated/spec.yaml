@@ -18493,9 +18493,10 @@ paths:
         Starts an update of the experiment's results and returns the snapshot it
         creates. When metrics were added to the experiment since its latest
         Overall Results and that update ran less than 60 minutes ago
-        (configurable), only the new metrics are computed and the snapshot has
-        "metricRefresh". See "missingMetricsOnly". Poll GET /snapshots/{id}
-        until "status" is "success" or "error".
+        (configurable), only the new metrics are computed, up to that update's
+        end date, and the snapshot's "updateScope" is "new_metrics". For newer
+        data, send "missingMetricsOnly": false. See "missingMetricsOnly". Poll
+        GET /snapshots/{id} until "status" is "success" or "error".
       tags:
         - experiments
         - snapshots
@@ -18576,8 +18577,8 @@ paths:
                     - `false`: always runs a normal update.
 
 
-                    The returned snapshot has "metricRefresh" only when it
-                    computes just the newly added metrics.
+                    The returned snapshot's "updateScope" says which of the two
+                    ran.
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -18602,6 +18603,28 @@ paths:
                 properties:
                   snapshot:
                     $ref: '#/components/schemas/snapshot'
+                  newMetricsOnlySkippedReason:
+                    type: string
+                    enum:
+                      - no_base_snapshot
+                      - not_latest_phase
+                      - phase_ended
+                      - unsupported_experiment_type
+                      - unsupported_data_source
+                      - incremental_pipeline
+                      - settings_changed
+                      - base_incomplete
+                      - outside_window
+                      - snapshot_in_progress
+                      - requires_full_refresh
+                    description: >-
+                      Present only when "missingMetricsOnly" was omitted, the
+                      experiment has newly added metrics without results, and a
+                      normal update ran anyway. "outside_window": the last full
+                      update is older than the window. "snapshot_in_progress":
+                      another update was running. "requires_full_refresh": the
+                      incremental pipeline needs a Full Refresh. The other
+                      values are the "metric_refresh_unavailable" reasons
                 required:
                   - snapshot
                 additionalProperties: false
@@ -90148,10 +90171,27 @@ components:
           description: >-
             Present only on a snapshot that computed just the experiment's newly
             added metrics
+        updateScope:
+          type: string
+          enum:
+            - all_metrics
+            - new_metrics
+          description: >-
+            "new_metrics" when the update computed only the newly added metrics
+            and kept the last full update's end date, so no result covers newer
+            data. "all_metrics" for a normal update, which computes every metric
+            up to the time of the request
+        notice:
+          type: string
+          description: >-
+            Present only when "updateScope" is "new_metrics". States the end
+            date the results still cover and how to request an update with newer
+            data
       required:
         - id
         - experiment
         - status
+        - updateScope
       additionalProperties: false
     VisualChange:
       type: object
@@ -91628,10 +91668,27 @@ components:
           description: >-
             Present only on a snapshot that computed just the experiment's newly
             added metrics
+        updateScope:
+          type: string
+          enum:
+            - all_metrics
+            - new_metrics
+          description: >-
+            "new_metrics" when the update computed only the newly added metrics
+            and kept the last full update's end date, so no result covers newer
+            data. "all_metrics" for a normal update, which computes every metric
+            up to the time of the request
+        notice:
+          type: string
+          description: >-
+            Present only when "updateScope" is "new_metrics". States the end
+            date the results still cover and how to request an update with newer
+            data
       required:
         - id
         - experiment
         - status
+        - updateScope
       additionalProperties: false
     screenshot:
       type: object

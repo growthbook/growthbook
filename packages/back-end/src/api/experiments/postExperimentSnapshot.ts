@@ -3,7 +3,10 @@ import { DEFAULT_NEW_METRICS_ONLY_UPDATE_WINDOW_MINUTES } from "shared/constants
 import { getMetricRefresh } from "shared/experiments";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { DataSourceInterface } from "shared/types/datasource";
-import { postExperimentSnapshotValidator } from "shared/validators";
+import {
+  postExperimentSnapshotValidator,
+  type NewMetricsOnlySkippedReason,
+} from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
@@ -73,12 +76,33 @@ function getNewMetricsUpdateMode({
   return "auto";
 }
 
-const isNewMetricsOnlyRefusal = (error: unknown): boolean =>
-  error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError ||
-  error instanceof MetricRefreshUnavailableError ||
-  error instanceof MetricsAlreadyUpToDateError ||
-  error instanceof SnapshotInProgressError ||
-  error instanceof MetricRefreshOutsideWindowError;
+type SnapshotResult = Awaited<ReturnType<typeof createExperimentSnapshot>>;
+
+type NewMetricsOnlyAttempt =
+  | { result: SnapshotResult }
+  // A null reason means no metric was missing, so nothing was skipped.
+  | { result: null; skippedReason: NewMetricsOnlySkippedReason | null };
+
+function getNewMetricsOnlySkippedReason(
+  error: unknown,
+): { skippedReason: NewMetricsOnlySkippedReason | null } | null {
+  if (error instanceof MetricsAlreadyUpToDateError) {
+    return { skippedReason: null };
+  }
+  if (error instanceof MetricRefreshOutsideWindowError) {
+    return { skippedReason: "outside_window" };
+  }
+  if (error instanceof MetricRefreshUnavailableError) {
+    return { skippedReason: error.details.reason };
+  }
+  if (error instanceof SnapshotInProgressError) {
+    return { skippedReason: "snapshot_in_progress" };
+  }
+  if (error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError) {
+    return { skippedReason: "requires_full_refresh" };
+  }
+  return null;
+}
 
 async function updateNewMetricsOnlyIfRecent({
   context,
@@ -92,21 +116,24 @@ async function updateNewMetricsOnlyIfRecent({
   datasource: DataSourceInterface;
   phase: number;
   windowMinutes: number;
-}): Promise<Awaited<ReturnType<typeof createExperimentSnapshot>> | null> {
+}): Promise<NewMetricsOnlyAttempt> {
   try {
-    return await createExperimentSnapshot({
-      context,
-      experiment,
-      datasource,
-      phase,
-      dimension: undefined,
-      useCache: true,
-      missingMetricsOnly: true,
-      newMetricsOnlyWindow: { windowMinutes, now: new Date() },
-    });
+    return {
+      result: await createExperimentSnapshot({
+        context,
+        experiment,
+        datasource,
+        phase,
+        dimension: undefined,
+        useCache: true,
+        missingMetricsOnly: true,
+        newMetricsOnlyWindow: { windowMinutes, now: new Date() },
+      }),
+    };
   } catch (error) {
-    if (isNewMetricsOnlyRefusal(error)) return null;
-    throw error;
+    const skipped = getNewMetricsOnlySkippedReason(error);
+    if (!skipped) throw error;
+    return { result: null, ...skipped };
   }
 }
 
@@ -172,8 +199,8 @@ export const postExperimentSnapshot = createApiRequestHandler(
   }
 
   let useCache = true;
-  let result: Awaited<ReturnType<typeof createExperimentSnapshot>>;
-  const newMetricsOnlyResult =
+  let result: SnapshotResult;
+  const newMetricsOnlyAttempt =
     mode === "auto"
       ? await updateNewMetricsOnlyIfRecent({
           context,
@@ -258,8 +285,8 @@ export const postExperimentSnapshot = createApiRequestHandler(
       useCache: true,
       missingMetricsOnly: true,
     });
-  } else if (newMetricsOnlyResult) {
-    result = newMetricsOnlyResult;
+  } else if (newMetricsOnlyAttempt?.result) {
+    result = newMetricsOnlyAttempt.result;
   } else {
     try {
       result = await createExperimentSnapshot({
@@ -311,5 +338,12 @@ export const postExperimentSnapshot = createApiRequestHandler(
       ...(getMetricRefresh(snapshot) ? { missingMetricsOnly: true } : {}),
     }),
   });
-  return { snapshot: toApiExperimentSnapshot(snapshot) };
+  const skippedReason =
+    newMetricsOnlyAttempt && !newMetricsOnlyAttempt.result
+      ? newMetricsOnlyAttempt.skippedReason
+      : null;
+  return {
+    snapshot: toApiExperimentSnapshot(snapshot),
+    ...(skippedReason ? { newMetricsOnlySkippedReason: skippedReason } : {}),
+  };
 });

@@ -85,6 +85,7 @@ describe("snapshots API", () => {
         id: snapshot.id,
         experiment: snapshot.experiment,
         status: snapshot.status,
+        updateScope: "all_metrics",
       },
     });
   });
@@ -124,6 +125,7 @@ describe("snapshots API", () => {
       experiment: failed.experiment,
       status: "error",
       error: "Query timed out",
+      updateScope: "all_metrics",
     });
 
     const succeededResponse = await get();
@@ -194,6 +196,7 @@ describe("snapshots API", () => {
         id: snapshot.id,
         experiment: snapshot.experiment,
         status: snapshot.status,
+        updateScope: "all_metrics",
       },
     });
     expect(createExperimentSnapshot).toHaveBeenLastCalledWith({
@@ -247,6 +250,7 @@ describe("snapshots API", () => {
         id: snapshot.id,
         experiment: snapshot.experiment,
         status: snapshot.status,
+        updateScope: "all_metrics",
       },
     });
     expect(createExperimentSnapshot).toHaveBeenCalledWith({
@@ -1108,6 +1112,8 @@ describe("snapshots API", () => {
           experiment: snapshot.experiment,
           status: "running",
           metricRefresh: expectedRefresh,
+          updateScope: "new_metrics",
+          notice: `Only the newly added metrics were computed. Every result, including theirs, covers data up to ${refreshEndDate.toISOString()}. For newer data, run a normal update: POST /experiments/${snapshot.experiment}/snapshot with "missingMetricsOnly": false.`,
         },
       });
       expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
@@ -1254,10 +1260,12 @@ describe("snapshots API", () => {
         [
           "the last full update is older than the window",
           () => new MetricRefreshOutsideWindowError(),
+          "outside_window",
         ],
         [
           "no metric is missing",
           () => new MetricsAlreadyUpToDateError("snp_base"),
+          undefined,
         ],
         [
           "the refresh is unavailable",
@@ -1266,10 +1274,12 @@ describe("snapshots API", () => {
               "settings_changed",
               "Run a full update instead.",
             ),
+          "settings_changed",
         ],
         [
           "an update is running",
           () => new SnapshotInProgressError("snp_running"),
+          "snapshot_in_progress",
         ],
         [
           "the pipeline needs a Full Refresh",
@@ -1277,8 +1287,9 @@ describe("snapshots API", () => {
             new ExperimentIncrementalPipelineRequiresFullRefreshError(
               "The experiment configuration is outdated.",
             ),
+          "requires_full_refresh",
         ],
-      ])("runs a normal update when %s", async (_, refusal) => {
+      ])("runs a normal update when %s", async (_, refusal, skippedReason) => {
         const { snapshot, experiment, datasource } = setup();
         const normal = { ...snapshot, metricRefresh: undefined };
         createExperimentSnapshot
@@ -1289,6 +1300,9 @@ describe("snapshots API", () => {
 
         expect(response.status).toBe(200);
         expect(response.body.snapshot).not.toHaveProperty("metricRefresh");
+        expect(response.body.snapshot.updateScope).toBe("all_metrics");
+        expect(response.body.snapshot).not.toHaveProperty("notice");
+        expect(response.body.newMetricsOnlySkippedReason).toBe(skippedReason);
         expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
         expect(createExperimentSnapshot).toHaveBeenLastCalledWith(
           normalUpdate(experiment, datasource),
