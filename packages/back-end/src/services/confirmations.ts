@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
+import type { FilterQuery } from "mongoose";
 import type {
   ContextualBanditInterface,
   InterleavingInterface,
@@ -150,6 +151,27 @@ export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
       : c.response,
     note: c.note,
   };
+}
+
+// The stored rows that toApiConfirmation reports with this status, as $or branches.
+export function confirmationStatusQuery(
+  status: ApiConfirmation["status"],
+): FilterQuery<ConfirmationInterface>[] {
+  const now = new Date();
+  const cutOff = new Date(now.getTime() - RUN_CUT_OFF_MS);
+  return {
+    pending: [{ status: "pending", expiresAt: { $gte: now } }],
+    expired: [
+      { status: "expired" },
+      { status: "pending", expiresAt: { $lt: now } },
+    ],
+    running: [{ status: "running", decidedAt: { $gte: cutOff } }],
+    completed: [
+      { status: "completed" },
+      { status: "running", decidedAt: { $not: { $gte: cutOff } } },
+    ],
+    rejected: [{ status: "rejected" }],
+  }[status];
 }
 
 type HeldRequest = Pick<

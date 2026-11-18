@@ -36533,6 +36533,53 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/version' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/confirmations:
+    get:
+      operationId: listConfirmations
+      summary: List confirmations
+      description: >-
+        Lists the held requests made by this API key, or by any token of the
+        same person, newest first. Returns pending ones unless `status` is set.
+      tags:
+        - meta
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - name: status
+          in: query
+          description: Only return confirmations with this status
+          schema:
+            description: Only return confirmations with this status
+            default: pending
+            type: string
+            enum:
+              - pending
+              - running
+              - completed
+              - rejected
+              - expired
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      confirmations:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Confirmation'
+                    required:
+                      - confirmations
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/confirmations' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/confirmations/{id}:
     get:
       operationId: getConfirmation

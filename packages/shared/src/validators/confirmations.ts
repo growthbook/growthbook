@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 import { eventUserRequestedBy } from "./event-user";
-import { bypassViaValues } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  bypassViaValues,
+  paginationQueryFields,
+} from "./shared";
 import { namedSchema } from "./openapi-helpers";
 
 // `model.action`, model-first like webhook events. `override.*` actions are the
@@ -361,4 +365,28 @@ export const getConfirmationValidator = {
   }),
   bodySchema: z.never(),
   responseSchema: z.strictObject({ confirmation: apiConfirmationValidator }),
+};
+
+export const listConfirmationsValidator = {
+  method: "get" as const,
+  path: "/confirmations",
+  operationId: "listConfirmations",
+  summary: "List confirmations",
+  description:
+    "Lists the held requests made by this API key, or by any token of the same person, newest first. Returns pending ones unless `status` is set.",
+  tags: ["meta"],
+  paramsSchema: z.never(),
+  querySchema: z.strictObject({
+    ...paginationQueryFields,
+    status: z
+      .enum(confirmationStatuses)
+      .optional()
+      .describe("Only return confirmations with this status")
+      .meta({ default: "pending" }),
+  }),
+  bodySchema: z.never(),
+  responseSchema: z.intersection(
+    z.object({ confirmations: z.array(apiConfirmationValidator) }),
+    apiPaginationFieldsValidator,
+  ),
 };
