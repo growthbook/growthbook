@@ -9,6 +9,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getSnapshotDataAsOf,
 } from "shared/experiments";
 import { SignificanceThresholds } from "shared/types/stats";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -23,7 +24,6 @@ import CompactResults from "@/components/Experiment/CompactResults";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import PublicExperimentAnalysisSettingsBar from "@/components/Experiment/Public/PublicExperimentAnalysisSettingsBar";
-import { getSnapshotFreshnessInputs } from "@/services/snapshots";
 
 export default function PublicExperimentResults({
   experiment,
@@ -153,7 +153,7 @@ export default function PublicExperimentResults({
             pValueCorrection={pValueCorrection}
             startDate={phaseObj?.dateStarted ?? ""}
             endDate={phaseObj?.dateEnded ?? ""}
-            reportDate={getSnapshotFreshnessInputs(snapshot).dateCreated}
+            reportDate={getSnapshotDataAsOf(snapshot)}
             isLatestPhase={phase === experiment.phases.length - 1}
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
             lookbackOverride={getEffectiveLookbackOverride(
@@ -195,7 +195,7 @@ export default function PublicExperimentResults({
                 phase={phase}
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
-                reportDate={getSnapshotFreshnessInputs(snapshot).dateCreated}
+                reportDate={getSnapshotDataAsOf(snapshot)}
                 activationMetric={experiment.activationMetric}
                 status={experiment.status}
                 statsEngine={analysis.settings.statsEngine}
@@ -216,7 +216,7 @@ export default function PublicExperimentResults({
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}
-                reportDate={getSnapshotFreshnessInputs(snapshot).dateCreated}
+                reportDate={getSnapshotDataAsOf(snapshot)}
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
                 isLatestPhase={phase === experiment.phases.length - 1}

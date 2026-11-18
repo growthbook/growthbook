@@ -1,5 +1,6 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
+import { getSnapshotDataAsOf } from "shared/experiments";
 import { ago, date, datetime } from "shared/dates";
 import { PiEye } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -9,7 +10,6 @@ import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
-import { getSnapshotFreshnessInputs } from "@/services/snapshots";
 
 export default function PublicExperimentAnalysisSettingsBar({
   experiment,
@@ -27,7 +27,7 @@ export default function PublicExperimentAnalysisSettingsBar({
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
   if (!snapshot) return null;
-  const lastUpdated = getSnapshotFreshnessInputs(snapshot).dateCreated;
+  const lastUpdated = getSnapshotDataAsOf(snapshot);
 
   return (
     <>
@@ -69,9 +69,14 @@ export default function PublicExperimentAnalysisSettingsBar({
                   }
                 />
               )}
-              <div className="text-right mt-3">
-                <Metadata label="Run date" value={datetime(lastUpdated)} />
-              </div>
+              {snapshot.runStarted && (
+                <div className="text-right mt-3">
+                  <Metadata
+                    label="Run date"
+                    value={datetime(snapshot.runStarted)}
+                  />
+                </div>
+              )}
             </div>
           }
         />
