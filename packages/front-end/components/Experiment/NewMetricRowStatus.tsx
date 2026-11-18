@@ -1,5 +1,5 @@
 import { Flex } from "@radix-ui/themes";
-import { NewMetricRowState } from "@/services/experiments";
+import type { NewMetricRowState } from "@/services/experiments";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
@@ -7,24 +7,16 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function NewMetricRowStatus({
   state,
-  onRefreshMetrics,
   onViewQueries,
 }: {
   state: NewMetricRowState;
-  onRefreshMetrics?: () => void;
   onViewQueries?: () => void;
 }) {
   switch (state.status) {
-    case "idle":
-    case "otherUpdateRunning":
+    case "notComputed":
       return (
         <HelperText status="neutral" size="sm" mx="2">
-          <Flex gap="2" wrap="wrap">
-            Added after the last update
-            {onRefreshMetrics && state.status === "idle" ? (
-              <Link onClick={onRefreshMetrics}>Update new metrics</Link>
-            ) : null}
-          </Flex>
+          Not computed yet. This metric was added after the last update.
         </HelperText>
       );
     case "running":
@@ -43,16 +35,7 @@ export default function NewMetricRowStatus({
             {onViewQueries ? (
               <Link onClick={onViewQueries}>View queries</Link>
             ) : null}
-            {onRefreshMetrics ? (
-              <Link onClick={onRefreshMetrics}>Try again</Link>
-            ) : null}
           </Flex>
-        </HelperText>
-      );
-    case "unavailable":
-      return (
-        <HelperText status="neutral" size="sm" mx="2">
-          Added after the last update. Click Update to see its results.
         </HelperText>
       );
   }

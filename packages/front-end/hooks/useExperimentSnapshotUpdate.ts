@@ -1,19 +1,12 @@
 import { useCallback, useRef, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import {
-  getAllMetricIdsFromExperiment,
-  isDimensionPrecomputed,
-} from "shared/experiments";
+import { isDimensionPrecomputed } from "shared/experiments";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import {
-  getHonoredPrecomputedUnitDimensionIds,
-  getMetricRefreshRequestOutcome,
-  MetricRefreshRequest,
-} from "@/services/experiments";
+import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { trackSnapshot } from "@/services/track";
 
 export type SnapshotRefreshBlocker = {
@@ -24,6 +17,13 @@ export type SnapshotRefreshBlocker = {
 type SubmitUpdateOptions = {
   force?: boolean;
   fullRefreshReasons?: string[];
+  // Compute only the metrics added since the last update, up to its end date.
+  newMetricsOnly?: boolean;
+};
+
+type PostSnapshotOptions = {
+  trackingSource?: string;
+  newMetricsOnly?: boolean;
 };
 
 type PostSnapshotResult =
@@ -143,7 +143,10 @@ export function useExperimentSnapshotUpdate({
     async (
       dimensionToRun: string,
       force: boolean,
-      trackingSourceOverride?: string,
+      {
+        trackingSource: trackingSourceOverride,
+        newMetricsOnly,
+      }: PostSnapshotOptions = {},
     ): Promise<PostSnapshotResult> => {
       if (!experiment) return { status: "failed" };
       setLoading(true);
@@ -162,7 +165,11 @@ export function useExperimentSnapshotUpdate({
           `/experiment/${experiment.id}/snapshot${force ? "?force=true" : ""}`,
           {
             method: "POST",
-            body: JSON.stringify({ phase, dimension: dimensionToRun }),
+            body: JSON.stringify({
+              phase,
+              dimension: dimensionToRun,
+              ...(newMetricsOnly ? { missingMetricsOnly: true } : {}),
+            }),
           },
           (errBody) => {
             apiError = errBody;
@@ -223,22 +230,21 @@ export function useExperimentSnapshotUpdate({
   const runSnapshot = useCallback(
     async (
       dimensionToRun: string,
-      opts?: { force?: boolean; trackingSource?: string },
+      opts?: { force?: boolean } & PostSnapshotOptions,
     ): Promise<boolean> => {
       const result = await postSnapshot(
         dimensionToRun,
         opts?.force ?? false,
-        opts?.trackingSource,
+        opts,
       );
       if (result.status !== "needs-full-refresh") {
         return result.status === "success";
       }
       if (!(await promptFullRefresh([result.reason]))) return false;
-      const retry = await postSnapshot(
-        dimensionToRun,
-        true,
-        opts?.trackingSource,
-      );
+      // A confirmed Full Refresh recomputes every metric.
+      const retry = await postSnapshot(dimensionToRun, true, {
+        trackingSource: opts?.trackingSource,
+      });
       return retry.status === "success";
     },
     [postSnapshot, promptFullRefresh],
@@ -267,7 +273,12 @@ export function useExperimentSnapshotUpdate({
       ) {
         return;
       }
-      await runSnapshot(resolvedDimension, { force });
+      await runSnapshot(
+        resolvedDimension,
+        options.newMetricsOnly
+          ? { force, newMetricsOnly: true, trackingSource: "UpdateNewMetrics" }
+          : { force },
+      );
     },
     [
       customValidation,
@@ -292,69 +303,4 @@ export function useExperimentSnapshotUpdate({
       onCancel: () => resolveFullRefresh(false),
     },
   };
-}
-
-const NO_METRIC_REFRESH_REQUEST: MetricRefreshRequest = { status: "none" };
-
-export function useNewMetricsRefresh({
-  experiment,
-  phase,
-  snapshotId,
-  mutate,
-}: {
-  experiment: ExperimentInterfaceStringDates;
-  phase: number;
-  snapshotId: string | undefined;
-  mutate: () => Promise<unknown>;
-}) {
-  const { apiCall } = useAuth();
-  const { getDatasourceById, metricGroups } = useDefinitions();
-  const scope = `${experiment.id}:${phase}:${snapshotId}`;
-  const [state, setState] = useState<{
-    scope: string;
-    request: MetricRefreshRequest;
-  }>({ scope, request: NO_METRIC_REFRESH_REQUEST });
-  const request =
-    state.scope === scope ? state.request : NO_METRIC_REFRESH_REQUEST;
-  const inFlight = useRef(false);
-
-  const refreshNewMetrics = useCallback(async () => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    setState({ scope, request: { status: "sending" } });
-    let next: MetricRefreshRequest = NO_METRIC_REFRESH_REQUEST;
-    try {
-      const res = await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-        `/experiment/${experiment.id}/snapshot`,
-        {
-          method: "POST",
-          body: JSON.stringify({ phase, missingMetricsOnly: true }),
-        },
-      );
-      trackSnapshot(
-        "create",
-        "NewMetricRow",
-        getDatasourceById(experiment.datasource)?.type ?? null,
-        res.snapshot,
-      );
-    } catch (e) {
-      next = getMetricRefreshRequestOutcome(
-        e,
-        getAllMetricIdsFromExperiment(experiment, false, metricGroups),
-      );
-    }
-    await Promise.allSettled([mutate()]);
-    inFlight.current = false;
-    setState({ scope, request: next });
-  }, [
-    apiCall,
-    experiment,
-    getDatasourceById,
-    metricGroups,
-    mutate,
-    phase,
-    scope,
-  ]);
-
-  return { request, refreshNewMetrics };
 }

@@ -82,7 +82,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { RowError } from "@/components/Experiment/ResultsTable";
-import { ApiCallError } from "@/services/apiCallError";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
 export const NO_DATA_ERROR_MESSAGE = "No data";
@@ -257,78 +256,10 @@ export type ExperimentTableRow = {
   newMetricState?: NewMetricRowState;
 };
 
-export const METRICS_CHANGED_OUTDATED_REASON = "Metrics changed";
-export const ANALYSIS_DATES_CHANGED_OUTDATED_REASON = "Analysis dates changed";
-
-const OUTDATED_REASONS_A_METRIC_REFRESH_PINS_TO_ITS_BASE = new Set([
-  METRICS_CHANGED_OUTDATED_REASON,
-  ANALYSIS_DATES_CHANGED_OUTDATED_REASON,
-]);
-
-export function hasOutdatedReasonBlockingMetricRefresh(
-  reasons: string[],
-): boolean {
-  return reasons.some(
-    (r) => !OUTDATED_REASONS_A_METRIC_REFRESH_PINS_TO_ITS_BASE.has(r),
-  );
-}
-
-export function isMetricRefreshUnavailable({
-  experiment,
-  phase,
-  datasource,
-  settingsOutdated,
-}: {
-  experiment: Pick<ExperimentInterfaceStringDates, "type" | "phases">;
-  phase: number;
-  datasource: DataSourceInterfaceWithParams | null;
-  settingsOutdated: boolean;
-}): boolean {
-  return (
-    (experiment.type ?? "standard") !== "standard" ||
-    !!experiment.phases[phase]?.dateEnded ||
-    !datasource?.properties?.separateExperimentResultQueries ||
-    settingsOutdated
-  );
-}
-
 export type NewMetricRowState =
-  | { status: "idle" }
+  | { status: "notComputed" }
   | { status: "running" }
-  | { status: "otherUpdateRunning" }
-  | { status: "failed"; error: string | null }
-  | { status: "unavailable" };
-
-export type MetricRefreshRequest =
-  | { status: "none" }
-  | { status: "sending" }
-  | { status: "failed"; error: string }
-  | { status: "unavailable" }
-  | { status: "nothingToCompute"; metricIds: string[] };
-
-export function getMetricRefreshRequestOutcome(
-  error: unknown,
-  attemptedMetricIds: string[],
-): MetricRefreshRequest {
-  const code = error instanceof ApiCallError ? error.code : undefined;
-  if (code === "metrics_already_up_to_date") {
-    return { status: "nothingToCompute", metricIds: attemptedMetricIds };
-  }
-  if (code === "snapshot_in_progress") return { status: "none" };
-  if (code === "metric_refresh_unavailable") return { status: "unavailable" };
-  return {
-    status: "failed",
-    error: error instanceof Error ? error.message : String(error),
-  };
-}
-
-export function newMetricRowsOfferRefresh(
-  states: Map<string, NewMetricRowState> | undefined,
-): boolean {
-  return [...(states?.values() ?? [])].some(
-    (s) => s.status === "idle" || s.status === "failed",
-  );
-}
+  | { status: "failed"; error: string | null };
 
 export function getUnjoinableMetricIds({
   metricIds,
@@ -364,8 +295,12 @@ export function getUnjoinableMetricIds({
   );
 }
 
-// Joinability is all the page can check without the back-end's metric maps;
-// cluster experiments decide eligibility per cluster or sub-unit instead.
+/**
+ * Metrics no update of this experiment computes: those that can't join its
+ * units, and for a holdout, guardrails and conversion-window metrics.
+ * Cluster experiments decide eligibility per cluster or sub-unit, which the
+ * page can't check.
+ */
 export function getMetricIdsNoSnapshotComputes({
   experiment,
   metricGroups,
@@ -373,6 +308,7 @@ export function getMetricIdsNoSnapshotComputes({
 }: {
   experiment: Pick<
     ExperimentInterfaceStringDates,
+    | "type"
     | "goalMetrics"
     | "secondaryMetrics"
     | "guardrailMetrics"
@@ -383,21 +319,44 @@ export function getMetricIdsNoSnapshotComputes({
   Parameters<typeof getUnjoinableMetricIds>[0],
   "metricIds"
 >): Set<string> {
-  if (experiment.isClusterExperiment) return new Set();
-  return getUnjoinableMetricIds({
-    metricIds: getAllMetricIdsFromExperiment(experiment, false, metricGroups),
-    ...joinInputs,
-  });
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
+  const uncomputable = experiment.isClusterExperiment
+    ? new Set<string>()
+    : getUnjoinableMetricIds({ metricIds, ...joinInputs });
+  if (experiment.type === "holdout") {
+    const analyzed = new Set(
+      expandMetricGroups(
+        [...experiment.goalMetrics, ...experiment.secondaryMetrics],
+        metricGroups,
+      ),
+    );
+    metricIds
+      .filter(
+        (id) =>
+          !analyzed.has(id) ||
+          joinInputs.getExperimentMetricById(id)?.windowSettings?.type ===
+            "conversion",
+      )
+      .forEach((id) => uncomputable.add(id));
+  }
+  return uncomputable;
 }
 
+/**
+ * Rows for the metrics added after the current results: being computed while
+ * an update that includes them runs, failed when the new-metrics update that
+ * included them failed, otherwise not computed yet.
+ */
 export function getNewMetricRowStates({
   experiment,
   metricGroups,
   snapshotSettings,
   latest,
-  request,
-  refreshUnavailable,
-  uncomputableMetricIds = new Set(),
+  uncomputableMetricIds,
 }: {
   experiment: Pick<
     ExperimentInterfaceStringDates,
@@ -405,43 +364,31 @@ export function getNewMetricRowStates({
   >;
   metricGroups: MetricGroupInterface[];
   snapshotSettings: Pick<ExperimentSnapshotSettings, "metricSettings">;
-  latest?: Pick<
+  latest: Pick<
     SnapshotStatusSummary,
     "type" | "status" | "error" | "metricRefresh"
-  >;
-  request: MetricRefreshRequest;
-  refreshUnavailable: boolean;
-  uncomputableMetricIds?: ReadonlySet<string>;
+  > | null;
+  uncomputableMetricIds: ReadonlySet<string>;
 }): Map<string, NewMetricRowState> {
   const refresh = latest ? getMetricRefresh(latest) : null;
   const getState = (metricId: string): NewMetricRowState => {
-    if (request.status === "sending") return { status: "running" };
     if (latest?.status === "running") {
       return !refresh || refresh.metricIds.includes(metricId)
         ? { status: "running" }
-        : { status: "otherUpdateRunning" };
-    }
-    if (refreshUnavailable || request.status === "unavailable") {
-      return { status: "unavailable" };
-    }
-    if (request.status === "failed") {
-      return { status: "failed", error: request.error };
+        : { status: "notComputed" };
     }
     if (latest?.status === "error" && refresh?.metricIds.includes(metricId)) {
       return { status: "failed", error: latest.error ?? null };
     }
-    return { status: "idle" };
+    return { status: "notComputed" };
   };
-  const settled = new Set(
-    request.status === "nothingToCompute" ? request.metricIds : [],
-  );
   return new Map(
     getMetricIdsMissingFromSnapshot({
       experiment,
       snapshotSettings,
       metricGroups,
     })
-      .filter((id) => !settled.has(id) && !uncomputableMetricIds.has(id))
+      .filter((id) => !uncomputableMetricIds.has(id))
       .map((id) => [id, getState(id)]),
   );
 }

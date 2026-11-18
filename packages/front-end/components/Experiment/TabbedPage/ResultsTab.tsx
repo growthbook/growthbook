@@ -5,7 +5,6 @@ import { getScopedSettings } from "shared/settings";
 import {
   isDimensionPrecomputed,
   getEffectiveLookbackOverride,
-  isExperimentResultsUpdateDisabled,
 } from "shared/experiments";
 import React, {
   useState,
@@ -39,13 +38,8 @@ import {
   getHonoredPrecomputedUnitDimensionIds,
   getNewMetricRowStates,
   getMetricIdsNoSnapshotComputes,
-  isMetricRefreshUnavailable,
-  newMetricRowsOfferRefresh,
 } from "@/services/experiments";
-import { useNewMetricsRefresh } from "@/hooks/useExperimentSnapshotUpdate";
 import { refreshLacksSelectedAnalysis } from "@/services/snapshots";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useDeepStableValue } from "@/hooks/useDeepStableValue";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
@@ -135,7 +129,6 @@ export default function ResultsTab({
     analysis,
     latestSummary,
     phase,
-    mutate: mutateSnapshot,
     analysisSettings,
     setSnapshotType,
     setAnalysisSettings,
@@ -185,30 +178,9 @@ export default function ResultsTab({
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  const orgSettings = useOrgSettings();
-  const [settingsOutdated, setSettingsOutdated] = useState(false);
-  const { request: metricRefreshRequest, refreshNewMetrics } =
-    useNewMetricsRefresh({
-      experiment,
-      phase,
-      snapshotId: snapshot?.id,
-      mutate: mutateSnapshot,
-    });
-  const datasource = experiment.datasource
-    ? getDatasourceById(experiment.datasource)
-    : null;
-  const canUpdateResults =
-    !!datasource &&
-    permissionsUtil.canRunExperimentQueries(datasource) &&
-    experiment.status !== "draft" &&
-    !isExperimentResultsUpdateDisabled(experiment, orgSettings);
-  const metricRefreshUnavailable = isMetricRefreshUnavailable({
-    experiment,
-    phase,
-    datasource,
-    settingsOutdated,
-  });
-  const datasourceSettings = datasource?.settings;
+  const datasourceSettings = experiment.datasource
+    ? getDatasourceById(experiment.datasource)?.settings
+    : undefined;
   const userIdType = resolveAnalysisIdentifierType(
     datasourceSettings?.queries?.exposure?.find(
       (e) => e.id === experiment.exposureQueryId,
@@ -217,48 +189,37 @@ export default function ResultsTab({
   );
   const isLatestPhase = phase === experiment.phases.length - 1;
   const showsMetricRows = !analysis?.settings?.dimensions?.length;
-  const newMetricStates = useDeepStableValue(
-    useMemo(
-      () =>
-        snapshot && isLatestPhase && showsMetricRows
-          ? getNewMetricRowStates({
+  const newMetricStates = useMemo(
+    () =>
+      snapshot && isLatestPhase && showsMetricRows
+        ? getNewMetricRowStates({
+            experiment,
+            metricGroups,
+            snapshotSettings: snapshot.settings,
+            latest: latestSummary ?? null,
+            uncomputableMetricIds: getMetricIdsNoSnapshotComputes({
               experiment,
               metricGroups,
-              snapshotSettings: snapshot.settings,
-              latest: latestSummary,
-              request: metricRefreshRequest,
-              refreshUnavailable: canUpdateResults && metricRefreshUnavailable,
-              uncomputableMetricIds: getMetricIdsNoSnapshotComputes({
-                experiment,
-                metricGroups,
-                getExperimentMetricById,
-                getFactTableById,
-                userIdType,
-                datasourceSettings,
-              }),
-            })
-          : undefined,
-      [
-        experiment,
-        metricGroups,
-        getExperimentMetricById,
-        getFactTableById,
-        userIdType,
-        datasourceSettings,
-        isLatestPhase,
-        showsMetricRows,
-        snapshot,
-        latestSummary,
-        metricRefreshRequest,
-        canUpdateResults,
-        metricRefreshUnavailable,
-      ],
-    ),
+              getExperimentMetricById,
+              getFactTableById,
+              userIdType,
+              datasourceSettings,
+            }),
+          })
+        : undefined,
+    [
+      experiment,
+      metricGroups,
+      getExperimentMetricById,
+      getFactTableById,
+      userIdType,
+      datasourceSettings,
+      isLatestPhase,
+      showsMetricRows,
+      snapshot,
+      latestSummary,
+    ],
   );
-  const onRefreshMetrics =
-    canUpdateResults && !metricRefreshUnavailable
-      ? refreshNewMetrics
-      : undefined;
 
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
@@ -530,10 +491,6 @@ export default function ResultsTab({
             sortBy={sortBy}
             sortDirection={sortDirection}
             onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
-            onOtherOutdatedReasonsChange={setSettingsOutdated}
-            newMetricsUpdatableInTable={
-              !!onRefreshMetrics && newMetricRowsOfferRefresh(newMetricStates)
-            }
           />
           {experiment.status === "draft" ? (
             <Callout status="info" contentAlign="center" mx="3" my="3">
@@ -580,7 +537,6 @@ export default function ResultsTab({
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   newMetricStates={newMetricStates}
-                  onRefreshMetrics={onRefreshMetrics}
                   statsEngine={statsEngine}
                   analysisBarSettings={analysisBarSettings}
                   setAnalysisBarSettings={setAnalysisBarSettings}

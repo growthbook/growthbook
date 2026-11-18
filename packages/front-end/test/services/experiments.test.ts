@@ -3,7 +3,6 @@ import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { MetricInterface } from "shared/types/metric";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
 import type { MetricForSnapshot } from "shared/types/experiment-snapshot";
-import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import type { ExperimentReportResultDimension } from "shared/types/report";
 import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
@@ -11,17 +10,12 @@ import {
   getClusterSubUnitsLabel,
   getClusterUnitsLabel,
   getIneligibleClusterMetrics,
-  getMetricRefreshRequestOutcome,
+  getMetricIdsNoSnapshotComputes,
   getNewMetricRowStates,
   getUnitDisplayName,
   getUnjoinableMetricIds,
-  hasOutdatedReasonBlockingMetricRefresh,
-  isMetricRefreshUnavailable,
-  NewMetricRowState,
-  newMetricRowsOfferRefresh,
 } from "@/services/experiments";
 import { generateRowsForMetricGroup } from "@/hooks/useExperimentTableRows";
-import { ApiCallError } from "@/services/apiCallError";
 
 describe("convertExperimentToTemplate", () => {
   it("stores a legacy experiment's resolved identifier type", () => {
@@ -140,8 +134,8 @@ describe("getNewMetricRowStates", () => {
         experiment,
         metricGroups: [],
         snapshotSettings,
-        request: { status: "none" },
-        refreshUnavailable: false,
+        latest: null,
+        uncomputableMetricIds: new Set(),
         ...overrides,
       }),
     );
@@ -153,7 +147,7 @@ describe("getNewMetricRowStates", () => {
     metricIds,
   });
 
-  it("marks every metric the snapshot lacks as idle", () => {
+  it("marks every metric the snapshot lacks as not computed", () => {
     expect(
       statesFor({
         latest: {
@@ -162,9 +156,9 @@ describe("getNewMetricRowStates", () => {
         },
       }),
     ).toEqual({
-      met_goal: { status: "idle" },
-      met_secondary: { status: "idle" },
-      met_guardrail: { status: "idle" },
+      met_goal: { status: "notComputed" },
+      met_secondary: { status: "notComputed" },
+      met_guardrail: { status: "notComputed" },
     });
   });
 
@@ -200,15 +194,15 @@ describe("getNewMetricRowStates", () => {
         snapshotSettings: {
           metricSettings: [{ id: "met_goal" } as MetricForSnapshot],
         },
-        request: { status: "none" },
-        refreshUnavailable: false,
+        latest: null,
+        uncomputableMetricIds: new Set(),
       }),
     });
     expect(
       rows.map((r) => [r.metric.id, r.newMetricState, r.variations[1]]),
     ).toEqual([
       ["met_goal", undefined, zeroUsers],
-      ["met_secondary", { status: "idle" }, expect.anything()],
+      ["met_secondary", { status: "notComputed" }, expect.anything()],
     ]);
   });
 
@@ -230,24 +224,12 @@ describe("getNewMetricRowStates", () => {
         uncomputableMetricIds: unjoinable,
       }),
     ).toEqual({
-      met_secondary: { status: "idle" },
-      met_guardrail: { status: "idle" },
+      met_secondary: { status: "notComputed" },
+      met_guardrail: { status: "notComputed" },
     });
   });
 
-  it("stops treating metrics as new once the server found nothing to update for them", () => {
-    expect(
-      statesFor({
-        latest: { type: "standard", status: "success" },
-        request: {
-          status: "nothingToCompute",
-          metricIds: ["met_old", "met_goal", "met_secondary"],
-        },
-      }),
-    ).toEqual({ met_guardrail: { status: "idle" } });
-  });
-
-  it("shows the metrics a running refresh queries as running, and offers no update for the rest", () => {
+  it("shows the metrics a running refresh queries as running, and the rest as not computed", () => {
     expect(
       statesFor({
         latest: {
@@ -259,7 +241,7 @@ describe("getNewMetricRowStates", () => {
     ).toEqual({
       met_goal: { status: "running" },
       met_secondary: { status: "running" },
-      met_guardrail: { status: "otherUpdateRunning" },
+      met_guardrail: { status: "notComputed" },
     });
   });
 
@@ -278,18 +260,6 @@ describe("getNewMetricRowStates", () => {
     });
   });
 
-  it("shows every new metric as running while the request is sent", () => {
-    expect(
-      statesFor({
-        latest: {
-          type: "standard",
-          status: "success",
-        },
-        request: { status: "sending" },
-      }).met_guardrail,
-    ).toEqual({ status: "running" });
-  });
-
   it("shows the metrics of a failed refresh as failed", () => {
     expect(
       statesFor({
@@ -302,12 +272,12 @@ describe("getNewMetricRowStates", () => {
       }),
     ).toEqual({
       met_goal: { status: "failed", error: "Query failed" },
-      met_secondary: { status: "idle" },
-      met_guardrail: { status: "idle" },
+      met_secondary: { status: "notComputed" },
+      met_guardrail: { status: "notComputed" },
     });
   });
 
-  it("keeps new metrics idle after a failed full update", () => {
+  it("keeps new metrics not computed after a failed full update", () => {
     expect(
       statesFor({
         latest: {
@@ -316,218 +286,69 @@ describe("getNewMetricRowStates", () => {
           error: "Query failed",
         },
       }).met_goal,
-    ).toEqual({ status: "idle" });
-  });
-
-  it("shows a rejected request as failed", () => {
-    expect(
-      statesFor({ request: { status: "failed", error: "Network error" } })
-        .met_goal,
-    ).toEqual({ status: "failed", error: "Network error" });
-  });
-
-  it("marks new metrics unavailable when another setting is outdated", () => {
-    expect(
-      statesFor({
-        latest: {
-          type: "standard",
-          status: "error",
-          metricRefresh: refreshOf(["met_goal"]),
-        },
-        refreshUnavailable: true,
-      }),
-    ).toEqual({
-      met_goal: { status: "unavailable" },
-      met_secondary: { status: "unavailable" },
-      met_guardrail: { status: "unavailable" },
-    });
-  });
-
-  it("marks new metrics unavailable when the server refused the refresh", () => {
-    expect(
-      statesFor({ request: { status: "unavailable" } }).met_secondary,
-    ).toEqual({ status: "unavailable" });
+    ).toEqual({ status: "notComputed" });
   });
 });
 
-describe("newMetricRowsOfferRefresh", () => {
-  const offers = (...states: NewMetricRowState[]) =>
-    newMetricRowsOfferRefresh(
-      new Map(states.map((state, i) => [`met_${i}`, state])),
-    );
-
-  it("is true when a row shows an update or retry link", () => {
-    expect(offers({ status: "running" }, { status: "idle" })).toBe(true);
-    expect(offers({ status: "failed", error: null })).toBe(true);
-  });
-
-  it("is false when no row can start an update", () => {
-    expect(offers()).toBe(false);
-    expect(
-      offers(
-        { status: "running" },
-        { status: "otherUpdateRunning" },
-        { status: "unavailable" },
-      ),
-    ).toBe(false);
-  });
-
-  it("is false without row states, as in a dimension breakdown", () => {
-    expect(newMetricRowsOfferRefresh(undefined)).toBe(false);
-  });
-});
-
-describe("getMetricRefreshRequestOutcome", () => {
-  const attempted = ["met_a", "met_b"];
-  const rejected = (code: string, details?: unknown) =>
-    getMetricRefreshRequestOutcome(
-      new ApiCallError({ code, message: "Refused", details }),
-      attempted,
-    );
-
-  it("settles the attempted metrics when the server says nothing is missing", () => {
-    expect(rejected("metrics_already_up_to_date")).toEqual({
-      status: "nothingToCompute",
-      metricIds: attempted,
-    });
-  });
-
-  it("defers to the status poll when another update is running", () => {
-    expect(rejected("snapshot_in_progress")).toEqual({ status: "none" });
-  });
-
-  it("shows the rows as unavailable for every refusal reason", () => {
-    for (const reason of [
-      "no_base_snapshot",
-      "not_latest_phase",
-      "unsupported_experiment_type",
-      "unsupported_data_source",
-      "incremental_pipeline",
-      "settings_changed",
-      "base_incomplete",
-      "phase_ended",
-    ]) {
-      expect(rejected("metric_refresh_unavailable", { reason })).toEqual({
-        status: "unavailable",
-      });
-    }
-  });
-
-  it("shows a bad request, a permission error and a network failure as failed", () => {
-    expect(
-      getMetricRefreshRequestOutcome(
-        new ApiCallError({ message: "Can't be combined with a dimension." }),
-        attempted,
-      ),
-    ).toEqual({
-      status: "failed",
-      error: "Can't be combined with a dimension.",
-    });
-    expect(
-      getMetricRefreshRequestOutcome(
-        new ApiCallError({ message: "You do not have access to this action" }),
-        attempted,
-      ),
-    ).toEqual({
-      status: "failed",
-      error: "You do not have access to this action",
-    });
-    expect(
-      getMetricRefreshRequestOutcome(
-        new TypeError("Failed to fetch"),
-        attempted,
-      ),
-    ).toEqual({ status: "failed", error: "Failed to fetch" });
-  });
-});
-
-describe("isMetricRefreshUnavailable", () => {
-  const running = {
-    id: "exp_1",
-    type: "standard" as const,
-    phases: [
-      { dateEnded: "2026-11-01T00:00:00Z" },
-      { dateEnded: undefined },
-    ] as ExperimentInterfaceStringDates["phases"],
+describe("getMetricIdsNoSnapshotComputes", () => {
+  const metricsById: Record<string, ExperimentMetricDefinition> = {
+    met_plain: { id: "met_plain", userIdTypes: ["user_id"] } as MetricInterface,
+    met_conversion: {
+      id: "met_conversion",
+      userIdTypes: ["user_id"],
+      windowSettings: { type: "conversion" },
+    } as MetricInterface,
+    met_anonymous: {
+      id: "met_anonymous",
+      userIdTypes: ["anonymous_id"],
+    } as MetricInterface,
   };
-  const sqlDatasource = {
-    properties: { separateExperimentResultQueries: true },
-    settings: {},
-  } as DataSourceInterfaceWithParams;
-  const unavailable = (
-    overrides: Partial<Parameters<typeof isMetricRefreshUnavailable>[0]>,
+  const uncomputable = (
+    experiment: Parameters<
+      typeof getMetricIdsNoSnapshotComputes
+    >[0]["experiment"],
   ) =>
-    isMetricRefreshUnavailable({
-      experiment: running,
-      phase: 1,
-      datasource: sqlDatasource,
-      settingsOutdated: false,
-      ...overrides,
-    });
-
-  it("allows a running standard experiment on a SQL data source", () => {
-    expect(unavailable({})).toBe(false);
-  });
-
-  it("refuses bandits and holdouts", () => {
-    expect(
-      unavailable({ experiment: { ...running, type: "multi-armed-bandit" } }),
-    ).toBe(true);
-    expect(unavailable({ experiment: { ...running, type: "holdout" } })).toBe(
-      true,
-    );
-  });
-
-  it("refuses an ended phase", () => {
-    expect(unavailable({ phase: 0 })).toBe(true);
-  });
-
-  it("refuses a data source that queries every metric at once", () => {
-    expect(
-      unavailable({ datasource: { ...sqlDatasource, properties: undefined } }),
-    ).toBe(true);
-    expect(unavailable({ datasource: null })).toBe(true);
-  });
-
-  it("allows an experiment on the incremental pipeline", () => {
-    expect(
-      unavailable({
-        datasource: {
-          ...sqlDatasource,
-          settings: {
-            pipelineSettings: {
-              allowWriting: true,
-              mode: "incremental",
-              unitsTableRetentionHours: 24,
-              includedExperimentIds: ["exp_1"],
-            },
-          },
-        } as DataSourceInterfaceWithParams,
+    [
+      ...getMetricIdsNoSnapshotComputes({
+        experiment,
+        metricGroups: [],
+        getExperimentMetricById: (id) => metricsById[id] ?? null,
+        getFactTableById: () => null,
+        userIdType: "user_id",
+        datasourceSettings: {},
       }),
-    ).toBe(false);
-  });
+    ].sort();
 
-  it("refuses when analysis settings changed since the last update", () => {
-    expect(unavailable({ settingsOutdated: true })).toBe(true);
-  });
-});
-
-describe("hasOutdatedReasonBlockingMetricRefresh", () => {
-  it("ignores added metrics and date drift", () => {
+  it("lists metrics that can't join the experiment's units", () => {
     expect(
-      hasOutdatedReasonBlockingMetricRefresh([
-        "Metrics changed",
-        "Analysis dates changed",
-      ]),
-    ).toBe(false);
+      uncomputable({
+        type: "standard",
+        goalMetrics: ["met_plain", "met_anonymous", "met_conversion"],
+        secondaryMetrics: [],
+        guardrailMetrics: ["met_plain"],
+      }),
+    ).toEqual(["met_anonymous"]);
   });
 
-  it("blocks on any other reason", () => {
+  it("adds a holdout's guardrails and conversion-window metrics", () => {
     expect(
-      hasOutdatedReasonBlockingMetricRefresh([
-        "Metrics changed",
-        "Stats engine changed",
-      ]),
-    ).toBe(true);
+      uncomputable({
+        type: "holdout",
+        goalMetrics: ["met_conversion"],
+        secondaryMetrics: [],
+        guardrailMetrics: ["met_plain"],
+      }),
+    ).toEqual(["met_conversion", "met_plain"]);
+  });
+
+  it("keeps a holdout guardrail that is also a goal", () => {
+    expect(
+      uncomputable({
+        type: "holdout",
+        goalMetrics: ["met_plain"],
+        secondaryMetrics: [],
+        guardrailMetrics: ["met_plain"],
+      }),
+    ).toEqual([]);
   });
 });

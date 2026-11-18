@@ -7,7 +7,9 @@ import {
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
 import { useAuth } from "@/services/auth";
-import RunQueriesButton from "@/components/Queries/RunQueriesButton";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSnapshotButton";
 import {
@@ -15,6 +17,7 @@ import {
   useExperimentSnapshotUpdate,
 } from "@/hooks/useExperimentSnapshotUpdate";
 import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
+import NewMetricsUpdateButton from "@/components/Experiment/NewMetricsUpdateButton";
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
 
@@ -51,6 +54,9 @@ export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
   safeRollout?: SafeRolloutInterface;
   fullRefreshRequired?: boolean;
   fullRefreshReasons?: string[];
+  // Offer "Update new metrics" as the main action, with "Update all metrics"
+  // in the menu.
+  newMetricsUpdate?: boolean;
   disabled?: boolean;
 }
 
@@ -72,6 +78,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
   safeRollout,
   fullRefreshRequired = false,
   fullRefreshReasons = [],
+  newMetricsUpdate = false,
   disabled = false,
 }: RefreshResultsButtonProps<T>) {
   const hasQueries = (latest?.queries?.length ?? 0) > 0;
@@ -93,6 +100,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         dimension={dimension}
         fullRefreshRequired={fullRefreshRequired}
         fullRefreshReasons={fullRefreshReasons}
+        newMetricsUpdate={newMetricsUpdate}
         disabled={disabled}
       />
     );
@@ -120,6 +128,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         experimentSnapshotTrackingProps={experimentSnapshotTrackingProps}
         fullRefreshRequired={fullRefreshRequired}
         fullRefreshReasons={fullRefreshReasons}
+        newMetricsUpdate={newMetricsUpdate}
         disabled={disabled}
       />
     );
@@ -154,6 +163,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   dimension,
   fullRefreshRequired,
   fullRefreshReasons,
+  newMetricsUpdate,
   disabled = false,
 }: RefreshResultsButtonProps<T> & {
   latest: T;
@@ -207,6 +217,23 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
       : fullRefreshRequired
         ? () => submitUpdate({ force: true, fullRefreshReasons })
         : () => submitUpdate();
+
+  if (
+    newMetricsUpdate &&
+    entityType !== "safe-rollout" &&
+    getQueryStatus(latest.queries || []).status !== "running"
+  ) {
+    return (
+      <>
+        <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
+        <NewMetricsUpdateButton
+          onUpdateNewMetrics={() => submitUpdate({ newMetricsOnly: true })}
+          onUpdateAllMetrics={() => submitUpdate()}
+          disabled={disabled}
+        />
+      </>
+    );
+  }
 
   return (
     <>

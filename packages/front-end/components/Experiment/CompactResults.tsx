@@ -66,7 +66,6 @@ const CompactResults: FC<{
   significanceThresholds: SignificanceThresholds;
   editMetrics?: () => void;
   newMetricStates?: Map<string, NewMetricRowState>;
-  onRefreshMetrics?: () => void;
   onViewRefreshQueries?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
@@ -133,7 +132,6 @@ const CompactResults: FC<{
   significanceThresholds,
   editMetrics,
   newMetricStates,
-  onRefreshMetrics,
   onViewRefreshQueries,
   variations,
   variationFilter,
@@ -437,7 +435,6 @@ const CompactResults: FC<{
           editMetrics={
             experimentType !== "multi-armed-bandit" ? editMetrics : undefined
           }
-          onRefreshMetrics={onRefreshMetrics}
           onViewRefreshQueries={onViewRefreshQueries}
           statsEngine={statsEngine}
           sequentialTestingEnabled={sequentialTestingEnabled}
@@ -497,7 +494,6 @@ const CompactResults: FC<{
             tableRowAxis="metric"
             labelHeader="Secondary Metrics"
             editMetrics={editMetrics}
-            onRefreshMetrics={onRefreshMetrics}
             onViewRefreshQueries={onViewRefreshQueries}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
@@ -557,7 +553,6 @@ const CompactResults: FC<{
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
-            onRefreshMetrics={onRefreshMetrics}
             onViewRefreshQueries={onViewRefreshQueries}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}

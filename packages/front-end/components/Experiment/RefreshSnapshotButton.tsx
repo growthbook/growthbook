@@ -9,6 +9,7 @@ import {
   useExperimentSnapshotUpdate,
 } from "@/hooks/useExperimentSnapshotUpdate";
 import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
+import NewMetricsUpdateButton from "@/components/Experiment/NewMetricsUpdateButton";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
@@ -27,6 +28,7 @@ const RefreshSnapshotButton: FC<{
   };
   fullRefreshRequired?: boolean;
   fullRefreshReasons?: string[];
+  newMetricsUpdate?: boolean;
   disabled?: boolean;
 }> = ({
   mutate,
@@ -41,6 +43,7 @@ const RefreshSnapshotButton: FC<{
   experimentSnapshotTrackingProps,
   fullRefreshRequired = false,
   fullRefreshReasons = [],
+  newMetricsUpdate = false,
   disabled = false,
 }) => {
   const { getDatasourceById } = useDefinitions();
@@ -76,19 +79,27 @@ const RefreshSnapshotButton: FC<{
           this may take several minutes
         </Text>
       )}
-      <RadixButton
-        variant={radixVariant}
-        size="md"
-        disabled={loading || disabled}
-        setError={(error) => setError(error ?? undefined)}
-        onClick={handleClick}
-        style={{
-          minWidth: 110,
-        }}
-        icon={<PiArrowClockwise />}
-      >
-        {label}
-      </RadixButton>
+      {newMetricsUpdate ? (
+        <NewMetricsUpdateButton
+          onUpdateNewMetrics={() => submitUpdate({ newMetricsOnly: true })}
+          onUpdateAllMetrics={() => submitUpdate()}
+          disabled={loading || disabled}
+        />
+      ) : (
+        <RadixButton
+          variant={radixVariant}
+          size="md"
+          disabled={loading || disabled}
+          setError={(error) => setError(error ?? undefined)}
+          onClick={handleClick}
+          style={{
+            minWidth: 110,
+          }}
+          icon={<PiArrowClockwise />}
+        >
+          {label}
+        </RadixButton>
+      )}
     </>
   );
 };
