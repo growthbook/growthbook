@@ -4,14 +4,14 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButton";
+import WebhookErrorDetails from "@/components/Features/SDKConnections/WebhookErrorDetails";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Tooltip from "@/ui/Tooltip";
+import { Popover } from "@/ui/Popover";
 import LinkButton from "@/ui/LinkButton";
 import Badge from "@/ui/Badge";
-import Callout from "@/ui/Callout";
-import Text from "@/ui/Text";
 
 const PROXIED = "Requests are routed through your GrowthBook Proxy.";
 
@@ -124,18 +124,26 @@ export default function SDKConnectionCredentialsCard({
                 label="Connected"
               />
             ) : proxyError ? (
-              <Tooltip
-                content={
-                  <>
-                    <Text as="p" mb="2">
-                      Encountered an error while trying to connect:
-                    </Text>
-                    <Callout status="error">{proxyError}</Callout>
-                  </>
+              <Popover
+                openOnHover
+                side="bottom"
+                contentStyle={{ maxWidth: 420 }}
+                trigger={
+                  <Badge
+                    color="red"
+                    variant="soft"
+                    radius="full"
+                    label="Error"
+                    style={{ cursor: "default" }}
+                  />
                 }
-              >
-                <Badge color="red" variant="soft" radius="full" label="Error" />
-              </Tooltip>
+                content={
+                  <WebhookErrorDetails
+                    name="Could not connect to the proxy"
+                    error={proxyError}
+                  />
+                }
+              />
             ) : (
               <Badge
                 color="gray"
