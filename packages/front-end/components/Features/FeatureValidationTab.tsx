@@ -43,7 +43,7 @@ export default function FeatureValidationTab({
           label: "Feature",
         }}
         projects={[feature.project || ""]}
-        description="Run sandboxed JavaScript validation before this feature is saved."
+        description="Run sandboxed JavaScript validation before this Feature Flag is saved."
         canManage={permissionsUtil.canManageFeatureCustomHooks(feature)}
         modalProps={{ feature, revision }}
       />

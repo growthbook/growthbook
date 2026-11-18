@@ -472,12 +472,18 @@ export default function SDKConnectionPage() {
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-        {canDelete && connection.archived && (
+        {canDelete && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem
                 color="red"
+                disabled={!connection.archived}
+                tooltip={
+                  connection.archived
+                    ? undefined
+                    : "Archive this SDK Connection before deleting it."
+                }
                 confirmation={{
                   confirmationTitle: "Delete SDK Connection",
                   cta: "Delete",

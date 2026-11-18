@@ -168,8 +168,14 @@ export default function CustomHooksSection({
 
           {header(
             "Global/Project Hooks",
-            <LinkButton href="/settings/custom-hooks" variant="soft">
-              Manage in Settings <PiArrowSquareOut />
+            <LinkButton
+              href="/settings/custom-hooks"
+              variant="soft"
+              external
+              icon={<PiArrowSquareOut />}
+              iconPosition="right"
+            >
+              Manage in Settings
             </LinkButton>,
           )}
           <CustomHooksTable
