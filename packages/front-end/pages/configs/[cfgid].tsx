@@ -59,7 +59,6 @@ import {
   PiCheck,
   PiCopy,
   PiLockSimple,
-  PiInfo,
 } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -125,7 +124,7 @@ import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
 import { useTabsTop } from "@/components/Layout/pageTopOffset";
 import ConfigDetailsPanel from "@/components/Configs/ConfigDetailsPanel";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import UITooltip from "@/ui/Tooltip";
+import LabelWithHelp from "@/ui/LabelWithHelp";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
 import {
@@ -1971,19 +1970,10 @@ export default function ConfigDetailPage(): React.ReactElement {
                                 Source
                               </TableColumnHeader>
                               <TableColumnHeader width="72px">
-                                <Flex align="center" gap="1">
-                                  Usage
-                                  <UITooltip content="Flag rules and defaults that override this key.">
-                                    <span
-                                      style={{
-                                        display: "inline-flex",
-                                        color: "var(--slate-9)",
-                                      }}
-                                    >
-                                      <PiInfo />
-                                    </span>
-                                  </UITooltip>
-                                </Flex>
+                                <LabelWithHelp
+                                  label="Usage"
+                                  help="Flag rules and defaults that override this key."
+                                />
                               </TableColumnHeader>
                               <TableColumnHeader width="180px">
                                 <Flex align="center" justify="end">

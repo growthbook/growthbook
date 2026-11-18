@@ -1,7 +1,6 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiBracketsCurly } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
   fieldsToTsType,
@@ -36,7 +35,11 @@ import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
 import { ResolvedField } from "@/components/Configs/fieldSchema";
@@ -800,17 +803,7 @@ export default function ConfigJsonEditor({
         variant="soft"
         menuPlacement="end"
         triggerStyle={{ marginLeft: 0, marginRight: 0 }}
-        trigger={
-          <IconButton
-            variant="ghost"
-            color="gray"
-            radius="full"
-            size="2"
-            highContrast
-          >
-            <BsThreeDotsVertical size={16} />
-          </IconButton>
-        }
+        trigger={<MoreMenuTrigger label="Schema actions" />}
       >
         <DropdownMenuItem onClick={() => setShowNewProjection(true)}>
           New projection

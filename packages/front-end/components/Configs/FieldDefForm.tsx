@@ -615,6 +615,7 @@ export default function FieldDefForm({
         <TableCell colSpan={2}>
           <Flex align="center" style={{ minHeight: 32 }}>
             <Link
+              aria-expanded={configureOpen}
               onClick={() => setConfigureOpen((o) => !o)}
               style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
             >

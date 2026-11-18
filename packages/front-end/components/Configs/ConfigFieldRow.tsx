@@ -1,6 +1,5 @@
 import React, { ReactNode, useEffect, useRef } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   PiPencilSimple,
   PiInfo,
@@ -20,7 +19,11 @@ import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import { Popover } from "@/ui/Popover";
 import ScrollArea from "@/ui/ScrollArea";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
 import { TableCell, TableRow, revealTableCell } from "@/ui/Table";
 import SelectField from "@/components/Forms/SelectField";
 import ConfigKeyUsageBadge from "@/components/Configs/ConfigKeyUsageBadge";
@@ -59,17 +62,7 @@ export function FieldRowMenu({ children }: { children: ReactNode }) {
       {children ? (
         <DropdownMenu
           variant="soft"
-          trigger={
-            <IconButton
-              variant="ghost"
-              color="gray"
-              radius="full"
-              size="2"
-              highContrast
-            >
-              <BsThreeDotsVertical size={16} />
-            </IconButton>
-          }
+          trigger={<MoreMenuTrigger label="Field actions" />}
           menuPlacement="end"
         >
           {children}

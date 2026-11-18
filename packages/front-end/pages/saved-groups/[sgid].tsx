@@ -22,7 +22,7 @@ import {
   getApprovalFlowSettings,
 } from "shared/enterprise";
 import { isActiveDraftStatus } from "shared/validators";
-import { PiPlus } from "react-icons/pi";
+import { PiArrowsDownUp, PiPlus } from "react-icons/pi";
 import { isIdListSupportedAttribute, restoredProjectScope } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
@@ -30,7 +30,6 @@ import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/ui/Pagination";
 import SearchFilterRow from "@/components/Search/SearchFilterRow";
-import { SortButton, ariaSort } from "@/services/search";
 import SectionFrame from "@/components/SectionFrame";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
@@ -132,7 +131,7 @@ export default function EditSavedGroupPage() {
   );
   const savedGroup = data?.savedGroup;
   // Alphabetical once a direction is picked; newest first until then.
-  const [sortDir, setSortDir] = useState<1 | -1 | null>(null);
+  const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
@@ -324,11 +323,8 @@ export default function EditSavedGroupPage() {
       : displayedValues;
   }, [displayedValues, filter]);
   const sortedValues = useMemo(
-    () =>
-      sortDir === null
-        ? [...filteredValues].reverse()
-        : [...filteredValues].sort((a, b) => sortDir * a.localeCompare(b)),
-    [filteredValues, sortDir],
+    () => (sortNewestFirst ? [...filteredValues].reverse() : filteredValues),
+    [filteredValues, sortNewestFirst],
   );
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
@@ -909,13 +905,6 @@ export default function EditSavedGroupPage() {
           }}
         >
           <ConflictProvider {...addConflict.providerProps}>
-            {addItemsDraftMode !== "publish" && (
-              <Text as="p" mb="3" color="text-mid">
-                {approvalRequired
-                  ? "Changes will be saved as a draft and must be reviewed before taking effect."
-                  : "Changes will be saved as a draft revision."}
-              </Text>
-            )}
             <SavedGroupDraftSelectorForChanges
               savedGroup={savedGroup}
               openRevisions={openRevisions}
@@ -1453,6 +1442,7 @@ export default function EditSavedGroupPage() {
                         <Tooltip body={editBlockedReason ?? ""}>
                           <Button
                             variant="ghost"
+                            color="red"
                             disabled={!!editBlockedReason}
                             onClick={() => openItemsModal("replace")}
                           >
@@ -1525,9 +1515,9 @@ export default function EditSavedGroupPage() {
                       }
                     />
 
-                    <Table variant="ghost">
+                    <Table variant="list" stickyHeader={false}>
                       <TableHeader>
-                        <TableRow>
+                        <TableRow align="center">
                           <TableColumnHeader style={{ width: 48 }}>
                             <Checkbox
                               value={
@@ -1543,19 +1533,24 @@ export default function EditSavedGroupPage() {
                               align="center"
                             />
                           </TableColumnHeader>
-                          <TableColumnHeader
-                            aria-sort={ariaSort(sortDir !== null, sortDir ?? 1)}
-                          >
-                            <SortButton
-                              active={sortDir !== null}
-                              dir={sortDir ?? 1}
-                              onClick={() => {
-                                setSortDir(sortDir === 1 ? -1 : 1);
-                                setCurrentPage(1);
-                              }}
-                            >
-                              {savedGroup.attributeKey}
-                            </SortButton>
+                          <TableColumnHeader>
+                            <Flex justify="between" align="center">
+                              <span>{savedGroup.attributeKey}</span>
+                              <Button
+                                variant="ghost"
+                                size="md"
+                                icon={<PiArrowsDownUp />}
+                                onClick={() => {
+                                  setSortNewestFirst(!sortNewestFirst);
+                                  setCurrentPage(1);
+                                }}
+                              >
+                                Showing{" "}
+                                {sortNewestFirst
+                                  ? "newest first"
+                                  : "oldest first"}
+                              </Button>
+                            </Flex>
                           </TableColumnHeader>
                         </TableRow>
                       </TableHeader>

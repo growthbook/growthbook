@@ -71,7 +71,7 @@ export default function SavedGroupDetailsPanel({
           <Metadata
             size="sm"
             stacked
-            label="Attribute Key"
+            label="Attribute key"
             value={<PanelText>{savedGroup.attributeKey}</PanelText>}
           />
         ) : null}
