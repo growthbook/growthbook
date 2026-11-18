@@ -6,13 +6,13 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useInsertionEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { useRouter } from "next/router";
 import useMediaQuery from "@/hooks/useMediaQuery";
-import { useIsomorphicLayoutEffect } from "@/hooks/useIsomorphicLayoutEffect";
 import usePageAreaCrowded from "./usePageAreaCrowded";
 import { isSettingsRoute } from "./sidebarNav";
 import {
@@ -54,7 +54,10 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
   // Only for the docked panel: below 1024px the stylesheets' own media
   // queries give the same layout, as they do in the old shell.
   const crowdedSettings = inSettings && crowded;
-  useIsomorphicLayoutEffect(() => {
+  // Before any layout effect: Next's route-change Head reads layout first,
+  // and read without the class, entering Settings beside the docked panel
+  // slides the page from the column nav's padding to the jump menu's.
+  useInsertionEffect(() => {
     if (!crowdedSettings) return;
     const root = document.documentElement;
     root.classList.add("settings-narrow");

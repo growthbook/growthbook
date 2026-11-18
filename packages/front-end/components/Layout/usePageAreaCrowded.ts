@@ -17,10 +17,12 @@ export default function usePageAreaCrowded(
   enabled = true,
 ): boolean {
   const { docked, open } = useAgentPanel();
-  const active = enabled && docked && open;
+  // Measured while the panel is docked, enabled or not, so a page that turns
+  // it on (entering Settings) has the answer for its first paint.
+  const measuring = docked && open;
   const [tooNarrow, setTooNarrow] = useState(false);
   useEffect(() => {
-    if (!active) return;
+    if (!measuring) return;
     const probe = document.createElement("div");
     probe.setAttribute("aria-hidden", "true");
     Object.assign(probe.style, {
@@ -43,6 +45,6 @@ export default function usePageAreaCrowded(
       // The next docked panel measures afresh.
       setTooNarrow(false);
     };
-  }, [minWidth, active]);
-  return active && tooNarrow;
+  }, [minWidth, measuring]);
+  return enabled && measuring && tooNarrow;
 }

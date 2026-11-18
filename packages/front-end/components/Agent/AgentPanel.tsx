@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   useMemo,
@@ -219,6 +220,11 @@ function preWorkToSteps(
 
 // Past the AI Assistant button's fade back in, however slow the frames.
 const FOCUS_RETURN_MAX_MS = 1000;
+// The mounted panel whose room (--agent-rail-width, agent-dock-full) is on
+// <html>.
+let railOwner: string | null = null;
+// The mounted panel's element, for the one that replaces it on a remount.
+let livePanel: HTMLElement | null = null;
 const LIMIT_CALLOUT_ID = "ai-assistant-limit-callout";
 /**
  * Marks a table's scrolling frame with which edges have more to scroll
@@ -558,15 +564,34 @@ export default function AgentPanel({
     prevLoadingRef.current = loading;
   }, [loading, open, focusInput]);
 
-  // It mounts off-screen and starts sliding before the first paint: the read
-  // below makes the browser take in the off-screen position first, which
-  // waiting a frame doesn't guarantee on a busy page (the slide is then
+  // Entering or leaving Settings remounts the panel with the page (main's
+  // SettingsForm swap, _app.tsx). Open already, it comes back as it was: in
+  // place, and with focus only if the panel it replaces had it (read while
+  // that one is still in the page). Until it next opens.
+  const [restored, setRestored] = useState<{ focus: boolean } | null>(() =>
+    presence === "open"
+      ? { focus: !!livePanel?.contains(document.activeElement) }
+      : null,
+  );
+  useIsomorphicLayoutEffect(() => {
+    const panelEl = panelRef.current;
+    if (!rendered || !panelEl) return;
+    livePanel = panelEl;
+    return () => {
+      if (livePanel === panelEl) livePanel = null;
+    };
+  }, [rendered]);
+
+  // Otherwise it mounts off-screen and starts sliding before the first paint:
+  // the read below makes the browser take in the off-screen position first,
+  // which waiting a frame doesn't guarantee on a busy page (the slide is then
   // skipped). html.agent-dock-motion is on by then (AgentPanelContext), so
   // what moves on its own timing (the side nav) picks it up.
-  const [shown, setShown] = useState(false);
+  const [shown, setShown] = useState(restored !== null);
   useIsomorphicLayoutEffect(() => {
     if (!open) setShown(false);
-  }, [open]);
+    else if (!rendered) setRestored(null);
+  }, [open, rendered]);
   useIsomorphicLayoutEffect(() => {
     if (!open || !rendered || shown) return;
     panelRef.current?.getBoundingClientRect();
@@ -682,26 +707,30 @@ export default function AgentPanel({
   // AI Assistant button fades out).
   // Set as the slide starts (shown), so everything moves together.
   const dockedShown = docked && shown;
+  const instance = useId();
   useIsomorphicLayoutEffect(() => {
     const root = document.documentElement;
     if (dockedShown) {
       root.style.setProperty("--agent-rail-width", panelWidthCss(panelWidth));
+      railOwner = instance;
     } else {
       root.style.removeProperty("--agent-rail-width");
     }
     root.classList.toggle("agent-dock-full", dockedShown);
-  }, [dockedShown, panelWidth]);
-  // Passive on purpose. Entering or leaving Settings remounts the panel and
-  // the page: as a layout cleanup this would clear the rail before the new
-  // panel's forced read, so the new page would start without the panel's room
-  // and slide into it.
+  }, [dockedShown, panelWidth, instance]);
+  // Passive, and only while the room is still this panel's. Entering or
+  // leaving Settings remounts the panel and the page, and the panel that
+  // replaces this one sets the room first: as a layout cleanup, or
+  // unconditionally, the new page would start without it and slide into it.
   useEffect(
     () => () => {
+      if (railOwner !== instance) return;
+      railOwner = null;
       const root = document.documentElement;
       root.style.removeProperty("--agent-rail-width");
       root.classList.remove("agent-dock-full");
     },
-    [],
+    [instance],
   );
 
   // Where there's no message box (at the daily limit), focus goes to the
@@ -709,6 +738,7 @@ export default function AgentPanel({
   const returnFocusRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (open) {
+      if (restored && !restored.focus) return;
       const active = document.activeElement;
       returnFocusRef.current =
         active instanceof HTMLElement && active !== document.body
@@ -748,7 +778,7 @@ export default function AgentPanel({
     };
     tryFocus();
     return () => cancelAnimationFrame(frame);
-  }, [open]);
+  }, [open, restored]);
 
   // Not while the side nav's drawer is open over it (it keeps its own), nor
   // once focus has left the panel.
@@ -1362,7 +1392,7 @@ export default function AgentPanel({
           variant="compact"
           seamless
           ref={composerRef}
-          autoFocus
+          autoFocus={restored?.focus ?? true}
           mentionItems={mentionItems}
           mentionItemsReady={mentionItemsReady}
           skillItems={skillItems}
