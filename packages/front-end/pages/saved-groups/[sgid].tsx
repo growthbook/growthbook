@@ -130,7 +130,6 @@ export default function EditSavedGroupPage() {
     `/saved-groups/${sgid}`,
   );
   const savedGroup = data?.savedGroup;
-  // Alphabetical once a direction is picked; newest first until then.
   const [newestFirst, setNewestFirst] = useState(true);
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
@@ -1531,6 +1530,7 @@ export default function EditSavedGroupPage() {
                           >
                             <SortButton
                               active
+                              subtle
                               dir={newestFirst ? -1 : 1}
                               onClick={() => {
                                 setNewestFirst(!newestFirst);
@@ -1547,6 +1547,7 @@ export default function EditSavedGroupPage() {
                                 <Field
                                   size="sm"
                                   placeholder="Search..."
+                                  aria-label="Search list items"
                                   type="search"
                                   value={filter}
                                   onChange={(e) => {
