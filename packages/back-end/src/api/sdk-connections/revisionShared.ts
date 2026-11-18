@@ -99,9 +99,7 @@ export async function loadEdit(
   return { loaded, draft };
 }
 
-// Stages changes into `draft`, or into a new one. `derive` builds the ops from
-// the row being written, so a concurrent save to it keeps what this one didn't
-// touch.
+// Stages changes into `draft`, or into a new one.
 export async function stageDraftChanges(
   context: ApiReqContext,
   { entity, live }: LoadedConnection,
@@ -112,7 +110,7 @@ export async function stageDraftChanges(
     revertedFrom?: string;
     direct?: boolean;
   },
-  derive: (row: Revision | null) => JsonPatchOperation[],
+  ops: JsonPatchOperation[],
 ): Promise<Revision> {
   if (!canDoRevisionAction(TYPE, "draft", context, live)) {
     context.permissions.throwPermissionError();
@@ -123,7 +121,7 @@ export async function stageDraftChanges(
     context,
     TYPE,
     entity,
-    derive,
+    ops,
     draft
       ? { revisionId: draft.id }
       : {

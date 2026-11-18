@@ -115,13 +115,7 @@ export const postSdkConnectionRevisionRevert = createApiRequestHandler(
     return {
       revision: await toApiSdkConnectionRevision(
         context,
-        await stageDraftChanges(
-          context,
-          loaded,
-          null,
-          newDraft,
-          () => patchOps,
-        ),
+        await stageDraftChanges(context, loaded, null, newDraft, patchOps),
       ),
     };
   }
@@ -175,7 +169,7 @@ export const postSdkConnectionRevisionRevert = createApiRequestHandler(
     loaded,
     null,
     { ...newDraft, direct: true },
-    () => patchOps,
+    patchOps,
   );
   const published = await publishRevision(context, draft, live, {
     bypass: underReview,

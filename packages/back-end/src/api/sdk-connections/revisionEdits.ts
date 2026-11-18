@@ -53,24 +53,23 @@ function stageSettings(
   changes: Record<string, unknown>,
 ) {
   const liveSettings = loaded.live.sdkConnection;
-  const settingsAfter = (row: Revision | null) =>
-    pickSdkConnectionSettings(
-      sdkConnectionDraftSettingsAfterSave(
-        row
-          ? (row.target.snapshot as SDKConnectionRevisionSnapshot).sdkConnection
-          : liveSettings,
-        editedSnapshot(loaded, row).sdkConnection,
-        changes,
-        liveSettings,
-      ),
-    );
-  if (!draft && sdkConnectionSettingsEqual(settingsAfter(null), liveSettings)) {
+  const settings = pickSdkConnectionSettings(
+    sdkConnectionDraftSettingsAfterSave(
+      draft
+        ? (draft.target.snapshot as SDKConnectionRevisionSnapshot).sdkConnection
+        : liveSettings,
+      editedSnapshot(loaded, draft).sdkConnection,
+      changes,
+      liveSettings,
+    ),
+  );
+  if (!draft && sdkConnectionSettingsEqual(settings, liveSettings)) {
     throw new BadRequestError(
       "Nothing to stage: the live SDK Connection already has these settings.",
     );
   }
-  return stageDraftChanges(context, loaded, draft, newDraft, (row) => [
-    { op: "replace", path: "/sdkConnection", value: settingsAfter(row) },
+  return stageDraftChanges(context, loaded, draft, newDraft, [
+    { op: "replace", path: "/sdkConnection", value: settings },
   ]);
 }
 
@@ -83,9 +82,9 @@ function stageWebhooks(
     webhooks: SDKWebhookRevisionSnapshot[],
   ) => SDKWebhookRevisionSnapshot[],
 ) {
-  const webhooksOf = (row: Revision | null) =>
-    editedSnapshot(loaded, row).sdkWebhooks.map(parseSdkWebhookSnapshot);
-  const before = webhooksOf(draft);
+  const before = editedSnapshot(loaded, draft).sdkWebhooks.map(
+    parseSdkWebhookSnapshot,
+  );
   const after = edit(before);
   if (!draft && isEqual(after, before)) {
     throw new BadRequestError(
@@ -94,8 +93,8 @@ function stageWebhooks(
   }
   const { projects, environment } = loaded.connection;
   assertCanChangeSdkWebhooks(context, { projects, environment }, before, after);
-  return stageDraftChanges(context, loaded, draft, newDraft, (row) => [
-    { op: "replace", path: "/sdkWebhooks", value: edit(webhooksOf(row)) },
+  return stageDraftChanges(context, loaded, draft, newDraft, [
+    { op: "replace", path: "/sdkWebhooks", value: after },
   ]);
 }
 
@@ -120,7 +119,7 @@ export const postSdkConnectionRevision = createApiRequestHandler(
     loaded,
     null,
     { revisionTitle: req.body.title, revisionComment: req.body.comment },
-    () => [],
+    [],
   );
   return { revision: await toApiSdkConnectionRevision(context, revision) };
 });
