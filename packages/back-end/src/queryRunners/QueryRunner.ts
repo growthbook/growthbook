@@ -38,6 +38,10 @@ import {
   ExperimentUpdateTimingPhase,
   SnapshotRunnerRole,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
+import {
+  trackActiveRunner,
+  untrackActiveRunner,
+} from "back-end/src/queryRunners/activeRunners";
 
 export type QueryMap = Map<string, QueryInterface>;
 
@@ -715,14 +719,18 @@ export abstract class QueryRunner<
     this.error = error;
     this.result = result;
 
+    // Tracked exactly while heartbeating, the window in which the stale-query
+    // reaper also treats this runner as alive.
     if (this.status === "running") {
       this.startHeartbeat();
       this.startRefreshWatchdog();
+      trackActiveRunner(this);
     }
 
     if (this.status === "finished") {
       this.stopHeartbeat();
       this.stopRefreshWatchdog();
+      untrackActiveRunner(this);
       this.emitter.emit(FINISH_EVENT);
     }
   }

@@ -10,9 +10,14 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
+// SIGKILL backstop after SIGTERM. Keep it above the back-end's
+// GRACEFUL_SHUTDOWN_TIMEOUT_MS (20s default) so its drain can finish, and below
+// the orchestrator's grace period (ECS and k8s both default to 30s).
 const KILL_TIMEOUT_MS =
   Number(process.env.APP_KILL_TIMEOUT_MS || process.env.PM2_KILL_TIMEOUT) ||
-  5000;
+  25000;
+// A process over its memory limit isn't given time to drain.
+const MEMORY_RESTART_KILL_TIMEOUT_MS = Math.min(KILL_TIMEOUT_MS, 5000);
 const RESTART_DELAY_MS = 1000;
 const MEMORY_POLL_MS = 10000;
 // Node's own baseline RSS is ~46MB, so a limit under this restarts on every poll.
@@ -207,13 +212,13 @@ function onExit(app, child, code, signal) {
   if (!running.size && !pendingRestarts) finish(2);
 }
 
-// The back-end's SIGTERM handler waits on `server.close()`, which never returns
-// while a long request is in flight, so every stop needs the SIGKILL fallback.
-function stop(child) {
+// The back-end bounds its own drain on SIGTERM; this SIGKILL is the backstop
+// for an app that ignores SIGTERM or outlives it.
+function stop(child, timeoutMs) {
   if (child.stopping) return;
   child.stopping = true;
   child.kill("SIGTERM");
-  setTimeout(() => child.kill("SIGKILL"), KILL_TIMEOUT_MS).unref();
+  setTimeout(() => child.kill("SIGKILL"), timeoutMs).unref();
 }
 
 function shutdown(reason, code = 0) {
@@ -223,7 +228,7 @@ function shutdown(reason, code = 0) {
   log(`${reason}, stopping ${running.size} app(s)`);
   if (!running.size) finish(code);
 
-  for (const child of running.values()) stop(child);
+  for (const child of running.values()) stop(child, KILL_TIMEOUT_MS);
 }
 
 process.on("SIGTERM", () => shutdown("SIGTERM received"));
@@ -236,7 +241,7 @@ setInterval(() => {
     if (rss !== null && rss > limit) {
       log(`${name} over max_memory_restart (${rss} > ${limit}), restarting`);
       apps.find((app) => app.name === name).forceRestart = true;
-      stop(child);
+      stop(child, MEMORY_RESTART_KILL_TIMEOUT_MS);
     }
   }
 }, MEMORY_POLL_MS).unref();
