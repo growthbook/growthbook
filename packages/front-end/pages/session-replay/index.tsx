@@ -12,7 +12,6 @@ import {
   PiPlus,
   PiX,
 } from "react-icons/pi";
-import { AppFeatures } from "shared/types/app-features";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
@@ -237,7 +236,7 @@ const FILTER_LABELS: Record<string, string> = {
 };
 
 export default function SessionReplayPage() {
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
   const sessionReplayEnabled = !!gb?.isOn("session-replays");
 
   const router = useRouter();
@@ -546,7 +545,7 @@ export default function SessionReplayPage() {
         display: "flex",
         flexDirection: "row",
         alignItems: "stretch",
-        height: "calc(100vh - 72px)",
+        height: "calc(100vh - var(--page-top-offset) - 16px)",
         minHeight: 520,
         overflow: "hidden",
       }}
@@ -731,7 +730,7 @@ export default function SessionReplayPage() {
                       <Text size="sm">
                         <span
                           style={{
-                            fontFamily: "monospace",
+                            fontFamily: "var(--code-font-family)",
                             color: "var(--accent-9)",
                           }}
                         >
@@ -812,7 +811,7 @@ export default function SessionReplayPage() {
                   ID:
                 </Text>
                 <Text color="text-low">
-                  <span style={{ fontFamily: "monospace" }}>
+                  <span style={{ fontFamily: "var(--code-font-family)" }}>
                     {(metadata?.id ?? selectedSessionId).slice(0, 16)}…
                   </span>
                 </Text>
@@ -1093,3 +1092,5 @@ export default function SessionReplayPage() {
     </div>
   );
 }
+
+SessionReplayPage.noPageWrapper = true;

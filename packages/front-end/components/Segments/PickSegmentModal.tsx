@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 
 export default function PickSegmentModal({
   close,
@@ -35,7 +36,7 @@ export default function PickSegmentModal({
       open={true}
       close={close}
       header="Apply a Segment"
-      submit={form.handleSubmit(async (data) => {
+      submit={validatedSubmit(form, async (data) => {
         await save(data.segment);
       })}
     >

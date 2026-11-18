@@ -12,20 +12,23 @@ jest.mock("back-end/src/enterprise/services/ai", () => ({
   aiTool: (definition: unknown) => definition,
 }));
 
+const org = {
+  id: "org1",
+  name: "Organization",
+  url: "",
+  ownerEmail: "owner@example.com",
+  dateCreated: new Date(),
+  members: [],
+  invites: [],
+  settings: {},
+};
 const context = new ReqContextClass({
-  org: {
-    id: "org1",
-    name: "Organization",
-    url: "",
-    ownerEmail: "owner@example.com",
-    dateCreated: new Date(),
-    members: [],
-    invites: [],
-    settings: {},
-  },
+  org,
   auditUser: { type: "api_key", apiKey: "test" },
   role: "admin",
 });
+// The mocked constructor doesn't assign, and the skills index reads org settings.
+context.org = org;
 
 function conversation() {
   return new LocalConversationBuffer("conv_slack", {

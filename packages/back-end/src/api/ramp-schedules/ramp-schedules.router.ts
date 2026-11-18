@@ -3,6 +3,7 @@ import {
   startRampSchedule,
   pauseRampSchedule,
   resumeRampSchedule,
+  retryRampSchedule,
   jumpRampSchedule,
   completeRampSchedule,
   approveStepRampSchedule,
@@ -21,6 +22,10 @@ import {
 } from "./rampScheduleActions";
 import { listRampSchedules } from "./listRampSchedules";
 import { postRampSchedule } from "./postRampSchedule";
+import {
+  pauseMatchingRampSchedules,
+  rollbackMatchingRampSchedules,
+} from "./alertRampSchedules";
 
 export const rampSchedulesRoutes: OpenApiRoute[] = [
   // CRUD
@@ -30,6 +35,7 @@ export const rampSchedulesRoutes: OpenApiRoute[] = [
   startRampSchedule,
   pauseRampSchedule,
   resumeRampSchedule,
+  retryRampSchedule,
   rollbackRampSchedule,
   restartRampSchedule,
   jumpRampSchedule,
@@ -45,4 +51,7 @@ export const rampSchedulesRoutes: OpenApiRoute[] = [
   updateLockdownConfigRampSchedule,
   updateStepsRampSchedule,
   refreshMonitoringRampSchedule,
+  // Alert webhooks, across every matching ramp
+  rollbackMatchingRampSchedules,
+  pauseMatchingRampSchedules,
 ];

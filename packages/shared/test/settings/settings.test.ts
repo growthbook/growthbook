@@ -4,7 +4,10 @@ import {
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
 import { DEFAULT_STATS_ENGINE } from "../../src/constants";
-import { getScopedSettings } from "../../src/settings";
+import {
+  getScopedSettings,
+  getUnsetAnalysisSettings,
+} from "../../src/settings";
 import { experiments, metrics } from "./test-objects";
 
 const baseOrganization: OrganizationInterface = {
@@ -116,8 +119,6 @@ describe("settings", () => {
           expect(metricSettings_revenue.regressionAdjustmentDays.value).toEqual(
             0,
           );
-          expect(metricSettings_revenue.winRisk.value).toEqual(0.0025);
-          expect(metricSettings_revenue.loseRisk.value).toEqual(0.0125);
 
           // Testvar
           const { settings: metricSettings_testvar } = getScopedSettings({
@@ -137,8 +138,6 @@ describe("settings", () => {
           expect(metricSettings_testvar.regressionAdjustmentDays.value).toEqual(
             0,
           );
-          expect(metricSettings_testvar.winRisk.value).toEqual(0.0015);
-          expect(metricSettings_testvar.loseRisk.value).toEqual(0.0225);
 
           // CUPED denominator is count rejection
           // const conversions_as_count: MetricInterface = {
@@ -191,9 +190,6 @@ describe("settings", () => {
       //   "stats engine is bayesian"
       // );
       expect(settings_revenue_1.confidenceLevel.value).toEqual(0.95);
-      // metric level:
-      expect(settings_revenue_1.winRisk.value).toEqual(0.0025);
-      expect(settings_revenue_1.loseRisk.value).toEqual(0.0125);
 
       const orgSettings2: Partial<OrganizationSettings> = {
         statsEngine: "frequentist",
@@ -214,14 +210,55 @@ describe("settings", () => {
       // expect(settings_revenue_2.confidenceLevel.meta.warning).toEqual(
       //   "stats engine is frequentist"
       // );
-      // metric level:
-      // TODO
-      // expect(settings_revenue_1.winRisk.meta.warning).toEqual(
-      //   "stats engine is bayesian"
-      // );
-      // expect(settings_revenue_1.loseRisk.meta.warning).toEqual(
-      //   "stats engine is bayesian"
-      // );
+    });
+  });
+});
+
+describe("getUnsetAnalysisSettings", () => {
+  const organization = {
+    ...baseOrganization,
+    settings: {
+      statsEngine: "bayesian",
+      regressionAdjustmentEnabled: true,
+      sequentialTestingEnabled: true,
+      sequentialTestingTuningParameter: 2000,
+    },
+  } as OrganizationInterface;
+
+  it("fills only what's unset, with the project's stats engine", () => {
+    expect(
+      getUnsetAnalysisSettings({
+        organization,
+        project: mockProject,
+        experiment: {
+          statsEngine: undefined,
+          sequentialTestingEnabled: false,
+          postStratificationEnabled: null,
+        },
+      }),
+    ).toEqual({
+      statsEngine: "frequentist",
+      regressionAdjustmentEnabled: false,
+      postStratificationEnabled: true,
+      sequentialTestingTuningParameter: 2000,
+    });
+  });
+
+  it("stores post-stratification off while precomputed dimensions are", () => {
+    expect(
+      getUnsetAnalysisSettings({
+        organization: {
+          ...organization,
+          settings: { disablePrecomputedDimensions: true },
+        },
+        experiment: {},
+      }),
+    ).toEqual({
+      statsEngine: DEFAULT_STATS_ENGINE,
+      regressionAdjustmentEnabled: false,
+      postStratificationEnabled: false,
+      sequentialTestingEnabled: false,
+      sequentialTestingTuningParameter: 5000,
     });
   });
 });

@@ -17,8 +17,10 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import { Popover } from "@/ui/Popover";
+import ScrollArea from "@/ui/ScrollArea";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SelectField from "@/components/Forms/SelectField";
 import ConfigKeyUsageBadge from "@/components/Configs/ConfigKeyUsageBadge";
@@ -224,11 +226,8 @@ export default function ConfigFieldRow({
                           value={disabled ? "" : editText}
                           setValue={setEditText}
                           valueType={vt}
-                          useCodeInput={vt === "json"}
-                          showFullscreenButton={vt === "json"}
                           codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                           constantContext={constantContext}
-                          inlineConstantButton
                           disabled={disabled}
                         />
                       )}
@@ -279,7 +278,7 @@ export default function ConfigFieldRow({
                 })()}
                 {editError && (
                   <HelperText status="error" size="sm">
-                    {editError}
+                    <MarkdownLinks text={editError} />
                   </HelperText>
                 )}
               </>
@@ -400,21 +399,23 @@ export default function ConfigFieldRow({
                   >
                     JSON Schema
                   </div>
-                  <Box
+                  <ScrollArea
+                    direction="both"
+                    edgeCue="fade"
                     style={{
                       maxHeight: 360,
-                      overflow: "auto",
                       background: "var(--slate-a2)",
-                      padding: "8px 10px",
                       borderRadius: 6,
                     }}
                   >
-                    <InlineCode
-                      language="json"
-                      code={schemaPreview}
-                      fontSize="12px"
-                    />
-                  </Box>
+                    <Box style={{ padding: "8px 10px" }}>
+                      <InlineCode
+                        language="json"
+                        code={schemaPreview}
+                        fontSize="12px"
+                      />
+                    </Box>
+                  </ScrollArea>
                 </Box>
               }
             />

@@ -751,24 +751,25 @@ export type SlackChannelOption = {
   id: string;
   name: string;
   isPrivate: boolean;
-  isMember: boolean;
   alreadyConnected: boolean;
 };
 
 /**
  * Channels available to connect in the org's Slack workspace, for the
  * add-channel picker. Private channels only appear once the bot has been
- * /invited (conversations.list semantics). Caps at ~5 pages per request;
- * `nextCursor` lets the UI fetch more.
+ * /invited (conversations.list semantics). One Slack page per request so the
+ * UI can show channels as they arrive; `nextCursor` lets it fetch more.
  */
 export const listSlackWorkspaceChannels = async ({
   context,
   teamId,
   cursor,
+  signal,
 }: {
   context: ReqContext;
   teamId?: string;
   cursor?: string;
+  signal?: AbortSignal;
 }): Promise<{
   channels: SlackChannelOption[];
   nextCursor: string | null;
@@ -786,26 +787,23 @@ export const listSlackWorkspaceChannels = async ({
       .map((w) => w.slack?.channelId),
   );
 
-  const channels: SlackChannelOption[] = [];
-  let nextCursor: string | null = cursor || null;
-  for (let page = 0; page < 5; page++) {
-    const res = await listSlackConversations({
-      token,
-      cursor: nextCursor || undefined,
-    });
-    if (!res) throw new Error("Failed to list Slack channels");
-    channels.push(
-      ...res.channels.map((c) => ({
-        ...c,
-        alreadyConnected: connected.has(c.id),
-      })),
-    );
-    nextCursor = res.nextCursor;
-    if (!nextCursor) break;
+  const res = await listSlackConversations({ token, cursor, signal });
+  if (signal?.aborted) {
+    return { channels: [], nextCursor: null, teamId: wsTeamId };
   }
-  channels.sort((a, b) => a.name.localeCompare(b.name));
 
-  return { channels, nextCursor, teamId: wsTeamId };
+  if (!res) throw new Error("Failed to list Slack channels");
+
+  const channels = res.channels
+    .map(({ id, name, isPrivate }) => ({
+      id,
+      name,
+      isPrivate,
+      alreadyConnected: connected.has(id),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { channels, nextCursor: res.nextCursor, teamId: wsTeamId };
 };
 
 /**

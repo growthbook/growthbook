@@ -1,6 +1,9 @@
 // Specific files, not the package barrels: this module is imported by both apps
 // and a barrel round-trip risks a runtime cycle.
 import { proposedProjectScope } from "../util/featureDraftPurity";
+import { sdkConnectionSettingsAfter } from "../revisions/helpers";
+import { eventUserIdentity } from "../validators/event-user";
+import type { EventUser } from "../validators/event-user";
 import { holdsMoveDestination } from "./moveAuthority";
 import { NO_ENVIRONMENT_BINDING } from "./revisionPermissions";
 import type { RevisionAction, RevisionModel } from "./revisionPermissions";
@@ -99,6 +102,31 @@ export function holdsRevisionDestination(
   });
 }
 
+// An SDK connection's draft holds its Projects and environment inside its
+// settings, where `holdsRevisionDestination` reads no move. Landing one takes
+// update rights where it leaves the connection, which is what the server asks
+// when it applies the draft.
+export function holdsSdkConnectionDraftDestination(
+  permissionsUtil: Pick<Permissions, "canUpdateSDKConnection">,
+  connection: { projects?: string[]; environment?: string },
+  revision:
+    | { target?: { snapshot?: unknown; proposedChanges?: unknown } }
+    | null
+    | undefined,
+): boolean {
+  if (!revision?.target) return true;
+  const { projects, environment } = sdkConnectionSettingsAfter(
+    (revision.target.snapshot ?? {}) as {
+      sdkConnection?: { projects?: string[]; environment?: string };
+    },
+    revision.target.proposedChanges,
+  );
+  return permissionsUtil.canUpdateSDKConnection(connection, {
+    ...(projects !== undefined && { projects }),
+    ...(environment !== undefined && { environment }),
+  });
+}
+
 // Revert authority depends on the selected target's footprint and destination.
 export function canLandRevertToTarget(
   permissionsUtil: PermissionsUtil,
@@ -192,6 +220,19 @@ export function holdsFeatureMoveDestination(
   );
 }
 
+// Starting publishes each linked flag's draft, so waiving that draft's approval
+// takes bypass authority on the experiment's project and on the flag's.
+export function canBypassStartApproval(
+  permissionsUtil: Pick<Permissions, "canBypassFlagApprovalChecks">,
+  experiment: { project?: string },
+  flag: { project?: string },
+): boolean {
+  return (
+    permissionsUtil.canBypassFlagApprovalChecks(experiment, "feature") &&
+    permissionsUtil.canBypassFlagApprovalChecks(flag, "feature")
+  );
+}
+
 // Enabling an environment at creation reaches the SDK payload immediately.
 export function canEnableEnvironmentOnCreate(
   permissionsUtil: PermissionsUtil,
@@ -224,5 +265,42 @@ export function canWriteArchiveIntoDraft({
   if (!userId) return false;
   return (
     revision.authorId === userId || !!revision.contributors?.includes(userId)
+  );
+}
+
+// A feature's environment switch changes it one way or another: in a draft,
+// with draft authority, or straight to live with publish authority there.
+export function canOfferEnvironmentToggle(
+  permissionsUtil: Pick<
+    Permissions,
+    "canEditFeatureDrafts" | "canPublishFeature"
+  >,
+  feature: ProjectScoped,
+  environmentId: string,
+): boolean {
+  return (
+    permissionsUtil.canEditFeatureDrafts(feature) ||
+    permissionsUtil.canPublishFeature(feature, [environmentId])
+  );
+}
+
+// Mirrors the server's `canDiscardFeatureDraft` for a signed-in member: draft
+// authority, or having written the draft.
+export function canDiscardFeatureDraftControl({
+  permissions,
+  feature,
+  draft,
+  userId,
+}: {
+  permissions: Pick<Permissions, "canEditFeatureDrafts">;
+  feature: ProjectScoped;
+  draft: { createdBy?: EventUser; contributors?: string[] };
+  userId?: string | null;
+}): boolean {
+  if (permissions.canEditFeatureDrafts(feature)) return true;
+  if (!userId) return false;
+  return (
+    eventUserIdentity(draft.createdBy ?? null) === userId ||
+    !!draft.contributors?.includes(userId)
   );
 }

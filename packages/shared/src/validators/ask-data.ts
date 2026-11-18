@@ -44,6 +44,7 @@ export const searchTablesValidator = {
     })
     .strict(),
   summary: "Search warehouse tables",
+  confirmation: [],
   operationId: "searchWarehouseTables",
   tags: ["data-sources"],
   method: "post" as const,
@@ -84,6 +85,7 @@ export const getTableSchemaValidator = {
     })
     .strict(),
   summary: "Get warehouse table schemas",
+  confirmation: [],
   operationId: "getWarehouseTableSchema",
   tags: ["data-sources"],
   method: "post" as const,
@@ -125,6 +127,7 @@ export const previewColumnValuesValidator = {
       .strict(),
   ]),
   summary: "Preview distinct column values",
+  confirmation: [],
   operationId: "previewWarehouseColumnValues",
   tags: ["data-sources"],
   method: "post" as const,
@@ -199,6 +202,7 @@ export const runSqlQueryValidator = {
       .strict(),
   ]),
   summary: "Execute a read-only SQL query",
+  confirmation: [],
   operationId: "runSqlQuery",
   tags: ["data-sources"],
   method: "post" as const,

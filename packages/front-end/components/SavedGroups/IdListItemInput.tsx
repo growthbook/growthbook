@@ -39,8 +39,7 @@ export const IdListItemInput: FC<{
   const [fileName, setFileName] = useState("");
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
-  const { unsupportedConnections, hasLargeSavedGroupFeature, connections } =
-    useLargeSavedGroupSupport();
+  const largeSavedGroupSupport = useLargeSavedGroupSupport();
 
   const resetFile = () => {
     setValues([]);
@@ -53,9 +52,7 @@ export const IdListItemInput: FC<{
     <>
       <LargeSavedGroupPerformanceWarning
         openUpgradeModal={openUpgradeModal}
-        hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-        unsupportedConnections={unsupportedConnections}
-        connections={connections}
+        {...largeSavedGroupSupport}
       />
       <label className="form-group font-weight-bold">
         Choose how to enter items for this group:

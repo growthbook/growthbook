@@ -32,6 +32,7 @@ const env: EnvironmentInitValue = {
   hasMistralKey: false,
   hasGoogleAIKey: false,
   uploadMethod: "local",
+  interleavingEnabled: false,
 };
 
 export async function initEnv() {
@@ -45,6 +46,10 @@ export async function initEnv() {
       sendDefaultPii: true,
       environment: env.environment,
       release: env.build?.sha,
+      ignoreErrors: [
+        // from a unknown Chrome extension that wraps window.fetch
+        /reading 'M_ID'/,
+      ],
       beforeSend: (event) => scrubSentryEvent(event),
     });
   }
@@ -95,6 +100,9 @@ export function envAllowsCreatingMetrics() {
 }
 export function envAllowsCreatingDimensions() {
   return env.allowCreateDimensions;
+}
+export function envEnablesInterleaving() {
+  return env.interleavingEnabled;
 }
 export function getDefaultConversionWindowHours() {
   return env.defaultConversionWindowHours;
@@ -161,6 +169,15 @@ export function getExperimentRefreshFrequency() {
 
 export function getAutoSliceUpdateFrequencyHours() {
   return env.autoSliceUpdateFrequencyHours;
+}
+
+// e.g. "7 days" or "12 hours"
+export function getAutoSliceUpdateFrequencyText() {
+  const hours = getAutoSliceUpdateFrequencyHours();
+  const days = Math.round((hours / 24) * 10) / 10;
+  return days >= 1
+    ? `${days} ${days === 1 ? "day" : "days"}`
+    : `${hours} ${hours === 1 ? "hour" : "hours"}`;
 }
 
 export function getUploadMethod(): "local" | "s3" | "google-cloud" {

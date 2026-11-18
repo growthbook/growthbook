@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { baseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
 
 export const queryStatusValidator = z.enum([
@@ -54,6 +55,7 @@ export const apiQueryValidator = namedSchema(
       queryType: z.string(),
       createdAt: z.string(),
       startedAt: z.string(),
+      finishedAt: z.string().nullable(),
       status: z.enum([
         "running",
         "queued",
@@ -61,6 +63,7 @@ export const apiQueryValidator = namedSchema(
         "partially-succeeded",
         "succeeded",
       ]),
+      error: z.string().nullable().describe("Why the query failed"),
       externalId: z.string(),
       dependencies: z.array(z.string()),
       runAtEnd: z.boolean(),
@@ -91,4 +94,87 @@ export const getQueryValidator = {
   method: "get" as const,
   path: "/queries/:id",
   exampleRequest: { params: { id: "abc123" } },
+};
+
+// "Test Query" runs, one type per SQL editor; testQuery when the editor isn't specified
+export const testQueryTypeValidator = z.enum([
+  "testQuery",
+  "factTableTest",
+  "exposureQueryTest",
+  "contextualBanditQueryTest",
+  "interleavingExposureQueryTest",
+  "identityJoinTest",
+  "featureUsageQueryTest",
+  "metricTest",
+  "segmentTest",
+  "dimensionTest",
+]);
+
+export const queryStatisticsValidator = z.object({
+  executionDurationMs: z.number().optional(),
+  totalSlotMs: z.number().optional(),
+  rowsProcessed: z.number().optional(),
+  bytesProcessed: z.number().optional(),
+  bytesBilled: z.number().optional(),
+  rowsInserted: z.number().optional(),
+  warehouseCachedResult: z.boolean().optional(),
+  partitionsUsed: z.boolean().optional(),
+  physicalWrittenBytes: z.number().optional(),
+  // Partitions read vs. available, to measure pruning (BigQuery reports only partitions read)
+  partitionsScanned: z.number().optional(),
+  partitionsTotal: z.number().optional(),
+});
+
+// One row per query GrowthBook sends to a warehouse, including queries with no Query document
+export const queryLogValidator = baseSchema
+  .extend({
+    datasource: z.string(),
+    datasourceType: z.string(),
+    queryType: z.string(),
+    status: z.enum(["succeeded", "failed"]),
+    startedAt: z.date(),
+    durationMs: z.number(),
+    // The warehouse's own job/query ID, for joining with its query history
+    externalId: z.string().optional(),
+    queryId: z.string().optional(),
+    experimentId: z.string().optional(),
+    factTableIds: z.array(z.string()).optional(),
+    snapshotTriggeredBy: z.string().optional(),
+    snapshotType: z.string().optional(),
+    userId: z.string().optional(),
+    rowsReturned: z.number().optional(),
+    error: z.string().optional(),
+    // The warehouse's own error code, e.g. Snowflake 002003 or BigQuery notFound
+    errorCode: z.string().optional(),
+    statistics: queryStatisticsValidator.optional(),
+  })
+  .strict();
+
+export const listDataSourceQueriesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z
+    .object({ id: z.string().describe("The data source id") })
+    .strict(),
+  responseSchema: z.object({ queries: z.array(apiQueryValidator) }).strict(),
+  summary: "Get a data source's 50 most recent queries",
+  operationId: "listDataSourceQueries",
+  tags: ["queries"],
+  method: "get" as const,
+  path: "/data-sources/:id/queries",
+};
+
+export const postQueryCancelValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ query: apiQueryValidator }).strict(),
+  summary: "Cancel a running query",
+  description:
+    "Also asks the warehouse to stop it where the integration supports that. Needs permission to run queries on the data source.",
+  confirmation: ["other.write"] as const,
+  operationId: "postQueryCancel",
+  tags: ["queries"],
+  method: "post" as const,
+  path: "/queries/:id/cancel",
 };

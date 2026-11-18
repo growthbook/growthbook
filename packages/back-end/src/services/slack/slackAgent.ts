@@ -75,8 +75,8 @@ export const slackAgentConfig: AgentConfig<Record<string, never>> = {
   ...sharedAgentSettings,
   agentType: "slack",
   injectDatasourceHint: false,
-  buildSystemPrompt: async () =>
-    buildAgentSystemPrompt([
+  buildSystemPrompt: async (ctx) =>
+    buildAgentSystemPrompt(ctx, [
       AGENT_CORE_GUIDANCE,
       SLACK_REPLY_GUIDANCE,
       GROWTHBOOK_CONCEPTS_GUIDANCE,

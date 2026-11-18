@@ -7,12 +7,12 @@ import {
   getRulesForEnvironment,
   normalizeTargetingInUpdates,
   stemRuleId,
-  validateFeatureValue,
 } from "shared/util";
 import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
@@ -29,9 +29,10 @@ import { BadRequestError } from "back-end/src/util/errors";
 import {
   addIdsToFlatRules,
   addIdsToRules,
+  assertHoldoutValueValid,
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
   inheritStoredRolloutSeeds,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
@@ -58,6 +59,7 @@ import {
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import { holdFeatureUpdate } from "back-end/src/services/confirmations";
 import { validateEnvKeys } from "./postFeature";
 import {
   validateChangedRuleReferences,
@@ -180,7 +182,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // ensure default value matches value type
     let defaultValue;
     if (req.body.defaultValue != null) {
-      defaultValue = validateFeatureValue(
+      defaultValue = assertStorableFeatureValue(
         feature,
         req.body.defaultValue,
         "Default value",
@@ -219,6 +221,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             feature.valueType,
           )
         : null;
+    // Judged by the schema this request leaves in place.
+    assertHoldoutValueValid(
+      req.context,
+      jsonSchema ? { ...feature, jsonSchema } : feature,
+      req.body.holdout,
+    );
 
     // The backing config is fixed at creation — reject any attempt to change it
     // (a no-op resend of the same value is allowed). Matches the UI, which only
@@ -600,6 +608,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           metadataChanges,
         );
       }
+      // `canBypass` ORs the two sources, so it cannot name which one applied.
+      // Ask the org setting directly; the permission is what remains.
+      const approvalGate: BypassedGate = {
+        type: "approval-required",
+        outcome: "bypassed",
+        via: canUseRestApiBypassSetting(req)
+          ? "restApiBypassesReviews"
+          : "bypassApprovalPermission",
+      };
       const revisionChanges: Partial<FeatureRevisionInterface> = {
         ...(hasEnvEnabledChanges
           ? { environmentsEnabled: changedEnvEnabled }
@@ -631,6 +648,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         changes: revisionChanges,
         comment: req.body.comment ?? "Created via REST API",
         canBypassApprovalChecks: canBypass,
+        beforeLanding: ({ bypassesApproval }) =>
+          holdFeatureUpdate(
+            req.context,
+            feature,
+            {
+              archived: newArchived,
+              envEnabled: changedEnvEnabled,
+              defaultValue: defaultValueChanged,
+              rules: changedRuleEnvironments.length > 0,
+              metadata: Object.keys(metadataChanges),
+              prerequisites: hasPrereqChanges,
+              holdout: hasHoldoutChange,
+            },
+            bypassesApproval ? [approvalGate] : [],
+          ),
       });
 
       updatedFeature = updatedFeatureFromRevision;
@@ -666,17 +698,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           `Failed to dispatch revision.published for feature ${feature.id}`,
         );
       }
-      if (bypassedApproval) {
-        bypassedGates.push({
-          type: "approval-required",
-          outcome: "bypassed",
-          // `canBypass` ORs the two sources, so it cannot name which one applied.
-          // Ask the org setting directly; the permission is what remains.
-          via: canUseRestApiBypassSetting(req)
-            ? "restApiBypassesReviews"
-            : "bypassApprovalPermission",
-        });
-      }
+      if (bypassedApproval) bypassedGates.push(approvalGate);
     }
 
     await addTagsDiff(
@@ -694,8 +716,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       details: auditDetailsUpdate(feature, updatedFeature),
     });
 
-    const groupMap = await getSavedGroupMap(req.context);
-
     const experimentMap = await getExperimentMapForFeature(
       req.context,
       feature.id,
@@ -707,8 +727,10 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       feature: updatedFeature,
       version: updatedFeature.version,
     });
-    const safeRolloutMap =
-      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+      req.context,
+      { features: [updatedFeature], experiments: experimentMap.values() },
+    );
     return {
       feature: await resolveOwnerEmail(
         getApiFeatureObj({

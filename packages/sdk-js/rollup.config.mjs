@@ -18,6 +18,13 @@ const terserSettings = terser({
   mangle: {
     properties: {
       regex: /^_/,
+      reserved: [
+        "_experimentsDisabled",
+        "_hasEventConsumer",
+        "_subscribeCustomEvents",
+        "_subscribeExperimentViewed",
+        "_subscribeFeatureUsage",
+      ],
     },
   },
   ecma: 5,

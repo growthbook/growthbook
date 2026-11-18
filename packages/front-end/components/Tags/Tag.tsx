@@ -2,7 +2,7 @@ import React from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/ui/Badge";
+import Badge, { Size as BadgeSize } from "@/ui/Badge";
 import { RadixColor } from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
@@ -18,6 +18,7 @@ export const TAG_COLORS = [
 
 export type TagProps = {
   tag: string;
+  size?: BadgeSize;
   color?: RadixColor;
   description?: string;
   skipMargin?: boolean;
@@ -30,6 +31,7 @@ export type TagProps = {
 
 export default function Tag({
   tag,
+  size,
   color,
   description,
   skipMargin,
@@ -107,6 +109,7 @@ export default function Tag({
       title={truncate ? undefined : displayTitle}
       label={maxChars != null ? displayLabel : content}
       color={tagColor}
+      size={size}
       variant="soft"
       className={maxChars != null ? undefined : "text-ellipsis d-inline-block"}
       style={maxChars != null ? badgeStyle : { maxWidth }}

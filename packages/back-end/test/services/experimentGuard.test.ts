@@ -1,5 +1,6 @@
 import {
-  computeExperimentGuardConflictKeys,
+  computeExperimentGuardConflicts,
+  describeExperimentGuardConflict,
   experimentGuardConflictsAcknowledged,
   decideExperimentGuard,
   configPublishAffectedRoots,
@@ -9,9 +10,10 @@ import {
   constantRevisionAffectsServedValue,
 } from "back-end/src/services/experimentGuard";
 
-type Impl = Parameters<typeof computeExperimentGuardConflictKeys>[0][number];
+type Impl = Parameters<typeof computeExperimentGuardConflicts>[0][number];
 
 const impl = (over: Partial<Impl>): Impl => ({
+  featureId: "checkout",
   configKey: "base",
   relation: "self",
   experimentStatus: "running",
@@ -51,23 +53,23 @@ describe("served-value change classification", () => {
   });
 });
 
-describe("computeExperimentGuardConflictKeys", () => {
+describe("computeExperimentGuardConflicts", () => {
   it("collects self + descendant configs backing a running live arm", () => {
-    const keys = computeExperimentGuardConflictKeys(
+    const keys = computeExperimentGuardConflicts(
       [
         impl({ configKey: "base", relation: "self" }),
         impl({ configKey: "mobile", relation: "descendant" }),
       ],
       new Set(["base", "mobile"]),
     );
-    expect([...keys].sort()).toEqual(["base", "mobile"]);
+    expect([...keys.keys()].sort()).toEqual(["base", "mobile"]);
   });
 
   it("only counts a served config that itself opts into the guard", () => {
     // Publishing an unguarded config still conflicts with a guarded descendant
     // it feeds (mobile), but not an unguarded one (web) — guarding is a property
     // of the served config, not the published one.
-    const keys = computeExperimentGuardConflictKeys(
+    const keys = computeExperimentGuardConflicts(
       [
         impl({ configKey: "base", relation: "self" }),
         impl({ configKey: "mobile", relation: "descendant" }),
@@ -75,11 +77,11 @@ describe("computeExperimentGuardConflictKeys", () => {
       ],
       new Set(["mobile"]),
     );
-    expect([...keys]).toEqual(["mobile"]);
+    expect([...keys.keys()]).toEqual(["mobile"]);
   });
 
   it("excludes ancestors and lateral mixins (publish doesn't change them)", () => {
-    const keys = computeExperimentGuardConflictKeys(
+    const keys = computeExperimentGuardConflicts(
       [
         impl({ configKey: "parent", relation: "ancestor" }),
         impl({ configKey: "sibling", relation: "other" }),
@@ -90,7 +92,7 @@ describe("computeExperimentGuardConflictKeys", () => {
   });
 
   it("ignores non-running experiments and non-live (draft) arms", () => {
-    const keys = computeExperimentGuardConflictKeys(
+    const keys = computeExperimentGuardConflicts(
       [
         impl({ configKey: "a", experimentStatus: "stopped" }),
         impl({ configKey: "b", experimentStatus: "draft" }),
@@ -103,41 +105,110 @@ describe("computeExperimentGuardConflictKeys", () => {
   });
 
   it("dedupes a config referenced by multiple running arms", () => {
-    const keys = computeExperimentGuardConflictKeys(
+    const keys = computeExperimentGuardConflicts(
       [impl({ configKey: "base" }), impl({ configKey: "base" })],
       new Set(["base"]),
     );
-    expect([...keys]).toEqual(["base"]);
+    expect([...keys.keys()]).toEqual(["base"]);
   });
 
   it("keys conflicts per (config, experiment) — a different experiment is a new conflict", () => {
     // The arm-time fingerprint must go stale when a DIFFERENT experiment starts
     // on an acknowledged config: with config-key-only identity, E1 stopping and
     // E2 starting between arm and fire kept the set equal and published over E2.
-    const armTime = computeExperimentGuardConflictKeys(
+    const armTime = computeExperimentGuardConflicts(
       [impl({ configKey: "base", experimentId: "exp_1" })],
       new Set(["base"]),
     );
-    const fireTime = computeExperimentGuardConflictKeys(
+    const fireTime = computeExperimentGuardConflicts(
       [impl({ configKey: "base", experimentId: "exp_2" })],
       new Set(["base"]),
     );
-    expect([...armTime]).toEqual(["base|exp:exp_1"]);
-    expect(experimentGuardConflictsAcknowledged(fireTime, [...armTime])).toBe(
-      false,
-    );
+    expect([...armTime.keys()]).toEqual(["base|exp:exp_1"]);
+    expect(
+      experimentGuardConflictsAcknowledged(new Set(fireTime.keys()), [
+        ...armTime.keys(),
+      ]),
+    ).toBe(false);
     // The acknowledged experiment stopping is still a covered subset.
     expect(
-      experimentGuardConflictsAcknowledged(new Set<string>(), [...armTime]),
+      experimentGuardConflictsAcknowledged(new Set<string>(), [
+        ...armTime.keys(),
+      ]),
     ).toBe(true);
   });
 
   it("keys a contextual-bandit arm by its bandit id", () => {
-    const keys = computeExperimentGuardConflictKeys(
+    const keys = computeExperimentGuardConflicts(
       [impl({ configKey: "base", contextualBanditId: "cb_1" })],
       new Set(["base"]),
     );
-    expect([...keys]).toEqual(["base|cb:cb_1"]);
+    expect([...keys.keys()]).toEqual(["base|cb:cb_1"]);
+  });
+
+  it("describes each conflict with linked experiment, Config and Feature Flags", () => {
+    const conflicts = computeExperimentGuardConflicts(
+      [
+        impl({ experimentId: "exp_1", experimentName: "Checkout test" }),
+        impl({ experimentId: "exp_1", featureId: "cart" }),
+        impl({ contextualBanditId: "cb_1", experimentName: "Pricing" }),
+        impl({ configKey: "mobile", relation: "descendant" }),
+      ],
+      new Set(["base", "mobile"]),
+    );
+    const readable = {
+      experiments: new Set(["exp_1", "cb_1"]),
+      configs: new Set(["base", "mobile"]),
+      features: new Set(["checkout", "cart"]),
+    };
+    expect(
+      [...conflicts.values()].map((c) =>
+        describeExperimentGuardConflict(c, readable),
+      ),
+    ).toEqual([
+      "Publishing changes the live value that running experiment [Checkout test](/experiment/exp_1) reads from Config [base](/configs/base) via Feature Flags [checkout](/features/checkout), [cart](/features/cart).",
+      "Publishing changes the live value that running Contextual Bandit [Pricing](/contextual-bandit/cb_1) reads from Config [base](/configs/base) via Feature Flag [checkout](/features/checkout).",
+      "Publishing changes the live value that a running experiment reads from Config [mobile](/configs/mobile) via Feature Flag [checkout](/features/checkout).",
+    ]);
+  });
+});
+
+describe("describeExperimentGuardConflict", () => {
+  const conflict = {
+    experiment: { id: "exp_1", name: "Checkout", bandit: false },
+    configKey: "base",
+    featureIds: new Set(["checkout", "cart"]),
+  };
+
+  it("hides the experiment, Config and Feature Flags the publisher can't read", () => {
+    expect(
+      describeExperimentGuardConflict(conflict, {
+        experiments: new Set(),
+        configs: new Set(),
+        features: new Set(["cart"]),
+      }),
+    ).toBe(
+      "Publishing changes the live value that a running experiment you can't access reads from a Config you can't access via Feature Flag [cart](/features/cart).",
+    );
+  });
+
+  it("keeps a bracketed name linkable", () => {
+    expect(
+      describeExperimentGuardConflict(
+        {
+          ...conflict,
+          experiment: { ...conflict.experiment, name: "Checkout [mobile]" },
+          featureIds: new Set<string>(),
+        },
+        {
+          experiments: new Set(["exp_1"]),
+          configs: new Set(["base"]),
+          features: new Set(),
+        },
+      ),
+    ).toBe(
+      "Publishing changes the live value that running experiment [Checkout (mobile)](/experiment/exp_1) reads from Config [base](/configs/base).",
+    );
   });
 });
 

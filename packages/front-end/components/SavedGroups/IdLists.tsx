@@ -16,7 +16,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -29,6 +28,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { useSavedGroupDraftStates } from "@/hooks/useSavedGroupDraftStates";
+import SearchFilterRow from "@/components/Search/SearchFilterRow";
 import SavedGroupSearchFilters from "@/components/Search/SavedGroupSearchFilters";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
@@ -66,9 +66,8 @@ export default function IdLists({ groups, mutate }: Props) {
     [idLists, project],
   );
 
-  const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
-    useLargeSavedGroupSupport();
-  const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
+  const largeSavedGroupSupport = useLargeSavedGroupSupport();
+  const { unsupportedConnections } = largeSavedGroupSupport;
   const [showArchived, setShowArchived] = useState(false);
 
   const idListsWithOwners = useAddComputedFields(
@@ -152,13 +151,6 @@ export default function IdLists({ groups, mutate }: Props) {
 
   return (
     <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          source="large-saved-groups"
-          commercialFeature="large-saved-groups"
-        />
-      )}
       {deleteModal && (
         <SavedGroupDeleteModal
           savedGroup={deleteModal}
@@ -203,34 +195,32 @@ export default function IdLists({ groups, mutate }: Props) {
 
         {unsupportedConnections.length > 0 ? (
           <Box mt="4">
-            <LargeSavedGroupPerformanceWarning
-              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-              unsupportedConnections={unsupportedConnections}
-              connections={connections}
-              openUpgradeModal={() => setUpgradeModal(true)}
-            />
+            <LargeSavedGroupPerformanceWarning {...largeSavedGroupSupport} />
           </Box>
         ) : null}
 
         {filteredIdLists.length > 0 && (
           <>
-            <Flex align="center" justify="between" gap="3" mb="4">
-              <Box style={{ width: "40%" }}>
+            <SearchFilterRow
+              mb="4"
+              search={
                 <Field
                   size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}
                 />
-              </Box>
-              <SavedGroupSearchFilters
-                searchInputProps={searchInputProps}
-                syntaxFilters={syntaxFilters}
-                setSearchValue={setSearchValue}
-                groups={filteredIdLists}
-                hasArchived={hasArchived}
-              />
-            </Flex>
+              }
+              filters={
+                <SavedGroupSearchFilters
+                  searchInputProps={searchInputProps}
+                  syntaxFilters={syntaxFilters}
+                  setSearchValue={setSearchValue}
+                  groups={filteredIdLists}
+                  hasArchived={hasArchived}
+                />
+              }
+            />
             <Table variant="list" stickyHeader roundedCorners>
               <TableHeader>
                 <TableRow>

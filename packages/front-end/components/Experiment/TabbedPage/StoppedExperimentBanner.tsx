@@ -1,35 +1,43 @@
+import { useState } from "react";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiClock, PiPencilSimple } from "react-icons/pi";
+import { date } from "shared/dates";
 import { getAllVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { FaPencilAlt } from "react-icons/fa";
-import { PiClock } from "react-icons/pi";
-import {
-  experimentHasLinkedChanges,
-  includeExperimentInPayload,
-} from "shared/util";
-import { DocLink } from "@/components/DocLink";
-import ConfirmButton from "@/components/Modal/ConfirmButton";
+import { includeExperimentInPayload } from "shared/util";
 import { useAuth } from "@/services/auth";
+import { DocLink } from "@/components/DocLink";
 import Markdown from "@/components/Markdown/Markdown";
-import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import ResultsIndicator, {
+  RESULT_LABELS,
+} from "@/components/Experiment/ResultsIndicator";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
+import ExperimentBanner from "./ExperimentBanner";
 
-export interface Props {
+export type Props = {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   mutate: () => void;
   editResult?: () => void;
-}
+} & MarginProps;
 
 export default function StoppedExperimentBanner({
   experiment,
   linkedFeatures,
   mutate,
   editResult,
+  ...margin
 }: Props) {
   const { apiCall } = useAuth();
+  const [confirmingStop, setConfirmingStop] = useState(false);
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
@@ -43,123 +51,125 @@ export default function StoppedExperimentBanner({
   const result = experiment.results;
   const variations = getAllVariations(experiment);
 
-  const winningVariation =
-    (result === "lost"
-      ? variations[0]?.name
-      : result === "won"
-        ? variations[experiment.winner || 1]?.name
-        : "") || "";
+  const winningIndex = result === "won" ? experiment.winner || 1 : -1;
+  const releasedIndex = variations.findIndex(
+    (v) => v.id === experiment.releasedVariationId,
+  );
+  const variationLabel = (i: number, size: "md" | "lg" = "md") => (
+    <VariationLabel
+      number={i}
+      name={variations[i]?.name || `Variation ${i}`}
+      maxWidth="240px"
+      size={size}
+    />
+  );
 
-  const releasedVariation =
-    variations.find((v) => v.id === experiment.releasedVariationId)?.name || "";
+  const temporaryRollout = hasLiveLinkedChanges && !isHoldout;
+  const winner = !isHoldout && !!variations[winningIndex];
+  const headline = isHoldout
+    ? "Holdout stopped"
+    : result === "inconclusive" || result === "dnf"
+      ? RESULT_LABELS[result]
+      : "Experiment stopped";
+  const dateEnded = experiment.phases.at(-1)?.dateEnded;
+  const stoppedOn = dateEnded ? date(dateEnded) : null;
+  const analysis = experiment.analysis;
 
   return (
-    <div className="appbox">
-      <div
-        className="d-flex align-items-center p-3"
-        style={{ background: "var( --alert-premium-background-gradient-2)" }}
-      >
-        <div className="mr-2">
-          <h3 className="mb-0">
-            {isHoldout ? "Holdout Stopped" : "Experiment Stopped"}
-          </h3>
-        </div>
-        {experiment.results && (
-          <ResultsIndicator results={experiment.results} />
-        )}
-        <div className="flex-1"></div>
-        {releasedVariation &&
-          experimentHasLinkedChanges(experiment) &&
-          hasLiveLinkedChanges &&
-          !isHoldout && (
-            <div className="ml-3">
-              {(result === "won" || result === "lost") &&
-              winningVariation !== releasedVariation ? (
+    <>
+      {confirmingStop ? (
+        <ConfirmDialog
+          title="Stop temporary rollout?"
+          content="This completely stops serving traffic to the rolled-out variation."
+          yesText="Stop rollout"
+          color="red"
+          onConfirm={async () => {
+            await apiCall(`/experiment/${experiment.id}`, {
+              method: "POST",
+              body: JSON.stringify({ excludeFromPayload: true }),
+            });
+            mutate();
+            setConfirmingStop(false);
+          }}
+          onCancel={() => setConfirmingStop(false)}
+        />
+      ) : null}
+      <Flex direction="column" gap="3" {...margin}>
+        <ExperimentBanner
+          headline={
+            <>
+              {winner && result ? (
                 <>
-                  <strong>
-                    &quot;
-                    {winningVariation}
-                    &quot;
-                  </strong>{" "}
-                  won, but{" "}
+                  <ResultsIndicator results={result} />
+                  {variationLabel(winningIndex, "lg")}
+                </>
+              ) : result === "lost" && !isHoldout ? (
+                // No variation beside it: Control would read as the loser.
+                <ResultsIndicator results={result} />
+              ) : (
+                <Text weight="medium" size="lg" color="text-mid">
+                  {headline}
+                </Text>
+              )}
+              {stoppedOn ? (
+                <>
+                  <Text color="text-low">·</Text>
+                  <Text color="text-low">Stopped {stoppedOn}</Text>
                 </>
               ) : null}
-              <strong>
-                &quot;
-                {releasedVariation}
-                &quot;
-              </strong>{" "}
-              was rolled out to 100%
-            </div>
-          )}
-        {editResult && !isHoldout && (
-          <div>
-            <a
-              href="#"
-              className="alert-link float-right ml-2"
-              onClick={(e) => {
-                e.preventDefault();
-                editResult();
-              }}
-            >
-              <FaPencilAlt />
-            </a>
-          </div>
-        )}
-      </div>
-
-      {hasLiveLinkedChanges && !isHoldout && (
-        <Callout status="warning" m="3" icon={<PiClock />}>
-          <div className="d-flex align-items-center">
-            <div>
-              <strong>Temporary Rollout Enabled</strong>
-              <div className="my-1">
-                This experiment has been stopped, but changes are still being
-                applied to give you time to implement them in code.
-              </div>
-              When you no longer need this rollout, stop it to improve your site
-              performance.{" "}
-              <DocLink useRadix={false} docSection="temporaryRollout">
-                Learn more
-              </DocLink>
-            </div>
-            <div className="ml-auto pl-2">
-              <ConfirmButton
-                isDestructive
-                onClick={async () => {
-                  await apiCall(`/experiment/${experiment.id}`, {
-                    method: "POST",
-                    body: JSON.stringify({
-                      excludeFromPayload: true,
-                    }),
-                  });
-                  mutate();
-                }}
-                modalHeader="Stop Temporary Rollout"
-                confirmationText={
-                  <>
-                    <p>Are you sure you want to stop the Temporary Rollout?</p>
-                    <p>
-                      This will completely stop serving traffic to the winning
-                      variation.
-                    </p>
-                  </>
-                }
-                cta="Stop Rollout"
+            </>
+          }
+          hoverAction={
+            editResult && !isHoldout ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<PiPencilSimple />}
+                onClick={editResult}
               >
-                <button className="btn btn-primary">
-                  Stop Temporary Rollout
-                </button>
-              </ConfirmButton>
-            </div>
-          </div>
-        </Callout>
-      )}
-      {experiment?.analysis && (
-        <div className="border-top p-3">
-          <Markdown>{experiment.analysis}</Markdown>
-        </div>
-      )}
-    </div>
+                Edit result
+              </Button>
+            ) : null
+          }
+        >
+          {analysis ? <Markdown>{analysis}</Markdown> : null}
+        </ExperimentBanner>
+        {temporaryRollout ? (
+          <Callout
+            status="warning"
+            icon={<PiClock />}
+            action={
+              <Button
+                variant="outline"
+                color="red"
+                size="sm"
+                onClick={() => setConfirmingStop(true)}
+              >
+                Stop temporary rollout
+              </Button>
+            }
+          >
+            {releasedIndex >= 0 ? (
+              <Flex align="center" gap="1" wrap="wrap">
+                <Text weight="semibold">Temporary rollout:</Text>
+                {variationLabel(releasedIndex)}
+                <span>to 100% of users</span>
+              </Flex>
+            ) : (
+              <Text as="div" weight="semibold">
+                Temporary rollout enabled
+              </Text>
+            )}
+            <Box mt="2">
+              Changes stay live until you implement them in code. Stop the
+              rollout once you&apos;re done to improve performance.{" "}
+              <span style={{ whiteSpace: "nowrap" }}>
+                <DocLink docSection="temporaryRollout">Learn more</DocLink>
+              </span>
+            </Box>
+          </Callout>
+        ) : null}
+      </Flex>
+    </>
   );
 }

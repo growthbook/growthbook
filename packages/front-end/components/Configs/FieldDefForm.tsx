@@ -12,6 +12,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import Field from "@/components/Forms/Field";
 import CodeTextArea, {
@@ -319,11 +320,8 @@ export default function FieldDefForm({
         value={valueText}
         setValue={onValueChange}
         valueType={valueType}
-        useCodeInput={valueIsJson}
-        showFullscreenButton={valueIsJson}
         codeInputDefaultHeight={FIVE_LINES_HEIGHT}
         constantContext={constantContext}
-        inlineConstantButton
       />
     );
 
@@ -522,15 +520,8 @@ export default function FieldDefForm({
         borderBottom: "1px solid var(--slate-a3)",
       }}
     >
-      {/* Same grid template as the header/rows so the columns line up. The JSON
-          value editor floats its "Insert constant" button just above itself, so
-          add headroom to keep it inside the panel. */}
-      <Grid
-        columns={FIELD_GRID_TEMPLATE}
-        gapX="5"
-        align="start"
-        pt={withValue && valueIsJson && !valueIsNull ? "6" : "0"}
-      >
+      {/* Same grid template as the header/rows so the columns line up. */}
+      <Grid columns={FIELD_GRID_TEMPLATE} gapX="5" align="start">
         <Box style={{ minWidth: 0 }}>
           <Flex align="center" style={{ minHeight: 32 }}>
             <Box style={{ width: "100%" }}>
@@ -632,7 +623,7 @@ export default function FieldDefForm({
       )}
       {err && (
         <Callout status="error" mt="2" size="sm">
-          {err}
+          <MarkdownLinks text={err} />
         </Callout>
       )}
     </Box>

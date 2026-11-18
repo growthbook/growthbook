@@ -1,7 +1,9 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useForm } from "react-hook-form";
 import { ApiContextualBanditInterface } from "shared/validators";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Field from "@/components/Forms/Field";
 import SelectOwner from "@/components/Owner/SelectOwner";
 
@@ -14,7 +16,7 @@ export default function ContextualBanditOverviewModal({
   mutate: () => void;
   close: () => void;
 }) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const form = useForm({
     defaultValues: {
       name: cb.name,
@@ -30,14 +32,14 @@ export default function ContextualBanditOverviewModal({
       header="Edit Overview"
       close={close}
       cta="Save"
-      submit={form.handleSubmit(async (data) => {
-        await apiCall(`/api/v1/contextual-bandits/${cb.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
+      submit={validatedSubmit(form, async (data) => {
+        await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+          params: { id: cb.id },
+          body: {
             name: data.name.trim(),
             trackingKey: data.trackingKey,
             owner: data.owner,
-          }),
+          },
         });
         mutate();
       })}

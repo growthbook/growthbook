@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiCheckBold, PiGitMergeBold } from "react-icons/pi";
@@ -7,12 +7,14 @@ import {
   Revision,
   checkMergeConflicts,
   Conflict,
+  mergeNestedBranch,
   normalizeProposedChanges,
   patchOpsToPartial,
   getRevisionUpdatableFields,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -128,7 +130,7 @@ export function ExpandableConflict({
                   Use External Change
                 </Button>
               </Flex>
-              <ReactDiffViewer
+              <LazyDiffViewer
                 oldValue={baseStr}
                 newValue={liveStr}
                 compareMethod={DiffMethod.LINES}
@@ -158,7 +160,7 @@ export function ExpandableConflict({
                   Use My Change
                 </Button>
               </Flex>
-              <ReactDiffViewer
+              <LazyDiffViewer
                 oldValue={baseStr}
                 newValue={proposedStr}
                 compareMethod={DiffMethod.LINES}
@@ -226,16 +228,32 @@ export default function FixRevisionConflictsModal({
           resolvedChanges[conflict.field] = conflict.proposedValue;
         }
       } else if (strategy === "discard") {
-        // Keep the live value — no-op
+        // As the server rebases: a nested branch keeps the draft's settings
+        // that don't collide with live.
+        const nested = mergeNestedBranch(
+          conflict.field,
+          conflict.baseValue,
+          conflict.liveValue,
+          conflict.proposedValue,
+          "live",
+        );
+        if (nested) resolvedChanges[conflict.field] = nested.merged;
       } else {
         unresolvedConflicts.push(conflict);
       }
     });
 
-    // Include non-conflicting proposed changes
+    // Include non-conflicting proposed changes, re-based onto live per setting.
     Object.entries(proposedAsPartial).forEach(([field, value]) => {
       if (value !== undefined && !conflicts.find((c) => c.field === field)) {
-        resolvedChanges[field] = value;
+        const nested = mergeNestedBranch(
+          field,
+          baseSnapshot[field],
+          liveSnapshot[field],
+          value,
+          "proposed",
+        );
+        resolvedChanges[field] = nested ? nested.merged : value;
       }
     });
 
@@ -256,7 +274,13 @@ export default function FixRevisionConflictsModal({
       newProposedChanges:
         unresolvedConflicts.length === 0 ? newProposedChanges : undefined,
     };
-  }, [liveSnapshot, proposedChanges, rawConflictCheck, strategies]);
+  }, [
+    baseSnapshot,
+    liveSnapshot,
+    proposedChanges,
+    rawConflictCheck,
+    strategies,
+  ]);
 
   const hasChanges =
     mergeResult.newProposedChanges &&
@@ -399,7 +423,7 @@ export default function FixRevisionConflictsModal({
                           {field}
                         </Text>
                         <Box className="diff-wrapper" mt="2">
-                          <ReactDiffViewer
+                          <LazyDiffViewer
                             oldValue={formatValue(liveSnapshot[field])}
                             newValue={formatValue(
                               mergeResult.newProposedChanges![field],

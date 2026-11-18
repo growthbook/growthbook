@@ -45,7 +45,7 @@ RUN \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt \
   && pip install --no-cache-dir -r requirements.txt \
-  && pip install --no-cache-dir dist/*.whl ddtrace==4.8.2
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.16.1
 # No compiler in this stage (dev variant has only binutils) — fine while every
 # gbstats dep is a manylinux wheel; add one if a dep ever ships sdist-only.
 
@@ -85,6 +85,7 @@ RUN for p in libffi8 libbz2-1.0 liblzma5 libsqlite3-0 libncursesw6 libreadline8 
       dpkg -L "$p" 2>/dev/null | grep '\.so' \
         | xargs -r -I{} cp -Ln {} /opt/pydeps/ 2>/dev/null || true; \
     done; \
+  rm -f /opt/pydeps/libz.so*; \
   echo "staged (sweep + stdlib):" && ls -1 /opt/pydeps | sort
 
 # ----------------------------------------------------------------------------
@@ -111,10 +112,14 @@ COPY packages/front-end/package.json ./packages/front-end/package.json
 COPY packages/back-end/package.json ./packages/back-end/package.json
 COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
+COPY packages/remote-saved-groups-csv-parser/package.json ./packages/remote-saved-groups-csv-parser/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 # Install dependencies using cached store
-RUN pnpm install --frozen-lockfile --offline
+# GB_SKIP_PREPARE: sdk-js and remote-saved-groups-csv-parser build themselves in
+# "prepare" for Git dependency installs; here their sources aren't copied yet,
+# and `pnpm build` builds them below.
+RUN GB_SKIP_PREPARE=1 pnpm install --frozen-lockfile --offline
 
 # Compile kerberos from source (its prebuilt binary crashes at require time on
 # the distroless runtime); before COPY packages so the layer caches per-lockfile.
@@ -129,7 +134,7 @@ RUN \
   pnpm build \
   && test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
   && rm -rf packages/front-end/.next/cache \
-  && CI=true pnpm install --frozen-lockfile --offline --prod --no-optional \
+  && CI=true GB_SKIP_PREPARE=1 pnpm install --frozen-lockfile --offline --prod --no-optional \
   && CI=true pnpm prune --prod --no-optional \
   && find node_modules \( -name "*.md" -o -name "*.map" -o -name "CHANGELOG*" -o -name "LICENSE*" -o -name "README*" -o \( -name "*.ts" ! -name "*.d.ts" \) \) -type f -delete \
   && find node_modules -type d -name benchmarks -prune -exec rm -rf {} + \
@@ -186,6 +191,20 @@ RUN mkdir -p /krb5deps && \
   echo "staged krb5 closure:" && ls -1 /krb5deps
 # /usr/bin/env (coreutils) is also pulled from here — see stage 4.
 
+# TEMP for CVE-2026-85091 (aka -76844): bookworm zlib1g is unpatched; drop once our debian base fixes it.
+FROM debian:12-slim AS zlib
+ARG ZLIB_VERSION=1.4
+ARG ZLIB_SHA256=02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends build-essential curl ca-certificates && \
+  rm -rf /var/lib/apt/lists/*
+WORKDIR /zlib
+RUN curl -fsSL "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz" -o zlib.tar.gz && \
+  echo "${ZLIB_SHA256}  zlib.tar.gz" | sha256sum --check && \
+  tar -xzf zlib.tar.gz --strip-components=1 && \
+  ./configure && make -j"$(nproc)" && make test && \
+  cp -L libz.so.1 /libz.so.1
+
 # ----------------------------------------------------------------------------
 # Stage 4: the hardened runtime image — DHI node:24, distroless, non-root
 # (uid 1000). WORKDIR is /usr/local/src/app to match the Helm chart's hardcoded
@@ -195,11 +214,15 @@ RUN mkdir -p /krb5deps && \
 FROM dhi.io/node:${NODE_MAJOR}-debian12
 WORKDIR /usr/local/src/app
 
+# TEMP for CVE-2026-111497. Remove once dhi.io/node:24-debian12 ships >= 24.22.1.
+COPY --from=node:24.22.1-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+
 # Hardened Python interpreter + gbstats venv + the system shared-lib closure they
 # need (staged in pybuild; absent from the node base).
 COPY --from=pybuild /opt/python /opt/python
 COPY --from=pybuild /opt/venv /opt/venv
 COPY --from=pybuild /opt/pydeps /opt/pydeps
+COPY --from=zlib /libz.so.1 /opt/pydeps/libz.so.1
 
 # /usr/bin/env — cheap insurance for any `#!/usr/bin/env node` scripts the app
 # may exec at runtime (the DHI node runtime ships no coreutils). Nothing on the

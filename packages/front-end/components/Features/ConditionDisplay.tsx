@@ -1,20 +1,28 @@
 import stringify from "json-stringify-pretty-compact";
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useContext, useMemo, useRef } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
-import { isDefined } from "shared/util";
+import { getMalformedPrereqConditionError, isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { Popover } from "@/ui/Popover";
+import ScrollArea from "@/ui/ScrollArea";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
-import Badge from "@/ui/Badge";
+import VirtualizedCode, {
+  isLongCode,
+  RenderInFullContext,
+} from "@/components/SyntaxHighlighting/VirtualizedCode";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
 import { PlainEntityBadge } from "@/components/Features/EntityBadge";
 import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
 import Text from "@/ui/Text";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import InvalidPrereqConditionBadge from "@/components/Features/InvalidPrereqConditionBadge";
+import ValueGroup from "@/components/Features/ValueGroup";
+import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
@@ -112,6 +120,21 @@ function getValue(
 
 const MULTI_VALUE_LIMIT = 3;
 
+// A long condition shown as JSON scrolls inside a bounded box, highlighting
+// only the visible lines
+function ConditionJson({ code }: { code: string }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const renderInFull = useContext(RenderInFullContext);
+  if (renderInFull || !isLongCode(code)) {
+    return <InlineCode language="json" code={code} />;
+  }
+  return (
+    <ScrollArea ref={scrollRef} edgeCue="fade" style={{ maxHeight: 400 }}>
+      <VirtualizedCode scrollRef={scrollRef} language="json" code={code} />
+    </ScrollArea>
+  );
+}
+
 export function MultiValuesDisplay({
   values,
   displayMap,
@@ -140,47 +163,57 @@ export function MultiValuesDisplay({
             groupName={displayValue}
           />
         ) : (
-          <Badge
-            key={i}
-            color="gray"
-            className="text-ellipsis d-inline-block"
-            style={{ maxWidth: 300 }}
-            title={displayValue}
-            label={
-              <Text size="inherit" whiteSpace="pre" color="text-high">
-                {displayValue}
-              </Text>
-            }
-          />
+          <PlainEntityBadge key={i} label={displayValue} maxWidth={300} />
         );
       })}
       {values.length > MULTI_VALUE_LIMIT && (
-        <Tooltip
-          body={
-            <div>
-              {values.slice(MULTI_VALUE_LIMIT).map((v, i) => {
-                const isSavedGroup = savedGroupIds?.has(v);
-                const group = isSavedGroup ? getSavedGroupById(v) : null;
-                const isLast = i === values.slice(MULTI_VALUE_LIMIT).length - 1;
-                return (
-                  <span key={i}>
-                    {isSavedGroup && group
-                      ? group.groupName
-                      : displayMap?.[v] || v}
-                    {!isLast && ", "}
-                  </span>
-                );
-              })}
-            </div>
+        // A list can run to thousands of ids: one wrapped, scrollable block
+        <Popover
+          openOnHover
+          side="bottom"
+          align="start"
+          contentStyle={{ maxWidth: 480 }}
+          trigger={
+            <span className="mr-1">
+              <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
+            </span>
           }
-          usePortal
-        >
-          <span className="mr-1">
-            <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
-          </span>
-        </Tooltip>
+          content={
+            <ScrollArea gutter edgeCue="fade" style={{ maxHeight: 210 }}>
+              <RemainingValues
+                values={values}
+                displayMap={displayMap}
+                savedGroupIds={savedGroupIds}
+              />
+            </ScrollArea>
+          }
+        />
       )}
     </>
+  );
+}
+
+// Built only while its popover is open: the list can run to thousands.
+function RemainingValues({
+  values,
+  displayMap,
+  savedGroupIds,
+}: {
+  values: string[];
+  displayMap?: Record<string, string>;
+  savedGroupIds?: Set<string>;
+}) {
+  const { getSavedGroupById } = useDefinitions();
+  return (
+    <Text size="sm" color="text-mid">
+      {values
+        .slice(MULTI_VALUE_LIMIT)
+        .map((v) => {
+          const group = savedGroupIds?.has(v) ? getSavedGroupById(v) : null;
+          return group ? group.groupName : displayMap?.[v] || v;
+        })
+        .join(", ")}
+    </Text>
   );
 }
 
@@ -210,17 +243,18 @@ function MultiValueDisplay({
     );
   }
   return (
-    <Flex wrap="wrap" gap="2">
-      {!skipParens && <Text weight="medium">(</Text>}
+    <ValueGroup parens={!skipParens}>
       <MultiValuesDisplay
         values={parts}
         displayMap={displayMap}
         savedGroupIds={savedGroupIds}
       />
-      {!skipParens && <Text weight="medium">)</Text>}
-    </Flex>
+    </ValueGroup>
   );
 }
+
+// Rows left to build, for a display cut off past them.
+type RowBudget = { rows: number };
 
 function getConditionOrParts({
   conditions,
@@ -230,6 +264,7 @@ function getConditionOrParts({
   renderPrerequisite = false,
   keyPrefix = "",
   prefix,
+  budget,
 }: {
   conditions: ConditionWithParentId[][];
   savedGroups?: SavedGroupWithoutValues[];
@@ -238,6 +273,7 @@ function getConditionOrParts({
   renderPrerequisite?: boolean;
   keyPrefix?: string;
   prefix?: ReactNode;
+  budget?: RowBudget;
 }) {
   if (conditions.length === 0) return [];
   if (conditions.length === 1) {
@@ -249,6 +285,7 @@ function getConditionOrParts({
       renderPrerequisite,
       keyPrefix,
       prefix,
+      budget,
     });
   }
 
@@ -269,6 +306,7 @@ function getConditionOrParts({
   }
 
   conditions.forEach((condGroup, i) => {
+    if (budget && budget.rows <= 0) return;
     if (i > 0) {
       parts.push(
         <Text weight="medium" key={keyPrefix + "or-sep-" + i}>
@@ -284,6 +322,7 @@ function getConditionOrParts({
       initialAnd: false,
       renderPrerequisite,
       keyPrefix: `${keyPrefix}or-${i}-`,
+      budget,
     });
 
     parts.push(
@@ -294,7 +333,7 @@ function getConditionOrParts({
           borderLeft: "2px solid var(--gray-6)",
         }}
       >
-        <Flex direction="column" gap="2">
+        <Flex direction="column" gap="1">
           {groupContent}
         </Flex>
       </Box>,
@@ -320,6 +359,7 @@ function getConditionParts({
   renderPrerequisite = false,
   keyPrefix = "",
   prefix,
+  budget,
 }: {
   conditions: ConditionWithParentId[];
   savedGroups?: SavedGroupWithoutValues[];
@@ -328,8 +368,13 @@ function getConditionParts({
   renderPrerequisite?: boolean;
   keyPrefix?: string;
   prefix?: ReactNode;
+  budget?: RowBudget;
 }) {
-  return conditions.map(({ field, operator, value, parentId }, i) => {
+  const shown = budget
+    ? conditions.slice(0, Math.max(0, budget.rows))
+    : conditions;
+  if (budget) budget.rows -= shown.length;
+  return shown.map(({ field, operator, value, parentId }, i) => {
     let fieldEl: ReactNode = attributeIds.has(field) ? (
       <AttributeBadge attributeId={field} />
     ) : (
@@ -341,19 +386,7 @@ function getConditionParts({
         fieldEl = null;
       } else if (field.substring(0, 6) === "value.") {
         const displayValue = field.substring(6);
-        fieldEl = (
-          <Badge
-            color="gray"
-            className="text-ellipsis d-inline-block"
-            style={{ maxWidth: 300 }}
-            title={displayValue}
-            label={
-              <Text size="inherit" whiteSpace="pre" color="text-high">
-                {displayValue}
-              </Text>
-            }
-          />
-        );
+        fieldEl = <PlainEntityBadge label={displayValue} maxWidth={300} />;
       } else {
         fieldEl = (
           <Tooltip
@@ -447,17 +480,7 @@ function getConditionParts({
               <PlainEntityBadge label={displayValue} />
             )
           ) : (
-            <Badge
-              color="gray"
-              className="text-ellipsis d-inline-block"
-              style={{ maxWidth: 300 }}
-              title={displayValue}
-              label={
-                <Text size="inherit" whiteSpace="pre" color="text-high">
-                  {displayValue}
-                </Text>
-              }
-            />
+            <PlainEntityBadge label={displayValue} maxWidth={300} />
           )
         ) : (
           ""
@@ -472,12 +495,19 @@ export default function ConditionDisplay({
   savedGroups: savedGroupTargeting,
   prerequisites,
   prefix,
+  variant = "default",
+  rowLimit,
 }: {
   condition?: string;
   savedGroups?: SavedGroupTargeting[];
   prerequisites?: FeaturePrerequisite[];
   prefix?: ReactNode;
+  // "rows" sits each part on a 28px row, in the field text color.
+  variant?: "default" | "rows";
+  // Builds no more rows than this, where the rest are cut off from view.
+  rowLimit?: number;
 }) {
+  const rows = variant === "rows";
   const { savedGroups } = useDefinitions();
   const attributes = useAttributeMap();
   const attributeIds = useMemo(() => new Set(attributes.keys()), [attributes]);
@@ -486,35 +516,46 @@ export default function ConditionDisplay({
   let partId = 0;
   let prefixUsed = false;
 
+  const conds = useMemo(
+    () => (condition ? jsonToConds(condition) : null),
+    [condition],
+  );
+  // Not simple conditions, it shows as JSON, formatted only then.
+  const showsJson = !!condition && (conds === null || !attributes.size);
   const jsonFormattedCondition = useMemo(() => {
-    if (!condition) return;
+    if (!showsJson || !condition) return;
     try {
-      const parsed = JSON.parse(condition);
-      return stringify(parsed);
+      return stringify(JSON.parse(condition));
     } catch (e) {
       console.error(e);
       return condition;
     }
-  }, [condition]);
+  }, [condition, showsJson]);
+  const budget: RowBudget | undefined =
+    rowLimit === undefined ? undefined : { rows: rowLimit };
 
   if (savedGroupTargeting && savedGroupTargeting.length > 0) {
     parts.push(
       <SavedGroupTargetingDisplay
         savedGroups={savedGroupTargeting}
-        groupClassName="col-auto"
         initialAnd={false}
         key={`${partId++}-saved-group-targeting`}
         prefix={!prefixUsed ? prefix : undefined}
       />,
     );
     prefixUsed = true;
+    if (budget) budget.rows -= savedGroupTargeting.length;
   }
 
   if (prerequisites) {
     const prereqConditionsGrouped = prerequisites
       .map((p) => {
         const cond = jsonToConds(p.condition);
-        if (!cond || cond.length > 1) {
+        if (
+          !cond ||
+          cond.length > 1 ||
+          getMalformedPrereqConditionError(p.condition)
+        ) {
           let jsonFormattedCondition = p.condition;
           try {
             const parsed = JSON.parse(p.condition);
@@ -523,12 +564,13 @@ export default function ConditionDisplay({
             console.error(e, p.condition);
           }
           parts.push(
-            <Flex wrap="wrap" gap="2" key={partId++} className="w-100 col-auto">
+            <Flex wrap="wrap" gap="2" key={partId++} width="100%">
               {!prefixUsed && prefix}
               {prefixUsed && <Text weight="medium">AND</Text>}
               <Text>prerequisite</Text>
               <FeatureBadge featureId={p.id} />
-              <InlineCode language="json" code={jsonFormattedCondition} />
+              <ConditionJson code={jsonFormattedCondition} />
+              <InvalidPrereqConditionBadge condition={p.condition} />
             </Flex>,
           );
           prefixUsed = true;
@@ -559,38 +601,40 @@ export default function ConditionDisplay({
       initialAnd: prefixUsed,
       keyPrefix: `${partId++}-prereq-`,
       prefix: !prefixUsed ? prefix : undefined,
+      budget,
     });
     parts.push(...prereqParts);
     if (prereqParts.length > 0) prefixUsed = true;
   }
 
-  if (condition && jsonFormattedCondition) {
-    const conds = jsonToConds(condition);
-    // Could not parse into simple conditions
-    if (conds === null || !attributes.size) {
-      parts.push(
-        <div className="w-100" key={partId++}>
-          {!prefixUsed && prefix}
-          <InlineCode language="json" code={jsonFormattedCondition} />
-        </div>,
-      );
-      prefixUsed = true;
-    } else {
-      const conditionParts = getConditionOrParts({
-        conditions: conds,
-        savedGroups,
-        attributeIds,
-        keyPrefix: `${partId++}-condition-`,
-        initialAnd: prefixUsed,
-        prefix: !prefixUsed ? prefix : undefined,
-      });
-      parts.push(...conditionParts);
-      if (conditionParts.length > 0) prefixUsed = true;
-    }
+  if (condition && showsJson) {
+    parts.push(
+      <Box width="100%" key={partId++}>
+        {!prefixUsed && prefix}
+        <ConditionJson code={jsonFormattedCondition ?? condition} />
+      </Box>,
+    );
+    prefixUsed = true;
+  } else if (conds) {
+    const conditionParts = getConditionOrParts({
+      conditions: conds,
+      savedGroups,
+      attributeIds,
+      keyPrefix: `${partId++}-condition-`,
+      initialAnd: prefixUsed,
+      prefix: !prefixUsed ? prefix : undefined,
+      budget,
+    });
+    parts.push(...conditionParts);
+    if (conditionParts.length > 0) prefixUsed = true;
   }
 
   return (
-    <Flex direction="column" gap="2">
+    <Flex
+      direction="column"
+      gap={rows ? "0" : "1"}
+      className={rows ? styles.rows : undefined}
+    >
       {parts}
     </Flex>
   );

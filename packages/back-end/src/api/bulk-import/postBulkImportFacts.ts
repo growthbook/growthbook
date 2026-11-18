@@ -35,12 +35,27 @@ import {
 } from "back-end/src/util/factTable";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { BulkImportPartialFailureError } from "back-end/src/util/errors";
+import { requireConfirmation } from "back-end/src/services/confirmations";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator,
 )(async (req) => {
   const dryRun = req.body.dryRun === true;
+  // A dry run only checks, so only a real import waits for confirmation.
+  if (!dryRun) {
+    await requireConfirmation(req.context, {
+      actions: [
+        "factTable.create",
+        "factTable.edit",
+        "metric.create",
+        "metric.edit",
+      ],
+      summary: "Bulk import Fact Tables, filters and Fact Metrics",
+      links: [],
+      pin: null,
+    });
+  }
   const defaultManagedBy = req.body.defaultManagedBy ?? "api";
 
   const numCreated = {

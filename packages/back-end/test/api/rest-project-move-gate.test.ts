@@ -193,4 +193,59 @@ describe("moving an entity across Projects over REST", () => {
 
     expect(res.status).toBe(200);
   });
+
+  const updateGroup = (id: string, body: Record<string, unknown>) =>
+    request(app)
+      .post(`/api/v1/saved-groups/${id}`)
+      .send(body)
+      .set("Authorization", "Bearer x");
+
+  let groupSeq = 0;
+  async function seedGroup(): Promise<string> {
+    await mongoose.connection.collection("projects").insertMany(
+      [SRC, DST].map((id) => ({
+        id,
+        organization: org.id,
+        name: id,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      })),
+    );
+    as("u_admin", "admin");
+    const res = await request(app)
+      .post("/api/v1/saved-groups")
+      .send({
+        name: `moved_group_${++groupSeq}`,
+        values: ["u1"],
+        attributeKey: "userId",
+        owner: "",
+        projects: [SRC],
+      })
+      .set("Authorization", "Bearer x");
+    if (res.status >= 400) {
+      throw new Error(`seed failed: ${res.status} ${JSON.stringify(res.body)}`);
+    }
+    return res.body.savedGroup.id as string;
+  }
+
+  it("lets a project-level editor change saved-group values without sending projects", async () => {
+    const id = await seedGroup();
+
+    as("u_split", "draft_reverter");
+    const res = await updateGroup(id, { values: ["u1", "u2"] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.savedGroup.projects).toEqual([SRC]);
+    expect(res.body.savedGroup.values).toEqual(["u1", "u2"]);
+  });
+
+  it("still moves saved-group projects when they are explicitly provided", async () => {
+    const id = await seedGroup();
+
+    as("u_both", "draft_reverter");
+    const res = await updateGroup(id, { projects: [DST] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.savedGroup.projects).toEqual([DST]);
+  });
 });

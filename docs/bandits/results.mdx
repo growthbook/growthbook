@@ -1,6 +1,5 @@
 ---
 title: Understanding Bandit Results 
-slug: /bandits/results
 description: Read bandit results in GrowthBook, including the leaderboard, traffic allocation, credible intervals, and when a variation is marked the winner.
 ---
 
@@ -67,7 +66,7 @@ The third graph shows the variation weights over time.
 </Frame>
 
 As in the time series plot above displaying probability of being the best, variations with larger variation weights have a larger proportion of color on the graph.
-The variation weight for a period is equal to the probability of being the best arm, unless an arm has less than a 1% chance of being the best, in which case it is set to 1% and all of the other weights are recalibrated.
+The variation weight for a period comes from the probability of being the best arm. GrowthBook reserves 1% of traffic for each variation and splits the rest in proportion to these probabilities.
 By mousing over the graph, the tool tip will display the variation weight and number of users for each variation at that time.  
 This tooltip also works for the probability of winning graph.
 
@@ -97,4 +96,4 @@ A day passes and the bandit updates the variation weights. Now, when the User ID
    GrowthBook's bandit uses solely a Gaussian Thompson sampling approach for both proportion and binomial metrics. This allows us to mitigate bias caused by conversion rates that change over time with a unified weighting approach. So you may see some negative values for proportion metrics, but they should normalize with increased sample size and if your conversion rates are less extreme (e.g. further from 0% and 100%).
 
 2. **How can I see the number of conversions by arm?**<br />
-   You can see the number of _weighted_ conversions per arm on the Explore Tab. Because we apply a weighting approach to safe-guard the bandit against bias from changing conversion weights over time, the numerator used to compute means (either conversion rates for proportion metrics or just averages for mean metrics) is weighted over bandit update periods.
+   You can see the number of _weighted_ conversions per arm on the Explore Tab. Because we [weight results across update periods](/bandits/overview#weighting-results-across-update-periods) to safeguard the bandit against bias from changing variation weights over time, the numerator used to compute means (either conversion rates for proportion metrics or just averages for mean metrics) is weighted over bandit update periods.

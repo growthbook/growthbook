@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import md5 from "md5";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Environment,
@@ -27,7 +28,6 @@ import {
   getDefaultHashAttribute,
   featureHasEnvironment,
   filterEnvironmentsByFeature,
-  generateVariationId,
   getNewDraftExperimentsToPublish,
   getRulesForEnvironment,
   validateAndFixCondition,
@@ -38,6 +38,8 @@ import {
   formatJsonMultilineObjects,
   parseLooseJSON,
   getTargetingProjectIds,
+  getReviewSetting,
+  killSwitchReviewScope,
   type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
@@ -109,6 +111,7 @@ export const STRING_VERSION_OPERATORS = Object.values(
 export type NewExperimentRefRule = {
   type: "experiment-ref-new";
   name: string;
+  exposureQueryIdentifierType?: string;
 } & Omit<ExperimentRule, "type">;
 
 // Sentinel for the "All environments" tab; a non-empty string keeps Radix
@@ -156,35 +159,17 @@ export function useFeatureRulesEnv(): [
   return [stored === FEATURE_RULES_ALL_ENVS ? null : stored, setEnv];
 }
 
-export function useEnvironmentState() {
-  const [state, setState] = useLocalStorage("currentEnvironment", "dev");
-  const { settings } = useUser();
-  const environments = useEnvironments();
-  const hasAppliedPreferredEnv = useRef(false);
-
-  // Apply any preferred environment on first load
-  useEffect(() => {
-    if (hasAppliedPreferredEnv.current) return;
-    if (!settings) return;
-
-    const preferredEnv = settings.preferredEnvironment;
-    if (!preferredEnv) {
-      hasAppliedPreferredEnv.current = true;
-      return;
-    }
-
-    const isValidEnv = environments.some((e) => e.id === preferredEnv);
-    if (isValidEnv) {
-      setState(preferredEnv);
-    }
-    hasAppliedPreferredEnv.current = true;
-  }, [settings, state, setState, environments]);
-
-  if (!environments.map((e) => e.id).includes(state)) {
-    return [environments[0]?.id || "production", setState] as const;
-  }
-
-  return [state, setState] as const;
+// With scoped rules required, a new rule starts in the org's preferred
+// environment instead of all of them. Null when there's no usable preference.
+export function useScopedRuleDefaultEnvironment(
+  environments: { id: string }[],
+): string | null {
+  const { requireScopedFeatureRules, preferredEnvironment } = useOrgSettings();
+  return requireScopedFeatureRules &&
+    preferredEnvironment &&
+    environments.some((e) => e.id === preferredEnvironment)
+    ? preferredEnvironment
+    : null;
 }
 
 export function useEnvironments() {
@@ -382,9 +367,6 @@ export function getPrerequisites(feature: FeatureInterface) {
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
 }
-export function getTotalVariationWeight(weights: number[]): number {
-  return roundVariationWeight(weights.reduce((sum, w) => sum + w, 0));
-}
 
 export function getVariationDefaultName(
   val: ExperimentValue,
@@ -405,9 +387,7 @@ export function getVariationDefaultName(
   return val.value;
 }
 
-export const LARGE_FILE_SIZE = 1024 * 1024; // 1MB - default to text editor
-
-// Runs on every render of the JSON editors, so only broken input pays for a repair.
+// Tries a plain parse first, so only broken input pays for a repair.
 export function formatJSON(value: string): string | undefined {
   try {
     return formatJsonMultilineObjects(JSON.parse(value));
@@ -879,16 +859,6 @@ export function getEnabledEnvironments(
     if (!environments.some((e) => e.id === env)) return false;
     return !!feature.environmentSettings?.[env]?.enabled;
   });
-}
-
-export function getAffectedEnvs(
-  feature: FeatureInterface,
-  changedEnvs: string[],
-): string[] {
-  const settings = feature.environmentSettings;
-  if (!settings) return [];
-
-  return changedEnvs.filter((e) => settings?.[e]?.enabled);
 }
 
 export function getDefaultValue(valueType: FeatureValueType): string {
@@ -1653,61 +1623,6 @@ export function useAttributeMap(
   }, [attributeSchema]);
 }
 
-export function getExperimentDefinitionFromFeature(
-  feature: FeatureInterface,
-  expRule: ExperimentRule,
-) {
-  const trackingKey = expRule?.trackingKey || feature.id;
-  if (!trackingKey) {
-    return null;
-  }
-
-  const variations = expRule.values.map((v, i) => {
-    let name = i ? `Variation ${i}` : "Control";
-    if (v?.name) {
-      name = v.name;
-    } else if (feature.valueType === "boolean") {
-      name = v.value === "true" ? "On" : "Off";
-    }
-    return {
-      name,
-      key: i + "",
-      id: generateVariationId(),
-      screenshots: [],
-      description: v.value,
-    };
-  });
-  const variationWeights = expRule.values.map((v) => v.weight);
-  const expDefinition: Partial<ExperimentInterfaceStringDates> = {
-    trackingKey: trackingKey,
-    name: trackingKey + " experiment",
-    hypothesis: expRule.description || "",
-    description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
-    variations,
-    phases: [
-      {
-        coverage: expRule.coverage ?? 1,
-        variationWeights,
-        variations: variations.map((v) => ({
-          id: v.id,
-          status: "active" as const,
-        })),
-        name: "Main",
-        reason: "",
-        dateStarted: new Date().toISOString(),
-        condition: expRule.condition || "",
-        namespace: expRule.namespace || {
-          enabled: false,
-          name: "",
-          range: [0, 0],
-        },
-        seed: trackingKey,
-      },
-    ],
-  };
-  return expDefinition;
-}
-
 export function useRealtimeData(
   features: FeatureInterface[] = [],
   mock = false,
@@ -1924,4 +1839,24 @@ export function getAttributesWithVersionStringMismatches(
   return mismatchedAttributes.size > 0
     ? Array.from(mismatchedAttributes)
     : null;
+}
+
+// Environments where flipping a feature's kill switch needs review before it
+// can publish.
+export function getKillSwitchGatedEnvs(
+  requireReviews: OrganizationSettings["requireReviews"],
+  feature: FeatureInterface,
+): Set<string> | "all" | "none" {
+  if (requireReviews === true) return "all";
+  return killSwitchReviewScope(
+    Array.isArray(requireReviews)
+      ? getReviewSetting(requireReviews, feature)
+      : null,
+  );
+}
+
+// The id the SDK payload gives a feature's holdout rule (back-end
+// `util/features.ts`), derived rather than stored like a rule's own.
+export function getHoldoutRuleId(featureId: string, holdoutId: string) {
+  return `holdout_${md5(featureId + holdoutId)}`;
 }

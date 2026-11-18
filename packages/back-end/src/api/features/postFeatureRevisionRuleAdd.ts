@@ -16,6 +16,7 @@ import type {
 import {
   getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
+  flattenExposureQueryInput,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
@@ -36,7 +37,7 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { generateId } from "back-end/src/util/uuid";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   BadRequestError,
   InternalServerError,
@@ -58,6 +59,7 @@ import {
   stagedFeature,
   validateRampPlanPatches,
   withTemplatePlan,
+  withStagedSchema,
 } from "./validations";
 import {
   assertRuleVariationsMatchExperiment,
@@ -131,6 +133,9 @@ export function buildRuleFromInput(
       value: input.value,
       coverage: input.coverage ?? 1,
       hashAttribute: input.hashAttribute,
+      ...(input.fallbackAttribute && {
+        fallbackAttribute: input.fallbackAttribute,
+      }),
       ...(input.seed !== undefined && { seed: input.seed }),
       hashVersion: (input.hashVersion as 1 | 2 | undefined) ?? 2,
       ...(input.sparse !== undefined && { sparse: input.sparse }),
@@ -258,7 +263,9 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Enforce the feature's JSON schema on the new rule's values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, { rules: [rule] });
+    assertFeatureValuesValid(req.context, withStagedSchema(feature, revision), {
+      rules: [rule],
+    });
 
     // Validate condition JSON and references before any DB writes.
     validatePrerequisiteConditions(rule.prerequisites ?? []);
@@ -283,9 +290,13 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       // the stored ramp-up shape is larger.
       const { rampUpSchedule, ...validatableFields } =
         ruleInput.safeRolloutFields;
-      const validatedFields = await validateCreateSafeRolloutFields(
-        validatableFields,
+      const validatedFields = await validateSafeRolloutFields(
+        flattenExposureQueryInput(validatableFields),
         req.context,
+        {
+          onOmitted: "requireUnambiguous",
+          project: feature.project ?? "",
+        },
       );
 
       const defaultRampSteps = [
@@ -315,7 +326,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, feature)
+      ? await normalizeInlineRampSchedule(
+          req.context,
+          inlineRampSchedule,
+          rule.id,
+          feature,
+        )
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       // A startDate implies the rule should be disabled until the ramp fires.

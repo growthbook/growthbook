@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { namedSchema } from "./openapi-helpers";
+import { namedSchema, retiredRiskDefault } from "./openapi-helpers";
 
 // Approval rules are project-scoped: a rule with no `projects` is the
 // all-projects rule, and a project override inherits any field it omits.
@@ -52,23 +52,49 @@ export const apiTargetingReviewRule = namedSchema(
     .strict(),
 );
 
+const approvalFlowRuleFields = {
+  required: z.boolean(),
+  projects: z.array(z.string()).optional(),
+  resetReviewOnChange: z.boolean().optional(),
+  requireMetadataReview: z.boolean().optional(),
+  blockSelfApproval: z.boolean().optional(),
+  autopublishOnApproval: z.boolean().optional(),
+  requiredApproverTeams: z.array(z.string()).optional(),
+};
+
 export const apiSavedGroupApprovalRule = namedSchema(
   "SavedGroupApprovalRule",
+  z.object(approvalFlowRuleFields).strict(),
+);
+
+export const apiSdkConnectionApprovalRule = namedSchema(
+  "SdkConnectionApprovalRule",
   z
     .object({
-      required: z.boolean(),
-      projects: z.array(z.string()).optional(),
-      resetReviewOnChange: z.boolean().optional(),
-      requireMetadataReview: z.boolean().optional(),
-      blockSelfApproval: z.boolean().optional(),
-      autopublishOnApproval: z.boolean().optional(),
-      requiredApproverTeams: z.array(z.string()).optional(),
+      ...approvalFlowRuleFields,
+      environments: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Environment IDs this rule applies to. Omitted or empty means every environment. Unlike the other fields, a Project rule does not inherit this from the all-Projects rule.",
+        ),
     })
     .strict(),
 );
 
 export const apiApprovalFlows = z
-  .object({ savedGroups: z.array(apiSavedGroupApprovalRule) })
+  .object({
+    savedGroups: z.array(apiSavedGroupApprovalRule),
+    sdkConnections: z.array(apiSdkConnectionApprovalRule),
+  })
+  .strict();
+
+// Writes replace each supplied family wholesale and leave an omitted one as is.
+export const apiApprovalFlowsInput = z
+  .object({
+    savedGroups: z.array(apiSavedGroupApprovalRule).optional(),
+    sdkConnections: z.array(apiSdkConnectionApprovalRule).optional(),
+  })
   .strict();
 
 // Corresponds to schemas/Settings.yaml
@@ -104,6 +130,15 @@ export const apiSettingsValidator = namedSchema(
           type: z.enum(["cron", "never", "stale"]).optional(),
           cron: z.string().nullable().optional(),
           hours: z.coerce.number().nullable().optional(),
+          analysisEndDateMode: z
+            .enum(["runTime", "lag", "fixedTime"])
+            .optional(),
+          analysisEndDateLagHours: z.coerce.number().nullable().optional(),
+          analysisEndDateTime: z
+            .string()
+            .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+            .nullable()
+            .optional(),
         })
         .nullable(),
       multipleExposureMinPercent: z.coerce.number(),
@@ -127,11 +162,10 @@ export const apiSettingsValidator = namedSchema(
       delayHours: z.coerce.number(),
       windowType: z.string(),
       windowHours: z.coerce.number(),
-      winRisk: z.coerce.number(),
-      loseRisk: z.coerce.number(),
+      winRisk: retiredRiskDefault(),
+      loseRisk: retiredRiskDefault(),
       secureAttributeSalt: z.string(),
       killswitchConfirmation: z.boolean(),
-      featureKillSwitchBehavior: z.enum(["off", "warn"]).optional(),
       requireReviews: z.array(apiRequireReviewRule),
       approvalFlows: apiApprovalFlows,
       targetingReviewMode: z.array(apiTargetingReviewRule).optional(),
@@ -146,6 +180,7 @@ export const apiSettingsValidator = namedSchema(
       banditScheduleUnit: z.enum(["hours", "days"]),
       banditBurnInValue: z.coerce.number(),
       banditBurnInUnit: z.enum(["hours", "days"]),
+      banditPeriodWeighting: z.boolean().optional(),
       experimentMinLengthDays: z.coerce.number(),
       experimentMaxLengthDays: z.coerce.number().nullable().optional(),
       preferredEnvironment: z.string().nullable().optional(),
@@ -176,7 +211,7 @@ export const putApprovalSettingsValidator = {
   bodySchema: z
     .object({
       requireReviews: z.array(apiRequireReviewRuleInput).optional(),
-      approvalFlows: apiApprovalFlows.optional(),
+      approvalFlows: apiApprovalFlowsInput.optional(),
       targetingReviewMode: z.array(apiTargetingReviewRule).optional(),
     })
     .strict(),
@@ -189,8 +224,10 @@ export const putApprovalSettingsValidator = {
       targetingReviewMode: z.array(apiTargetingReviewRule),
     })
     .strict(),
-  summary:
-    "Replace the approval requirements for feature flags, configs and constants, for saved groups, and the Targeting Projects review mode. Each family is replaced wholesale when supplied; omit one to leave it unchanged.",
+  summary: "Update approval settings",
+  description:
+    "Replace the approval requirements for feature flags, configs and constants, for saved groups, for SDK connections, and the Targeting Projects review mode. Each family is replaced wholesale when supplied; omit one to leave it unchanged.",
+  confirmation: ["settings.approvals"] as const,
   operationId: "putApprovalSettings",
   tags: ["settings"],
   method: "put" as const,

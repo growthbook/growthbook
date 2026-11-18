@@ -11,14 +11,28 @@ import { Text, Flex, Box, IconButton } from "@radix-ui/themes";
 import { QueryStatus } from "shared/types/query";
 import { SourceSnapshotRef } from "shared/enterprise";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { getResultsFreshness, ResultsFreshness } from "@/services/snapshots";
 
 const FAILED_STRING = `The most recent update failed. Click to view queries.`;
 const PARTIALLY_SUCCEEDED_STRING = `Some of the queries had an error. The partial results
                 are displayed below.`;
 
+const AS_OF_ROW_LABELS: Record<
+  Exclude<ResultsFreshness["kind"], "updated">,
+  { ranAt: string; asOf: string }
+> = {
+  derived: {
+    ranAt: "Dimension Computed",
+    asOf: "Results as of (from Overall Results)",
+  },
+  cutoff: { ranAt: "Last updated", asOf: "Results as of" },
+};
+
 const QueriesLastRun: FC<{
   status: QueryStatus;
   dateCreated?: Date;
+  // The data cutoff, when the snapshot analyzed through one
+  cutoffDate?: Date | null;
   sourceSnapshot?: SourceSnapshotRef;
   nextUpdate?: Date;
   latestQueryDate?: Date;
@@ -31,6 +45,7 @@ const QueriesLastRun: FC<{
 }> = ({
   status,
   dateCreated,
+  cutoffDate,
   sourceSnapshot,
   nextUpdate,
   latestQueryDate,
@@ -41,9 +56,11 @@ const QueriesLastRun: FC<{
   onViewQueries,
   showAutoUpdateWidget = true,
 }) => {
-  // A derived breakdown is only as fresh as the overall results it was built
-  // from, so that's the headline date. Otherwise the snapshot's own run time.
-  const dataAsOf = sourceSnapshot ? sourceSnapshot.dateCreated : dateCreated;
+  const freshness = getResultsFreshness({
+    dateCreated,
+    cutoffDate,
+    sourceSnapshot,
+  });
 
   const _failedString =
     failedString ||
@@ -78,29 +95,27 @@ const QueriesLastRun: FC<{
           </Tooltip>
         )}
 
-        {dataAsOf ? (
+        {freshness ? (
           <Tooltip
             body={
               <Flex direction="column">
-                {sourceSnapshot ? (
+                {freshness.kind === "updated" ? (
+                  <Text>Last update: {datetime(freshness.ranAt)}</Text>
+                ) : (
                   <Flex direction="column" gap="3">
                     <Box>
                       <Text as="div" weight="bold">
-                        Dimension Computed
+                        {AS_OF_ROW_LABELS[freshness.kind].ranAt}
                       </Text>
-                      <Text as="div">{datetimeAt(dateCreated ?? "")}</Text>
+                      <Text as="div">{datetimeAt(freshness.ranAt)}</Text>
                     </Box>
                     <Box>
                       <Text as="div" weight="bold">
-                        Results as of (from Overall Results)
+                        {AS_OF_ROW_LABELS[freshness.kind].asOf}
                       </Text>
-                      <Text as="div">
-                        {datetimeAt(sourceSnapshot.dateCreated)}
-                      </Text>
+                      <Text as="div">{datetimeAt(freshness.asOf)}</Text>
                     </Box>
                   </Flex>
-                ) : (
-                  <Text>Last update: {datetime(dateCreated ?? "")}</Text>
                 )}
                 {nextUpdate && !showAutoUpdateWidget ? (
                   <Text>Next update: {datetime(nextUpdate)}</Text>
@@ -109,8 +124,9 @@ const QueriesLastRun: FC<{
             }
           >
             <Text weight="regular" style={{ color: "var(--color-text-mid)" }}>
-              {sourceSnapshot ? "Results as of" : "Updated"}{" "}
-              {abbreviateAgo(dataAsOf)}
+              {freshness.kind === "updated"
+                ? `Updated ${abbreviateAgo(freshness.ranAt)}`
+                : `Results as of ${abbreviateAgo(freshness.asOf)}`}
             </Text>
           </Tooltip>
         ) : (

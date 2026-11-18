@@ -1,5 +1,9 @@
 import type { AIChatMessage } from "shared/ai-chat";
-import { classifyTurn } from "@/components/Agent/agentMessageUtils";
+import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat/types";
+import {
+  classifyTurn,
+  interactionContextTextId,
+} from "@/components/Agent/agentMessageUtils";
 
 describe("classifyTurn", () => {
   it("preserves the error state of the final assistant message", () => {
@@ -35,7 +39,7 @@ describe("classifyTurn", () => {
     expect(classifyTurn(messages).replyIsError).toBe(false);
   });
 
-  it("keeps text before an askUser call in pre-work", () => {
+  it("shows text before an askUser call as context, without feedback", () => {
     const messages: AIChatMessage[] = [
       {
         role: "assistant",
@@ -73,13 +77,14 @@ describe("classifyTurn", () => {
     ];
 
     expect(classifyTurn(messages)).toMatchObject({
-      preWork: messages,
-      replyContent: null,
-      replyMessageId: null,
+      preWork: [messages[1]],
+      replyContent: "Let me get some direction on where you're starting from.",
+      replyMessageId: "question-preamble",
+      replyAwaitsUser: true,
     });
   });
 
-  it("keeps confirmation preambles in pre-work while awaiting a decision", () => {
+  it("shows confirmation preambles as context while awaiting a decision", () => {
     const messages: AIChatMessage[] = [
       {
         role: "assistant",
@@ -89,10 +94,68 @@ describe("classifyTurn", () => {
       },
     ];
 
-    expect(classifyTurn(messages, true)).toMatchObject({
+    expect(classifyTurn(messages, { awaitingInteraction: true })).toMatchObject(
+      {
+        preWork: [],
+        replyContent: "I am ready to update the experiment.",
+        replyMessageId: "confirmation-preamble",
+        replyAwaitsUser: true,
+      },
+    );
+  });
+
+  it("folds everything into pre-work while a decision resumes the turn", () => {
+    const messages: AIChatMessage[] = [
+      {
+        role: "assistant",
+        id: "confirmation-preamble",
+        ts: 1,
+        content: "I am ready to update the experiment.",
+      },
+    ];
+
+    expect(classifyTurn(messages, { continuing: true })).toMatchObject({
       preWork: messages,
       replyContent: null,
       replyMessageId: null,
+      replyAwaitsUser: false,
     });
+  });
+});
+
+describe("interactionContextTextId", () => {
+  const text = (id: string): ActiveTurnItem => ({
+    kind: "text",
+    id,
+    content: id,
+  });
+  const tool = (toolName: string): ActiveTurnItem => ({
+    kind: "tool-status",
+    id: `${toolName}-item`,
+    toolCallId: `${toolName}-call`,
+    toolName,
+    label: toolName,
+    status: "done",
+  });
+
+  it("pins the text leading into an askUser call", () => {
+    expect(
+      interactionContextTextId(
+        [text("early"), tool("callApi"), text("preamble"), tool("askUser")],
+        false,
+      ),
+    ).toBe("preamble");
+  });
+
+  it("pins the last text while a confirmation is pending", () => {
+    expect(
+      interactionContextTextId([text("preamble"), tool("callApi")], true),
+    ).toBe("preamble");
+  });
+
+  it("pins nothing when the turn isn't waiting on the user", () => {
+    expect(
+      interactionContextTextId([text("preamble"), tool("callApi")], false),
+    ).toBeNull();
   });
 });

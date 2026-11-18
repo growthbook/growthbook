@@ -1,11 +1,10 @@
-interface DOMMutation {
-  selector: string;
-  action: "append" | "set" | "remove";
-  attribute: string;
-  value?: string;
-  parentSelector?: string;
-  insertBeforeSelector?: string;
-}
+import { z } from "zod";
+import {
+  domMutationValidator,
+  visualChangesetUrlPatternValidator,
+} from "shared/validators";
+
+export type DOMMutation = z.infer<typeof domMutationValidator>;
 
 interface VisualChange {
   id: string;
@@ -16,17 +15,18 @@ interface VisualChange {
   domMutations: DOMMutation[];
 }
 
-export interface VisualChangesetURLPattern {
-  include: boolean;
-  type: "simple" | "regex";
-  pattern: string;
-}
+export type VisualChangesetURLPattern = z.infer<
+  typeof visualChangesetUrlPatternValidator
+>;
 
 export interface VisualChangesetInterface {
   id: string;
   organization: string;
   urlPatterns: VisualChangesetURLPattern[];
   editorUrl: string;
-  experiment: string;
+  experiment?: string;
+  contextualBandit?: string;
   visualChanges: VisualChange[];
+  // Stamped by every update, so a guarded one can tell it was written since.
+  dateUpdated?: Date;
 }

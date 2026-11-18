@@ -51,6 +51,8 @@ function contextWith(atoms: Atoms, userId = "u_me"): ReqContext {
   const thrown = new Error("permission denied");
   return {
     userId,
+    actorId: userId,
+    authorRightsAllow: () => true,
     getTargetingOptOutProjectIds: async () => [],
     permissions: {
       canEditFeatureDrafts: () => !!atoms.draft,
@@ -111,6 +113,20 @@ describe("authoredFeatureDraft", () => {
         draft({ contributors: ["u_helper"] }),
       ),
     ).toBe(true);
+  });
+
+  it("counts the member whose role an org key assumed", () => {
+    const madeForAsker = draft({
+      createdBy: {
+        type: "api_key",
+        apiKey: "key_org",
+        requestedBy: { id: "u_asker", name: "", email: "" },
+        assumedRole: true,
+      },
+    });
+    expect(authoredFeatureDraft(contextWith({}, "u_asker"), madeForAsker)).toBe(
+      true,
+    );
   });
 
   it("counts nobody else, and no API key", () => {

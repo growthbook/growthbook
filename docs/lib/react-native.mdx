@@ -1,7 +1,6 @@
 ---
 title: React Native SDK
 description: Use the GrowthBook React Native SDK to evaluate feature flags and run A/B tests in iOS and Android apps, including targeting and tracking.
-slug: react-native
 toc_max_heading_level: 5
 ---
 
@@ -20,6 +19,20 @@ Install with a package manager
 ```bash npm2yarn
 npm install --save @growthbook/growthbook-react
 ```
+
+### Expo
+
+The SDK is pure JavaScript with no native modules, so it works in Expo Go and in development builds without a config plugin or prebuild step. Install it the same way:
+
+```bash
+npx expo install @growthbook/growthbook-react
+```
+
+Core features (flags, experiments, tracking, and forced variations) work without any extra setup. These optional features need a polyfill, as in any React Native app:
+
+- [Streaming updates](#streaming-updates) need an `EventSource` polyfill.
+- A [persistent cache](#configuring-local-storage) needs a `localStorage` polyfill.
+- [Encrypted payloads](#encrypted-payloads) need a `SubtleCrypto` polyfill.
 
 ## Quick Usage
 
@@ -138,7 +151,7 @@ In order for the GrowthBook SDK to work, it needs to have feature definitions fr
 
 ### Built-in Fetching and Caching
 
-If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in a `decryptionKey`.
+If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in a `decryptionKey` (this needs a polyfill; see [Encrypted Payloads](#encrypted-payloads)).
 
 ```ts
 const gb = new GrowthBook({
@@ -157,6 +170,23 @@ Until features are loaded, all features will evaluate to `null`. If you're ok wi
 
 If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshFeatures()`.
 
+#### Encrypted Payloads
+
+Decrypting an encrypted payload requires the Web Crypto `SubtleCrypto` API. Hermes, the default JavaScript engine for React Native and Expo, does not provide it. Without it, decryption fails with `No SubtleCrypto implementation found` and the SDK keeps any features it already loaded. If none were loaded, features evaluate to `null`, so `getFeatureValue` returns the fallback passed in code, not the default value set in GrowthBook.
+
+To use encryption, pass a `SubtleCrypto` implementation that supports AES-CBC to `setPolyfills` before calling `init`:
+
+```ts
+import { setPolyfills } from "@growthbook/growthbook";
+
+setPolyfills({
+  // Any implementation of the Web Crypto SubtleCrypto interface
+  SubtleCrypto: mySubtleCrypto,
+});
+```
+
+Libraries that include native code, such as most crypto libraries, require an Expo development build and do not run in Expo Go.
+
 #### Error Handling
 
 In the case of network issues, the `init` call will not throw an error. Instead, it will stay in the default state where every feature evaluates to `null`.
@@ -172,9 +202,25 @@ console.log(res);
 
 The return value has 3 properties:
 
-- **status** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
+- **success** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
 - **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
-- **error** - If status is `false`, this will contain an `Error` object with more details about the error
+- **error** - If success is `false`, this will contain an `Error` object with more details about the error
+
+#### Fallback Payload
+
+To use a bundled payload only when features can't be downloaded, pass it to `init` as `fallbackPayload` (SDK version 2.1.0+):
+
+```ts
+await gb.init({ timeout: 2000, fallbackPayload });
+```
+
+The fallback is only used when the request fails or times out and there's nothing usable in the cache. The return value still reports the failure (`success: false`) so you can log it.
+
+Don't pass the fallback as `payload` because that skips the network request entirely. On older SDK versions, call `gb.setPayload(fallbackPayload)` yourself when `init` returns `success: false`.
+
+The fallback stays in place until a later request succeeds. If `init` timed out and `streaming` or `pollingInterval` is enabled, the SDK applies the original request when it finishes. After a network error, only `pollingInterval` retries.
+
+See [Bundling a fallback at build time](/lib/js#bundling-a-fallback-at-build-time) for how to produce the file in CI/CD.
 
 ### Custom Integration
 
@@ -240,7 +286,7 @@ React Native does not support SSE out-of-the-box, but there is a small helper li
 npm install --save react-native-sse
 ```
 
-The, tell GrowthBook to use this polyfill:
+Then, tell GrowthBook to use this polyfill:
 
 ```js
 import { setPolyfills } from "@growthbook/growthbook";
@@ -275,7 +321,7 @@ const gb = new GrowthBook({
   // Enable remote evaluation
   remoteEval: true,
 
-  // Optional: only trigger a new evaluation call when the `id` and `email` attribute changes
+  // Optional: only trigger a new evaluation call when the `id` and `email` attributes change
   cacheKeyAttributes: ["id", "email"],
 });
 ```
@@ -296,7 +342,7 @@ The React Native SDK has 2 caching layers:
 
 ### Configuring Local Storage
 
-In order to use persistent storage, you must provide a polyfill with the same method signature as browser's localStorage.
+In order to use persistent storage, you must provide a polyfill with the same method signature as the browser's localStorage.
 
 Here's an example using AsyncStorage
 
@@ -310,9 +356,8 @@ import { setPolyfills } from "@growthbook/growthbook";
 
 setPolyfills({
   localStorage: {
-    // Example using Redis
-    getItem: (key) => JSON.parse(AsyncStorage.getItem(key) || "null")
-    setItem: (key, value) => AsyncStorage.setItem(key, JSON.stringify(value))
+    getItem: (key) => AsyncStorage.getItem(key),
+    setItem: (key, value) => AsyncStorage.setItem(key, value),
   }
 });
 ```
@@ -331,8 +376,8 @@ configureCache({
   cacheKey: "gbFeaturesCache",
   // Consider features stale after this much time (60 seconds default)
   staleTTL: 1000 * 60,
-  // Cached features older than this will be ignored (24 hours default)
-  maxAge: 1000 * 60 * 60 * 24,
+  // Cached features older than this will be ignored (4 hours default)
+  maxAge: 1000 * 60 * 60 * 4,
   // For Remote Eval only - limit the number of cache entries (~1 entry per user)
   maxEntries: 10,
   // Set to `true` to completely disable both in-memory and persistent caching
@@ -361,7 +406,7 @@ const gb = new GrowthBook({
 
 Starting in version 1.7.0, the callback receives a third `user` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
-This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
+This same tracking callback is used for both feature flag experiments and AI Visual Editor experiments.
 
 ### Feature Flag Experiments
 
@@ -375,19 +420,19 @@ useFeatureIsOn("new-signup-form")
 
 If the experiment came from a feature rule, `result.featureId` in the trackingCallback will contain the feature id, which may be useful for tracking/logging purposes.
 
-### Visual Editor Experiments
+### AI Visual Editor Experiments
 
-Visual Editor experiments are not supported in React Native at this time.
+AI Visual Editor experiments are not supported in React Native at this time.
 
 ### URL Redirect Experiments
 
-URL Redirect experiments are no supported in React Native at this time.
+URL Redirect experiments are not supported in React Native at this time.
 
 ### Sticky Bucketing
 
-Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing.
+Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment support sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing.
 
-The JS SDK exports several implementations of this service for reference, although you will need to build your own to work in a React Native environments.
+The JS SDK exports several implementations of this service for reference, although you will need to build your own to work in a React Native environment.
 
 Implement the abstract `StickyBucketService` class and connect to your own data store, or custom wrap multiple service implementations.
 
@@ -495,7 +540,7 @@ const userEmail = sha256(salt + user.email).toString();
 
 ### Feature Usage Callback
 
-GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like New Relic or Datadog.
 
 ```ts
 new GrowthBook({
@@ -553,67 +598,53 @@ export default withRunExperiment(OtherComponent);
 
 ## TypeScript support
 
-Some hooks are available in type-safe versions. These require you to pass in your generated types as the generic argument.
-
-See the [GrowthBook CLI](/tools/cli) documentation for more information on generating type definitions and [JavaScript &rarr; TypeScript &rarr; Strict Typing](/lib/js#strict-typing) for how to use them.
-
-### useGrowthBook&lt;T&gt;()
-
-A type-safe version of the `useGrowthBook()` hook is available. Everywhere you use `useGrowthBook()`, pass the generated features as the generic argument:
+Register your feature flag and attribute types once, in any `.ts` file that imports the SDK, such as the one where you create your GrowthBook instance (SDK version 2.1.0+):
 
 ```ts
-const growthbook = useGrowthBook<AppFeatures>()
+import { GrowthBook } from "@growthbook/growthbook-react";
+
+interface AppFeatures {
+  dark_mode: boolean;
+  donut_price: number;
+}
+
+interface AppAttributes {
+  id: string;
+  loggedIn: boolean;
+}
+
+declare module "@growthbook/growthbook-react" {
+  interface Register {
+    features: AppFeatures;
+    attributes: AppAttributes;
+  }
+}
 ```
 
-In that case, the hook will return `GrowthBook<AppFeatures> | undefined`.
+Every hook and component is now strictly typed, with no generics or wrapper hooks:
 
-You can reduce this boilerplate by creating your own hook, e.g.:
-
-```ts
-// ./src/utils/growthbook.ts
-import { useGrowthBook as _useGrowthBook } from "@growthbook/growthbook-react";
-
-export const useGrowthBook = (): GrowthBook<AppFeatures> | undefined =>
-  _useGrowthBook<AppFeatures>();
-```
-
-You can now reference the hook you created instead of the one from the official package:
-
-```ts
-import { useGrowthBook } from "@/src/utils/growthbook"
-
-const growthbook = useGrowthBook();
-
-growthbook.getFeatureValue(knownKey, defaultValueOfValidType)
-```
-
-### useFeatureIsOn&lt;T&gt;()
-
-The React SDK also provides access to a type-safe `useFeatureIsOn<AppFeatures>()` hook.
-
-```ts
-const isDarkModeOn = useFeatureIsOn<AppFeatures>("dark_mode");
-```
-
-This will only allow you to pass known keys to the hook.
-
-You can reduce the boilerplate for this hook by creating your own and using that instead:
-
-```ts
-// ./src/utils/growthbook.ts
-import { useFeatureIsOn as _useFeatureIsOn } from "@growthbook/growthbook-react";
-
-export const useFeatureIsOn = (id: keyof AppFeatures & string): boolean =>
-  _useFeatureIsOn<AppFeatures>(id);
-```
-
-And then reference the hook you created instead of the one from the official package:
-
-```ts
-import { useFeatureIsOn } from "@/src/utils/growthbook"
-
+```tsx
+// Typed as `boolean` and `number`
 const isDarkModeOn = useFeatureIsOn("dark_mode");
+const price = useFeatureValue("donut_price", 1.5);
+
+// Typos and wrong fallback types cause compile-time errors
+useFeatureIsOn("dark_mod");
+useFeatureValue("donut_price", "1.50");
+
+// A `null` fallback is always allowed. Typed as `number | null`
+const maybePrice = useFeatureValue("donut_price", null);
+
+// The instance is typed too, including attributes
+const growthbook = useGrowthBook();
+growthbook.setAttributes({ id: "123" }); // missing "loggedIn"
+
+<IfFeatureEnabled feature="dark_mode">...</IfFeatureEnabled>
 ```
+
+Instead of writing any of this by hand, you can [generate both types and the registration from your GrowthBook account and keep them up to date automatically](/tools/cli#generating-typescript-types). See [JavaScript &rarr; TypeScript &rarr; Strict Typing](/lib/js#strict-typing) for more details.
+
+On older SDK versions, or to type a single call without registering, pass your types as generics: `useGrowthBook<AppFeatures>()` and `useFeatureIsOn<AppFeatures>("dark_mode")`.
 
 ## Examples
 

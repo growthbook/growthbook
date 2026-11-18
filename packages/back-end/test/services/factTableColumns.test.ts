@@ -63,6 +63,7 @@ async function refreshColumns({
   const datasource: DataSourceInterface = {};
 
   return runColumnDetectionQuery(context, datasource, {
+    id: "ftb_1",
     sql: "SELECT * FROM fact_table",
     eventName: "",
     columns: [column],
@@ -237,6 +238,7 @@ describe("refreshColumnTopValues", () => {
       context,
       datasource,
       {
+        id: "ftb_1",
         sql: "SELECT * FROM fact_table",
         eventName: "",
         userIdTypes: [],

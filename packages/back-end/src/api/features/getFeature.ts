@@ -7,10 +7,11 @@ import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel"
 import { getFeature as getFeatureDB } from "back-end/src/models/FeatureModel";
 import {
   getApiFeatureObj,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
   req,
@@ -21,16 +22,13 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
   );
   const feature = await getFeatureDB(req.context, req.params.id);
   if (!feature) {
-    throw new Error("Could not find a feature with that key");
+    throw new NotFoundError("Could not find a feature with that key");
   }
 
-  const groupMap = await getSavedGroupMap(req.context);
   const experimentMap = await getExperimentMapForFeature(
     req.context,
     feature.id,
   );
-  const safeRolloutMap =
-    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
   const revision = await getRevision({
     context: req.context,
     organization: feature.organization,
@@ -51,6 +49,14 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
               : undefined,
       })
     : undefined;
+  const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+    req.context,
+    {
+      features: [feature],
+      revisions,
+      experiments: experimentMap.values(),
+    },
+  );
   return {
     feature: await resolveOwnerEmail(
       getApiFeatureObj({

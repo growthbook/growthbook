@@ -12,7 +12,7 @@ import {
 export const listOrganizations = createApiRequestHandler(
   listOrganizationsValidator,
 )(async (req) => {
-  await validateIsSuperUserRequest(req);
+  await validateIsSuperUserRequest(req, "view");
 
   const limit = req.query.limit ?? 10;
   const offset = req.query.offset ?? 0;

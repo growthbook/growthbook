@@ -58,6 +58,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   sql: "SQL",
   funnel: "Funnel",
   journey: "User Journey",
+  population: "Population",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
@@ -88,6 +89,7 @@ function deriveConfigError(
   urlConfig: ExplorationConfig | null,
   rawParam: string | undefined,
   type: DatasetType,
+  lockedDatasourceId?: string,
 ): string | null {
   if (!rawParam) return null;
 
@@ -104,11 +106,18 @@ function deriveConfigError(
     } explorer.`;
   }
 
+  // The selector that would reveal a mismatch is hidden here, so a saved
+  // config for another Data Source would otherwise silently win.
+  if (lockedDatasourceId && urlConfig.datasource !== lockedDatasourceId) {
+    return "This link was created from a different Data Source.";
+  }
+
   return null;
 }
 
 export function ExplorerContent({
-  height = "calc(100vh - 72px)",
+  // Less the page's own padding above and below it (--explorer-frame-y).
+  height = "calc(100vh - var(--page-top-offset) - var(--explorer-frame-y, 16px))",
   hideDataSourceSelector = false,
   hideSidebarHeaderActions = false,
   sidebarHeaderActions,
@@ -159,13 +168,24 @@ export function ExplorerContent({
         <PiDotsSix size={16} style={{ transform: "rotate(90deg)" }} />
         <Box
           flexGrow="1"
-          my="3"
-          style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+          mt="3"
+          style={{
+            backgroundColor: "var(--gray-a3)",
+            width: "1px",
+            marginBottom: "var(--explorer-page-bottom, 12px)",
+          }}
         ></Box>
       </PanelResizeHandle>
 
       <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
-        <Flex direction="column" height="100%">
+        <Flex
+          direction="column"
+          height="100%"
+          // SQL's schema browser already ends 24px up, inside the sidebar.
+          style={{
+            paddingBottom: isSql ? undefined : "var(--explorer-page-bottom)",
+          }}
+        >
           <Box style={{ flex: 1, minHeight: 0 }}>
             <ShadowedScrollArea height="100%">
               <ExplorerSideBar
@@ -353,15 +373,45 @@ function ExplorerPreviousTimeFrameUrlSync({
   return null;
 }
 
-export default function Explorer({ type }: { type: DatasetType }) {
+export default function Explorer({
+  type,
+  datasourceId,
+  lockDatasource = false,
+  height,
+  sidebarHeaderActions,
+}: {
+  type: DatasetType;
+  datasourceId?: string;
+  lockDatasource?: boolean;
+  height?: string;
+  sidebarHeaderActions?: React.ReactNode;
+}) {
   return (
     <NuqsAdapter>
-      <ExplorerInner type={type} />
+      <ExplorerInner
+        type={type}
+        datasourceId={datasourceId}
+        lockDatasource={lockDatasource}
+        height={height}
+        sidebarHeaderActions={sidebarHeaderActions}
+      />
     </NuqsAdapter>
   );
 }
 
-function ExplorerInner({ type }: { type: DatasetType }) {
+function ExplorerInner({
+  type,
+  datasourceId: lockedDatasourceId,
+  lockDatasource = false,
+  height,
+  sidebarHeaderActions,
+}: {
+  type: DatasetType;
+  datasourceId?: string;
+  lockDatasource?: boolean;
+  height?: string;
+  sidebarHeaderActions?: React.ReactNode;
+}) {
   const router = useRouter();
   const defaultDataSourceId = useDefaultDataSourceId();
   const {
@@ -397,7 +447,8 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   const rawParam = getQueryParam(router.query.config);
   const metricId = getQueryParam(router.query.metricId);
   const factTableId = getQueryParam(router.query.factTableId);
-  const datasourceId = getQueryParam(router.query.datasourceId);
+  const datasourceId =
+    lockedDatasourceId ?? getQueryParam(router.query.datasourceId);
   const funnelMetricId = getQueryParam(router.query.funnelMetricId);
   const seedId =
     type === "metric"
@@ -408,7 +459,12 @@ function ExplorerInner({ type }: { type: DatasetType }) {
           ? funnelMetricId
           : datasourceId;
 
-  const configError = deriveConfigError(urlConfig, rawParam, type);
+  const configError = deriveConfigError(
+    urlConfig,
+    rawParam,
+    type,
+    lockDatasource ? lockedDatasourceId : undefined,
+  );
 
   const [configErrorModal, setConfigErrorModal] = useState<string | null>(
     () => configError,
@@ -505,7 +561,7 @@ function ExplorerInner({ type }: { type: DatasetType }) {
       } else if (ready) {
         seedError = "Could not find the requested Fact Table.";
       }
-    } else if (type === "data_source" && datasourceId) {
+    } else if ((type === "data_source" || type === "sql") && datasourceId) {
       const datasource = getDatasourceById(datasourceId);
       if (datasource) {
         seededConfig = {
@@ -534,6 +590,10 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     urlConfig && !configError ? urlConfig : (seededConfig ?? defaultDraftState);
   const initialConfig: ExplorerDraftConfig = {
     ...baseConfig,
+    // A rejected config skips seeding
+    ...(lockDatasource && lockedDatasourceId
+      ? { datasource: lockedDatasourceId }
+      : {}),
     ...(urlPreviousTimeFrame
       ? {
           previousTimeFrame: urlPreviousTimeFrame,
@@ -580,7 +640,10 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         trackingSource="manual-explorer"
       >
         {datasources.length === 0 ? (
-          <Flex direction="column" height="calc(100vh - 72px)">
+          <Flex
+            direction="column"
+            height="calc(100vh - var(--page-top-offset) - var(--explorer-frame-y, 16px))"
+          >
             <EmptyState />
           </Flex>
         ) : (
@@ -595,7 +658,22 @@ function ExplorerInner({ type }: { type: DatasetType }) {
               setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
               setUrlComparisonMode={setUrlComparisonMode}
             />
-            <ExplorerContent />
+            {/* The page's 32px bottom under the card, the sidebar and the
+                line between them: the frame ends 8px above the window. */}
+            <div
+              style={
+                {
+                  display: "contents",
+                  "--explorer-page-bottom": "24px",
+                } as React.CSSProperties
+              }
+            >
+              <ExplorerContent
+                hideDataSourceSelector={lockDatasource}
+                height={height}
+                sidebarHeaderActions={sidebarHeaderActions}
+              />
+            </div>
           </>
         )}
       </ExplorerProvider>

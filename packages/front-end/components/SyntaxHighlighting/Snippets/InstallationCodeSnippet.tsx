@@ -1,4 +1,5 @@
 import { SDKLanguage } from "shared/types/sdk-connection";
+import { getLatestSDKVersion } from "shared/sdk-versioning";
 import React, { useCallback, useMemo } from "react";
 import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -26,9 +27,7 @@ export default function InstallationCodeSnippet({
   eventIngestorRegion?: DataRegion;
 }) {
   const eventIngestorHost =
-    eventTracker === "growthbook" &&
-    eventIngestorRegion &&
-    eventIngestorRegion !== "us-east-1"
+    eventTracker === "growthbook" && eventIngestorRegion
       ? getEventIngestorHost(eventIngestorRegion)
       : undefined;
   const nocodeSnippet =
@@ -81,9 +80,7 @@ export default function InstallationCodeSnippet({
           <>
             Add the GrowthBook snippet to your Google Tag Manager as a Custom
             HTML tag.{" "}
-            <DocLink useRadix={false} docSection="gtmSetup">
-              View Documentation
-            </DocLink>
+            <DocLink docSection="gtmSetup">View documentation</DocLink>
             <Code language="html" code={nocodeSnippet} />
           </>
         );
@@ -180,7 +177,8 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.+'
+    implementation 'io.growthbook.sdk:GrowthBook:${getLatestSDKVersion("android")}'
+    implementation 'io.growthbook.sdk:NetworkDispatcherKtor:1.3.0'
 }`.trim()}
           />
         );
@@ -188,7 +186,7 @@ dependencies {
       if (language === "ios") {
         return (
           <>
-            <div className="mb-3">
+            <Box mb="4">
               Cocoapods
               <Code
                 language="javascript"
@@ -202,19 +200,19 @@ end
           `.trim()}
               />
               <Code language="sh" code={"pod install"} />
-            </div>
-            <div className="mb-3">
+            </Box>
+            <Box mb="4">
               Swift Package Manager (SPM)
               <Code
                 language="swift"
                 filename="Package.swift"
                 code={`
 dependencies: [
-  .package(url: "https://github.com/growthbook/growthbook-swift.git")
+  .package(url: "https://github.com/growthbook/growthbook-swift.git", from: "${getLatestSDKVersion("ios")}")
 ]
             `.trim()}
               />
-            </div>
+            </Box>
           </>
         );
       }
@@ -235,12 +233,17 @@ dependencies: [
         );
       }
       if (language === "python") {
-        return <Code language="sh" code={`pip install growthbook`} />;
+        return (
+          <Code
+            language="sh"
+            code={`pip install growthbook${eventTracker === "growthbook" ? " requests" : ""}`}
+          />
+        );
       }
       if (language === "java") {
         return (
           <>
-            <div className="mb-3">
+            <Box mb="4">
               Maven
               <Code
                 language="xml"
@@ -255,12 +258,12 @@ dependencies: [
 <dependency>
   <groupId>com.github.growthbook</groupId>
   <artifactId>growthbook-sdk-java</artifactId>
-  <version>0.3.0</version>
+  <version>${getLatestSDKVersion("java")}</version>
 </dependency>
 `.trim()}
               />
-            </div>
-            <div className="mb-3">
+            </Box>
+            <Box mb="4">
               Gradle
               <Code
                 language="javascript"
@@ -272,10 +275,10 @@ allprojects {
     }
 }
 dependencies {
-    implementation 'com.github.growthbook:growthbook-sdk-java:0.3.0'
+    implementation 'com.github.growthbook:growthbook-sdk-java:${getLatestSDKVersion("java")}'
 }`.trim()}
               />
-            </div>
+            </Box>
           </>
         );
       }
@@ -284,7 +287,7 @@ dependencies {
           <Code
             language="yml"
             filename="pubspec.yml"
-            code="growthbook_sdk_flutter: ^1.0.0"
+            code={`growthbook_sdk_flutter: ^${getLatestSDKVersion("flutter")}`}
           />
         );
       }

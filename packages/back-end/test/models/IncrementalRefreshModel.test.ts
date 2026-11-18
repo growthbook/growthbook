@@ -326,4 +326,190 @@ describe("IncrementalRefreshModel", () => {
     const found = await model.getByExperimentIdAndPhase("exp_1", 0);
     expect(found?.experimentId).toBe("exp_1");
   });
+
+  describe("shared reader lock", () => {
+    const STALE = new Date(Date.now() - 11 * 60 * 1000);
+
+    const acquireReaderLock = (
+      snapshotId: string,
+      dimension: string,
+      legacyExperimentSettingsHash = "current_settings_hash",
+    ) =>
+      model.acquireReaderLock({
+        experimentId: "exp_1",
+        phase: 0,
+        snapshotId,
+        request: { type: "dimension", dimension },
+        legacyExperimentSettingsHash,
+      });
+
+    const phaseDoc = { organization: "org_1", experimentId: "exp_1", phase: 0 };
+
+    // Readers only join a state document an Overall Results run left behind.
+    async function seedPhaseDoc() {
+      await acquireLock("exp_1", 0, "snap_seed");
+      await model.releaseLock("exp_1", "snap_seed");
+    }
+
+    it("lets different requests read together and refuses an equal one", async () => {
+      await seedPhaseDoc();
+
+      expect(await acquireReaderLock("snap_country", "country")).toBe(true);
+      expect(await acquireReaderLock("snap_browser", "browser")).toBe(true);
+      expect(await acquireReaderLock("snap_country_2", "country")).toBe(false);
+
+      expect(await model.isLockedBySnapshotId("exp_1", "snap_country")).toBe(
+        true,
+      );
+      expect(await model.isLockedBySnapshotId("exp_1", "snap_browser")).toBe(
+        true,
+      );
+      expect(await model.isLockedBySnapshotId("exp_1", "snap_country_2")).toBe(
+        false,
+      );
+    });
+
+    it("starts over a stale reader computing the same request", async () => {
+      await seedPhaseDoc();
+      await acquireReaderLock("snap_stale", "country");
+      await acquireReaderLock("snap_browser", "browser");
+      await collection().updateOne(
+        { ...phaseDoc, "readers.snapshotId": "snap_stale" },
+        { $set: { "readers.$.heartbeatAt": STALE } },
+      );
+
+      expect(await acquireReaderLock("snap_country", "country")).toBe(true);
+      expect(await acquireReaderLock("snap_country_2", "country")).toBe(false);
+
+      // The stale entry stays until the next writer clears the list.
+      await acquireLock("exp_1", 0, "snap_writer");
+      expect(await model.clearReaders("exp_1", "snap_writer")).toEqual([
+        "snap_stale",
+        "snap_browser",
+        "snap_country",
+      ]);
+    });
+
+    it("refuses a reader while a writer holds the lock", async () => {
+      await acquireLock("exp_1", 0, "snap_writer");
+
+      expect(await acquireReaderLock("snap_country", "country")).toBe(false);
+
+      await model.releaseLock("exp_1", "snap_writer");
+      expect(await acquireReaderLock("snap_country", "country")).toBe(true);
+    });
+
+    it("refuses a reader while a stale writer is still in the slot", async () => {
+      await acquireLock("exp_1", 0, "snap_writer");
+      await collection().updateOne(phaseDoc, {
+        $set: { lockHeartbeatAt: STALE },
+      });
+
+      expect(await acquireReaderLock("snap_country", "country")).toBe(false);
+      expect(await model.isLockedBySnapshotId("exp_1", "snap_writer")).toBe(
+        true,
+      );
+
+      // The next writer takes over the stale slot; readers follow it.
+      expect(await acquireLock("exp_1", 0, "snap_writer_2")).toBe(true);
+      await model.releaseLock("exp_1", "snap_writer_2");
+      expect(await acquireReaderLock("snap_country", "country")).toBe(true);
+    });
+
+    it("does not create a state document for a reader", async () => {
+      expect(await acquireReaderLock("snap_country", "country")).toBe(false);
+      expect(await collection().countDocuments({})).toBe(0);
+    });
+
+    it("lets a writer start over active readers and evict them", async () => {
+      await seedPhaseDoc();
+      await acquireReaderLock("snap_country", "country");
+      await acquireReaderLock("snap_browser", "browser");
+
+      expect(await acquireLock("exp_1", 0, "snap_writer")).toBe(true);
+      expect(await model.clearReaders("exp_1", "snap_writer")).toEqual([
+        "snap_country",
+        "snap_browser",
+      ]);
+
+      expect(await model.isLockedBySnapshotId("exp_1", "snap_country")).toBe(
+        false,
+      );
+      expect(await model.isLockedBySnapshotId("exp_1", "snap_browser")).toBe(
+        false,
+      );
+      expect(await model.isLockedBySnapshotId("exp_1", "snap_writer")).toBe(
+        true,
+      );
+      expect(await acquireReaderLock("snap_device", "device")).toBe(false);
+    });
+
+    it("lets a phase delete claim the slot over active readers", async () => {
+      await seedPhaseDoc();
+      await acquireReaderLock("snap_country", "country");
+
+      expect(await model.acquirePhaseSlotForMutation("exp_1", 0, "del_0")).toBe(
+        true,
+      );
+      expect(await model.clearReaders("exp_1", "del_0")).toEqual([
+        "snap_country",
+      ]);
+    });
+
+    it("heartbeats and releases one reader without touching the other", async () => {
+      await seedPhaseDoc();
+      await acquireReaderLock("snap_country", "country");
+      await acquireReaderLock("snap_browser", "browser");
+      await collection().updateOne(phaseDoc, {
+        $set: { "readers.$[].heartbeatAt": STALE },
+      });
+
+      // The writer's heartbeat does not reach a reader's entry.
+      await model.touchLockHeartbeat("exp_1", "snap_country");
+      expect(await model.hasFreshLockHeartbeat("exp_1", "snap_country")).toBe(
+        false,
+      );
+
+      await model.touchReaderHeartbeat("exp_1", "snap_country");
+
+      expect(await model.hasFreshLockHeartbeat("exp_1", "snap_country")).toBe(
+        true,
+      );
+      expect(await model.hasFreshLockHeartbeat("exp_1", "snap_browser")).toBe(
+        false,
+      );
+
+      await model.releaseLock("exp_1", "snap_country");
+
+      expect(await model.isLockedBySnapshotId("exp_1", "snap_country")).toBe(
+        false,
+      );
+      expect(await model.isLockedBySnapshotId("exp_1", "snap_browser")).toBe(
+        true,
+      );
+      expect(await acquireReaderLock("snap_country_2", "country")).toBe(true);
+    });
+
+    it("adopts a matching legacy document for a reader", async () => {
+      await seedLegacyPhaselessDoc("exp_1", "matching_settings_hash");
+
+      expect(
+        await acquireReaderLock(
+          "snap_country",
+          "country",
+          "matching_settings_hash",
+        ),
+      ).toBe(true);
+
+      expect(
+        await model.getLegacyByExperimentIdWithoutPhase("exp_1"),
+      ).toBeNull();
+      const adopted = await model.getLockedBySnapshotId(
+        "exp_1",
+        "snap_country",
+      );
+      expect(adopted?.phase).toBe(0);
+      expect(adopted?.unitsTableFullName).toBe(legacyUnitsTable("exp_1"));
+    });
+  });
 });

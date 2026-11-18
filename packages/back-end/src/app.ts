@@ -18,6 +18,7 @@ import { AI_PROVIDERS } from "shared/ai";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { revisionRouter } from "back-end/src/routers/revision/revision.router";
+import { scrubRevisionResponses } from "back-end/src/routers/revision/scrubRevisionResponses";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -35,11 +36,13 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
+import { rejectQueryOperators } from "./middleware/rejectQueryOperators";
 import { trackRequestCompletion } from "./services/growthbook";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
 import { getBuild } from "./util/build";
+import { trimTrailingSlashes } from "./util/http.util";
 import {
   oauthAsAuthedRouter,
   oauthAsPublicRouter,
@@ -127,11 +130,13 @@ import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { learningsRouter } from "./routers/learnings/learnings.router";
+import { confirmationsRouter } from "./routers/confirmations/confirmations.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import {
   constantsRouter,
   constantDraftStatesRouter,
+  constantResolvablesRouter,
 } from "./routers/constant/constant.router";
 import {
   configsRouter,
@@ -144,14 +149,15 @@ import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router
 import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
+import { datasourcesRouter } from "./routers/datasources/datasources.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { slackActionsRouter } from "./routers/slack-actions/slack-actions.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
-import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
+import { queryLogsRouter } from "./routers/query-logs/query-logs.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import {
@@ -161,6 +167,7 @@ import {
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
+import { experimentChangesRouter } from "./routers/experiment-changes/experiment-changes.router";
 import { rampScheduleRouter } from "./routers/ramp-schedule/ramp-schedule.router";
 import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ramp-schedule-template.router";
 import { runStatsEngine } from "./services/stats";
@@ -170,6 +177,8 @@ import { autoRunRouter } from "./routers/auto-run/auto-run.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
+import { experimentExposuresRouter } from "./routers/experiment-exposures/experiment-exposures.router";
+import { adminManagedWarehouseRouter } from "./routers/admin-managed-warehouse/admin-managed-warehouse.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -245,6 +254,7 @@ if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
 }
 
 app.use(cookieParser());
+app.use(rejectQueryOperators);
 
 // Health check route  (does not require JWT or cors)
 app.get("/healthcheck", (req, res) => {
@@ -288,10 +298,10 @@ app.get("/", (req, res) => {
     res.json({
       name: "GrowthBook API",
       production: ENVIRONMENT === "production",
-      api_host: (
+      api_host: trimTrailingSlashes(
         process.env.API_HOST ||
-        req.protocol + "://" + req.hostname + ":" + app.get("port")
-      ).replace(/\/+$/, ""),
+          req.protocol + "://" + req.hostname + ":" + app.get("port"),
+      ),
       app_origin: APP_ORIGIN,
       config_source: usingFileConfig() ? "file" : "db",
       email_enabled: isEmailEnabled(),
@@ -443,6 +453,7 @@ const INTERNAL_API_ALLOWED_HEADERS = [
   "Authorization",
   "X-Organization",
   "X-SSO-Connection-ID",
+  "X-GrowthBook-Requested-By",
   "x-no-compression",
   ...GROWTHBOOK_TRACKING_HEADERS,
 ];
@@ -593,6 +604,7 @@ const requireUserIdHandler: RequestHandler = async (req, res, next) => {
   next();
 };
 app.use(asyncHandler(requireUserIdHandler));
+app.use(scrubRevisionResponses);
 
 // OAuth consent helpers (authenticated)
 if (OAUTH_AS_ENABLED) {
@@ -647,6 +659,7 @@ if (IS_CLOUD) {
     subscriptionController.updateCustomerData,
   );
   app.get("/billing/usage", subscriptionController.getUsage);
+  app.get("/billing/usage/by-key", subscriptionController.getUsageByKey);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
 app.post(
@@ -683,6 +696,7 @@ app.use("/saved-groups", savedGroupRouter);
 app.use("/archetype", ArchetypeRouter);
 
 app.use("/learnings", learningsRouter);
+app.use("/confirmations", confirmationsRouter);
 
 app.use("/attribute", AttributeRouter);
 
@@ -690,6 +704,7 @@ app.use("/custom-fields", customFieldsRouter);
 
 app.use("/constants", constantsRouter);
 app.use("/constants-draft-states", constantDraftStatesRouter);
+app.use("/constants-resolvables", constantResolvablesRouter);
 app.use("/configs", configsRouter);
 app.use("/configs-draft-states", configDraftStatesRouter);
 
@@ -732,6 +747,7 @@ app.get(
 
 // Metric Analyses
 app.use(metricAnalysisRouter);
+app.use(queryLogsRouter);
 
 // Metric Groups
 app.use(metricGroupRouter);
@@ -740,6 +756,7 @@ app.use(metricGroupRouter);
 app.use(populationDataRouter);
 
 // Experiments
+app.use(experimentExposuresRouter);
 app.get("/experiments", experimentsController.getExperiments);
 app.post("/experiments", experimentsController.postExperiments);
 app.get(
@@ -788,14 +805,6 @@ app.get(
   experimentsController.getExperimentIncrementalRefresh,
 );
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
-app.post(
-  "/experiment/:id/targeting",
-  experimentsController.postExperimentTargeting,
-);
-app.post(
-  "/experiment/:id/features",
-  experimentsController.postExperimentFeatureValues,
-);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.post(
   "/experiment/:id/approve-scheduled-start",
@@ -817,10 +826,6 @@ app.post("/experiment/:id/stop", experimentsController.postExperimentStop);
 app.put(
   "/experiment/:id/variation/:variation/screenshot",
   experimentsController.addScreenshot,
-);
-app.delete(
-  "/experiment/:id/variation/:variation/screenshot",
-  experimentsController.deleteScreenshot,
 );
 app.post(
   "/experiment/:id/archive",
@@ -905,9 +910,6 @@ app.use("/templates", templateRouter);
 // Decision Criteria
 app.use("/decision-criteria", decisionCriteriaRouter);
 
-// URL Redirects
-app.use("/url-redirects", urlRedirectRouter);
-
 // Safe Rollouts
 app.use("/safe-rollout", safeRolloutRouter);
 
@@ -919,6 +921,8 @@ app.use("/ramp-schedule-templates", rampScheduleTemplateRouter);
 
 // Holdouts
 app.use("/holdout", holdoutRouter);
+
+app.use("/experiment/:id/changes", experimentChangesRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);
@@ -953,6 +957,7 @@ app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
+app.get("/feature/:id/code-refs", featuresController.getFeatureCodeRefs);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
 app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
@@ -1029,10 +1034,6 @@ app.post(
   "/feature/:id/:version/contextual-bandit",
   featuresController.postFeatureContextualBanditRefRule,
 );
-app.delete(
-  "/experiment/:id/linked-feature/:featureId",
-  experimentsController.deleteExperimentLinkedFeature,
-);
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
@@ -1088,9 +1089,14 @@ app.get(
 );
 app.post("/datasources", datasourcesController.postDataSources);
 app.post(
+  "/datasources/test-connection",
+  datasourcesController.postTestDataSourceConnection,
+);
+app.post(
   "/datasources/event-forwarder/test-access",
   datasourcesController.postTestEventForwarderAccessForCreate,
 );
+app.use(datasourcesRouter);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.put(
@@ -1117,8 +1123,15 @@ app.post(
   "/datasource/:id/event-forwarder/resume",
   datasourcesController.postResumeEventForwarder,
 );
+app.post(
+  "/datasource/:id/event-forwarder/restart",
+  datasourcesController.postRestartEventForwarder,
+);
+app.post(
+  "/datasource/:id/event-forwarder/migrate",
+  datasourcesController.postMigrateEventForwarder,
+);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
-app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
 app.post(
   "/datasource/:id/query/:queryId/cancel",
   datasourcesController.cancelDataSourceQuery,
@@ -1259,15 +1272,25 @@ app.put(
   adminController._dangerousAdminEnableOrganization,
 );
 app.get(
+  "/admin/organization/:orgId",
+  adminController._dangerousAdminGetOrganization,
+);
+app.get(
   "/admin/organization/:orgId/members",
   adminController._dangerousAdminGetOrganizationMembers,
 );
+app.get(
+  "/admin/organization/:orgId/license",
+  adminController._dangerousAdminGetOrganizationLicense,
+);
 app.get("/admin/members", adminController._dangerousAdminGetMembers);
+app.get("/admin/user/:userId", adminController._dangerousAdminGetUser);
 app.put("/admin/member", adminController._dangerousAdminPutMember);
 app.post(
   "/admin/sso-connection",
   adminController._dangerousAdminUpsertSSOConnection,
 );
+app.use(adminManagedWarehouseRouter);
 
 // License
 app.get("/license", licenseController.getLicenseData);

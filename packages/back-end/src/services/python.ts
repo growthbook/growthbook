@@ -259,6 +259,9 @@ export const statsServerPool = createPool(
     max: MAX_POOL_SIZE,
     testOnBorrow: true,
     evictionRunIntervalMillis: 60000,
+    // The hard idle timeout ignores `min` and would recycle the last server every minute
+    idleTimeoutMillis: Infinity,
+    softIdleTimeoutMillis: 30000,
     numTestsPerEvictionRun: 2,
     acquireTimeoutMillis: STATS_ENGINE_TIMEOUT_MS,
   },

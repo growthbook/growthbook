@@ -6,6 +6,7 @@ import {
   JsonPatchOperation,
   Revision,
   RevisionTargetType,
+  landedOps,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { ReqContext } from "back-end/types/request";
@@ -54,7 +55,7 @@ export async function ensureLiveRevisionExists(
   );
   if (alreadyExists) return;
 
-  const authorId = entity.owner || context.userId;
+  const authorId = entity.owner || context.actorId;
   const snapshot = getAdapter(entityType).buildSnapshot(entity);
 
   // Wrapped in createWithVersionRetry so that two concurrent backfill calls
@@ -113,34 +114,17 @@ export function isRevisionRequired(
 // Applying ops to live preserves out-of-band changes to fields the revision
 // did not touch.
 //
-// The op list is filtered to "effective" ops first:
-// - Drop ops whose top-level path isn't in `updatableFields` (the entity's
-// write allowlist).
-// - Drop `add`/`replace` ops whose value equals the baseline value (these
-// represent no real change vs the snapshot, so applying them to live
-// would overwrite legitimate live drift).
-// - Drop `remove` ops on fields the baseline didn't define.
-// - Drop `move` / `copy` / `test` ops outright (they're accepted by the
-// validator but not modelled by the rest of the revision pipeline).
+// Only the ops `landedOps` keeps are applied.
 export function buildMergeDesiredState<T extends Record<string, unknown>>(
   liveEntity: T,
   baseSnapshot: Record<string, unknown>,
   proposedChanges: JsonPatchOperation[] | unknown,
   updatableFields: ReadonlySet<string>,
 ): T {
-  const ops = normalizeProposedChanges(proposedChanges);
-  const effectiveOps = ops.filter((op) => {
-    const field = op.path.split("/")[1];
-    if (!field || !updatableFields.has(field)) return false;
-    if (op.op === "replace" || op.op === "add") {
-      return !isEqual(op.value, baseSnapshot[field]);
-    }
-    if (op.op === "remove") {
-      return baseSnapshot[field] !== undefined;
-    }
-    return false;
-  });
-  return applyPatchToSnapshot(liveEntity, effectiveOps);
+  return applyPatchToSnapshot(
+    liveEntity,
+    landedOps(liveEntity, baseSnapshot, proposedChanges, updatableFields),
+  );
 }
 
 // Whether a merge changes the entity's project ownership. Covers both the
@@ -268,7 +252,7 @@ export async function createOrUpdateRevision(
     revisionId,
   } = options;
 
-  if (revisionId && !forceCreate) {
+  if (revisionId) {
     // Live-entity basis, matching the handlers that resolved this id: the
     // snapshot basis returns null for a moved entity, and falling through to
     // create would silently fork a new draft.
@@ -279,18 +263,18 @@ export async function createOrUpdateRevision(
       // never a new draft.
       throw new Error("Revision not found");
     }
-    if (targetRevision) {
-      // Guard against cross-entity writes: a caller could pass a revisionId
-      // that belongs to a different entity (same org) and we'd otherwise
-      // write entity A's proposed changes into entity B's draft. Reject
-      // any mismatched revision instead of silently corrupting the target.
-      if (
-        targetRevision.target.type !== entityType ||
-        targetRevision.target.id !== entity.id
-      ) {
-        throw new Error("Revision does not belong to the specified entity");
-      }
+    // Guard against cross-entity writes: a caller could pass a revisionId
+    // that belongs to a different entity (same org) and we'd otherwise
+    // write entity A's proposed changes into entity B's draft. Checked even
+    // when forceCreate is set.
+    if (
+      targetRevision.target.type !== entityType ||
+      targetRevision.target.id !== entity.id
+    ) {
+      throw new Error("Revision does not belong to the specified entity");
+    }
 
+    if (!forceCreate) {
       // A deriver's derivation and its merge with the draft's existing changes
       // both have to happen inside the CAS loop, against the row being written.
       const finalChanges =
@@ -314,7 +298,7 @@ export async function createOrUpdateRevision(
       return context.models.revisions.updateProposedChanges(
         targetRevision.id,
         finalChanges,
-        context.userId,
+        context.actorId,
         advanceAuthorityOnRow(context),
       );
     }
@@ -325,7 +309,7 @@ export async function createOrUpdateRevision(
       await context.models.revisions.getOpenByTargetAndAuthor(
         entityType,
         entity.id,
-        context.userId,
+        context.actorId,
       );
     if (existingRevision) {
       const finalChanges =
@@ -351,7 +335,7 @@ export async function createOrUpdateRevision(
       return context.models.revisions.updateProposedChanges(
         existingRevision.id,
         finalChanges,
-        context.userId,
+        context.actorId,
         advanceAuthorityOnRow(context),
       );
     }

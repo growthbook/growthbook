@@ -11,7 +11,7 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import {
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
   getApiFeatureObj,
   createInterfaceEnvSettingsFromApiEnvSettings,
   addIdsToFlatRules,
@@ -45,7 +45,9 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
 
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
-  getSavedGroupMap: jest.fn().mockResolvedValue(new Map()),
+  getFeatureDefinitionLookups: jest
+    .fn()
+    .mockResolvedValue({ groupMap: new Map(), safeRolloutMap: new Map() }),
   addIdsToRules: jest.fn(),
   addIdsToFlatRules: jest.fn(),
   inheritStoredRolloutSeeds: jest.fn(),
@@ -53,6 +55,7 @@ jest.mock("back-end/src/services/features", () => ({
   updateInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
   buildFeatureRulesFromApiEnvSettings: jest.fn(() => []),
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules: jest.fn(() => []),
+  assertHoldoutValueValid: jest.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -114,6 +117,7 @@ describe("features API", () => {
   });
 
   const defaultModels = () => ({
+    savedGroups: { getAllWithoutValues: jest.fn().mockResolvedValue([]) },
     safeRollout: {
       getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
     },
@@ -150,7 +154,10 @@ describe("features API", () => {
 
   beforeEach(() => {
     (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
-    (getSavedGroupMap as jest.Mock).mockResolvedValue(savedGroupMap);
+    (getFeatureDefinitionLookups as jest.Mock).mockResolvedValue({
+      groupMap: savedGroupMap,
+      safeRolloutMap: new Map(),
+    });
     (getExperimentMapForFeature as jest.Mock).mockResolvedValue(new Map());
 
     (getRevision as jest.Mock).mockImplementation(({ version }) =>
@@ -251,6 +258,23 @@ describe("features API", () => {
       entity: { id: "id", object: "feature" },
       event: "feature.create",
     });
+  });
+
+  it("refuses a default value that is JSON only after repair", async () => {
+    defaultContext();
+    const response = await request(app)
+      .post("/api/v1/features")
+      .send({
+        id: "loose",
+        owner: testUser.id,
+        valueType: "json",
+        defaultValue: '{"a": 1,}',
+      })
+      .set("Authorization", "Bearer foo");
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(
+      /Default value: invalid JSON\. Did you mean/,
+    );
   });
 
   // Regression: client payloads arrive with `id: ""` on new rules; if the POST

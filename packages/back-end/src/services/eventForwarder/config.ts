@@ -2,30 +2,74 @@ import { AES, enc } from "crypto-js";
 import isEqual from "lodash/isEqual";
 import { DataSourceInterface } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
   BigQueryEventForwarderConfigDraft,
   BigQueryEventForwarderStoredConfig,
+  DatabricksEventForwarderConfigDraft,
+  DatabricksEventForwarderStoredConfig,
   EventForwarderConfigDraft,
   EventForwarderConfigWithMetadata,
   SnowflakeEventForwarderConfigDraft,
+  EventForwarderSinkType,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
+  DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
+  databricksParamsSupportEventForwarder,
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   EventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   normalizeBigQueryTablePrefixForEventForwarder,
+  normalizeDatabricksEventForwarderZerobusEndpoint,
+  normalizeDatabricksTablePrefixForEventForwarder,
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
+  normalizeDatabricksEventForwarderDestination,
+  resolveBigQueryEventForwarderTableNames,
+  resolveSnowflakeEventForwarderTableNames,
+  resolveDatabricksEventForwarderTables,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 
 type SinkConfig =
   | BigQueryEventForwarderStoredConfig
-  | SnowflakeEventForwarderStoredConfig;
+  | SnowflakeEventForwarderStoredConfig
+  | DatabricksEventForwarderStoredConfig;
+
+// Sinks written by a GrowthBook-run consumer on one shared topic per sink,
+// instead of a per-datasource Confluent connector.
+const IN_HOUSE_CONSUMER_SINKS: ReadonlySet<EventForwarderSinkType> = new Set([
+  "databricks",
+  "bigquery",
+  "snowflake",
+]);
+
+export function isInHouseConsumerSink(
+  sinkType: EventForwarderSinkType,
+): boolean {
+  return IN_HOUSE_CONSUMER_SINKS.has(sinkType);
+}
+
+// Whether an existing config is on the consumer: new configs get the shared
+// topic (or a per-org `__<orgId>` override); BigQuery configs created before
+// the consumer kept their per-datasource Confluent topic.
+// TODO: once every pre-consumer config is torn down, isInHouseConsumerSink suffices.
+export function isInHouseConsumerTopic(
+  topic: string,
+  sinkType: EventForwarderSinkType,
+): boolean {
+  return topic.split("__")[0] === getInHouseConsumerTopicName(sinkType);
+}
+
+export function getInHouseConsumerTopicName(
+  sinkType: EventForwarderSinkType,
+): string {
+  return `event_forwarder_${sinkType}`;
+}
 
 function sanitizeKafkaName(value: string): string {
   return value
@@ -44,6 +88,46 @@ export function getEventForwarderTopicName(
 
 function encryptSinkConfig(config: SinkConfig): string {
   return AES.encrypt(JSON.stringify(config), ENCRYPTION_KEY).toString();
+}
+
+function emptyStoredConfig(sinkType: EventForwarderSinkType): SinkConfig {
+  const tables = {
+    events: "",
+    experiment_viewed: "",
+    feature_usage: "",
+  };
+  switch (sinkType) {
+    case "bigquery":
+      return {
+        projectId: "",
+        dataset: "",
+        tablePrefix: "",
+        serviceAccountKey: "",
+        tables,
+      };
+    case "snowflake":
+      return {
+        tablePrefix: "",
+        tables,
+        account: "",
+        username: "",
+        database: "",
+        schema: "",
+        privateKey: "",
+      };
+    case "databricks":
+      return {
+        catalog: "",
+        schema: "",
+        tablePrefix: "",
+        zerobusEndpoint: "",
+        tables,
+        host: "",
+        path: "",
+        oauthClientId: "",
+        oauthClientSecret: "",
+      };
+  }
 }
 
 function decryptSinkConfig<T extends SinkConfig>(encrypted: string): T {
@@ -74,6 +158,12 @@ export function getSnowflakeEventForwarderTablePrefix(
   return normalizeSnowflakeTablePrefixForEventForwarder(config.tablePrefix);
 }
 
+export function getDatabricksEventForwarderTablePrefix(
+  config: DatabricksEventForwarderStoredConfig,
+): string {
+  return normalizeDatabricksTablePrefixForEventForwarder(config.tablePrefix);
+}
+
 export async function getEventForwarderForDatasource(
   context: ReqContext,
   datasourceId: string,
@@ -86,6 +176,20 @@ export async function hasAnyEventForwarderConfig(
 ): Promise<boolean> {
   const configs = await context.models.eventForwarderConfigs.getAll();
   return configs.length > 0;
+}
+
+// One forwarder per org (usage is metered per org); org-wide so forwarders on
+// unreadable Projects count. Lift when per-destination event splitting lands.
+export async function assertNoEventForwarderInOrg(
+  context: ReqContext,
+): Promise<void> {
+  const [other] =
+    await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
+  if (other) {
+    throw new Error(
+      "This organization already has an Event Forwarder. Only one Event Forwarder is allowed per organization.",
+    );
+  }
 }
 
 // GCP service account key JSON for Confluent BigQuery Storage Sink (not OAuth connector mode).
@@ -111,6 +215,51 @@ function buildBigQueryServiceAccountKey(
       clientEmail,
     )}`,
   });
+}
+
+function parseBigQueryServiceAccountKey(raw: string): {
+  project_id?: string;
+  client_email?: string;
+  private_key?: string;
+} | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    throw new Error("Event Forwarder service account key is not valid JSON.");
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Event Forwarder service account key is not valid JSON.");
+  }
+
+  return parsed;
+}
+
+export function getEventForwarderBigQueryConnectionParams(
+  params: BigQueryConnectionParams,
+  serviceAccountKeyJson: string | undefined,
+): BigQueryConnectionParams {
+  const serviceAccountKey = parseBigQueryServiceAccountKey(
+    serviceAccountKeyJson || "",
+  );
+  if (!serviceAccountKey) return params;
+
+  return {
+    ...params,
+    authType: "json",
+    projectId: serviceAccountKey.project_id || params.projectId,
+    defaultProject:
+      params.defaultProject ||
+      serviceAccountKey.project_id ||
+      params.projectId ||
+      "",
+    clientEmail: serviceAccountKey.client_email || params.clientEmail,
+    privateKey: serviceAccountKey.private_key || params.privateKey,
+    serviceAccountJson: serviceAccountKeyJson,
+  };
 }
 
 function buildBigQueryStoredConfigFromDraft(
@@ -149,11 +298,17 @@ function buildBigQueryStoredConfigFromDraft(
     ) ||
     "";
 
+  const names = resolveBigQueryEventForwarderTableNames(tablePrefix);
   return {
     projectId,
     dataset,
     tablePrefix,
     serviceAccountKey,
+    tables: {
+      events: names.events,
+      experiment_viewed: names.experimentViewed,
+      feature_usage: names.featureUsage,
+    },
   };
 }
 
@@ -206,12 +361,18 @@ function buildSnowflakeStoredConfigFromDraft(
   const authMethod = datasourceParams?.authMethod ?? "password";
   if (authMethod !== "key-pair") {
     throw new Error(
-      "Snowflake event forwarder requires key-pair authentication. Password authentication is supported for Snowflake queries, but Confluent Snowflake Sink provisioning requires a private key.",
+      "Snowflake event forwarder requires key-pair authentication. Password and Workload Identity authentication are supported for Snowflake queries, but Snowpipe Streaming requires a private key.",
     );
   }
 
+  const names = resolveSnowflakeEventForwarderTableNames(tablePrefix);
   return {
     tablePrefix,
+    tables: {
+      events: names.events,
+      experiment_viewed: names.experimentViewed,
+      feature_usage: names.featureUsage,
+    },
     account:
       datasourceParams?.account?.trim() ||
       existingStored?.account?.trim() ||
@@ -248,6 +409,59 @@ function buildSnowflakeStoredConfigFromDraft(
   };
 }
 
+function buildDatabricksStoredConfigFromDraft(
+  draft: DatabricksEventForwarderConfigDraft,
+  datasourceParams: DatabricksConnectionParams | undefined,
+  existingModel: EventForwarderConfigInterface | null,
+): DatabricksEventForwarderStoredConfig {
+  const existingStored =
+    existingModel?.sinkType === "databricks"
+      ? decryptSinkConfig<DatabricksEventForwarderStoredConfig>(
+          existingModel.config,
+        )
+      : null;
+
+  if (!databricksParamsSupportEventForwarder(datasourceParams)) {
+    throw new Error(DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE);
+  }
+
+  const catalog =
+    draft.catalog?.trim() ||
+    existingStored?.catalog?.trim() ||
+    datasourceParams?.catalog?.trim() ||
+    "";
+  const schema = draft.schema?.trim() || existingStored?.schema?.trim() || "";
+  // Same per-field validation as the UI.
+  const destination = normalizeDatabricksEventForwarderDestination({
+    catalog,
+    schema,
+    tablePrefix: draft.tablePrefix ?? "",
+  });
+
+  let zerobusEndpoint = existingStored?.zerobusEndpoint?.trim() || "";
+  if (draft.zerobusEndpoint?.trim()) {
+    zerobusEndpoint = normalizeDatabricksEventForwarderZerobusEndpoint(
+      draft.zerobusEndpoint,
+    );
+  }
+
+  return {
+    ...destination,
+    zerobusEndpoint,
+    tables: resolveDatabricksEventForwarderTables(destination),
+    host: datasourceParams?.host?.trim() || existingStored?.host?.trim() || "",
+    path: datasourceParams?.path?.trim() || existingStored?.path?.trim() || "",
+    oauthClientId:
+      datasourceParams?.oauthClientId?.trim() ||
+      existingStored?.oauthClientId?.trim() ||
+      "",
+    oauthClientSecret:
+      datasourceParams?.oauthClientSecret?.trim() ||
+      existingStored?.oauthClientSecret?.trim() ||
+      "",
+  };
+}
+
 function buildNormalizedSinkPayload(
   draft: EventForwarderConfigDraft,
   datasourceParams: EventForwarderDatasourceParams,
@@ -264,6 +478,12 @@ function buildNormalizedSinkPayload(
       return buildSnowflakeStoredConfigFromDraft(
         draft.config,
         datasourceParams as SnowflakeConnectionParams | undefined,
+        existingModel,
+      );
+    case "databricks":
+      return buildDatabricksStoredConfigFromDraft(
+        draft.config,
+        datasourceParams as DatabricksConnectionParams | undefined,
         existingModel,
       );
     default:
@@ -308,7 +528,26 @@ function validateNormalizedSinkPayload(
       !snowflake.role?.trim()
     ) {
       throw new Error(
-        "Snowflake event forwarder requires account, username, destination table prefix (DATABASE.SCHEMA.PREFIX), Snowflake URL, private key credentials, and Snowflake role (required for Snowpipe Streaming schematization)",
+        "Snowflake event forwarder requires account, username, destination table prefix (DATABASE.SCHEMA.PREFIX), Snowflake URL, private key credentials, and Snowflake role",
+      );
+    }
+  }
+
+  if (draft.sinkType === "databricks") {
+    const databricks =
+      normalizedPayload as DatabricksEventForwarderStoredConfig;
+    if (
+      !databricks.catalog ||
+      !databricks.schema ||
+      !getDatabricksEventForwarderTablePrefix(databricks) ||
+      !databricks.zerobusEndpoint ||
+      !databricks.host ||
+      !databricks.path ||
+      !databricks.oauthClientId ||
+      !databricks.oauthClientSecret
+    ) {
+      throw new Error(
+        "Databricks event forwarder requires destination (catalog.schema.prefix), Zerobus endpoint, and a Databricks OAuth connection (host, HTTP path, client ID, secret)",
       );
     }
   }
@@ -368,6 +607,21 @@ export function toEventForwarderConfigDraft(
         },
       };
     }
+    case "databricks": {
+      const decrypted = decryptSinkConfig<DatabricksEventForwarderStoredConfig>(
+        config.config,
+      );
+      return {
+        sinkType: "databricks",
+        region: config.region,
+        config: {
+          catalog: decrypted.catalog || "",
+          schema: decrypted.schema || "",
+          tablePrefix: getDatabricksEventForwarderTablePrefix(decrypted),
+          zerobusEndpoint: decrypted.zerobusEndpoint || "",
+        },
+      };
+    }
     default:
       throw new Error(
         `Unsupported event forwarder sink type: ${String(config.sinkType)}`,
@@ -385,16 +639,14 @@ export function stripEventForwarderConfigMetadata(
   if (draft === undefined || draft === null) {
     return draft;
   }
-  if (draft.sinkType === "bigquery") {
-    return {
-      sinkType: "bigquery",
-      config: draft.config,
-    };
+  switch (draft.sinkType) {
+    case "bigquery":
+      return { sinkType: "bigquery", config: draft.config };
+    case "snowflake":
+      return { sinkType: "snowflake", config: draft.config };
+    case "databricks":
+      return { sinkType: "databricks", config: draft.config };
   }
-  return {
-    sinkType: draft.sinkType,
-    config: draft.config,
-  };
 }
 
 /**
@@ -435,7 +687,64 @@ export function toEventForwarderConfigWithMetadata(
     connectorName: config.connectorName,
     connectorId: config.connectorId,
     lastProvisioningError: config.lastProvisioningError,
+    inHouseConsumer: isInHouseConsumerTopic(config.topic, config.sinkType),
   };
+}
+
+// Moves a pre-consumer (Confluent connector) config onto the shared consumer
+// topic. Re-normalizes the stored config so it carries `tables`. Confluent
+// resources are left for manual teardown. Only claims the row; the caller
+// provisions it and audit-logs on success.
+export async function migrateEventForwarderToInHouseConsumer(
+  context: ReqContext,
+  existing: EventForwarderConfigInterface,
+  datasourceParams: EventForwarderDatasourceParams,
+): Promise<{
+  migrated: EventForwarderConfigInterface;
+  // The row the CAS actually claimed; revert and audit must use it, not `existing`
+  previous: EventForwarderConfigInterface;
+}> {
+  if (isInHouseConsumerTopic(existing.topic, existing.sinkType)) {
+    throw new Error("Event forwarder is already on the in-house consumer");
+  }
+  let previous = existing;
+  // All checks run on the freshly read row inside the CAS, guarded on the
+  // fields they decide on, so a pause, credential update or second migrate
+  // landing in between is seen rather than overwritten.
+  const migrated = await context.models.eventForwarderConfigs.updateWithCas(
+    existing.id,
+    ["topic", "status", "config"],
+    (fresh) => {
+      previous = fresh;
+      if (isInHouseConsumerTopic(fresh.topic, fresh.sinkType)) {
+        throw new Error("Event forwarder is already on the in-house consumer");
+      }
+      // Provisioning marks the row ready, which would silently undo a pause.
+      if (fresh.status === "paused") {
+        throw new Error("Resume the event forwarder before migrating it");
+      }
+      const draft = toEventForwarderConfigDraft(fresh);
+      if (!draft) {
+        throw new Error("Cannot read event forwarder config");
+      }
+      const normalizedPayload = buildNormalizedSinkPayload(
+        draft,
+        datasourceParams,
+        fresh,
+      );
+      validateNormalizedSinkPayload(draft, datasourceParams, normalizedPayload);
+      return {
+        topic: getInHouseConsumerTopicName(fresh.sinkType),
+        config: encryptSinkConfig(normalizedPayload),
+        status: "pending",
+        lastProvisioningError: "",
+      };
+    },
+  );
+  if (!migrated) {
+    throw new Error("Cannot find event forwarder config");
+  }
+  return { migrated, previous };
 }
 
 export async function getEventForwarderConfigDraftForDatasource(
@@ -458,6 +767,76 @@ export async function getEventForwarderMetadataForDatasource(
 
   const existing = await getEventForwarderForDatasource(context, datasource.id);
   return toEventForwarderConfigWithMetadata(existing);
+}
+
+export async function createUnconfiguredEventForwarderConfig({
+  context,
+  datasource,
+  region,
+}: {
+  context: ReqContext;
+  datasource: Pick<
+    DataSourceInterface,
+    "id" | "organization" | "projects" | "type"
+  >;
+  region: "us-east-1" | "eu-west-1";
+}): Promise<EventForwarderConfigInterface | null> {
+  const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
+  if (!sinkType) {
+    return null;
+  }
+
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  if (existing) {
+    return existing;
+  }
+
+  return context.models.eventForwarderConfigs.create({
+    datasourceId: datasource.id,
+    projects: [...(datasource.projects ?? [])].sort(),
+    topic: isInHouseConsumerSink(sinkType)
+      ? getInHouseConsumerTopicName(sinkType)
+      : getEventForwarderTopicName(datasource.organization, datasource.id),
+    schemaId: 0,
+    sinkType,
+    region,
+    config: encryptSinkConfig(emptyStoredConfig(sinkType)),
+    status: "unconfigured",
+    connectorName: "",
+    connectorId: "",
+    lastProvisioningError: "",
+  });
+}
+
+// The Data Source already exists. Keep a config row so the Data Source page
+// can show the failure instead of looking like a normal warehouse connection.
+export async function recordEventForwarderCreateFailure({
+  context,
+  datasource,
+  region,
+  message,
+}: {
+  context: ReqContext;
+  datasource: Pick<
+    DataSourceInterface,
+    "id" | "organization" | "projects" | "type"
+  >;
+  region: "us-east-1" | "eu-west-1";
+  message: string;
+}): Promise<void> {
+  const existing =
+    (await getEventForwarderForDatasource(context, datasource.id)) ??
+    (await createUnconfiguredEventForwarderConfig({
+      context,
+      datasource,
+      region,
+    }));
+  if (!existing) return;
+
+  await context.models.eventForwarderConfigs.update(existing, {
+    status: "error",
+    lastProvisioningError: message,
+  });
 }
 
 export async function syncEventForwarderConfigFromDatasource({
@@ -503,10 +882,13 @@ export async function syncEventForwarderConfigFromDatasource({
   const projects = [...(datasource.projects ?? [])].sort();
 
   if (!existing) {
+    await assertNoEventForwarderInOrg(context);
     return await context.models.eventForwarderConfigs.create({
       datasourceId: datasource.id,
       projects,
-      topic: getEventForwarderTopicName(datasource.organization, datasource.id),
+      topic: isInHouseConsumerSink(draft.sinkType)
+        ? getInHouseConsumerTopicName(draft.sinkType)
+        : getEventForwarderTopicName(datasource.organization, datasource.id),
       // Provisioning resolves the current registry schema id after the topic exists.
       schemaId: 0,
       sinkType: draft.sinkType,

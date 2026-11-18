@@ -9,6 +9,7 @@ const docSectionDisplayTitles: Partial<Record<DocSection, string>> = {
   growthbook_clickhouse: "Managed Warehouse",
   buildYourOwn: "Build Your Own SDK",
   ga4BigQuery: "GA4 BigQuery",
+  remoteSavedGroups: "Remote Groups",
   sdks: "SDKs",
   javascript: "JavaScript SDK",
   javascriptAutoAttributes: "JavaScript SDK (Auto Attributes)",

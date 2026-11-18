@@ -65,10 +65,10 @@ describe("captureAttribution", () => {
     }
   });
 
-  it("stores UTMs and click IDs, including li_fat_id, and strips the query from landing_page", () => {
+  it("stores UTMs and click IDs, including Google braid tags and li_fat_id, and strips the query from landing_page", () => {
     setReferrer("https://www.linkedin.com/");
     visit(
-      "/signup?utm_source=linkedin&utm_medium=cpc&li_fat_id=abc123&token=secret",
+      "/signup?utm_source=linkedin&utm_medium=cpc&li_fat_id=abc123&gbraid=gb1&wbraid=wb1&token=secret",
     );
 
     captureAttribution();
@@ -77,6 +77,8 @@ describe("captureAttribution", () => {
       utm_source: "linkedin",
       utm_medium: "cpc",
       li_fat_id: "abc123",
+      gbraid: "gb1",
+      wbraid: "wb1",
       referrer: "https://www.linkedin.com/",
       landing_page: `${ORIGIN}/signup`,
       touch_at: "2026-09-16T14:00:00.000Z",

@@ -3,6 +3,7 @@ import {
   FINAL_TOOL_CALL_NOTICE,
   lookupTerms,
   prepareToolStep,
+  withObjectToolInputs,
 } from "back-end/src/enterprise/services/aiStepPolicy";
 
 const messages: ModelMessage[] = [{ role: "user", content: "swap the plans" }];
@@ -84,5 +85,62 @@ describe("prepareToolStep", () => {
         messages,
       }),
     ).toEqual({ toolChoice: "none" });
+  });
+});
+
+describe("withObjectToolInputs", () => {
+  const unparsed: ModelMessage[] = [
+    ...messages,
+    {
+      role: "assistant",
+      content: [
+        { type: "text", text: "Let me ask." },
+        {
+          type: "tool-call",
+          toolCallId: "call_1",
+          toolName: "askUser",
+          input: '{"question": "Which?", "options": <parameter name="id">',
+        },
+      ],
+    },
+    {
+      role: "tool",
+      content: [
+        {
+          type: "tool-result",
+          toolCallId: "call_1",
+          toolName: "askUser",
+          output: { type: "error-text", value: "JSON parsing failed" },
+        },
+      ],
+    },
+  ];
+
+  it("replaces an unparsed tool-call input with an empty object", () => {
+    const [, assistant] = withObjectToolInputs(unparsed);
+    expect(assistant.content).toEqual([
+      { type: "text", text: "Let me ask." },
+      {
+        type: "tool-call",
+        toolCallId: "call_1",
+        toolName: "askUser",
+        input: {},
+      },
+    ]);
+  });
+
+  it("returns the same array when every input is already an object", () => {
+    expect(withObjectToolInputs(messages)).toBe(messages);
+  });
+
+  it("sends the repaired transcript on every step", () => {
+    const [, assistant] = withObjectToolInputs(unparsed);
+    const result = prepareToolStep({
+      model: "claude-sonnet-4-6",
+      stepNumber: 0,
+      remainingSteps: 5,
+      messages: unparsed,
+    });
+    expect(result.messages?.[1]).toEqual(assistant);
   });
 });

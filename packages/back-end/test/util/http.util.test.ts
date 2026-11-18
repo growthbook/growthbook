@@ -3,6 +3,9 @@ import {
   cancellableFetch,
   getAuthProxyForUrl,
   getHttpOptions,
+  getWebhookTimeoutMs,
+  trimTrailingSlashes,
+  validateWebhookTimeoutSeconds,
 } from "back-end/src/util/http.util";
 
 // proxy-agent is stubbed in jest.config.js, so assert on the agent's presence, not its class.
@@ -11,6 +14,7 @@ let mockUseProxy = false;
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
   WEBHOOK_PROXY: "http://smokescreen.test:4750",
+  MAX_WEBHOOK_TIMEOUT_SECONDS: 120,
   get USE_PROXY() {
     return mockUseProxy;
   },
@@ -56,6 +60,50 @@ describe("cancellableFetch with WEBHOOK_PROXY set", () => {
   });
 });
 
+describe("cancellableFetch truncation", () => {
+  beforeEach(() => {
+    mockedFetch.mockReset();
+  });
+
+  // Streams two chunks over a 5-byte cap, so the second read trips the abort.
+  function oversizedResponse() {
+    return {
+      status: 200,
+      body: (async function* () {
+        yield Buffer.from("abcdef");
+        yield Buffer.from("ghijkl");
+      })(),
+    };
+  }
+
+  it("resolves with the partial body", async () => {
+    mockedFetch.mockResolvedValueOnce(oversizedResponse());
+    const { stringBody } = await cancellableFetch(
+      "https://example.com/big",
+      {},
+      { maxTimeMs: 1000, maxContentSize: 5 },
+    );
+    expect(stringBody).toBe("abcdef");
+  });
+
+  it("decodes a multi-byte character split across chunks", async () => {
+    const bytes = Buffer.from("日本語");
+    mockedFetch.mockResolvedValueOnce({
+      status: 200,
+      body: (async function* () {
+        yield bytes.subarray(0, 4);
+        yield bytes.subarray(4);
+      })(),
+    });
+    const { stringBody } = await cancellableFetch(
+      "https://example.com/ja",
+      {},
+      { maxTimeMs: 1000, maxContentSize: 1000 },
+    );
+    expect(stringBody).toBe("日本語");
+  });
+});
+
 describe("getAuthProxyForUrl", () => {
   it.each([
     "https://acme.okta.com/oauth2/v1/keys",
@@ -90,5 +138,44 @@ describe("getAuthProxyForUrl", () => {
     "https://10.0.0.5/keys",
   ])("keeps the proxy for %s", (url) => {
     expect(getAuthProxyForUrl(url)).toBe("http://smokescreen.test:4750");
+  });
+});
+
+describe("webhook timeouts", () => {
+  it("defaults to 30s and clamps to MAX_WEBHOOK_TIMEOUT_SECONDS", () => {
+    expect(getWebhookTimeoutMs(undefined)).toBe(30000);
+    expect(getWebhookTimeoutMs(null)).toBe(30000);
+    expect(getWebhookTimeoutMs(5)).toBe(5000);
+    expect(getWebhookTimeoutMs(500)).toBe(120000);
+  });
+
+  it("rejects timeouts above the max on save", () => {
+    expect(() => validateWebhookTimeoutSeconds(undefined)).not.toThrow();
+    expect(() => validateWebhookTimeoutSeconds(120)).not.toThrow();
+    expect(() => validateWebhookTimeoutSeconds(121)).toThrow("120 seconds");
+  });
+});
+
+describe("trimTrailingSlashes", () => {
+  it("removes all trailing slashes and nothing else", () => {
+    expect(trimTrailingSlashes("https://api.example.com")).toBe(
+      "https://api.example.com",
+    );
+    expect(trimTrailingSlashes("https://api.example.com/")).toBe(
+      "https://api.example.com",
+    );
+    expect(trimTrailingSlashes("https://api.example.com/v1///")).toBe(
+      "https://api.example.com/v1",
+    );
+    expect(trimTrailingSlashes("a//b/")).toBe("a//b");
+    expect(trimTrailingSlashes("///")).toBe("");
+    expect(trimTrailingSlashes("")).toBe("");
+  });
+
+  it("is linear on long runs of slashes", () => {
+    const input = "/".repeat(500000) + "x" + "/".repeat(500000);
+    const start = performance.now();
+    expect(trimTrailingSlashes(input)).toBe("/".repeat(500000) + "x");
+    expect(performance.now() - start).toBeLessThan(500);
   });
 });

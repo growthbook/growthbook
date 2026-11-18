@@ -29,17 +29,19 @@ export type AttributeRefEntry = {
 export function useAttributeReferences(attributeKeys: string[]): {
   references: Record<string, AttributeRefEntry> | null;
   loading: boolean;
+  error: Error | null;
 } {
   const { apiCall, orgId } = useAuth();
 
   const sortedKeys = [...attributeKeys].sort();
-  const idsParam = sortedKeys.join(",");
+  // Each name is encoded on its own so a comma inside one survives the split
+  const idsParam = sortedKeys.map(encodeURIComponent).join(",");
   const path = idsParam
     ? `/attribute/references?ids=${encodeURIComponent(idsParam)}`
     : null;
   const key = path && orgId ? `${orgId}::${path}` : null;
 
-  const { data, isLoading } = useSWR<
+  const { data, error, isLoading } = useSWR<
     { references: Record<string, AttributeRefEntry> },
     Error
   >(key, () => apiCall(path!, { method: "GET" }), {
@@ -50,5 +52,6 @@ export function useAttributeReferences(attributeKeys: string[]): {
   return {
     references: data?.references ?? null,
     loading: isLoading,
+    error: error ?? null,
   };
 }

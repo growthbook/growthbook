@@ -953,7 +953,7 @@ describe("attributes API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Attribute property cannot empty!",
+      message: "Attribute property cannot be empty!",
     });
     expect(updateOrganization).not.toHaveBeenCalled();
     expect(auditMock).not.toHaveBeenCalled();

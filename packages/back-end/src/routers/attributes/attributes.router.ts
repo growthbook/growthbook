@@ -4,6 +4,10 @@ import { attributeDataTypes } from "shared/constants";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawAttributesController from "./attributes.controller";
+import {
+  postIdentifierValidator,
+  putIdentifierValidator,
+} from "./attributes.validators";
 
 const router = express.Router();
 
@@ -21,7 +25,7 @@ router.post(
   "/",
   validateRequestMiddleware({
     body: z.strictObject({
-      property: z.string(),
+      property: z.string().min(1, "Attribute property cannot be empty"),
       description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
       projects: z.array(z.string()),
@@ -30,16 +34,29 @@ router.post(
       hashAttribute: z.boolean().optional(),
       disableEqualityConditions: z.boolean().optional(),
       tags: z.array(z.string()).optional(),
+      customFields: z.record(z.string(), z.string()).optional(),
     }),
   }),
   AttributeController.postAttribute,
+);
+
+router.post(
+  "/identifier",
+  validateRequestMiddleware({ body: postIdentifierValidator }),
+  AttributeController.postIdentifier,
+);
+
+router.put(
+  "/identifier",
+  validateRequestMiddleware({ body: putIdentifierValidator }),
+  AttributeController.putIdentifier,
 );
 
 router.put(
   "/",
   validateRequestMiddleware({
     body: z.strictObject({
-      property: z.string(),
+      property: z.string().min(1, "Attribute property cannot be empty"),
       description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
       projects: z.array(z.string()).optional(),
@@ -50,6 +67,7 @@ router.put(
       disableEqualityConditions: z.boolean().optional(),
       previousName: z.string().optional(),
       tags: z.array(z.string()).optional(),
+      customFields: z.record(z.string(), z.string()).optional(),
     }),
   }),
   AttributeController.putAttribute,

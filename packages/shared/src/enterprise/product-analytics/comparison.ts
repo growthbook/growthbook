@@ -6,6 +6,7 @@ import type {
   ProductAnalyticsResultRow,
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
+import { parseWarehouseDate } from "shared/dates";
 import type { FactMetricInterface } from "shared/types/fact-table";
 // Imported from the module rather than the `shared/validators` barrel: the
 // barrel forms a require cycle with this file, leaving the array undefined.
@@ -14,9 +15,8 @@ import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
 import {
   buildExplorationColumns,
   getEffectiveMetricValue,
-  getEffectiveShowAs,
   getExplorationCellValue,
-  getIsRatioByIndex,
+  getExplorationRenderOpts,
   sortExplorationRows,
 } from "./utils";
 
@@ -387,12 +387,12 @@ export function resolveComparisonPreviousTimeFrame(
 // --- Current/previous row alignment -----------------------------------------
 
 function compareDateStringsAsc(a: string, b: string): number {
-  return new Date(a).getTime() - new Date(b).getTime();
+  return parseWarehouseDate(a).getTime() - parseWarehouseDate(b).getTime();
 }
 
 /** UTC calendar day `yyyy-MM-dd` for explorer dimension strings (ISO, etc.). */
 export function explorerDimensionDateToUtcYyyyMmDd(key: string): string | null {
-  const d = new Date(key);
+  const d = parseWarehouseDate(key);
   const t = d.getTime();
   if (Number.isNaN(t)) return null;
   return d.toISOString().slice(0, 10);
@@ -589,7 +589,7 @@ export function productAnalyticsDateDimensionBucketMergeKey(
   resolvedGranularity: ResolvedGranularity,
 ): number {
   if (dim0 == null) return NaN;
-  const d = new Date(dim0);
+  const d = parseWarehouseDate(dim0);
   if (!Number.isFinite(d.getTime())) return NaN;
   return truncateUtc(d, resolvedGranularity).getTime();
 }
@@ -656,7 +656,7 @@ export function extendDateBucketsForward(params: {
 }): string[] {
   const { resolvedGranularity, afterIso, count } = params;
   if (count <= 0) return [];
-  const cur = truncateUtc(new Date(afterIso), resolvedGranularity);
+  const cur = truncateUtc(parseWarehouseDate(afterIso), resolvedGranularity);
   if (Number.isNaN(cur.getTime())) return [];
   const out: string[] = [];
   for (let i = 0; i < count; i++) {
@@ -710,16 +710,12 @@ function orderedMetricIdsForDensify(
 
 function buildZeroValueRow(
   metricIds: string[],
-  isRatioByIndex: boolean[],
 ): ProductAnalyticsResultRow["values"] {
-  return metricIds.map((metricId, i) => {
-    const isRatio = isRatioByIndex[i] ?? false;
-    return {
-      metricId,
-      numerator: 0,
-      denominator: isRatio ? 0 : null,
-    };
-  });
+  return metricIds.map((metricId) => ({
+    metricId,
+    numerator: 0,
+    denominator: null,
+  }));
 }
 
 /** Composite merge key for a date bucket + optional breakdown value. */
@@ -743,17 +739,11 @@ export function densifyComparisonExplorationTimeseries(params: {
   comparison: ProductAnalyticsExploration | null;
   submittedConfig: ExplorationConfig;
   previousTimeFrame: ExplorationDateRange;
-  getFactMetricById: (id: string) => FactMetricInterface | null;
   /** Primary-period rows; used to seed breakdown series in the grouped case. */
   primaryRows?: ProductAnalyticsResultRow[];
 }): ProductAnalyticsExploration | null {
-  const {
-    comparison,
-    submittedConfig,
-    previousTimeFrame,
-    getFactMetricById,
-    primaryRows,
-  } = params;
+  const { comparison, submittedConfig, previousTimeFrame, primaryRows } =
+    params;
 
   if (!comparison) return null;
 
@@ -761,14 +751,6 @@ export function densifyComparisonExplorationTimeseries(params: {
   const firstIsDate = dims[0]?.dimensionType === "date";
   const isGrouped = dims.length === 2 && firstIsDate;
   if (!((dims.length === 1 && firstIsDate) || isGrouped)) {
-    return null;
-  }
-
-  const columns = buildExplorationColumns(submittedConfig, getFactMetricById);
-  const hasAnyRatio = columns.some(
-    (c) => c.kind === "metric" && c.sub !== "single",
-  );
-  if (hasAnyRatio) {
     return null;
   }
 
@@ -797,10 +779,9 @@ export function densifyComparisonExplorationTimeseries(params: {
     return null;
   }
 
-  const isRatioByIndex = getIsRatioByIndex(submittedConfig, getFactMetricById);
   // buildZeroValueRow always returns an array; the `| undefined` comes from
   // the union type on ProductAnalyticsResultRow["values"] (funnel rows omit it).
-  const zeroValues = buildZeroValueRow(metricIds, isRatioByIndex)!;
+  const zeroValues = buildZeroValueRow(metricIds)!;
   const comparisonRows = comparison.result?.rows ?? [];
 
   if (!isGrouped) {
@@ -944,26 +925,25 @@ export function computeExplorationComparisonPayload(
     };
   }
 
-  const renderOpts = {
-    showAs: getEffectiveShowAs(submittedConfig, getFactMetricById),
-    isRatioByIndex: getIsRatioByIndex(submittedConfig, getFactMetricById),
-  };
+  const renderOpts = getExplorationRenderOpts(
+    submittedConfig,
+    getFactMetricById,
+  );
 
-  const columns = buildExplorationColumns(submittedConfig, getFactMetricById);
+  const columns = buildExplorationColumns(submittedConfig, renderOpts);
   const hasAnyRatio = columns.some(
     (c) => c.kind === "metric" && c.sub !== "single",
   );
 
-  const densifiedComparison =
-    !hasAnyRatio && comparison
-      ? densifyComparisonExplorationTimeseries({
-          comparison,
-          submittedConfig,
-          previousTimeFrame,
-          getFactMetricById,
-          primaryRows: primary?.result?.rows,
-        })
-      : null;
+  // Zero-filled ratio rows would read as 0/0, so ratios aren't densified.
+  const densifiedComparison = hasAnyRatio
+    ? null
+    : densifyComparisonExplorationTimeseries({
+        comparison,
+        submittedConfig,
+        previousTimeFrame,
+        primaryRows: primary?.result?.rows,
+      });
 
   const exploration = densifiedComparison ?? comparison;
 
@@ -981,15 +961,14 @@ export function computeExplorationComparisonPayload(
     const prevCell = exploration.result.rows[0]?.values?.[metricIndex];
     if (!currCell || !prevCell) return null;
 
-    const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;
-    const currentValue = getEffectiveMetricValue(currCell, {
-      showAs: renderOpts.showAs,
-      isRatio,
-    });
-    const previousValue = getEffectiveMetricValue(prevCell, {
-      showAs: renderOpts.showAs,
-      isRatio,
-    });
+    const currentValue = getEffectiveMetricValue(
+      currCell,
+      renderOpts.values[metricIndex],
+    );
+    const previousValue = getEffectiveMetricValue(
+      prevCell,
+      renderOpts.values[metricIndex],
+    );
 
     if (previousValue === 0) {
       return null;

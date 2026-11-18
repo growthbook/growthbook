@@ -66,12 +66,11 @@ export async function createUser(
       }
 
       await addMemberToOrg({
+        ...roleInfo,
         organization: org,
         userId: newUser.id,
-        projectRoles: [],
         externalId,
         managedByIdp: true,
-        ...roleInfo,
       });
 
       responseObj.id = newUser.id;

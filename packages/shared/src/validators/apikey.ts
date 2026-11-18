@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
 import { projectMemberRole, roleRule } from "./organization";
+import { confirmRulesValidator } from "./confirmations";
+
+// Who an org key's requests act as: itself, or the member a request names.
+export const actAsValidator = z.enum(["system", "user"]);
 
 export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   key: z.string(),
@@ -19,7 +23,13 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .string()
     .optional()
     .describe(
-      "Base role for org API keys. Ignored for PATs (user's role applies)",
+      "Base role for org API keys. For scoped PATs, the role the token is capped at; ignored for other PATs (user's role applies)",
+    ),
+  scoped: z
+    .boolean()
+    .optional()
+    .describe(
+      "PATs only. When true, the token's access is the intersection of its user's permissions and this key's role, environment and project settings",
     ),
   encryptSDK: z.boolean().optional(),
   encryptionKey: z.string().optional(),
@@ -32,30 +42,42 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   limitAccessByEnvironment: z
     .boolean()
     .describe(
-      "Org API keys only. When true, restrict access to the listed environments",
+      "Org API keys and scoped PATs. When true, restrict access to the listed environments",
     ),
   environments: z
     .array(z.string())
     .describe(
-      "Org API keys only. Allowed environments when limitAccessByEnvironment is true",
+      "Org API keys and scoped PATs. Allowed environments when limitAccessByEnvironment is true",
     ),
   additionalRoles: z
     .array(roleRule)
     .optional()
     .describe(
-      "Org API keys only. Extra roles granted alongside the base role, same shape as member additionalRoles",
+      "Org API keys and scoped PATs. Extra roles granted alongside the base role, same shape as member additionalRoles",
     ),
   projectRoles: z
     .array(projectMemberRole)
     .optional()
     .describe(
-      "Org API keys only. Project-specific role overrides, same shape as member projectRoles",
+      "Org API keys and scoped PATs. Project-specific role overrides, same shape as member projectRoles",
+    ),
+  actAs: actAsValidator
+    .optional()
+    .describe(
+      "Org API keys only. `system` (default): requests act as the key, and a member named with `X-GrowthBook-Requested-By` is only recorded. `user`: every request must name a member with that header and acts as them, within the key's role",
     ),
   disabled: z
     .boolean()
     .optional()
     .describe(
       "When true, the key is rejected on authentication but not deleted",
+    ),
+  disabledBy: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      "User who set `disabled`. A member can undo their own disable but not an admin's.",
     ),
   lastUsed: z
     .date()
@@ -71,6 +93,13 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "When set, the key is rejected after this time. Used by OAuth access tokens. Absent/null for classic API keys and PATs.",
     ),
+  expirationNotice: z
+    .enum(["expiring", "expired"])
+    .nullable()
+    .optional()
+    .describe(
+      "Furthest expiration event already emitted for this key, so the sweep notifies once per stage. Cleared if the expiration is pushed back out.",
+    ),
   oauthClientId: z
     .string()
     .optional()
@@ -83,10 +112,43 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "OAuth scopes granted at issuance. Stored for audit; Phase 1 tokens act as the full user (PAT-equivalent).",
     ),
+  confirmRules: confirmRulesValidator
+    .nullable()
+    .optional()
+    .describe(
+      "Actions this key can't complete until a person confirms them. Null or absent means off.",
+    ),
+  keyIssuedAt: z
+    .date()
+    .optional()
+    .describe(
+      "When the current secret was issued. Absent means `dateCreated`; set on rotation, and the expiration policy's maximum lifetime runs from it.",
+    ),
+  previousKey: z
+    .string()
+    .optional()
+    .describe(
+      "The secret a rotation replaced, still accepted until `previousKeyExpiresAt`.",
+    ),
+  previousKeyExpiresAt: z
+    .date()
+    .nullable()
+    .optional()
+    .describe("When `previousKey` stops being accepted."),
+  previousKeyLastUsed: z
+    .date()
+    .nullable()
+    .optional()
+    .describe(
+      "Most recent authentication with `previousKey`. `null` means it hasn't been used since the rotation.",
+    ),
 });
 
 export const secretApiKey = apiKeySchema
   .omit({ id: true, secret: true, environment: true, project: true })
   .safeExtend({ id: z.string(), secret: z.literal(true) });
 
-export const secretApiKeyRedacted = secretApiKey.omit({ key: true });
+export const secretApiKeyRedacted = secretApiKey.omit({
+  key: true,
+  previousKey: true,
+});

@@ -1,6 +1,6 @@
 import { isEqual } from "lodash";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { isDefined } from "shared/util";
+import { isDefined, toApiAssignmentQueryRef } from "shared/util";
 import {
   ExperimentMetricInterface,
   getFunnelStepMetric,
@@ -16,10 +16,15 @@ import {
   ExperimentSnapshotInterface,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentHealthSettings,
+  ExperimentInterface,
+} from "shared/types/experiment";
+import { ExposureQuery } from "shared/types/datasource";
 import { ExperimentReportResultDimension } from "shared/types/report";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { safeFloatOrNull } from "back-end/src/services/experiments";
+import { toApiResultHealth } from "./resultHealth";
 
 export function buildExperimentBulkResultId(
   snapshotId: string,
@@ -260,9 +265,13 @@ export function toExperimentSnapshotBulkResultsApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
+  exposureQueries: ExposureQuery[],
+  healthSettings: ExperimentHealthSettings,
 ): ApiExperimentBulkResult[] {
   const defaultAnalysis = snapshot.analyses[0];
   if (!defaultAnalysis || defaultAnalysis.status !== "success") return [];
+
+  const health = toApiResultHealth({ experiment, snapshot, healthSettings });
 
   const phase = experiment.phases[snapshot.phase];
 
@@ -319,13 +328,20 @@ export function toExperimentSnapshotBulkResultsApiInterface(
     snapshot.runStarted?.toISOString() ||
     "";
 
+  const assignmentQueryId =
+    snapshot.settings.exposureQueryId || experiment.exposureQueryId || "";
   // Data-generation settings are identical across dimensions of one snapshot;
   // per-analysis stats options (statsEngine, regressionAdjustment, etc.) are
   // added per item below.
   const baseSettings = {
     datasourceId: snapshot.settings.datasourceId || experiment.datasource || "",
-    assignmentQueryId:
-      snapshot.settings.exposureQueryId || experiment.exposureQueryId || "",
+    /** The snapshot's identifier; the experiment's may have changed since. */
+    assignmentQuery: toApiAssignmentQueryRef(
+      assignmentQueryId,
+      snapshot.settings.exposureQueryIdentifierType,
+      exposureQueries,
+    ),
+    assignmentQueryId,
     experimentId: snapshot.settings.experimentId || experiment.trackingKey,
     segmentId: snapshot.settings.segment,
     queryFilter: snapshot.settings.queryFilter,
@@ -426,6 +442,7 @@ export function toExperimentSnapshotBulkResultsApiInterface(
           ? { pValueThreshold: baseAnalysis.settings.pValueThreshold }
           : null),
       },
+      health,
       results: (baseAnalysis.results || []).map((s) => {
         return {
           dimensionValue: s.name,

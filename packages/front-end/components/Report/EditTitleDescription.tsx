@@ -4,6 +4,7 @@ import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 
 export default function EditTitleDescription({
   cancel,
@@ -26,7 +27,7 @@ export default function EditTitleDescription({
     <ModalStandard
       trackingEventModalType=""
       open={true}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         await apiCall(`/report/${report.id}`, {
           method: "PUT",
           body: JSON.stringify(value),

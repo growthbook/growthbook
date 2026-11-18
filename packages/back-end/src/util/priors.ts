@@ -1,5 +1,8 @@
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import type { MetricOverride } from "shared/types/experiment";
+import type {
+  LegacyMetricOverride,
+  MetricOverride,
+} from "shared/types/experiment";
 import type { MetricPriorSettings } from "shared/types/fact-table";
 
 // A proper prior needs a positive standard deviation. 0, a negative, or NaN
@@ -17,11 +20,14 @@ export function healPriorSettings(
 }
 
 export function healMetricOverrides(
-  overrides: MetricOverride[] | undefined,
+  overrides: LegacyMetricOverride[] | undefined,
 ): void {
   if (!overrides) return;
 
   for (const override of overrides) {
+    // Retired risk thresholds, which the override schema now refuses.
+    delete override.winRisk;
+    delete override.loseRisk;
     if (
       override.properPriorStdDev !== undefined &&
       !isValidPriorStdDev(override.properPriorStdDev)

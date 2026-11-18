@@ -2,6 +2,7 @@ import { isEqual } from "lodash";
 import { pruneApprovalRuleReferences } from "shared/util";
 import { TeamInterface } from "shared/types/team";
 import {
+  OAuthGrantInterface,
   ManagedBy,
   ProjectInterface,
   projectValidator,
@@ -21,6 +22,8 @@ import {
   updateOrganization,
 } from "./OrganizationModel";
 import { MakeModelClass } from "./BaseModel";
+import { ApiKeyModel } from "./ApiKeyModel";
+import { COLLECTION_NAME as OAUTH_GRANTS } from "./OAuthGrantModel";
 
 function slugify(text: string): string {
   return text
@@ -56,6 +59,7 @@ const BaseClass = MakeModelClass({
   defaultValues: {
     description: "",
     settings: {},
+    owner: "",
   },
 });
 
@@ -127,6 +131,18 @@ export class ProjectModel extends BaseClass {
       getCollection<TeamInterface>("teams").updateMany(
         { organization: this.context.org.id, "projectRoles.project": doc.id },
         { $pull: { projectRoles: { project: doc.id } } },
+      ),
+      ApiKeyModel.dangerousRemoveProjectRolesForProject(
+        this.context.org.id,
+        doc.id,
+      ),
+      // Every refresh mints an access token from these, and minting rejects a missing project.
+      getCollection<OAuthGrantInterface>(OAUTH_GRANTS).updateMany(
+        {
+          organization: this.context.org.id,
+          "permissions.projectRoles.project": doc.id,
+        },
+        { $pull: { "permissions.projectRoles": { project: doc.id } } },
       ),
     ]);
     for (const result of cleanups) {
@@ -334,6 +350,7 @@ export class ProjectModel extends BaseClass {
       publicId: project.publicId,
       restrictAccess: project.restrictAccess,
       allowTargeting: project.allowTargeting ?? true,
+      owner: project.owner ?? "",
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
       settings: {

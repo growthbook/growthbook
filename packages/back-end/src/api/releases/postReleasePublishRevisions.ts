@@ -1,3 +1,4 @@
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { z } from "zod";
 import {
   postReleasePublishRevisionsValidator,
@@ -15,6 +16,14 @@ import {
   parseFeatureRevisionId,
 } from "back-end/src/models/FeatureRevisionModel";
 import { PublishBlockedError } from "back-end/src/revisions/publishGates";
+import {
+  confirmationLink,
+  gateNotices,
+  landingActions,
+  rampPlanActions,
+  REVISION_MODEL,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   commitBulkPublish,
@@ -189,6 +198,32 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   if (plan.blockingGates.length) {
     throw new PublishBlockedError(plan.blockingGates.map(serializeGate));
   }
+
+  // One confirmation covers the whole release.
+  const links = plan.items.map(({ ref }) =>
+    confirmationLink(
+      REVISION_MODEL[ref.entityType],
+      callerIdFor(ref.entityType, ref.entityId),
+    ),
+  );
+  await requireConfirmation(req.context, {
+    // Each item as its own publish would hold it.
+    actions: plan.items.flatMap(
+      ({ ref, revision, desiredState, entityPreImage }) =>
+        landingActions(
+          REVISION_MODEL[ref.entityType],
+          desiredState.archived === true && entityPreImage.archived !== true,
+          ref.entityType === "feature"
+            ? rampPlanActions(revision.raw as FeatureRevisionInterface)
+            : [],
+        ),
+    ),
+    bypassing: plan.items.flatMap((item) => item.bypassedGates),
+    notices: gateNotices(plan.items.flatMap((item) => item.skippedGates)),
+    summary: `Publish ${links.map((link) => link.label).join(", ")}`,
+    links,
+    pin: plan.items.map((item) => item.baseline),
+  });
 
   let result;
   try {

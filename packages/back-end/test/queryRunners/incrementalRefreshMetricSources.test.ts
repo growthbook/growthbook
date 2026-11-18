@@ -214,4 +214,89 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
     expect(numGroup).toBeDefined();
     expect(numGroup!.metrics[0].numerator.factTableId).toBe("ft_num");
   });
+
+  it("splits cluster-level and sub-unit metrics on the same FT into separate caches", () => {
+    // In a cluster experiment, a sub-unit metric (summable, rolled up) and a
+    // cluster-level metric (cluster as the unit) can share a fact table but
+    // must not share a cache — they're keyed on different grains.
+    const subUnitMetric = factMetricFactory.build({
+      id: "fact_subunit",
+      metricType: "mean",
+      numerator: { factTableId: "ft_a", column: "amount", aggregation: "sum" },
+    });
+    const clusterLevelMetric = factMetricFactory.build({
+      id: "fact_cluster_level",
+      metricType: "mean",
+      numerator: { factTableId: "ft_a", column: "amount", aggregation: "max" },
+    });
+
+    const groups = getIncrementalRefreshMetricSources({
+      metrics: [subUnitMetric, clusterLevelMetric],
+      existingMetricSources: [],
+      integration: fakeIntegration,
+      snapshotSettings: {
+        ...baseSnapshotSettings,
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "user_id",
+        clusterLevelMetricIds: ["fact_cluster_level"],
+      },
+    });
+
+    // Two caches on the same FT, one per grain.
+    const ftAGroups = groups.filter((g) => g.factTableId === "ft_a");
+    expect(ftAGroups).toHaveLength(2);
+
+    const subUnitGroup = ftAGroups.find((g) =>
+      g.metrics.some((m) => m.id === "fact_subunit"),
+    );
+    const clusterGroup = ftAGroups.find((g) =>
+      g.metrics.some((m) => m.id === "fact_cluster_level"),
+    );
+    expect(subUnitGroup).toBeDefined();
+    expect(clusterGroup).toBeDefined();
+    // The grains never share a cache.
+    expect(subUnitGroup!.groupId).not.toBe(clusterGroup!.groupId);
+    expect(subUnitGroup!.metrics.map((m) => m.id)).toEqual(["fact_subunit"]);
+    expect(clusterGroup!.metrics.map((m) => m.id)).toEqual([
+      "fact_cluster_level",
+    ]);
+    // The groupId flows into the physical cache table name
+    // (`gb_metrics_<exp>_<groupId>`), so it must be a valid warehouse table
+    // identifier — no `:` or other illegal characters.
+    expect(clusterGroup!.groupId).toMatch(/^[A-Za-z0-9_]+$/);
+    expect(subUnitGroup!.groupId).toMatch(/^[A-Za-z0-9_]+$/);
+  });
+
+  it("keeps same-FT metrics in one cache when not a cluster experiment", () => {
+    // The cluster-level split is gated on cluster mode, so the same two
+    // metrics group together normally when the experiment isn't a cluster.
+    const metricA = factMetricFactory.build({
+      id: "fact_a1",
+      metricType: "mean",
+      numerator: { factTableId: "ft_a", column: "amount", aggregation: "sum" },
+    });
+    const metricB = factMetricFactory.build({
+      id: "fact_a2",
+      metricType: "mean",
+      numerator: { factTableId: "ft_a", column: "amount", aggregation: "max" },
+    });
+
+    const groups = getIncrementalRefreshMetricSources({
+      metrics: [metricA, metricB],
+      existingMetricSources: [],
+      integration: fakeIntegration,
+      // clusterLevelMetricIds is ignored without isClusterExperiment.
+      snapshotSettings: {
+        ...baseSnapshotSettings,
+        clusterLevelMetricIds: ["fact_a2"],
+      },
+    });
+
+    const ftAGroups = groups.filter((g) => g.factTableId === "ft_a");
+    expect(ftAGroups).toHaveLength(1);
+    expect(ftAGroups[0].metrics.map((m) => m.id).sort()).toEqual([
+      "fact_a1",
+      "fact_a2",
+    ]);
+  });
 });

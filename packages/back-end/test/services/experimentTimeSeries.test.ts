@@ -4,10 +4,14 @@ import {
   ExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import { FunnelFactMetricInterface } from "shared/types/fact-table";
+import {
+  FactMetricInterface,
+  FunnelFactMetricInterface,
+} from "shared/types/fact-table";
 import { funnelStepMetricId } from "shared/experiments";
 import { ExperimentInterface } from "shared/validators";
 import {
+  getFactMetricDefinitionForHash,
   getMetricSettingsHash,
   updateExperimentAnalysisTimeSeries,
 } from "back-end/src/services/experimentTimeSeries";
@@ -17,6 +21,10 @@ import {
 } from "back-end/src/services/experimentDimensionTimeSeries";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 import { factTableFactory } from "back-end/test/factories/FactTable.factory";
+
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
+}));
 
 function makeAnalysisSettings(
   overrides: Partial<ExperimentSnapshotAnalysisSettings> = {},
@@ -843,5 +851,116 @@ describe("getMetricSettingsHash funnel settings", () => {
         ),
       ).toEqual(originalHash);
     });
+  });
+});
+
+describe("getMetricSettingsHash cluster analysis level", () => {
+  const metric = factMetricFactory.build({ id: "fact_revenue" });
+  const hash = (settings?: {
+    isClusterExperiment?: boolean;
+    clusterSubUnitIdentifier?: string;
+    clusterLevelMetricIds?: string[];
+  }) =>
+    getMetricSettingsHash(metric.id, undefined, [metric], new Map(), settings);
+  const cluster = {
+    isClusterExperiment: true,
+    clusterSubUnitIdentifier: "user_id",
+  };
+
+  it("changes when a metric moves between sub-unit and cluster analysis", () => {
+    expect(
+      hash({ ...cluster, clusterLevelMetricIds: [metric.id] }),
+    ).not.toEqual(hash(cluster));
+  });
+
+  it("leaves non-cluster hashes unchanged", () => {
+    expect(
+      hash({ isClusterExperiment: false, clusterSubUnitIdentifier: "user_id" }),
+    ).toEqual(hash());
+  });
+});
+
+describe("metric history hashes with lower capping", () => {
+  const metric = factMetricFactory.build({
+    id: "fact__floor",
+    metricType: "mean",
+    numerator: {
+      factTableId: "ft_events",
+      column: "value",
+      aggregation: "sum",
+      rowFilters: [],
+    },
+    denominator: null,
+    cappingSettings: { type: "", value: 0, ignoreZeros: false },
+    quantileSettings: null,
+    lowerCappingSettings: null,
+  });
+  type LowerCap = FactMetricInterface["lowerCappingSettings"];
+  const hashFor = (lowerCappingSettings: LowerCap) =>
+    getMetricSettingsHash(metric.id, undefined, [
+      { ...metric, lowerCappingSettings },
+    ]);
+  const changes: { name: string; before: LowerCap; after: LowerCap }[] = [
+    {
+      name: "enabling a zero floor",
+      before: null,
+      after: { type: "absolute", value: 0 },
+    },
+    {
+      name: "changing the floor",
+      before: { type: "absolute", value: 0 },
+      after: { type: "absolute", value: -10 },
+    },
+    {
+      name: "changing the cap type",
+      before: { type: "absolute", value: 0.05 },
+      after: { type: "percentile", value: 0.05 },
+    },
+    {
+      name: "changing ignoreZeros",
+      before: { type: "percentile", value: 0.05, ignoreZeros: false },
+      after: { type: "percentile", value: 0.05, ignoreZeros: true },
+    },
+    {
+      name: "disabling the floor",
+      before: { type: "absolute", value: 0 },
+      after: null,
+    },
+  ];
+
+  it.each(changes)(
+    "changes the history hash when $name",
+    ({ before, after }) => {
+      expect(hashFor(after)).not.toBe(hashFor(before));
+    },
+  );
+
+  it.each<LowerCap>([undefined, null, { type: "", value: 0 }])(
+    "preserves the pre-change hash for a disabled lower cap: %j",
+    (lowerCappingSettings) => {
+      // Captured from the definition before lower capping was hashed.
+      expect(hashFor(lowerCappingSettings)).toBe(
+        "2c951c3b47baa92521b56e3e54b335be",
+      );
+    },
+  );
+
+  it("includes the lower settings in the definition shared with Safe Rollouts", () => {
+    const lowerCappingSettings = { type: "absolute" as const, value: 0 };
+    expect(
+      getFactMetricDefinitionForHash({ ...metric, lowerCappingSettings }),
+    ).toMatchObject({ lowerCappingSettings });
+  });
+
+  it("ignores unrelated metadata changes", () => {
+    const capped = {
+      ...metric,
+      lowerCappingSettings: { type: "absolute" as const, value: 0 },
+    };
+    expect(
+      getMetricSettingsHash(metric.id, undefined, [
+        { ...capped, name: "Renamed" },
+      ]),
+    ).toBe(hashFor(capped.lowerCappingSettings));
   });
 });

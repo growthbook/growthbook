@@ -25,17 +25,16 @@ function ctx(
       settings: { environments: [{ id: "production", description: "" }] },
       isVercelIntegration: false,
     },
-    getAllProjectIds,
+    // The first lookup is `onFeatureUpdate`'s; the next is the live emit's.
+    getAllProjectIds: jest
+      .fn()
+      .mockImplementationOnce(getAllProjectIds)
+      .mockImplementation(async () => {
+        emitAttempted();
+        throw new Error(EMIT_PROBE);
+      }),
     sdkPayloadRefreshBuffer: null,
     bulkPublishDeferredEvents: null,
-    models: {
-      savedGroups: {
-        getAll: async () => {
-          emitAttempted();
-          throw new Error(EMIT_PROBE);
-        },
-      },
-    },
   } as unknown as Context;
 }
 
@@ -65,7 +64,7 @@ const after = { ...before, description: "after" } as FeatureInterface;
  * producer that can suspend. Moving it below the await is invisible to every other
  * test here.
  *
- * No module mocks. The seam is `models.savedGroups.getAll`, which
+ * No module mocks. The seam is the second `getAllProjectIds` call, which
  * `logFeatureUpdatedEvent` awaits as its first statement, so a throw there marks the
  * live-emit branch as taken without reaching mongoose.
  *

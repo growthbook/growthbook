@@ -1,11 +1,9 @@
 import { z } from "zod";
 import type { ModelMessage } from "ai";
 import { pickVisionModel } from "shared/ai";
-import {
-  findVisualChangesetById,
-  updateVisualChange,
-} from "back-end/src/models/VisualChangesetModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { updateVisualChange } from "back-end/src/models/VisualChangesetModel";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
+import { changesetOwnerConfirmationLink } from "back-end/src/services/changesetOwner";
 import {
   DeferredToolCallsError,
   parsePrompt,
@@ -32,8 +30,11 @@ import {
   newImageTurnState,
   VISUAL_EDITOR_MAX_STEPS,
 } from "back-end/src/api/visual-editor-ai/aiTools";
-import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
+import {
+  type DomDigest,
+  domDigestSchema,
+} from "back-end/src/api/visual-editor-ai/domDigest";
 import {
   buildInsertJs,
   makeScopeToken,
@@ -49,6 +50,8 @@ import {
   selectorsFoundByTool,
 } from "back-end/src/api/visual-editor-ai/editOutput";
 import { renderPageOutline } from "back-end/src/api/visual-editor-ai/pageStructure";
+import { buildDigestFromEditorUrl } from "back-end/src/api/visual-editor-ai/serverPageDigest";
+import { requireConfirmation } from "back-end/src/services/confirmations";
 
 // A `css` rewrite plus a multi-part edit truncates at parsePrompt's 8000 default.
 const EDIT_MAX_OUTPUT_TOKENS = 16000;
@@ -67,125 +70,6 @@ const elementContextSchema = z.object({
   computedStyles: z.record(z.string(), z.string()).optional(),
 });
 
-// One container in the page's structural snapshot (sections, layout
-// wrappers, ancestors of catalog headings), captured client-side with a
-// durable selector precomputed per node. Backs the page outline and the
-// server-side `findElements` / `describeContainer` tools.
-const structureNodeSchema = z.object({
-  selector: z.string(),
-  // The direct parent element — the destination of a sibling move.
-  parentSelector: z.string().optional(),
-  tag: z.string(),
-  id: z.string().optional(),
-  classes: z.array(z.string()).optional(),
-  role: z.string().optional(),
-  // Short trimmed text label for matching by visible content.
-  label: z.string().optional(),
-  // Newer extensions only; the siblings are the nearest visible ones.
-  docOrder: z.number().int().nonnegative().optional(),
-  prevSiblingSelector: z.string().optional(),
-  nextSiblingSelector: z.string().optional(),
-  layout: z.enum(["flex-row", "flex-column", "grid"]).optional(),
-});
-
-const layoutSchema = z.enum(["flex-row", "flex-column", "grid"]).optional();
-
-// Compact element catalog from visual-editor/src/content_script/pageDigest.ts —
-// gives the LLM real selectors to pick from rather than guessing.
-const domDigestSchema = z.object({
-  url: z.string(),
-  title: z.string(),
-  // Page-structure entries (html, body, header, main, etc.) — always-valid
-  // targets for global styling requests.
-  structural: z
-    .array(
-      z.object({
-        selector: z.string(),
-        tag: z.string(),
-        note: z.string().optional(),
-      }),
-    )
-    .default([]),
-  // `sectionSelector` (newer extensions): the enclosing snapshot container.
-  headings: z
-    .array(
-      z.object({
-        selector: z.string(),
-        tag: z.string(),
-        text: z.string(),
-        sectionSelector: z.string().optional(),
-      }),
-    )
-    .default([]),
-  // `parentLayout` (newer extensions) lets an insert below a row anchor to the row.
-  buttons: z
-    .array(
-      z.object({
-        selector: z.string(),
-        tag: z.string(),
-        text: z.string(),
-        href: z.string().optional(),
-        sectionSelector: z.string().optional(),
-        parentSelector: z.string().optional(),
-        parentLayout: layoutSchema,
-      }),
-    )
-    .default([]),
-  links: z
-    .array(
-      z.object({
-        selector: z.string(),
-        text: z.string(),
-        href: z.string(),
-        sectionSelector: z.string().optional(),
-        parentSelector: z.string().optional(),
-        parentLayout: layoutSchema,
-      }),
-    )
-    .default([]),
-  inputs: z
-    .array(
-      z.object({
-        selector: z.string(),
-        type: z.string(),
-        name: z.string().optional(),
-        placeholder: z.string().optional(),
-        label: z.string().optional(),
-        sectionSelector: z.string().optional(),
-      }),
-    )
-    .default([]),
-  images: z
-    .array(
-      z.object({
-        selector: z.string(),
-        alt: z.string().optional(),
-        src: z.string(),
-        sectionSelector: z.string().optional(),
-        parentSelector: z.string().optional(),
-        parentLayout: layoutSchema,
-      }),
-    )
-    .default([]),
-  // Rendered as the page outline when it carries document order.
-  pageStructure: z.array(structureNodeSchema).max(400).optional(),
-  // Flat alternative to the typed arrays above; both may be populated.
-  elements: z
-    .array(
-      z.object({
-        selector: z.string(),
-        tag: z.string(),
-        text: z.string().optional(),
-        href: z.string().optional(),
-        src: z.string().optional(),
-        alt: z.string().optional(),
-        placeholder: z.string().optional(),
-      }),
-    )
-    .max(300)
-    .optional(),
-});
-
 // Capped at 12 turns + 4000 chars/turn to bound prompt size.
 const conversationTurnSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -198,6 +82,8 @@ const bodySchema = z
     elementContext: z.array(elementContextSchema).max(20).default([]),
     variationId: z.string(),
     visualChangesetId: z.string(),
+    // Optional. Agents without a browser can omit it; the server then
+    // fetches editorUrl. Best-effort: redirect / non-200 / CSR → no digest.
     domDigest: domDigestSchema.optional(),
     conversationHistory: z.array(conversationTurnSchema).max(12).optional(),
     // BCP-47 primary subtag (with optional region suffix). When non-English,
@@ -221,6 +107,7 @@ const bodySchema = z
     streamingMode: z.boolean().optional(),
     // Save the result rather than returning it for the caller to persist.
     persist: z.boolean().optional(),
+    allowRunningExperiment: z.boolean().optional(),
     // Bytes so the back-end never fetches; `url` is the hosted copy for placing it.
     attachments: z
       .array(
@@ -251,7 +138,7 @@ const bodySchema = z
             z.object({
               toolCallId: z.string().min(1).max(200),
               toolName: z.string().min(1).max(100),
-              result: z.unknown(),
+              result: z.unknown().optional(),
             }),
           )
           .max(10),
@@ -267,6 +154,8 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/ai/edit",
+  confirmation: ["experiment.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postVisualEditorAIEdit",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.
@@ -546,7 +435,7 @@ Bias toward action when grounded:
 
 // Bulleted text rather than JSON — fewer tokens, easier for LLMs to scan.
 // Selectors wrapped in backticks so the model treats them as opaque strings.
-const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
+const formatDigest = (digest: DomDigest): string => {
   const lines: string[] = [];
   const section = (label: string, items: string[]) => {
     if (items.length === 0) return;
@@ -655,9 +544,7 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
 
 // Every selector the model can legitimately reference, used by the
 // self-correct validation pass to detect hallucinations.
-const allDigestSelectors = (
-  digest: z.infer<typeof domDigestSchema>,
-): Set<string> => {
+const allDigestSelectors = (digest: DomDigest): Set<string> => {
   const out = new Set<string>();
   for (const s of digest.structural) out.add(s.selector);
   for (const h of digest.headings) out.add(h.selector);
@@ -702,7 +589,7 @@ const buildPrompt = ({
   }[];
   existingCss?: string;
   existingJs?: string;
-  domDigest?: z.infer<typeof domDigestSchema>;
+  domDigest?: DomDigest;
   conversationHistory?: z.infer<typeof conversationTurnSchema>[];
   attachments?: Array<{ url?: string; mimeType: string; name?: string }>;
   retryHint?: string;
@@ -774,15 +661,14 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     elementContext,
     variationId,
     visualChangesetId,
-    domDigest,
     conversationHistory,
     locale,
     persist,
+    allowRunningExperiment,
     attachments,
     resume,
   } = req.body;
-
-  const pageStructure = domDigest?.pageStructure;
+  let domDigest = req.body.domDigest;
 
   const context = req.context;
   requireUserAuth(context);
@@ -794,20 +680,28 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     );
   }
 
-  const changeset = await findVisualChangesetById(
+  const { changeset, owner } = await loadChangesetWithOwner(
+    context,
     visualChangesetId,
-    req.organization.id,
   );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const experiment = await getExperimentById(context, changeset.experiment);
-  if (!experiment) return context.throwNotFoundError("Experiment not found");
-  if (!context.permissions.canUpdateVisualChange(experiment)) {
+  if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
-  // Before the generation, so a doomed save doesn't burn AI quota first.
-  if (persist) requireDraftExperiment(context, experiment);
+  // Before the generation, so a doomed save doesn't burn AI quota first. Only a
+  // save is held; a preview changes nothing.
+  if (persist) {
+    owner.requireWrite(req, {
+      allowRunning: !!allowRunningExperiment,
+      visualChangesetId,
+    });
+    await requireConfirmation(context, {
+      actions: ["experiment.draft"],
+      project: owner.project,
+      summary: `Edit ${owner.name} with AI`,
+      links: [changesetOwnerConfirmationLink(owner)],
+      pin: null,
+    });
+  }
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.
@@ -818,22 +712,6 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       "Daily AI usage limit reached. Try again later or upgrade your plan.",
     );
   }
-
-  logger.info(
-    {
-      orgId: req.organization.id,
-      userId: context.userId,
-      visualChangesetId,
-      variationId,
-      promptLength: prompt.length,
-      conversationTurns: conversationHistory?.length ?? 0,
-      elementContextCount: elementContext.length,
-      hasDomDigest: !!domDigest,
-      attachmentCount: attachments?.length ?? 0,
-      prompt,
-    },
-    "[visual-editor-ai/edit] user prompt",
-  );
 
   const currentChange = changeset.visualChanges.find(
     (vc) => vc.variation === variationId,
@@ -847,6 +725,33 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       "variationId does not belong to the given changeset",
     );
   }
+
+  if (!domDigest && changeset.editorUrl) {
+    domDigest =
+      (await buildDigestFromEditorUrl(changeset.editorUrl)) ?? undefined;
+  }
+  const pageStructure = domDigest?.pageStructure;
+
+  logger.info(
+    {
+      orgId: req.organization.id,
+      userId: context.userId,
+      visualChangesetId,
+      variationId,
+      promptLength: prompt.length,
+      conversationTurns: conversationHistory?.length ?? 0,
+      elementContextCount: elementContext.length,
+      hasDomDigest: !!domDigest,
+      digestSource: req.body.domDigest
+        ? "client"
+        : domDigest
+          ? "server-fetch"
+          : "none",
+      attachmentCount: attachments?.length ?? 0,
+      prompt,
+    },
+    "[visual-editor-ai/edit] user prompt",
+  );
 
   // Selectors the LLM may reference without triggering a retry.
   // Picked elements are trusted even when not in the digest — the user
@@ -1277,9 +1182,22 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   const completeTurn = async (raw: z.infer<typeof outputSchema>) => {
     const finalized = await finalizeOutput(raw);
     if (persist) {
+      // Re-checked against the stored owner: it may have started during the generation.
+      const { owner: storedOwner } = await loadChangesetWithOwner(
+        context,
+        visualChangesetId,
+      );
+      if (!storedOwner.canUpdateVisualChange()) {
+        context.permissions.throwPermissionError();
+      }
+      const auditLiveEdit = storedOwner.requireWrite(req, {
+        allowRunning: !!allowRunningExperiment,
+        visualChangesetId,
+      });
       const change = currentChange;
       await updateVisualChange({
         context,
+        owner: storedOwner,
         changesetId: visualChangesetId,
         visualChangeId: change.id,
         payload: {
@@ -1292,6 +1210,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
           ...(finalized.js !== undefined ? { js: finalized.js } : {}),
         },
       });
+      await auditLiveEdit();
       return {
         ...finalized,
         saved: true as const,

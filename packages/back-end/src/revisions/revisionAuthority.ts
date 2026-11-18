@@ -14,6 +14,7 @@ import {
   canRevisionOwnedAction,
 } from "back-end/src/revisions/revisionActions";
 import { getAdapter } from "back-end/src/revisions";
+import { BadRequestError } from "back-end/src/util/errors";
 
 // Identityless API keys cannot claim authorship of authorless revisions.
 export function isRevisionAuthor(
@@ -32,16 +33,52 @@ export function mayBeRevisionAuthor(
   return !userId && !authorId;
 }
 
+// Who may not rule on a revision: its author, and an org key acting as itself
+// on a draft the key created or edited in either mode. Entries from before
+// actors were recorded have no `user` and no `userId`, so any key may have
+// written them; the system records a null `user`.
+export function isOwnRevision(context: Context, revision: Revision): boolean {
+  if (mayBeRevisionAuthor(revision.authorId, context.actorId)) return true;
+  const key = context.keyActingAsItself;
+  if (!key) return false;
+  const work = (revision.activityLog ?? []).filter(
+    (e) => e.action === "created" || e.action === "updated",
+  );
+  if (!revision.authorId && !work.some((e) => e.action === "created")) {
+    return true;
+  }
+  return work.some((e) =>
+    e.user === undefined
+      ? !e.userId
+      : e.user?.type === "api_key" && e.user.apiKey === key,
+  );
+}
+
 // Recheck authority against every row read by a CAS retry.
 //
 // Both of these judge on `target.snapshot`, so ANY CAS using them must include
 // `target` in its guard fields — otherwise the authority answer is computed from a
 // snapshot the write does not pin, and a concurrent rebase changes it underneath.
 // The guard-completeness check in `casLoop` enforces this.
+// An author's rights over their own revision stand in for `action` authority.
+// An org key assuming the author's role must hold that authority itself.
+export function hasAuthorRights(
+  context: Context,
+  revision: Revision,
+  action: "draft" | "review",
+): boolean {
+  return (
+    isRevisionAuthor(revision.authorId, context.actorId) &&
+    context.authorRightsAllow((keyContext) =>
+      canRevisionOwnedAction(keyContext, revision, action),
+    )
+  );
+}
+
 export function draftAuthorityOnRow(context: Context): CasAuthority<Revision> {
   return {
     check: (existing) => {
-      if (isRevisionAuthor(existing.authorId, context.userId)) return;
+      if (hasAuthorRights(context, existing, "draft")) return;
       if (!canRevisionOwnedAction(context, existing, "draft")) {
         context.permissions.throwPermissionError();
       }
@@ -99,6 +136,32 @@ export function reviewAuthorityOnRow(context: Context): CasAuthority<Revision> {
       if (!canRevisionOwnedAction(context, existing, "review")) {
         context.permissions.throwPermissionError();
       }
+      // On the row: a key's edit can land between the caller's read and here.
+      if (isOwnRevision(context, existing)) {
+        throw new BadRequestError(
+          "Cannot submit a review on a draft you created",
+        );
+      }
+    },
+  };
+}
+
+// Withdrawing your own verdict needs no review permission, as on Feature Flags;
+// `undoReview` refuses a caller with no verdict to withdraw.
+export function retractAuthorityOnRow(
+  context: Context,
+): CasAuthority<Revision> {
+  return {
+    check: (existing) => {
+      const ownVerdict =
+        !!context.actorId &&
+        existing.reviews.some((r) => r.userId === context.actorId) &&
+        context.authorRightsAllow((keyContext) =>
+          canRevisionOwnedAction(keyContext, existing, "review"),
+        );
+      if (!ownVerdict && !canRevisionOwnedAction(context, existing, "review")) {
+        context.permissions.throwPermissionError();
+      }
     },
   };
 }
@@ -110,8 +173,7 @@ export async function canDiscardRevision(
 ): Promise<boolean> {
   return canDiscardOrRecallDraft({
     holdsDraftAuthority: canRevisionOwnedAction(context, revision, "draft"),
-    isAuthor:
-      !!context.userId && isRevisionAuthor(revision.authorId, context.userId),
+    isAuthor: hasAuthorRights(context, revision, "draft"),
   });
 }
 
@@ -135,8 +197,7 @@ export async function canAdvanceRevision(
 
   return canAdvanceDraftWithNarrowAtom({
     holdsDraftAuthority: canRevisionOwnedAction(context, revision, "draft"),
-    isAuthor:
-      !!context.userId && isRevisionAuthor(revision.authorId, context.userId),
+    isAuthor: hasAuthorRights(context, revision, "draft"),
     holdsAnyLandingAtom: hasRevert || hasDelete,
     matchesNarrowAtom: async () => {
       if (

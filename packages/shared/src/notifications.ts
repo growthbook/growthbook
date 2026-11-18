@@ -32,7 +32,7 @@ export const notificationEventMetadata = {
   "feature.saferollout.ship": {
     label: "Safe rollout ready to ship",
     description:
-      "Triggered when a safe rollout is completed and safe to rollout to 100%.",
+      "Triggered when a safe rollout is completed and safe to roll out to 100%.",
     preview: true,
   },
   "feature.saferollout.rollback": {
@@ -103,13 +103,25 @@ export const notificationEventMetadata = {
   "feature.rampSchedule.actions.errorPaused": {
     label: "Ramp schedule paused on error",
     description:
-      "Triggered when a feature ramp schedule pauses because a step could not be applied, for example a plan the engine refuses; `reason` says why",
+      "Triggered when a feature ramp schedule pauses because a step could not be applied: right away for a plan the engine refuses, or after its retries run out for other failures; `reason` says why. Fix the cause, then resume the schedule (`POST /api/v1/ramp-schedules/{id}/actions/resume`)",
     preview: true,
   },
   "feature.rampSchedule.actions.stepHeld": {
     label: "Ramp step held by a health check",
     description:
       "Triggered when a monitored ramp step is held by a health check (SRM, multiple exposures, no traffic, a guardrail metric that failed to compute, an unhealthy signal metric). Sent once per check per step; `reason` says why",
+    preview: true,
+  },
+  "feature.rampSchedule.actions.stepRetrying": {
+    label: "Ramp step retrying",
+    description:
+      "Triggered when a ramp step fails for a reason that may clear on its own, such as a database timeout. The schedule holds at its current step and retries on its own; `nextAttemptAt` says when. Sent once per failure streak, followed by `stepRecovered` when a retry succeeds or `errorPaused` after `maxAttempts`. Retry now with `POST /api/v1/ramp-schedules/{id}/actions/retry`",
+    preview: true,
+  },
+  "feature.rampSchedule.actions.stepRecovered": {
+    label: "Ramp step recovered",
+    description:
+      "Triggered when a ramp step succeeds after failed attempts; the schedule continues as planned",
     preview: true,
   },
   "feature.rampSchedule.actions.paused": {
@@ -194,7 +206,7 @@ export const notificationEventMetadata = {
   "feature.revision.published": {
     label: "New version published",
     description:
-      "Triggered when a draft revision is published. Overlaps with `feature.updated` but provides revision-specific context (base version, comment, author).",
+      "Triggered when a draft revision is published. Overlaps with `feature.updated` but identifies the revision and its author.",
     subtitle: "A draft becomes the live version.",
     preview: true,
   },
@@ -316,6 +328,12 @@ export const notificationEventMetadata = {
     label: "New linkage",
     description:
       "Triggered when feature flags or experiments are linked to a holdout.",
+  },
+  "sdkConnection.payloadSize.warning": {
+    label: "Payload size warning",
+    description:
+      "Triggered when an SDK Connection's payload grows past half, 80%, or all of the 16 MB its cache can store. The `level` field is `warning`, `danger`, or `over-limit`, and `recommendations` lists ways to shrink it. Fires once per level reached, not on every publish.",
+    subtitle: "Payload nearing or over the 16 MB cache limit.",
   },
   "savedGroup.created": {
     label: "Created",
@@ -593,6 +611,16 @@ export const notificationEventMetadata = {
     label: "User logged in",
     description: "Triggered when a user logs in",
   },
+  "apiKey.expiring": {
+    label: "API key expiring",
+    description:
+      "Triggered once when a secret API key is within a week of expiring",
+  },
+  "apiKey.expired": {
+    label: "API key expired",
+    description:
+      "Triggered once when a secret API key passes its expiration date",
+  },
   "webhook.test": {
     label: "Webhook test",
     description: "Triggered when a webhook is being tested",
@@ -636,6 +664,7 @@ export const notificationCategories = {
   feature: "Feature Flags",
   experiment: "Experiments",
   holdout: "Holdouts",
+  sdkConnection: "SDK Connections",
   savedGroup: "Saved Groups",
   constant: "Constants",
   config: "Configs",
@@ -701,6 +730,12 @@ export const notificationCategoryGroups: Record<
     {
       label: "Schedules",
       options: ["experiment.info.scheduled-status-update"],
+    },
+  ],
+  sdkConnection: [
+    {
+      label: "Health & warnings",
+      options: ["sdkConnection.payloadSize.warning"],
     },
   ],
   holdout: [
@@ -778,6 +813,8 @@ export const notificationCategoryGroups: Record<
             "feature.rampSchedule.actions.startApproved",
             "feature.rampSchedule.actions.errorPaused",
             "feature.rampSchedule.actions.stepHeld",
+            "feature.rampSchedule.actions.stepRetrying",
+            "feature.rampSchedule.actions.stepRecovered",
             "feature.rampSchedule.actions.paused",
             "feature.rampSchedule.actions.resumed",
           ],
@@ -938,6 +975,10 @@ export const notificationCategoryPresets: Record<
       "experiment.warning",
     ],
     all: eventsInCategory("experiment"),
+  },
+  sdkConnection: {
+    default: ["sdkConnection.payloadSize.warning"],
+    all: eventsInCategory("sdkConnection"),
   },
   holdout: {
     default: ["holdout.status.changed", "holdout.config.newLinkage"],

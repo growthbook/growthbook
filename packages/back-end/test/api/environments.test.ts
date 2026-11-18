@@ -22,7 +22,7 @@ jest.mock("back-end/src/models/SlackIntegrationModel", () => ({
   removeEnvironmentFromSlackIntegration: jest.fn(),
 }));
 
-describe("environements API", () => {
+describe("environments API", () => {
   const { app, auditMock, setReqContext } = setupApp();
 
   afterEach(async () => {
@@ -65,6 +65,7 @@ describe("environements API", () => {
           toggleOnList: true,
           defaultState: true,
           projects: ["bla"],
+          isProduction: true,
         },
         {
           id: "env2",
@@ -72,6 +73,7 @@ describe("environements API", () => {
           toggleOnList: false,
           defaultState: false,
           projects: [],
+          isProduction: true,
         },
       ],
     });
@@ -114,6 +116,7 @@ describe("environements API", () => {
           toggleOnList: true,
           defaultState: true,
           projects: ["bla"],
+          isProduction: true,
         },
       ],
     });
@@ -275,6 +278,7 @@ describe("environements API", () => {
         id: "env1",
         projects: ["proj1", "proj2"],
         toggleOnList: false,
+        isProduction: true,
       },
     });
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
@@ -286,6 +290,7 @@ describe("environements API", () => {
             toggleOnList: false,
             defaultState: false,
             projects: ["proj1", "proj2"],
+            isProduction: true,
           },
           { id: "env2" },
         ],
@@ -293,7 +298,7 @@ describe("environements API", () => {
     });
     expect(auditMock).toHaveBeenCalledWith({
       details:
-        '{"pre":{"id":"env1","description":"env1","toggleOnList":true,"defaultState":true,"projects":["bla"]},"post":{"id":"env1","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false},"context":{}}',
+        '{"pre":{"id":"env1","description":"env1","toggleOnList":true,"defaultState":true,"projects":["bla"]},"post":{"id":"env1","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false,"isProduction":true},"context":{}}',
       entity: {
         id: "env1",
         object: "environment",
@@ -486,6 +491,7 @@ describe("environements API", () => {
         id: "env3",
         projects: ["proj1", "proj2"],
         toggleOnList: false,
+        isProduction: true,
       },
     });
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
@@ -507,13 +513,14 @@ describe("environements API", () => {
             toggleOnList: false,
             defaultState: false,
             projects: ["proj1", "proj2"],
+            isProduction: true,
           },
         ],
       },
     });
     expect(auditMock).toHaveBeenCalledWith({
       details:
-        '{"post":{"id":"env3","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false},"context":{}}',
+        '{"post":{"id":"env3","projects":["proj1","proj2"],"description":"new description","toggleOnList":false,"defaultState":false,"isProduction":true},"context":{}}',
       entity: {
         id: "env3",
         object: "environment",
@@ -702,7 +709,9 @@ describe("environements API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ message: "Environment ID cannot empty!" });
+    expect(response.body).toEqual({
+      message: "Environment ID cannot be empty!",
+    });
     expect(updateOrganization).not.toHaveBeenCalled();
     expect(auditMock).not.toHaveBeenCalled();
   });

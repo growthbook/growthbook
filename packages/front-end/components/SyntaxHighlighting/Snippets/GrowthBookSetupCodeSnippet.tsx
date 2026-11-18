@@ -1,10 +1,11 @@
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { paddedVersionString } from "@growthbook/growthbook";
 import {
+  getLatestSDKVersion,
   getSDKCapabilities,
   getSDKCapabilityVersion,
 } from "shared/sdk-versioning";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { PiArrowSquareOut } from "react-icons/pi";
 import React from "react";
 import { Box } from "@radix-ui/themes";
 import { DocLink } from "@/components/DocLink";
@@ -13,10 +14,20 @@ import EventTrackerSelector, {
   backendEventTrackerOptions,
   pluginSupportedTrackers,
 } from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import { getAppOrigin, isCloud } from "@/services/env";
 import { DataRegion, getEventIngestorHost } from "@/services/dataRegions";
 import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
+import Text from "@/ui/Text";
 
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
@@ -43,18 +54,18 @@ function getEventIngestorTrackingState(
   return {
     usesGrowthbookPlugin,
     showUpgradeWarning: eventTracker === "growthbook" && !usesGrowthbookPlugin,
-    eventIngestorHost:
-      eventIngestorRegion && eventIngestorRegion !== "us-east-1"
-        ? getEventIngestorHost(eventIngestorRegion)
-        : undefined,
+    eventIngestorHost: eventIngestorRegion
+      ? getEventIngestorHost(eventIngestorRegion)
+      : undefined,
   };
 }
 
-function EventIngestorUpgradeWarning({ minVersion }: { minVersion: string }) {
+function EventIngestorUpgradeWarning({ language }: { language: SDKLanguage }) {
   return (
     <Callout status="warning" mt="3">
-      Upgrade this SDK Connection to SDK version {minVersion} or later to send
-      events to GrowthBook, or send events directly with the{" "}
+      Upgrade this SDK Connection to SDK version{" "}
+      {getSDKCapabilityVersion(language, "trackingPlugin") || "a later version"}{" "}
+      or later to send events to GrowthBook, or send events directly with the{" "}
       <DocLink docSection="managedWarehouseIngestionApi">Ingestion API</DocLink>
       .
     </Callout>
@@ -95,7 +106,7 @@ export default function GrowthBookSetupCodeSnippet({
             <br />
             You will need to implement additional tracking for other events. See
             our guide to{" "}
-            <DocLink useRadix={false} docSection="managedWarehouseTracking">
+            <DocLink docSection="managedWarehouseTracking">
               custom event tracking with GrowthBook
             </DocLink>
             <br />
@@ -125,7 +136,7 @@ export default function GrowthBookSetupCodeSnippet({
   window.gbEvents.push({
       eventName: "Purchase",
       properties: {
-        amount: "10.00"
+        amount: "10.00",
         product: product_id,
       }
     });
@@ -143,7 +154,7 @@ export default function GrowthBookSetupCodeSnippet({
           <div>
             Create a custom event trigger in Google Tag Manager to track
             experiment events to GA4. See our guide to{" "}
-            <DocLink useRadix={false} docSection="gtmCustomTracking">
+            <DocLink docSection="gtmCustomTracking">
               custom event tracking with GTM
             </DocLink>
             .
@@ -182,9 +193,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
           setEventTracker={setEventTracker}
         />
         Create a GrowthBook instance. Read more about our{" "}
-        <DocLink useRadix={false} docSection="javascript">
-          Javascript SDK
-        </DocLink>
+        <DocLink docSection="javascript">Javascript SDK</DocLink>
         <Code
           language="javascript"
           code={getJSCodeSnippet({
@@ -203,7 +212,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             <Box mt="3">
               If you want to use GrowthBook for experiments (and metrics), you
               will need to log events you care about. Read more about our{" "}
-              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+              <DocLink docSection="managedWarehouseTracking">
                 GrowthBook event tracking
               </DocLink>
               . Here are some examples:
@@ -211,27 +220,17 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
                 language="javascript"
                 code={`
 // Simple (no properties)
-gb.logEvent("Page View");
+growthbook.logEvent("Page View");
 
 // With custom properties
-gb.logEvent("Button Click", {
+growthbook.logEvent("Button Click", {
   button: "Sign Up",
 });
               `}
               />
             </Box>
           ) : (
-            <Callout status="warning" mt="3">
-              Upgrade this SDK Connection to SDK version{" "}
-              {getSDKCapabilityVersion(language, "trackingPlugin") ||
-                "a later version"}{" "}
-              or later to send events to GrowthBook, or send events directly
-              with the{" "}
-              <DocLink docSection="managedWarehouseIngestionApi">
-                Ingestion API
-              </DocLink>
-              .
-            </Callout>
+            <EventIngestorUpgradeWarning language={language} />
           ))}
       </>
     );
@@ -284,13 +283,12 @@ export default function MyApp() {
 `.trim()}
         />
         If you are using <strong>Next.js</strong>,{" "}
-        <a
+        <Link
           href="https://github.com/growthbook/examples/tree/main/next-js"
-          target="_blank"
-          rel="noreferrer"
+          external
         >
           check out our sample app on GitHub
-        </a>{" "}
+        </Link>{" "}
         with examples of using GrowthBook with SSR, API routes, static pages,
         and more.
         {eventTracker === "growthbook" &&
@@ -298,7 +296,7 @@ export default function MyApp() {
             <Box mt="3">
               If you want to use GrowthBook for experiments (and metrics), you
               will need to log events you care about. Read more about our{" "}
-              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+              <DocLink docSection="managedWarehouseTracking">
                 GrowthBook event tracking
               </DocLink>
               . Here are some examples:
@@ -306,27 +304,17 @@ export default function MyApp() {
                 language="javascript"
                 code={`
 // Simple (no properties)
-gb.logEvent("Page View");
+growthbook.logEvent("Page View");
 
 // With custom properties
-gb.logEvent("Button Click", {
+growthbook.logEvent("Button Click", {
   button: "Sign Up",
 });
               `}
               />
             </Box>
           ) : (
-            <Callout status="warning" mt="3">
-              Upgrade this SDK Connection to SDK version{" "}
-              {getSDKCapabilityVersion(language, "trackingPlugin") ||
-                "a later version"}{" "}
-              or later to send events to GrowthBook, or send events directly
-              with the{" "}
-              <DocLink docSection="managedWarehouseIngestionApi">
-                Ingestion API
-              </DocLink>
-              .
-            </Callout>
+            <EventIngestorUpgradeWarning language={language} />
           ))}
       </>
     );
@@ -400,7 +388,7 @@ await client.init({ timeout: 1000 });
             }
           />
           {showUpgradeWarning && (
-            <EventIngestorUpgradeWarning minVersion="1.4.0" />
+            <EventIngestorUpgradeWarning language={language} />
           )}
           Use a middleware to create a GrowthBook instance that is scoped to the
           current user/request. Store this in the request object for use in
@@ -423,7 +411,7 @@ app.use((req, res, next) => {
             <Box mt="3">
               If you want to use GrowthBook for experiments (and metrics), you
               will need to log events you care about. Read more about our{" "}
-              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+              <DocLink docSection="managedWarehouseTracking">
                 GrowthBook event tracking
               </DocLink>
               . Here are some examples:
@@ -453,7 +441,7 @@ req.growthbook.logEvent("Request Completed", {
           options={backendEventTrackerOptions}
         />
         {eventTracker === "growthbook" && (
-          <EventIngestorUpgradeWarning minVersion="1.4.0" />
+          <EventIngestorUpgradeWarning language={language} />
         )}
         Add some polyfills for missing browser APIs
         <Code
@@ -519,85 +507,101 @@ app.use(function(req, res, next) {
         Import the default adapter instance, which is configured by your
         environment variables.
         <Code
-          containerClassName="mb-4"
           language="typescript"
           code={`
 import { growthbookAdapter } from "@flags-sdk/growthbook";
   `.trim()}
         />
-        <div className="h4 mt-4 mb-2">Environment variables</div>
-        <table className="table w-auto gbtable table-sm table-bordered bg-light my-2">
-          <thead>
-            <tr>
-              <th className="px-3 py-2">Environment variable</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="px-3">
+        <Heading as="h5" size="sm" mt="5" mb="2">
+          Environment Variables
+        </Heading>
+        <Table variant="surface" size="sm" my="2">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Environment variable</TableColumnHeader>
+              <TableColumnHeader />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell>
                 <code>GROWTHBOOK_CLIENT_KEY</code>
-              </td>
-              <td className="px-3">
-                <ClickToCopy>{apiKey}</ClickToCopy>
-              </td>
-            </tr>
-            <tr>
-              <td className="px-3">
+              </TableCell>
+              <TableCell>
+                <CopyableCode value={apiKey} />
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>
                 <code>GROWTHBOOK_API_HOST</code>
                 {isCloud() && (
-                  <span className="text-muted small ml-2">(optional)</span>
+                  <Text size="sm" color="text-low" ml="2">
+                    (optional)
+                  </Text>
                 )}
-              </td>
-              <td className="px-3">
-                <ClickToCopy>{apiHost}</ClickToCopy>
-              </td>
-            </tr>
-            <tr>
-              <td className="px-3">
+              </TableCell>
+              <TableCell>
+                <CopyableCode value={apiHost} />
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>
                 <code>GROWTHBOOK_APP_ORIGIN</code>
-                <span className="text-muted small ml-2">(optional)</span>
-              </td>
-              <td className="px-3">
-                <ClickToCopy>{getAppOrigin()}</ClickToCopy>
-              </td>
-            </tr>
-            <tr>
-              <td className="px-3" colSpan={2}>
-                <span className="uppercase-title">Edge Config</span>
-                <span className="text-muted small ml-2">(optional)</span>
-              </td>
-            </tr>
-            <tr>
-              <td className="px-3">
-                <div>
+                <Text size="sm" color="text-low" ml="2">
+                  (optional)
+                </Text>
+              </TableCell>
+              <TableCell>
+                <CopyableCode value={getAppOrigin()} />
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell colSpan={2}>
+                <Text
+                  size="sm"
+                  weight="medium"
+                  color="text-low"
+                  textTransform="uppercase"
+                >
+                  Edge Config
+                </Text>
+                <Text size="sm" color="text-low" ml="2">
+                  (optional)
+                </Text>
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>
+                <Box>
                   <code>GROWTHBOOK_EDGE_CONNECTION_STRING</code>
-                  <span className="ml-2">or</span>
-                </div>
-                <div>
+                  <Text ml="2">or</Text>
+                </Box>
+                <Box>
                   <code>EXPERIMENTATION_CONFIG</code>
-                </div>
-              </td>
-              <td className="px-3">
-                <span className="text-muted">
-                  Edge Config connection string
-                </span>
-              </td>
-            </tr>
-            <tr>
-              <td className="px-3">
+                </Box>
+              </TableCell>
+              <TableCell>
+                <Text color="text-low">Edge Config connection string</Text>
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>
                 <code>GROWTHBOOK_EDGE_CONFIG_ITEM_KEY</code>
-                <span className="text-muted small ml-2">(optional)</span>
-              </td>
-              <td className="px-3">
-                <span className="text-muted">
+                <Text size="sm" color="text-low" ml="2">
+                  (optional)
+                </Text>
+              </TableCell>
+              <TableCell>
+                <Text color="text-low">
                   Defaults to your client key if not provided
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div className="h4 mt-4 mb-2">Experiment tracking</div>
+                </Text>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+        <Heading as="h5" size="sm" mt="5" mb="2">
+          Experiment Tracking
+        </Heading>
         Define a server-side tracking callback. Note: Client-side tracking is
         also available but requires additional setup.
         <Code
@@ -622,48 +626,154 @@ growthbookAdapter.setTrackingCallback((experiment, result) => {
     );
   }
   if (language === "android") {
+    const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+      getEventIngestorTrackingState(
+        language,
+        version,
+        eventTracker,
+        eventIngestorRegion,
+      );
+    const builderArgs = `
+  apiKey = "${apiKey || "MY_SDK_KEY"}",
+  apiHost = "${apiHost}/",${
+    encryptionKey ? `\n  encryptionKey = "${encryptionKey}",` : ""
+  }
+  networkDispatcher = networkDispatcher,
+  attributes = emptyMap(),`;
+
     return (
       <>
+        <EventTrackerSelector
+          eventTracker={eventTracker}
+          setEventTracker={setEventTracker}
+          options={backendEventTrackerOptions}
+        />
         Create GrowthBook instance
         <Code
           language="kotlin"
-          code={`
+          code={
+            usesGrowthbookPlugin
+              ? `
 import com.sdk.growthbook.GBSDKBuilder
+import com.sdk.growthbook.network.GBNetworkDispatcherKtor
+import com.sdk.growthbook.plugin.TrackingPluginConfig
+import com.sdk.growthbook.plugin.tracking.GrowthBookTrackingPlugin
 
-val gb = GBSDKBuilder(
-  apiKey = "${apiKey || "MY_SDK_KEY"}",
-  hostURL = "${apiHost}/",
+val networkDispatcher = GBNetworkDispatcherKtor()
+
+val gb = GBSDKBuilder(${builderArgs}
+  trackingCallback = { _, _ -> },
+).setPlugins(
+  listOf(
+    GrowthBookTrackingPlugin(
+      TrackingPluginConfig(
+        clientKey = "${apiKey || "MY_SDK_KEY"}",
+        networkDispatcher = networkDispatcher,${
+          eventIngestorHost
+            ? `\n        ingestorHost = "${eventIngestorHost}",`
+            : ""
+        }
+      )
+    )
+  )
+).initialize()`.trim()
+              : `
+import com.sdk.growthbook.GBSDKBuilder
+import com.sdk.growthbook.network.GBNetworkDispatcherKtor
+
+val networkDispatcher = GBNetworkDispatcherKtor()
+
+val gb = GBSDKBuilder(${builderArgs}
   trackingCallback = { gbExperiment, gbExperimentResult ->
     // ${trackingComment}
     println("Viewed Experiment")
     println("Experiment Id: " + gbExperiment.key)
-    println("Variation Id: " + gbExperimentResult.variationId)
-  }
-).initialize()`.trim()}
+    println("Variation Id: " + gbExperimentResult.key)
+  },
+).initialize()`.trim()
+          }
         />
+        {showUpgradeWarning && (
+          <EventIngestorUpgradeWarning language={language} />
+        )}
+        {usesGrowthbookPlugin && (
+          <Box mt="3">
+            Experiment view and feature usage events are tracked automatically.
+            To track additional custom events, send them directly with the{" "}
+            <DocLink docSection="managedWarehouseIngestionApi">
+              Ingestion API
+            </DocLink>
+            .
+          </Box>
+        )}
       </>
     );
   }
   if (language === "ios") {
+    const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+      getEventIngestorTrackingState(
+        language,
+        version,
+        eventTracker,
+        eventIngestorRegion,
+      );
+    const builderArgs = `
+  apiHost: "${apiHost}",
+  clientKey: "${apiKey || "MY_SDK_KEY"}",${
+    encryptionKey ? `\n  encryptionKey: "${encryptionKey}",` : ""
+  }
+  attributes: [:],`;
+
     return (
       <>
+        <EventTrackerSelector
+          eventTracker={eventTracker}
+          setEventTracker={setEventTracker}
+          options={backendEventTrackerOptions}
+        />
         Create GrowthBook instance
         <Code
           language="swift"
-          code={`
-var gb: GrowthBookSDK = GrowthBookBuilder(
-  url: "${featuresEndpoint}",${
-    encryptionKey ? `\n  encryptionKey: "${encryptionKey}",` : ""
-  }
-  trackingCallback: { experiment, experimentResult in 
+          code={
+            usesGrowthbookPlugin
+              ? `
+import GrowthBook
+
+var gb: GrowthBookSDK = GrowthBookBuilder(${builderArgs}
+  trackingCallback: { _, _ in }
+)
+.addPlugin(GrowthBookTrackingPlugin(${
+                  eventIngestorHost
+                    ? `\n  config: .init(ingestorHost: "${eventIngestorHost}")\n`
+                    : ""
+                }))
+.initializer()`.trim()
+              : `
+import GrowthBook
+
+var gb: GrowthBookSDK = GrowthBookBuilder(${builderArgs}
+  trackingCallback: { experiment, experimentResult in
     // ${trackingComment}
     print("Viewed Experiment")
     print("Experiment Id: ", experiment.key)
-    print("Variation Id: ", experimentResult.variationId)
+    print("Variation Id: ", experimentResult.key)
   }
-).initializer()
-    `.trim()}
+).initializer()`.trim()
+          }
         />
+        {showUpgradeWarning && (
+          <EventIngestorUpgradeWarning language={language} />
+        )}
+        {usesGrowthbookPlugin && (
+          <Box mt="3">
+            Experiment view and feature usage events are tracked automatically.
+            To track additional custom events, send them directly with the{" "}
+            <DocLink docSection="managedWarehouseIngestionApi">
+              Ingestion API
+            </DocLink>
+            .
+          </Box>
+        )}
       </>
     );
   }
@@ -675,6 +785,10 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
         eventTracker,
         eventIngestorRegion,
       );
+    // ExperimentCallback gained a *TrackingUserContext argument in v0.4.0
+    const goCallbackHasUser =
+      paddedVersionString(version || getLatestSDKVersion(language)) >=
+      paddedVersionString("0.4.0");
 
     return (
       <>
@@ -728,9 +842,7 @@ package main
 import (
 	"context"
 	"log"
-	"fmt"
 	"time"
-	"encoding/json"
 	gb "github.com/growthbook/growthbook-golang"
 )
 
@@ -742,10 +854,12 @@ func main() {
 		gb.WithApiHost("${apiHost}"),
 		gb.WithPollDataSource(30 * time.Second),
 		// ${trackingComment}
-		gb.WithExperimentCallback(func(ctx context.Context, experiment *gb.Experiment, result *gb.ExperimentResult, extra any) {
+		gb.WithExperimentCallback(func(ctx context.Context, experiment *gb.Experiment, result *gb.ExperimentResult, ${
+      goCallbackHasUser ? "user *gb.TrackingUserContext, " : ""
+    }extra any) {
 			log.Println("Viewed Experiment")
 			log.Println("Experiment Id", experiment.Key)
-			log.Println("Variation Id", result.VariationId)
+			log.Println("Variation Id", result.Key)
 		}),
 	)
 
@@ -763,16 +877,28 @@ func main() {
           }
         />
         {showUpgradeWarning && (
-          <EventIngestorUpgradeWarning minVersion="0.2.8" />
+          <EventIngestorUpgradeWarning language={language} />
         )}
         {usesGrowthbookPlugin && (
           <Box mt="3">
-            Experiment view and feature usage events are tracked automatically.
-            To track additional custom events, send them directly with the{" "}
-            <DocLink docSection="managedWarehouseIngestionApi">
-              Ingestion API
+            If you want to use GrowthBook for experiments (and metrics), you
+            will need to log events you care about. Read more about our{" "}
+            <DocLink docSection="managedWarehouseTracking">
+              GrowthBook event tracking
             </DocLink>
-            .
+            . Here is an example:
+            <Code
+              language="go"
+              code={`
+// Scope the client to the current user. Don't call Close() on it;
+// that closes the shared client.
+userClient, _ := client.WithAttributes(gb.Attributes{"id": "user-123"})
+
+userClient.LogEvent(context.TODO(), "Request Completed", gb.EventProperties{
+	"latency": 250,
+})
+              `.trim()}
+            />
           </Box>
         )}
       </>
@@ -857,7 +983,12 @@ use Growthbook\\GrowthBookTrackingPlugin;${
                     : ""
                 }
 
+// Cache features across requests (any psr-16 library will work)
+$cache = new \\Cache\\Adapter\\Apcu\\ApcuCachePool();
+
+// Add the plugin after any with*() calls
 $growthbook = Growthbook::create()
+  ->withCache($cache)
   ->addPlugin(new GrowthBookTrackingPlugin(${
     eventIngestorHost
       ? `
@@ -869,7 +1000,11 @@ $growthbook = Growthbook::create()
               : `
 use Growthbook\\Growthbook;
 
+// Cache features across requests (any psr-16 library will work)
+$cache = new \\Cache\\Adapter\\Apcu\\ApcuCachePool();
+
 $growthbook = Growthbook::create()
+  ->withCache($cache)
   ->withTrackingCallback(function ($experiment, $result) {
     // ${trackingComment}
     print_r([
@@ -887,10 +1022,6 @@ $growthbook = Growthbook::create()
         <Code
           language="php"
           code={`
-// Cache features across requests (any psr-16 library will work)
-$cache = new \\Cache\\Adapter\\Apcu\\ApcuCachePool();
-$growthbook->withCache($cache);
-
 $growthbook->initialize(
   "${apiKey || "MY_SDK_KEY"}", // Client Key
   "${apiHost}"${
@@ -903,7 +1034,7 @@ $growthbook->initialize(
             `.trim()}
         />
         {showUpgradeWarning && (
-          <EventIngestorUpgradeWarning minVersion="2.4.0" />
+          <EventIngestorUpgradeWarning language={language} />
         )}
         {usesGrowthbookPlugin && (
           <Box mt="3">
@@ -993,13 +1124,13 @@ gb.load_features()
           }
         />
         {showUpgradeWarning && (
-          <EventIngestorUpgradeWarning minVersion="2.2.0" />
+          <EventIngestorUpgradeWarning language={language} />
         )}
         {usesGrowthbookPlugin && (
           <Box mt="3">
             If you want to use GrowthBook for experiments (and metrics), you
             will need to log events you care about. Read more about our{" "}
-            <DocLink useRadix={false} docSection="managedWarehouseTracking">
+            <DocLink docSection="managedWarehouseTracking">
               GrowthBook event tracking
             </DocLink>
             . Here are some examples:
@@ -1044,9 +1175,9 @@ TrackingCallback trackingCallback = new TrackingCallback() {
       ExperimentResult<ValueType> experimentResult
   ) {
     // ${trackingComment}
-    System.out.println("Viewed Experiment")
-    System.out.println("Experiment Id: " + experiment.key)
-    System.out.println("Variation Id: " + experimentResult.variationId)
+    System.out.println("Viewed Experiment");
+    System.out.println("Experiment Id: " + experiment.getKey());
+    System.out.println("Variation Id: " + experimentResult.getKey());
   }
 };
 
@@ -1080,65 +1211,26 @@ GrowthBook growthBook = new GrowthBook(context);
     );
   }
   if (language === "flutter") {
-    const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
-      getEventIngestorTrackingState(
-        language,
-        version,
-        eventTracker,
-        eventIngestorRegion,
-      );
-
     return (
       <>
-        <EventTrackerSelector
-          eventTracker={eventTracker}
-          setEventTracker={setEventTracker}
-          options={backendEventTrackerOptions}
-        />
         Create a GrowthBook instance
         <Code
           language="dart"
-          code={
-            usesGrowthbookPlugin
-              ? `
-final GrowthBookSDK gb = GBSDKBuilderApp(
+          code={`
+final GrowthBookSDK gb = await GBSDKBuilderApp(
   hostURL: '${apiHost}/',
-  apiKey: "${apiKey}",
-).addPlugin(GrowthBookTrackingPlugin(${
-                  eventIngestorHost
-                    ? `
-  config: GrowthBookTrackingPluginConfig(ingestorHost: '${eventIngestorHost}'),
-`
-                    : ""
-                })).initialize();
-`.trim()
-              : `
-final GrowthBookSDK gb = GBSDKBuilderApp(
-  hostURL: '${apiHost}/',
-  apiKey: "${apiKey}",
-  growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {
+  apiKey: '${apiKey || "MY_SDK_KEY"}',${
+    encryptionKey ? `\n  encryptionKey: '${encryptionKey}',` : ""
+  }
+  growthBookTrackingCallBack: (trackData) {
     // ${trackingComment}
-    print("Viewed Experiment")
-    print("Experiment Id: " + gbExperiment.key)
-    print("Variation Id: " + gbExperimentResult.variationId)
+    print('Viewed Experiment');
+    print('Experiment Id: ' + trackData.experiment.key);
+    print('Variation Id: ' + trackData.experimentResult.key);
   },
 ).initialize();
-`.trim()
-          }
+`.trim()}
         />
-        {showUpgradeWarning && (
-          <EventIngestorUpgradeWarning minVersion="4.4.0" />
-        )}
-        {usesGrowthbookPlugin && (
-          <Box mt="3">
-            Experiment view and feature usage events are tracked automatically.
-            To track additional custom events, send them directly with the{" "}
-            <DocLink docSection="managedWarehouseIngestionApi">
-              Ingestion API
-            </DocLink>
-            .
-          </Box>
-        )}
       </>
     );
   }
@@ -1228,32 +1320,30 @@ features = GrowthBook.Config.features_from_config(features)
           network requests needed.
         </p>
 
-        <div className="h4 mt-4 mb-3">
-          Step 1: Set up a Cloudflare Workers project
-        </div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 1: Set Up a Cloudflare Workers Project
+        </Heading>
         <p>
           See the official Cloudflare Workers{" "}
-          <a
+          <Link
             href="https://developers.cloudflare.com/workers/get-started/guide/"
-            target="_blank"
-            rel="noreferrer"
+            external
           >
-            Get started guide <FaExternalLinkAlt />
-          </a>{" "}
+            Get started guide <PiArrowSquareOut />
+          </Link>{" "}
           to set up your project. Or have a look at our{" "}
-          <a
+          <Link
             href="https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example"
-            target="_blank"
-            rel="noreferrer"
+            external
           >
-            example implementation <FaExternalLinkAlt />
-          </a>
+            example implementation <PiArrowSquareOut />
+          </Link>
           .
         </p>
 
-        <div className="h4 mt-4 mb-3">
-          Step 2: Implement our Edge App request handler
-        </div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 2: Implement Our Edge App Request Handler
+        </Heading>
         <p>
           To run the edge app, add our Cloudflare request handler to your
           project:
@@ -1271,7 +1361,9 @@ export default {
           `.trim()}
         />
 
-        <div className="h4 mt-4 mb-3">Step 3: Set up environment variables</div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 3: Set Up Environment Variables
+        </Heading>
         <p>
           Edit your <code>wrangler.toml</code> file and, at minimum, add these
           required fields:
@@ -1291,7 +1383,9 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           `.trim()}
         />
 
-        <div className="h4 mt-4 mb-3">Step 4: Set up payload caching</div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 4: Set Up Payload Caching
+        </Heading>
         <p>
           Set up a <strong>Cloudflare KV</strong> store and use a GrowthBook{" "}
           <strong>SDK Webhook</strong> to keep feature and experiment values
@@ -1299,7 +1393,9 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           network requests from your edge to GrowthBook.
         </p>
 
-        <div className="h4 mt-4 mb-3">Further customization</div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Further Customization
+        </Heading>
         <ul>
           <li>
             Enable URL Redirect experiments on edge (off by default) by setting{" "}
@@ -1320,9 +1416,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
         </ul>
         <p>
           See the{" "}
-          <DocLink useRadix={false} docSection="cloudflare">
-            Cloudflare Workers docs
-          </DocLink>{" "}
+          <DocLink docSection="cloudflare">Cloudflare Workers docs</DocLink>{" "}
           further instructions.
         </p>
       </>
@@ -1340,32 +1434,30 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           network requests needed.
         </p>
 
-        <div className="h4 mt-4 mb-3">
-          Step 1: Set up a Fastly Compute project for TypeScript or JavaScript
-        </div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 1: Set Up a Fastly Compute Project for TypeScript or JavaScript
+        </Heading>
         <p>
           See the official Fastly Compute{" "}
-          <a
+          <Link
             href="https://www.fastly.com/documentation/guides/compute/"
-            target="_blank"
-            rel="noreferrer"
+            external
           >
-            Developer guide <FaExternalLinkAlt />
-          </a>{" "}
+            Developer guide <PiArrowSquareOut />
+          </Link>{" "}
           to set up your project. Or have a look at our{" "}
-          <a
+          <Link
             href="https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly/example"
-            target="_blank"
-            rel="noreferrer"
+            external
           >
-            example implementation <FaExternalLinkAlt />
-          </a>
+            example implementation <PiArrowSquareOut />
+          </Link>
           .
         </p>
 
-        <div className="h4 mt-4 mb-3">
-          Step 2: Implement our Edge App request handler
-        </div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 2: Implement Our Edge App Request Handler
+        </Heading>
         <p>
           To run the edge app, add our Fastly request handler to your project:
         </p>
@@ -1400,35 +1492,43 @@ async function handleRequest(event) {
           `.trim()}
         />
 
-        <div className="h4 mt-4 mb-3">Step 3: Set up backends (origins)</div>
-        <p>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 3: Set Up Backends (Origins)
+        </Heading>
+        <Box mb="4">
           Allow your worker to connect to both your origin site and your
           GrowthBook API by setting up backends (origins) for your Compute
           service from the Fastly dashboard.
           <ul>
-            <li className="mt-3">
-              In Fastly, create a backend called <code>api_host</code> pointing
-              to your API Host (<code>{apiHost}</code>).
-              <div>
-                In your code, pass this string via{" "}
-                <code>config.apiHostBackend</code> to your request handler, as
-                show in <em>Step 2</em>.
-              </div>
+            <li>
+              <Box mt="4">
+                In Fastly, create a backend called <code>api_host</code>{" "}
+                pointing to your API Host (<code>{apiHost}</code>).
+                <Box>
+                  In your code, pass this string via{" "}
+                  <code>config.apiHostBackend</code> to your request handler, as
+                  show in <em>Step 2</em>.
+                </Box>
+              </Box>
             </li>
-            <li className="mt-3">
-              In Fastly, create one or more backends pointing to your site
-              origins.
-              <div>
-                In your code, create an object mapping your origin URLs to their
-                named backends. Pass this object via{" "}
-                <code>config.backends</code> to your request handler, as shown
-                in <em>Step 2</em>.
-              </div>
+            <li>
+              <Box mt="4">
+                In Fastly, create one or more backends pointing to your site
+                origins.
+                <Box>
+                  In your code, create an object mapping your origin URLs to
+                  their named backends. Pass this object via{" "}
+                  <code>config.backends</code> to your request handler, as shown
+                  in <em>Step 2</em>.
+                </Box>
+              </Box>
             </li>
           </ul>
-        </p>
+        </Box>
 
-        <div className="h4 mt-4 mb-3">Step 4: Set up environment variables</div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 4: Set Up Environment Variables
+        </Heading>
         <p>
           Create a Config store called <code>env_vars</code> from the Fastly
           dashboard and link it to your service. Then, at minimum, add these
@@ -1447,7 +1547,9 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           `.trim()}
         />
 
-        <div className="h4 mt-4 mb-3">Step 5: Set up payload caching</div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 5: Set Up Payload Caching
+        </Heading>
         <p>
           Set up a <strong>Fastly KV</strong> store and use a GrowthBook{" "}
           <strong>SDK Webhook</strong> to keep feature and experiment values
@@ -1455,7 +1557,9 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           network requests from your edge to GrowthBook.
         </p>
 
-        <div className="h4 mt-4 mb-3">Further customization</div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Further Customization
+        </Heading>
         <ul>
           <li>
             Enable URL Redirect experiments on edge (off by default) by setting{" "}
@@ -1475,10 +1579,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           </li>
         </ul>
         <p>
-          See the{" "}
-          <DocLink useRadix={false} docSection="fastly">
-            Fastly Compute docs
-          </DocLink>{" "}
+          See the <DocLink docSection="fastly">Fastly Compute docs</DocLink>{" "}
           further instructions.
         </p>
       </>
@@ -1496,16 +1597,17 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           network requests needed.
         </p>
 
-        <div className="h4 mt-4 mb-3">Step 1: Set up a Lambda@Edge project</div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 1: Set Up a Lambda@Edge Project
+        </Heading>
         <p>
           See the official AWS{" "}
-          <a
+          <Link
             href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-how-it-works-tutorial.html"
-            target="_blank"
-            rel="noreferrer"
+            external
           >
-            Tutorial: Create a basic Lambda@Edge function <FaExternalLinkAlt />
-          </a>{" "}
+            Tutorial: Create a basic Lambda@Edge function <PiArrowSquareOut />
+          </Link>{" "}
           to see how to set up an example Lambda@Edge project. Our Edge App will
           differ from the example app, but it is a worthwhile read.
         </p>
@@ -1515,9 +1617,9 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           interaction with CloudFront is minimal (Step 2 in the AWS tutorial).
         </p>
 
-        <div className="h4 mt-4 mb-3">
-          Step 2: Implement our Edge App request handler
-        </div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 2: Implement Our Edge App Request Handler
+        </Heading>
         <p>
           To run the edge app, add our base app to request handler to your
           project.
@@ -1555,7 +1657,9 @@ function buildEnv() {
           `.trim()}
         />
 
-        <div className="h4 mt-4 mb-3">Further customization</div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Further Customization
+        </Heading>
         <ul>
           <li>
             Set up an edge key-val store such as <strong>DynamoDB</strong> and
@@ -1581,10 +1685,7 @@ function buildEnv() {
           </li>
         </ul>
         <p>
-          See the{" "}
-          <DocLink useRadix={false} docSection="lambda">
-            Lambda@Edge docs
-          </DocLink>{" "}
+          See the <DocLink docSection="lambda">Lambda@Edge docs</DocLink>{" "}
           further instructions.
         </p>
       </>
@@ -1602,9 +1703,9 @@ function buildEnv() {
           network requests needed.
         </p>
 
-        <div className="h4 mt-4 mb-3">
-          Step 1: Implement our Edge App request handler
-        </div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 1: Implement Our Edge App Request Handler
+        </Heading>
         <p>
           To run the edge app, add our base app to request handler to your
           project. You will need to manually build app context and helper
@@ -1631,7 +1732,9 @@ function init(env) {
           `.trim()}
         />
 
-        <div className="h4 mt-4 mb-3">Step 2: Define helper methods</div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 2: Define Helper Methods
+        </Heading>
         <p>
           You&apos;ll need to define helper methods that correspond to how your
           edge provider handles various request and response utilities. For
@@ -1639,7 +1742,9 @@ function init(env) {
           managing cookies, etc.
         </p>
 
-        <div className="h4 mt-4 mb-3">Step 3: Set up environment variables</div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Step 3: Set Up Environment Variables
+        </Heading>
         <p>
           Add these required fields, at minimum, to your environment variables:
         </p>
@@ -1657,7 +1762,9 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           `.trim()}
         />
 
-        <div className="h4 mt-4 mb-3">Further customization</div>
+        <Heading as="h5" size="sm" mt="5" mb="4">
+          Further Customization
+        </Heading>
         <ul>
           <li>
             Set up an edge key-val store and use a GrowthBook{" "}
@@ -1683,11 +1790,8 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           </li>
         </ul>
         <p>
-          See the{" "}
-          <DocLink useRadix={false} docSection="edge">
-            Other Edge docs
-          </DocLink>{" "}
-          further instructions.
+          See the <DocLink docSection="edge">Other Edge docs</DocLink> further
+          instructions.
         </p>
       </>
     );
@@ -1697,10 +1801,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
     <p>
       We don&apos;t have an SDK for your language yet, but we do have extensive
       documentation if you want to build your own and contribute it back to the
-      community!{" "}
-      <DocLink useRadix={false} docSection="buildYourOwn">
-        View Documentation
-      </DocLink>
+      community! <DocLink docSection="buildYourOwn">View documentation</DocLink>
     </p>
   );
 }
@@ -1815,10 +1916,9 @@ const getJSCodeSnippet = ({
         : `["${eventTracker}"]`;
 
     if (eventTracker === "growthbook") {
-      const ingestorHost =
-        eventIngestorRegion && eventIngestorRegion !== "us-east-1"
-          ? getEventIngestorHost(eventIngestorRegion)
-          : undefined;
+      const ingestorHost = eventIngestorRegion
+        ? getEventIngestorHost(eventIngestorRegion)
+        : undefined;
       jsCode = `
 import { GrowthBook } from "@growthbook/growthbook";
 import {
@@ -1826,7 +1926,7 @@ import {
   growthbookTrackingPlugin
 } from "@growthbook/growthbook/plugins";
 
-const gb = new GrowthBook({
+const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
     encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""

@@ -1,5 +1,4 @@
 import {
-  ColumnInterface,
   FactMetricInterface,
   FactTableDefinition,
   RowFilter,
@@ -9,6 +8,7 @@ import type {
   FactTableValue,
   DataSourceValue,
   SqlValue,
+  PopulationValue,
   ProductAnalyticsValue,
   DatasetType,
   ExplorationDataset,
@@ -21,7 +21,6 @@ import type {
   ProductAnalyticsChartSettings,
 } from "shared/validators";
 import {
-  dateGranularity,
   explorationConfigValidator,
   explorationDateRangeValidator,
   comparisonModeValidator,
@@ -29,6 +28,7 @@ import {
   SqlDataset,
   MAX_JOURNEY_STEP_COLUMNS,
   datasetHasValues,
+  omitRenderOnlyFields,
 } from "shared/validators";
 import {
   applyStepGroups,
@@ -40,37 +40,44 @@ import type { AIChatMention } from "shared/ai-chat";
 import { createParser } from "nuqs";
 import {
   canInlineFilterColumn,
-  getFactMetricPrimaryFactTableId,
   getInlineFilterPromptColumns,
 } from "shared/experiments";
 import {
   encodeExplorationConfig,
   decodeExplorationConfigJson,
   calculateProductAnalyticsDateRange,
-  getDateGranularity,
+  getValidDateGranularities,
   mapDatabaseTypeToEnum,
-  getMetricMixClass,
   hasTimestampColumn,
   hasTimeAxis,
+  sanitizeDimensions,
+  getRelevantFactTableIds,
+  normalizeShowAs,
+  fillMissingUnits,
 } from "shared/enterprise";
+import type { DimensionFactTable } from "shared/enterprise";
 import {
   operatorLabelMap,
   getColumnInfo,
   isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
+import { renumberStepNames } from "@/components/FactTables/funnelStepUpdates";
 export {
+  getAvailableDimensionColumns,
+  getRelevantFactTableIds,
   getMetricMixClass,
-  getEffectiveShowAs,
-  clearInapplicableShowAs,
+  getMaxDimensions,
+  getValidDateGranularities,
+  getShowAsChoice,
   getEffectiveMetricValue,
-  getSharedUnit,
+  getExplorationRenderOpts,
   getDefaultValueAxisName,
-  showAsAppliesTo,
-  getIsRatioByIndex,
+  getValueAxisName,
   buildExplorationColumns,
   getExplorationCellValue,
   computeDimensionTotals,
   sortExplorationRows,
+  fillMissingUnits,
 } from "shared/enterprise";
 export type { MetricMixClass, ExplorationColumn } from "shared/enterprise";
 export type RenderOpts = import("shared/enterprise").ExplorationRenderOpts;
@@ -482,6 +489,14 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
         valueColumn: null,
         unit: null,
       } as SqlValue;
+    case "population":
+      return {
+        ...base,
+        name: generateUniqueValueName("Population", []),
+        type: "population",
+        unit: null,
+        source: { type: "factTable", factTableId: "" },
+      } as PopulationValue;
     case "funnel":
       // The funnel sidebar manages steps directly; nothing in the codebase
       // should ask for a "value" on a funnel dataset.
@@ -520,6 +535,19 @@ export function withDefaultSqlRawTable(
     chartType: "rawTable",
     dimensions: [],
   } as ExplorerDraftConfig;
+}
+
+/**
+ * Run after inserting, moving, or deleting funnel steps:
+ * - renumbers default names
+ * - clears optional/conversion window on whichever step lands first
+ */
+export function normalizeFunnelStepOrder(steps: FunnelStep[]): FunnelStep[] {
+  return renumberStepNames(steps).map((step, i) =>
+    i === 0 && (step.optional || step.conversionWindow)
+      ? { ...step, optional: false, conversionWindow: null }
+      : step,
+  );
 }
 
 /** Builds an empty funnel step. `factTableId` is optional so the "Add step"
@@ -637,139 +665,13 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
   }
 }
 
-const GROUPABLE_SQL_COLUMN_TYPES = new Set(["number", "date", "boolean"]);
-
-export function getCommonColumns(
-  dataset: ExplorationDataset | null,
-  getFactTableById: (id: string) => FactTableDefinition | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): Pick<ColumnInterface, "column" | "name">[] {
-  if (!dataset) return [];
-  // Funnels use first-touch dimensions on the initial step's fact table,
-  // so the candidate columns come from that one fact table — even when
-  // later steps reference different fact tables.
-  if (datasetHasValues(dataset)) {
-    if (!dataset.values || dataset.values.length === 0) return [];
-  } else if (dataset.type === "funnel") {
-    if (!dataset.steps || dataset.steps.length === 0) return [];
-  } else if (!dataset.factTableId) {
-    return [];
-  }
-
-  type SimpleColumn = Pick<
-    ColumnInterface,
-    "column" | "name" | "deleted" | "datatype" | "jsonFields"
-  >;
-  let columns: SimpleColumn[] | null = null;
-  const userIdTypes = new Set<string>();
-
-  if (dataset.type === "fact_table") {
-    const ft = getFactTableById(dataset.factTableId || "");
-    columns = ft?.columns || [];
-    ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
-  } else if (dataset.type === "metric") {
-    for (const value of dataset.values) {
-      const metricId = value.metricId;
-      let valueColumns: SimpleColumn[] = [];
-
-      const factMetric = getFactMetricById(metricId);
-      if (factMetric) {
-        const ft = getFactTableById(
-          getFactMetricPrimaryFactTableId(factMetric),
-        );
-        valueColumns = ft?.columns || [];
-        ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
-
-        // A ratio metric's denominator can live on a different fact table —
-        // only offer columns both sides can resolve, so a dimension can
-        // never be picked that a group-by query can't evaluate.
-        if (factMetric.denominator?.factTableId) {
-          const denominatorFt = getFactTableById(
-            factMetric.denominator.factTableId,
-          );
-          const denominatorColumnNames = new Set(
-            (denominatorFt?.columns || []).map((c) => c.column),
-          );
-          valueColumns = valueColumns.filter((c) =>
-            denominatorColumnNames.has(c.column),
-          );
-          denominatorFt?.userIdTypes?.forEach((u) => userIdTypes.add(u));
-        }
-      }
-
-      if (columns === null) {
-        columns = valueColumns;
-      } else {
-        // Intersect by column name
-        const valueColumnNames = new Set(valueColumns.map((c) => c.column));
-        columns = columns.filter((c) => valueColumnNames.has(c.column));
-      }
-    }
-  } else if (dataset.type === "data_source" || dataset.type === "sql") {
-    columns = Object.entries(dataset.columnTypes).map(([name, datatype]) => ({
-      column: name,
-      name,
-      deleted: false,
-      datatype,
-    }));
-  } else if (dataset.type === "funnel") {
-    const initialStep = dataset.steps[0];
-    const ft = initialStep?.factTableId
-      ? getFactTableById(initialStep.factTableId)
-      : null;
-    columns = ft?.columns || [];
-  } else if (dataset.type === "journey") {
-    const ft = dataset.factTableId
-      ? getFactTableById(dataset.factTableId)
-      : null;
-    columns = ft?.columns || [];
-  }
-
-  // Warehouse tables are restricted to string columns, where cardinality is at
-  // least predictable. A SQL dataset is the user's own projection — the column
-  // they most often want to group by is a bucket they just computed (e.g.
-  // `toStartOfMonth(...) AS month`) — so offer its other scalar types too.
-  // `other` stays out: it is the catch-all for types we couldn't identify,
-  // which includes arrays and structs, and warehouses reject casting those to
-  // the string every group-by value is compared as.
-  const allowNonStringGroupBy = dataset.type === "sql";
-
-  const groupByColumns: Pick<ColumnInterface, "column" | "name">[] = [];
-  (columns || [])
-    .filter((c) => !c.deleted)
-    .filter((c) => !userIdTypes.has(c.column))
-    .forEach((c) => {
-      if (
-        c.datatype === "string" ||
-        (allowNonStringGroupBy && GROUPABLE_SQL_COLUMN_TYPES.has(c.datatype))
-      ) {
-        groupByColumns.push({ column: c.column, name: c.name });
-      }
-      // Nested JSON fields (use dot-notation, matching getColumnExpression)
-      if (c.datatype === "json" && c.jsonFields) {
-        Object.entries(c.jsonFields).forEach(([field, info]) => {
-          if (info.datatype === "string") {
-            groupByColumns.push({
-              column: `${c.column}.${field}`,
-              name: `${c.name || c.column}.${field}`,
-            });
-          }
-        });
-      }
-    });
-
-  return groupByColumns.sort((a, b) =>
-    (a.name || a.column).localeCompare(b.name || b.column),
-  );
-}
-
 /** Cached top values for a column (not dimension-specific — also usable for
  *  filtering UI); empty for data_source datasets, which have no cached
  *  column metadata. */
 export function getColumnTopValues(
   dataset: ExplorationDataset | null,
   column: string | null,
-  getFactTableById: (id: string) => FactTableDefinition | null,
+  getFactTableById: (id: string) => DimensionFactTable | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): string[] {
   if (!dataset || !column) return [];
@@ -782,12 +684,24 @@ export function getColumnTopValues(
     const topValues = new Set<string>();
     dataset.values.forEach((value) => {
       const metric = getFactMetricById(value.metricId);
-      const ft =
-        metric && metric.numerator
-          ? getFactTableById(metric.numerator.factTableId)
-          : null;
-      if (ft) {
-        getColumnInfo(ft, column).topValues.forEach((v) => topValues.add(v));
+      if (!metric) return;
+      // Both sides of a ratio metric can carry the column — a filter or
+      // breakdown value may only exist on the denominator's fact table.
+      const numeratorFt = metric.numerator
+        ? getFactTableById(metric.numerator.factTableId)
+        : null;
+      if (numeratorFt) {
+        getColumnInfo(numeratorFt, column).topValues.forEach((v) =>
+          topValues.add(v),
+        );
+      }
+      const denominatorFt = metric.denominator
+        ? getFactTableById(metric.denominator.factTableId)
+        : null;
+      if (denominatorFt) {
+        getColumnInfo(denominatorFt, column).topValues.forEach((v) =>
+          topValues.add(v),
+        );
       }
     });
     return Array.from(topValues);
@@ -807,16 +721,6 @@ export function getColumnTopValues(
   }
 
   return [];
-}
-
-export function getMaxDimensions(dataset: ExplorationDataset): number {
-  // Phase 1 funnels and journeys are capped at a single dimension.
-  if (!datasetHasValues(dataset)) return 1;
-  let maxDimensions = 2;
-  if (dataset.values.length > 1) {
-    maxDimensions -= 1;
-  }
-  return maxDimensions;
 }
 
 export function getInferredTimestampColumn(
@@ -839,136 +743,70 @@ export function getInferredTimestampColumn(
   return commonNameColumn || null;
 }
 
-/** Date range shape with resolved start/end dates. */
-export interface ResolvedDateRange {
-  startDate: Date;
-  endDate: Date;
-}
-
-/** Get valid date granularities for a date range (for filtering dropdown options).
- * A granularity is valid if getDateGranularity returns it unchanged (or for "auto", always valid). */
-export function getValidDateGranularities(
-  dateRange: ResolvedDateRange,
-): (typeof dateGranularity)[number][] {
-  return dateGranularity.filter(
-    (g) => g === "auto" || getDateGranularity(g, dateRange) === g,
-  );
-}
-
 /** Ensures that dimensions are valid and within the allowed number of dimensions for the dataset type.
- *  Returns a new config with the allowed dimensions (same config object if no changes were made). */
+ *  Returns a new config with the allowed dimensions (same config object if no changes were made).
+ *  Thin wrapper around the shared `sanitizeDimensions` policy — the Explorer applies it silently
+ *  and discards the warnings; the AI agent (which calls `sanitizeDimensions` directly) surfaces them. */
 export function validateDimensions(
   config: ExplorationConfig,
-  getFactTableById: (id: string) => FactTableDefinition | null,
+  getFactTableById: (id: string) => DimensionFactTable | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationConfig {
-  const columns = getCommonColumns(
-    config.dataset,
-    getFactTableById,
-    getFactMetricById,
-  );
-  const maxDims = getMaxDimensions(config.dataset);
-
-  let validDimensions = config.dimensions.filter((d) => {
-    if (d.dimensionType !== "dynamic" && d.dimensionType !== "static")
-      return true;
-    if (columns.length === 0) return true;
-    return columns.some((c) => c.column === d.column || d.column === null);
-  });
-  if (validDimensions.length > maxDims) {
-    validDimensions = validDimensions.slice(0, maxDims);
-  }
-
-  // Reset date granularity to "auto" when invalid for the selected date range
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
   const validGranularities = getValidDateGranularities(dateRange);
-  validDimensions = validDimensions.map((d) => {
-    if (d.dimensionType !== "date") return d;
-    if (validGranularities.includes(d.dateGranularity)) return d;
-    return { ...d, dateGranularity: "auto" as const };
-  });
-
-  return !isEqual(validDimensions, config.dimensions)
-    ? { ...config, dimensions: validDimensions }
-    : config;
+  return sanitizeDimensions(
+    config,
+    getFactTableById,
+    getFactMetricById,
+    validGranularities,
+  ).config;
 }
 
 /**
- * Fills in a default `unit` for metric values that have a resolved metric but
- * no unit selected. Defaults to the numerator fact table's first userIdType.
- *
- * Without a unit, the SQL layer doesn't emit a denominator column, which breaks
- * the per_unit branch of the showAs toggle and silently degrades ratio-like
- * metrics. Applied when loading a config from any source (URL, AI agent, saved
- * exploration) so users don't end up in that state.
- *
- * Skips:
- * - fact_table / data_source datasets (their unit semantics are user-driven).
- * - Metric values whose unit is already set.
- * - Metric values whose metricId is empty or can't be resolved.
- * - Metrics whose fact table has no userIdTypes (nothing to default to).
+ * Composes the normalization pipeline applied to every draft config the
+ * Explorer produces or receives (a fresh mount, a manual edit, or definitions
+ * resolving after initial render): backfill missing units, normalize
+ * per-value `showAs`, and — once the full (jsonFields-complete) fact
+ * tables the dimensions depend on have loaded — sanitize the dimension list.
+ * Before that data is ready (e.g. at initial mount, where the full-fact-table
+ * resolver doesn't exist yet), pass `fullFactTablesLoadedFor: () => false` so
+ * dimensions are left untouched rather than incorrectly dropped for columns
+ * that just haven't resolved yet.
  */
-export function fillMissingUnits(
-  config: ExplorationConfig,
-  getFactTableById: (id: string) => FactTableDefinition | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): ExplorationConfig {
-  if (!config.dataset) return config;
-
-  if (config.dataset.type === "funnel") {
-    // Funnels store unit at the dataset level (not per-step). Default to the
-    // first userIdType that exists on every step's fact table.
-    if (config.dataset.unit) return config;
-    const steps = config.dataset.steps;
-    if (!steps.length) return config;
-    const factTables = steps
-      .map((s) => (s.factTableId ? getFactTableById(s.factTableId) : null))
-      .filter((ft): ft is FactTableDefinition => !!ft);
-    if (factTables.length !== steps.length) return config;
-    const intersection = factTables.reduce<string[] | null>((acc, ft) => {
-      const ids = ft.userIdTypes ?? [];
-      if (acc === null) return [...ids];
-      return acc.filter((id) => ids.includes(id));
-    }, null);
-    const defaultUnit = intersection?.[0];
-    if (!defaultUnit) return config;
-    return {
-      ...config,
-      dataset: { ...config.dataset, unit: defaultUnit },
-    } as ExplorationConfig;
-  }
-
-  // Narrow on config.type, not config.dataset.type — only the former
-  // discriminates ExplorationConfig, so the spread below stays type-safe
-  // instead of needing an `as ExplorationConfig`.
-  if (config.type === "journey") {
-    const current = config.dataset;
-    if (current.unit || !current.factTableId) return config;
-    const unit =
-      getFactTableById(current.factTableId)?.userIdTypes?.[0] ?? null;
-    if (unit === current.unit) return config;
-    return { ...config, dataset: { ...current, unit } };
-  }
-
-  if (config.dataset.type !== "metric") return config;
-
-  let changed = false;
-  const newValues = config.dataset.values.map((v) => {
-    if (v.unit || !v.metricId) return v;
-    const metric = getFactMetricById(v.metricId);
-    if (!metric) return v;
-    const factTable = getFactTableById(getFactMetricPrimaryFactTableId(metric));
-    const defaultUnit = factTable?.userIdTypes?.[0];
-    if (!defaultUnit) return v;
-    changed = true;
-    return { ...v, unit: defaultUnit };
-  });
-
-  if (!changed) return config;
-  return {
-    ...config,
-    dataset: { ...config.dataset, values: newValues },
-  } as ExplorationConfig;
+export function normalizeExplorerDraft(
+  config: ExplorerDraftConfig,
+  helpers: {
+    getFactTableById: (id: string) => FactTableDefinition | null;
+    getFactMetricById: (id: string) => FactMetricInterface | null;
+    getFullFactTableById: (id: string) => DimensionFactTable | null;
+    fullFactTablesLoadedFor: (ids: string[]) => boolean;
+  },
+): ExplorerDraftConfig {
+  const {
+    getFactTableById,
+    getFactMetricById,
+    getFullFactTableById,
+    fullFactTablesLoadedFor,
+  } = helpers;
+  const withUnits = fillMissingUnits(
+    config,
+    getFactTableById,
+    getFactMetricById,
+  );
+  const showAsNormalized = normalizeTimelessSqlConfig(
+    normalizeShowAs(withUnits, getFactMetricById),
+  );
+  const ready = fullFactTablesLoadedFor(
+    getRelevantFactTableIds(showAsNormalized.dataset, getFactMetricById),
+  );
+  const validated = ready
+    ? validateDimensions(
+        showAsNormalized,
+        getFullFactTableById,
+        getFactMetricById,
+      )
+    : showAsNormalized;
+  return validated as ExplorerDraftConfig;
 }
 
 /** Removes incomplete (partially configured) row filters from a value. */
@@ -1050,18 +888,22 @@ function cleanChartSettings(
   if (chartSettings.valueAxisLabel !== undefined) {
     next.valueAxisLabel = chartSettings.valueAxisLabel.trim();
   }
+  // Only persist the non-default: anchored to zero is the default.
+  if (chartSettings.anchorYAxisToZero === false) {
+    next.anchorYAxisToZero = false;
+  }
   return Object.keys(next).length ? next : undefined;
 }
 
 /** Dataset fields the inferred value-axis label depends on. */
 function getValueAxisLabelSource(config: ExplorerDraftConfig) {
-  const { dataset, showAs } = config;
+  const { dataset } = config;
   if (!datasetHasValues(dataset)) {
-    return { type: dataset.type, showAs };
+    return { type: dataset.type };
   }
+  // Includes each value's `showAs`, which drives the "Total" / "Per unit" title.
   return {
     type: dataset.type,
-    showAs,
     values: dataset.values.map((v) => omit(v, ["name", "rowFilters"])),
   };
 }
@@ -1353,7 +1195,7 @@ export function toFetchKey(
       chartType: getChartCategory(base.chartType),
       dataset: {
         ...omit(base.dataset, "hiddenColumns"),
-        values: base.dataset.values.map((value) => omit(value, "name")),
+        values: base.dataset.values.map(omitRenderOnlyFields),
       },
     };
   }
@@ -1388,7 +1230,7 @@ export function toFetchKey(
       ...(base.dataset.type === "sql"
         ? omit(base.dataset, "hiddenColumns")
         : base.dataset),
-      values: base.dataset.values.map((value) => omit(value, "name")),
+      values: base.dataset.values.map(omitRenderOnlyFields),
     },
   };
 }
@@ -1614,32 +1456,42 @@ export function compareConfig(
 
 export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
 
+// "utc" shows warehouse dates (see parseWarehouseDate) unshifted; "local" is for buckets built in the browser.
 export function formatDateByGranularity(
   date: Date,
   granularity: ResolvedGranularity,
+  timeZone: "utc" | "local" = "utc",
 ): string {
+  const tz = timeZone === "utc" ? "UTC" : undefined;
   switch (granularity) {
     case "year":
-      return date.toLocaleDateString(undefined, { year: "numeric" });
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        timeZone: tz,
+      });
     case "month":
       return date.toLocaleDateString(undefined, {
         year: "numeric",
         month: "long",
+        timeZone: tz,
       });
     case "week":
       return `Week of ${date.toLocaleDateString(undefined, {
         year: "numeric",
         month: "short",
         day: "numeric",
+        timeZone: tz,
       })}`;
     case "hour":
       return `${date.toLocaleDateString(undefined, {
         year: "numeric",
         month: "long",
         day: "numeric",
+        timeZone: tz,
       })} ${date.toLocaleTimeString(undefined, {
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: tz,
       })}`;
     case "day":
     default:
@@ -1647,6 +1499,7 @@ export function formatDateByGranularity(
         year: "numeric",
         month: "long",
         day: "numeric",
+        timeZone: tz,
       });
   }
 }
@@ -1669,6 +1522,46 @@ export function formatDurationMs(ms: number | null | undefined): string {
   const days = Math.floor(totalHr / 24);
   const hr = totalHr % 24;
   return hr ? `${days}d ${hr}h` : `${days}d`;
+}
+
+type FunnelCounts = { counts: number[] };
+
+// Share of step-1 users who reached `stepIdx`; null when step 1 is empty.
+export function fromStartRate(
+  s: FunnelCounts | undefined,
+  stepIdx: number,
+): number | null {
+  const first = s?.counts[0] ?? 0;
+  return first > 0 ? (s?.counts[stepIdx] ?? 0) / first : null;
+}
+
+// Share of the previous step's users who reached `stepIdx`.
+export function fromPrevRate(
+  s: FunnelCounts | undefined,
+  stepIdx: number,
+): number | null {
+  const prev = stepIdx > 0 ? (s?.counts[stepIdx - 1] ?? 0) : 0;
+  return prev > 0 ? (s?.counts[stepIdx] ?? 0) / prev : null;
+}
+
+// Rounds to 1 decimal; `|| 0` folds -0 into 0.
+export const round1 = (d: number) => Math.round(d * 10) / 10 || 0;
+
+// Funnel compare change for one bar:
+// - step 1: % change in users
+// - later steps: change in conversion from start, in pp
+export function stepChange(
+  cur: FunnelCounts,
+  prev: FunnelCounts | undefined,
+  stepIdx: number,
+): number | null {
+  if (stepIdx === 0) {
+    const p = prev?.counts[0] ?? 0;
+    return p > 0 ? round1(((cur.counts[0] ?? 0) / p - 1) * 100) : null;
+  }
+  const a = fromStartRate(cur, stepIdx);
+  const b = fromStartRate(prev, stepIdx);
+  return a === null || b === null ? null : round1((a - b) * 100);
 }
 
 export function getRefreshInterval(elapsedSeconds: number): number {
@@ -1809,23 +1702,6 @@ export function explorerMainPresentation({
   const showStaleToast = isStale || loading;
 
   return { showChart, showTable, showStaleToast, emptyState: null };
-}
-
-/**
- * Given the other already-selected metrics in the dataset (excluding the slot
- * being edited), return the class any newly selected metric must match — or
- * null if any class is allowed.
- *
- * Unknown/unselected slots are ignored.
- */
-export function getLockedMixClass(
-  otherMetricTypes: (string | null | undefined)[],
-): "ratio" | "quantile" | "standard" | null {
-  for (const t of otherMetricTypes) {
-    const c = getMetricMixClass(t);
-    if (c !== "unknown") return c;
-  }
-  return null;
 }
 
 export type DecodeConfigResult =

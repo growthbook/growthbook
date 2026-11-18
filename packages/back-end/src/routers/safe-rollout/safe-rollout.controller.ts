@@ -12,7 +12,7 @@ import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnap
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   runLockedRampScheduleAction,
   setRampMonitoringMode,
@@ -180,7 +180,7 @@ export async function putSafeRolloutStatus(
   const context = getContextFromReq(req);
   const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
-    throw new Error("Could not find safe rollout");
+    throw new NotFoundError("Could not find safe rollout");
   }
 
   await context.models.safeRollout.update(safeRollout, {
@@ -214,12 +214,16 @@ export async function putSafeRollout(
   const context = getContextFromReq(req);
   const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
-    throw new Error("Could not find safe rollout");
+    throw new NotFoundError("Could not find safe rollout");
   }
 
-  const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+  // The resolver only scope-checks a changed selection, so a rollout whose
+  // query later fell out of scope can still be edited.
+  const feature = await getFeature(context, safeRollout.featureId);
+  const validatedSafeRolloutFields = await validateSafeRolloutFields(
     safeRolloutFields,
     context,
+    { previous: safeRollout, project: feature?.project ?? "" },
   );
 
   await context.models.safeRollout.update(safeRollout, {
@@ -241,7 +245,7 @@ export async function putAutoSnapshots(
   const context = getContextFromReq(req);
   const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
-    throw new Error("Could not find safe rollout");
+    throw new NotFoundError("Could not find safe rollout");
   }
 
   if (safeRollout.rampScheduleId) {
@@ -302,7 +306,7 @@ export const getSafeRolloutTimeSeries = async (
   const { id } = req.params;
   const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
-    throw new Error("Safe rollout not found");
+    throw new NotFoundError("Safe rollout not found");
   }
 
   const timeSeries =

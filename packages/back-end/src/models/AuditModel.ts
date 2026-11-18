@@ -1,10 +1,16 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
+import { omit, pick } from "lodash";
 import { AuditInterface, EntityType } from "shared/types/audit";
 import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
 import { generateId } from "back-end/src/util/uuid";
+import {
+  DateCursor,
+  dateCursorFilter,
+  getNextDateCursor,
+} from "back-end/src/util/dateCursor";
 
 const auditSchema = new mongoose.Schema({
   id: {
@@ -21,6 +27,13 @@ const auditSchema = new mongoose.Schema({
     email: String,
     name: String,
     apiKey: String,
+    requestedBy: {
+      _id: false,
+      id: String,
+      name: String,
+      email: String,
+    },
+    assumedRole: Boolean,
   },
   reason: String,
   event: String,
@@ -53,6 +66,10 @@ auditSchema.index({
   dateCreated: -1,
 });
 auditSchema.index({ organization: 1, "user.id": 1, dateCreated: -1 });
+auditSchema.index(
+  { organization: 1, "user.requestedBy.id": 1, dateCreated: -1 },
+  { partialFilterExpression: { "user.requestedBy.id": { $exists: true } } },
+);
 // Activity page filters by type alone, so the indexes above can't sort it.
 auditSchema.index({ organization: 1, "entity.object": 1, dateCreated: -1 });
 auditSchema.index({ organization: 1, "parent.object": 1, dateCreated: -1 });
@@ -61,37 +78,122 @@ type AuditDocument = mongoose.Document & AuditInterface;
 
 const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
 
+// Revision audits keep who, what and when, never contents: a revision's
+// snapshot and changes are read-gated by its entity, and audit history isn't.
+const REVISION_AUDIT_FIELDS = [
+  "id",
+  "organization",
+  "authorId",
+  "version",
+  "status",
+  "revertedFrom",
+  "reviewCycle",
+  "resolution",
+  "dateCreated",
+  "dateUpdated",
+];
+
+export function revisionAuditDetails(doc: object): object {
+  const source = doc as Record<string, unknown>;
+  const details: Record<string, unknown> = pick(source, REVISION_AUDIT_FIELDS);
+  const target = source.target as { type?: string; id?: string } | undefined;
+  if (target) details.target = { type: target.type, id: target.id };
+  return details;
+}
+
+// An SDK connection's audit entry, without the keys that decrypt its payload
+// and sign its proxy requests.
+export function sdkConnectionAuditDetails(doc: object): object {
+  const { proxy, ...rest } = omit(doc as { proxy?: object }, "encryptionKey");
+  return proxy ? { ...rest, proxy: omit(proxy, "signingKey") } : rest;
+}
+
+// What each entity's audit entries may hold. Applied as entries are written
+// and again as they're read, which covers the ones stored before it existed.
+const AUDIT_DETAILS: Record<string, (doc: object) => object> = {
+  revision: revisionAuditDetails,
+  "sdk-connection": sdkConnectionAuditDetails,
+};
+
+export function scrubAuditDetails(entity: string, details: string): string {
+  const project = AUDIT_DETAILS[entity];
+  if (!project || !details) return details;
+  try {
+    const parsed = JSON.parse(details) as Record<string, unknown>;
+    for (const side of ["pre", "post"]) {
+      const doc = parsed[side];
+      if (doc && typeof doc === "object") parsed[side] = project(doc);
+    }
+    return JSON.stringify(parsed);
+  } catch {
+    return "";
+  }
+}
+
 const toInterface: ToInterface<AuditInterface> = (doc) => {
   const audit = removeMongooseFields(doc);
   // Legacy audit docs may be missing the user field entirely
   if (!audit.user) {
     audit.user = { id: "", email: "", name: "Unknown" };
   }
+  if (audit.entity?.object && audit.details) {
+    audit.details = scrubAuditDetails(audit.entity.object, audit.details);
+  }
   return audit;
 };
 
+export type AuditHistoryFilters = {
+  auditId?: string;
+  event?: string;
+  before?: DateCursor | null;
+  excludeIds?: string[];
+};
+
+// Audits of one entity (or every entity of the type), matched as the entity itself or as its parent.
+function historyQuery(
+  organization: string,
+  side: "entity" | "parent",
+  type: EntityType,
+  id: string | undefined,
+  { auditId, event, before, excludeIds }: AuditHistoryFilters = {},
+): FilterQuery<AuditDocument> {
+  const idMatch = {
+    ...(id ? { $eq: id } : {}),
+    ...(excludeIds?.length ? { $nin: excludeIds } : {}),
+  };
+  return {
+    organization,
+    [`${side}.object`]: type,
+    ...(Object.keys(idMatch).length ? { [`${side}.id`]: idMatch } : {}),
+    ...(auditId ? { id: { $eq: auditId } } : {}),
+    ...(event ? { event } : {}),
+    ...dateCursorFilter(before),
+  };
+}
+
 export async function insertAudit(
   data: Omit<AuditInterface, "id">,
+  // A fixed id makes the insert idempotent: a repeat fails as a duplicate key.
+  id: string = generateId("aud_"),
 ): Promise<AuditInterface> {
   const auditDoc = await AuditModel.create({
     ...data,
-    id: generateId("aud_"),
+    id,
   });
   return toInterface(auditDoc);
 }
 
-/**
- * find all audits by user id and organization
- * @param userId
- * @param organization
- */
+// A member's recent actions, made directly or by a key that named them.
 export async function findRecentAuditByUserIdAndOrganization(
   userId: string,
   organization: string,
 ): Promise<Omit<AuditInterface, "details">[]> {
+  // `organization` in each branch, so each can use its own index.
   const userAudits = await AuditModel.find({
-    "user.id": userId,
-    organization,
+    $or: [
+      { organization, "user.id": userId },
+      { organization, "user.requestedBy.id": userId, "user.assumedRole": true },
+    ],
   })
     .select("-details")
     .limit(10)
@@ -118,15 +220,10 @@ export async function findAuditByEntity(
   type: EntityType,
   id: string,
   options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
+  filters?: AuditHistoryFilters,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "entity.object": type,
-      "entity.id": id,
-      ...customFilter,
-    },
+    historyQuery(organization, "entity", type, id, filters),
     null,
     options,
   );
@@ -155,102 +252,63 @@ export async function findAuditByEntityList(
   return auditDocs.map((doc) => toInterface(doc));
 }
 
-export async function findAuditByEntityParent(
-  organization: string,
-  type: EntityType,
-  id: string,
-  options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "parent.object": type,
-      "parent.id": id,
-      ...customFilter,
-    },
-    null,
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
-
-export async function findAllAuditsByEntityType(
-  organization: string,
-  type: EntityType,
-  options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "entity.object": type,
-      ...customFilter,
-    },
-    null,
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
-
-export async function findAllAuditsByEntityTypeParent(
-  organization: string,
-  type: EntityType,
-  options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-      "parent.object": type,
-      ...customFilter,
-    },
-    null,
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
-
 export async function countAuditByEntity(
   organization: string,
   type: EntityType,
   id: string,
+  filters?: AuditHistoryFilters,
 ): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "entity.object": type,
-    "entity.id": id,
-  });
+  return await AuditModel.countDocuments(
+    historyQuery(organization, "entity", type, id, filters),
+  );
 }
 
-export async function countAuditByEntityParent(
-  organization: string,
-  type: EntityType,
-  id: string,
-): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "parent.object": type,
-    "parent.id": id,
-  });
+// Which audited keys were personal access tokens and which org keys. Their
+// audits record a token's owner as `userId`, null for an org key; older audits
+// record neither, so those keys are in `all` only.
+export async function getAuditedApiKeyKinds(organization: string) {
+  const ids = async (details?: string): Promise<string[]> =>
+    AuditModel.distinct("entity.id", {
+      organization,
+      "entity.object": "apiKey",
+      ...(details && { details: { $regex: details } }),
+    });
+  const [all, tokens, orgKeys] = await Promise.all([
+    ids(),
+    ids('"userId":"'),
+    ids('"userId":null'),
+  ]);
+  return { all, tokens: new Set(tokens), orgKeys: new Set(orgKeys) };
 }
 
-export async function countAllAuditsByEntityType(
+// A page of audits newest first, with the total that matches the filters on any page.
+export async function getAuditHistory(
   organization: string,
   type: EntityType,
-): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "entity.object": type,
-  });
-}
+  id: string | undefined,
+  limit: number,
+  filters: AuditHistoryFilters = {},
+) {
+  const countFilters = { ...filters, before: undefined };
+  const query = (side: "entity" | "parent", f: AuditHistoryFilters) =>
+    historyQuery(organization, side, type, id, f);
+  const page = { limit, sort: { dateCreated: -1 as const } };
 
-export async function countAllAuditsByEntityTypeParent(
-  organization: string,
-  type: EntityType,
-): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "parent.object": type,
-  });
+  const [entityCount, parentCount, entityDocs, parentDocs] = await Promise.all([
+    AuditModel.countDocuments(query("entity", countFilters)),
+    AuditModel.countDocuments(query("parent", countFilters)),
+    AuditModel.find(query("entity", filters), null, page),
+    AuditModel.find(query("parent", filters), null, page),
+  ]);
+
+  const events = [...entityDocs, ...parentDocs]
+    .map((doc) => toInterface(doc))
+    .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime())
+    .slice(0, limit);
+
+  return {
+    events,
+    total: entityCount + parentCount,
+    nextCursor: getNextDateCursor(events, limit, filters.before),
+  };
 }

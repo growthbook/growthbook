@@ -1,7 +1,9 @@
+import { resolveExposureQueryForAnalysis } from "shared/util";
 import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   ExperimentMetricInterface,
   getFactMetricFactTableIds,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isFactMetric,
   isRatioMetric,
@@ -42,6 +44,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { parseDimension } from "back-end/src/services/experiments";
+import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
@@ -94,12 +97,12 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     throw new Error("Exposure query not found");
   }
 
-  const resolvedExposureQuery = {
-    query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
-  };
+  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
+    exposureQuery,
+    snapshotSettings.exposureQueryIdentifierType,
+  );
 
-  // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
+  // Only include metrics tied to this experiment, which is governed by the snapshotSettings.metricSettings
   // after the introduction of metric slices
   const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
     snapshotSettings,
@@ -250,7 +253,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // data is fully present in this FT. Cross-FT ratios and multifact
     // funnels are handled in dedicated passes below.
     const sameFtMetrics = group.metrics.filter((m) => {
-      if (isFactFunnelMetric(m)) {
+      if (isFactFunnelMetric(m) || isFactCompoundMetric(m)) {
         const ftIds = [...new Set(getFactMetricFactTableIds(m))];
         return ftIds.length === 1;
       }
@@ -313,6 +316,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
             queryMetadata,
           ),
         ),
+        metadata: { factTableIds: [group.factTableId] },
         queryType: "experimentIncrementalRefreshStatistics",
       });
       queries.push(statisticsQuery);
@@ -382,6 +386,9 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
           queryMetadata,
         ),
       ),
+      metadata: {
+        factTableIds: subGroup.pipelines.map((p) => p.group.factTableId),
+      },
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(multiSourceStatsQuery);
@@ -406,7 +413,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 
   protected override onHeartbeat(): void {
     this.context.models.incrementalRefresh
-      .touchLockHeartbeat(this.model.experiment, this.model.id)
+      .touchReaderHeartbeat(this.model.experiment, this.model.id)
       .catch((e) =>
         this.context.logger.warn(
           e,
@@ -415,11 +422,20 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       );
   }
 
+  prepareAnalysisData(
+    params: Pick<
+      ExperimentIncrementalRefreshExploratoryQueryParams,
+      "metricMap" | "variationNames"
+    >,
+  ): void {
+    this.metricMap = params.metricMap;
+    this.variationNames = params.variationNames;
+  }
+
   async startQueries(
     params: ExperimentIncrementalRefreshExploratoryQueryParams,
   ): Promise<Queries> {
-    this.metricMap = params.metricMap;
-    this.variationNames = params.variationNames;
+    this.prepareAnalysisData(params);
     if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
         params.experimentQueryMetadata,
@@ -454,11 +470,37 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       this.context,
       {
         ...params,
-        asOf: this.model.sourceSnapshotDateCreated,
+        // Judge in-progress conversions against the same data end as the
+        // Overall Results; breakdowns older than the field fall back to its
+        // run time.
+        asOf:
+          this.model.sourceSnapshotEndDate ??
+          this.model.sourceSnapshotDateCreated,
       },
       this.integration,
       this.startQuery.bind(this),
     );
+  }
+
+  override async startAnalysis(
+    params: ExperimentIncrementalRefreshExploratoryQueryParams,
+  ): Promise<ExperimentSnapshotInterface> {
+    const model = await super.startAnalysis(params);
+    // A writer that cleared this run's reader entry while its queries were
+    // starting saw an empty query list and cancelled none of them so we
+    // have to finish that cancel here.
+    if (
+      model.status === "running" &&
+      !(await this.context.models.incrementalRefresh.isLockedBySnapshotId(
+        model.experiment,
+        model.id,
+      ))
+    ) {
+      await cancelExperimentSnapshot(this.context, model, {
+        interruptedByWriter: true,
+      });
+    }
+    return model;
   }
 
   // largely copied from ExperimentResultsQueryRunner
@@ -470,6 +512,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
         analysisSettings: this.model.analyses.map((a) => a.settings),
         variationNames: this.variationNames,
         metricMap: this.metricMap,
+        isStandaloneBreakdown: true,
       });
 
     const result: SnapshotResult = {
@@ -522,6 +565,8 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       this.model.id,
       { queries: this.model.queries, error },
       "unknown",
+      { concludedBy: this.concludedBy },
+      this.experimentUpdateExecutionLogger,
     );
     if (wrote) {
       await this.context.models.incrementalRefresh
@@ -567,6 +612,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       id: this.model.id,
       updates,
       failureCause,
+      conclusion: { concludedBy: this.concludedBy },
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

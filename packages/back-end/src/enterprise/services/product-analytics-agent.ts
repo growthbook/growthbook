@@ -19,12 +19,23 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
+import { DataSourceInterface } from "shared/types/datasource";
 import {
-  clearInapplicableShowAs,
-  getEffectiveShowAs,
-  getIsRatioByIndex,
+  normalizeShowAs,
+  getShowAsChoice,
+  fillMissingUnits,
+  getExplorationRenderOpts,
   buildExplorationColumns,
   getExplorationCellValue,
+  getRelevantFactTableIds,
+  getRelevantFactTableIdsForMetrics,
+  getAvailableDimensionColumnsForMetrics,
+  getFactTableColumnSummaries,
+  getFactTableDimensionColumns,
+  factTableHasResolvableColumn,
+  sanitizeDimensions,
+  getValidDateGranularities,
+  calculateProductAnalyticsDateRange,
 } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
@@ -75,6 +86,7 @@ If the user asks for data that spans both a fact table and a metric (different e
 
 <dimension_rules>
 Only use dimensionType 'dynamic' or 'static'. Never use 'slice'.
+A dimension's column must be one getAvailableColumns returned with groupable=true.
 'dynamic' shows the top N values for a column — set maxValues (1–20, default 5). Use this for an open-ended "break down by X" request.
 'static' pins a fixed list of column values (1–20, set via values) — rows whose column value isn't in the list are dropped (no top-N/'other' bucket). Use this when the user names specific values to compare (e.g. "compare US vs UK vs Canada"). Always call getColumnValues first to confirm the real values before setting them — never guess.
 Use dateGranularity 'auto' by default for date dimensions; only use a specific granularity (hour/day/week/month/year) when the user requests it.
@@ -97,19 +109,17 @@ If you omit unit on a standard metric, the backend will fill in userIdTypes[0] a
 </unit_rules>
 
 <show_as_rules>
-showAs is an optional top-level field that toggles how numeric values are rendered: "total" shows the raw numerator, "per_unit" divides by the unit count (e.g. avg per user).
+showAs is an optional field on each metric value that sets how that value renders: "total" shows the raw numerator, "per_unit" divides by the unit count (e.g. avg per user). Each mean metric in a chart can use a different mode.
 
-DEFAULT: Omit showAs in almost all cases. The UI infers a sensible default from the selected metrics — totals for most datasets, per-unit only for mean metrics whose aggregation makes totals incoherent (max, count distinct).
+DEFAULT: Omit showAs in almost all cases. Each value gets a sensible default from its metric — totals, except per-unit for mean metrics whose aggregation makes totals incoherent (max, count distinct).
 
-SET showAs explicitly ONLY when the user's request clearly asks for one view:
+SET showAs on a value explicitly ONLY when the user's request clearly asks for one view of that metric:
 - "per user", "per device", "average per X", "rate" → "per_unit"
 - "total X", "sum of X", "how much X did we have" → "total"
 
-showAs has no effect on these dataset types — do not set it:
-- fact_table / data_source datasets (always renders as the raw value)
-- metric datasets where every value is a proportion, retention, dailyParticipation, ratio, or quantile metric (the toggle is hidden in the UI because per-unit is either degenerate or self-contained)
+showAs only applies to mean metrics. Do not set it on proportion, retention, dailyParticipation, ratio, or quantile metric values (per-unit is either degenerate or self-contained, so it is dropped), and fact_table / data_source values have no showAs.
 
-Set showAs only when at least one value is a mean metric.
+Never set a top-level showAs; it is deprecated.
 </show_as_rules>
 
 <value_column_rules>
@@ -151,9 +161,9 @@ runExploration returns resultCsv, config, snapshotId, and rowCount. Use resultCs
 getSnapshot retrieves config and CSV for older/compacted snapshots by snapshotId. Prefer the runExploration return value for the current run.
 
 resultCsv column conventions (so you describe the same numbers the user sees on the chart):
-- Standard metric columns: one value column per metric. The header tells you the mode — "<name>" means raw totals, "<name> per <unit>" means per-unit averages (the value is numerator/denominator). Report the numbers in the header's mode.
+- Standard metric columns: one value column per metric. The header tells you the mode — "<name>" means raw totals, "<name> (per <unit>)" means per-unit averages (the value is numerator/denominator). Report the numbers in the header's mode.
 - Ratio metric columns: three columns — "<name> Numerator", "<name> Denominator", "<name> Value" (= N/D). Ratio metrics always render as N/D.
-- The column headers reflect the effective showAs (explicit if you set it, otherwise the UI-inferred default). Never assume a different mode than what the header says.
+- The column headers reflect each value's effective showAs (explicit if you set it, otherwise the UI-inferred default). Never assume a different mode than what the header says.
 </tool_notes>
 
 <response_style>
@@ -232,7 +242,7 @@ export function findSnapshot(
 function buildConfigSchemaSummary(): string {
   return [
     "<config_schema>",
-    "Top-level: { type, datasource, chartType, dateRange, dimensions, dataset, showAs? }",
+    "Top-level: { type, datasource, chartType, dateRange, dimensions, dataset }",
     'type: "metric" | "fact_table"',
     'chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber"',
     "dateRange: { predefined, lookbackValue?, lookbackUnit?, startDate?, endDate? }",
@@ -241,18 +251,41 @@ function buildConfigSchemaSummary(): string {
     "  date: { dimensionType: 'date', column: null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' }",
     "  dynamic: { dimensionType: 'dynamic', column: string, maxValues: number (1-20) }",
     "  static: { dimensionType: 'static', column: string, values: string[] (1-20) }",
-    'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters }] }',
+    'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters, showAs? }] }',
     'dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters }] }',
     'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"matches_pattern"|"not_matches_pattern"|"is_null"|"not_null", column: string, values: string[] }]',
-    'showAs (optional): "total" | "per_unit" — chart-level toggle between raw totals and per-unit averages for mean metrics. Omit to use the smart default (see show_as_rules).',
+    'showAs (optional, per metric value): "total" | "per_unit" — raw totals or per-unit averages for a mean metric. Omit to use the smart default (see show_as_rules).',
     "Always pass a complete config object to runExploration.",
     "</config_schema>",
   ].join("\n");
 }
 
+/**
+ * The mode each value that offers Show as renders in, chosen or inferred,
+ * e.g. "Revenue: per_unit".
+ */
+function describeShowAs(
+  config: ExplorationConfig,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
+  if (config.dataset?.type !== "metric") return "";
+  return config.dataset.values
+    .flatMap((v) => {
+      const { options, showAs } = getShowAsChoice(
+        v,
+        config.showAs,
+        getFactMetricById,
+      );
+      return options.length ? [`${v.name}: ${showAs}`] : [];
+    })
+    .join(", ");
+}
+
 function buildSnapshotSummary(
   prev: ExplorationConfig | null,
   curr: ExplorationConfig,
+  // Must resolve the metrics of both configs.
+  getFactMetricById: (id: string) => FactMetricInterface | null,
 ): string {
   const parts: string[] = [];
 
@@ -271,8 +304,9 @@ function buildSnapshotSummary(
         parts.push(`values: ${valueNames.join(", ")}`);
       }
     }
-    if (curr.showAs) {
-      parts.push(`showAs: ${curr.showAs}`);
+    const showAs = describeShowAs(curr, getFactMetricById);
+    if (showAs) {
+      parts.push(`showAs: ${showAs}`);
     }
     return parts.join(", ");
   }
@@ -315,10 +349,10 @@ function buildSnapshotSummary(
     parts.push("datasource changed");
   }
 
-  if ((prev.showAs ?? null) !== (curr.showAs ?? null)) {
-    parts.push(
-      `showAs: ${prev.showAs ?? "inferred"} → ${curr.showAs ?? "inferred"}`,
-    );
+  const prevShowAs = describeShowAs(prev, getFactMetricById);
+  const currShowAs = describeShowAs(curr, getFactMetricById);
+  if (prevShowAs !== currShowAs) {
+    parts.push(`showAs: ${prevShowAs || "none"} → ${currShowAs || "none"}`);
   }
 
   return parts.length ? parts.join(", ") : "minor config update";
@@ -341,13 +375,9 @@ function buildResultCsv(
 ): string | null {
   if (!rows.length || !config) return null;
 
-  const columns = buildExplorationColumns(config, getFactMetricById);
+  const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
+  const columns = buildExplorationColumns(config, renderOpts);
   if (columns.length === 0) return null;
-
-  const renderOpts = {
-    showAs: getEffectiveShowAs(config, getFactMetricById),
-    isRatioByIndex: getIsRatioByIndex(config, getFactMetricById),
-  };
 
   const hasNoDimensions = !config.dimensions || config.dimensions.length === 0;
 
@@ -372,8 +402,7 @@ function buildResultCsv(
     if (typeof raw === "number") {
       const isRatioOrPerUnit =
         col.sub === "value" ||
-        (col.sub === "single" && renderOpts.isRatioByIndex[col.metricIndex]) ||
-        (col.sub === "single" && renderOpts.showAs === "per_unit");
+        renderOpts.values[col.metricIndex]?.showAs === "per_unit";
       return isRatioOrPerUnit ? raw.toFixed(4) : String(raw);
     }
     return String(raw);
@@ -672,6 +701,32 @@ interface NormalizeResult {
   getFactMetricById: (id: string) => FactMetricInterface | null;
 }
 
+function getReferencedMetricIds(
+  dataset: ExplorationConfig["dataset"] | undefined,
+): string[] {
+  if (dataset?.type !== "metric") return [];
+  return Array.from(
+    new Set(
+      dataset.values.map((v) => v.metricId).filter((id): id is string => !!id),
+    ),
+  );
+}
+
+/** Extends a metric resolver with the metrics `config` references that it lacks. */
+async function withMetricsOf(
+  ctx: ReqContext,
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): Promise<(id: string) => FactMetricInterface | null> {
+  const missingIds = getReferencedMetricIds(config?.dataset).filter(
+    (id) => !getFactMetricById(id),
+  );
+  if (!missingIds.length) return getFactMetricById;
+  const metrics = await ctx.models.factMetrics.getByIds(missingIds);
+  const metricById = new Map(metrics.map((m) => [m.id, m]));
+  return (id) => getFactMetricById(id) ?? metricById.get(id) ?? null;
+}
+
 async function normalizeConfigForExplorer(
   ctx: ReqContext,
   config: ExplorationConfig,
@@ -740,100 +795,83 @@ async function normalizeConfigForExplorer(
         );
       }
     }
-
-    // Enforce max dimensions (2, or 1 if multiple values)
-    const maxDims = dataset.values.length > 1 ? 1 : 2;
-    if (dims.length > maxDims) {
-      const removed = dims.length - maxDims;
-      dims = dims.slice(0, maxDims);
-      warnings.push(
-        `Removed ${removed} dimension(s) to stay within the limit of ${maxDims} (max 2, or 1 when multiple values).`,
-      );
-    }
   }
 
   // Load every referenced fact metric once. This map serves both the unit
   // backfill below and the CSV writer downstream — no second round-trip.
-  const referencedMetricIds =
-    dataset.type === "metric"
-      ? Array.from(
-          new Set(
-            dataset.values
-              .map((v) => v.metricId)
-              .filter((id): id is string => !!id),
-          ),
-        )
-      : [];
+  const referencedMetricIds = getReferencedMetricIds(dataset);
   const referencedMetrics = referencedMetricIds.length
     ? await ctx.models.factMetrics.getByIds(referencedMetricIds)
     : [];
   const metricById = new Map(referencedMetrics.map((m) => [m.id, m]));
   const getFactMetricByIdResolver = (id: string) => metricById.get(id) ?? null;
 
-  // Backfill missing units for metric values so the SQL layer emits a
+  const dimensionFactTableIdList = getRelevantFactTableIds(
+    dataset,
+    getFactMetricByIdResolver,
+  );
+  const dimensionFactTables = dimensionFactTableIdList.length
+    ? await Promise.all(
+        dimensionFactTableIdList.map((id) => getFactTable(ctx, id)),
+      )
+    : [];
+  const dimensionFtById = new Map(
+    dimensionFactTableIdList.map((id, i) => [id, dimensionFactTables[i]]),
+  );
+  const getDimensionFactTableById = (id: string) =>
+    dimensionFtById.get(id) ?? null;
+
+  // Single source of truth for the dimension-list policy, shared with the
+  // Explorer: drop dimensions whose column no longer resolves, cap the count
+  // at the dataset's limit, and reset an invalid date granularity to "auto".
+  const resolvedDateRange = calculateProductAnalyticsDateRange(
+    config.dateRange,
+  );
+  const validGranularities = getValidDateGranularities(resolvedDateRange);
+  const sanitized = sanitizeDimensions(
+    { ...config, dimensions: dims, dataset } as ExplorationConfig,
+    getDimensionFactTableById,
+    getFactMetricByIdResolver,
+    validGranularities,
+  );
+  dims = sanitized.config.dimensions;
+  warnings.push(...sanitized.warnings);
+
+  // Backfill missing units with the Explorer's rule, so the SQL layer emits a
   // denominator and per_unit rendering works. The agent often omits `unit`
-  // even when it should be set; default to the numerator fact table's primary
-  // userIdType. Only applies to metric datasets — fact_table/data_source
-  // datasets have user-driven unit semantics.
-  if (dataset.type === "metric") {
-    const needsUnit = dataset.values.some(
-      (v) => !v.unit && v.metricId && metricById.has(v.metricId),
+  // even when it should be set.
+  let normalized = fillMissingUnits(
+    { ...config, dimensions: dims, dataset } as ExplorationConfig,
+    getDimensionFactTableById,
+    getFactMetricByIdResolver,
+  );
+  const countMissingUnits = (d: ExplorationConfig["dataset"]) =>
+    d.type === "metric" ? d.values.filter((v) => !v.unit).length : 0;
+  const filledCount =
+    countMissingUnits(dataset) - countMissingUnits(normalized.dataset);
+  if (filledCount > 0) {
+    warnings.push(
+      `Filled in a default unit (the chart's identifier type, else the first userIdType of the metric's fact table) for ${filledCount} metric value(s) where unit was missing. Set unit explicitly for standard metrics (mean, proportion, retention, dailyParticipation) to avoid this.`,
     );
-
-    if (needsUnit) {
-      const factTableIds = Array.from(
-        new Set(
-          dataset.values
-            .filter((v) => !v.unit && v.metricId)
-            .map((v) => metricById.get(v.metricId!)?.numerator?.factTableId)
-            .filter((id): id is string => !!id),
-        ),
-      );
-      const factTables = await Promise.all(
-        factTableIds.map((id) => getFactTable(ctx, id)),
-      );
-      const factTableById = new Map(
-        factTables
-          .filter((ft): ft is FactTableInterface => !!ft)
-          .map((ft) => [ft.id, ft]),
-      );
-
-      let filledCount = 0;
-      const newValues = dataset.values.map((v) => {
-        if (v.unit || !v.metricId) return v;
-        const metric = metricById.get(v.metricId);
-        if (!metric) return v;
-        const factTable = factTableById.get(
-          metric.numerator?.factTableId ?? "",
-        );
-        const defaultUnit = factTable?.userIdTypes?.[0];
-        if (!defaultUnit) return v;
-        filledCount++;
-        return { ...v, unit: defaultUnit };
-      });
-
-      if (filledCount > 0) {
-        dataset = { ...dataset, values: newValues } as typeof dataset;
-        warnings.push(
-          `Filled in default unit (userIdTypes[0] from the metric's fact table) for ${filledCount} metric value(s) where unit was missing. Set unit explicitly for standard metrics (mean, proportion, retention, dailyParticipation) to avoid this.`,
-        );
-      }
-    }
   }
 
-  let normalized = {
-    ...config,
-    dimensions: dims,
-    dataset,
-  } as ExplorationConfig;
-
-  // Strip `showAs` when the current dataset doesn't support it, so we never
-  // persist a value that disagrees with what the chart will actually render.
-  const beforeShowAs = normalized.showAs;
-  normalized = clearInapplicableShowAs(normalized, getFactMetricByIdResolver);
-  if (beforeShowAs !== undefined && normalized.showAs === undefined) {
+  // Move a deprecated top-level `showAs` onto the values and drop it where it
+  // isn't one of the metric's Show as options, so we never persist a mode that
+  // disagrees with what the chart will actually render.
+  const legacyShowAs = normalized.showAs;
+  const valuesBefore =
+    normalized.dataset.type === "metric" ? normalized.dataset.values : [];
+  normalized = normalizeShowAs(normalized, getFactMetricByIdResolver);
+  const valuesAfter =
+    normalized.dataset.type === "metric" ? normalized.dataset.values : [];
+  const dropped = valuesBefore.filter(
+    (v, i) =>
+      (v.showAs ?? legacyShowAs) !== undefined &&
+      valuesAfter[i]?.showAs === undefined,
+  );
+  if (dropped.length) {
     warnings.push(
-      `Dropped showAs="${beforeShowAs}" — it doesn't apply to this dataset (only meaningful for mean metrics). The chart will render totals.`,
+      `Dropped showAs from ${dropped.map((v) => `"${v.name}"`).join(", ")} — it isn't an option for that metric type (only mean metrics offer showAs). These values render in their default mode (ratio and quantile metrics as computed, others as totals).`,
     );
   }
 
@@ -925,7 +963,11 @@ async function executeRunExploration(
     const prevConfig = explorationConfigFromLatestRun(
       buffer.getLatestToolResult("runExploration"),
     );
-    const summary = buildSnapshotSummary(prevConfig, config);
+    const summary = buildSnapshotSummary(
+      prevConfig,
+      config,
+      await withMetricsOf(ctx, prevConfig, getFactMetricById),
+    );
     const resultCsv = buildResultCsv(
       exploration?.result?.rows ?? [],
       config,
@@ -1009,13 +1051,12 @@ async function executeGetAvailableColumns(
       if (!factTableId) return "factTableId is required for fact_table source.";
       const ft = await getFactTable(ctx, factTableId);
       if (!ft) return `Fact table "${factTableId}" not found.`;
-      const columns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
-        .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
       return JSON.stringify(
         {
-          columns,
+          columns: getFactTableColumnSummaries(
+            [ft],
+            getFactTableDimensionColumns(ft),
+          ),
           userIdTypes: ft.userIdTypes ?? [],
           unitNote: ft.userIdTypes?.length
             ? `For valueType "unit_count", set unit to one of userIdTypes (default: "${ft.userIdTypes[0]}"). For "count" or "sum", set unit to null.`
@@ -1030,7 +1071,6 @@ async function executeGetAvailableColumns(
       const { metricIds } = input;
       if (!metricIds?.length) return "metricIds is required for metric source.";
       const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      let columns: FactTableInterface["columns"] | null = null;
       let userIdTypes: string[] = [];
       const metricUnitInfo: {
         metricId: string;
@@ -1038,13 +1078,14 @@ async function executeGetAvailableColumns(
         needsUnit: boolean;
       }[] = [];
 
-      const ftIds = [
-        ...new Set(
-          metrics
-            .map((m) => m.numerator?.factTableId)
-            .filter((id): id is string => !!id),
-        ),
-      ];
+      // Fetch both sides of every metric — a ratio metric's denominator can
+      // live on a different fact table than its numerator, and columns must
+      // resolve on both to be valid group-by candidates.
+      const metricMap = new Map(metrics.map((m) => [m.id, m]));
+      const ftIds = getRelevantFactTableIdsForMetrics(
+        metricIds,
+        (id) => metricMap.get(id) ?? null,
+      );
       const factTables = await Promise.all(
         ftIds.map((id) => getFactTable(ctx, id)),
       );
@@ -1069,18 +1110,19 @@ async function executeGetAvailableColumns(
         if (!userIdTypes.length && ft?.userIdTypes?.length) {
           userIdTypes = ft.userIdTypes;
         }
-        const ftCols = (ft?.columns ?? []).filter((c) => !c.deleted);
-        if (columns === null) {
-          columns = ftCols;
-        } else {
-          const nameSet = new Set(ftCols.map((c) => c.column));
-          columns = columns.filter((c) => nameSet.has(c.column));
-        }
       }
 
-      const result = (columns ?? [])
-        .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
-        .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
+      // Every column resolvable on all referenced fact tables (for filters),
+      // with `groupable` from the same helper the Explorer's dimension picker
+      // uses — denominator included.
+      const result = getFactTableColumnSummaries(
+        factTables.filter((ft): ft is FactTableInterface => !!ft),
+        getAvailableDimensionColumnsForMetrics(
+          metricIds,
+          (id) => ftMap.get(id) ?? null,
+          (id) => metricMap.get(id) ?? null,
+        ),
+      );
 
       const unitNote = userIdTypes.length
         ? `For metrics where needsUnit=true, set unit to one of userIdTypes (default: "${userIdTypes[0]}"). For others, set unit to null.`
@@ -1101,12 +1143,10 @@ async function executeGetColumnValues(
 ): Promise<string> {
   const { columns: requestedColumns, searchTerm, limit } = input;
 
-  type RawCol = { column: string; datatype: string };
-  let factTableSql: string;
-  let factTableEventName: string;
-  let factTableTimestampColumn: string | undefined;
-  let datasourceId: string;
-  let availableColumns: RawCol[];
+  // Every fact table a requested column might need to be queried against —
+  // for a metric source this can be more than one (a ratio metric's
+  // denominator can live on a different fact table than its numerator).
+  let factTables: FactTableInterface[];
 
   switch (input.source) {
     case "fact_table": {
@@ -1114,13 +1154,7 @@ async function executeGetColumnValues(
       if (!factTableId) return "factTableId is required for fact_table source.";
       const ft = await getFactTable(ctx, factTableId);
       if (!ft) return `Fact table "${factTableId}" not found.`;
-      factTableSql = ft.sql;
-      factTableEventName = ft.eventName ?? "";
-      factTableTimestampColumn = ft.timestampColumn;
-      datasourceId = ft.datasource;
-      availableColumns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .map((c) => ({ column: c.column, datatype: c.datatype }));
+      factTables = [ft];
       break;
     }
 
@@ -1128,58 +1162,101 @@ async function executeGetColumnValues(
       const { metricIds } = input;
       if (!metricIds?.length) return "metricIds is required for metric source.";
       const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      const firstWithFt = metrics.find((m) => m.numerator?.factTableId);
-      if (!firstWithFt?.numerator?.factTableId) {
+      const metricMap = new Map(metrics.map((m) => [m.id, m]));
+      const ftIds = getRelevantFactTableIdsForMetrics(
+        metricIds,
+        (id) => metricMap.get(id) ?? null,
+      );
+      if (!ftIds.length) {
         return "Could not resolve a fact table from the provided metric IDs.";
       }
-      const ft = await getFactTable(ctx, firstWithFt.numerator.factTableId);
-      if (!ft) return `Fact table not found.`;
-      factTableSql = ft.sql;
-      factTableEventName = ft.eventName ?? "";
-      factTableTimestampColumn = ft.timestampColumn;
-      datasourceId = ft.datasource;
-      availableColumns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .map((c) => ({ column: c.column, datatype: c.datatype }));
+      const resolvedFactTables = await Promise.all(
+        ftIds.map((id) => getFactTable(ctx, id)),
+      );
+      factTables = resolvedFactTables.filter(
+        (ft): ft is FactTableInterface => !!ft,
+      );
+      if (!factTables.length) {
+        return "Could not resolve a fact table from the provided metric IDs.";
+      }
       break;
     }
   }
 
-  const datasource = await getDataSourceById(ctx, datasourceId);
-  if (!datasource) return `Datasource not found.`;
+  // Any datatype, so a numeric column is reported as "non-string" below
+  // rather than "not found".
+  const availableColumns = getFactTableColumnSummaries(factTables, []);
 
-  // Separate requested columns into queryable (string-typed), skipped (wrong type), not-found
-  const colsToQuery: ColumnInterface[] = [];
+  const datasourceIds = Array.from(
+    new Set(factTables.map((ft) => ft.datasource)),
+  );
+  const resolvedDatasources = await Promise.all(
+    datasourceIds.map((id) => getDataSourceById(ctx, id)),
+  );
+  const datasourceById = new Map(
+    datasourceIds
+      .map((id, i) => [id, resolvedDatasources[i]] as const)
+      .filter((entry): entry is [string, DataSourceInterface] => !!entry[1]),
+  );
+
+  // Separate requested columns into queryable (string-typed, including
+  // string JSON sub-paths), skipped (wrong type), and not-found.
   const nonStringCols: string[] = [];
   const notFoundCols: string[] = [];
+  const targetsByFactTable = new Map<
+    string,
+    { factTable: FactTableInterface; columns: ColumnInterface[] }
+  >();
 
   for (const name of requestedColumns) {
     const found = availableColumns.find((c) => c.column === name);
     if (!found) {
       notFoundCols.push(name);
-    } else if (found.datatype !== "string") {
-      nonStringCols.push(name);
-    } else {
-      colsToQuery.push({
-        column: name,
-        name,
-        datatype: "string",
-        numberFormat: "",
-        description: "",
-        deleted: false,
-        dateCreated: new Date(0),
-        dateUpdated: new Date(0),
-      });
+      continue;
     }
+    if (found.datatype !== "string") {
+      nonStringCols.push(name);
+      continue;
+    }
+    const column: ColumnInterface = {
+      column: name,
+      name,
+      datatype: "string",
+      numberFormat: "",
+      description: "",
+      deleted: false,
+      dateCreated: new Date(0),
+      dateUpdated: new Date(0),
+    };
+    // Query every fact table that actually has this column so a ratio
+    // metric's denominator-side columns get values too, not just the
+    // numerator's.
+    factTables
+      .filter((ft) => factTableHasResolvableColumn(ft, name))
+      .forEach((factTable) => {
+        const existing = targetsByFactTable.get(factTable.id);
+        if (existing) {
+          existing.columns.push(column);
+        } else {
+          targetsByFactTable.set(factTable.id, {
+            factTable,
+            columns: [column],
+          });
+        }
+      });
   }
 
   const warnings: string[] = [];
+  if (datasourceById.size < datasourceIds.length)
+    warnings.push(
+      `Datasource not found: ${datasourceIds.filter((id) => !datasourceById.has(id)).join(", ")}`,
+    );
   if (nonStringCols.length)
     warnings.push(`Skipped (non-string type): ${nonStringCols.join(", ")}`);
   if (notFoundCols.length)
     warnings.push(`Columns not found: ${notFoundCols.join(", ")}`);
 
-  if (colsToQuery.length === 0) {
+  if (targetsByFactTable.size === 0) {
     return JSON.stringify(
       { values: {}, warnings: warnings.length ? warnings : undefined },
       null,
@@ -1187,22 +1264,30 @@ async function executeGetColumnValues(
     );
   }
 
-  let rawValues: Record<string, string[]>;
-  try {
-    rawValues = await runColumnsTopValuesQuery(
-      ctx,
-      datasource,
-      {
-        sql: factTableSql,
-        eventName: factTableEventName,
-        timestampColumn: factTableTimestampColumn,
-      },
-      colsToQuery,
-    );
-  } catch (err) {
-    return `Failed to query column values on ${datasource.type}: ${
-      err instanceof Error ? err.message : "Unknown error"
-    }`;
+  const rawValues: Record<string, string[]> = {};
+  for (const { factTable, columns } of targetsByFactTable.values()) {
+    const datasource = datasourceById.get(factTable.datasource);
+    if (!datasource) continue;
+    try {
+      const result = await runColumnsTopValuesQuery(
+        ctx,
+        datasource,
+        factTable,
+        columns,
+      );
+      for (const col of Object.keys(result)) {
+        rawValues[col] = Array.from(
+          new Set([...(rawValues[col] ?? []), ...result[col]]),
+        );
+      }
+    } catch (err) {
+      // Keep whatever other fact tables returned.
+      warnings.push(
+        `Failed to query ${columns.map((c) => c.column).join(", ")} on fact table "${factTable.id}" (${datasource.type}): ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`,
+      );
+    }
   }
 
   // Apply searchTerm filter and respect limit
@@ -1329,6 +1414,7 @@ const SEARCH_DESCRIPTION =
 
 const GET_AVAILABLE_COLUMNS_DESCRIPTION =
   "Get the columns available for dimensions and filters based on the current selection. " +
+  "Every column can be used in row filters (including dotted JSON paths like 'props.plan'); only columns with groupable=true can be used as a dimension column. " +
   "Also returns userIdTypes and a unitNote that tells you exactly how to set the unit field for each value. " +
   "Set source to 'fact_table' and pass factTableId for fact table explorations. " +
   "Set source to 'metric' and pass metricIds for metric explorations — returns the intersection of columns across selected metrics, plus per-metric needsUnit flags.";

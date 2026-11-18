@@ -9,8 +9,6 @@ import {
   aspectRatioToDims,
   humanizeAspectRatio,
   buildImageAspectInstruction,
-  DEFAULT_MAX_OUTPUT_TOKENS,
-  getMaxOutputTokens,
   anthropicStructuredOutputMode,
   resolveMaxOutputTokens,
 } from "../src/ai";
@@ -293,29 +291,6 @@ describe("resolveDefaultSTTModel", () => {
   });
 });
 
-describe("getMaxOutputTokens", () => {
-  it("asks for the default ceiling on models with a higher cap", () => {
-    expect(getMaxOutputTokens("claude-sonnet-5")).toBe(
-      DEFAULT_MAX_OUTPUT_TOKENS,
-    );
-    expect(getMaxOutputTokens("gpt-4o")).toBe(DEFAULT_MAX_OUTPUT_TOKENS);
-  });
-
-  it("clamps to the model cap when the default exceeds it", () => {
-    // Anthropic 400s rather than clamping, so this has to be caught here.
-    expect(getMaxOutputTokens("claude-3-haiku-20240307")).toBe(4096);
-  });
-
-  it("clamps an explicit request down to the model cap", () => {
-    expect(getMaxOutputTokens("claude-3-haiku-20240307", 16000)).toBe(4096);
-  });
-
-  it("leaves an explicit request below the cap alone", () => {
-    expect(getMaxOutputTokens("claude-3-haiku-20240307", 1000)).toBe(1000);
-    expect(getMaxOutputTokens("claude-sonnet-5", 1000)).toBe(1000);
-  });
-});
-
 describe("anthropicStructuredOutputMode", () => {
   it("uses native structured output on the spike-verified models", () => {
     expect(anthropicStructuredOutputMode("claude-opus-5-5")).toBe(
@@ -328,9 +303,6 @@ describe("anthropicStructuredOutputMode", () => {
 
   it("falls back to the json tool on models without structured output", () => {
     expect(anthropicStructuredOutputMode("claude-sonnet-4-20250514")).toBe(
-      "jsonTool",
-    );
-    expect(anthropicStructuredOutputMode("claude-3-haiku-20240307")).toBe(
       "jsonTool",
     );
     // Not individually spike-tested; mirrors @ai-sdk/anthropic's own
@@ -369,9 +341,5 @@ describe("resolveMaxOutputTokens", () => {
       64000,
     );
     expect(resolveMaxOutputTokens("claude-sonnet-5", 8000)).toBe(8000);
-  });
-
-  it("still honours a small model's cap", () => {
-    expect(resolveMaxOutputTokens("claude-3-haiku-20240307", 8000)).toBe(4096);
   });
 });

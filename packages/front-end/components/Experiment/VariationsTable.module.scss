@@ -1,0 +1,25 @@
+// Translucent, so it reads as absent content rather than a filled block.
+.noImageBox {
+  background-color: var(--black-a1);
+}
+
+.noImageBoxEditable {
+  cursor: pointer;
+  transition: background-color 100ms ease;
+
+  // Between blackA1 and blackA2; the scale's step is too coarse here.
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.07);
+  }
+}
+
+.noImageButton {
+  all: unset;
+  display: block;
+  border-radius: var(--radius-2);
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+  }
+}

@@ -28,7 +28,8 @@ export default function LinkedTag({
       target={onTagClick ? undefined : "_blank"}
       className="hover-underline"
       onClick={onTagClick ? (e) => onTagClick(tag, e) : undefined}
-      style={{ color: "inherit" }}
+      // The pill sets the type; the link inside it should not stretch the row.
+      style={{ color: "inherit", fontSize: "inherit", lineHeight: "inherit" }}
     >
       {tag}
     </Link>

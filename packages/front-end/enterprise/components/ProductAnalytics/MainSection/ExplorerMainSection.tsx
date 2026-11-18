@@ -470,7 +470,13 @@ export default function ExplorerMainSection({
       py={isSql ? "2" : "3"}
       gap="4"
       id="main-section-wrapper"
-      style={{ flex: "1", minHeight: 0 }}
+      style={{
+        flex: "1",
+        minHeight: 0,
+        // The explorer pages set it so the card ends 32px above the window,
+        // level with the sidebar (Explorer.tsx).
+        paddingBottom: `var(--explorer-page-bottom, ${isSql ? "8px" : "12px"})`,
+      }}
     >
       {showDataSourceSelector ? (
         <Flex align="center" flexShrink="0" height="32px">

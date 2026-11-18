@@ -8,6 +8,8 @@ import {
 } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { NotFoundError } from "back-end/src/util/errors";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const getReport = createApiRequestHandler(getReportValidator)(async (
@@ -17,7 +19,7 @@ export const getReport = createApiRequestHandler(getReportValidator)(async (
 
   const report = await getReportById(org.id, req.params.id);
   if (!report) {
-    throw new Error("Could not find report with that id");
+    throw new NotFoundError("Could not find report with that id");
   }
 
   const experiment = report.experimentId
@@ -27,13 +29,13 @@ export const getReport = createApiRequestHandler(getReportValidator)(async (
   // getExperimentById returns null if the caller can't read the project,
   // so reject here to avoid leaking report metadata across projects.
   if (report.experimentId && !experiment) {
-    throw new Error("Could not find report with that id");
+    throw new NotFoundError("Could not find report with that id");
   }
 
   if (report.type === "experiment-snapshot") {
     const snapshot = await findSnapshotById(req.context, report.snapshot);
     const apiReport = await resolveOwnerEmail(
-      toReportApiInterface(report, snapshot),
+      await toReportApiInterface(req.context, report, snapshot),
       req.context,
     );
 
@@ -42,7 +44,15 @@ export const getReport = createApiRequestHandler(getReportValidator)(async (
         req.context,
         experiment,
       );
-      const results = toSnapshotApiInterface(experiment, snapshot, metricsById);
+      const results = toSnapshotApiInterface(
+        experiment,
+        snapshot,
+        metricsById,
+        await getExposureQueriesForDatasource(
+          req.context,
+          experiment.datasource,
+        ),
+      );
       return { report: { ...apiReport, results } };
     }
 
@@ -50,6 +60,9 @@ export const getReport = createApiRequestHandler(getReportValidator)(async (
   }
 
   return {
-    report: await resolveOwnerEmail(toReportApiInterface(report), req.context),
+    report: await resolveOwnerEmail(
+      await toReportApiInterface(req.context, report),
+      req.context,
+    ),
   };
 });

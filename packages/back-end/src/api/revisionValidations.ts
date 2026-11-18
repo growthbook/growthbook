@@ -13,16 +13,16 @@ export function isDraftStatus(status: string): boolean {
 }
 
 /**
- * `mine=true` filters by the calling user, so it needs a caller who IS a user.
- * An org-scoped API key has no identity to filter on.
+ * `mine=true` filters by the calling member, so it needs a request that acts
+ * as one.
  */
 export function assertUserScopedKeyForMine(
   context: ApiReqContext,
   mine: boolean,
 ): void {
-  if (mine && !context.userId) {
+  if (mine && !context.actingUserId) {
     throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
+      "`mine=true` needs a member: use a personal access token, or an organization API key that assumes a named member's role.",
     );
   }
 }

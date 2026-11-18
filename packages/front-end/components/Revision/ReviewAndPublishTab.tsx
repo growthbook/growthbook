@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   Revision,
   checkMergeConflicts,
@@ -15,15 +15,21 @@ import {
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   entityProjects,
+  reviewCoverageProjects,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
   entityPublishFootprint,
   entityReviewFootprint,
   isInReviewCycle,
+  standingReviews,
 } from "shared/enterprise";
 import { serveFootprint } from "shared/permissions";
-import type { RevisionStatus } from "shared/validators";
+import {
+  eventUserLabel,
+  revisionActor,
+  type RevisionStatus,
+} from "shared/validators";
 import type { PublishGovernanceResult } from "shared/util";
 import {
   isArchiveTransition,
@@ -31,7 +37,6 @@ import {
   proposedArchivedValue,
 } from "shared/util";
 import { datetime } from "shared/dates";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownBold, PiGitMergeBold, PiLockSimple } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
@@ -41,6 +46,8 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
+import ErrorDisplay from "@/ui/ErrorDisplay";
+import { getErrorDetails } from "@/services/apiCallError";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import PermissionBlocker from "@/ui/PermissionBlocker";
@@ -48,8 +55,10 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import DiscardDraftModal from "@/components/Reviews/DiscardDraftModal";
 import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import CommentComposer from "@/components/Comments/CommentComposer";
@@ -83,6 +92,7 @@ import RevisionDescription from "@/components/Reviews/RevisionDescription";
 import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 import { revisionTimelineLogs } from "./revisionTimelineLogs";
+import { draftLandedState } from "./revisionUtils";
 import FixRevisionConflictsModal from "./FixRevisionConflictsModal";
 
 // Sub-views of the review surface: "overview" is the conversation-first view
@@ -213,6 +223,12 @@ export interface ReviewAndPublishTabProps<T> {
   // locked/frozen at a published revision). Drafts, edits, review requests, and
   // discarding stay available — only paths that advance the live state are hidden.
   publishBlockedReason?: string;
+  // When set, requesting review and giving one are held and this reason is
+  // shown (e.g. the page has unsaved edits the reviewer wouldn't be seeing).
+  reviewBlockedReason?: string;
+  // When set, Roll back and Revert are disabled and this reason is shown (e.g.
+  // the entity can't be changed on the org's plan).
+  revertBlockedReason?: string;
   selectRevision: (revision: Revision | null) => void;
   onPublish: (revisionId: string) => Promise<void>;
   onDiscard: (revisionId: string) => Promise<void>;
@@ -266,6 +282,8 @@ function ReviewAndPublishRevision<T>({
   canBypassApproval,
   holdsLandingDestination,
   publishBlockedReason,
+  reviewBlockedReason,
+  revertBlockedReason,
   selectRevision,
   onPublish,
   onDiscard,
@@ -277,6 +295,7 @@ function ReviewAndPublishRevision<T>({
   const { apiCall } = useAuth();
   const { users, userId, getUserDisplay, organization, hasCommercialFeature } =
     useUser();
+  const nameFor = (id: string) => users.get(id)?.name;
   const allEnvironments = useEnvironments();
   const envIds = allEnvironments.map((e) => e.id);
   // Adapt the generic revision's baked reviews[] + activityLog[] into the
@@ -326,6 +345,13 @@ function ReviewAndPublishRevision<T>({
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitErrorDetails, setSubmitErrorDetails] = useState<string | null>(
+    null,
+  );
+  const failSubmit = (e: unknown, fallback: string) => {
+    setSubmitError((e as Error).message || fallback);
+    setSubmitErrorDetails(getErrorDetails(e));
+  };
   const [adminPublish, setAdminPublish] = useState(false);
   const [showFixConflicts, setShowFixConflicts] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -401,9 +427,14 @@ function ReviewAndPublishRevision<T>({
   const baseSnapshot = isActiveDraft
     ? currentState
     : (revision.target.snapshot as T);
-  const proposedSnapshot = applyTopLevelPatchOps(
-    baseSnapshot as Record<string, unknown>,
-    revision.target.proposedChanges,
+  // A draft behind live lands only what it changed, as the server merges it.
+  const proposedSnapshot = (
+    isActiveDraft
+      ? draftLandedState(revision, currentState as Record<string, unknown>)
+      : applyTopLevelPatchOps(
+          baseSnapshot as Record<string, unknown>,
+          revision.target.proposedChanges,
+        )
   ) as T;
   const { diffs, badges, customRenderGroups } = useRevisionDiff<T>(
     baseSnapshot,
@@ -478,29 +509,23 @@ function ReviewAndPublishRevision<T>({
         lastContentEditAt = t;
       }
     }
-    const byUser = new Map<
-      string,
-      { status: "approved" | "changes-requested"; timestamp: string }
-    >();
     const sorted = [...revision.reviews].sort(
       (a, b) =>
         new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
     );
-    for (const r of sorted) {
-      if (r.decision === "comment" || r.stale) continue;
-      byUser.set(r.userId, {
-        status: r.decision === "approve" ? "approved" : "changes-requested",
-        timestamp: new Date(r.dateCreated).toISOString(),
-      });
-    }
-    return Array.from(byUser, ([id, v]) => ({
-      id,
-      status: v.status,
-      timestamp: v.timestamp,
-      stale:
-        lastContentEditAt !== null &&
-        new Date(v.timestamp).getTime() < lastContentEditAt,
-    }));
+    return standingReviews(sorted).map((r) => {
+      const at = new Date(r.dateCreated);
+      return {
+        id: r.userId,
+        status:
+          r.decision === "approve"
+            ? ("approved" as const)
+            : ("changes-requested" as const),
+        timestamp: at.toISOString(),
+        user: r.user,
+        stale: lastContentEditAt !== null && at.getTime() < lastContentEditAt,
+      };
+    });
   }, [revision.activityLog, revision.reviews]);
   const isReviewer = !!userId && reviewers.some((r) => r.id === userId);
 
@@ -541,7 +566,11 @@ function ReviewAndPublishRevision<T>({
     footprint: reviewFootprint,
     envIds,
     model: revision.target.type,
-    projects,
+    projects: reviewCoverageProjects(
+      revision.target.type,
+      revision.target.snapshot,
+      revision.target.proposedChanges,
+    ),
     reviewRules,
   });
 
@@ -562,17 +591,16 @@ function ReviewAndPublishRevision<T>({
   // header's "<name> requested review to merge …" line. Attribute it to the
   // latest "review-requested" activity entry (the dedicated submit-for-review
   // action); older revisions predating that action fall back to the legacy
-  // "reopened" stopgap, then to the author. Resolved through the same
-  // members/getUserDisplay path the reviewers section uses. ──
-  const reviewRequesterId = useMemo<string | undefined>(() => {
+  // "reopened" stopgap, then to the author, and named from the stored actor. ──
+  const reviewRequest = useMemo(() => {
     const sorted = [...revision.activityLog].sort(
       (a, b) =>
         new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
     );
-    const requested = sorted.find((e) => e.action === "review-requested");
-    if (requested) return requested.userId;
-    const reopened = sorted.find((e) => e.action === "reopened");
-    return reopened?.userId;
+    return (
+      sorted.find((e) => e.action === "review-requested") ??
+      sorted.find((e) => e.action === "reopened")
+    );
   }, [revision.activityLog]);
   const reviewRequested =
     requiresApproval &&
@@ -580,11 +608,11 @@ function ReviewAndPublishRevision<T>({
       revision.status === "approved" ||
       revision.status === "changes-requested");
   const reviewRequesterName = reviewRequested
-    ? (() => {
-        const id = reviewRequesterId ?? revision.authorId;
-        const u = users.get(id);
-        return u?.name || u?.email || getUserDisplay(id) || "";
-      })()
+    ? eventUserLabel(
+        reviewRequest?.user ??
+          revisionActor(revision, reviewRequest?.userId ?? revision.authorId),
+        { nameFor },
+      )
     : "";
 
   const isBlockedContributor =
@@ -602,6 +630,7 @@ function ReviewAndPublishRevision<T>({
       organization?.settings,
       revision.target.type,
       projects,
+      revision.target.snapshot,
     ) && hasCommercialFeature("require-approvals");
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
 
@@ -737,7 +766,7 @@ function ReviewAndPublishRevision<T>({
       });
       await mutate();
     } catch (e) {
-      setSubmitError((e as Error).message || "Failed to request review");
+      failSubmit(e, "Failed to request review");
     } finally {
       setSubmitting(false);
     }
@@ -749,7 +778,7 @@ function ReviewAndPublishRevision<T>({
     try {
       await onPublish(revision.id);
     } catch (e) {
-      setSubmitError((e as Error).message || "Failed to publish");
+      failSubmit(e, "Failed to publish");
     } finally {
       setSubmitting(false);
     }
@@ -765,7 +794,7 @@ function ReviewAndPublishRevision<T>({
       });
       await mutate();
     } catch (e) {
-      setSubmitError((e as Error).message || "Failed to return to draft");
+      failSubmit(e, "Failed to return to draft");
     } finally {
       setSubmitting(false);
     }
@@ -779,7 +808,7 @@ function ReviewAndPublishRevision<T>({
       await apiCall(`/revision/${revision.id}/undo-review`, { method: "POST" });
       await mutate();
     } catch (e) {
-      setSubmitError((e as Error).message || "Failed to retract review");
+      failSubmit(e, "Failed to retract review");
     } finally {
       setSubmitting(false);
     }
@@ -808,7 +837,7 @@ function ReviewAndPublishRevision<T>({
       if (res?.revision) selectRevision(res.revision);
       await mutate();
     } catch (e) {
-      setSubmitError((e as Error).message || "Failed to rebase");
+      failSubmit(e, "Failed to rebase");
     } finally {
       setSubmitting(false);
     }
@@ -847,7 +876,6 @@ function ReviewAndPublishRevision<T>({
     status: toBadgeStatus(revision.status),
     mergeSuccess,
     hasChanges,
-    hasReviewPermission: canReviewOrEdit,
     canManageDraft: canAdvanceDraft,
     isReviewRequester: isAuthor,
     isContributor,
@@ -858,6 +886,7 @@ function ReviewAndPublishRevision<T>({
     adminPublish,
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,
+    scheduledStartDay: null,
     experimentsStep: false,
     featureLockedByRamp: false,
     featureLockedBySchedule,
@@ -1018,15 +1047,7 @@ function ReviewAndPublishRevision<T>({
           editorMeta={
             <>
               <EventUser
-                user={{
-                  type: "dashboard",
-                  id: revision.authorId,
-                  name:
-                    users.get(revision.authorId)?.name ||
-                    getUserDisplay(revision.authorId) ||
-                    "",
-                  email: users.get(revision.authorId)?.email || "",
-                }}
+                user={revisionActor(revision, revision.authorId)}
                 display="avatar-name"
                 size="sm"
                 wrap={true}
@@ -1153,17 +1174,9 @@ function ReviewAndPublishRevision<T>({
             Contributors
           </Text>
           <Flex direction="column" gap="2">
-            {contributorIds.map((id) => {
-              const u = users.get(id);
-              return (
-                <PersonRow
-                  key={id}
-                  id={id}
-                  name={u?.name || ""}
-                  email={u?.email || ""}
-                />
-              );
-            })}
+            {contributorIds.map((id) => (
+              <PersonRow key={id} user={revisionActor(revision, id)} />
+            ))}
           </Flex>
         </Box>
       )}
@@ -1174,24 +1187,16 @@ function ReviewAndPublishRevision<T>({
             Reviewers
           </Text>
           <Flex direction="column" gap="2">
-            {reviewers.map(({ id, status, timestamp, stale }) => {
-              const u = users.get(id);
-              // The generic revision's reviews[] carries only userId (no baked
-              // event-user name/email like features). For reviewers absent from
-              // the members map (API key / SCIM-removed users) fall back to
-              // getUserDisplay so PersonRow shows the id rather than "Unknown".
-              const name = u?.name || getUserDisplay(id) || "";
-              const email = u?.email || "";
+            {reviewers.map(({ id, status, timestamp, stale, user }) => {
+              const reviewer = user ?? revisionActor(revision, id);
               return (
                 <PersonRow
                   key={id}
-                  id={id}
-                  name={name}
-                  email={email}
+                  user={reviewer}
                   trailing={
                     <ReviewerVerdictIcon
                       status={status}
-                      name={name || email}
+                      name={eventUserLabel(reviewer, { nameFor })}
                       timestamp={timestamp}
                       stale={stale}
                       uncoveredReason={
@@ -1239,16 +1244,7 @@ function ReviewAndPublishRevision<T>({
           <Box ml="auto" style={{ marginRight: -6 }}>
             <DropdownMenu
               trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                  style={{ margin: 0 }}
-                >
-                  <BsThreeDotsVertical size={16} />
-                </IconButton>
+                <MoreMenuTrigger label="Draft actions" style={{ margin: 0 }} />
               }
               open={actionsDropdownOpen}
               onOpenChange={setActionsDropdownOpen}
@@ -1301,7 +1297,11 @@ function ReviewAndPublishRevision<T>({
   const readonlyActionsColumn = (
     <Box
       className="appbox"
-      style={{ position: "sticky", top: 90, overflow: "hidden" }}
+      style={{
+        position: "sticky",
+        top: "calc(var(--page-top-offset) + var(--space-5))",
+        overflow: "hidden",
+      }}
     >
       {actionsColumnHeader}
       <Box p="4">
@@ -1346,7 +1346,11 @@ function ReviewAndPublishRevision<T>({
               onClick={() =>
                 previousPublishedRevision && onRevert(previousPublishedRevision)
               }
-              disabled={!canRevertOrEdit || !previousPublishedRevision}
+              disabled={
+                !canRevertOrEdit ||
+                !previousPublishedRevision ||
+                !!revertBlockedReason
+              }
               style={{ width: "100%" }}
             >
               Roll back
@@ -1357,7 +1361,7 @@ function ReviewAndPublishRevision<T>({
             color="red"
             variant="outline"
             onClick={() => onRevert(revision)}
-            disabled={!canRevertOrEdit}
+            disabled={!canRevertOrEdit || !!revertBlockedReason}
             style={{ width: "100%" }}
           >
             Revert to this revision
@@ -1371,6 +1375,11 @@ function ReviewAndPublishRevision<T>({
           <PermissionBlocker mt="2">
             You don&apos;t have permission to edit drafts for this {entityNoun}.
           </PermissionBlocker>
+        )}
+        {revision.status !== "discarded" && onRevert && revertBlockedReason && (
+          <Callout status="warning" size="sm" mt="2">
+            {revertBlockedReason}
+          </Callout>
         )}
         {revision.status !== "discarded" && onRevert && !canRevertOrEdit && (
           <PermissionBlocker mt="2">
@@ -1399,7 +1408,11 @@ function ReviewAndPublishRevision<T>({
   const draftActionsColumn = (
     <Box
       className="appbox"
-      style={{ position: "sticky", top: 90, overflow: "hidden" }}
+      style={{
+        position: "sticky",
+        top: "calc(var(--page-top-offset) + var(--space-5))",
+        overflow: "hidden",
+      }}
     >
       {actionsColumnHeader}
       <Box p="4">
@@ -1443,46 +1456,57 @@ function ReviewAndPublishRevision<T>({
           <Box mt={showApprovalBand ? "0" : "6"}>
             {/* Submit review — reviewer action, opens the comment/decision
               popover */}
-            {canReview && requiresApproval && !adminPublish && (
-              <Flex direction="column" gap="3" mb="4">
-                <ReviewCommentPopover
-                  onSubmit={submitReviewDecision}
-                  allowPublishOnApprove={autopublishOnApproval}
-                  autoPublishArmed={revisionAutoPublishArmed}
-                  autoPublishScheduled={scheduledPending}
-                  canReviewerPublish={canPublishOrEdit}
-                  publishBlocked={
-                    !mergeSuccess ||
-                    !hasChanges ||
-                    mustRebase ||
-                    !!publishBlockedReason
-                  }
-                  isBlockedContributor={!!isBlockedContributor}
-                  storageKey={`review-comment:${revision.target.type}:${revision.id}`}
-                  onSuccess={() => {}}
-                  trigger={
-                    <Button
-                      // Outline once publishing is live or armed on a schedule —
-                      // either way review is no longer the primary action.
-                      variant={
-                        state.submitAction === "publish" &&
-                        state.ctaEnabled &&
-                        canPublishOrEdit
-                          ? "outline"
-                          : undefined
-                      }
-                      style={{ width: "100%" }}
-                      icon={<PiCaretDownBold />}
-                      iconPosition="right"
-                    >
-                      Submit review
-                    </Button>
-                  }
-                  side="bottom"
-                  align="center"
-                />
-              </Flex>
-            )}
+            {canReview &&
+              requiresApproval &&
+              !adminPublish &&
+              reviewBlockedReason && (
+                <HelperText status="info" size="sm" mb="4">
+                  {reviewBlockedReason}
+                </HelperText>
+              )}
+            {canReview &&
+              requiresApproval &&
+              !adminPublish &&
+              !reviewBlockedReason && (
+                <Flex direction="column" gap="3" mb="4">
+                  <ReviewCommentPopover
+                    onSubmit={submitReviewDecision}
+                    allowPublishOnApprove={autopublishOnApproval}
+                    autoPublishArmed={revisionAutoPublishArmed}
+                    autoPublishScheduled={scheduledPending}
+                    canReviewerPublish={canPublishOrEdit}
+                    publishBlocked={
+                      !mergeSuccess ||
+                      !hasChanges ||
+                      mustRebase ||
+                      !!publishBlockedReason
+                    }
+                    isBlockedContributor={!!isBlockedContributor}
+                    storageKey={`review-comment:${revision.target.type}:${revision.id}`}
+                    onSuccess={() => {}}
+                    trigger={
+                      <Button
+                        // Outline once publishing is live or armed on a schedule —
+                        // either way review is no longer the primary action.
+                        variant={
+                          state.submitAction === "publish" &&
+                          state.ctaEnabled &&
+                          canPublishOrEdit
+                            ? "outline"
+                            : undefined
+                        }
+                        style={{ width: "100%" }}
+                        icon={<PiCaretDownBold />}
+                        iconPosition="right"
+                      >
+                        Submit review
+                      </Button>
+                    }
+                    side="bottom"
+                    align="center"
+                  />
+                </Flex>
+              )}
 
             {/* Step CTA: Request Review */}
             {state.hasSubmit && state.submitAction === "request-review" && (
@@ -1491,11 +1515,20 @@ function ReviewAndPublishRevision<T>({
                   variant="soft"
                   onClick={doSubmit}
                   loading={submitting}
-                  disabled={!state.ctaEnabled || !canAdvanceDraft}
+                  disabled={
+                    !state.ctaEnabled ||
+                    !canAdvanceDraft ||
+                    !!reviewBlockedReason
+                  }
                   style={{ width: "100%" }}
                 >
                   {state.ctaLabel}
                 </Button>
+                {canAdvanceDraft && reviewBlockedReason && (
+                  <HelperText status="info" size="sm" mt="2">
+                    {reviewBlockedReason}
+                  </HelperText>
+                )}
                 {/* A greyed-out button with no reason reads as a bug — mirrors
                   the Feature flow. */}
                 {!canAdvanceDraft && (
@@ -1667,9 +1700,11 @@ function ReviewAndPublishRevision<T>({
                   )}
 
                   {submitError && (
-                    <Callout status="error" size="sm">
-                      {submitError}
-                    </Callout>
+                    <ErrorDisplay
+                      error={submitError}
+                      details={submitErrorDetails}
+                      maxLines={12}
+                    />
                   )}
 
                   {!hasChanges && (
@@ -1709,20 +1744,13 @@ function ReviewAndPublishRevision<T>({
         />
       )}
       {confirmDiscard && (
-        <ModalStandard
+        <DiscardDraftModal
           trackingEventModalType="discard-revision"
-          open={true}
-          header="Discard Draft"
-          cta="Discard"
-          ctaColor="red"
           close={() => setConfirmDiscard(false)}
-          submit={async () => {
+          discard={async () => {
             await onDiscard(revision.id);
           }}
-        >
-          Are you sure you want to discard this draft? This action cannot be
-          undone.
-        </ModalStandard>
+        />
       )}
       {confirmReopen && (
         <ModalStandard

@@ -1,14 +1,11 @@
-import {
-  ExperimentInterfaceExcludingHoldouts,
-  getVisualChangesetValidator,
-} from "shared/validators";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { getVisualChangesetValidator } from "shared/validators";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
-import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveChangesetOwner } from "back-end/src/services/changesetOwner";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const getVisualChangeset = createApiRequestHandler(
   getVisualChangesetValidator,
@@ -22,24 +19,17 @@ export const getVisualChangeset = createApiRequestHandler(
   );
 
   if (!visualChangeset) {
-    throw new Error("Could not find visualChangeset with given ID");
+    throw new NotFoundError("Could not find visualChangeset with given ID");
   }
 
-  const experiment =
+  const owner =
     includeExperiment > 0
-      ? await getExperimentById(req.context, visualChangeset.experiment)
+      ? await resolveChangesetOwner(req.context, visualChangeset)
       : null;
-
-  const apiExperiment =
-    experiment && experiment.type !== "holdout"
-      ? await toExperimentApiInterface(
-          req.context,
-          experiment as ExperimentInterfaceExcludingHoldouts,
-        )
-      : null;
+  const experiment = owner ? await owner.toEditorExperiment() : null;
 
   return {
     visualChangeset: toVisualChangesetApiInterface(visualChangeset),
-    ...(apiExperiment ? { experiment: apiExperiment } : {}),
+    ...(experiment ? { experiment } : {}),
   };
 });

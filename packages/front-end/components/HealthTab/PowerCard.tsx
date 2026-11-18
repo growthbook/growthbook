@@ -9,7 +9,9 @@ import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import { coveragePercentFormatter } from "@/services/utils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import { IssueValue } from "./IssueTags";
 import { StatusBadge } from "./StatusBadge";
 
@@ -92,7 +94,7 @@ export function PowerCard({
       recommendations.push(
         <li key="coverage">
           Consider increasing the traffic percentage above{" "}
-          {phase.coverage * 100}%
+          {coveragePercentFormatter.format(phase.coverage)}
         </li>,
       );
     }
@@ -134,7 +136,7 @@ export function PowerCard({
         : renderLowPowerRecommendations();
 
   return (
-    <div id="power-card" style={{ scrollMarginTop: "100px" }}>
+    <div id="power-card" style={{ scrollMarginTop: SCROLL_MARGIN_UNDER_TABS }}>
       <div className="appbox container-fluid mb-4 pl-3 py-3">
         <Flex justify="between" mb="2">
           <Flex align="center" gap="2">
@@ -159,7 +161,7 @@ export function PowerCard({
             <PiInfo />
             This alert was muted, it will not consider the experiment Unhealthy
             even if problems are detected. Click{" "}
-            <Link onClick={toggleMuteAlert}>here</Link> to reenable it.
+            <Link onClick={toggleMuteAlert}>here</Link> to re-enable it.
           </Text>
         ) : null}
 

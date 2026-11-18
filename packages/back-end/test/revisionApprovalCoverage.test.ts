@@ -1,6 +1,12 @@
 import type { Revision } from "shared/types/revision";
-import { revisionApprovalsCoverChange } from "back-end/src/revisions/revisionActions";
+import type { OrganizationInterface } from "shared/types/organization";
+import { Permissions } from "shared/permissions";
+import {
+  canRevisionOwnedAction,
+  revisionApprovalsCoverChange,
+} from "back-end/src/revisions/revisionActions";
 import type { Context } from "back-end/src/models/BaseModel";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 
 // A saved group belongs to many projects, and authority over it is the
 // intersection — so the coverage check must not read only the first.
@@ -104,24 +110,25 @@ const revision = (
 const approvedByReviewer = [{ userId: "u_rev", decision: "approve" }];
 
 describe("standing approvals on a generic revision", () => {
-  it("counts an approval that covers the changed environment", () => {
+  it("counts an approval that covers the changed environment", async () => {
     const r = revision({ dev: "5", production: "2" }, approvedByReviewer);
 
     expect(
-      revisionApprovalsCoverChange(context(["dev"]), r).hasCoveringApproval,
+      (await revisionApprovalsCoverChange(context(["dev"]), r))
+        .hasCoveringApproval,
     ).toBe(true);
   });
 
   // The bypass this closes: approved while dev-only, then production changed too.
-  it("discounts it once the change grows past the approver", () => {
+  it("discounts it once the change grows past the approver", async () => {
     const r = revision({ dev: "5", production: "6" }, approvedByReviewer);
-    const result = revisionApprovalsCoverChange(context(["dev"]), r);
+    const result = await revisionApprovalsCoverChange(context(["dev"]), r);
 
     expect(result.hasCoveringApproval).toBe(false);
     expect(result.uncoveredApprovers).toEqual(["u_rev"]);
   });
 
-  it("requires unrestricted authority for an unbound change", () => {
+  it("requires unrestricted authority for an unbound change", async () => {
     // A base value carries no environment binding.
     const r = {
       ...revision({ dev: "1", production: "2" }, approvedByReviewer),
@@ -131,53 +138,171 @@ describe("standing approvals on a generic revision", () => {
     ];
 
     expect(
-      revisionApprovalsCoverChange(context(["dev"]), r).hasCoveringApproval,
+      (await revisionApprovalsCoverChange(context(["dev"]), r))
+        .hasCoveringApproval,
     ).toBe(false);
     expect(
-      revisionApprovalsCoverChange(context(null), r).hasCoveringApproval,
+      (await revisionApprovalsCoverChange(context(null), r))
+        .hasCoveringApproval,
     ).toBe(true);
   });
 
-  it("ignores a stale verdict", () => {
+  it("ignores a stale verdict", async () => {
     const r = revision({ dev: "5", production: "2" }, [
       { userId: "u_rev", decision: "approve", stale: true },
     ]);
 
     expect(
-      revisionApprovalsCoverChange(context(["dev"]), r).hasCoveringApproval,
+      (await revisionApprovalsCoverChange(context(["dev"]), r))
+        .hasCoveringApproval,
     ).toBe(false);
   });
 
-  it("ignores a change-request verdict", () => {
+  it("counts only the reviewer's latest verdict", async () => {
+    const r = revision({ dev: "5", production: "2" }, [
+      { userId: "u_rev", decision: "approve" },
+      { userId: "u_rev", decision: "request-changes" },
+    ]);
+
+    expect(
+      (await revisionApprovalsCoverChange(context(["dev"]), r))
+        .hasCoveringApproval,
+    ).toBe(false);
+  });
+
+  it("ignores a change-request verdict", async () => {
     const r = revision({ dev: "5", production: "2" }, [
       { userId: "u_rev", decision: "requestChanges" },
     ]);
 
     expect(
-      revisionApprovalsCoverChange(context(["dev"]), r).hasCoveringApproval,
+      (await revisionApprovalsCoverChange(context(["dev"]), r))
+        .hasCoveringApproval,
     ).toBe(false);
   });
 });
 
 describe("a multi-project entity needs authority in every project", () => {
-  it("counts the approval when it covers the entity's only project", () => {
+  it("counts the approval when it covers the entity's only project", async () => {
     expect(
-      revisionApprovalsCoverChange(
-        savedGroupContext("prj_a"),
-        savedGroupRevision(["prj_a"]),
+      (
+        await revisionApprovalsCoverChange(
+          savedGroupContext("prj_a"),
+          savedGroupRevision(["prj_a"]),
+        )
       ).hasCoveringApproval,
     ).toBe(true);
   });
 
   // The bug this closes: reading snapshot.projects[0] credited an approver who
   // covered only the first of several projects.
-  it("discounts it when a second project is uncovered", () => {
-    const result = revisionApprovalsCoverChange(
+  it("discounts it when a second project is uncovered", async () => {
+    const result = await revisionApprovalsCoverChange(
       savedGroupContext("prj_a"),
       savedGroupRevision(["prj_a", "prj_b"]),
     );
 
     expect(result.hasCoveringApproval).toBe(false);
     expect(result.uncoveredApprovers).toEqual(["u_rev"]);
+  });
+});
+
+// A move answers to the destination's approval rules, so its reviewers too.
+const sdkContext = (projectsWithReview: string[]): Context => {
+  const org = {
+    id: "org_1",
+    settings: { environments: [{ id: "dev" }, { id: "production" }] },
+    customRoles: [
+      {
+        id: "sdk_manager",
+        description: "",
+        policies: ["SDKConnectionsFullAccess"],
+      },
+    ],
+    members: [
+      {
+        id: "u_rev",
+        role: "noaccess",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: projectsWithReview.map((project) => ({
+          project,
+          role: "sdk_manager",
+          limitAccessByEnvironment: false,
+          environments: [],
+        })),
+      },
+    ],
+  } as unknown as OrganizationInterface;
+  return {
+    org,
+    teams: [],
+    permissions: new Permissions(getUserPermissions({ id: "u_rev" }, org, [])),
+  } as unknown as Context;
+};
+
+const sdkConnection = {
+  id: "sdk_1",
+  name: "Web",
+  environment: "production",
+  projects: ["prj_a"],
+};
+
+const sdkRevision = (proposedProjects: string[]): Revision =>
+  ({
+    status: "approved",
+    reviews: [{ userId: "u_rev", decision: "approve" }],
+    target: {
+      type: "sdk-connection",
+      snapshot: { sdkConnection, sdkWebhooks: [] },
+      proposedChanges: [
+        {
+          op: "replace",
+          path: "/sdkConnection",
+          value: { ...sdkConnection, projects: proposedProjects },
+        },
+      ],
+    },
+  }) as unknown as Revision;
+
+describe("an SDK connection move needs review authority on both sides", () => {
+  it("counts an approval that covers source and destination", async () => {
+    const r = sdkRevision(["prj_b"]);
+    const context = sdkContext(["prj_a", "prj_b"]);
+
+    expect(canRevisionOwnedAction(context, r, "review")).toBe(true);
+    expect(
+      (await revisionApprovalsCoverChange(context, r)).hasCoveringApproval,
+    ).toBe(true);
+  });
+
+  it("refuses and discounts a reviewer who manages only the source", async () => {
+    const r = sdkRevision(["prj_b"]);
+    const context = sdkContext(["prj_a"]);
+    const result = await revisionApprovalsCoverChange(context, r);
+
+    expect(canRevisionOwnedAction(context, r, "review")).toBe(false);
+    expect(result.hasCoveringApproval).toBe(false);
+    expect(result.uncoveredApprovers).toEqual(["u_rev"]);
+  });
+
+  it("refuses a reviewer who manages only the destination", async () => {
+    const r = sdkRevision(["prj_b"]);
+    const context = sdkContext(["prj_b"]);
+
+    expect(canRevisionOwnedAction(context, r, "review")).toBe(false);
+    expect(
+      (await revisionApprovalsCoverChange(context, r)).hasCoveringApproval,
+    ).toBe(false);
+  });
+
+  it("needs only the source when the connection stays put", async () => {
+    const r = sdkRevision(["prj_a"]);
+    const context = sdkContext(["prj_a"]);
+
+    expect(canRevisionOwnedAction(context, r, "review")).toBe(true);
+    expect(
+      (await revisionApprovalsCoverChange(context, r)).hasCoveringApproval,
+    ).toBe(true);
   });
 });

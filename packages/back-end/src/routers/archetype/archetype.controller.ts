@@ -26,12 +26,13 @@ import {
 } from "back-end/src/services/audit";
 import {
   evaluateFeature,
-  getSavedGroupMap,
+  getSavedGroupMapForFeatureRevision,
 } from "back-end/src/services/features";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { NotFoundError } from "back-end/src/util/errors";
 
 type GetArchetypeResponse = {
   status: 200;
@@ -99,7 +100,7 @@ export const getArchetypeAndEval = async (
   }
 
   if (!feature) {
-    throw new Error("Feature not found");
+    throw new NotFoundError("Feature not found");
   }
 
   const revision = await getRevision({
@@ -110,15 +111,20 @@ export const getArchetypeAndEval = async (
     version: parseInt(version),
   });
   if (!revision) {
-    throw new Error("Could not find feature revision");
+    throw new NotFoundError("Could not find feature revision");
   }
 
   const archetype = await getAllArchetypes(org.id, userId, project);
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
-    const groupMap = await getSavedGroupMap(context);
     const experimentMap = await getAllPayloadExperiments(context);
+    const groupMap = await getSavedGroupMapForFeatureRevision(
+      context,
+      feature,
+      revision,
+      experimentMap,
+    );
     const allEnvironments = getEnvironments(org);
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const safeRolloutMap =
@@ -310,7 +316,7 @@ export const putArchetype = async (
   const archetype = await getArchetypeById(id, org.id);
 
   if (!archetype) {
-    throw new Error("Could not find archetype");
+    throw new NotFoundError("Could not find archetype");
   }
   if (!context.permissions.canUpdateArchetype(archetype, updates)) {
     context.permissions.throwPermissionError();

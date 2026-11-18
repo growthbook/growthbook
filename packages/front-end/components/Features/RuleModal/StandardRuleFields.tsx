@@ -360,8 +360,6 @@ export default function StandardRuleFields({
           valueType={feature.valueType}
           feature={feature}
           renderJSONInline={true}
-          useCodeInput={true}
-          showFullscreenButton={true}
           sparse={!!form.watch("sparse")}
           // Config-backed rules are always sparse, so the toggle is dropped and a
           // config picker (restricted to the default's subtree) is offered instead.
@@ -570,7 +568,6 @@ export default function StandardRuleFields({
               condition={form.watch("condition") || ""}
               savedGroups={form.watch("savedGroups")}
               prerequisites={form.watch("prerequisites")}
-              maxLength={500}
               prefix={<Text weight="medium">IF</Text>}
             />
           ) : (
@@ -588,6 +585,10 @@ export default function StandardRuleFields({
                 hashAttribute={form.watch("hashAttribute")}
                 setHashAttribute={(v: string) =>
                   form.setValue("hashAttribute", v)
+                }
+                fallbackAttribute={form.watch("fallbackAttribute")}
+                setFallbackAttribute={(v: string) =>
+                  form.setValue("fallbackAttribute", v)
                 }
                 attributeSchema={attributeSchema}
                 extraIndicator={attributeSelectIndicator}

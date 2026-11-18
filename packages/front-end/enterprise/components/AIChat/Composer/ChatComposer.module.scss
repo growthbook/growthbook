@@ -54,6 +54,19 @@
       pointer-events: none;
       color: var(--gray-a9);
     }
+
+    // A suggested reply in an empty composer replaces the placeholder.
+    p:global(.is-empty):has(:global(.composer-ghost))::before {
+      display: none;
+    }
+
+    // Autocomplete continuation, inline after the caret.
+    :global(.composer-ghost) {
+      pointer-events: none;
+      user-select: none;
+      color: var(--gray-a9);
+      white-space: pre-wrap;
+    }
   }
 
   &.readOnly :global(.ProseMirror) {

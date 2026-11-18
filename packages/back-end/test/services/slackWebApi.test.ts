@@ -207,6 +207,20 @@ describe("Slack Web API", () => {
     });
   });
 
+  it("requests full channel pages with room for the whole response", async () => {
+    cancellableFetch.mockResolvedValueOnce(
+      slackResponse({ ok: true, channels: [] }),
+    );
+
+    await listSlackConversations({ token: "xoxb-token" });
+
+    const [url, , fetchOpts] = cancellableFetch.mock.calls[0];
+    const limit = Number(new URL(url).searchParams.get("limit"));
+    expect(limit).toBe(999);
+    // A truncated body fails to parse, so the cap must fit ~2KB per channel.
+    expect(fetchOpts.maxContentSize).toBeGreaterThanOrEqual(limit * 2 * 1024);
+  });
+
   it("surfaces logical Slack API errors when joining", async () => {
     cancellableFetch.mockResolvedValueOnce(
       slackResponse({ ok: false, error: "method_not_supported" }),
@@ -361,6 +375,45 @@ describe("Slack rate limits", () => {
     expect(cancellableFetch.mock.calls[1]).toEqual(
       cancellableFetch.mock.calls[0],
     );
+  });
+
+  it("stops waiting out Retry-After once the caller aborts", async () => {
+    cancellableFetch.mockResolvedValueOnce(rateLimitedResponse("30"));
+    const abort = new AbortController();
+    const result = listSlackConversations({
+      token: "xoxb-token",
+      signal: abort.signal,
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    abort.abort();
+    await expect(result).resolves.toBeNull();
+    expect(cancellableFetch).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it("does not wait for Retry-After if aborted during the Slack request", async () => {
+    cancellableFetch.mockResolvedValueOnce(rateLimitedResponse("30"));
+    const abort = new AbortController();
+    const result = listSlackConversations({
+      token: "xoxb-token",
+      signal: abort.signal,
+    });
+    abort.abort();
+
+    await jest.advanceTimersByTimeAsync(0);
+    expect(jest.getTimerCount()).toBe(0);
+    await expect(result).resolves.toBeNull();
+    expect(cancellableFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call Slack when already aborted", async () => {
+    const abort = new AbortController();
+    abort.abort();
+
+    await expect(
+      listSlackConversations({ token: "xoxb-token", signal: abort.signal }),
+    ).resolves.toBeNull();
+    expect(cancellableFetch).not.toHaveBeenCalled();
   });
 
   it("fails explicitly after three rate-limit retries", async () => {

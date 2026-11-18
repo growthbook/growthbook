@@ -1,6 +1,5 @@
 import omit from "lodash/omit";
 import { putVisualChangesetValidator } from "shared/validators";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
@@ -8,7 +7,11 @@ import {
   VisualChangesetUpdates,
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { requireVisualChangeWrite } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
+import {
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const putVisualChangeset = createApiRequestHandler(
   putVisualChangesetValidator,
@@ -18,23 +21,18 @@ export const putVisualChangeset = createApiRequestHandler(
     req.organization.id,
   );
   if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
+    throw new NotFoundError("Visual Changeset not found");
   }
 
-  const experiment = await getExperimentById(
-    req.context,
-    visualChangeset.experiment,
-  );
-
-  if (!experiment) {
-    throw new Error("Experiment not found");
+  const owner = await resolveChangesetOwner(req.context, visualChangeset);
+  if (!owner) {
+    throw new Error(ownerNotFoundMessage(visualChangeset));
   }
-
-  if (!req.context.permissions.canUpdateVisualChange(experiment)) {
+  if (!owner.canUpdateVisualChange()) {
     req.context.permissions.throwPermissionError();
   }
   // Re-checked on every save so a stale editor can't clobber a test started since it loaded.
-  const auditLiveEdit = requireVisualChangeWrite(req, experiment, {
+  const auditLiveEdit = owner.requireWrite(req, {
     allowRunning: !!req.body.allowRunningExperiment,
     visualChangesetId: visualChangeset.id,
   });
@@ -54,7 +52,7 @@ export const putVisualChangeset = createApiRequestHandler(
 
   const res = await updateVisualChangeset({
     visualChangeset,
-    experiment,
+    owner,
     context: req.context,
     updates,
   });

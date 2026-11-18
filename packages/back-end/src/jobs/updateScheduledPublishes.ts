@@ -49,18 +49,18 @@ async function queueScheduledPublish(
   await job.save();
 }
 
-const publishScheduledRevision = async (job: ScheduledPublishJob) => {
-  const data = job.attrs.data;
-  if (!data || !data.organization) return;
-
+// Publishes one due revision; returns when a held publish may next retry.
+async function runScheduledPublish(
+  data: ScheduledPublishJobData,
+): Promise<Date | null> {
   const context = await getContextForAgendaJobByOrgId(data.organization);
 
   if (data.kind === "feature") {
     const { organization, featureId, version } = data;
-    if (!featureId || version === undefined || version === null) return;
+    if (!featureId || version === undefined || version === null) return null;
 
     const feature = await getFeature(context, featureId);
-    if (!feature) return;
+    if (!feature) return null;
 
     // archiveFeature already cancels schedules; this guards against a race so we
     // don't resurrect an archived feature's draft.
@@ -70,7 +70,7 @@ const publishScheduledRevision = async (job: ScheduledPublishJob) => {
         organization,
         featureId,
       );
-      return;
+      return null;
     }
 
     const revision = await getRevision({
@@ -80,23 +80,30 @@ const publishScheduledRevision = async (job: ScheduledPublishJob) => {
       feature,
       version,
     });
-    if (!revision) return;
+    if (!revision) return null;
 
-    // Re-checks the due gate and governance; holds and retries next tick if not
-    // ready.
+    // Re-checks the due gate and governance; holds and retries after a backoff
+    // if not ready.
     await maybePublishScheduledFeatureRevision(context, feature, revision);
-    return;
+    const after = await getRevision({
+      context,
+      organization,
+      featureId,
+      feature,
+      version,
+    });
+    return after?.scheduledPublishNextAttemptAt ?? null;
   }
 
   // kind === "revision": generic entity revision (saved groups, etc.).
   const { revisionId } = data;
-  if (!revisionId) return;
+  if (!revisionId) return null;
 
   const revision = await context.models.revisions.getById(revisionId);
-  if (!revision) return;
+  if (!revision) return null;
 
   const entityModel = getAdapter(revision.target.type).getModel(context);
-  if (!entityModel) return;
+  if (!entityModel) return null;
 
   const entity = await entityModel.getById(revision.target.id);
   if (!entity) {
@@ -110,16 +117,28 @@ const publishScheduledRevision = async (job: ScheduledPublishJob) => {
           `Error canceling schedule for deleted entity (revision ${revisionId})`,
         ),
       );
-    return;
+    return null;
   }
 
-  // Re-checks the due gate and governance; holds and retries next tick if not
-  // ready (records the failure for the "stuck" indicator).
+  // Re-checks the due gate and governance; holds and retries after a backoff
+  // if not ready (records the failure for the "stuck" indicator).
   await maybePublishScheduledEntityRevision(
     context,
     revision,
     entity as Record<string, unknown>,
   );
+  const after = await context.models.revisions.getById(revisionId);
+  return after?.scheduledPublishNextAttemptAt ?? null;
+}
+
+const publishScheduledRevision = async (job: ScheduledPublishJob) => {
+  const data = job.attrs.data;
+  if (!data || !data.organization) return;
+  const retryAt = await runScheduledPublish(data);
+  // The poll runs once a minute; rescheduling this job lets the first retries
+  // land seconds apart. A poll that re-queues it early is turned away by the
+  // backoff gate and lands back here.
+  if (retryAt && retryAt > new Date()) job.schedule(retryAt);
 };
 
 export default async function addScheduledPublishJob(agenda: Agenda) {

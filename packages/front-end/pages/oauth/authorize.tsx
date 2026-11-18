@@ -1,12 +1,25 @@
 import { useRouter } from "next/router";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiArrowCounterClockwise, PiKey, PiUserCircle } from "react-icons/pi";
+import { PiArrowCounterClockwise, PiLock, PiUserCircle } from "react-icons/pi";
+import { LOOPBACK_HOSTS } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import { DefinitionsProvider } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import { allowSelfOrgCreation } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import UserAvatar from "@/components/Avatar/UserAvatar";
+import PermissionsField, {
+  useAllowedPermissions,
+} from "@/components/Settings/PermissionsField";
+import {
+  initialPermissions,
+  isComplete,
+  PermissionsValue,
+  rulesProblem,
+  tokenFields,
+} from "@/components/Settings/apiKeyPermissions";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
@@ -26,10 +39,6 @@ type AuthorizeInfoResponse = {
   user?: { id: string; email: string; name: string };
 };
 
-// Loopback hosts are the OS itself, so a code delivered here never leaves the
-// user's machine.
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-
 // Where the authorization code will be delivered. This is the one signal on
 // this page the app cannot fake: the code always goes to a redirect_uri
 // pre-registered by the client.
@@ -45,7 +54,7 @@ function describeRedirectTarget(
   try {
     const url = new URL(redirectUri);
     if (url.protocol === "http:" || url.protocol === "https:") {
-      return { host: url.host, isLocal: LOOPBACK_HOSTS.has(url.hostname) };
+      return { host: url.host, isLocal: LOOPBACK_HOSTS.includes(url.hostname) };
     }
     // Custom schemes (cursor://, etc.) hand off to a locally installed app.
     return { host: url.protocol.replace(":", "") + "://", isLocal: true };
@@ -57,7 +66,7 @@ function describeRedirectTarget(
 // Shared narrow-page wrapper so the consent and success screens can't drift.
 function ConsentPageWrapper({ children }: { children: ReactNode }) {
   return (
-    <Box maxWidth="520px" mx="auto" my="9" px="4">
+    <Box maxWidth="520px" mx="auto" my="5" px="4">
       {children}
     </Box>
   );
@@ -169,7 +178,15 @@ function NoOrganization({ onCreated }: { onCreated: () => void }) {
 
 export default function OAuthAuthorizePage() {
   const router = useRouter();
-  const { apiCall, isAuthenticated, loading: authLoading } = useAuth();
+  const {
+    apiCall,
+    isAuthenticated,
+    loading: authLoading,
+    orgId: activeOrgId,
+    setOrgId: setActiveOrgId,
+  } = useAuth();
+  const { organization } = useUser();
+  const allowed = useAllowedPermissions();
 
   const query = useMemo(() => {
     const q = router.query;
@@ -189,7 +206,11 @@ export default function OAuthAuthorizePage() {
     };
   }, [router.query]);
 
-  const [orgId, setOrgId] = useState("");
+  // The default waits on the organization's plan, so it's derived until changed.
+  const [changedPermissions, setPermissions] =
+    useState<PermissionsValue | null>(null);
+  const permissions =
+    changedPermissions ?? initialPermissions(undefined, "pat", allowed);
   const [actionError, setActionError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -255,17 +276,26 @@ export default function OAuthAuthorizePage() {
     },
   );
 
-  // Pre-select the organization the caller asked for (the setup wizard passes the one the
-  // user was looking at), otherwise the only one there is
+  // The organization the caller asked for (the setup wizard passes the one the
+  // user was looking at), otherwise the only one there is. The choice lives in
+  // the URL because choosing switches the app to that organization, so its
+  // roles, Projects and plan load for the permissions, and that remounts this page.
+  const wantedOrg =
+    typeof router.query.org === "string" ? router.query.org : "";
+  const userOrgs = info?.organizations ?? [];
+  const orgId = userOrgs.some((o) => o.id === wantedOrg)
+    ? wantedOrg
+    : userOrgs.length === 1
+      ? userOrgs[0].id
+      : "";
+  const chooseOrg = (id: string) =>
+    router.replace({ query: { ...router.query, org: id } }, undefined, {
+      shallow: true,
+    });
   useEffect(() => {
-    if (!info?.organizations?.length) return;
-    const wanted = router.query.org ? String(router.query.org) : "";
-    if (wanted && info.organizations.some((o) => o.id === wanted)) {
-      setOrgId(wanted);
-    } else if (info.organizations.length === 1) {
-      setOrgId(info.organizations[0].id);
-    }
-  }, [info, router.query.org]);
+    if (orgId && orgId !== activeOrgId) setActiveOrgId?.(orgId);
+  }, [orgId, activeOrgId, setActiveOrgId]);
+  const orgLoaded = !!orgId && organization?.id === orgId;
 
   const missingParamsError =
     router.isReady && !hasRequiredParams
@@ -276,30 +306,35 @@ export default function OAuthAuthorizePage() {
     (info && (info.status !== 200 || !info.client)
       ? info.message || "Failed to load authorization request"
       : "");
-  const error = actionError || missingParamsError || infoError;
+  // A failed Authorize leaves the form up so it can be corrected and retried.
+  const fatalError = missingParamsError || infoError;
+  const error = actionError || fatalError;
+  // Never redirect to a redirect_uri the server hasn't matched to the client (RFC 6749 §4.1.2.1).
+  const verifiedRedirectUri =
+    !infoFetchError && info?.status === 200 && info.client
+      ? info.redirectUri
+      : undefined;
 
   const deny = useCallback(() => {
-    if (!query.redirect_uri) {
-      setActionError("Cannot deny: missing redirect_uri");
-      return;
-    }
-    try {
-      const url = new URL(query.redirect_uri);
-      url.searchParams.set("error", "access_denied");
-      url.searchParams.set(
-        "error_description",
-        "The user denied the authorization request",
-      );
-      if (query.state) url.searchParams.set("state", query.state);
-      window.location.assign(url.toString());
-    } catch {
-      setActionError("Invalid redirect_uri");
-    }
-  }, [query.redirect_uri, query.state]);
+    if (!verifiedRedirectUri) return;
+    const url = new URL(verifiedRedirectUri);
+    url.searchParams.set("error", "access_denied");
+    url.searchParams.set(
+      "error_description",
+      "The user denied the authorization request",
+    );
+    if (query.state) url.searchParams.set("state", query.state);
+    window.location.assign(url.toString());
+  }, [verifiedRedirectUri, query.state]);
 
   const approve = useCallback(async () => {
     if (!orgId) {
       setActionError("Please select an organization");
+      return;
+    }
+    const problem = rulesProblem(permissions);
+    if (problem) {
+      setActionError(problem);
       return;
     }
     setSubmitting(true);
@@ -320,6 +355,7 @@ export default function OAuthAuthorizePage() {
           scope: query.scope || undefined,
           resource: query.resource || undefined,
           organization: orgId,
+          permissions: tokenFields(permissions),
         }),
       });
       if (res.status !== 200 || !res.redirectTo) {
@@ -336,7 +372,7 @@ export default function OAuthAuthorizePage() {
       setActionError(e instanceof Error ? e.message : String(e));
       setSubmitting(false);
     }
-  }, [apiCall, orgId, query]);
+  }, [apiCall, orgId, permissions, query]);
 
   // Unauthenticated users are redirected to login by AuthProvider; keep the
   // overlay up during that transient state instead of flashing the page.
@@ -369,14 +405,14 @@ export default function OAuthAuthorizePage() {
 
   const claimedName = info?.client?.clientName;
   const redirectTarget = describeRedirectTarget(info?.redirectUri);
-  const showDetails = !!info?.client && !error;
+  const showDetails = !!info?.client && !fatalError;
 
   return (
     <ConsentPageWrapper>
       {showDetails ? (
         // `as="div"` rather than `as="p"`: global Bootstrap styling puts a
         // margin on <p> that fights the explicit spacing here.
-        <Flex direction="column" align="center" mb="5">
+        <Flex direction="column" align="center" mb="4">
           <Heading as="h1" size="xl" align="center" mb="1">
             {claimedName}
           </Heading>
@@ -389,7 +425,7 @@ export default function OAuthAuthorizePage() {
           </Text>
           {redirectTarget && !redirectTarget.isLocal ? (
             <HelperText status="info" size="sm" mt="2">
-              Your authorization code will be sent to {redirectTarget.host}
+              Authorizing or denying will return you to {redirectTarget.host}.
             </HelperText>
           ) : null}
         </Flex>
@@ -402,10 +438,16 @@ export default function OAuthAuthorizePage() {
       {error ? (
         <Callout status="error" mb="4">
           {error}
+          {!verifiedRedirectUri ? (
+            <Text as="div" mt="1">
+              Close this page and start the connection again from the
+              application.
+            </Text>
+          ) : null}
         </Callout>
       ) : null}
 
-      {info && !error ? (
+      {info && !fatalError ? (
         <Frame>
           {info.user ? (
             <>
@@ -464,7 +506,7 @@ export default function OAuthAuthorizePage() {
             <Select
               label="Organization"
               value={orgId || undefined}
-              setValue={setOrgId}
+              setValue={chooseOrg}
               placeholder="Select an organization"
             >
               {info.organizations.map((o) => (
@@ -483,50 +525,69 @@ export default function OAuthAuthorizePage() {
         </Frame>
       ) : null}
 
-      <Frame>
-        <Text as="div" size="md" weight="semibold" mb="3">
-          What this allows
-        </Text>
-        <Flex direction="column" gap="3">
-          <AccessItem icon={<PiUserCircle size={16} />}>
-            Acting as you in the selected organization, with the same
-            permissions you have in GrowthBook.
-          </AccessItem>
-          <AccessItem icon={<PiKey size={16} />}>
-            Access through the GrowthBook API on your behalf. Your password is
-            never shared.
-          </AccessItem>
-          <AccessItem icon={<PiArrowCounterClockwise size={16} />}>
-            Access continues until you revoke it from{" "}
-            <Link href="/account/personal-access-tokens">
-              Personal Access Tokens
-            </Link>
-            .
-          </AccessItem>
-        </Flex>
-      </Frame>
+      {info && !fatalError && orgLoaded ? (
+        <Frame>
+          <DefinitionsProvider>
+            <PermissionsField
+              holder="pat"
+              value={permissions}
+              setValue={setPermissions}
+              allowed={allowed}
+            />
+          </DefinitionsProvider>
+        </Frame>
+      ) : null}
 
-      <Flex gap="3">
-        <Button
-          variant="soft"
-          color="gray"
-          size="lg"
-          onClick={deny}
-          disabled={submitting}
-          style={{ flex: 1 }}
-        >
-          Deny
-        </Button>
-        <Button
-          size="lg"
-          onClick={approve}
-          disabled={submitting || !orgId || !!error}
-          loading={submitting}
-          style={{ flex: 1 }}
-        >
-          Authorize
-        </Button>
-      </Flex>
+      {verifiedRedirectUri ? (
+        <>
+          <Frame>
+            <Text as="div" size="md" weight="semibold" mb="3">
+              What this allows
+            </Text>
+            <Flex direction="column" gap="3">
+              <AccessItem icon={<PiUserCircle size={16} />}>
+                Acting as you through the GrowthBook API
+              </AccessItem>
+              <AccessItem icon={<PiLock size={16} />}>
+                Your password is never shared
+              </AccessItem>
+              <AccessItem icon={<PiArrowCounterClockwise size={16} />}>
+                Works until you revoke it from{" "}
+                <Link href="/account/personal-access-tokens">
+                  Personal Access Tokens
+                </Link>
+              </AccessItem>
+            </Flex>
+          </Frame>
+
+          <Flex gap="3">
+            <Button
+              variant="soft"
+              color="gray"
+              size="lg"
+              onClick={deny}
+              disabled={submitting || !verifiedRedirectUri}
+              style={{ flex: 1 }}
+            >
+              Deny
+            </Button>
+            <Button
+              size="lg"
+              onClick={approve}
+              disabled={
+                submitting ||
+                !orgLoaded ||
+                !isComplete(permissions) ||
+                !!fatalError
+              }
+              loading={submitting}
+              style={{ flex: 1 }}
+            >
+              Authorize
+            </Button>
+          </Flex>
+        </>
+      ) : null}
     </ConsentPageWrapper>
   );
 }

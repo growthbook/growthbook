@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { CustomHookInterface } from "shared/validators";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import useApi from "@/hooks/useApi";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
@@ -10,6 +11,7 @@ import { isCloud } from "@/services/env";
 import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
 import CustomHooksTable from "@/components/CustomHooks/CustomHooksTable";
 import Link from "@/ui/Link";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 // Feature- and config-scoped hooks are managed from their entity's Validation
 // tab; here they are listed with a link to that entity plus history/revert.
@@ -54,8 +56,11 @@ export default function CustomHooksPage() {
     null,
   );
 
+  const { getProjectById } = useDefinitions();
+
   const { data, error, mutate } = useApi<{
     customHooks: CustomHookInterface[];
+    deletedProjects: string[];
   }>("/custom-hooks");
 
   if (isCloud()) {
@@ -80,8 +85,31 @@ export default function CustomHooksPage() {
   const configHooks = allHooks.filter((h) => h.entityType === "config");
   const experimentHooks = allHooks.filter((h) => h.entityType === "experiment");
 
+  const deletedProjects = new Set(data.deletedProjects);
+  const projectsLabel = (projects: string[]) => {
+    const labels: string[] = [];
+    // Definitions omit Projects the viewer can't read; show only a count
+    let restricted = 0;
+    for (const id of projects) {
+      const name = getProjectById(id)?.name;
+      if (name) labels.push(name);
+      else if (deletedProjects.has(id)) labels.push(`${id} (deleted)`);
+      else restricted++;
+    }
+    if (restricted) {
+      labels.push(
+        `${restricted} restricted Project${restricted === 1 ? "" : "s"}`,
+      );
+    }
+    return labels.join(", ");
+  };
+
   return (
-    <div className="container-fluid pagecontents">
+    <SettingsPage
+      title="Custom Hooks"
+      description="Custom hooks allow you to extend the functionality of GrowthBook by writing custom javascript snippets that execute on certain events."
+      hideHeader={allHooks.length === 0}
+    >
       {modalData && (
         <CustomHookModal
           current={modalData === true ? undefined : modalData}
@@ -98,20 +126,12 @@ export default function CustomHooksPage() {
           // TODO: add docs page and link to it here
           leftButton={null}
           rightButton={
-            <Button onClick={() => setModalData(true)}>Add Custom Hook</Button>
+            <Button onClick={() => setModalData(true)}>Add custom hook</Button>
           }
         />
       ) : (
         <>
           <div>
-            <Box mb="5">
-              <h1>Custom Hooks</h1>
-              <p>
-                Custom hooks allow you to extend the functionality of GrowthBook
-                by writing custom javascript snippets that execute on certain
-                events.
-              </p>
-            </Box>
             <Flex justify="between" align="center" mb="1">
               <h2 className="mb-0">Global/Project Hooks</h2>
               <Button onClick={() => setModalData(true)}>
@@ -134,7 +154,7 @@ export default function CustomHooksPage() {
                   header: "Projects",
                   render: (hook) =>
                     hook.projects.length ? (
-                      hook.projects.join(", ")
+                      projectsLabel(hook.projects)
                     ) : (
                       <em>All Projects</em>
                     ),
@@ -193,6 +213,6 @@ export default function CustomHooksPage() {
           )}
         </>
       )}
-    </div>
+    </SettingsPage>
   );
 }

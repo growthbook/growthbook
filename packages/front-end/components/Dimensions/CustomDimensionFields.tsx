@@ -16,33 +16,6 @@ export type CustomDimensionDraft = {
   constituentIds: string[];
 };
 
-// DatePicker renders a `datetime-local` input, which always displays local
-// wall-clock time. These convert between the true instant and a display Date
-// whose *local* components read as the instant's *UTC* components, so the user
-// picks directly in UTC. Component-based rather than offset arithmetic so the
-// two stay exact inverses.
-export function utcInstantToPickerDate(instant: Date): Date {
-  return new Date(
-    instant.getUTCFullYear(),
-    instant.getUTCMonth(),
-    instant.getUTCDate(),
-    instant.getUTCHours(),
-    instant.getUTCMinutes(),
-  );
-}
-
-export function pickerDateToUtcInstant(picked: Date): Date {
-  return new Date(
-    Date.UTC(
-      picked.getFullYear(),
-      picked.getMonth(),
-      picked.getDate(),
-      picked.getHours(),
-      picked.getMinutes(),
-    ),
-  );
-}
-
 export function isCutoffWithinBounds(
   cutoff: Date,
   cutoffMin?: Date,
@@ -104,21 +77,13 @@ export default function CustomDimensionFields({
     return (
       <Flex direction="column" gap="1">
         <DatePicker
-          label="First exposure cutoff (UTC)"
-          date={draft.cutoff ? utcInstantToPickerDate(draft.cutoff) : undefined}
-          setDate={(d) =>
-            setDraft({
-              ...draft,
-              cutoff: d ? pickerDateToUtcInstant(d) : undefined,
-            })
-          }
+          label="First exposure cutoff"
+          timeZone="utc"
+          date={draft.cutoff}
+          setDate={(d) => setDraft({ ...draft, cutoff: d })}
           precision="datetime"
-          disableBefore={
-            cutoffMin ? utcInstantToPickerDate(cutoffMin) : undefined
-          }
-          disableAfter={
-            cutoffMax ? utcInstantToPickerDate(cutoffMax) : undefined
-          }
+          disableBefore={cutoffMin}
+          disableAfter={cutoffMax}
           helpText="Splits units by whether they were first exposed before or after this time"
         />
         {outOfBounds && (

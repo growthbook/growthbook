@@ -12,6 +12,7 @@ const validation = {
   responseSchema: z.object({ connected: z.boolean() }),
   method: "post" as const,
   path: "/visual-editor/figma/disconnect",
+  confirmation: ["other.write"] as const,
   operationId: "postVisualEditorFigmaDisconnect",
   // Internal endpoint used only by the Visual Editor extension — keep it
   // out of the public OpenAPI spec.

@@ -7,6 +7,7 @@ import {
   validateProjects,
   validateRequireProjectForSdkConnections,
   validateSdkCapabilities,
+  validateSdkConnectionChanges,
   validateSdkVersion,
 } from "back-end/src/api/sdk-connections/validations";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -88,6 +89,52 @@ describe("sdk-connections validations", () => {
       await expect(
         validateProjects(context, ["project_1", "project_2"]),
       ).resolves.not.toThrow();
+    });
+  });
+
+  describe("changed settings validation", () => {
+    const context = {
+      org,
+      models: {
+        projects: { getAll: async () => [{ id: "project_1" }] },
+      },
+    };
+    const current = {
+      environment: "retired_env",
+      projects: ["deleted_project"],
+      languages: ["legacy-sdk"],
+    };
+
+    beforeEach(() => {
+      getEnvironments.mockReturnValue([{ id: "env_id" }]);
+    });
+
+    it("leaves values the connection already has alone", async () => {
+      await expect(
+        validateSdkConnectionChanges(
+          context,
+          { ...current, projects: ["deleted_project", "project_1"] },
+          current,
+        ),
+      ).resolves.not.toThrow();
+    });
+
+    it("checks what a write changes or adds", async () => {
+      await expect(
+        validateSdkConnectionChanges(context, { environment: "nope" }, current),
+      ).rejects.toThrow("Environment nope does not exist!");
+      await expect(
+        validateSdkConnectionChanges(context, { projects: ["nope"] }, current),
+      ).rejects.toThrow("do not exist: nope");
+      await expect(
+        validateSdkConnectionChanges(context, { languages: ["nope"] }, current),
+      ).rejects.toThrow("Language nope is not supported!");
+    });
+
+    it("checks everything on a new connection", async () => {
+      await expect(
+        validateSdkConnectionChanges(context, current),
+      ).rejects.toThrow("Environment retired_env does not exist!");
     });
   });
 
@@ -191,7 +238,7 @@ describe("sdk-connections validations", () => {
           "latest_version",
         );
       }).toThrow(
-        "You need to ugrade to version latest_version to support remoteEval",
+        "You need to upgrade to version latest_version to support remoteEval",
       );
     });
 
@@ -233,7 +280,7 @@ describe("sdk-connections validations", () => {
       }).not.toThrow();
     });
 
-    it("Allows premium overriden features", () => {
+    it("Allows premium overridden features", () => {
       expect(() => {
         validatePremiumFeatures(context, { proxyEnabled: true });
       }).not.toThrow();
@@ -254,6 +301,28 @@ describe("sdk-connections validations", () => {
       expect(() => {
         validatePremiumFeatures(context, { encryptPayload: true });
       }).not.toThrow();
+    });
+
+    it("Allows keeping a feature the existing connection already has on", () => {
+      expect(() => {
+        validatePremiumFeatures(
+          context,
+          { hashSecureAttributes: true, remoteEvalEnabled: true },
+          { hashSecureAttributes: true, remoteEvalEnabled: true },
+        );
+      }).not.toThrow();
+    });
+
+    it("Fails turning on a feature the existing connection has off", () => {
+      expect(() => {
+        validatePremiumFeatures(
+          context,
+          { hashSecureAttributes: true },
+          { hashSecureAttributes: false },
+        );
+      }).toThrow(
+        "Feature hash-secure-attributes requires premium subscription!",
+      );
     });
   });
 

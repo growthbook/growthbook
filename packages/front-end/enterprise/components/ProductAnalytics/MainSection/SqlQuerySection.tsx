@@ -25,7 +25,11 @@ import AiSqlGenerator from "@/components/SchemaBrowser/AiSqlGenerator";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { canFormatSql, formatSql } from "@/services/sqlFormatter";
+import {
+  canFormatSql,
+  formatSql,
+  getFormatSqlShortcutLabel,
+} from "@/services/sqlFormatter";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useExplorerContext,
@@ -98,7 +102,11 @@ function SqlQueryActions({
           </IconButton>
         }
       >
-        <DropdownMenuItem onClick={onFormat} disabled={!canFormat}>
+        <DropdownMenuItem
+          onClick={onFormat}
+          disabled={!canFormat}
+          shortcut={getFormatSqlShortcutLabel()}
+        >
           Format
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onToggleAutocomplete}>
@@ -189,7 +197,11 @@ export default function SqlQuerySection({
 
   if (!dataset) return null;
 
-  const handleFormatClick = () => {
+  const canFormat =
+    !loading && datasource ? canFormatSql(datasource.type) : false;
+
+  const handleFormat = () => {
+    if (!localSql || !canFormat) return;
     const result = formatSql(localSql, datasource?.type);
     if (result.error) {
       setFormatError(result.error);
@@ -205,8 +217,6 @@ export default function SqlQuerySection({
     !!localSql.trim() &&
     !!draftExploreState.datasource &&
     canRunQueries;
-  const canFormat =
-    !loading && datasource ? canFormatSql(datasource.type) : false;
   const openExplore = (mode: SqlExploreMode) => {
     setSqlExploreMode(mode);
     markExploreSeen();
@@ -313,7 +323,7 @@ export default function SqlQuerySection({
             formatError={formatError}
             isAutocompleteEnabled={isAutocompleteEnabled}
             loading={loading}
-            onFormat={handleFormatClick}
+            onFormat={handleFormat}
             onRun={() => void previewQuery(localSql)}
             onToggleAutocomplete={() =>
               setIsAutocompleteEnabled(!isAutocompleteEnabled)
@@ -339,6 +349,7 @@ export default function SqlQuerySection({
                   void previewQuery(localSql);
                 }
               }}
+              onFormatShortcut={handleFormat}
               completions={autoCompletions}
               fullHeight
               paddingTop={8}

@@ -3,6 +3,7 @@ import type { ApiRequestLocals } from "back-end/types/api";
 import { type OpenApiRoute, runApiHandler } from "back-end/src/util/handler";
 import { allRoutes } from "back-end/src/api/api.router";
 import { logger } from "back-end/src/util/logger";
+import { runAsRequestSource } from "back-end/src/services/growthbook";
 
 /**
  * In-process dispatcher for the public REST API surface. Lets internal callers
@@ -49,6 +50,8 @@ export type DispatchResult = {
 export type DispatchHooks = {
   /** Fires on every 2xx dispatch. Throwing here is logged and swallowed. */
   onSuccess?: (input: DispatchInput, result: DispatchResult) => void;
+  /** Also match deprecated routes, e.g. to replay a held call made on one. */
+  includeDeprecated?: boolean;
 };
 
 // =============================================================================
@@ -64,7 +67,7 @@ export async function dispatchInternal(
   input: DispatchInput,
   hooks?: DispatchHooks,
 ): Promise<DispatchResult> {
-  const resolved = resolveRoute(input);
+  const resolved = resolveRoute(input, !!hooks?.includeDeprecated);
   if (!resolved.ok) return resolved.result;
 
   const result = await executeRoute(
@@ -81,6 +84,17 @@ export async function dispatchInternal(
   return result;
 }
 
+// A call GrowthBook's AI assistant makes. Its events say the assistant made it.
+export function dispatchForAgent(
+  ctx: ReqContext,
+  input: DispatchInput,
+  hooks?: DispatchHooks,
+): Promise<DispatchResult> {
+  return runAsRequestSource("assistant", () =>
+    dispatchInternal(ctx, input, hooks),
+  );
+}
+
 /**
  * Resolve an input to its matching route + path params, or to the error
  * `DispatchResult` an external caller would get: 400 for a malformed path,
@@ -90,7 +104,10 @@ type RouteResolution =
   | { ok: true; route: OpenApiRoute; params: Record<string, string> }
   | { ok: false; result: DispatchResult };
 
-function resolveRoute(input: DispatchInput): RouteResolution {
+function resolveRoute(
+  input: DispatchInput,
+  includeDeprecated: boolean,
+): RouteResolution {
   if (!input.path || !input.path.startsWith("/")) {
     return {
       ok: false,
@@ -105,7 +122,7 @@ function resolveRoute(input: DispatchInput): RouteResolution {
 
   let matched: ReturnType<typeof matchRoute>;
   try {
-    matched = matchRoute(input.method, input.path);
+    matched = matchRoute(input.method, input.path, includeDeprecated);
   } catch (err) {
     if (err instanceof MalformedPathError) {
       return {
@@ -348,7 +365,7 @@ function compileRoutes(): CompiledRoute[] {
   if (compiled) return compiled;
   const source = routesOverride ?? allRoutes;
   compiled = source
-    .filter((r) => !!r.method && !r.deprecated)
+    .filter((r) => !!r.method)
     .map((r) => {
       const fullPath = routeFullPath(r);
       return {
@@ -403,11 +420,13 @@ function decodePathParams(
 function matchRoute(
   method: string,
   path: string,
+  includeDeprecated: boolean,
 ): { route: OpenApiRoute; params: Record<string, string> } | null {
   const m = method.toUpperCase();
   const cleanPath = normalizePath(path);
   for (const c of compileRoutes()) {
     if (c.method !== m) continue;
+    if (c.route.deprecated && !includeDeprecated) continue;
     const match = c.re.exec(cleanPath);
     if (match) {
       return { route: c.route, params: decodePathParams(match.groups) };

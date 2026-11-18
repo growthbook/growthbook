@@ -1,5 +1,6 @@
 import React, { FC, useState, useCallback } from "react";
 import { FormProvider, useForm } from "react-hook-form";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -7,12 +8,11 @@ import {
   Variation,
 } from "shared/types/experiment";
 import {
-  ApiContextualBanditInterface,
   ApiCreateContextualBanditBody,
   getEligibleContextualAttributes,
 } from "shared/validators";
 import { useRouter } from "next/router";
-import { datetime, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import { validateAndFixCondition } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -24,7 +24,7 @@ import { kebabCase } from "lodash";
 import { Separator } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
 import { useWatching } from "@/services/WatchProvider";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -52,10 +52,8 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ContextualBanditAnalysisFields from "@/components/ContextualBandit/ContextualBanditAnalysisFields";
 import ContextualBanditAssignmentAttributeSelect from "@/components/ContextualBandit/ContextualBanditAssignmentAttributeSelect";
 import DatePicker from "@/components/DatePicker";
-import {
-  getDefaultVariations,
-  getNewExperimentDatasourceDefaults,
-} from "@/components/Experiment/NewExperimentForm";
+import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
+import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 
 type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
   Partial<
@@ -172,12 +170,8 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       prerequisites: initialValue?.prerequisites,
       variationWeights:
         initialValue?.variationWeights ?? toEqualWeights(initialExpVariations),
-      dateStarted: getValidDate(initialValue?.dateStarted ?? "")
-        .toISOString()
-        .substring(0, 16),
-      dateEnded: getValidDate(initialValue?.dateEnded ?? "")
-        .toISOString()
-        .substring(0, 16),
+      dateStarted: getValidDate(initialValue?.dateStarted ?? "").toISOString(),
+      dateEnded: getValidDate(initialValue?.dateEnded ?? "").toISOString(),
       status: "draft",
       banditScheduleValue: scopedSettings.banditScheduleValue.value,
       banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
@@ -261,7 +255,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     screenshots: v.screenshots,
   }));
 
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const value = { ...rawValue, name: rawValue.name?.trim() };
@@ -275,13 +269,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     if (data.status !== "stopped") {
       data.dateEnded = "";
     }
-    if (data.dateStarted && !data.dateStarted.match(/Z$/)) {
-      data.dateStarted += ":00Z";
-    }
-    if (data.dateEnded && !data.dateEnded.match(/Z$/)) {
-      data.dateEnded += ":00Z";
-    }
-
     validateSavedGroupTargeting(data.savedGroups);
 
     validateAndFixCondition(data.condition, (condition) => {
@@ -380,15 +367,11 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     }
 
     if (!allowDuplicateTrackingKey && data.trackingKey) {
-      const existing = await apiCall<{
-        contextualBandits: ApiContextualBanditInterface[];
-      }>(
-        `/api/v1/contextual-bandits?trackingKey=${encodeURIComponent(
-          data.trackingKey,
-        )}`,
-        { method: "GET" },
+      const existing = await restApiCall(
+        contextualBanditEndpoints.listContextualBandits,
+        { query: { trackingKey: data.trackingKey } },
       );
-      if ((existing.contextualBandits?.length ?? 0) > 0) {
+      if (existing.contextualBandits.length > 0) {
         setAllowDuplicateTrackingKey(true);
         throw new Error(
           "Warning: A Contextual Bandit with that tracking key already exists. To continue anyway, click 'Save' again.",
@@ -449,12 +432,10 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       contextualAttributes: submitContextualAttributes,
     };
 
-    const res = await apiCall<{
-      contextualBandit: ApiContextualBanditInterface;
-    }>("/api/v1/contextual-bandits", {
-      method: "POST",
-      body: JSON.stringify(createBody),
-    });
+    const res = await restApiCall(
+      contextualBanditEndpoints.createContextualBandit,
+      { body: createBody },
+    );
 
     track("Create Contextual Bandit", {
       source,
@@ -625,10 +606,11 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 />
                 {status !== "draft" && (
                   <DatePicker
-                    label="Start Time (UTC)"
+                    label="Start time"
+                    timeZone="utc"
                     date={form.watch("dateStarted")}
                     setDate={(v) => {
-                      form.setValue("dateStarted", v ? datetime(v) : "");
+                      form.setValue("dateStarted", v ? v.toISOString() : "");
                     }}
                     scheduleEndDate={form.watch("dateEnded")}
                     disableAfter={form.watch("dateEnded") || undefined}
@@ -636,10 +618,11 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 )}
                 {status === "stopped" && (
                   <DatePicker
-                    label="End Time (UTC)"
+                    label="End time"
+                    timeZone="utc"
                     date={form.watch("dateEnded")}
                     setDate={(v) => {
-                      form.setValue("dateEnded", v ? datetime(v) : "");
+                      form.setValue("dateEnded", v ? v.toISOString() : "");
                     }}
                     scheduleStartDate={form.watch("dateStarted")}
                     disableBefore={form.watch("dateStarted") || undefined}

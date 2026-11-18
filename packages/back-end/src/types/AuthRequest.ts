@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { UserScopedGrowthBook } from "@growthbook/growthbook";
+import { UserContext, UserScopedGrowthBook } from "@growthbook/growthbook";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { AuditInterface } from "shared/types/audit";
 import {
@@ -10,7 +10,7 @@ import {
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
 import { UserInterface } from "shared/types/user";
-import { AppFeatures } from "shared/types/app-features";
+import { SuperAdmin } from "shared/validators";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;
@@ -47,7 +47,7 @@ export type AuthRequest<
   authSubject?: string;
   name?: string;
   vercelInstallationId?: string;
-  superAdmin?: boolean;
+  superAdmin?: SuperAdmin;
   organization?: OrganizationInterface;
   teams: TeamInterface[];
   // Ids of restrictAccess projects, loaded with the org for permission resolution
@@ -55,7 +55,9 @@ export type AuthRequest<
   audit: (
     data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">,
   ) => Promise<void>;
-  gb?: UserScopedGrowthBook<AppFeatures>;
+  gb?: UserScopedGrowthBook;
+  // What `gb` was made with, for events that log as something else (an agent).
+  gbUserContext?: UserContext;
 } & PermissionFunctions;
 
 export type ResponseWithStatusAndError<T = unknown> = Response<

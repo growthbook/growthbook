@@ -1,13 +1,7 @@
 import Agenda, { Job } from "agenda";
-import { Column } from "shared/types/integrations";
-import { fetchTableData } from "back-end/src/services/informationSchema";
+import { refreshInformationSchemaTable } from "back-end/src/services/informationSchema";
 import { logger } from "back-end/src/util/logger";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getInformationSchemaById } from "back-end/src/models/InformationSchemaModel";
-import {
-  getInformationSchemaTableById,
-  updateInformationSchemaTableById,
-} from "back-end/src/models/InformationSchemaTablesModel";
+import { getInformationSchemaTableById } from "back-end/src/models/InformationSchemaTablesModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =
@@ -40,54 +34,8 @@ const updateStaleInformationSchemaTable = async (
 
   const context = await getContextForAgendaJobByOrgId(organization);
 
-  const datasource = await getDataSourceById(
-    context,
-    informationSchemaTable.datasourceId,
-  );
-
-  const informationSchema = await getInformationSchemaById(
-    organization,
-    informationSchemaTable.informationSchemaId,
-  );
-
-  if (!datasource || !informationSchema) {
-    logger.error(
-      "Unable to find datasource or information schema in order to refresh stale data: " +
-        informationSchemaTableId,
-    );
-    return;
-  }
-
   try {
-    const { tableData } = await fetchTableData(
-      context,
-      datasource,
-      informationSchema,
-      informationSchemaTableId,
-    );
-
-    if (!tableData) {
-      logger.error(
-        "Unable to fetch table data in order to refresh stale data: " +
-          informationSchemaTableId,
-      );
-      return;
-    }
-
-    const columns: Column[] = tableData.map((row) => ({
-      columnName: row.column_name,
-      dataType: row.data_type,
-    }));
-
-    // update the information schema table
-    await updateInformationSchemaTableById(
-      organization,
-      informationSchemaTableId,
-      {
-        columns,
-        dateUpdated: new Date(),
-      },
-    );
+    await refreshInformationSchemaTable(context, informationSchemaTable);
   } catch (e) {
     logger.error(
       e,

@@ -20,6 +20,14 @@ export default function BreadcrumbsStories() {
           { display: "Page 5", href: "/page-5" },
         ]}
       />
+      <Breadcrumbs
+        muted
+        items={[
+          { display: "Settings" },
+          { display: "Organization" },
+          { display: "Projects" },
+        ]}
+      />
     </Flex>
   );
 }

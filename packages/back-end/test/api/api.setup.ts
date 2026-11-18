@@ -1,4 +1,6 @@
 import { randomUUID } from "crypto";
+import { once } from "events";
+import { createServer } from "http";
 import mongoose from "mongoose";
 import merge from "lodash/merge";
 import { testMongoUri, disconnectTestMongo } from "back-end/test/test-helpers";
@@ -38,6 +40,7 @@ const defaultLimits = {
 };
 
 export const setupApp = () => {
+  const server = createServer(app);
   // These specs boot the real Express app against an in-memory Mongo, so a
   // single test is app setup plus several round trips. Jest's 5s default is a
   // unit-test budget and several of these files legitimately run for 40s+, so
@@ -64,10 +67,14 @@ export const setupApp = () => {
         // auth middleware sets this; under this mock we give each request a
         // unique key so the limiter never crosses test boundaries.
         req.apiKey = randomUUID();
-        // The real middleware sets this on every path. Without it, writes that
-        // record an audit user fail validation — and because several are
-        // fire-and-forget, the failure is swallowed and the specs cannot see it.
-        req.eventAudit = { type: "api_key", apiKey: req.apiKey, name: "test" };
+        // The real middleware sets this on every path, to the same actor as the
+        // context's. Without it, writes that record an audit user fail
+        // validation — and because several are fire-and-forget, the failure is
+        // swallowed and the specs cannot see it.
+        req.eventAudit =
+          reqContext?.auditUser?.type === "api_key"
+            ? reqContext.auditUser
+            : { type: "api_key", apiKey: req.apiKey, name: "test" };
         next();
       });
 
@@ -100,10 +107,20 @@ export const setupApp = () => {
       });
       // Wait for all model indexes to be created before running tests
       await waitForIndexes();
+
+      // Bind to Supertest's destination: on macOS, :: can share a port with an
+      // unrelated IPv4 listener, causing requests to reach the wrong server.
+      server.listen(0, "127.0.0.1");
+      await once(server, "listening");
       resolve();
     }, 60000); // Increase timeout to 60s for CI environment
 
     afterAll(async () => {
+      if (server.listening) {
+        await new Promise<void>((resolve, reject) => {
+          server.close((err) => (err ? reject(err) : resolve()));
+        });
+      }
       await getAgendaInstance().stop();
       await disconnectTestMongo();
       process.env = OLD_ENV;
@@ -120,7 +137,7 @@ export const setupApp = () => {
   });
 
   return {
-    app,
+    app: server,
     auditMock,
     isReady,
     setReqContext: (v) => {

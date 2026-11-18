@@ -9,6 +9,8 @@ import {
 } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { NotFoundError } from "back-end/src/util/errors";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const putReportMetadata = createApiRequestHandler(
@@ -18,7 +20,7 @@ export const putReportMetadata = createApiRequestHandler(
 
   const report = await getReportById(org.id, req.params.id);
   if (!report) {
-    throw new Error("Could not find report with that id");
+    throw new NotFoundError("Could not find report with that id");
   }
 
   if (report.type !== "experiment-snapshot") {
@@ -30,7 +32,7 @@ export const putReportMetadata = createApiRequestHandler(
     : null;
 
   if (report.experimentId && !experiment) {
-    throw new Error("Could not find report with that id");
+    throw new NotFoundError("Could not find report with that id");
   }
 
   if (!req.context.permissions.canUpdateReport(experiment || {})) {
@@ -59,7 +61,7 @@ export const putReportMetadata = createApiRequestHandler(
     ? await findSnapshotById(req.context, updatedReport.snapshot)
     : null;
   const apiReport = await resolveOwnerEmail(
-    toReportApiInterface(updatedReport, snapshot),
+    await toReportApiInterface(req.context, updatedReport, snapshot),
     req.context,
   );
 
@@ -68,7 +70,12 @@ export const putReportMetadata = createApiRequestHandler(
       req.context,
       experiment,
     );
-    const results = toSnapshotApiInterface(experiment, snapshot, metricsById);
+    const results = toSnapshotApiInterface(
+      experiment,
+      snapshot,
+      metricsById,
+      await getExposureQueriesForDatasource(req.context, experiment.datasource),
+    );
     return { report: { ...apiReport, results } };
   }
 

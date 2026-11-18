@@ -7,11 +7,13 @@ import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import {
   CollapsedRuleRows,
-  projectRuleRows,
-  ruleRows,
+  memberRuleRows,
 } from "@/components/Settings/Team/RoleRuleLabel";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
+import {
+  MEMBER_COLUMN_WIDTHS,
+  MEMBER_TABLE_MIN_WIDTH,
+} from "@/components/Settings/Team/memberTableWidths";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
@@ -138,7 +140,13 @@ const InviteList: FC<{
       )}
       {resending && <LoadingOverlay />}
       {resendMessage}
-      <Table variant="surface" layout="fixed">
+      <Table
+        variant="list"
+        stickyHeader={false}
+        stickyLastColumn
+        layout="fixed"
+        minTableWidth={MEMBER_TABLE_MIN_WIDTH}
+      >
         <TableHeader>
           <TableRow>
             <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.emailNoName}>
@@ -165,6 +173,9 @@ const InviteList: FC<{
               (project &&
                 member.projectRoles?.find((r) => r.project === project)) ||
               member;
+            const rows = memberRuleRows(member, getProjectById, organization, {
+              project,
+            });
             return (
               <TableRow key={key}>
                 <TableCell>{email}</TableCell>
@@ -172,21 +183,15 @@ const InviteList: FC<{
                   {date(dateCreated)}
                 </TableCell>
                 <TableCell>
-                  <CollapsedRuleRows rows={ruleRows(roleInfo, organization)} />
+                  <CollapsedRuleRows rows={rows.roles} />
                 </TableCell>
                 {!project && (
                   <TableCell>
-                    <CollapsedRuleRows
-                      rows={projectRuleRows(
-                        member.projectRoles ?? [],
-                        getProjectById,
-                        organization,
-                      )}
-                    />
+                    <CollapsedRuleRows rows={rows.projectRoles} />
                   </TableCell>
                 )}
                 <TableCell />
-                <TableCell justify="end">
+                <TableCell justify="center" px="0">
                   <DropdownMenu
                     trigger={
                       <IconButton

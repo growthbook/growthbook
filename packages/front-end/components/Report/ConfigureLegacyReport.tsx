@@ -1,4 +1,5 @@
-import React, { useMemo } from "react";
+import { HoldoutInterfaceStringDates } from "shared/validators";
+import React, { useCallback, useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
   ExperimentReportInterface,
@@ -14,7 +15,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { datetime, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricDefinitionInterface } from "shared/types/metric";
 import { DifferenceType } from "shared/types/stats";
@@ -22,7 +23,11 @@ import {
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
 } from "shared/experiments";
-import { isDefined } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  resolveAnalysisIdentifierType,
+  isDefined,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -42,7 +47,9 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import Switch from "@/ui/Switch";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import DatePicker from "@/components/DatePicker";
 
@@ -73,6 +80,12 @@ export default function ConfigureLegacyReport({
     experiment: ExperimentInterfaceStringDates;
   }>(`/experiment/${eid}`);
   const experiment = experimentData?.experiment;
+  const isHoldout = experiment?.type === "holdout";
+  const { data: holdoutData } = useApi<{
+    holdout: HoldoutInterfaceStringDates;
+  }>(`/holdout/${experiment?.holdoutId}`, {
+    shouldRun: () => isHoldout && !!experiment?.holdoutId,
+  });
   const pid = experiment?.project;
   const project = pid ? getProjectById(pid) : null;
 
@@ -122,11 +135,9 @@ export default function ConfigureLegacyReport({
         report.args.attributionModel ||
         orgSettings.attributionModel ||
         "firstExposure",
-      startDate: getValidDate(report.args.startDate)
-        .toISOString()
-        .substr(0, 16),
+      startDate: getValidDate(report.args.startDate).toISOString(),
       endDate: report.args.endDate
-        ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
+        ? getValidDate(report.args.endDate).toISOString()
         : undefined,
       statsEngine: report.args.statsEngine || parentSettings.statsEngine.value,
       useLatestPriorSettings: report.args.useLatestPriorSettings || false,
@@ -181,6 +192,31 @@ export default function ConfigureLegacyReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+  const storedIdentifierType = form.watch("exposureQueryIdentifierType");
+  const setExposureQueryId = useCallback(
+    (value: string) => form.setValue("exposureQueryId", value),
+    [form],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      form.setValue("exposureQueryIdentifierType", value),
+    [form],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    project: experiment?.project,
+    holdoutProjects: isHoldout ? holdoutData?.holdout.projects : undefined,
+    hashAttribute: experiment?.hashAttribute,
+    exposureQueryId,
+    identifierType: resolveAnalysisIdentifierType(
+      exposureQuery,
+      storedIdentifierType,
+    ),
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    autoRepair: false,
+    keepCurrentSelection: true,
+  });
 
   return (
     <Modal
@@ -280,52 +316,20 @@ export default function ConfigureLegacyReport({
         </small>
       </div>
       {datasource?.properties?.userIds && (
-        <SelectField
+        <AssignmentQueryFields
+          selection={assignmentQuerySelection}
           size="legacy"
-          label={
-            <>
-              Experiment Assignment Table{" "}
-              <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-            </>
-          }
-          labelClassName="font-weight-bold"
-          value={form.watch("exposureQueryId") ?? ""}
-          onChange={(v) => form.setValue("exposureQueryId", v)}
-          required
-          options={exposureQueries?.map((q) => {
-            return {
-              label: q.name,
-              value: q.id,
-            };
-          })}
-          formatOptionLabel={({ label, value }) => {
-            const userIdType = exposureQueries?.find(
-              (e) => e.id === value,
-            )?.userIdType;
-            return (
-              <>
-                {label}
-                {userIdType ? (
-                  <span
-                    className="text-muted small float-right position-relative"
-                    style={{ top: 3 }}
-                  >
-                    Identifier Type: <code>{userIdType}</code>
-                  </span>
-                ) : null}
-              </>
-            );
-          }}
         />
       )}
 
       <div className="row">
         <div className="col">
           <DatePicker
-            label="Start Date (UTC)"
+            label="Start date"
+            timeZone="utc"
             date={form.watch("startDate")}
             setDate={(v) => {
-              form.setValue("startDate", v ? datetime(v) : "");
+              form.setValue("startDate", v ? v.toISOString() : "");
             }}
             scheduleEndDate={form.watch("endDate")}
             disableAfter={form.watch("endDate") || undefined}
@@ -333,10 +337,11 @@ export default function ConfigureLegacyReport({
         </div>
         <div className="col">
           <DatePicker
-            label="End Date (UTC)"
+            label="End date"
+            timeZone="utc"
             date={form.watch("endDate")}
             setDate={(v) => {
-              form.setValue("endDate", v ? datetime(v) : "");
+              form.setValue("endDate", v ? v.toISOString() : "");
             }}
             scheduleStartDate={form.watch("startDate")}
             disableBefore={form.watch("startDate") || undefined}
@@ -362,6 +367,7 @@ export default function ConfigureLegacyReport({
         experimentType={experiment?.type}
         datasource={report.args.datasource}
         exposureQueryId={exposureQueryId}
+        exposureQueryIdentifierType={assignmentQuerySelection.identifierType}
         project={project?.id}
         goalMetrics={form.watch("goalMetrics")}
         secondaryMetrics={form.watch("secondaryMetrics")}
@@ -415,6 +421,7 @@ export default function ConfigureLegacyReport({
       <MetricSelector
         datasource={form.watch("datasource")}
         exposureQueryId={exposureQueryId}
+        exposureQueryIdentifierType={assignmentQuerySelection.identifierType}
         includeFacts={true}
         label={
           <>
@@ -629,7 +636,11 @@ export default function ConfigureLegacyReport({
             Available columns:
             <div className="mb-2 d-flex flex-wrap">
               {["timestamp", "variation_id"]
-                .concat(exposureQuery ? [exposureQuery.userIdType] : [])
+                .concat(
+                  exposureQuery
+                    ? getExposureQueryIdentifierTypes(exposureQuery)
+                    : [],
+                )
                 .concat(exposureQuery?.dimensions || [])
                 .map((d) => {
                   return (

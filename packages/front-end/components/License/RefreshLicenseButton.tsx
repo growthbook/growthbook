@@ -1,11 +1,13 @@
 import { FC } from "react";
-import { BsArrowRepeat } from "react-icons/bs";
+import { PiArrowClockwise } from "react-icons/pi";
 import { LicenseInterface } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 
-const RefreshLicenseButton: FC = () => {
+const RefreshLicenseButton: FC<{ setError?: (e: string) => void }> = ({
+  setError,
+}) => {
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
 
@@ -25,8 +27,14 @@ const RefreshLicenseButton: FC = () => {
 
   return (
     <>
-      <Button color="outline-primary" className="nowrap" onClick={refresh}>
-        <BsArrowRepeat /> Refresh
+      <Button
+        variant="outline"
+        size="sm"
+        icon={<PiArrowClockwise />}
+        onClick={refresh}
+        setError={setError}
+      >
+        Refresh
       </Button>
     </>
   );

@@ -1,0 +1,27 @@
+.stepNameContainer {
+  min-width: 0;
+  max-width: 240px;
+}
+
+.stepName {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  border-bottom: 1px dashed var(--accent-8);
+  font-weight: 600;
+
+  &:focus-within {
+    outline: 2px solid var(--accent-8);
+    outline-offset: 2px;
+  }
+}
+
+.behavior {
+  border-top: 1px solid var(--gray-a6);
+  padding: var(--space-3) 0;
+
+  > summary {
+    cursor: pointer;
+    font-weight: 600;
+  }
+}

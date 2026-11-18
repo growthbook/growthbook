@@ -2,11 +2,11 @@
 title: Kotlin (Android)
 description: Install the GrowthBook Kotlin SDK to evaluate feature flags and run A/B tests in Android apps using Android SDK 21 and above.
 sidebarTitle: Kotlin (Android)
-slug: kotlin
 ---
 
 import { SdkResources } from "/snippets/SdkResources.jsx";
 import { SdkSupportedFeatures } from "/snippets/SdkSupportedFeatures.jsx";
+import KotlinEventTracking from "/snippets/partials/sdk-event-tracking/_kotlin.mdx";
 
 This SDK supports both Java and Kotlin Android apps using Android SDK 21 and above.
 
@@ -593,6 +593,12 @@ builder.setRefreshHandler { isRefreshed, error ->
 
 val growthBook = builder.initialize()
 ```
+
+## GrowthBook Event Tracking
+
+Sends experiment view and feature usage events to GrowthBook's [Managed Warehouse](/app/managed-warehouse) or [Event Forwarder](/app/event-forwarder).
+
+<KotlinEventTracking />
 
 ## Experiment Tracking and Feature Usage Callbacks
 

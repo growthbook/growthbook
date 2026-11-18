@@ -4,7 +4,11 @@ import {
   postFactMetricBodyFields,
   refineFactMetricCreateBody,
 } from "./fact-metrics";
-import { postFactTableBody, postFactTableFilterBodyFields } from "./fact-table";
+import {
+  factManagedByValidator,
+  postFactTableBody,
+  postFactTableFilterBodyFields,
+} from "./fact-table";
 import { componentSchema } from "./openapi-helpers";
 
 const bulkFactTableData = postFactTableBody
@@ -42,11 +46,10 @@ export type BulkImportError = z.infer<typeof bulkImportError>;
 
 const postBulkImportFactsBody = z
   .object({
-    defaultManagedBy: z
-      .enum(["", "api", "admin"])
+    defaultManagedBy: factManagedByValidator
       .optional()
       .describe(
-        'Fallback `managedBy` for Fact Tables and Fact Metrics that omit the field. Defaults to `"api"`. Filters inherit `"api"` only when the parent Fact Table is api-managed.',
+        'Fallback `managedBy` for Fact Tables and Fact Metrics that omit the field. Defaults to `"api"`; the dbt sync sends `"dbt"`. Filters inherit `"api"` only when the parent Fact Table is api-managed.',
       ),
     dryRun: z.boolean().optional().describe("Validate with zero writes."),
     factTables: z
@@ -97,6 +100,13 @@ export const postBulkImportFactsValidator = {
   summary: "Bulk import fact tables, filters, and metrics",
   description:
     "Creates or updates Fact Tables, Fact Table filters, and Fact Metrics. Resources upsert by `id`. Pass `dryRun: true` to validate with zero writes. Not transactional: a live mid-loop failure returns HTTP 400 (403 for a permission failure) with write counts and `errors`.",
+  confirmation: [
+    "factTable.create",
+    "factTable.edit",
+    "metric.create",
+    "metric.edit",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postBulkImportFacts",
   tags: ["fact-tables"],
   method: "post" as const,

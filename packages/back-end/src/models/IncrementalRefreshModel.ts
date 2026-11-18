@@ -1,6 +1,8 @@
 import uniqid from "uniqid";
 import { UpdateProps } from "shared/types/base-model";
 import {
+  ExploratoryAnalysisRequest,
+  exploratoryAnalysisRequestValidator,
   IncrementalRefreshInterface,
   incrementalRefreshValidator,
 } from "shared/validators";
@@ -40,12 +42,15 @@ export class IncrementalRefreshModel extends BaseClass {
   }
 
   /**
-   * Finds a runner's lock by snapshot ID because phase can be renumbered.
+   * Finds a runner's lock, held as the writer or as a reader, by snapshot ID.
    */
   public async getLockedBySnapshotId(experimentId: string, snapshotId: string) {
     return this._findOne({
       experimentId,
-      currentExecutionSnapshotId: snapshotId,
+      $or: [
+        { currentExecutionSnapshotId: snapshotId },
+        { "readers.snapshotId": snapshotId },
+      ],
     });
   }
 
@@ -156,6 +161,96 @@ export class IncrementalRefreshModel extends BaseClass {
     }
   }
 
+  /**
+   * Readers hold the lock together, but only while the writer slot is empty
+   * and not alongside a reader already computing the same request.
+   */
+  public async acquireReaderLock({
+    experimentId,
+    phase,
+    snapshotId,
+    request,
+    legacyExperimentSettingsHash,
+  }: {
+    experimentId: string;
+    phase: number;
+    snapshotId: string;
+    request: ExploratoryAnalysisRequest;
+    legacyExperimentSettingsHash: string;
+  }): Promise<boolean> {
+    const collection = this._dangerousGetCollection();
+    const now = new Date();
+    // Raw writes skip the model's validation, and the request is user input.
+    // Parsing also fixes the key order that whole-object equality relies on.
+    const validRequest = exploratoryAnalysisRequestValidator.parse(request);
+    // Note: a dead reader's entry stays until the next writer clears the
+    // list. It blocks nothing; purge here if the list ever grows.
+    const liveSameRequest = {
+      request: validRequest,
+      heartbeatAt: {
+        $gte: new Date(now.getTime() - INCREMENTAL_LOCK_STALE_MS),
+      },
+    };
+    // Readers never take over a writer's slot, even a stale one: a crashed
+    // update may have left the tables half-updated, so they wait for the next
+    // writer or the cleanup job to empty it.
+    const joinable = {
+      organization: this.context.org.id,
+      experimentId,
+      currentExecutionSnapshotId: null,
+      readers: { $not: { $elemMatch: liveSameRequest } },
+    };
+    const $push = {
+      readers: { snapshotId, heartbeatAt: now, request: validRequest },
+    };
+
+    try {
+      const existingPhase = await collection.updateOne(
+        { ...joinable, phase },
+        { $push, $set: { dateUpdated: now } },
+      );
+      if (existingPhase.matchedCount > 0) return true;
+
+      // No upsert past this point: a breakdown only reads tables that an
+      // Overall Results run has already recorded on a state document.
+      const legacyPhase = await collection.updateOne(
+        {
+          ...joinable,
+          phase: { $exists: false },
+          experimentSettingsHash: legacyExperimentSettingsHash,
+        },
+        { $push, $set: { phase, dateUpdated: now } },
+      );
+      return legacyPhase.matchedCount > 0;
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return false;
+      throw error;
+    }
+  }
+
+  /**
+   * Evicts every reader once a writer holds the lock, returning their snapshot
+   * IDs so the caller can cancel them. No reader can join after this: the
+   * writer slot is already taken.
+   */
+  public async clearReaders(
+    experimentId: string,
+    writerId: string,
+  ): Promise<string[]> {
+    const { value } = await this._dangerousGetCollection().findOneAndUpdate(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        currentExecutionSnapshotId: writerId,
+      },
+      { $set: { readers: [] } },
+      { projection: { readers: 1 } },
+    );
+    const readers: NonNullable<IncrementalRefreshInterface["readers"]> =
+      value?.readers ?? [];
+    return readers.map((reader) => reader.snapshotId);
+  }
+
   public async acquirePhaseSlotForMutation(
     experimentId: string,
     phase: number,
@@ -203,13 +298,17 @@ export class IncrementalRefreshModel extends BaseClass {
     }
   }
 
+  // One method for reader and writer lock release because not all callers
+  // such as snapshot cancellation know automatically whether they hold a
+  // writer or reader lock.
   public async releaseLock(experimentId: string, snapshotId: string) {
-    await this._dangerousGetCollection().updateOne(
-      {
-        organization: this.context.org.id,
-        experimentId,
-        currentExecutionSnapshotId: snapshotId,
-      },
+    const collection = this._dangerousGetCollection();
+    const experimentDocs = {
+      organization: this.context.org.id,
+      experimentId,
+    };
+    const writer = await collection.updateOne(
+      { ...experimentDocs, currentExecutionSnapshotId: snapshotId },
       {
         $set: {
           currentExecutionSnapshotId: null,
@@ -217,6 +316,11 @@ export class IncrementalRefreshModel extends BaseClass {
           dateUpdated: new Date(),
         },
       },
+    );
+    if (writer.matchedCount > 0) return;
+    await collection.updateOne(
+      { ...experimentDocs, "readers.snapshotId": snapshotId },
+      { $pull: { readers: { snapshotId } }, $set: { dateUpdated: new Date() } },
     );
   }
 
@@ -231,12 +335,39 @@ export class IncrementalRefreshModel extends BaseClass {
     );
   }
 
+  public async touchReaderHeartbeat(experimentId: string, snapshotId: string) {
+    await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        "readers.snapshotId": snapshotId,
+      },
+      {
+        $set: { "readers.$.heartbeatAt": new Date(), dateUpdated: new Date() },
+      },
+    );
+  }
+
   public async isLockedBySnapshotId(
     experimentId: string,
     snapshotId: string,
   ): Promise<boolean> {
     const doc = await this.getLockedBySnapshotId(experimentId, snapshotId);
     return doc !== null;
+  }
+
+  public async hasFreshLockHeartbeat(
+    experimentId: string,
+    snapshotId: string,
+  ): Promise<boolean> {
+    const doc = await this.getLockedBySnapshotId(experimentId, snapshotId);
+    const heartbeatAt =
+      doc?.currentExecutionSnapshotId === snapshotId
+        ? doc.lockHeartbeatAt
+        : doc?.readers?.find((reader) => reader.snapshotId === snapshotId)
+            ?.heartbeatAt;
+    if (!heartbeatAt) return false;
+    return Date.now() - heartbeatAt.getTime() < INCREMENTAL_LOCK_STALE_MS;
   }
 
   public async updateByExperimentIdIfCurrentExecution(

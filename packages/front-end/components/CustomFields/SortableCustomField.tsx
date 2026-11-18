@@ -9,6 +9,7 @@ import { CUSTOM_FIELD_SECTION_LABELS } from "@/components/CustomFields/constants
 import type { CustomFieldWithArrayIndex } from "@/components/CustomFields/CustomFields";
 import CustomFieldRowMenu from "@/components/CustomFields/CustomFieldRowMenu";
 import ProjectBadges from "@/components/ProjectBadges";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
 import { TableCell, TableRow } from "@/ui/Table";
@@ -67,14 +68,15 @@ function EnumValuesDisplay({ valuesStr }: { valuesStr: string | undefined }) {
 
 export const CUSTOM_FIELD_TABLE_WIDTHS = {
   dragHandle: 30,
-  menu: 40,
+  menu: 32,
   name: "10%",
   key: "14%",
   description: "20%",
   appliesTo: "10%",
   valueType: undefined, // fill width
   projects: "15%",
-  required: "7%",
+  // Its header's width, so a narrow table doesn't hide it behind the menu.
+  required: 81,
 } as const;
 
 export function CustomFieldColGroup({
@@ -113,7 +115,6 @@ interface SortableProps {
 }
 
 const tdStyle: React.CSSProperties = { verticalAlign: "top" };
-const codeColor: React.CSSProperties["color"] = "var(--color-text-mid)";
 
 function RowCells({
   customField,
@@ -152,15 +153,7 @@ function RowCells({
               />
             </Tooltip>
           )}
-          <code
-            style={{
-              wordBreak: "break-all",
-              color: codeColor,
-              fontSize: "0.85em",
-            }}
-          >
-            {customField.id}
-          </code>
+          <CopyableCode value={customField.id} />
         </Flex>
       </TableCell>
       <TableCell style={tdStyle}>

@@ -229,7 +229,7 @@ const getContext = async ({
   res: Response;
 }) => {
   const failed = (status: number, reason?: string) => {
-    if (reason) res.status(status).send(reason);
+    if (reason) res.status(status).type("text/plain").send(reason);
     else res.sendStatus(status);
 
     throw new Error("Authentication failed");
@@ -291,7 +291,7 @@ const authContext = async (req: Request, res: Response) => {
       "Vercel request authentication failed",
     );
 
-    if (reason) res.status(status).send(reason);
+    if (reason) res.status(status).type("text/plain").send(reason);
     else res.sendStatus(status);
 
     throw new Error("Authentication failed");

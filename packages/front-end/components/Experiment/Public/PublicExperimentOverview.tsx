@@ -1,96 +1,78 @@
-import {
-  ExperimentInterfaceStringDates,
-  LinkedFeatureInfo,
-} from "shared/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import Markdown from "@/components/Markdown/Markdown";
+import { Box, Separator } from "@radix-ui/themes";
 import VariationsTable from "@/components/Experiment/VariationsTable";
-import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
+import ExperimentTextValue, {
+  EXPERIMENT_TEXT_FIELDS,
+  ExperimentTextFieldKey,
+} from "@/components/Experiment/TabbedPage/ExperimentTextValue";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import Heading from "@/ui/Heading";
 
 export default function PublicExperimentOverview({
   experiment,
-  visualChangesets,
-  urlRedirects,
-  linkedFeatures,
   ssrPolyfills,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  visualChangesets: VisualChangesetInterface[];
-  urlRedirects: URLRedirectInterface[];
-  linkedFeatures: LinkedFeatureInfo[];
   ssrPolyfills: SSRPolyfills;
 }) {
-  const hasLinkedChanges =
-    experiment?.hasVisualChangesets ||
-    (linkedFeatures?.length ?? 0) > 0 ||
-    experiment?.hasURLRedirects;
+  // As on the experiment's Setup tab, where a Bandit has no hypothesis.
+  const textRow = (
+    field: ExperimentTextFieldKey,
+    value: string | undefined,
+  ) => (
+    <>
+      <SetupFieldRow
+        label={EXPERIMENT_TEXT_FIELDS[field].label}
+        labelSize="lg"
+        content="text"
+        labelAlign={value ? "top" : "center"}
+      >
+        <ExperimentTextValue
+          field={field}
+          value={value || ""}
+          shareUid={experiment.uid}
+        />
+      </SetupFieldRow>
+      <Separator size="4" my="2" />
+    </>
+  );
 
   return (
     <>
-      <h2>Overview</h2>
+      {experiment.type !== "multi-armed-bandit"
+        ? textRow("hypothesis", experiment.hypothesis)
+        : null}
+      {textRow("description", experiment.description)}
 
-      <div className="box px-4 py-3 mb-4">
-        <h4>Description</h4>
-        <Markdown
-          isPublic={true}
-          shareUid={experiment.uid}
-          shareType="experiment"
-        >
-          {experiment?.description || "_no description_"}
-        </Markdown>
-      </div>
-
-      {experiment?.type !== "multi-armed-bandit" && experiment?.hypothesis ? (
-        <div className="box px-4 py-3 mb-4">
-          <h4>Hypothesis</h4>
-          {experiment?.hypothesis}
-        </div>
-      ) : null}
-
-      <h2>Implementation</h2>
-
-      <div className="box px-2 py-3 mb-4">
-        <h4 className="mx-3">Variations</h4>
+      <Box my="4">
+        <Heading as="h4" size="sm" color="text-high" mb="3">
+          Variations
+        </Heading>
         <VariationsTable
           experiment={experiment}
           canEditExperiment={false}
-          isPublic={true}
+          isPublic
           shareUid={experiment.uid}
           shareType="experiment"
+          noMargin
+          fill
         />
-      </div>
-
-      {hasLinkedChanges ? (
-        <>
-          <LinkedChanges
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            experiment={experiment}
-            canAddChanges={false}
-            isPublic={true}
-            canEditVisualChangesets={false}
-          />
-        </>
-      ) : null}
+      </Box>
 
       <AnalysisSettings
         experiment={experiment}
         envs={[]}
         canEdit={false}
         ssrPolyfills={ssrPolyfills}
-        isPublic={true}
+        isPublic
       />
       <DecisionMakingSettings
         experiment={experiment}
-        canEdit={false}
         ssrPolyfills={ssrPolyfills}
-        isPublic={true}
       />
     </>
   );

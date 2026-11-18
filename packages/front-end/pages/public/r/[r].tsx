@@ -1,3 +1,4 @@
+import { hasSuperAdminPermission } from "shared/permissions";
 import {
   ExperimentSnapshotReportInterface,
   ExperimentReportSSRData,
@@ -60,7 +61,8 @@ export default function ReportPage(props: ReportPageProps) {
   const { report, snapshot, experiment, ssrData } = props;
 
   const isOrgMember =
-    (!!userId && report?.organization === userOrganization.id) || !!superAdmin;
+    (!!userId && report?.organization === userOrganization.id) ||
+    hasSuperAdminPermission(superAdmin, "impersonate");
 
   const ssrPolyfills = useSSRPolyfills(ssrData);
 
@@ -119,22 +121,24 @@ export default function ReportPage(props: ReportPageProps) {
             showPrivateLink={isOrgMember}
             isPublic={true}
           />
-          <ReportResults
-            report={report}
-            experiment={experiment ?? undefined}
-            snapshot={snapshot ?? undefined}
-            snapshotError={
-              !snapshot
-                ? new Error("Missing snapshot")
-                : snapshot.error
-                ? new Error(snapshot.error)
-                : snapshot?.status === "error"
-                ? new Error("Report analysis failed")
-                : undefined
-            }
-            showDetails={isOrgMember}
-            ssrPolyfills={ssrPolyfills}
-          />
+          <div className="mb-5">
+            <ReportResults
+              report={report}
+              experiment={experiment ?? undefined}
+              snapshot={snapshot ?? undefined}
+              snapshotError={
+                !snapshot
+                  ? new Error("Missing snapshot")
+                  : snapshot.error
+                    ? new Error(snapshot.error)
+                    : snapshot?.status === "error"
+                      ? new Error("Report analysis failed")
+                      : undefined
+              }
+              showDetails={isOrgMember}
+              ssrPolyfills={ssrPolyfills}
+            />
+          </div>
         </>
       ) : (
         <Callout status="error">This report was not found.</Callout>

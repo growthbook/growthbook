@@ -13,6 +13,7 @@ import {
   isScheduledPublishLockActive,
 } from "shared/enterprise";
 import { datetime, ago } from "shared/dates";
+import { revisionActor } from "shared/validators";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
   PiPencil,
@@ -37,6 +38,7 @@ import Metadata from "@/ui/Metadata";
 import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import { useFeatureTabsBottom } from "@/components/Layout/pageTopOffset";
 import { useUser } from "@/services/UserContext";
 
 const DRAFT_STATUSES = ["draft", "pending-review", "changes-requested"];
@@ -89,7 +91,9 @@ export default function RevisionSummaryCard({
 }: RevisionSummaryCardProps) {
   const { getOwnerDisplay } = useUser();
   const [bannerPinned, setBannerPinned] = useState(false);
-  // Pinned once a sentinel above the banner scrolls past the 110px sticky offset
+  // Pins where the feature page's draft banner does (FeaturesOverview).
+  const bannerTop = useFeatureTabsBottom() + 15;
+  // Pinned once a sentinel above the banner scrolls past its sticky offset
   // (more reliable than getBoundingClientRect). Ref callback so the observer
   // re-attaches if the sentinel mounts later (e.g. a draft created on a bare page).
   const bannerSentinelObserver = useRef<IntersectionObserver | null>(null);
@@ -105,12 +109,12 @@ export default function RevisionSummaryCard({
       }
       const observer = new IntersectionObserver(
         ([entry]) => setBannerPinned(!entry.isIntersecting),
-        { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
+        { rootMargin: `-${bannerTop}px 0px 0px 0px`, threshold: 0 },
       );
       observer.observe(el);
       bannerSentinelObserver.current = observer;
     },
-    [disablePinning],
+    [disablePinning, bannerTop],
   );
 
   // The "Review & Publish" CTA portals between the card slot and the banner
@@ -329,7 +333,7 @@ export default function RevisionSummaryCard({
           <div
             style={{
               position: disablePinning ? "static" : "sticky",
-              top: 110,
+              top: bannerTop,
               zIndex: 920,
               marginBottom: 12,
               display: "flex",
@@ -340,7 +344,7 @@ export default function RevisionSummaryCard({
             <div
               style={{
                 width: "100%",
-                backgroundColor: "var(--color-background)",
+                backgroundColor: "var(--color-panel-solid)",
                 borderRadius: "var(--radius-3)",
                 overflow: "hidden",
                 maxWidth: bannerPinned ? 1280 : 1500,
@@ -508,27 +512,25 @@ export default function RevisionSummaryCard({
           >
             <Metadata
               label={hasRevisions ? "Revised by" : "Created by"}
-              value={(() => {
-                const authorId =
-                  hasRevisions && displayRevision
-                    ? displayRevision.authorId
-                    : fallbackOwnerId;
-                return (
-                  <EventUser
-                    user={{
-                      type: "dashboard",
-                      id: authorId,
-                      // EventUser resolves `id` against org members and
-                      // overrides this; the fallback keeps legacy name/email
-                      // owners (not in the member map) from rendering "Unknown".
-                      name: getOwnerDisplay(authorId),
-                      email: "",
-                    }}
-                    display="avatar-name-email"
-                    size="sm"
-                  />
-                );
-              })()}
+              value={
+                <EventUser
+                  user={
+                    hasRevisions && displayRevision
+                      ? revisionActor(displayRevision, displayRevision.authorId)
+                      : {
+                          type: "dashboard",
+                          id: fallbackOwnerId,
+                          // EventUser resolves `id` against org members and
+                          // overrides this; the fallback keeps legacy name/email
+                          // owners (not in the member map) from rendering "Unknown".
+                          name: getOwnerDisplay(fallbackOwnerId),
+                          email: "",
+                        }
+                  }
+                  display="avatar-name-email"
+                  size="sm"
+                />
+              }
             />
             <Flex align="center" gap="4" wrap="wrap">
               <Metadata
@@ -562,7 +564,14 @@ export default function RevisionSummaryCard({
                 (id) => id !== displayRevision.authorId,
               );
               if (coAuthorIds.length === 0) return null;
-              return <CoAuthorsList coAuthorIds={coAuthorIds} mt="3" mb="3" />;
+              return (
+                <CoAuthorsList
+                  coAuthorIds={coAuthorIds}
+                  actorFor={(id) => revisionActor(displayRevision, id)}
+                  mt="3"
+                  mb="3"
+                />
+              );
             })()}
           {hasRevisions && displayRevision && (
             <InlineRevisionDescription

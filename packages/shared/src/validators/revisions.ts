@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { eventUser, actorIdField } from "./event-user";
 import { savedGroupValidator } from "./saved-group";
 import { constantValidator } from "./constant";
 import { configValidator } from "./config";
+import { sdkConnectionSnapshotValidator } from "./sdk-connections";
 
 export const revisionStatus = [
   "draft",
@@ -22,7 +24,10 @@ export type ReviewDecision = (typeof reviewDecision)[number];
 
 export const reviewValidator = z.object({
   id: z.string(),
-  userId: z.string(),
+  // Who the verdict counts for (coverage, self-approval): a member, or a key
+  // that reviewed as itself. `user` is the full actor behind it.
+  userId: actorIdField,
+  user: eventUser.optional(),
   decision: z.enum(reviewDecision),
   comment: z.string().optional(),
   dateCreated: z.date(),
@@ -48,6 +53,7 @@ export const revisionTargetType = [
   "saved-group",
   "constant",
   "config",
+  "sdk-connection",
 ] as const;
 export type RevisionTargetType = (typeof revisionTargetType)[number];
 
@@ -101,7 +107,9 @@ export type JsonPatchOperation = z.infer<typeof jsonPatchOperationValidator>;
 // Activity log entry (for timeline/history)
 export const activityLogEntryValidator = z.object({
   id: z.string(),
-  userId: z.string(),
+  userId: actorIdField,
+  // Full actor, so history can show "person via API key". Absent on legacy entries.
+  user: eventUser.optional(),
   action: z.enum([
     "created",
     "updated",
@@ -173,19 +181,30 @@ export type RevisionConfigTarget = z.infer<
   typeof revisionConfigTargetValidator
 >;
 
+export const revisionSdkConnectionTargetValidator = z.object({
+  type: z.literal("sdk-connection"),
+  id: z.string(),
+  snapshot: sdkConnectionSnapshotValidator,
+  proposedChanges: z.array(jsonPatchOperationValidator),
+});
+export type RevisionSdkConnectionTarget = z.infer<
+  typeof revisionSdkConnectionTargetValidator
+>;
+
 // Extension point: add new revisionXxxTargetValidator entries here as new entity types are added.
 // Each validator must have a unique `type` literal and a `snapshot` field with the entity's schema.
 export const revisionTargetValidator = z.discriminatedUnion("type", [
   revisionSavedGroupTargetValidator,
   revisionConstantTargetValidator,
   revisionConfigTargetValidator,
+  revisionSdkConnectionTargetValidator,
   // revisionFeatureTargetValidator,  ← add future entity types here
 ]);
 export type RevisionTarget = z.infer<typeof revisionTargetValidator>;
 
 export const revisionValidator = z.object({
   id: z.string(),
-  authorId: z.string(),
+  authorId: actorIdField,
   version: z.number().optional(), // Optional for backward compatibility with existing revisions
   title: z.string().optional(),
   comment: z.string().optional(), // Optional free-form context supplied at draft creation
@@ -199,8 +218,8 @@ export const revisionValidator = z.object({
   /** Review-cycle identity; absent legacy values are treated as cycle 0. */
   reviewCycle: z.number().optional(),
   autoPublishOnApproval: z.boolean().optional(),
-  // Who armed `autoPublishOnApproval`; auto-publish runs with their authority.
-  // Nullable: an explicit null means "nobody" — the generic arming paths store
+  // Who armed `autoPublishOnApproval`, a user or an org API key; the deferred
+  // publish runs as them. Nullable: an explicit null means "nobody" — the arming paths store
   // it literally, the disarm fragment clears via `$unset`, and both read the
   // same. A leftover publisher lets a later deferred publish run as them.
   autoPublishEnabledBy: z.string().nullable().optional(),
@@ -242,7 +261,7 @@ export const revisionValidator = z.object({
   resolution: z
     .object({
       action: z.enum(["merged", "discarded"]),
-      userId: z.string(),
+      userId: actorIdField,
       dateCreated: z.date(),
     })
     .optional(),

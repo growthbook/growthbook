@@ -43,8 +43,13 @@ export class SdkConnectionCacheModel extends BaseClass {
     contents: string,
     auditContext?: SdkConnectionCacheAuditContext,
   ) {
-    // Find existing doc by id only (ignore version) to support version upgrades
-    const existing = await this._findOne({ id });
+    // Find existing doc by id only (ignore version) to support version upgrades.
+    // Its contents can be tens of megabytes and are about to be replaced, so
+    // they stay in the database.
+    const [existing] = await this._find(
+      { id },
+      { projection: { contents: 0 }, limit: 1 },
+    );
     const updateData: {
       contents: string;
       schemaVersion: number;
@@ -60,6 +65,12 @@ export class SdkConnectionCacheModel extends BaseClass {
       return this.update(existing, updateData);
     }
     return this.create({ id, ...updateData });
+  }
+
+  // Any schema version, so a stale-version entry is dropped too.
+  public async deleteByKey(key: string) {
+    const existing = await this._findOne({ id: key });
+    if (existing) await this.delete(existing);
   }
 
   // Delete all cache entries for legacy API keys

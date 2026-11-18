@@ -11,6 +11,10 @@ import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
 import { isCloud } from "@/services/env";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import SettingsPage, {
+  SettingsNoAccess,
+} from "@/components/Layout/SettingsPage";
+import Heading from "@/ui/Heading";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -57,40 +61,37 @@ const BillingPage: FC = () => {
 
   if (accountPlan === "enterprise" && subscription?.billingPlatform !== "orb") {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Billing">
         <Callout status="info">
           This page is not available for enterprise customers. Please contact
           your account rep for any billing questions or changes.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 
   if (!permissionsUtil.canManageBilling()) {
-    return (
-      <div className="container pagecontents">
-        <Callout status="error">
-          You do not have access to view this page.
-        </Callout>
-      </div>
-    );
+    return <SettingsNoAccess title="Billing" />;
   }
 
   if (subscription?.isVercelIntegration) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Billing">
         <Callout status="info">
           This page is not available for organizations whose plan is managed by
           Vercel. Please go to your Vercel Integration Dashboard for any billing
           information. If you&apos;d like to cancel your subscription, you can
           do so in the GrowthBook Integration Dashboard in Vercel.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    <SettingsPage
+      title="Billing"
+      description="Manage your plan, payment method, and invoices."
+    >
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
@@ -98,7 +99,9 @@ const BillingPage: FC = () => {
           commercialFeature={null}
         />
       )}
-      <h1>Plan Info</h1>
+      <Heading as="h2" size="md" mb="2">
+        Plan Info
+      </Heading>
       <div className="appbox p-3 border">
         {subscription?.status ? (
           <SubscriptionInfo />
@@ -138,7 +141,7 @@ const BillingPage: FC = () => {
           ) : null}
         </>
       ) : null}
-    </div>
+    </SettingsPage>
   );
 };
 export default BillingPage;

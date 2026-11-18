@@ -1,12 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import {
-  PiArrowCounterClockwise,
-  PiCheck,
-  PiInfo,
-  PiPlus,
-  PiX,
-} from "react-icons/pi";
+import { PiArrowCounterClockwise, PiCheck, PiPlus, PiX } from "react-icons/pi";
 import {
   ApprovalFlowConfiguration,
   RequireReview,
@@ -17,9 +11,10 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import LabelWithHelp from "@/ui/LabelWithHelp";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
+import { ApprovalFlowFamily } from "./approvalScopes";
 
 // An override is a full copy of the base, so this is just a form over that copy.
 type ScopeFieldsProps<T> = {
@@ -29,23 +24,6 @@ type ScopeFieldsProps<T> = {
   // Read-only renders these same fields, so the two views cannot drift.
   readOnly?: boolean;
 };
-
-function LabelWithHelp({ label, help }: { label: string; help?: string }) {
-  const text = label;
-  if (!help) return <>{text}</>;
-  return (
-    <Flex align="center" gap="1" asChild>
-      <span>
-        {text}
-        <span onClick={(e) => e.stopPropagation()}>
-          <Tooltip body={help}>
-            <PiInfo color="var(--color-text-low)" />
-          </Tooltip>
-        </span>
-      </span>
-    </Flex>
-  );
-}
 
 const REQUIRED_TEAMS_HELP =
   "A draft cannot publish until someone from one of these teams approves it. Anyone eligible can still approve alongside them.";
@@ -99,7 +77,8 @@ function HelpCheckbox({
   return (
     <Checkbox
       id={id}
-      label={<LabelWithHelp label={label} help={help} />}
+      label={label}
+      description={help}
       value={value}
       setValue={setValue}
       disabled={disabled}
@@ -234,7 +213,7 @@ export function FlagApprovalFields({
           <HelpCheckbox
             id={`${idPrefix}-reset-review-on-change`}
             label="Reset review on changes"
-            help="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
+            help="A new edit after approval needs to be approved again."
             value={!!value.resetReviewOnChange}
             setValue={(v) => set({ resetReviewOnChange: v })}
             readOnly={readOnly}
@@ -242,7 +221,7 @@ export function FlagApprovalFields({
           <HelpCheckbox
             id={`${idPrefix}-block-self-approval`}
             label="Block contributors from self-approving"
-            help="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
+            help="Anyone who edited the draft can't approve it."
             value={!!value.blockSelfApproval}
             setValue={(v) => set({ blockSelfApproval: v })}
             readOnly={readOnly}
@@ -250,7 +229,7 @@ export function FlagApprovalFields({
           <HelpCheckbox
             id={`${idPrefix}-autopublish-on-approval`}
             label="Allow approve & publish in one step"
-            help="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a draft together."
+            help="Reviewers can approve and publish with a single action."
             value={!!value.autopublishOnApproval}
             setValue={(v) => set({ autopublishOnApproval: v })}
             readOnly={readOnly}
@@ -263,6 +242,7 @@ export function FlagApprovalFields({
               <HelpCheckbox
                 id={`${idPrefix}-rules-values`}
                 label="Rules, values, and prerequisites"
+                help="Always included."
                 value={true}
                 disabled={true}
                 readOnly={readOnly}
@@ -270,14 +250,15 @@ export function FlagApprovalFields({
               />
               <HelpCheckbox
                 id={`${idPrefix}-env-review`}
-                label="Enabled environment changes (kill switches)"
+                label="Environment on/off changes (kill switches)"
                 value={value.featureRequireEnvironmentReview !== false}
                 setValue={(v) => set({ featureRequireEnvironmentReview: v })}
                 readOnly={readOnly}
               />
               <HelpCheckbox
                 id={`${idPrefix}-metadata-review`}
-                label="Metadata changes (description, owner, project, tags, etc.)"
+                label="Metadata changes"
+                help="Description, owner, Project, tags, and similar."
                 value={value.featureRequireMetadataReview !== false}
                 setValue={(v) => set({ featureRequireMetadataReview: v })}
                 readOnly={readOnly}
@@ -290,31 +271,76 @@ export function FlagApprovalFields({
   );
 }
 
-export function SavedGroupApprovalFields({
+const APPROVAL_FLOW_COPY: Record<
+  ApprovalFlowFamily,
+  {
+    requireId: string;
+    requireLabel: string;
+    contentId: string;
+    contentLabel: string;
+    metadataHelp: string;
+  }
+> = {
+  "saved-group": {
+    requireId: "require-approvals-saved-groups",
+    requireLabel: "Require approval to modify Saved Groups",
+    contentId: "values-conditions",
+    contentLabel: "Values and conditions",
+    metadataHelp: "Description, owner, Project, tags, and similar.",
+  },
+  "sdk-connection": {
+    requireId: "require-approvals-sdk-connections",
+    requireLabel: "Require approval to modify SDK Connections",
+    contentId: "settings",
+    contentLabel:
+      "Connection settings (Projects, environment, payload options)",
+    metadataHelp: "The connection's name.",
+  },
+};
+
+export function ApprovalFlowRuleFields({
+  family,
   idPrefix,
   value,
   onChange,
   readOnly,
-}: ScopeFieldsProps<ApprovalFlowConfiguration>) {
+}: ScopeFieldsProps<ApprovalFlowConfiguration> & {
+  family: ApprovalFlowFamily;
+}) {
   const { teams } = useUser();
+  const environments = useEnvironments();
+  const copy = APPROVAL_FLOW_COPY[family];
   const set = (patch: Partial<ApprovalFlowConfiguration>) =>
     onChange({ ...value, ...patch });
 
   return (
     <>
       <HelpCheckbox
-        id={`${idPrefix}-require-approvals-saved-groups`}
-        label="Require approval to modify Saved Groups"
-        help="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
+        id={`${idPrefix}-${copy.requireId}`}
+        label={copy.requireLabel}
         value={!!value.required}
         setValue={(v) => onChange({ ...value, required: v })}
         readOnly={readOnly}
       />
       {value.required && (
         <Flex direction="column" gap="3" mt="2" ml="5">
+          {family === "sdk-connection" && (
+            <CollapsibleMultiSelect
+              revealLabel="For specific environments"
+              id={`${idPrefix}-${family}-environments`}
+              label="Specific environments"
+              options={environments.map((e) => ({ value: e.id, label: e.id }))}
+              placeholder="All environments (leave blank to gate all)"
+              help="An SDK Connection serves one environment, so only connections in these environments need approval."
+              emptyLabel="All environments"
+              value={value.environments ?? []}
+              onChange={(v) => set({ environments: v })}
+              readOnly={readOnly}
+            />
+          )}
           <CollapsibleMultiSelect
             revealLabel="Require approval from specific teams"
-            id={`${idPrefix}-saved-group-required-approver-teams`}
+            id={`${idPrefix}-${family}-required-approver-teams`}
             label="Required approver teams"
             options={(teams ?? []).map((t) => ({ value: t.id, label: t.name }))}
             placeholder="Anyone who can review (leave blank)"
@@ -325,25 +351,25 @@ export function SavedGroupApprovalFields({
             readOnly={readOnly}
           />
           <HelpCheckbox
-            id={`${idPrefix}-saved-group-reset-review-on-change`}
+            id={`${idPrefix}-${family}-reset-review-on-change`}
             label="Reset review on changes"
-            help="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
+            help="A new edit after approval needs to be approved again."
             value={!!value.resetReviewOnChange}
             setValue={(v) => set({ resetReviewOnChange: v })}
             readOnly={readOnly}
           />
           <HelpCheckbox
-            id={`${idPrefix}-saved-group-block-self-approval`}
+            id={`${idPrefix}-${family}-block-self-approval`}
             label="Block contributors from self-approving"
-            help="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
+            help="Anyone who edited the draft can't approve it."
             value={!!value.blockSelfApproval}
             setValue={(v) => set({ blockSelfApproval: v })}
             readOnly={readOnly}
           />
           <HelpCheckbox
-            id={`${idPrefix}-saved-group-autopublish-on-approval`}
+            id={`${idPrefix}-${family}-autopublish-on-approval`}
             label="Allow approve & publish in one step"
-            help="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a Saved Group change together."
+            help="Reviewers can approve and publish with a single action."
             value={!!value.autopublishOnApproval}
             setValue={(v) => set({ autopublishOnApproval: v })}
             readOnly={readOnly}
@@ -354,16 +380,18 @@ export function SavedGroupApprovalFields({
             </Text>
             <Flex direction="column" gap="2" align="start">
               <HelpCheckbox
-                id={`${idPrefix}-saved-group-values-conditions`}
-                label="Values and conditions"
+                id={`${idPrefix}-${family}-${copy.contentId}`}
+                label={copy.contentLabel}
+                help="Always included."
                 value={true}
                 disabled={true}
                 readOnly={readOnly}
                 setValue={() => undefined}
               />
               <HelpCheckbox
-                id={`${idPrefix}-saved-group-metadata-review`}
-                label="Metadata changes (description, owner, project, tags, etc.)"
+                id={`${idPrefix}-${family}-metadata-review`}
+                label="Metadata changes"
+                help={copy.metadataHelp}
                 value={value.requireMetadataReview !== false}
                 setValue={(v) => set({ requireMetadataReview: v })}
                 readOnly={readOnly}
@@ -376,7 +404,7 @@ export function SavedGroupApprovalFields({
   );
 }
 
-// Both families for one scope, shared so the two surfaces cannot drift.
+// Every family for one scope, shared so the two surfaces cannot drift.
 export function ApprovalScopeSections({
   idPrefix,
   flagRule,
@@ -386,6 +414,9 @@ export function ApprovalScopeSections({
   onSavedGroupChange,
   onSavedGroupReset,
   savedGroupDescription,
+  sdkConnectionRule,
+  onSdkConnectionChange,
+  onSdkConnectionReset,
   readOnly,
 }: {
   idPrefix: string;
@@ -394,22 +425,24 @@ export function ApprovalScopeSections({
   savedGroupRule: ApprovalFlowConfiguration;
   onSavedGroupChange: (next: ApprovalFlowConfiguration) => void;
   savedGroupDescription?: string;
+  sdkConnectionRule: ApprovalFlowConfiguration;
+  onSdkConnectionChange: (next: ApprovalFlowConfiguration) => void;
   // Only on an override scope, and only while that section differs from base.
   onFlagReset?: () => void;
   onSavedGroupReset?: () => void;
+  onSdkConnectionReset?: () => void;
   readOnly?: boolean;
 }) {
   return (
     <>
       <Box>
         <SectionHeading
-          title="Features, Configs, &amp; Constants"
+          title="Feature Flags, Configs & Constants"
           onReset={onFlagReset}
         />
         <Text as="p" size="md" mb="4" color="text-low">
-          All changes to Feature Flags, Configs and Constants are tracked as
-          revisions. Requiring approvals adds a review step before any change
-          goes live.
+          Every change is saved as a revision. Approval adds a review step
+          before it goes live.
         </Text>
         <FlagApprovalFields
           idPrefix={`flags-${idPrefix}`}
@@ -425,12 +458,33 @@ export function ApprovalScopeSections({
         <SectionHeading title="Saved Groups" onReset={onSavedGroupReset} />
         <Text as="p" size="md" mb="4" color="text-low">
           {savedGroupDescription ??
-            "All changes to Saved Groups are tracked as revisions. Requiring approvals adds a review step before any change goes live."}
+            "Every change is saved as a revision. Approval adds a review step before it goes live."}
         </Text>
-        <SavedGroupApprovalFields
+        <ApprovalFlowRuleFields
+          family="saved-group"
           idPrefix={`saved-groups-${idPrefix}`}
           value={savedGroupRule}
           onChange={onSavedGroupChange}
+          readOnly={readOnly}
+        />
+      </Box>
+
+      <Separator size="4" my="4" />
+
+      <Box>
+        <SectionHeading
+          title="SDK Connections"
+          onReset={onSdkConnectionReset}
+        />
+        <Text as="p" size="md" mb="4" color="text-low">
+          Every change is saved as a revision. Approval adds a review step
+          before it goes live.
+        </Text>
+        <ApprovalFlowRuleFields
+          family="sdk-connection"
+          idPrefix={`sdk-connections-${idPrefix}`}
+          value={sdkConnectionRule}
+          onChange={onSdkConnectionChange}
           readOnly={readOnly}
         />
       </Box>

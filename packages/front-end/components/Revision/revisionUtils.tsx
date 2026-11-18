@@ -1,9 +1,11 @@
 import React from "react";
-import { Flex } from "@radix-ui/themes";
-import { Revision, RevisionStatus } from "shared/enterprise";
+import {
+  Revision,
+  RevisionStatus,
+  applyTopLevelPatchOps,
+  landedOps,
+} from "shared/enterprise";
 import Badge from "@/ui/Badge";
-import Tooltip from "@/ui/Tooltip";
-import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import {
   revisionStatusColor,
   revisionStatusLabel,
@@ -11,6 +13,22 @@ import {
 } from "@/components/Reviews/RevisionStatusBadge";
 
 export type RevisionBadgeStatus = RevisionStatus | "live";
+
+// What publishing a draft lands: only what it changed from its base, so
+// changes made to live since are kept, as the server merges it.
+export function draftLandedState<T extends Record<string, unknown>>(
+  revision: { target: { snapshot: unknown; proposedChanges: unknown } },
+  live: T,
+): T {
+  return applyTopLevelPatchOps(
+    live,
+    landedOps(
+      live,
+      revision.target.snapshot as Record<string, unknown>,
+      revision.target.proposedChanges,
+    ),
+  );
+}
 
 // Render a revision status badge. Delegates color/label/variant to the feature
 // status helpers (`components/Reviews/RevisionStatusBadge`) so features, saved
@@ -35,43 +53,6 @@ export function getStatusBadge(
       radius="full"
     />
   );
-}
-
-// Colored-dot + label rendering used by the approvals inbox + saved-group
-// reviews tab. Mirrors the home-page "Feature flags requiring attention" style
-// so status rendering stays consistent across dashboards.
-export function renderRevisionStatusCell(status: RevisionStatus) {
-  switch (status) {
-    case "approved":
-      return (
-        <Flex gap="1" align="center">
-          <ExperimentDot color="green" />
-          Approved
-        </Flex>
-      );
-    case "pending-review":
-      return (
-        <Flex gap="1" align="center">
-          <ExperimentDot color="amber" />
-          Pending Review
-        </Flex>
-      );
-    case "draft":
-      return <span className="mr-3">Draft</span>;
-    case "changes-requested":
-      return (
-        <Flex gap="1" align="center">
-          <ExperimentDot color="red" />
-          Changes Requested
-        </Flex>
-      );
-    case "merged":
-      return <span className="mr-3">Locked</span>;
-    case "discarded":
-      return <span className="mr-3">Discarded</span>;
-    default:
-      return null;
-  }
 }
 
 // Builds the saved-group revision deep-link using `?v=<n>`. Falls back to the
@@ -110,24 +91,12 @@ export function buildConfigRevisionUrl(
   return base;
 }
 
-export function RevisionStatusDot({
-  hasOpenRevisions,
-}: {
-  hasOpenRevisions?: boolean;
-}) {
-  if (!hasOpenRevisions) return null;
-  return (
-    <Tooltip content={revisionStatusLabel("pending-review")}>
-      <span
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          backgroundColor: `var(--${revisionStatusColor("pending-review")}-9)`,
-          display: "inline-block",
-          flexShrink: 0,
-        }}
-      />
-    </Tooltip>
-  );
+export function buildSDKConnectionRevisionUrl(
+  sdkConnectionId: string,
+  revision?: Pick<Revision, "version"> | null,
+): string {
+  const base = `/sdks/${sdkConnectionId}`;
+  if (revision && revision.version !== undefined)
+    return `${base}?v=${revision.version}`;
+  return base;
 }

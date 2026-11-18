@@ -3,6 +3,12 @@ import {
   featureReviewCandidateProjects,
 } from "shared/util";
 import type { OrganizationSettings } from "shared/types/organization";
+import {
+  EventUser as EventUserType,
+  eventUserIdentity,
+  eventUserLabel,
+  revisionActor,
+} from "shared/validators";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
@@ -23,7 +29,8 @@ import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
-import Owner from "@/components/Avatar/Owner";
+import EventUser from "@/components/Avatar/EventUser";
+import StatusDot from "@/components/Experiment/StatusDot";
 import Pagination from "@/ui/Pagination";
 import { DocLink } from "@/components/DocLink";
 import {
@@ -35,7 +42,10 @@ import {
   FilterDropdown,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
-import { buildSavedGroupRevisionUrl } from "@/components/Revision/revisionUtils";
+import {
+  buildSavedGroupRevisionUrl,
+  buildSDKConnectionRevisionUrl,
+} from "@/components/Revision/revisionUtils";
 import { useRevisions } from "@/hooks/useRevisions";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -86,6 +96,7 @@ type ApprovalRow = {
   entityName: string;
   entityType: string;
   authorId: string;
+  author: EventUserType;
   authorDisplay: string;
   status: RevisionStatus;
   // Store as a numeric timestamp (ms) so useSearch's sort comparator (which
@@ -107,6 +118,7 @@ function getEntityTypeLabel(entityType: string): string {
     "saved-group": "Saved Group",
     constant: "Constant",
     feature: "Feature",
+    "sdk-connection": "SDK Connection",
   };
   return labels[entityType] || entityType;
 }
@@ -131,22 +143,6 @@ const STATUS_LABEL: Record<RevisionStatus, string> = {
   discarded: "Discarded",
 };
 
-function StatusDot({ color }: { color: string }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        display: "inline-block",
-        width: 8,
-        height: 8,
-        borderRadius: 8,
-        backgroundColor: color,
-        flexShrink: 0,
-      }}
-    />
-  );
-}
-
 function renderApprovalStatus(status: RevisionStatus) {
   const label = STATUS_LABEL[status] ?? status;
   if (status === "discarded") {
@@ -162,7 +158,7 @@ function renderApprovalStatus(status: RevisionStatus) {
   }
   return (
     <Flex gap="2" align="center">
-      <StatusDot color={dot} />
+      <StatusDot color={dot} aria-hidden />
       {label}
     </Flex>
   );
@@ -172,20 +168,29 @@ function revisionToRow(revision: Revision): ApprovalRow {
   const entityName =
     revision.target.type === "saved-group"
       ? revision.target.snapshot?.groupName || revision.target.id
-      : revision.target.id;
+      : revision.target.type === "sdk-connection"
+        ? revision.target.snapshot?.sdkConnection?.name || revision.target.id
+        : revision.target.id;
 
-  // Saved Groups carry `projects[]`; Configs and Constants a scalar `project`.
+  // Saved Groups carry `projects[]`; Configs and Constants a scalar `project`;
+  // SDK connections nest theirs under the composite snapshot's `sdkConnection`.
   // Reading only the array left the scalar entities with no project, so a
   // project-filtered "needs my review" view dropped them entirely.
   const snapshot = revision.target.snapshot as
-    | { projects?: string[]; project?: string }
+    | {
+        projects?: string[];
+        project?: string;
+        sdkConnection?: { projects?: string[] };
+      }
     | undefined;
   const projects =
     revision.target.type === "saved-group"
       ? (snapshot?.projects ?? [])
-      : snapshot?.project
-        ? [snapshot.project]
-        : [];
+      : revision.target.type === "sdk-connection"
+        ? (snapshot?.sdkConnection?.projects ?? [])
+        : snapshot?.project
+          ? [snapshot.project]
+          : [];
 
   return {
     id: revision.id,
@@ -194,6 +199,7 @@ function revisionToRow(revision: Revision): ApprovalRow {
     entityName,
     entityType: revision.target.type,
     authorId: revision.authorId,
+    author: revisionActor(revision, revision.authorId),
     authorDisplay: "",
     status: revision.status,
     dateCreated: new Date(revision.dateCreated).getTime(),
@@ -209,6 +215,9 @@ function buildRevisionUrl(revision: Revision): string {
   if (revision.target.type === "saved-group") {
     return buildSavedGroupRevisionUrl(revision.target.id, revision);
   }
+  if (revision.target.type === "sdk-connection") {
+    return buildSDKConnectionRevisionUrl(revision.target.id, revision);
+  }
   const key = getRevisionKey(revision.target.type);
   const base = `/${key ?? revision.target.type}/${revision.target.id}`;
   return (revision.version ?? null) !== null
@@ -220,13 +229,7 @@ function featureRevisionToRow(
   revision: FeatureRevisionWithMeta,
   settings: OrganizationSettings,
 ): ApprovalRow | null {
-  // Only show revisions with an identifiable logged-in author (matches the
-  // shape expected by the "Requested by" column).
-  const createdBy = revision.createdBy;
-  const authorId =
-    createdBy && createdBy.type === "dashboard" ? createdBy.id : "";
-  const authorDisplay =
-    createdBy && createdBy.type === "dashboard" ? createdBy.name : "";
+  const author = revision.createdBy ?? null;
 
   // `pending-parent` revisions are held child revisions managed by ramp
   // schedules and are not user-actionable, so they should not appear in the
@@ -249,8 +252,9 @@ function featureRevisionToRow(
     version: revision.version,
     entityName: revision.featureId,
     entityType: "feature",
-    authorId,
-    authorDisplay,
+    authorId: eventUserIdentity(author) ?? "",
+    author,
+    authorDisplay: "",
     status,
     dateCreated: new Date(revision.dateCreated).getTime(),
     url: `/features/${revision.featureId}?v=${revision.version}`,
@@ -306,21 +310,32 @@ const ApprovalRequests: FC = () => {
     return Array.from(types);
   }, [rows]);
 
-  const authors = useMemo(() => {
-    const authorSet = new Set(rows.map((r) => r.authorId));
-    return Array.from(authorSet).filter(Boolean);
-  }, [rows]);
+  const approvalItems = useAddComputedFields(
+    rows,
+    (item) => ({
+      ...item,
+      authorDisplay: eventUserLabel(item.author, {
+        nameFor: (id) => getUserDisplay(id, false),
+      }),
+      // Composite key so the default view sorts by status priority first and
+      // then by date-requested (newest first) within each status bucket. The
+      // date is subtracted so ascending numeric sort gives newest-first per
+      // bucket. Using a large status multiplier guarantees status dominates the
+      // sort regardless of timestamp magnitude.
+      _sortKey: STATUS_PRIORITY[item.status] * 1e15 - item.dateCreated,
+    }),
+    [getUserDisplay],
+  );
 
-  const approvalItems = useAddComputedFields(rows, (item) => ({
-    ...item,
-    authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
-    // Composite key so the default view sorts by status priority first and
-    // then by date-requested (newest first) within each status bucket. The
-    // date is subtracted so ascending numeric sort gives newest-first per
-    // bucket. Using a large status multiplier guarantees status dominates the
-    // sort regardless of timestamp magnitude.
-    _sortKey: STATUS_PRIORITY[item.status] * 1e15 - item.dateCreated,
-  }));
+  const authors = useMemo(
+    () =>
+      new Map(
+        approvalItems
+          .filter((r) => r.authorId)
+          .map((r) => [r.authorId, r.authorDisplay] as const),
+      ),
+    [approvalItems],
+  );
 
   const { items, searchInputProps, SortableTH, syntaxFilters, setSearchValue } =
     useSearch({
@@ -408,6 +423,13 @@ const ApprovalRequests: FC = () => {
           "review",
           { projects: row.projects },
           NO_ENVIRONMENT_BINDING,
+        );
+      }
+      if (row.entityType === "sdk-connection") {
+        // The row has no environment; "" checks against any environment.
+        return permissionsUtil.canUpdateSDKConnection(
+          { projects: row.projects, environment: "" },
+          { projects: row.projects, environment: "" },
         );
       }
       return false;
@@ -535,9 +557,9 @@ const ApprovalRequests: FC = () => {
     const f = syntaxFilters.find((s) => s.field === "author");
     if (!f || f.values.length === 0) return "Requested by: Any";
     return `Requested by: ${f.values
-      .map((v) => getUserDisplay(v) || v)
+      .map((v) => getUserDisplay(v, false) || authors.get(v) || v)
       .join(", ")}`;
-  }, [syntaxFilters, getUserDisplay]);
+  }, [syntaxFilters, getUserDisplay, authors]);
 
   const statusHeading = useMemo(() => {
     const values: string[] = hasExplicitStatusFilter
@@ -551,7 +573,7 @@ const ApprovalRequests: FC = () => {
 
   if (!hasFeature) {
     return (
-      <Box p="4" pr="7" width="100%" maxWidth="1340px" mx="auto">
+      <Box width="100%">
         <Callout status="info">
           Approval flows require an Enterprise plan.
         </Callout>
@@ -564,7 +586,7 @@ const ApprovalRequests: FC = () => {
   }
 
   return (
-    <Box p="4" pr="7" width="100%" maxWidth="1340px" mx="auto">
+    <Box width="100%">
       <Box mb="5">
         <Heading as="h1" size="lg" mb="2">
           Approval Requests
@@ -625,10 +647,10 @@ const ApprovalRequests: FC = () => {
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
-            items={authors.map((a) => ({
-              name: getUserDisplay(a) || a,
-              id: a,
-              searchValue: getUserDisplay(a) || a,
+            items={Array.from(authors, ([id, label]) => ({
+              name: getUserDisplay(id, false) || label,
+              id,
+              searchValue: getUserDisplay(id, false) || label,
             }))}
             updateQuery={updateQuery}
           />
@@ -709,7 +731,11 @@ const ApprovalRequests: FC = () => {
                   <td>{getEntityTypeLabel(row.entityType)}</td>
                   <td>
                     {row.authorId ? (
-                      <Owner ownerId={row.authorId} />
+                      <EventUser
+                        user={row.author}
+                        display="avatar-name"
+                        size="sm"
+                      />
                     ) : (
                       row.authorDisplay || "--"
                     )}

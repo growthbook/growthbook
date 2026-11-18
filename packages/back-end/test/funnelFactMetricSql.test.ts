@@ -7,9 +7,8 @@ import {
   MetricFunnelStep,
 } from "shared/types/fact-table";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import { bigQueryDialect, redshiftDialect } from "shared/dialects";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 import { factTableFactory } from "back-end/test/factories/FactTable.factory";
@@ -149,7 +148,7 @@ function buildSql(
       unitsSource: "exposureQuery",
       unitsSettings: buildUnitsQuerySettingsFromSnapshot(snapshotSettings, {
         query: testExposureQuery.query,
-        userIdType: testExposureQuery.userIdType,
+        identifierType: testExposureQuery.userIdType,
       }),
       activationMetric: null,
       dimensions: [],

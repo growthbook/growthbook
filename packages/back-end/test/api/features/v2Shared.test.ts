@@ -16,6 +16,7 @@ import {
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
   resolveScopeFromInput,
+  withPatchedScope,
   validateRulesScheduleRules,
   experimentRefChanged,
 } from "back-end/src/api/features/v2Shared";
@@ -38,6 +39,38 @@ import { BadRequestError } from "back-end/src/util/errors";
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentsByIds: jest.fn(),
 }));
+
+describe("withPatchedScope", () => {
+  const everywhere = { allEnvironments: true };
+  const inDev = { allEnvironments: false, environments: ["dev"] };
+
+  it("leaves the rule alone when the patch has no scope fields", () => {
+    expect(withPatchedScope(inDev, {})).toBe(inDev);
+  });
+
+  it("scopes a rule to the environments the patch lists", () => {
+    expect(withPatchedScope(everywhere, { environments: ["prod"] })).toEqual({
+      allEnvironments: false,
+      environments: ["prod"],
+    });
+  });
+
+  it("keeps the rule's environments when only allEnvironments:false is sent", () => {
+    expect(
+      withPatchedScope(
+        { allEnvironments: true, environments: ["dev"] },
+        { allEnvironments: false },
+      ),
+    ).toEqual({ allEnvironments: false, environments: ["dev"] });
+  });
+
+  it("widens to every environment", () => {
+    expect(withPatchedScope(inDev, { allEnvironments: true })).toEqual({
+      allEnvironments: true,
+      environments: undefined,
+    });
+  });
+});
 
 describe("resolveScopeFromInput", () => {
   it("allEnvironments:true drops environments[]", () => {
@@ -208,14 +241,15 @@ describe("mapV2ApiRuleToFeatureRule", () => {
       });
     });
 
-    // GET→edit→PUT must persist id/seed/hashVersion verbatim (else re-bucketing).
-    it("preserves id, seed, and hashVersion on round-trip", () => {
+    // GET→edit→PUT must persist bucketing fields verbatim (else re-bucketing).
+    it("preserves id, seed, hashVersion, and fallbackAttribute on round-trip", () => {
       const out = mapV2ApiRuleToFeatureRule({
         id: "fr_explicit",
         type: "rollout",
         value: "v",
         coverage: 0.5,
         hashAttribute: "userId",
+        fallbackAttribute: "deviceId",
         seed: "my-seed",
         hashVersion: 2,
       } as ApiRuleV2Input);
@@ -224,6 +258,7 @@ describe("mapV2ApiRuleToFeatureRule", () => {
         seed: "my-seed",
         hashVersion: 2,
         hashAttribute: "userId",
+        fallbackAttribute: "deviceId",
       });
     });
 
@@ -237,6 +272,7 @@ describe("mapV2ApiRuleToFeatureRule", () => {
       } as ApiRuleV2Input);
       expect(out).not.toHaveProperty("seed");
       expect(out).not.toHaveProperty("hashVersion");
+      expect(out).not.toHaveProperty("fallbackAttribute");
     });
   });
 

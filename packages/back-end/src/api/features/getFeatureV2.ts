@@ -9,10 +9,11 @@ import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel"
 import { getFeature as getFeatureDB } from "back-end/src/models/FeatureModel";
 import {
   getApiFeatureObjV2,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 async function loadFeatureForApiV2(
   context: ApiReqContext,
@@ -25,12 +26,9 @@ async function loadFeatureForApiV2(
   );
   const feature = await getFeatureDB(context, featureId);
   if (!feature) {
-    throw new Error("Could not find a feature with that key");
+    throw new NotFoundError("Could not find a feature with that key");
   }
-  const groupMap = await getSavedGroupMap(context);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
   const rampSchedules = await context.models.rampSchedules.getAllByFeatureId(
     feature.id,
   );
@@ -62,6 +60,11 @@ async function loadFeatureForApiV2(
               : undefined,
       })
     : undefined;
+  const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+    context,
+    // v2 returns revisions as stored and compiles no definitions for them.
+    { features: [feature], experiments: experimentMap.values() },
+  );
 
   return {
     feature,

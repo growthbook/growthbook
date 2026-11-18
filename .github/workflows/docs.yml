@@ -16,16 +16,20 @@ on:
       - "scripts/check-doclink-registry.mjs"
       - "packages/front-end/components/docSections.ts"
       - ".github/workflows/docs.yml"
+# Read-only by default; a job that needs more asks for it.
+permissions:
+  contents: read
+
 jobs:
   # Mintlify hosts/deploys docs via their GitHub App; this job only validates content.
   docs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           # Root package.json declares pnpm; this job only needs npm for the Mintlify CLI.

@@ -3,7 +3,9 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
 import { ExperimentInterface } from "shared/types/experiment";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { ReqContext } from "back-end/types/request";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createExperiment } from "./ExperimentModel";
 import { createVisualChangeset } from "./VisualChangesetModel";
 import { createFeature } from "./FeatureModel";
@@ -62,7 +64,7 @@ export const findOrCreateGeneratedHypothesis = async (
   const rows = await res.json();
 
   if (!rows || !rows.length) {
-    throw new Error(`Generated hypothesis not found: ${uuid}`);
+    throw new NotFoundError(`Generated hypothesis not found: ${uuid}`);
   }
 
   const {
@@ -147,7 +149,7 @@ export const findOrCreateGeneratedHypothesis = async (
   ) {
     // visual change
     await createVisualChangeset({
-      experiment: createdExperiment,
+      owner: new ExperimentChangesetOwner(context, createdExperiment),
       context,
       urlPatterns: payload?.urlPatterns,
       editorUrl: payload?.targetUrl,

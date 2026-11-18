@@ -1,5 +1,4 @@
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
+import { bigQueryDialect, postgresDialect } from "shared/dialects";
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
 import { factMetricFactory } from "../../factories/FactMetric.factory";
 

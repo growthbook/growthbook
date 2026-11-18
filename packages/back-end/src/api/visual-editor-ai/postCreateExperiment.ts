@@ -6,6 +6,7 @@ import type {
   ExperimentInterfaceExcludingHoldouts,
 } from "shared/validators";
 import { ignoreWarningsBodyField } from "shared/validators";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { createExperiment } from "back-end/src/models/ExperimentModel";
 import { SoftWarningError } from "back-end/src/util/errors";
 import {
@@ -57,6 +58,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/create-experiment",
+  confirmation: ["experiment.create"] as const,
   operationId: "postVisualEditorCreateExperiment",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.
@@ -191,7 +193,7 @@ export const postCreateExperiment = createApiRequestHandler(validation)(async (
   // Omitting `visualChanges` makes createVisualChangeset auto-generate
   // one empty entry per variation via getLatestPhaseVariations.
   const changeset = await createVisualChangeset({
-    experiment,
+    owner: new ExperimentChangesetOwner(context, experiment),
     context,
     urlPatterns,
     editorUrl: pageUrl,

@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { Flex } from "@radix-ui/themes";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
+import { DocLink } from "@/components/DocLink";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
@@ -81,7 +82,16 @@ const SnowflakeEventForwarderForm: FC<{
         value={snowflakeEventForwarderConfig.config.role || ""}
         onChange={(e) => updateConfig({ role: e.target.value })}
         placeholder=""
-        helpText="Required. Snowflake role for the Confluent Snowflake Sink (Snowpipe Streaming + schema evolution). Defaults from the datasource connection."
+        helpText={
+          <>
+            Prefilled from the Data Source connection. Snowpipe Streaming writes
+            as this Snowflake user&apos;s default role, so this has to be that
+            role.{" "}
+            <DocLink docSection="eventForwarderSnowflake" useRadix={false}>
+              How to set it
+            </DocLink>
+          </>
+        }
       />
       <Field
         label={

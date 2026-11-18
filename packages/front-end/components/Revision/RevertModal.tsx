@@ -7,6 +7,7 @@ import {
   getRevisionNumberById,
 } from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
+import { eventUserLabel, revisionActor } from "shared/validators";
 import {
   archiveFootprintForControl,
   canLandArchiveToggle,
@@ -77,6 +78,13 @@ export interface Props<T extends RevertableEntity> {
   canLandArchive?: boolean;
   // Draft authority: enough to PROPOSE a revert as a draft, never to land it.
   canDraft: boolean;
+  /**
+   * Why the selected target can't be restored, e.g. it names something that
+   * no longer exists. Shown as a warning, and blocks the revert.
+   */
+  getTargetProblem?: (targetState: T) => string | null;
+  /** Something to know about restoring the selected target; doesn't block. */
+  getTargetWarning?: (targetState: T) => string | null;
   // Renders the entity's DraftSelectorForChanges (publish-now vs. create-draft
   // picker). Supplied by the thin per-entity wrappers so the revert modal reuses
   // the same component features use, instead of re-implementing the control.
@@ -88,6 +96,12 @@ export interface Props<T extends RevertableEntity> {
   }) => ReactNode;
   close: () => void;
   onRevisionCreated: (revision: Revision) => void;
+  // Reshapes the restored fields for an endpoint whose body differs from the
+  // snapshot (an SDK connection's settings are nested in its snapshot).
+  toRequestBody?: (changes: Record<string, unknown>) => Record<string, unknown>;
+  // Fills what a stored snapshot leaves out, applied to both sides so the
+  // preview, the button and the request agree on what changes.
+  normalizeState?: (state: T) => T;
 }
 
 export default function RevertModal<T extends RevertableEntity>({
@@ -106,9 +120,13 @@ export default function RevertModal<T extends RevertableEntity>({
   canLandRevertForTarget,
   canLandArchive: canLandArchiveEntity,
   canDraft,
+  getTargetProblem,
+  getTargetWarning,
   renderDraftSelector,
   close,
   onRevisionCreated,
+  toRequestBody,
+  normalizeState,
 }: Props<T>) {
   const { apiCall } = useAuth();
   const { getUserDisplay } = useUser();
@@ -142,17 +160,20 @@ export default function RevertModal<T extends RevertableEntity>({
   const targetRevision =
     targetRevisions.find((r) => r.id === targetId) ?? revision;
 
-  const targetState = useMemo(
-    () =>
-      applyTopLevelPatchOps(
-        targetRevision.target.snapshot as unknown as T,
-        targetRevision.target.proposedChanges,
-      ) as unknown as T,
-    [targetRevision],
+  const targetState = useMemo(() => {
+    const state = applyTopLevelPatchOps(
+      targetRevision.target.snapshot as unknown as T,
+      targetRevision.target.proposedChanges,
+    ) as unknown as T;
+    return normalizeState ? normalizeState(state) : state;
+  }, [targetRevision, normalizeState]);
+  const liveState = useMemo(
+    () => (normalizeState ? normalizeState(liveEntity) : liveEntity),
+    [liveEntity, normalizeState],
   );
 
   const { diffs, badges, customRenderGroups } = useRevisionDiff<T>(
-    liveEntity,
+    liveState,
     targetState,
     diffConfig,
   );
@@ -228,8 +249,9 @@ export default function RevertModal<T extends RevertableEntity>({
   // picker shows a plain "Publish now" instead of the red "Bypass approvals and
   // publish now". Mirrors the feature revert's `effectiveApprovalsRequired`.
   const effectiveApprovalRequired = approvalRequired && !revertsBypassApproval;
+  // Under approval, bypassing is a choice to make, not the default.
   const [mode, setMode] = useState<DraftMode>(
-    canPublishNow ? "publish" : "new",
+    canPublishNow && !effectiveApprovalRequired ? "publish" : "new",
   );
 
   const [comment, setComment] = useState("");
@@ -242,7 +264,9 @@ export default function RevertModal<T extends RevertableEntity>({
     title: r.title,
     meta: (
       <Text size="sm" color="text-low" whiteSpace="nowrap">
-        {getUserDisplay(r.authorId)}
+        {eventUserLabel(revisionActor(r, r.authorId), {
+          nameFor: (id) => getUserDisplay(id, false),
+        })}
         {r.dateUpdated && <> &middot; {dateNoYear(r.dateUpdated)}</>}
       </Text>
     ),
@@ -252,6 +276,8 @@ export default function RevertModal<T extends RevertableEntity>({
   const publishNow = mode === "publish";
 
   const visibleDiffs = diffs.filter((d) => d.a !== d.b);
+  const targetProblem = getTargetProblem?.(targetState) ?? null;
+  const targetWarning = getTargetWarning?.(targetState) ?? null;
 
   return (
     <ModalStandard
@@ -265,7 +291,9 @@ export default function RevertModal<T extends RevertableEntity>({
       // A target matching live has no diff to apply, so the endpoint refuses it —
       // the modal says so above and the button follows.
       ctaEnabled={
-        visibleDiffs.length > 0 && (publishNow ? canPublishNow : canCreateDraft)
+        visibleDiffs.length > 0 &&
+        !targetProblem &&
+        (publishNow ? canPublishNow : canCreateDraft)
       }
       size="lg"
       submit={async () => {
@@ -274,7 +302,7 @@ export default function RevertModal<T extends RevertableEntity>({
         const revertChanges: Record<string, unknown> = {};
         revertableFields.forEach((key) => {
           const targetValue = targetState[key];
-          const currentValue = liveEntity[key];
+          const currentValue = liveState[key];
           if (JSON.stringify(targetValue) === JSON.stringify(currentValue)) {
             return;
           }
@@ -317,7 +345,9 @@ export default function RevertModal<T extends RevertableEntity>({
           revision?: Revision;
         }>(`${apiPathBase}/${liveEntity.id}?${params.toString()}`, {
           method: "PUT",
-          body: JSON.stringify(revertChanges),
+          body: JSON.stringify(
+            toRequestBody ? toRequestBody(revertChanges) : revertChanges,
+          ),
         });
 
         if (res?.revision) onRevisionCreated(res.revision);
@@ -363,6 +393,17 @@ export default function RevertModal<T extends RevertableEntity>({
           </Text>
         )}
       </Box>
+
+      {targetProblem && (
+        <Callout status="error" mb="4">
+          {targetProblem}
+        </Callout>
+      )}
+      {!targetProblem && targetWarning && (
+        <Callout status="warning" mb="4">
+          {targetWarning}
+        </Callout>
+      )}
 
       {archiveDrifts && (
         <Callout status="warning" mb="4">

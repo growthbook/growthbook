@@ -2,7 +2,6 @@
 title: Configuring GrowthBook to Work with Segment
 description: Send experiment exposure through Segment, land events in a warehouse, then connect that warehouse to GrowthBook.
 sidebarTitle: Segment
-slug: segment
 ---
 
 GrowthBook supports Segment as an event source for easily adding A/B testing to your application. This document is a
@@ -44,7 +43,7 @@ is best practice to create another service account for GrowthBook to connect to 
 After choosing Segment you'll be presented with a connection window to connect to your data warehouses. Enter the connection credentials for your data warehouse.
 
 When successfully connected, you'll be redirected to the data source page. GrowthBook
-will automatically create the experiment exposure query which is need to determine which user saw which experiment variation.
+will automatically create the experiment exposure query which is needed to determine which user saw which experiment variation.
 Depending on your needs, you may still need to adjust these queries - for instance if you're tracking both
 `anonymous_id` and `user_id`, you'll need to add the `user_id` query.
 

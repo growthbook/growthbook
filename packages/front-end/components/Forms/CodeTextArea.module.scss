@@ -1,0 +1,70 @@
+// See CodeTextArea's matchValueDisplay.
+.valueEditor {
+  // The text and gutter share one surface.
+  :global(.ace_editor) {
+    &,
+    :global(.ace_gutter) {
+      background: var(--color-panel-solid) !important;
+    }
+
+    &:global(.ace_focus) {
+      :global(.ace_marker-layer .ace_active-line) {
+        background: var(--gray-a2);
+      }
+
+      :global(.ace_gutter-active-line) {
+        background: var(--gray-a3);
+      }
+    }
+  }
+
+  // Only the focused editor marks its cursor's line.
+  :global(.ace_editor:not(.ace_focus)) {
+    :global(.ace_active-line),
+    :global(.ace_gutter-active-line) {
+      background: transparent;
+    }
+  }
+
+  // Scrollbars draw only while the editor is hovered, as slim as a
+  // ScrollArea's: a 4px thumb inset in an 8px track.
+  :global(.ace_scrollbar) {
+    &::-webkit-scrollbar {
+      width: var(--space-2);
+      height: var(--space-2);
+    }
+
+    &::-webkit-scrollbar-track,
+    &::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: var(--radius-full);
+      background: transparent padding-box;
+    }
+  }
+
+  &:hover :global(.ace_scrollbar)::-webkit-scrollbar-thumb {
+    background-color: var(--gray-a8);
+  }
+
+  // Chrome skips the styles above when these are set, so only without them.
+  @supports not selector(::-webkit-scrollbar) {
+    :global(.ace_scrollbar) {
+      scrollbar-width: thin;
+      scrollbar-color: transparent transparent;
+    }
+
+    &:hover :global(.ace_scrollbar) {
+      scrollbar-color: var(--gray-a8) transparent;
+    }
+  }
+}
+
+// A field that differs between values shown side by side.
+.highlightedLine {
+  position: absolute;
+  background: var(--amber-a3);
+}

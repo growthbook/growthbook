@@ -206,7 +206,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
             gap="3"
             wrap="wrap"
           >
-            <Flex align="center" flexGrow="1" gap="3">
+            <Flex align="center" flexGrow="1" gap="3" mb="2">
               <h1 className="mb-0">Contextual Bandits</h1>
               <Badge color="indigo" label="Beta" variant="solid" size="lg" />
             </Flex>
@@ -406,6 +406,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
                             <ExperimentStatusIndicator
                               experimentData={contextualBanditStatusIndicatorData(
                                 e,
+                                e.analysisSummary?.health ?? undefined,
                               )}
                             />
                           </td>

@@ -112,8 +112,6 @@
         "stddev": 0.3
       },
       "denominator": "",
-      "winRisk": 0.0025,
-      "loseRisk": 0.0125,
       "maxPercentChange": 0.5,
       "minPercentChange": 0.005,
       "minSampleSize": 150,
@@ -172,8 +170,6 @@
         "stddev": 0.3
       },
       "denominator": "",
-      "winRisk": 0.0025,
-      "loseRisk": 0.0125,
       "maxPercentChange": 0.5,
       "minPercentChange": 0.005,
       "minSampleSize": 150,

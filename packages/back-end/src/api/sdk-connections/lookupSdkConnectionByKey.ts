@@ -1,16 +1,22 @@
 import { lookupSdkConnectionByKeyValidator } from "shared/validators";
 import {
-  findSDKConnectionByKey,
+  findSDKConnectionByKeyForOrg,
   toApiSDKConnectionInterface,
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const lookupSdkConnectionByKey = createApiRequestHandler(
   lookupSdkConnectionByKeyValidator,
 )(async (req) => {
-  const sdkConnection = await findSDKConnectionByKey(req.params.key);
+  const sdkConnection = await findSDKConnectionByKeyForOrg(
+    req.context,
+    req.params.key,
+    // Like GET by id, so an archived connection can still be found and restored.
+    { includeArchived: true },
+  );
   if (!sdkConnection) {
-    throw new Error("Could not find sdkConnection with that key");
+    throw new NotFoundError("Could not find sdkConnection with that key");
   }
   if (
     !req.context.permissions.canReadMultiProjectResource(sdkConnection.projects)

@@ -11,6 +11,7 @@ import {
   appendAutoRunArtifactEndpoint,
 } from "back-end/src/api/specs/auto-run.spec";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { NotFoundError } from "back-end/src/util/errors";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -77,12 +78,10 @@ export class AutoRunModel extends BaseClass {
   }
 
   // Stamped from the session, never accepted from the caller, so "my last run" is
-  // trustworthy and a client cannot attribute a run to someone else.
-  protected async processApiCreateBody(rawBody: unknown) {
-    return {
-      ...(rawBody as object),
-      createdBy: this.context.userId || null,
-    } as never;
+  // trustworthy and a client cannot attribute a run to someone else. An org
+  // key leaves the run ownerless, even when it names a member.
+  protected async beforeCreate(doc: AutoRunDoc) {
+    doc.createdBy = this.context.userId || null;
   }
 
   // A run stops being in-progress the moment an outcome is recorded.
@@ -168,7 +167,7 @@ export class AutoRunModel extends BaseClass {
       // and the append is idempotent, so a generous budget costs little.
       { maxAttempts: 25 },
     );
-    if (!run) throw new Error(`Auto Run ${id} not found`);
+    if (!run) throw new NotFoundError(`Auto Run ${id} not found`);
     return run;
   }
 }

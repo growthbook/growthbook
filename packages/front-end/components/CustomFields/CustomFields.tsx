@@ -39,12 +39,16 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
+import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 
 export type AppliesToFilter = "all" | CustomFieldSection;
 export { CUSTOM_FIELD_SECTION_LABELS } from "@/components/CustomFields/constants";
 
 /** FE-only: array index for delete disambiguation (legacy duplicate ids) */
 export type CustomFieldWithArrayIndex = CustomField & { arrayIndex: number };
+
+// Narrower, the Field Name header is cut off, so the table scrolls sideways.
+const CUSTOM_FIELDS_TABLE_MIN_WIDTH = 820;
 
 function CustomFieldsTable({
   filter,
@@ -85,9 +89,11 @@ function CustomFieldsTable({
     <Table
       variant="list"
       stickyHeader={false}
+      stickyLastColumn
       roundedCorners
       layout="fixed"
-      className="appbox"
+      minTableWidth={CUSTOM_FIELDS_TABLE_MIN_WIDTH}
+      mb="4"
     >
       <CustomFieldColGroup showRequired={showRequired} />
       <TableHeader>
@@ -149,7 +155,7 @@ function CustomFieldsTable({
   );
 }
 
-const TAB_VALUES = ["all", "feature", "experiment"] as const;
+const TAB_VALUES = ["all", "feature", "experiment", "attribute"] as const;
 
 const CustomFields: FC = () => {
   const [activeFilter, setActiveFilter] = useURLHash(TAB_VALUES);
@@ -262,14 +268,12 @@ const CustomFields: FC = () => {
 
   return (
     <>
-      <Box mt="4" mb="5">
-        <div className="row align-items-center mb-1">
-          <div className="col-auto">
-            <h2 className="mb-0">Custom Fields</h2>
-          </div>
-          <div className="flex-1" />
-          {canManage && (
-            <div className="col-auto">
+      <Box>
+        <SettingsPageHeader
+          title="Custom Fields"
+          description="Add custom metadata to feature flags, experiments, and targeting attributes. Choose which of those each field applies to."
+          actions={
+            canManage && (
               <Button
                 onClick={() => {
                   setModalOpen({});
@@ -277,13 +281,9 @@ const CustomFields: FC = () => {
               >
                 Add Custom Field
               </Button>
-            </div>
-          )}
-        </div>
-        <p className="text-gray mb-4">
-          Add custom metadata to feature flags and experiments. Choose whether
-          each field applies to Features, Experiments, or both.
-        </p>
+            )
+          }
+        />
         <DndContext
           sensors={sensors}
           onDragEnd={handleDragEnd}
@@ -300,6 +300,7 @@ const CustomFields: FC = () => {
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="feature">Feature</TabsTrigger>
                 <TabsTrigger value="experiment">Experiment</TabsTrigger>
+                <TabsTrigger value="attribute">Attribute</TabsTrigger>
               </TabsList>
             </Box>
             <TabsContent value="all">
@@ -333,6 +334,20 @@ const CustomFields: FC = () => {
             <TabsContent value="experiment">
               <CustomFieldsTable
                 filter="experiment"
+                items={items}
+                duplicateIds={duplicateIds}
+                showRequired={true}
+                deleteCustomField={deleteCustomField}
+                toggleCustomField={toggleCustomField}
+                setModalOpen={setModalOpen}
+                handleMoveUp={handleMoveUp}
+                handleMoveDown={handleMoveDown}
+                canManage={canManage}
+              />
+            </TabsContent>
+            <TabsContent value="attribute">
+              <CustomFieldsTable
+                filter="attribute"
                 items={items}
                 duplicateIds={duplicateIds}
                 showRequired={true}

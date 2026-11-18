@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import uniq from "lodash/uniq";
 import SelectField from "@/components/Forms/SelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 
 export interface Props {
   setVariationIds: (ids: string[]) => Promise<void>;
@@ -28,7 +29,7 @@ export default function FixVariationIds({
     <ModalStandard
       trackingEventModalType=""
       open={true}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         const ids = value.ids.map((id, i) => (id ? id : expected[i]));
 
         if (uniq(ids).length !== ids.length) {

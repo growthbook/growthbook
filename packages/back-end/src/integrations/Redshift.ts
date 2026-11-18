@@ -5,7 +5,6 @@ import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import { getFactTableTypeFromPostgresOid } from "back-end/src/util/warehouseColumnTypes";
 import SqlIntegration from "./SqlIntegration";
-import { redshiftDialect } from "./dialects/redshift";
 
 export default class Redshift extends SqlIntegration {
   params!: PostgresConnectionParams;
@@ -15,7 +14,7 @@ export default class Redshift extends SqlIntegration {
   }
   getSqlDialect(): SqlDialect {
     return {
-      ...redshiftDialect,
+      ...super.getSqlDialect(),
       defaultSchema: this.params.defaultSchema || "",
     };
   }

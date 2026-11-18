@@ -73,17 +73,13 @@ const TemplatePage: FC = () => {
       <PageHead
         breadcrumb={[
           {
-            display: "Experiments",
-            href: `/experiments`,
-          },
-          {
             display: "Templates",
             href: `/experiments/templates`,
           },
           { display: template.templateMetadata.name },
         ]}
       />
-      <div className="container-fluid pagecontents p-3">
+      <div className="container-fluid pagecontents">
         <Box mb="5" mt="3">
           <Flex mt="2" mb="1" justify="between" align="center">
             <h1>{template?.templateMetadata.name}</h1>

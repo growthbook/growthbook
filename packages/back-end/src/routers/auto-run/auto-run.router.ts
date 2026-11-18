@@ -7,5 +7,8 @@ const autoRunController = wrapController(rawAutoRunController);
 
 router.get("/", autoRunController.getAutoRuns);
 router.get("/:id", autoRunController.getAutoRun);
+router.post("/", autoRunController.postAutoRun);
+router.post("/:id/artifacts", autoRunController.postAutoRunArtifacts);
+router.put("/:id", autoRunController.putAutoRun);
 
 export { router as autoRunRouter };

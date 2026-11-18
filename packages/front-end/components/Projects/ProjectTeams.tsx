@@ -7,14 +7,19 @@ import {
   MemberRoleWithProjects,
   ProjectMemberRole,
 } from "shared/types/organization";
-import { isProjectScopedTeam } from "shared/permissions";
+import { holdsGlobalAdmin, isProjectScopedTeam } from "shared/permissions";
 import { Team, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
-import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
+import {
+  CollapsedRuleRows,
+  RoleRuleLines,
+  ruleRows,
+  shadowedRulesCell,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import ProjectRuleFields from "@/components/Settings/Team/ProjectRuleFields";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
@@ -41,6 +46,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+
+// Narrower, the Members header breaks mid-word, so the table scrolls sideways.
+const TEAMS_TABLE_MIN_WIDTH = 598;
 
 // The team's role fields, as PUT /teams/:id expects them.
 const teamRoleInfo = (team: Team): MemberRoleWithProjects => ({
@@ -243,6 +251,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
       {roleTeam && (
         <ChangeProjectRoleModal
           memberName={roleTeam.name}
+          adminEverywhere={holdsGlobalAdmin(roleTeam, [])}
           projectRole={
             roleTeam.projectRoles?.find((rule) => rule.project === project) ||
             newRule(project)
@@ -264,8 +273,8 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         />
       )}
 
-      <Flex align="end" justify="between" gap="3" mb="2">
-        <Box>
+      <Flex align="end" justify="between" gap="3" wrap="wrap" mb="2">
+        <Box flexGrow="1" flexShrink="1" flexBasis="280px" minWidth="0">
           <Heading as="h5" size="sm" mb="1">
             Teams ({rows.length})
           </Heading>
@@ -275,34 +284,40 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
             global role for this Project.
           </Text>
         </Box>
-        <SplitButton
-          variant="outline"
-          menu={
-            addCandidates.length > 0 ? (
-              <DropdownMenu
-                trigger={
-                  <Button
-                    variant="outline"
-                    aria-label="More ways to add a team"
-                  >
-                    <PiCaretDownFill />
-                  </Button>
-                }
-                variant="soft"
-              >
-                <DropdownMenuItem onClick={() => setRuleModal("add")}>
-                  Add existing team
-                </DropdownMenuItem>
-              </DropdownMenu>
-            ) : undefined
-          }
-        >
-          <Button variant="outline" onClick={() => setRuleModal("create")}>
-            Create team
-          </Button>
-        </SplitButton>
+        <Box flexShrink="0">
+          <SplitButton
+            variant="outline"
+            menu={
+              addCandidates.length > 0 ? (
+                <DropdownMenu
+                  trigger={
+                    <Button
+                      variant="outline"
+                      aria-label="More ways to add a team"
+                    >
+                      <PiCaretDownFill />
+                    </Button>
+                  }
+                  variant="soft"
+                >
+                  <DropdownMenuItem onClick={() => setRuleModal("add")}>
+                    Add existing team
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              ) : undefined
+            }
+          >
+            <Button variant="outline" onClick={() => setRuleModal("create")}>
+              Create team
+            </Button>
+          </SplitButton>
+        </Box>
       </Flex>
-      <Table variant="surface" layout="fixed">
+      <Table
+        variant="surface"
+        layout="fixed"
+        minTableWidth={TEAMS_TABLE_MIN_WIDTH}
+      >
         <TableHeader>
           <TableRow>
             <TableColumnHeader width="30%">Team</TableColumnHeader>
@@ -317,6 +332,8 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         <TableBody>
           {rows.map((team) => {
             const rule = team.projectRoles?.find((r) => r.project === project);
+            // A global admin team's project rule has no effect.
+            const adminEverywhere = holdsGlobalAdmin(team, []);
             const otherProjects = rulesWithoutProject(team, project).map(
               (r) => getProjectById(r.project)?.name ?? r.project,
             );
@@ -365,9 +382,14 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                   <RoleRuleLines scope={team} organization={organization} />
                 </TableCell>
                 <TableCell>
-                  {rule && (
-                    <RoleRuleLines scope={rule} organization={organization} />
-                  )}
+                  {rule &&
+                    (adminEverywhere ? (
+                      <CollapsedRuleRows
+                        rows={shadowedRulesCell(ruleRows(rule, organization))}
+                      />
+                    ) : (
+                      <RoleRuleLines scope={rule} organization={organization} />
+                    ))}
                 </TableCell>
                 <TableCell>{team.members?.length ?? 0}</TableCell>
                 <TableCell justify="end">

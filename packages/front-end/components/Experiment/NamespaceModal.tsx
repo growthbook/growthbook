@@ -12,6 +12,7 @@ import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Callout from "@/ui/Callout";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 
@@ -109,7 +110,7 @@ function MultiRangeNamespaceModal({
       size="md"
       cta={existing ? "Update" : "Create"}
       header={existing ? "Edit Namespace" : "Create Namespace"}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         const isMultiRange = !useLegacyFormat && !!value.hashAttribute;
         const body = {
           label: value.label,
@@ -236,7 +237,7 @@ function LegacyNamespaceModal({
       size="md"
       cta="Update"
       header="Edit Legacy Namespace"
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         const body = {
           ...value,
           format: "legacy",

@@ -22,22 +22,26 @@ const TagsInput: FC<{
   onChange: (tags: string[]) => void;
   value: string[];
   autoFocus?: boolean;
+  label?: string;
   closeMenuOnSelect?: boolean;
   tagOptions?: TagInterface[];
   prompt?: string;
   creatable?: boolean;
   customClassName?: string;
   size?: MultiSelectFieldSize;
+  legacyLabelFormatting?: boolean;
 }> = ({
   onChange,
   value,
   autoFocus = true,
+  label,
   closeMenuOnSelect = false,
   tagOptions,
   prompt = "Tags...",
   creatable = true,
   customClassName,
   size,
+  legacyLabelFormatting,
 }) => {
   const { tags, getTagById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -122,6 +126,8 @@ const TagsInput: FC<{
   return (
     <MultiSelectField
       size={size}
+      label={label}
+      legacyLabelFormatting={legacyLabelFormatting}
       options={
         tagOptions.map((t) => {
           // Converts Radix color to hex color to make it compatible with MultiSelectField

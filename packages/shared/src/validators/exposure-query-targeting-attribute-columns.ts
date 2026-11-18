@@ -1,4 +1,9 @@
+import {
+  DEFAULT_IDENTIFIER_QUOTE,
+  sqlReferencesColumnAllowingQualified,
+} from "shared/sql";
 import type { SDKAttributeSchema } from "shared/types/organization";
+import type { SqlIdentifierQuote } from "shared/types/sql";
 
 export type TargetingColumnQuery = {
   id?: string;
@@ -30,12 +35,27 @@ export const CONTEXTUAL_BANDIT_SRM_REQUIRED_COLUMNS = [
 
 export function queryHasContextualBanditSrmColumns(
   query: string | undefined,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 ): boolean {
   if (!query) {
     return false;
   }
   return CONTEXTUAL_BANDIT_SRM_REQUIRED_COLUMNS.every((col) =>
-    new RegExp(`\\b${col}\\b`).test(query),
+    sqlReferencesColumnAllowingQualified(query, col, identifierQuote),
+  );
+}
+
+export function queryHasContextualBanditVersionColumn(
+  query: string | undefined,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): boolean {
+  if (!query) {
+    return false;
+  }
+  return sqlReferencesColumnAllowingQualified(
+    query,
+    CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
+    identifierQuote,
   );
 }
 

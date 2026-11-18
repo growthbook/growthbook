@@ -1,6 +1,6 @@
-import { FaQuestionCircle } from "react-icons/fa";
+import { PiQuestion } from "react-icons/pi";
 import { useEffect, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { ExpandedMember } from "shared/types/organization";
 import Switch from "@/ui/Switch";
 import track from "@/services/track";
@@ -33,7 +33,7 @@ export default function AutoApproveMembersToggle({
   }, [users, organization]);
 
   return (
-    <div className="mt-3">
+    <Box px="4" py="3">
       <Flex gap="1">
         <Switch
           id="autoApproveMembers"
@@ -66,7 +66,7 @@ export default function AutoApproveMembersToggle({
         <Tooltip body="When new members register using a verified email address matching this organization's domain, automatically add them as active members." />
       </Flex>
       {!owner?.verified && (
-        <div className="mt-3">
+        <Box mt="3">
           <Tooltip
             body={
               <>
@@ -83,11 +83,11 @@ export default function AutoApproveMembersToggle({
           >
             <Callout status="info" size="sm">
               This organization&apos;s domain must be verified to enable
-              automatic approvals <FaQuestionCircle />
+              automatic approvals <PiQuestion />
             </Callout>
           </Tooltip>
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }

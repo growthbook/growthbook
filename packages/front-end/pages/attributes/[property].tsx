@@ -1,28 +1,28 @@
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { recursiveWalk } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { FeatureInterface } from "shared/validators";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { FaQuestionCircle } from "react-icons/fa";
 import ReferencesLink from "@/components/References/ReferencesLink";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import PageHead from "@/components/Layout/PageHead";
-import { useAttributeSchema, useFeaturesList } from "@/services/features";
+import { useAttributeSchema } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
-import { useExperiments } from "@/hooks/useExperiments";
+import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AttributeModal from "@/components/Features/AttributeModal";
+import IdentifierModal from "@/components/Features/IdentifierModal";
 import ProjectBadges from "@/components/ProjectBadges";
 import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import DataList from "@/ui/DataList";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import { filterCustomFieldsForSectionAndProjects } from "@/services/customFields";
+import { customFieldDataListItems } from "@/components/CustomFields/renderCustomFieldValue";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import SortedTags from "@/components/Tags/SortedTags";
 import {
@@ -32,6 +32,11 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import AttributeReferencesList from "@/components/Features/AttributeReferencesList";
+import {
+  ArchiveAttributeItem,
+  ConvertToAttributeItem,
+} from "@/components/Features/AttributeRowMenu";
+import { IDENTIFIER_DATA_TYPES } from "@/components/Features/AttributeFormLayout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function AttributeDetailPage() {
@@ -43,125 +48,37 @@ export default function AttributeDetailPage() {
     [attributeSchema, property],
   );
 
-  const { data: savedGroupsData, error: savedGroupsError } = useApi<{
-    savedGroups: SavedGroupWithoutValues[];
-  }>("/saved-groups");
-  const savedGroupsLoading = !savedGroupsData && !savedGroupsError;
-  // Match definitions behavior by excluding archived groups.
-  const savedGroups = useMemo(
-    () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
-    [savedGroupsData],
-  );
   const {
-    features,
-    loading: featuresLoading,
-    error: featuresError,
-  } = useFeaturesList({ useCurrentProject: false });
-  const {
-    experiments,
-    loading: experimentsLoading,
-    error: experimentsError,
-  } = useExperiments();
-  const referencesError =
-    savedGroupsError || featuresError || experimentsError || null;
-  const referencesLoading =
-    savedGroupsLoading || featuresLoading || experimentsLoading;
+    references,
+    loading: referencesLoading,
+    error: referencesError,
+  } = useAttributeReferences(property ? [property] : []);
   const { apiCall } = useAuth();
-  const { refreshOrganization } = useUser();
+  const { refreshOrganization, hasCommercialFeature } = useUser();
+  const allCustomFields = useCustomFields();
+  const attributeCustomFields = useMemo(
+    () =>
+      hasCommercialFeature("custom-metadata")
+        ? (filterCustomFieldsForSectionAndProjects(
+            allCustomFields,
+            "attribute",
+            attribute?.projects,
+          ) ?? [])
+        : [],
+    [allCustomFields, hasCommercialFeature, attribute?.projects],
+  );
   const permissionsUtil = usePermissionsUtil();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showReferencesModal, setShowReferencesModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showConvertModal, setShowConvertModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const {
-    referencingFeatures,
-    referencingExperiments,
-    referencingSavedGroups,
-  } = useMemo(() => {
-    if (!attribute) {
-      return {
-        referencingFeatures: [] as FeatureInterface[],
-        referencingExperiments: [] as ExperimentInterfaceStringDates[],
-        referencingSavedGroups: [] as SavedGroupWithoutValues[],
-      };
-    }
-    const attributeKeys = [attribute.property];
-    const attributeFeatureIds: Record<string, Set<string>> = {};
-    const attributeExperimentIds: Record<string, Set<string>> = {};
-    const attributeGroupIds: Record<string, Set<string>> = {};
-
-    for (const feature of features) {
-      (feature.rules ?? []).forEach((rule) => {
-        try {
-          const parsedCondition = JSON.parse(rule?.condition ?? "{}");
-          recursiveWalk(parsedCondition, (node) => {
-            if (attributeKeys.includes(node[0])) {
-              if (!attributeFeatureIds[node[0]])
-                attributeFeatureIds[node[0]] = new Set<string>();
-              attributeFeatureIds[node[0]].add(feature.id);
-            }
-          });
-        } catch (e) {
-          // ignore
-        }
-      });
-    }
-
-    for (const experiment of experiments) {
-      try {
-        attributeExperimentIds[experiment.hashAttribute] ??= new Set<string>();
-        attributeExperimentIds[experiment.hashAttribute].add(experiment.id);
-        const phase = experiment.phases?.[experiment.phases.length - 1];
-        const parsedCondition = JSON.parse(phase?.condition ?? "{}");
-        recursiveWalk(parsedCondition, (node) => {
-          if (attributeKeys.includes(node[0])) {
-            if (!attributeExperimentIds[node[0]])
-              attributeExperimentIds[node[0]] = new Set<string>();
-            attributeExperimentIds[node[0]].add(experiment.id);
-          }
-        });
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    const conditionGroups = savedGroups.filter((g) => g.type === "condition");
-    for (const group of conditionGroups) {
-      try {
-        const parsedCondition = JSON.parse(group?.condition ?? "{}");
-        recursiveWalk(parsedCondition, (node) => {
-          if (attributeKeys.includes(node[0])) {
-            if (!attributeGroupIds[node[0]])
-              attributeGroupIds[node[0]] = new Set<string>();
-            attributeGroupIds[node[0]].add(group.id);
-          }
-        });
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    const key = attribute.property;
-    const referencingFeaturesList = [...(attributeFeatureIds?.[key] ?? [])]
-      .map((fid) => features.find((f) => f.id === fid))
-      .filter(Boolean) as FeatureInterface[];
-    const referencingExperimentsList = [
-      ...(attributeExperimentIds?.[key] ?? []),
-    ]
-      .map((eid) => experiments.find((e) => e.id === eid))
-      .filter(Boolean) as ExperimentInterfaceStringDates[];
-    const referencingSavedGroupsList = [...(attributeGroupIds?.[key] ?? [])]
-      .map((gid) => savedGroups.find((g) => g.id === gid))
-      .filter(Boolean) as SavedGroupWithoutValues[];
-
-    return {
-      referencingFeatures: referencingFeaturesList,
-      referencingExperiments: referencingExperimentsList,
-      referencingSavedGroups: referencingSavedGroupsList,
-    };
-  }, [attribute, features, experiments, savedGroups]);
+  const attributeReferences = property ? references?.[property] : undefined;
+  const referencingFeatures = attributeReferences?.features ?? [];
+  const referencingExperiments = attributeReferences?.experiments ?? [];
+  const referencingSavedGroups = attributeReferences?.savedGroups ?? [];
 
   const totalReferences =
     referencingFeatures.length +
@@ -181,7 +98,7 @@ export default function AttributeDetailPage() {
             { display: property },
           ]}
         />
-        <div className="p-3 container-fluid pagecontents">
+        <div className="container-fluid pagecontents">
           <Callout status="error">
             Attribute &quot;{property}&quot; not found. It may have been deleted
             or you may not have access.{" "}
@@ -211,13 +128,42 @@ export default function AttributeDetailPage() {
           />
         </Modal>
       )}
-      {showEditModal && (
-        <AttributeModal
-          close={() => {
-            setShowEditModal(false);
-            refreshOrganization();
+      {showEditModal &&
+        (attribute.hashAttribute ? (
+          <IdentifierModal
+            source="attribute-page"
+            existing={attribute}
+            close={() => setShowEditModal(false)}
+            onSave={(saved) => {
+              if (saved !== attribute.property) {
+                router.replace(`/attributes/${encodeURIComponent(saved)}`);
+              }
+            }}
+          />
+        ) : (
+          <AttributeModal
+            close={() => {
+              setShowEditModal(false);
+              refreshOrganization();
+            }}
+            attribute={attribute.property}
+            onSave={(saved) => {
+              if (saved !== attribute.property) {
+                router.replace(`/attributes/${encodeURIComponent(saved)}`);
+              }
+            }}
+          />
+        ))}
+      {showConvertModal && (
+        <IdentifierModal
+          source="attribute-page"
+          existing={attribute}
+          close={() => setShowConvertModal(false)}
+          onSave={(saved) => {
+            if (saved !== attribute.property) {
+              router.replace(`/attributes/${encodeURIComponent(saved)}`);
+            }
           }}
-          attribute={attribute.property}
         />
       )}
       {showDeleteModal && (
@@ -262,7 +208,7 @@ export default function AttributeDetailPage() {
           { display: attribute.property },
         ]}
       />
-      <div className="p-3 container-fluid pagecontents">
+      <div className="container-fluid pagecontents">
         <Flex align="center" justify="between" mb="4">
           <Heading as="h1" size="xl" overflowWrap="anywhere">
             {attribute.property}
@@ -293,6 +239,25 @@ export default function AttributeDetailPage() {
                 >
                   Edit Information
                 </DropdownMenuItem>
+                {!attribute.archived &&
+                  !attribute.hashAttribute &&
+                  IDENTIFIER_DATA_TYPES.includes(attribute.datatype) && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setShowConvertModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Convert to Identifier
+                    </DropdownMenuItem>
+                  )}
+                {!attribute.archived && attribute.hashAttribute && (
+                  <ConvertToAttributeItem attribute={attribute} />
+                )}
+                <ArchiveAttributeItem
+                  attribute={attribute}
+                  onDone={() => setDropdownOpen(false)}
+                />
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
@@ -391,6 +356,8 @@ export default function AttributeDetailPage() {
                   if (payload.enum === null) delete payload.enum;
                   if (payload.disableEqualityConditions === null)
                     delete payload.disableEqualityConditions;
+                  if (payload.customFields === null)
+                    delete payload.customFields;
                   await apiCall("/attribute", {
                     method: "PUT",
                     body: JSON.stringify(payload),
@@ -407,6 +374,23 @@ export default function AttributeDetailPage() {
             </div>
           </Frame>
         </Box>
+
+        {attributeCustomFields.length > 0 && (
+          <Box mb="4">
+            <Frame>
+              <Heading as="h4" size="sm" mb="3">
+                Additional Fields
+              </Heading>
+              <DataList
+                data={customFieldDataListItems(
+                  attributeCustomFields,
+                  attribute.customFields,
+                )}
+                maxColumns={3}
+              />
+            </Frame>
+          </Box>
+        )}
       </div>
     </>
   );

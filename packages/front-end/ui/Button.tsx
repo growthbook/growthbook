@@ -32,6 +32,10 @@ export type Props = {
   children: string | string[] | ReactNode;
   style?: CSSProperties;
   tabIndex?: number;
+  /** Lets a long label break onto more lines instead of overflowing. */
+  wrap?: boolean;
+  /** Cuts a long label short with an ellipsis instead of overflowing. */
+  truncate?: boolean;
 } & MarginProps &
   Pick<
     ButtonProps,
@@ -60,17 +64,40 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       preventDefault = true,
       type = "button",
       children,
+      wrap = false,
+      truncate = false,
+      style,
       ...otherProps
     },
     ref: ForwardedRef<HTMLButtonElement>,
   ) => {
     const [_internalLoading, setLoading] = useState(false);
     const loading = _externalLoading || _internalLoading;
+    const iconNode =
+      icon && truncate ? (
+        <span style={{ display: "inline-flex", flexShrink: 0 }}>{icon}</span>
+      ) : (
+        icon
+      );
 
     return (
       <RadixButton
         ref={ref}
         {...otherProps}
+        style={
+          wrap
+            ? {
+                height: "auto",
+                minHeight: "var(--base-button-height)",
+                maxWidth: "100%",
+                paddingTop: "var(--space-1)",
+                paddingBottom: "var(--space-1)",
+                ...style,
+              }
+            : truncate
+              ? { maxWidth: "100%", ...style }
+              : style
+        }
         onClick={
           onClick
             ? async (e) => {
@@ -95,9 +122,15 @@ const Button = forwardRef<HTMLButtonElement, Props>(
         loading={loading}
         type={type}
       >
-        {icon && iconPosition === "left" ? icon : null}
-        <Text weight="medium">{children}</Text>
-        {icon && iconPosition === "right" ? icon : null}
+        {icon && iconPosition === "left" ? iconNode : null}
+        <Text
+          weight="medium"
+          truncate={truncate}
+          style={truncate ? { minWidth: 0 } : undefined}
+        >
+          {children}
+        </Text>
+        {icon && iconPosition === "right" ? iconNode : null}
       </RadixButton>
     );
   },

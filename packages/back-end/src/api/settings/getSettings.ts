@@ -1,9 +1,14 @@
+import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getSettingsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   toApiRequireReviews,
   toApiSavedGroupApprovals,
+  toApiSdkConnectionApprovals,
 } from "./approvalRuleShapes";
 
 export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
@@ -22,20 +27,30 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
     ...filteredSettings
   } = settingsValues;
 
+  const orgSettings = req.context.org.settings;
   const settings = {
     ...filteredSettings,
     requireReviews: Array.isArray(filteredSettings.requireReviews)
       ? toApiRequireReviews(filteredSettings.requireReviews)
       : [],
-    // Not a scoped setting, so read it straight off the org.
+    // Not scoped settings, so read them straight off the org.
     approvalFlows: {
       savedGroups: toApiSavedGroupApprovals(
-        req.context.org.settings?.approvalFlows?.savedGroups ?? [],
+        orgSettings?.approvalFlows?.savedGroups ?? [],
+      ),
+      sdkConnections: toApiSdkConnectionApprovals(
+        req.context.org.settings?.approvalFlows?.sdkConnections ?? [],
       ),
     },
+    restApiBypassesReviews: !!orgSettings?.restApiBypassesReviews,
+    requireRebaseBeforePublish: !!orgSettings?.requireRebaseBeforePublish,
+    revertsBypassApproval: !!orgSettings?.revertsBypassApproval,
+    maxConcurrentDrafts: orgSettings?.maxConcurrentDrafts ?? 0,
+    sparseJSONRulesByDefault: !!orgSettings?.sparseJSONRulesByDefault,
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
-    preferredEnvironment:
-      req.context.org.settings?.preferredEnvironment ?? null,
+    winRisk: DEFAULT_WIN_RISK_THRESHOLD,
+    loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
+    preferredEnvironment: orgSettings?.preferredEnvironment ?? null,
   };
 
   return {

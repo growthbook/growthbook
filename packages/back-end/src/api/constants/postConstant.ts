@@ -74,7 +74,7 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
       project: project || "",
       // Falls back to the authenticated user (Personal Access Tokens) when no
       // owner is provided.
-      owner: owner || req.context.userId || "",
+      owner: owner || req.context.actingUserId,
     });
 
     // Backfill a live (published) revision so the constant is immediately

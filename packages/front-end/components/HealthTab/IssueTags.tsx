@@ -23,6 +23,15 @@ export const IssueTags = ({ issues }: Props) => {
               key={issue.value}
               href={`#${issue.value}`}
               style={{ marginBottom: "12px" }}
+              // Scroll without touching the URL hash: pages that persist tab
+              // state in the hash (e.g. Contextual Bandits) would otherwise
+              // read it as a tab change.
+              onClick={(e) => {
+                e.preventDefault();
+                document
+                  .getElementById(issue.value)
+                  ?.scrollIntoView({ behavior: "smooth" });
+              }}
             >
               {issue.label}
             </a>

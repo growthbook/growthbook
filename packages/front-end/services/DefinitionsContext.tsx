@@ -44,6 +44,7 @@ type Definitions = {
   // including projects the viewer cannot read.
   targetingOptOutProjectIds: string[];
   savedGroups: SavedGroupForDefinitions[];
+  _savedGroupsIncludingArchived: SavedGroupForDefinitions[];
   constants: ConstantWithoutValue[];
   _constantsIncludingArchived: ConstantWithoutValue[];
   configs: ConfigWithoutValue[];
@@ -58,6 +59,9 @@ type Definitions = {
   decisionCriteria: DecisionCriteriaInterface[];
   webhookSecrets: WebhookSecretFrontEndInterface[];
   eventIngestorRegion?: DataRegion;
+  // Org-wide, including ones the viewer cannot read.
+  hasManagedWarehouse: boolean;
+  hasEventForwarder: boolean;
 };
 
 type DefinitionContextValue = Definitions & {
@@ -104,6 +108,7 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
+  _savedGroupsIncludingArchived: [],
   constants: [],
   _constantsIncludingArchived: [],
   configs: [],
@@ -118,6 +123,8 @@ const defaultValue: DefinitionContextValue = {
   _factMetricsIncludingArchived: [],
   decisionCriteria: [],
   webhookSecrets: [],
+  hasManagedWarehouse: false,
+  hasEventForwarder: false,
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -242,7 +249,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     }
     return data.factMetrics.filter((m) => {
       const numeratorFactTable = data.factTables.find(
-        (f) => f.id === m.denominator?.factTableId,
+        (f) => f.id === m.numerator?.factTableId,
       );
       const denominatorFactTable = m.denominator?.factTableId
         ? data.factTables.find((f) => f.id === m.denominator?.factTableId)
@@ -392,6 +399,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       segments: data.segments,
       tags: allTags,
       savedGroups: activeSavedGroups,
+      _savedGroupsIncludingArchived: allSavedGroups,
       constants: activeConstants,
       _constantsIncludingArchived: allConstants,
       configs: activeConfigs,
@@ -408,6 +416,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       decisionCriteria: decisionCriteria,
       webhookSecrets: data.webhookSecrets,
       eventIngestorRegion: data.eventIngestorRegion,
+      hasManagedWarehouse: data.hasManagedWarehouse ?? false,
+      hasEventForwarder: data.hasEventForwarder ?? false,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -446,7 +456,11 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
         }
       },
       mutateDefinitions: async (changes) => {
-        await mutate(Object.assign({ ...data }, changes), true);
+        if (changes) {
+          await mutate(Object.assign({ ...data }, changes), false);
+        }
+        // Passing cache data to SWR starts revalidation without awaiting it.
+        await mutate();
       },
     };
   }

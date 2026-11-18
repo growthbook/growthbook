@@ -1,11 +1,9 @@
-import { SqlDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { AdobeExperiencePlatformQueryServiceConnectionParams } from "shared/types/integrations/adobe-experience-platform-query-service";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import SqlIntegration from "./SqlIntegration";
-import { adobeExperiencePlatformQueryServiceDialect } from "./dialects/adobeExperiencePlatformQueryService";
 
 export function toPostgresConnectionParams(
   p: AdobeExperiencePlatformQueryServiceConnectionParams,
@@ -31,9 +29,6 @@ export default class AdobeExperiencePlatformQueryService extends SqlIntegration 
       decryptDataSourceParams<AdobeExperiencePlatformQueryServiceConnectionParams>(
         encryptedParams,
       );
-  }
-  getSqlDialect(): SqlDialect {
-    return adobeExperiencePlatformQueryServiceDialect;
   }
   // Query Service OIDs are unverified, so leave column types undetected.
   runQuery(sql: string): Promise<QueryResponse> {

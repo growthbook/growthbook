@@ -18,9 +18,10 @@ import type {
   SubscriptionFunction,
   FeatureUsageSubCallback,
   CustomEventSubCallback,
+  ExperimentViewedSubCallback,
   TrackingCallback,
   TrackingData,
-  WidenPrimitives,
+  FeatureValueOrFallback,
   EvalContext,
   InitOptions,
   InitResponse,
@@ -32,6 +33,12 @@ import type {
   EventLogger,
   LogUnion,
   DestroyOptions,
+  RegisteredAttributes,
+  RegisteredEvents,
+  RegisteredFeatures,
+  EventArgs,
+  EventProperties,
+  NoInferType,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -51,6 +58,7 @@ import {
 import {
   runExperiment,
   evalFeature as _evalFeature,
+  buildContextualBanditExperiment,
   getExperimentResult,
   getAllStickyBucketAssignmentDocs,
   decryptPayload,
@@ -60,6 +68,10 @@ import {
   getTrackingUserContext,
 } from "./core";
 import { StickyBucketServiceSync } from "./sticky-bucket-service";
+import {
+  isMissingRemoteGroupIds,
+  REMOTE_GROUP_IDS_ATTRIBUTE,
+} from "./remoteSavedGroups";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -68,7 +80,8 @@ const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>,
+  AppFeatures extends Record<string, any> = RegisteredFeatures,
+  AppAttributes extends Attributes = RegisteredAttributes,
 > {
   // context is technically private, but some tools depend on it so we can't mangle the name
   private context: Options;
@@ -87,6 +100,7 @@ export class GrowthBook<
   private _subscriptions: Set<SubscriptionFunction>;
   private _featureUsageSubs: Set<FeatureUsageSubCallback>;
   private _customEventSubs: Set<CustomEventSubCallback>;
+  private _experimentViewedSubs: Set<ExperimentViewedSubCallback>;
   private _assigned: Map<
     string,
     {
@@ -114,7 +128,7 @@ export class GrowthBook<
   private _autoExperimentsAllowed: boolean;
   private _destroyed?: boolean;
 
-  constructor(options?: Options) {
+  constructor(options?: Options<NoInferType<AppAttributes>>) {
     options = options || {};
     // These properties are all initialized in the constructor instead of above
     // This saves ~80 bytes in the final output
@@ -128,6 +142,7 @@ export class GrowthBook<
     this._subscriptions = new Set();
     this._featureUsageSubs = new Set();
     this._customEventSubs = new Set();
+    this._experimentViewedSubs = new Set();
     this.ready = false;
     this._assigned = new Map();
     this._activeAutoExperiments = new Map();
@@ -217,9 +232,13 @@ export class GrowthBook<
     }
   }
 
-  public async setPayload(payload: FeatureApiResponse): Promise<void> {
-    this._payload = payload;
-    const data = await decryptPayload(payload, this._options.decryptionKey);
+  public async setPayload(
+    payload: FeatureApiResponse<AppFeatures>,
+  ): Promise<void> {
+    // AppFeatures only checks payloads written in code; internally they are untyped
+    const untyped = payload as FeatureApiResponse;
+    this._payload = untyped;
+    const data = await decryptPayload(untyped, this._options.decryptionKey);
     this._decryptedPayload = data;
     await this.refreshStickyBuckets(data);
     if (data.features) {
@@ -233,16 +252,18 @@ export class GrowthBook<
     }
     if (data.experiments) {
       this._options.experiments = data.experiments;
+    }
+    if (data.experiments || data.contextualBandits) {
       this._updateAllAutoExperiments();
     }
     this.ready = true;
     this._render();
   }
 
-  public initSync(options: InitSyncOptions): GrowthBook {
+  public initSync(options: InitSyncOptions<AppFeatures>): this {
     this._initialized = true;
 
-    const payload = options.payload;
+    const payload = options.payload as FeatureApiResponse;
 
     if (payload.encryptedExperiments || payload.encryptedFeatures) {
       throw new Error("initSync does not support encrypted payloads");
@@ -272,6 +293,8 @@ export class GrowthBook<
     }
     if (payload.experiments) {
       this._options.experiments = payload.experiments;
+    }
+    if (payload.experiments || payload.contextualBandits) {
       this._updateAllAutoExperiments();
     }
 
@@ -282,7 +305,7 @@ export class GrowthBook<
     return this;
   }
 
-  public async init(options?: InitOptions): Promise<InitResponse> {
+  public async init(options?: InitOptions<AppFeatures>): Promise<InitResponse> {
     this._initialized = true;
     options = options || {};
 
@@ -303,7 +326,7 @@ export class GrowthBook<
         allowStale: true,
       });
       startBackgroundSync(this, options);
-      await this.setPayload(data || {});
+      await this.setPayload(data || options.fallbackPayload || {});
       return res;
     }
   }
@@ -437,7 +460,7 @@ export class GrowthBook<
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
 
-  public async setAttributes(attributes: Attributes) {
+  public async setAttributes(attributes: AppAttributes) {
     this._options.attributes = attributes;
     if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
@@ -450,15 +473,29 @@ export class GrowthBook<
     this._updateAllAutoExperiments();
   }
 
-  public async updateAttributes(attributes: Attributes) {
-    return this.setAttributes({ ...this._options.attributes, ...attributes });
+  public async updateAttributes(attributes: Partial<AppAttributes>) {
+    return this.setAttributes({
+      ...this._options.attributes,
+      ...attributes,
+    } as AppAttributes);
   }
 
-  public async setAttributeOverrides(overrides: Attributes) {
+  public async setAttributeOverrides(overrides: Partial<AppAttributes>) {
     this._options.attributeOverrides = overrides;
     if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
     }
+    if (this._options.remoteEval) {
+      await this._refreshForRemoteEval();
+      return;
+    }
+    this._render();
+    this._updateAllAutoExperiments();
+  }
+
+  /** The user's remote saved groups, for example from your back end's resolver. */
+  public async setRemoteGroupIds(remoteGroupIds: string[]) {
+    this._options.remoteGroupIds = remoteGroupIds;
     if (this._options.remoteEval) {
       await this._refreshForRemoteEval();
       return;
@@ -495,8 +532,16 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
-  public getAttributes() {
-    return { ...this._options.attributes, ...this._options.attributeOverrides };
+  // Partial because attributes may not have been set yet
+  public getAttributes(): Partial<AppAttributes> {
+    // Remote evaluation sends these, so it includes remote group IDs.
+    return {
+      ...this._options.attributes,
+      ...this._options.attributeOverrides,
+      ...(this._options.remoteGroupIds && {
+        [REMOTE_GROUP_IDS_ATTRIBUTE]: this._options.remoteGroupIds,
+      }),
+    } as Partial<AppAttributes>;
   }
 
   public getForcedVariations() {
@@ -539,10 +584,19 @@ export class GrowthBook<
   // Currently singleton-only. UserScopedGrowthBook could use the same signatures;
   // GrowthBookClient would need UserContext in callbacks to identify the user.
   // Fires on deduped feature value changes (not every evalFeature call). Overrides excluded.
-  // One of three plugin streams: feature usage, experiment assignments (subscribe), custom events.
+  // One of three plugin streams: feature usage, experiment assignments (_subscribeExperimentViewed), custom events.
   public _subscribeFeatureUsage(cb: FeatureUsageSubCallback): () => void {
     this._featureUsageSubs.add(cb);
     return () => this._featureUsageSubs.delete(cb);
+  }
+
+  // Internal — first-party plugin use only.
+  // Fires once per deduped experiment assignment, alongside (not instead of) trackingCallback.
+  public _subscribeExperimentViewed(
+    cb: ExperimentViewedSubCallback,
+  ): () => void {
+    this._experimentViewedSubs.add(cb);
+    return () => this._experimentViewedSubs.delete(cb);
   }
 
   // Internal — first-party plugin use only.
@@ -550,6 +604,26 @@ export class GrowthBook<
   public _subscribeCustomEvents(cb: CustomEventSubCallback): () => void {
     this._customEventSubs.add(cb);
     return () => this._customEventSubs.delete(cb);
+  }
+
+  // Internal — first-party plugin use only.
+  // The two gates runExperiment applies (core.ts): `enabled: false` turns
+  // experiments off, qaMode keeps QA users out of them and out of tracking.
+  // A forced feature rule never reaches runExperiment, so a plugin that assigns
+  // and tracks on its own has to apply them itself.
+  public _experimentsDisabled(): boolean {
+    return this._options.enabled === false || !!this._options.qaMode;
+  }
+
+  // Internal — first-party plugin use only.
+  // Whether logEvent would reach anything. Without it logEvent logs an error of
+  // its own, which a plugin logging per impression would repeat endlessly.
+  public _hasEventConsumer(): boolean {
+    return (
+      !!this._options.eventLogger ||
+      this._customEventSubs.size > 0 ||
+      !!this._options.enableDevMode
+    );
   }
 
   private async _refreshForRemoteEval() {
@@ -593,6 +667,7 @@ export class GrowthBook<
     this._subscriptions.clear();
     this._featureUsageSubs.clear();
     this._customEventSubs.clear();
+    this._experimentViewedSubs.clear();
     this._assigned.clear();
     this._trackedExperiments.clear();
     this._completedChangeIds.clear();
@@ -658,9 +733,22 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
+  private _warnedMissingRemoteGroupIds = false;
+
   private _getEvalContext(): EvalContext {
+    const user = this._getUserContext();
+    if (
+      !this._warnedMissingRemoteGroupIds &&
+      isMissingRemoteGroupIds(user, this._options.savedGroups)
+    ) {
+      this._warnedMissingRemoteGroupIds = true;
+      this.log(
+        "The payload has remote saved groups, but the user has no remote group IDs. Rules using them won't match. See setRemoteGroupIds.",
+        {},
+      );
+    }
     return {
-      user: this._getUserContext(),
+      user,
       global: this._getGlobalContext(),
       stack: {
         evaluatedFeatures: new Set(),
@@ -676,6 +764,7 @@ export class GrowthBook<
             ...this._options.attributes,
           }
         : this._options.attributes,
+      remoteGroupIds: this._options.remoteGroupIds,
       enableDevMode: this._options.enableDevMode,
       blockedChangeIds: this._options.blockedChangeIds,
       stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,
@@ -688,6 +777,7 @@ export class GrowthBook<
       onFeatureUsage: this._options.onFeatureUsage,
       devLogs: this.logs,
       featureUsageSubs: this._featureUsageSubs,
+      experimentViewedSubs: this._experimentViewedSubs,
       trackedExperiments: this._trackedExperiments,
       trackedFeatureUsage: this._trackedFeatures,
     };
@@ -697,6 +787,7 @@ export class GrowthBook<
       features: this._options.features,
       experiments: this._options.experiments,
       log: this.log,
+      debug: this.debug,
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
@@ -741,11 +832,18 @@ export class GrowthBook<
         "",
       );
     } else {
-      ({ result, trackingCall } = runExperiment(
-        experiment,
-        null,
-        this._getEvalContext(),
-      ));
+      const ctx = this._getEvalContext();
+      let expToRun = experiment;
+      if (experiment.contextualBanditRef) {
+        expToRun = { ...experiment };
+        buildContextualBanditExperiment(
+          expToRun,
+          experiment.contextualBanditRef,
+          experiment.key,
+          ctx,
+        );
+      }
+      ({ result, trackingCall } = runExperiment(expToRun, null, ctx));
       this._onExperimentEval(experiment, result);
     }
 
@@ -919,11 +1017,14 @@ export class GrowthBook<
   }
 
   public getFeatureValue<
-    V extends AppFeatures[K],
+    V extends AppFeatures[K] | null,
     K extends string & keyof AppFeatures = string,
-  >(key: K, defaultValue: V): WidenPrimitives<V> {
-    const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
-    return value === null ? (defaultValue as WidenPrimitives<V>) : value;
+  >(key: K, defaultValue: V): FeatureValueOrFallback<V, AppFeatures[K]> {
+    const value = this.evalFeature(key).value;
+    return (value === null ? defaultValue : value) as FeatureValueOrFallback<
+      V,
+      AppFeatures[K]
+    >;
   }
 
   /**
@@ -999,10 +1100,12 @@ export class GrowthBook<
     this._options.eventLogger = logger;
   }
 
-  public async logEvent(
-    eventName: string,
-    properties?: Record<string, unknown>,
-  ) {
+  // Event names and properties are checked against the registered events
+  public logEvent<K extends string & keyof RegisteredEvents>(
+    eventName: K,
+    ...args: EventArgs<RegisteredEvents[K]>
+  ): Promise<void>;
+  public async logEvent(eventName: string, properties?: EventProperties) {
     if (this._destroyed) {
       console.error("Cannot log event to destroyed GrowthBook instance");
       return;
@@ -1034,7 +1137,7 @@ export class GrowthBook<
       } catch (e) {
         console.error(e);
       }
-    } else {
+    } else if (!this._options.enableDevMode && !this._customEventSubs.size) {
       console.error("No event logger configured");
     }
   }

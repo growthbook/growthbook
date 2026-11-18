@@ -26,13 +26,22 @@ TrackingCallback trackingCallback = new TrackingCallback() {
 
 // Initialize the GrowthBook SDK with the GBContext
 GBContext context = new GBContext(
-    userAttributesJson,
-    featuresJson,
-    isEnabled,
-    isQaMode,
-    url,
-    forcedVariations,
-    trackingCallback
+    userAttributesJson, // attributesJson
+    null,               // attributes
+    featuresJson,       // featuresJson
+    null,               // features
+    null,               // encryptionKey
+    isEnabled,          // enabled
+    isQaMode,           // isQaMode
+    url,                // url
+    false,              // allowUrlOverrides
+    forcedVariations,   // forcedVariationsMap
+    trackingCallback,   // trackingCallback
+    null,               // featureUsageCallback
+    null,               // stickyBucketService
+    null,               // stickyBucketAssignmentDocs
+    null,               // stickyBucketIdentifierAttributes
+    null                // savedGroups
 );
 
 GrowthBook growthBook = new GrowthBook(context);
@@ -71,13 +80,22 @@ val trackingCallback: TrackingCallback = object : TrackingCallback {
 
 // Initialize the GrowthBook SDK with the GBContext
 val context = GBContext(
-    userAttributes,
-    featuresJson,
-    isEnabled,
-    isQaMode,
-    url,
-    forcedVariations,
-    trackingCallback
+    userAttributes,   // attributesJson
+    null,             // attributes
+    featuresJson,     // featuresJson
+    null,             // features
+    null,             // encryptionKey
+    isEnabled,        // enabled
+    isQaMode,         // isQaMode
+    url,              // url
+    false,            // allowUrlOverrides
+    forcedVariations, // forcedVariationsMap
+    trackingCallback, // trackingCallback
+    null,             // featureUsageCallback
+    null,             // stickyBucketService
+    null,             // stickyBucketAssignmentDocs
+    null,             // stickyBucketIdentifierAttributes
+    null              // savedGroups
 )
 
 val growthBook = GrowthBook(context)

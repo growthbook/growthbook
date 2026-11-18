@@ -5,12 +5,11 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
 import Callout from "@/ui/Callout";
-import SDKConnectionForm from "./SDKConnectionForm";
+import CreateSDKConnectionModal from "./CreateSDKConnectionModal";
 
 export default function InitialSDKConnectionForm({
   close,
   cta,
-  inline,
   secondaryCTA,
   goToNextStep,
   feature,
@@ -18,7 +17,6 @@ export default function InitialSDKConnectionForm({
 }: {
   close?: () => void;
   cta?: string;
-  inline?: boolean;
   feature?: FeatureInterface;
   secondaryCTA?: ReactElement;
   goToNextStep?: () => void;
@@ -31,13 +29,7 @@ export default function InitialSDKConnectionForm({
     useState<SDKConnectionInterface | null>(null);
 
   useEffect(() => {
-    setCurrentConnection(() => {
-      if (connections && connections[0]) {
-        return connections[0];
-      } else {
-        return null;
-      }
-    });
+    setCurrentConnection(connections?.[0] ?? null);
   }, [connections]);
 
   if (error) {
@@ -52,7 +44,6 @@ export default function InitialSDKConnectionForm({
       <CodeSnippetModal
         close={close}
         cta={cta}
-        inline={inline}
         connections={connections}
         sdkConnection={currentConnection}
         secondaryCTA={secondaryCTA}
@@ -66,15 +57,12 @@ export default function InitialSDKConnectionForm({
   }
 
   return (
-    <SDKConnectionForm
-      close={close}
-      edit={false}
+    <CreateSDKConnectionModal
+      close={close ?? (() => undefined)}
       mutate={mutate}
-      cta={"Continue"}
+      cta="Continue"
       autoCloseOnSubmit={false}
-      initialValue={{
-        includeRuleIds: true,
-      }}
+      initialValue={{ includeRuleIds: true }}
     />
   );
 }

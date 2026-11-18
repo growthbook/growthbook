@@ -1,7 +1,8 @@
 import type { Response } from "express";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { fetch } from "back-end/src/util/http.util";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { cancellableFetch, fetch } from "back-end/src/util/http.util";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { EPPO_API_BASE_URL, IS_CLOUD } from "back-end/src/util/secrets";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
 import { resolveProxyUrl } from "back-end/src/routers/importing/importing.util";
 
@@ -77,6 +78,54 @@ export const proxyStatsigRequest = async (
     res.status(500).json({
       status: 500,
       message: error.message || "Failed to fetch from Statsig API",
+    });
+  }
+};
+
+export const proxyEppoRequest = async (
+  req: AuthRequest<{
+    endpoint: string;
+    apiKey: string;
+  }>,
+  res: Response,
+) => {
+  getContextFromReq(req);
+  const { endpoint, apiKey } = req.body;
+
+  if (!endpoint || !apiKey) {
+    return res.status(400).json({
+      status: 400,
+      message: "Missing required fields: endpoint and apiKey",
+    });
+  }
+
+  const url = resolveProxyUrl(endpoint, EPPO_API_BASE_URL);
+
+  try {
+    const { responseWithoutBody: response, stringBody } =
+      await cancellableFetch(
+        url,
+        {
+          headers: {
+            "X-Eppo-Token": apiKey,
+          },
+          redirect: "error",
+        },
+        { maxTimeMs: 30000, maxContentSize: 50 * 1024 * 1024 },
+      );
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        status: response.status,
+        message: `Eppo API error: ${response.statusText} - ${stringBody}`,
+      });
+    }
+
+    res.status(200).json(JSON.parse(stringBody));
+  } catch (error) {
+    res.status(500).json({
+      status: 500,
+      message: error.message || "Failed to fetch from Eppo API",
     });
   }
 };

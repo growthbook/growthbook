@@ -8,6 +8,8 @@ import { createReportSnapshot } from "back-end/src/services/reports";
 import { toSnapshotApiInterface } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { NotFoundError } from "back-end/src/util/errors";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const postReportRefresh = createApiRequestHandler(
@@ -17,7 +19,7 @@ export const postReportRefresh = createApiRequestHandler(
 
   const report = await getReportById(org.id, req.params.id);
   if (!report) {
-    throw new Error("Could not find report with that id");
+    throw new NotFoundError("Could not find report with that id");
   }
 
   if (report.type !== "experiment-snapshot") {
@@ -31,7 +33,7 @@ export const postReportRefresh = createApiRequestHandler(
   // getExperimentById returns null if the caller can't read the project.
   // canUpdateReport({}) would otherwise degrade to an org-level check.
   if (report.experimentId && !experiment) {
-    throw new Error("Could not find report with that id");
+    throw new NotFoundError("Could not find report with that id");
   }
 
   if (!req.context.permissions.canUpdateReport(experiment || {})) {
@@ -66,7 +68,8 @@ export const postReportRefresh = createApiRequestHandler(
     });
 
     const apiReport = await resolveOwnerEmail(
-      toReportApiInterface(
+      await toReportApiInterface(
+        req.context,
         { ...report, snapshot: newSnapshot.id },
         newSnapshot,
       ),
@@ -78,6 +81,10 @@ export const postReportRefresh = createApiRequestHandler(
         experiment,
         newSnapshot,
         metricMap,
+        await getExposureQueriesForDatasource(
+          req.context,
+          experiment.datasource,
+        ),
       );
       return { report: { ...apiReport, results } };
     }
@@ -86,7 +93,10 @@ export const postReportRefresh = createApiRequestHandler(
   } catch (e) {
     return {
       report: {
-        ...(await resolveOwnerEmail(toReportApiInterface(report), req.context)),
+        ...(await resolveOwnerEmail(
+          await toReportApiInterface(req.context, report),
+          req.context,
+        )),
         snapshotStatus: "error" as const,
         snapshotError: (e as Error).message,
       },

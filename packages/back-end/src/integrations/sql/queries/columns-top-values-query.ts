@@ -1,4 +1,7 @@
-import { getFactTableTimestampColumn } from "shared/experiments";
+import {
+  getColumnExpression,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import { format } from "shared/sql";
 import type { ColumnTopValuesParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -50,6 +53,7 @@ __factTable AS (
 __topValues AS (
   ${getTopValuesCTEBody(dialect, {
     columns,
+    factTable,
     start,
     limit,
     maxValueLength,
@@ -66,6 +70,7 @@ ORDER BY column_name, count DESC
 
 type TopValuesCTEBodyParams = {
   columns: ColumnInterface[];
+  factTable: ColumnTopValuesParams["factTable"];
   start: Date;
   limit: number;
   maxValueLength?: number;
@@ -77,6 +82,7 @@ function getTopValuesCTEBody(
   dialect: SqlDialect,
   {
     columns,
+    factTable,
     start,
     limit,
     maxValueLength,
@@ -85,7 +91,17 @@ function getTopValuesCTEBody(
   }: TopValuesCTEBodyParams,
 ): string {
   const pairs = columns.map((c) => {
-    const valueSql = dialect.castToString(c.column);
+    // Resolves dotted JSON paths (e.g. `props.plan`) and virtual columns to
+    // their SQL expressions; plain columns pass through unchanged.
+    const valueSql = dialect.castToString(
+      getColumnExpression(
+        c.column,
+        factTable,
+        dialect.jsonExtract,
+        "",
+        dialect.identifierQuote,
+      ),
+    );
     return {
       keyLiteral: c.column.replace(/'/g, "''"),
       valueSql: searchTerm

@@ -23,6 +23,7 @@ import type {
 } from "shared/validators";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
+  getRampRetry,
   isAwaitingApproval,
   isReadyForApproval,
   isAwaitingStartApproval,
@@ -65,6 +66,8 @@ import {
   rampStartValuesOf,
   forceMatchesValueType,
   remapTemplateActions,
+  isTerminalRampError,
+  shiftRampTimersForHold,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -87,6 +90,12 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getRevision: jest.fn(),
   discardRevision: jest.fn(),
   registerRevisionPublishedHook: jest.fn(),
+}));
+
+// These mock contexts have no request data source cache.
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  ...jest.requireActual("back-end/src/services/assignmentQuerySelection"),
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("back-end/src/models/EventModel", () => ({
@@ -119,7 +128,9 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent } from "back-end/src/models/EventModel";
 import {
+  BadRequestError,
   ConflictError,
+  NotFoundError,
   RampAdvanceLockBusyError,
 } from "back-end/src/util/errors";
 
@@ -374,7 +385,7 @@ describe("applyPatchToRule", () => {
     expect(result.enabled).toBe(true);
   });
 
-  it("does not overwrite unpatchd fields", () => {
+  it("does not overwrite unpatched fields", () => {
     const result = applyPatchToRule(base, { coverage: 0.9 });
     expect(result.condition).toBe(base.condition);
     expect(result.enabled).toBe(base.enabled);
@@ -414,6 +425,33 @@ describe("applyPatchToRule", () => {
     const result = applyPatchToRule(allEnvRule, patch);
     expect(result.allEnvironments).toBe(true);
     expect(result.environments).toBeUndefined();
+  });
+
+  it("a null environments patch leaves the rule's scope alone", () => {
+    const scoped: FeatureRule = {
+      ...base,
+      allEnvironments: false,
+      environments: ["dev"],
+    };
+    const result = applyPatchToRule(scoped, { environments: null });
+    expect(result.allEnvironments).toBe(false);
+    expect(result.environments).toEqual(["dev"]);
+  });
+
+  it("an anchor taken from a rule with no list restores every environment", () => {
+    const everywhere = { ...base } as FeatureRule;
+    delete everywhere.environments;
+    delete everywhere.allEnvironments;
+    const anchor = getStartPatchForRule(everywhere);
+    expect(anchor.allEnvironments).toBe(true);
+    const narrowed: FeatureRule = {
+      ...base,
+      allEnvironments: false,
+      environments: ["production"],
+    };
+    const restored = applyPatchToRule(narrowed, anchor);
+    expect(restored.allEnvironments).toBe(true);
+    expect("environments" in restored).toBe(false);
   });
 
   it("environments patch correctly resets allEnvironments to false", () => {
@@ -661,6 +699,35 @@ describe("getStartPatchForRule", () => {
     ).not.toHaveProperty("hashAttribute");
   });
 
+  it("replaying a force rule's anchor leaves no coverage key on it", () => {
+    const force = {
+      id: "r1",
+      type: "force",
+      value: "true",
+      enabled: true,
+    } as FeatureRule;
+    const afterStart = applyPatchToRule(force, getStartPatchForRule(force));
+    expect(afterStart.type).toBe("force");
+    expect(afterStart).not.toHaveProperty("coverage");
+  });
+
+  it("rolling a promoted force rule back to its anchor restores full coverage", () => {
+    const force = {
+      id: "r1",
+      type: "force",
+      value: "true",
+      enabled: true,
+    } as FeatureRule;
+    const anchor = getStartPatchForRule(force);
+    const ramped = applyPatchToRule(force, {
+      coverage: 0.5,
+      hashAttribute: "id",
+    });
+    expect(ramped.type).toBe("rollout");
+    const rolledBack = applyPatchToRule(ramped, anchor);
+    expect((rolledBack as { coverage?: number }).coverage).toBe(1);
+  });
+
   it("captures explicit null clears for absent rule fields", () => {
     const patch = getStartPatchForRule({
       id: "r1",
@@ -791,6 +858,54 @@ describe("getStartPatchForRule", () => {
     ]);
     expect(restored.allEnvironments).toBe(false);
     expect(restored.environments).toEqual(["production"]);
+  });
+
+  it("a list-only step narrows an all-environments anchor; a later wildcard widens it back", () => {
+    const rule = {
+      id: RULE_ID,
+      type: "force" as const,
+      value: "x",
+      enabled: true,
+      allEnvironments: true,
+    } as FeatureRule;
+    const stepWith = (patch: Record<string, unknown>) => ({
+      interval: 300,
+      actions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, ...patch },
+        },
+      ],
+    });
+    const sched = {
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, ...getStartPatchForRule(rule) },
+        },
+      ],
+      steps: [
+        stepWith({ environments: ["dev"] }),
+        stepWith({ allEnvironments: true }),
+      ],
+      endActions: [],
+    };
+
+    const narrowed = applyPatchToRule(
+      rule,
+      computeEffectivePatch(sched, 0).get(TARGET_ID)!,
+    );
+    expect(narrowed.allEnvironments).toBe(false);
+    expect(narrowed.environments).toEqual(["dev"]);
+
+    const widened = applyPatchToRule(
+      narrowed,
+      computeEffectivePatch(sched, 1).get(TARGET_ID)!,
+    );
+    expect(widened.allEnvironments).toBe(true);
+    expect("environments" in widened).toBe(false);
   });
 });
 
@@ -4536,7 +4651,7 @@ describe("startReadyScheduleNow", () => {
       ],
     });
     (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
-      new Error("step refused"),
+      new BadRequestError("step refused"),
     );
 
     await expect(startReadyScheduleNow(ctx as never, schedule)).rejects.toThrow(
@@ -4556,6 +4671,40 @@ describe("startReadyScheduleNow", () => {
     );
     expect(mockCreateEvent.mock.calls.map(([e]) => e.event)).toContain(
       "rampSchedule.actions.errorPaused",
+    );
+  });
+
+  it("a first step that fails for another reason stays running and retries", async () => {
+    const { ctx, schedule, updateById } = makeStartNowCtx({
+      steps: [
+        {
+          interval: 60,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+    });
+    (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
+      new Error("connection pool cleared"),
+    );
+
+    await expect(startReadyScheduleNow(ctx as never, schedule)).rejects.toThrow(
+      "connection pool cleared",
+    );
+    expect(updateById).toHaveBeenCalledWith(schedule.id, {
+      stepFailure: expect.objectContaining({
+        attempts: 1,
+        lastError: "connection pool cleared",
+      }),
+    });
+    expect(updateById).not.toHaveBeenCalledWith(
+      schedule.id,
+      expect.objectContaining({ status: "paused" }),
     );
   });
 });
@@ -4605,6 +4754,8 @@ describe("approveAndPublishStep", () => {
     return {
       ctx: {
         userId: USER_ID,
+        actingUserId: USER_ID,
+        actorId: USER_ID,
         org: { id: ORG_ID, settings: {} },
         auditUser: { type: "session" as const, userAgent: "", ip: "" },
         environments: [],
@@ -4638,6 +4789,7 @@ describe("approveAndPublishStep", () => {
     expect(updates.stepApproval).toMatchObject({
       stepIndex: 0,
       approvedBy: USER_ID,
+      approvedByUser: ctx.auditUser,
       context: "api",
     });
     expect(updates.stepApproval?.approvedAt).toBeInstanceOf(Date);
@@ -5773,6 +5925,8 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
     const updateById = jest.fn().mockResolvedValue(doc);
     const ctx = {
       userId: "u1",
+      actingUserId: "u1",
+      actorId: "u1",
       models: {
         rampSchedules: {
           getById: jest.fn().mockResolvedValue(doc),
@@ -5899,6 +6053,122 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
       await restoredWith({
         reason: "Base state updated by publishing revision 4: r1: value",
       }),
+    ).toBeNull();
+  });
+});
+
+describe("isTerminalRampError", () => {
+  const withStatus = (status: number) =>
+    Object.assign(new Error("x"), { status });
+
+  it("pauses at once on refusals no retry gets past", () => {
+    expect(isTerminalRampError(new BadRequestError("invalid step"))).toBe(true);
+    expect(isTerminalRampError(new NotFoundError("rule deleted"))).toBe(true);
+    expect(isTerminalRampError(withStatus(403))).toBe(true);
+  });
+
+  it("retries conflicts, rate limits and server errors", () => {
+    expect(isTerminalRampError(new ConflictError("raced"))).toBe(false);
+    expect(isTerminalRampError(new RampAdvanceLockBusyError("busy"))).toBe(
+      false,
+    );
+    expect(isTerminalRampError(withStatus(429))).toBe(false);
+    expect(isTerminalRampError(withStatus(500))).toBe(false);
+  });
+
+  it("retries errors without a status, such as database failovers", () => {
+    const failover = Object.assign(new Error("not primary"), {
+      name: "MongoServerError",
+      code: 10107,
+    });
+    expect(isTerminalRampError(failover)).toBe(false);
+    expect(isTerminalRampError(new Error("buffering timed out"))).toBe(false);
+    expect(isTerminalRampError("blip")).toBe(false);
+    expect(isTerminalRampError(null)).toBe(false);
+  });
+});
+
+describe("getRampRetry", () => {
+  const stepFailure = {
+    attempts: 2,
+    lastError: "timed out",
+    retryAt: new Date("2026-11-13T12:00:00.000Z"),
+  };
+
+  it("reports the failure until the schedule finishes", () => {
+    for (const status of ["pending", "ready", "running", "paused"] as const) {
+      expect(getRampRetry({ status, stepFailure })).toBe(stepFailure);
+    }
+  });
+
+  it("reports nothing once the schedule is finished", () => {
+    for (const status of ["completed", "rolled-back"] as const) {
+      expect(getRampRetry({ status, stepFailure })).toBeNull();
+    }
+  });
+
+  it("reports nothing without a failure", () => {
+    expect(getRampRetry({ status: "running" })).toBeNull();
+    expect(getRampRetry({ status: "running", stepFailure: null })).toBeNull();
+  });
+});
+
+describe("shiftRampTimersForHold", () => {
+  const t = (minutes: number) =>
+    new Date(Date.UTC(2026, 10, 13, 12, 0) + minutes * 60_000);
+  const failing = (heldSince: Date) => ({
+    attempts: 2,
+    lastError: "timed out",
+    retryAt: t(30),
+    heldSince,
+  });
+
+  it("pushes the step timers back by the time held and restarts the hold", () => {
+    expect(
+      shiftRampTimersForHold(
+        {
+          phaseStartedAt: t(0),
+          nextStepAt: t(10),
+          stepFailure: failing(t(10)),
+        },
+        t(40),
+      ),
+    ).toEqual({
+      phaseStartedAt: t(30),
+      nextStepAt: t(40),
+      stepFailure: failing(t(40)),
+    });
+  });
+
+  it("applies each stretch of the hold once", () => {
+    const first = shiftRampTimersForHold(
+      { phaseStartedAt: t(0), nextStepAt: t(10), stepFailure: failing(t(10)) },
+      t(15),
+    );
+    const second = shiftRampTimersForHold(
+      {
+        phaseStartedAt: first?.phaseStartedAt,
+        nextStepAt: first?.nextStepAt ?? null,
+        stepFailure: first?.stepFailure,
+      },
+      t(40),
+    );
+    expect(second?.phaseStartedAt).toEqual(t(30));
+    expect(second?.nextStepAt).toEqual(t(40));
+  });
+
+  it("leaves unset timers unset and does nothing without a failure", () => {
+    expect(
+      shiftRampTimersForHold(
+        { phaseStartedAt: null, nextStepAt: null, stepFailure: failing(t(0)) },
+        t(5),
+      ),
+    ).toEqual({ stepFailure: failing(t(5)) });
+    expect(
+      shiftRampTimersForHold(
+        { phaseStartedAt: t(0), nextStepAt: t(10), stepFailure: null },
+        t(5),
+      ),
     ).toBeNull();
   });
 });

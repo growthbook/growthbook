@@ -1,0 +1,54 @@
+name: PR Preview Cleanup
+
+# pull_request_target (not pull_request) so this still runs when the PR has
+# merge conflicts or no longer touches preview.yml's paths. It never checks out
+# or runs PR code; the PR number is the only input it uses.
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  destroy:
+    if: >-
+      github.repository == 'growthbook/growthbook' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    # Same group as preview.yml's deploy job, so closing cancels an in-flight deploy.
+    concurrency:
+      group: pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      APP_NAME: pr-${{ github.event.pull_request.number }}-growthbook
+
+    steps:
+      - name: Setup fly cli
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+
+      - name: Destroy preview app
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          # The Fly org also hosts non-preview apps (demo, etc.); never touch those.
+          if [[ ! "$APP_NAME" =~ ^pr-[0-9]+-growthbook$ ]]; then
+            echo "::error::Refusing to destroy '$APP_NAME': not a PR preview app"
+            exit 1
+          fi
+
+          for attempt in 1 2 3; do
+            if OUT=$(flyctl apps destroy "$APP_NAME" -y 2>&1); then
+              echo "$OUT"
+              exit 0
+            fi
+            echo "$OUT"
+            # PRs that never got a preview (stack bases, no package changes) have no app.
+            if grep -q "app not found" <<<"$OUT"; then
+              echo "No preview app for this PR; nothing to clean up."
+              exit 0
+            fi
+            echo "Attempt $attempt failed; retrying..."
+            sleep $((attempt * 10))
+          done
+          echo "::error::Failed to destroy $APP_NAME after 3 attempts"
+          exit 1

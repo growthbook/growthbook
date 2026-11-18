@@ -43,7 +43,9 @@ export default function DataList({
           xs: Math.min(columns, 3) + "",
           sm: columns + "",
         }}
-        gapY="6"
+        // The wide gap separates rows of a multi-column grid; in a single
+        // column it splits one stacked list into unrelated-looking blocks.
+        gapY={columns === 1 ? "3" : "6"}
         gapX="6"
         {...componentProps}
       >
@@ -59,7 +61,7 @@ export default function DataList({
                 </Tooltip>
               ) : null}
             </Text>
-            <Text>{value}</Text>
+            <Text overflowWrap="break-word">{value}</Text>
           </Flex>
         ))}
       </Grid>

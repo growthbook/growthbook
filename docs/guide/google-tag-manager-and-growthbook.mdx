@@ -2,7 +2,6 @@
 title: Using GrowthBook with Google Tag Manager (GTM)
 description: Load the GrowthBook SDK from Google Tag Manager and send experiment exposure to your analytics tags.
 sidebarTitle: Google Tag Manager (GTM)
-slug: google-tag-manager-and-growthbook
 ---
 
 ## Overview
@@ -63,7 +62,7 @@ Be sure to click **Submit** and **Publish** to make your changes live. GrowthBoo
 It's possible to use GrowthBook in your GTM setup. This allows you to control feature flags and experiments without needing to modify your website code.
 
 <Tip>
-If you're planning to use the [Visual Editor](/app/visual), [URL redirects](/app/url-redirects), or to [run experiments in code](/features/feature-flag-experiments), skip ahead to the next section ⏭️
+If you're planning to use the [AI Visual Editor](/app/visual), [URL redirects](/app/url-redirects), or to [run experiments in code](/features/feature-flag-experiments), skip ahead to the next section ⏭️
 </Tip>
 
 Create a new boolean feature flag with an A/B test. For this tutorial, we'll use a feature flag called `show-discount` to run an A/B test to show and hide an item's discount. New to feature flags in GrowthBook? Learn more about [creating them and A/B tests](/features/basics).
@@ -96,7 +95,7 @@ Next, we'll use GTM to apply the feature flag to your website:
 
 In this example, we're using the `show-discount` feature flag to run an A/B experiment. When the experiment evaluates to `true`, we add a CSS class to the price element on the page.
 
-As seen in the image below, the control element shows the price, while the variation shows the original price with a strikethough and the discounted price in red. We can run this entire experiment straight from GTM, without needing to touch the website code!
+As seen in the image below, the control element shows the price, while the variation shows the original price with a strikethrough and the discounted price in red. We can run this entire experiment straight from GTM, without needing to touch the website code!
 
 <Frame>![A control element with the image and name of a couch, showing just a price, and a variation element with the same image and name, showing the original price with a strikethrough and the discounted price in red](/static/images/guides/gtm-ab-test.webp)</Frame>
 

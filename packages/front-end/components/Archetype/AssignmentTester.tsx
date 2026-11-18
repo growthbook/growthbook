@@ -23,6 +23,7 @@ import DatePicker from "@/components/DatePicker";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Switch from "@/ui/Switch";
+import { coveragePercentFormatter } from "@/services/utils";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -153,7 +154,9 @@ export default function AssignmentTester({
             matchedRuleName = "Forced";
             if (matchedRule && matchedRule?.coverage) {
               matchedRuleName =
-                "Rollout (" + matchedRule?.coverage * 100 + "%)";
+                "Rollout (" +
+                coveragePercentFormatter.format(matchedRule.coverage) +
+                ")";
             }
           } else if (tr?.result?.source === "defaultValue") {
             matchedRuleName = "None - Returned Default Value";
@@ -294,7 +297,7 @@ export default function AssignmentTester({
 
   return (
     <>
-      <Flex align="start" justify="between" mt="4" mb="5" gap="4">
+      <Flex align="start" justify="between" mb="5" gap="4">
         <Box flexShrink="1">
           <Heading mb="1" size="4" as="h3">
             Simulate Feature Rules
@@ -338,7 +341,7 @@ export default function AssignmentTester({
                     <label
                       className="small text-muted mr-2 mb-0 small text-muted text-ellipsis"
                       htmlFor="evalDate"
-                      title="When there are scheduled rules, this date select lets your see what values the user will get."
+                      title="When there are scheduled rules, this date select lets you see what values the user will get."
                     >
                       Evaluation Date
                     </label>
@@ -474,9 +477,9 @@ export default function AssignmentTester({
               close={() => setOpenArchetypeModal(null)}
             >
               <div className="p-3">
-                Archetypes allow you set up user attribute traits to test how
-                feature will be applied to your real users. This feature is part
-                of our Pro or Enterprise plans.
+                Archetypes allow you to set up user attribute traits to test how
+                features will be applied to your real users. This feature is
+                part of our Pro or Enterprise plans.
               </div>
             </Modal>
           )}

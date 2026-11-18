@@ -34,7 +34,17 @@ export const apiMemberValidator = namedSchema(
       environments: z.array(z.string()).optional(),
       limitAccessByEnvironment: z.boolean().optional(),
       additionalRoles: apiAdditionalRoles,
-      managedbyIdp: z.boolean().optional(),
+      managedByIdp: z
+        .boolean()
+        .describe(
+          "Whether the member is provisioned and managed by an identity provider (SCIM).",
+        )
+        .optional(),
+      managedbyIdp: z
+        .boolean()
+        .describe("Deprecated: use `managedByIdp`.")
+        .meta({ deprecated: true })
+        .optional(),
       teams: z.array(z.string()).optional(),
       projectRoles: z
         .array(
@@ -119,6 +129,7 @@ export const deleteMemberValidator = {
     })
     .strict(),
   summary: "Removes a single user from an organization",
+  confirmation: ["access.members"] as const,
   operationId: "deleteMember",
   tags: ["members"],
   method: "delete" as const,
@@ -152,8 +163,10 @@ export const updateMemberRoleValidator = {
       }),
     })
     .strict(),
-  summary:
-    "Update a member's global role (including any enviroment restrictions, if applicable). Can also update a member's project roles if your plan supports it.",
+  summary: "Update a member's role",
+  description:
+    "Update a member's global role (including any environment restrictions, if applicable). Can also update a member's project roles if your plan supports it.",
+  confirmation: ["access.members"] as const,
   operationId: "updateMemberRole",
   tags: ["members"],
   method: "post" as const,

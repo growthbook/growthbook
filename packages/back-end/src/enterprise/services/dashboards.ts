@@ -1,5 +1,5 @@
 import { isEqual, omit, uniqWith } from "lodash";
-import { isString } from "shared/util";
+import { getSnapshotCutoffDate, isString } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -211,6 +211,7 @@ export async function updateExperimentDashboards({
       useCache: true,
       type: "exploratory",
       triggeredBy: "update-dashboards",
+      cutoff: getSnapshotCutoffDate(mainSnapshot.settings),
     });
     await queryRunner.waitForResults();
   }
@@ -548,7 +549,7 @@ export async function updateDashboardExplorations(
       }
       // This should never happen when cache="never", but just in case
       if (!primaryResult.value) {
-        throw new Error("Failed run to run product analytics query");
+        throw new Error("Failed to run product analytics query");
       }
       // A failed run resolves rather than rejecting, so without this the block
       // would point at a broken result and the refresh would report success.

@@ -76,6 +76,14 @@
                     "pages": [
                       "features/rules",
                       "features/targeting",
+                      {
+                        "group": "Remote Groups",
+                        "root": "features/remote-saved-groups",
+                        "pages": [
+                          "features/remote-saved-groups-proxy",
+                          "features/remote-saved-groups-custom"
+                        ]
+                      },
                       "features/safe-rollouts",
                       "features/ramp-schedules",
                       "features/prerequisites",
@@ -133,9 +141,11 @@
                       "event-trackers/heap",
                       "event-trackers/jitsu",
                       "event-trackers/keenio",
+                      "event-trackers/langfuse",
                       "guide/matomo",
                       "guide/mixpanel",
                       "event-trackers/mparticle",
+                      "event-trackers/phoenix",
                       "guide/rudderstack",
                       "event-trackers/segment",
                       "event-trackers/snowplow",
@@ -147,6 +157,7 @@
                     "root": "app/metrics",
                     "pages": [
                       "app/metrics",
+                      "app/metrics/compound",
                       "app/metrics/funnel",
                       "app/metrics/examples",
                       "app/metrics/legacy"
@@ -180,7 +191,7 @@
                     "pages": [
                       "features/feature-flag-experiments",
                       {
-                        "group": "Visual Editor",
+                        "group": "AI Visual Editor",
                         "root": "app/visual",
                         "pages": [
                           "app/visual/install-and-connect",
@@ -190,8 +201,7 @@
                           "app/visual/design-import",
                           "app/visual/running-on-your-site",
                           "app/visual/preview-and-qa",
-                          "app/visual/troubleshooting",
-                          "app/visual/legacy"
+                          "app/visual/troubleshooting"
                         ]
                       },
                       "app/url-redirects"
@@ -239,6 +249,15 @@
                       "bandits/contextual",
                       "bandits/contextual-config",
                       "bandits/contextual-via-api"
+                    ]
+                  },
+                  {
+                    "group": "Interleaving",
+                    "tag": "BETA",
+                    "pages": [
+                      "experimentation-analysis/interleaving",
+                      "experimentation-analysis/interleaving/setup",
+                      "experimentation-analysis/interleaving/results"
                     ]
                   },
                   "app/holdouts"
@@ -290,22 +309,34 @@
                     "group": "AI Agents",
                     "root": "integrations/ai-agents",
                     "pages": [
+                      "integrations/ai-agents/wizard",
                       "integrations/mcp",
-                      "integrations/ai-agents/agent-skills"
+                      "integrations/ai-agents/agent-skills",
+                      "integrations/ai-agents/api-keys"
                     ]
                   },
                   "integrations/vercel",
                   "integrations/framer",
-                  "integrations/slack",
+                  {
+                    "group": "Slack",
+                    "root": "integrations/slack",
+                    "pages": [
+                      "integrations/slack/ai-assistant",
+                      "integrations/slack/self-hosted",
+                      "integrations/slack/legacy-webhooks"
+                    ]
+                  },
                   "integrations/discord",
                   "integrations/datadog",
                   "integrations/github-metrics",
+                  "integrations/dbt",
                   "tools/chrome-extension",
                   "tools/vscode-extension",
                   "tools/cli",
                   "integrations/clarity",
                   "integrations/jira",
-                  "integrations/ai"
+                  "integrations/ai",
+                  "integrations/llm-tracing"
                 ]
               },
               {
@@ -367,6 +398,10 @@
                     "group": "Metrics",
                     "pages": ["kb/metrics/fact-metric-optimization"]
                   },
+                  {
+                    "group": "SDKs",
+                    "pages": ["kb/sdks/sticky-bucket-cookie-encoding"]
+                  },
                   "kb/glossary"
                 ]
               },
@@ -382,6 +417,18 @@
                   "using/growthbook-best-practices",
                   "using/security",
                   "using/programs"
+                ]
+              },
+              {
+                "group": "Guides for Agents",
+                "pages": [
+                  "guides-for-agents/start-here",
+                  "guides-for-agents/local-feature-flags-typescript",
+                  "guides-for-agents/nextjs-app-router-production-feature-flags",
+                  "guides-for-agents/free-ab-test-javascript",
+                  "guides-for-agents/migrate-diy-feature-flags",
+                  "guides-for-agents/test-llm-prompt-model-change",
+                  "guides-for-agents/self-host-growthbook-kubernetes"
                 ]
               }
             ]
@@ -579,6 +626,7 @@
                   "api/ramp-schedules/operation/startRampSchedule",
                   "api/ramp-schedules/operation/pauseRampSchedule",
                   "api/ramp-schedules/operation/resumeRampSchedule",
+                  "api/ramp-schedules/operation/retryRampSchedule",
                   "api/ramp-schedules/operation/rollbackRampSchedule",
                   "api/ramp-schedules/operation/restartRampSchedule",
                   "api/ramp-schedules/operation/jumpRampSchedule",
@@ -594,6 +642,8 @@
                   "api/ramp-schedules/operation/updateRampScheduleLockdown",
                   "api/ramp-schedules/operation/updateRampScheduleSteps",
                   "api/ramp-schedules/operation/refreshMonitoringRampSchedule",
+                  "api/ramp-schedules/operation/rollbackMatchingRampSchedules",
+                  "api/ramp-schedules/operation/pauseMatchingRampSchedules",
                   "api/ramp-schedules/operation/getRampSchedule",
                   "api/ramp-schedules/operation/updateRampSchedule",
                   "api/ramp-schedules/operation/deleteRampSchedule"
@@ -604,7 +654,10 @@
                 "pages": [
                   "api/data-sources/operation/listDataSources",
                   "api/data-sources/operation/getDataSource",
+                  "api/data-sources/operation/updateDataSource",
+                  "api/data-sources/operation/deleteDataSource",
                   "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/postDataSourceInformationSchemaRefresh",
                   "api/data-sources/operation/searchWarehouseTables",
                   "api/data-sources/operation/getWarehouseTableSchema",
                   "api/data-sources/operation/previewWarehouseColumnValues",
@@ -667,8 +720,11 @@
                   "api/experiments/operation/listExperimentResults",
                   "api/experiments/operation/getExperiment",
                   "api/experiments/operation/updateExperiment",
+                  "api/experiments/operation/deleteExperiment",
                   "api/experiments/operation/getExperimentStartChecklist",
                   "api/experiments/operation/getExperimentResults",
+                  "api/experiments/operation/postExperimentArchive",
+                  "api/experiments/operation/postExperimentUnarchive",
                   "api/experiments/operation/postExperimentStart",
                   "api/experiments/operation/postExperimentStartChecklistManualComplete",
                   "api/experiments/operation/postExperimentStop",
@@ -760,7 +816,13 @@
                   "api/saved-groups/operation/deleteSavedGroup",
                   "api/saved-groups/operation/archiveSavedGroup",
                   "api/saved-groups/operation/unarchiveSavedGroup",
-                  "api/saved-groups/operation/getSavedGroupReferences"
+                  "api/saved-groups/operation/getSavedGroupReferences",
+                  "api/saved-groups/operation/listSavedGroupUploads",
+                  "api/saved-groups/operation/postSavedGroupUpload",
+                  "api/saved-groups/operation/postSavedGroupUploadUrl",
+                  "api/saved-groups/operation/postSavedGroupUploadLoad",
+                  "api/saved-groups/operation/getSavedGroupUpload",
+                  "api/saved-groups/operation/deleteSavedGroupUpload"
                 ]
               },
               {
@@ -774,6 +836,7 @@
                   "api/saved-group-revisions/operation/putSavedGroupRevisionMetadata",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionCondition",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionValues",
+                  "api/saved-group-revisions/operation/putSavedGroupRevisionUploadVersion",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionArchive",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionItemsAdd",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionItemsRemove",
@@ -914,6 +977,26 @@
                 ]
               },
               {
+                "group": "Event Webhooks",
+                "pages": [
+                  "api/event-webhooks/operation/listEventWebhooks",
+                  "api/event-webhooks/operation/postEventWebhook",
+                  "api/event-webhooks/operation/getEventWebhook",
+                  "api/event-webhooks/operation/putEventWebhook",
+                  "api/event-webhooks/operation/deleteEventWebhook",
+                  "api/event-webhooks/operation/listEventWebhookLogs",
+                  "api/event-webhooks/operation/postEventWebhookTest"
+                ]
+              },
+              {
+                "group": "Audit Logs",
+                "pages": [
+                  "api/audits/operation/listAudits",
+                  "api/audits/operation/listEvents",
+                  "api/audits/operation/getEvent"
+                ]
+              },
+              {
                 "group": "Code References",
                 "pages": [
                   "api/code-references/operation/listCodeRefs",
@@ -933,7 +1016,11 @@
               },
               {
                 "group": "Queries",
-                "pages": ["api/queries/operation/getQuery"]
+                "pages": [
+                  "api/queries/operation/getQuery",
+                  "api/queries/operation/listDataSourceQueries",
+                  "api/queries/operation/postQueryCancel"
+                ]
               },
               {
                 "group": "Settings",
@@ -957,7 +1044,11 @@
               },
               {
                 "group": "Meta",
-                "pages": ["api/meta/operation/getVersion"]
+                "pages": [
+                  "api/meta/operation/getVersion",
+                  "api/meta/operation/listConfirmations",
+                  "api/meta/operation/getConfirmation"
+                ]
               },
               {
                 "group": "Contextual Bandits",
@@ -969,19 +1060,29 @@
                   "api/ContextualBandits/operation/listContextualBanditEvents",
                   "api/ContextualBandits/operation/getContextualBanditEvent",
                   "api/ContextualBandits/operation/getContextualBanditResults",
+                  "api/ContextualBandits/operation/getContextualBanditStatus",
                   "api/ContextualBandits/operation/getContextualBanditLinkedFeatures",
                   "api/ContextualBandits/operation/addContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/updateContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/deleteContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/getContextualBandit",
                   "api/ContextualBandits/operation/updateContextualBandit",
+                  "api/ContextualBandits/operation/deleteContextualBandit",
                   "api/ContextualBandits/operation/listContextualBandits",
                   "api/ContextualBandits/operation/createContextualBandit",
                   "api/ContextualBandits/operation/startContextualBandit",
                   "api/ContextualBandits/operation/stopContextualBandit",
                   "api/ContextualBandits/operation/refreshContextualBandit",
                   "api/ContextualBandits/operation/updateContextualBanditVariations",
-                  "api/ContextualBandits/operation/cancelContextualBandit"
+                  "api/ContextualBandits/operation/cancelContextualBandit",
+                  "api/ContextualBandits/operation/listContextualBanditVisualChangesets",
+                  "api/ContextualBandits/operation/postContextualBanditVisualChangesets"
+                ]
+              },
+              {
+                "group": "information-schema-tables",
+                "pages": [
+                  "api/information-schema-tables/operation/postInformationSchemaTableRefresh"
                 ]
               },
               {
@@ -992,6 +1093,7 @@
                   "api/Dashboards/operation/deleteDashboard",
                   "api/Dashboards/operation/listDashboards",
                   "api/Dashboards/operation/createDashboard",
+                  "api/Dashboards/operation/createDashboardV2",
                   "api/Dashboards/operation/getDashboardsForExperiment"
                 ]
               },
@@ -1004,6 +1106,33 @@
                   "api/ContextualBanditQueries/operation/deleteContextualBanditQuery",
                   "api/ContextualBanditQueries/operation/listContextualBanditQueries",
                   "api/ContextualBanditQueries/operation/createContextualBanditQuery"
+                ]
+              },
+              {
+                "group": "Interleaving Exposure Queries",
+                "pages": [
+                  "api/InterleavingExposureQueries/operation/getInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/updateInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/deleteInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/listInterleavingExposureQueries",
+                  "api/InterleavingExposureQueries/operation/createInterleavingExposureQuery"
+                ]
+              },
+              {
+                "group": "Interleaving Experiments",
+                "pages": [
+                  "api/Interleavings/operation/getInterleaving",
+                  "api/Interleavings/operation/updateInterleaving",
+                  "api/Interleavings/operation/deleteInterleaving",
+                  "api/Interleavings/operation/listInterleavings",
+                  "api/Interleavings/operation/createInterleaving",
+                  "api/Interleavings/operation/startInterleaving",
+                  "api/Interleavings/operation/stopInterleaving",
+                  "api/Interleavings/operation/refreshInterleaving",
+                  "api/Interleavings/operation/getInterleavingResults",
+                  "api/Interleavings/operation/getInterleavingStatus",
+                  "api/Interleavings/operation/listInterleavingSnapshots",
+                  "api/Interleavings/operation/getInterleavingSnapshot"
                 ]
               },
               {
@@ -1106,6 +1235,35 @@
                   "api/AutoRuns/operation/updateAutoRun",
                   "api/AutoRuns/operation/appendAutoRunArtifact"
                 ]
+              },
+              {
+                "group": "Populations",
+                "tag": "BETA",
+                "pages": [
+                  "api/Populations/operation/listPopulations",
+                  "api/Populations/operation/createPopulation",
+                  "api/Populations/operation/getPopulation",
+                  "api/Populations/operation/updatePopulation",
+                  "api/Populations/operation/deletePopulation"
+                ]
+              },
+              {
+                "group": "Webhook Secrets",
+                "pages": [
+                  "api/WebhookSecrets/operation/getWebhookSecret",
+                  "api/WebhookSecrets/operation/deleteWebhookSecret",
+                  "api/WebhookSecrets/operation/listWebhookSecrets"
+                ]
+              },
+              {
+                "group": "SDK Webhooks",
+                "pages": [
+                  "api/SdkWebhooks/operation/listSdkConnectionWebhooks",
+                  "api/SdkWebhooks/operation/postSdkConnectionWebhook",
+                  "api/SdkWebhooks/operation/putSdkWebhook",
+                  "api/SdkWebhooks/operation/deleteSdkWebhook",
+                  "api/SdkWebhooks/operation/postSdkWebhookTest"
+                ]
               }
             ]
           },
@@ -1116,6 +1274,7 @@
               "api/AnalyticsExploration_model",
               "api/Archetype_model",
               "api/Attribute_model",
+              "api/Audit_model",
               "api/AutoRun_model",
               "api/CodeRef_model",
               "api/Config_model",
@@ -1130,6 +1289,8 @@
               "api/ConfigSchemaSource_model",
               "api/ConfigSchemaVerify_model",
               "api/ConfigSchemaWarning_model",
+              "api/Confirmation_model",
+              "api/ConfirmationHeld_model",
               "api/Constant_model",
               "api/ConstantReferences_model",
               "api/ConstantRevision_model",
@@ -1144,7 +1305,10 @@
               "api/DataSource_model",
               "api/Dimension_model",
               "api/Environment_model",
+              "api/Event_model",
               "api/EventUser_model",
+              "api/EventWebhook_model",
+              "api/EventWebhookLog_model",
               "api/Experiment_model",
               "api/Experiment Rule_model",
               "api/ExperimentAnalysisSettings_model",
@@ -1182,6 +1346,10 @@
               "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
+              "api/Interleaving_model",
+              "api/InterleavingExposureQuery_model",
+              "api/InterleavingSnapshot_model",
+              "api/InterleavingSnapshotStatus_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",
@@ -1193,6 +1361,7 @@
               "api/NamespaceExperimentMember_model",
               "api/Organization_model",
               "api/PaginationFields_model",
+              "api/Population_model",
               "api/Project_model",
               "api/Query_model",
               "api/RampSchedule_model",
@@ -1204,21 +1373,27 @@
               "api/Safe Rollout Rule_model",
               "api/SavedGroup_model",
               "api/SavedGroupApprovalRule_model",
+              "api/SavedGroupReferenceResource_model",
               "api/SavedGroupReferences_model",
               "api/SavedGroupRevision_model",
               "api/SavedGroupRevisionActivityLogEntry_model",
               "api/SavedGroupRevisionRef_model",
               "api/SavedGroupRevisionReview_model",
+              "api/SavedGroupUpload_model",
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
+              "api/SdkConnectionApprovalRule_model",
+              "api/SdkWebhook_model",
               "api/Segment_model",
               "api/Settings_model",
               "api/Targeting Rule_model",
               "api/TargetingReviewRule_model",
               "api/Team_model",
               "api/VisualChange_model",
-              "api/VisualChangeset_model"
+              "api/VisualChangeset_model",
+              "api/VisualEditorCbExperimentStub_model",
+              "api/WebhookSecret_model"
             ]
           }
         ]
@@ -1231,14 +1406,23 @@
   "navbar": {
     "links": [
       {
+        "label": "Product Updates",
+        "icon": "bullhorn",
+        "href": "https://growthbook.io/product-updates"
+      },
+      {
         "label": "Github",
         "type": "github",
         "href": "https://github.com/growthbook/growthbook"
+      },
+      {
+        "label": "Open App",
+        "href": "https://app.growthbook.io/"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Log in",
+      "label": "Start For Free",
       "href": "https://app.growthbook.io/"
     }
   },
@@ -1634,6 +1818,14 @@
     {
       "source": "/bandits/contextual-bandit-via-api",
       "destination": "/bandits/contextual-via-api"
+    },
+    {
+      "source": "/event-trackers/missing-event-tracker-docs",
+      "destination": "/event-trackers/custom"
+    },
+    {
+      "source": "/app/visual/legacy",
+      "destination": "/app/visual"
     }
   ]
 }

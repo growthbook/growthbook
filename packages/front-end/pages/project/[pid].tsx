@@ -11,7 +11,6 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
@@ -43,9 +42,14 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import useApi from "@/hooks/useApi";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import Metadata from "@/ui/Metadata";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
 import Callout from "@/ui/Callout";
+import TruncatedText from "@/ui/TruncatedText";
+
+// An ID row item, free to shrink: its value gives way, not its label.
+const ID_ROW_ITEM: React.CSSProperties = { minWidth: 0 };
 
 function emptyStringToUndefined(v: unknown): number | undefined {
   if (v === "" || v === null || v === undefined) return undefined;
@@ -79,6 +83,7 @@ const ProjectPage: FC = () => {
     null,
   );
   const [saveMsg, setSaveMsg] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [originalValue, setOriginalValue] = useState<ProjectSettings>({});
 
@@ -132,7 +137,7 @@ const ProjectPage: FC = () => {
 
   if (!canEditSettings) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <Callout status="error">
           You do not have access to view this page.
         </Callout>
@@ -141,7 +146,7 @@ const ProjectPage: FC = () => {
   }
   if (error) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <Callout status="error">{error}</Callout>
       </div>
     );
@@ -151,7 +156,7 @@ const ProjectPage: FC = () => {
   }
   if (!p) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <Callout status="error">
           Project{" "}
           <Text as="span" size="inherit" mono>
@@ -202,12 +207,16 @@ const ProjectPage: FC = () => {
             />
           </Box>
         ) : null}
-        <Flex align="center" justify="between" width="100%">
-          <Flex align="start" direction="column">
-            <Flex align="center" gap="3" mb="2">
-              <Heading size="xl" as="h1" overflowWrap="anywhere">
-                {p.name}
-              </Heading>
+        <Flex align="center" justify="between" gap="3" width="100%">
+          {/* Shrinks beside the actions menu, so a long name or ID is cut
+              short rather than running off the page. */}
+          <Flex align="start" direction="column" flexGrow="1" minWidth="0">
+            <Flex align="center" gap="3" mb="2" maxWidth="100%">
+              <Box minWidth="0">
+                <Heading size="xl" as="h1">
+                  <TruncatedText text={p.name} />
+                </Heading>
+              </Box>
               {p.restrictAccess ? (
                 <Badge
                   color="amber"
@@ -220,16 +229,19 @@ const ProjectPage: FC = () => {
                 />
               ) : null}
             </Flex>
-            <Flex gap="6" mb="4">
-              <Metadata label="ID" value={<Text mono>{p.id}</Text>} />
+            <Flex gapX="6" gapY="2" wrap="wrap" mb="4" maxWidth="100%">
+              <Metadata
+                label="ID"
+                noWrapLabel
+                value={<CopyableCode value={p.id} />}
+                style={ID_ROW_ITEM}
+              />
               {p.publicId && (
                 <Metadata
                   label="Public ID (SDK payloads)"
-                  value={
-                    <Text color="text-low" mono>
-                      {p.publicId}
-                    </Text>
-                  }
+                  noWrapLabel
+                  value={<CopyableCode value={p.publicId} muted />}
+                  style={ID_ROW_ITEM}
                 />
               )}
             </Flex>
@@ -449,38 +461,34 @@ const ProjectPage: FC = () => {
                     </Flex>
                   </Flex>
                 </Frame>
-                <div className="w-100 py-3" style={{ bottom: 0, height: 70 }}>
-                  <div
-                    className="container-fluid pagecontents d-flex"
-                    // Keep the Save button clear of the help widget
-                    style={{ paddingRight: "80px" }}
+                <Flex
+                  justify="end"
+                  align="center"
+                  gap="4"
+                  // Clears the help launcher, which publishes its footprint (see InAppHelp).
+                  style={{
+                    paddingRight: "var(--help-launcher-clearance, 0px)",
+                  }}
+                >
+                  {saveError && <Callout status="error">{saveError}</Callout>}
+                  {saveMsg && (
+                    <TempMessage
+                      close={() => {
+                        setSaveMsg(false);
+                      }}
+                    >
+                      Settings saved
+                    </TempMessage>
+                  )}
+                  <RadixButton
+                    size="lg"
+                    disabled={!ctaEnabled}
+                    onClick={saveSettings}
+                    setError={setSaveError}
                   >
-                    <div className="flex-grow-1 mr-4">
-                      {saveMsg && (
-                        <TempMessage
-                          className="mb-0 py-2"
-                          close={() => {
-                            setSaveMsg(false);
-                          }}
-                        >
-                          Settings saved
-                        </TempMessage>
-                      )}
-                    </div>
-                    <div>
-                      <Button
-                        color={"primary"}
-                        disabled={!ctaEnabled}
-                        onClick={async () => {
-                          if (!ctaEnabled) return;
-                          await saveSettings();
-                        }}
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                    Save
+                  </RadixButton>
+                </Flex>
               </TabsContent>
               <TabsContent value="approvals">
                 <ProjectApprovalSettings project={pid} projectName={p.name} />

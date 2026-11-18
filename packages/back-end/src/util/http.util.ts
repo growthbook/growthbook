@@ -1,7 +1,42 @@
 import nodeFetch, { type RequestInit, type Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
-import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
+import {
+  API_USER_AGENT,
+  MAX_WEBHOOK_TIMEOUT_SECONDS,
+  USE_PROXY,
+  WEBHOOK_PROXY,
+} from "./secrets";
+
+const DEFAULT_WEBHOOK_TIMEOUT_SECONDS = 30;
+
+// Non-regex equivalent of `.replace(/\/+$/, "")`, which is polynomial on long runs of slashes
+export function trimTrailingSlashes(str: string): string {
+  let end = str.length;
+  while (end > 0 && str.charCodeAt(end - 1) === 47 /* "/" */) end--;
+  return str.slice(0, end);
+}
+
+// Clamped at read time too, so lowering MAX_WEBHOOK_TIMEOUT_SECONDS later still applies to stored webhooks
+export function getWebhookTimeoutMs(timeoutSeconds?: number | null) {
+  return (
+    Math.min(
+      timeoutSeconds ?? DEFAULT_WEBHOOK_TIMEOUT_SECONDS,
+      MAX_WEBHOOK_TIMEOUT_SECONDS,
+    ) * 1000
+  );
+}
+
+export function validateWebhookTimeoutSeconds(timeoutSeconds?: number | null) {
+  if (
+    typeof timeoutSeconds === "number" &&
+    timeoutSeconds > MAX_WEBHOOK_TIMEOUT_SECONDS
+  ) {
+    throw new Error(
+      `Webhook timeout must be at most ${MAX_WEBHOOK_TIMEOUT_SECONDS} seconds`,
+    );
+  }
+}
 
 export type CancellableFetchCriteria = {
   maxContentSize: number;
@@ -67,7 +102,7 @@ export const cancellableFetch = async (
 ): Promise<CancellableFetchReturn> => {
   const abortController: AbortController = new AbortController();
 
-  const chunks: string[] = [];
+  const chunks: Buffer[] = [];
 
   const timeout = setTimeout(() => {
     abortController.abort();
@@ -78,7 +113,8 @@ export const cancellableFetch = async (
   const readResponseBody = async (res: Response): Promise<string> => {
     for await (const chunk of res.body) {
       received += chunk.length;
-      chunks.push(chunk.toString());
+      // Decoded once at the end: a multi-byte character can straddle chunks.
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
 
       if (received > abortOptions.maxContentSize) {
         abortController.abort();
@@ -86,7 +122,7 @@ export const cancellableFetch = async (
       }
     }
 
-    return chunks.join("");
+    return Buffer.concat(chunks).toString();
   };
 
   let response: Response | null = null;

@@ -11,7 +11,11 @@ import BadgeStories from "@/ui/Badge.stories";
 import BreadcrumbsStories from "@/ui/Breadcrumbs.stories";
 import ButtonStories from "@/ui/Button.stories";
 import CalloutStories from "@/ui/Callout.stories";
+import ColumnResizeHandleStories from "@/ui/ColumnResizeHandle.stories";
+import ColumnSettingsStories from "@/ui/ColumnSettings.stories";
+import ColumnSettingsButtonStories from "@/ui/ColumnSettingsButton.stories";
 import CheckboxStories from "@/ui/Checkbox.stories";
+import CollapseStories from "@/ui/Collapse.stories";
 import DataListStories from "@/ui/DataList.stories";
 import DatePickerStories from "@/ui/DatePicker.stories";
 import DropdownMenuStories from "@/ui/DropdownMenu.stories";
@@ -19,9 +23,11 @@ import ExperimentResultIndicatorStories from "@/ui/ExperimentResultIndicator.sto
 import FieldStories from "@/ui/Field.stories";
 import ExperimentStatusIndicatorStories from "@/ui/ExperimentStatusIndicator.stories";
 import TextStories from "@/ui/Text.stories";
+import TruncatedTextStories from "@/ui/TruncatedText.stories";
 import TextFieldStories from "@/ui/TextField.stories";
 import HeadingStories from "@/ui/Heading.stories";
 import HelperTextStories from "@/ui/HelperText.stories";
+import LabelWithHelpStories from "@/ui/LabelWithHelp.stories";
 import LinkStories from "@/ui/Link.stories";
 import MetadataStories from "@/ui/Metadata.stories";
 import PaginationStories from "@/ui/Pagination.stories";
@@ -29,7 +35,9 @@ import PopoverStories from "@/ui/Popover.stories";
 import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
 import RadioCardsStories from "@/ui/RadioCards.stories";
 import RadioGroupStories from "@/ui/RadioGroup.stories";
+import ScrollAreaStories from "@/ui/ScrollArea.stories";
 import MultiSelectFieldStories from "@/ui/MultiSelectField.stories";
+import SegmentedControlStories from "@/ui/SegmentedControl.stories";
 import SelectStories from "@/ui/Select.stories";
 import SelectFieldStories from "@/ui/SelectField.stories";
 import SliderStories from "@/ui/Slider.stories";
@@ -38,6 +46,7 @@ import SwitchStories from "@/ui/Switch.stories";
 import TableStories from "@/ui/Table.stories";
 import TabsStories from "@/ui/Tabs.stories";
 import ProgressBarStories from "@/ui/ProgressBar.stories";
+import RichTextEditorStories from "@/ui/RichTextEditor.stories";
 import VariationLabelStories from "@/ui/VariationLabel.stories";
 import VariationNumberStories from "@/ui/VariationNumber.stories";
 import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
@@ -49,13 +58,12 @@ type StoryEntry = {
   Stories: () => React.ReactNode;
 };
 
-const TOP_NAV_HEIGHT = 56;
-const PAGE_TOP_PADDING = 24;
 const PAGE_BOTTOM_PADDING = 16;
-const SIDEBAR_TOP_OFFSET = TOP_NAV_HEIGHT + PAGE_TOP_PADDING;
-const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${
-  SIDEBAR_TOP_OFFSET + PAGE_BOTTOM_PADDING
-}px)`;
+// Under the header (--header-height) and the page's top padding
+// (--page-top-padding, which the page uses too), both from global.scss.
+const SIDEBAR_TOP_OFFSET =
+  "calc(var(--header-height) + var(--page-top-padding))";
+const SIDEBAR_MAX_HEIGHT = `calc(100vh - var(--header-height) - var(--page-top-padding) - ${PAGE_BOTTOM_PADDING}px)`;
 
 export default function DesignSystemPage() {
   const components = [
@@ -75,7 +83,14 @@ export default function DesignSystemPage() {
     { name: "Breadcrumbs", Stories: BreadcrumbsStories },
     { name: "Button", Stories: ButtonStories },
     { name: "Callout", Stories: CalloutStories },
+    { name: "ColumnResizeHandle", Stories: ColumnResizeHandleStories },
+    { name: "ColumnSettings", Stories: ColumnSettingsStories },
+    {
+      name: "ColumnSettingsButton",
+      Stories: ColumnSettingsButtonStories,
+    },
     { name: "Checkbox", Stories: CheckboxStories },
+    { name: "Collapse", Stories: CollapseStories },
     { name: "DataList", Stories: DataListStories },
     { name: "DatePicker", Stories: DatePickerStories },
     { name: "DropdownMenu", Stories: DropdownMenuStories },
@@ -91,6 +106,7 @@ export default function DesignSystemPage() {
     { name: "VariationNumber", Stories: VariationNumberStories },
     { name: "VariationStatsTable", Stories: VariationStatsTableStories },
     { name: "Text", Stories: TextStories },
+    { name: "TruncatedText", Stories: TruncatedTextStories },
     {
       name: "TextField",
       description:
@@ -99,6 +115,12 @@ export default function DesignSystemPage() {
     },
     { name: "Heading", Stories: HeadingStories },
     { name: "HelperText", Stories: HelperTextStories },
+    {
+      name: "LabelWithHelp",
+      description:
+        "A field/checkbox label with an optional PiInfo help tooltip and an optional trailing adornment (e.g. a PremiumTooltip). The help icon and adornment guard their own clicks so interacting with them never toggles the control the label is attached to.",
+      Stories: LabelWithHelpStories,
+    },
     { name: "Link", Stories: LinkStories },
     { name: "Metadata", Stories: MetadataStories },
     { name: "Pagination", Stories: PaginationStories },
@@ -107,6 +129,8 @@ export default function DesignSystemPage() {
     { name: "ProgressBar", Stories: ProgressBarStories },
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
+    { name: "ScrollArea", Stories: ScrollAreaStories },
+    { name: "SegmentedControl", Stories: SegmentedControlStories },
     { name: "Select", Stories: SelectStories },
     {
       name: "Field (legacy text input)",
@@ -122,6 +146,7 @@ export default function DesignSystemPage() {
     { name: "Table", Stories: TableStories },
     { name: "Tabs", Stories: TabsStories },
     { name: "Modal", Stories: ModalStories },
+    { name: "RichTextEditor", Stories: RichTextEditorStories },
   ] satisfies StoryEntry[];
 
   const entries = useMemo(
@@ -136,7 +161,9 @@ export default function DesignSystemPage() {
   );
 
   return (
-    <div className="pt-4 pb-3">
+    // Not in the page frame (a pre-sign-in page), so it takes the frame's
+    // top padding itself, for its sidebar to stick where it sits.
+    <div className="pb-3" style={{ paddingTop: "var(--page-top-padding)" }}>
       <Flex gap="6">
         <nav
           aria-label="Components"
@@ -179,7 +206,10 @@ export default function DesignSystemPage() {
           <h1 className="mb-4">GrowthBook Design System</h1>
           <div className="pagecontents">
             <Flex gap="4" direction="column">
-              <Frame id="size-cohesion" style={{ scrollMarginTop: 90 }}>
+              <Frame
+                id="size-cohesion"
+                style={{ scrollMarginTop: "calc(var(--header-height) + 34px)" }}
+              >
                 <Flex direction="column" gap="3">
                   <h3 className="mb-1">Size cohesion</h3>
                   <Text>
@@ -195,7 +225,13 @@ export default function DesignSystemPage() {
                 </Flex>
               </Frame>
               {entries.map(({ name, description, Stories, id }) => (
-                <Frame key={id} id={id} style={{ scrollMarginTop: 90 }}>
+                <Frame
+                  key={id}
+                  id={id}
+                  style={{
+                    scrollMarginTop: "calc(var(--header-height) + 34px)",
+                  }}
+                >
                   <Flex direction="column" gap="3">
                     <h3 className="mb-1">{name}</h3>
                     <Text>{description}</Text>

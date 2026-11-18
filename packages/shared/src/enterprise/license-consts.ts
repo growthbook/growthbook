@@ -54,6 +54,7 @@ export type CommercialFeature =
   | "quantile-metrics"
   | "retention-metrics"
   | "funnel-metrics"
+  | "compound-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -66,6 +67,7 @@ export type CommercialFeature =
   | "decision-framework"
   | "unlimited-cdn-usage"
   | "unlimited-managed-warehouse-usage"
+  | "unlimited-event-forwarder-usage"
   | "safe-rollout"
   | "require-project-for-features-setting"
   | "require-project-for-sdk-connections-setting"
@@ -76,7 +78,6 @@ export type CommercialFeature =
   | "learnings"
   | "dashboards"
   | "product-analytics-dashboards"
-  | "share-product-analytics-dashboards"
   | "precomputed-dimensions"
   | "custom-hooks"
   | "metric-slices"
@@ -87,7 +88,10 @@ export type CommercialFeature =
   | "scheduled-revisions"
   | "feature-configs"
   | "releases"
-  | "contextual-bandits";
+  | "contextual-bandits"
+  | "interleaving"
+  | "cluster-experiments"
+  | "human-in-the-loop";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -110,6 +114,8 @@ export type SubscriptionInfo = {
   pendingCancelation: boolean;
   isVercelIntegration: boolean;
   stripeCustomerId?: string;
+  // ISO time the Pro plan ends if this open invoice will cancel it. Orb Pro only.
+  pastDueUntil?: string;
 };
 
 export interface LicenseInterface {
@@ -127,6 +133,12 @@ export interface LicenseInterface {
   plan?: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
   seatsInUse: number; // Number of seats currently in use
   remoteDowngrade: boolean; // True if the license was downgraded remotely
+  // Open Orb Pro card failure. Absent once the invoice is paid or void, or the subscription ends.
+  paymentFailure?: {
+    invoiceId: string;
+    // When the plan is canceled if the invoice stays unpaid. Missing means this failure will not cancel it.
+    downgradeAt?: string;
+  };
   message?: {
     text: string; // The text to show in the account notice
     className: string; // The class name to apply to the account notice
@@ -234,6 +246,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "quantile-metrics",
   "retention-metrics",
   "funnel-metrics",
+  "compound-metrics",
   "metric-populations",
   "multi-armed-bandits",
   "historical-power",
@@ -241,9 +254,11 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "safe-rollout",
   "ramp-schedules",
   "unlimited-managed-warehouse-usage",
+  "unlimited-event-forwarder-usage",
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
   "product-analytics-dashboards",
+  "cluster-experiments",
 ];
 
 const commercialFeaturesProSso: CommercialFeature[] = [
@@ -287,13 +302,14 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "custom-hooks",
   "metric-slices",
   "manage-official-resources",
-  "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
   "contextual-bandits",
+  "interleaving",
   "scheduled-revisions",
   "feature-configs",
   "releases",
+  "human-in-the-loop",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [
@@ -303,7 +319,8 @@ const commercialFeaturesEnterprise: CommercialFeature[] = [
 
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
-  starter: new Set<CommercialFeature>([]),
+  // Metered on cloud (license-server STARTER_USAGE_LIMITS)
+  starter: new Set<CommercialFeature>(["events-forwarder"]),
   pro: new Set<CommercialFeature>(commercialFeaturesPro),
   pro_sso: new Set<CommercialFeature>(commercialFeaturesProSso),
   enterprise: new Set<CommercialFeature>(commercialFeaturesEnterprise),

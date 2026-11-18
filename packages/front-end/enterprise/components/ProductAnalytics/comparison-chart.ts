@@ -1,4 +1,5 @@
 import { formatInTimeZone } from "date-fns-tz";
+import { parseWarehouseDate } from "shared/dates";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   buildComparisonDateRangeForMode,
@@ -14,9 +15,8 @@ import type {
 } from "shared/validators";
 import {
   formatDateByGranularity,
+  getExplorationRenderOpts,
   getEffectiveMetricValue,
-  getEffectiveShowAs,
-  getIsRatioByIndex,
   type RenderOpts,
   type ResolvedGranularity,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -335,12 +335,10 @@ function metricIdForDatasetValue(
 }
 
 function metricNameForDatasetValue(
-  config: ExplorationConfig,
+  renderOpts: RenderOpts,
   metricIndex: number,
 ): string {
-  if (config.dataset?.type === "funnel" || config.dataset?.type === "journey")
-    return `Metric ${metricIndex}`;
-  return config.dataset?.values?.[metricIndex]?.name ?? `Metric ${metricIndex}`;
+  return renderOpts.values[metricIndex]?.seriesName ?? `Metric ${metricIndex}`;
 }
 
 /**
@@ -380,7 +378,7 @@ export function buildComparisonOverlaySeriesMaps(
         if (!seriesMeta[seriesKey]) {
           seriesMeta[seriesKey] = {
             metricId: metricIdForDatasetValue(config, mi),
-            name: metricNameForDatasetValue(config, mi),
+            name: metricNameForDatasetValue(renderOpts, mi),
           };
         }
         const cell = row.values?.[mi];
@@ -388,10 +386,7 @@ export function buildComparisonOverlaySeriesMaps(
         bump(
           seriesKey,
           x,
-          getEffectiveMetricValue(cell, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[mi] ?? false,
-          }),
+          getEffectiveMetricValue(cell, renderOpts.values[mi]),
         );
       }
       continue;
@@ -408,19 +403,12 @@ export function buildComparisonOverlaySeriesMaps(
       if (!seriesMeta[seriesKey]) {
         seriesMeta[seriesKey] = {
           metricId: metricIdForDatasetValue(config, 0),
-          name: group || metricNameForDatasetValue(config, 0),
+          name: group || metricNameForDatasetValue(renderOpts, 0),
         };
       }
       const cell = row.values?.[0];
       if (!cell) continue;
-      bump(
-        seriesKey,
-        x,
-        getEffectiveMetricValue(cell, {
-          showAs: renderOpts.showAs,
-          isRatio: renderOpts.isRatioByIndex[0] ?? false,
-        }),
-      );
+      bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts.values[0]));
       continue;
     }
 
@@ -428,19 +416,12 @@ export function buildComparisonOverlaySeriesMaps(
     if (!seriesMeta[seriesKey]) {
       seriesMeta[seriesKey] = {
         metricId: metricIdForDatasetValue(config, 0),
-        name: metricNameForDatasetValue(config, 0),
+        name: metricNameForDatasetValue(renderOpts, 0),
       };
     }
     const cell = row.values?.[0];
     if (!cell) continue;
-    bump(
-      seriesKey,
-      x,
-      getEffectiveMetricValue(cell, {
-        showAs: renderOpts.showAs,
-        isRatio: renderOpts.isRatioByIndex[0] ?? false,
-      }),
-    );
+    bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts.values[0]));
   }
 
   return { uniqueXValues, dataMap, seriesMeta };
@@ -742,7 +723,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
 
       if (isPrevious && chartType === "line") {
         const data = sourceSortedXValues.map((x) => [
-          new Date(x).getTime(),
+          parseWarehouseDate(x).getTime(),
           seriesDataMap[x] ?? 0,
         ]);
 
@@ -830,7 +811,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
 
       if (chartType === "line" || chartType === "area") {
         const data = sourceSortedXValues.map((x) => [
-          new Date(x).getTime(),
+          parseWarehouseDate(x).getTime(),
           seriesDataMap[x] ?? 0,
         ]);
 
@@ -913,24 +894,23 @@ export function computeBigNumberComparisonTrendForMetricIndex(
     return null;
   }
 
-  const renderOpts: RenderOpts = {
-    showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-    isRatioByIndex: getIsRatioByIndex(submittedExploreState, getFactMetricById),
-  };
+  const renderOpts = getExplorationRenderOpts(
+    submittedExploreState,
+    getFactMetricById,
+  );
 
   const currCell = exploration.result.rows[0]?.values?.[metricIndex];
   const prevCell = comparisonExploration.result.rows[0]?.values?.[metricIndex];
   if (!currCell || !prevCell) return null;
 
-  const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;
-  const currentValue = getEffectiveMetricValue(currCell, {
-    showAs: renderOpts.showAs,
-    isRatio,
-  });
-  const previousValue = getEffectiveMetricValue(prevCell, {
-    showAs: renderOpts.showAs,
-    isRatio,
-  });
+  const currentValue = getEffectiveMetricValue(
+    currCell,
+    renderOpts.values[metricIndex],
+  );
+  const previousValue = getEffectiveMetricValue(
+    prevCell,
+    renderOpts.values[metricIndex],
+  );
 
   if (previousValue === 0) {
     return { currentValue, previousValue, pctChange: 0 };
@@ -1194,7 +1174,7 @@ export function buildExplorerChartTooltipFormatter({
       const date =
         typeof rawAxisValue === "number"
           ? new Date(rawAxisValue)
-          : new Date(String(rawAxisValue));
+          : parseWarehouseDate(String(rawAxisValue));
       let header: string;
       let groupedLineAreaCompareRows = false;
       if (
@@ -1205,13 +1185,13 @@ export function buildExplorerChartTooltipFormatter({
         const axisMs =
           typeof rawAxisValue === "number"
             ? rawAxisValue
-            : new Date(String(rawAxisValue)).getTime();
+            : parseWarehouseDate(String(rawAxisValue)).getTime();
         const currentX = sortedXValues.find(
-          (xv) => new Date(xv).getTime() === axisMs,
+          (xv) => parseWarehouseDate(xv).getTime() === axisMs,
         );
         if (
           currentX !== undefined &&
-          !Number.isNaN(new Date(currentX).getTime())
+          !Number.isNaN(parseWarehouseDate(currentX).getTime())
         ) {
           const compKey = getAlignedComparisonDimensionKeyForTooltip(
             sortedXValues,
@@ -1221,15 +1201,15 @@ export function buildExplorerChartTooltipFormatter({
             comparisonAlignment,
           );
           const currentFormatted = formatDateByGranularity(
-            new Date(currentX),
+            parseWarehouseDate(currentX),
             dateGranularity,
           );
           if (
             compKey !== undefined &&
-            !Number.isNaN(new Date(compKey).getTime())
+            !Number.isNaN(parseWarehouseDate(compKey).getTime())
           ) {
             const prevFormatted = formatDateByGranularity(
-              new Date(compKey),
+              parseWarehouseDate(compKey),
               dateGranularity,
             );
             groupedLineAreaCompareRows = true;

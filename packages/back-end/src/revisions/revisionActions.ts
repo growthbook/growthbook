@@ -4,6 +4,8 @@ import {
   Revision,
   RevisionTargetType,
   checkMergeConflicts,
+  landedOps,
+  mergeNestedBranch,
   normalizeProposedChanges,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
@@ -13,10 +15,13 @@ import {
   ReviewDecision,
   JsonPatchOperation,
   REVIEW_CYCLE_STATUSES,
+  standingReviews,
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import uniqid from "uniqid";
 import {
+  approvalApprovers,
+  approvalRoleIds,
   assessApprovalCoverage,
   assessRequiredApproverTeams,
 } from "shared/permissions";
@@ -27,7 +32,7 @@ import {
   canAdvanceRevision,
   canDiscardRevision,
   canRebaseRevision,
-  mayBeRevisionAuthor,
+  isOwnRevision,
   liveMatchesRevisionBase,
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
@@ -44,6 +49,7 @@ import {
 } from "back-end/src/revisions/moveAuthority";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { assertCanLandRevision } from "back-end/src/revisions/landAuthority";
+import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import {
   MergeConflictError,
   BadRequestError,
@@ -52,7 +58,10 @@ import {
   isTerminalPublishError,
   getErrorMessage,
 } from "back-end/src/util/errors";
-import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgObject,
+  getContextForArmedPublisherInOrg,
+} from "back-end/src/services/organizations";
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import {
   isArchiveTransition,
@@ -69,6 +78,7 @@ import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
+import { scrubConflictsForViewer } from "back-end/src/revisions/scrub";
 
 export type RevisionActionKind =
   | "draft"
@@ -96,24 +106,49 @@ export function reviewFootprintFor(
   );
 }
 
+// The snapshot, plus where the change moves the entity when the adapter says so.
+function reviewScopesFor(
+  revision: Pick<Revision, "target">,
+): Record<string, unknown>[] {
+  const snapshot = revision.target.snapshot as Record<string, unknown>;
+  return (
+    getAdapter(revision.target.type).reviewScopes?.(
+      snapshot,
+      revision.target.proposedChanges,
+    ) ?? [snapshot]
+  );
+}
+
 /**
  * Authority for a verb that belongs to the REVISION rather than the live entity:
  * drafting, reviewing, commenting. Always judged on `target.snapshot` — a later
  * move on the live entity does not change the revision's project — so there is
- * deliberately no scope argument to pass wrongly. Verbs that LAND on live keep
- * the explicit scope via `canDoRevisionAction`.
+ * deliberately no scope argument to pass wrongly. Review also needs authority
+ * where the change itself moves the entity. Verbs that LAND on live keep the
+ * explicit scope via `canDoRevisionAction`.
  */
 export function canRevisionOwnedAction(
   context: Context,
   revision: Pick<Revision, "target">,
   action: Extract<RevisionActionKind, "draft" | "review">,
 ): boolean {
-  return canDoRevisionAction(
-    revision.target.type,
-    action,
-    context,
-    revision.target.snapshot as Record<string, unknown>,
-    action === "review" ? reviewFootprintFor(context, revision) : undefined,
+  if (action === "draft") {
+    return canDoRevisionAction(
+      revision.target.type,
+      action,
+      context,
+      revision.target.snapshot as Record<string, unknown>,
+    );
+  }
+  const environments = reviewFootprintFor(context, revision);
+  return reviewScopesFor(revision).every((scope) =>
+    canDoRevisionAction(
+      revision.target.type,
+      action,
+      context,
+      scope,
+      environments,
+    ),
   );
 }
 
@@ -174,11 +209,8 @@ export function canCommentOnRevision(
   context: Context,
   snapshot: Record<string, unknown>,
 ): boolean {
-  const projects =
-    (snapshot.projects as string[] | undefined) ??
-    (snapshot.project ? [snapshot.project as string] : []);
   return (
-    context.permissions.canAddComment(projects) ||
+    context.permissions.canAddComment(entityProjects(snapshot)) ||
     canDoRevisionAction(type, "draft", context, snapshot) ||
     canDoRevisionAction(type, "review", context, snapshot, null)
   );
@@ -324,7 +356,8 @@ async function recoverStrandedMerge({
               ),
               {
                 id: claimId,
-                userId: context.userId || "",
+                userId: context.actorId,
+                user: context.auditUser,
                 action: "merge-recovered" as const,
                 description: "Re-published a merge that never landed",
                 dateCreated: new Date(),
@@ -497,6 +530,13 @@ export async function assertCanPublishRevision(
   );
 
   const pureRevert = await isPureRevertRevision(context, revision);
+  const archivedState = adapter.archivedState?.(
+    snapshot,
+    revision.target.proposedChanges,
+  ) ?? {
+    current: snapshot.archived as boolean | undefined,
+    proposed: proposedArchivedValue(revision.target.proposedChanges),
+  };
 
   await assertCanLandRevision({
     context,
@@ -519,15 +559,12 @@ export async function assertCanPublishRevision(
           : (adapter.canRevert ?? adapter.canUpdate);
       return canAct(context, snapshot);
     },
-    archives: isArchiveTransition({
-      proposed: proposedArchivedValue(revision.target.proposedChanges),
-      current: snapshot.archived as boolean | undefined,
-    }),
+    archives: isArchiveTransition(archivedState),
     isPureRevert: () => Promise.resolve(pureRevert),
     isPureArchive: () =>
       isPureArchiveRevision({
         proposedChanges: revision.target.proposedChanges,
-        current: snapshot.archived as boolean | undefined,
+        current: archivedState.current,
       }),
   });
 
@@ -557,30 +594,15 @@ export async function approveRevision(
   entity: Record<string, unknown>,
   comment?: string,
 ): Promise<Revision> {
-  const adapter = getAdapter(revision.target.type);
-  const canReview = adapter.canReview ?? adapter.canUpdate;
   // On the revision's SNAPSHOT, like every other review check (the preflight,
   // `addReview`'s CAS, the REST twin): a review belongs to the revision, whose
   // project a later move on the live entity does not change. The ENVIRONMENTS,
   // though, come from the change — approving is scoped to what would land.
-  if (
-    !canReview(
-      context,
-      revision.target.snapshot as Record<string, unknown>,
-      reviewFootprintFor(context, revision),
-    )
-  ) {
+  if (!canRevisionOwnedAction(context, revision, "review")) {
     context.permissions.throwPermissionError();
   }
 
-  // An approval is attributed to a member; an org key has none, so its
-  // approval could never satisfy coverage — refuse it instead of storing it.
-  if (!context.userId) {
-    throw new BadRequestError(
-      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
-    );
-  }
-  if (mayBeRevisionAuthor(revision.authorId, context.userId)) {
+  if (isOwnRevision(context, revision)) {
     throw new BadRequestError("Cannot approve your own revision");
   }
 
@@ -590,7 +612,7 @@ export async function approveRevision(
       settings: context.org.settings,
       entityType: revision.target.type,
       revision,
-      userId: context.userId,
+      userId: context.actorId,
     })
   ) {
     throw new BadRequestError(
@@ -610,7 +632,7 @@ export async function approveRevision(
 
   const updated = await context.models.revisions.addReview(
     revision.id,
-    context.userId,
+    context.actorId,
     "approve",
     comment ?? "",
     reviewAuthorityOnRow(context),
@@ -623,13 +645,17 @@ export async function approveRevision(
     {
       type: "reviewed",
       decision: "approve",
-      userId: context.userId,
       ...(comment ? { comment } : {}),
     },
   );
 
   return updated;
 }
+
+const standingApprovals = (revision: Revision) =>
+  standingReviews(revision.reviews ?? []).filter(
+    (r) => r.decision === "approve",
+  );
 
 // `approved` was decided when given; a later edit can widen past its approver.
 // Only covering approvals count toward a team requirement.
@@ -643,8 +669,7 @@ export function revisionRequiredApproverTeams(
   if (!requirement?.rules.length) return { satisfied: true, unmet: [] };
   return assessRequiredApproverTeams({
     rules: requirement.rules,
-    coveringApproverIds: (revision.reviews ?? [])
-      .filter((r) => r.decision === "approve" && !r.stale)
+    coveringApproverIds: standingApprovals(revision)
       .map((r) => r.userId)
       .filter((id) => !coverage.uncoveredApprovers.includes(id)),
     org: context.org,
@@ -652,38 +677,39 @@ export function revisionRequiredApproverTeams(
   });
 }
 
-export function revisionApprovalsCoverChange(
+export async function revisionApprovalsCoverChange(
   context: Context,
   revision: Revision,
-): { hasCoveringApproval: boolean; uncoveredApprovers: string[] } {
+): Promise<{ hasCoveringApproval: boolean; uncoveredApprovers: string[] }> {
   const environments = reviewFootprintFor(context, revision);
-  const snapshot = revision.target.snapshot as {
-    project?: string;
-    projects?: string[];
+  const approvals = standingApprovals(revision);
+  const roles = await getApproverRoles(context, approvalRoleIds(approvals));
+  const approvers = approvalApprovers(approvals, (id) => roles.get(id) ?? null);
+  // An approver must cover every scope; within one, authority over a
+  // multi-project entity is the intersection, not the first.
+  const uncoveredApprovers = [
+    ...new Set(
+      reviewScopesFor(revision).flatMap(
+        (scope) =>
+          assessApprovalCoverage({
+            org: context.org,
+            teams: context.teams ?? [],
+            model: revision.target.type,
+            projects: entityProjects(scope),
+            footprint: environments.length
+              ? { scope: "environments", environments }
+              : { scope: "unbound" },
+            approvers,
+          }).uncoveredApprovers,
+      ),
+    ),
+  ];
+  return {
+    hasCoveringApproval: approvers.some(
+      (a) => !uncoveredApprovers.includes(a.id),
+    ),
+    uncoveredApprovers,
   };
-  // Authority over a multi-project entity is the intersection, not the first.
-  const projects = snapshot.projects?.length
-    ? snapshot.projects
-    : snapshot.project
-      ? [snapshot.project]
-      : [];
-  return assessApprovalCoverage({
-    org: context.org,
-    teams: context.teams ?? [],
-    model: revision.target.type,
-    projects,
-    footprint: environments.length
-      ? { scope: "environments", environments }
-      : { scope: "unbound" },
-    approvers: (revision.reviews ?? [])
-      .filter((r) => r.decision === "approve" && !r.stale)
-      .map((r) => ({
-        id: r.userId,
-        // Inside a publish gate: a context without members refuses, not 500s.
-        roleInfo:
-          (context.org.members ?? []).find((m) => m.id === r.userId) ?? null,
-      })),
-  });
 }
 
 export async function publishRevision(
@@ -741,11 +767,17 @@ async function publishRevisionInner(
   // the schedule's bypass flag with the armer's fire-time role. Re-deriving from
   // role here force-published an admin's ordinary non-bypass schedule unapproved.
   const canBypass =
-    bypass || (!deferred && adapter.canBypassApproval(context, entity));
+    bypass ||
+    (!deferred &&
+      adapter.canBypassApproval(
+        context,
+        entity,
+        revision.target.proposedChanges,
+      ));
 
   // Coverage, not just status: an approval given when the change was narrower
   // does not sanction what it would land now.
-  const coverage = revisionApprovalsCoverChange(context, revision);
+  const coverage = await revisionApprovalsCoverChange(context, revision);
   const approvedAndCovered =
     revision.status === "approved" && coverage.hasCoveringApproval;
 
@@ -785,7 +817,11 @@ async function publishRevisionInner(
   if (!conflictResult.success) {
     throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
-      conflictResult.conflicts,
+      await scrubConflictsForViewer(
+        context,
+        revision.target,
+        conflictResult.conflicts,
+      ),
     );
   }
 
@@ -884,7 +920,7 @@ async function publishRevisionInner(
   if (!hasChanges) {
     const merged = await context.models.revisions.merge(
       revision.id,
-      context.userId,
+      context.actorId,
       {
         bypass: isBypass,
         // Pin the revision the caller AUTHORIZED: a draft edit landing between
@@ -922,7 +958,7 @@ async function publishRevisionInner(
       const reopened = await context.models.revisions
         .reopenAfterFailedApply(
           merged.id,
-          context.userId,
+          context.actorId,
           revision,
           merged.dateUpdated,
         )
@@ -950,13 +986,27 @@ async function publishRevisionInner(
   // nothing applied) or will lose (its `close` CAS-fails once we've merged).
   // This closes the window where a discard landing between applyChanges and
   // merge would orphan a half-applied change on the live entity.
+  const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
   const merged = await context.models.revisions.merge(
     revision.id,
-    context.userId,
+    context.actorId,
     {
       bypass: isBypass,
       // Same authorized-content pin as the no-op branch and bulk's claim.
       expected: { status: revision.status, dateUpdated: revision.dateUpdated },
+      // Behind live, what lands isn't what the draft holds: live keeps what
+      // changed since, and history should say so.
+      ...(isRevisionDiverged(adapter, baseSnapshot, entity) && {
+        landed: {
+          snapshot: adapter.buildSnapshot(entity),
+          proposedChanges: landedOps(
+            entity,
+            baseSnapshot,
+            revision.target.proposedChanges,
+            updatableFields,
+          ),
+        } as Pick<Revision["target"], "snapshot" | "proposedChanges">,
+      }),
     },
   );
 
@@ -1056,7 +1106,7 @@ async function publishRevisionInner(
       // No unguarded fallback, for the same reason.
       const restored = await context.models.revisions.reopenAfterFailedApply(
         merged.id,
-        context.userId,
+        context.actorId,
         revision,
         merged.dateUpdated,
       );
@@ -1136,8 +1186,9 @@ export async function maybeAutoPublishRevision(
     return revision;
   }
 
-  // Publish with the authority of whoever armed auto-publish; fall back to
-  // the author for revisions armed before `autoPublishEnabledBy` existed.
+  // Publish as whoever armed auto-publish, user or org API key. Revisions armed
+  // before the stamp existed fall back to the author, a dashboard user since
+  // they predate org keys authoring drafts, as the feature twin does.
   const enablerId = revision.autoPublishEnabledBy ?? revision.authorId;
   if (!enablerId) {
     logger.warn(
@@ -1154,12 +1205,9 @@ export async function maybeAutoPublishRevision(
   // Resolved BEFORE the try: the catch below deliberately swallows publish
   // failures to leave the draft approved for a manual publish, which would also
   // swallow this and let the caller believe the publish ran.
-  const enablerContext = await getContextForUserIdInOrg(
+  const enablerContext = await getContextForArmedPublisherInOrg(
     context.org,
     enablerId,
-    {
-      applyProjectRestrictions: false,
-    },
   );
   if (!enablerContext) {
     logger.warn(
@@ -1189,9 +1237,13 @@ export async function maybeAutoPublishRevision(
       // doomed publish and re-fire the webhook; also clears the stale fingerprint.
       let disarmed = revision;
       try {
-        disarmed = await context.models.revisions.setAutoPublishOnApproval(
+        // As the system: whoever triggered the publish may hold no authority
+        // over the revision, e.g. a reviewer withdrawing their own verdict.
+        disarmed = await getContextForAgendaJobByOrgObject(
+          context.org,
+        ).models.revisions.setAutoPublishOnApproval(
           revision.id,
-          context.userId,
+          context.actorId,
           false,
         );
       } catch {
@@ -1312,12 +1364,9 @@ export async function maybePublishScheduledRevision(
   }
 
   try {
-    const enablerContext = await getContextForUserIdInOrg(
+    const enablerContext = await getContextForArmedPublisherInOrg(
       context.org,
       enablerId,
-      {
-        applyProjectRestrictions: false,
-      },
     );
     if (!enablerContext) {
       // Transient: the user may resolve on a later tick.
@@ -1334,7 +1383,11 @@ export async function maybePublishScheduledRevision(
     const adapter = getAdapter(revision.target.type);
     const bypass =
       !!revision.scheduledPublishBypassApproval &&
-      adapter.canBypassApproval(enablerContext, entity);
+      adapter.canBypassApproval(
+        enablerContext,
+        entity,
+        revision.target.proposedChanges,
+      );
 
     return await publishRevision(enablerContext, revision, entity, {
       bypass,
@@ -1374,7 +1427,7 @@ export async function discardEntityRevision({
 
   const closed = await context.models.revisions.close(
     revision.id,
-    context.userId,
+    context.actorId,
     // Re-asked on the row each attempt: the check above ran against the project the
     // draft was in when it was read, and a rebase can move it.
     discardAuthorityOnRow(context),
@@ -1432,7 +1485,7 @@ export async function requestRevisionReview({
 
   const updated = await context.models.revisions.submitForReview(
     revision.id,
-    context.userId,
+    context.actorId,
     advanceAuthorityOnRow(context),
     { autoPublishOnApproval: enableAutoPublish, armAcknowledgments },
   );
@@ -1497,16 +1550,8 @@ export async function submitRevisionReview({
     context.permissions.throwPermissionError();
   }
 
-  // A verdict is attributed to a member; an org key has none, so its approval
-  // could never satisfy coverage — refuse it instead of storing it.
-  if (!isComment && !context.userId) {
-    throw new BadRequestError(
-      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
-    );
-  }
-
   // The author may comment on their own draft, but not rule on it.
-  if (mayBeRevisionAuthor(revision.authorId, context.userId) && !isComment) {
+  if (isOwnRevision(context, revision) && !isComment) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 
@@ -1518,7 +1563,7 @@ export async function submitRevisionReview({
       settings: context.org.settings,
       entityType,
       revision,
-      userId: context.userId,
+      userId: context.actorId,
     })
   ) {
     throw new BadRequestError("You cannot approve a draft you contributed to.");
@@ -1535,7 +1580,7 @@ export async function submitRevisionReview({
 
   const updated = await context.models.revisions.addReview(
     revision.id,
-    context.userId,
+    context.actorId,
     decision,
     comment ?? "",
     reviewAuthorityOnRow(context),
@@ -1545,7 +1590,6 @@ export async function submitRevisionReview({
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
     type: "reviewed",
     decision,
-    userId: context.userId,
     ...(comment ? { comment } : {}),
   });
 
@@ -1617,7 +1661,7 @@ export async function rebaseRevision({
     ) {
       throw new MergeConflictError(
         `Please resolve conflict for field: ${conflict.field}`,
-        conflicts,
+        await scrubConflictsForViewer(context, revision.target, conflicts),
       );
     }
   }
@@ -1643,8 +1687,17 @@ export async function rebaseRevision({
           `Unsupported patch op "${op.op}" in ${entityType} revision rebase`,
         );
       }
+      // A nested branch is re-based onto live, keeping only the draft's edits.
+      const nested = mergeNestedBranch(
+        field,
+        baseSnapshot[field],
+        entity[field],
+        op.value,
+        "proposed",
+      );
+      const value = nested ? nested.merged : op.value;
       // Live already caught up to what the draft was proposing: nothing to say.
-      if (!isEqual(op.value, entity[field])) newOps.push(op);
+      if (!isEqual(value, entity[field])) newOps.push({ ...op, value });
       continue;
     }
 
@@ -1670,7 +1723,16 @@ export async function rebaseRevision({
       const custom = customValues?.[field];
       let resolvedValue: unknown;
       if (custom !== undefined) {
-        resolvedValue = custom;
+        // What the caller was never shown stays as the draft, else live, had it.
+        const { restoreScrubbed } = getAdapter(revision.target.type);
+        const from = (incoming: unknown, base: unknown) =>
+          restoreScrubbed
+            ? restoreScrubbed({ [field]: base }, { [field]: incoming })[field]
+            : incoming;
+        resolvedValue = from(
+          from(custom, conflict.proposedValue),
+          conflict.liveValue,
+        );
       } else if (
         Array.isArray(conflict.liveValue) &&
         Array.isArray(conflict.proposedValue)
@@ -1699,15 +1761,29 @@ export async function rebaseRevision({
         newOps.push({ op: "replace", path: `/${field}`, value: resolvedValue });
       }
     }
-    // strategy === "discard" → drop the op, so the live value stands.
+    // strategy === "discard" → the live value stands. A nested branch keeps
+    // the draft's edits that don't collide with live.
+    if (strategy === "discard") {
+      const nested = mergeNestedBranch(
+        field,
+        conflict.baseValue,
+        conflict.liveValue,
+        conflict.proposedValue,
+        "live",
+      );
+      if (nested && !isEqual(nested.merged, entity[field])) {
+        newOps.push({ op: "replace", path: `/${field}`, value: nested.merged });
+      }
+    }
   }
 
   const updated = await context.models.revisions.rebase(
     revision.id,
     entity,
     newOps,
-    context.userId,
+    context.actorId,
     advanceAuthorityOnRow(context),
+    revision,
   );
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
     type: "rebased",

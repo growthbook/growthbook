@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import { Flex } from "@radix-ui/themes";
 import { CustomHookInterface } from "shared/validators";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
@@ -127,7 +128,7 @@ export function renderCustomHookCodeSection(
   if (preCode === postCode) return null;
   return (
     <div className="diff-wrapper">
-      <ReactDiffViewer
+      <LazyDiffViewer
         oldValue={preCode}
         newValue={postCode}
         splitView

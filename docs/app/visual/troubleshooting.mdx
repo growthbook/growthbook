@@ -1,23 +1,22 @@
 ---
-title: Visual Editor Troubleshooting
-description: "Fix common Visual Editor issues: variations not showing, broken previews, element picking, flicker, and image replacement."
+title: AI Visual Editor Troubleshooting
+description: "Fix common AI Visual Editor issues: variations not showing, broken previews, element picking, flicker, and image replacement."
 sidebarTitle: Troubleshooting
-slug: /app/visual/troubleshooting
 ---
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
 <CommercialFeature feature="visual-editor" />
 
-When the [Visual Editor](/app/visual) doesn't behave as expected, this page lists the most common causes and fixes. Each item is independently linkable — share the anchor in support threads.
+When the [AI Visual Editor](/app/visual) doesn't behave as expected, this page lists the most common causes and fixes. Each item is independently linkable — share the anchor in support threads.
 
-If your issue isn't here, the **Debug Panel** in the Visual Editor (see [Preview and QA](/app/visual/preview-and-qa#the-debug-panel)) is the single best diagnostic tool. Open it before filing a support ticket.
+If your issue isn't here, the **Debug Panel** in the AI Visual Editor (see [Preview and QA](/app/visual/preview-and-qa#the-debug-panel)) is the single best diagnostic tool. Open it before filing a support ticket.
 
 ## Variation isn't showing on my site
 
 By far the most common issue. The fix is almost always one of:
 
-1. **Refresh the page** Sometimes the visual editor's changes don't apply until a hard reload (Cmd-Shift-R) to bust the cache, especially if you had the page open while making changes in GrowthBook.
+1. **Refresh the page** Sometimes the AI Visual Editor's changes don't apply until a hard reload (Cmd-Shift-R) to bust the cache, especially if you had the page open while making changes in GrowthBook.
 2. **`Include Visual Experiments` toggle is off** on the SDK Connection. Visual experiments are stripped from the SDK payload unless this is enabled. Go to **SDK Configuration → SDK Connections**, edit the connection your site uses, and turn it on.
 3. **The SDK isn't loaded yet** when the variation tries to render. Custom JS variations need to wait for the target element — use the `waitFor` helper from [Manual mode → Custom JavaScript](/app/visual/manual-mode#custom-javascript).
 4. **URL targeting doesn't match.** The current URL doesn't satisfy the experiment's URL targeting rule. Check the rule and verify with the Debug Panel.
@@ -37,7 +36,7 @@ You're hitting `?experiment-id=1` but seeing variation 0. In order of likelihood
 When you hover an element, the blue highlight selects an ancestor or sibling instead of what you wanted:
 
 <Frame>
-  <img src="/static/images/visual-editor/ve-tree-selector.png" alt="The Visual Editor tree selector, showing the selected element's parents, the current node, its siblings, and children" width="340" />
+  <img src="/static/images/visual-editor/ve-tree-selector.png" alt="The AI Visual Editor tree selector, showing the selected element's parents, the current node, its siblings, and children" width="340" />
 </Frame>
 
 - **Use the tree selector.** Click the **tree icon** in the selected-element bar to open a small view of the surrounding DOM, then click the exact ancestor or child you want. This is the most reliable way to land on the right node. See [Picking an element](/app/visual/manual-mode#picking-an-element).
@@ -58,7 +57,7 @@ Heavy client-side-rendered apps (complex React/Vue/Svelte that rehydrate the pag
 
 ## The page freezes or becomes unresponsive while editing
 
-Some elements aren't plain HTML — they're rendered and **owned by the site's JavaScript framework** (React, Next.js, Vue, Svelte, etc.). When you edit one, the Visual Editor applies your change, the framework re-renders the element and overwrites it, the editor re-applies, the framework reverts again — and the two can spin the browser's main thread until the page becomes unresponsive.
+Some elements aren't plain HTML — they're rendered and **owned by the site's JavaScript framework** (React, Next.js, Vue, Svelte, etc.). When you edit one, the AI Visual Editor applies your change, the framework re-renders the element and overwrites it, the editor re-applies, the framework reverts again — and the two can spin the browser's main thread until the page becomes unresponsive.
 
 The editor detects this loop and steps in before the page freezes. What happens next depends on the change:
 
@@ -66,7 +65,7 @@ The editor detects this loop and steps in before the page freezes. What happens 
 - **Content and structural changes can't be.** Text, HTML, and attribute changes have no CSS equivalent, so the editor **stops previewing** the change (to stay responsive) but **keeps it saved** — the loop can be specific to the editor (dev/staging builds re-render far more than production, and you're interacting with the page while editing), so the change may still work when the SDK applies it once on your live site. When you see the notice:
   - **Verify with a [preview link](/app/visual/preview-and-qa)** on your live site. The editor can't tell an editor-only loop from a real one, so confirm whether the change actually holds for users before relying on it.
   - **Target a nearby static element** — one the framework doesn't re-render. Use the [tree selector](#element-selector-picks-the-wrong-thing) to look for a stable parent or child. (An adjacent element isn't guaranteed to be static — much of a modern app's DOM is framework-controlled, so this doesn't always help.)
-  - **Use a [feature flag](/app/features)** instead. When the site's own code renders the content, a code-level change is the right tool — the visual editor is fighting the framework for ownership of that element.
+  - **Use a [feature flag](/app/features)** instead. When the site's own code renders the content, a code-level change is the right tool — the AI Visual Editor is fighting the framework for ownership of that element.
   - **As an escape hatch, Custom JS** with a `waitFor`/`MutationObserver` helper can re-apply the change, though the framework may still overwrite it. See [Custom JavaScript](/app/visual/manual-mode#custom-javascript).
 
 This also affects **live experiments** — the SDK applies changes the same way — so a change that fights the framework can flicker for real users too. For heavily client-rendered pages, prefer styling (delivered as CSS) or [Feature Flags](/app/features) over text/DOM changes.
@@ -75,7 +74,7 @@ This also affects **live experiments** — the SDK applies changes the same way 
 
 Modern responsive images use `srcset` and `<picture>` markup. If a plain `src` replacement doesn't show up:
 
-- The Visual Editor should be removing `srcset` automatically — check the Changes panel for an attribute-removal change next to the image change.
+- The AI Visual Editor should be removing `srcset` automatically — check the Changes panel for an attribute-removal change next to the image change.
 - If it didn't, the target element might be nested in markup the picker didn't recognize as a `<picture>`. Try selecting the parent `<picture>` element directly.
 - See [Images → `<picture>` and `srcset` handling](/app/visual/images#picture-and-srcset-handling).
 
@@ -98,7 +97,7 @@ If all three are in place and AI mode is still unavailable, hard-reload the side
 
 ## "Wrong domain" banner won't go away
 
-The Visual Editor scopes itself to the URL you set when creating the experiment. If you've moved to a different domain in the active tab, changes are paused intentionally.
+The AI Visual Editor scopes itself to the URL you set when creating the experiment. If you've moved to a different domain in the active tab, changes are paused intentionally.
 
 - **Switch the active tab back** to the experiment's target URL.
 - **Or update the experiment's target URL** in GrowthBook to match where you actually want to edit.
@@ -140,4 +139,4 @@ Your Personal Access Token's user account doesn't have permission to edit this e
 ## Next steps
 
 - **[Preview and QA](/app/visual/preview-and-qa)** — preview links, debug panel, live-experiment warning.
-- **[Visual Editor overview](/app/visual)** — back to the main page.
+- **[AI Visual Editor overview](/app/visual)** — back to the main page.

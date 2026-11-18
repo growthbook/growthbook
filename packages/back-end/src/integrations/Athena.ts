@@ -1,4 +1,3 @@
-import { SqlDialect } from "shared/types/sql";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -9,7 +8,6 @@ import {
 } from "back-end/src/services/athena";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
-import { athenaDialect } from "./dialects/athena";
 
 export default class Athena extends SqlIntegration {
   params!: AthenaConnectionParams;
@@ -18,8 +16,8 @@ export default class Athena extends SqlIntegration {
     this.params =
       decryptDataSourceParams<AthenaConnectionParams>(encryptedParams);
   }
-  getSqlDialect(): SqlDialect {
-    return athenaDialect;
+  getPartitionColumnCondition(): string {
+    return "extra_info = 'partition key'";
   }
   runQuery(
     sql: string,

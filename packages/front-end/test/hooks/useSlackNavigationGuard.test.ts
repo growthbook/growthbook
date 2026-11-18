@@ -1,8 +1,29 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import useSlackNavigationGuard from "@/components/SlackIntegrations/useSlackNavigationGuard";
+import { runConfirmedNavigation } from "@/components/FactTables/MetricEditor/navigationCancellation";
 
-const router = vi.hoisted(() => ({ push: vi.fn() }));
+const router = vi.hoisted(() => {
+  const handlers = new Set<(url: string) => void>();
+  return {
+    push: vi.fn(),
+    asPath: "/integrations/slack",
+    events: {
+      on: (_: string, h: (url: string) => void) => handlers.add(h),
+      off: (_: string, h: (url: string) => void) => handlers.delete(h),
+      emit: vi.fn(),
+    },
+    // Runs routeChangeStart handlers; returns whether one cancelled the change.
+    startRouteChange: (url: string) => {
+      try {
+        handlers.forEach((h) => h(url));
+        return false;
+      } catch {
+        return true;
+      }
+    },
+  };
+});
 vi.mock("next/router", () => ({ useRouter: () => router }));
 
 function clickLink({
@@ -170,10 +191,35 @@ describe("Slack unsaved navigation guard", () => {
     expect(clickLink()).toHaveBeenCalledOnce();
   });
 
+  it("asks before navigation made in code, but not for same-page changes", () => {
+    const { result } = renderHook(useSlackNavigationGuard);
+    expect(router.startRouteChange("/settings#ai")).toBe(false);
+    act(() => result.current.setWorkspaceDirty("workspace-a", true));
+    expect(router.startRouteChange("/integrations/slack?team=b")).toBe(false);
+    let cancelled = false;
+    act(() => {
+      cancelled = router.startRouteChange("/settings#ai");
+    });
+    expect(cancelled).toBe(true);
+    expect(result.current.pendingHref).toBe("/settings#ai");
+  });
+
+  it("lets through a navigation another guard already confirmed", async () => {
+    const { result } = renderHook(useSlackNavigationGuard);
+    act(() => result.current.setWorkspaceDirty("workspace-a", true));
+    let cancelled = true;
+    await runConfirmedNavigation(async () => {
+      cancelled = router.startRouteChange("/settings#ai");
+    });
+    expect(cancelled).toBe(false);
+    expect(result.current.pendingHref).toBeNull();
+  });
+
   it("removes its listeners on unmount", () => {
     const { result, unmount } = renderHook(useSlackNavigationGuard);
     act(() => result.current.setWorkspaceDirty("workspace-a", true));
     unmount();
+    expect(router.startRouteChange("/settings")).toBe(false);
     expect(unloadIsBlocked()).toBe(false);
     expect(clickLink()).toHaveBeenCalledOnce();
   });

@@ -21,5 +21,9 @@ router.delete(
   "/:id/feature/:featureId",
   holdoutController.deleteHoldoutFeature,
 );
+router.delete(
+  "/:id/missing/:kind/:itemId",
+  holdoutController.deleteHoldoutMissingLink,
+);
 
 export { router as holdoutRouter };
