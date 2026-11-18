@@ -2,16 +2,53 @@ import type { ExposureQuery } from "shared/types/datasource";
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { IncrementalRefreshInterface } from "shared/validators";
-import type { QueryPointer, RunQueryMetadata } from "shared/types/query";
-import { startExperimentIncrementalRefreshQueries } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import type {
+  QueryInterface,
+  QueryPointer,
+  RunQueryMetadata,
+} from "shared/types/query";
+import type { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentIncrementalRefreshQueryRunner,
+  startExperimentIncrementalRefreshQueries,
+} from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import type { ExperimentIncrementalRefreshQueryParams } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import type { StartQueryParams } from "back-end/src/queryRunners/QueryRunner";
 import { getMetricSettingsHashForIncrementalRefresh } from "back-end/src/enterprise/services/data-pipeline";
 import { getClusterMetricCacheLevel } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { ApiReqContext } from "back-end/types/api";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { getSnapshotQueryPointers } from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  createNewQueryFromCached,
+  getQueriesByIds,
+} from "back-end/src/models/QueryModel";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
+import { snapshotFactory } from "../factories/Snapshot.factory";
+
+jest.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentById: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  errorSnapshotIfStillRunning: jest.fn(),
+  findSnapshotById: jest.fn(),
+  getSnapshotQueryPointers: jest.fn(),
+  updateSnapshot: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/QueryModel", () => ({
+  ...jest.requireActual("back-end/src/models/QueryModel"),
+  createNewQueryFromCached: jest.fn(),
+  getQueriesByIds: jest.fn(),
+}));
+
+jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
+  ...jest.requireActual("back-end/src/enterprise/services/data-pipeline"),
+  assertIncrementalRefreshPrerequisites: jest.fn(),
+}));
 
 const CREATED = new Date("2026-10-01T00:00:00Z");
 const PHASE_START = new Date("2026-11-01T00:00:00Z");
@@ -262,20 +299,13 @@ type Recorded = StartQueryParams<unknown, unknown> & {
   dependencyNames: string[];
 };
 
-async function buildDag({
-  params,
-  state,
-  maxColumns = 1000,
-}: {
-  params: Partial<ExperimentIncrementalRefreshQueryParams>;
-  state: IncrementalRefreshInterface | null;
-  maxColumns?: number;
-}) {
-  const { integration, calls, runDropTableQuery } = fakeIntegration(maxColumns);
-  const recorded: Recorded[] = [];
-  const updateState = jest.fn().mockResolvedValue(true);
-  const context = {
+function makeContext(
+  state: IncrementalRefreshInterface | null,
+  updateState = jest.fn().mockResolvedValue(true),
+) {
+  return {
     org: { id: "org_1", settings: { runHealthTrafficQuery: true } },
+    permissions: { canRunExperimentQueries: () => true },
     logger: {
       warn: jest.fn(),
       error: jest.fn(),
@@ -292,6 +322,21 @@ async function buildDag({
       aggregatedFactTables: { getByKey: jest.fn() },
     },
   } as unknown as ApiReqContext;
+}
+
+async function buildDag({
+  params,
+  state,
+  maxColumns = 1000,
+}: {
+  params: Partial<ExperimentIncrementalRefreshQueryParams>;
+  state: IncrementalRefreshInterface | null;
+  maxColumns?: number;
+}) {
+  const { integration, calls, runDropTableQuery } = fakeIntegration(maxColumns);
+  const recorded: Recorded[] = [];
+  const updateState = jest.fn().mockResolvedValue(true);
+  const context = makeContext(state, updateState);
 
   const startQuery = async (
     q: StartQueryParams<unknown, unknown>,
@@ -730,5 +775,85 @@ describe("metric refresh (metrics-only runs)", () => {
       state: await finishWrites(update, baseState()),
     });
     expect(afterRefresh.recorded.length).toBe(afterUpdate.recorded.length);
+  });
+});
+
+describe("a metric refresh run on the Incremental Pipeline", () => {
+  it("copies the parent's traffic and untouched statistics queries instead of running them", async () => {
+    jest
+      .mocked(getSnapshotQueryPointers)
+      .mockResolvedValue(
+        [
+          "update_snp_base",
+          "statistics_ft_a_stored0",
+          "statistics_ft_b_stored0",
+          "traffic",
+        ].map((name) => ({ name, query: `qry_${name}`, status: "succeeded" })),
+      );
+    jest
+      .mocked(getQueriesByIds)
+      .mockImplementation(async (ctx, ids) =>
+        ids.map((id) => ({ id, status: "succeeded" }) as QueryInterface),
+      );
+    jest.mocked(createNewQueryFromCached).mockImplementation(
+      async ({ existing }) =>
+        ({
+          id: `copy_of_${existing.id}`,
+          status: "succeeded",
+        }) as QueryInterface,
+    );
+    jest
+      .mocked(getExperimentById)
+      .mockResolvedValue({ id: "exp_1" } as ExperimentInterface);
+    const settings = snapshotSettings([...BASE_METRICS, "a3"], BASE_END);
+    const runner = new ExperimentIncrementalRefreshQueryRunner(
+      makeContext(baseState()),
+      snapshotFactory.build({
+        id: "snp_run",
+        type: "standard",
+        runnerKind: "incremental-update",
+        settings,
+        metricRefresh: {
+          baseSnapshotId: "snp_base",
+          baseDateCreated: BASE_END,
+          baseCutoffDate: BASE_END,
+          parentSnapshotId: "snp_base",
+          metricIds: ["a3"],
+        },
+      }),
+      fakeIntegration(1000).integration,
+      false,
+    );
+    const started: string[] = [];
+    jest.spyOn(runner, "startQuery").mockImplementation(async ({ name }) => {
+      started.push(name);
+      return { name, query: `qry_new_${name}`, status: "queued" };
+    });
+
+    const queries = await runner.startQueries({
+      snapshotType: "standard",
+      snapshotSettings: settings,
+      variationNames: ["Control", "Treatment"],
+      metricMap,
+      factTableMap,
+      queryParentId: "snp_run",
+      experimentId: "exp_1",
+      experimentQueryMetadata: null,
+      mode: { kind: "metrics-only" },
+      incrementalRefreshStartTime: BASE_END,
+    });
+
+    expect(queries).toEqual(
+      expect.arrayContaining(
+        ["traffic", "statistics_ft_b_stored0"].map((name) => ({
+          name,
+          query: `copy_of_qry_${name}`,
+          status: "succeeded",
+        })),
+      ),
+    );
+    expect(started).not.toContain("traffic");
+    expect(started).not.toContain("statistics_ft_b_stored0");
+    expect(started).toContainEqual(expect.stringMatching(/^statistics_ft_a_/));
   });
 });
