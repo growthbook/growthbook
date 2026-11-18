@@ -48,6 +48,7 @@ import {
   buildExplorerChartTooltipFormatter,
   buildCompareChartLegendModel,
   type CompareCategoryAxisKey,
+  compareBarFramePx,
 } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
 import ComparisonChartLegend from "@/enterprise/components/ProductAnalytics/ComparisonChartLegend";
@@ -468,12 +469,11 @@ export default function ExplorerChart({
       // Derive the frame from the ideal (uncapped) bar width so it doesn't feed
       // back into the fit-cap below.
       const idealCurrent = band * COMPARE_BAR_CURRENT_FRACTION;
-      const framePx = Math.max(
+      const framePx = compareBarFramePx(
+        idealCurrent,
         COMPARE_BAR_FRAME_MIN_PX,
-        Math.min(
-          COMPARE_BAR_FRAME_MAX_PX,
-          Math.round(idealCurrent * COMPARE_BAR_FRAME_FRACTION),
-        ),
+        COMPARE_BAR_FRAME_MAX_PX,
+        COMPARE_BAR_FRAME_FRACTION,
       );
       const frameTotal = 2 * framePx;
       const maxCurrent = Math.max(4, band - frameTotal - 2);
