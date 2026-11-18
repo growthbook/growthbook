@@ -93,6 +93,8 @@ function useTileRun(
   const [ids, setIds] = useState<{
     exploration: string;
     comparison: string | null;
+    // Set when the comparison failed but the primary result came back
+    comparisonError: string | null;
   } | null>(null);
   // Starts true so the empty state doesn't flash before the cache check
   const [loading, setLoading] = useState(config !== null && checkCache);
@@ -133,7 +135,13 @@ function useTileRun(
     ]);
     // The config changed while this ran, so the result is for an old config.
     if (latestKey.current !== key) return;
-    if (id) setIds({ exploration: id, comparison: comparisonId });
+    if (id) {
+      setIds({
+        exploration: id,
+        comparison: comparisonId,
+        comparisonError: null,
+      });
+    }
     setLoading(false);
   }, [key]);
 
@@ -155,6 +163,7 @@ function useTileRun(
       setIds({
         exploration: result.data.id,
         comparison: result.comparison?.exploration?.id ?? null,
+        comparisonError: result.comparison?.error ?? null,
       });
     } else if (result.error) setError(result.error);
     setLoading(false);
@@ -174,6 +183,7 @@ function useTileRun(
   return {
     explorationId: ids?.exploration ?? null,
     comparisonExplorationId: ids?.comparison ?? null,
+    comparisonError: ids?.comparisonError ?? null,
     loading,
     error,
     run,
@@ -404,8 +414,10 @@ export function ProductAnalyticsExplorerVisualization({
   }
 
   // Without the dashboard header, the tile offers its own Update button. With
-  // the header, its Update covers every block, so the tile doesn't add one.
-  const tileUpdates = headerless && !!runConfig;
+  // the header, its Update covers every block that has run, so the tile adds
+  // one only for a block with no stored result: the header can't run that
+  // block's first result, and its button is disabled when nothing has run.
+  const tileUpdates = !!runConfig && (headerless || !block.explorerAnalysisId);
   const updatePrompt = (message: string, status: "info" | "error" = "info") => {
     const [calloutStatus, text] = tileRun.error
       ? (["error", tileRun.error] as const)
@@ -428,7 +440,8 @@ export function ProductAnalyticsExplorerVisualization({
           action={
             canRun ? (
               <Button variant="outline" size="sm" onClick={tileRun.run}>
-                Update
+                {/* Name the scope when the header's Update is also shown */}
+                {headerless ? "Update" : "Update block"}
               </Button>
             ) : undefined
           }
@@ -487,6 +500,11 @@ export function ProductAnalyticsExplorerVisualization({
 
   return (
     <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>
+      {compareEnabled && tileRun.comparisonError && (
+        <Callout status="warning" size="sm">
+          {`The comparison period could not be loaded, so only the current period is shown: ${tileRun.comparisonError}`}
+        </Callout>
+      )}
       {shouldShowTable ? (
         <ExplorerDataTable
           exploration={exploration}
