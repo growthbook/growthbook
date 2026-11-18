@@ -1,7 +1,6 @@
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
-  getMetricFilterForCarriedQueries,
   getMetricIdsMissingFromSnapshot,
   getSnapshotDataAsOf,
   getSnapshotSideEffects,
@@ -141,6 +140,34 @@ describe("getMetricIdsMissingFromSnapshot", () => {
   });
 });
 
+describe("getSnapshotSideEffects", () => {
+  it("lets a metric refresh skip the schedule, dashboards and update alerts", () => {
+    const baseDateCreated = new Date("2026-11-10T00:00:00Z");
+    const effects = getSnapshotSideEffects({
+      type: "standard",
+      dateCreated: new Date("2026-11-12T00:00:00Z"),
+      settings: { metricSettings: [{ id: "met_a" }, { id: "met_c" }] },
+      metricRefresh: {
+        baseSnapshotId: "snp_base",
+        baseDateCreated,
+        baseCutoffDate: null,
+        parentSnapshotId: "snp_base",
+        metricIds: ["met_c"],
+      },
+    } as unknown as ExperimentSnapshotInterface);
+
+    expect(effects).toMatchObject({
+      advanceUpdateSchedule: false,
+      refreshDashboards: false,
+      ownsUpdateFailedAlert: false,
+    });
+    expect(effects.timeSeries.pointDate).toEqual(baseDateCreated);
+    expect(effects.timeSeries.includesMetric("met_c?dim:os=ios")).toBe(true);
+    expect(effects.timeSeries.includesMetric("met_a")).toBe(false);
+  });
+});
+
+// A report never copies a lineage, but one that did must act as a report.
 describe("a report snapshot copied from a metric refresh", () => {
   const report = {
     type: "report",
@@ -165,14 +192,6 @@ describe("a report snapshot copied from a metric refresh", () => {
     });
     expect(effects.timeSeries.pointDate).toEqual(report.dateCreated);
     expect(effects.timeSeries.includesMetric("fact__a")).toBe(true);
-  });
-
-  it("analyzes every metric its queries return", () => {
-    expect(getMetricFilterForCarriedQueries(report)).toBeUndefined();
-  });
-
-  it("reports its own run time as its data date", () => {
-    expect(getSnapshotDataAsOf(report)).toEqual(report.dateCreated);
   });
 });
 

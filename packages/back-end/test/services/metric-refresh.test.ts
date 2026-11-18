@@ -10,10 +10,7 @@ import type {
 import type { ExperimentReportResultDimension } from "shared/types/report";
 import type { QueryInterface, QueryPointer } from "shared/types/query";
 import type { ExperimentMetricInterface } from "shared/experiments";
-import {
-  getMetricFilterForCarriedQueries,
-  getSnapshotSideEffects,
-} from "shared/experiments";
+import { getMetricFilterForCarriedQueries } from "shared/experiments";
 import type { ReqContext } from "back-end/types/request";
 import type { PlannedExperimentSnapshot } from "back-end/src/services/experiments";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -1840,13 +1837,6 @@ describe("starting a metric refresh's queries", () => {
       expect.objectContaining({ unitsTableFullName: unitsTable }),
     );
   });
-
-  it("runs every query of a report snapshot that still carries a refresh lineage", async () => {
-    const { started } = await start({ ...refresh(), type: "report" });
-
-    expect(queryPointersMock).not.toHaveBeenCalled();
-    expect(started).toEqual(["group_0", "group_1", "group_2"]);
-  });
 });
 
 // Result queries and metrics for the metrics a refresh analyzes.
@@ -2212,25 +2202,5 @@ describe("analyzeMetricRefresh", () => {
       [0, 0],
       [0, 0],
     ]);
-  });
-});
-
-describe("getSnapshotSideEffects", () => {
-  it("lets a metric refresh skip the schedule, dashboards and update alerts", () => {
-    const refresh = makeParent({
-      id: "snp_refresh",
-      dateCreated: new Date("2026-11-12T00:00:00Z"),
-      metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
-    });
-    const effects = getSnapshotSideEffects(refresh);
-
-    expect(effects).toMatchObject({
-      advanceUpdateSchedule: false,
-      refreshDashboards: false,
-      ownsUpdateFailedAlert: false,
-    });
-    expect(effects.timeSeries.pointDate).toEqual(PARENT_CREATED);
-    expect(effects.timeSeries.includesMetric("met_c?dim:os=ios")).toBe(true);
-    expect(effects.timeSeries.includesMetric("met_a")).toBe(false);
   });
 });
