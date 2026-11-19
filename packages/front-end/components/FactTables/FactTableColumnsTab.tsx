@@ -3,7 +3,6 @@ import { Fragment, ReactNode, useMemo, useState } from "react";
 import {
   PiArrowClockwise,
   PiCaretRightBold,
-  PiPlusBold,
   PiWarningFill,
 } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -192,12 +191,7 @@ export default function FactTableColumnsTab({
           Virtual Columns
         </Heading>
         {canManageVirtual ? (
-          <Button
-            size="sm"
-            variant="outline"
-            icon={<PiPlusBold />}
-            onClick={() => setNewVirtualOpen(true)}
-          >
+          <Button size="sm" onClick={() => setNewVirtualOpen(true)}>
             Add virtual column
           </Button>
         ) : null}

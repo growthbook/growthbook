@@ -93,13 +93,15 @@ export default function FactTableEventsTab({
               }))}
             />
           ) : null}
-          <TextField
-            size="sm"
-            type="search"
-            placeholder={`Search ${rows.length} events`}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          {rows.length > 0 ? (
+            <TextField
+              size="sm"
+              type="search"
+              placeholder={`Search ${rows.length} events`}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          ) : null}
         </Flex>
         <Flex align="center" gap="3">
           {topValues.refreshedAt ? (
@@ -127,8 +129,10 @@ export default function FactTableEventsTab({
       {rows.length === 0 ? (
         <Text color="text-mid">
           No values found for{" "}
-          <span className={columnStyles.mono}>{column.column}</span> yet.
-          {canRefresh ? " Refresh to load them." : ""}
+          <span className={columnStyles.mono}>{column.column}</span>
+          {topValues.refreshedAt
+            ? ` in the last ${lookbackDays} days.`
+            : ` yet.${canRefresh ? " Refresh to load them." : ""}`}
         </Text>
       ) : (
         <Table variant="list" roundedCorners>

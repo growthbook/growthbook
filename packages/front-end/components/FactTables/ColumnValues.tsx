@@ -119,13 +119,15 @@ export function ColumnValuesPanel({
     <Flex direction="column" gap="2" style={{ maxWidth: 900 }}>
       <Flex justify="between" align="center" gap="3">
         <Box flexGrow="1" style={{ maxWidth: 400 }}>
-          <TextField
-            size="sm"
-            type="search"
-            placeholder={`Search ${rows.length} values`}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          {rows.length > 0 ? (
+            <TextField
+              size="sm"
+              type="search"
+              placeholder={`Search ${rows.length} values`}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          ) : null}
         </Box>
         {onLoad ? (
           <Flex align="center" gap="3">
@@ -154,8 +156,10 @@ export function ColumnValuesPanel({
       {rows.length === 0 ? (
         <Text color="text-mid">
           No values found for{" "}
-          <span className={columnStyles.mono}>{column.column}</span> yet.
-          {onLoad ? " Refresh to load them." : ""}
+          <span className={columnStyles.mono}>{column.column}</span>
+          {topValues.refreshedAt
+            ? ` in the last ${lookbackDays} days.`
+            : ` yet.${onLoad ? " Refresh to load them." : ""}`}
         </Text>
       ) : (
         <Table variant="list" roundedCorners>

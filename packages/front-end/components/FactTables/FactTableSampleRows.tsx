@@ -6,13 +6,14 @@ import {
   RowFilter,
   RowFilterTestResults,
 } from "shared/types/fact-table";
-import { parseWarehouseDate } from "shared/dates";
+import { ago, parseWarehouseDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { TestQueryResultsTable } from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import styles from "./FactTableSampleRows.module.scss";
 
@@ -62,7 +63,8 @@ const SKELETON_WIDTHS = [
 // Kept for the page session so switching tabs or rows doesn't re-run the query.
 // Keyed by organization, since fact table IDs are only unique within one, and
 // by SQL, so editing the SQL goes back to the load button.
-const resultCache = new Map<string, RowFilterTestResults>();
+type LoadedSample = { result: RowFilterTestResults; loadedAt: Date };
+const resultCache = new Map<string, LoadedSample>();
 
 // Rows shown inside a table row; the full sample is on the Sample rows tab
 const COMPACT_ROWS = 10;
@@ -82,13 +84,12 @@ export default function FactTableSampleRows({
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const cacheKey = `${orgId}:${factTable.id}:${factTable.sql}:${JSON.stringify(rowFilters)}`;
-  const [loaded, setLoaded] = useState<{
-    key: string;
-    result: RowFilterTestResults;
-  } | null>(null);
-  const result =
-    (loaded?.key === cacheKey ? loaded.result : resultCache.get(cacheKey)) ??
-    null;
+  const [loaded, setLoaded] = useState<(LoadedSample & { key: string }) | null>(
+    null,
+  );
+  const sample =
+    (loaded?.key === cacheKey ? loaded : resultCache.get(cacheKey)) ?? null;
+  const result = sample?.result ?? null;
   const [error, setError] = useState<string | null>(null);
   const datasource = getDatasourceById(factTable.datasource);
   const canRun = !!datasource && permissionsUtil.canRunTestQueries(datasource);
@@ -101,8 +102,9 @@ export default function FactTableSampleRows({
     // Warehouse errors come back as a result; keep them out of the cache and
     // leave the button up to retry
     if (res.result.error) throw new Error(res.result.error);
-    resultCache.set(cacheKey, res.result);
-    setLoaded({ key: cacheKey, result: res.result });
+    const next = { result: res.result, loadedAt: new Date() };
+    resultCache.set(cacheKey, next);
+    setLoaded({ ...next, key: cacheKey });
   };
 
   if (!result) {
@@ -156,10 +158,10 @@ export default function FactTableSampleRows({
       style={{ contain: "inline-size" }}
     >
       {canRun ? (
-        <Flex align="center" justify="end" gap="2">
-          {error ? (
+        <Flex align="center" justify="end" gap="3">
+          {sample ? (
             <Text size="sm" color="text-mid">
-              Couldn&apos;t refresh: {error}
+              Loaded {ago(sample.loadedAt)}
             </Text>
           ) : null}
           <Button
@@ -172,6 +174,11 @@ export default function FactTableSampleRows({
             Refresh
           </Button>
         </Flex>
+      ) : null}
+      {error ? (
+        <HelperText status="error" size="sm">
+          Couldn&apos;t refresh sample rows: {error}
+        </HelperText>
       ) : null}
       <TestQueryResultsTable
         duration={result.duration || 0}
