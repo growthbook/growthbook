@@ -3,16 +3,21 @@ import {
   getSDKCapabilities,
   getSDKVersions,
 } from "shared/sdk-versioning";
+import { get, omitBy } from "lodash";
 import { sdkLanguages } from "shared/constants";
 import {
   CreateSDKConnectionParams,
+  EditSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { OrganizationInterface } from "shared/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { assertCanEnableTraces } from "back-end/src/models/SdkConnectionModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { BadRequestError } from "back-end/src/util/errors";
 
 const capabilityParams = [
   ["encryption", "encryptPayload"],
@@ -41,7 +46,8 @@ type CreateSdkConnectionPayload = Omit<
   CreateSDKConnectionParams,
   "organization"
 >;
-type UpdateSdkConnectionPayload = Partial<CreateSdkConnectionPayload>;
+type UpdateSdkConnectionPayload = Partial<CreateSdkConnectionPayload> &
+  Pick<EditSDKConnectionParams, "archived">;
 
 interface CreateSdkConnectionRequestBody
   extends CapabilitiesParams,
@@ -65,6 +71,7 @@ interface CreateSdkConnectionRequestBody
   includeReferencedPrerequisites?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
+  archived?: boolean;
 }
 
 const premiumOverrides: {
@@ -88,11 +95,11 @@ export function validateEnvironment(
       .map(({ id }) => id)
       .includes(environment)
   )
-    throw new Error(`Environment ${environment} does not exist!`);
+    throw new BadRequestError(`Environment ${environment} does not exist!`);
 }
 
 export async function validateProjects(
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
   projects: string[],
 ) {
   const allProjects = await context.models.projects.getAll();
@@ -100,7 +107,7 @@ export async function validateProjects(
     (p) => !allProjects.some(({ id }) => p === id),
   );
   if (nonexistentProjects.length)
-    throw new Error(
+    throw new BadRequestError(
       `The following projects do not exist: ${nonexistentProjects.join(", ")}`,
     );
 }
@@ -117,19 +124,20 @@ export function validateRequireProjectForSdkConnections(
 
   if (!existingProjects) {
     if (!projects?.length) {
-      throw new Error(message);
+      throw new BadRequestError(message);
     }
     return;
   }
 
   if (existingProjects.length > 0 && projects?.length === 0) {
-    throw new Error(message);
+    throw new BadRequestError(message);
   }
 }
 
 export function validateLanguage(reqLanguage: string): SDKLanguage {
   const language = sdkLanguages.find((l) => l === reqLanguage);
-  if (!language) throw new Error(`Language ${reqLanguage} is not supported!`);
+  if (!language)
+    throw new BadRequestError(`Language ${reqLanguage} is not supported!`);
   return language;
 }
 
@@ -145,41 +153,87 @@ export function validateSdkCapabilities(
   capabilityParams.forEach(([capability, param]) => {
     if (payload[param] && !capabilities.includes(capability))
       if (latestCapabilities.includes(capability))
-        throw new Error(
+        throw new BadRequestError(
           `You need to upgrade to version ${latestSdkVersion} to support ${capability}`,
         );
       else
-        throw new Error(
+        throw new BadRequestError(
           `SDK version ${sdkVersion} does not support ${capability}`,
         );
   });
 }
 
-// On update, a setting that is already on may be kept without the feature, so a
-// downgrade never forces a change to an existing connection's payload.
-function isAlreadyOn(
-  param: PremiumFeatureParam,
-  existing: SDKConnectionInterface | undefined,
-): boolean {
-  if (!existing || param === "proxyEnabled") return false;
-  return !!existing[param];
+// The premium settings a write turns on without the plan for them. One that's
+// already on still saves after a plan lapses. Only REST gates the proxy.
+export function premiumSettingsWithoutPlan(
+  context: { hasPremiumFeature: (feature: PremiumFeatureName) => boolean },
+  proposed: PremiumFeatures,
+  current?: PremiumFeatures,
+  { proxy = false }: { proxy?: boolean } = {},
+) {
+  return premiumFeatures.filter(
+    ([feature, param]) =>
+      (proxy || param !== "proxyEnabled") &&
+      proposed[param] === true &&
+      !current?.[param] &&
+      !premiumOverrides[feature] &&
+      !context.hasPremiumFeature(feature),
+  );
 }
 
 export function validatePremiumFeatures(
   context: ApiReqContext,
   payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload,
-  existing?: SDKConnectionInterface,
+  current?: SDKConnectionInterface,
 ) {
-  premiumFeatures.forEach(([feature, param]) => {
-    if (!payload[param]) return;
+  const [blocked] = premiumSettingsWithoutPlan(
+    context,
+    payload,
+    current && { ...current, proxyEnabled: current.proxy?.enabled },
+    { proxy: true },
+  );
+  if (blocked) {
+    throw new BadRequestError(
+      `Feature ${blocked[0]} requires premium subscription!`,
+    );
+  }
+}
 
-    if (premiumOverrides[feature]) return;
+type SettingsScope = {
+  environment?: string;
+  projects?: string[];
+  languages?: string[];
+  tracesEnabled?: boolean;
+};
 
-    if (isAlreadyOn(param, existing)) return;
-
-    if (!context.hasPremiumFeature(feature))
-      throw new Error(`Feature ${feature} requires premium subscription!`);
-  });
+// What every write path checks about the settings it changes: the app, a
+// draft's publish, and REST, which adds its own body rules on top. Values a
+// connection already has are left alone, so a legacy one still saves.
+export async function validateSdkConnectionChanges(
+  context: ReqContext | ApiReqContext,
+  changes: SettingsScope,
+  current?: SettingsScope,
+) {
+  const { org } = context;
+  if (
+    changes.environment !== undefined &&
+    changes.environment !== current?.environment
+  ) {
+    validateEnvironment(org, changes.environment);
+  }
+  validateRequireProjectForSdkConnections(
+    org,
+    changes.projects,
+    current?.projects,
+  );
+  const added = (items?: string[], had?: string[]) =>
+    (items ?? []).filter((item) => !had?.includes(item));
+  const addedProjects = added(changes.projects, current?.projects);
+  if (addedProjects.length) await validateProjects(context, addedProjects);
+  added(changes.languages, current?.languages).forEach(validateLanguage);
+  if (changes.tracesEnabled && !current?.tracesEnabled) {
+    assertCanEnableTraces(context);
+  }
 }
 
 export function validateSdkVersion(sdkVersion: string, language: SDKLanguage) {
@@ -214,15 +268,10 @@ export async function validatePostPayload(
   }: CreateSdkConnectionRequestBody,
 ) {
   validateName(name);
+  await validateSdkConnectionChanges(context, { environment, projects });
 
-  validateEnvironment(context.org, environment);
-  validateRequireProjectForSdkConnections(context.org, projects);
-
-  if (projects && projects.length) {
-    await validateProjects(context, projects);
-  }
-
-  if (!reqLanguage) throw new Error("SDK connection requires a language!");
+  if (!reqLanguage)
+    throw new BadRequestError("SDK connection requires a language!");
 
   const language = validateLanguage(reqLanguage);
   const latestSdkVersion = getLatestSDKVersion(language);
@@ -285,17 +334,11 @@ export async function validatePutPayload(
   sdkConnection: SDKConnectionInterface,
 ) {
   if (name) validateName(name);
-
-  if (environment) validateEnvironment(context.org, environment);
-  validateRequireProjectForSdkConnections(
-    context.org,
-    projects,
-    sdkConnection.projects,
+  await validateSdkConnectionChanges(
+    context,
+    { environment, projects },
+    sdkConnection,
   );
-
-  if (projects && projects.length) {
-    await validateProjects(context, projects);
-  }
 
   const language = reqLanguage
     ? validateLanguage(reqLanguage)
@@ -304,12 +347,15 @@ export async function validatePutPayload(
   const latestSdkVersion = getLatestSDKVersion(language);
   const sdkVersion =
     reqSdkVersion || sdkConnection.sdkVersion || latestSdkVersion;
-  validateSdkVersion(sdkVersion, language);
+  // A stored version is only rechecked when the request changes what it
+  // pairs with, so a connection on a retired version can still be renamed.
+  const versionChanged = !!reqSdkVersion || !!reqLanguage;
+  if (versionChanged) validateSdkVersion(sdkVersion, language);
 
   const payload: UpdateSdkConnectionPayload = {
     name,
     environment,
-    sdkVersion,
+    sdkVersion: versionChanged ? sdkVersion : undefined,
     encryptPayload,
     includeVisualExperiments,
     includeDraftExperiments,
@@ -334,7 +380,15 @@ export async function validatePutPayload(
     payload.projects = projects;
   }
 
-  validateSdkCapabilities(payload, language, sdkVersion, latestSdkVersion);
+  // Likewise for settings that are already on.
+  validateSdkCapabilities(
+    versionChanged
+      ? payload
+      : omitBy(payload, (value, key) => value === get(sdkConnection, key)),
+    language,
+    sdkVersion,
+    latestSdkVersion,
+  );
 
   validatePremiumFeatures(context, payload, sdkConnection);
 

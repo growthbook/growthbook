@@ -32,7 +32,7 @@ import ActivationMetricRow from "@/components/Experiment/ActivationMetricRow";
 import MetricAnalysisWindowSelector from "@/components/Experiment/MetricAnalysisWindowSelector";
 import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Collapse, { CollapseTrigger } from "@/ui/Collapse";
+import AdvancedSection from "@/components/AdvancedSection";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -108,30 +108,6 @@ export function ConversionWindowsRow({
         </Box>
       </Tooltip>
     </SetupFieldRow>
-  );
-}
-
-/** The collapsed "Advanced" section under a form's main fields. */
-export function AdvancedSection({
-  open,
-  setOpen,
-  children,
-}: {
-  open: boolean;
-  setOpen: (open: boolean) => void;
-  children: ReactNode;
-}) {
-  return (
-    <>
-      <CollapseTrigger open={open} onOpenChange={setOpen} caret="start">
-        <Text weight="medium" color="text-high">
-          Advanced
-        </Text>
-      </CollapseTrigger>
-      <Collapse open={open}>
-        <Box pt="3">{children}</Box>
-      </Collapse>
-    </>
   );
 }
 

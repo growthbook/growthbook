@@ -42,7 +42,7 @@ import {
   ProductAnalyticsResultRow,
   FunnelDataset,
   PopulationDataset,
-  ExplorationPopulation,
+  ResolvedExplorationPopulation,
   dateGranularity,
 } from "../../validators/product-analytics";
 import {
@@ -240,7 +240,7 @@ function getMetricsAndUnitsFromValues(
 // A population as a distinct-units count with an optional aggregate filter.
 // Used for population previews and for a metric dataset's population.
 function createPopulationMetric(
-  population: Omit<ExplorationPopulation, "unit">,
+  population: Omit<ResolvedExplorationPopulation, "unit">,
   id: string,
   name: string,
 ): MinimalMetric {
@@ -268,7 +268,7 @@ function createPopulationMetric(
 
 // The Population count series, placed after a metric dataset's metrics.
 function createPopulationCountSeries(
-  population: ExplorationPopulation,
+  population: ResolvedExplorationPopulation,
 ): Series {
   return {
     metric: createPopulationMetric(population, "population", "Population"),
@@ -316,12 +316,14 @@ function getFactTableGroups({
   factTableMap,
   metricMap,
   datasource,
+  population,
   dialect,
 }: {
   config: ExplorationConfig;
   factTableMap: FactTableMap;
   metricMap: Map<string, FactMetricInterface>;
   datasource: MinimalDatasourceInterface;
+  population: ResolvedExplorationPopulation | null;
   dialect: SqlDialect;
 }): FactTableGroup[] {
   if (!config.dataset) {
@@ -400,7 +402,9 @@ function getFactTableGroups({
     case "metric":
       return (() => {
         const groups: Record<string, FactTableGroup> = {};
-        const population = config.dataset.population;
+        if (config.dataset.population && !population) {
+          throw new Error("The exploration's Population was not resolved");
+        }
         let metricIndex = 0;
         for (const value of config.dataset.values) {
           const originalMetric = metricMap.get(value.metricId);
@@ -2070,6 +2074,9 @@ export function generateProductAnalyticsSQL(
   metricMap: Map<string, FactMetricInterface>,
   dialect: SqlDialect,
   datasource: MinimalDatasourceInterface,
+  // The saved Population behind `config.dataset.population`, resolved by the
+  // caller. Null when the config has none.
+  population: ResolvedExplorationPopulation | null = null,
 ): {
   sql: string;
   orderedMetricIds: string[];
@@ -2102,6 +2109,7 @@ export function generateProductAnalyticsSQL(
     factTableMap,
     metricMap,
     datasource,
+    population,
     dialect,
   });
 

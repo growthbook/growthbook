@@ -5,6 +5,7 @@ import {
   deleteSnapshotIfRunning,
   errorSnapshotIfStillRunning,
   findLatestSuccessfulReportSnapshotId,
+  findSnapshotsByIds,
   reconcileSnapshotQueryPointers,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
@@ -23,6 +24,8 @@ import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
 export const SNAPSHOT_CANCELLED_ERROR = "Update cancelled by user";
+export const SNAPSHOT_INTERRUPTED_ERROR =
+  "Interrupted by an update of the Overall Results. Run this breakdown again when the update finishes.";
 
 export type SnapshotCancelAction = "delete" | "conclude" | "reconcile" | "none";
 export type SnapshotCancelOutcome =
@@ -35,10 +38,12 @@ export function planSnapshotCancel({
   snapshot,
   docs,
   reportSnapshotId,
+  interruptedByWriter = false,
 }: {
   snapshot: Pick<ExperimentSnapshotInterface, "id" | "status" | "queries">;
   docs: Pick<QueryInterface, "id" | "status">[];
   reportSnapshotId: string | null;
+  interruptedByWriter?: boolean;
 }): { action: SnapshotCancelAction; queries: Queries } {
   const statusById = new Map(docs.map((doc) => [doc.id, doc.status]));
   const queries: Queries = snapshot.queries.map((pointer) => ({
@@ -49,7 +54,10 @@ export function planSnapshotCancel({
 
   if (snapshot.status === "running") {
     return {
-      action: reportSnapshotId === snapshot.id ? "conclude" : "delete",
+      action:
+        interruptedByWriter || reportSnapshotId === snapshot.id
+          ? "conclude"
+          : "delete",
       queries,
     };
   }
@@ -65,6 +73,7 @@ async function applySnapshotCancel(
   id: string,
   action: SnapshotCancelAction,
   queries: Queries,
+  error: string,
 ): Promise<SnapshotCancelOutcome> {
   switch (action) {
     case "none":
@@ -81,7 +90,7 @@ async function applySnapshotCancel(
         await errorSnapshotIfStillRunning(
           context,
           id,
-          { queries, error: SNAPSHOT_CANCELLED_ERROR },
+          { queries, error },
           "cancelled",
           { concludedBy: "cancel" },
         )
@@ -101,6 +110,9 @@ async function applySnapshotCancel(
 export async function cancelExperimentSnapshot(
   context: ReqContext,
   snapshot: ExperimentSnapshotInterface,
+  // Set when an Overall Results update or phase delete took the incremental
+  // lock from this run, rather than a user cancelling it.
+  { interruptedByWriter = false }: { interruptedByWriter?: boolean } = {},
 ): Promise<{ outcome: SnapshotCancelOutcome; cancelledQueryIds: string[] }> {
   // Undecryptable credentials must not block the Mongo cleanup; the warehouse
   // cancels below already downgrade their own failures to warnings.
@@ -108,7 +120,11 @@ export async function cancelExperimentSnapshot(
     context,
     snapshot.settings.datasourceId,
   );
-  if (!context.permissions.canRunExperimentQueries(integration.datasource)) {
+  // The caller was already allowed to start the run that interrupts this one.
+  if (
+    !interruptedByWriter &&
+    !context.permissions.canRunExperimentQueries(integration.datasource)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -120,10 +136,14 @@ export async function cancelExperimentSnapshot(
 
   // The fence: once pending docs are failed, no live runner can promote a
   // queued query or record a result for a running one.
+  // A live runner that sees the failed queries first reports their error as
+  // the snapshot's, so an interrupted run needs it here too.
   await markPendingQueriesAsFailed(
     context,
     pendingIds,
-    QUERY_CANCELLED_BY_USER_ERROR,
+    interruptedByWriter
+      ? SNAPSHOT_INTERRUPTED_ERROR
+      : QUERY_CANCELLED_BY_USER_ERROR,
   );
   // Re-read so a doc that finished between the first read and the fence
   // keeps its real status.
@@ -141,10 +161,12 @@ export async function cancelExperimentSnapshot(
     snapshot,
     docs: after,
     reportSnapshotId,
+    interruptedByWriter,
   });
   // A finished snapshot is never cancelled itself; only its pending queries
-  // and stale pointers are. With neither, there is nothing to cancel.
-  if (action === "none" && !pendingIds.length) {
+  // and stale pointers are. With neither, there is nothing to cancel, which
+  // is only an error when a user asked.
+  if (action === "none" && !pendingIds.length && !interruptedByWriter) {
     throw new BadRequestError("Snapshot is not running");
   }
   const outcome = await applySnapshotCancel(
@@ -152,6 +174,7 @@ export async function cancelExperimentSnapshot(
     snapshot.id,
     action,
     queries,
+    interruptedByWriter ? SNAPSHOT_INTERRUPTED_ERROR : SNAPSHOT_CANCELLED_ERROR,
   );
 
   // The cancelled run has no results, so its report goes back to the latest
@@ -195,4 +218,27 @@ export async function cancelExperimentSnapshot(
   });
 
   return { outcome, cancelledQueryIds };
+}
+
+/**
+ * A writer calls this once it holds the incremental lock and before its first
+ * query, so no breakdown is still reading the tables it is about to rebuild.
+ */
+export async function interruptIncrementalReaders(
+  context: ReqContext,
+  experimentId: string,
+  writerId: string,
+): Promise<void> {
+  const readerSnapshotIds =
+    await context.models.incrementalRefresh.clearReaders(
+      experimentId,
+      writerId,
+    );
+  if (!readerSnapshotIds.length) return;
+  const readers = await findSnapshotsByIds(context, readerSnapshotIds);
+  await Promise.all(
+    readers.map((reader) =>
+      cancelExperimentSnapshot(context, reader, { interruptedByWriter: true }),
+    ),
+  );
 }

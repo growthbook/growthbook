@@ -440,6 +440,7 @@ export class GrowthBookClient<
       debug: this.debug,
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
+      defaultHashVersion: this._options.defaultHashVersion,
       savedGroups: this._options.savedGroups,
       contextualBandits: this._options.contextualBandits,
       forcedFeatureValues: this._options.forcedFeatureValues,

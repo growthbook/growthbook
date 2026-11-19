@@ -139,6 +139,27 @@ export const getSlackMessageForNotificationEvent = async (
     case "sdkConnection.payloadSize.warning":
       return buildSdkConnectionAlertMessage(event);
 
+    case "sdkConnection.revision.created":
+    case "sdkConnection.revision.updated":
+    case "sdkConnection.revision.reviewRequested":
+    case "sdkConnection.revision.approved":
+    case "sdkConnection.revision.changesRequested":
+    case "sdkConnection.revision.commented":
+    case "sdkConnection.revision.discarded":
+    case "sdkConnection.revision.rebased":
+    case "sdkConnection.revision.published":
+    case "sdkConnection.revision.reverted":
+    case "sdkConnection.revision.reopened":
+    case "sdkConnection.revision.recalled":
+    case "sdkConnection.revision.reviewRetracted":
+    case "sdkConnection.revision.publishScheduleChanged":
+    case "sdkConnection.revision.publishFailed":
+      return buildSlackMessageForSdkConnectionRevisionEvent(
+        event.event,
+        event.data.object,
+        stored,
+      );
+
     case "experiment.warning":
       return buildSlackMessageForExperimentWarningEvent(event.data.object);
 
@@ -1491,6 +1512,104 @@ const buildSlackMessageForConfigRevisionEvent = (
 };
 
 // endregion Event-specific messages -> Config
+
+// region Event-specific messages -> SDK Connection
+
+const getSdkConnectionUrlFormatted = (sdkConnectionId: string): string =>
+  `\n• <${APP_ORIGIN}/sdks/${sdkConnectionId}|View SDK Connection>`;
+
+type SdkConnectionRevisionSlackData = {
+  version?: number;
+  sdkConnection?: { id: string; name: string };
+  baseSdkConnection?: { id: string; name: string };
+  change?: string;
+  reviewComment?: string | null;
+  revertedToVersion?: number;
+  failureReason?: string;
+  terminal?: boolean;
+  attempts?: number;
+};
+
+const buildSlackMessageForSdkConnectionRevisionEvent = (
+  eventType: string,
+  data: SdkConnectionRevisionSlackData,
+  event: StoredEvent,
+): SlackMessage => {
+  const sdkConnection = data.sdkConnection ?? data.baseSdkConnection;
+  const name = `*${sdkConnection?.name ?? ""}*`;
+  const version = `v${data.version ?? "?"}`;
+  const reviewerName = eventUserLabel(event.data.user ?? null) || "someone";
+  const commentSuffix = data.reviewComment ? ` — _${data.reviewComment}_` : "";
+
+  let text: string;
+  switch (eventType) {
+    case "sdkConnection.revision.created":
+      text = `Draft revision ${version} created for SDK Connection ${name}`;
+      break;
+    case "sdkConnection.revision.updated":
+      text = `Draft revision ${version} of SDK Connection ${name} was updated${data.change ? ` (${data.change})` : ""}`;
+      break;
+    case "sdkConnection.revision.reviewRequested":
+      text = `Review requested for revision ${version} of SDK Connection ${name}`;
+      break;
+    case "sdkConnection.revision.approved":
+      text = `Revision ${version} of SDK Connection ${name} approved by ${reviewerName}${commentSuffix}`;
+      break;
+    case "sdkConnection.revision.changesRequested":
+      text = `Changes requested on revision ${version} of SDK Connection ${name} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "sdkConnection.revision.commented":
+      text = `Comment on revision ${version} of SDK Connection ${name} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "sdkConnection.revision.discarded":
+      text = `Draft revision ${version} of SDK Connection ${name} was discarded`;
+      break;
+    case "sdkConnection.revision.rebased":
+      text = `Draft revision ${version} of SDK Connection ${name} was rebased`;
+      break;
+    case "sdkConnection.revision.published":
+      text = `Revision ${version} of SDK Connection ${name} was published`;
+      break;
+    case "sdkConnection.revision.reverted":
+      text = `SDK Connection ${name} was reverted${data.revertedToVersion ? ` to revision v${data.revertedToVersion}` : ""}`;
+      break;
+    case "sdkConnection.revision.reopened":
+      text = `Draft revision ${version} of SDK Connection ${name} was reopened`;
+      break;
+    case "sdkConnection.revision.recalled":
+      text = `The review request on revision ${version} of SDK Connection ${name} was recalled`;
+      break;
+    case "sdkConnection.revision.reviewRetracted":
+      text = `A review verdict on revision ${version} of SDK Connection ${name} was retracted`;
+      break;
+    case "sdkConnection.revision.publishScheduleChanged":
+      text = `The scheduled publish for revision ${version} of SDK Connection ${name} changed`;
+      break;
+    case "sdkConnection.revision.publishFailed":
+      text = `Scheduled publish of revision ${version} for SDK Connection ${name} failed${formatPublishFailedSuffix(data)}`;
+      break;
+    default:
+      text = `SDK Connection ${name} revision ${version}: ${eventType}`;
+  }
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getSdkConnectionUrlFormatted(sdkConnection?.id ?? "") +
+            getEventUrlFormatted(event.id),
+        },
+      },
+    ],
+  };
+};
+
+// endregion Event-specific messages -> SDK Connection
 
 // region Event-specific messages -> Experiment
 

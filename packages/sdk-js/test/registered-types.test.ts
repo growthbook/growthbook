@@ -51,6 +51,10 @@ describe("registered types", () => {
     expect(compileFixture("typed-payload.ts")).toEqual([]);
   }, 60000);
 
+  it("checks local features strictly", () => {
+    expect(compileFixture("local-features.ts")).toEqual([]);
+  }, 60000);
+
   it("stays loosely typed when nothing is registered", () => {
     expect(compileFixture("unregistered.ts")).toEqual([]);
   }, 60000);

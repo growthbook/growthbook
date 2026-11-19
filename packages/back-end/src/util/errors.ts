@@ -83,7 +83,7 @@ const joinList = (names: string[]) =>
     : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 
 export class ChangesConflictError extends ApiError<"changes_conflict"> {
-  constructor(details: ApiErrorDetails<"changes_conflict">) {
+  constructor(details: ApiErrorDetails<"changes_conflict">, message?: string) {
     const names = [
       ...experimentFieldLabels(details.fields),
       ...details.featureIds.map((id) => `Feature Flag ${id}`),
@@ -94,7 +94,8 @@ export class ChangesConflictError extends ApiError<"changes_conflict"> {
     ];
     super(
       "changes_conflict",
-      `${capitalizeFirstCharacter(joinList(names))} changed since you loaded ${names.length === 1 ? "it" : "them"}. Reload to see the latest, then make your changes again.`,
+      message ??
+        `${capitalizeFirstCharacter(joinList(names))} changed since you loaded ${names.length === 1 ? "it" : "them"}. Reload to see the latest, then make your changes again.`,
       details,
     );
     this.name = "ChangesConflictError";

@@ -19,6 +19,7 @@ import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSna
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
+import { interruptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
@@ -44,6 +45,10 @@ jest.mock("back-end/src/services/datasource", () => ({
 
 jest.mock("back-end/src/enterprise/services/dashboards", () => ({
   updateExperimentDashboards: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/snapshotCancellation", () => ({
+  interruptIncrementalReaders: jest.fn(),
 }));
 
 jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
@@ -101,6 +106,11 @@ const updateExperimentDashboardsMock =
     typeof updateExperimentDashboards
   >;
 
+const interruptIncrementalReadersMock =
+  interruptIncrementalReaders as jest.MockedFunction<
+    typeof interruptIncrementalReaders
+  >;
+
 const resultsQueryRunnerMock =
   ExperimentResultsQueryRunner as unknown as jest.Mock;
 const incrementalQueryRunnerMock =
@@ -126,6 +136,7 @@ function makeContext(): ApiReqContext {
       },
       incrementalRefresh: {
         acquireLock: jest.fn().mockResolvedValue(true),
+        acquireReaderLock: jest.fn().mockResolvedValue(true),
         releaseLock: jest.fn().mockResolvedValue(undefined),
       },
     },
@@ -375,6 +386,7 @@ describe("snapshot lifecycle", () => {
       snapshot: {
         ...makePlan().snapshot,
         type: "exploratory",
+        dimension: "country",
       },
     });
 
@@ -432,12 +444,8 @@ describe("snapshot lifecycle", () => {
   });
 
   describe("incremental refresh lock", () => {
-    it.each([
-      "incremental-full",
-      "incremental-update",
-      "incremental-exploratory",
-    ] as const)(
-      "acquires lock before starting a %s snapshot",
+    it.each(["incremental-full", "incremental-update"] as const)(
+      "acquires the lock as the writer and interrupts readers before starting a %s snapshot",
       async (runnerKind) => {
         const context = makeContext();
         const experiment = makeExperiment();
@@ -459,8 +467,72 @@ describe("snapshot lifecycle", () => {
           snapshotId: plan.snapshot.id,
           legacyExperimentSettingsHash: expect.any(String),
         });
+        expect(interruptIncrementalReadersMock).toHaveBeenCalledWith(
+          context,
+          experiment.id,
+          plan.snapshot.id,
+        );
+        expect(
+          interruptIncrementalReadersMock.mock.invocationCallOrder[0],
+        ).toBeLessThan(incrementalQueryRunnerMock.mock.invocationCallOrder[0]);
       },
     );
+
+    it("acquires the lock as a reader for an incremental-exploratory snapshot", async () => {
+      const context = makeContext();
+      const experiment = makeExperiment();
+      const plan = makePlan({
+        runnerKind: "incremental-exploratory",
+        snapshot: { type: "exploratory", dimension: "country" },
+      });
+
+      await createSnapshotFromPlan({
+        plan,
+        context,
+        experiment,
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
+
+      expect(
+        context.models.incrementalRefresh.acquireReaderLock,
+      ).toHaveBeenCalledWith({
+        experimentId: experiment.id,
+        phase: plan.snapshot.phase,
+        snapshotId: plan.snapshot.id,
+        legacyExperimentSettingsHash: expect.any(String),
+        request: { type: "dimension", dimension: "country" },
+      });
+      expect(
+        context.models.incrementalRefresh.acquireLock,
+      ).not.toHaveBeenCalled();
+      expect(interruptIncrementalReadersMock).not.toHaveBeenCalled();
+    });
+
+    it("releases the writer lock and starts nothing when readers cannot be interrupted", async () => {
+      const context = makeContext();
+      const experiment = makeExperiment();
+      const plan = makePlan({ runnerKind: "incremental-update" });
+      interruptIncrementalReadersMock.mockRejectedValueOnce(
+        new Error("Mongo unavailable"),
+      );
+
+      await expect(
+        createSnapshotFromPlan({
+          plan,
+          context,
+          experiment,
+          metricMap: new Map<string, ExperimentMetricInterface>(),
+          factTableMap: new Map() as FactTableMap,
+        }),
+      ).rejects.toThrow("Mongo unavailable");
+
+      expect(
+        context.models.incrementalRefresh.releaseLock,
+      ).toHaveBeenCalledWith(experiment.id, plan.snapshot.id);
+      expect(incrementalQueryRunnerMock).not.toHaveBeenCalled();
+      expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+    });
 
     it.each([
       { holder: "snp_running", details: { snapshotId: "snp_running" } },

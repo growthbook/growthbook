@@ -1,19 +1,14 @@
 import { FC } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Grid } from "@radix-ui/themes";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
-import Field from "@/components/Forms/Field";
+import TextField from "@/ui/TextField";
 
 const BigQueryEventForwarderForm: FC<{
   eventForwarderConfig: EventForwarderConfigDraft;
   setEventForwarderConfig: (
     eventForwarderConfig: EventForwarderConfigDraft | null,
   ) => void;
-  className?: string;
-}> = ({
-  eventForwarderConfig,
-  setEventForwarderConfig,
-  className = "form-group col-md-12 mt-3 px-0",
-}) => {
+}> = ({ eventForwarderConfig, setEventForwarderConfig }) => {
   const bigQueryEventForwarderConfig =
     eventForwarderConfig.sinkType === "bigquery" ? eventForwarderConfig : null;
 
@@ -32,41 +27,34 @@ const BigQueryEventForwarderForm: FC<{
   };
 
   return (
-    <Flex direction="column" gap="2" className={className}>
-      <Field
+    <Grid columns="2" gap="4" align="start">
+      <TextField
         label="Project"
-        type="text"
-        className="form-control"
-        containerClassName="mb-0"
         name="eventForwarderBigQueryProject"
         value={bigQueryEventForwarderConfig.config.projectId}
         onChange={(e) => updateConfig({ projectId: e.target.value })}
         placeholder="my-project"
         required
       />
-      <Field
+      <TextField
         label="Dataset"
-        type="text"
-        className="form-control"
-        containerClassName="mb-0"
         name="eventForwarderBigQueryDataset"
         value={bigQueryEventForwarderConfig.config.dataset}
         onChange={(e) => updateConfig({ dataset: e.target.value })}
         placeholder="my_dataset"
         required
       />
-      <Field
-        label="Table Prefix (optional)"
-        type="text"
-        className="form-control"
-        containerClassName="mb-0"
-        name="eventForwarderBigQueryTablePrefix"
-        value={bigQueryEventForwarderConfig.config.tablePrefix}
-        onChange={(e) => updateConfig({ tablePrefix: e.target.value })}
-        placeholder="gb"
-        helpText="GrowthBook creates events, experiment_viewed, and feature_usage tables using this prefix."
-      />
-    </Flex>
+      <Box gridColumn="1 / -1">
+        <TextField
+          label="Table prefix (optional)"
+          name="eventForwarderBigQueryTablePrefix"
+          value={bigQueryEventForwarderConfig.config.tablePrefix}
+          onChange={(e) => updateConfig({ tablePrefix: e.target.value })}
+          placeholder="gb"
+          helpText="GrowthBook creates events, experiment_viewed, and feature_usage tables using this prefix."
+        />
+      </Box>
+    </Grid>
   );
 };
 

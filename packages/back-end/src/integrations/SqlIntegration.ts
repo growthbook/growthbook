@@ -131,7 +131,10 @@ import {
   FactMetricInterface,
   MetricQuantileSettings,
 } from "shared/types/fact-table";
-import { ExplorationConfig } from "shared/validators";
+import {
+  ExplorationConfig,
+  ResolvedExplorationPopulation,
+} from "shared/validators";
 import {
   AdditionalQueryMetadata,
   QueryType,
@@ -725,7 +728,7 @@ export default abstract class SqlIntegration
   processExperimentFactMetricsQueryRows(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rows: Record<string, any>[],
-  ): ExperimentFactMetricsQueryResponseRows {
+  ): Promise<ExperimentFactMetricsQueryResponseRows> {
     return processExperimentFactMetricsQueryRowsFromSql(rows);
   }
 
@@ -740,7 +743,7 @@ export default abstract class SqlIntegration
       queryMetadata,
     );
     return {
-      rows: this.processExperimentFactMetricsQueryRows(rows),
+      rows: await this.processExperimentFactMetricsQueryRows(rows),
       statistics: statistics,
     };
   }
@@ -3956,7 +3959,7 @@ export default abstract class SqlIntegration
       queryMetadata,
     );
     return {
-      rows: this.processExperimentFactMetricsQueryRows(rows),
+      rows: await this.processExperimentFactMetricsQueryRows(rows),
       statistics: statistics,
     };
   }
@@ -3970,9 +3973,11 @@ export default abstract class SqlIntegration
     {
       factTableMap,
       metricMap,
+      population,
     }: {
       factTableMap: FactTableMap;
       metricMap: Map<string, FactMetricInterface>;
+      population: ResolvedExplorationPopulation | null;
     },
   ): {
     sql: string;
@@ -4013,6 +4018,7 @@ export default abstract class SqlIntegration
       metricMap,
       dialect,
       this.datasource,
+      population,
     );
 
     return {
