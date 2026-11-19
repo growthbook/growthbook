@@ -1250,30 +1250,10 @@ const apiExperimentSnapshotShape = z.object({
     .string()
     .describe('Why the update failed. Present only when "status" is "error"')
     .optional(),
-  metricRefresh: z
-    .object({
-      baseSnapshotId: z
-        .string()
-        .describe(
-          "The normal update this snapshot is anchored to. Its end date is this snapshot's end date",
-        ),
-      metricIds: z
-        .array(z.string())
-        .describe("The newly added metrics this snapshot queried"),
-      dateEnd: z.iso
-        .datetime()
-        .describe(
-          "The end of the analysis window. It is the base update's end date, not the time of this request",
-        ),
-    })
-    .describe(
-      "Present only on a snapshot that computed just the experiment's newly added metrics",
-    )
-    .optional(),
   updateScope: z
     .enum(["all_metrics", "new_metrics"])
     .describe(
-      '"new_metrics" when the update computed only the newly added metrics and kept the last normal update\'s end date, so no result covers newer data. "all_metrics" for a normal update, which computes every metric',
+      '"new_metrics" when the update computed only the metrics added since the latest results, otherwise "all_metrics".',
     ),
 });
 

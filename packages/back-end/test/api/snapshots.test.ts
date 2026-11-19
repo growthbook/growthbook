@@ -1107,11 +1107,6 @@ describe("snapshots API", () => {
           id: snapshot.id,
           experiment: snapshot.experiment,
           status: "running",
-          metricRefresh: {
-            baseSnapshotId: "snp_base",
-            metricIds: ["fact__new"],
-            dateEnd: refreshEndDate.toISOString(),
-          },
           updateScope: "new_metrics",
         },
       });

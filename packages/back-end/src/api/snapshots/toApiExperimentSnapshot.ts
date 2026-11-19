@@ -6,8 +6,6 @@ import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 export function toApiExperimentSnapshot(
   snapshot: ExperimentSnapshotInterface,
 ): z.infer<typeof apiExperimentSnapshotValidator> {
-  const metricRefresh = getMetricRefresh(snapshot);
-  const dateEnd = snapshot.settings.endDate.toISOString();
   return {
     id: snapshot.id,
     experiment: snapshot.experiment,
@@ -15,15 +13,6 @@ export function toApiExperimentSnapshot(
     ...(snapshot.status === "error" && snapshot.error
       ? { error: snapshot.error }
       : {}),
-    ...(metricRefresh
-      ? {
-          metricRefresh: {
-            baseSnapshotId: metricRefresh.baseSnapshotId,
-            metricIds: metricRefresh.metricIds,
-            dateEnd,
-          },
-          updateScope: "new_metrics" as const,
-        }
-      : { updateScope: "all_metrics" as const }),
+    updateScope: getMetricRefresh(snapshot) ? "new_metrics" : "all_metrics",
   };
 }

@@ -18,7 +18,6 @@ import type { ReqContext } from "back-end/types/request";
 import type { PlannedExperimentSnapshot } from "back-end/src/services/experiments";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
-import { toApiExperimentSnapshot } from "back-end/src/api/snapshots/toApiExperimentSnapshot";
 import {
   analyzeMetricRefresh,
   mergeMetricRefreshAnalyses,
@@ -1153,9 +1152,6 @@ describe("dateEnd of a refresh", () => {
       expect(getResultsDateEnd(base, runningPhase)).toEqual(baseRan);
       expect(getResultsDateEnd(refresh, runningPhase)).toEqual(baseRan);
       expect(getResultsDateEnd(refresh, { dateEnded })).toEqual(dateEnded);
-      expect(toApiExperimentSnapshot(refresh).metricRefresh?.dateEnd).toBe(
-        endDate.toISOString(),
-      );
     },
   );
 });
