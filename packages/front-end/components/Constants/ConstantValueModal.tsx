@@ -25,6 +25,7 @@ import {
   useConstantDraftTarget,
   ConstantRevisionContext,
 } from "@/components/Constants/useConstantDraftTarget";
+import { draftModeCta } from "@/components/DraftSelector";
 
 type FormValues = {
   value: string;
@@ -139,10 +140,17 @@ export default function ConstantValueModal({
     <ModalStandard
       open={true}
       trackingEventModalType="constant-value-modal"
-      header="Edit value"
+      header="Edit Value"
       size="lg"
       close={close}
-      cta="Save"
+      cta={draftModeCta(draft.draftMode, {
+        bypassesApproval: draft.selectorApprovalRequired,
+      })}
+      ctaColor={
+        draft.draftMode === "publish" && draft.selectorApprovalRequired
+          ? "red"
+          : "violet"
+      }
       submit={validatedSubmit(form, async (values) => {
         // A key's presence is the override (even when its value is empty): an
         // empty override forces that environment's resolved value to empty,

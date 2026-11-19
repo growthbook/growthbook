@@ -268,7 +268,7 @@ export default function FeatureDetailsPanel({
           intro="This feature is a prerequisite for the following:"
           rows={[
             {
-              title: "Features",
+              title: "Feature Flags",
               items: dependentFeatures.map((fid) => ({
                 id: fid,
                 label: fid,

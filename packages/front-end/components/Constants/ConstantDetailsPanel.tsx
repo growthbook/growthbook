@@ -12,7 +12,7 @@ import {
 } from "@/components/DetailsPanelFields";
 import RevisionPanelSection from "@/components/Revision/RevisionPanelSection";
 import ReferencesPanelSection, {
-  PanelReferenceRow,
+  PanelReferences,
 } from "@/components/References/ReferencesPanelSection";
 import Metadata from "@/ui/Metadata";
 
@@ -24,6 +24,7 @@ const CONSTANT_TYPE_LABEL: Record<ConstantInterface["type"], string> = {
 export default function ConstantDetailsPanel({
   constant,
   onEditInfo,
+  editInfoBlockedReason,
   references,
   revision,
   allRevisions,
@@ -35,9 +36,12 @@ export default function ConstantDetailsPanel({
 }: {
   // As viewed: the selected revision's changes over live.
   constant: ConstantInterface;
-  // Opens the info form; none while the viewer can't edit.
-  onEditInfo: (() => void) | null;
-  references: PanelReferenceRow[];
+  // Opens the info form, with the description first when asked; none while
+  // the viewer can't edit.
+  onEditInfo: ((focus?: "description") => void) | null;
+  // Shown on the pencils, disabled, while the info can't change for now.
+  editInfoBlockedReason: string | null;
+  references: PanelReferences;
   // The viewed revision, or live's.
   revision: Revision | null;
   allRevisions: Revision[];
@@ -47,8 +51,14 @@ export default function ConstantDetailsPanel({
   onRenameRevision: (title: string) => Promise<void>;
   onDescribeRevision: (description: string) => Promise<void>;
 }) {
-  const pencil = (label: string) =>
-    onEditInfo ? <PanelEditButton label={label} onClick={onEditInfo} /> : null;
+  const pencil = (label: string, focus?: "description") =>
+    onEditInfo ? (
+      <PanelEditButton
+        label={label}
+        onClick={() => onEditInfo(focus)}
+        blockedReason={editInfoBlockedReason}
+      />
+    ) : null;
 
   return (
     <DetailsPanel>
@@ -63,8 +73,13 @@ export default function ConstantDetailsPanel({
           size="sm"
           stacked
           label="Description"
-          action={pencil("Edit description")}
+          action={pencil("Edit description", "description")}
           value={<MarkdownValue markdown={constant.description} />}
+        />
+        <OwnerField owner={constant.owner} action={pencil("Edit owner")} />
+        <ProjectField
+          project={constant.project}
+          action={pencil("Edit Project")}
         />
         <Metadata
           size="sm"
@@ -72,16 +87,14 @@ export default function ConstantDetailsPanel({
           label="Type"
           value={<PanelText>{CONSTANT_TYPE_LABEL[constant.type]}</PanelText>}
         />
-        <OwnerField owner={constant.owner} action={pencil("Edit owner")} />
-        <ProjectField
-          project={constant.project}
-          action={pencil("Edit Project")}
-        />
       </PanelSection>
       <ReferencesPanelSection
         title="References"
         intro="This Constant is referenced by the following:"
-        rows={references}
+        rows={references.rows}
+        loading={references.loading}
+        error={references.error}
+        emptyText="Nothing references this Constant."
       />
       {revision ? (
         <>

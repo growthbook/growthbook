@@ -3,6 +3,7 @@ import { Revision } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import DetailsPanel, { PanelSection } from "@/components/DetailsPanel";
 import {
+  CopyableKey,
   HiddenProject,
   MarkdownValue,
   OwnerField,
@@ -11,7 +12,7 @@ import {
 } from "@/components/DetailsPanelFields";
 import RevisionPanelSection from "@/components/Revision/RevisionPanelSection";
 import ReferencesPanelSection, {
-  PanelReferenceRow,
+  PanelReferences,
 } from "@/components/References/ReferencesPanelSection";
 import { SAVED_GROUP_TYPE_LABELS } from "@/components/SavedGroups/SavedGroupForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -33,9 +34,9 @@ export default function SavedGroupDetailsPanel({
   // As viewed: the selected revision's changes over live.
   savedGroup: SavedGroupInterface;
   // Opens the info form; none while the viewer can't edit.
-  onEditInfo: (() => void) | null;
+  onEditInfo: ((focus?: "description") => void) | null;
   editInfoBlockedReason: string | null;
-  references: PanelReferenceRow[];
+  references: PanelReferences;
   // The viewed revision, or live's.
   revision: Revision | null;
   allRevisions: Revision[];
@@ -47,11 +48,11 @@ export default function SavedGroupDetailsPanel({
 }) {
   const { projects: allProjects, getProjectById } = useDefinitions();
   const projects = savedGroup.projects ?? [];
-  const pencil = (label: string) =>
+  const pencil = (label: string, focus?: "description") =>
     onEditInfo ? (
       <PanelEditButton
         label={label}
-        onClick={onEditInfo}
+        onClick={() => onEditInfo(focus)}
         blockedReason={editInfoBlockedReason}
       />
     ) : null;
@@ -62,24 +63,14 @@ export default function SavedGroupDetailsPanel({
         <Metadata
           size="sm"
           stacked
-          label="Type"
-          value={
-            <PanelText>{SAVED_GROUP_TYPE_LABELS[savedGroup.type]}</PanelText>
-          }
+          label="ID"
+          value={<CopyableKey value={savedGroup.id} />}
         />
-        {savedGroup.type !== "condition" ? (
-          <Metadata
-            size="sm"
-            stacked
-            label="Attribute key"
-            value={<PanelText>{savedGroup.attributeKey}</PanelText>}
-          />
-        ) : null}
         <Metadata
           size="sm"
           stacked
           label="Description"
-          action={pencil("Edit description")}
+          action={pencil("Edit description", "description")}
           value={<MarkdownValue markdown={savedGroup.description} />}
         />
         <OwnerField owner={savedGroup.owner} action={pencil("Edit owner")} />
@@ -103,11 +94,30 @@ export default function SavedGroupDetailsPanel({
             }
           />
         ) : null}
+        <Metadata
+          size="sm"
+          stacked
+          label="Type"
+          value={
+            <PanelText>{SAVED_GROUP_TYPE_LABELS[savedGroup.type]}</PanelText>
+          }
+        />
+        {savedGroup.type !== "condition" ? (
+          <Metadata
+            size="sm"
+            stacked
+            label="Attribute key"
+            value={<PanelText>{savedGroup.attributeKey}</PanelText>}
+          />
+        ) : null}
       </PanelSection>
       <ReferencesPanelSection
         title="References"
         intro="This Saved Group is referenced by the following:"
-        rows={references}
+        rows={references.rows}
+        loading={references.loading}
+        error={references.error}
+        emptyText="Nothing references this Saved Group."
       />
       {revision ? (
         <>

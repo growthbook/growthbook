@@ -9,6 +9,19 @@ import RadioGroup from "@/ui/RadioGroup";
 
 export type DraftMode = "existing" | "new" | "publish";
 
+// A draft form's submit label, from where the change lands. Info edits that
+// go live directly read as a plain save.
+export function draftModeCta(
+  mode: DraftMode,
+  {
+    bypassesApproval,
+    publishLabel = "Publish",
+  }: { bypassesApproval: boolean; publishLabel?: string },
+): string {
+  if (mode !== "publish") return "Save to draft";
+  return bypassesApproval ? "Bypass approval & publish" : publishLabel;
+}
+
 /**
  * Generic collapsible draft-selector shell shared between features and saved
  * groups. Callers supply the revision dropdown (rendered in the "existing

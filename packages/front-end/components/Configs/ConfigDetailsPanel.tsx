@@ -18,6 +18,7 @@ export default function ConfigDetailsPanel({
   config,
   parent,
   onEditInfo,
+  editInfoBlockedReason,
   revision,
   allRevisions,
   isLive,
@@ -29,8 +30,11 @@ export default function ConfigDetailsPanel({
   // As viewed: the selected revision's changes over live.
   config: ConfigInterface;
   parent: { key: string; name: string } | null;
-  // Opens the info form; none while the viewer can't edit.
-  onEditInfo: (() => void) | null;
+  // Opens the info form, with the description first when asked; none while
+  // the viewer can't edit.
+  onEditInfo: ((focus?: "description") => void) | null;
+  // Shown on the pencils, disabled, while the info can't change for now.
+  editInfoBlockedReason: string | null;
   // The viewed revision, or live's.
   revision: Revision | null;
   allRevisions: Revision[];
@@ -40,8 +44,14 @@ export default function ConfigDetailsPanel({
   onRenameRevision: (title: string) => Promise<void>;
   onDescribeRevision: (description: string) => Promise<void>;
 }) {
-  const pencil = (label: string) =>
-    onEditInfo ? <PanelEditButton label={label} onClick={onEditInfo} /> : null;
+  const pencil = (label: string, focus?: "description") =>
+    onEditInfo ? (
+      <PanelEditButton
+        label={label}
+        onClick={() => onEditInfo(focus)}
+        blockedReason={editInfoBlockedReason}
+      />
+    ) : null;
 
   return (
     <DetailsPanel>
@@ -56,7 +66,7 @@ export default function ConfigDetailsPanel({
           size="sm"
           stacked
           label="Description"
-          action={pencil("Edit description")}
+          action={pencil("Edit description", "description")}
           value={<MarkdownValue markdown={config.description} />}
         />
         <OwnerField owner={config.owner} action={pencil("Edit owner")} />

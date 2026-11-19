@@ -22,6 +22,7 @@ import {
   getConstantRevisionChange,
   getLiveRevision,
   getRevisionNumberById,
+  isRevisionEditLockedBySchedule,
 } from "shared/enterprise";
 import { isActiveDraftStatus } from "shared/validators";
 import {
@@ -80,6 +81,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import ArchiveStateCallout from "@/components/Revision/ArchiveStateCallout";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
@@ -123,7 +125,8 @@ import {
 import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
 import { useTabsTop } from "@/components/Layout/pageTopOffset";
 import ConfigDetailsPanel from "@/components/Configs/ConfigDetailsPanel";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
+import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import LabelWithHelp from "@/ui/LabelWithHelp";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
@@ -330,7 +333,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
 
-  const [editInfoOpen, setEditInfoOpen] = useState(false);
+  const [editInfoOpen, setEditInfoOpen] = useState<
+    false | "info" | "description"
+  >(false);
   const [confirmRevert, setConfirmRevert] = useState(false);
   const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
     null,
@@ -877,9 +882,9 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   if (error) {
     return (
-      <div className="container-fluid pagecontents">
-        <Callout status="error">{error.message}</Callout>
-      </div>
+      <Callout status="error" mt="4">
+        An error occurred: {error.message}
+      </Callout>
     );
   }
   if (!data || !config || !displayedConfig) {
@@ -970,12 +975,20 @@ export default function ConfigDetailPage(): React.ReactElement {
   const canDeleteNow =
     canDeleteArchivedEntity(permissionsUtil, "config", config) &&
     !hasDescendants;
-  // A locked config is frozen — no edit controls at all (unlock is a separate,
-  // bypass-gated control). Editing is otherwise allowed both in a draft and in
-  // the live view; a selected merged/discarded revision is a read-only history
-  // view (selectedRevision set + not a draft), so it stays non-editable.
+  // A locked Config still takes drafts; only publishing past its pinned
+  // revision waits for an unlock (archiving publishes too). Editing is allowed
+  // in a draft and from the live view; a selected merged/discarded revision is
+  // a read-only history view. A draft locked for a scheduled publish keeps its
+  // info controls, disabled, and drops the rest.
   const isLocked = !!config.lock;
-  const canEditNow = canDraft && !isLocked && (!selectedRevision || isDraft);
+  const canEditInfo = canDraft && (!selectedRevision || isDraft);
+  const editLockReason =
+    selectedRevision &&
+    isDraft &&
+    isRevisionEditLockedBySchedule(selectedRevision)
+      ? SCHEDULE_EDIT_LOCK_REASON
+      : null;
+  const canEditNow = canEditInfo && !editLockReason;
   // Archiving is delete-class server-side — it takes the Config out of service,
   // and being archived is what allows deleting it. Unarchiving returns it to
   // service, so it's an ordinary publish.
@@ -995,12 +1008,10 @@ export default function ConfigDetailPage(): React.ReactElement {
     }),
   );
   const canArchiveNow =
-    (canLandArchive || canEditNow) &&
-    !isLocked &&
-    (!selectedRevision || isDraft);
+    (canLandArchive || canEditNow) && (!selectedRevision || isDraft);
   // Inline editing works in a live context too — saving auto-creates a draft
   // (writeQuery falls back to ?forceCreateRevision=1). Kept in lockstep
-  // with canEditNow so locked/discarded contexts expose no edit controls.
+  // with canEditNow so history views and schedule-locked drafts expose none.
   const canEditInline = canEditNow;
   const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks(
     {
@@ -1016,7 +1027,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     approvalRequired,
     metadataReviewRequired,
     canBypassApproval,
-    canPublish: canPublishNow,
+    // Locked, a save can still make a draft but can't publish.
+    canPublish: canPublishNow && !isLocked,
   };
 
   const ownValue = (): Record<string, unknown> =>
@@ -1427,62 +1439,64 @@ export default function ConfigDetailPage(): React.ReactElement {
   const stickyTop =
     tabsTop + TABS_BAR_HEIGHT_PX + (showsStatusBar ? statusBarHeight : 0);
 
-  const newDraft =
-    canDraft && !isLocked ? (
-      <NewDraftButton
-        entityNoun="Config"
-        activeDraftCount={openRevisions.length}
-        nextVersion={Math.max(0, ...revisionNumbers.values()) + 1}
-        basedOn={
-          liveRevision ? (
-            <>
-              <Text
-                as="span"
-                size="inherit"
-                weight="semibold"
-                color="text-high"
-              >
-                <RevisionLabel
-                  version={revisionNumbers.get(liveRevision.id) ?? 1}
-                  title={liveRevision.title}
-                  numbered={!!liveRevision.title}
-                  minWidth={0}
-                  numberSize="inherit"
-                />
-              </Text>{" "}
-              {getStatusBadge("live", approvalRequired)}
-            </>
-          ) : (
-            <>the live Config</>
-          )
+  const newDraft = canDraft ? (
+    <NewDraftButton
+      entityNoun="Config"
+      activeDraftCount={openRevisions.length}
+      nextVersion={Math.max(0, ...revisionNumbers.values()) + 1}
+      basedOn={
+        liveRevision ? (
+          <>
+            <Text as="span" size="inherit" weight="semibold" color="text-high">
+              <RevisionLabel
+                version={revisionNumbers.get(liveRevision.id) ?? 1}
+                title={liveRevision.title}
+                numbered={!!liveRevision.title}
+                minWidth={0}
+                numberSize="inherit"
+              />
+            </Text>{" "}
+            {getStatusBadge("live", approvalRequired)}
+          </>
+        ) : (
+          <>the live Config</>
+        )
+      }
+      create={async ({ title, comment }) => {
+        const res = await apiCall<{ revision?: Revision }>(
+          `/configs/${config.id}?forceCreateRevision=1`,
+          { method: "PUT", body: JSON.stringify({}) },
+        );
+        const revision = res?.revision;
+        if (!revision) return;
+        if (title) {
+          await apiCall(`/revision/${revision.id}/title`, {
+            method: "PATCH",
+            body: JSON.stringify({ title }),
+          });
         }
-        create={async ({ title, comment }) => {
-          const res = await apiCall<{ revision?: Revision }>(
-            `/configs/${config.id}?forceCreateRevision=1`,
-            { method: "PUT", body: JSON.stringify({}) },
-          );
-          const revision = res?.revision;
-          if (!revision) return;
-          if (title) {
-            await apiCall(`/revision/${revision.id}/title`, {
-              method: "PATCH",
-              body: JSON.stringify({ title }),
-            });
-          }
-          if (comment) {
-            await apiCall(`/revision/${revision.id}/description`, {
-              method: "PATCH",
-              body: JSON.stringify({ description: comment }),
-            });
-          }
-          await onRevisionCreated(revision);
-        }}
-      />
-    ) : null;
+        if (comment) {
+          await apiCall(`/revision/${revision.id}/description`, {
+            method: "PATCH",
+            body: JSON.stringify({ description: comment }),
+          });
+        }
+        await onRevisionCreated(revision);
+      }}
+    />
+  ) : null;
 
   const menu = (
     <DetailsPageMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuGroup>
+        <DropdownMenuItem
+          onClick={() => {
+            setMenuOpen(false);
+            setShowAuditModal(true);
+          }}
+        >
+          Audit history
+        </DropdownMenuItem>
         {allRevisions.length >= 2 && (
           <DropdownMenuItem
             onClick={() => {
@@ -1493,14 +1507,6 @@ export default function ConfigDetailPage(): React.ReactElement {
             Compare revisions
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem
-          onClick={() => {
-            setMenuOpen(false);
-            setShowAuditModal(true);
-          }}
-        >
-          Audit history
-        </DropdownMenuItem>
       </DropdownMenuGroup>
       {((!config.lock && canPublishNow) || !!config.lock) && (
         <>
@@ -1578,6 +1584,14 @@ export default function ConfigDetailPage(): React.ReactElement {
           <DropdownMenuGroup>
             {canArchiveNow && (
               <DropdownMenuItem
+                disabled={isLocked}
+                tooltip={
+                  config.lock
+                    ? `Locked at v${config.lock.version}. Unlock to ${
+                        config.archived ? "unarchive" : "archive"
+                      }.`
+                    : undefined
+                }
                 onClick={() => {
                   setMenuOpen(false);
                   setShowArchiveModal(true);
@@ -1667,7 +1681,11 @@ export default function ConfigDetailPage(): React.ReactElement {
       ) : null}
       <Separator size="4" />
       <PanelSection
-        title={`Feature Flags (${familyReferences?.features.length ?? 0})`}
+        title={
+          familyReferences
+            ? `Feature Flags (${familyReferences.features.length})`
+            : "Feature Flags"
+        }
       >
         <ConfigFeatureReferences
           lineage={data.lineage}
@@ -1691,17 +1709,17 @@ export default function ConfigDetailPage(): React.ReactElement {
 
       <DetailsPageTitleBar
         title={displayedConfig.name}
-        onRename={canEditNow ? () => setEditInfoOpen(true) : null}
+        onRename={canEditInfo ? () => setEditInfoOpen("info") : null}
+        renameBlockedReason={editLockReason}
         badges={
           <>
-            {displayedConfig.archived && (
-              <Badge label="Archived" color="gray" />
-            )}
+            {/* Live state, like the menu's Archive/Unarchive. */}
+            {config.archived && <Badge label="Archived" color="gray" />}
             {config.lock && (
               <Tooltip
-                body={`Locked at v${config.lock.version}${
+                content={`Locked at v${config.lock.version}${
                   config.lock.reason ? ` — ${config.lock.reason}` : ""
-                }. Unlock to publish.`}
+                }. Drafts can still be edited, but nothing publishes until it's unlocked.`}
               >
                 <Badge
                   color="orange"
@@ -1722,7 +1740,13 @@ export default function ConfigDetailPage(): React.ReactElement {
             menu={menu}
           />
         }
-      />
+      >
+        <ArchiveStateCallout
+          noun="Config"
+          liveArchived={!!config.archived}
+          viewedArchived={!!displayedConfig.archived}
+        />
+      </DetailsPageTitleBar>
 
       <DetailsPageTabs
         value={tab}
@@ -1795,12 +1819,15 @@ export default function ConfigDetailPage(): React.ReactElement {
                 ? { key: parentKey, name: parentName ?? parentKey }
                 : null
             }
-            onEditInfo={canEditNow ? () => setEditInfoOpen(true) : null}
+            onEditInfo={
+              canEditInfo ? (focus) => setEditInfoOpen(focus ?? "info") : null
+            }
+            editInfoBlockedReason={editLockReason}
             revision={panelRevision}
             allRevisions={allRevisions}
             isLive={!selectedRevision}
             requiresApproval={approvalRequired}
-            canEditRevision={canDraft && !isLocked}
+            canEditRevision={canDraft}
             onRenameRevision={async (title) => {
               if (!selectedRevision) return;
               await apiCall(`/revision/${selectedRevision.id}/title`, {
@@ -1972,7 +1999,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                               <TableColumnHeader width="72px">
                                 <LabelWithHelp
                                   label="Usage"
-                                  help="Flag rules and defaults that override this key."
+                                  help="Feature Flag rules and defaults that override this key."
                                 />
                               </TableColumnHeader>
                               <TableColumnHeader width="180px">
@@ -2267,6 +2294,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       {editInfoOpen && (
         <ConfigModal
           existing={displayedConfig}
+          focusDescription={editInfoOpen === "description"}
           revisionCtx={revisionCtx}
           onSaved={async (revision) => {
             await onRevisionCreated(revision);
@@ -2431,6 +2459,7 @@ export default function ConfigDetailPage(): React.ReactElement {
           title={`Delete "${config.name}"?`}
           content="This permanently deletes the Config. This cannot be undone."
           yesText="Delete"
+          color="red"
           onConfirm={async () => {
             // After deleting, land on the nearest config still in this lineage
             // (parent spine, else a mixin base) rather than the list — only the

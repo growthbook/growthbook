@@ -20,6 +20,7 @@ import {
   isSavedGroupRevisionArchiveOnly,
   getApprovalFlowRules,
   getApprovalFlowSettings,
+  isRevisionEditLockedBySchedule,
 } from "shared/enterprise";
 import { isActiveDraftStatus } from "shared/validators";
 import { PiPlus } from "react-icons/pi";
@@ -33,7 +34,9 @@ import SectionFrame from "@/components/SectionFrame";
 import Text from "@/ui/Text";
 import { SortButton, ariaSort } from "@/services/search";
 import Badge from "@/ui/Badge";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import ArchiveStateCallout from "@/components/Revision/ArchiveStateCallout";
+import Tooltip from "@/ui/Tooltip";
+import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
@@ -115,6 +118,7 @@ import {
 } from "@/components/Layout/DetailsPageHeader";
 import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
 import { useTabsTop } from "@/components/Layout/pageTopOffset";
+import { draftModeCta } from "@/components/DraftSelector";
 
 const NUM_PER_PAGE = 10;
 
@@ -162,7 +166,11 @@ export default function EditSavedGroupPage() {
   const { savedGroupSizeLimit, attributeSchema } = settings;
   const revertsBypassApproval = !!settings.revertsBypassApproval;
 
-  const { references } = useSavedGroupReferences(savedGroup?.id);
+  const {
+    references,
+    loading: referencesLoading,
+    error: referencesError,
+  } = useSavedGroupReferences(savedGroup?.id);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
@@ -403,6 +411,8 @@ export default function EditSavedGroupPage() {
 
   const largeSavedGroupSupport = useLargeSavedGroupSupport();
 
+  // Opens the info form with its description first.
+  const [focusDescription, setFocusDescription] = useState(false);
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [editConditionModal, setEditConditionModal] =
@@ -459,15 +469,24 @@ export default function EditSavedGroupPage() {
       selectFlow(userOpenRevision);
     }
     setImportOperation(operation);
-    setAddItemsDraftMode(
-      !approvalRequired ? "publish" : userOpenRevision ? "existing" : "new",
-    );
+    // Draft first, like the other entities; publishing is one click away.
+    setAddItemsDraftMode(userOpenRevision ? "existing" : "new");
     setAddItemsDraftSelectedId(userOpenRevision?.id ?? null);
     setLiveListPin(savedGroup.values ?? []);
     addConflict.clear({ values: displayedValues });
     setAddItems(true);
   };
 
+  // Past revisions, and viewers who can't draft, show no edit controls. A draft
+  // locked for a scheduled publish shows them disabled.
+  const canEditView = canDraft && !isMerged && !isDiscarded;
+  const editLockReason =
+    selectedRevision &&
+    isDraft &&
+    isRevisionEditLockedBySchedule(selectedRevision)
+      ? SCHEDULE_EDIT_LOCK_REASON
+      : null;
+  // A Remote Group's upload picker explains itself instead.
   const editBlockedReason = isMerged
     ? "You cannot edit a published revision."
     : isDiscarded
@@ -478,14 +497,11 @@ export default function EditSavedGroupPage() {
   // With metadata review off, information edits land straight from any view.
   const editInfoBlockedReason = remoteLocked
     ? REMOTE_LOCKED_REASON
-    : metadataReviewRequired && isMerged
-      ? "You cannot edit a published revision."
-      : metadataReviewRequired && isDiscarded
-        ? "You cannot edit a discarded revision."
-        : null;
+    : editLockReason;
   const editInfo =
-    canDraft || remoteLocked
-      ? () =>
+    (canDraft || remoteLocked) && !isMerged && !isDiscarded
+      ? (focus?: "description") => {
+          setFocusDescription(focus === "description");
           setSavedGroupForm(
             selectedRevision
               ? applyTopLevelPatchOps(
@@ -494,7 +510,8 @@ export default function EditSavedGroupPage() {
                   selectedRevision.target.proposedChanges,
                 )
               : savedGroup,
-          )
+          );
+        }
       : null;
 
   const canManageDrafts = permissionsUtil.canRevisionAction(
@@ -573,6 +590,14 @@ export default function EditSavedGroupPage() {
   const menu = (
     <DetailsPageMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
       <DropdownMenuGroup>
+        <DropdownMenuItem
+          onClick={() => {
+            setDropdownOpen(false);
+            setShowAuditModal(true);
+          }}
+        >
+          Audit history
+        </DropdownMenuItem>
         {allRevisions.length >= 2 && (
           <DropdownMenuItem
             onClick={() => {
@@ -583,14 +608,6 @@ export default function EditSavedGroupPage() {
             Compare revisions
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem
-          onClick={() => {
-            setDropdownOpen(false);
-            setShowAuditModal(true);
-          }}
-        >
-          Audit history
-        </DropdownMenuItem>
       </DropdownMenuGroup>
       {(canToggleArchive || canDeleteNow) && (
         <>
@@ -715,17 +732,16 @@ export default function EditSavedGroupPage() {
           trackingEventModalType="delete-saved-group-items"
           close={() => setDeleteItemsModal(false)}
           open={deleteItemsModal}
-          header={`Delete ${selected.size} item${selected.size !== 1 ? "s" : ""}`}
-          cta={
-            deleteItemsDraftMode === "publish"
-              ? approvalRequired && canAdminPublish
-                ? "Bypass approval & publish"
-                : "Publish"
-              : deleteItemsDraftMode === "existing"
-                ? "Update draft"
-                : approvalRequired
-                  ? "Propose changes"
-                  : "Create draft"
+          header={`Remove ${selected.size} Item${selected.size !== 1 ? "s" : ""}`}
+          cta={draftModeCta(deleteItemsDraftMode, {
+            bypassesApproval: approvalRequired && canAdminPublish,
+          })}
+          submitColor={
+            deleteItemsDraftMode === "publish" &&
+            approvalRequired &&
+            canAdminPublish
+              ? "danger"
+              : "primary"
           }
           ctaEnabled={!deleteConflict.hasConflict}
           disabledMessage={
@@ -843,16 +859,15 @@ export default function EditSavedGroupPage() {
               ? "Add List Items"
               : "Overwrite List Contents"
           }
-          cta={
-            addItemsDraftMode === "publish"
-              ? approvalRequired && canAdminPublish
-                ? "Bypass approval & publish"
-                : "Publish"
-              : addItemsDraftMode === "existing"
-                ? "Update draft"
-                : approvalRequired
-                  ? "Propose changes"
-                  : "Create draft"
+          cta={draftModeCta(addItemsDraftMode, {
+            bypassesApproval: approvalRequired && canAdminPublish,
+          })}
+          submitColor={
+            addItemsDraftMode === "publish" &&
+            approvalRequired &&
+            canAdminPublish
+              ? "danger"
+              : "primary"
           }
           ctaEnabled={
             itemsToAdd.length > 0 &&
@@ -928,6 +943,12 @@ export default function EditSavedGroupPage() {
               alert={addConflict.alert}
               alertActive={addConflict.alertActive}
             />
+            {importOperation === "replace" && displayedValues.length > 0 ? (
+              <Text as="p" mb="3">
+                These replace all {displayedValues.length} current item
+                {displayedValues.length === 1 ? "" : "s"}.
+              </Text>
+            ) : null}
             <IdListItemInput
               values={itemsToAdd}
               setValues={(newValues) => setItemsToAdd(newValues)}
@@ -947,6 +968,7 @@ export default function EditSavedGroupPage() {
             mutate();
           }}
           current={savedGroupForm}
+          focusDescription={focusDescription}
           type={savedGroup.type}
           approvalFlowRequired={approvalRequired}
           metadataReviewRequired={metadataReviewRequired}
@@ -1103,9 +1125,8 @@ export default function EditSavedGroupPage() {
         onRename={editInfo}
         renameBlockedReason={editInfoBlockedReason}
         badges={
-          displayedSavedGroup?.archived ? (
-            <Badge label="Archived" color="gray" />
-          ) : null
+          // Live state, like the menu's Archive/Unarchive.
+          savedGroup.archived ? <Badge label="Archived" color="gray" /> : null
         }
         actions={
           <DetailsPageActions
@@ -1114,7 +1135,13 @@ export default function EditSavedGroupPage() {
             menu={menu}
           />
         }
-      />
+      >
+        <ArchiveStateCallout
+          noun="Saved Group"
+          liveArchived={!!savedGroup.archived}
+          viewedArchived={!!displayedSavedGroup?.archived}
+        />
+      </DetailsPageTitleBar>
 
       <DetailsPageTabs
         value={tab}
@@ -1173,7 +1200,11 @@ export default function EditSavedGroupPage() {
             savedGroup={displayedSavedGroup ?? savedGroup}
             onEditInfo={editInfo}
             editInfoBlockedReason={editInfoBlockedReason}
-            references={savedGroupReferenceSections(references ?? {})}
+            references={{
+              rows: savedGroupReferenceSections(references ?? {}),
+              loading: referencesLoading,
+              error: !!referencesError,
+            }}
             revision={panelRevision}
             allRevisions={allRevisions}
             isLive={isLive}
@@ -1392,29 +1423,34 @@ export default function EditSavedGroupPage() {
                   <SectionFrame
                     title="Condition"
                     actions={
-                      <Tooltip body={editBlockedReason ?? ""}>
-                        <Button
-                          variant="ghost"
-                          disabled={!!editBlockedReason}
-                          onClick={() => {
-                            if (!selectedRevision && userOpenRevision) {
-                              selectFlow(userOpenRevision);
-                            }
-                            setEditConditionModal(
-                              selectedRevision
-                                ? applyTopLevelPatchOps(
-                                    (selectedRevision.target
-                                      .snapshot as SavedGroupInterface) ||
-                                      savedGroup,
-                                    selectedRevision.target.proposedChanges,
-                                  )
-                                : savedGroup,
-                            );
-                          }}
+                      canEditView ? (
+                        <Tooltip
+                          content={editLockReason}
+                          enabled={!!editLockReason}
                         >
-                          Edit
-                        </Button>
-                      </Tooltip>
+                          <Button
+                            variant="ghost"
+                            disabled={!!editLockReason}
+                            onClick={() => {
+                              if (!selectedRevision && userOpenRevision) {
+                                selectFlow(userOpenRevision);
+                              }
+                              setEditConditionModal(
+                                selectedRevision
+                                  ? applyTopLevelPatchOps(
+                                      (selectedRevision.target
+                                        .snapshot as SavedGroupInterface) ||
+                                        savedGroup,
+                                      selectedRevision.target.proposedChanges,
+                                    )
+                                  : savedGroup,
+                              );
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        </Tooltip>
+                      ) : null
                     }
                   >
                     <Text as="div" weight="semibold" mb="3">
@@ -1436,7 +1472,7 @@ export default function EditSavedGroupPage() {
                     titleAddon={
                       <>
                         <TabCount count={displayedValues.length} />
-                        {selected.size > 0 ? (
+                        {canEditView && selected.size > 0 ? (
                           <Flex align="center" gap="4" ml="2">
                             <Text color="text-mid">
                               {selected.size} selected
@@ -1444,18 +1480,17 @@ export default function EditSavedGroupPage() {
                             <Link onClick={() => setSelected(new Set())}>
                               Clear
                             </Link>
-                            <Tooltip body={editBlockedReason ?? ""}>
+                            <Tooltip
+                              content={editLockReason}
+                              enabled={!!editLockReason}
+                            >
                               <Button
                                 variant="soft"
                                 color="red"
-                                disabled={!!editBlockedReason}
+                                disabled={!!editLockReason}
                                 onClick={() => {
                                   setDeleteItemsDraftMode(
-                                    !approvalRequired
-                                      ? "publish"
-                                      : userOpenRevision
-                                        ? "existing"
-                                        : "new",
+                                    userOpenRevision ? "existing" : "new",
                                   );
                                   setDeleteItemsDraftSelectedId(
                                     userOpenRevision?.id ?? null,
@@ -1467,7 +1502,7 @@ export default function EditSavedGroupPage() {
                                   setDeleteItemsModal(true);
                                 }}
                               >
-                                Delete
+                                Remove
                               </Button>
                             </Tooltip>
                           </Flex>
@@ -1475,48 +1510,55 @@ export default function EditSavedGroupPage() {
                       </>
                     }
                     actions={
-                      <>
-                        <Tooltip body={editBlockedReason ?? ""}>
-                          <Button
-                            variant="ghost"
-                            color="red"
-                            disabled={!!editBlockedReason}
-                            onClick={() => openItemsModal("replace")}
-                          >
-                            Overwrite list
-                          </Button>
+                      canEditView ? (
+                        <Tooltip
+                          content={editLockReason}
+                          enabled={!!editLockReason}
+                        >
+                          <Flex gap="3" align="center">
+                            <Button
+                              variant="ghost"
+                              color="red"
+                              disabled={!!editLockReason}
+                              onClick={() => openItemsModal("replace")}
+                            >
+                              Overwrite list
+                            </Button>
+                            <Button
+                              variant="outline"
+                              disabled={!!editLockReason}
+                              icon={<PiPlus />}
+                              onClick={() => openItemsModal("append")}
+                            >
+                              Add items
+                            </Button>
+                          </Flex>
                         </Tooltip>
-                        <Tooltip body={editBlockedReason ?? ""}>
-                          <Button
-                            variant="outline"
-                            disabled={!!editBlockedReason}
-                            icon={<PiPlus />}
-                            onClick={() => openItemsModal("append")}
-                          >
-                            Add items
-                          </Button>
-                        </Tooltip>
-                      </>
+                      ) : null
                     }
                   >
                     <Table variant="list" stickyHeader={false}>
                       <TableHeader>
                         <TableRow align="center">
-                          <TableColumnHeader style={{ width: 48 }}>
-                            <Checkbox
-                              value={
-                                filteredValues.length > 0 &&
-                                filteredValues.every((v) => selected.has(v))
-                              }
-                              setValue={(checked) =>
-                                setSelected(
-                                  checked ? new Set(filteredValues) : new Set(),
-                                )
-                              }
-                              size="sm"
-                              align="center"
-                            />
-                          </TableColumnHeader>
+                          {canEditView ? (
+                            <TableColumnHeader style={{ width: 48 }}>
+                              <Checkbox
+                                value={
+                                  filteredValues.length > 0 &&
+                                  filteredValues.every((v) => selected.has(v))
+                                }
+                                setValue={(checked) =>
+                                  setSelected(
+                                    checked
+                                      ? new Set(filteredValues)
+                                      : new Set(),
+                                  )
+                                }
+                                size="sm"
+                                align="center"
+                              />
+                            </TableColumnHeader>
+                          ) : null}
                           <TableColumnHeader
                             style={{ width: 72 }}
                             aria-sort={ariaSort(true, newestFirst ? -1 : 1)}
@@ -1557,17 +1599,25 @@ export default function EditSavedGroupPage() {
                         {valuesPage.map((value) => (
                           <TableRow
                             key={value}
-                            onClick={() => toggleSelected(value)}
-                            style={{ cursor: "pointer" }}
+                            onClick={
+                              canEditView
+                                ? () => toggleSelected(value)
+                                : undefined
+                            }
+                            style={
+                              canEditView ? { cursor: "pointer" } : undefined
+                            }
                           >
-                            <TableCell onClick={(e) => e.stopPropagation()}>
-                              <Checkbox
-                                value={selected.has(value)}
-                                setValue={() => toggleSelected(value)}
-                                size="sm"
-                                align="center"
-                              />
-                            </TableCell>
+                            {canEditView ? (
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <Checkbox
+                                  value={selected.has(value)}
+                                  setValue={() => toggleSelected(value)}
+                                  size="sm"
+                                  align="center"
+                                />
+                              </TableCell>
+                            ) : null}
                             <TableCell>
                               <Text color="text-low">
                                 {positions.get(value)}
@@ -1579,7 +1629,7 @@ export default function EditSavedGroupPage() {
                         {!valuesPage.length && (
                           <TableRow>
                             <TableCell
-                              colSpan={3}
+                              colSpan={canEditView ? 3 : 2}
                               style={{ textAlign: "center" }}
                             >
                               {displayedValues.length
@@ -1604,7 +1654,7 @@ export default function EditSavedGroupPage() {
                           This Saved Group has legacy behavior when empty and
                           will be completely ignored when used for targeting.{" "}
                           <DocLink useRadix={false} docSection="idLists">
-                            Learn More
+                            Learn more
                           </DocLink>
                         </Callout>
                       )}

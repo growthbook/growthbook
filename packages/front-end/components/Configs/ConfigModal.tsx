@@ -31,6 +31,7 @@ import {
   useConstantDraftTarget,
   ConstantRevisionContext,
 } from "@/components/Constants/useConstantDraftTarget";
+import { draftModeCta } from "@/components/DraftSelector";
 
 // Empty context used on the create path, where there is no revision flow.
 const EMPTY_REVISION_CTX: ConstantRevisionContext = {
@@ -65,7 +66,10 @@ export default function ConfigModal({
   revisionCtx,
   onSaved,
   close,
+  focusDescription = false,
 }: {
+  // Opens with the description showing and focused.
+  focusDescription?: boolean;
   // Present → edit info; absent → create.
   existing?: ConfigWithoutValue | null;
   // Pre-selected parent when creating a child config from a parent's editor.
@@ -93,7 +97,7 @@ export default function ConfigModal({
   // Description is opt-in behind a "+ Add a description" link, expanded by
   // default when one already exists.
   const [showDescription, setShowDescription] = useState(
-    !!existing?.description,
+    !!existing?.description || focusDescription,
   );
 
   const permissionsUtil = usePermissionsUtil();
@@ -188,10 +192,24 @@ export default function ConfigModal({
     <ModalStandard
       open={true}
       trackingEventModalType="config-modal"
-      header={editing ? "Edit info" : "New Config"}
+      header={editing ? "Edit Information" : "New Config"}
       size="lg"
       close={close}
-      cta={editing ? "Save" : "Create"}
+      cta={
+        editing
+          ? draftModeCta(draft.draftMode, {
+              bypassesApproval: draft.selectorApprovalRequired,
+              publishLabel: "Save",
+            })
+          : "Create"
+      }
+      ctaColor={
+        editing &&
+        draft.draftMode === "publish" &&
+        draft.selectorApprovalRequired
+          ? "red"
+          : "violet"
+      }
       submit={validatedSubmit(form, async (values) => {
         if (editing && existing) {
           const res = await apiCall<{ revision?: Revision }>(
@@ -278,6 +296,8 @@ export default function ConfigModal({
             value={form.watch("description")}
             setValue={(v) => form.setValue("description", v)}
             placeholder="Add notes about this Config (markdown supported)"
+            autofocus={focusDescription}
+            autofocusAtEnd
             showButtons={false}
             hidePreview={false}
           />

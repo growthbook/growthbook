@@ -11,7 +11,7 @@ export function constantReferenceSections({
 }: Partial<ConstantReferences>): ReferenceSection[] {
   return [
     {
-      title: "Features",
+      title: "Feature Flags",
       resourceType: "feature",
       items: features.map((f) => ({
         id: f.id,

@@ -20,6 +20,7 @@ import {
   getConstantRevisionChange,
   getLiveRevision,
   getRevisionNumberById,
+  isRevisionEditLockedBySchedule,
 } from "shared/enterprise";
 import {
   proposedArchivedValue,
@@ -38,10 +39,12 @@ import { useEnvironments } from "@/services/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import ArchiveStateCallout from "@/components/Revision/ArchiveStateCallout";
 import Button from "@/ui/Button";
+import Tooltip from "@/ui/Tooltip";
+import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import {
@@ -136,7 +139,9 @@ export default function ConstantDetailPage(): React.ReactElement {
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
 
-  const [editInfoOpen, setEditInfoOpen] = useState(false);
+  const [editInfoOpen, setEditInfoOpen] = useState<
+    false | "info" | "description"
+  >(false);
   const [editValueOpen, setEditValueOpen] = useState(false);
   const [tab, setTab] = useState<ConstantTab>("overview");
   const [showArchiveModal, setShowArchiveModal] = useState(false);
@@ -262,7 +267,11 @@ export default function ConstantDetailPage(): React.ReactElement {
       : scoped;
   }, [panelRevision, constant, environments]);
 
-  const { references } = useConstantReferences(constant?.id);
+  const {
+    references,
+    loading: referencesLoading,
+    error: referencesError,
+  } = useConstantReferences(constant?.id);
 
   const settings = organization.settings || {};
   const revertsBypassApproval = !!settings.revertsBypassApproval;
@@ -318,9 +327,9 @@ export default function ConstantDetailPage(): React.ReactElement {
 
   if (error) {
     return (
-      <div className="container-fluid pagecontents">
-        <Callout status="error">{error.message}</Callout>
-      </div>
+      <Callout status="error" mt="4">
+        An error occurred: {error.message}
+      </Callout>
     );
   }
   if (!constant || !displayedConstant) {
@@ -362,6 +371,13 @@ export default function ConstantDetailPage(): React.ReactElement {
   // merged/discarded revision). On live it starts a new draft; on a draft it
   // updates it.
   const canEditNow = canDraft && (!selectedRevision || isDraft);
+  // A draft locked for a scheduled publish shows its edit controls disabled.
+  const editLockReason =
+    selectedRevision &&
+    isDraft &&
+    isRevisionEditLockedBySchedule(selectedRevision)
+      ? SCHEDULE_EDIT_LOCK_REASON
+      : null;
   // Archiving is delete-class server-side — it takes the Constant out of service,
   // and being archived is what allows deleting it. Unarchiving returns it to
   // service, so it's an ordinary publish.
@@ -469,6 +485,14 @@ export default function ConstantDetailPage(): React.ReactElement {
   const menu = (
     <DetailsPageMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuGroup>
+        <DropdownMenuItem
+          onClick={() => {
+            setMenuOpen(false);
+            setShowAuditModal(true);
+          }}
+        >
+          Audit history
+        </DropdownMenuItem>
         {allRevisions.length >= 2 && (
           <DropdownMenuItem
             onClick={() => {
@@ -479,14 +503,6 @@ export default function ConstantDetailPage(): React.ReactElement {
             Compare revisions
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem
-          onClick={() => {
-            setMenuOpen(false);
-            setShowAuditModal(true);
-          }}
-        >
-          Audit history
-        </DropdownMenuItem>
       </DropdownMenuGroup>
       {(canArchiveNow || canDeleteNow) && (
         <>
@@ -536,11 +552,11 @@ export default function ConstantDetailPage(): React.ReactElement {
 
       <DetailsPageTitleBar
         title={displayedConstant.name}
-        onRename={canEditNow ? () => setEditInfoOpen(true) : null}
+        onRename={canEditNow ? () => setEditInfoOpen("info") : null}
+        renameBlockedReason={editLockReason}
         badges={
-          displayedConstant.archived ? (
-            <Badge label="Archived" color="gray" />
-          ) : null
+          // Live state, like the menu's Archive/Unarchive.
+          constant.archived ? <Badge label="Archived" color="gray" /> : null
         }
         actions={
           <DetailsPageActions
@@ -549,7 +565,13 @@ export default function ConstantDetailPage(): React.ReactElement {
             menu={menu}
           />
         }
-      />
+      >
+        <ArchiveStateCallout
+          noun="Constant"
+          liveArchived={!!constant.archived}
+          viewedArchived={!!displayedConstant.archived}
+        />
+      </DetailsPageTitleBar>
 
       <DetailsPageTabs
         value={tab}
@@ -604,8 +626,15 @@ export default function ConstantDetailPage(): React.ReactElement {
         panel={
           <ConstantDetailsPanel
             constant={displayedConstant}
-            onEditInfo={canEditNow ? () => setEditInfoOpen(true) : null}
-            references={constantReferenceSections(references ?? {})}
+            onEditInfo={
+              canEditNow ? (focus) => setEditInfoOpen(focus ?? "info") : null
+            }
+            editInfoBlockedReason={editLockReason}
+            references={{
+              rows: constantReferenceSections(references ?? {}),
+              loading: referencesLoading,
+              error: !!referencesError,
+            }}
             revision={panelRevision}
             allRevisions={allRevisions}
             isLive={!selectedRevision}
@@ -637,12 +666,18 @@ export default function ConstantDetailPage(): React.ReactElement {
                 title="Value"
                 actions={
                   canEditNow ? (
-                    <Button
-                      variant="ghost"
-                      onClick={() => setEditValueOpen(true)}
+                    <Tooltip
+                      content={editLockReason}
+                      enabled={!!editLockReason}
                     >
-                      Edit
-                    </Button>
+                      <Button
+                        variant="ghost"
+                        disabled={!!editLockReason}
+                        onClick={() => setEditValueOpen(true)}
+                      >
+                        Edit
+                      </Button>
+                    </Tooltip>
                   ) : null
                 }
               >
@@ -652,13 +687,19 @@ export default function ConstantDetailPage(): React.ReactElement {
                 />
                 {environmentValues.length > 0 && (
                   <>
-                    <Heading size="md" as="h3" mt="6" mb="3">
+                    <Text as="div" weight="semibold" mt="5" mb="3">
                       Environment overrides
-                    </Heading>
-                    <Flex direction="column" gap="5">
+                    </Text>
+                    <Flex direction="column" gap="4">
                       {environmentValues.map(([env, value]) => (
                         <Box key={env}>
-                          <Text as="div" size="lg" weight="semibold" mb="2">
+                          <Text
+                            as="div"
+                            size="sm"
+                            weight="medium"
+                            color="text-mid"
+                            mb="1"
+                          >
                             {env}
                           </Text>
                           <ConstantValueDisplay
@@ -782,6 +823,7 @@ export default function ConstantDetailPage(): React.ReactElement {
       {editInfoOpen && (
         <ConstantModal
           existing={displayedConstant}
+          focusDescription={editInfoOpen === "description"}
           revisionCtx={revisionCtx}
           onSaved={async (revision) => {
             await onRevisionCreated(revision);
@@ -935,6 +977,7 @@ export default function ConstantDetailPage(): React.ReactElement {
           title={`Delete "${constant.name}"?`}
           content="This permanently deletes the Constant. This cannot be undone."
           yesText="Delete"
+          color="red"
           onConfirm={async () => {
             await apiCall(`/constants/${constant.id}`, { method: "DELETE" });
             await mutateDefinitions();
