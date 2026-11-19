@@ -216,8 +216,16 @@ export async function planNewMetricsUpdate({
   if (blocker) {
     throw getBlockerRefusal(blocker, plan);
   }
+  // The scheduled job stores CUPED as off when the experiment adjusts but every
+  // metric opts out, and the badge then reports a CUPED change. A metric is
+  // only adjusted when its own flag is on, so that reason changes no copied
+  // number while every copied metric opts out.
+  const allowedReasons = new Set<string>(["metrics_changed"]);
+  if (noCopiedMetricIsAdjusted(parent.settings, plan.snapshot.settings)) {
+    allowedReasons.add("cuped");
+  }
   if (
-    outdatedReasons.some((reason) => reason !== "metrics_changed") ||
+    outdatedReasons.some((reason) => !allowedReasons.has(reason)) ||
     changesUnreasonedSetting(parent, plan.snapshot.settings)
   ) {
     throw new NewMetricsUpdateUnavailableError("settings_changed");
@@ -313,6 +321,21 @@ const isEmptySetting = (value: unknown): boolean =>
   value === false ||
   value === "" ||
   (typeof value === "object" && !Object.keys(value).length);
+
+function noCopiedMetricIsAdjusted(
+  parent: ExperimentSnapshotSettings,
+  planned: ExperimentSnapshotSettings,
+): boolean {
+  const copiedMetricIds = new Set(parent.metricSettings.map((m) => m.id));
+  const optsOut = (m: ExperimentSnapshotSettings["metricSettings"][number]) =>
+    m.computedSettings?.regressionAdjustmentEnabled === false;
+  return (
+    parent.metricSettings.every(optsOut) &&
+    planned.metricSettings
+      .filter((m) => copiedMetricIds.has(m.id))
+      .every(optsOut)
+  );
+}
 
 // A setting one side lacks counts as that setting left empty.
 function changesUnreasonedSetting(

@@ -558,7 +558,7 @@ describe("planNewMetricsUpdate", () => {
       expected: unavailable("settings_changed"),
     },
     {
-      name: "CUPED turned on, even with no copied metric adjusted",
+      name: "CUPED turned on while a copied metric does not opt out",
       setup: () => {
         jest.mocked(orgHasPremiumFeature).mockReturnValue(true);
         return {
