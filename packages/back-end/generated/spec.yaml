@@ -17809,18 +17809,6 @@ paths:
                     $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
-                  missingMetricIds:
-                    type: array
-                    items:
-                      type: string
-                    description: >-
-                      Metrics on the experiment that "result" doesn't include
-                      yet, because they were added after it was computed. Create
-                      a snapshot (POST /experiments/{id}/snapshot) to compute
-                      them. Metrics no snapshot can compute, such as ones that
-                      can't join the experiment's assignment identifier, aren't
-                      listed. Present only for Overall Results of the latest
-                      phase.
                 required:
                   - experiment
                   - result
@@ -18492,16 +18480,6 @@ paths:
     post:
       operationId: postExperimentSnapshot
       summary: Create Experiment Snapshot
-      description: >-
-        Starts an update of the experiment's results and returns the snapshot it
-        creates. By default, when metrics were added to the experiment since its
-        latest Overall Results, nothing else changed, and those results end less
-        than 4 hours ago (configurable), only the new metrics are computed, up
-        to the same end date, and the snapshot's "updateScope" is "new_metrics".
-        See "updateScope". Poll GET /snapshots/{id} until "status" is "success"
-        or "error". A 409 "snapshot_in_progress" means another update is
-        running: wait for the snapshot it names to finish, then send the request
-        again.
       tags:
         - experiments
         - snapshots
@@ -18559,39 +18537,12 @@ paths:
                     - new_metrics
                     - all_metrics
                   description: >-
-                    Which metrics the update computes.
-
-
-                    - "auto" (default): computes only the metrics added to the
-                    experiment since its latest Overall Results when they are
-                    the only change since then and those results end less than 4
-                    hours ago by default (the organization setting
-                    "newMetricsUpdateWindowHours"; 0 turns this off). Otherwise
-                    runs a normal update. Never returns the 409s listed for
-                    "new_metrics". With "dimension" or with "triggeredBy":
-                    "schedule", always runs a normal update.
-
-                    - "new_metrics": computes only the newly added metrics and
-                    ignores the organization's window. The new metrics are
-                    computed up to those results' end date and every other
-                    result is copied, so no result covers newer data. Returns
-                    409 "metrics_already_up_to_date" when no metric is missing,
-                    and 409 "metric_refresh_unavailable" when the results can't
-                    be reused, for example because a setting changed or the
-                    analysis dates changed. The analysis dates changed when the
-                    phase's start or end date is a day or more away from the
-                    dates the results cover; a running phase ends now, but
-                    results that stop at a data cutoff because of a data lag
-                    count as ending when their update ran. Never falls back to a
-                    normal update. Can't be combined with "dimension" or with
-                    "triggeredBy": "schedule".
-
-                    - "all_metrics": always runs a normal update, which computes
-                    every metric, as an update did before "updateScope" existed.
-
-
-                    The returned snapshot's "updateScope" says which ran. After
-                    a "metric_refresh_unavailable" error, send "all_metrics".
+                    Which metrics the update computes. "auto" (default) computes
+                    only the metrics added since the latest results when nothing
+                    else changed and those results are recent, otherwise all
+                    metrics. "new_metrics" computes only the added metrics and
+                    returns a 409 when it cannot. "all_metrics" computes every
+                    metric.
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -93282,43 +93233,14 @@ components:
         error:
           type: string
           description: Why the update failed. Present only when "status" is "error"
-        metricRefresh:
-          type: object
-          properties:
-            baseSnapshotId:
-              type: string
-              description: >-
-                The normal update this snapshot is anchored to. Its end date is
-                this snapshot's end date
-            metricIds:
-              type: array
-              items:
-                type: string
-              description: The newly added metrics this snapshot queried
-            dateEnd:
-              type: string
-              format: date-time
-              description: >-
-                The end of the analysis window. It is the base update's end
-                date, not the time of this request
-          required:
-            - baseSnapshotId
-            - metricIds
-            - dateEnd
-          additionalProperties: false
-          description: >-
-            Present only on a snapshot that computed just the experiment's newly
-            added metrics
         updateScope:
           type: string
           enum:
             - all_metrics
             - new_metrics
           description: >-
-            "new_metrics" when the update computed only the newly added metrics
-            and kept the last normal update's end date, so no result covers
-            newer data. "all_metrics" for a normal update, which computes every
-            metric
+            "new_metrics" when the update computed only the metrics added since
+            the latest results, otherwise "all_metrics".
       required:
         - id
         - experiment
@@ -94777,43 +94699,14 @@ components:
         error:
           type: string
           description: Why the update failed. Present only when "status" is "error"
-        metricRefresh:
-          type: object
-          properties:
-            baseSnapshotId:
-              type: string
-              description: >-
-                The normal update this snapshot is anchored to. Its end date is
-                this snapshot's end date
-            metricIds:
-              type: array
-              items:
-                type: string
-              description: The newly added metrics this snapshot queried
-            dateEnd:
-              type: string
-              format: date-time
-              description: >-
-                The end of the analysis window. It is the base update's end
-                date, not the time of this request
-          required:
-            - baseSnapshotId
-            - metricIds
-            - dateEnd
-          additionalProperties: false
-          description: >-
-            Present only on a snapshot that computed just the experiment's newly
-            added metrics
         updateScope:
           type: string
           enum:
             - all_metrics
             - new_metrics
           description: >-
-            "new_metrics" when the update computed only the newly added metrics
-            and kept the last normal update's end date, so no result covers
-            newer data. "all_metrics" for a normal update, which computes every
-            metric
+            "new_metrics" when the update computed only the metrics added since
+            the latest results, otherwise "all_metrics".
       required:
         - id
         - experiment
