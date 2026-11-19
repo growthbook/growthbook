@@ -52,12 +52,13 @@ describe("getColumnEligibility", () => {
 });
 
 describe("prepareColumnUpdate", () => {
-  it("keeps the saved display name unless the edit changes it", () => {
+  it("sends a display name only when the edit changes it", () => {
     const country = column({ name: "Country" });
     const table = factTable([country]);
+    // A stale name from an open dialog would undo a teammate's rename
     expect(
-      prepareColumnUpdate(table, country, { description: "x" }).data.name,
-    ).toBe("Country");
+      prepareColumnUpdate(table, country, { autoSlices: ["US"] }).data,
+    ).not.toHaveProperty("name");
     expect(
       prepareColumnUpdate(table, country, { name: "Nation" }).data.name,
     ).toBe("Nation");
