@@ -90,8 +90,6 @@ export function prepareColumnUpdate(
   changes: UpdateColumnProps,
 ): { data: UpdateColumnProps; loadTopValues: boolean } {
   const data = { ...changes };
-  // The server resets an omitted name to the raw column name
-  data.name ??= column.name;
   const datatype = data.datatype ?? column.datatype;
   const { canFilter, canAutoSlice } = getColumnEligibility(factTable, {
     ...column,
