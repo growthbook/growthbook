@@ -3256,6 +3256,8 @@ export async function planExperimentSnapshot({
       dimension,
       useCache,
       metricGroups,
+      statsEngine,
+      pValueThreshold: settings.pValueThreshold.value,
       planSnapshotAt: (cutoff) => planSnapshot({ ...planSnapshotArgs, cutoff }),
       generateResultQuerySql: ({ settings, queryParentId, scope }) =>
         generateExperimentResultQuerySql(

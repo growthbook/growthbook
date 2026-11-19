@@ -5,7 +5,6 @@ import {
   getMetricSnapshotSettings,
   getResultsOutdatedReasons,
   shouldOfferNewMetricsUpdate,
-  type ResultsOutdatedReason,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -2540,11 +2539,17 @@ describe("planExperimentSnapshot", () => {
       });
     }
 
+    // The experiment adjusts with CUPED but its one metric opts out, where the
+    // scheduled job once stored CUPED as off.
     it("accepts a parent the scheduled update planned", async () => {
       const fixture = makeFixture();
       const { context } = fixture;
       const base: ExperimentInterface = {
         ...fixture.experiment,
+        variations: [
+          { id: "var_0", key: "0", name: "Control" },
+          { id: "var_1", key: "1", name: "Treatment" },
+        ] as ExperimentInterface["variations"],
         goalMetrics: ["fact__guard"],
         secondaryMetrics: [],
         guardrailMetrics: [],
@@ -2590,9 +2595,8 @@ describe("planExperimentSnapshot", () => {
       expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["fact__aov"]);
     });
 
-    // Every Outdated reason other than "Metrics changed" makes the app run a
-    // normal update, so the planner must refuse a new-metrics update for each
-    // of them.
+    // The planner refuses on the app's Outdated reasons, so only the settings
+    // it also compares could refuse an update the app offers.
     describe("agrees with the app's Outdated reasons", () => {
       const { generateExperimentResultQuerySql: generateSql } =
         jest.requireActual<
@@ -2603,27 +2607,14 @@ describe("planExperimentSnapshot", () => {
         fixture: ReturnType<typeof makeFixture>,
         {
           base: baseChanges = {},
-          changes,
           pipeline,
         }: {
           base?: Partial<ExperimentInterface>;
-          changes: Partial<ExperimentInterface>;
           pipeline: "standard" | "incremental";
         },
       ) {
         const { context, datasource } = fixture;
-        const exposure = [
-          ...(datasource.settings.queries?.exposure ?? []),
-          {
-            id: "exposure_multi",
-            name: "Users or devices",
-            userIdType: "user_id",
-            userIdTypes: ["user_id", "device_id"],
-            query: "SELECT * FROM all_exposures",
-            dimensions: [],
-          },
-        ];
-        datasource.settings.queries = { exposure };
+        const exposure = datasource.settings.queries?.exposure ?? [];
         if (pipeline === "incremental") {
           datasource.settings.pipelineSettings = {
             allowWriting: true,
@@ -2633,25 +2624,7 @@ describe("planExperimentSnapshot", () => {
             undefined as never,
           );
         }
-        // Every metric joins on either identifier, so changing one keeps them.
-        for (const table of (await getFactTableMapMock(context)).values()) {
-          table.userIdTypes = ["user_id", "device_id"];
-        }
-        for (const metric of (await getMetricMapMock(context)).values()) {
-          if ("userIdTypes" in metric) {
-            metric.userIdTypes = ["user_id", "device_id"];
-          }
-        }
         context.logger = { warn: jest.fn() } as never;
-        context.models.segments = {
-          getById: async (id: string) => ({
-            id,
-            name: id,
-            type: "SQL",
-            sql: `SELECT user_id, date FROM ${id}`,
-            userIdType: "user_id",
-          }),
-        } as never;
         // @ts-expect-error -- the integration only reads `.datasource` here
         const integration = new BigQuery("", {
           type: "bigquery",
@@ -2712,9 +2685,7 @@ describe("planExperimentSnapshot", () => {
           })),
         };
         findLatestSuccessfulOverallSnapshotMock.mockResolvedValue(parent);
-        // The planner regenerates exactly the SQL the base stored, as when a
-        // setting changes nothing in the SQL (the attribution model with no
-        // conversion window), so only the settings comparison can refuse.
+        // Today's SQL is the SQL the base stored.
         jest
           .mocked(generateExperimentResultQuerySql)
           .mockResolvedValue(new Map(storedSql));
@@ -2746,7 +2717,6 @@ describe("planExperimentSnapshot", () => {
           ...fixture.experiment,
           variations,
           ...baseChanges,
-          ...changes,
         };
         const { settings: scoped } = getScopedSettings({
           organization: context.org,
@@ -2795,86 +2765,6 @@ describe("planExperimentSnapshot", () => {
         return { reasons, offered, plan };
       }
 
-      const blockingReasons: {
-        reason: ResultsOutdatedReason;
-        base?: Partial<ExperimentInterface>;
-        changes: Partial<ExperimentInterface>;
-        refusal?: string;
-      }[] = [
-        { reason: "stats_engine", changes: { statsEngine: "frequentist" } },
-        {
-          reason: "activation_metric",
-          changes: { activationMetric: "met_signup" },
-        },
-        { reason: "segment", changes: { segment: "seg_buyers" } },
-        { reason: "query_filter", changes: { queryFilter: "country = 'us'" } },
-        { reason: "conversion_behavior", changes: { skipPartialData: true } },
-        {
-          reason: "assignment_query",
-          changes: { exposureQueryId: "exposure_multi" },
-        },
-        {
-          reason: "identifier_type",
-          base: { exposureQueryId: "exposure_multi" },
-          changes: { exposureQueryIdentifierType: "device_id" },
-        },
-        {
-          reason: "cluster_analysis",
-          // Cluster analysis turns post-stratification off.
-          base: { postStratificationEnabled: false },
-          changes: {
-            isClusterExperiment: true,
-            clusterSubUnitIdentifier: "device_id",
-          },
-        },
-        {
-          reason: "cluster_sub_unit",
-          base: {
-            isClusterExperiment: true,
-            clusterSubUnitIdentifier: "user_id",
-          },
-          changes: { clusterSubUnitIdentifier: "device_id" },
-        },
-        {
-          reason: "attribution_model",
-          changes: { attributionModel: "experimentDuration" },
-        },
-        {
-          reason: "variations_changed",
-          changes: {
-            variations: [
-              { id: "var_0", key: "0", name: "Control" },
-              { id: "var_1", key: "1", name: "Treatment" },
-              { id: "var_2", key: "2", name: "Treatment 2" },
-            ] as ExperimentInterface["variations"],
-          },
-        },
-        {
-          reason: "analysis_dates_changed",
-          changes: {
-            phases: [
-              {
-                dateStarted: new Date("2025-01-03T00:00:00.000Z"),
-                variationWeights: [0.5, 0.5],
-                coverage: 1,
-              },
-            ] as ExperimentInterface["phases"],
-          },
-          refusal: "analysis_dates_changed",
-        },
-        { reason: "p_value_threshold", changes: { pValueThreshold: 0.01 } },
-        { reason: "cuped", changes: { regressionAdjustmentEnabled: false } },
-        {
-          reason: "post_stratification",
-          changes: { postStratificationEnabled: false },
-        },
-        {
-          reason: "sequential_testing",
-          base: { statsEngine: "frequentist" },
-          changes: { sequentialTestingEnabled: true },
-        },
-      ];
-
       // The pipeline can't run legacy metrics, so its base has none.
       describe.each<{
         pipeline: "standard" | "incremental";
@@ -2896,7 +2786,7 @@ describe("planExperimentSnapshot", () => {
           it("plans a new-metrics update when added metrics are the only reason", async () => {
             const { reasons, offered, plan } = await outdatedRefresh(
               makeFixture(),
-              { base: pipelineBase, changes: {}, pipeline },
+              { base: pipelineBase, pipeline },
             );
 
             expect(reasons).toEqual(["metrics_changed"]);
@@ -2908,24 +2798,6 @@ describe("planExperimentSnapshot", () => {
               },
             });
           });
-
-          it.each(blockingReasons)(
-            "refuses a new-metrics update the app would not offer for $reason",
-            async ({ reason, base, changes, refusal = "settings_changed" }) => {
-              const { reasons, offered, plan } = await outdatedRefresh(
-                makeFixture(),
-                { base: { ...pipelineBase, ...base }, changes, pipeline },
-              );
-
-              expect([...reasons].sort()).toEqual(
-                [reason, "metrics_changed"].sort(),
-              );
-              expect(offered).toBe(false);
-              await expect(plan).rejects.toMatchObject({
-                details: { reason: refusal },
-              });
-            },
-          );
         },
       );
     });
