@@ -25,10 +25,12 @@ import {
   hasPendingScheduledStart,
   matchConfirmRules,
   proposedArchivedValue,
+  redactSecretParams,
   routeConfirmation,
   scheduleActions,
   stringToBoolean,
 } from "shared/util";
+import type { DataSourceType } from "shared/types/datasource";
 import {
   CONFIRM_OVERRIDE_FLAGS,
   BYPASS_OVERRIDE_ACTIONS,
@@ -90,10 +92,25 @@ export const decryptSecretFields = (
   mapSecretFields(body, fields, (v) =>
     JSON.parse(AES.decrypt(String(v), ENCRYPTION_KEY).toString(enc.Utf8)),
   );
+// A data source connection keeps its public params, so the confirmer sees where it points.
+function redactSecretValue(value: unknown) {
+  const conn = asRecord(value);
+  if (typeof conn.type !== "string") return "[redacted]";
+  // An unknown type has no public params, so everything but its type stays hidden.
+  const shown = asRecord(redactSecretParams(conn.type as DataSourceType, conn));
+  const hidden = (k: string) =>
+    shown[k] === undefined || (shown[k] === "" && conn[k] !== "");
+  return Object.fromEntries(
+    Object.keys(conn).map((k) => [
+      k,
+      k === "type" ? conn.type : hidden(k) ? "[redacted]" : shown[k],
+    ]),
+  );
+}
 export const redactSecretFields = (
   body: unknown,
   fields: readonly string[] | undefined,
-) => mapSecretFields(body, fields, () => "[redacted]");
+) => mapSecretFields(body, fields, redactSecretValue);
 
 // Every key answers only to its own rules, so scripts and CI keep working.
 // App sessions are never held.

@@ -4,6 +4,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
+  decryptSecretFields,
   overridesIn,
   redactSecretFields,
   toApiConfirmation,
@@ -67,7 +68,10 @@ export const getConfirmation = async (
       method: c.method,
       path: c.path,
       query: c.query,
-      body: redactSecretFields(c.body, c.secretBodyFields),
+      body: redactSecretFields(
+        decryptSecretFields(c.body, c.secretBodyFields),
+        c.secretBodyFields,
+      ),
     },
     overrides: [
       ...new Set([

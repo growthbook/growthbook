@@ -17,10 +17,19 @@ describe("secret body fields", () => {
     expect(decryptSecretFields(encrypted, ["connection"])).toEqual(body);
   });
 
-  it("redacts the field for display", () => {
+  it("shows a connection's public params and hides its secrets", () => {
     expect(redactSecretFields(body, ["connection"])).toEqual({
       name: "Warehouse",
-      connection: "[redacted]",
+      connection: { type: "postgres", password: "[redacted]", port: 5432 },
+    });
+  });
+
+  it("hides everything but the type of an unknown connection type", () => {
+    expect(
+      redactSecretFields({ c: { type: "nope", host: "h" } }, ["c"]),
+    ).toEqual({ c: { type: "nope", host: "[redacted]" } });
+    expect(redactSecretFields({ c: "secret" }, ["c"])).toEqual({
+      c: "[redacted]",
     });
   });
 
