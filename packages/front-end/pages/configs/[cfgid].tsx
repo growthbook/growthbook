@@ -1633,7 +1633,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 </Flex>
               </Link>
             ) : (
-              <PremiumTooltip commercialFeature="feature-configs">
+              <PremiumTooltip commercialFeature="feature-configs" usePortal>
                 <Link color="gray">
                   <Flex align="center" gap="1">
                     <PiPlus />

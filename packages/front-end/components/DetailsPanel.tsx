@@ -33,9 +33,10 @@ const TAB_FILLS_RAIL = {
 
 // Whether a page's details panel shows, how wide, and on which of its tabs. On
 // the page's home tabs the open state is remembered; off them the panel starts
-// closed, and opening it there lasts until the tab changes. When narrow, it
-// opens only on request; the stored choice is for a wide window, so narrowing
-// never overwrites it.
+// closed, and opening it there lasts until the tab changes. When it would float
+// over the content (a narrow window, or a left panel taking the room), it opens
+// only on request; the stored choice is for when it docks, so floating never
+// overwrites it.
 export function useDetailsPanel({
   openKey,
   widthKey,
@@ -52,12 +53,15 @@ export function useDetailsPanel({
   const [storedOpen, setStoredOpen] = useLocalStorage(openKey, true);
   const [width, setWidth] = useLocalStorage(widthKey, defaultWidth);
   const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
-  const [openWhileNarrow, setOpenWhileNarrow] = useState(false);
-  useEffect(() => setOpenWhileNarrow(false), [narrow]);
+  // Reported by the layout, which knows the room beside the panel.
+  const [floating, setFloating] = useState(false);
+  const onRequest = narrow || floating;
+  const [openOnRequest, setOpenOnRequest] = useState(false);
+  useEffect(() => setOpenOnRequest(false), [onRequest]);
   const [openOffHome, setOpenOffHome] = useState(false);
   useEffect(() => setOpenOffHome(false), [tab]);
-  const [open, setOpen]: [boolean, (open: boolean) => void] = narrow
-    ? [openWhileNarrow, setOpenWhileNarrow]
+  const [open, setOpen]: [boolean, (open: boolean) => void] = onRequest
+    ? [openOnRequest, setOpenOnRequest]
     : [homeTab].flat().includes(tab)
       ? [storedOpen, setStoredOpen]
       : [openOffHome, setOpenOffHome];
@@ -74,6 +78,7 @@ export function useDetailsPanel({
     },
     width,
     setWidth,
+    setFloating,
     panelTab,
     setPanelTab,
   };
@@ -109,6 +114,7 @@ export function DetailsPanelLayout({
       width={details.width}
       onWidthChange={details.setWidth}
       onCollapse={() => details.setOpen(false)}
+      onFloatChange={details.setFloating}
       panel={panel}
       footer={footer}
       busy={busy}

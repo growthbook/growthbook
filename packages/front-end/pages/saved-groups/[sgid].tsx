@@ -331,7 +331,12 @@ export default function EditSavedGroupPage() {
     [filteredValues, newestFirst],
   );
 
-  const start = (currentPage - 1) * NUM_PER_PAGE;
+  // A list that shrinks (items deleted, another revision) keeps to its last page.
+  const page = Math.min(
+    currentPage,
+    Math.max(1, Math.ceil(sortedValues.length / NUM_PER_PAGE)),
+  );
+  const start = (page - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
   const { user, hasCommercialFeature } = useUser();
@@ -1588,7 +1593,7 @@ export default function EditSavedGroupPage() {
                     {sortedValues.length > NUM_PER_PAGE && (
                       <Pagination
                         numItemsTotal={sortedValues.length}
-                        currentPage={currentPage}
+                        currentPage={page}
                         perPage={NUM_PER_PAGE}
                         onPageChange={setCurrentPage}
                       />

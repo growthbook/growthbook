@@ -56,24 +56,26 @@ export type TableProps = Omit<
 // The element a `scrollX` table scrolls sideways in, for TableViewportCell.
 const TableScrollContext = createContext<HTMLDivElement | null>(null);
 
-// Scrolls a cell's table sideways so the cell shows in full beside a pinned
-// last column, or from its own left edge when it's wider than the room.
-// Returns what scrolls the table back.
-export function revealTableCell(cell: HTMLElement): () => void {
+// The box a cell's table scrolls sideways in, if it scrolls.
+function tableScroller(cell: HTMLElement): HTMLElement | null {
   // A TableViewportCell's content already follows the scroll.
-  if (cell.hasAttribute("data-viewport-cell")) return () => {};
+  if (cell.hasAttribute("data-viewport-cell")) return null;
   let scroller = cell.parentElement;
   while (scroller && scroller.scrollWidth <= scroller.clientWidth) {
     scroller = scroller.parentElement;
   }
-  if (!scroller || scroller === document.documentElement) return () => {};
-  const el = scroller;
-  const before = el.scrollLeft;
+  return scroller && scroller !== document.documentElement ? scroller : null;
+}
+
+// Scrolls the table so the cell shows in full beside a pinned last column, or
+// from its own left edge when it's wider than the room. Returns whether it
+// scrolled.
+function scrollIntoTable(cell: HTMLElement, scroller: HTMLElement): boolean {
   const pinned = cell.parentElement?.lastElementChild;
   const isPinned = (e: Element | null | undefined): e is HTMLElement =>
     e instanceof HTMLElement && getComputedStyle(e).position === "sticky";
   // A pinned cell is always in view.
-  if (pinned === cell && isPinned(cell)) return () => {};
+  if (pinned === cell && isPinned(cell)) return false;
   const pinnedWidth = isPinned(pinned)
     ? pinned.getBoundingClientRect().width
     : 0;
@@ -81,9 +83,43 @@ export function revealTableCell(cell: HTMLElement): () => void {
   const rect = cell.getBoundingClientRect();
   let delta = Math.max(0, rect.right - (box.right - pinnedWidth));
   if (rect.left - delta < box.left) delta = rect.left - box.left;
-  if (Math.abs(delta) < 1) return () => {};
-  el.scrollBy({ left: delta, behavior: "smooth" });
-  return () => el.scrollTo({ left: before, behavior: "smooth" });
+  if (Math.abs(delta) < 1) return false;
+  scroller.scrollBy({ left: delta, behavior: "smooth" });
+  return true;
+}
+
+// Per table: where it scrolls back to once its open editors close.
+const scrollBacks = new WeakMap<
+  HTMLElement,
+  { left: number; open: number; moved: boolean; frame: number }
+>();
+
+// For an editor opening in a cell: brings the cell into view, and returns what
+// scrolls the table back. The scroll-back waits a frame, so an editor opening
+// as another closes takes it over instead of being scrolled out of view.
+export function revealTableCell(cell: HTMLElement): () => void {
+  const scroller = tableScroller(cell);
+  if (!scroller) return () => {};
+  const state = scrollBacks.get(scroller) ?? {
+    left: scroller.scrollLeft,
+    open: 0,
+    moved: false,
+    frame: 0,
+  };
+  scrollBacks.set(scroller, state);
+  cancelAnimationFrame(state.frame);
+  state.open++;
+  state.moved = scrollIntoTable(cell, scroller) || state.moved;
+  return () => {
+    state.open--;
+    if (state.open > 0) return;
+    state.frame = requestAnimationFrame(() => {
+      scrollBacks.delete(scroller);
+      if (state.moved) {
+        scroller.scrollTo({ left: state.left, behavior: "smooth" });
+      }
+    });
+  };
 }
 
 export default function Table({
@@ -274,7 +310,8 @@ export default function Table({
       const cell =
         e.target instanceof Element ? e.target.closest("td, th") : null;
       if (cell instanceof HTMLElement && el.contains(cell)) {
-        revealTableCell(cell);
+        const scroller = tableScroller(cell);
+        if (scroller) scrollIntoTable(cell, scroller);
       }
     };
     el.addEventListener("focusin", onFocus);

@@ -46,6 +46,8 @@ export interface Props {
   onWidthChange: (width: number) => void;
   // A drag well past the minimum width closes the panel.
   onCollapse: () => void;
+  // Whether the panel floats over the content rather than docking beside it.
+  onFloatChange?: (floats: boolean) => void;
   // Takes no input in the content, while the footer stays usable.
   busy?: boolean;
   side?: "left" | "right";
@@ -63,6 +65,7 @@ export default function CollapsiblePanelLayout({
   width = PANEL_WIDTH_PX,
   onWidthChange,
   onCollapse,
+  onFloatChange,
   busy = false,
   side = "right",
 }: Props) {
@@ -79,10 +82,13 @@ export default function CollapsiblePanelLayout({
   }, [busy]);
   const [layoutWidth, setLayoutWidth] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
-  useEffect(() => {
+  // Before paint, so a panel that floats never shows docked first.
+  useLayoutEffect(() => {
     const el = layout.current;
     const footerEl = footerBox.current;
     if (!el || !footerEl) return;
+    setLayoutWidth(el.getBoundingClientRect().width);
+    setFooterHeight(footerEl.getBoundingClientRect().height);
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.target === el) setLayoutWidth(entry.contentRect.width);
@@ -142,6 +148,7 @@ export default function CollapsiblePanelLayout({
     !left &&
     (narrowWindow ||
       (layoutWidth > 0 && layoutWidth - panelWidth < MIN_CONTENT_WIDTH_PX));
+  useLayoutEffect(() => onFloatChange?.(overlay), [overlay, onFloatChange]);
   // Floating, the panel ends where the footer starts, so the footer stays whole.
   const footerClearance = overlay ? footerHeight : 0;
 

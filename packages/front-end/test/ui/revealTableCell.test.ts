@@ -32,7 +32,14 @@ function setup(cellLeft: number, cellWidth: number) {
   return { scroller, cell, pinned };
 }
 
+beforeEach(() => {
+  vi.useFakeTimers({
+    toFake: ["requestAnimationFrame", "cancelAnimationFrame"],
+  });
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   document.body.innerHTML = "";
 });
 
@@ -45,6 +52,30 @@ describe("revealTableCell", () => {
       behavior: "smooth",
     });
     restore();
+    expect(scroller.scrollTo).not.toHaveBeenCalled();
+    vi.advanceTimersToNextFrame();
+    expect(scroller.scrollTo).toHaveBeenCalledWith({
+      left: 50,
+      behavior: "smooth",
+    });
+  });
+
+  it("hands the scroll-back to an editor opening as another closes", () => {
+    const { scroller, cell } = setup(250, 100);
+    const next = document.createElement("td");
+    next.getBoundingClientRect = () => box(150, 100);
+    cell.closest("tbody")?.append(document.createElement("tr"));
+    cell.closest("tbody")?.lastElementChild?.append(next);
+
+    const closeFirst = revealTableCell(cell);
+    closeFirst();
+    const closeNext = revealTableCell(next);
+    vi.advanceTimersToNextFrame();
+    expect(scroller.scrollTo).not.toHaveBeenCalled();
+
+    closeNext();
+    vi.advanceTimersToNextFrame();
+    expect(scroller.scrollTo).toHaveBeenCalledTimes(1);
     expect(scroller.scrollTo).toHaveBeenCalledWith({
       left: 50,
       behavior: "smooth",
@@ -63,6 +94,7 @@ describe("revealTableCell", () => {
   it("leaves a cell already in view alone", () => {
     const { scroller, cell } = setup(50, 100);
     revealTableCell(cell)();
+    vi.advanceTimersToNextFrame();
     expect(scroller.scrollBy).not.toHaveBeenCalled();
     expect(scroller.scrollTo).not.toHaveBeenCalled();
   });

@@ -506,6 +506,13 @@ export default function CodeTextArea({
                 flex: 1;
                 overflow: hidden;
               }
+              ${
+                // An isolated box around the editor, such as a scroll area's,
+                // would keep its full screen under the rest of the page.
+                isFullscreen
+                  ? `:has(${editorScope}.code-editor-fullscreen) { isolation: auto !important; }`
+                  : ""
+              }
               ${getAceCodeCss(editorScope, codeTheme, language)}
             `}</style>
             <div

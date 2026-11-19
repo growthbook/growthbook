@@ -330,6 +330,9 @@ const SelectField: FC<SelectFieldProps> = ({
     portalMenu && typeof document !== "undefined"
       ? document.querySelector<HTMLElement>(".radix-themes")
       : null;
+  const portalClassNames = portalMenu
+    ? { menu: () => "gb-select__menu--field-width" }
+    : undefined;
   let selected = map.get(value);
 
   if (!selected && value && createable) {
@@ -475,6 +478,7 @@ const SelectField: FC<SelectFieldProps> = ({
                   aria-label={ariaLabel}
                   maxMenuHeight={maxMenuHeight}
                   menuPortalTarget={menuPortalTarget}
+                  classNames={portalClassNames}
                   ref={ref}
                   className={clsx({
                     error: outline === "error",
@@ -553,6 +557,7 @@ const SelectField: FC<SelectFieldProps> = ({
                   aria-label={ariaLabel}
                   maxMenuHeight={maxMenuHeight}
                   menuPortalTarget={menuPortalTarget}
+                  classNames={portalClassNames}
                   ref={ref}
                   className={clsx({
                     error: outline === "error",
