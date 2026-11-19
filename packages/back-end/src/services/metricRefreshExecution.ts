@@ -34,8 +34,10 @@ import type {
   StartQueryParams,
 } from "back-end/src/queryRunners/QueryRunner";
 import {
+  getIndexAfterLastGroup,
   isCarriedMetricRefreshQuery,
   isTableCleanupQuery,
+  type ResultQueryScope,
 } from "back-end/src/queryRunners/metricRefreshQueryNaming";
 
 export type AnalyzedSnapshotResults = {
@@ -295,13 +297,82 @@ export async function analyzeMetricRefresh({
   };
 }
 
-export async function carryMetricRefreshQueries(
+/**
+ * Stats engine results for every analysis of a snapshot. A metric refresh
+ * analyzes only the metrics its own queries returned and copies the rest.
+ */
+export async function analyzeSnapshotResults({
+  context,
+  snapshot,
+  queryMap,
+  metricMap,
+  variationNames,
+}: {
+  context: ApiReqContext;
+  snapshot: ExperimentSnapshotInterface;
+  queryMap: QueryMap;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  variationNames: string[];
+}): Promise<AnalyzedSnapshotResults> {
+  const metricRefresh = getMetricRefresh(snapshot);
+  if (metricRefresh) {
+    return analyzeMetricRefresh({
+      context,
+      snapshot,
+      metricRefresh,
+      queryMap,
+      metricMap,
+      variationNames,
+    });
+  }
+  const { results, banditResult } = await analyzeExperimentResults({
+    queryData: queryMap,
+    snapshotSettings: snapshot.settings,
+    analysisSettings: snapshot.analyses.map((a) => a.settings),
+    variationNames,
+    metricMap,
+  });
+  const result: AnalyzedSnapshotResults = {
+    analyses: snapshot.analyses,
+    multipleExposures: 0,
+    unknownVariations: [],
+    banditResult,
+  };
+  results.forEach((results: ExperimentReportResults, i: number) => {
+    const analysis = snapshot.analyses[i];
+    if (!analysis) return;
+
+    analysis.results = results.dimensions || [];
+    analysis.status = "success";
+    analysis.error = "";
+
+    // TODO: do this once, not per analysis
+    result.unknownVariations = results.unknownVariations || [];
+    result.multipleExposures = results.multipleExposures ?? 0;
+  });
+  return result;
+}
+
+/**
+ * Copies every carried query of the parent, then starts the standard
+ * pipeline's queries for the new metrics, numbering their groups after the
+ * copied ones.
+ */
+export async function startMetricRefreshResultQueries(
   context: ReqContext | ApiReqContext,
   refresh: RefreshSnapshot,
   metricRefresh: SnapshotMetricRefresh,
+  startResultQueries: (scope: ResultQueryScope) => Promise<Queries>,
 ): Promise<Queries> {
   const copiers = await getParentQueryCopiers(context, refresh, metricRefresh);
-  return Promise.all([...copiers.values()].map((copy) => copy()));
+  const carried = await Promise.all(
+    [...copiers.values()].map((copy) => copy()),
+  );
+  const started = await startResultQueries({
+    metricIds: new Set(metricRefresh.metricIds),
+    firstGroupIndex: getIndexAfterLastGroup(carried.map((q) => q.name)),
+  });
+  return [...carried, ...started];
 }
 
 type StartQuery = (

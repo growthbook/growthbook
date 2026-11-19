@@ -88,13 +88,11 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  analyzeSnapshotResults,
   getMetricRefreshQueryStatus,
   getMetricRefreshStartQuery,
 } from "back-end/src/services/metricRefreshExecution";
-import {
-  analyzeSnapshotResults,
-  SnapshotResult,
-} from "./ExperimentResultsQueryRunner";
+import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 import {
   QueryRunner,
   QueryMap,

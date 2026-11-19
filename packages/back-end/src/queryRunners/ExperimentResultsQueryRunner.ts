@@ -30,13 +30,11 @@ import {
   ExperimentResults,
   ExperimentUnitsQueryParams,
 } from "shared/types/integrations";
-import { ExperimentReportResults } from "shared/types/report";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-  SnapshotMetricRefresh,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import { MetricInterface } from "shared/types/metric";
@@ -64,7 +62,6 @@ import {
 import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentClusterHealth,
-  analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -73,10 +70,9 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
 import {
-  analyzeMetricRefresh,
-  type AnalyzedSnapshotResults,
-  carryMetricRefreshQueries,
+  analyzeSnapshotResults,
   getMetricRefreshQueryStatus,
+  startMetricRefreshResultQueries,
 } from "back-end/src/services/metricRefreshExecution";
 import {
   QueryRunner,
@@ -91,67 +87,9 @@ import {
   CLUSTER_HEALTH_QUERY_NAME,
   CLUSTER_TRAFFIC_QUERY_NAME,
   getGroupQueryName,
-  getIndexAfterLastGroup,
   type ResultQueryScope,
   TRAFFIC_QUERY_NAME,
 } from "./metricRefreshQueryNaming";
-
-/**
- * Stats engine results for every analysis of a snapshot. A metric refresh
- * analyzes only the metrics its own queries returned and copies the rest.
- */
-export async function analyzeSnapshotResults({
-  context,
-  snapshot,
-  queryMap,
-  metricMap,
-  variationNames,
-}: {
-  context: ApiReqContext;
-  snapshot: ExperimentSnapshotInterface;
-  queryMap: QueryMap;
-  metricMap: Map<string, ExperimentMetricInterface>;
-  variationNames: string[];
-}): Promise<AnalyzedSnapshotResults> {
-  const metricRefresh = getMetricRefresh(snapshot);
-  if (metricRefresh) {
-    return analyzeMetricRefresh({
-      context,
-      snapshot,
-      metricRefresh,
-      queryMap,
-      metricMap,
-      variationNames,
-    });
-  }
-  const { results, banditResult } = await analyzeExperimentResults({
-    queryData: queryMap,
-    snapshotSettings: snapshot.settings,
-    analysisSettings: snapshot.analyses.map((a) => a.settings),
-    variationNames,
-    metricMap,
-  });
-  const result: AnalyzedSnapshotResults = {
-    analyses: snapshot.analyses,
-    multipleExposures: 0,
-    unknownVariations: [],
-    banditResult,
-  };
-  results.forEach((results: ExperimentReportResults, i: number) => {
-    const analysis = snapshot.analyses[i];
-    if (!analysis) return;
-
-    analysis.results = results.dimensions || [];
-    analysis.status = "success";
-    analysis.error = "";
-
-    // TODO: do this once, not per analysis
-    result.unknownVariations = results.unknownVariations || [];
-    result.multipleExposures = results.multipleExposures ?? 0;
-  });
-  return result;
-}
-
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
@@ -729,38 +667,23 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     ) {
       return this.startLegacyQueries(params);
     }
+    const startQueries = (scope?: ResultQueryScope) =>
+      startExperimentResultQueries(
+        this.context,
+        params,
+        this.integration,
+        this.startQuery.bind(this),
+        scope,
+      );
     const metricRefresh = getMetricRefresh(this.model);
-    if (metricRefresh) {
-      return this.startMetricRefreshQueries(params, metricRefresh);
-    }
-    return startExperimentResultQueries(
-      this.context,
-      params,
-      this.integration,
-      this.startQuery.bind(this),
-    );
-  }
-
-  private async startMetricRefreshQueries(
-    params: ExperimentResultsQueryParams,
-    metricRefresh: SnapshotMetricRefresh,
-  ): Promise<Queries> {
-    const carried = await carryMetricRefreshQueries(
-      this.context,
-      this.model,
-      metricRefresh,
-    );
-    const started = await startExperimentResultQueries(
-      this.context,
-      params,
-      this.integration,
-      this.startQuery.bind(this),
-      {
-        metricIds: new Set(metricRefresh.metricIds),
-        firstGroupIndex: getIndexAfterLastGroup(carried.map((q) => q.name)),
-      },
-    );
-    return [...carried, ...started];
+    return metricRefresh
+      ? startMetricRefreshResultQueries(
+          this.context,
+          this.model,
+          metricRefresh,
+          startQueries,
+        )
+      : startQueries();
   }
 
   protected override getOverallQueryStatus(): QueryStatus {
