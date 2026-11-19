@@ -196,16 +196,6 @@ export function getSnapshotSideEffects(snapshot: SnapshotLineage) {
   };
 }
 
-export function getMetricFilterForCarriedQueries(
-  snapshot: Pick<
-    ExperimentSnapshotInterface,
-    "type" | "newMetricsUpdate" | "settings"
-  >,
-): ReadonlySet<string> | undefined {
-  if (!getNewMetricsUpdate(snapshot)) return undefined;
-  return new Set(snapshot.settings.metricSettings.map((m) => m.id));
-}
-
 export type NewMetricsUpdateBlocker = Extract<
   (typeof newMetricsUpdateUnavailableReasons)[number],
   | "unsupported_experiment_type"

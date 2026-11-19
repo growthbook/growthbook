@@ -5,7 +5,6 @@ import { hoursBetween } from "shared/dates";
 import {
   expandDerivedMetricsInMap,
   getLatestPhaseVariations,
-  getMetricFilterForCarriedQueries,
 } from "shared/experiments";
 import { Queries } from "shared/types/query";
 import {
@@ -125,7 +124,6 @@ export async function generateExperimentNotebook(
     snapshotSettings: snapshot.settings,
     analysisSettings: analysis.settings,
     isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
-    analyzedMetricIds: getMetricFilterForCarriedQueries(snapshot),
     variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     url: `/experiment/${experiment.id}`,
     name: experiment.name,
@@ -139,7 +137,6 @@ export async function generateNotebook({
   snapshotSettings,
   analysisSettings,
   isStandaloneBreakdown = false,
-  analyzedMetricIds,
   variationNames,
   url,
   name,
@@ -150,7 +147,6 @@ export async function generateNotebook({
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   isStandaloneBreakdown?: boolean;
-  analyzedMetricIds?: ReadonlySet<string>;
   variationNames: string[];
   url: string;
   name: string;
@@ -225,7 +221,6 @@ export async function generateNotebook({
     analysisQueryData,
     metricMap,
     snapshotSettings,
-    analyzedMetricIds,
   );
 
   const data: DataForStatsEngine = {

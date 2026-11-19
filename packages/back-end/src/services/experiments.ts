@@ -93,7 +93,6 @@ import {
   EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
   getSnapshotDataAsOfDate,
   getSnapshotSideEffects,
-  getMetricFilterForCarriedQueries,
   getNewMetricsUpdate,
   getResultsDateEnd,
 } from "shared/experiments";
@@ -3380,7 +3379,6 @@ async function getSnapshotAnalyses(
       queryMap,
       expandedMetricMap,
       snapshot.settings,
-      getMetricFilterForCarriedQueries(snapshot),
     );
     const id = `${i}_${experiment.id}_${snapshot.id}`;
     const variationNames = getLatestPhaseVariations(experiment).map(
@@ -3484,7 +3482,6 @@ export async function createSnapshotAnalysis(
     variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     metricMap: metricMap,
     isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
-    analyzedMetricIds: getMetricFilterForCarriedQueries(snapshot),
   });
   analysis.results = results[0]?.dimensions || [];
   analysis.status = "success";
@@ -3551,7 +3548,6 @@ export async function createSnapshotAnalysesBatched(
       variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
       metricMap,
       isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
-      analyzedMetricIds: getMetricFilterForCarriedQueries(snapshot),
     });
 
     completedAnalyses = analyses.map((analysis, i) => ({

@@ -410,10 +410,7 @@ export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
   settings: ExperimentSnapshotSettings,
-  analyzedMetricIds?: ReadonlySet<string>,
 ) {
-  const isAnalyzed = (metricId: string) =>
-    !analyzedMetricIds || analyzedMetricIds.has(metricId);
   const queryResults: QueryResultsForStatsEngine[] = [];
   const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
   let unknownVariations: string[] = [];
@@ -483,7 +480,7 @@ export function getMetricsAndQueryDataForStatsEngine(
 
           const metric = metricMap.get(metricId);
           // skip any metrics somehow missing from map
-          if (!metric || !isAnalyzed(metricId)) {
+          if (!metric) {
             metricIds.push(null);
             continue;
           }
@@ -538,7 +535,7 @@ export function getMetricsAndQueryDataForStatsEngine(
 
       // Single metric query, just return rows as-is
       const metric = metricMap.get(key);
-      if (!metric || !isAnalyzed(key)) return;
+      if (!metric) return;
       metricSettings[key] = getMetricSettingsForStatsEngine(
         metric,
         metricMap,
@@ -838,7 +835,6 @@ export async function analyzeExperimentResults({
   variationNames,
   metricMap,
   isStandaloneBreakdown,
-  analyzedMetricIds,
 }: {
   queryData: QueryMap;
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
@@ -846,7 +842,6 @@ export async function analyzeExperimentResults({
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
   isStandaloneBreakdown?: boolean;
-  analyzedMetricIds?: ReadonlySet<string>;
 }): Promise<{
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
@@ -861,7 +856,6 @@ export async function analyzeExperimentResults({
     analysisQueryData,
     metricMap,
     snapshotSettings,
-    analyzedMetricIds,
   );
   const { queryResults, metricSettings } = mdat;
   const { unknownVariations } = mdat;

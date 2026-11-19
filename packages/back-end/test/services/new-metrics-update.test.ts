@@ -13,7 +13,6 @@ import type { ExperimentMetricInterface } from "shared/experiments";
 import {
   getComputableNewMetricIds,
   getDefinitionMetricId,
-  getMetricFilterForCarriedQueries,
   getResultsDateEnd,
 } from "shared/experiments";
 import type { ReqContext } from "back-end/types/request";
@@ -1389,42 +1388,6 @@ function resultQuery(
   }));
   return { queryType, query: "", result } as unknown as QueryInterface;
 }
-
-describe("re-analysis of a stored new-metrics update", () => {
-  const stored = makeParent({
-    id: "snp_refresh",
-    settings: makeSettings(["met_a", "met_c"]),
-    newMetricsUpdate: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
-  });
-  const queryMap: QueryMap = new Map([
-    [
-      "group_0",
-      resultQuery("experimentMultiMetric", {
-        m0_id: "met_a",
-        m1_id: "met_gone",
-      }),
-    ],
-    ["met_c", resultQuery("experimentMetric")],
-  ]);
-
-  it("analyzes only the metrics in its stored settings", () => {
-    const { getMetricsAndQueryDataForStatsEngine } = jest.requireActual<
-      typeof import("back-end/src/services/stats")
-    >("back-end/src/services/stats");
-    const { queryResults } = getMetricsAndQueryDataForStatsEngine(
-      queryMap,
-      metricMap,
-      stored.settings,
-      getMetricFilterForCarriedQueries(stored),
-    );
-
-    expect(queryResults.map((r) => r.metrics)).toEqual([
-      ["met_a", null],
-      ["met_c"],
-    ]);
-    expect(getMetricFilterForCarriedQueries(makeParent())).toBeUndefined();
-  });
-});
 
 const metricResult = (value: number) =>
   ({ value, cr: value, users: 10 }) as SnapshotMetric;

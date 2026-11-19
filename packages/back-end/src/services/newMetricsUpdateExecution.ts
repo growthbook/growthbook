@@ -273,7 +273,6 @@ export async function analyzeNewMetricsUpdate({
       })),
       variationNames,
       metricMap,
-      analyzedMetricIds,
     });
     indexes.forEach((analysisIndex, j) => {
       freshResults[analysisIndex] = results[j];
