@@ -1059,9 +1059,12 @@ describe("buildAlignedComparisonRowLookup", () => {
     expect(lookup(["2024-01-06"])?.values[0]?.numerator).toBe(200);
   });
 
-  it("ranks against every current bucket when one has no row", () => {
-    // Sep 2 had no Population members, so it has no row.
-    const primary = [row(["2026-09-01"], 10), row(["2026-09-03"], 30)];
+  it("ranks every current bucket, including a day with no members", () => {
+    const primary = [
+      row(["2026-09-01"], 10),
+      row(["2026-09-02"], 0),
+      row(["2026-09-03"], 30),
+    ];
     const comparison = [
       row(["2026-08-29"], 1),
       row(["2026-08-30"], 2),
@@ -1072,7 +1075,6 @@ describe("buildAlignedComparisonRowLookup", () => {
       comparison,
       true,
       "chronological",
-      ["2026-09-01", "2026-09-02T00:00:00.000Z", "2026-09-03"],
     );
     expect(lookup(["2026-09-01"])?.values[0]?.numerator).toBe(1);
     expect(lookup(["2026-09-03"])?.values[0]?.numerator).toBe(3);

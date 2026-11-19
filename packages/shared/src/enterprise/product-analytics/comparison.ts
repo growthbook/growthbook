@@ -547,11 +547,6 @@ export function buildAlignedComparisonRowLookup(
   comparisonRows: ProductAnalyticsResultRow[],
   firstDimensionIsDate: boolean,
   strategy: ComparisonAlignmentStrategy = "calendarYearOverYear",
-  // The current period's buckets to rank against, when it has more than
-  // `primaryRows` (see `densifyPopulationTimeseriesRows`).
-  currentXValues: readonly string[] = primaryRows.map((r) =>
-    String(r.dimensions[0] ?? ""),
-  ),
 ): (currentDims: (string | null)[]) => ProductAnalyticsResultRow | null {
   if (!firstDimensionIsDate) {
     const byKey = new Map<string, ProductAnalyticsResultRow>();
@@ -561,9 +556,9 @@ export function buildAlignedComparisonRowLookup(
     return (currentDims) => byKey.get(dimensionsTupleKey(currentDims)) ?? null;
   }
 
-  const sortedXValues = [...new Set(currentXValues)].sort(
-    compareDateStringsAsc,
-  );
+  const sortedXValues = [
+    ...new Set(primaryRows.map((r) => String(r.dimensions[0] ?? ""))),
+  ].sort(compareDateStringsAsc);
   const comparisonXValues = comparisonRows.map((r) =>
     String(r.dimensions[0] ?? ""),
   );
@@ -1057,7 +1052,6 @@ export function computeExplorationComparisonPayload(
     cmpSorted,
     isTimeseries,
     alignment,
-    primaryRows.map((r) => String(r.dimensions[0] ?? "")),
   );
 
   const tableTrendsByRow = sortedRows.map((row) => {
