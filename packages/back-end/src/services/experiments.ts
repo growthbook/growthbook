@@ -5750,7 +5750,6 @@ export async function getSettingsForSnapshotMetrics(
   regressionAdjustmentEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
 }> {
-  let regressionAdjustmentEnabled = false;
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
   const metricMap = await getMetricMap(context);
 
@@ -5782,15 +5781,14 @@ export async function getSettingsForSnapshotMetrics(
       organizationSettings: context.org.settings,
       metricOverrides: experiment.metricOverrides,
     });
-    if (metricSnapshotSettings.regressionAdjustmentEnabled) {
-      regressionAdjustmentEnabled = true;
-    }
     settingsForSnapshotMetrics.push(metricSnapshotSettings);
   }
-  if (!experiment.regressionAdjustmentEnabled) {
-    regressionAdjustmentEnabled = false;
-  }
-  return { regressionAdjustmentEnabled, settingsForSnapshotMetrics };
+  // Same flag as a manual update and the Outdated badge: each metric's own flag
+  // still decides whether it is adjusted.
+  return {
+    regressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
+    settingsForSnapshotMetrics,
+  };
 }
 
 export function visualChangesetsHaveChanges({
