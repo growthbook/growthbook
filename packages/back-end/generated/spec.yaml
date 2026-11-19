@@ -24636,6 +24636,7 @@ paths:
                       $ref: >-
                         #/components/schemas/AdobeExperiencePlatformQueryServiceConnection
                   description: Credentials are stored encrypted and never returned
+                  x-growthbook-sensitive: true
                 eventTracker:
                   description: '`eventForwarder` is only accepted unchanged'
                   type: string
@@ -95689,16 +95690,17 @@ x-growthbook-resources:
       get: getFactMetric
       update: updateFactMetric
       delete: deleteFactMetric
-  member:
-    operations:
-      list: listMembers
-      delete: deleteMember
   data_source:
     operations:
+      create: postDataSource
       list: listDataSources
       get: getDataSource
       update: updateDataSource
       delete: deleteDataSource
+  member:
+    operations:
+      list: listMembers
+      delete: deleteMember
   dashboard:
     operations:
       create: createDashboard
