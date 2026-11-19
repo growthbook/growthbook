@@ -1,8 +1,12 @@
+import { postDataSourceValidator } from "shared/validators";
 import {
   decryptSecretFields,
   encryptSecretFields,
+  holdAtRoute,
   redactSecretFields,
 } from "back-end/src/services/confirmations";
+import { ConfirmationRequiredError } from "back-end/src/util/errors";
+import type { ReqContext } from "back-end/types/request";
 
 const body = {
   name: "Warehouse",
@@ -39,5 +43,51 @@ describe("secret body fields", () => {
     expect(encryptSecretFields({ name: "x" }, ["connection"])).toEqual({
       name: "x",
     });
+  });
+});
+
+describe("holding a create data source request", () => {
+  it("stores its connection encrypted", async () => {
+    const create = jest.fn(async (doc) => ({
+      ...doc,
+      id: "cnf_1",
+      expiresAt: new Date(Date.now() + 60_000),
+    }));
+    const req = {
+      method: "POST",
+      originalUrl: "/api/v1/data-sources",
+      query: {},
+      body,
+    };
+    const { method, path, tags, confirmation, secretBodyFields } =
+      postDataSourceValidator;
+    const held = holdAtRoute(
+      {
+        isApiRequest: true,
+        apiKey: "key_1",
+        org: { settings: {} },
+        apiKeyData: { confirmRules: [{ actions: ["settings.dataSources"] }] },
+        models: {
+          confirmations: { findPending: async () => null, create },
+          confirmationAttempts: {},
+        },
+        req,
+      } as unknown as ReqContext,
+      confirmation,
+      tags,
+      method,
+      path,
+      req,
+      undefined,
+      secretBodyFields,
+    );
+    await expect(held).rejects.toThrow(ConfirmationRequiredError);
+
+    const stored = create.mock.calls[0][0];
+    expect(JSON.stringify(stored)).not.toContain("hunter2");
+    expect(stored.secretBodyFields).toEqual(["connection"]);
+    expect(decryptSecretFields(stored.body, stored.secretBodyFields)).toEqual(
+      body,
+    );
   });
 });
