@@ -19,7 +19,10 @@ import Table, {
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
-import { getColumnTopValues } from "@/services/factTableColumns";
+import {
+  getColumnTopValues,
+  getTopValuesNote,
+} from "@/services/factTableColumns";
 import columnStyles from "./FactTableDetailsPage.module.scss";
 
 const CHIPS = 4;
@@ -81,6 +84,51 @@ export function CountBar({ count, max }: { count?: number; max: number }) {
         {count !== undefined ? percent.format(share) : null}
       </Box>
     </Flex>
+  );
+}
+
+// The Rows and Share headers, shared by every top values table
+export function CountColumnHeaders({
+  noun,
+  count,
+  lookbackDays,
+}: {
+  // Singular, for example "value" or "event"
+  noun: string;
+  count: number;
+  lookbackDays: number;
+}) {
+  return (
+    <>
+      <TableColumnHeader justify="end">Rows</TableColumnHeader>
+      <TableColumnHeader>
+        <Tooltip
+          content={`Each ${noun}'s share of all rows across the top ${count} ${noun}s from the last ${lookbackDays} days. Rows from ${noun}s not listed aren't counted.`}
+        >
+          <Flex align="center" gap="1" display="inline-flex">
+            Share of listed rows <PiInfo />
+          </Flex>
+        </Tooltip>
+      </TableColumnHeader>
+    </>
+  );
+}
+
+// The Rows and Share cells that go under CountColumnHeaders
+export function CountCells({ count, max }: { count?: number; max: number }) {
+  return (
+    <>
+      <TableCell justify="end">
+        {count !== undefined ? (
+          <span title={count.toLocaleString()}>{compact.format(count)}</span>
+        ) : (
+          <Text color="text-low">…</Text>
+        )}
+      </TableCell>
+      <TableCell>
+        <CountBar count={count} max={max} />
+      </TableCell>
+    </>
   );
 }
 
@@ -167,18 +215,11 @@ export function ColumnValuesPanel({
             <TableRow>
               <TableColumnHeader>Value</TableColumnHeader>
               {showCounts ? (
-                <>
-                  <TableColumnHeader justify="end">Rows</TableColumnHeader>
-                  <TableColumnHeader>
-                    <Tooltip
-                      content={`Each value's share of all rows across the top ${rows.length} values from the last ${lookbackDays} days. Rows with values not listed aren't counted.`}
-                    >
-                      <Flex align="center" gap="1" display="inline-flex">
-                        Share of sample rows <PiInfo />
-                      </Flex>
-                    </Tooltip>
-                  </TableColumnHeader>
-                </>
+                <CountColumnHeaders
+                  noun="value"
+                  count={rows.length}
+                  lookbackDays={lookbackDays}
+                />
               ) : null}
             </TableRow>
           </TableHeader>
@@ -189,20 +230,7 @@ export function ColumnValuesPanel({
                   <code>{r.value}</code>
                 </TableCell>
                 {showCounts ? (
-                  <>
-                    <TableCell justify="end">
-                      {r.count !== undefined ? (
-                        <span title={r.count.toLocaleString()}>
-                          {compact.format(r.count)}
-                        </span>
-                      ) : (
-                        <Text color="text-low">…</Text>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <CountBar count={r.count} max={totalCount} />
-                    </TableCell>
-                  </>
+                  <CountCells count={r.count} max={totalCount} />
                 ) : null}
               </TableRow>
             ))}
@@ -218,14 +246,14 @@ export function ColumnValuesPanel({
       )}
       {rows.length > 0 ? (
         <Text size="sm" color="text-low">
-          {`Top ${rows.length} values${showCounts ? " by row count" : ""} over the last ${lookbackDays} days.`}
-          {showCounts
-            ? " Counts may be approximate on some Data Sources."
-            : topValues.countsUnavailable
-              ? " This Data Source can only rank values, so row counts aren't shown."
-              : onLoad
-                ? " Refresh to load row counts."
-                : ""}
+          {getTopValuesNote({
+            count: rows.length,
+            noun: "value",
+            lookbackDays,
+            hasCounts: showCounts,
+            countsUnavailable: topValues.countsUnavailable,
+            canRefresh: !!onLoad,
+          })}
         </Text>
       ) : null}
     </Flex>

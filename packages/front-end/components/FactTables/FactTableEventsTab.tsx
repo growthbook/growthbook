@@ -1,13 +1,16 @@
 import { Fragment, useState } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { PiArrowClockwise, PiCaretRightBold, PiInfo } from "react-icons/pi";
+import { PiArrowClockwise, PiCaretRightBold } from "react-icons/pi";
 import { ago } from "shared/dates";
 import {
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { getColumnTopValues } from "@/services/factTableColumns";
+import {
+  getColumnTopValues,
+  getTopValuesNote,
+} from "@/services/factTableColumns";
 import { getMetricsForEvent } from "@/services/factTableEvents";
 import useColumnValueCounts from "@/hooks/useColumnValueCounts";
 import TextField from "@/ui/TextField";
@@ -28,7 +31,11 @@ import Tooltip from "@/ui/Tooltip";
 import FactTableSampleRows from "./FactTableSampleRows";
 import styles from "./FactTableEventsTab.module.scss";
 import columnStyles from "./FactTableDetailsPage.module.scss";
-import { CountBar, useTopValuesLookbackDays } from "./ColumnValues";
+import {
+  CountCells,
+  CountColumnHeaders,
+  useTopValuesLookbackDays,
+} from "./ColumnValues";
 
 // Five lines of two, about the height of the sample rows beside them
 const MAX_METRICS = 10;
@@ -105,7 +112,9 @@ export default function FactTableEventsTab({
         </Flex>
         <Flex align="center" gap="3">
           {topValues.refreshedAt ? (
-            <Text color="text-mid">Refreshed {ago(topValues.refreshedAt)}</Text>
+            <Text size="sm" color="text-mid">
+              Refreshed {ago(topValues.refreshedAt)}
+            </Text>
           ) : null}
           {canRefresh ? (
             <Button
@@ -141,18 +150,11 @@ export default function FactTableEventsTab({
               <TableColumnHeader style={{ width: 32 }} />
               <TableColumnHeader>Event</TableColumnHeader>
               {showCounts ? (
-                <>
-                  <TableColumnHeader>Rows</TableColumnHeader>
-                  <TableColumnHeader>
-                    <Tooltip
-                      content={`Each event's share of all rows across the top ${rows.length} events from the last ${lookbackDays} days. Rows from events not listed aren't counted.`}
-                    >
-                      <Flex align="center" gap="1" display="inline-flex">
-                        Share <PiInfo />
-                      </Flex>
-                    </Tooltip>
-                  </TableColumnHeader>
-                </>
+                <CountColumnHeaders
+                  noun="event"
+                  count={rows.length}
+                  lookbackDays={lookbackDays}
+                />
               ) : null}
               <TableColumnHeader>Metrics</TableColumnHeader>
             </TableRow>
@@ -192,12 +194,7 @@ export default function FactTableEventsTab({
                       <span className={columnStyles.mono}>{r.value}</span>
                     </TableCell>
                     {showCounts ? (
-                      <>
-                        <TableCell>{r.count?.toLocaleString()}</TableCell>
-                        <TableCell>
-                          <CountBar count={r.count} max={totalCount} />
-                        </TableCell>
-                      </>
+                      <CountCells count={r.count} max={totalCount} />
                     ) : null}
                     <TableCell>{eventMetrics.length || "—"}</TableCell>
                   </TableRow>
@@ -298,10 +295,14 @@ export default function FactTableEventsTab({
       )}
       {rows.length ? (
         <Text size="sm" color="text-low">
-          Top {rows.length} events over the last {lookbackDays} days
-          {showCounts
-            ? ". Counts may be approximate on some Data Sources."
-            : ""}
+          {getTopValuesNote({
+            count: rows.length,
+            noun: "event",
+            lookbackDays,
+            hasCounts: showCounts,
+            countsUnavailable: topValues.countsUnavailable,
+            canRefresh,
+          })}
         </Text>
       ) : null}
     </Flex>

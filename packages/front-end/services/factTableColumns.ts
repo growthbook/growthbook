@@ -43,3 +43,29 @@ export function getColumnTopValues(
     refreshedAt: storedAt,
   };
 }
+
+// The note under a top values table, shared by the Values panel and the
+// Events tab so the two can't drift
+export function getTopValuesNote({
+  count,
+  noun,
+  lookbackDays,
+  hasCounts,
+  countsUnavailable,
+  canRefresh,
+}: {
+  count: number;
+  // Singular, for example "value" or "event"
+  noun: string;
+  lookbackDays: number;
+  hasCounts: boolean;
+  countsUnavailable: boolean;
+  canRefresh: boolean;
+}): string {
+  const base = `Top ${count} ${noun}s${hasCounts ? " by row count" : ""} over the last ${lookbackDays} days.`;
+  if (hasCounts)
+    return `${base} Counts may be approximate on some Data Sources.`;
+  if (countsUnavailable)
+    return `${base} This Data Source can only rank ${noun}s, so row counts aren't shown.`;
+  return canRefresh ? `${base} Refresh to load row counts.` : base;
+}

@@ -3,7 +3,10 @@ import {
   FactMetricInterface,
   RowFilter,
 } from "shared/types/fact-table";
-import { getColumnTopValues } from "@/services/factTableColumns";
+import {
+  getColumnTopValues,
+  getTopValuesNote,
+} from "@/services/factTableColumns";
 import {
   getEventColumns,
   getMetricEvents,
@@ -363,5 +366,48 @@ describe("getRowsPerDay", () => {
     expect(getRowsPerDay({ ...range, result: { rows: [] } }).counts).toEqual([
       0, 0, 0,
     ]);
+  });
+});
+
+describe("getTopValuesNote", () => {
+  const base = { count: 20, noun: "event", lookbackDays: 14 };
+
+  it("explains each reason counts are missing", () => {
+    expect(
+      getTopValuesNote({
+        ...base,
+        hasCounts: true,
+        countsUnavailable: false,
+        canRefresh: true,
+      }),
+    ).toBe(
+      "Top 20 events by row count over the last 14 days. Counts may be approximate on some Data Sources.",
+    );
+    expect(
+      getTopValuesNote({
+        ...base,
+        hasCounts: false,
+        countsUnavailable: true,
+        canRefresh: true,
+      }),
+    ).toBe(
+      "Top 20 events over the last 14 days. This Data Source can only rank events, so row counts aren't shown.",
+    );
+    expect(
+      getTopValuesNote({
+        ...base,
+        hasCounts: false,
+        countsUnavailable: false,
+        canRefresh: true,
+      }),
+    ).toBe("Top 20 events over the last 14 days. Refresh to load row counts.");
+    expect(
+      getTopValuesNote({
+        ...base,
+        hasCounts: false,
+        countsUnavailable: false,
+        canRefresh: false,
+      }),
+    ).toBe("Top 20 events over the last 14 days.");
   });
 });
