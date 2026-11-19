@@ -1059,15 +1059,16 @@ export const putColumn = async (
     if (context.permissions.canRunFactQueries(datasource)) {
       runColumnsTopValueCountsQuery(context, datasource, factTable, [col])
         .then(async (countsByColumn) => {
-          const counts = countsByColumn[col.column] || [];
-          if (!counts.length) return;
           await updateColumnsTopValues({
             context,
             factTable,
             updates: [
               {
                 column: col.column,
-                snapshot: { values: counts, refreshedAt: new Date() },
+                snapshot: {
+                  values: countsByColumn[col.column] || [],
+                  refreshedAt: new Date(),
+                },
               },
             ],
           });

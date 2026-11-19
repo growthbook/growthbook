@@ -123,7 +123,7 @@ function getTopValuesUpdateFields(
     ? undefined
     : update.slices === "fill"
       ? populateAutoSlices(column, topValues, maxSliceLevels)
-      : update.slices === "refill" && topValues.length
+      : update.slices === "refill"
         ? refillAutoSlices(column, topValues, maxSliceLevels)
         : undefined;
   if (autoSlices) {
@@ -135,8 +135,9 @@ function getTopValuesUpdateFields(
 
 // The positional write for stored columns: only the updated fields of each
 // still-existing column, so concurrent edits to anything else survive.
-// Clears a topValues list stored before counts existed. Null when nothing
-// applies.
+// Clears a topValues list stored before counts existed. Skips an update with
+// no values, since an empty result may be transient: the column keeps its last
+// snapshot and Auto Slice levels. Null when nothing applies.
 // `changed` is false when only the refresh dates moved. `filter` matches only
 // while each column whose Auto Slice levels it rewrites still has the slice
 // settings they were built from, so a concurrent slice save isn't undone.
@@ -161,7 +162,7 @@ export function buildTopValuesWrite(
   let changed = false;
   updates.forEach((update, i) => {
     const column = current.columns.find((c) => c.column === update.column);
-    if (!column || column.deleted) return;
+    if (!column || column.deleted || !update.snapshot.values.length) return;
     const id = `c${i}`;
     const fields = getTopValuesUpdateFields(column, update, maxSliceLevels);
     if (fields.autoSlices) {

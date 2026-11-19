@@ -203,15 +203,19 @@ describe("buildTopValuesWrite", () => {
       { column: "country", snapshot, slices: "fill" },
     ]);
     expect(fill?.$set["columns.$[c0].autoSlices"]).toEqual(["edited"]);
+  });
+
+  it("keeps the last snapshot when a query returns no values", () => {
+    const empty = { values: [], refreshedAt };
     expect(
       buildTopValuesWrite(current, [
-        {
-          column: "country",
-          snapshot: { values: [], refreshedAt },
-          slices: "refill",
-        },
-      ])?.$set["columns.$[c0].autoSlices"],
-    ).toBeUndefined();
+        { column: "country", snapshot: empty, slices: "refill" },
+        { column: "uid", snapshot },
+      ])?.arrayFilters,
+    ).toEqual([{ "c1.column": "uid" }]);
+    expect(
+      buildTopValuesWrite(current, [{ column: "country", snapshot: empty }]),
+    ).toBe(null);
   });
 
   it("marks a refresh that only moved the dates as unchanged", () => {
