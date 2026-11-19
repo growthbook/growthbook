@@ -18,7 +18,7 @@ export const useFeatureDisabledRedirect = (
   redirectTo: string = "/",
 ): UseFeatureDisabledRedirect => {
   const router = useRouter();
-  const growthbook = useGrowthBook<AppFeatures>();
+  const growthbook = useGrowthBook();
 
   const shouldRender = growthbook?.isOn(featureKey) || false;
   const ready = growthbook?.ready || false;

@@ -88,9 +88,9 @@ const loadedVisualChanges = z.array(
   z
     .object({
       id: z.string(),
-      css: z.unknown(),
-      js: z.unknown(),
-      domMutations: z.unknown(),
+      css: z.unknown().optional(),
+      js: z.unknown().optional(),
+      domMutations: z.unknown().optional(),
     })
     .passthrough(),
 );

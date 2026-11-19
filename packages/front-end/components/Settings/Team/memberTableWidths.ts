@@ -18,3 +18,7 @@ export const MEMBER_COLUMN_WIDTHS = {
   teamDate: "14%",
   actions: "4%",
 } as const;
+
+// Narrower, the Date joined sort icon runs into Last login, so a member table
+// scrolls sideways. Shared, so the tables stay lined up.
+export const MEMBER_TABLE_MIN_WIDTH = 836;

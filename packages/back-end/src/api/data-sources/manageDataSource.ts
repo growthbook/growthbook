@@ -4,15 +4,18 @@ import { getExposureQueryIdentifierTypes } from "shared/util";
 import {
   deleteDataSourceValidator,
   postDataSourceInformationSchemaRefreshValidator,
+  postDataSourceValidator,
   updateDataSourceValidator,
 } from "shared/validators";
 import {
+  DataSourceParams,
   DataSourcePipelineSettings,
   DataSourceSettings,
   ExposureQuery,
   UserIdType,
 } from "shared/types/datasource";
 import {
+  createDataSource,
   getDataSourceById,
   toDataSourceApiInterface,
 } from "back-end/src/models/DataSourceModel";
@@ -25,6 +28,7 @@ import { queueUpdateInformationSchema } from "back-end/src/jobs/updateInformatio
 import {
   deleteDataSourceWithChecks,
   updateDataSourceWithChecks,
+  withDefaultEventSettings,
 } from "back-end/src/services/datasourceChanges";
 import { withReadableExposureQueries } from "back-end/src/services/datasourceResponse";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -224,6 +228,34 @@ async function getDataSource(context: ApiReqContext, id: string) {
   if (!datasource) throw new NotFoundError(`Data source not found: ${id}`);
   return datasource;
 }
+
+export const postDataSource = createApiRequestHandler(postDataSourceValidator)(
+  async (req) => {
+    const { context } = req;
+    const { name, description, projectIds, connection, ...settingsInput } =
+      req.body;
+    const { type, ...params } = connection;
+    if (
+      !context.permissions.canCreateDataSource({ projects: projectIds, type })
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    if (projectIds?.length) {
+      await context.models.projects.ensureProjectsExist(projectIds);
+    }
+    const datasource = await createDataSource(
+      context,
+      name,
+      type,
+      params as DataSourceParams,
+      withDefaultEventSettings(applyApiDataSourceSettings(settingsInput)),
+      undefined,
+      description,
+      projectIds,
+    );
+    return { dataSource: toDataSourceApiInterface(context, datasource) };
+  },
+);
 
 export const updateDataSource = createApiRequestHandler(
   updateDataSourceValidator,

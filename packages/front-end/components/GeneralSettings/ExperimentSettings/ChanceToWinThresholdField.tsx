@@ -105,6 +105,9 @@ export default function ChanceToWinThresholdField<
       }}
       className="ml-2"
       containerClassName={containerClassName}
+      // No wider than its column, so its label, field and help wrap in a
+      // narrow one (Bootstrap's form-inline groups don't shrink).
+      containerStyle={{ maxWidth: "100%" }}
       append="%"
       disabled={disabled}
       error={errorMessage}

@@ -72,11 +72,9 @@ export const listExperiments = createApiRequestHandler(
   });
 
   const bandits =
-    req.query.bandits === "true"
-      ? true
-      : req.query.bandits === "false"
-        ? false
-        : undefined;
+    req.query.bandits === undefined
+      ? undefined
+      : stringToBoolean(req.query.bandits.toString());
 
   const hasFilters =
     bandits !== undefined ||

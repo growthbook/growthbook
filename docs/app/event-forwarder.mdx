@@ -107,7 +107,7 @@ Usage is counted once per event. Month-to-date totals and daily history are on *
 
 ## Get Started
 
-Event Forwarder is available to every GrowthBook Cloud organization. Open **Settings > Data Sources**, add or edit a BigQuery, Snowflake or Databricks Data Source, and set up the Event Forwarder from its **Event Forwarder** card. Free plans are subject to the [usage limits](#usage-limits) above; one Event Forwarder is allowed per organization.
+Event Forwarder is available to every GrowthBook Cloud organization. Open **Settings > Data Sources**, add or edit a BigQuery, Snowflake or Databricks Data Source, and set up the Event Forwarder from its **Event Forwarder** card. Free plans are subject to the [usage limits](#usage-limits) above; an organization can have one Event Forwarder per environment in each data region, and usage is counted across all of them. Once an Event Forwarder has an environment it can't be changed; one that receives all environments can still be narrowed to one.
 
 If you have questions about higher volumes or Enterprise options, reach out to [sales@growthbook.io](mailto:sales@growthbook.io).
 
@@ -127,6 +127,8 @@ There are 2 ways to send events to GrowthBook:
 The tracking plugin sends events to `https://us-east-1.gb-ingest.com` by default. If you selected **eu-west-1** as your Event Forwarder's Data Region, set the ingestor host option shown for your SDK above to `https://eu-west-1.gb-ingest.com`. Otherwise events won't reach the proper ingestion server and your events will be dropped.
 
 You can find your Event Forwarder's configured region on the data source's Event Forwarder settings.
+
+If the same environment has an Event Forwarder in both regions, the host decides which one receives an event. The setup snippets in GrowthBook can't pick for you in that case, so set the host for the region you want.
 
 ### Ingestion API
 

@@ -1,7 +1,10 @@
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDataRegionOptions } from "@/services/dataRegions";
+import { allEnvironmentsTakenMessage } from "./EventForwarderDestinationFields";
 
 export type DataSourceOptionKey = "managed" | "event-forwarder" | "custom";
 
@@ -28,8 +31,8 @@ const CLOUD_ONLY: DataSourceOptionAvailability = {
   reason: "Only available on GrowthBook Cloud.",
 };
 
-// Managed Warehouse and Event Forwarder are limited to one per organization,
-// and both require usage-based billing.
+// - Both require usage-based billing
+// - Managed Warehouse is one per organization; Event Forwarders are one per environment
 function getEventPipelineAvailability({
   name,
   existingId,
@@ -37,6 +40,7 @@ function getEventPipelineAvailability({
   canCreate,
   isLegacyProPlan,
   hasCommercialFeature,
+  unavailableReason,
 }: {
   name: string;
   existingId: string | undefined;
@@ -44,6 +48,8 @@ function getEventPipelineAvailability({
   canCreate: boolean;
   isLegacyProPlan: boolean;
   hasCommercialFeature: boolean;
+  // Another one cannot be added right now
+  unavailableReason?: string;
 }): DataSourceOptionAvailability {
   if (existingId) return { status: "already-set-up", datasourceId: existingId };
   if (existsInOrg) {
@@ -56,6 +62,9 @@ function getEventPipelineAvailability({
   if (!canCreate) return NO_PERMISSION;
   if (isLegacyProPlan) return LEGACY_PRO_PLAN;
   if (!hasCommercialFeature) return { status: "upgrade-required" };
+  if (unavailableReason) {
+    return { status: "unavailable", reason: unavailableReason };
+  }
   return { status: "available" };
 }
 
@@ -68,8 +77,30 @@ export function useDataSourceOptionEligibility(): Record<
     project,
     projects,
     hasManagedWarehouse,
-    hasEventForwarder,
+    eventForwarderEnvironments,
   } = useDefinitions();
+  const environments = useEnvironments();
+  // No environment left for a new forwarder in any data region, so say so
+  // before the connection form
+  const regionReasons = useDataRegionOptions().map(({ value }) => {
+    const inRegion = eventForwarderEnvironments.filter(
+      (e) => e.region === value,
+    );
+    return (
+      allEnvironmentsTakenMessage(inRegion, datasources) ??
+      (environments.every((env) =>
+        inRegion.some((e) => e.environment === env.id),
+      )
+        ? "Every environment already has an Event Forwarder. Add an environment, or change or delete an existing Event Forwarder."
+        : undefined)
+    );
+  });
+  // Regions blocked for different reasons: one region's fix would not be enough
+  const noFreeEnvironmentReason = !regionReasons.every(Boolean)
+    ? undefined
+    : new Set(regionReasons).size === 1
+      ? regionReasons[0]
+      : "No data region has a free environment for another Event Forwarder. Add an environment, or change or delete an existing Event Forwarder.";
   const { effectiveAccountPlan, license, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -96,11 +127,12 @@ export function useDataSourceOptionEligibility(): Record<
     }),
     "event-forwarder": getEventPipelineAvailability({
       name: "an Event Forwarder",
-      existingId: datasources.find((d) => d.eventForwarderConfig)?.id,
-      existsInOrg: hasEventForwarder,
+      existingId: undefined,
+      existsInOrg: false,
       canCreate,
       isLegacyProPlan,
       hasCommercialFeature: hasCommercialFeature("events-forwarder"),
+      unavailableReason: noFreeEnvironmentReason,
     }),
     custom: canCreate ? { status: "available" } : NO_PERMISSION,
   };

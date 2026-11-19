@@ -21,6 +21,7 @@ import {
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
+import { ModalEventName } from "@/types/app-events";
 import { Size as SharedSize } from "@/ui/sizes";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
@@ -83,7 +84,7 @@ type ModalContextValue = {
   scrollBodyToTop: () => void;
   bodyRef: React.RefObject<HTMLDivElement>;
   sendTrackingEvent: (
-    eventName: string,
+    eventName: ModalEventName,
     additionalProps?: Record<string, unknown>,
   ) => void;
   // True while a ModalForm submit is in flight. Root uses it to block dismiss.
@@ -171,7 +172,7 @@ function Root({
   }, []);
 
   const sendTrackingEvent = useCallback(
-    (eventName: string, additionalProps?: Record<string, unknown>) => {
+    (eventName: ModalEventName, additionalProps?: Record<string, unknown>) => {
       if (trackingEventModalType === "") {
         return;
       }

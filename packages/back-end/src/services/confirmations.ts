@@ -1,6 +1,8 @@
-import { createHash } from "crypto";
+import { createHash, createHmac } from "crypto";
+import { AES, enc } from "crypto-js";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
+import type { FilterQuery } from "mongoose";
 import type {
   ContextualBanditInterface,
   InterleavingInterface,
@@ -23,10 +25,12 @@ import {
   hasPendingScheduledStart,
   matchConfirmRules,
   proposedArchivedValue,
+  redactSecretParams,
   routeConfirmation,
   scheduleActions,
   stringToBoolean,
 } from "shared/util";
+import type { DataSourceType } from "shared/types/datasource";
 import {
   CONFIRM_OVERRIDE_FLAGS,
   BYPASS_OVERRIDE_ACTIONS,
@@ -42,7 +46,11 @@ import {
   BadRequestError,
   ConfirmationRequiredError,
 } from "back-end/src/util/errors";
-import { APP_ORIGIN, IS_MULTI_ORG } from "back-end/src/util/secrets";
+import {
+  APP_ORIGIN,
+  ENCRYPTION_KEY,
+  IS_MULTI_ORG,
+} from "back-end/src/util/secrets";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 
 const TTL_MS = 60 * 60 * 1000;
@@ -52,6 +60,78 @@ const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const asRecord = (v: unknown) =>
   (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+// Keyed, since stored request hashes can cover secret body fields.
+const requestDigest = (value: unknown) =>
+  createHmac("sha256", ENCRYPTION_KEY)
+    .update(JSON.stringify(value))
+    .digest("hex");
+
+function mapSecretFields(
+  body: unknown,
+  fields: readonly string[] | undefined,
+  fn: (value: unknown) => unknown,
+) {
+  if (!fields?.length) return body;
+  const record = { ...asRecord(body) };
+  fields.forEach((f) => {
+    if (f in record) record[f] = fn(record[f]);
+  });
+  return record;
+}
+export const encryptSecretFields = (
+  body: unknown,
+  fields: readonly string[] | undefined,
+) =>
+  mapSecretFields(body, fields, (v) =>
+    AES.encrypt(JSON.stringify(v), ENCRYPTION_KEY).toString(),
+  );
+export const decryptSecretFields = (
+  body: unknown,
+  fields: readonly string[] | undefined,
+) =>
+  mapSecretFields(body, fields, (v) =>
+    JSON.parse(AES.decrypt(String(v), ENCRYPTION_KEY).toString(enc.Utf8)),
+  );
+// A public param can still be a URL with a password in it, e.g. ClickHouse's url.
+function withoutUrlPassword(value: unknown) {
+  if (typeof value !== "string" || !URL.canParse(value)) return value;
+  const url = new URL(value);
+  if (!url.password) return value;
+  url.password = "***";
+  return url.toString();
+}
+// A data source connection keeps its public params, so the confirmer sees where it points.
+function redactSecretValue(value: unknown) {
+  const conn = asRecord(value);
+  if (typeof conn.type !== "string") return "[redacted]";
+  // An unknown type has no public params, so everything but its type stays hidden.
+  const shown = asRecord(redactSecretParams(conn.type as DataSourceType, conn));
+  const hidden = (k: string) =>
+    shown[k] === undefined || (shown[k] === "" && conn[k] !== "");
+  return Object.fromEntries(
+    Object.keys(conn).map((k) => [
+      k,
+      k === "type"
+        ? conn.type
+        : hidden(k)
+          ? "[redacted]"
+          : withoutUrlPassword(shown[k]),
+    ]),
+  );
+}
+export const redactSecretFields = (
+  body: unknown,
+  fields: readonly string[] | undefined,
+) => mapSecretFields(body, fields, redactSecretValue);
+// What the confirm page shows of a held request's stored body.
+export const heldBodyForDisplay = (c: {
+  body?: unknown;
+  secretBodyFields?: string[];
+}) =>
+  redactSecretFields(
+    decryptSecretFields(c.body, c.secretBodyFields),
+    c.secretBodyFields,
+  );
 
 // Every key answers only to its own rules, so scripts and CI keep working.
 // App sessions are never held.
@@ -66,10 +146,13 @@ export const REVISION_MODEL = {
   "saved-group": "savedGroup",
   constant: "constant",
   config: "config",
+  "sdk-connection": "sdkConnection",
 } as const satisfies Record<
   RevisionTargetType | "feature",
   ConfirmationLink["type"]
 >;
+type RevisionModelName = (typeof REVISION_MODEL)[keyof typeof REVISION_MODEL];
+type PatchRevisionModelName = Exclude<RevisionModelName, "feature">;
 
 // The ramp plans staged on a flag draft: each starts a schedule or edits one when
 // the draft lands.
@@ -149,6 +232,27 @@ export function toApiConfirmation(c: ConfirmationInterface): ApiConfirmation {
   };
 }
 
+// The stored rows that toApiConfirmation reports with this status, as $or branches.
+export function confirmationStatusQuery(
+  status: ApiConfirmation["status"],
+): FilterQuery<ConfirmationInterface>[] {
+  const now = new Date();
+  const cutOff = new Date(now.getTime() - RUN_CUT_OFF_MS);
+  return {
+    pending: [{ status: "pending", expiresAt: { $gte: now } }],
+    expired: [
+      { status: "expired" },
+      { status: "pending", expiresAt: { $lt: now } },
+    ],
+    running: [{ status: "running", decidedAt: { $gte: cutOff } }],
+    completed: [
+      { status: "completed" },
+      { status: "running", decidedAt: { $not: { $gte: cutOff } } },
+    ],
+    rejected: [{ status: "rejected" }],
+  }[status];
+}
+
 type HeldRequest = Pick<
   ConfirmationInterface,
   "method" | "path" | "query" | "body"
@@ -176,7 +280,7 @@ function heldRequest(req: IncomingRequest): HeldRequest {
 // refusal it is skipping past.
 function attemptHash(request: HeldRequest) {
   const flags = Object.keys(CONFIRM_OVERRIDE_FLAGS);
-  return hash([
+  return requestDigest([
     request.method,
     request.path,
     omit(asRecord(request.query), flags),
@@ -229,6 +333,7 @@ export async function requireConfirmation(
     pin: unknown;
     // What the checks this request skips said.
     notices?: ConfirmationNotice[];
+    secretBodyFields?: readonly string[];
   },
 ): Promise<void> {
   const environments = opts.environments ?? [];
@@ -276,7 +381,7 @@ export async function requireConfirmation(
   const requestedBy =
     auditUser?.type === "api_key" ? (auditUser.requestedBy ?? null) : null;
   const assumedRole = auditUser?.type === "api_key" && !!auditUser.assumedRole;
-  const requestHash = hash([
+  const requestHash = requestDigest([
     request,
     fingerprint,
     requestedBy?.id,
@@ -303,6 +408,10 @@ export async function requireConfirmation(
       oauthClientId: context.apiKeyData?.oauthClientId,
       project: opts.project || "",
       ...request,
+      body: encryptSecretFields(request.body, opts.secretBodyFields),
+      ...(opts.secretBodyFields?.length
+        ? { secretBodyFields: [...opts.secretBodyFields] }
+        : {}),
       requestHash,
       actions: held,
       summary: opts.summary,
@@ -493,7 +602,7 @@ type ArmableRevision = {
 const isArmed = (revision: ArmableRevision) =>
   !!revision.autoPublishOnApproval || !!revision.scheduledPublishAt;
 const patchDraftState = (
-  model: "savedGroup" | "constant" | "config",
+  model: PatchRevisionModelName,
   revision: (ArmableRevision & { target: { proposedChanges: unknown } }) | null,
 ): DraftState =>
   revision && {
@@ -508,7 +617,7 @@ const patchDraftState = (
 const DRAFT_REVISIONS: Record<
   string,
   {
-    model: "feature" | "savedGroup" | "constant" | "config";
+    model: RevisionModelName;
     load: (
       context: ReqContext,
       params: Record<string, string>,
@@ -534,6 +643,18 @@ const DRAFT_REVISIONS: Record<
     load: loadKeyedRevision("constant"),
   },
   "config-revisions": { model: "config", load: loadKeyedRevision("config") },
+  "sdk-connection-revisions": {
+    model: "sdkConnection",
+    load: async (context, { id, version }) =>
+      patchDraftState(
+        "sdkConnection",
+        await context.models.revisions.getByTargetAndVersion(
+          "sdk-connection",
+          id,
+          Number(version),
+        ),
+      ),
+  },
 };
 
 // Constants and configs are routed by key, but their revisions by id.
@@ -596,15 +717,19 @@ async function armedRevisionActions(
 }
 
 // Publishing a draft: the publish, plus any archive or ramp plan it carries.
+// SDK connections have no publish/archive actions; any landing is an edit.
 export const landingActions = (
-  model: "feature" | "savedGroup" | "constant" | "config",
+  model: RevisionModelName,
   archives: boolean,
   ramps: ConfirmAction[] = [],
-): ConfirmAction[] => [
-  `${model}.publish`,
-  ...(archives ? ([`${model}.archive`] as const) : []),
-  ...ramps,
-];
+): ConfirmAction[] =>
+  model === "sdkConnection"
+    ? ["sdkConnection.edit"]
+    : [
+        `${model}.publish`,
+        ...(archives ? ([`${model}.archive`] as const) : []),
+        ...ramps,
+      ];
 const featureLanding = (revision: FeatureRevisionInterface) =>
   landingActions(
     "feature",
@@ -636,16 +761,14 @@ export const editDisarmsFeatureDraft = (
 ) => editDisarms(context, featureDraftState(revision));
 export const editDisarmsDraft = (
   context: ReqContext,
-  model: "savedGroup" | "constant" | "config",
+  model: PatchRevisionModelName,
   revision: ArmableRevision & { target: { proposedChanges: unknown } },
 ) => editDisarms(context, patchDraftState(model, revision));
 export const DISARMED_BY_EDIT =
   "Canceled because an API key whose publishes need a person's confirmation edited the draft";
 
 // Everything landing a draft can do, for an edit that may add any of it.
-const everyLanding = (
-  model: "feature" | "savedGroup" | "constant" | "config",
-): ConfirmAction[] =>
+const everyLanding = (model: RevisionModelName): ConfirmAction[] =>
   model === "feature"
     ? [...FEATURE_LANDING_ACTIONS]
     : landingActions(model, true);
@@ -680,6 +803,7 @@ export async function holdAtRoute(
   path: string,
   req: { params?: unknown; body?: unknown; query?: unknown },
   summary?: string,
+  secretBodyFields?: readonly string[],
 ): Promise<void> {
   // Nothing below can hold without rules, and it costs lookups.
   if (!rulesFor(context).length) return;
@@ -705,6 +829,7 @@ export async function holdAtRoute(
       `${method.toUpperCase()} ${path.replace(/:(\w+)/g, (_, k) => params[k] ?? k)}`,
     links: route.links,
     pin: null,
+    secretBodyFields,
   });
 }
 

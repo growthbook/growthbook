@@ -122,7 +122,7 @@ describe("environments API", () => {
       .delete("/api/v1/projects/prj__1")
       .set("Authorization", "Bearer foo");
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(404);
     expect(response.body).toEqual({ message: "Could not find project!" });
   });
 
@@ -198,7 +198,7 @@ describe("environments API", () => {
       })
       .set("Authorization", "Bearer foo");
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(404);
     expect(response.body).toEqual({
       message: "Could not find project with that id",
     });

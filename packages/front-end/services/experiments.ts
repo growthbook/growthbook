@@ -1,6 +1,7 @@
 import {
   ExperimentSnapshotSettings,
   SnapshotMetric,
+  SnapshotVariation,
 } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
@@ -48,6 +49,7 @@ import {
   isFactMetric,
   isMetricGroupId,
   isRatioMetric,
+  isScalableClusterSubUnitMetric,
   isSubUnitClusterMetric,
   isSuspiciousUplift,
   quantileMetricType,
@@ -702,7 +704,7 @@ export type RowResults = {
   hasData: boolean;
   enoughData: boolean;
   enoughDataMeta: EnoughDataMeta;
-  hasScaledImpact: boolean;
+  scaledImpactEligible: boolean;
   significant: boolean;
   significantUnadjusted: boolean;
   significantReason: string;
@@ -782,11 +784,10 @@ export function getRowResults({
     maximumFractionDigits: 2,
   });
 
-  // Subunit cluster metrics are analyzed as ratios, which can't be scaled.
-  const hasScaledImpact =
-    !isRatioMetric(metric, denominator) &&
-    !quantileMetricType(metric) &&
-    !(clusterSettings && isSubUnitClusterMetric(metric, clusterSettings));
+  const scaledImpactEligible =
+    clusterSettings && isSubUnitClusterMetric(metric, clusterSettings)
+      ? isScalableClusterSubUnitMetric(metric, clusterSettings)
+      : !isRatioMetric(metric, denominator) && !quantileMetricType(metric);
   const metricSampleSize = getMetricSampleSize(
     baseline,
     stats,
@@ -963,7 +964,7 @@ export function getRowResults({
     hasData,
     enoughData,
     enoughDataMeta,
-    hasScaledImpact,
+    scaledImpactEligible,
     significant,
     significantUnadjusted,
     significantReason,
@@ -1668,4 +1669,24 @@ export function getClusterSubUnitsLabel(
     return undefined;
   }
   return getUnitDisplayName(settings?.clusterSubUnitIdentifier);
+}
+
+/**
+ * Mirrors how each variation's unit count is the max across its metrics, using
+ * the subunit counts of metrics rolled up from the subunit. Null when none has one.
+ */
+export function getResultsSubUnitTotal(
+  variations: SnapshotVariation[],
+): number | null {
+  let total = 0;
+  let found = false;
+  for (const variation of variations) {
+    const subUnits = Math.max(
+      0,
+      ...Object.values(variation.metrics).map((m) => m.stats?.sub_count ?? 0),
+    );
+    if (subUnits) found = true;
+    total += subUnits;
+  }
+  return found ? total : null;
 }

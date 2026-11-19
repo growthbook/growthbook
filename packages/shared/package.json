@@ -19,10 +19,10 @@
     "gen-event-webhook-for-docs": "pnpm exec tsx ./scripts/gen-event-webhook-doc.ts",
     "gen-sdk-resources-for-docs": "pnpm build && pnpm exec tsx ./scripts/gen-sdk-resources.ts",
     "gen-commercial-features-for-docs": "pnpm build && pnpm exec tsx ./scripts/gen-commercial-features-for-docs.ts",
-    "type-gen": "growthbook features generate-types --output ./types --profile growthbook"
+    "type-gen": "growthbook generate-types --output ./types --profile growthbook"
   },
   "dependencies": {
-    "@growthbook/growthbook": "^2.0.0",
+    "@growthbook/growthbook": "^2.2.0",
     "@stdlib/stats": "^0.1.1",
     "ajv": "^8.18.0",
     "date-fns": "^2.15.0",
@@ -34,7 +34,7 @@
     "shared": "workspace:*",
     "sql-formatter": "^15.9.0",
     "uniqid": "^5.4.0",
-    "zod": "^4.1.12"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@ephys/zod-to-ts": "^2.3.2",
