@@ -87,7 +87,10 @@ import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { getMetricRefreshStartQuery } from "back-end/src/services/metricRefreshExecution";
+import {
+  getMetricRefreshQueryStatus,
+  getMetricRefreshStartQuery,
+} from "back-end/src/services/metricRefreshExecution";
 import {
   analyzeSnapshotResults,
   SnapshotResult,
@@ -114,9 +117,6 @@ export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
 export const INCREMENTAL_CUPED_TABLE_PREFIX = "gb_cuped";
 
 const getRandomTableSuffix = () => Math.random().toString(36).substring(2, 10);
-
-const isReplacedTableDropQuery = (name: string): boolean =>
-  name.startsWith(REPLACED_TABLE_DROP_QUERY_PREFIX);
 
 function tableNameFromFullName(fullName: string) {
   const segments = fullName.replace(/`/g, "").split(".");
@@ -1591,17 +1591,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   }
 
   protected override getOverallQueryStatus(): QueryStatus {
-    const status = super.getOverallQueryStatus();
-    return status === "partially-succeeded" && this.isIncompleteMetricRefresh()
-      ? "failed"
-      : status;
-  }
-
-  // Dropping a replaced table cleans up after results that already landed.
-  private isIncompleteMetricRefresh(): boolean {
-    if (!getMetricRefresh(this.model)) return false;
-    return this.model.queries.some(
-      (q) => q.status === "failed" && !isReplacedTableDropQuery(q.name),
+    return getMetricRefreshQueryStatus(
+      this.model,
+      super.getOverallQueryStatus(),
     );
   }
 

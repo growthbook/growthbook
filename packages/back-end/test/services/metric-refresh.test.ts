@@ -20,6 +20,7 @@ import type { SourceIntegrationInterface } from "back-end/src/types/Integration"
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   analyzeMetricRefresh,
+  getMetricRefreshQueryStatus,
   mergeMetricRefreshAnalyses,
 } from "back-end/src/services/metricRefreshExecution";
 import {
@@ -1200,24 +1201,12 @@ describe("Incremental Pipeline carry-over", () => {
 // One rule on both pipelines: a refresh can't partly succeed, except when
 // only the cleanup of a table it no longer needs fails.
 describe("metric refresh status", () => {
-  class ResultsStatusProbe extends ExperimentResultsQueryRunner {
-    overallStatus() {
-      return this.getOverallQueryStatus();
-    }
-  }
-  class IncrementalStatusProbe extends ExperimentIncrementalRefreshQueryRunner {
-    overallStatus() {
-      return this.getOverallQueryStatus();
-    }
-  }
   const pipelines = {
     results: {
-      probe: ResultsStatusProbe,
       queries: ["group_0", "group_1", "met_c"],
       cleanup: "drop_snp_refresh",
     },
     "incremental-update": {
-      probe: IncrementalStatusProbe,
       queries: [
         "statistics_fta_0",
         "traffic",
@@ -1274,7 +1263,7 @@ describe("metric refresh status", () => {
   ] as const)(
     "on $runnerKind, $run whose $failed query failed is $expected",
     ({ runnerKind, run, failed, expected }) => {
-      const { probe: Probe, queries, cleanup } = pipelines[runnerKind];
+      const { queries, cleanup } = pipelines[runnerKind];
       const failedName = failed === "cleanup" ? cleanup : failed;
       const snapshot = makeParent({
         id: "snp_refresh",
@@ -1289,14 +1278,9 @@ describe("metric refresh status", () => {
           : {}),
       });
 
-      expect(
-        new Probe(
-          context,
-          snapshot,
-          {} as SourceIntegrationInterface,
-          false,
-        ).overallStatus(),
-      ).toBe(expected);
+      expect(getMetricRefreshQueryStatus(snapshot, "partially-succeeded")).toBe(
+        expected,
+      );
     },
   );
 });

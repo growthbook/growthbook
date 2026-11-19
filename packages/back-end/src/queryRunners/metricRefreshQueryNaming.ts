@@ -24,6 +24,14 @@ export const STATISTICS_QUERY_PREFIX = "statistics_";
 
 export const REPLACED_TABLE_DROP_QUERY_PREFIX = "drop_replaced_";
 
+/** A drop of a table the run no longer needs once its results landed. */
+export function isTableCleanupQuery(name: string, snapshotId: string): boolean {
+  return (
+    name === `drop_${snapshotId}` ||
+    name.startsWith(REPLACED_TABLE_DROP_QUERY_PREFIX)
+  );
+}
+
 /** The metrics a run of the standard pipeline's result queries covers. */
 export type ResultQueryScope = {
   metricIds: ReadonlySet<string>;

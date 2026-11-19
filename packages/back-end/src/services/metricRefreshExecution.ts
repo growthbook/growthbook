@@ -9,9 +9,10 @@ import type {
 } from "shared/types/experiment-snapshot";
 import type { ExperimentReportResults } from "shared/types/report";
 import type { BanditResult } from "shared/types/experiment";
-import type { Queries, QueryPointer } from "shared/types/query";
+import type { Queries, QueryPointer, QueryStatus } from "shared/types/query";
 import {
   getDefinitionMetricId,
+  getMetricRefresh,
   type ExperimentMetricInterface,
 } from "shared/experiments";
 import type { ReqContext } from "back-end/types/request";
@@ -32,7 +33,10 @@ import type {
   RowsType,
   StartQueryParams,
 } from "back-end/src/queryRunners/QueryRunner";
-import { isCarriedMetricRefreshQuery } from "back-end/src/queryRunners/metricRefreshQueryNaming";
+import {
+  isCarriedMetricRefreshQuery,
+  isTableCleanupQuery,
+} from "back-end/src/queryRunners/metricRefreshQueryNaming";
 
 export type AnalyzedSnapshotResults = {
   unknownVariations: string[];
@@ -317,4 +321,24 @@ export async function getMetricRefreshStartQuery(
 ): Promise<StartQuery> {
   const copiers = await getParentQueryCopiers(context, refresh, metricRefresh);
   return (query) => copiers.get(query.name)?.() ?? startQuery(query);
+}
+
+/**
+ * A metric refresh can't partly succeed on either pipeline, since its results
+ * would lack metrics. A failed drop of a table it no longer needs doesn't count.
+ */
+export function getMetricRefreshQueryStatus(
+  snapshot: Pick<
+    ExperimentSnapshotInterface,
+    "id" | "type" | "metricRefresh" | "queries"
+  >,
+  status: QueryStatus,
+): QueryStatus {
+  if (status !== "partially-succeeded" || !getMetricRefresh(snapshot)) {
+    return status;
+  }
+  const incomplete = snapshot.queries.some(
+    (q) => q.status === "failed" && !isTableCleanupQuery(q.name, snapshot.id),
+  );
+  return incomplete ? "failed" : status;
 }

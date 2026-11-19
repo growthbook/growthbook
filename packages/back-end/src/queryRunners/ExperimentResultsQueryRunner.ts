@@ -76,6 +76,7 @@ import {
   analyzeMetricRefresh,
   type AnalyzedSnapshotResults,
   carryMetricRefreshQueries,
+  getMetricRefreshQueryStatus,
 } from "back-end/src/services/metricRefreshExecution";
 import {
   QueryRunner,
@@ -763,17 +764,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   protected override getOverallQueryStatus(): QueryStatus {
-    const status = super.getOverallQueryStatus();
-    return status === "partially-succeeded" && this.isIncompleteMetricRefresh()
-      ? "failed"
-      : status;
-  }
-
-  private isIncompleteMetricRefresh(): boolean {
-    if (!getMetricRefresh(this.model)) return false;
-    const ownDropQuery = `drop_${this.model.id}`;
-    return this.model.queries.some(
-      (q) => q.status === "failed" && q.name !== ownDropQuery,
+    return getMetricRefreshQueryStatus(
+      this.model,
+      super.getOverallQueryStatus(),
     );
   }
 
