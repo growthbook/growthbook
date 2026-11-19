@@ -1,6 +1,5 @@
 import isEqual from "lodash/isEqual";
 import omitBy from "lodash/omitBy";
-import uniq from "lodash/uniq";
 import {
   getDefinitionMetricId,
   getMetricIdsMissingFromSnapshot,
@@ -121,9 +120,6 @@ export type GenerateResultQuerySql = (args: {
  * parent's query results for every other metric, pinned to the parent's end
  * date. Throws a typed error before anything is written. With `window`, also
  * throws MetricRefreshOutsideWindowError when shouldUpdateNewMetricsOnly says no.
- *
- * `planSnapshotAt` with `extraMetricIds` plans as if those metrics were still
- * in the experiment, so metrics removed since the parent ran can be replayed.
  */
 export async function planMetricRefresh({
   context,
@@ -144,10 +140,7 @@ export async function planMetricRefresh({
   dimension: string | undefined;
   useCache: boolean;
   metricGroups: MetricGroupInterface[];
-  planSnapshotAt: (
-    cutoff: Date,
-    extraMetricIds?: readonly string[],
-  ) => Promise<PlannedExperimentSnapshot>;
+  planSnapshotAt: (cutoff: Date) => Promise<PlannedExperimentSnapshot>;
   generateResultQuerySql: GenerateResultQuerySql;
   window?: NewMetricsUpdateWindow;
 }): Promise<PlannedExperimentSnapshot> {
@@ -285,7 +278,6 @@ export async function planMetricRefresh({
       parent,
       planned: plan.snapshot.settings,
       carriedQueries: parent.queries.filter((q) => isCarried(q.name)),
-      planSnapshotAt,
       generateResultQuerySql,
     });
   }
@@ -523,43 +515,23 @@ async function assertCarriedQuerySqlUnchanged({
   parent,
   planned,
   carriedQueries,
-  planSnapshotAt,
   generateResultQuerySql,
 }: {
   context: ReqContext | ApiReqContext;
   parent: ExperimentSnapshotInterface;
   planned: ExperimentSnapshotSettings;
   carriedQueries: QueryPointer[];
-  planSnapshotAt: (
-    cutoff: Date,
-    extraMetricIds: readonly string[],
-  ) => Promise<PlannedExperimentSnapshot>;
   generateResultQuerySql: GenerateResultQuerySql;
 }): Promise<void> {
   const lineage = await loadMetricRefreshLineage(context, parent);
 
   const todaysEntries = new Map(planned.metricSettings.map((m) => [m.id, m]));
-  const removedMetricIds = uniq(
-    lineage
-      .flatMap((level) => level.settings.metricSettings.map((m) => m.id))
-      .filter((id) => !todaysEntries.has(id))
-      .map(getDefinitionMetricId),
-  );
-  if (removedMetricIds.length) {
-    const withRemoved = await planSnapshotAt(
-      parent.settings.endDate,
-      removedMetricIds,
-    );
-    for (const entry of withRemoved.snapshot.settings.metricSettings) {
-      if (!todaysEntries.has(entry.id)) todaysEntries.set(entry.id, entry);
-    }
-  }
-
   const levels = lineage.map((level): MetricRefreshReplayLevel => {
     const metricSettings = level.settings.metricSettings.map((m) =>
       todaysEntries.get(m.id),
     );
-    // A deleted metric can't be regenerated, so its group can't be checked.
+    // A metric no longer on the experiment has no settings to regenerate its
+    // group from, so the group can't be checked.
     if (!metricSettings.every(isDefined)) {
       throw unavailable("settings_changed");
     }

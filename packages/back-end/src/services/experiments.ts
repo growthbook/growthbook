@@ -3189,49 +3189,45 @@ export async function planExperimentSnapshot({
   const postStratificationEnabled = settings.postStratificationEnabled.value;
 
   const metricMap = await getMetricMap(context);
-  if (!metricIds.some((metricId) => metricMap.has(metricId))) {
+  const allExperimentMetrics = metricIds.map(
+    (metricId) => metricMap.get(metricId) ?? null,
+  );
+  if (!allExperimentMetrics.some(isDefined)) {
     throw new BadRequestError(
       "Experiment must have at least 1 metric selected to be analyzed.",
     );
   }
 
-  const getMetricSettingsForSnapshot = (exp: ExperimentInterface) => {
-    const allExperimentMetrics = getAllMetricIdsFromExperiment(
-      exp,
-      false,
-      metricGroups,
-    ).map((metricId) => metricMap.get(metricId) ?? null);
-    const denominatorMetricIds = uniq<string>(
-      allExperimentMetrics
-        .map((m) => m?.denominator)
-        .filter((d) => d && typeof d === "string") as string[],
-    );
-    const denominatorMetrics = denominatorMetricIds
-      .map((m) => metricMap.get(m) || null)
-      .filter(isDefined) as MetricInterface[];
-    return getAllMetricSettingsForSnapshot({
-      allExperimentMetrics,
-      denominatorMetrics,
-      orgSettings,
-      experimentRegressionAdjustmentEnabled: exp.regressionAdjustmentEnabled,
-      experimentMetricOverrides: exp.metricOverrides,
-      datasourceType: datasource?.type,
-      hasRegressionAdjustmentFeature: true,
-      ...(exp.type === "multi-armed-bandit"
-        ? {
-            banditConversionWindowValue:
-              exp.banditConversionWindowValue ?? undefined,
-            banditConversionWindowUnit:
-              exp.banditConversionWindowUnit ?? undefined,
-          }
-        : {}),
-    });
-  };
+  const denominatorMetricIds = uniq<string>(
+    allExperimentMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[],
+  );
+  const denominatorMetrics = denominatorMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined) as MetricInterface[];
 
   const factTableMap = await getFactTableMap(context);
 
   const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
-    getMetricSettingsForSnapshot(experiment);
+    getAllMetricSettingsForSnapshot({
+      allExperimentMetrics,
+      denominatorMetrics,
+      orgSettings,
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled,
+      experimentMetricOverrides: experiment.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature: true,
+      ...(experiment.type === "multi-armed-bandit"
+        ? {
+            banditConversionWindowValue:
+              experiment.banditConversionWindowValue ?? undefined,
+            banditConversionWindowUnit:
+              experiment.banditConversionWindowUnit ?? undefined,
+          }
+        : {}),
+    });
 
   const analysisSettings = getDefaultExperimentAnalysisSettings({
     statsEngine,
@@ -3270,25 +3266,7 @@ export async function planExperimentSnapshot({
       dimension,
       useCache,
       metricGroups,
-      planSnapshotAt: (cutoff, extraMetricIds = []) => {
-        const experimentToPlan = extraMetricIds.length
-          ? {
-              ...experiment,
-              secondaryMetrics: [
-                ...experiment.secondaryMetrics,
-                ...extraMetricIds,
-              ],
-            }
-          : experiment;
-        return planSnapshot({
-          ...planSnapshotArgs,
-          experiment: experimentToPlan,
-          settingsForSnapshotMetrics:
-            getMetricSettingsForSnapshot(experimentToPlan)
-              .settingsForSnapshotMetrics,
-          cutoff,
-        });
-      },
+      planSnapshotAt: (cutoff) => planSnapshot({ ...planSnapshotArgs, cutoff }),
       generateResultQuerySql: ({ settings, queryParentId, scope }) =>
         generateExperimentResultQuerySql(
           context,

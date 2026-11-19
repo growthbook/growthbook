@@ -605,35 +605,31 @@ describe("planMetricRefresh", () => {
     expect(args.planSnapshotAt).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["its own units table drop", "drop_snp_parent"],
-    ["the query of a metric since removed", "met_gone"],
-  ])(
-    "accepts a parent whose only failed query is %s, which it does not copy",
-    async (name, failed) => {
-      findParentMock.mockResolvedValue(
-        makeParent({
-          settings: makeSettings(["met_a", "met_b", "met_gone"]),
-          queries: [
-            { name: "group_0", query: "qry_group", status: "succeeded" },
-            { name: failed, query: "qry_failed", status: "failed" },
-          ],
-        }),
-      );
-      storeQueries({ qry_group: groupSql(["met_a", "met_b", "met_gone"], 0) });
+  it("accepts a parent whose only failed query is its own units table drop, which it does not copy", async () => {
+    findParentMock.mockResolvedValue(
+      makeParent({
+        queries: [
+          { name: "group_0", query: "qry_group", status: "succeeded" },
+          { name: "drop_snp_parent", query: "qry_failed", status: "failed" },
+        ],
+      }),
+    );
 
-      const plan = await planMetricRefresh(
-        refreshArgs({
-          planSnapshotAt: async (cutoff, extraMetricIds = []) =>
-            makePlan({
-              metricIds: ["met_a", "met_b", "met_c", ...extraMetricIds],
-            }),
-        }),
-      );
+    const plan = await planMetricRefresh(refreshArgs());
 
-      expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
-    },
-  );
+    expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
+  });
+
+  it("refuses as changed settings when a metric the parent copied is no longer on the experiment", async () => {
+    findParentMock.mockResolvedValue(
+      makeParent({ settings: makeSettings(["met_a", "met_b", "met_gone"]) }),
+    );
+    storeQueries({ qry_group: groupSql(["met_a", "met_b", "met_gone"], 0) });
+
+    await expect(planMetricRefresh(refreshArgs())).rejects.toMatchObject({
+      details: { reason: "settings_changed" },
+    });
+  });
 
   // The first update on the Incremental Pipeline is a Full Refresh.
   it("plans an incremental update after an incremental-full parent", async () => {
