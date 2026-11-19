@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { PiArrowDown, PiArrowUp } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
+import { Flex, VisuallyHidden } from "@radix-ui/themes";
 import type {
   ComparisonMode,
   ExplorationConfig,
@@ -72,7 +72,14 @@ export default function ExplorerDataTable({
     (key: string, value: unknown, row: Record<string, unknown>) => {
       // Shown only, so CSV downloads keep empty cells empty. Raw tables show
       // the warehouse's values as they are.
-      if (!isRawTable && (value ?? "") === "") return "—";
+      if (!isRawTable && (value ?? "") === "") {
+        return (
+          <>
+            <span aria-hidden="true">—</span>
+            <VisuallyHidden>No data</VisuallyHidden>
+          </>
+        );
+      }
       if (!tableCompareActive) {
         return formatNumericLikeForDisplay(value);
       }

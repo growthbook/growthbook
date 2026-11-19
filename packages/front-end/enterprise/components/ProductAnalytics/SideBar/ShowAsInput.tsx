@@ -20,6 +20,17 @@ const getLabels = (unit: string | null): Record<LabelKey, string> => ({
   per_population_member: "Per Population member",
 });
 
+// How each option calculates its value. "Per unit" and "Per Population member"
+// differ only in who counts, which their labels don't say.
+const getDescriptions = (unit: string | null): Record<LabelKey, string> => ({
+  total: "Number of units that converted",
+  event_totals: "Sum across all events",
+  per_unit: `Average per ${unit ?? "unit"} with at least one event`,
+  percent_of_population: "Share of Population members who converted",
+  per_population_member:
+    "Average per Population member, including members with no events",
+});
+
 export default function ShowAsInput({
   options,
   value,
@@ -40,10 +51,10 @@ export default function ShowAsInput({
 }) {
   const [open, setOpen] = useState(false);
   const allLabels = getLabels(unit);
-  const label = (showAs: ShowAs) =>
-    allLabels[
-      showAs === "total" && metricType === "mean" ? "event_totals" : showAs
-    ];
+  const allDescriptions = getDescriptions(unit);
+  const labelKey = (showAs: ShowAs): LabelKey =>
+    showAs === "total" && metricType === "mean" ? "event_totals" : showAs;
+  const label = (showAs: ShowAs) => allLabels[labelKey(showAs)];
   // Nothing to choose (e.g. while the metric loads), so show the saved mode.
   if (options.length <= 1) {
     return (
@@ -71,6 +82,8 @@ export default function ShowAsInput({
       {options.map((option) => (
         <DropdownMenuItem
           key={option}
+          tooltip={allDescriptions[labelKey(option)]}
+          tooltipSide="right"
           onClick={() => {
             setValue(option);
             setOpen(false);
