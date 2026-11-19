@@ -20,6 +20,8 @@ import {
   stripExplorerDraftFields,
   validateDimensions,
   type ExplorerDraftConfig,
+  buildExplorationTableColumnFormats,
+  formatExplorationTableCell,
 } from "@/enterprise/components/ProductAnalytics/util";
 
 function makeColumn(overrides: Partial<ColumnInterface>): ColumnInterface {
@@ -825,5 +827,70 @@ describe("stripExplorerDraftFields", () => {
         lineDraft({ valueAxisLabel: "Revenue", anchorYAxisToZero: true }),
       ).chartSettings,
     ).toEqual({ valueAxisLabel: "Revenue" });
+  });
+});
+
+describe("formatExplorationTableCell", () => {
+  it("leaves label columns untouched even when they look numeric", () => {
+    expect(formatExplorationTableCell("2026", { type: "text" })).toBe("2026");
+    expect(formatExplorationTableCell(90210, { type: "text" })).toBe("90210");
+  });
+
+  it("adds separators and fixed decimals to number columns", () => {
+    expect(
+      formatExplorationTableCell(26770, { type: "number", fractionDigits: 0 }),
+    ).toBe("26,770");
+    expect(
+      formatExplorationTableCell(1234.5, { type: "number", fractionDigits: 2 }),
+    ).toBe("1,234.50");
+  });
+
+  it("never reinterprets a string in a number column", () => {
+    expect(
+      formatExplorationTableCell("12.3%", {
+        type: "number",
+        fractionDigits: 0,
+      }),
+    ).toBe("12.3%");
+    expect(
+      formatExplorationTableCell("2026", { type: "number", fractionDigits: 0 }),
+    ).toBe("2026");
+  });
+
+  it("renders empty values as blank", () => {
+    expect(formatExplorationTableCell(null, { type: "text" })).toBe("");
+    expect(formatExplorationTableCell(undefined, undefined)).toBe("");
+  });
+});
+
+describe("buildExplorationTableColumnFormats", () => {
+  const rows = [
+    { date: "2026", count: 10, rate: 12.5, curr: 3, prev: 2.25 },
+    { date: "2025", count: 20, rate: 12.25, curr: 4, prev: null },
+  ];
+
+  it("marks label columns as text", () => {
+    const formats = buildExplorationTableColumnFormats(rows, ["date"], []);
+    expect(formats).toEqual({ date: { type: "text" } });
+  });
+
+  it("uses decimals only for columns that have fractional values", () => {
+    const formats = buildExplorationTableColumnFormats(
+      rows,
+      [],
+      [["count"], ["rate"]],
+    );
+    expect(formats.count).toEqual({ type: "number", fractionDigits: 0 });
+    expect(formats.rate).toEqual({ type: "number", fractionDigits: 2 });
+  });
+
+  it("shares one decimal count across a grouped pair", () => {
+    const formats = buildExplorationTableColumnFormats(
+      rows,
+      [],
+      [["curr", "prev"]],
+    );
+    expect(formats.curr).toEqual({ type: "number", fractionDigits: 2 });
+    expect(formats.prev).toEqual({ type: "number", fractionDigits: 2 });
   });
 });

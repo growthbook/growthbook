@@ -1504,6 +1504,66 @@ export function formatDateByGranularity(
   }
 }
 
+/**
+ * How a result-table column displays its cells. Decided per column, never by
+ * sniffing a value: a year bucket "2026" and a count 2026 look identical.
+ */
+export type ExplorationTableColumnFormat =
+  | { type: "text" }
+  | { type: "number"; fractionDigits: number };
+
+/**
+ * The single place result-table cells become display strings. Rows hold
+ * export-ready values (labels as strings, quantities as numbers); this adds
+ * the on-screen-only concerns: thousands separators and aligned decimals.
+ */
+export function formatExplorationTableCell(
+  value: unknown,
+  format: ExplorationTableColumnFormat | undefined,
+): string {
+  if ((value ?? null) === null) return "";
+  if (
+    format?.type === "number" &&
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
+    return value.toLocaleString(undefined, {
+      minimumFractionDigits: format.fractionDigits,
+      maximumFractionDigits: format.fractionDigits,
+    });
+  }
+  return String(value);
+}
+
+/**
+ * Column formats for a result table. `textKeys` are label columns. Each group
+ * in `numberKeyGroups` shares one decimal count (two when any of its values
+ * has a fraction, otherwise none) so a column, or a current/previous pair,
+ * reads consistently.
+ */
+export function buildExplorationTableColumnFormats(
+  rowData: Record<string, unknown>[],
+  textKeys: string[],
+  numberKeyGroups: string[][],
+): Record<string, ExplorationTableColumnFormat> {
+  const formats: Record<string, ExplorationTableColumnFormat> = {};
+  for (const key of textKeys) formats[key] = { type: "text" };
+  for (const group of numberKeyGroups) {
+    const hasFraction = rowData.some((row) =>
+      group.some((key) => {
+        const v = row[key];
+        return (
+          typeof v === "number" && Number.isFinite(v) && !Number.isInteger(v)
+        );
+      }),
+    );
+    for (const key of group) {
+      formats[key] = { type: "number", fractionDigits: hasFraction ? 2 : 0 };
+    }
+  }
+  return formats;
+}
+
 /** Formats a millisecond duration as a compact "1m 23s" style string. */
 export function formatDurationMs(ms: number | null | undefined): string {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return "—";
