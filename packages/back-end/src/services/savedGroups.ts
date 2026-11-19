@@ -9,6 +9,7 @@ import {
 import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
 import type { FeatureInterface } from "shared/types/feature";
 import type { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import type {
   GroupMap,
   SavedGroupWithoutValues,
@@ -65,6 +66,7 @@ export function findSavedGroupDependents({
   holdoutExperiments,
   bandits,
   interleavings,
+  qaOverrides = [],
 }: {
   groupId: string;
   savedGroups: Pick<SavedGroupWithoutValues, "id" | "condition">[];
@@ -73,6 +75,7 @@ export function findSavedGroupDependents({
   holdoutExperiments: ExperimentInterface[];
   bandits: ContextualBanditInterface[];
   interleavings: InterleavingInterface[];
+  qaOverrides?: Pick<ExperimentQaOverrideInterface, "filters">[];
 }) {
   // The group plus every condition group that reaches it.
   const reaching = new Set([groupId]);
@@ -126,6 +129,9 @@ export function findSavedGroupDependents({
     interleavings: interleavings.filter((interleaving) =>
       names({ features: [], interleavings: [interleaving] }),
     ),
+    qaAffected: qaOverrides.some((override) =>
+      names({ features: [], qaOverrides: [override.filters] }),
+    ),
   };
 }
 
@@ -142,6 +148,7 @@ export async function getSavedGroupPayloadKeys(
     holdoutExperiments,
     bandits,
     interleavings,
+    qaOverrides,
   ] = await Promise.all([
     context.models.savedGroups.getAllWithoutValues(),
     getAllFeaturesForGraph(context, {}),
@@ -149,6 +156,7 @@ export async function getSavedGroupPayloadKeys(
     getAllExperiments(context, { type: "holdout" }),
     context.models.contextualBandits.getAll(),
     context.models.interleavings.getAllPayloadInterleavings(),
+    context.models.experimentQaOverrides.getAllForPayload(),
   ]);
   const dependents = findSavedGroupDependents({
     groupId,
@@ -158,8 +166,10 @@ export async function getSavedGroupPayloadKeys(
     holdoutExperiments,
     bandits,
     interleavings,
+    qaOverrides,
   });
-  if (dependents.holdoutAffected) return null;
+  // A QA override can reach any connection in its environment.
+  if (dependents.holdoutAffected || dependents.qaAffected) return null;
 
   const allProjectIds = await context.getAllProjectIds();
   const featuresById = new Map(features.map((f) => [f.id, f]));
@@ -286,6 +296,7 @@ export async function loadSavedGroupReferences(
     holdoutExperiments,
     allBandits,
     allInterleavings,
+    allQaOverrides,
   ] = await Promise.all([
     getAllFeaturesForGraph(context, {}),
     getAllExperiments(context, {}),
@@ -294,6 +305,7 @@ export async function loadSavedGroupReferences(
     getAllExperiments(context, { type: "holdout" }),
     context.models.contextualBandits.getAll(),
     context.models.interleavings.getAll(),
+    context.models.experimentQaOverrides.getAllForPayload(),
   ]);
 
   const featureRefMap = featuresReferencingSavedGroups({
@@ -331,6 +343,19 @@ export async function loadSavedGroupReferences(
   }
 
   const groupIds = savedGroupsToCheck.map((sg) => sg.id);
+  for (const override of allQaOverrides) {
+    if (
+      !groupIds.some((id) =>
+        targetingReferencesSavedGroup(override.filters, id),
+      )
+    ) {
+      continue;
+    }
+    const e = allExperiments.find((exp) => exp.id === override.experiment);
+    if (e) {
+      experimentsSet.set(e.id, { id: e.id, name: e.name, project: e.project });
+    }
+  }
   const contextualBandits = allBandits
     .filter(
       (cb) =>
