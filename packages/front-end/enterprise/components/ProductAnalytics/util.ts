@@ -1557,7 +1557,7 @@ function formatDateAxisLabel(
  * Left alone, ECharts picks time-axis ticks without knowing the bucket size: a
  * single yearly bucket gets padded to a two-day window labelled in hours, and
  * coarse buckets get ticks between them. Pinning ticks to bucket starts
- * (thinned to at most `maxTicks`) keeps every tick and grid line on a real
+ * (thinned to at most `maxTicks`, always keeping the latest) keeps every tick and grid line on a real
  * bucket. A lone bucket also gets an explicit extent of half a bucket either
  * side, so it sits centred under its one label. Labels share one format: all
  * with the year, or (when every tick falls in the current year) all without.
@@ -1587,7 +1587,10 @@ export function buildDateTimeAxisTicks({
   ).sort((a, b) => a - b);
 
   const stride = Math.max(1, Math.ceil(times.length / Math.max(1, maxTicks)));
-  const tickValues = times.filter((_, i) => i % stride === 0);
+  // Count back from the latest bucket so the most recent period, usually the
+  // one people look at, always gets a tick.
+  const last = times.length - 1;
+  const tickValues = times.filter((_, i) => (last - i) % stride === 0);
 
   // Leave the year off only when every tick is in the current year, where it
   // goes without saying.

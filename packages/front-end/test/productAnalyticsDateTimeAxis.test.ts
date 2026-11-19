@@ -69,7 +69,7 @@ describe("buildDateTimeAxisTicks", () => {
     ]);
   });
 
-  it("thins ticks to at most maxTicks, keeping the first bucket", () => {
+  it("thins ticks to at most maxTicks, keeping the latest bucket", () => {
     const bucketIsos = Array.from({ length: 30 }, (_, i) =>
       new Date(Date.UTC(2025, 0, 1 + i)).toISOString(),
     );
@@ -78,10 +78,11 @@ describe("buildDateTimeAxisTicks", () => {
       granularity: "day",
       maxTicks: 10,
     });
-    // 30 buckets / 10 ticks → every 3rd bucket.
+    // 30 buckets / 10 ticks → every 3rd bucket, counted back from Jan 30.
     expect(result.tickValues).toHaveLength(10);
-    expect(result.tickValues[0]).toBe(Date.UTC(2025, 0, 1));
-    expect(result.tickValues[1]).toBe(Date.UTC(2025, 0, 4));
+    expect(result.tickValues[9]).toBe(Date.UTC(2025, 0, 30));
+    expect(result.tickValues[8]).toBe(Date.UTC(2025, 0, 27));
+    expect(result.tickValues[0]).toBe(Date.UTC(2025, 0, 3));
   });
 
   it("labels every tick without the year when all are in the current year", () => {
