@@ -83,7 +83,7 @@ export async function getParentQueryCopiers(
  * result groups are numbered after the parent's, and a rebuilt Incremental
  * Pipeline cache gets a new group id.
  */
-export function getQueriesStartedByRefresh(
+function getQueriesStartedByRefresh(
   queryMap: QueryMap,
   parentQueries: Queries,
 ): QueryMap {

@@ -106,7 +106,7 @@ export function isAnalysisDateRangeOutdated({
   );
 }
 
-export const RESULTS_OUTDATED_REASON_LABELS = {
+const RESULTS_OUTDATED_REASON_LABELS = {
   stats_engine: "Stats engine changed",
   activation_metric: EXPERIMENT_OUTDATED_REASON_LABELS.activationMetric,
   segment: EXPERIMENT_OUTDATED_REASON_LABELS.segment,
