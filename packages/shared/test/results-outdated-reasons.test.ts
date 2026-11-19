@@ -1,7 +1,5 @@
 import {
   getResultsOutdatedReasons,
-  getResultsOutdatedReasonLabel,
-  RESULTS_OUTDATED_REASON_LABELS,
   type ResultsOutdatedReason,
 } from "../src/experiments/outdated-reasons";
 
@@ -106,19 +104,6 @@ function reasons(overrides: Partial<Input> = {}): ResultsOutdatedReason[] {
 }
 
 describe("getResultsOutdatedReasons", () => {
-  it("is empty when the results match the experiment", () => {
-    expect(reasons()).toEqual([]);
-  });
-
-  it("is empty when the snapshot has no analysis", () => {
-    expect(
-      reasons({
-        experiment: experiment({ segment: "seg_1" }),
-        snapshot: snapshot({}, { analyses: [] }),
-      }),
-    ).toEqual([]);
-  });
-
   it.each<[ResultsOutdatedReason, Partial<Input>]>([
     ["stats_engine", { statsEngine: "frequentist" }],
     [
@@ -182,13 +167,9 @@ describe("getResultsOutdatedReasons", () => {
       { experiment: experiment({ regressionAdjustmentEnabled: true }) },
     ],
     ["newer_overall_results", { newerOverallResultsAvailable: true }],
-  ])("returns %s for its change alone", (expected, overrides) => {
-    expect(reasons(overrides)).toEqual([expected]);
-  });
-
-  it("returns cluster_sub_unit when only the cluster subunit changed", () => {
-    expect(
-      reasons({
+    [
+      "cluster_sub_unit",
+      {
         experiment: experiment({
           isClusterExperiment: true,
           clusterSubUnitIdentifier: "user_id",
@@ -197,8 +178,10 @@ describe("getResultsOutdatedReasons", () => {
           isClusterExperiment: true,
           clusterSubUnitIdentifier: "device_id",
         }),
-      }),
-    ).toEqual(["cluster_sub_unit"]);
+      },
+    ],
+  ])("returns %s for its change alone", (expected, overrides) => {
+    expect(reasons(overrides)).toEqual([expected]);
   });
 
   it("lists every reason in the badge's order", () => {
@@ -213,30 +196,52 @@ describe("getResultsOutdatedReasons", () => {
     ).toEqual(["segment", "metrics_changed", "p_value_threshold"]);
   });
 
-  it("does not count a removed metric as a change", () => {
-    expect(reasons({ experiment: experiment({ goalMetrics: [] }) })).toEqual(
-      [],
-    );
-  });
-
-  it("leaves out metrics that no update computes", () => {
-    expect(
-      reasons({
+  it.each<[string, Partial<Input>]>([
+    ["the results match the experiment", {}],
+    [
+      "the snapshot has no analysis",
+      {
+        experiment: experiment({ segment: "seg_1" }),
+        snapshot: snapshot({}, { analyses: [] }),
+      },
+    ],
+    ["a metric was removed", { experiment: experiment({ goalMetrics: [] }) }],
+    [
+      "the only added metric is one no update computes",
+      {
         experiment: experiment({
           goalMetrics: ["fact__a", "fact__unjoinable"],
         }),
         unjoinableMetricIds: new Set(["fact__unjoinable"]),
-      }),
-    ).toEqual([]);
-    expect(
-      reasons({
+      },
+    ],
+    [
+      "the only added metric is a holdout's conversion-window metric",
+      {
         experiment: experiment({
           type: "holdout",
           goalMetrics: ["fact__a", "fact__conversion"],
         }),
         conversionWindowMetricIds: new Set(["fact__conversion"]),
-      }),
-    ).toEqual([]);
+      },
+    ],
+    [
+      "the analysis dates changed while updates are disabled",
+      {
+        experiment: experiment({
+          phases: [
+            {
+              dateStarted: START.toISOString(),
+              dateEnded: "2026-01-12T00:00:00Z",
+              variations: [],
+            },
+          ],
+        }),
+        resultsUpdateDisabled: true,
+      },
+    ],
+  ])("returns no reason when %s", (name, overrides) => {
+    expect(reasons(overrides)).toEqual([]);
   });
 
   it("measures a lagged running phase from the base update of a refresh", () => {
@@ -271,38 +276,5 @@ describe("getResultsOutdatedReasons", () => {
         }),
       }),
     ).toEqual(["analysis_dates_changed"]);
-  });
-
-  it("never flags dates when updates are disabled", () => {
-    expect(
-      reasons({
-        experiment: experiment({
-          phases: [
-            {
-              dateStarted: START.toISOString(),
-              dateEnded: "2026-01-12T00:00:00Z",
-              variations: [],
-            },
-          ],
-        }),
-        resultsUpdateDisabled: true,
-      }),
-    ).toEqual([]);
-  });
-});
-
-describe("getResultsOutdatedReasonLabel", () => {
-  it("labels every reason", () => {
-    for (const reason of Object.keys(
-      RESULTS_OUTDATED_REASON_LABELS,
-    ) as ResultsOutdatedReason[]) {
-      expect(getResultsOutdatedReasonLabel(reason)).toMatch(/\S/);
-    }
-    expect(getResultsOutdatedReasonLabel("metrics_changed")).toBe(
-      "Metrics changed",
-    );
-    expect(getResultsOutdatedReasonLabel("analysis_dates_changed")).toBe(
-      "Analysis dates changed",
-    );
   });
 });

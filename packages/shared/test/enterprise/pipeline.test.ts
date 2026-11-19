@@ -313,38 +313,33 @@ describe("isNewerOverallResultsDataAvailable", () => {
       analysisEndDate: rootDate,
     };
 
-    it("returns false for a breakdown built on that same refresh", () => {
-      expect(
-        isNewerOverallResultsDataAvailable(breakdownOnRefresh, refresh),
-      ).toBe(false);
-    });
-
-    it("returns false after a later refresh of the same root", () => {
-      expect(
-        isNewerOverallResultsDataAvailable(
-          breakdownOnRefresh,
-          makeRefresh(new Date("2024-06-01T14:00:00Z"), rootDate),
-        ),
-      ).toBe(false);
-    });
-
-    it("returns true after a later full update", () => {
-      expect(
-        isNewerOverallResultsDataAvailable(breakdownOnRefresh, {
-          type: "standard",
+    it.each([
+      ["false for that same refresh", refresh, false],
+      [
+        "false after a later refresh of the same root",
+        makeRefresh(new Date("2024-06-01T14:00:00Z"), rootDate),
+        false,
+      ],
+      [
+        "true after a later full update",
+        {
+          type: "standard" as const,
           dateCreated: new Date("2024-06-01T15:00:00Z"),
-        }),
-      ).toBe(true);
-    });
-
-    it("returns true for a refresh whose root is a later full update", () => {
-      const laterRoot = new Date("2024-06-01T15:00:00Z");
-      expect(
-        isNewerOverallResultsDataAvailable(
-          breakdownOnRefresh,
-          makeRefresh(new Date("2024-06-01T16:00:00Z"), laterRoot),
+        },
+        true,
+      ],
+      [
+        "true for a refresh whose root is a later full update",
+        makeRefresh(
+          new Date("2024-06-01T16:00:00Z"),
+          new Date("2024-06-01T15:00:00Z"),
         ),
-      ).toBe(true);
+        true,
+      ],
+    ])("returns %s", (name, latest, expected) => {
+      expect(
+        isNewerOverallResultsDataAvailable(breakdownOnRefresh, latest),
+      ).toBe(expected);
     });
   });
 });

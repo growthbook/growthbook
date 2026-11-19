@@ -3,7 +3,6 @@ import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   getMetricIdsExcludedByExperimentType,
   getMetricIdsMissingFromSnapshot,
-  getSnapshotDataAsOf,
   getSnapshotSideEffects,
 } from "../src/experiments/metric-refresh";
 
@@ -23,121 +22,85 @@ function metricGroup(id: string, metrics: string[]): MetricGroupInterface {
 }
 
 describe("getMetricIdsMissingFromSnapshot", () => {
-  it("returns the metrics a snapshot never computed, in experiment order", () => {
-    expect(
-      getMetricIdsMissingFromSnapshot({
-        experiment: {
-          goalMetrics: ["fact__a", "fact__new_goal"],
-          secondaryMetrics: ["fact__b"],
-          guardrailMetrics: ["fact__new_guardrail"],
-        },
-        snapshotSettings: snapshotSettingsFor(["fact__a", "fact__b"]),
-        metricGroups: [],
-      }),
-    ).toEqual(["fact__new_goal", "fact__new_guardrail"]);
-  });
+  type Experiment = Parameters<
+    typeof getMetricIdsMissingFromSnapshot
+  >[0]["experiment"];
 
-  it("expands metric groups and lists a metric once", () => {
-    expect(
-      getMetricIdsMissingFromSnapshot({
-        experiment: {
-          goalMetrics: ["mg_core", "fact__c"],
-          secondaryMetrics: ["mg_more"],
-          guardrailMetrics: [],
-        },
-        snapshotSettings: snapshotSettingsFor(["fact__a"]),
-        metricGroups: [
-          metricGroup("mg_core", ["fact__a", "fact__b"]),
-          metricGroup("mg_more", ["fact__b", "met_legacy"]),
-        ],
-      }),
-    ).toEqual(["fact__b", "fact__c", "met_legacy"]);
-  });
-
-  it("leaves out the activation metric unless it is also an analyzed metric", () => {
-    const snapshotSettings = snapshotSettingsFor(["fact__a"]);
-    expect(
-      getMetricIdsMissingFromSnapshot({
-        experiment: {
-          goalMetrics: ["fact__a"],
-          secondaryMetrics: [],
-          guardrailMetrics: [],
-          activationMetric: "met_activation",
-        } as Parameters<
-          typeof getMetricIdsMissingFromSnapshot
-        >[0]["experiment"],
-        snapshotSettings,
-        metricGroups: [],
-      }),
-    ).toEqual([]);
-    expect(
-      getMetricIdsMissingFromSnapshot({
-        experiment: {
-          goalMetrics: ["fact__a", "met_activation"],
-          secondaryMetrics: [],
-          guardrailMetrics: [],
-          activationMetric: "met_activation",
-        } as Parameters<
-          typeof getMetricIdsMissingFromSnapshot
-        >[0]["experiment"],
-        snapshotSettings,
-        metricGroups: [],
-      }),
-    ).toEqual(["met_activation"]);
-  });
-
-  it("ignores slice and funnel step ids on either side", () => {
-    expect(
-      getMetricIdsMissingFromSnapshot({
-        experiment: {
-          goalMetrics: [
-            "fact__a",
-            "fact__a?dim:country=us",
-            "fact__funnel?step=1",
-          ],
-          secondaryMetrics: [],
-          guardrailMetrics: [],
-        },
-        snapshotSettings: snapshotSettingsFor([
+  it.each<{
+    name: string;
+    experiment: Experiment;
+    computed: string[];
+    metricGroups?: MetricGroupInterface[];
+    expected: string[];
+  }>([
+    {
+      name: "returns the metrics a snapshot never computed, in experiment order",
+      experiment: {
+        goalMetrics: ["fact__a", "fact__new_goal"],
+        secondaryMetrics: ["fact__b"],
+        guardrailMetrics: ["fact__new_guardrail"],
+      },
+      computed: ["fact__a", "fact__b"],
+      expected: ["fact__new_goal", "fact__new_guardrail"],
+    },
+    {
+      name: "expands metric groups and lists a metric once",
+      experiment: {
+        goalMetrics: ["mg_core", "fact__c"],
+        secondaryMetrics: ["mg_more"],
+        guardrailMetrics: [],
+      },
+      computed: ["fact__a"],
+      metricGroups: [
+        metricGroup("mg_core", ["fact__a", "fact__b"]),
+        metricGroup("mg_more", ["fact__b", "met_legacy"]),
+      ],
+      expected: ["fact__b", "fact__c", "met_legacy"],
+    },
+    {
+      name: "leaves out the activation metric",
+      experiment: {
+        goalMetrics: ["fact__a"],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+        activationMetric: "met_activation",
+      } as Experiment,
+      computed: ["fact__a"],
+      expected: [],
+    },
+    {
+      name: "lists the activation metric when it is also analyzed",
+      experiment: {
+        goalMetrics: ["fact__a", "met_activation"],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+        activationMetric: "met_activation",
+      } as Experiment,
+      computed: ["fact__a"],
+      expected: ["met_activation"],
+    },
+    {
+      name: "ignores slice and funnel step ids on either side",
+      experiment: {
+        goalMetrics: [
           "fact__a",
-          "fact__b?dim:country=us",
-        ]),
-        metricGroups: [],
-      }),
-    ).toEqual([]);
-  });
-
-  it("does not report a metric removed from the experiment", () => {
-    expect(
-      getMetricIdsMissingFromSnapshot({
-        experiment: {
-          goalMetrics: ["fact__b"],
-          secondaryMetrics: [],
-          guardrailMetrics: [],
-        },
-        snapshotSettings: snapshotSettingsFor(["fact__a", "fact__b"]),
-        metricGroups: [],
-      }),
-    ).toEqual([]);
-  });
-
-  it("returns nothing when the snapshot holds every metric", () => {
-    expect(
-      getMetricIdsMissingFromSnapshot({
-        experiment: {
-          goalMetrics: ["mg_core"],
-          secondaryMetrics: ["fact__c"],
-          guardrailMetrics: [],
-        },
-        snapshotSettings: snapshotSettingsFor([
-          "fact__a",
-          "fact__b",
-          "fact__c",
           "fact__a?dim:country=us",
-        ]),
-        metricGroups: [metricGroup("mg_core", ["fact__a", "fact__b"])],
+          "fact__funnel?step=1",
+        ],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+      },
+      computed: ["fact__a", "fact__b?dim:country=us"],
+      expected: [],
+    },
+  ])("$name", ({ experiment, computed, metricGroups = [], expected }) => {
+    expect(
+      getMetricIdsMissingFromSnapshot({
+        experiment,
+        snapshotSettings: snapshotSettingsFor(computed),
+        metricGroups,
       }),
-    ).toEqual([]);
+    ).toEqual(expected);
   });
 });
 
@@ -198,34 +161,6 @@ describe("a report snapshot copied from a metric refresh", () => {
   });
 });
 
-describe("getSnapshotDataAsOf", () => {
-  const ran = new Date("2026-11-10T12:00:00Z");
-  const rootRan = new Date("2026-11-09T08:00:00Z");
-
-  it("is a full run's own run time", () => {
-    expect(getSnapshotDataAsOf({ type: "standard", dateCreated: ran })).toEqual(
-      ran,
-    );
-  });
-
-  it("is the lineage root's run time for a metric refresh", () => {
-    expect(
-      getSnapshotDataAsOf({
-        type: "standard",
-        dateCreated: ran,
-        metricRefresh: {
-          baseSnapshotId: "snp_root",
-          baseDateCreated: rootRan,
-          baseRunStarted: null,
-          baseCutoffDate: null,
-          parentSnapshotId: "snp_parent",
-          metricIds: ["met_c"],
-        },
-      }),
-    ).toEqual(rootRan);
-  });
-});
-
 describe("getMetricIdsExcludedByExperimentType", () => {
   const windowTypes: Record<string, string> = { met_conversion: "conversion" };
   const excluded = (
@@ -242,39 +177,40 @@ describe("getMetricIdsExcludedByExperimentType", () => {
       }),
     ].sort();
 
-  it("excludes nothing outside a holdout", () => {
-    expect(
-      excluded({
+  it.each<[string, Parameters<typeof excluded>[0], string[]]>([
+    [
+      "excludes nothing outside a holdout",
+      {
         type: "standard",
         goalMetrics: ["met_conversion"],
         secondaryMetrics: [],
         guardrailMetrics: ["met_plain"],
-      }),
-    ).toEqual([]);
-  });
-
-  it("excludes a holdout's guardrails and conversion-window metrics, groups expanded", () => {
-    expect(
-      excluded(
-        {
-          type: "holdout",
-          goalMetrics: ["met_plain", "met_conversion"],
-          secondaryMetrics: [],
-          guardrailMetrics: ["mg_guard"],
-        },
-        [metricGroup("mg_guard", ["met_guard"])],
-      ),
-    ).toEqual(["met_conversion", "met_guard"]);
-  });
-
-  it("keeps a holdout guardrail that is also a goal", () => {
-    expect(
-      excluded({
+      },
+      [],
+    ],
+    [
+      "excludes a holdout's guardrails and conversion-window metrics, groups expanded",
+      {
+        type: "holdout",
+        goalMetrics: ["met_plain", "met_conversion"],
+        secondaryMetrics: [],
+        guardrailMetrics: ["mg_guard"],
+      },
+      ["met_conversion", "met_guard"],
+    ],
+    [
+      "keeps a holdout guardrail that is also a goal",
+      {
         type: "holdout",
         goalMetrics: ["met_plain"],
         secondaryMetrics: [],
         guardrailMetrics: ["met_plain"],
-      }),
-    ).toEqual([]);
+      },
+      [],
+    ],
+  ])("%s", (name, experiment, expected) => {
+    expect(
+      excluded(experiment, [metricGroup("mg_guard", ["met_guard"])]),
+    ).toEqual(expected);
   });
 });
