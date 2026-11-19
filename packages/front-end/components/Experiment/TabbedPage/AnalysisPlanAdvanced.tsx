@@ -269,7 +269,7 @@ export default function AnalysisPlanAdvanced({
       datasourceHasWritableEphemeralPipeline(
         datasource,
         hasCommercialFeature("pipeline-mode"),
-      ) || incrementalRefresh
+      )
         ? dimensions
             .filter(
               (d) =>
@@ -284,7 +284,6 @@ export default function AnalysisPlanAdvanced({
       dimensions,
       identifierType,
       hasCommercialFeature,
-      incrementalRefresh,
     ],
   );
   const unitDimensionIds = experiment.precomputedUnitDimensionIds || [];
@@ -531,11 +530,7 @@ export default function AnalysisPlanAdvanced({
             {unitDimensionOptions.length > 0 ? (
               <SetupFieldRow
                 label="Unit dimensions"
-                tooltip={`${
-                  incrementalRefresh
-                    ? "Computed after every update of the Overall Results."
-                    : "Always computed on every refresh, like precomputed dimensions."
-                } Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
+                tooltip={`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
               >
                 <MultiSelectField
                   value={unitDimensionIds}

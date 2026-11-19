@@ -62,27 +62,6 @@ describe("getDimensionOptions", () => {
     expect(values).toContain("exp:country");
     expect(values).not.toContain("exp:browser");
   });
-
-  it("lists an incremental experiment's unit dimensions under Pre-computed", () => {
-    const groupOf = (incrementalRefresh: IncrementalRefreshInterface | null) =>
-      getDimensionOptions({
-        incrementalRefresh,
-        precomputedUnitDimensionIds: ["dim_u1"],
-        datasource: buildDatasource(),
-        dimensions: unitDimensions,
-        exposureQueryId: "eq_1",
-        userIdType: "user_id",
-      }).find((group) => group.options?.some((o) => o.value === "dim_u1"))
-        ?.label;
-
-    expect(
-      groupOf({
-        unitsDimensions: ["country", "browser"],
-      } as IncrementalRefreshInterface),
-    ).toBe("Pre-computed");
-    // Without a pipeline that honors them they stay on-demand
-    expect(groupOf(null)).toBe("On-demand");
-  });
 });
 
 function buildDatasource(): DataSourceInterfaceWithParams {

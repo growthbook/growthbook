@@ -159,12 +159,8 @@ export function getDimensionOptions({
       datasource,
       hasPipelineModeFeature,
     );
-  // Under the Incremental Pipeline they are separate breakdowns that run after
-  // every Overall Results update, so they are listed here but load on demand.
   const experimentPrecomputedUnitDimensionIds = new Set(
-    incrementalRefresh
-      ? precomputedUnitDimensionIds
-      : honoredPrecomputedUnitDimensionIds,
+    honoredPrecomputedUnitDimensionIds,
   );
 
   // Include user dimensions tied to the datasource. Precomputed unit dims are kept
@@ -409,11 +405,7 @@ export default function DimensionChooser({
   const dimensionOptions = getDimensionOptions({
     incrementalRefresh,
     precomputedDimensions,
-    // A snapshot only lists the ones it materialized itself, which is none
-    // under the Incremental Pipeline, so the experiment's own list is used.
-    precomputedUnitDimensionIds: incrementalRefresh
-      ? experiment?.precomputedUnitDimensionIds
-      : precomputedUnitDimensionIds,
+    precomputedUnitDimensionIds,
     hasPipelineModeFeature,
     exposureQueryId,
     userIdType,
