@@ -304,39 +304,6 @@ From here you can:
 - Manage sharing permissions
 - Delete reports
 
-## Adding Metrics to a Running Experiment
-
-When you add a metric to an experiment that already has results, GrowthBook can compute only the new metric, up to the same end date as the results you see, and show it next to them. You don't need to rerun the whole analysis.
-
-Until the metric is computed, its row says "Not computed yet. This metric was added after the last update." While an update of new metrics computes it, the row says "Updating new metrics", and during a normal update it says "Updating". If an update of new metrics fails, the row says "Update failed", with a "View queries" link.
-
-### Update New Metrics
-
-When added metrics are the only change since the last update, and the results are recent, the results show a **New metrics** label in place of the Outdated badge. Hover over it to see which metrics were added. The Update button becomes a split button:
-
-- **Update new metrics** computes only the added metrics, up to the end date of the current results. The other results and "Updated …" don't change.
-- **Update all metrics**, in the arrow's menu, runs a normal update that brings every metric up to now.
-
-The results show the Outdated badge and a plain **Update** button instead, which updates every metric, when:
-
-- The end date of the results is older than the [window](#new-metrics-update-window), 4 hours by default.
-- Anything else changed, such as an analysis setting or the analysis dates. Hover over the Outdated badge to see what changed. When the Incremental refresh pipeline needs it, the button is **Full Refresh**.
-- You are viewing a dimension breakdown.
-- The experiment is a Bandit or a holdout, the phase has ended, you are viewing an earlier phase, or the Data Source analyzes every metric in one query.
-- The next update would run on a different pipeline than the results did, for example because an added metric can't run on the Incremental refresh pipeline.
-
-If you click **Update new metrics** and the update can't compute only the new metrics, for example because a setting changed in a way the label doesn't show, GrowthBook runs a normal update instead and says that all metrics are being updated.
-
-An update of new metrics computes only metrics that have no results yet. When the analysis dates changed, the update is always a normal one. They changed when the phase's start or end date is a day or more away from the dates the results cover. A running phase ends now, so results that end more than a day ago need a normal update, unless they stop at a data cutoff because of a data lag: those count as ending when their update ran.
-
-### New Metrics Update Window
-
-Under **Settings** → **General** → **Experiments**, **Update only new metrics when results are newer than** sets how recent the results must be for an update to compute only new metrics. The age of the results is counted from their end date. The default is 4 hours. Set 0 to always update all metrics. Results that end more than a day ago need a normal update anyway, unless they stop at a data cutoff because of a data lag, so a value above 24 hours matters only for those.
-
-The setting applies to the Update button and to [API updates](/api/update-experiment-results) that don't set `updateScope`.
-
 ## Fetching Results via the API
 
 To pull results into your own dashboards or data pipeline instead of sharing them from the app, call the [Get results for an experiment](/api/experiments/operation/getExperimentResults) endpoint. It returns the latest analysis for the experiment, including per-variation metric results.
-
-To add a metric and get its result through the API, see [Update Experiment Results](/api/update-experiment-results).
