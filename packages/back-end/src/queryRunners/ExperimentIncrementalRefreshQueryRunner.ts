@@ -87,14 +87,10 @@ import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { getParentQueryCopiers } from "back-end/src/services/metricRefreshExecution";
+import { getMetricRefreshStartQuery } from "back-end/src/services/metricRefreshExecution";
 import {
   analyzeSnapshotResults,
-  CLUSTER_HEALTH_QUERY_NAME,
-  CLUSTER_TRAFFIC_QUERY_NAME,
-  HEALTH_QUERY_NAMES,
   SnapshotResult,
-  TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";
 import {
   QueryRunner,
@@ -104,26 +100,20 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
+import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 import {
-  getUnitDimQueryName,
-  parseUnitDimQueryName,
-} from "./unitDimensionQueryNaming";
+  CLUSTER_HEALTH_QUERY_NAME,
+  CLUSTER_TRAFFIC_QUERY_NAME,
+  REPLACED_TABLE_DROP_QUERY_PREFIX,
+  STATISTICS_QUERY_PREFIX,
+  TRAFFIC_QUERY_NAME,
+} from "./metricRefreshQueryNaming";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
 export const INCREMENTAL_CUPED_TABLE_PREFIX = "gb_cuped";
 
 const getRandomTableSuffix = () => Math.random().toString(36).substring(2, 10);
-
-const STATISTICS_QUERY_PREFIX = "statistics_";
-
-export function isCarriedIncrementalQuery(name: string): boolean {
-  if (HEALTH_QUERY_NAMES.has(name)) return true;
-  const baseName = parseUnitDimQueryName(name)?.baseQueryName ?? name;
-  return baseName.startsWith(STATISTICS_QUERY_PREFIX);
-}
-
-const REPLACED_TABLE_DROP_QUERY_PREFIX = "drop_replaced_";
 
 const isReplacedTableDropQuery = (name: string): boolean =>
   name.startsWith(REPLACED_TABLE_DROP_QUERY_PREFIX);
@@ -1582,20 +1572,20 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.experimentUpdateExecutionLogger.execution.covariateSources = [];
     }
 
-    // A metric refresh copies each statistics or health query its parent
-    // has under the same name and runs the rest. Queries reading a cache
-    // rebuilt in this run are named after its new group id, so they run.
     const metricRefresh = getMetricRefresh(this.model);
-    const parentQueries = metricRefresh
-      ? await getParentQueryCopiers(this.context, metricRefresh, ({ name }) =>
-          isCarriedIncrementalQuery(name),
-        )
-      : new Map<string, () => Promise<QueryPointer>>();
+    const startQuery = this.startQuery.bind(this);
     return startExperimentIncrementalRefreshQueries(
       this.context,
       params,
       this.integration,
-      (query) => parentQueries.get(query.name)?.() ?? this.startQuery(query),
+      metricRefresh
+        ? await getMetricRefreshStartQuery(
+            this.context,
+            this.model,
+            metricRefresh,
+            startQuery,
+          )
+        : startQuery,
       this.experimentUpdateExecutionLogger,
     );
   }

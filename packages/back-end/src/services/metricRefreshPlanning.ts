@@ -43,8 +43,7 @@ import {
   getIndexAfterLastGroup,
   isCarriedMetricRefreshQuery,
   type ResultQueryScope,
-} from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { isCarriedIncrementalQuery } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+} from "back-end/src/queryRunners/metricRefreshQueryNaming";
 import {
   BadRequestError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
@@ -259,37 +258,30 @@ export async function planMetricRefresh({
   if (!queriedMetricIds.length) {
     throw new MetricsAlreadyUpToDateError(parent.id);
   }
-  const analyzedMetricIds = new Set(settings.metricSettings.map((m) => m.id));
-  const isResultsParent = (parent.runnerKind ?? "results") === "results";
-  const isCarried = isResultsParent
-    ? (name: string) =>
-        isCarriedMetricRefreshQuery(name, parent.id, analyzedMetricIds)
-    : isCarriedIncrementalQuery;
-  if (
-    parent.queries.some((q) => q.status !== "succeeded" && isCarried(q.name))
-  ) {
+  const snapshot = {
+    ...plan.snapshot,
+    settings,
+    metricRefresh: getMetricRefreshLineage(parent, queriedMetricIds),
+  };
+  const carriedQueries = parent.queries.filter((q) =>
+    isCarriedMetricRefreshQuery(q.name, snapshot, snapshot.metricRefresh),
+  );
+  if (carriedQueries.some((q) => q.status !== "succeeded")) {
     throw unavailable("base_incomplete");
   }
   // The Incremental Pipeline's carried SQL only reads its cache tables, so
   // identical text there would prove nothing about the metrics behind them.
-  if (isResultsParent) {
+  if ((parent.runnerKind ?? "results") === "results") {
     await assertCarriedQuerySqlUnchanged({
       context,
       parent,
       planned: plan.snapshot.settings,
-      carriedQueries: parent.queries.filter((q) => isCarried(q.name)),
+      carriedQueries,
       generateResultQuerySql,
     });
   }
 
-  return {
-    ...plan,
-    snapshot: {
-      ...plan.snapshot,
-      settings,
-      metricRefresh: getMetricRefreshLineage(parent, queriedMetricIds),
-    },
-  };
+  return { ...plan, snapshot };
 }
 
 function assertRefreshablePipeline({

@@ -32,14 +32,9 @@ import {
   type GenerateResultQuerySql,
   type ReplayedQuerySql,
 } from "back-end/src/services/metricRefreshPlanning";
-import {
-  ExperimentResultsQueryRunner,
-  isCarriedMetricRefreshQuery,
-} from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import {
-  ExperimentIncrementalRefreshQueryRunner,
-  isCarriedIncrementalQuery,
-} from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { isCarriedMetricRefreshQuery } from "back-end/src/queryRunners/metricRefreshQueryNaming";
 import {
   findLatestSuccessfulOverallSnapshot,
   findMetricRefreshAncestor,
@@ -1153,7 +1148,9 @@ describe("dateEnd of a refresh", () => {
 });
 
 describe("query carry-over", () => {
-  const analyzed = new Set(["met_a", "met_single"]);
+  const refresh = makeParent({
+    settings: makeSettings(["met_a", "met_single"]),
+  });
 
   it.each([
     ["snp_parent", false],
@@ -1167,9 +1164,11 @@ describe("query carry-over", () => {
     ["unitdim:exp:browser:met_single", true],
     ["met_gone", false],
   ])("carries %s: %s", (name, carried) => {
-    expect(isCarriedMetricRefreshQuery(name, "snp_parent", analyzed)).toBe(
-      carried,
-    );
+    expect(
+      isCarriedMetricRefreshQuery(name, refresh, {
+        parentSnapshotId: "snp_parent",
+      }),
+    ).toBe(carried);
   });
 });
 
@@ -1188,7 +1187,13 @@ describe("Incremental Pipeline carry-over", () => {
     ["insert_metrics_covariate_data_ftc_1", false],
     ["max_timestamp_metrics_source_ftc_1", false],
   ])("carries %s: %s", (name, carried) => {
-    expect(isCarriedIncrementalQuery(name)).toBe(carried);
+    expect(
+      isCarriedMetricRefreshQuery(
+        name,
+        makeParent({ runnerKind: "incremental-update" }),
+        { parentSnapshotId: "snp_parent" },
+      ),
+    ).toBe(carried);
   });
 });
 

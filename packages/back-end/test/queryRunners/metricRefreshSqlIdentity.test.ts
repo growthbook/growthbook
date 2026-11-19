@@ -4,10 +4,8 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 import type { SegmentInterface } from "shared/types/segment";
 import type { ApiReqContext } from "back-end/types/api";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import {
-  generateExperimentResultQuerySql,
-  getIndexAfterLastGroup,
-} from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { generateExperimentResultQuerySql } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getIndexAfterLastGroup } from "back-end/src/queryRunners/metricRefreshQueryNaming";
 import {
   type GenerateResultQuerySql,
   getQueriesWithChangedSql,

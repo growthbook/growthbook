@@ -8,6 +8,7 @@ import type {
   SnapshotVariation,
 } from "shared/types/experiment-snapshot";
 import type { ExperimentReportResults } from "shared/types/report";
+import type { BanditResult } from "shared/types/experiment";
 import type { Queries, QueryPointer } from "shared/types/query";
 import {
   getDefinitionMetricId,
@@ -25,17 +26,34 @@ import {
 } from "back-end/src/models/QueryModel";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { checkSrm } from "back-end/src/util/stats";
-import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
-import type { AnalyzedSnapshotResults } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import type {
+  ProcessedRowsType,
+  QueryMap,
+  RowsType,
+  StartQueryParams,
+} from "back-end/src/queryRunners/QueryRunner";
+import { isCarriedMetricRefreshQuery } from "back-end/src/queryRunners/metricRefreshQueryNaming";
+
+export type AnalyzedSnapshotResults = {
+  unknownVariations: string[];
+  multipleExposures: number;
+  analyses: ExperimentSnapshotAnalysis[];
+  banditResult?: BanditResult;
+};
+
+type RefreshSnapshot = Pick<
+  ExperimentSnapshotInterface,
+  "runnerKind" | "settings"
+>;
 
 /**
- * The parent's queries that `keep` selects, by name. Calling one copies that
- * finished query into a new query document under the same name.
+ * The parent's carried queries, by name. Calling one copies that finished
+ * query into a new query document under the same name.
  */
-export async function getParentQueryCopiers(
+async function getParentQueryCopiers(
   context: ReqContext | ApiReqContext,
+  refresh: RefreshSnapshot,
   metricRefresh: SnapshotMetricRefresh,
-  keep: (pointer: QueryPointer) => boolean,
 ): Promise<Map<string, () => Promise<QueryPointer>>> {
   const parentQueries = await getSnapshotQueryPointers(
     context,
@@ -46,7 +64,9 @@ export async function getParentQueryCopiers(
       `Could not load snapshot ${metricRefresh.parentSnapshotId} to copy its results`,
     );
   }
-  const pointers = parentQueries.filter(keep);
+  const pointers = parentQueries.filter(({ name }) =>
+    isCarriedMetricRefreshQuery(name, refresh, metricRefresh),
+  );
   const docs = new Map(
     (
       await getQueriesByIds(
@@ -271,12 +291,30 @@ export async function analyzeMetricRefresh({
   };
 }
 
-/** Copies every parent query that `keep` selects. */
 export async function carryMetricRefreshQueries(
   context: ReqContext | ApiReqContext,
+  refresh: RefreshSnapshot,
   metricRefresh: SnapshotMetricRefresh,
-  keep: (pointer: QueryPointer) => boolean,
 ): Promise<Queries> {
-  const copiers = await getParentQueryCopiers(context, metricRefresh, keep);
+  const copiers = await getParentQueryCopiers(context, refresh, metricRefresh);
   return Promise.all([...copiers.values()].map((copy) => copy()));
+}
+
+type StartQuery = (
+  params: StartQueryParams<RowsType, ProcessedRowsType>,
+) => Promise<QueryPointer>;
+
+/**
+ * `startQuery` for a metric refresh that names its queries as its parent did:
+ * a carried query is copied from the parent instead of run. A query reading a
+ * cache rebuilt in this run is named after the cache's new group id, so it runs.
+ */
+export async function getMetricRefreshStartQuery(
+  context: ReqContext | ApiReqContext,
+  refresh: RefreshSnapshot,
+  metricRefresh: SnapshotMetricRefresh,
+  startQuery: StartQuery,
+): Promise<StartQuery> {
+  const copiers = await getParentQueryCopiers(context, refresh, metricRefresh);
+  return (query) => copiers.get(query.name)?.() ?? startQuery(query);
 }
