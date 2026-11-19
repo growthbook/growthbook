@@ -113,18 +113,23 @@ const StatsAdjustmentBadge: FC<{
     />
   );
 
+  // A space rather than a margin: it is dropped when the badge wraps to a new
+  // line, so a wrapped badge stays flush with the metric name.
   return (
-    <Tooltip content={tooltip}>
-      {onClick ? (
-        <Link className={styles.link} onClick={onClick}>
-          {badge}
-        </Link>
-      ) : (
-        <span tabIndex={0} className={styles.wrapper}>
-          {badge}
-        </span>
-      )}
-    </Tooltip>
+    <>
+      {" "}
+      <Tooltip content={tooltip}>
+        {onClick ? (
+          <Link className={styles.link} onClick={onClick}>
+            {badge}
+          </Link>
+        ) : (
+          <span tabIndex={0} className={styles.wrapper}>
+            {badge}
+          </span>
+        )}
+      </Tooltip>
+    </>
   );
 };
 
