@@ -316,11 +316,8 @@ export default function AnalysisSettingsSummary({
   const isIncremental =
     isExperimentIncludedInIncrementalRefresh && !incrementalUpdatesUnavailable;
 
-  const {
-    incrementalRefresh,
-    serverFullRefreshReasons,
-    mutate: mutateIncrementalRefresh,
-  } = useIncrementalRefresh(isIncremental ? experiment.id : "");
+  const { incrementalRefresh, mutate: mutateIncrementalRefresh } =
+    useIncrementalRefresh(isIncremental ? experiment.id : "");
   useEffect(() => {
     // If dimensionless snapshot changes, re-fetch incremental refresh data
     if (!isIncremental) return;
@@ -400,7 +397,6 @@ export default function AnalysisSettingsSummary({
     ) {
       reasons.push(OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON);
     }
-    reasons.push(...(serverFullRefreshReasons ?? []));
     return reasons;
   }, [
     isIncremental,
@@ -410,7 +406,6 @@ export default function AnalysisSettingsSummary({
     phase,
     hasRegressionAdjustmentFeature,
     incrementalRefresh,
-    serverFullRefreshReasons,
     userIdType,
     datasourceSettings,
   ]);

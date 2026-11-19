@@ -871,12 +871,18 @@ export default function EventForwarder({
     await onRefresh();
   }, [onRefresh]);
 
-  const { isProvisioning, isError, pollTimedOut, taskErrors, backlogCount } =
-    useEventForwarderProvisioningPoll({
-      datasourceId: dataSource.id,
-      status: eventForwarderConfig?.status,
-      onRefresh: handleRefresh,
-    });
+  const {
+    isProvisioning,
+    isError,
+    pollTimedOut,
+    taskErrors,
+    backlogCount,
+    replaying,
+  } = useEventForwarderProvisioningPoll({
+    datasourceId: dataSource.id,
+    status: eventForwarderConfig?.status,
+    onRefresh: handleRefresh,
+  });
 
   if (!isCloud() || !supportsEventForwarder(dataSource)) {
     return null;
@@ -1025,6 +1031,14 @@ export default function EventForwarder({
               when you restart. Backed-up events are deleted after 90 days.
             </Box>
           ) : null}
+        </Callout>
+      ) : null}
+
+      {isProvisioning && replaying ? (
+        <Callout status="info" mb="3">
+          Writing backed-up events to your warehouse
+          {hasBacklog ? `: ${backlogCount.toLocaleString()} left` : ""}. New
+          events wait until this is done, then forwarding resumes.
         </Callout>
       ) : null}
 

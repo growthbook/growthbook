@@ -26,7 +26,6 @@ import {
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
 import { EventForwarderSinkType } from "shared/types/event-forwarder";
-import type { EventForwarderReplay } from "shared/validators";
 import {
   OrganizationInterface,
   OrgMemberInfo,
@@ -1282,7 +1281,7 @@ export type EventForwarderLicenseConnectorStatus = {
   taskErrors?: { id: number; state: string; trace?: string }[];
   /** In-house consumer only. */
   backlogCount?: number;
-  replay?: EventForwarderReplay;
+  replaying?: boolean;
 };
 
 export async function postRestartEventForwarderToLicenseServer(params: {

@@ -22,7 +22,6 @@ import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
-import { aggregatedFactTableMissedReplay } from "back-end/src/services/eventForwarder/replayRefresh";
 import { getMostRecentUpdateOccurrence } from "back-end/src/util/factTable";
 import {
   AggregatedFactTableQueryRunner,
@@ -39,7 +38,6 @@ type AggregatedFactTableRestateLogReason =
   | "no-existing-table"
   | "incomplete-write"
   | "schema-drift"
-  | "forwarder-replay"
   | null;
 
 function resolveAggregatedFactTableRestateLogReason({
@@ -51,7 +49,7 @@ function resolveAggregatedFactTableRestateLogReason({
   mode: AggregatedFactTableRunMode;
   forceRestate: boolean;
   hasExistingTable: boolean;
-  restateReason: AggregatedFactTableRestateReason | "forwarder-replay";
+  restateReason: AggregatedFactTableRestateReason;
 }): AggregatedFactTableRestateLogReason {
   if (mode === "incremental") return null;
   if (forceRestate) return "forced";
@@ -409,19 +407,11 @@ export async function runAggregatedFactTableUpdate(
   const { factTableSettingsHash, metricState } =
     buildAggregatedFactTableSchemaState({ factTable, metrics });
 
-  // An append only reads past the watermark, so it would never pick up rows
-  // an Event Forwarder replay wrote behind it.
-  const restateReason =
-    getAggregatedFactTableRestateReason({
-      registry,
-      factTableSettingsHash,
-      metricState,
-    }) ??
-    (!forceRestate &&
-    registry.tableFullName &&
-    (await aggregatedFactTableMissedReplay(context, { factTable, registry }))
-      ? "forwarder-replay"
-      : null);
+  const restateReason = getAggregatedFactTableRestateReason({
+    registry,
+    factTableSettingsHash,
+    metricState,
+  });
   const mode: AggregatedFactTableRunMode =
     forceRestate || !registry.tableFullName || restateReason !== null
       ? "restate"

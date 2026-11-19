@@ -82,6 +82,7 @@ export function buildEventForwarderStatusResponse(
     confluentState: connectorStatus.confluentState,
     taskErrors: connectorStatus.taskErrors,
     backlogCount: connectorStatus.backlogCount,
+    replaying: connectorStatus.replaying,
   };
 }
 
