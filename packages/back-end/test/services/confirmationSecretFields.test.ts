@@ -2,6 +2,7 @@ import { postDataSourceValidator } from "shared/validators";
 import {
   decryptSecretFields,
   encryptSecretFields,
+  heldBodyForDisplay,
   holdAtRoute,
   redactSecretFields,
 } from "back-end/src/services/confirmations";
@@ -26,6 +27,26 @@ describe("secret body fields", () => {
       name: "Warehouse",
       connection: { type: "postgres", password: "[redacted]", port: 5432 },
     });
+  });
+
+  it("hides a password inside a public URL", () => {
+    const url = "https://admin:hunter2@ch.example.com:8443/";
+    expect(
+      redactSecretFields({ c: { type: "clickhouse", url } }, ["c"]),
+    ).toEqual({
+      c: { type: "clickhouse", url: "https://admin:***@ch.example.com:8443/" },
+    });
+  });
+
+  it("shows a stored held body decrypted, without its secrets", () => {
+    const stored = {
+      body: encryptSecretFields(body, ["connection"]),
+      secretBodyFields: ["connection"],
+    };
+    expect(heldBodyForDisplay(stored)).toEqual(
+      redactSecretFields(body, ["connection"]),
+    );
+    expect(JSON.stringify(heldBodyForDisplay(stored))).not.toContain("hunter2");
   });
 
   it("hides everything but the type of an unknown connection type", () => {

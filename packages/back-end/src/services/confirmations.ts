@@ -92,6 +92,14 @@ export const decryptSecretFields = (
   mapSecretFields(body, fields, (v) =>
     JSON.parse(AES.decrypt(String(v), ENCRYPTION_KEY).toString(enc.Utf8)),
   );
+// A public param can still be a URL with a password in it, e.g. ClickHouse's url.
+function withoutUrlPassword(value: unknown) {
+  if (typeof value !== "string" || !URL.canParse(value)) return value;
+  const url = new URL(value);
+  if (!url.password) return value;
+  url.password = "***";
+  return url.toString();
+}
 // A data source connection keeps its public params, so the confirmer sees where it points.
 function redactSecretValue(value: unknown) {
   const conn = asRecord(value);
@@ -103,7 +111,11 @@ function redactSecretValue(value: unknown) {
   return Object.fromEntries(
     Object.keys(conn).map((k) => [
       k,
-      k === "type" ? conn.type : hidden(k) ? "[redacted]" : shown[k],
+      k === "type"
+        ? conn.type
+        : hidden(k)
+          ? "[redacted]"
+          : withoutUrlPassword(shown[k]),
     ]),
   );
 }
@@ -111,6 +123,15 @@ export const redactSecretFields = (
   body: unknown,
   fields: readonly string[] | undefined,
 ) => mapSecretFields(body, fields, redactSecretValue);
+// What the confirm page shows of a held request's stored body.
+export const heldBodyForDisplay = (c: {
+  body?: unknown;
+  secretBodyFields?: string[];
+}) =>
+  redactSecretFields(
+    decryptSecretFields(c.body, c.secretBodyFields),
+    c.secretBodyFields,
+  );
 
 // Every key answers only to its own rules, so scripts and CI keep working.
 // App sessions are never held.
