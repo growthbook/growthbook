@@ -5,6 +5,17 @@ import Cookies from "js-cookie";
 export const NAV_INTRO_COOKIE = "gb_nav_intro_dismissed";
 // Chrome caps a cookie's lifetime at 400 days, so this is "forever".
 const TTL_DAYS = 400;
+// Accounts created from this moment on never saw the old navigation.
+export const NAV_INTRO_ACCOUNT_CUTOFF = "2026-11-19T00:00:00.000Z";
+
+// An unknown or unreadable date counts as an old account.
+export function accountPredatesNewNav(
+  accountCreatedAt: string | undefined,
+): boolean {
+  const created = Date.parse(accountCreatedAt ?? "");
+  if (Number.isNaN(created)) return true;
+  return created < Date.parse(NAV_INTRO_ACCOUNT_CUTOFF);
+}
 
 export function hasDismissedNavIntro(): boolean {
   return Cookies.get(NAV_INTRO_COOKIE) !== undefined;

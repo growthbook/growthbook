@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  accountPredatesNewNav,
   dismissNavIntro,
   hasDismissedNavIntro,
   NAV_INTRO_COOKIE,
-} from "@/services/nav-intro-cookie";
+} from "@/services/nav-intro";
 
 const originalCookie = Object.getOwnPropertyDescriptor(document, "cookie");
 
@@ -62,5 +63,35 @@ describe("nav intro cookie", () => {
     expect(attrs).toContain("path=/");
     expect(attrs).toContain("sameSite=lax");
     expect(attrs).toContain("expires=Thu, 23 Dec 2027 12:00:00 GMT");
+  });
+});
+
+describe("accountPredatesNewNav", () => {
+  it("treats a missing date as an old account", () => {
+    expect(accountPredatesNewNav(undefined)).toBe(true);
+  });
+
+  it("treats an unreadable date as an old account", () => {
+    expect(accountPredatesNewNav("")).toBe(true);
+    expect(accountPredatesNewNav("not a date")).toBe(true);
+  });
+
+  it("is true for an account created before the cutoff", () => {
+    expect(accountPredatesNewNav("2026-11-18T23:59:59.999Z")).toBe(true);
+  });
+
+  it("is false for an account created exactly at the cutoff", () => {
+    expect(accountPredatesNewNav("2026-11-19T00:00:00.000Z")).toBe(false);
+  });
+
+  it("is false for an account created after the cutoff", () => {
+    expect(accountPredatesNewNav("2027-01-01T00:00:00.000Z")).toBe(false);
+  });
+
+  it("compares moments, not the text, across time zones", () => {
+    // 2026-11-19T00:30Z, after the cutoff.
+    expect(accountPredatesNewNav("2026-11-18T23:30:00.000-01:00")).toBe(false);
+    // 2026-11-18T23:00Z, before the cutoff.
+    expect(accountPredatesNewNav("2026-11-19T01:00:00.000+02:00")).toBe(true);
   });
 });
