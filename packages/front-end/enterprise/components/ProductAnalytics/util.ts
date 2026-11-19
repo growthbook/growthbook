@@ -54,7 +54,9 @@ import {
   getRelevantFactTableIds,
   normalizeShowAs,
   fillMissingUnits,
+  extendDateBucketsForward,
 } from "shared/enterprise";
+import { parseWarehouseDate } from "shared/dates";
 import type { DimensionFactTable } from "shared/enterprise";
 import {
   operatorLabelMap,
@@ -1502,6 +1504,118 @@ export function formatDateByGranularity(
         timeZone: tz,
       });
   }
+}
+
+/**
+ * A compact time-axis tick label. The year (or, for hourly buckets, the date)
+ * appears only on the first tick and where it changes from the previous tick,
+ * so a run of labels reads "Jan 2025, Feb, Mar, …" instead of repeating it.
+ * Warehouse dates are UTC, so labels are too.
+ */
+function formatDateAxisLabel(
+  date: Date,
+  granularity: ResolvedGranularity,
+  prev: Date | null,
+): string {
+  const newYear = !prev || prev.getUTCFullYear() !== date.getUTCFullYear();
+  const newDay =
+    !prev ||
+    prev.toISOString().slice(0, 10) !== date.toISOString().slice(0, 10);
+  const monthDay = (withYear: boolean) =>
+    date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      ...(withYear ? { year: "numeric" } : {}),
+      timeZone: "UTC",
+    });
+
+  switch (granularity) {
+    case "year":
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        timeZone: "UTC",
+      });
+    case "month":
+      return date.toLocaleDateString(undefined, {
+        month: "short",
+        ...(newYear ? { year: "numeric" } : {}),
+        timeZone: "UTC",
+      });
+    case "week":
+    case "day":
+      return monthDay(newYear);
+    case "hour": {
+      const time = date.toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+      });
+      return newDay ? `${monthDay(newYear)} ${time}` : time;
+    }
+  }
+}
+
+/**
+ * Tick positions and labels for a line/area chart's time axis.
+ *
+ * Left alone, ECharts picks time-axis ticks without knowing the bucket size: a
+ * single yearly bucket gets padded to a two-day window labelled in hours, and
+ * coarse buckets get ticks between them. Pinning ticks to bucket starts
+ * (thinned to at most `maxTicks`) keeps every tick and grid line on a real
+ * bucket. A lone bucket also gets an explicit extent of half a bucket either
+ * side, so it sits centred under its one label.
+ */
+export function buildDateTimeAxisTicks({
+  bucketIsos,
+  granularity,
+  maxTicks,
+}: {
+  bucketIsos: string[];
+  granularity: ResolvedGranularity;
+  maxTicks: number;
+}): {
+  tickValues: number[];
+  labels: Map<number, string>;
+  min: number | null;
+  max: number | null;
+} {
+  const times = Array.from(
+    new Set(
+      bucketIsos
+        .map((iso) => parseWarehouseDate(iso).getTime())
+        .filter((t) => Number.isFinite(t)),
+    ),
+  ).sort((a, b) => a - b);
+
+  const stride = Math.max(1, Math.ceil(times.length / Math.max(1, maxTicks)));
+  const tickValues = times.filter((_, i) => i % stride === 0);
+
+  const labels = new Map<number, string>();
+  let prev: Date | null = null;
+  for (const t of tickValues) {
+    const date = new Date(t);
+    labels.set(t, formatDateAxisLabel(date, granularity, prev));
+    prev = date;
+  }
+
+  let min: number | null = null;
+  let max: number | null = null;
+  if (times.length === 1) {
+    const [only] = times;
+    const [nextIso] = extendDateBucketsForward({
+      resolvedGranularity: granularity,
+      afterIso: new Date(only).toISOString(),
+      count: 1,
+    });
+    const next = nextIso ? parseWarehouseDate(nextIso).getTime() : NaN;
+    if (Number.isFinite(next) && next > only) {
+      const half = (next - only) / 2;
+      min = only - half;
+      max = only + half;
+    }
+  }
+
+  return { tickValues, labels, min, max };
 }
 
 /** Formats a millisecond duration as a compact "1m 23s" style string. */
