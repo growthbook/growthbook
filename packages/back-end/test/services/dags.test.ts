@@ -1,5 +1,9 @@
 import { DagNode } from "shared/validators";
-import { DagNodeState, getDagActions } from "back-end/src/services/dags";
+import {
+  assertValidDagNodes,
+  DagNodeState,
+  getDagActions,
+} from "back-end/src/services/dags";
 
 const node = (id: string, overrides: Partial<DagNode> = {}): DagNode => ({
   id,
@@ -101,5 +105,41 @@ describe("getDagActions", () => {
     expect(actions({ main: success }, [node("main")])).toEqual([
       { type: "done" },
     ]);
+  });
+});
+
+describe("assertValidDagNodes", () => {
+  it("accepts a chain and a diamond", () => {
+    expect(() =>
+      assertValidDagNodes([
+        node("main"),
+        node("a"),
+        node("b", { dependsOn: ["main", "a"] }),
+      ]),
+    ).not.toThrow();
+    expect(() => assertValidDagNodes([])).not.toThrow();
+  });
+
+  it("rejects duplicate node IDs", () => {
+    expect(() =>
+      assertValidDagNodes([node("main"), node("a"), node("a")]),
+    ).toThrow("unique");
+  });
+
+  it("rejects a dependency that is not a node of the DAG", () => {
+    expect(() => assertValidDagNodes([node("a")])).toThrow("same DAG");
+  });
+
+  it("rejects a node that depends on itself, directly or through others", () => {
+    expect(() =>
+      assertValidDagNodes([node("a", { dependsOn: ["a"] })]),
+    ).toThrow("cycle");
+    expect(() =>
+      assertValidDagNodes([
+        node("main"),
+        node("a", { dependsOn: ["main", "b"] }),
+        node("b", { dependsOn: ["a"] }),
+      ]),
+    ).toThrow("cycle");
   });
 });

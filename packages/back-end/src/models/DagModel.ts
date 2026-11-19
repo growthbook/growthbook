@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
-import { UpdateProps } from "shared/types/base-model";
-import { DagInterface, dagValidator } from "shared/validators";
+import { DagInterface, DagNode, dagValidator } from "shared/validators";
+import { assertValidDagNodes } from "back-end/src/services/dags";
+import { logger } from "back-end/src/util/logger";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "dags";
@@ -15,9 +17,16 @@ const BaseClass = MakeModelClass({
 });
 
 export class DagModel extends BaseClass {
+  protected async customValidation(doc: DagInterface) {
+    assertValidDagNodes(doc.nodes);
+  }
+
   /**
    * Points a node at a new attempt, only while it still points at the attempt
    * the caller saw fail. False when another process already replaced it.
+   *
+   * Compare-and-swap with a plain $set of the whole array, so it needs no
+   * array update operators.
    */
   public async replaceNodeTarget(
     dagId: string,
@@ -25,19 +34,29 @@ export class DagModel extends BaseClass {
     fromTargetId: string,
     toTargetId: string,
   ): Promise<boolean> {
-    const result = await this._dangerousGetCollection().updateOne(
-      {
-        organization: this.context.org.id,
-        id: dagId,
-        status: "active",
-        nodes: { $elemMatch: { id: nodeId, targetId: fromTargetId } },
-      },
-      {
-        $set: { "nodes.$.targetId": toTargetId, dateUpdated: new Date() },
-        $push: { "nodes.$.previousTargetIds": fromTargetId },
+    const isFailedAttempt = (node: DagNode) =>
+      node.id === nodeId && node.targetId === fromTargetId;
+    const updated = await this.updateWithCas(
+      dagId,
+      ["status", "nodes"],
+      (dag) => {
+        if (dag.status !== "active" || !dag.nodes.some(isFailedAttempt)) {
+          return null;
+        }
+        return {
+          nodes: dag.nodes.map((node) =>
+            isFailedAttempt(node)
+              ? {
+                  ...node,
+                  targetId: toTargetId,
+                  previousTargetIds: [...node.previousTargetIds, fromTargetId],
+                }
+              : node,
+          ),
+        };
       },
     );
-    return result.matchedCount > 0;
+    return updated !== null;
   }
 
   public async markDone(dagId: string): Promise<void> {
@@ -55,24 +74,25 @@ export class DagModel extends BaseClass {
       .toArray();
     return docs.flatMap((doc) => {
       const parsed = dagValidator.safeParse(doc);
-      return parsed.success ? [parsed.data] : [];
+      if (parsed.success) return [parsed.data];
+      logger.warn(
+        { dagId: doc.id, error: errorStringFromZodResult(parsed) },
+        "Skipping an active DAG that does not match the schema",
+      );
+      return [];
     });
   }
 
-  protected canRead(_doc: DagInterface) {
+  protected canRead() {
     return true;
   }
-  protected canCreate(_doc: DagInterface) {
+  protected canCreate() {
     return true;
   }
-  protected canUpdate(
-    _existing: DagInterface,
-    _updates: UpdateProps<DagInterface>,
-    _newDoc: DagInterface,
-  ) {
+  protected canUpdate() {
     return true;
   }
-  protected canDelete(_existing: DagInterface) {
+  protected canDelete() {
     return true;
   }
 }

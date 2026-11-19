@@ -101,6 +101,25 @@ describe("DagModel", () => {
     ]);
   });
 
+  it("keeps both of two concurrent swaps on different nodes", async () => {
+    await seedDag();
+
+    const results = await Promise.all([
+      model.replaceNodeTarget("dag_1", "main", "snp_main", "snp_main_2"),
+      model.replaceNodeTarget("dag_1", "dim_country", "snp_a", "snp_b"),
+    ]);
+
+    expect(results).toEqual([true, true]);
+    expect(await getNode("main")).toMatchObject({
+      targetId: "snp_main_2",
+      previousTargetIds: ["snp_main"],
+    });
+    expect(await getNode("dim_country")).toMatchObject({
+      targetId: "snp_b",
+      previousTargetIds: ["snp_a"],
+    });
+  });
+
   it("refuses a swap on a done DAG or another organization's DAG", async () => {
     await seedDag({ status: "done" });
     expect(

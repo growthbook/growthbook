@@ -11,6 +11,34 @@ export type DagAction =
   | { type: "done" };
 
 /**
+ * Throws unless node IDs are unique, every dependency is a node of the DAG,
+ * and no node depends on itself, directly or through other nodes.
+ */
+export function assertValidDagNodes(nodes: DagNode[]): void {
+  const ids = new Set(nodes.map((node) => node.id));
+  if (ids.size !== nodes.length) {
+    throw new Error("DAG node IDs must be unique");
+  }
+  if (nodes.some((node) => node.dependsOn.some((id) => !ids.has(id)))) {
+    throw new Error("DAG nodes can only depend on nodes of the same DAG");
+  }
+  // Resolve nodes whose dependencies are all resolved; a pass that resolves
+  // nothing means the rest depend on each other.
+  const resolved = new Set<string>();
+  while (resolved.size < nodes.length) {
+    const ready = nodes.filter(
+      (node) =>
+        !resolved.has(node.id) &&
+        node.dependsOn.every((id) => resolved.has(id)),
+    );
+    if (!ready.length) {
+      throw new Error("DAG nodes cannot depend on each other in a cycle");
+    }
+    ready.forEach((node) => resolved.add(node.id));
+  }
+}
+
+/**
  * What a DAG needs done next, given the state of each node's current attempt
  * (keyed by node ID; a node with no state is treated as missing).
  */
