@@ -1,8 +1,22 @@
-import { LinkedFeatureInfo } from "shared/types/experiment";
+import type { ExperimentType } from "shared/validators";
 import {
+  ExperimentInterface,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
+import {
+  ExperimentQaOverrideAssignment,
   QaOverrideFilters,
+  QaOverrideInvalidReason,
+  QaOverrideStaleSdkConnection,
+  QaOverrideStatus,
   QaOverrideWaitingFeature,
 } from "shared/types/experiment-qa-override";
+import { getLatestPhaseVariations } from "../experiments/variations";
+
+type LinkedFeatureForStatus = Pick<
+  LinkedFeatureInfo,
+  "feature" | "state" | "environmentStates" | "draftRevisionVersion"
+>;
 
 // QA exposures are tracked under `<trackingKey>::qa` so they never mix with
 // the experiment's real results.
@@ -16,10 +30,13 @@ export function isQaTrackingKey(trackingKey: string | undefined): boolean {
   return !!trackingKey && trackingKey.endsWith(QA_TRACKING_KEY_SUFFIX);
 }
 
-export const QA_OVERRIDE_EXPERIMENT_TYPES = ["standard", "multi-armed-bandit"];
+export const QA_OVERRIDE_EXPERIMENT_TYPES: ExperimentType[] = [
+  "standard",
+  "multi-armed-bandit",
+];
 
 export function experimentSupportsQaOverrides(experiment: {
-  type?: string;
+  type?: ExperimentType;
 }): boolean {
   return QA_OVERRIDE_EXPERIMENT_TYPES.includes(experiment.type ?? "standard");
 }
@@ -86,10 +103,7 @@ export function reorderQaOverridesInEnvironment<
 
 export function getQaOverrideWaitingFeatures(
   override: { environment: string },
-  linkedFeatures: Pick<
-    LinkedFeatureInfo,
-    "feature" | "state" | "environmentStates" | "draftRevisionVersion"
-  >[],
+  linkedFeatures: LinkedFeatureForStatus[],
 ): QaOverrideWaitingFeature[] {
   return linkedFeatures.flatMap((f): QaOverrideWaitingFeature[] => {
     if (f.state !== "live") {
@@ -109,4 +123,76 @@ export function getQaOverrideWaitingFeatures(
     }
     return [];
   });
+}
+
+// `connections` are the listed SDK Connections that still exist.
+export function getQaOverrideStaleSdkConnections(
+  override: { environment: string; filters: QaOverrideFilters },
+  connections: { id: string; environment: string }[],
+): QaOverrideStaleSdkConnection[] {
+  const environments = new Map(connections.map((c) => [c.id, c.environment]));
+  return (override.filters.sdkConnections ?? []).flatMap(
+    (id): QaOverrideStaleSdkConnection[] => {
+      const environment = environments.get(id);
+      if (environment === undefined) return [{ id, reason: "deleted" }];
+      if (environment !== override.environment) {
+        return [{ id, reason: "other-environment" }];
+      }
+      return [];
+    },
+  );
+}
+
+// Single source of truth for whether an override is being served, shared by
+// the API response, the SDK payload and the UI.
+export function getQaOverrideStatus(
+  override: {
+    environment: string;
+    filters: QaOverrideFilters;
+    assignment: ExperimentQaOverrideAssignment;
+  },
+  {
+    experiment,
+    linkedFeatures,
+    connections,
+  }: {
+    experiment: Pick<ExperimentInterface, "variations" | "phases">;
+    linkedFeatures: LinkedFeatureForStatus[];
+    connections: { id: string; environment: string }[];
+  },
+): QaOverrideStatus {
+  const invalidReasons: QaOverrideInvalidReason[] = [];
+
+  const { assignment } = override;
+  if (
+    assignment.type === "forced" &&
+    !getLatestPhaseVariations(experiment).some(
+      (v) => v.id === assignment.variationId,
+    )
+  ) {
+    invalidReasons.push("variation-removed");
+  }
+
+  const staleSdkConnections = getQaOverrideStaleSdkConnections(
+    override,
+    connections,
+  );
+  const listed = override.filters.sdkConnections?.length ?? 0;
+  // One live connection is enough: the override still serves it.
+  if (listed > 0 && staleSdkConnections.length === listed) {
+    invalidReasons.push("no-matching-connection");
+  }
+
+  const waitingOn = getQaOverrideWaitingFeatures(override, linkedFeatures);
+
+  return {
+    status: invalidReasons.length
+      ? "invalid"
+      : waitingOn.length
+        ? "waiting"
+        : "active",
+    waitingOn,
+    invalidReasons,
+    staleSdkConnections,
+  };
 }

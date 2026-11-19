@@ -1,5 +1,4 @@
 import { putEnvironmentValidator } from "shared/validators";
-import { isProductionEnvironment } from "shared/util";
 import { OrganizationInterface } from "shared/types/organization";
 import { isEqual } from "lodash";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -8,6 +7,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { cleanupUpdatedEnvironment } from "back-end/src/services/environments";
 import { validatePayload } from "./validations";
 
 export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
@@ -45,13 +45,11 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
 
     await updateOrganization(org.id, updates);
 
-    // QA overrides only serve non-production environments.
-    if (
-      !isProductionEnvironment(environment) &&
-      isProductionEnvironment(updatedEnvironment)
-    ) {
-      await req.context.models.experimentQaOverrides.deleteByEnvironment(id);
-    }
+    await cleanupUpdatedEnvironment(
+      req.context,
+      environment,
+      updatedEnvironment,
+    );
 
     await req.audit({
       event: "environment.update",

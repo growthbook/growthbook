@@ -1,11 +1,7 @@
 import type { Response } from "express";
 import { z } from "zod";
 import { isEqual } from "lodash";
-import {
-  DEFAULT_ENVIRONMENT_IDS,
-  isProductionEnvironment,
-  withIsProduction,
-} from "shared/util";
+import { DEFAULT_ENVIRONMENT_IDS, withIsProduction } from "shared/util";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { Environment } from "shared/types/organization";
 import {
@@ -34,17 +30,8 @@ import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
   assertEnvironmentDeletable,
   cleanupDeletedEnvironment,
+  cleanupUpdatedEnvironment,
 } from "back-end/src/services/environments";
-
-async function clearQaOverridesIfNowProduction(
-  context: ReturnType<typeof getContextFromReq>,
-  previous: Environment,
-  updated: Environment,
-) {
-  if (!isProductionEnvironment(previous) && isProductionEnvironment(updated)) {
-    await context.models.experimentQaOverrides.deleteByEnvironment(updated.id);
-  }
-}
 
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
 
@@ -161,7 +148,7 @@ export const putEnvironments = async (
     for (const updated of updatedEnvironments) {
       const previous = existingEnvs.find((e) => e.id === updated.id);
       if (previous) {
-        await clearQaOverridesIfNowProduction(context, previous, updated);
+        await cleanupUpdatedEnvironment(context, previous, updated);
       }
     }
 
@@ -228,7 +215,7 @@ export const putEnvironment = async (
       },
     });
 
-    await clearQaOverridesIfNowProduction(
+    await cleanupUpdatedEnvironment(
       context,
       envsArr[existingEnvIndex],
       updatedEnv,

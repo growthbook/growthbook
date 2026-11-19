@@ -1,8 +1,5 @@
 import type { Response } from "express";
-import {
-  ExperimentInterface,
-  LinkedFeatureInfo,
-} from "shared/types/experiment";
+import { ExperimentInterface } from "shared/types/experiment";
 import {
   CreateExperimentQaOverrideBody,
   ExperimentQaOverrideInterface,
@@ -11,10 +8,7 @@ import {
   UpdateExperimentQaOverrideBody,
 } from "shared/types/experiment-qa-override";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import {
-  getQaOverrideWaitingFeatures,
-  reorderQaOverridesInEnvironment,
-} from "shared/util";
+import { getQaOverrideStatus } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
@@ -36,18 +30,6 @@ type OverrideResponse = {
   override: ExperimentQaOverrideWithStatus;
   sdkConnections: QaOverrideSdkConnection[];
 };
-
-function withStatus(
-  override: ExperimentQaOverrideInterface,
-  linkedFeatures: LinkedFeatureInfo[],
-): ExperimentQaOverrideWithStatus {
-  const waitingOn = getQaOverrideWaitingFeatures(override, linkedFeatures);
-  return {
-    ...override,
-    status: waitingOn.length ? "waiting" : "active",
-    waitingOn,
-  };
-}
 
 async function loadExperiment(
   req: AuthRequest<unknown, { id: string }>,
@@ -80,34 +62,6 @@ async function loadOverride(
   return { context, override, experiment };
 }
 
-// Only connections the caller may read.
-async function filteredConnections(
-  context: Context,
-  overrides: ExperimentQaOverrideInterface[],
-): Promise<QaOverrideSdkConnection[]> {
-  const ids = [
-    ...new Set(overrides.flatMap((o) => o.filters.sdkConnections ?? [])),
-  ];
-  if (!ids.length) return [];
-  const connections = await findSDKConnectionsByIds(context, ids);
-  return connections
-    .filter((c) => context.permissions.canReadMultiProjectResource(c.projects))
-    .map(({ id, name }) => ({ id, name }));
-}
-
-async function overrideResponse(
-  context: Context,
-  override: ExperimentQaOverrideInterface,
-  experiment: ExperimentInterface,
-): Promise<OverrideResponse> {
-  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
-  return {
-    status: 200,
-    override: withStatus(override, linkedFeatures),
-    sdkConnections: await filteredConnections(context, [override]),
-  };
-}
-
 async function overridesResponse(
   context: Context,
   overrides: ExperimentQaOverrideInterface[],
@@ -116,11 +70,39 @@ async function overridesResponse(
   const linkedFeatures = overrides.length
     ? await getLinkedFeatureInfo(context, experiment)
     : [];
+  const connectionIds = [
+    ...new Set(overrides.flatMap((o) => o.filters.sdkConnections ?? [])),
+  ];
+  // Status reads every listed connection so it is the same for all viewers;
+  // names only go to callers who can read the connection.
+  const connections = connectionIds.length
+    ? await findSDKConnectionsByIds(context, connectionIds)
+    : [];
   return {
     status: 200,
-    overrides: overrides.map((o) => withStatus(o, linkedFeatures)),
-    sdkConnections: await filteredConnections(context, overrides),
+    overrides: overrides.map((o) => ({
+      ...o,
+      ...getQaOverrideStatus(o, { experiment, linkedFeatures, connections }),
+    })),
+    sdkConnections: connections
+      .filter((c) =>
+        context.permissions.canReadMultiProjectResource(c.projects),
+      )
+      .map(({ id, name }) => ({ id, name })),
   };
+}
+
+async function overrideResponse(
+  context: Context,
+  override: ExperimentQaOverrideInterface,
+  experiment: ExperimentInterface,
+): Promise<OverrideResponse> {
+  const { overrides, sdkConnections } = await overridesResponse(
+    context,
+    [override],
+    experiment,
+  );
+  return { status: 200, override: overrides[0], sdkConnections };
 }
 
 export const getExperimentQaOverrides = async (
@@ -139,15 +121,11 @@ export const postExperimentQaOverride = async (
   res: Response<OverrideResponse>,
 ) => {
   const { context, experiment } = await loadExperiment(req);
-  const existing = await context.models.experimentQaOverrides.findByExperiment(
-    experiment.id,
-  );
-  const override = await context.models.experimentQaOverrides.create({
+  const override = await context.models.experimentQaOverrides.createLast({
     environment: req.body.environment,
     filters: req.body.filters ?? {},
     assignment: req.body.assignment,
     experiment: experiment.id,
-    order: existing.reduce((max, o) => Math.max(max, o.order + 1), 0),
     createdBy: context.userId,
   });
   res.status(200).json(await overrideResponse(context, override, experiment));
@@ -158,22 +136,12 @@ export const putExperimentQaOverridesOrder = async (
   res: Response<OverridesResponse>,
 ) => {
   const { context, experiment } = await loadExperiment(req);
-  const { environment, overrideIds } = req.body;
   const model = context.models.experimentQaOverrides;
-  const changes = reorderQaOverridesInEnvironment(
-    await model.findByExperiment(experiment.id),
-    environment,
-    overrideIds,
+  await model.reorder(
+    experiment.id,
+    req.body.environment,
+    req.body.overrideIds,
   );
-  if (!changes) {
-    return context.throwBadRequestError(
-      "overrideIds must list every QA override in this environment exactly once",
-    );
-  }
-  for (const { override, order } of changes) {
-    await model.update(override, { order }, { skipSDKRefresh: true });
-  }
-  if (changes.length) await model.refreshEnvironments([environment]);
   res
     .status(200)
     .json(

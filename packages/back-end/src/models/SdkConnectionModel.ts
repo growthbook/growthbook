@@ -562,16 +562,6 @@ export async function editSDKConnection(
   // A key also being set (the legacy saved group flag) can't be unset too.
   const unset = (options?.unset ?? []).filter((key) => !(key in fullChanges));
 
-  if (
-    otherChanges.environment !== undefined &&
-    otherChanges.environment !== connection.environment
-  ) {
-    await context.models.experimentQaOverrides.removeSdkConnectionFromFilters(
-      connection.id,
-      { skipSDKRefresh: true },
-    );
-  }
-
   keysRequiringProxyUpdate.forEach((key) => {
     if (
       (key in otherChanges && !isEqual(otherChanges[key], connection[key])) ||
@@ -674,10 +664,6 @@ export async function deleteSDKConnectionModel(
     organization: context.org.id,
     id: sdkConnection.id,
   });
-  await context.models.experimentQaOverrides.removeSdkConnectionFromFilters(
-    sdkConnection.id,
-    { skipSDKRefresh: true },
-  );
 
   await audit.logDelete(context, sdkConnection);
 }

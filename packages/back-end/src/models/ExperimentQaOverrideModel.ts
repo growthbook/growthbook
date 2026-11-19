@@ -1,19 +1,27 @@
+import { difference, isEqual, uniq } from "lodash";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   experimentSupportsQaOverrides,
   isProductionEnvironment,
-  qaOverrideHasCondition,
+  reorderQaOverridesInEnvironment,
   sortQaOverrides,
+  validateCondition,
 } from "shared/util";
-import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
+import {
+  ExperimentQaOverrideInterface,
+  QaOverrideFilters,
+} from "shared/types/experiment-qa-override";
+import { CreateProps } from "shared/types/base-model";
 import { experimentQaOverrideValidator } from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getSavedGroupsForValidation } from "back-end/src/services/savedGroups";
 import {
-  findSDKConnectionsByIds,
+  assertCanUseSDKConnections,
   findSDKConnectionsByOrganization,
 } from "back-end/src/models/SdkConnectionModel";
 import { getEnvironments } from "back-end/src/util/organization.util";
-import { MakeModelClass } from "./BaseModel";
+import { ConflictError } from "back-end/src/util/errors";
+import { CasConflictError, MakeModelClass } from "./BaseModel";
 
 type WriteOptions = {
   skipSDKRefresh?: boolean;
@@ -38,34 +46,106 @@ const BaseClass = MakeModelClass({
 });
 
 export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
-  public async findByExperiment(experiment: string) {
-    const docs = await this._find(
-      { experiment },
-      { bypassReadPermissionChecks: true },
+  public findByExperiment(experiment: string) {
+    return this.findSorted({ experiment });
+  }
+
+  public findByEnvironment(environment: string) {
+    return this.findSorted({ environment });
+  }
+
+  public getAllForPayload() {
+    return this.findSorted({});
+  }
+
+  // Callers authorize against the experiment or environment themselves.
+  private async findSorted(filter: {
+    experiment?: string;
+    environment?: string;
+  }) {
+    const docs = await this._find(filter, { bypassReadPermissionChecks: true });
+    return sortQaOverrides(docs);
+  }
+
+  // Priority is per environment; a new override goes last in its own.
+  public async createLast(
+    props: Omit<CreateProps<ExperimentQaOverrideInterface>, "order">,
+  ) {
+    const siblings = (await this.findByExperiment(props.experiment)).filter(
+      (o) => o.environment === props.environment,
     );
-    return sortQaOverrides(docs);
+    return this.create({
+      ...props,
+      order: siblings.reduce((max, o) => Math.max(max, o.order + 1), 0),
+    });
   }
 
-  public async findByEnvironment(environment: string) {
-    const docs = await this._find(
-      { environment },
-      { bypassReadPermissionChecks: true },
+  public async reorder(
+    experiment: string,
+    environment: string,
+    overrideIds: string[],
+  ) {
+    const changes = reorderQaOverridesInEnvironment(
+      await this.findByExperiment(experiment),
+      environment,
+      overrideIds,
     );
-    return sortQaOverrides(docs);
+    if (!changes) {
+      return this.context.throwBadRequestError(
+        "overrideIds must list every QA override in this environment exactly once",
+      );
+    }
+
+    // Each write is guarded on the row as it was read, so a reorder that
+    // overlaps a concurrent one is refused instead of interleaving with it.
+    let applied = 0;
+    try {
+      for (const { override, order } of changes) {
+        await this.updateIfUnchanged(
+          override,
+          { order },
+          { skipSDKRefresh: true },
+        );
+        applied++;
+      }
+    } catch (e) {
+      if (e instanceof CasConflictError) {
+        throw new ConflictError(
+          "The order of these QA overrides changed. Reload and try again.",
+        );
+      }
+      throw e;
+    } finally {
+      if (applied) await this.refreshEnvironments([environment]);
+    }
   }
 
-  public async getAllForPayload() {
-    const docs = await this._find({}, { bypassReadPermissionChecks: true });
-    return sortQaOverrides(docs);
-  }
-
-  // No permission check: the actor already changed the experiment, which
-  // may no longer exist.
-  public async deleteByExperimentForLifecycle(
+  // No permission check on these two: the actor already changed the
+  // experiment or environment, which may no longer exist.
+  public async deleteByExperiment(
     experiment: string,
     writeOptions?: WriteOptions,
   ) {
-    const docs = await this.findByExperiment(experiment);
+    return this.deleteAll(
+      await this.findByExperiment(experiment),
+      writeOptions,
+    );
+  }
+
+  public async deleteByEnvironment(
+    environment: string,
+    writeOptions?: WriteOptions,
+  ) {
+    return this.deleteAll(
+      await this.findByEnvironment(environment),
+      writeOptions,
+    );
+  }
+
+  private async deleteAll(
+    docs: ExperimentQaOverrideInterface[],
+    writeOptions?: WriteOptions,
+  ) {
     for (const doc of docs) {
       await this._deleteOne(
         doc,
@@ -80,75 +160,20 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
     return docs;
   }
 
-  public async deleteByEnvironment(
-    environment: string,
-    writeOptions?: WriteOptions,
-  ) {
-    const docs = await this.findByEnvironment(environment);
-    for (const doc of docs) {
-      await this._deleteOne(
-        doc,
-        { ...writeOptions, skipSDKRefresh: true },
-        true,
-      );
-    }
-    if (docs.length)
-      await this.refreshEnvironments([environment], writeOptions);
-    return docs;
-  }
-
-  // An override that only named this connection is deleted, not widened to
-  // the whole environment.
-  public async removeSdkConnectionFromFilters(
-    connectionId: string,
-    writeOptions?: WriteOptions,
-  ) {
-    const docs = await this._find(
-      { "filters.sdkConnections": connectionId },
-      { bypassReadPermissionChecks: true },
-    );
-    const touched: ExperimentQaOverrideInterface[] = [];
-    for (const doc of docs) {
-      const sdkConnections = (doc.filters.sdkConnections ?? []).filter(
-        (id) => id !== connectionId,
-      );
-      if (sdkConnections.length) {
-        await this._updateOne(
-          doc,
-          { filters: { ...doc.filters, sdkConnections } },
-          {
-            writeOptions: { ...writeOptions, skipSDKRefresh: true },
-            forceCanUpdate: true,
-          },
-        );
-      } else {
-        await this._deleteOne(
-          doc,
-          { ...writeOptions, skipSDKRefresh: true },
-          true,
-        );
-      }
-      touched.push(doc);
-    }
-    await this.refreshEnvironments(
-      touched.map((d) => d.environment),
-      writeOptions,
-    );
-    return touched;
+  private getExperiment(doc: ExperimentQaOverrideInterface) {
+    const { experiment } = this.getForeignRefs(doc);
+    if (!experiment) throw new Error("Could not find experiment");
+    return experiment;
   }
 
   protected canRead(doc: ExperimentQaOverrideInterface): boolean {
-    const { experiment } = this.getForeignRefs(doc);
-    if (!experiment) throw new Error("Could not find experiment");
     return this.context.permissions.canReadSingleProjectResource(
-      experiment.project,
+      this.getExperiment(doc).project,
     );
   }
 
   private canWrite(doc: ExperimentQaOverrideInterface): boolean {
-    const { experiment } = this.getForeignRefs(doc);
-    if (!experiment) throw new Error("Could not find experiment");
-    return this.context.permissions.canRunExperiment(experiment, [
+    return this.context.permissions.canRunExperiment(this.getExperiment(doc), [
       doc.environment,
     ]);
   }
@@ -162,9 +187,15 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
     return this.canWrite(doc);
   }
 
-  protected async customValidation(doc: ExperimentQaOverrideInterface) {
-    const { experiment } = this.getForeignRefs(doc);
-    if (!experiment) throw new Error("Could not find experiment");
+  // The experiment and environment gates always apply. References are only
+  // checked when they change: one that has since gone stale (a removed
+  // variation, a deleted SDK Connection) is reported as a status and must not
+  // block reordering or editing the rest of the override.
+  protected async customValidation(
+    doc: ExperimentQaOverrideInterface,
+    previousDoc?: ExperimentQaOverrideInterface,
+  ) {
+    const experiment = this.getExperiment(doc);
     if (experiment.archived) {
       throw new Error("Cannot add a QA override to an archived experiment");
     }
@@ -189,52 +220,62 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
       );
     }
 
-    if (doc.assignment.type === "forced") {
-      const variationId = doc.assignment.variationId;
-      const valid = getLatestPhaseVariations(experiment).some(
-        (v) => v.id === variationId,
-      );
-      if (!valid) throw new Error("Invalid variation for forced assignment");
+    const { assignment } = doc;
+    if (
+      assignment.type === "forced" &&
+      !isEqual(assignment, previousDoc?.assignment) &&
+      !getLatestPhaseVariations(experiment).some(
+        (v) => v.id === assignment.variationId,
+      )
+    ) {
+      throw new Error("Invalid variation for forced assignment");
     }
 
-    await this.validateFilters(doc);
+    await this.validateFilters(doc, previousDoc?.filters ?? {});
   }
 
-  private async validateFilters(doc: ExperimentQaOverrideInterface) {
+  private async validateFilters(
+    doc: ExperimentQaOverrideInterface,
+    previous: QaOverrideFilters,
+  ) {
     const { condition, savedGroups, sdkConnections, projects } = doc.filters;
 
-    if (qaOverrideHasCondition(doc.filters)) {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(condition ?? "");
-      } catch (e) {
-        throw new Error("Targeting condition is not valid JSON");
-      }
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        throw new Error("Targeting condition must be a JSON object");
+    if ((condition ?? "") !== (previous.condition ?? "")) {
+      const result = validateCondition(
+        condition,
+        await getSavedGroupsForValidation(this.context, [{ condition }]),
+      );
+      if (!result.success) {
+        throw new Error(`Invalid targeting condition: ${result.error}`);
       }
     }
 
-    if (savedGroups?.length) {
-      const ids = [...new Set(savedGroups.flatMap((g) => g.ids))];
-      const found = await this.context.models.savedGroups.getByIds(ids);
-      const missing = ids.filter((id) => !found.some((g) => g.id === id));
+    const groupIds = (filters: QaOverrideFilters["savedGroups"]) =>
+      uniq((filters ?? []).flatMap((g) => g.ids));
+    const addedGroups = difference(
+      groupIds(savedGroups),
+      groupIds(previous.savedGroups),
+    );
+    if (addedGroups.length) {
+      const found = await this.context.models.savedGroups.getByIds(addedGroups);
+      const missing = addedGroups.filter(
+        (id) => !found.some((g) => g.id === id),
+      );
       if (missing.length) {
         throw new Error(`Unknown Saved Group(s): ${missing.join(", ")}`);
       }
     }
 
-    if (sdkConnections?.length) {
-      const connections = await findSDKConnectionsByIds(
+    const addedConnections = difference(
+      uniq(sdkConnections ?? []),
+      previous.sdkConnections ?? [],
+    );
+    if (addedConnections.length) {
+      const connections = await assertCanUseSDKConnections(
         this.context,
-        sdkConnections,
+        addedConnections,
+        (c) => this.context.permissions.canReadMultiProjectResource(c.projects),
       );
-      const missing = sdkConnections.filter(
-        (id) => !connections.some((c) => c.id === id),
-      );
-      if (missing.length) {
-        throw new Error(`Unknown SDK Connection(s): ${missing.join(", ")}`);
-      }
       const wrongEnv = connections.filter(
         (c) => c.environment !== doc.environment,
       );
@@ -247,16 +288,16 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
       }
     }
 
-    if (projects?.length) {
-      const all = await this.context.models.projects.getAll();
-      const missing = projects.filter((p) => !all.some((a) => a.id === p));
-      if (missing.length) {
-        throw new Error(`Unknown project(s): ${missing.join(", ")}`);
-      }
+    const addedProjects = difference(
+      uniq(projects ?? []),
+      previous.projects ?? [],
+    );
+    if (addedProjects.length) {
+      await this.context.models.projects.ensureProjectsExist(addedProjects);
     }
   }
 
-  public async refreshEnvironments(
+  private async refreshEnvironments(
     environments: string[],
     writeOptions?: WriteOptions,
   ) {

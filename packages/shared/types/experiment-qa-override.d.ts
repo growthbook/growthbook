@@ -7,7 +7,6 @@ import {
   reorderExperimentQaOverridesBodyValidator,
   updateExperimentQaOverrideBodyValidator,
 } from "shared/validators";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   LinkedFeatureEnvState,
   LinkedFeatureState,
@@ -21,13 +20,6 @@ export type ExperimentQaOverrideAssignment = z.infer<
 
 export type ExperimentQaOverrideInterface = z.infer<
   typeof experimentQaOverrideValidator
->;
-
-export type CreateExperimentQaOverrideProps =
-  CreateProps<ExperimentQaOverrideInterface>;
-export type UpdateExperimentQaOverrideProps = UpdateProps<
-  ExperimentQaOverrideInterface,
-  "id" | "experiment" | "environment" | "createdBy"
 >;
 
 export type CreateExperimentQaOverrideBody = z.infer<
@@ -48,7 +40,23 @@ export type QaOverrideWaitingFeature = {
   draftVersion?: number;
 };
 
-export type ExperimentQaOverrideWithStatus = ExperimentQaOverrideInterface & {
-  status: "active" | "waiting";
-  waitingOn: QaOverrideWaitingFeature[];
+// Something the override refers to is gone. Unlike `waiting`, this never
+// resolves by itself: the override has to be edited or deleted.
+export type QaOverrideInvalidReason =
+  | "variation-removed"
+  | "no-matching-connection";
+
+export type QaOverrideStaleSdkConnection = {
+  id: string;
+  reason: "deleted" | "other-environment";
 };
+
+export type QaOverrideStatus = {
+  status: "active" | "waiting" | "invalid";
+  waitingOn: QaOverrideWaitingFeature[];
+  invalidReasons: QaOverrideInvalidReason[];
+  staleSdkConnections: QaOverrideStaleSdkConnection[];
+};
+
+export type ExperimentQaOverrideWithStatus = ExperimentQaOverrideInterface &
+  QaOverrideStatus;

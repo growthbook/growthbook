@@ -1,6 +1,11 @@
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import {
+  experimentSupportsQaOverrides,
+  getQaOverrideStaleSdkConnections,
+  getQaOverrideStatus,
   getQaOverrideWaitingFeatures,
+  getQaTrackingKey,
+  isQaTrackingKey,
   reorderQaOverridesInEnvironment,
   qaOverrideAppliesToConnection,
   qaOverrideHasCondition,
@@ -164,5 +169,158 @@ describe("reorderQaOverridesInEnvironment", () => {
     expect(
       reorderQaOverridesInEnvironment(overrides, "dev", ["a", "c", "b"]),
     ).toBeNull();
+  });
+});
+
+describe("QA tracking key", () => {
+  it("marks a key so QA exposures can be told apart from real ones", () => {
+    expect(getQaTrackingKey("checkout")).toBe("checkout::qa");
+    expect(isQaTrackingKey(getQaTrackingKey("checkout"))).toBe(true);
+  });
+
+  it("only matches the suffix", () => {
+    expect(isQaTrackingKey("checkout")).toBe(false);
+    expect(isQaTrackingKey("checkout::qa::v2")).toBe(false);
+    expect(isQaTrackingKey("::qa-checkout")).toBe(false);
+    expect(isQaTrackingKey("")).toBe(false);
+    expect(isQaTrackingKey(undefined)).toBe(false);
+  });
+});
+
+describe("experimentSupportsQaOverrides", () => {
+  it("allows standard experiments and Bandits", () => {
+    expect(experimentSupportsQaOverrides({ type: "standard" })).toBe(true);
+    expect(experimentSupportsQaOverrides({ type: "multi-armed-bandit" })).toBe(
+      true,
+    );
+  });
+
+  it("treats a missing type as standard", () => {
+    expect(experimentSupportsQaOverrides({})).toBe(true);
+  });
+
+  it("rejects other experiment types", () => {
+    expect(experimentSupportsQaOverrides({ type: "holdout" })).toBe(false);
+  });
+});
+
+describe("getQaOverrideStaleSdkConnections", () => {
+  const override = {
+    environment: "dev",
+    filters: { sdkConnections: ["here", "moved", "gone"] },
+  };
+  const connections = [
+    { id: "here", environment: "dev" },
+    { id: "moved", environment: "staging" },
+  ];
+
+  it("reports listed connections that were deleted or moved", () => {
+    expect(getQaOverrideStaleSdkConnections(override, connections)).toEqual([
+      { id: "moved", reason: "other-environment" },
+      { id: "gone", reason: "deleted" },
+    ]);
+  });
+
+  it("is empty when the override lists no connections", () => {
+    expect(
+      getQaOverrideStaleSdkConnections(
+        { environment: "dev", filters: {} },
+        connections,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("getQaOverrideStatus", () => {
+  const experiment = {
+    variations: [
+      { id: "v0", key: "0", name: "Control", screenshots: [] },
+      { id: "v1", key: "1", name: "Variation 1", screenshots: [] },
+    ],
+    phases: [],
+  } as unknown as Parameters<typeof getQaOverrideStatus>[1]["experiment"];
+  const forced = (variationId: string) =>
+    ({ type: "forced", variationId }) as const;
+  const base = {
+    environment: "dev",
+    filters: {},
+    assignment: forced("v1"),
+  };
+  const none = { experiment, linkedFeatures: [], connections: [] };
+
+  it("is active when nothing it refers to is missing", () => {
+    expect(getQaOverrideStatus(base, none)).toEqual({
+      status: "active",
+      waitingOn: [],
+      invalidReasons: [],
+      staleSdkConnections: [],
+    });
+  });
+
+  it("is invalid when the forced variation was removed", () => {
+    const status = getQaOverrideStatus(
+      { ...base, assignment: forced("deleted") },
+      none,
+    );
+    expect(status.status).toBe("invalid");
+    expect(status.invalidReasons).toEqual(["variation-removed"]);
+  });
+
+  it("never reports a removed variation for random assignment", () => {
+    expect(
+      getQaOverrideStatus({ ...base, assignment: { type: "random" } }, none)
+        .status,
+    ).toBe("active");
+  });
+
+  it("is invalid when none of its SDK Connections is left in the environment", () => {
+    const status = getQaOverrideStatus(
+      { ...base, filters: { sdkConnections: ["moved", "gone"] } },
+      { ...none, connections: [{ id: "moved", environment: "staging" }] },
+    );
+    expect(status.status).toBe("invalid");
+    expect(status.invalidReasons).toEqual(["no-matching-connection"]);
+    expect(status.staleSdkConnections).toHaveLength(2);
+  });
+
+  it("stays active while one listed SDK Connection is still in the environment", () => {
+    const status = getQaOverrideStatus(
+      { ...base, filters: { sdkConnections: ["here", "gone"] } },
+      { ...none, connections: [{ id: "here", environment: "dev" }] },
+    );
+    expect(status.status).toBe("active");
+    expect(status.invalidReasons).toEqual([]);
+    expect(status.staleSdkConnections).toEqual([
+      { id: "gone", reason: "deleted" },
+    ]);
+  });
+
+  it("reports every reason that applies", () => {
+    expect(
+      getQaOverrideStatus(
+        {
+          ...base,
+          assignment: forced("deleted"),
+          filters: { sdkConnections: ["gone"] },
+        },
+        none,
+      ).invalidReasons,
+    ).toEqual(["variation-removed", "no-matching-connection"]);
+  });
+
+  it("is waiting on a Feature Flag only when nothing is invalid", () => {
+    const linkedFeatures = [linked("flag", "live", { dev: "disabled-env" })];
+    const waiting = getQaOverrideStatus(base, { ...none, linkedFeatures });
+    expect(waiting.status).toBe("waiting");
+    expect(waiting.waitingOn).toEqual([
+      { featureId: "flag", reason: "disabled-env" },
+    ]);
+
+    const invalid = getQaOverrideStatus(
+      { ...base, assignment: forced("deleted") },
+      { ...none, linkedFeatures },
+    );
+    expect(invalid.status).toBe("invalid");
+    expect(invalid.waitingOn).toHaveLength(1);
   });
 });

@@ -2676,6 +2676,19 @@ const onExperimentCreate = async ({
     });
 };
 
+// Best effort, after the change itself has been saved and its payload refresh
+// queued: QA overrides are only served for drafts, so a leftover one is inert.
+const deleteQaOverrides = async (
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+) => {
+  try {
+    await context.models.experimentQaOverrides.deleteByExperiment(experimentId);
+  } catch (e) {
+    logger.error(e, "Failed to delete QA overrides for experiment");
+  }
+};
+
 const onExperimentUpdate = async ({
   context,
   oldExperiment,
@@ -2711,15 +2724,6 @@ const onExperimentUpdate = async ({
       logger.error(error, "Failed to notify bandit allocation change"),
     );
   };
-
-  if (
-    (oldExperiment.status === "draft" && newExperiment.status !== "draft") ||
-    (!oldExperiment.archived && newExperiment.archived)
-  ) {
-    await context.models.experimentQaOverrides.deleteByExperimentForLifecycle(
-      newExperiment.id,
-    );
-  }
 
   if (
     !bypassWebhooks &&
@@ -2761,6 +2765,13 @@ const onExperimentUpdate = async ({
     });
   }
 
+  if (
+    (oldExperiment.status === "draft" && newExperiment.status !== "draft") ||
+    (!oldExperiment.archived && newExperiment.archived)
+  ) {
+    await deleteQaOverrides(context, newExperiment.id);
+  }
+
   notifyAlerts();
 
   if (context.org.isVercelIntegration)
@@ -2790,9 +2801,7 @@ const onExperimentDelete = async (
   experiment: ExperimentInterface,
 ) => {
   await logExperimentDeleted(context, experiment);
-  await context.models.experimentQaOverrides.deleteByExperimentForLifecycle(
-    experiment.id,
-  );
+  await deleteQaOverrides(context, experiment.id);
 
   const featureIds = [...(experiment.linkedFeatures || [])];
   let linkedFeatures: FeatureInterface[] = [];
