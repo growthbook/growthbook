@@ -17,7 +17,7 @@ import {
   getAllMetricIdsFromExperiment,
   getLatestPhaseVariations,
   getNewMetricsUpdate,
-  getSnapshotDataAsOf,
+  getSnapshotDataAsOfDate,
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
@@ -386,7 +386,7 @@ const Results: FC<{
           pValueCorrection={pValueCorrection}
           startDate={phaseObj?.dateStarted ?? ""}
           endDate={phaseObj?.dateEnded ?? ""}
-          reportDate={snapshot ? getSnapshotDataAsOf(snapshot) : new Date()}
+          reportDate={snapshot ? getSnapshotDataAsOfDate(snapshot) : new Date()}
           isLatestPhase={phase === experiment.phases.length - 1}
           sequentialTestingEnabled={analysis.settings?.sequentialTesting}
           lookbackOverride={getEffectiveLookbackOverride(
@@ -451,7 +451,7 @@ const Results: FC<{
               phase={phase}
               startDate={phaseObj?.dateStarted ?? ""}
               endDate={phaseObj?.dateEnded ?? ""}
-              reportDate={getSnapshotDataAsOf(snapshot)}
+              reportDate={getSnapshotDataAsOfDate(snapshot)}
               activationMetric={experiment.activationMetric}
               status={experiment.status}
               statsEngine={
@@ -512,7 +512,7 @@ const Results: FC<{
               multipleExposures={snapshot.multipleExposures || 0}
               results={analysis.results[0]}
               queryStatusData={queryStatusData}
-              reportDate={getSnapshotDataAsOf(snapshot)}
+              reportDate={getSnapshotDataAsOfDate(snapshot)}
               startDate={phaseObj?.dateStarted ?? ""}
               endDate={phaseObj?.dateEnded ?? ""}
               isLatestPhase={phase === experiment.phases.length - 1}

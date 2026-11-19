@@ -2,7 +2,7 @@ import { getValidDate } from "shared/dates";
 import {
   getClusterSubUnit,
   getExperimentOutdatedReasonLabel,
-  getSnapshotDataAsOf,
+  getSnapshotDataAsOfDate,
   isFactMetric,
   isExperimentOutdatedReasonField,
   quantileMetricType,
@@ -425,7 +425,7 @@ export function isNewerOverallResultsDataAvailable(
 
   return (
     getValidDate(
-      getSnapshotDataAsOf(latestSuccessfulOverallResultsSnapshot),
+      getSnapshotDataAsOfDate(latestSuccessfulOverallResultsSnapshot),
     ).getTime() > getValidDate(sourceSnapshot.dateCreated).getTime()
   );
 }

@@ -20,7 +20,7 @@ import {
   getAllMetricIdsFromExperiment,
   getClusterSubUnit,
 } from "./experiments";
-import { getSnapshotDataAsOf } from "./new-metrics-update";
+import { getSnapshotDataAsOfDate } from "./new-metrics-update";
 import { getLatestPhaseVariations } from "./variations";
 
 export const EXPERIMENT_OUTDATED_REASON_LABELS = {
@@ -326,7 +326,7 @@ export function getResultsOutdatedReasons({
     isAnalysisDateRangeOutdated({
       phase: exp.phases[phase],
       snapshotSettings,
-      snapshotDateCreated: getSnapshotDataAsOf(snapshot),
+      snapshotDateCreated: getSnapshotDataAsOfDate(snapshot),
       resultsUpdateDisabled,
     })
   ) {

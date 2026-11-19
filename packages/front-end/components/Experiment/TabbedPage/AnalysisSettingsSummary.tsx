@@ -21,7 +21,7 @@ import {
   isExperimentResultsUpdateDisabled,
   EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
   getNewMetricsUpdate,
-  getSnapshotDataAsOf,
+  getSnapshotDataAsOfDate,
   getResultsOutdatedReasons,
   getResultsOutdatedReasonLabel,
   getNewMetricsUpdateBlocker,
@@ -764,7 +764,7 @@ export default function AnalysisSettingsSummary({
               <QueriesLastRun
                 status={status}
                 dateCreated={
-                  snapshot ? getSnapshotDataAsOf(snapshot) : undefined
+                  snapshot ? getSnapshotDataAsOfDate(snapshot) : undefined
                 }
                 cutoffDate={snapshotCutoffDate}
                 sourceSnapshot={sourceSnapshot}

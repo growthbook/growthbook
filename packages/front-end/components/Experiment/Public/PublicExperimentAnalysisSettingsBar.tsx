@@ -1,6 +1,6 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import { getNewMetricsUpdate, getSnapshotDataAsOf } from "shared/experiments";
+import { getSnapshotDataAsOfDate } from "shared/experiments";
 import { ago, date, datetime } from "shared/dates";
 import { PiEye } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -27,10 +27,7 @@ export default function PublicExperimentAnalysisSettingsBar({
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
   if (!snapshot) return null;
-  // A new-metrics update shows when its copied results were computed.
-  const lastUpdated = getNewMetricsUpdate(snapshot)
-    ? getSnapshotDataAsOf(snapshot)
-    : snapshot.runStarted;
+  const lastUpdated = getSnapshotDataAsOfDate(snapshot);
 
   return (
     <>
@@ -72,14 +69,9 @@ export default function PublicExperimentAnalysisSettingsBar({
                   }
                 />
               )}
-              {snapshot.runStarted && (
-                <div className="text-right mt-3">
-                  <Metadata
-                    label="Run date"
-                    value={datetime(snapshot.runStarted)}
-                  />
-                </div>
-              )}
+              <div className="text-right mt-3">
+                <Metadata label="Run date" value={datetime(lastUpdated)} />
+              </div>
             </div>
           }
         />
@@ -129,7 +121,7 @@ export default function PublicExperimentAnalysisSettingsBar({
         </div>
         <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end">
           <div className="col-auto px-0">
-            {hasData && lastUpdated ? (
+            {hasData ? (
               <div
                 className="text-muted text-right"
                 style={{ width: 130, fontSize: "0.8em" }}

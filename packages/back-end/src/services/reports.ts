@@ -529,7 +529,7 @@ export async function createReportSnapshot({
   const snapshotType = "report";
   // Fill in and sanitize the model
   snapshotData = {
-    ...omit(snapshotData, ["newMetricsUpdate"]),
+    ...snapshotData,
     id: generateId("snp_"),
     type: snapshotType,
     report: report.id,
@@ -547,6 +547,8 @@ export async function createReportSnapshot({
     // Report snapshots don't run health queries, so drop the health carried
     // over from the experiment; warnings then use the report's own results.
     health: undefined,
+    // A report refresh queries every metric itself.
+    newMetricsUpdate: undefined,
     hasChunkedAnalyses: false,
     chunkedAnalysesMeta: {},
     analyses: [

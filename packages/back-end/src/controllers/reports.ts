@@ -11,7 +11,7 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
-import { getAllVariations } from "shared/experiments";
+import { getAllVariations, getNewMetricsUpdate } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
 import { generateId } from "back-end/src/util/uuid";
@@ -73,6 +73,13 @@ export async function postReportFromSnapshot(
     throw new Error("Invalid snapshot id");
   }
   // Prepare a new report-specific snapshot
+  // A report snapshot has no lineage, so a new-metrics update's dates become
+  // the ones its copied results were computed at.
+  const newMetricsUpdate = getNewMetricsUpdate(snapshot);
+  if (newMetricsUpdate) {
+    snapshot.dateCreated = newMetricsUpdate.baseDateCreated;
+    snapshot.runStarted = newMetricsUpdate.baseRunStarted;
+  }
   snapshot.id = generateId("snp_");
   snapshot.type = "report";
   snapshot.triggeredBy = "manual";

@@ -3,7 +3,10 @@ import {
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { getEffectiveLookbackOverride } from "shared/experiments";
+import {
+  getEffectiveLookbackOverride,
+  getSnapshotDataAsOfDate,
+} from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -206,7 +209,7 @@ export default function ReportResults({
             pValueCorrection={pValueCorrection}
             startDate={getValidDate(phaseObj.dateStarted).toISOString()}
             endDate={getValidDate(phaseObj.dateEnded).toISOString()}
-            reportDate={snapshot.dateCreated}
+            reportDate={getSnapshotDataAsOfDate(snapshot)}
             isLatestPhase={phase === phases.length - 1}
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
             lookbackOverride={getEffectiveLookbackOverride(
@@ -265,7 +268,7 @@ export default function ReportResults({
                 endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
                 phase={phase}
-                reportDate={snapshot.dateCreated}
+                reportDate={getSnapshotDataAsOfDate(snapshot)}
                 status={"stopped"}
                 statsEngine={analysis.settings.statsEngine}
                 pValueCorrection={pValueCorrection}
@@ -288,7 +291,7 @@ export default function ReportResults({
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}
-                reportDate={snapshot.dateCreated}
+                reportDate={getSnapshotDataAsOfDate(snapshot)}
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
                 endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}

@@ -142,7 +142,7 @@ export function getNewMetricsUpdate(
     : null;
 }
 
-export function getSnapshotDataAsOf(snapshot: SnapshotLineage): Date {
+export function getSnapshotDataAsOfDate(snapshot: SnapshotLineage): Date {
   return getNewMetricsUpdate(snapshot)?.baseDateCreated ?? snapshot.dateCreated;
 }
 

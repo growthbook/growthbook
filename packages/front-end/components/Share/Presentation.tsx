@@ -12,6 +12,7 @@ import {
   expandMetricGroups,
   getAllVariations,
   getLatestPhaseVariations,
+  getSnapshotDataAsOfDate,
 } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -490,7 +491,7 @@ const Presentation = ({
                 snapshot={snapshot}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={snapshot?.analyses?.[0]?.results?.[0]}
-                reportDate={snapshot.dateCreated}
+                reportDate={getSnapshotDataAsOfDate(snapshot)}
                 startDate={phase?.dateStarted ?? ""}
                 endDate={phase?.dateEnded ?? ""}
                 isLatestPhase={snapshot.phase === experiment.phases.length - 1}

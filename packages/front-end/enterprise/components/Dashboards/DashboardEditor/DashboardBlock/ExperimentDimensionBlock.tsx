@@ -8,6 +8,7 @@ import { MetricSnapshotSettings } from "shared/types/report";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getSnapshotDataAsOfDate,
   isDimensionPrecomputed,
 } from "shared/experiments";
 import {
@@ -139,7 +140,7 @@ export default function ExperimentDimensionBlock({
       pValueCorrection={pValueCorrection}
       startDate={latestPhase.dateStarted ?? ""}
       endDate={latestPhase.dateEnded ?? ""}
-      reportDate={snapshot.dateCreated}
+      reportDate={getSnapshotDataAsOfDate(snapshot)}
       isLatestPhase={true}
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
@@ -174,7 +175,7 @@ export default function ExperimentDimensionBlock({
         phase={experiment.phases.length - 1}
         startDate={latestPhase.dateStarted ?? ""}
         endDate={latestPhase.dateEnded ?? ""}
-        reportDate={snapshot.dateCreated}
+        reportDate={getSnapshotDataAsOfDate(snapshot)}
         activationMetric={experiment.activationMetric}
         status={experiment.status}
         statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}

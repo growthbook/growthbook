@@ -91,7 +91,7 @@ import {
   withScheduledBy,
   isExperimentResultsUpdateDisabled,
   EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
-  getSnapshotDataAsOf,
+  getSnapshotDataAsOfDate,
   getSnapshotSideEffects,
   getMetricFilterForCarriedQueries,
   getNewMetricsUpdate,
@@ -2206,7 +2206,7 @@ export async function planSnapshot({
       : null;
     if (sourceSnapshot) {
       data.sourceSnapshotId = sourceSnapshot.id;
-      const sourceDataAsOf = getSnapshotDataAsOf(sourceSnapshot);
+      const sourceDataAsOf = getSnapshotDataAsOfDate(sourceSnapshot);
       data.sourceSnapshotDateCreated = sourceDataAsOf;
       // The source's data ends at its cutoff, otherwise at its run time.
       const sourceCutoff = getSnapshotCutoffDate(sourceSnapshot.settings);
@@ -3967,7 +3967,7 @@ export function toSnapshotApiInterface(
 
   return {
     id: snapshot.id,
-    dateUpdated: getSnapshotDataAsOf(snapshot).toISOString(),
+    dateUpdated: getSnapshotDataAsOfDate(snapshot).toISOString(),
     experimentId: snapshot.experiment,
     phase: snapshot.phase + "",
     dimension: dimension,
