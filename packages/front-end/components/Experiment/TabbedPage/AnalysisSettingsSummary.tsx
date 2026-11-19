@@ -848,7 +848,7 @@ export default function AnalysisSettingsSummary({
                     }
                     fullRefreshRequired={fullRefreshRequired}
                     fullRefreshReasons={fullRefreshReasons}
-                    newMetricsUpdate={offerNewMetricsUpdate}
+                    offerNewMetricsUpdate={offerNewMetricsUpdate}
                   />
                 </Flex>
               </Tooltip>

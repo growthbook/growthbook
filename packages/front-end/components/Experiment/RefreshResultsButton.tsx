@@ -57,7 +57,7 @@ export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
   fullRefreshReasons?: string[];
   // Offer "Update new metrics" as the main action, with "Update all metrics"
   // in the menu.
-  newMetricsUpdate?: boolean;
+  offerNewMetricsUpdate?: boolean;
   disabled?: boolean;
 }
 
@@ -79,7 +79,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
   safeRollout,
   fullRefreshRequired = false,
   fullRefreshReasons = [],
-  newMetricsUpdate = false,
+  offerNewMetricsUpdate = false,
   disabled = false,
 }: RefreshResultsButtonProps<T>) {
   const hasQueries = (latest?.queries?.length ?? 0) > 0;
@@ -101,7 +101,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         dimension={dimension}
         fullRefreshRequired={fullRefreshRequired}
         fullRefreshReasons={fullRefreshReasons}
-        newMetricsUpdate={newMetricsUpdate}
+        offerNewMetricsUpdate={offerNewMetricsUpdate}
         disabled={disabled}
       />
     );
@@ -163,7 +163,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   dimension,
   fullRefreshRequired,
   fullRefreshReasons,
-  newMetricsUpdate,
+  offerNewMetricsUpdate,
   disabled = false,
 }: RefreshResultsButtonProps<T> & {
   latest: T;
@@ -220,7 +220,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
         : () => submitUpdate();
 
   const running = getQueryStatus(latest.queries || []).status === "running";
-  if (newMetricsUpdate && entityType !== "safe-rollout" && !running) {
+  if (offerNewMetricsUpdate && entityType !== "safe-rollout" && !running) {
     return (
       <>
         <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
