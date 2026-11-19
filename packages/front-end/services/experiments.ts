@@ -40,7 +40,6 @@ import {
 import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
-  getMetricIdsMissingFromSnapshot,
   getNewMetricsUpdate,
   getClusterExperimentMetricEligibility,
   getEqualWeights,
@@ -60,7 +59,6 @@ import {
   isSuspiciousUplift,
   quantileMetricType,
   expandMetricGroups,
-  getMetricIdsExcludedByExperimentType,
   createAutoSliceDataForMetric,
   generateSliceString,
   generateSelectAllSliceString,
@@ -298,68 +296,19 @@ export function getUnjoinableMetricIds({
 }
 
 /**
- * Metrics no update of this experiment computes: those that can't join its
- * units, and for a holdout, guardrails and conversion-window metrics.
- * Cluster experiments decide eligibility per cluster or sub-unit, which the
- * page can't check.
- */
-export function getMetricIdsNoSnapshotComputes({
-  experiment,
-  metricGroups,
-  ...joinInputs
-}: {
-  experiment: Pick<
-    ExperimentInterfaceStringDates,
-    | "type"
-    | "goalMetrics"
-    | "secondaryMetrics"
-    | "guardrailMetrics"
-    | "isClusterExperiment"
-  >;
-  metricGroups: MetricGroupInterface[];
-} & Omit<
-  Parameters<typeof getUnjoinableMetricIds>[0],
-  "metricIds"
->): Set<string> {
-  const metricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
-  );
-  const uncomputable = experiment.isClusterExperiment
-    ? new Set<string>()
-    : getUnjoinableMetricIds({ metricIds, ...joinInputs });
-  getMetricIdsExcludedByExperimentType({
-    experiment,
-    metricGroups,
-    getMetricById: joinInputs.getExperimentMetricById,
-  }).forEach((id) => uncomputable.add(id));
-  return uncomputable;
-}
-
-/**
  * Rows for the metrics added after the current results: being computed while
  * an update that includes them runs, failed when the new-metrics update that
  * included them failed, otherwise not computed yet.
  */
 export function getNewMetricRowStates({
-  experiment,
-  metricGroups,
-  snapshotSettings,
+  newMetricIds,
   latest,
-  uncomputableMetricIds,
 }: {
-  experiment: Pick<
-    ExperimentInterfaceStringDates,
-    "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
-  >;
-  metricGroups: MetricGroupInterface[];
-  snapshotSettings: Pick<ExperimentSnapshotSettings, "metricSettings">;
+  newMetricIds: readonly string[];
   latest: Pick<
     SnapshotStatusSummary,
     "type" | "status" | "error" | "newMetricsUpdate"
   > | null;
-  uncomputableMetricIds: ReadonlySet<string>;
 }): Map<string, NewMetricRowState> {
   const newMetricsUpdate = latest ? getNewMetricsUpdate(latest) : null;
   const getState = (metricId: string): NewMetricRowState => {
@@ -376,15 +325,7 @@ export function getNewMetricRowStates({
     }
     return { status: "notComputed" };
   };
-  return new Map(
-    getMetricIdsMissingFromSnapshot({
-      experiment,
-      snapshotSettings,
-      metricGroups,
-    })
-      .filter((id) => !uncomputableMetricIds.has(id))
-      .map((id) => [id, getState(id)]),
-  );
+  return new Map(newMetricIds.map((id) => [id, getState(id)]));
 }
 
 /**

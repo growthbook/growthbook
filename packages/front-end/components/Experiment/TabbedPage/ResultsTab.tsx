@@ -5,6 +5,7 @@ import { getScopedSettings } from "shared/settings";
 import {
   isDimensionPrecomputed,
   getEffectiveLookbackOverride,
+  getComputableNewMetricIds,
 } from "shared/experiments";
 import React, { useState, useCallback, useMemo } from "react";
 import {
@@ -31,7 +32,6 @@ import LinkButton from "@/ui/LinkButton";
 import {
   getHonoredPrecomputedUnitDimensionIds,
   getNewMetricRowStates,
-  getMetricIdsNoSnapshotComputes,
 } from "@/services/experiments";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
@@ -181,36 +181,38 @@ export default function ResultsTab({
   );
   const isLatestPhase = phase === experiment.phases.length - 1;
   const showsMetricRows = !analysis?.settings?.dimensions?.length;
-  const newMetricStates = useMemo(
+  const newMetricIds = useMemo(
     () =>
-      snapshot && isLatestPhase && showsMetricRows
-        ? getNewMetricRowStates({
+      snapshot
+        ? getComputableNewMetricIds({
             experiment,
-            metricGroups,
             snapshotSettings: snapshot.settings,
-            latest: latestSummary ?? null,
-            uncomputableMetricIds: getMetricIdsNoSnapshotComputes({
-              experiment,
-              metricGroups,
-              getExperimentMetricById,
-              getFactTableById,
-              userIdType,
-              datasourceSettings,
-            }),
+            metricGroups,
+            getMetricById: getExperimentMetricById,
+            getFactTableById,
+            identifierType: userIdType,
+            datasourceSettings,
           })
-        : undefined,
+        : [],
     [
       experiment,
+      snapshot,
       metricGroups,
       getExperimentMetricById,
       getFactTableById,
       userIdType,
       datasourceSettings,
-      isLatestPhase,
-      showsMetricRows,
-      snapshot,
-      latestSummary,
     ],
+  );
+  const newMetricStates = useMemo(
+    () =>
+      isLatestPhase && showsMetricRows
+        ? getNewMetricRowStates({
+            newMetricIds,
+            latest: latestSummary ?? null,
+          })
+        : undefined,
+    [newMetricIds, isLatestPhase, showsMetricRows, latestSummary],
   );
 
   const reportArgs: ExperimentSnapshotReportArgs = {
@@ -440,6 +442,7 @@ export default function ResultsTab({
         <div style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
+            newMetricIds={newMetricIds}
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}

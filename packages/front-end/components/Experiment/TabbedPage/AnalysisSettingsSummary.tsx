@@ -26,7 +26,6 @@ import {
   getResultsOutdatedReasonLabel,
   getNewMetricsUpdateBlocker,
   shouldOfferNewMetricsUpdate,
-  getMetricIdsMissingFromSnapshot,
 } from "shared/experiments";
 import {
   isNewerOverallResultsDataAvailable,
@@ -74,7 +73,6 @@ import {
   getResultsSubUnitTotal,
   getUnitDisplayName,
   getUnjoinableMetricIds,
-  getMetricIdsNoSnapshotComputes,
 } from "@/services/experiments";
 import NewMetricsBadge from "@/components/Experiment/NewMetricsBadge";
 import Metadata from "@/ui/Metadata";
@@ -88,6 +86,8 @@ import UpdateDimensionBreakdownModal from "@/components/Experiment/UpdateDimensi
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  // Added metrics a new-metrics update would compute.
+  newMetricIds: readonly string[];
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
@@ -121,6 +121,7 @@ const numberFormatter = Intl.NumberFormat();
 
 export default function AnalysisSettingsSummary({
   experiment,
+  newMetricIds,
   mutate: mutateExperiment,
   statsEngine,
   editMetrics,
@@ -554,6 +555,7 @@ export default function AnalysisSettingsSummary({
   // button never shows without it.
   const offerNewMetricsUpdate =
     !!snapshot &&
+    newMetricIds.length > 0 &&
     hasData &&
     !dimension &&
     !fullRefreshRequired &&
@@ -573,24 +575,8 @@ export default function AnalysisSettingsSummary({
           ((snapshot.runnerKind ?? "results") !== "results") !== isIncremental,
       }),
     });
-  const uncomputableMetricIds = offerNewMetricsUpdate
-    ? getMetricIdsNoSnapshotComputes({
-        experiment,
-        metricGroups,
-        getExperimentMetricById,
-        getFactTableById,
-        userIdType,
-        datasourceSettings,
-      })
-    : new Set<string>();
   const newMetricNames = offerNewMetricsUpdate
-    ? getMetricIdsMissingFromSnapshot({
-        experiment,
-        snapshotSettings: snapshot.settings,
-        metricGroups,
-      })
-        .filter((id) => !uncomputableMetricIds.has(id))
-        .map((id) => getExperimentMetricById(id)?.name ?? id)
+    ? newMetricIds.map((id) => getExperimentMetricById(id)?.name ?? id)
     : [];
   const snapshotNewMetricsUpdate = snapshot
     ? getNewMetricsUpdate(snapshot)

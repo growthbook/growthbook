@@ -5,11 +5,18 @@ import type {
   SnapshotNewMetricsUpdate,
 } from "shared/types/experiment-snapshot";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { DataSourceSettings } from "shared/types/datasource";
+import type { FactTableInterface } from "shared/types/fact-table";
 import type { newMetricsUpdateUnavailableReasons } from "../validators/api-errors";
 import {
+  type ExperimentMetricDefinition,
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
+  getClusterExperimentMetricEligibility,
   getDefinitionMetricId,
+  isFactMetric,
+  isFactMetricJoinable,
+  isMetricJoinable,
 } from "./experiments";
 import type { ResultsOutdatedReason } from "./outdated-reasons";
 
@@ -38,38 +45,88 @@ export function getMetricIdsMissingFromSnapshot({
 }
 
 /**
- * The experiment's metrics that no snapshot analyzes because of the
- * experiment's type: a holdout analyzes neither guardrails, unless they are
- * also goal or secondary metrics, nor conversion-window metrics.
+ * The experiment's metrics missing from a snapshot that a new-metrics update
+ * would compute. Mirrors the metrics the back-end snapshot planner gives a
+ * `metricSettings` entry: the metric must load, join the experiment's units
+ * (for a cluster experiment, be cluster-eligible), and for a holdout be a goal
+ * or secondary metric without a conversion window.
  */
-export function getMetricIdsExcludedByExperimentType({
+export function getComputableNewMetricIds({
   experiment,
+  snapshotSettings,
   metricGroups,
   getMetricById,
+  getFactTableById,
+  identifierType,
+  datasourceSettings,
 }: {
   experiment: Pick<
     ExperimentInterface,
-    "type" | "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
+    | "type"
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
+    | "isClusterExperiment"
+    | "clusterSubUnitIdentifier"
   >;
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "metricSettings">;
   metricGroups: MetricGroupInterface[];
-  getMetricById: (
-    metricId: string,
-  ) => { windowSettings?: { type?: string } } | null | undefined;
-}): Set<string> {
-  if (experiment.type !== "holdout") return new Set();
-  const analyzed = new Set(
-    expandMetricGroups(
-      [...experiment.goalMetrics, ...experiment.secondaryMetrics],
-      metricGroups,
-    ),
-  );
-  return new Set(
-    getAllMetricIdsFromExperiment(experiment, false, metricGroups).filter(
-      (id) =>
-        !analyzed.has(id) ||
-        getMetricById(id)?.windowSettings?.type === "conversion",
-    ),
-  );
+  getMetricById: (id: string) => ExperimentMetricDefinition | null | undefined;
+  getFactTableById: (
+    id: string,
+  ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined;
+  identifierType: string | undefined;
+  // Undefined while the Data Source is unknown, which lets every metric join.
+  datasourceSettings: DataSourceSettings | undefined;
+}): string[] {
+  const holdoutAnalyzed =
+    experiment.type === "holdout"
+      ? new Set(
+          expandMetricGroups(
+            [...experiment.goalMetrics, ...experiment.secondaryMetrics],
+            metricGroups,
+          ),
+        )
+      : null;
+  const clusterSubUnitIdentifier = experiment.isClusterExperiment
+    ? experiment.clusterSubUnitIdentifier
+    : undefined;
+
+  return getMetricIdsMissingFromSnapshot({
+    experiment,
+    snapshotSettings,
+    metricGroups,
+  }).filter((id) => {
+    const metric = getMetricById(id);
+    if (!metric) return false;
+    if (
+      holdoutAnalyzed &&
+      (!holdoutAnalyzed.has(id) || metric.windowSettings?.type === "conversion")
+    ) {
+      return false;
+    }
+    if (clusterSubUnitIdentifier) {
+      return getClusterExperimentMetricEligibility(metric, {
+        clusterIdentifier: identifierType,
+        clusterSubUnitIdentifier,
+        getFactTable: getFactTableById,
+        datasourceSettings,
+      }).allowed;
+    }
+    if (!identifierType || !datasourceSettings) return true;
+    return isFactMetric(metric)
+      ? isFactMetricJoinable(
+          metric,
+          identifierType,
+          getFactTableById,
+          datasourceSettings,
+        )
+      : isMetricJoinable(
+          metric.userIdTypes ?? [],
+          identifierType,
+          datasourceSettings,
+        );
+  });
 }
 
 type SnapshotLineage = Pick<

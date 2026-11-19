@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { MetricInterface } from "shared/types/metric";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
-import type {
-  MetricForSnapshot,
-  SnapshotVariation,
-} from "shared/types/experiment-snapshot";
+import type { SnapshotVariation } from "shared/types/experiment-snapshot";
 import type { ExperimentReportResultDimension } from "shared/types/report";
 import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
@@ -13,11 +10,9 @@ import {
   getClusterSubUnitsLabel,
   getClusterUnitsLabel,
   getIneligibleClusterMetrics,
-  getMetricIdsNoSnapshotComputes,
   getNewMetricRowStates,
   getResultsSubUnitTotal,
   getUnitDisplayName,
-  getUnjoinableMetricIds,
 } from "@/services/experiments";
 import { generateRowsForMetricGroup } from "@/hooks/useExperimentTableRows";
 
@@ -155,24 +150,13 @@ describe("getIneligibleClusterMetrics", () => {
 });
 
 describe("getNewMetricRowStates", () => {
-  const experiment = {
-    goalMetrics: ["met_old", "met_goal"],
-    secondaryMetrics: ["met_secondary"],
-    guardrailMetrics: ["met_guardrail"],
-  };
-  const snapshotSettings = {
-    metricSettings: [{ id: "met_old" } as MetricForSnapshot],
-  };
   const statesFor = (
     overrides: Partial<Parameters<typeof getNewMetricRowStates>[0]>,
   ) =>
     Object.fromEntries(
       getNewMetricRowStates({
-        experiment,
-        metricGroups: [],
-        snapshotSettings,
+        newMetricIds: ["met_goal", "met_secondary", "met_guardrail"],
         latest: null,
-        uncomputableMetricIds: new Set(),
         ...overrides,
       }),
     );
@@ -185,7 +169,7 @@ describe("getNewMetricRowStates", () => {
     metricIds,
   });
 
-  it("marks every metric the snapshot lacks as not computed", () => {
+  it("marks every new metric as not computed", () => {
     expect(
       statesFor({
         latest: {
@@ -223,17 +207,8 @@ describe("getNewMetricRowStates", () => {
       getExperimentMetricById: (id) => metricsById[id] ?? null,
       getFactTableById: () => null,
       newMetricStates: getNewMetricRowStates({
-        experiment: {
-          goalMetrics: ["met_goal", "met_secondary"],
-          secondaryMetrics: [],
-          guardrailMetrics: [],
-        },
-        metricGroups: [],
-        snapshotSettings: {
-          metricSettings: [{ id: "met_goal" } as MetricForSnapshot],
-        },
+        newMetricIds: ["met_secondary"],
         latest: null,
-        uncomputableMetricIds: new Set(),
       }),
     });
     expect(
@@ -242,29 +217,6 @@ describe("getNewMetricRowStates", () => {
       ["met_goal", undefined, zeroUsers],
       ["met_secondary", { status: "notComputed" }, expect.anything()],
     ]);
-  });
-
-  it("keeps the No data row for a metric no snapshot can compute", () => {
-    const unjoinable = getUnjoinableMetricIds({
-      metricIds: ["met_goal", "met_secondary"],
-      getExperimentMetricById: (id) =>
-        ({
-          id,
-          userIdTypes: id === "met_goal" ? ["anonymous_id"] : ["user_id"],
-        }) as MetricInterface,
-      getFactTableById: () => null,
-      userIdType: "user_id",
-      datasourceSettings: {},
-    });
-    expect(
-      statesFor({
-        latest: { type: "standard", status: "success" },
-        uncomputableMetricIds: unjoinable,
-      }),
-    ).toEqual({
-      met_secondary: { status: "notComputed" },
-      met_guardrail: { status: "notComputed" },
-    });
   });
 
   it.each([
@@ -319,54 +271,5 @@ describe("getNewMetricRowStates", () => {
     },
   ])("$name", ({ latest, expected }) => {
     expect(statesFor({ latest })).toEqual(expected);
-  });
-});
-
-describe("getMetricIdsNoSnapshotComputes", () => {
-  const metricsById: Record<string, ExperimentMetricDefinition> = {
-    met_plain: { id: "met_plain", userIdTypes: ["user_id"] } as MetricInterface,
-    met_conversion: {
-      id: "met_conversion",
-      userIdTypes: ["user_id"],
-      windowSettings: { type: "conversion" },
-    } as MetricInterface,
-    met_anonymous: {
-      id: "met_anonymous",
-      userIdTypes: ["anonymous_id"],
-    } as MetricInterface,
-  };
-  const uncomputable = (
-    experiment: Parameters<
-      typeof getMetricIdsNoSnapshotComputes
-    >[0]["experiment"],
-  ) =>
-    [
-      ...getMetricIdsNoSnapshotComputes({
-        experiment,
-        metricGroups: [],
-        getExperimentMetricById: (id) => metricsById[id] ?? null,
-        getFactTableById: () => null,
-        userIdType: "user_id",
-        datasourceSettings: {},
-      }),
-    ].sort();
-
-  it("lists metrics that can't join the experiment's units, and a holdout's guardrails and conversion-window metrics", () => {
-    expect(
-      uncomputable({
-        type: "standard",
-        goalMetrics: ["met_plain", "met_anonymous", "met_conversion"],
-        secondaryMetrics: [],
-        guardrailMetrics: ["met_plain"],
-      }),
-    ).toEqual(["met_anonymous"]);
-    expect(
-      uncomputable({
-        type: "holdout",
-        goalMetrics: ["met_conversion", "met_anonymous"],
-        secondaryMetrics: [],
-        guardrailMetrics: ["met_plain"],
-      }),
-    ).toEqual(["met_anonymous", "met_conversion", "met_plain"]);
   });
 });

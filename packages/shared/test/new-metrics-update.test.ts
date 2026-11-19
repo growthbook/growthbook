@@ -1,7 +1,9 @@
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { ExperimentMetricDefinition } from "../src/experiments/experiments";
 import {
-  getMetricIdsExcludedByExperimentType,
+  getComputableNewMetricIds,
   getMetricIdsMissingFromSnapshot,
   getSnapshotSideEffects,
 } from "../src/experiments/new-metrics-update";
@@ -161,56 +163,150 @@ describe("a report snapshot copied from a new-metrics update", () => {
   });
 });
 
-describe("getMetricIdsExcludedByExperimentType", () => {
-  const windowTypes: Record<string, string> = { met_conversion: "conversion" };
-  const excluded = (
-    experiment: Parameters<
-      typeof getMetricIdsExcludedByExperimentType
-    >[0]["experiment"],
-    metricGroups: MetricGroupInterface[] = [],
+describe("getComputableNewMetricIds", () => {
+  type Args = Parameters<typeof getComputableNewMetricIds>[0];
+  const factTables: Record<string, string[]> = {
+    ft_user: ["user_id"],
+    ft_region: ["region_id"],
+    ft_device: ["device_id"],
+  };
+  const factMetric = (
+    id: string,
+    factTableId: string,
+    overrides: Partial<FactMetricInterface> = {},
   ) =>
-    [
-      ...getMetricIdsExcludedByExperimentType({
-        experiment,
-        metricGroups,
-        getMetricById: (id) => ({ windowSettings: { type: windowTypes[id] } }),
-      }),
-    ].sort();
-
-  it.each<[string, Parameters<typeof excluded>[0], string[]]>([
-    [
-      "excludes nothing outside a holdout",
-      {
+    ({
+      id,
+      metricType: "mean",
+      numerator: { factTableId, column: "value" },
+      denominator: null,
+      windowSettings: { type: "" },
+      ...overrides,
+    }) as unknown as FactMetricInterface;
+  const metrics: Record<string, ExperimentMetricDefinition> = {
+    fact__user: factMetric("fact__user", "ft_user"),
+    fact__region: factMetric("fact__region", "ft_region"),
+    fact__device: factMetric("fact__device", "ft_device"),
+    fact__conversion: factMetric("fact__conversion", "ft_user", {
+      windowSettings: {
+        type: "conversion",
+      } as FactMetricInterface["windowSettings"],
+    }),
+    fact__quantile: factMetric("fact__quantile", "ft_user", {
+      metricType: "quantile",
+      quantileSettings: { type: "unit", quantile: 0.5, ignoreZeros: false },
+    }),
+    // Joins on the cluster id, but no cluster experiment analyzes a quantile.
+    fact__region_quantile: factMetric("fact__region_quantile", "ft_region", {
+      metricType: "quantile",
+      quantileSettings: { type: "unit", quantile: 0.5, ignoreZeros: false },
+    }),
+    met_legacy: {
+      id: "met_legacy",
+      userIdTypes: ["user_id"],
+    } as unknown as ExperimentMetricDefinition,
+  };
+  const computable = (
+    experiment: Partial<Args["experiment"]>,
+    {
+      computed = ["fact__old"],
+      identifierType = "user_id",
+      metricGroups = [],
+    }: {
+      computed?: string[];
+      identifierType?: string;
+      metricGroups?: MetricGroupInterface[];
+    } = {},
+  ) =>
+    getComputableNewMetricIds({
+      experiment: {
         type: "standard",
-        goalMetrics: ["met_conversion"],
+        goalMetrics: [],
         secondaryMetrics: [],
-        guardrailMetrics: ["met_plain"],
+        guardrailMetrics: [],
+        ...experiment,
       },
-      [],
-    ],
-    [
-      "excludes a holdout's guardrails and conversion-window metrics, groups expanded",
-      {
-        type: "holdout",
-        goalMetrics: ["met_plain", "met_conversion"],
-        secondaryMetrics: [],
-        guardrailMetrics: ["mg_guard"],
-      },
-      ["met_conversion", "met_guard"],
-    ],
-    [
-      "keeps a holdout guardrail that is also a goal",
-      {
-        type: "holdout",
-        goalMetrics: ["met_plain"],
-        secondaryMetrics: [],
-        guardrailMetrics: ["met_plain"],
-      },
-      [],
-    ],
-  ])("%s", (name, experiment, expected) => {
+      snapshotSettings: snapshotSettingsFor(computed),
+      metricGroups,
+      getMetricById: (id) => metrics[id],
+      getFactTableById: (id) =>
+        factTables[id] ? { userIdTypes: factTables[id] } : undefined,
+      identifierType,
+      datasourceSettings: {},
+    });
+
+  it("keeps added metrics that join the experiment's units", () => {
     expect(
-      excluded(experiment, [metricGroup("mg_guard", ["met_guard"])]),
-    ).toEqual(expected);
+      computable({
+        goalMetrics: ["fact__old", "fact__user", "fact__device"],
+        secondaryMetrics: ["met_legacy", "met_deleted"],
+        guardrailMetrics: ["fact__region", "fact__quantile"],
+      }),
+    ).toEqual(["fact__user", "met_legacy", "fact__quantile"]);
+  });
+
+  it("lets every loaded metric join while the Data Source is unknown", () => {
+    expect(
+      getComputableNewMetricIds({
+        experiment: {
+          type: "standard",
+          goalMetrics: ["fact__device", "met_deleted"],
+          secondaryMetrics: [],
+          guardrailMetrics: [],
+        },
+        snapshotSettings: snapshotSettingsFor([]),
+        metricGroups: [],
+        getMetricById: (id) => metrics[id],
+        getFactTableById: () => undefined,
+        identifierType: "user_id",
+        datasourceSettings: undefined,
+      }),
+    ).toEqual(["fact__device"]);
+  });
+
+  it("leaves out a holdout's guardrails and conversion-window metrics, groups expanded", () => {
+    expect(
+      computable(
+        {
+          type: "holdout",
+          goalMetrics: ["fact__user", "fact__conversion"],
+          secondaryMetrics: ["fact__quantile"],
+          guardrailMetrics: ["mg_guard", "fact__user"],
+        },
+        { metricGroups: [metricGroup("mg_guard", ["met_legacy"])] },
+      ),
+    ).toEqual(["fact__user", "fact__quantile"]);
+  });
+
+  it("keeps only cluster-eligible metrics in a cluster experiment", () => {
+    expect(
+      computable(
+        {
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "user_id",
+          goalMetrics: [
+            "fact__user",
+            "fact__region",
+            "fact__device",
+            "fact__quantile",
+            "met_legacy",
+          ],
+        },
+        { identifierType: "region_id" },
+      ),
+    ).toEqual(["fact__user", "fact__region"]);
+  });
+
+  it("returns nothing when a cluster experiment's only added metric is ineligible", () => {
+    expect(
+      computable(
+        {
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "user_id",
+          goalMetrics: ["fact__old", "fact__region_quantile"],
+        },
+        { identifierType: "region_id" },
+      ),
+    ).toEqual([]);
   });
 });
