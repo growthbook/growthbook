@@ -58,6 +58,9 @@
 | **[holdout.status.changed](#holdout-status-changed)**                                                         | Triggered when a holdout moves between its lifecycle stages, such as running or analysis.                                                                                                                                                                                                                                                                                            |
 | **[holdout.config.newLinkage](#holdout-config-newlinkage)**                                                   | Triggered when feature flags or experiments are linked to a holdout.                                                                                                                                                                                                                                                                                                                 |
 | **[sdkConnection.payloadSize.warning](#sdkconnection-payloadsize-warning)**                                   | Triggered when an SDK Connection's payload grows past half, 80%, or all of the 16 MB its cache can store. The `level` field is `warning`, `danger`, or `over-limit`, and `recommendations` lists ways to shrink it. Fires once per level reached, not on every publish.                                                                                                              |
+| **[sdkConnection.proxy.failing](#sdkconnection-proxy-failing)**                                               | Triggered when an SDK Connection's GrowthBook Proxy has failed to receive its payload for an hour, and again each day it keeps failing; `error` says why. Followed by `proxy.recovered` when a push succeeds.                                                                                                                                                                        |
+| **[sdkConnection.proxy.disabled](#sdkconnection-proxy-disabled)**                                             | Triggered when an SDK Connection's GrowthBook Proxy is disabled after too many consecutive failures; `error` says why. Fix the cause, then use Recheck on the SDK Connection.                                                                                                                                                                                                        |
+| **[sdkConnection.proxy.recovered](#sdkconnection-proxy-recovered)**                                           | Triggered when a push to an SDK Connection's GrowthBook Proxy succeeds after `proxy.failing` or `proxy.disabled` was sent.                                                                                                                                                                                                                                                           |
 | **[sdkConnection.revision.created](#sdkconnection-revision-created)**                                         | Triggered when a new draft revision is created for an SDK Connection                                                                                                                                                                                                                                                                                                                 |
 | **[sdkConnection.revision.updated](#sdkconnection-revision-updated)**                                         | Triggered when a draft revision's proposed changes are modified (settings, webhooks, or archive). The `change` field indicates the kind of mutation.                                                                                                                                                                                                                                 |
 | **[sdkConnection.revision.reviewRequested](#sdkconnection-revision-reviewrequested)**                         | Triggered when a draft revision is submitted for review                                                                                                                                                                                                                                                                                                                              |
@@ -5621,6 +5624,175 @@ Triggered when an SDK Connection's payload grows past half, 80%, or all of the 1
                 type: string;
                 message: string;
             }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+        /** The member named with `X-GrowthBook-Requested-By` */
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        /** Whether the key assumed the named member's role */
+        assumedRole?: boolean | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### sdkConnection.proxy.failing
+
+Triggered when an SDK Connection's GrowthBook Proxy has failed to receive its payload for an hour, and again each day it keeps failing; `error` says why. Followed by `proxy.recovered` when a push succeeds.
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "sdkConnection.proxy.failing";
+    object: "sdkConnection";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            connectionId: string;
+            connectionName: string;
+            environment: string;
+            projects: string[];
+            proxyHost: string;
+            failingSince: string | null;
+            status: number | null;
+            error: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+        /** The member named with `X-GrowthBook-Requested-By` */
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        /** Whether the key assumed the named member's role */
+        assumedRole?: boolean | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### sdkConnection.proxy.disabled
+
+Triggered when an SDK Connection's GrowthBook Proxy is disabled after too many consecutive failures; `error` says why. Fix the cause, then use Recheck on the SDK Connection.
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "sdkConnection.proxy.disabled";
+    object: "sdkConnection";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            connectionId: string;
+            connectionName: string;
+            environment: string;
+            projects: string[];
+            proxyHost: string;
+            failingSince: string | null;
+            status: number | null;
+            error: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+        /** The member named with `X-GrowthBook-Requested-By` */
+        requestedBy?: {
+            id: string;
+            name: string;
+            email: string;
+        } | undefined;
+        /** Whether the key assumed the named member's role */
+        assumedRole?: boolean | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### sdkConnection.proxy.recovered
+
+Triggered when a push to an SDK Connection's GrowthBook Proxy succeeds after `proxy.failing` or `proxy.disabled` was sent.
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "sdkConnection.proxy.recovered";
+    object: "sdkConnection";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            connectionId: string;
+            connectionName: string;
+            environment: string;
+            projects: string[];
+            proxyHost: string;
+            failingSince: string | null;
         };
     };
     user: {

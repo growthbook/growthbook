@@ -187,6 +187,46 @@ export async function sendSdkPayloadSizeEmail({
   await Promise.all(emails.map((to) => sendMail({ html, subject, to, text })));
 }
 
+export async function sendSdkProxyErrorEmail({
+  emails,
+  connectionId,
+  connectionName,
+  proxyHost,
+  error,
+  disabled,
+}: {
+  emails: string[];
+  connectionId: string;
+  connectionName: string;
+  proxyHost: string;
+  error: string;
+  disabled: boolean;
+}) {
+  const connectionUrl =
+    APP_ORIGIN + (APP_ORIGIN.endsWith("/") ? "" : "/") + "sdks/" + connectionId;
+  const html = nunjucks.render("sdk-proxy-error.jinja", {
+    connectionName,
+    connectionUrl,
+    proxyHost,
+    error,
+    disabled,
+  });
+  const subject = disabled
+    ? `GrowthBook Proxy disabled for: ${noHyperlink(connectionName)}`
+    : `GrowthBook Proxy failing for: ${noHyperlink(connectionName)}`;
+  const text = [
+    disabled
+      ? `GrowthBook disabled the proxy at ${proxyHost} after too many consecutive failures. SDKs using it no longer get updates.`
+      : `GrowthBook couldn't send the latest SDK payload to the proxy at ${proxyHost}.`,
+    error,
+    disabled
+      ? `Fix the cause, then use Recheck on the SDK Connection to turn the proxy back on: ${connectionUrl}`
+      : `See more details at ${connectionUrl}`,
+  ].join("\n\n");
+
+  await Promise.all(emails.map((to) => sendMail({ html, subject, to, text })));
+}
+
 export async function sendResetPasswordEmail(email: string, resetUrl: string) {
   const html = nunjucks.render("reset-password.jinja", {
     resetUrl,
