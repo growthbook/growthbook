@@ -25,6 +25,7 @@ import type { PopulationRuleFactTable } from "shared/populations";
 import { isProjectListValidForProject } from "shared/util";
 import type { MetricMixClass } from "shared/enterprise";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import { metricTypeLabel } from "@/components/Metrics/FactMetricTypeDisplayName";
 
 /**
  * Given the other already-selected metrics in the dataset (excluding the slot
@@ -75,27 +76,31 @@ export function getAddMetricConflict(
 /**
  * Why a metric can't join a chart whose Population reads from
  * `populationFactTable`, or null if it can. Populations only support
- * proportion and mean metrics on their own Fact Table, which the reason names
- * so it says what to pick instead.
+ * proportion and mean metrics on their own Fact Table. The reason names the
+ * metric's type as the type picker does, or the Fact Table to pick from.
  */
 export function getPopulationConflict(
   metric: FactMetricInterface,
   populationFactTable: { id: string; name: string | null },
+  getFactTableById: (id: string) => FactTableDefinition | null,
 ): string | null {
   const { id, name } = populationFactTable;
-  switch (getPopulationIncompatibility(metric, id)) {
+  const incompatibility = getPopulationIncompatibility(metric, id);
+  switch (incompatibility) {
     case null:
       return null;
     case "metricType":
-      return name
-        ? `Charts with this Population only support proportion and average per unit metrics on the ${name} Fact Table.`
-        : "Charts with a Population only support proportion and average per unit metrics.";
+      return `${metricTypeLabel(metric, getFactTableById)} metrics can't be combined with a Population.`;
     case "percentileCap":
-      return "Metrics with percentile capping can't be combined with a Population.";
+      return "Metrics with percentile capping can't be combined with a Population. Use an absolute cap or no cap instead.";
     case "factTable":
       return name
         ? `Charts with this Population only support metrics on the ${name} Fact Table.`
         : "This metric doesn't use the Population's Fact Table.";
+    default: {
+      const unhandled: never = incompatibility;
+      throw new Error(`Unhandled Population incompatibility: ${unhandled}`);
+    }
   }
 }
 

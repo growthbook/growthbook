@@ -237,22 +237,31 @@ export function parseMetricExplorationPopulation({
       metric,
       resolved.source.factTableId,
     );
-    if (incompatibility === "metricType") {
-      violations.push(
-        `Metric "${metric.name}" can't be combined with a Population. Populations currently support only proportion and mean metrics, and the Population applies to every metric in the request.`,
-      );
-      continue;
-    }
-    if (incompatibility === "percentileCap") {
-      violations.push(
-        `Metric "${metric.name}" can't be combined with a Population because it uses percentile capping, which is computed across all units rather than the Population's members.`,
-      );
-      continue;
-    }
-    if (incompatibility === "factTable") {
-      violations.push(
-        `Metric "${metric.name}" must use the same Fact Table as the Population.`,
-      );
+    // A metric no Population can use has to be replaced, so its identifier
+    // type doesn't matter. A Fact Table mismatch can be fixed by choosing
+    // another Population instead, so the metric is still worth checking.
+    switch (incompatibility) {
+      case "metricType":
+        violations.push(
+          `Metric "${metric.name}" can't be combined with a Population. Populations currently support only proportion and mean metrics, and the Population applies to every metric in the request.`,
+        );
+        continue;
+      case "percentileCap":
+        violations.push(
+          `Metric "${metric.name}" can't be combined with a Population because it uses percentile capping, which is computed across all units rather than the Population's members.`,
+        );
+        continue;
+      case "factTable":
+        violations.push(
+          `Metric "${metric.name}" must use the same Fact Table as the Population.`,
+        );
+        break;
+      case null:
+        break;
+      default: {
+        const unhandled: never = incompatibility;
+        throw new Error(`Unhandled Population incompatibility: ${unhandled}`);
+      }
     }
     if (value.unit !== population.unit) {
       violations.push(

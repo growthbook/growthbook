@@ -154,7 +154,11 @@ export default function MetricTabContent() {
       lockedUnit: string | null,
     ): string | null => {
       if (populationFactTable !== null) {
-        const conflict = getPopulationConflict(metric, populationFactTable);
+        const conflict = getPopulationConflict(
+          metric,
+          populationFactTable,
+          getFactTableById,
+        );
         if (conflict !== null) return conflict;
       }
       return (

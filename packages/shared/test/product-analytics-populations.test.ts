@@ -597,6 +597,36 @@ describe("metric explorations with a population", () => {
       ).toBe("Metric purchasers not found.");
     });
 
+    it("skips the identifier type of a metric no Population can use", () => {
+      expect(
+        violations(
+          explore({
+            metrics: [revenuePerPurchase],
+            population: mobileRevenueOver10,
+            unit: null,
+          }),
+        ),
+      ).toBe(
+        'Metric "Revenue per purchase" can\'t be combined with a Population. Populations currently support only proportion and mean metrics, and the Population applies to every metric in the request.',
+      );
+    });
+
+    it("still checks the identifier type of a metric on another Fact Table", () => {
+      expect(
+        violations(
+          explore({
+            metrics: [purchasers],
+            population: mobileUsers({
+              source: { type: "factTable", factTableId: "other" },
+            }),
+            unit: null,
+          }),
+        ),
+      ).toBe(
+        'Metric "Purchasers" must use the same Fact Table as the Population. Metric "Purchasers" must use the population\'s identifier type "user_id".',
+      );
+    });
+
     describe("the saved Population", () => {
       const config = explore({
         metrics: [purchasers],
@@ -652,6 +682,22 @@ describe("metric explorations with a population", () => {
       const cappedRevenue = {
         ...revenue,
         cappingSettings: { type: "percentile", value: 0.99 },
+      } as FactMetricInterface;
+      expect(
+        violations(
+          explore({ metrics: [cappedRevenue], population: mobileUsers() }),
+          [cappedRevenue],
+        ),
+      ).toBe(
+        "Metric \"Revenue\" can't be combined with a Population because it uses percentile capping, which is computed across all units rather than the Population's members.",
+      );
+    });
+
+    it("rejects a mean metric with percentile capping on the lower tail alone", () => {
+      const cappedRevenue = {
+        ...revenue,
+        cappingSettings: { type: "absolute", value: 50 },
+        lowerCappingSettings: { type: "percentile", value: 0.05 },
       } as FactMetricInterface;
       expect(
         violations(
