@@ -213,7 +213,6 @@ export default function AnalysisSettingsSummary({
     (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
 
   const [refreshError, setRefreshError] = useState("");
-  const [refreshNotice, setRefreshNotice] = useState("");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const [migrateToDashboardModalOpen, setMigrateToDashboardModalOpen] =
     useState(false);
@@ -857,7 +856,6 @@ export default function AnalysisSettingsSummary({
                     mutate={mutate}
                     mutateAdditional={mutateExperiment}
                     setRefreshError={setRefreshError}
-                    setRefreshNotice={setRefreshNotice}
                     experiment={experiment}
                     phase={phase}
                     dimension={dimension}
@@ -1045,11 +1043,6 @@ export default function AnalysisSettingsSummary({
         />
       ) : null}
 
-      {refreshNotice && status === "running" ? (
-        <Callout status="info" contentAlign="center" mt="2">
-          {refreshNotice}
-        </Callout>
-      ) : null}
       {refreshError && (
         <Callout
           status="error"

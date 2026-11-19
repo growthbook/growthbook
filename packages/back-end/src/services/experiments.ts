@@ -292,11 +292,11 @@ import {
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import {
-  type NewMetricsUpdateWindow,
   assertIncrementalMetricRefreshBase,
   planMetricRefresh,
 } from "back-end/src/services/metricRefreshPlanning";
 import { interruptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
+import type { ResolvedUpdateScope } from "back-end/src/services/snapshotUpdateScope";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getMetricForSnapshot } from "./reports";
 import {
@@ -3036,8 +3036,7 @@ export async function createExperimentSnapshot({
   type,
   reweight,
   bypassResultsUpdateDisabled,
-  missingMetricsOnly,
-  newMetricsUpdateWindow,
+  updateScope,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -3049,8 +3048,7 @@ export async function createExperimentSnapshot({
   type?: SnapshotType;
   reweight?: boolean;
   bypassResultsUpdateDisabled?: boolean;
-  missingMetricsOnly?: boolean;
-  newMetricsUpdateWindow?: NewMetricsUpdateWindow;
+  updateScope?: ResolvedUpdateScope;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentSnapshotQueryRunner;
@@ -3066,8 +3064,7 @@ export async function createExperimentSnapshot({
     type,
     reweight,
     bypassResultsUpdateDisabled,
-    missingMetricsOnly,
-    newMetricsUpdateWindow,
+    updateScope,
   });
 
   return createExperimentSnapshotFromPlan({
@@ -3122,8 +3119,7 @@ export async function planExperimentSnapshot({
   reweight,
   throwIfRequiresFullRefresh,
   bypassResultsUpdateDisabled,
-  missingMetricsOnly,
-  newMetricsUpdateWindow,
+  updateScope = { kind: "all_metrics" },
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -3137,9 +3133,7 @@ export async function planExperimentSnapshot({
   throwIfRequiresFullRefresh?: boolean;
   // Skip the org "disable updating results for stopped experiments" setting.
   bypassResultsUpdateDisabled?: boolean;
-  missingMetricsOnly?: boolean;
-  // With missingMetricsOnly: refuse unless shouldUpdateNewMetricsOnly agrees.
-  newMetricsUpdateWindow?: NewMetricsUpdateWindow;
+  updateScope?: ResolvedUpdateScope;
 }): Promise<PlannedExperimentSnapshot> {
   if (
     !bypassResultsUpdateDisabled &&
@@ -3256,7 +3250,7 @@ export async function planExperimentSnapshot({
     triggeredBy: triggeredBy ?? "manual",
     throwIfRequiresFullRefresh,
   };
-  if (missingMetricsOnly) {
+  if (updateScope.kind === "new_metrics") {
     const integration = getSourceIntegrationObject(context, datasource, true);
     return planMetricRefresh({
       context,
@@ -3284,7 +3278,7 @@ export async function planExperimentSnapshot({
           integration,
           scope,
         ),
-      window: newMetricsUpdateWindow,
+      window: updateScope.window ?? undefined,
     });
   }
   return planSnapshot(planSnapshotArgs);

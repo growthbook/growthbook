@@ -29,20 +29,13 @@ type PostSnapshotOptions = {
 type PostSnapshotResult =
   | { status: "success" }
   | { status: "needs-full-refresh"; reason: string }
-  | { status: "new-metrics-unavailable" }
   | { status: "failed" };
+
+// Shown while the update it names runs.
+export type SnapshotUpdateNotice = { snapshotId: string; message: string };
 
 const NEW_METRICS_FALLBACK_NOTICE =
   "New metrics can't be updated on their own right now, so all metrics are being updated.";
-
-function isMetricRefreshUnavailable(err: unknown): boolean {
-  return (
-    !!err &&
-    typeof err === "object" &&
-    "code" in err &&
-    err.code === "metric_refresh_unavailable"
-  );
-}
 
 function apiErrorToSnapshotRefreshBlocker(
   err: unknown,
@@ -96,7 +89,6 @@ export function useExperimentSnapshotUpdate({
   mutate,
   mutateAdditional,
   setRefreshError,
-  setRefreshNotice,
   onSuccess,
   customValidation,
   onSnapshotRefreshBlocked,
@@ -111,8 +103,6 @@ export function useExperimentSnapshotUpdate({
   mutate: () => void;
   mutateAdditional?: () => void;
   setRefreshError: (error: string) => void;
-  // Set when the app ran a different update than the one clicked.
-  setRefreshNotice?: (notice: string) => void;
   onSuccess?: () => void;
   // Return false to abort the refresh (e.g. to open a confirmation dialog
   // instead). Mirrors Modal's customValidation. Side effects are allowed.
@@ -128,6 +118,8 @@ export function useExperimentSnapshotUpdate({
   const { hasCommercialFeature } = useUser();
 
   const [loading, setLoading] = useState(false);
+  // Set when the back end ran a normal update in place of the new-metrics one.
+  const [notice, setNotice] = useState<SnapshotUpdateNotice | null>(null);
   const [longResult, setLongResult] = useState(false);
 
   const [fullRefreshReasons, setFullRefreshReasons] = useState<string[] | null>(
@@ -168,6 +160,7 @@ export function useExperimentSnapshotUpdate({
       setLoading(true);
       setLongResult(false);
       setRefreshError("");
+      setNotice(null);
       const timer = setTimeout(() => setLongResult(true), 5000);
       let apiError: unknown = null;
       try {
@@ -177,6 +170,7 @@ export function useExperimentSnapshotUpdate({
         const res = await apiCall<{
           status: 200;
           snapshot: ExperimentSnapshotInterface;
+          updateScope: "new_metrics" | "all_metrics";
         }>(
           `/experiment/${experiment.id}/snapshot${force ? "?force=true" : ""}`,
           {
@@ -184,7 +178,7 @@ export function useExperimentSnapshotUpdate({
             body: JSON.stringify({
               phase,
               dimension: dimensionToRun,
-              ...(newMetricsOnly ? { missingMetricsOnly: true } : {}),
+              ...(newMetricsOnly ? { updateScope: "new_metrics" } : {}),
             }),
           },
           (errBody) => {
@@ -204,12 +198,15 @@ export function useExperimentSnapshotUpdate({
             res.snapshot,
           );
         }
+        if (newMetricsOnly && res.updateScope === "all_metrics") {
+          setNotice({
+            snapshotId: res.snapshot.id,
+            message: NEW_METRICS_FALLBACK_NOTICE,
+          });
+        }
         onSuccess?.();
         return { status: "success" };
       } catch (e) {
-        if (newMetricsOnly && isMetricRefreshUnavailable(apiError)) {
-          return { status: "new-metrics-unavailable" };
-        }
         const blocker = apiErrorToSnapshotRefreshBlocker(apiError);
         if (blocker) {
           if (dimensionToRun === "") {
@@ -251,18 +248,11 @@ export function useExperimentSnapshotUpdate({
       dimensionToRun: string,
       opts?: { force?: boolean } & PostSnapshotOptions,
     ): Promise<boolean> => {
-      setRefreshNotice?.("");
-      let result = await postSnapshot(
+      const result = await postSnapshot(
         dimensionToRun,
         opts?.force ?? false,
         opts,
       );
-      // Like the API's "auto" scope: when the back end refuses a new-metrics
-      // update, run a normal one.
-      if (result.status === "new-metrics-unavailable") {
-        setRefreshNotice?.(NEW_METRICS_FALLBACK_NOTICE);
-        result = await postSnapshot(dimensionToRun, opts?.force ?? false);
-      }
       if (result.status !== "needs-full-refresh") {
         return result.status === "success";
       }
@@ -273,7 +263,7 @@ export function useExperimentSnapshotUpdate({
       });
       return retry.status === "success";
     },
-    [postSnapshot, promptFullRefresh, setRefreshNotice],
+    [postSnapshot, promptFullRefresh],
   );
 
   const submitUpdate = useCallback(
@@ -322,6 +312,7 @@ export function useExperimentSnapshotUpdate({
     runSnapshot,
     loading,
     longResult,
+    notice,
     fullRefreshConfirm: {
       open: fullRefreshReasons !== null,
       reasons: fullRefreshReasons ?? [],

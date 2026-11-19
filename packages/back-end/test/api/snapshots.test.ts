@@ -1118,12 +1118,11 @@ describe("snapshots API", () => {
         phase: 1,
         dimension: undefined,
         useCache: true,
-        missingMetricsOnly: true,
-        newMetricsUpdateWindow: undefined,
+        updateScope: { kind: "new_metrics", window: null, onRefusal: "fail" },
       });
       expect(auditMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          details: expect.stringContaining('"missingMetricsOnly":true'),
+          details: expect.stringContaining('"updateScope":"new_metrics"'),
         }),
       );
     });
@@ -1153,8 +1152,11 @@ describe("snapshots API", () => {
       expect(createExperimentSnapshot).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({
-          missingMetricsOnly: true,
-          newMetricsUpdateWindow: { windowHours: 2, now: expect.any(Date) },
+          updateScope: {
+            kind: "new_metrics",
+            window: { windowHours: 2, now: expect.any(Date) },
+            onRefusal: "fallback",
+          },
         }),
       );
       expect(createExperimentSnapshot).toHaveBeenNthCalledWith(2, {

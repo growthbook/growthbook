@@ -2498,7 +2498,7 @@ describe("planExperimentSnapshot", () => {
     return { context, experiment, datasource };
   }
 
-  describe("with missingMetricsOnly", () => {
+  describe("with new metrics only", () => {
     const refreshTime = new Date("2025-02-15T15:00:00.000Z");
 
     function asParent(snapshot: ExperimentSnapshotInterface) {
@@ -2538,7 +2538,7 @@ describe("planExperimentSnapshot", () => {
         datasource,
         dimension: undefined,
         phase: 0,
-        missingMetricsOnly: true,
+        updateScope: { kind: "new_metrics", window: null, onRefusal: "fail" },
       });
     }
 
@@ -2785,7 +2785,11 @@ describe("planExperimentSnapshot", () => {
           datasource,
           dimension: undefined,
           phase: 0,
-          missingMetricsOnly: true,
+          updateScope: {
+            kind: "new_metrics",
+            window: null,
+            onRefusal: "fail",
+          },
         });
         // Asserted by the caller, after the reasons.
         plan.catch(() => undefined);

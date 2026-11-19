@@ -9,7 +9,6 @@ import {
   useExperimentSnapshotUpdate,
 } from "@/hooks/useExperimentSnapshotUpdate";
 import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
-import NewMetricsUpdateButton from "@/components/Experiment/NewMetricsUpdateButton";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
@@ -18,7 +17,6 @@ const RefreshSnapshotButton: FC<{
   dimension?: string;
   radixVariant?: "outline" | "solid" | "soft";
   setError: (e: string | undefined) => void;
-  setRefreshNotice?: (notice: string) => void;
   // Return false to abort the refresh
   customValidation?: () => boolean | Promise<boolean>;
   onSuccess?: () => void;
@@ -29,7 +27,6 @@ const RefreshSnapshotButton: FC<{
   };
   fullRefreshRequired?: boolean;
   fullRefreshReasons?: string[];
-  newMetricsUpdate?: boolean;
   disabled?: boolean;
 }> = ({
   mutate,
@@ -38,14 +35,12 @@ const RefreshSnapshotButton: FC<{
   dimension,
   radixVariant = "outline",
   setError,
-  setRefreshNotice,
   customValidation,
   onSuccess,
   onSnapshotRefreshBlocked,
   experimentSnapshotTrackingProps,
   fullRefreshRequired = false,
   fullRefreshReasons = [],
-  newMetricsUpdate = false,
   disabled = false,
 }) => {
   const { getDatasourceById } = useDefinitions();
@@ -62,7 +57,6 @@ const RefreshSnapshotButton: FC<{
       dimension,
       mutate,
       setRefreshError: (error) => setError(error),
-      setRefreshNotice,
       onSuccess,
       customValidation,
       onSnapshotRefreshBlocked,
@@ -82,27 +76,19 @@ const RefreshSnapshotButton: FC<{
           this may take several minutes
         </Text>
       )}
-      {newMetricsUpdate ? (
-        <NewMetricsUpdateButton
-          onUpdateNewMetrics={() => submitUpdate({ newMetricsOnly: true })}
-          onUpdateAllMetrics={() => submitUpdate()}
-          disabled={loading || disabled}
-        />
-      ) : (
-        <RadixButton
-          variant={radixVariant}
-          size="md"
-          disabled={loading || disabled}
-          setError={(error) => setError(error ?? undefined)}
-          onClick={handleClick}
-          style={{
-            minWidth: 110,
-          }}
-          icon={<PiArrowClockwise />}
-        >
-          {label}
-        </RadixButton>
-      )}
+      <RadixButton
+        variant={radixVariant}
+        size="md"
+        disabled={loading || disabled}
+        setError={(error) => setError(error ?? undefined)}
+        onClick={handleClick}
+        style={{
+          minWidth: 110,
+        }}
+        icon={<PiArrowClockwise />}
+      >
+        {label}
+      </RadixButton>
     </>
   );
 };

@@ -18,6 +18,7 @@ import {
 } from "@/hooks/useExperimentSnapshotUpdate";
 import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
 import NewMetricsUpdateButton from "@/components/Experiment/NewMetricsUpdateButton";
+import Text from "@/ui/Text";
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
 
@@ -35,7 +36,6 @@ export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
   mutate: () => void;
   mutateAdditional?: () => void;
   setRefreshError: (error: string) => void;
-  setRefreshNotice?: (notice: string) => void;
   experimentSnapshotTrackingProps?: {
     trackingSource: string;
     datasourceType: string | null;
@@ -69,7 +69,6 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
   mutate,
   mutateAdditional,
   setRefreshError,
-  setRefreshNotice,
   experimentSnapshotTrackingProps,
   onSuccess,
   customValidation,
@@ -93,7 +92,6 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         mutate={mutate}
         mutateAdditional={mutateAdditional}
         setRefreshError={setRefreshError}
-        setRefreshNotice={setRefreshNotice}
         experimentSnapshotTrackingProps={experimentSnapshotTrackingProps}
         onSuccess={onSuccess}
         customValidation={customValidation}
@@ -124,7 +122,6 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         experiment={experiment}
         dimension={dimension}
         setError={(error) => setRefreshError(error ?? "")}
-        setRefreshNotice={setRefreshNotice}
         radixVariant="outline"
         customValidation={customValidation}
         onSuccess={onSuccess}
@@ -132,7 +129,6 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         experimentSnapshotTrackingProps={experimentSnapshotTrackingProps}
         fullRefreshRequired={fullRefreshRequired}
         fullRefreshReasons={fullRefreshReasons}
-        newMetricsUpdate={newMetricsUpdate}
         disabled={disabled}
       />
     );
@@ -158,7 +154,6 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   mutate,
   mutateAdditional,
   setRefreshError,
-  setRefreshNotice,
   experimentSnapshotTrackingProps,
   onSuccess,
   customValidation,
@@ -176,19 +171,19 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   fullRefreshReasons: string[];
 }) {
   const { apiCall } = useAuth();
-  const { submitUpdate, fullRefreshConfirm } = useExperimentSnapshotUpdate({
-    experiment,
-    phase: phase ?? 0,
-    dimension,
-    mutate,
-    mutateAdditional,
-    setRefreshError,
-    setRefreshNotice,
-    onSuccess,
-    customValidation,
-    onSnapshotRefreshBlocked,
-    experimentSnapshotTrackingProps,
-  });
+  const { submitUpdate, notice, fullRefreshConfirm } =
+    useExperimentSnapshotUpdate({
+      experiment,
+      phase: phase ?? 0,
+      dimension,
+      mutate,
+      mutateAdditional,
+      setRefreshError,
+      onSuccess,
+      customValidation,
+      onSnapshotRefreshBlocked,
+      experimentSnapshotTrackingProps,
+    });
 
   const cancelEndpoint =
     entityType === "safe-rollout"
@@ -224,11 +219,8 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
         ? () => submitUpdate({ force: true, fullRefreshReasons })
         : () => submitUpdate();
 
-  if (
-    newMetricsUpdate &&
-    entityType !== "safe-rollout" &&
-    getQueryStatus(latest.queries || []).status !== "running"
-  ) {
+  const running = getQueryStatus(latest.queries || []).status === "running";
+  if (newMetricsUpdate && entityType !== "safe-rollout" && !running) {
     return (
       <>
         <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
@@ -244,6 +236,11 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   return (
     <>
       <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
+      {running && notice?.snapshotId === latest.id ? (
+        <Text size="sm" color="text-low" mr="3">
+          {notice.message}
+        </Text>
+      ) : null}
       <RunQueriesButton
         cta={ctaLabel}
         cancelEndpoint={cancelEndpoint}

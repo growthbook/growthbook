@@ -1,136 +1,158 @@
 import type { SnapshotUpdateScope } from "shared/validators";
+import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import {
-  getUpdateScopeStep,
-  type UpdateScopeStep,
+  createScopedExperimentSnapshot,
+  resolveApiUpdateScope,
 } from "back-end/src/services/snapshotUpdateScope";
 import {
+  BadRequestError,
   MetricRefreshOutsideWindowError,
   MetricRefreshUnavailableError,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
 } from "back-end/src/util/errors";
 
+jest.mock("back-end/src/services/experiments", () => ({
+  createExperimentSnapshot: jest.fn(),
+}));
+
 const now = new Date("2026-11-18T12:00:00Z");
+const newMetricsResult = { snapshot: { id: "snp_new" } };
+const allMetricsResult = { snapshot: { id: "snp_all" } };
+const notMissing = new MetricsAlreadyUpToDateError("snp_base");
+const tooOld = new MetricRefreshOutsideWindowError();
+const unavailable = new MetricRefreshUnavailableError(
+  "analysis_dates_changed",
+  "Dates changed.",
+);
+const running = new SnapshotInProgressError("snp_running");
+const otherError = new Error("Warehouse unreachable");
 
-describe("getUpdateScopeStep", () => {
-  describe("before anything runs", () => {
-    it.each<{
-      name: string;
-      updateScope?: SnapshotUpdateScope;
-      dimension?: string;
-      triggeredBy?: "manual" | "schedule";
-      windowHours?: number;
-      expected: UpdateScopeStep["action"];
-    }>([
-      {
-        name: "an omitted scope",
-        expected: "update_new_metrics",
-      },
-      {
-        name: '"auto" with a window of 0',
-        updateScope: "auto",
-        windowHours: 0,
-        expected: "update_all_metrics",
-      },
-      {
-        name: '"auto" with a dimension',
-        dimension: "exp:browser",
-        expected: "update_all_metrics",
-      },
-      {
-        name: '"auto" for a scheduled update',
-        triggeredBy: "schedule",
-        expected: "update_all_metrics",
-      },
-      {
-        name: '"new_metrics"',
-        updateScope: "new_metrics",
-        expected: "update_new_metrics",
-      },
-      {
-        name: '"all_metrics"',
-        updateScope: "all_metrics",
-        expected: "update_all_metrics",
-      },
-    ])("$name: $expected", ({ expected, windowHours = 4, ...request }) => {
-      const step = getUpdateScopeStep({
-        updateScope: request.updateScope,
-        dimension: request.dimension,
-        triggeredBy: request.triggeredBy,
-        windowHours,
-        now,
-        newMetricsRefusal: null,
-      });
-      expect(step.action).toBe(expected);
-    });
+describe("updateScope", () => {
+  it.each<{
+    name: string;
+    updateScope?: SnapshotUpdateScope;
+    dimension?: string;
+    triggeredBy?: "schedule";
+    windowHours?: number;
+    newMetrics?: Error;
+    // Null when the new-metrics update must not be tried.
+    window?: { windowHours: number; now: Date } | null;
+    expected: "new_metrics" | "all_metrics" | Error;
+  }>([
+    {
+      name: "omitted: new metrics in the window",
+      window: { windowHours: 4, now },
+      expected: "new_metrics",
+    },
+    {
+      name: '"auto" with a window of 0: all',
+      updateScope: "auto",
+      windowHours: 0,
+      expected: "all_metrics",
+    },
+    {
+      name: '"auto" with a dimension: all',
+      dimension: "exp:browser",
+      expected: "all_metrics",
+    },
+    {
+      name: '"auto" for a scheduled update: all',
+      triggeredBy: "schedule",
+      expected: "all_metrics",
+    },
+    ...[notMissing, tooOld, unavailable, running].map((newMetrics) => ({
+      name: `"auto" falls back after ${newMetrics.name}`,
+      newMetrics,
+      window: { windowHours: 4, now },
+      expected: "all_metrics" as const,
+    })),
+    {
+      name: '"auto" fails on another error',
+      newMetrics: otherError,
+      window: { windowHours: 4, now },
+      expected: otherError,
+    },
+    {
+      name: '"new_metrics": new metrics, no window',
+      updateScope: "new_metrics",
+      window: null,
+      expected: "new_metrics",
+    },
+    ...[notMissing, unavailable, running].map((newMetrics) => ({
+      name: `"new_metrics" fails on ${newMetrics.name}`,
+      updateScope: "new_metrics" as const,
+      newMetrics,
+      window: null,
+      expected: newMetrics,
+    })),
+    {
+      name: '"new_metrics" with a dimension: 400',
+      updateScope: "new_metrics",
+      dimension: "exp:browser",
+      expected: expect.any(BadRequestError),
+    },
+    {
+      name: '"all_metrics": all',
+      updateScope: "all_metrics",
+      expected: "all_metrics",
+    },
+  ])(
+    "$name",
+    async ({ newMetrics, window, expected, windowHours = 4, ...request }) => {
+      jest.mocked(createExperimentSnapshot).mockReset();
+      if (newMetrics) {
+        jest.mocked(createExperimentSnapshot).mockRejectedValue(newMetrics);
+      } else {
+        jest
+          .mocked(createExperimentSnapshot)
+          .mockResolvedValue(newMetricsResult as never);
+      }
+      const updateAllMetrics = jest
+        .fn()
+        .mockResolvedValue(allMetricsResult as never);
 
-    it('applies the window to "auto" only', () => {
-      const step = (updateScope: SnapshotUpdateScope) =>
-        getUpdateScopeStep({
-          updateScope,
-          dimension: undefined,
-          triggeredBy: undefined,
-          windowHours: 4,
-          now,
-          newMetricsRefusal: null,
+      const run = async () =>
+        createScopedExperimentSnapshot({
+          scope: resolveApiUpdateScope({
+            updateScope: request.updateScope,
+            dimension: request.dimension,
+            triggeredBy: request.triggeredBy,
+            windowHours,
+            now,
+          }),
+          context: {} as never,
+          experiment: {} as never,
+          datasource: {} as never,
+          phase: 0,
+          updateAllMetrics,
         });
 
-      expect(step("auto")).toEqual({
-        action: "update_new_metrics",
-        window: { windowHours: 4, now },
-      });
-      expect(step("new_metrics")).toEqual({
-        action: "update_new_metrics",
-        window: null,
-      });
-    });
-  });
-
-  describe("after the new-metrics update was refused", () => {
-    const refusals = [
-      {
-        name: "outside the window",
-        error: new MetricRefreshOutsideWindowError(),
-      },
-      {
-        name: "nothing missing",
-        error: new MetricsAlreadyUpToDateError("snp_base"),
-      },
-      {
-        name: "changed analysis dates",
-        error: new MetricRefreshUnavailableError(
-          "analysis_dates_changed",
-          "Dates changed.",
-        ),
-      },
-      {
-        name: "an unsupported metric",
-        error: new MetricRefreshUnavailableError(
-          "metric_not_supported",
-          "Not supported.",
-        ),
-      },
-      {
-        name: "another update running",
-        error: new SnapshotInProgressError("snp_running"),
-      },
-    ];
-    const after = (updateScope: SnapshotUpdateScope, error: unknown) =>
-      getUpdateScopeStep({
-        updateScope,
-        dimension: undefined,
-        triggeredBy: undefined,
-        windowHours: 4,
-        now,
-        newMetricsRefusal: { error },
-      });
-
-    it.each(refusals)(
-      '"auto" runs a normal update and "new_metrics" returns the refusal after $name',
-      ({ error }) => {
-        expect(after("auto", error)).toEqual({ action: "update_all_metrics" });
-        expect(after("new_metrics", error)).toEqual({ action: "fail", error });
-      },
-    );
-  });
+      if (typeof expected === "string") {
+        const result = await run();
+        expect(result.updateScope).toBe(expected);
+        expect(result.snapshot).toBe(
+          (expected === "new_metrics" ? newMetricsResult : allMetricsResult)
+            .snapshot,
+        );
+      } else {
+        await expect(run()).rejects.toEqual(expected);
+        expect(updateAllMetrics).not.toHaveBeenCalled();
+      }
+      if (window === undefined) {
+        expect(createExperimentSnapshot).not.toHaveBeenCalled();
+      } else {
+        expect(createExperimentSnapshot).toHaveBeenCalledWith(
+          expect.objectContaining({
+            dimension: undefined,
+            useCache: true,
+            updateScope: expect.objectContaining({
+              kind: "new_metrics",
+              window,
+            }),
+          }),
+        );
+      }
+    },
+  );
 });
