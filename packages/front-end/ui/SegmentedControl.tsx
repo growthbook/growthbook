@@ -4,24 +4,22 @@ import { ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
 
-// Each ladder size is as tall as a button of that size, so the control sits
-// level in a row of buttons. "normal" sits between sm and md, off the shared
-// ladder on purpose: sm's type with breathing room, for a control that stands
-// on its own, where legibility matters more than matching a row.
+// Sizes match button heights, to sit level in a row. "normal", between sm and
+// md and off the shared ladder, is sm with breathing room, for legibility.
 type SegmentedControlSize = Size<"sm" | "md" | "lg"> | "normal";
 
 export type SegmentedControlOption<T extends string> = {
   value: T;
   label: ReactNode;
-  /** Names an icon-only segment. */
+  // Names an icon-only segment.
   ariaLabel?: string;
 };
 
 const INDICATOR_X = "--gb-segmented-control-indicator-x";
 const INDICATOR_WIDTH = "--gb-segmented-control-indicator-width";
 
-// Wrapped segments can differ in width, which Radix's evenly spaced indicator
-// can't follow. Only a new selection slides; mounting and resizing snap.
+// Radix spaces its indicator evenly, which wrapped segments outgrow. Only a new
+// selection slides.
 function placeIndicator(root: HTMLElement, animate: boolean) {
   const on = root.querySelector<HTMLElement>(
     '.rt-SegmentedControlItem[data-state="on"]',
@@ -30,7 +28,7 @@ function placeIndicator(root: HTMLElement, animate: boolean) {
     ".rt-SegmentedControlIndicator",
   );
   const rootRect = root.getBoundingClientRect();
-  // Hidden (e.g. an inactive tab): measure once it shows.
+  // Hidden: measured once it shows.
   if (!on || !indicator || !rootRect.width) return;
   const onRect = on.getBoundingClientRect();
   const x = `${onRect.left - rootRect.left}px`;
@@ -65,7 +63,7 @@ export default function SegmentedControl<T extends string>({
   setValue: (value: NoInfer<T>) => void;
   options: SegmentedControlOption<NoInfer<T>>[];
   size?: SegmentedControlSize;
-  /** Long labels wrap onto more lines rather than overflow a narrow container. */
+  // Long labels wrap rather than overflow.
   wrap?: boolean;
   "aria-label": string;
 } & MarginProps) {
