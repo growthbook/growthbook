@@ -4,11 +4,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import {
-  accountPredatesNewNav,
-  dismissNavIntro,
-  hasDismissedNavIntro,
-} from "@/services/nav-intro";
+import { dismissNavIntro, isNavIntroDue } from "@/services/nav-intro";
 import { useUser } from "@/services/UserContext";
 import styles from "./NewNavigationIntroModal.module.scss";
 
@@ -35,7 +31,7 @@ export default function NewNavigationIntroModal() {
     if (!router.isReady) return;
     if (
       router.query.preview === PREVIEW_PARAM ||
-      (!hasDismissedNavIntro() && accountPredatesNewNav(accountCreatedAt))
+      isNavIntroDue(accountCreatedAt)
     ) {
       setOpen(true);
     }

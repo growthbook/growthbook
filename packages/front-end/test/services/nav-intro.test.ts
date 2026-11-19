@@ -3,6 +3,7 @@ import {
   accountPredatesNewNav,
   dismissNavIntro,
   hasDismissedNavIntro,
+  isNavIntroDue,
   NAV_INTRO_COOKIE,
 } from "@/services/nav-intro";
 
@@ -63,6 +64,32 @@ describe("nav intro cookie", () => {
     expect(attrs).toContain("path=/");
     expect(attrs).toContain("sameSite=lax");
     expect(attrs).toContain("expires=Thu, 23 Dec 2027 12:00:00 GMT");
+  });
+});
+
+describe("isNavIntroDue", () => {
+  beforeEach(() => {
+    installCookieJar();
+  });
+
+  afterEach(() => {
+    if (originalCookie) {
+      Object.defineProperty(document, "cookie", originalCookie);
+    }
+  });
+
+  it("is due for an old account in a browser without the cookie", () => {
+    expect(isNavIntroDue("2025-01-01T00:00:00.000Z")).toBe(true);
+  });
+
+  it("is not due once it has been dismissed", () => {
+    dismissNavIntro();
+    expect(isNavIntroDue("2025-01-01T00:00:00.000Z")).toBe(false);
+  });
+
+  it("is not due for an account created at or after the cutoff", () => {
+    expect(isNavIntroDue("2026-11-19T00:00:00.000Z")).toBe(false);
+    expect(isNavIntroDue("2027-01-01T00:00:00.000Z")).toBe(false);
   });
 });
 

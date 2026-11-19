@@ -21,6 +21,11 @@ export function hasDismissedNavIntro(): boolean {
   return Cookies.get(NAV_INTRO_COOKIE) !== undefined;
 }
 
+// Whether the intro still opens for this person in this browser.
+export function isNavIntroDue(accountCreatedAt: string | undefined): boolean {
+  return !hasDismissedNavIntro() && accountPredatesNewNav(accountCreatedAt);
+}
+
 export function dismissNavIntro(): void {
   Cookies.set(NAV_INTRO_COOKIE, "1", {
     expires: TTL_DAYS,
