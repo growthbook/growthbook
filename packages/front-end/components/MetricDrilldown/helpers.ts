@@ -6,6 +6,7 @@ import {
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import {
@@ -482,4 +483,28 @@ export function getAdjustmentImpactSummary(args: {
     }
     return b.relativeChange - a.relativeChange;
   });
+}
+
+export interface AdjustmentImpactSettings {
+  baselineRow: number;
+  variationFilter?: number[];
+  statsEngine: StatsEngine;
+  differenceType: DifferenceType;
+  significanceThresholds: SignificanceThresholds;
+  metricDefaults: MetricDefaults;
+  familyAdjustedPValues: FamilyAdjustedPValues | null;
+}
+
+/** Adjustments with a large effect on the row, most severe first. */
+export function getLargeAdjustmentImpacts(
+  row: ExperimentTableRow,
+  { significanceThresholds, ...settings }: AdjustmentImpactSettings,
+): AdjustmentImpact[] {
+  return getAdjustmentImpactSummary({
+    ...settings,
+    row,
+    ciUpper: significanceThresholds.bayesianConfidenceLevels.ciUpper,
+    ciLower: significanceThresholds.bayesianConfidenceLevels.ciLower,
+    pValueThreshold: significanceThresholds.pValueThreshold,
+  }).filter((impact) => impact.effectSize === "large");
 }

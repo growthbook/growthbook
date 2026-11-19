@@ -1,34 +1,15 @@
-import { FC, useMemo } from "react";
+import { FC, ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
-import {
-  DifferenceType,
-  SignificanceThresholds,
-  StatsEngine,
-} from "shared/types/stats";
-import { MetricDefaults } from "shared/types/organization";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
-import { ExperimentTableRow } from "@/services/experiments";
 import {
   AdjustmentImpact,
-  FamilyAdjustedPValues,
   formatAdjustmentChange,
   formatAdjustmentQualifiers,
-  getAdjustmentImpactSummary,
 } from "./helpers";
 import styles from "./StatsAdjustmentBadge.module.scss";
-
-export interface StatsAdjustmentBadgeSettings {
-  baselineRow: number;
-  variationFilter?: number[];
-  statsEngine: StatsEngine;
-  differenceType: DifferenceType;
-  significanceThresholds: SignificanceThresholds;
-  metricDefaults: MetricDefaults;
-  familyAdjustedPValues: FamilyAdjustedPValues | null;
-}
 
 function formatImpact(impact: AdjustmentImpact): string {
   const qualifiers = formatAdjustmentQualifiers(impact);
@@ -38,57 +19,22 @@ function formatImpact(impact: AdjustmentImpact): string {
 }
 
 const StatsAdjustmentBadge: FC<{
-  row: ExperimentTableRow;
-  settings: StatsAdjustmentBadgeSettings;
+  /** Large impacts only, from `getLargeAdjustmentImpacts`. */
+  impacts: AdjustmentImpact[];
   onClick?: () => void;
-}> = ({ row, settings, onClick }) => {
-  const {
-    baselineRow,
-    variationFilter,
-    statsEngine,
-    differenceType,
-    significanceThresholds,
-    metricDefaults,
-    familyAdjustedPValues,
-  } = settings;
+  /** Rendered after the badge, kept on the same line as it. */
+  trailing?: ReactNode;
+}> = ({ impacts, onClick, trailing }) => {
+  if (!impacts.length) return null;
 
-  const largeImpacts = useMemo(
-    () =>
-      getAdjustmentImpactSummary({
-        row,
-        baselineRow,
-        variationFilter,
-        metricDefaults,
-        statsEngine,
-        differenceType,
-        ciUpper: significanceThresholds.bayesianConfidenceLevels.ciUpper,
-        ciLower: significanceThresholds.bayesianConfidenceLevels.ciLower,
-        pValueThreshold: significanceThresholds.pValueThreshold,
-        familyAdjustedPValues,
-      }).filter((impact) => impact.effectSize === "large"),
-    [
-      row,
-      baselineRow,
-      variationFilter,
-      metricDefaults,
-      statsEngine,
-      differenceType,
-      significanceThresholds,
-      familyAdjustedPValues,
-    ],
-  );
-
-  if (!largeImpacts.length) return null;
-
-  const label =
-    largeImpacts.length === 1 ? largeImpacts[0].label : "Stats Adjustments";
+  const label = impacts.length === 1 ? impacts[0].label : "Stats Adjustments";
 
   const tooltip = (
     <>
-      {largeImpacts.length === 1 ? (
-        <div>{formatImpact(largeImpacts[0])}</div>
+      {impacts.length === 1 ? (
+        <div>{formatImpact(impacts[0])}</div>
       ) : (
-        largeImpacts.map((impact) => (
+        impacts.map((impact) => (
           <div key={impact.field}>
             {impact.label}: {formatImpact(impact)}
           </div>
@@ -118,17 +64,20 @@ const StatsAdjustmentBadge: FC<{
   return (
     <>
       {" "}
-      <Tooltip content={tooltip}>
-        {onClick ? (
-          <Link className={styles.link} onClick={onClick}>
-            {badge}
-          </Link>
-        ) : (
-          <span tabIndex={0} className={styles.wrapper}>
-            {badge}
-          </span>
-        )}
-      </Tooltip>
+      <span className={styles.group}>
+        <Tooltip content={tooltip}>
+          {onClick ? (
+            <Link className={styles.link} onClick={onClick}>
+              {badge}
+            </Link>
+          ) : (
+            <span tabIndex={0} className={styles.wrapper}>
+              {badge}
+            </span>
+          )}
+        </Tooltip>
+        {trailing}
+      </span>
     </>
   );
 };

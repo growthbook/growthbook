@@ -55,10 +55,13 @@ import {
   useMetricDrilldownContext,
 } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getFamilyAdjustedPValues } from "@/components/MetricDrilldown/helpers";
-import StatsAdjustmentBadge, {
-  StatsAdjustmentBadgeSettings,
-} from "@/components/MetricDrilldown/StatsAdjustmentBadge";
+import {
+  AdjustmentImpact,
+  AdjustmentImpactSettings,
+  getFamilyAdjustedPValues,
+  getLargeAdjustmentImpacts,
+} from "@/components/MetricDrilldown/helpers";
+import StatsAdjustmentBadge from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import UsersTable from "./UsersTable";
@@ -284,8 +287,8 @@ const BreakDownResults: FC<{
 
   // The drilldown for a dimension value corrects p-values across all of that
   // value's goal metrics, so the badge builds the same family per value.
-  const statsAdjustmentBadgeByDimensionValue = useMemo(() => {
-    const settingsByValue = new Map<string, StatsAdjustmentBadgeSettings>();
+  const adjustmentImpactSettingsByValue = useMemo(() => {
+    const settingsByValue = new Map<string, AdjustmentImpactSettings>();
     results.forEach((dimensionResults) => {
       const goalRows = getGoalFamilyRows({
         results: dimensionResults,
@@ -330,6 +333,22 @@ const BreakDownResults: FC<{
     metricDefaults,
     pValueCorrection,
   ]);
+  const largeImpactsByRow = useMemo(() => {
+    const impactsByRow = new Map<string, AdjustmentImpact[]>();
+    tables.forEach((table) =>
+      table.rows.forEach((row) => {
+        if (row.isChildRow) return;
+        const value = getRowDimensionValue(row);
+        const settings = adjustmentImpactSettingsByValue.get(value);
+        if (!settings) return;
+        const impacts = getLargeAdjustmentImpacts(row, settings);
+        if (impacts.length) {
+          impactsByRow.set(`${row.metric.id}:${value}`, impacts);
+        }
+      }),
+    );
+    return impactsByRow;
+  }, [tables, adjustmentImpactSettingsByValue]);
 
   return (
     <div className="mb-3">
@@ -464,9 +483,9 @@ const BreakDownResults: FC<{
                 const childLabel = isFactFunnelMetric(table.metric)
                   ? "funnel steps"
                   : "metric slices";
-                const statsAdjustmentBadge = row
-                  ? statsAdjustmentBadgeByDimensionValue.get(
-                      getRowDimensionValue(row),
+                const statsAdjustmentImpacts = row
+                  ? largeImpactsByRow.get(
+                      `${row.metric.id}:${getRowDimensionValue(row)}`,
                     )
                   : undefined;
                 const rowName =
@@ -534,10 +553,9 @@ const BreakDownResults: FC<{
                         <em>unknown</em>
                       )}
                     </span>
-                    {row && statsAdjustmentBadge ? (
+                    {row && statsAdjustmentImpacts ? (
                       <StatsAdjustmentBadge
-                        row={row}
-                        settings={statsAdjustmentBadge}
+                        impacts={statsAdjustmentImpacts}
                         onClick={
                           openDimensionDrilldown
                             ? () =>

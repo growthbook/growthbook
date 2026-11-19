@@ -59,10 +59,13 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { ReplacedMetricWarning } from "@/components/Metrics/MetricReplacement";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
-import { getFamilyAdjustedPValues } from "@/components/MetricDrilldown/helpers";
-import StatsAdjustmentBadge, {
-  StatsAdjustmentBadgeSettings,
-} from "@/components/MetricDrilldown/StatsAdjustmentBadge";
+import {
+  AdjustmentImpact,
+  AdjustmentImpactSettings,
+  getFamilyAdjustedPValues,
+  getLargeAdjustmentImpacts,
+} from "@/components/MetricDrilldown/helpers";
+import StatsAdjustmentBadge from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -275,7 +278,7 @@ const CompactResults: FC<{
     () => getFamilyAdjustedPValues({ goalRows, statsEngine, pValueCorrection }),
     [goalRows, statsEngine, pValueCorrection],
   );
-  const statsAdjustmentBadge = useMemo<StatsAdjustmentBadgeSettings>(
+  const adjustmentImpactSettings = useMemo<AdjustmentImpactSettings>(
     () => ({
       baselineRow: baselineRow ?? 0,
       variationFilter,
@@ -295,6 +298,19 @@ const CompactResults: FC<{
       familyAdjustedPValues,
     ],
   );
+  const largeImpactsByRow = useMemo(() => {
+    const impactsByRow = new Map<string, AdjustmentImpact[]>();
+    rows.forEach((row) => {
+      if (row.isChildRow) return;
+      const impacts = getLargeAdjustmentImpacts(row, adjustmentImpactSettings);
+      if (impacts.length) {
+        impactsByRow.set(`${row.resultGroup}:${row.metric.id}`, impacts);
+      }
+    });
+    return impactsByRow;
+  }, [rows, adjustmentImpactSettings]);
+  const getStatsAdjustmentImpacts = (row: ExperimentTableRow) =>
+    largeImpactsByRow.get(`${row.resultGroup}:${row.metric.id}`) ?? [];
   const onStatsAdjustmentClick = drilldownContext
     ? (row: ExperimentTableRow) =>
         drilldownContext.openDrilldown(row, { initialTab: "debug" })
@@ -512,7 +528,7 @@ const CompactResults: FC<{
             getChildRowCounts,
             sliceTagsFilter,
             customMetricSlices,
-            statsAdjustmentBadge,
+            getStatsAdjustmentImpacts,
             onStatsAdjustmentClick,
           })}
           isTabActive={isTabActive}
@@ -572,7 +588,7 @@ const CompactResults: FC<{
               getChildRowCounts,
               sliceTagsFilter,
               customMetricSlices,
-              statsAdjustmentBadge,
+              getStatsAdjustmentImpacts,
               onStatsAdjustmentClick,
             })}
             isTabActive={isTabActive}
@@ -632,7 +648,7 @@ const CompactResults: FC<{
               getChildRowCounts,
               sliceTagsFilter,
               customMetricSlices,
-              statsAdjustmentBadge,
+              getStatsAdjustmentImpacts,
               onStatsAdjustmentClick,
             })}
             isTabActive={isTabActive}
@@ -668,7 +684,7 @@ export function getRenderLabelColumn({
   getChildRowCounts,
   sliceTagsFilter,
   customMetricSlices,
-  statsAdjustmentBadge,
+  getStatsAdjustmentImpacts,
   onStatsAdjustmentClick,
 }: {
   expandedMetrics?: Record<string, boolean>;
@@ -682,7 +698,7 @@ export function getRenderLabelColumn({
   getChildRowCounts?: (metricId: string) => number;
   sliceTagsFilter?: string[];
   customMetricSlices?: CustomMetricSlice[];
-  statsAdjustmentBadge?: StatsAdjustmentBadgeSettings;
+  getStatsAdjustmentImpacts?: (row: ExperimentTableRow) => AdjustmentImpact[];
   onStatsAdjustmentClick?: (row: ExperimentTableRow) => void;
 }) {
   // Resolved per metric rather than per row: a step row only links to the
@@ -830,6 +846,18 @@ export function getRenderLabelColumn({
       />
     ) : null;
 
+    const statsAdjustmentImpacts = row
+      ? (getStatsAdjustmentImpacts?.(row) ?? [])
+      : [];
+    // With a badge, the icon follows it so the badge sits right after the
+    // name instead of after the icon's reserved space.
+    const externalLinkIcon = (
+      <PiArrowSquareOut className={styles.metricExternalLinkIcon} size={14} />
+    );
+    const inlineExternalLinkIcon = statsAdjustmentImpacts.length
+      ? null
+      : externalLinkIcon;
+
     // Render non-slice metric
     return (
       <>
@@ -934,10 +962,7 @@ export function getRenderLabelColumn({
                         disableTooltip={false}
                         leftGap={false}
                       />
-                      <PiArrowSquareOut
-                        className={styles.metricExternalLinkIcon}
-                        size={14}
-                      />
+                      {inlineExternalLinkIcon}
                     </span>
                   </Link>
                 ) : (
@@ -956,20 +981,17 @@ export function getRenderLabelColumn({
                       disableTooltip={false}
                       leftGap={false}
                     />
-                    <PiArrowSquareOut
-                      className={styles.metricExternalLinkIcon}
-                      size={14}
-                    />
+                    {inlineExternalLinkIcon}
                   </Link>
                 )}
               </Text>
               {row?.replacedByMetricName ? (
                 <ReplacedMetricWarning name={row.replacedByMetricName} />
               ) : null}
-              {row && statsAdjustmentBadge ? (
+              {row && statsAdjustmentImpacts.length ? (
                 <StatsAdjustmentBadge
-                  row={row}
-                  settings={statsAdjustmentBadge}
+                  impacts={statsAdjustmentImpacts}
+                  trailing={externalLinkIcon}
                   onClick={
                     onStatsAdjustmentClick
                       ? () => onStatsAdjustmentClick(row)
