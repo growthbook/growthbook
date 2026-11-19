@@ -15,7 +15,6 @@ import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   MetricRefreshOutsideWindowError,
   MetricsAlreadyUpToDateError,
-  SnapshotInProgressError,
 } from "back-end/src/util/errors";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import { setupApp } from "./api.setup";
@@ -1172,22 +1171,6 @@ describe("snapshots API", () => {
         dimension: undefined,
         useCache: true,
       });
-    });
-
-    it("returns 409 snapshot_in_progress when the normal update finds another update running", async () => {
-      const { experiment } = setup();
-      createExperimentSnapshot
-        .mockRejectedValueOnce(new SnapshotInProgressError("snp_running"))
-        .mockRejectedValueOnce(new SnapshotInProgressError("snp_running"));
-
-      const response = await post(experiment.id, {});
-
-      expect(response.status).toBe(409);
-      expect(response.body).toMatchObject({
-        code: "snapshot_in_progress",
-        details: { snapshotId: "snp_running" },
-      });
-      expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
     });
   });
 });

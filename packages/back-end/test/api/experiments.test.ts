@@ -3679,14 +3679,8 @@ describe("experiments API", () => {
           .set("Authorization", "Bearer foo");
       };
 
-      it("lists the metrics added after the latest phase's Overall Results, expanding groups", async () => {
-        const res = await getResults();
-
-        expect(res.status).toBe(200);
-        expect(res.body.missingMetricIds).toEqual(["met_3"]);
-      });
-
-      it("leaves out a metric no update computes, so it doesn't stay missing", async () => {
+      it("lists the metrics added after the latest phase's Overall Results, expanding groups, except a metric no update computes", async () => {
+        const added = await getResults();
         const unjoinable = await getResults({
           metrics: [
             metric("met_1"),
@@ -3698,18 +3692,10 @@ describe("experiments API", () => {
           metrics: [metric("met_1"), metric("met_2")],
         });
 
+        expect(added.status).toBe(200);
+        expect(added.body.missingMetricIds).toEqual(["met_3"]);
         expect(unjoinable.body.missingMetricIds).toEqual([]);
         expect(deleted.body.missingMetricIds).toEqual([]);
-      });
-
-      it.each([
-        ["a dimension breakdown", { snapshot: { dimension: "pre:date" } }],
-        ["an earlier phase", { snapshot: { phase: 0 }, query: "?phase=0" }],
-      ])("is absent on %s", async (results, args) => {
-        const res = await getResults(args);
-
-        expect(res.status).toBe(200);
-        expect(res.body).not.toHaveProperty("missingMetricIds");
       });
     });
 

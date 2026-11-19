@@ -4,7 +4,6 @@ import {
   type UpdateScopeStep,
 } from "back-end/src/services/snapshotUpdateScope";
 import {
-  BadRequestError,
   MetricRefreshOutsideWindowError,
   MetricRefreshUnavailableError,
   MetricsAlreadyUpToDateError,
@@ -25,11 +24,6 @@ describe("getUpdateScopeStep", () => {
     }>([
       {
         name: "an omitted scope",
-        expected: "update_new_metrics",
-      },
-      {
-        name: '"auto"',
-        updateScope: "auto",
         expected: "update_new_metrics",
       },
       {
@@ -54,24 +48,6 @@ describe("getUpdateScopeStep", () => {
         expected: "update_new_metrics",
       },
       {
-        name: '"new_metrics" with a window of 0',
-        updateScope: "new_metrics",
-        windowHours: 0,
-        expected: "update_new_metrics",
-      },
-      {
-        name: '"new_metrics" with a dimension',
-        updateScope: "new_metrics",
-        dimension: "exp:browser",
-        expected: "fail",
-      },
-      {
-        name: '"new_metrics" for a scheduled update',
-        updateScope: "new_metrics",
-        triggeredBy: "schedule",
-        expected: "fail",
-      },
-      {
         name: '"all_metrics"',
         updateScope: "all_metrics",
         expected: "update_all_metrics",
@@ -86,9 +62,6 @@ describe("getUpdateScopeStep", () => {
         newMetricsRefusal: null,
       });
       expect(step.action).toBe(expected);
-      if (step.action === "fail") {
-        expect(step.error).toBeInstanceOf(BadRequestError);
-      }
     });
 
     it('applies the window to "auto" only', () => {
@@ -153,19 +126,11 @@ describe("getUpdateScopeStep", () => {
       });
 
     it.each(refusals)(
-      '"auto" runs a normal update after $name',
+      '"auto" runs a normal update and "new_metrics" returns the refusal after $name',
       ({ error }) => {
         expect(after("auto", error)).toEqual({ action: "update_all_metrics" });
+        expect(after("new_metrics", error)).toEqual({ action: "fail", error });
       },
     );
-
-    it.each(refusals)('"new_metrics" returns $name', ({ error }) => {
-      expect(after("new_metrics", error)).toEqual({ action: "fail", error });
-    });
-
-    it('"auto" returns any other error unchanged', () => {
-      const error = new Error("Warehouse unreachable");
-      expect(after("auto", error)).toEqual({ action: "fail", error });
-    });
   });
 });

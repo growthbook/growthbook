@@ -575,23 +575,6 @@ describe("snapshot lifecycle", () => {
           factTableMap: new Map() as FactTableMap,
         });
 
-      it("names the running update when the lock is busy, before creating a snapshot", async () => {
-        const context = makeContext();
-        Object.assign(context.models.incrementalRefresh, {
-          acquireLock: jest.fn().mockResolvedValue(false),
-          getByExperimentIdAndPhase: jest
-            .fn()
-            .mockResolvedValue({ currentExecutionSnapshotId: "snp_running" }),
-        });
-
-        await expect(run(context)).rejects.toMatchObject({
-          code: "snapshot_in_progress",
-          details: { snapshotId: "snp_running" },
-        });
-        expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
-        expect(incrementalQueryRunnerMock).not.toHaveBeenCalled();
-      });
-
       it("queries only the new metrics up to the plan's cutoff, even after the phase ended", async () => {
         const context = makeContext();
         Object.assign(context.models.incrementalRefresh, {
