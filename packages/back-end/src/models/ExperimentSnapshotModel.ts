@@ -1266,11 +1266,11 @@ export async function getSnapshotQueryPointers(
 
 export type NewMetricsUpdateAncestor = Pick<
   ExperimentSnapshotInterface,
-  "id" | "type" | "newMetricsUpdate" | "queries" | "runStarted"
+  "id" | "type" | "newMetricsUpdate" | "queries"
 > & {
   settings: Pick<
     ExperimentSnapshotSettings,
-    "metricSettings" | "endDate" | "endDateIsCutoff"
+    "metricSettings" | "endDateIsCutoff" | "analysisAsOf"
   >;
 };
 
@@ -1286,10 +1286,9 @@ export async function findNewMetricsUpdateAncestor(
       type: 1,
       newMetricsUpdate: 1,
       queries: 1,
-      runStarted: 1,
       "settings.metricSettings": 1,
-      "settings.endDate": 1,
       "settings.endDateIsCutoff": 1,
+      "settings.analysisAsOf": 1,
     },
   )
     .lean<NewMetricsUpdateAncestor>()

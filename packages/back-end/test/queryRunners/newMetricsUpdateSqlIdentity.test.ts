@@ -4,6 +4,7 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 import type { SegmentInterface } from "shared/types/segment";
 import type { ApiReqContext } from "back-end/types/api";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import Databricks from "back-end/src/integrations/Databricks";
 import { getIndexAfterLastGroup } from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
 import {
   generateExperimentResultQuerySql,
@@ -104,10 +105,9 @@ const settings: ExperimentSnapshotSettings = {
   ],
 };
 
-// A manual full update has no cutoff. It generated its SQL a few seconds after
-// its end date, and its queries started soon after.
+// A manual full update has no cutoff and was planned at its end date. It
+// generated its SQL a few seconds later.
 const BASE_SQL_GENERATED_AT = new Date(settings.endDate.getTime() + 3_000);
-const BASE_QUERIES_STARTED_AFTER_MS = 5_000;
 
 // A full update with Revenue, then a new-metrics update that added Clicks.
 const levels: NewMetricsUpdateReplayLevel[] = [
@@ -115,20 +115,32 @@ const levels: NewMetricsUpdateReplayLevel[] = [
     snapshotId: "snp_base",
     metricSettings: [{ id: revenue.id }],
     newMetricIds: null,
-    maxSqlClockDriftMs: BASE_QUERIES_STARTED_AFTER_MS,
+    endDateIsCutoff: false,
+    analysisAsOf: settings.endDate,
   },
   {
     snapshotId: "snp_refresh",
     metricSettings: [{ id: revenue.id }, { id: clicks.id }],
     newMetricIds: [clicks.id],
-    maxSqlClockDriftMs: null,
+    endDateIsCutoff: true,
+    analysisAsOf: new Date("2026-11-10T15:00:00Z"),
   },
 ];
 // The queries a new-metrics update of snp_refresh compares: the groups it
 // would copy and the units table each of them reads.
 const comparedQueryNames = ["group_0", "group_1", "snp_base", "snp_refresh"];
 
+const integrations = {
+  BigQuery: (datasource: object) =>
+    // @ts-expect-error -- the integration only reads `.datasource` here
+    new BigQuery("", { type: "bigquery", ...datasource }),
+  Databricks: (datasource: object) =>
+    // @ts-expect-error -- the integration only reads `.datasource` here
+    new Databricks("", { type: "databricks", ...datasource }),
+};
+
 type Variant = {
+  dialect?: keyof typeof integrations;
   exposureSql?: string;
   segmentSql?: string;
   metrics?: FactMetricInterface[];
@@ -136,13 +148,12 @@ type Variant = {
 };
 
 function makeGenerator({
+  dialect = "BigQuery",
   exposureSql = exposureQuery.query,
   segmentSql = segment.sql,
   metrics = [revenue, clicks],
 }: Variant): GenerateResultQuerySql {
-  // @ts-expect-error -- the integration only reads `.datasource` here
-  const integration = new BigQuery("", {
-    type: "bigquery",
+  const integration = integrations[dialect]({
     settings: {
       queries: { exposure: [{ ...exposureQuery, query: exposureSql }] },
       pipelineSettings: {
@@ -177,7 +188,10 @@ function makeGenerator({
     );
 }
 
-/** The SQL each run stored when it ran. */
+/**
+ * The SQL each run stored when it ran, seconds after it was planned. The
+ * replay runs today.
+ */
 async function storedSql(variant: Variant = {}): Promise<Map<string, string>> {
   const generate = makeGenerator(variant);
   const runSettings = { ...settings, ...variant.settings };
@@ -186,12 +200,17 @@ async function storedSql(variant: Variant = {}): Promise<Map<string, string>> {
     settings: {
       ...runSettings,
       endDateIsCutoff: false,
+      analysisAsOf: settings.endDate,
       metricSettings: levels[0].metricSettings,
     },
     queryParentId: levels[0].snapshotId,
   }).finally(() => jest.useRealTimers());
   const refresh = await generate({
-    settings: { ...runSettings, metricSettings: levels[1].metricSettings },
+    settings: {
+      ...runSettings,
+      analysisAsOf: new Date("2026-11-10T15:00:00Z"),
+      metricSettings: levels[1].metricSettings,
+    },
     queryParentId: levels[1].snapshotId,
     scope: {
       metricIds: new Set(levels[1].newMetricIds),
@@ -214,10 +233,15 @@ async function getChangedQueries(stored: Variant, today: Variant) {
 }
 
 describe("comparing a pipeline-mode lineage's generated SQL", () => {
-  it.each([false, true])(
-    "regenerates an unchanged lineage whose base had no cutoff, with skipPartialData %s",
-    async (skipPartialData) => {
-      const unchanged = { settings: { skipPartialData } };
+  it.each([
+    { dialect: "BigQuery" as const, skipPartialData: false },
+    { dialect: "BigQuery" as const, skipPartialData: true },
+    { dialect: "Databricks" as const, skipPartialData: false },
+    { dialect: "Databricks" as const, skipPartialData: true },
+  ])(
+    "regenerates the same $dialect SQL for an unchanged lineage whose base had no cutoff, with skipPartialData $skipPartialData",
+    async ({ dialect, skipPartialData }) => {
+      const unchanged = { dialect, settings: { skipPartialData } };
       const stored = await storedSql(unchanged);
 
       expect(stored.get("group_0")).toContain("growthbook_tmp_units_snp_base");
@@ -226,6 +250,18 @@ describe("comparing a pipeline-mode lineage's generated SQL", () => {
       );
       expect(stored.get("snp_base")).toContain("CREATE");
       expect(await getChangedQueries(unchanged, unchanged)).toEqual([]);
+    },
+  );
+
+  it.each(["BigQuery", "Databricks"] as const)(
+    "with skipPartialData, counts the base's conversion windows back from its stored clock in %s",
+    async (dialect) => {
+      const stored = await storedSql({
+        dialect,
+        settings: { skipPartialData: true },
+      });
+      // Revenue's 72 hour window, back from the base's planning clock.
+      expect(stored.get("group_0")).toMatch(/2026-11-07[ T]12:00:00/);
     },
   );
 

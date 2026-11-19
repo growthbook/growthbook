@@ -37,7 +37,6 @@ import {
 import {
   getQueriesWithChangedSql,
   type GenerateResultQuerySql,
-  type ReplayedQuerySql,
 } from "back-end/src/services/newMetricsUpdateSqlIdentity";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
@@ -728,6 +727,73 @@ describe("planNewMetricsUpdate", () => {
         plan(`${groupSql(["met_b"], 1)} WHERE x`),
       ).rejects.toMatchObject({ details: { reason: "settings_changed" } });
     });
+
+    describe("a parent without a cutoff, whose SQL read the clock it was planned at", () => {
+      const planWith = ({
+        skipPartialData,
+        analysisAsOf,
+      }: {
+        skipPartialData: boolean;
+        analysisAsOf?: Date;
+      }) => {
+        findParentMock.mockResolvedValue(
+          makeParent({
+            settings: makeSettings(["met_a", "met_b"], {
+              endDateIsCutoff: false,
+              skipPartialData,
+              ...(analysisAsOf ? { analysisAsOf } : {}),
+            }),
+          }),
+        );
+        const args = refreshArgs({
+          experiment: makeExperiment({ skipPartialData }),
+          planSnapshotAt: async () =>
+            makePlan({
+              settings: { skipPartialData, analysisAsOf: new Date() },
+            }),
+        });
+        return {
+          args,
+          promise: planNewMetricsUpdate(args),
+        };
+      };
+
+      it("regenerates its SQL with its own stored clock", async () => {
+        const { args, promise } = planWith({
+          skipPartialData: true,
+          analysisAsOf: PARENT_END,
+        });
+
+        await expect(promise).resolves.toMatchObject({
+          snapshot: { newMetricsUpdate: { metricIds: ["met_c"] } },
+        });
+        expect(args.generateResultQuerySql).toHaveBeenCalledWith(
+          expect.objectContaining({
+            settings: expect.objectContaining({
+              endDateIsCutoff: false,
+              analysisAsOf: PARENT_END,
+            }),
+          }),
+        );
+      });
+
+      it("refuses as changed settings when it was planned before the clock was stored", async () => {
+        const { args, promise } = planWith({ skipPartialData: true });
+
+        await expect(promise).rejects.toMatchObject({
+          details: { reason: "settings_changed" },
+        });
+        expect(args.generateResultQuerySql).not.toHaveBeenCalled();
+      });
+
+      it("still compares one planned before the clock was stored without skipPartialData, whose SQL never read it", async () => {
+        await expect(
+          planWith({ skipPartialData: false }).promise,
+        ).resolves.toMatchObject({
+          snapshot: { newMetricsUpdate: { metricIds: ["met_c"] } },
+        });
+      });
+    });
   });
 });
 
@@ -736,11 +802,6 @@ describe("getQueriesWithChangedSql", () => {
     ["group_0", "-- Revenue\nSELECT 1\n  -- Fact Table: Orders\nFROM t"],
     ["traffic", "SELECT 2"],
   ]);
-  const replayed = (sql: string): ReplayedQuerySql => ({
-    sql,
-    clockedExposureCutoffs: null,
-  });
-
   it.each<[string, string[], Record<string, string>, string[]]>([
     [
       "ignores whole comment lines, such as a renamed metric's",
@@ -775,80 +836,9 @@ describe("getQueriesWithChangedSql", () => {
       getQueriesWithChangedSql({
         queryNames,
         storedSql: stored,
-        todaysSql: new Map(
-          Object.entries(today).map(([query, sql]) => [query, replayed(sql)]),
-        ),
+        todaysSql: new Map(Object.entries(today)),
       }),
     ).toEqual(expected);
-  });
-
-  describe("a run that took its exposure cutoff from its clock", () => {
-    const groupAt = (cutoff: string, metricEnd = "'2026-11-13 12:00:00'") =>
-      `SELECT * FROM units\nWHERE\n  first_exposure_timestamp <= ${cutoff}\n  AND m.timestamp <= ${metricEnd}`;
-    const changedFrom = (
-      stored: string,
-      today = groupAt("'2026-11-18 09:00:00'"),
-      asOfEndDate = groupAt("'2026-11-07 12:00:00'", "'2026-11-10 12:00:00'"),
-    ) =>
-      getQueriesWithChangedSql({
-        queryNames: ["group_0"],
-        storedSql: new Map([["group_0", stored]]),
-        todaysSql: new Map([
-          [
-            "group_0",
-            {
-              sql: today,
-              clockedExposureCutoffs: {
-                sqlAsOfEndDate: asOfEndDate,
-                maxDriftMs: 5000,
-              },
-            },
-          ],
-        ]),
-      });
-
-    it.each<[string, () => string[], string[]]>([
-      [
-        "accepts a cutoff at its end date's",
-        () => changedFrom(groupAt("'2026-11-07 12:00:00'")),
-        [],
-      ],
-      [
-        "accepts a cutoff written up to when its queries started, in whole seconds",
-        () => changedFrom(groupAt("'2026-11-07 12:00:05'")),
-        [],
-      ],
-      [
-        "accepts a dialect's full ISO timestamp",
-        () =>
-          changedFrom(
-            groupAt("TIMESTAMP'2026-11-07T12:00:04.250Z'"),
-            groupAt("TIMESTAMP'2026-11-18T09:00:00.000Z'"),
-            groupAt("TIMESTAMP'2026-11-07T12:00:00.000Z'"),
-          ),
-        [],
-      ],
-      [
-        "refuses a cutoff before its end date's",
-        () => changedFrom(groupAt("'2026-11-07 11:59:59'")),
-        ["group_0"],
-      ],
-      [
-        "refuses a cutoff after its queries started",
-        () => changedFrom(groupAt("'2026-11-07 12:00:06'")),
-        ["group_0"],
-      ],
-      [
-        "still compares every other timestamp",
-        () =>
-          changedFrom(
-            groupAt("'2026-11-07 12:00:01'", "'2026-11-13 12:00:01'"),
-          ),
-        ["group_0"],
-      ],
-    ])("%s", (name, run, expected) => {
-      expect(run()).toEqual(expected);
-    });
   });
 });
 
