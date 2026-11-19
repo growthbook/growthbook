@@ -24,7 +24,8 @@ const getLabels = (unit: string | null): Record<LabelKey, string> => ({
 // differ only in who counts, which their labels don't say.
 const getDescriptions = (unit: string | null): Record<LabelKey, string> => ({
   total: "Number of units that converted",
-  event_totals: "Sum across all events",
+  // Each unit's value is aggregated first (e.g. its max), then summed.
+  event_totals: `Sum of every ${unit ?? "unit"}'s value`,
   per_unit: `Average per ${unit ?? "unit"} with at least one event`,
   percent_of_population: "Share of Population members who converted",
   per_population_member:
