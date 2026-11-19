@@ -887,7 +887,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "2.0.0",
+    version: "2.1.0",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -902,6 +902,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v2.1.0",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v2.1.0",
       },
       {
         savedGroupReferences: "≥ v2.0.0",
