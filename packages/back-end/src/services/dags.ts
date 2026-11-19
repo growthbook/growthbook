@@ -85,12 +85,8 @@ export function getDagActions(
       }
     } else if (state.status === "error" && canRetry(node)) {
       actions.push({ type: "retry", nodeId: node.id });
-    } else if (
-      state.status === "running" &&
-      state.stalled &&
-      // A node without dependencies was started by its creator, not the DAG
-      node.dependsOn.length > 0
-    ) {
+    } else if (state.status === "running" && state.stalled) {
+      // Whoever started it: nothing else ends a run that never got going
       actions.push({ type: "fail-unstarted", nodeId: node.id });
     }
   }

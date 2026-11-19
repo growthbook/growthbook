@@ -11,7 +11,7 @@ export const dagNodeValidator = z
     targetId: z.string(),
     // Earlier failed attempts
     previousTargetIds: z.array(z.string()),
-    maxAttempts: z.number(),
+    maxAttempts: z.number().int().min(1),
   })
   .strict();
 
