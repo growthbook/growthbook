@@ -30,6 +30,7 @@ export function useEventForwarderProvisioningPoll({
     useState<EventForwarderStatusResponse["taskErrors"]>();
   const [backlogCount, setBacklogCount] = useState(0);
   const [replaying, setReplaying] = useState(false);
+  const [replayedCount, setReplayedCount] = useState(0);
   // A restart's replay can outlast the timeout; it counts from the last report.
   const lastReplayingAtRef = useRef(0);
   const refreshedStatusRef = useRef<string | null>(null);
@@ -47,6 +48,7 @@ export function useEventForwarderProvisioningPoll({
     }
     setBacklogCount(result.backlogCount ?? 0);
     setReplaying(!!result.replaying);
+    setReplayedCount(result.replayedCount ?? 0);
     if (result.replaying) lastReplayingAtRef.current = Date.now();
     await onRefreshRef.current();
   }, [apiCall, datasourceId]);
@@ -133,5 +135,6 @@ export function useEventForwarderProvisioningPoll({
     taskErrors,
     backlogCount,
     replaying: isPending && replaying,
+    replayedCount,
   };
 }

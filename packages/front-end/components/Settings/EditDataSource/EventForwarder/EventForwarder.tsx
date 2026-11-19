@@ -878,6 +878,7 @@ export default function EventForwarder({
     taskErrors,
     backlogCount,
     replaying,
+    replayedCount,
   } = useEventForwarderProvisioningPoll({
     datasourceId: dataSource.id,
     status: eventForwarderConfig?.status,
@@ -1036,9 +1037,11 @@ export default function EventForwarder({
 
       {isProvisioning && replaying ? (
         <Callout status="info" mb="3">
-          Writing backed-up events to your warehouse
-          {hasBacklog ? `: ${backlogCount.toLocaleString()} left` : ""}. New
-          events wait until this is done, then forwarding resumes.
+          {/* The total grows while new events are parked behind the replay. */}
+          Writing backed-up events to your warehouse:{" "}
+          {replayedCount.toLocaleString()}/
+          {(replayedCount + backlogCount).toLocaleString()}. New events wait
+          until this is done, then forwarding resumes.
         </Callout>
       ) : null}
 

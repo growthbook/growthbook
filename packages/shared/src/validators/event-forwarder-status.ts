@@ -33,6 +33,8 @@ export const eventForwarderStatusResponseSchema = z.object({
   backlogCount: z.number().optional(),
   // A restart is writing the parked events; live events wait until it is done.
   replaying: z.boolean().optional(),
+  // Parked events that restart has written so far.
+  replayedCount: z.number().optional(),
 });
 
 export type EventForwarderStatusResponse = z.infer<
