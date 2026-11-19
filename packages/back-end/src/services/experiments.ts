@@ -2467,9 +2467,7 @@ export async function createSnapshotFromPlan({
               experiment.phases[plan.snapshot.phase],
               plan.snapshot.settings,
             ),
-        mode: newMetricsUpdate
-          ? { kind: "new-metrics" }
-          : { kind: runnerKind === "incremental-full" ? "full" : "update" },
+        mode: { kind: runnerKind === "incremental-full" ? "full" : "update" },
       });
     } else if (runnerKind === "incremental-exploratory") {
       await (

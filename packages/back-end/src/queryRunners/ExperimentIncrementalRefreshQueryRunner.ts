@@ -158,10 +158,7 @@ export function getStatisticsQueryVariants({
   ];
 }
 
-export type IncrementalRunMode =
-  | { kind: "full" }
-  | { kind: "update" }
-  | { kind: "new-metrics" };
+export type IncrementalRunMode = { kind: "full" } | { kind: "update" };
 
 export type ExperimentIncrementalRefreshQueryParams = {
   snapshotType: SnapshotType;
@@ -327,18 +324,26 @@ function parseMaxTimestampRow(row: Record<string, unknown> | undefined): {
 
 export const startExperimentIncrementalRefreshQueries = async (
   context: ApiReqContext,
-  params: ExperimentIncrementalRefreshQueryParams,
+  params: ExperimentIncrementalRefreshQueryParams & {
+    isNewMetricsUpdate: boolean;
+  },
   integration: SourceIntegrationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
   experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null,
 ): Promise<Queries> => {
-  const { snapshotSettings, queryParentId, experimentId, metricMap, mode } =
-    params;
+  const {
+    snapshotSettings,
+    queryParentId,
+    experimentId,
+    metricMap,
+    mode,
+    isNewMetricsUpdate,
+  } = params;
   // A new-metrics update reads every stored table as its parent left it and
   // writes only the caches it builds or rebuilds.
-  const appendsToStoredTables = mode.kind !== "new-metrics";
+  const appendsToStoredTables = !isNewMetricsUpdate;
 
   const { org } = context;
 
@@ -556,7 +561,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     alter: [],
     maxTimestamp: [],
   };
-  if (mode.kind !== "new-metrics") {
+  if (appendsToStoredTables) {
     let createUnitsTableQuery: QueryPointer | null = null;
     if (mode.kind === "full") {
       const dropOldUnitsTableQuery = await startQuery({
@@ -1574,7 +1579,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     const startQuery = this.startQuery.bind(this);
     return startExperimentIncrementalRefreshQueries(
       this.context,
-      params,
+      { ...params, isNewMetricsUpdate: !!newMetricsUpdate },
       this.integration,
       newMetricsUpdate
         ? await getNewMetricsUpdateStartQuery(

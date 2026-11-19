@@ -329,7 +329,9 @@ async function buildDag({
   state,
   maxColumns = 1000,
 }: {
-  params: Partial<ExperimentIncrementalRefreshQueryParams>;
+  params: Partial<
+    ExperimentIncrementalRefreshQueryParams & { isNewMetricsUpdate: boolean }
+  >;
   state: IncrementalRefreshInterface | null;
   maxColumns?: number;
 }) {
@@ -361,6 +363,7 @@ async function buildDag({
       experimentId: "exp_1",
       experimentQueryMetadata: null,
       mode: { kind: "update" },
+      isNewMetricsUpdate: false,
       incrementalRefreshStartTime: BASE_END,
       ...params,
     },
@@ -390,7 +393,7 @@ function refreshDag(
 ) {
   return buildDag({
     params: {
-      mode: { kind: "new-metrics" },
+      isNewMetricsUpdate: true,
       snapshotSettings: snapshotSettings(
         [...BASE_METRICS, ...targets],
         BASE_END,
@@ -750,7 +753,7 @@ describe("a new-metrics update run on the Incremental Pipeline", () => {
       queryParentId: "snp_run",
       experimentId: "exp_1",
       experimentQueryMetadata: null,
-      mode: { kind: "new-metrics" },
+      mode: { kind: "update" },
       incrementalRefreshStartTime: BASE_END,
     });
 
@@ -764,6 +767,7 @@ describe("a new-metrics update run on the Incremental Pipeline", () => {
       ),
     );
     expect(started).not.toContain("traffic");
+    expect(started).not.toContain("update_snp_run");
     expect(started).not.toContain("statistics_ft_b_stored0");
     expect(started).toContainEqual(expect.stringMatching(/^statistics_ft_a_/));
   });
