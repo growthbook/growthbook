@@ -46,9 +46,7 @@ export async function toReportApiInterface(
   if (report.type === "experiment-snapshot") {
     if (report.snapshot) base.snapshotId = report.snapshot;
     if (snapshot) {
-      // Report snapshots are never queued; this only narrows the shared type
-      base.snapshotStatus =
-        snapshot.status === "queued" ? "running" : snapshot.status;
+      base.snapshotStatus = snapshot.status;
       base.snapshotError = snapshot.error || undefined;
     }
     const settings = report.experimentAnalysisSettings;

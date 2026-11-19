@@ -1,4 +1,9 @@
-import { getSnapshotNodeState } from "back-end/src/jobs/runDags";
+import { DagNode } from "shared/validators";
+import {
+  getActions,
+  getExperimentSnapshotNodeState,
+} from "back-end/src/jobs/runDags";
+import { DagNodeState } from "back-end/src/services/dags";
 import { SnapshotRunStatus } from "back-end/src/models/ExperimentSnapshotModel";
 import { SNAPSHOT_INTERRUPTED_ERROR } from "back-end/src/services/snapshotCancellation";
 
@@ -17,26 +22,30 @@ const snapshot = (
   ...overrides,
 });
 
-describe("getSnapshotNodeState", () => {
+describe("getExperimentSnapshotNodeState", () => {
   it("reads a deleted snapshot as missing", () => {
-    expect(getSnapshotNodeState(undefined, now)).toEqual({ status: "missing" });
+    expect(getExperimentSnapshotNodeState(undefined, now)).toEqual({
+      status: "missing",
+    });
   });
 
   it("passes queued and success through", () => {
     expect(
-      getSnapshotNodeState(
+      getExperimentSnapshotNodeState(
         snapshot({ status: "queued", runStarted: null }),
         now,
       ),
     ).toEqual({ status: "queued" });
-    expect(getSnapshotNodeState(snapshot({ status: "success" }), now)).toEqual({
+    expect(
+      getExperimentSnapshotNodeState(snapshot({ status: "success" }), now),
+    ).toEqual({
       status: "success",
     });
   });
 
   it("is stalled only after ten minutes with no queries saved", () => {
     const stalled = (overrides: Partial<SnapshotRunStatus>) =>
-      getSnapshotNodeState(snapshot(overrides), now);
+      getExperimentSnapshotNodeState(snapshot(overrides), now);
 
     expect(stalled({ runStarted: minutesAgo(9) })).toEqual({
       status: "running",
@@ -54,7 +63,7 @@ describe("getSnapshotNodeState", () => {
 
   it("does not retry a run that was interrupted or cancelled", () => {
     const failed = (error: string) =>
-      getSnapshotNodeState(snapshot({ status: "error", error }), now);
+      getExperimentSnapshotNodeState(snapshot({ status: "error", error }), now);
 
     expect(failed("Query timed out")).toEqual({
       status: "error",
@@ -68,5 +77,34 @@ describe("getSnapshotNodeState", () => {
       status: "error",
       retryable: false,
     });
+  });
+});
+
+describe("getActions", () => {
+  const node = (id: string, dependsOn: string[]): DagNode => ({
+    id,
+    dependsOn,
+    type: "experiment-snapshot",
+    targetId: `snp_${id}`,
+    previousTargetIds: [],
+    maxAttempts: 1,
+  });
+  const nodes = [node("main", []), node("a", ["main"]), node("b", ["main"])];
+  // The Overall Results run died before saving its queries
+  const states = new Map<string, DagNodeState>([
+    ["snp_main", { status: "running", stalled: true }],
+    ["snp_a", { status: "queued" }],
+  ]);
+
+  it("leaves a DAG that cannot finish alone until it is 48 hours old", () => {
+    expect(
+      getActions({ nodes, dateCreated: minutesAgo(47 * 60) }, states, now),
+    ).toEqual([]);
+  });
+
+  it("drops what is still queued and closes a DAG older than 48 hours", () => {
+    expect(
+      getActions({ nodes, dateCreated: minutesAgo(49 * 60) }, states, now),
+    ).toEqual([{ type: "drop", nodeId: "a" }, { type: "done" }]);
   });
 });

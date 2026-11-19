@@ -339,7 +339,7 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
     !datasourceHasWritableEphemeralPipeline({ context, datasource })
   ) {
     throw new Error(
-      "Precomputed unit dimensions require a datasource with ephemeral Pipeline Mode enabled, or an experiment in the Incremental Pipeline",
+      "Precomputed unit dimensions require a datasource with ephemeral Pipeline Mode enabled, or an experiment in Incremental Pipeline mode",
     );
   }
 

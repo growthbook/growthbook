@@ -19,7 +19,7 @@ import {
   DagNodeState,
   getDagActions,
 } from "back-end/src/services/dags";
-import { createExperimentSnapshotFromPlan } from "back-end/src/services/experiments";
+import { startQueuedBreakdown } from "back-end/src/services/experiments";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import {
@@ -55,17 +55,17 @@ export default async function (agenda: Agenda) {
 
 // A run that a user cancelled or a newer Overall Results update interrupted
 // was stopped on purpose, so running it again would undo that.
-const NON_RETRYABLE_SNAPSHOT_ERRORS = [
+const NON_RETRYABLE_EXPERIMENT_SNAPSHOT_ERRORS = [
   SNAPSHOT_INTERRUPTED_ERROR,
   SNAPSHOT_CANCELLED_ERROR,
   QUERY_CANCELLED_BY_USER_ERROR,
 ];
 
-// The stalled-snapshot reaper skips a snapshot with no queries, so a start
-// that died before saving its query list would otherwise never conclude.
-const UNSTARTED_SNAPSHOT_STALE_MS = INCREMENTAL_LOCK_STALE_MS;
+// How long a snapshot the DAG started may stay running without saving any
+// queries before the DAG marks it as failed.
+const UNSTARTED_EXPERIMENT_SNAPSHOT_STALE_MS = INCREMENTAL_LOCK_STALE_MS;
 
-export function getSnapshotNodeState(
+export function getExperimentSnapshotNodeState(
   snapshot: SnapshotRunStatus | undefined,
   now: Date,
 ): DagNodeState {
@@ -82,12 +82,12 @@ export function getSnapshotNodeState(
           snapshot.queryCount === 0 &&
           !!snapshot.runStarted &&
           now.getTime() - snapshot.runStarted.getTime() >
-            UNSTARTED_SNAPSHOT_STALE_MS,
+            UNSTARTED_EXPERIMENT_SNAPSHOT_STALE_MS,
       };
     case "error":
       return {
         status: "error",
-        retryable: !NON_RETRYABLE_SNAPSHOT_ERRORS.some((error) =>
+        retryable: !NON_RETRYABLE_EXPERIMENT_SNAPSHOT_ERRORS.some((error) =>
           snapshot.error?.startsWith(error),
         ),
       };
@@ -121,7 +121,7 @@ async function getStatesByTargetId(
         case "experiment-snapshot":
           return [
             node.targetId,
-            getSnapshotNodeState(snapshots.get(node.targetId), now),
+            getExperimentSnapshotNodeState(snapshots.get(node.targetId), now),
           ];
         default:
           node.type satisfies never;
@@ -131,30 +131,45 @@ async function getStatesByTargetId(
   );
 }
 
-function getActions(
-  dag: DagInterface,
+// A DAG older than this is closed as it stands, so one that can never finish
+// stops being read on every sweep.
+const DAG_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+
+export function getActions(
+  dag: Pick<DagInterface, "nodes" | "dateCreated">,
   statesByTargetId: Map<string, DagNodeState>,
+  now: Date,
 ): DagAction[] {
+  const stateOf = (node: DagNode): DagNodeState =>
+    statesByTargetId.get(node.targetId) ?? { status: "missing" };
+
+  if (now.getTime() - dag.dateCreated.getTime() > DAG_MAX_AGE_MS) {
+    // Nothing would ever start a node left queued by a DAG that is done
+    return [
+      ...dag.nodes
+        .filter((node) => stateOf(node).status === "queued")
+        .map((node) => ({ type: "drop" as const, nodeId: node.id })),
+      { type: "done" },
+    ];
+  }
+
   return getDagActions(
     dag,
-    new Map(
-      dag.nodes.map((node) => [
-        node.id,
-        statesByTargetId.get(node.targetId) ?? { status: "missing" },
-      ]),
-    ),
+    new Map(dag.nodes.map((node) => [node.id, stateOf(node)])),
   );
 }
 
 // ponytail: every active DAG and its snapshots' statuses are read each minute.
-// A DAG with a queued node that can never start stays active until the next
-// update of its experiment; give queued nodes a timeout if that list grows.
+// A DAG that cannot finish stays active until DAG_MAX_AGE_MS: one whose queued
+// node can never start (unless its experiment is updated first), or whose
+// first node died before saving its queries. Lower the cap if that list grows.
 async function sweepDags() {
   const dags = await DagModel.dangerousFindAllActive();
   const states = await getStatesByTargetId(dags.flatMap((dag) => dag.nodes));
+  const now = new Date();
 
   for (const dag of dags) {
-    if (!getActions(dag, states).length) continue;
+    if (!getActions(dag, states, now).length) continue;
     const job = getAgendaInstance().create(RUN_DAG_TICK, {
       organization: dag.organization,
       dagId: dag.id,
@@ -173,7 +188,11 @@ async function runDagTick(job: RunDagTickJob) {
   const dag = await context.models.dags.getById(dagId);
   if (!dag || dag.status !== "active") return;
 
-  const actions = getActions(dag, await getStatesByTargetId(dag.nodes));
+  const actions = getActions(
+    dag,
+    await getStatesByTargetId(dag.nodes),
+    new Date(),
+  );
   for (const action of actions) {
     try {
       if (action.type === "done") {
@@ -184,7 +203,12 @@ async function runDagTick(job: RunDagTickJob) {
       if (!node) continue;
       switch (node.type) {
         case "experiment-snapshot":
-          await applySnapshotNodeAction(context, dag, node, action.type);
+          await applyExperimentSnapshotNodeAction(
+            context,
+            dag,
+            node,
+            action.type,
+          );
           break;
         default:
           node.type satisfies never;
@@ -199,7 +223,8 @@ async function runDagTick(job: RunDagTickJob) {
   }
 }
 
-async function applySnapshotNodeAction(
+// Experiment snapshot handling below here
+async function applyExperimentSnapshotNodeAction(
   context: AgendaJobContext,
   dag: DagInterface,
   node: DagNode,
@@ -207,9 +232,9 @@ async function applySnapshotNodeAction(
 ): Promise<void> {
   switch (action) {
     case "start":
-      return startQueuedSnapshotNode(context, node.targetId);
+      return startQueuedExperimentSnapshotNode(context, node.targetId);
     case "retry":
-      return retrySnapshotNode(context, dag, node);
+      return retryExperimentSnapshotNode(context, dag, node);
     case "drop":
       return deleteQueuedSnapshots(context, { ids: [node.targetId] });
     case "fail-unstarted":
@@ -227,7 +252,7 @@ async function applySnapshotNodeAction(
   }
 }
 
-async function startQueuedSnapshotNode(
+async function startQueuedExperimentSnapshotNode(
   context: AgendaJobContext,
   snapshotId: string,
 ): Promise<void> {
@@ -242,19 +267,10 @@ async function startQueuedSnapshotNode(
   }
 
   try {
-    // The stored snapshot is the plan: nothing is planned again here
-    await createExperimentSnapshotFromPlan({
-      plan: {
-        snapshot: { ...snapshot, runnerKind },
-        useCache: true,
-        fullRefresh: false,
-        fullRefreshReason: null,
-        incrementalFallbackReason: null,
-        settingsForSnapshotMetrics: [],
-      },
+    await startQueuedBreakdown({
+      queued: { ...snapshot, runnerKind },
       context,
       experiment,
-      startQueued: true,
     });
   } catch (e) {
     // The lock was refused: it stays queued for the next sweep, at no cost
@@ -273,7 +289,7 @@ async function startQueuedSnapshotNode(
   }
 }
 
-async function retrySnapshotNode(
+async function retryExperimentSnapshotNode(
   context: AgendaJobContext,
   dag: DagInterface,
   node: DagNode,

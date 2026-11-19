@@ -170,7 +170,7 @@ export const getContextualBanditEvent = {
 
 const contextualBanditLatestStatusSchema = z.object({
   id: z.string(),
-  status: z.enum(["running", "success", "error"]),
+  status: z.enum(["queued", "running", "success", "error"]),
   error: z.string(),
   queries: z.array(queryPointerValidator),
   runStarted: z.string().nullable(),

@@ -1158,7 +1158,9 @@ export async function startQueuedSnapshot(
   const now = new Date();
   const updated = await ExperimentSnapshotModel.findOneAndUpdate(
     { organization: context.org.id, id, status: "queued" },
-    // dateCreated moves so the stalled-snapshot reaper times the run, not the wait
+    // dateCreated moves so the stalled-snapshot reaper times the run, not the wait.
+    // Changing this requires substantial changes to the collection indices and
+    // the reapers
     { $set: { status: "running", runStarted: now, dateCreated: now } },
     { new: true },
   );

@@ -14,6 +14,7 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   createSnapshotFromPlan,
   PlannedExperimentSnapshot,
+  startQueuedBreakdown,
 } from "back-end/src/services/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {
@@ -50,6 +51,14 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/MetricModel", () => ({
+  getMetricMap: jest.fn().mockResolvedValue(new Map()),
+}));
+
+jest.mock("back-end/src/models/FactTableModel", () => ({
+  getFactTableMap: jest.fn().mockResolvedValue(new Map()),
 }));
 
 jest.mock("back-end/src/services/dimensions", () => ({
@@ -776,29 +785,30 @@ describe("snapshot lifecycle", () => {
           context.models.incrementalRefresh
             .getByExperimentIdAndPhase as jest.Mock
         ).mockResolvedValue({ materializedBySnapshotId: "snp_main" });
-        const plan = queuedPlan("snp_main");
+        const queued = queuedPlan("snp_main").snapshot;
         startQueuedSnapshotMock.mockResolvedValue({
-          ...plan.snapshot,
+          ...queued,
           status: "running",
         });
-        // Its own queued state must not block it
-        hasQueuedSnapshotMock.mockResolvedValue(true);
 
-        await createSnapshotFromPlan({
-          plan,
-          startQueued: true,
-          ...args(context),
+        await startQueuedBreakdown({
+          queued,
+          context,
+          experiment: makeExperiment(),
         });
 
         expect(startQueuedSnapshotMock).toHaveBeenCalledWith(
           context,
-          plan.snapshot.id,
+          queued.id,
         );
+        expect(
+          context.models.incrementalRefresh.acquireReaderLock,
+        ).toHaveBeenCalledTimes(1);
         expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
         expect(updateExperimentMock).not.toHaveBeenCalled();
         expect(exploratoryQueryRunnerMock).toHaveBeenCalledWith(
           context,
-          expect.objectContaining({ id: plan.snapshot.id, status: "running" }),
+          expect.objectContaining({ id: queued.id, status: "running" }),
           expect.any(Object),
           false,
         );
@@ -810,13 +820,13 @@ describe("snapshot lifecycle", () => {
           context.models.incrementalRefresh
             .getByExperimentIdAndPhase as jest.Mock
         ).mockResolvedValue({ materializedBySnapshotId: "snp_newer" });
-        const plan = queuedPlan("snp_main");
+        const queued = queuedPlan("snp_main").snapshot;
 
         await expect(
-          createSnapshotFromPlan({
-            plan,
-            startQueued: true,
-            ...args(context),
+          startQueuedBreakdown({
+            queued,
+            context,
+            experiment: makeExperiment(),
           }),
         ).rejects.toThrow(QueuedSnapshotSupersededError);
 
@@ -824,7 +834,7 @@ describe("snapshot lifecycle", () => {
         expect(exploratoryQueryRunnerMock).not.toHaveBeenCalled();
         expect(
           context.models.incrementalRefresh.releaseLock,
-        ).toHaveBeenCalledWith("exp_123", plan.snapshot.id);
+        ).toHaveBeenCalledWith("exp_123", queued.id);
       });
     });
 

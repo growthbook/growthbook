@@ -81,7 +81,7 @@ const snapshotContext = React.createContext<{
 });
 
 export const SNAPSHOT_QUEUED_MESSAGE =
-  "Queued: runs when the Overall Results update finishes.";
+  "Queued: this analysis will start when the Overall Results update finishes.";
 
 export function getSnapshotSummaryPath({
   experimentId,
