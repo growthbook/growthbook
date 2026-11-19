@@ -22,6 +22,7 @@ import {
   getAlignedComparisonDimensionKeyForTooltip,
   parseComparisonTooltipSeriesName,
   sortProductAnalyticsTooltipAxisItems,
+  groupCompareSeriesInOrder,
 } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 
 describe("buildCompareChartLegendModel", () => {
@@ -234,70 +235,28 @@ describe("alignComparisonOverlayToCategories", () => {
   });
 });
 
-describe("sortProductAnalyticsTooltipAxisItems", () => {
+describe("groupCompareSeriesInOrder", () => {
   const labels = {
     currentLabel: "Jan 8 – Jan 14, 2025",
     previousLabel: "Jan 1 – Jan 7, 2025",
   };
+  const names = (rows: { seriesName: string }[]) =>
+    rows.map((x) => x.seriesName);
 
-  const getV = (x: { v: number | null }) => x.v;
-
-  it("groups current then previous per metric, ranking metrics by current value", () => {
-    const aCurr = formatComparisonMetricLabel("A", labels.currentLabel);
-    const aPrev = formatComparisonMetricLabel("A", labels.previousLabel);
-    const bCurr = formatComparisonMetricLabel("B", labels.currentLabel);
-    const bPrev = formatComparisonMetricLabel("B", labels.previousLabel);
-    // B's previous value is the largest overall, but A leads on current.
-    const shuffled = [
-      { seriesName: bPrev, v: 100 },
-      { seriesName: aCurr, v: 50 },
-      { seriesName: aPrev, v: 10 },
-      { seriesName: bCurr, v: 20 },
-    ];
-    const sorted = sortProductAnalyticsTooltipAxisItems(shuffled, labels, getV);
-    expect(sorted.map((x) => x.seriesName)).toEqual([
-      aCurr,
-      aPrev,
-      bCurr,
-      bPrev,
-    ]);
-  });
-
-  it("groups compare rows without reordering metrics when no values are given", () => {
+  it("pulls each metric's previous series next to its current one, keeping metric order", () => {
     const zCurr = formatComparisonMetricLabel("Z", labels.currentLabel);
     const zPrev = formatComparisonMetricLabel("Z", labels.previousLabel);
     const aCurr = formatComparisonMetricLabel("A", labels.currentLabel);
     const aPrev = formatComparisonMetricLabel("A", labels.previousLabel);
-    const legendOrder = [
-      { seriesName: zCurr },
-      { seriesName: aCurr },
+    const seriesOrder = [
       { seriesName: zPrev },
+      { seriesName: aCurr },
+      { seriesName: zCurr },
       { seriesName: aPrev },
     ];
-    const sorted = sortProductAnalyticsTooltipAxisItems(legendOrder, labels);
-    expect(sorted.map((x) => x.seriesName)).toEqual([
+    expect(names(groupCompareSeriesInOrder(seriesOrder, labels))).toEqual([
       zCurr,
       zPrev,
-      aCurr,
-      aPrev,
-    ]);
-  });
-
-  it("ranks a compare metric with no current value by its previous value", () => {
-    const aCurr = formatComparisonMetricLabel("A", labels.currentLabel);
-    const aPrev = formatComparisonMetricLabel("A", labels.previousLabel);
-    const bCurr = formatComparisonMetricLabel("B", labels.currentLabel);
-    const bPrev = formatComparisonMetricLabel("B", labels.previousLabel);
-    const rows = [
-      { seriesName: aCurr, v: 5 },
-      { seriesName: aPrev, v: 1 },
-      { seriesName: bCurr, v: null },
-      { seriesName: bPrev, v: 8 },
-    ];
-    const sorted = sortProductAnalyticsTooltipAxisItems(rows, labels, getV);
-    expect(sorted.map((x) => x.seriesName)).toEqual([
-      bCurr,
-      bPrev,
       aCurr,
       aPrev,
     ]);
@@ -308,12 +267,43 @@ describe("sortProductAnalyticsTooltipAxisItems", () => {
       { seriesName: labels.previousLabel },
       { seriesName: labels.currentLabel },
     ];
-    const sorted = sortProductAnalyticsTooltipAxisItems(shuffled, labels);
-    expect(sorted.map((x) => x.seriesName)).toEqual([
+    expect(names(groupCompareSeriesInOrder(shuffled, labels))).toEqual([
       labels.currentLabel,
       labels.previousLabel,
     ]);
   });
+
+  it("leaves order untouched when not comparing", () => {
+    const rows = [
+      { seriesName: "Z" },
+      { seriesName: "a" },
+      { seriesName: "Z" },
+    ];
+    expect(groupCompareSeriesInOrder(rows, null)).toEqual(rows);
+  });
+});
+
+describe("sortProductAnalyticsTooltipAxisItems", () => {
+  const labels = {
+    currentLabel: "Jan 8 – Jan 14, 2025",
+    previousLabel: "Jan 1 – Jan 7, 2025",
+  };
+
+  type Row = { seriesName: string; v: number | null };
+  const getV = (x: Row) => x.v;
+  const sortedNames = (
+    rows: Row[],
+    periodLabels: typeof labels | null,
+    order: "value" | "series" | "seriesReversed" = "value",
+  ) =>
+    sortProductAnalyticsTooltipAxisItems(rows, periodLabels, order, getV).map(
+      (x) => x.seriesName,
+    );
+
+  const aCurr = formatComparisonMetricLabel("A", labels.currentLabel);
+  const aPrev = formatComparisonMetricLabel("A", labels.previousLabel);
+  const bCurr = formatComparisonMetricLabel("B", labels.currentLabel);
+  const bPrev = formatComparisonMetricLabel("B", labels.previousLabel);
 
   it("sorts by hovered value, highest first, when not comparing", () => {
     const rows = [
@@ -322,8 +312,7 @@ describe("sortProductAnalyticsTooltipAxisItems", () => {
       { seriesName: "featureUsage", v: 1_100 },
       { seriesName: "other", v: 6_900 },
     ];
-    const sorted = sortProductAnalyticsTooltipAxisItems(rows, null, getV);
-    expect(sorted.map((x) => x.seriesName)).toEqual([
+    expect(sortedNames(rows, null)).toEqual([
       "experimentMultiMetric",
       "experimentMetric",
       "other",
@@ -340,27 +329,18 @@ describe("sortProductAnalyticsTooltipAxisItems", () => {
       { seriesName: "BigQuery", v: 80_000 },
       { seriesName: "ClickHouse", v: 110_000 },
     ];
-    expect(
-      sortProductAnalyticsTooltipAxisItems(day1, null, getV).map(
-        (x) => x.seriesName,
-      ),
-    ).toEqual(["BigQuery", "ClickHouse"]);
-    expect(
-      sortProductAnalyticsTooltipAxisItems(day2, null, getV).map(
-        (x) => x.seriesName,
-      ),
-    ).toEqual(["ClickHouse", "BigQuery"]);
+    expect(sortedNames(day1, null)).toEqual(["BigQuery", "ClickHouse"]);
+    expect(sortedNames(day2, null)).toEqual(["ClickHouse", "BigQuery"]);
   });
 
-  it("puts rows without a value last and keeps input order for ties", () => {
+  it("puts rows without a value last and keeps series order for ties", () => {
     const rows = [
       { seriesName: "empty", v: null },
       { seriesName: "tieFirst", v: 5 },
       { seriesName: "negative", v: -2 },
       { seriesName: "tieSecond", v: 5 },
     ];
-    const sorted = sortProductAnalyticsTooltipAxisItems(rows, null, getV);
-    expect(sorted.map((x) => x.seriesName)).toEqual([
+    expect(sortedNames(rows, null)).toEqual([
       "tieFirst",
       "tieSecond",
       "negative",
@@ -368,14 +348,155 @@ describe("sortProductAnalyticsTooltipAxisItems", () => {
     ]);
   });
 
-  it("keeps input order when not comparing and no values are given", () => {
+  it("ranks same-named series separately when not comparing", () => {
     const rows = [
-      { seriesName: "Z" },
-      { seriesName: "a" },
-      { seriesName: "M" },
+      { seriesName: "Purchases", v: 100 },
+      { seriesName: "Signups", v: 50 },
+      { seriesName: "Purchases", v: 10 },
     ];
-    const sorted = sortProductAnalyticsTooltipAxisItems(rows, null);
-    expect(sorted.map((x) => x.seriesName)).toEqual(["Z", "a", "M"]);
+    expect(
+      sortProductAnalyticsTooltipAxisItems(rows, null, "value", getV).map(
+        (x) => x.v,
+      ),
+    ).toEqual([100, 50, 10]);
+  });
+
+  it("keeps current then previous per metric, ranking metrics by current value", () => {
+    // B's previous value is the largest overall, but A leads on current.
+    const shuffled = [
+      { seriesName: bPrev, v: 100 },
+      { seriesName: aCurr, v: 50 },
+      { seriesName: aPrev, v: 10 },
+      { seriesName: bCurr, v: 20 },
+    ];
+    expect(sortedNames(shuffled, labels)).toEqual([aCurr, aPrev, bCurr, bPrev]);
+  });
+
+  it("ranks a compare metric with no current value by its previous value", () => {
+    const rows = [
+      { seriesName: aCurr, v: 5 },
+      { seriesName: aPrev, v: 1 },
+      { seriesName: bCurr, v: null },
+      { seriesName: bPrev, v: 8 },
+    ];
+    expect(sortedNames(rows, labels)).toEqual([bCurr, bPrev, aCurr, aPrev]);
+  });
+
+  it("keeps series order regardless of value for `series`", () => {
+    const rows = [
+      { seriesName: "low", v: 1 },
+      { seriesName: "high", v: 9 },
+      { seriesName: "mid", v: 5 },
+    ];
+    expect(sortedNames(rows, null, "series")).toEqual(["low", "high", "mid"]);
+  });
+
+  it("reverses series order for `seriesReversed`, keeping compare pairs intact", () => {
+    const rows = [
+      { seriesName: "bottom", v: 9 },
+      { seriesName: "middle", v: 1 },
+      { seriesName: "top", v: 5 },
+    ];
+    expect(sortedNames(rows, null, "seriesReversed")).toEqual([
+      "top",
+      "middle",
+      "bottom",
+    ]);
+
+    const compareRows = [
+      { seriesName: aCurr, v: 9 },
+      { seriesName: aPrev, v: 8 },
+      { seriesName: bCurr, v: 1 },
+      { seriesName: bPrev, v: 2 },
+    ];
+    expect(sortedNames(compareRows, labels, "seriesReversed")).toEqual([
+      bCurr,
+      bPrev,
+      aCurr,
+      aPrev,
+    ]);
+  });
+});
+
+describe("buildExplorerChartTooltipFormatter row order", () => {
+  const dayMs = Date.UTC(2026, 8, 1);
+  const args = {
+    chartType: "line" as const,
+    resolvedGranularity: "day" as const,
+    firstDimensionIsDate: true,
+    comparisonPeriodLabels: null,
+    showLineAreaCompareTooltipDates: false,
+    alignedComparisonOverlay: null,
+    sortedXValues: ["2026-09-01"],
+    seriesConfigsLength: 3,
+    formatNumber: (value: number) => String(value),
+  };
+  // Series order, as ECharts passes them.
+  const dateItems = [
+    { axisValue: dayMs, marker: "", seriesName: "Alpha", value: [dayMs, 5] },
+    { axisValue: dayMs, marker: "", seriesName: "Bravo", value: [dayMs, 90] },
+    { axisValue: dayMs, marker: "", seriesName: "Charlie", value: [dayMs, 20] },
+  ];
+  const renderedOrder = (html: string | undefined) =>
+    ["Alpha", "Bravo", "Charlie"].sort(
+      (a, b) => (html ?? "").indexOf(a) - (html ?? "").indexOf(b),
+    );
+
+  it("lists date-axis rows by hovered value", () => {
+    const formatter = buildExplorerChartTooltipFormatter({
+      ...args,
+      rowOrder: "value",
+    });
+    expect(renderedOrder(formatter?.(dateItems))).toEqual([
+      "Bravo",
+      "Charlie",
+      "Alpha",
+    ]);
+  });
+
+  it("lists category-axis rows by hovered value", () => {
+    const formatter = buildExplorerChartTooltipFormatter({
+      ...args,
+      chartType: "bar",
+      resolvedGranularity: null,
+      firstDimensionIsDate: false,
+      rowOrder: "value",
+    });
+    const items = dateItems.map((item) => ({
+      ...item,
+      axisValue: "Chrome",
+      value: item.value[1],
+    }));
+    expect(renderedOrder(formatter?.(items))).toEqual([
+      "Bravo",
+      "Charlie",
+      "Alpha",
+    ]);
+  });
+
+  it("lists stacked rows top band first, whatever the values", () => {
+    const formatter = buildExplorerChartTooltipFormatter({
+      ...args,
+      chartType: "area",
+      rowOrder: "seriesReversed",
+    });
+    expect(renderedOrder(formatter?.(dateItems))).toEqual([
+      "Charlie",
+      "Bravo",
+      "Alpha",
+    ]);
+  });
+
+  it("keeps series order when values are on different axes", () => {
+    const formatter = buildExplorerChartTooltipFormatter({
+      ...args,
+      rowOrder: "series",
+    });
+    expect(renderedOrder(formatter?.(dateItems))).toEqual([
+      "Alpha",
+      "Bravo",
+      "Charlie",
+    ]);
   });
 });
 
@@ -660,6 +781,7 @@ describe("% of Population fractions", () => {
     sortedXValues: ["2026-09-01"],
     seriesConfigsLength: 2,
     formatNumber: (value: number) => String(value),
+    rowOrder: "value" as const,
   };
 
   it("carries the fraction only on values shown as a share of the Population", () => {

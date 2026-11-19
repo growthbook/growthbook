@@ -50,7 +50,8 @@ import {
   computeBigNumberComparisonTrends,
   getComparisonPeriodLabels,
   parseComparisonTooltipSeriesName,
-  sortProductAnalyticsTooltipAxisItems,
+  groupCompareSeriesInOrder,
+  type ProductAnalyticsTooltipRowOrder,
   supportsAlwaysOnComparisonOverlay,
   buildExplorerChartTooltipFormatter,
   buildCompareChartLegendModel,
@@ -114,24 +115,6 @@ function seriesNameFromEChartsSeriesConfig(s: unknown): string | undefined {
     return (s as { name: string }).name;
   }
   return undefined;
-}
-
-/** Legend + series list order: keep the highest-total-first series order, grouping each metric’s current then previous (same as axis tooltip). */
-function sortSeriesConfigsForCompareLegendOrder(
-  seriesConfigs: unknown[],
-  comparisonPeriodLabels: {
-    currentLabel: string;
-    previousLabel: string;
-  },
-): unknown[] {
-  const tagged = seriesConfigs.map((cfg) => ({
-    cfg,
-    seriesName: seriesNameFromEChartsSeriesConfig(cfg) ?? "",
-  }));
-  return sortProductAnalyticsTooltipAxisItems(
-    tagged,
-    comparisonPeriodLabels,
-  ).map((row) => row.cfg);
 }
 
 export default function ExplorerChart({
@@ -582,10 +565,15 @@ export default function ExplorerChart({
     }
 
     if (comparisonPeriodLabels && seriesConfigs.length > 1) {
-      seriesConfigs = sortSeriesConfigsForCompareLegendOrder(
-        seriesConfigs,
+      // Keep the highest-total-first series order; only pull each metric's
+      // previous series up next to its current one.
+      seriesConfigs = groupCompareSeriesInOrder(
+        seriesConfigs.map((cfg) => ({
+          cfg,
+          seriesName: seriesNameFromEChartsSeriesConfig(cfg) ?? "",
+        })),
         comparisonPeriodLabels,
-      );
+      ).map((row) => row.cfg);
     }
 
     // "% of Population" values mixed with other modes get a second value
@@ -717,6 +705,20 @@ export default function ExplorerChart({
     const xAxis = isHorizontalBar ? valueAxis : categoryAxisOption;
     const yAxis = isHorizontalBar ? categoryAxisOption : valueAxis;
 
+    // Stacked charts list rows like their bands: a vertical stack's first
+    // series is the bottom band, so it reads top-to-bottom in reverse series
+    // order, while a horizontal stack reads left-to-right in series order.
+    // Otherwise rows follow the hovered values, but only when every series is
+    // on one value axis; values on different axes aren't comparable.
+    let tooltipRowOrder: ProductAnalyticsTooltipRowOrder = "value";
+    if (chartType === "stackedHorizontalBar") {
+      tooltipRowOrder = "series";
+    } else if (chartType === "stackedBar" || chartType === "area") {
+      tooltipRowOrder = "seriesReversed";
+    } else if (secondaryValueAxisName !== null) {
+      tooltipRowOrder = "series";
+    }
+
     const tooltipFormatter = buildExplorerChartTooltipFormatter({
       chartType,
       resolvedGranularity,
@@ -729,6 +731,7 @@ export default function ExplorerChart({
       seriesConfigsLength: seriesConfigs.length,
       formatNumber,
       comparisonAlignment,
+      rowOrder: tooltipRowOrder,
     });
 
     return {

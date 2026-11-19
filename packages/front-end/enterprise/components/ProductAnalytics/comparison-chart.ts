@@ -195,81 +195,113 @@ export function buildCompareChartLegendModel(
     .filter((i): i is CompareChartLegendItem => i !== undefined);
 }
 
+type ComparisonPeriodLabels = { currentLabel: string; previousLabel: string };
+
 /**
- * Orders axis-tooltip (and compare legend) rows highest value first. For
- * period-compare charts each metric's current and previous rows stay adjacent
- * (current first), and the metric is ranked by its current value.
+ * Splits series into per-metric groups, in first-appearance order. In compare
+ * mode a metric's current and previous series share a group (current first).
+ * Series without a period are never merged, even when their names match.
+ */
+function groupCompareSeries<T extends { seriesName: string }>(
+  items: T[],
+  comparisonPeriodLabels: ComparisonPeriodLabels | null,
+): { item: T; period: ComparisonTooltipSeriesPeriod }[][] {
+  const groups = new Map<
+    string,
+    { item: T; period: ComparisonTooltipSeriesPeriod }[]
+  >();
+  items.forEach((item, index) => {
+    const { baseName, period } = parseComparisonTooltipSeriesName(
+      item.seriesName,
+      comparisonPeriodLabels,
+    );
+    const key =
+      period === "neutral" ? `neutral:${index}` : `metric:${baseName}`;
+    const group = groups.get(key) ?? [];
+    group.push({ item, period });
+    groups.set(key, group);
+  });
+  return Array.from(groups.values()).map((group) =>
+    // Stable, so same-period entries keep their input order.
+    [...group].sort(
+      (a, b) =>
+        comparisonTooltipPeriodOrder(a.period) -
+        comparisonTooltipPeriodOrder(b.period),
+    ),
+  );
+}
+
+/**
+ * Keeps series in their given order, except that in compare mode each metric's
+ * previous series moves up to sit right after its current one. Used for the
+ * compare legend and series list, which stay in highest-total-first order.
+ */
+export function groupCompareSeriesInOrder<T extends { seriesName: string }>(
+  items: T[],
+  comparisonPeriodLabels: ComparisonPeriodLabels | null,
+): T[] {
+  return groupCompareSeries(items, comparisonPeriodLabels).flatMap((group) =>
+    group.map(({ item }) => item),
+  );
+}
+
+/**
+ * How axis-tooltip rows are ordered:
+ * - `value`: highest hovered value first, so the order follows the data as
+ *   lines cross. Only meaningful when every series shares one value axis.
+ * - `series`: the chart's series order (the legend order).
+ * - `seriesReversed`: the reverse, which reads top-to-bottom like the bands of
+ *   a vertical stack (the first series is the bottom band).
+ */
+export type ProductAnalyticsTooltipRowOrder =
+  | "value"
+  | "series"
+  | "seriesReversed";
+
+/**
+ * Orders axis-tooltip rows. `items` arrive in series order. In compare mode
+ * each metric's current and previous rows stay adjacent (current first) and
+ * move together.
  *
- * Rows without a value sort last. Ties keep the input order, which is the
- * chart's series order (highest total first), so without `getValue` this only
- * groups compare rows and otherwise preserves order.
+ * For `value`, a metric is ranked by its current value, falling back to its
+ * largest value when the current period has none. Metrics without a value go
+ * last, and ties keep series order.
  */
 export function sortProductAnalyticsTooltipAxisItems<
   T extends { seriesName: string },
 >(
   items: T[],
-  comparisonPeriodLabels: {
-    currentLabel: string;
-    previousLabel: string;
-  } | null,
-  getValue: (item: NoInfer<T>) => number | null = () => null,
+  comparisonPeriodLabels: ComparisonPeriodLabels | null,
+  order: ProductAnalyticsTooltipRowOrder,
+  getValue: (item: NoInfer<T>) => number | null,
 ): T[] {
-  if (items.length <= 1) return [...items];
+  const groups = groupCompareSeries(items, comparisonPeriodLabels);
 
-  const rows = items.map((item, index) => ({
-    item,
-    index,
-    value: getValue(item),
-    ...parseComparisonTooltipSeriesName(
-      item.seriesName,
-      comparisonPeriodLabels,
-    ),
-  }));
+  if (order === "seriesReversed") groups.reverse();
 
-  // Rank each metric group by its current value, falling back to its largest
-  // value when the current period has none.
-  const groups = new Map<
-    string,
-    { firstIndex: number; current: number | null; max: number | null }
-  >();
-  for (const row of rows) {
-    const group = groups.get(row.baseName) ?? {
-      firstIndex: row.index,
-      current: null,
-      max: null,
-    };
-    if (row.value !== null) {
-      if (row.period === "current") group.current = row.value;
-      group.max =
-        group.max === null ? row.value : Math.max(group.max, row.value);
-    }
-    groups.set(row.baseName, group);
-  }
-  const groupRank = (baseName: string) => {
-    const group = groups.get(baseName);
-    return {
-      value: group ? (group.current ?? group.max) : null,
-      firstIndex: group?.firstIndex ?? 0,
-    };
-  };
-
-  return rows
-    .sort((a, b) => {
-      const ga = groupRank(a.baseName);
-      const gb = groupRank(b.baseName);
-      if (ga.value !== gb.value) {
-        if (ga.value === null) return 1;
-        if (gb.value === null) return -1;
-        return gb.value - ga.value;
+  if (order === "value") {
+    const ranked = groups.map((group) => {
+      let current: number | null = null;
+      let max: number | null = null;
+      for (const { item, period } of group) {
+        const value = getValue(item);
+        if (value === null) continue;
+        if (period === "current" && current === null) current = value;
+        max = max === null ? value : Math.max(max, value);
       }
-      if (ga.firstIndex !== gb.firstIndex) return ga.firstIndex - gb.firstIndex;
-      const periodCmp =
-        comparisonTooltipPeriodOrder(a.period) -
-        comparisonTooltipPeriodOrder(b.period);
-      if (periodCmp !== 0) return periodCmp;
-      return a.index - b.index;
-    })
-    .map((row) => row.item);
+      return { group, rank: current ?? max };
+    });
+    // Stable sort: equal ranks keep series order.
+    ranked.sort((a, b) => {
+      if (a.rank === b.rank) return 0;
+      if (a.rank === null) return 1;
+      if (b.rank === null) return -1;
+      return b.rank - a.rank;
+    });
+    return ranked.flatMap(({ group }) => group.map(({ item }) => item));
+  }
+
+  return groups.flatMap((group) => group.map(({ item }) => item));
 }
 
 function getComparisonStackId(
@@ -1376,6 +1408,8 @@ type BuildExplorerChartTooltipFormatterArgs = {
   seriesConfigsLength: number;
   formatNumber: (value: number) => string;
   comparisonAlignment?: ComparisonAlignmentStrategy;
+  /** How rows are ordered; see `ProductAnalyticsTooltipRowOrder`. */
+  rowOrder: ProductAnalyticsTooltipRowOrder;
 };
 
 export function buildExplorerChartTooltipFormatter({
@@ -1390,6 +1424,7 @@ export function buildExplorerChartTooltipFormatter({
   seriesConfigsLength,
   formatNumber,
   comparisonAlignment,
+  rowOrder,
 }: BuildExplorerChartTooltipFormatterArgs):
   | ((params: unknown) => string)
   | undefined {
@@ -1428,6 +1463,7 @@ export function buildExplorerChartTooltipFormatter({
       const itemsSorted = sortProductAnalyticsTooltipAxisItems(
         itemsRaw,
         comparisonPeriodLabels,
+        rowOrder,
         tooltipItemNumericValue,
       );
       const items = itemsSorted.filter(isShownItem);
@@ -1530,6 +1566,7 @@ export function buildExplorerChartTooltipFormatter({
       const itemsSorted = sortProductAnalyticsTooltipAxisItems(
         itemsRaw,
         comparisonPeriodLabels,
+        rowOrder,
         tooltipItemNumericValue,
       );
       const items = itemsSorted.filter((item) => {
