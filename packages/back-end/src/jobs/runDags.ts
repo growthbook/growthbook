@@ -61,8 +61,8 @@ const NON_RETRYABLE_EXPERIMENT_SNAPSHOT_ERRORS = [
   QUERY_CANCELLED_BY_USER_ERROR,
 ];
 
-// How long a snapshot the DAG started may stay running without saving any
-// queries before the DAG marks it as failed.
+// How long a snapshot may stay running without saving any queries before the
+// DAG marks it as failed.
 const UNSTARTED_EXPERIMENT_SNAPSHOT_STALE_MS = INCREMENTAL_LOCK_STALE_MS;
 
 export function getExperimentSnapshotNodeState(
@@ -160,9 +160,8 @@ export function getActions(
 }
 
 // ponytail: every active DAG and its snapshots' statuses are read each minute.
-// A DAG that cannot finish stays active until DAG_MAX_AGE_MS: one whose queued
-// node can never start (unless its experiment is updated first), or whose
-// first node died before saving its queries. Lower the cap if that list grows.
+// A DAG whose queued node can never start stays active until DAG_MAX_AGE_MS,
+// unless its experiment is updated first. Lower the cap if that list grows.
 async function sweepDags() {
   const dags = await DagModel.dangerousFindAllActive();
   const states = await getStatesByTargetId(dags.flatMap((dag) => dag.nodes));

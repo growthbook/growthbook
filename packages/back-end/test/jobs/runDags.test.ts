@@ -90,16 +90,16 @@ describe("getActions", () => {
     maxAttempts: 1,
   });
   const nodes = [node("main", []), node("a", ["main"]), node("b", ["main"])];
-  // The Overall Results run died before saving its queries
+  // A breakdown that is still queued, as when its start keeps being refused
   const states = new Map<string, DagNodeState>([
-    ["snp_main", { status: "running", stalled: true }],
+    ["snp_main", { status: "success" }],
     ["snp_a", { status: "queued" }],
   ]);
 
-  it("leaves a DAG that cannot finish alone until it is 48 hours old", () => {
+  it("keeps trying to start a queued node until the DAG is 48 hours old", () => {
     expect(
       getActions({ nodes, dateCreated: minutesAgo(47 * 60) }, states, now),
-    ).toEqual([]);
+    ).toEqual([{ type: "start", nodeId: "a" }]);
   });
 
   it("drops what is still queued and closes a DAG older than 48 hours", () => {
