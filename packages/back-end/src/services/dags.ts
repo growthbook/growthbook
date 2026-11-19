@@ -7,7 +7,12 @@ export type DagNodeState =
   | { status: "error"; retryable: boolean };
 
 export type DagAction =
-  | { type: "start" | "drop" | "retry" | "fail-unstarted"; nodeId: string }
+  // start: run a queued node whose dependencies all succeeded
+  // drop: delete a queued node that can no longer start
+  // retry: queue a new attempt of a node that failed
+  // fail-stalled: mark a stalled running node as failed
+  | { type: "start" | "drop" | "retry" | "fail-stalled"; nodeId: string }
+  // done: every node is finished (success or not), so the DAG can be closed
   | { type: "done" };
 
 /**
@@ -87,7 +92,7 @@ export function getDagActions(
       actions.push({ type: "retry", nodeId: node.id });
     } else if (state.status === "running" && state.stalled) {
       // Whoever started it: nothing else ends a run that never got going
-      actions.push({ type: "fail-unstarted", nodeId: node.id });
+      actions.push({ type: "fail-stalled", nodeId: node.id });
     }
   }
 
