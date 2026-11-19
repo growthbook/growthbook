@@ -87,7 +87,8 @@ export type SelectFieldProps = Omit<
   extraIndicator?: ReactNode;
   withRadixThemedPortal?: boolean;
   // Renders the menu at the app's theme root, so no scroll box or stacking
-  // context holds it.
+  // context holds it. For page content only: in a modal, which sits above the
+  // root, the menu would open beneath it.
   portalMenu?: boolean;
   legacyLabelFormatting?: boolean;
   labelSize?: TextSizes;
