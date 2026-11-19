@@ -230,64 +230,58 @@ describe("getNewMetricRowStates", () => {
     });
   });
 
-  it("shows the metrics a running refresh queries as running, and the rest as not computed", () => {
-    expect(
-      statesFor({
-        latest: {
-          type: "standard",
-          status: "running",
-          metricRefresh: refreshOf(["met_goal", "met_secondary"]),
-        },
-      }),
-    ).toEqual({
-      met_goal: { status: "running", newMetricsOnly: true },
-      met_secondary: { status: "running", newMetricsOnly: true },
-      met_guardrail: { status: "notComputed" },
-    });
-  });
-
-  it("shows every new metric as running during a full update", () => {
-    expect(
-      statesFor({
-        latest: {
-          type: "standard",
-          status: "running",
-        },
-      }),
-    ).toEqual({
-      met_goal: { status: "running", newMetricsOnly: false },
-      met_secondary: { status: "running", newMetricsOnly: false },
-      met_guardrail: { status: "running", newMetricsOnly: false },
-    });
-  });
-
-  it("shows the metrics of a failed refresh as failed", () => {
-    expect(
-      statesFor({
-        latest: {
-          type: "standard",
-          status: "error",
-          error: "Query failed",
-          metricRefresh: refreshOf(["met_goal"]),
-        },
-      }),
-    ).toEqual({
-      met_goal: { status: "failed", error: "Query failed" },
-      met_secondary: { status: "notComputed" },
-      met_guardrail: { status: "notComputed" },
-    });
-  });
-
-  it("keeps new metrics not computed after a failed full update", () => {
-    expect(
-      statesFor({
-        latest: {
-          type: "standard",
-          status: "error",
-          error: "Query failed",
-        },
-      }).met_goal,
-    ).toEqual({ status: "notComputed" });
+  it.each([
+    {
+      name: "a running refresh shows its metrics as running and the rest as not computed",
+      latest: {
+        type: "standard" as const,
+        status: "running" as const,
+        metricRefresh: refreshOf(["met_goal", "met_secondary"]),
+      },
+      expected: {
+        met_goal: { status: "running", newMetricsOnly: true },
+        met_secondary: { status: "running", newMetricsOnly: true },
+        met_guardrail: { status: "notComputed" },
+      },
+    },
+    {
+      name: "a running full update shows every new metric as running",
+      latest: { type: "standard" as const, status: "running" as const },
+      expected: {
+        met_goal: { status: "running", newMetricsOnly: false },
+        met_secondary: { status: "running", newMetricsOnly: false },
+        met_guardrail: { status: "running", newMetricsOnly: false },
+      },
+    },
+    {
+      name: "a failed refresh shows its metrics as failed",
+      latest: {
+        type: "standard" as const,
+        status: "error" as const,
+        error: "Query failed",
+        metricRefresh: refreshOf(["met_goal"]),
+      },
+      expected: {
+        met_goal: { status: "failed", error: "Query failed" },
+        met_secondary: { status: "notComputed" },
+        met_guardrail: { status: "notComputed" },
+      },
+    },
+    {
+      name: "a failed full update leaves new metrics not computed",
+      latest: {
+        type: "standard" as const,
+        status: "error" as const,
+        error: "Query failed",
+      },
+      expected: {
+        met_goal: { status: "notComputed" },
+        met_secondary: { status: "notComputed" },
+        met_guardrail: { status: "notComputed" },
+      },
+    },
+  ])("$name", ({ latest, expected }) => {
+    expect(statesFor({ latest })).toEqual(expected);
   });
 });
 
@@ -320,7 +314,7 @@ describe("getMetricIdsNoSnapshotComputes", () => {
       }),
     ].sort();
 
-  it("lists metrics that can't join the experiment's units", () => {
+  it("lists metrics that can't join the experiment's units, and a holdout's guardrails and conversion-window metrics", () => {
     expect(
       uncomputable({
         type: "standard",
@@ -329,16 +323,13 @@ describe("getMetricIdsNoSnapshotComputes", () => {
         guardrailMetrics: ["met_plain"],
       }),
     ).toEqual(["met_anonymous"]);
-  });
-
-  it("adds a holdout's guardrails and conversion-window metrics", () => {
     expect(
       uncomputable({
         type: "holdout",
-        goalMetrics: ["met_conversion"],
+        goalMetrics: ["met_conversion", "met_anonymous"],
         secondaryMetrics: [],
         guardrailMetrics: ["met_plain"],
       }),
-    ).toEqual(["met_conversion", "met_plain"]);
+    ).toEqual(["met_anonymous", "met_conversion", "met_plain"]);
   });
 });
