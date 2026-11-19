@@ -336,7 +336,7 @@ export const apiDataSourceConnectionValidator = z.discriminatedUnion("type", [
     account: z.string(),
     accessUrl: z.string().optional(),
     username: z.string(),
-    password: z.string(),
+    password: z.string().optional().describe("For `password` auth"),
     database: z.string(),
     schema: z.string(),
     role: z.string().optional(),

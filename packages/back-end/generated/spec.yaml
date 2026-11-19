@@ -78184,6 +78184,7 @@ components:
         username:
           type: string
         password:
+          description: For `password` auth
           type: string
         database:
           type: string
@@ -78213,7 +78214,6 @@ components:
         - type
         - account
         - username
-        - password
         - database
         - schema
       additionalProperties: false
