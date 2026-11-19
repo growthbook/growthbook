@@ -236,7 +236,7 @@ async function applyExperimentSnapshotNodeAction(
       return retryExperimentSnapshotNode(context, dag, node);
     case "drop":
       return deleteQueuedSnapshots(context, { ids: [node.targetId] });
-    case "fail-unstarted":
+    case "fail-stalled":
       await errorSnapshotIfStillRunning(
         context,
         node.targetId,
@@ -323,14 +323,7 @@ async function retryExperimentSnapshotNode(
   });
 
   // Another tick already retried this attempt
-  if (
-    !(await context.models.dags.replaceNodeTarget(
-      dag.id,
-      node.id,
-      failed.id,
-      copy.id,
-    ))
-  ) {
+  if (!(await context.models.dags.replaceNodeTarget(dag.id, node, copy.id))) {
     await deleteQueuedSnapshots(context, { ids: [copy.id] });
   }
 }
