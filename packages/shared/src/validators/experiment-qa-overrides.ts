@@ -37,6 +37,7 @@ export const updateExperimentQaOverrideBodyValidator = z
 
 export const reorderExperimentQaOverridesBodyValidator = z
   .object({
+    environment: z.string().min(1),
     overrideIds: z.array(z.string()).min(1),
   })
   .strict();

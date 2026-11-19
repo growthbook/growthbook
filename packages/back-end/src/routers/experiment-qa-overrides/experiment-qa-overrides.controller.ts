@@ -11,7 +11,10 @@ import {
   UpdateExperimentQaOverrideBody,
 } from "shared/types/experiment-qa-override";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getQaOverrideWaitingFeatures } from "shared/util";
+import {
+  getQaOverrideWaitingFeatures,
+  reorderQaOverridesInEnvironment,
+} from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
@@ -120,32 +123,6 @@ async function overridesResponse(
   };
 }
 
-async function applyOrder(
-  context: Context,
-  ordered: ExperimentQaOverrideInterface[],
-): Promise<ExperimentQaOverrideInterface[]> {
-  const out: ExperimentQaOverrideInterface[] = [];
-  const movedEnvironments = new Set<string>();
-  for (const [order, override] of ordered.entries()) {
-    if (override.order === order) {
-      out.push(override);
-      continue;
-    }
-    movedEnvironments.add(override.environment);
-    out.push(
-      await context.models.experimentQaOverrides.update(
-        override,
-        { order },
-        { skipSDKRefresh: true },
-      ),
-    );
-  }
-  await context.models.experimentQaOverrides.refreshEnvironments([
-    ...movedEnvironments,
-  ]);
-  return out;
-}
-
 export const getExperimentQaOverrides = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<OverridesResponse>,
@@ -181,25 +158,31 @@ export const putExperimentQaOverridesOrder = async (
   res: Response<OverridesResponse>,
 ) => {
   const { context, experiment } = await loadExperiment(req);
-  const { overrideIds } = req.body;
-  const existing = await context.models.experimentQaOverrides.findByExperiment(
-    experiment.id,
+  const { environment, overrideIds } = req.body;
+  const model = context.models.experimentQaOverrides;
+  const changes = reorderQaOverridesInEnvironment(
+    await model.findByExperiment(experiment.id),
+    environment,
+    overrideIds,
   );
-  const byId = new Map(existing.map((o) => [o.id, o]));
-  if (
-    overrideIds.length !== existing.length ||
-    new Set(overrideIds).size !== existing.length ||
-    overrideIds.some((id) => !byId.has(id))
-  ) {
-    context.throwBadRequestError(
-      "overrideIds must list every QA override of this experiment exactly once",
+  if (!changes) {
+    return context.throwBadRequestError(
+      "overrideIds must list every QA override in this environment exactly once",
     );
   }
-  const overrides = await applyOrder(
-    context,
-    overrideIds.map((id) => byId.get(id) as ExperimentQaOverrideInterface),
-  );
-  res.status(200).json(await overridesResponse(context, overrides, experiment));
+  for (const { override, order } of changes) {
+    await model.update(override, { order }, { skipSDKRefresh: true });
+  }
+  if (changes.length) await model.refreshEnvironments([environment]);
+  res
+    .status(200)
+    .json(
+      await overridesResponse(
+        context,
+        await model.findByExperiment(experiment.id),
+        experiment,
+      ),
+    );
 };
 
 export const putExperimentQaOverride = async (

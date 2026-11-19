@@ -58,6 +58,32 @@ export function sortQaOverrides<
   );
 }
 
+// Order is per environment: the changes that put one environment's overrides
+// in `overrideIds` order, or null unless the ids are exactly that set.
+export function reorderQaOverridesInEnvironment<
+  T extends { id: string; environment: string; order: number },
+>(
+  overrides: T[],
+  environment: string,
+  overrideIds: string[],
+): { override: T; order: number }[] | null {
+  const inEnvironment = new Map(
+    overrides
+      .filter((o) => o.environment === environment)
+      .map((o) => [o.id, o]),
+  );
+  if (
+    overrideIds.length !== inEnvironment.size ||
+    new Set(overrideIds).size !== inEnvironment.size ||
+    overrideIds.some((id) => !inEnvironment.has(id))
+  ) {
+    return null;
+  }
+  return overrideIds
+    .map((id, order) => ({ override: inEnvironment.get(id) as T, order }))
+    .filter(({ override, order }) => override.order !== order);
+}
+
 export function getQaOverrideWaitingFeatures(
   override: { environment: string },
   linkedFeatures: Pick<

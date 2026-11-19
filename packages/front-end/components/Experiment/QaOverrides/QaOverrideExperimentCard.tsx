@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiLockBold } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -12,6 +13,18 @@ import VariationLabel from "@/ui/VariationLabel";
 import styles from "./QaOverrides.module.scss";
 
 const percent = (n: number) => `${+(n * 100).toFixed(1)}%`;
+
+// SummaryRow wraps its value in a span, so rows with block content use this.
+function BlockRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <Text size="sm" color="text-mid">
+        {label}
+      </Text>
+      <Box>{children}</Box>
+    </>
+  );
+}
 
 export default function QaOverrideExperimentCard({
   experiment,
@@ -35,20 +48,20 @@ export default function QaOverrideExperimentCard({
         <PiLockBold size={12} color="var(--color-text-mid)" />
       </Flex>
       <SummaryGrid>
-        <SummaryRow label="Targeting">
-          {hasTargeting ? (
+        {hasTargeting ? (
+          <BlockRow label="Targeting">
             <ConditionDisplay
               condition={phase?.condition}
               savedGroups={phase?.savedGroups}
               prerequisites={phase?.prerequisites}
             />
-          ) : (
-            "Everyone"
-          )}
-        </SummaryRow>
+          </BlockRow>
+        ) : (
+          <SummaryRow label="Targeting">Everyone</SummaryRow>
+        )}
         <SummaryRow label="Traffic">{percent(phase?.coverage ?? 1)}</SummaryRow>
-        <SummaryRow label="Split">
-          <Flex display="inline-flex" wrap="wrap" gapX="4" gapY="1">
+        <BlockRow label="Split">
+          <Flex wrap="wrap" gapX="4" gapY="1">
             {variations.map((v, i) => (
               <Flex key={v.id} align="center" gap="1" flexShrink="0">
                 <VariationLabel number={i} name={v.name} size="sm" />
@@ -58,7 +71,7 @@ export default function QaOverrideExperimentCard({
               </Flex>
             ))}
           </Flex>
-        </SummaryRow>
+        </BlockRow>
       </SummaryGrid>
     </Box>
   );

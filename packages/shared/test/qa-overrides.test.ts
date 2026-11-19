@@ -1,6 +1,7 @@
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import {
   getQaOverrideWaitingFeatures,
+  reorderQaOverridesInEnvironment,
   qaOverrideAppliesToConnection,
   qaOverrideHasCondition,
   sortQaOverrides,
@@ -123,5 +124,45 @@ describe("getQaOverrideWaitingFeatures draft version", () => {
         } as unknown as Parameters<typeof getQaOverrideWaitingFeatures>[1][0],
       ]),
     ).toEqual([{ featureId: "f", reason: "draft", draftVersion: 12 }]);
+  });
+});
+
+describe("reorderQaOverridesInEnvironment", () => {
+  const overrides = [
+    { id: "a", environment: "dev", order: 0 },
+    { id: "b", environment: "staging", order: 1 },
+    { id: "c", environment: "dev", order: 2 },
+  ];
+
+  it("renumbers only the environment being reordered", () => {
+    const changes = reorderQaOverridesInEnvironment(overrides, "dev", [
+      "c",
+      "a",
+    ]);
+    expect(changes?.map((c) => [c.override.id, c.order])).toEqual([
+      ["c", 0],
+      ["a", 1],
+    ]);
+  });
+
+  it("skips rows that already have their new order", () => {
+    const changes = reorderQaOverridesInEnvironment(overrides, "dev", [
+      "a",
+      "c",
+    ]);
+    expect(changes?.map((c) => [c.override.id, c.order])).toEqual([["c", 1]]);
+  });
+
+  it("rejects ids that aren't exactly that environment's overrides", () => {
+    expect(reorderQaOverridesInEnvironment(overrides, "dev", ["a"])).toBeNull();
+    expect(
+      reorderQaOverridesInEnvironment(overrides, "dev", ["a", "a"]),
+    ).toBeNull();
+    expect(
+      reorderQaOverridesInEnvironment(overrides, "dev", ["a", "b"]),
+    ).toBeNull();
+    expect(
+      reorderQaOverridesInEnvironment(overrides, "dev", ["a", "c", "b"]),
+    ).toBeNull();
   });
 });

@@ -76,17 +76,17 @@ export default function QaOverridesSection({
 
   const reorder = async (environment: string, orderedIds: string[]) => {
     setActionError(null);
-    const others = overrides.filter((o) => o.environment !== environment);
-    const moved = orderedIds
-      .map((id) => overrides.find((o) => o.id === id))
-      .filter((o): o is ExperimentQaOverrideWithStatus => !!o);
-    const next = [...others, ...moved].map((o, i) => ({ ...o, order: i }));
+    const position = new Map(orderedIds.map((id, i) => [id, i]));
+    const next = overrides.map((o) => ({
+      ...o,
+      order: position.get(o.id) ?? o.order,
+    }));
     try {
       await mutate(
         async () => {
           await apiCall(`/qa-overrides/experiment/${experiment.id}/order`, {
             method: "PUT",
-            body: JSON.stringify({ overrideIds: next.map((o) => o.id) }),
+            body: JSON.stringify({ environment, overrideIds: orderedIds }),
           });
           return undefined;
         },
