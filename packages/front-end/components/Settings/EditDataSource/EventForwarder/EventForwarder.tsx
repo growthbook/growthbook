@@ -807,7 +807,7 @@ function EventForwarderErrorMessage({ message }: { message: string }) {
   );
 }
 
-function EventForwarderSetupIndicator() {
+function EventForwarderSetupIndicator({ label }: { label: string }) {
   return (
     <Box
       style={{
@@ -823,7 +823,7 @@ function EventForwarderSetupIndicator() {
       }}
     >
       <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-      <Text size="sm">Setting up</Text>
+      <Text size="sm">{label}</Text>
     </Box>
   );
 }
@@ -945,7 +945,9 @@ export default function EventForwarder({
               <Text weight="semibold">Status</Text>
             )}
             {!eventForwarderConfig ? null : isProvisioning ? (
-              <EventForwarderSetupIndicator />
+              <EventForwarderSetupIndicator
+                label={replaying ? "Writing backlog" : "Setting up"}
+              />
             ) : (
               <>
                 <Badge
@@ -1047,7 +1049,8 @@ export default function EventForwarder({
 
       {hasBacklog && isReady && !isProvisioning ? (
         <Callout status="info" mb="3">
-          {backlogEvents} still backed up and being written to your warehouse.
+          Writing backed-up events to your warehouse:{" "}
+          {backlogCount.toLocaleString()} left.
         </Callout>
       ) : null}
 
