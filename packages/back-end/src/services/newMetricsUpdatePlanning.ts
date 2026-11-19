@@ -176,8 +176,9 @@ export async function planNewMetricsUpdate({
       throw error;
     },
   );
-  // A new-metrics update appends to its parent's pipeline, on the Incremental Pipeline to
-  // the tables the parent left, which an "incremental-full" run would rebuild.
+  // A new-metrics update appends to its parent's pipeline, on the Incremental
+  // Pipeline to the tables the parent left, which an "incremental-full" run
+  // would rebuild.
   const blocker = getNewMetricsUpdateBlocker({
     ...blockerArgs,
     pipelineChanged:
@@ -307,10 +308,10 @@ function getChangedKeys(
 }
 
 /**
- * The parent's settings a new-metrics update would not honor if it copied the parent's
- * results. On the standard pipeline this leaves the analysis settings, the
- * snapshot settings the stats engine reads and those behind an Outdated
- * reason; the carried SQL check covers the rest.
+ * The parent's settings a new-metrics update would not honor if it copied the
+ * parent's results. On the standard pipeline this leaves the analysis
+ * settings, the snapshot settings the stats engine reads and those behind an
+ * Outdated reason; the carried SQL check covers the rest.
  */
 export function getSettingsChangedSinceParent({
   parent,
@@ -371,9 +372,9 @@ export function getSettingsChangedSinceParent({
 }
 
 /**
- * Settings for the new-metrics update: planned entries for the target metrics and their
- * slices and funnel steps, the parent's stored entries verbatim for every
- * other metric. Any other planned entry the parent lacks is dropped.
+ * Settings for the new-metrics update: planned entries for the target metrics
+ * and their slices and funnel steps, the parent's stored entries verbatim for
+ * every other metric. Any other planned entry the parent lacks is dropped.
  */
 export function mergeNewMetricsUpdateSettings({
   parent,
@@ -443,7 +444,8 @@ export function getNewMetricsUpdateLineage(
  * Accepts the pipeline state only when every stored table still holds no data
  * past the parent's end and the parent is the last run that succeeded on it.
  * A failed run since then may have rebuilt some caches; those hold data only
- * up to the parent's end as well, so the new-metrics update reads them like the others.
+ * up to the parent's end as well, so the new-metrics update reads them like
+ * the others.
  */
 export function assertIncrementalTablesMatchParent({
   state,

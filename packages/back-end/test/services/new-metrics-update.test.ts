@@ -1090,7 +1090,8 @@ describe("getNewMetricsUpdateLineage", () => {
 });
 
 // The results endpoint must report the same dateEnd before and after a
-// new-metrics update; newMetricsUpdate.dateEnd is the analysis end the new-metrics update is pinned to.
+// new-metrics update; newMetricsUpdate.dateEnd is the analysis end the update
+// is pinned to.
 describe("dateEnd of a new-metrics update", () => {
   const baseRan = new Date("2026-11-18T22:17:36.299Z");
   const runningPhase = { dateEnded: undefined };
@@ -1205,8 +1206,8 @@ describe("Incremental Pipeline carry-over", () => {
   });
 });
 
-// One rule on both pipelines: a new-metrics update can't partly succeed, except when
-// only the cleanup of a table it no longer needs fails.
+// One rule on both pipelines: a new-metrics update can't partly succeed,
+// except when only the cleanup of a table it no longer needs fails.
 describe("new-metrics update status", () => {
   const pipelines = {
     results: {

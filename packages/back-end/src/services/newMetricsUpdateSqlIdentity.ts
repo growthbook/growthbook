@@ -54,7 +54,8 @@ export type GenerateResultQuerySql = (args: {
   scope?: ResultQueryScope;
 }) => Promise<Map<string, string>>;
 
-// Each new-metrics update adds a level, and each level costs a dry run of its queries.
+// Each new-metrics update adds a level, and each level costs a dry run of its
+// queries.
 const MAX_NEW_METRICS_UPDATE_LINEAGE_LENGTH = 10;
 
 /** Base full update first, parent last. */
@@ -90,8 +91,8 @@ async function loadNewMetricsUpdateLineage(
 }
 
 /**
- * One snapshot of a new-metrics update lineage as it would run today: its stored metrics
- * in stored order with today's settings.
+ * One snapshot of a new-metrics update lineage as it would run today: its
+ * stored metrics in stored order with today's settings.
  */
 export type NewMetricsUpdateReplayLevel = {
   snapshotId: string;
@@ -115,9 +116,9 @@ export type ReplayedQuerySql = {
 };
 
 /**
- * The SQL each level would run today, by query name. A new-metrics update numbers its
- * own metric groups after the groups it copied, so the levels replay base
- * first to reproduce the stored grouping.
+ * The SQL each level would run today, by query name. A new-metrics update
+ * numbers its own metric groups after the groups it copied, so the levels
+ * replay base first to reproduce the stored grouping.
  */
 export async function replayNewMetricsUpdateLineage({
   levels,
@@ -238,10 +239,11 @@ export function getQueriesWithChangedSql({
 }
 
 /**
- * Refuses unless every query the new-metrics update would copy from a results parent,
- * and every units table those queries read, would be generated with the same
- * SQL today. This catches changed metric definitions, exposure and segment
- * SQL, identity joins, and releases that change how SQL is generated.
+ * Refuses unless every query the new-metrics update would copy from a results
+ * parent, and every units table those queries read, would be generated with
+ * the same SQL today. This catches changed metric definitions, exposure and
+ * segment SQL, identity joins, and releases that change how SQL is
+ * generated.
  */
 export async function assertCarriedQuerySqlUnchanged({
   context,

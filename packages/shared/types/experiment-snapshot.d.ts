@@ -238,7 +238,8 @@ export interface ExperimentSnapshotSettings {
  * to that snapshot's end date. Absent on every other snapshot.
  */
 export interface SnapshotNewMetricsUpdate {
-  // The full (not a new-metrics update) snapshot the chain of new-metrics updates started from.
+  // The full snapshot (not itself a new-metrics update) that the chain of
+  // new-metrics updates started from.
   baseSnapshotId: string;
   baseDateCreated: Date;
   // The base's runStarted, which the results endpoint reports as its dateEnd.

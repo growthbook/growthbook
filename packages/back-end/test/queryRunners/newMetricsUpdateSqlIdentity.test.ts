@@ -124,8 +124,8 @@ const levels: NewMetricsUpdateReplayLevel[] = [
     maxSqlClockDriftMs: null,
   },
 ];
-// The queries a new-metrics update of snp_refresh compares: the groups it would copy and
-// the units table each of them reads.
+// The queries a new-metrics update of snp_refresh compares: the groups it
+// would copy and the units table each of them reads.
 const comparedQueryNames = ["group_0", "group_1", "snp_base", "snp_refresh"];
 
 type Variant = {

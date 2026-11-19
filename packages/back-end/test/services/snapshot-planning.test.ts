@@ -2591,7 +2591,8 @@ describe("planExperimentSnapshot", () => {
     });
 
     // Every Outdated reason other than "Metrics changed" makes the app run a
-    // normal update, so the planner must refuse a new-metrics update for each of them.
+    // normal update, so the planner must refuse a new-metrics update for each
+    // of them.
     describe("agrees with the app's Outdated reasons", () => {
       const { generateExperimentResultQuerySql: generateSql } =
         jest.requireActual<

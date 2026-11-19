@@ -104,10 +104,10 @@ async function getParentQueryCopiers(
 }
 
 /**
- * The new-metrics update's queries that this run started. A carried query keeps its
- * parent query's name, and every query a new-metrics update starts has a new name: new
- * result groups are numbered after the parent's, and a rebuilt Incremental
- * Pipeline cache gets a new group id.
+ * The new-metrics update's queries that this run started. A carried query
+ * keeps its parent query's name, and every query a new-metrics update starts
+ * has a new name: new result groups are numbered after the parent's, and a
+ * rebuilt Incremental Pipeline cache gets a new group id.
  */
 function getQueriesStartedByNewMetricsUpdate(
   queryMap: QueryMap,
@@ -231,7 +231,8 @@ export async function analyzeNewMetricsUpdate({
     context,
     newMetricsUpdate.parentSnapshotId,
   );
-  // The default analysis must stay first, or the new-metrics update would show another.
+  // The default analysis must stay first, or the new-metrics update would show
+  // another.
   if (parent?.analyses[0]?.status !== "success") {
     throw new Error(
       `Snapshot ${newMetricsUpdate.parentSnapshotId} has no finished results to add the new metrics to`,
@@ -387,9 +388,10 @@ type StartQuery = (
 ) => Promise<QueryPointer>;
 
 /**
- * `startQuery` for a new-metrics update that names its queries as its parent did:
- * a carried query is copied from the parent instead of run. A query reading a
- * cache rebuilt in this run is named after the cache's new group id, so it runs.
+ * `startQuery` for a new-metrics update that names its queries as its parent
+ * did: a carried query is copied from the parent instead of run. A query
+ * reading a cache rebuilt in this run is named after the cache's new group id,
+ * so it runs.
  */
 export async function getNewMetricsUpdateStartQuery(
   context: ReqContext | ApiReqContext,
@@ -406,8 +408,9 @@ export async function getNewMetricsUpdateStartQuery(
 }
 
 /**
- * A new-metrics update can't partly succeed on either pipeline, since its results
- * would lack metrics. A failed drop of a table it no longer needs doesn't count.
+ * A new-metrics update can't partly succeed on either pipeline, since its
+ * results would lack metrics. A failed drop of a table it no longer needs
+ * doesn't count.
  */
 export function getNewMetricsUpdateQueryStatus(
   snapshot: Pick<
