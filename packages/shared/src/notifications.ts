@@ -344,7 +344,7 @@ export const notificationEventMetadata = {
   "sdkConnection.proxy.disabled": {
     label: "Proxy disabled",
     description:
-      "Triggered when an SDK Connection's GrowthBook Proxy is disabled after too many consecutive failures; `error` says why. Fix the cause, then use Recheck on the SDK Connection.",
+      "Triggered when an SDK Connection's GrowthBook Proxy is disabled after too many consecutive failures; `error` says why. Fix the cause, then use Recheck on the SDK Connection, or publish an approved change if the connection needs approval.",
     subtitle: "Proxy disabled after repeated failures.",
   },
   "sdkConnection.proxy.recovered": {

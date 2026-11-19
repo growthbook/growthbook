@@ -52,16 +52,12 @@ export function buildSdkConnectionAlertMessage(
 export function buildSdkProxyAlertMessage(event: SdkProxyAlert): SlackMessage {
   const object = event.data.object;
   const url = `${APP_ORIGIN}/sdks/${encodeURIComponent(object.connectionId)}`;
-  const proxy = {
-    label: "Proxy",
-    value: escapeInlineMarkdown(object.proxyHost),
-  };
   switch (event.event) {
     case "sdkConnection.proxy.recovered":
       return buildAlertMessage({
         name: object.connectionName,
         label: "Proxy Recovered",
-        fields: [proxy],
+        fields: [],
         url,
       });
     case "sdkConnection.proxy.failing":
@@ -69,7 +65,6 @@ export function buildSdkProxyAlertMessage(event: SdkProxyAlert): SlackMessage {
         name: object.connectionName,
         label: "Proxy Failing",
         fields: [
-          proxy,
           {
             label: "Error",
             value: escapeInlineMarkdown(event.data.object.error),
@@ -82,7 +77,6 @@ export function buildSdkProxyAlertMessage(event: SdkProxyAlert): SlackMessage {
         name: object.connectionName,
         label: "Proxy Disabled",
         fields: [
-          proxy,
           {
             label: "Error",
             value: escapeInlineMarkdown(event.data.object.error),
@@ -90,7 +84,7 @@ export function buildSdkProxyAlertMessage(event: SdkProxyAlert): SlackMessage {
           {
             label: "Next step",
             value:
-              "Fix the cause, then use Recheck on the SDK Connection to turn the proxy back on.",
+              "Fix the cause, then use Recheck on the SDK Connection to turn the proxy back on. If changes to the connection need approval, publish an approved change that enables the proxy instead.",
           },
         ],
         url,

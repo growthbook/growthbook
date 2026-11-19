@@ -724,7 +724,6 @@ export async function claimSDKConnectionNotifiedPayloadSizeLevel(
   return result.modifiedCount === 1;
 }
 
-/** The connection's proxy state after a failed attempt was recorded. */
 export interface ProxyErrorResult {
   /** This failure disabled the proxy. */
   disabled: boolean;
@@ -733,7 +732,6 @@ export interface ProxyErrorResult {
 }
 
 /**
- * Records a failed attempt to send the payload to the connection's proxy.
  * @param countFailure - When false, the error is saved but doesn't count toward disabling the proxy.
  */
 export async function setProxyError(
@@ -768,9 +766,14 @@ export async function setProxyError(
   return { disabled, consecutiveFailures, failingSince };
 }
 
+/**
+ * @param clearFailureAlert - When false, keeps `failureAlertedAt` so a
+ * `proxy.recovered` alert that couldn't be sent is tried again.
+ */
 export async function clearProxyError(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
+  { clearFailureAlert = true }: { clearFailureAlert?: boolean } = {},
 ) {
   await SDKConnectionModel.updateOne(
     {
@@ -783,13 +786,12 @@ export async function clearProxyError(
         "proxy.connected": true,
         "proxy.consecutiveFailures": 0,
         "proxy.failingSince": null,
-        "proxy.failureAlertedAt": null,
+        ...(clearFailureAlert ? { "proxy.failureAlertedAt": null } : {}),
       },
     },
   );
 }
 
-/** Saves when the last failure alert was sent for the connection's proxy. */
 export async function setProxyFailureAlertedAt(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,

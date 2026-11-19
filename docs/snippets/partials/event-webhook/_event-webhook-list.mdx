@@ -59,7 +59,7 @@
 | **[holdout.config.newLinkage](#holdout-config-newlinkage)**                                                   | Triggered when feature flags or experiments are linked to a holdout.                                                                                                                                                                                                                                                                                                                 |
 | **[sdkConnection.payloadSize.warning](#sdkconnection-payloadsize-warning)**                                   | Triggered when an SDK Connection's payload grows past half, 80%, or all of the 16 MB its cache can store. The `level` field is `warning`, `danger`, or `over-limit`, and `recommendations` lists ways to shrink it. Fires once per level reached, not on every publish.                                                                                                              |
 | **[sdkConnection.proxy.failing](#sdkconnection-proxy-failing)**                                               | Triggered when an SDK Connection's GrowthBook Proxy has failed to receive its payload for an hour, and again each day it keeps failing; `error` says why. Followed by `proxy.recovered` when a push succeeds.                                                                                                                                                                        |
-| **[sdkConnection.proxy.disabled](#sdkconnection-proxy-disabled)**                                             | Triggered when an SDK Connection's GrowthBook Proxy is disabled after too many consecutive failures; `error` says why. Fix the cause, then use Recheck on the SDK Connection.                                                                                                                                                                                                        |
+| **[sdkConnection.proxy.disabled](#sdkconnection-proxy-disabled)**                                             | Triggered when an SDK Connection's GrowthBook Proxy is disabled after too many consecutive failures; `error` says why. Fix the cause, then use Recheck on the SDK Connection, or publish an approved change if the connection needs approval.                                                                                                                                        |
 | **[sdkConnection.proxy.recovered](#sdkconnection-proxy-recovered)**                                           | Triggered when a push to an SDK Connection's GrowthBook Proxy succeeds after `proxy.failing` or `proxy.disabled` was sent.                                                                                                                                                                                                                                                           |
 | **[sdkConnection.revision.created](#sdkconnection-revision-created)**                                         | Triggered when a new draft revision is created for an SDK Connection                                                                                                                                                                                                                                                                                                                 |
 | **[sdkConnection.revision.updated](#sdkconnection-revision-updated)**                                         | Triggered when a draft revision's proposed changes are modified (settings, webhooks, or archive). The `change` field indicates the kind of mutation.                                                                                                                                                                                                                                 |
@@ -5677,7 +5677,6 @@ Triggered when an SDK Connection's GrowthBook Proxy has failed to receive its pa
             connectionName: string;
             environment: string;
             projects: string[];
-            proxyHost: string;
             failingSince: string | null;
             status: number | null;
             error: string;
@@ -5718,7 +5717,7 @@ Triggered when an SDK Connection's GrowthBook Proxy has failed to receive its pa
 
 ### sdkConnection.proxy.disabled
 
-Triggered when an SDK Connection's GrowthBook Proxy is disabled after too many consecutive failures; `error` says why. Fix the cause, then use Recheck on the SDK Connection.
+Triggered when an SDK Connection's GrowthBook Proxy is disabled after too many consecutive failures; `error` says why. Fix the cause, then use Recheck on the SDK Connection, or publish an approved change if the connection needs approval.
 
 <Accordion title="Payload">
 
@@ -5734,7 +5733,6 @@ Triggered when an SDK Connection's GrowthBook Proxy is disabled after too many c
             connectionName: string;
             environment: string;
             projects: string[];
-            proxyHost: string;
             failingSince: string | null;
             status: number | null;
             error: string;
@@ -5791,7 +5789,6 @@ Triggered when a push to an SDK Connection's GrowthBook Proxy succeeds after `pr
             connectionName: string;
             environment: string;
             projects: string[];
-            proxyHost: string;
             failingSince: string | null;
         };
     };

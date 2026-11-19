@@ -81,6 +81,7 @@ const HOUR = 60 * 60 * 1000;
 // Built after connecting, since creating a context sets up the models
 let context: ReqContextClass;
 let runJob: (job: Job) => Promise<void>;
+let onFail: (error: Error, job: Job) => Promise<void>;
 let agenda: Agenda;
 
 const respond = (status: number, body = "") => ({
@@ -88,11 +89,13 @@ const respond = (status: number, body = "") => ({
   stringBody: body,
 });
 
-const createProxiedConnection = async () => {
+const createProxiedConnection = async ({ proxyEnabled = true } = {}) => {
   // Answers the healthcheck that runs when a proxied connection is created
-  jest
-    .mocked(cancellableFetch)
-    .mockResolvedValueOnce(respond(200, '{"proxyVersion":"1.0.0"}'));
+  if (proxyEnabled) {
+    jest
+      .mocked(cancellableFetch)
+      .mockResolvedValueOnce(respond(200, '{"proxyVersion":"1.0.0"}'));
+  }
   return createSDKConnection(context, {
     organization: org.id,
     name: "Web app",
@@ -111,7 +114,7 @@ const createProxiedConnection = async () => {
     includeCustomFieldsInMetadata: false,
     allowedCustomFieldsInMetadata: [],
     includeTagsInMetadata: false,
-    proxyEnabled: true,
+    proxyEnabled,
     proxyHost: "https://proxy.example.com",
   });
 };
@@ -119,18 +122,33 @@ const createProxiedConnection = async () => {
 const FIRST_ATTEMPT = 0;
 const RETRY = 1;
 
-const push = (
+const createJob = (
   connectionId: string,
   { cloud = false, attempt = FIRST_ATTEMPT } = {},
-) =>
-  runJob(
-    agenda.create("proxyUpdate", {
-      orgId: org.id,
-      connectionId,
-      useCloudProxy: cloud,
-      retryCount: attempt,
-    }),
-  );
+) => {
+  const job = agenda.create("proxyUpdate", {
+    orgId: org.id,
+    connectionId,
+    useCloudProxy: cloud,
+    retryCount: attempt,
+  });
+  jest.spyOn(job, "save").mockResolvedValue(job);
+  return job;
+};
+
+const push = (
+  connectionId: string,
+  options: { cloud?: boolean; attempt?: number } = {},
+) => runJob(createJob(connectionId, options));
+
+// Runs the job the way Agenda does, including its fail handler
+const pushAndHandleFailure = async (job: Job) => {
+  try {
+    await runJob(job);
+  } catch (e) {
+    await onFail(e instanceof Error ? e : new Error(String(e)), job);
+  }
+};
 
 const savedProxy = async (id: string) =>
   (await findSDKConnectionById(context, id))?.proxy;
@@ -149,6 +167,15 @@ const failingFor = async (connection: SDKConnectionInterface, msAgo: number) =>
     "earlier error",
   );
 
+// Like node-fetch's error, whose message includes the URL and any login in it
+const connectionRefused = () =>
+  Object.assign(
+    new Error(
+      "request to https://user:secret@proxy.example.com/proxy/features failed, reason: connect ECONNREFUSED",
+    ),
+    { code: "ECONNREFUSED" },
+  );
+
 // The admin email is sent in the background
 const flushEmails = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -164,8 +191,14 @@ beforeAll(async () => {
   });
   agenda = new Agenda();
   const define = jest.spyOn(agenda, "define");
+  const on = jest.spyOn(agenda, "on");
   addProxyUpdateJob(agenda);
   runJob = define.mock.calls[0][1];
+  const failListener = on.mock.calls.find(
+    ([event]) => event === "fail:proxyUpdate",
+  )?.[1];
+  if (!failListener) throw new Error("No fail listener");
+  onFail = failListener;
 });
 afterAll(async () => {
   await disconnectTestMongo();
@@ -210,9 +243,7 @@ describe("recording failures", () => {
 
   it("records a proxy that doesn't respond without counting it toward disabling", async () => {
     const connection = await createProxiedConnection();
-    jest
-      .mocked(cancellableFetch)
-      .mockRejectedValueOnce(new Error("connect ECONNREFUSED"));
+    jest.mocked(cancellableFetch).mockRejectedValueOnce(connectionRefused());
 
     await expect(push(connection.id)).rejects.toThrow("ECONNREFUSED");
 
@@ -220,7 +251,7 @@ describe("recording failures", () => {
       enabled: true,
       connected: false,
       consecutiveFailures: 0,
-      error: "Couldn't reach the proxy: connect ECONNREFUSED",
+      error: "Couldn't reach the proxy (ECONNREFUSED).",
     });
   });
 
@@ -287,9 +318,7 @@ describe("alerts", () => {
   it("alerts when the retry fails and the proxy has failed for an hour", async () => {
     const connection = await createProxiedConnection();
     await failingFor(connection, 2 * HOUR);
-    jest
-      .mocked(cancellableFetch)
-      .mockRejectedValueOnce(new Error("connect ECONNREFUSED"));
+    jest.mocked(cancellableFetch).mockRejectedValueOnce(connectionRefused());
 
     await expect(push(connection.id, { attempt: RETRY })).rejects.toThrow();
     await flushEmails();
@@ -300,12 +329,15 @@ describe("alerts", () => {
       data: {
         object: {
           connectionId: connection.id,
-          proxyHost: "https://proxy.example.com",
           status: null,
-          error: "Couldn't reach the proxy: connect ECONNREFUSED",
+          error: "Couldn't reach the proxy (ECONNREFUSED).",
         },
       },
     });
+    const payloads = jest
+      .mocked(createEvent)
+      .mock.calls.map(([params]) => params.data);
+    expect(JSON.stringify(payloads)).not.toContain("secret");
     expect(sendSdkProxyErrorEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         emails: ["owner@example.com"],
@@ -369,7 +401,27 @@ describe("alerts", () => {
     expect(sendSdkProxyErrorEmail).toHaveBeenCalledWith(
       expect.objectContaining({ disabled: true }),
     );
-    expect((await savedProxy(connection.id))?.enabled).toBe(false);
+    expect(await savedProxy(connection.id)).toMatchObject({
+      enabled: false,
+      failureAlertedAt: expect.any(Date),
+    });
+  });
+
+  it("keeps the alert time when recovered can't be sent, so it's tried again", async () => {
+    const connection = await createProxiedConnection();
+    await failingFor(connection, 2 * HOUR);
+    await setProxyFailureAlertedAt(context, connection, new Date());
+    jest.mocked(createEvent).mockResolvedValueOnce(null);
+    jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(200));
+
+    await push(connection.id);
+
+    expect(await savedProxy(connection.id)).toMatchObject({
+      connected: true,
+      error: "",
+      failingSince: null,
+      failureAlertedAt: expect.any(Date),
+    });
   });
 
   it("tells subscribers when the proxy recovers after an alert, without email", async () => {
@@ -416,6 +468,70 @@ describe("alerts", () => {
   });
 });
 
+describe("scheduled checks", () => {
+  it("retries a failed first attempt after 5 seconds", async () => {
+    const connection = await createProxiedConnection();
+    const job = createJob(connection.id);
+    jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(500));
+
+    await pushAndHandleFailure(job);
+
+    expect(job.attrs.data.retryCount).toBe(RETRY);
+    expect(job.attrs.nextRunAt?.getTime()).toBeLessThanOrEqual(
+      Date.now() + 5000,
+    );
+  });
+
+  it("checks again when the first alert is due", async () => {
+    const connection = await createProxiedConnection();
+    const { failingSince } = await failingFor(connection, HOUR / 4);
+    const job = createJob(connection.id, { attempt: RETRY });
+    jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(500));
+
+    await pushAndHandleFailure(job);
+
+    expect(createEvent).not.toHaveBeenCalled();
+    expect(job.attrs.nextRunAt).toEqual(
+      new Date(failingSince.getTime() + PROXY_ALERT_AFTER_MS),
+    );
+  });
+
+  it("checks again a day after an alert", async () => {
+    const connection = await createProxiedConnection();
+    await failingFor(connection, 2 * HOUR);
+    const job = createJob(connection.id, { attempt: RETRY });
+    jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(500));
+
+    await pushAndHandleFailure(job);
+
+    const alertedAt = (await savedProxy(connection.id))?.failureAlertedAt;
+    if (!alertedAt) throw new Error("No alert was sent");
+    expect(job.attrs.nextRunAt).toEqual(
+      new Date(alertedAt.getTime() + PROXY_ALERT_REMINDER_MS),
+    );
+  });
+
+  it("doesn't check our cloud proxy again", async () => {
+    const connection = await createProxiedConnection();
+    const job = createJob(connection.id, { cloud: true, attempt: RETRY });
+    jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(500));
+    const scheduledAt = job.attrs.nextRunAt;
+
+    await pushAndHandleFailure(job);
+
+    expect(job.attrs.nextRunAt).toEqual(scheduledAt);
+    expect(job.save).not.toHaveBeenCalled();
+  });
+
+  it("skips a check once the connection's proxy was turned off", async () => {
+    const connection = await createProxiedConnection({ proxyEnabled: false });
+
+    await push(connection.id, { attempt: RETRY });
+
+    expect(cancellableFetch).not.toHaveBeenCalled();
+  });
+});
+
 describe("GrowthBook Cloud proxy", () => {
   it("leaves the connection alone when the push fails", async () => {
     const connection = await createProxiedConnection();
@@ -433,9 +549,7 @@ describe("GrowthBook Cloud proxy", () => {
 
   it("leaves the connection alone when it doesn't respond", async () => {
     const connection = await createProxiedConnection();
-    jest
-      .mocked(cancellableFetch)
-      .mockRejectedValueOnce(new Error("connect ECONNREFUSED"));
+    jest.mocked(cancellableFetch).mockRejectedValueOnce(connectionRefused());
 
     await expect(
       push(connection.id, { cloud: true, attempt: RETRY }),
@@ -467,53 +581,6 @@ describe("GrowthBook Cloud proxy", () => {
       expect.anything(),
       expect.anything(),
     );
-  });
-});
-
-describe("setProxyError", () => {
-  it("disables the proxy when the failure reaches the threshold", async () => {
-    const connection = await createProxiedConnection();
-
-    const result = await setProxyError(
-      context,
-      {
-        ...connection,
-        proxy: {
-          ...connection.proxy,
-          consecutiveFailures: WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD - 1,
-        },
-      },
-      "down",
-    );
-
-    expect(result).toMatchObject({
-      disabled: true,
-      consecutiveFailures: WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD,
-    });
-    expect((await savedProxy(connection.id))?.enabled).toBe(false);
-  });
-
-  it("doesn't disable the proxy for a failure that isn't counted", async () => {
-    const connection = await createProxiedConnection();
-
-    const result = await setProxyError(
-      context,
-      {
-        ...connection,
-        proxy: {
-          ...connection.proxy,
-          consecutiveFailures: WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD - 1,
-        },
-      },
-      "too large",
-      { countFailure: false },
-    );
-
-    expect(result).toMatchObject({
-      disabled: false,
-      consecutiveFailures: WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD - 1,
-    });
-    expect((await savedProxy(connection.id))?.enabled).toBe(true);
   });
 });
 

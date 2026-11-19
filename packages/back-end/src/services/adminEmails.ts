@@ -1,7 +1,6 @@
 import { getUsersByIds } from "back-end/src/models/UserModel";
 import { ReqContext } from "back-end/types/request";
 
-/** Emails of the organization's owner and admins, without duplicates. */
 export async function getAdminEmails(context: ReqContext): Promise<string[]> {
   const adminIds = context.org.members
     .filter((m) => m.role === "admin")

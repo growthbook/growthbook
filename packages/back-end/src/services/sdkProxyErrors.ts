@@ -1,7 +1,6 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { formatSdkPayloadBytes } from "shared/health";
 import { createEvent } from "back-end/src/models/EventModel";
-import type { ProxyErrorResult } from "back-end/src/models/SdkConnectionModel";
 import { getAdminEmails } from "back-end/src/services/adminEmails";
 import {
   isEmailEnabled,
@@ -11,15 +10,14 @@ import { getWebhookTimeoutMs } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
-/** How long a proxy fails before the first alert. */
 export const PROXY_ALERT_AFTER_MS = 60 * 60 * 1000;
-/** How often to remind while the proxy keeps failing. */
 export const PROXY_ALERT_REMINDER_MS = 24 * 60 * 60 * 1000;
+// Keeps a scheduled check from running again right away when an alert is
+// overdue, e.g. because the last one couldn't be saved
+const MIN_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
-/** Which proxy alert to send. Each has its own event. */
 export type ProxyAlertState = "failing" | "disabled" | "recovered";
 
-/** Describes a failed proxy push for the SDK Connection page and alerts. */
 export function describeProxyError(status: number, payloadBytes: number) {
   if (status === 413) {
     return `The SDK payload (${formatSdkPayloadBytes(payloadBytes)}) exceeds the proxy's request size limit. Increase MAX_PAYLOAD_SIZE on the proxy, and any request size limit on a load balancer or ingress in front of it.`;
@@ -27,43 +25,56 @@ export function describeProxyError(status: number, payloadBytes: number) {
   return "POST returned an invalid status code: " + status;
 }
 
-/** Describes a push that got no response from the proxy. */
 export function describeProxyRequestError(e: unknown): string {
   if (e instanceof Error && e.name === "AbortError") {
     return `The proxy didn't respond within ${getWebhookTimeoutMs() / 1000} seconds.`;
   }
-  const message = e instanceof Error ? e.message : String(e);
-  return `Couldn't reach the proxy: ${message}`;
-}
-
-/**
- * Picks the alert to send after a failed attempt, if any. Failures only alert
- * once the retry has failed too, so a failure the retry fixes is silent.
- * @param failureAlertedAt - When the last failure alert was sent, if any.
- * @param lastAttempt - Whether this was the push's last attempt.
- */
-export function getProxyFailureAlert(
-  result: ProxyErrorResult,
-  failureAlertedAt: Date | null | undefined,
-  lastAttempt: boolean,
-  now: Date,
-): Exclude<ProxyAlertState, "recovered"> | null {
-  if (result.disabled) return "disabled";
-  if (!lastAttempt) return null;
-  if (!failureAlertedAt) {
-    return now.getTime() - result.failingSince.getTime() >= PROXY_ALERT_AFTER_MS
-      ? "failing"
+  // The fetch error's message includes the URL, which can carry a login, so
+  // only its code is shown
+  const code =
+    e instanceof Error && "code" in e && typeof e.code === "string"
+      ? e.code
       : null;
-  }
-  return now.getTime() - failureAlertedAt.getTime() >= PROXY_ALERT_REMINDER_MS
-    ? "failing"
-    : null;
+  return code
+    ? `Couldn't reach the proxy (${code}).`
+    : "Couldn't reach the proxy.";
+}
+
+export function isProxyFailureAlertDue(
+  failingSince: Date,
+  failureAlertedAt: Date | null,
+  now: Date,
+): boolean {
+  return now.getTime() >= getProxyAlertDueAt(failingSince, failureAlertedAt);
+}
+
+// When to push again after a push fails for good, so the next alert can fire
+// without waiting for another change to the payload
+export function getNextProxyCheck(
+  failingSince: Date,
+  failureAlertedAt: Date | null,
+  now: Date,
+): Date {
+  return new Date(
+    Math.max(
+      getProxyAlertDueAt(failingSince, failureAlertedAt),
+      now.getTime() + MIN_CHECK_INTERVAL_MS,
+    ),
+  );
+}
+
+function getProxyAlertDueAt(
+  failingSince: Date,
+  failureAlertedAt: Date | null,
+): number {
+  return failureAlertedAt
+    ? failureAlertedAt.getTime() + PROXY_ALERT_REMINDER_MS
+    : failingSince.getTime() + PROXY_ALERT_AFTER_MS;
 }
 
 /**
- * Sends a proxy alert to event subscribers, and emails admins unless the
- * proxy recovered. Never throws: an alert failure must not change the push's
- * outcome.
+ * Emails admins too, except for `recovered`. Never throws: an alert failure
+ * must not change the push's outcome.
  * @returns Whether the event was saved.
  */
 export async function sendSdkProxyAlert(
@@ -86,7 +97,6 @@ export async function sendSdkProxyAlert(
     connectionName: connection.name,
     environment: connection.environment,
     projects: connection.projects,
-    proxyHost: connection.proxy.host,
     failingSince: failingSince ? failingSince.toISOString() : null,
   };
   const eventParams = {
@@ -120,7 +130,6 @@ export async function sendSdkProxyAlert(
             emails,
             connectionId: connection.id,
             connectionName: connection.name,
-            proxyHost: connection.proxy.host,
             error,
             disabled: state === "disabled",
           }),

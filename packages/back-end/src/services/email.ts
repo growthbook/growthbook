@@ -191,14 +191,12 @@ export async function sendSdkProxyErrorEmail({
   emails,
   connectionId,
   connectionName,
-  proxyHost,
   error,
   disabled,
 }: {
   emails: string[];
   connectionId: string;
   connectionName: string;
-  proxyHost: string;
   error: string;
   disabled: boolean;
 }) {
@@ -207,7 +205,6 @@ export async function sendSdkProxyErrorEmail({
   const html = nunjucks.render("sdk-proxy-error.jinja", {
     connectionName,
     connectionUrl,
-    proxyHost,
     error,
     disabled,
   });
@@ -216,11 +213,11 @@ export async function sendSdkProxyErrorEmail({
     : `GrowthBook Proxy failing for: ${noHyperlink(connectionName)}`;
   const text = [
     disabled
-      ? `GrowthBook disabled the proxy at ${proxyHost} after too many consecutive failures. SDKs using it no longer get updates.`
-      : `GrowthBook couldn't send the latest SDK payload to the proxy at ${proxyHost}.`,
+      ? `GrowthBook disabled the proxy after too many consecutive failures. SDKs using it no longer get updates.`
+      : `GrowthBook couldn't send the latest SDK payload to the proxy.`,
     error,
     disabled
-      ? `Fix the cause, then use Recheck on the SDK Connection to turn the proxy back on: ${connectionUrl}`
+      ? `Fix the cause, then use Recheck on the SDK Connection to turn the proxy back on. If changes to the connection need approval, publish an approved change that enables the proxy instead. ${connectionUrl}`
       : `See more details at ${connectionUrl}`,
   ].join("\n\n");
 

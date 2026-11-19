@@ -25,7 +25,6 @@ const sdkConnectionProxyFields = {
   connectionName: z.string(),
   environment: z.string(),
   projects: z.array(z.string()),
-  proxyHost: z.string(),
   /** When the proxy started failing, as an ISO date. */
   failingSince: z.string().nullable(),
 };
