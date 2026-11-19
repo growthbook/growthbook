@@ -196,9 +196,13 @@ export function buildCompareChartLegendModel(
 }
 
 /**
- * Orders axis-tooltip rows: alphabetically by metric/series label, and for
- * period-compare charts keeps current vs previous for the same metric adjacent
- * (current first, then previous).
+ * Orders axis-tooltip (and compare legend) rows highest value first. For
+ * period-compare charts each metric's current and previous rows stay adjacent
+ * (current first), and the metric is ranked by its current value.
+ *
+ * Rows without a value sort last. Ties keep the input order, which is the
+ * chart's series order (highest total first), so without `getValue` this only
+ * groups compare rows and otherwise preserves order.
  */
 export function sortProductAnalyticsTooltipAxisItems<
   T extends { seriesName: string },
@@ -208,33 +212,64 @@ export function sortProductAnalyticsTooltipAxisItems<
     currentLabel: string;
     previousLabel: string;
   } | null,
+  getValue: (item: NoInfer<T>) => number | null = () => null,
 ): T[] {
   if (items.length <= 1) return [...items];
-  if (!comparisonPeriodLabels) {
-    return [...items].sort((a, b) =>
-      a.seriesName.localeCompare(b.seriesName, undefined, {
-        sensitivity: "base",
-      }),
-    );
+
+  const rows = items.map((item, index) => ({
+    item,
+    index,
+    value: getValue(item),
+    ...parseComparisonTooltipSeriesName(
+      item.seriesName,
+      comparisonPeriodLabels,
+    ),
+  }));
+
+  // Rank each metric group by its current value, falling back to its largest
+  // value when the current period has none.
+  const groups = new Map<
+    string,
+    { firstIndex: number; current: number | null; max: number | null }
+  >();
+  for (const row of rows) {
+    const group = groups.get(row.baseName) ?? {
+      firstIndex: row.index,
+      current: null,
+      max: null,
+    };
+    if (row.value !== null) {
+      if (row.period === "current") group.current = row.value;
+      group.max =
+        group.max === null ? row.value : Math.max(group.max, row.value);
+    }
+    groups.set(row.baseName, group);
   }
-  return [...items].sort((a, b) => {
-    const ka = parseComparisonTooltipSeriesName(
-      a.seriesName,
-      comparisonPeriodLabels,
-    );
-    const kb = parseComparisonTooltipSeriesName(
-      b.seriesName,
-      comparisonPeriodLabels,
-    );
-    const cmp = ka.baseName.localeCompare(kb.baseName, undefined, {
-      sensitivity: "base",
-    });
-    if (cmp !== 0) return cmp;
-    return (
-      comparisonTooltipPeriodOrder(ka.period) -
-      comparisonTooltipPeriodOrder(kb.period)
-    );
-  });
+  const groupRank = (baseName: string) => {
+    const group = groups.get(baseName);
+    return {
+      value: group ? (group.current ?? group.max) : null,
+      firstIndex: group?.firstIndex ?? 0,
+    };
+  };
+
+  return rows
+    .sort((a, b) => {
+      const ga = groupRank(a.baseName);
+      const gb = groupRank(b.baseName);
+      if (ga.value !== gb.value) {
+        if (ga.value === null) return 1;
+        if (gb.value === null) return -1;
+        return gb.value - ga.value;
+      }
+      if (ga.firstIndex !== gb.firstIndex) return ga.firstIndex - gb.firstIndex;
+      const periodCmp =
+        comparisonTooltipPeriodOrder(a.period) -
+        comparisonTooltipPeriodOrder(b.period);
+      if (periodCmp !== 0) return periodCmp;
+      return a.index - b.index;
+    })
+    .map((row) => row.item);
 }
 
 function getComparisonStackId(
@@ -1393,6 +1428,7 @@ export function buildExplorerChartTooltipFormatter({
       const itemsSorted = sortProductAnalyticsTooltipAxisItems(
         itemsRaw,
         comparisonPeriodLabels,
+        tooltipItemNumericValue,
       );
       const items = itemsSorted.filter(isShownItem);
       if (!items.length) return "";
@@ -1494,6 +1530,7 @@ export function buildExplorerChartTooltipFormatter({
       const itemsSorted = sortProductAnalyticsTooltipAxisItems(
         itemsRaw,
         comparisonPeriodLabels,
+        tooltipItemNumericValue,
       );
       const items = itemsSorted.filter((item) => {
         if (!isShownItem(item)) return false;

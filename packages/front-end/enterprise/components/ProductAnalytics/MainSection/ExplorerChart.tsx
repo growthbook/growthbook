@@ -116,7 +116,7 @@ function seriesNameFromEChartsSeriesConfig(s: unknown): string | undefined {
   return undefined;
 }
 
-/** Legend + series list order: group each metric’s current then previous (same as axis tooltip). */
+/** Legend + series list order: keep the highest-total-first series order, grouping each metric’s current then previous (same as axis tooltip). */
 function sortSeriesConfigsForCompareLegendOrder(
   seriesConfigs: unknown[],
   comparisonPeriodLabels: {
