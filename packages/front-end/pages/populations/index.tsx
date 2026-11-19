@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import { truncateString } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
@@ -19,6 +18,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import TextField from "@/ui/TextField";
+import Tooltip from "@/ui/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
@@ -29,6 +29,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { usePopulations, useRefreshPopulations } from "@/hooks/usePopulations";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import Custom404 from "@/pages/404";
 
@@ -37,7 +38,7 @@ const CREATE_POPULATION_DOCS =
 
 export default function PopulationsPage() {
   const router = useRouter();
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
   const populationsEnabled = !!gb?.isOn("populations");
   const { project, projects, getDatasourceById, getProjectById } =
     useDefinitions();
@@ -46,6 +47,28 @@ export default function PopulationsPage() {
     enabled: populationsEnabled,
   });
   const refreshPopulations = useRefreshPopulations();
+  const permissionsUtil = usePermissionsUtil();
+  const canCreate = permissionsUtil.canViewCreatePopulation(project, projects);
+  const addPopulationButton = (
+    <Tooltip
+      content={
+        project
+          ? "You don't have permission to create Populations in this Project"
+          : "You don't have permission to create Populations"
+      }
+      enabled={!canCreate}
+    >
+      {/* A disabled button gets no hover events, so the span triggers the tooltip. */}
+      <span tabIndex={!canCreate ? 0 : undefined}>
+        <Button
+          disabled={!canCreate}
+          onClick={() => router.push("/populations/new")}
+        >
+          Add Population
+        </Button>
+      </span>
+    </Tooltip>
+  );
   const populationsWithLabels = useAddComputedFields(
     populations,
     (p) => ({
@@ -116,12 +139,13 @@ export default function PopulationsPage() {
           </Heading>
           <Box style={{ maxWidth: 640 }}>
             <Text color="text-mid">
-              Groups of users defined by steps against your fact tables. Use
-              them to filter and compare charts in Product Analytics. Membership
-              is recalculated each time a Population refreshes.
+              Groups of users defined by the rows they have in your fact tables.
+              Use them to filter and compare charts in Product Analytics.
+              Membership is recalculated each time a Population refreshes.
             </Text>
           </Box>
         </Box>
+        {populations.length > 0 && addPopulationButton}
       </Flex>
 
       {error ? (
@@ -143,7 +167,7 @@ export default function PopulationsPage() {
       ) : !populations.length ? (
         <EmptyState
           title="No Populations yet"
-          description="Define a group of users by the steps they take in your fact tables."
+          description="Define a group of users by the rows they have in your fact tables."
           leftButton={
             <LinkButton
               href={CREATE_POPULATION_DOCS}
@@ -153,7 +177,7 @@ export default function PopulationsPage() {
               View the API docs
             </LinkButton>
           }
-          rightButton={null}
+          rightButton={addPopulationButton}
         />
       ) : (
         <>

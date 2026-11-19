@@ -62,6 +62,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
+import AdvancedSection from "@/components/AdvancedSection";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
@@ -72,7 +73,6 @@ import {
 } from "./EditMetricsForm";
 import ActivationMetricRow from "./ActivationMetricRow";
 import {
-  AdvancedSection,
   ConversionWindowsRow,
   QueryFilterHelp,
   SettingsCard,
@@ -802,6 +802,7 @@ const AnalysisForm: FC<{
             {supportsClusterExperiments && !isBandit && !isHoldout && (
               <ClusterExperimentFields
                 asRows
+                datasource={datasource}
                 exposureQuery={exposureQuery}
                 identifierType={
                   exposureQuery

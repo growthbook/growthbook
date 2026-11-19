@@ -56,6 +56,7 @@ export interface Props {
   factTable: FactTableInterface;
   existing?: ColumnInterface;
   close: () => void;
+  slicesOnly?: boolean;
 }
 
 // Form values allow an omitted json field datatype; a persisted column always
@@ -80,7 +81,12 @@ function toConditionalInlineFilters(
   );
 }
 
-export default function ColumnModal({ existing, factTable, close }: Props) {
+export default function ColumnModal({
+  existing,
+  factTable,
+  close,
+  slicesOnly = false,
+}: Props) {
   const { apiCall } = useAuth();
   const saveColumn = useSaveFactTableColumn(factTable);
   const { hasCommercialFeature, settings } = useUser();
@@ -321,7 +327,13 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       open={true}
       close={close}
       cta={"Save"}
-      header={existing ? "Edit Column" : "Add Column"}
+      header={
+        slicesOnly
+          ? `Configure Auto Slices: ${existing?.name || existing?.column}`
+          : existing
+            ? "Edit Column"
+            : "Add Column"
+      }
       submit={form.handleSubmit(async (value) => {
         if (!value.name) value.name = value.column;
 
@@ -350,7 +362,18 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
           // The modal loads top values when Auto Slice is ticked, so levels
           // the user cleared stay cleared
-          await saveColumn(existing, data, { loadTopValues: false });
+          await saveColumn(
+            existing,
+            // Slices-only edits send just slice fields so hidden ones can't clobber concurrent edits.
+            slicesOnly
+              ? {
+                  isAutoSliceColumn: data.isAutoSliceColumn,
+                  autoSlices: data.autoSlices,
+                  lockedAutoSlices: data.lockedAutoSlices,
+                }
+              : data,
+            { loadTopValues: false },
+          );
         } else {
           if (value.datatype === "boolean" && value.autoSlices) {
             value.autoSlices = ["true", "false"];
@@ -375,22 +398,28 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           columns. Please double check your SQL first before using this form.
         </Callout>
       )}
-      <Field
-        size="legacy"
-        label="Column"
-        {...form.register("column")}
-        disabled={!!existing}
-      />
-      <SelectField
-        size="legacy"
-        label="Data Type"
-        value={form.watch("datatype") ?? ""}
-        onChange={(f) => form.setValue("datatype", f as FactTableColumnType)}
-        initialOption="Unknown"
-        required
-        sort={false}
-        options={COLUMN_DATATYPE_OPTIONS}
-      />
+      {!slicesOnly && (
+        <>
+          <Field
+            size="legacy"
+            label="Column"
+            {...form.register("column")}
+            disabled={!!existing}
+          />
+          <SelectField
+            size="legacy"
+            label="Data Type"
+            value={form.watch("datatype") ?? ""}
+            onChange={(f) =>
+              form.setValue("datatype", f as FactTableColumnType)
+            }
+            initialOption="Unknown"
+            required
+            sort={false}
+            options={COLUMN_DATATYPE_OPTIONS}
+          />
+        </>
+      )}
       {form.watch("datatype") === "number" && (
         <SelectField
           size="legacy"
@@ -545,14 +574,16 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         </div>
       )}
 
-      <Field
-        size="legacy"
-        label="Display Name"
-        {...form.register("name")}
-        placeholder={form.watch("column")}
-      />
+      {!slicesOnly && (
+        <Field
+          size="legacy"
+          label="Display Name"
+          {...form.register("name")}
+          placeholder={form.watch("column")}
+        />
+      )}
 
-      {showDescription ? (
+      {slicesOnly ? null : showDescription ? (
         <div className="form-group">
           <label>Description</label>
           <MarkdownInput
@@ -953,7 +984,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         </div>
       )}
 
-      {eligibility.canFilter && (
+      {!slicesOnly && eligibility.canFilter && (
         <div className="px-3 pb-1 mb-4">
           <Checkbox
             value={form.watch("alwaysInlineFilter") ?? false}

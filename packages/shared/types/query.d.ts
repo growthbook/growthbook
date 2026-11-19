@@ -124,6 +124,8 @@ export type QueryType =
   | "exposureQueryValidation"
   // Validates new or changed feature usage queries when a data source is saved
   | "featureUsageQueryValidation"
+  // Validates dimension SQL columns when a dimension is saved
+  | "dimensionValidation"
   // Datasource connectivity probe (SELECT 1)
   | "connectionTest"
   // Schema introspection: list tables + column counts

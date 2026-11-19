@@ -149,14 +149,14 @@ if(
   // than JS .length but fine for the document-size guard.
   stringLength: (column: string) => `length(${column})`,
 
-  // topK(k)(expr) returns the k most frequent values in descending-frequency
-  // order with NO counts, so `count` is NULL and the outer query orders by
-  // `rank`, the inverse array position (`limit - i + 1`).
+  // topK(k, 3, 'counts')(expr) returns the k most frequent values as
+  // (value, approximate count, error) tuples, in descending-count order.
+  // The 'counts' argument needs ClickHouse 24.3+; 3 is topK's default
+  // load_factor.
   //
   // One aggregation row holds an array of (column_name, topK-array) tuples;
   // aggregation and ARRAY JOIN live in separate query levels so the aggregate
   // runs once before unnesting. topK skips NULLs.
-  approxTopValuesRankColumn: "rank",
   approxTopValuesCTEBody: ({
     pairs,
     fromTable,
@@ -167,7 +167,7 @@ if(
     const tuples = pairs
       .map(
         (p) =>
-          `('${p.keyLiteral}', topK(${limit})(${eligibleTopValueExpr(
+          `('${p.keyLiteral}', topK(${limit}, 3, 'counts')(${eligibleTopValueExpr(
             clickHouseDialect,
             p.valueSql,
             maxValueLength,
@@ -177,9 +177,8 @@ if(
     return `
   SELECT
     column_name,
-    tupleElement(__valueCount, 1) AS value,
-    CAST(NULL AS Nullable(Int64)) AS count,
-    tupleElement(__valueCount, 2) AS rank
+    tupleElement(__item, 1) AS value,
+    toInt64(tupleElement(__item, 2)) AS count
   FROM (
     SELECT
       tupleElement(__col, 1) AS column_name,
@@ -193,12 +192,7 @@ if(
     )
     ARRAY JOIN __cols AS __col
   )
-  ARRAY JOIN arrayMap(
-    -- (value, rank): inverse array position, NOT a frequency
-    (v, i) -> (v, toInt64(${limit}) - i + 1),
-    __values,
-    arrayEnumerate(__values)
-  ) AS __valueCount
+  ARRAY JOIN __values AS __item
   WHERE value IS NOT NULL`;
   },
 };

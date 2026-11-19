@@ -17,7 +17,7 @@ export default function RoleFormWrapper({
 
   if (!permissionsUtil.canManageTeam()) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <Callout status="error">
           You do not have access to view this page.
         </Callout>
@@ -27,7 +27,7 @@ export default function RoleFormWrapper({
 
   if (!hasCustomRolesFeature) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <Callout status="error">
           Custom Roles are only available on the Enterprise plan. Email
           sales@growthbook.io for more information and to set up a call.
@@ -43,7 +43,7 @@ export default function RoleFormWrapper({
           { display: breadcrumb },
         ]}
       />
-      <div className="contents container pagecontents">{children}</div>
+      <div className="container-fluid pagecontents">{children}</div>
     </>
   );
 }

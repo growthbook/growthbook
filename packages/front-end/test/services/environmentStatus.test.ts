@@ -7,6 +7,7 @@ import {
   EnvironmentStatus,
   EnvironmentValue,
   getEnvironmentStatus,
+  servesNull,
   prerequisitesSummary,
   reachedRules,
   reasonText,
@@ -806,6 +807,23 @@ describe("reasonText", () => {
     "says %j as %j",
     (reason, text) => {
       expect(reasonText(reason)).toBe(text);
+    },
+  );
+});
+
+describe("servesNull", () => {
+  const unmet = { prerequisites: [{ id: "parent", result: "unmet" as const }] };
+  const held = holdoutTrafficStep("false", experiment({}, { coverage: 0.1 }));
+  it.each([
+    ["an environment that's off", status([], { enabled: false }), true],
+    ["an archived flag", status([], { archived: true }), true],
+    ["an unmet prerequisite", status([], unmet), true],
+    ["a holdout ahead of an unmet prerequisite", status([held], unmet), true],
+    ["a served value", status([]), false],
+  ] as [string, EnvironmentStatus, boolean][])(
+    "says whether some get null with %s",
+    (_, result, expected) => {
+      expect(servesNull(result)).toBe(expected);
     },
   );
 });

@@ -27,7 +27,10 @@ import RoleRuleLabel, {
 } from "@/components/Settings/Team/RoleRuleLabel";
 import Callout from "@/ui/Callout";
 import { usingSSO } from "@/services/env";
-import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
+import {
+  MEMBER_COLUMN_WIDTHS,
+  MEMBER_TABLE_MIN_WIDTH,
+} from "@/components/Settings/Team/memberTableWidths";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import AdminSetPasswordModal from "@/components/Settings/Team/AdminSetPasswordModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -337,13 +340,20 @@ const MemberList: FC<{
       )}
 
       <div className="my-4">
-        <Flex align="center" justify="between" gap="3" mt="4" mb="2">
-          <Flex align="center" gap="3">
-            <Heading as="h5" size="md" mb="0">
-              {project ? "Members" : "Active Members"}
-              {` (${membersList.length})`}
-            </Heading>
-            <Box width="280px" flexShrink="0">
+        <Flex align="start" gap="3" mt="4" mb="2">
+          <Flex align="center" gap="3" wrap="wrap" flexGrow="1" minWidth="0">
+            <Flex
+              align="center"
+              // As tall as Invite member, so it's centered on it when the
+              // search and filters wrap below.
+              minHeight={canInviteMembers ? "var(--space-6)" : undefined}
+            >
+              <Heading as="h5" size="md" mb="0">
+                {project ? "Members" : "Active Members"}
+                {` (${membersList.length})`}
+              </Heading>
+            </Flex>
+            <Box width="280px" maxWidth="100%">
               <TextField
                 type="search"
                 aria-label="Search members"
@@ -390,7 +400,13 @@ const MemberList: FC<{
             <Button onClick={onInvite}>Invite member</Button>
           )}
         </Flex>
-        <Table variant="surface" layout="fixed">
+        <Table
+          variant="list"
+          stickyHeader={false}
+          stickyLastColumn
+          layout="fixed"
+          minTableWidth={MEMBER_TABLE_MIN_WIDTH}
+        >
           <TableHeader>
             <TableRow>
               <SortableTableColumnHeader
@@ -573,7 +589,7 @@ const MemberList: FC<{
                     })}
                   </TableCell>
 
-                  <TableCell justify="end">
+                  <TableCell justify="center" px="0">
                     {member.id !== userId && hasRowActions && (
                       <DropdownMenu
                         trigger={

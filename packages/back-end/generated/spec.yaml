@@ -360,36 +360,40 @@ info:
 
 
     | Flag                      | Where        | Gets
-    past                                                                                                   
+    past                                                                                                                  
     |
 
     | ------------------------- | ------------ |
-    ------------------------------------------------------------------------------------------------------------
+    ---------------------------------------------------------------------------------------------------------------------------
     |
 
     | `ignoreWarnings`          | Body         | Warnings
-    (`422`)                                                                                            
+    (`422`)                                                                                                           
     |
 
     | `skipSchemaValidation`    | Body         | Schema and invariant failures,
     with **Bypass draft approvals**
-    access                                        |
+    access                                                       |
 
     | `skipHooks`               | Body         | Custom Hook
-    rejections                                                                                      
+    rejections                                                                                                     
     |
 
     | `skipChecklist`           | Body         | An experiment start's
     incomplete launch checklist items (`409` `checklist_incomplete`), but not
-    its blockers |
+    its blockers                |
 
     | `allowUnscopedRules`      | Body         | A rule for All Environments and
-    All Projects where the organization requires a scope (`422` `unscoped_rule`)
-    |
+    All Projects where the organization requires a scope (`422`
+    `unscoped_rule`)                |
 
     | `overrideDraftLimit=true` | Query string | Creating a draft past the draft
-    limit                                                                       
+    limit                                                                                      
     |
+
+    | `bypassApproval`          | Body         | A direct write to a resource
+    that requires approval, with **Bypass draft approvals** access or the REST
+    API approval bypass |
 servers:
   - url: https://api.growthbook.io/api
     description: GrowthBook Cloud
@@ -637,6 +641,9 @@ tags:
       version-skew checks.
   - name: ContextualBandits
     x-displayName: Contextual Bandits
+    description: ''
+  - name: information-schema-tables
+    x-displayName: information-schema-tables
     description: ''
   - name: Dashboards
     x-displayName: Dashboards
@@ -1089,6 +1096,11 @@ tags:
   - name: SdkConnection_model
     x-displayName: Sdk Connection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
+  - name: SdkConnectionApprovalRule_model
+    x-displayName: Sdk Connection Approval Rule
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SdkConnectionApprovalRule" />
   - name: SdkWebhook_model
     x-displayName: Sdk Webhook
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkWebhook" />
@@ -4887,16 +4899,7 @@ paths:
               If true, return only the most recent active draft authored by or
               contributed to by the calling user. Needs a personal access token,
               or an organization API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -8561,14 +8564,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -11047,16 +11042,7 @@ paths:
             description: >-
               If true, return only revisions authored by or contributed to by
               the calling user.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
         - name: archived
           in: query
           description: >-
@@ -11068,16 +11054,7 @@ paths:
               Whether to include revisions for archived features. Defaults to
               `false` (non-archived features only). Pass `true` to include
               revisions for archived features alongside non-archived ones.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -11264,16 +11241,7 @@ paths:
             description: >-
               If true, return only the most recent active draft authored by or
               contributed to by the calling user.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
         - $ref: '#/components/parameters/status'
         - name: author
           in: query
@@ -11486,8 +11454,6 @@ paths:
                               required:
                                 - name
                                 - type
-                                - before
-                                - after
                               additionalProperties: false
                         required:
                           - name
@@ -14849,14 +14815,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -14903,14 +14861,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -15049,14 +14999,6 @@ paths:
             type: string
         - $ref: '#/components/parameters/version'
         - $ref: '#/components/parameters/logId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource deleted
@@ -15594,14 +15536,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -15642,14 +15576,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -16022,16 +15948,7 @@ paths:
               Filter by archived status. Set to `true` to return only archived
               experiments, `false` to exclude them. If omitted, both archived
               and non-archived experiments are returned.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
         - $ref: '#/components/parameters/sortBy'
         - $ref: '#/components/parameters/sortOrder'
       responses:
@@ -17788,7 +17705,7 @@ paths:
                 type: object
                 properties:
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
                 required:
@@ -17861,14 +17778,6 @@ paths:
         - experiments
       parameters:
         - $ref: '#/components/parameters/id'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -20986,9 +20895,14 @@ paths:
               schema:
                 type: object
                 properties:
+                  metric:
+                    $ref: '#/components/schemas/Metric'
                   updatedId:
+                    description: 'Deprecated: use `metric.id`.'
+                    deprecated: true
                     type: string
                 required:
+                  - metric
                   - updatedId
                 additionalProperties: false
         '202':
@@ -21498,6 +21412,28 @@ paths:
                 query:
                   description: SQL query or equivalent for the dimension
                   type: string
+                timing:
+                  description: >-
+                    What the query returns and how the value at a unit's first
+                    exposure is resolved. `none` (default): one value per unit,
+                    resolved with MAX(value). `rowTimestamp`: timestamped rows;
+                    the query also returns a `timestamp` column and the latest
+                    row at or before first exposure is used. `validityRange`:
+                    validity ranges; the query also returns `start_timestamp`
+                    and `end_timestamp` (NULL = still valid) columns and the row
+                    valid at first exposure is used. Only supported for SQL Data
+                    Sources.
+                  type: string
+                  enum:
+                    - none
+                    - rowTimestamp
+                    - validityRange
+                nullLabel:
+                  description: >-
+                    Label used in experiment results for units with no dimension
+                    value. Leave empty to use the default null label.
+                  type: string
+                  maxLength: 100
                 managedBy:
                   description: >-
                     Where this dimension must be managed from. If not set (empty
@@ -21597,6 +21533,28 @@ paths:
                 query:
                   description: SQL query or equivalent for the dimension
                   type: string
+                timing:
+                  description: >-
+                    What the query returns and how the value at a unit's first
+                    exposure is resolved. `none` (default): one value per unit,
+                    resolved with MAX(value). `rowTimestamp`: timestamped rows;
+                    the query also returns a `timestamp` column and the latest
+                    row at or before first exposure is used. `validityRange`:
+                    validity ranges; the query also returns `start_timestamp`
+                    and `end_timestamp` (NULL = still valid) columns and the row
+                    valid at first exposure is used. Only supported for SQL Data
+                    Sources.
+                  type: string
+                  enum:
+                    - none
+                    - rowTimestamp
+                    - validityRange
+                nullLabel:
+                  description: >-
+                    Label used in experiment results for units with no dimension
+                    value. Leave empty to use the default null label.
+                  type: string
+                  maxLength: 100
                 managedBy:
                   description: >-
                     Where this dimension must be managed from. If not set (empty
@@ -22403,6 +22361,18 @@ paths:
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/withProxy'
         - $ref: '#/components/parameters/multiOrg'
+        - name: archived
+          in: query
+          description: >-
+            Whether to include archived SDK Connections. Defaults to `false`
+            (non-archived only). Pass `true` to include archived SDK Connections
+            alongside non-archived ones.
+          schema:
+            description: >-
+              Whether to include archived SDK Connections. Defaults to `false`
+              (non-archived only). Pass `true` to include archived SDK
+              Connections alongside non-archived ones.
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -22480,6 +22450,11 @@ paths:
                 includeTagsInMetadata:
                   type: boolean
                 includeExperimentScheduleInMetadata:
+                  type: boolean
+                tracesEnabled:
+                  description: >-
+                    Send SDK evaluation traces to GrowthBook. Only available to
+                    organizations with tracing enabled.
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -22559,6 +22534,12 @@ paths:
     put:
       operationId: putSdkConnection
       summary: Update a single sdk connection
+      description: >-
+        Applies the change immediately and records it as a published revision,
+        so it appears in the connection's history. When the organization
+        requires approvals for this connection's Projects and environment, open
+        a draft from the SDK Connection page instead, or pass `bypassApproval`.
+        Set `archived` to archive or restore the connection.
       tags:
         - sdk-connections
       parameters:
@@ -22614,6 +22595,11 @@ paths:
                   type: boolean
                 includeExperimentScheduleInMetadata:
                   type: boolean
+                tracesEnabled:
+                  description: >-
+                    Send SDK evaluation traces to GrowthBook. Only available to
+                    organizations with tracing enabled.
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -22637,6 +22623,20 @@ paths:
                     they target other Projects. Defaults to true for new
                     connections.
                   type: boolean
+                archived:
+                  description: >-
+                    Archive (true) or restore (false) the connection. Archiving
+                    takes the same authority as deleting it; restoring takes
+                    publish authority.
+                  type: boolean
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -22648,6 +22648,14 @@ paths:
                 properties:
                   sdkConnection:
                     $ref: '#/components/schemas/SdkConnection'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - sdkConnection
                 additionalProperties: false
@@ -22662,10 +22670,31 @@ paths:
     delete:
       operationId: deleteSdkConnection
       summary: Deletes a single SDK connection
+      description: >-
+        When the organization requires approvals for this connection's Projects
+        and environment, archive it first (`PUT /sdk-connections/{id}` with
+        `archived: true`), then delete it. To delete a live connection in one
+        step, pass `bypassApproval`.
       tags:
         - sdk-connections
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource deleted
@@ -22676,6 +22705,14 @@ paths:
                 properties:
                   deletedId:
                     type: string
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - deletedId
                 additionalProperties: false
@@ -22772,6 +22809,288 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/data-sources/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: updateDataSource
+      summary: Update a data source
+      description: >-
+        Fields left out keep their current values. To clear one, send an
+        explicit empty value (`[]`, `""` or `false`). Connection settings are
+        changed in the app.
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                  maxLength: 10000
+                projectIds:
+                  type: array
+                  items:
+                    type: string
+                eventTracker:
+                  description: '`eventForwarder` is only accepted unchanged'
+                  type: string
+                  enum:
+                    - segment
+                    - snowplow
+                    - jitsu
+                    - freshpaint
+                    - ga4
+                    - fullstory
+                    - matomo
+                    - heap
+                    - rudderstack
+                    - amplitude
+                    - mparticle
+                    - mixpanel
+                    - firebase
+                    - keen
+                    - clevertap
+                    - langfuse
+                    - phoenix
+                    - eventForwarder
+                    - custom
+                identifierTypes:
+                  description: >-
+                    Replaces the list. An entry matching an existing id keeps
+                    its description if left out; send `""` to clear it.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                    required:
+                      - id
+                    additionalProperties: false
+                assignmentQueries:
+                  description: >-
+                    Replaces the list. An entry with an existing `id` keeps
+                    `description`, `identifierTypes`, `includesNameColumns`,
+                    `dimensionColumns`, `projects` and `columnMapping` if left
+                    out; clear the others with `""`, `false` or `[]`. Each query
+                    is validated against the warehouse.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        description: Omit to create a new query
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                      identifierTypes:
+                        description: Required for a new query unless identifierType is set
+                        minItems: 1
+                        type: array
+                        items:
+                          type: string
+                      identifierType:
+                        description: >-
+                          Deprecated: use identifierTypes, which wins if both
+                          are set
+                        deprecated: true
+                        type: string
+                      sql:
+                        type: string
+                      includesNameColumns:
+                        type: boolean
+                      dimensionColumns:
+                        type: array
+                        items:
+                          type: string
+                      projects:
+                        description: >-
+                          Project IDs that can use this. An empty list means all
+                          Projects. Projects control access and availability, so
+                          don't use them as labels.
+                        type: array
+                        items:
+                          type: string
+                      columnMapping:
+                        description: >-
+                          Columns `sql` returns under a non-canonical name, by
+                          role. Replaces the stored mapping; send `{}` to clear
+                          it.
+                        type: object
+                        properties:
+                          experimentIdColumn:
+                            type: string
+                          variationIdColumn:
+                            type: string
+                          timestampColumn:
+                            type: string
+                          userIdColumns:
+                            description: Column for each identifier type, keyed by type
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                          experimentNameColumn:
+                            type: string
+                          variationNameColumn:
+                            type: string
+                        additionalProperties: false
+                    required:
+                      - name
+                      - sql
+                    additionalProperties: false
+                identifierJoinQueries:
+                  description: Replaces the list
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      identifierTypes:
+                        type: array
+                        items:
+                          type: string
+                      sql:
+                        type: string
+                    required:
+                      - identifierTypes
+                      - sql
+                    additionalProperties: false
+                mixpanelSettings:
+                  type: object
+                  properties:
+                    viewedExperimentEventName:
+                      type: string
+                    experimentIdProperty:
+                      type: string
+                    variationIdProperty:
+                      type: string
+                    extraUserIdProperty:
+                      type: string
+                  additionalProperties: false
+                pipelineSettings:
+                  description: >-
+                    Merged into the stored settings: fields left out keep their
+                    values, but any change must leave `allowWriting`, `mode`,
+                    `writeDataset` and `unitsTableRetentionHours` set, with a
+                    non-empty `writeDataset` when `allowWriting` is true. Send
+                    `[]` to clear `excludedExperimentIds` or
+                    `incrementalOptInExperimentIds`, and `includedExperimentIds:
+                    null` to apply the mode to every experiment again (`[]`
+                    applies it to none).
+                  type: object
+                  properties:
+                    allowWriting:
+                      description: >-
+                        Let GrowthBook write temporary tables to speed up
+                        analysis
+                      type: boolean
+                    mode:
+                      type: string
+                      enum:
+                        - ephemeral
+                        - incremental
+                    writeDatabase:
+                      type: string
+                    writeDataset:
+                      description: Schema (or dataset) to write tables to
+                      type: string
+                    unitsTableRetentionHours:
+                      type: number
+                      exclusiveMinimum: 0
+                    unitsTableDeletion:
+                      type: boolean
+                    includedExperimentIds:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: 'null'
+                    excludedExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                    incrementalOptInExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                  additionalProperties: false
+                maxConcurrentQueries:
+                  type: integer
+                  minimum: 0
+                queryCacheTTLMins:
+                  type: integer
+                  minimum: 0
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dataSource:
+                    $ref: '#/components/schemas/DataSource'
+                  eventForwarderWarning:
+                    description: >-
+                      Set if the update saved but syncing the Event Forwarder
+                      failed
+                    type: string
+                required:
+                  - dataSource
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/data-sources/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteDataSource
+      summary: Delete a data source
+      description: >-
+        Refused while it's the organization default, metrics, fact metrics, fact
+        tables, segments or dimensions still use it, or it has an Event
+        Forwarder.
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/data-sources/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{dataSourceId}/information-schema:
     get:
       operationId: getInformationSchema
@@ -22803,6 +23122,42 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v1/data-sources/{dataSourceId}/information-schema'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/information-schema/refresh:
+    post:
+      operationId: postDataSourceInformationSchemaRefresh
+      summary: Refresh a data source's information schema
+      description: >-
+        Queues a background job that re-reads the warehouse's tables, creating
+        the schema if there isn't one yet. A table already read before is only
+        re-read when its column count changed; refresh it on its own to pick up
+        renamed or retyped columns.
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: boolean
+                    const: true
+                required:
+                  - queued
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/information-schema/refresh'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{id}/sql/search-tables:
@@ -23721,16 +24076,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -24524,16 +24870,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -24658,16 +24995,7 @@ paths:
               If true, return only the most recent active draft authored by the
               calling user. Needs a personal access token, or an organization
               API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -25417,14 +25745,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -25464,14 +25784,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -25597,14 +25909,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -25669,9 +25973,6 @@ paths:
                         proposedValue: {}
                       required:
                         - field
-                        - baseValue
-                        - liveValue
-                        - proposedValue
                       additionalProperties: false
                   canAutoMerge:
                     type: boolean
@@ -26134,16 +26435,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -26651,16 +26943,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -26782,16 +27065,7 @@ paths:
               If true, return only the most recent active draft authored by the
               calling user. Needs a personal access token, or an organization
               API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -27300,14 +27574,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -27347,14 +27613,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -27503,14 +27761,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -27575,9 +27825,6 @@ paths:
                         proposedValue: {}
                       required:
                         - field
-                        - baseValue
-                        - liveValue
-                        - proposedValue
                       additionalProperties: false
                   canAutoMerge:
                     type: boolean
@@ -28233,16 +28480,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -29245,16 +29483,7 @@ paths:
               If true, return only revisions authored by the calling user. Needs
               a personal access token, or an organization API key that assumes a
               named member's role. Mutually exclusive with `author`.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -29375,16 +29604,7 @@ paths:
               If true, return only the most recent active draft authored by the
               calling user. Needs a personal access token, or an organization
               API key that assumes a named member's role.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -30510,14 +30730,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -30558,14 +30770,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -30605,14 +30809,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -30781,9 +30977,6 @@ paths:
                         proposedValue: {}
                       required:
                         - field
-                        - baseValue
-                        - liveValue
-                        - proposedValue
                       additionalProperties: false
                   canAutoMerge:
                     type: boolean
@@ -36093,6 +36286,73 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/queries/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/queries:
+    get:
+      operationId: listDataSourceQueries
+      summary: Get a data source's 50 most recent queries
+      tags:
+        - queries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The data source id
+          schema:
+            description: The data source id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Query'
+                required:
+                  - queries
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/data-sources/{id}/queries' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/queries/{id}/cancel:
+    post:
+      operationId: postQueryCancel
+      summary: Cancel a running query
+      description: >-
+        Also asks the warehouse to stop it where the integration supports that.
+        Needs permission to run queries on the data source.
+      tags:
+        - queries
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    $ref: '#/components/schemas/Query'
+                required:
+                  - query
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/queries/{id}/cancel'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/settings:
     get:
       operationId: getSettings
@@ -36123,9 +36383,9 @@ paths:
       summary: Update approval settings
       description: >-
         Replace the approval requirements for feature flags, configs and
-        constants, for saved groups, and the Targeting Projects review mode.
-        Each family is replaced wholesale when supplied; omit one to leave it
-        unchanged.
+        constants, for saved groups, for SDK connections, and the Targeting
+        Projects review mode. Each family is replaced wholesale when supplied;
+        omit one to leave it unchanged.
       tags:
         - settings
       requestBody:
@@ -36146,8 +36406,10 @@ paths:
                       type: array
                       items:
                         $ref: '#/components/schemas/SavedGroupApprovalRule'
-                  required:
-                    - savedGroups
+                    sdkConnections:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/SdkConnectionApprovalRule'
                   additionalProperties: false
                 targetingReviewMode:
                   type: array
@@ -36214,6 +36476,53 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/version' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/confirmations:
+    get:
+      operationId: listConfirmations
+      summary: List confirmations
+      description: >-
+        Lists the held requests made by this API key, or by any token of the
+        same person, newest first. Returns pending ones unless `status` is set.
+      tags:
+        - meta
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - name: status
+          in: query
+          description: Only return confirmations with this status
+          schema:
+            description: Only return confirmations with this status
+            default: pending
+            type: string
+            enum:
+              - pending
+              - running
+              - completed
+              - rejected
+              - expired
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      confirmations:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Confirmation'
+                    required:
+                      - confirmations
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/confirmations' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/confirmations/{id}:
     get:
       operationId: getConfirmation
@@ -36256,8 +36565,10 @@ paths:
       summary: Get a single Information Schema Table by id
       description: >-
         Returns cached metadata for a specific table in the Data Source,
-        including columns and their data types. Not all data source types
-        support information schemas.
+        including columns and their data types. The first request for a table
+        listed in the information schema reads its columns from the warehouse,
+        which needs permission to run queries. Not all data source types support
+        information schemas.
       tags:
         - data-sources
       parameters:
@@ -36280,6 +36591,45 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v1/information-schema-tables/{tableId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/information-schema-tables/{tableId}/refresh:
+    post:
+      operationId: postInformationSchemaTableRefresh
+      summary: Refresh one table's columns
+      description: >-
+        Re-reads the table's columns from the warehouse and returns the updated
+        table. A failed read returns an error and leaves the stored columns as
+        they were.
+      tags:
+        - information-schema-tables
+      parameters:
+        - name: tableId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  informationSchemaTable:
+                    $ref: '#/components/schemas/InformationSchemaTable'
+                required:
+                  - informationSchemaTable
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/information-schema-tables/{tableId}/refresh'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/ramp-schedules:
@@ -37024,6 +37374,63 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/resume'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/{id}/actions/retry:
+    post:
+      operationId: retryRampSchedule
+      summary: Retry a ramp schedule's failed step
+      description: >
+        When a step fails for a reason that may clear on its own, such as a
+
+        database timeout or a concurrent edit, the schedule holds at its current
+        step
+
+        and retries on a backoff: 5s, 10s, 30s, 1m, then doubling up to 30m.
+        After 10
+
+        failed attempts it pauses. `stepFailure` on the schedule shows the
+        attempt
+
+        count, the last error and when the next attempt is due.
+
+
+        This runs the next attempt now instead of waiting. It applies the same
+        hold
+
+        conditions the scheduler would — use `/actions/advance` to bypass them.
+        A
+
+        failed attempt counts toward the limit and returns its error.
+      tags:
+        - ramp-schedules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/retry'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/ramp-schedules/{id}/actions/rollback:
@@ -38010,6 +38417,31 @@ paths:
                     anyOf:
                       - type: string
                       - type: 'null'
+                  stepFailure:
+                    description: >-
+                      Set while the scheduler is retrying a failed step. The
+                      schedule holds at its current step and pauses once the
+                      retries run out. Use `/actions/retry` to make the next
+                      attempt now.
+                    anyOf:
+                      - type: object
+                        properties:
+                          attempts:
+                            description: Failed attempts since the last clean pass.
+                            type: integer
+                          lastError:
+                            description: The most recent attempt's error.
+                            type: string
+                          retryAt:
+                            description: When the scheduler makes the next attempt.
+                            type: string
+                            format: date-time
+                        required:
+                          - attempts
+                          - lastError
+                          - retryAt
+                        additionalProperties: false
+                      - type: 'null'
                   monitoringStatus:
                     description: >-
                       Read-only monitoring status. Present when monitoringConfig
@@ -38426,6 +38858,31 @@ paths:
                   lastRollbackReason:
                     anyOf:
                       - type: string
+                      - type: 'null'
+                  stepFailure:
+                    description: >-
+                      Set while the scheduler is retrying a failed step. The
+                      schedule holds at its current step and pauses once the
+                      retries run out. Use `/actions/retry` to make the next
+                      attempt now.
+                    anyOf:
+                      - type: object
+                        properties:
+                          attempts:
+                            description: Failed attempts since the last clean pass.
+                            type: integer
+                          lastError:
+                            description: The most recent attempt's error.
+                            type: string
+                          retryAt:
+                            description: When the scheduler makes the next attempt.
+                            type: string
+                            format: date-time
+                        required:
+                          - attempts
+                          - lastError
+                          - retryAt
+                        additionalProperties: false
                       - type: 'null'
                   monitoringStatus:
                     description: >-
@@ -38934,6 +39391,31 @@ paths:
                     anyOf:
                       - type: string
                       - type: 'null'
+                  stepFailure:
+                    description: >-
+                      Set while the scheduler is retrying a failed step. The
+                      schedule holds at its current step and pauses once the
+                      retries run out. Use `/actions/retry` to make the next
+                      attempt now.
+                    anyOf:
+                      - type: object
+                        properties:
+                          attempts:
+                            description: Failed attempts since the last clean pass.
+                            type: integer
+                          lastError:
+                            description: The most recent attempt's error.
+                            type: string
+                          retryAt:
+                            description: When the scheduler makes the next attempt.
+                            type: string
+                            format: date-time
+                        required:
+                          - attempts
+                          - lastError
+                          - retryAt
+                        additionalProperties: false
+                      - type: 'null'
                   monitoringStatus:
                     description: >-
                       Read-only monitoring status. Present when monitoringConfig
@@ -39353,6 +39835,31 @@ paths:
                   lastRollbackReason:
                     anyOf:
                       - type: string
+                      - type: 'null'
+                  stepFailure:
+                    description: >-
+                      Set while the scheduler is retrying a failed step. The
+                      schedule holds at its current step and pauses once the
+                      retries run out. Use `/actions/retry` to make the next
+                      attempt now.
+                    anyOf:
+                      - type: object
+                        properties:
+                          attempts:
+                            description: Failed attempts since the last clean pass.
+                            type: integer
+                          lastError:
+                            description: The most recent attempt's error.
+                            type: string
+                          retryAt:
+                            description: When the scheduler makes the next attempt.
+                            type: string
+                            format: date-time
+                        required:
+                          - attempts
+                          - lastError
+                          - retryAt
+                        additionalProperties: false
                       - type: 'null'
                   monitoringStatus:
                     description: >-
@@ -43235,6 +43742,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -43320,6 +43831,19 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
+                                            showAs:
+                                              description: >-
+                                                How a mean metric renders: `total` sums
+                                                the numerator, `per_unit` divides it by
+                                                the unit count. Ignored for other metric
+                                                types. Omit to use the default
+                                                (`per_unit` for `max` and `count
+                                                distinct` aggregations, otherwise
+                                                `total`).
+                                              type: string
+                                              enum:
+                                                - total
+                                                - per_unit
                                           required:
                                             - name
                                             - rowFilters
@@ -43647,6 +44171,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -44057,6 +44585,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -44484,6 +45016,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -44911,6 +45447,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -46643,6 +47183,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -46728,6 +47272,19 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
+                                            showAs:
+                                              description: >-
+                                                How a mean metric renders: `total` sums
+                                                the numerator, `per_unit` divides it by
+                                                the unit count. Ignored for other metric
+                                                types. Omit to use the default
+                                                (`per_unit` for `max` and `count
+                                                distinct` aggregations, otherwise
+                                                `total`).
+                                              type: string
+                                              enum:
+                                                - total
+                                                - per_unit
                                           required:
                                             - name
                                             - rowFilters
@@ -47047,6 +47604,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -47449,6 +48010,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -47868,6 +48433,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -48287,6 +48856,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -50248,6 +50821,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -50333,6 +50908,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -50651,6 +51239,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -51053,6 +51643,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -51472,6 +52064,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -51891,6 +52485,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -53863,6 +54459,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -53948,6 +54546,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -54266,6 +54877,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -54668,6 +55281,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -55087,6 +55702,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -55506,6 +56123,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -59952,6 +60571,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -60037,6 +60658,17 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          showAs:
+                            description: >-
+                              How a mean metric renders: `total` sums the
+                              numerator, `per_unit` divides it by the unit
+                              count. Ignored for other metric types. Omit to use
+                              the default (`per_unit` for `max` and `count
+                              distinct` aggregations, otherwise `total`).
+                            type: string
+                            enum:
+                              - total
+                              - per_unit
                         required:
                           - name
                           - rowFilters
@@ -60405,6 +61037,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -60490,6 +61124,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -60747,6 +61394,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -61201,6 +61850,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -61542,6 +62193,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -62013,6 +62666,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -62371,6 +63026,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -62845,6 +63502,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -63206,6 +63865,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -63673,6 +64334,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -64027,6 +64690,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -64516,6 +65181,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -67175,16 +67842,7 @@ paths:
             description: >-
               Filter by archived state. Omit to return both archived and
               unarchived Holdouts.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+            type: boolean
       responses:
         '200':
           description: Successful response
@@ -68258,6 +68916,9 @@ paths:
       description: >-
         Called whenever the connection's payload changes. `httpMethod` defaults
         to POST. More than one webhook per organization requires a paid plan.
+        When the organization requires approvals for the connection, change its
+        webhooks in a draft from the SDK Connection page instead, or pass
+        `bypassApproval`.
       tags:
         - SdkWebhooks
       parameters:
@@ -68311,6 +68972,14 @@ paths:
                     - type: integer
                       minimum: 1
                     - type: 'null'
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
               required:
                 - name
                 - endpoint
@@ -68325,6 +68994,14 @@ paths:
                 properties:
                   sdkWebhook:
                     $ref: '#/components/schemas/SdkWebhook'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - sdkWebhook
                 additionalProperties: false
@@ -68342,7 +69019,9 @@ paths:
       summary: Update an SDK webhook
       description: >-
         The webhook fires once after an update. Webhooks managed by the Vercel
-        integration can't be changed.
+        integration can't be changed. When the organization requires approvals
+        for a connection the webhook fires for, change it in a draft from the
+        SDK Connection page instead, or pass `bypassApproval`.
       tags:
         - SdkWebhooks
       parameters:
@@ -68399,6 +69078,14 @@ paths:
                     - type: integer
                       minimum: 1
                     - type: 'null'
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
                 sdkConnections:
                   description: Replaces the SDK Connections this webhook fires for
                   minItems: 1
@@ -68416,6 +69103,14 @@ paths:
                 properties:
                   sdkWebhook:
                     $ref: '#/components/schemas/SdkWebhook'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - sdkWebhook
                 additionalProperties: false
@@ -68429,7 +69124,11 @@ paths:
     delete:
       operationId: deleteSdkWebhook
       summary: Delete an SDK webhook
-      description: Webhooks managed by the Vercel integration can't be deleted here.
+      description: >-
+        Webhooks managed by the Vercel integration can't be deleted here. When
+        the organization requires approvals for a connection the webhook fires
+        for, remove it in a draft from the SDK Connection page instead, or pass
+        `bypassApproval`.
       tags:
         - SdkWebhooks
       parameters:
@@ -68439,6 +69138,22 @@ paths:
           description: ''
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bypassApproval:
+                  description: >-
+                    Set to true to write directly to the live SDK Connection
+                    without approval. The caller must have Bypass draft
+                    approvals access in the SDK Connection's Projects, unless
+                    the organization enables the REST API approval bypass. This
+                    field has no effect when approval is not required.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource deleted
@@ -68449,6 +69164,14 @@ paths:
                 properties:
                   deletedId:
                     type: string
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - deletedId
                 additionalProperties: false
@@ -68545,16 +69268,7 @@ components:
           Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is
           set to true or 1.
         default: false
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
       x-selfHostedOnly: true
       x-requiresEnv: API_ALLOW_SKIP_PAGINATION
     id:
@@ -68633,16 +69347,7 @@ components:
           calling user. Needs a personal access token, or an organization API
           key that assumes a named member's role. Mutually exclusive with
           `author`.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     version:
       name: version
       in: path
@@ -68666,16 +69371,7 @@ components:
           rejected with a 409. Pass `true` to create the draft anyway. Only set
           this when a person has explicitly asked you to. If a check blocks you,
           stop and ask a person instead of working around it.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     ruleId:
       name: ruleId
       in: path
@@ -68695,16 +69391,7 @@ components:
           Whether to include archived features. Defaults to `false`
           (non-archived only). Pass `true` to include archived features
           alongside non-archived ones.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     skipSchemaValidation:
       name: skipSchemaValidation
       in: query
@@ -68712,16 +69399,7 @@ components:
       schema:
         description: Deprecated — pass `skipSchemaValidation` in the request body instead.
         deprecated: true
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     ignoreWarnings:
       name: ignoreWarnings
       in: query
@@ -68729,16 +69407,7 @@ components:
       schema:
         description: Deprecated — pass `ignoreWarnings` in the request body instead.
         deprecated: true
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     format:
       name: format
       in: query
@@ -68900,10 +69569,7 @@ components:
       description: When true, return only multi-armed bandits; when false, exclude them
       schema:
         description: When true, return only multi-armed bandits; when false, exclude them
-        type: string
-        enum:
-          - 'true'
-          - 'false'
+        type: boolean
     sortBy:
       name: sortBy
       in: query
@@ -68930,8 +69596,14 @@ components:
     phase:
       name: phase
       in: query
-      description: ''
+      description: >-
+        Phase index, defaulting to the latest phase. `experiment.enhancedStatus`
+        describes the latest phase, so it is omitted for any other phase.
       schema:
+        description: >-
+          Phase index, defaulting to the latest phase.
+          `experiment.enhancedStatus` describes the latest phase, so it is
+          omitted for any other phase.
         type: string
     dimension:
       name: dimension
@@ -68990,16 +69662,7 @@ components:
         description: >-
           Publish the resulting revision immediately instead of leaving it as a
           draft.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     draftVersion:
       name: draftVersion
       in: query
@@ -69023,16 +69686,7 @@ components:
         description: >-
           Whether to include archived metrics. Defaults to `true`. Pass `false`
           to return only non-archived metrics.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: string
-            const: '0'
-          - type: string
-            const: '1'
-          - type: boolean
+        type: boolean
     type:
       name: type
       in: query
@@ -69140,12 +69794,7 @@ components:
           When true, includes fields inherited across the lineage (the family's
           accumulated schema). When false (default), returns only this config's
           own fields.
-        anyOf:
-          - type: string
-            const: 'true'
-          - type: string
-            const: 'false'
-          - type: boolean
+        type: boolean
     source:
       name: source
       in: query
@@ -69209,11 +69858,8 @@ components:
         description: >-
           Whether to delete code references that are no longer present in the
           submitted data
-        default: 'false'
-        type: string
-        enum:
-          - 'true'
-          - 'false'
+        default: false
+        type: boolean
     userName:
       name: userName
       in: query
@@ -69524,12 +70170,15 @@ components:
           type: string
           maxLength: 10000
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         project:
           type: string
@@ -70635,7 +71284,8 @@ components:
             owner:
               description: >-
                 The userId of the owner (or raw owner name/email for legacy
-                records)
+                records). An owner set by email comes back here as its userId;
+                compare against `ownerEmail` instead.
               type: string
             project:
               type: string
@@ -72243,7 +72893,8 @@ components:
             owner:
               description: >-
                 The userId of the owner (or raw owner name/email for legacy
-                records)
+                records). An owner set by email comes back here as its userId;
+                compare against `ownerEmail` instead.
               type: string
             project:
               type: string
@@ -73776,12 +74427,15 @@ components:
           type: string
           maxLength: 10000
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         isPublic:
           type: boolean
@@ -73844,12 +74498,15 @@ components:
           items:
             type: string
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         archived:
           type: boolean
@@ -74538,6 +75195,317 @@ components:
           type: array
           items:
             type: string
+        health:
+          description: >-
+            Health checks for the snapshot as a whole, with the same verdicts
+            the app shows. They are not broken down by dimension value.
+          type: object
+          properties:
+            srm:
+              description: >-
+                Sample ratio mismatch check for the experiment as a whole. It
+                comes from the traffic query, or from the overall result when
+                that query did not run or failed. null when neither is
+                available, for example on some dimension breakdowns.
+              anyOf:
+                - type: object
+                  properties:
+                    pValue:
+                      description: Sample ratio mismatch p-value.
+                      type: number
+                    status:
+                      description: >-
+                        `unhealthy` when the check fails the organization's
+                        threshold. `not-enough-traffic` when there are too few
+                        units to judge.
+                      type: string
+                      enum:
+                        - healthy
+                        - unhealthy
+                        - not-enough-traffic
+                    threshold:
+                      description: >-
+                        The organization's SRM p-value threshold. The check is
+                        `unhealthy` when `pValue` is below it.
+                      type: number
+                    totalUnits:
+                      description: >-
+                        Units the p-value was computed on: clusters for cluster
+                        experiments, otherwise the randomization unit.
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    variationUnits:
+                      description: >-
+                        Units per variation, in the experiment's variation
+                        order.
+                      anyOf:
+                        - type: array
+                          items:
+                            type: number
+                        - type: 'null'
+                  required:
+                    - pValue
+                    - status
+                    - threshold
+                    - totalUnits
+                    - variationUnits
+                  additionalProperties: false
+                - type: 'null'
+            multipleExposures:
+              description: >-
+                Multiple exposures check. For cluster experiments it counts
+                sub-units. null when the snapshot has no unit total to measure
+                against, for example on dimension breakdowns whose traffic query
+                did not run or failed.
+              anyOf:
+                - type: object
+                  properties:
+                    count:
+                      description: >-
+                        Units exposed to more than one variation. They are
+                        excluded from the analysis.
+                      type: number
+                    totalUnits:
+                      description: Units `percent` is measured against.
+                      type: number
+                    percent:
+                      description: >-
+                        `count` divided by `totalUnits`, as a fraction from 0 to
+                        1.
+                      type: number
+                    status:
+                      description: >-
+                        `unhealthy` when the check fails the organization's
+                        threshold. `not-enough-traffic` when there are too few
+                        units to judge.
+                      type: string
+                      enum:
+                        - healthy
+                        - unhealthy
+                        - not-enough-traffic
+                    threshold:
+                      description: >-
+                        The organization's threshold, as a fraction from 0 to 1.
+                        The check is `unhealthy` when `percent` reaches or
+                        exceeds it.
+                      type: number
+                  required:
+                    - count
+                    - totalUnits
+                    - percent
+                    - status
+                    - threshold
+                  additionalProperties: false
+                - type: 'null'
+            unknownVariations:
+              description: >-
+                Variation IDs found in the exposure data that match none of the
+                experiment's variations. A non-empty list usually means the
+                tracked variation IDs are misconfigured.
+              type: array
+              items:
+                type: string
+            power:
+              description: >-
+                Mid-experiment power estimate. null when the snapshot did not
+                compute one or the calculation failed.
+              anyOf:
+                - type: object
+                  properties:
+                    isLowPowered:
+                      description: >-
+                        Whether the experiment is unlikely to detect its target
+                        effect by the end of its planned run.
+                      type: boolean
+                    additionalDaysNeeded:
+                      description: >-
+                        Estimated extra days needed to reach the target power.
+                        null when the experiment is not expected to reach it at
+                        the current traffic.
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                  required:
+                    - isLowPowered
+                    - additionalDaysNeeded
+                  additionalProperties: false
+                - type: 'null'
+            covariateImbalance:
+              description: >-
+                Pre-exposure bias check. null when the snapshot did not compute
+                one.
+              anyOf:
+                - type: object
+                  properties:
+                    isImbalanced:
+                      description: >-
+                        Whether variations already differed on the experiment's
+                        metrics before exposure (pre-exposure bias).
+                      type: boolean
+                    numGoalMetricsImbalanced:
+                      type: number
+                    numGuardrailMetricsImbalanced:
+                      type: number
+                    numSecondaryMetricsImbalanced:
+                      type: number
+                  required:
+                    - isImbalanced
+                    - numGoalMetricsImbalanced
+                    - numGuardrailMetricsImbalanced
+                    - numSecondaryMetricsImbalanced
+                  additionalProperties: false
+                - type: 'null'
+            cluster:
+              description: Cluster experiment checks. Omitted for other experiments.
+              type: object
+              properties:
+                mixedAssignment:
+                  anyOf:
+                    - type: object
+                      properties:
+                        totalClusters:
+                          type: number
+                        mixedClusters:
+                          description: >-
+                            Clusters whose sub-units saw more than one
+                            variation.
+                          type: number
+                        percent:
+                          type: number
+                        status:
+                          description: >-
+                            `unhealthy` when the check fails the organization's
+                            threshold. `not-enough-traffic` when there are too
+                            few units to judge.
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                            - not-enough-traffic
+                      required:
+                        - totalClusters
+                        - mixedClusters
+                        - percent
+                        - status
+                      additionalProperties: false
+                    - type: 'null'
+                unitsInMultipleClusters:
+                  anyOf:
+                    - type: object
+                      properties:
+                        totalUnits:
+                          type: number
+                        multiClusterUnits:
+                          description: Sub-units that appear in more than one cluster.
+                          type: number
+                        percent:
+                          type: number
+                        status:
+                          description: >-
+                            `unhealthy` when the check fails the organization's
+                            threshold. `not-enough-traffic` when there are too
+                            few units to judge.
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                            - not-enough-traffic
+                      required:
+                        - totalUnits
+                        - multiClusterUnits
+                        - percent
+                        - status
+                      additionalProperties: false
+                    - type: 'null'
+                reliability:
+                  description: >-
+                    Whether there are enough clusters, evenly sized enough, to
+                    trust the results. `unhealthy` when either `tooFewClusters`
+                    or `oversizedCluster` is set. The app shows it as a warning
+                    on the results; it is not part of `enhancedStatus.decision`.
+                    null when the snapshot has no cluster counts.
+                  anyOf:
+                    - type: object
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - healthy
+                            - unhealthy
+                        minClustersPerVariation:
+                          description: >-
+                            Recommended minimum number of clusters per
+                            variation.
+                          type: number
+                        maxClusterShare:
+                          description: >-
+                            Share of sub-units, as a fraction from 0 to 1, that
+                            no single cluster should reach.
+                          type: number
+                        tooFewClusters:
+                          description: >-
+                            The variation with the fewest clusters, when it has
+                            fewer than `minClustersPerVariation`.
+                            `variationIndex` and `variationKey` come from the
+                            snapshot; `variationId` is the current variation
+                            with that key, omitted when none matches.
+                          anyOf:
+                            - type: object
+                              properties:
+                                variationIndex:
+                                  type: number
+                                variationKey:
+                                  type: string
+                                variationId:
+                                  type: string
+                                clusters:
+                                  type: number
+                              required:
+                                - variationIndex
+                                - variationKey
+                                - clusters
+                              additionalProperties: false
+                            - type: 'null'
+                        oversizedCluster:
+                          description: >-
+                            The largest cluster, when its share reaches
+                            `maxClusterShare`.
+                          anyOf:
+                            - type: object
+                              properties:
+                                id:
+                                  type: string
+                                percent:
+                                  description: >-
+                                    The cluster's share of sub-units, as a
+                                    fraction from 0 to 1.
+                                  type: number
+                              required:
+                                - id
+                                - percent
+                              additionalProperties: false
+                            - type: 'null'
+                      required:
+                        - status
+                        - minClustersPerVariation
+                        - maxClusterShare
+                        - tooFewClusters
+                        - oversizedCluster
+                      additionalProperties: false
+                    - type: 'null'
+              required:
+                - mixedAssignment
+                - unitsInMultipleClusters
+                - reliability
+              additionalProperties: false
+          required:
+            - srm
+            - multipleExposures
+            - unknownVariations
+            - power
+            - covariateImbalance
+          additionalProperties: false
         results:
           type: array
           items:
@@ -74551,6 +75519,12 @@ components:
                 type: object
                 properties:
                   srm:
+                    description: >-
+                      Sample ratio mismatch p-value for this row's units.
+                      `health.srm` is the experiment-wide check with a verdict;
+                      the two can differ slightly as this comes from the metric
+                      query and the other comes from the traffic query. If they
+                      disagree, rely on the `health.srm` value.
                     type: number
                 required:
                   - srm
@@ -74685,12 +75659,14 @@ components:
             owner:
               description: >-
                 The userId of the owner (or raw owner name/email for legacy
-                records)
+                records). An owner set by email comes back here as its userId;
+                compare against `ownerEmail` instead.
               type: string
             ownerEmail:
               description: >-
                 The email address of the owner, when the owner can be resolved
-                to a known user.
+                to a known user. Matches an `owner` that was sent as an email
+                address.
               type: string
             archived:
               type: boolean
@@ -75040,6 +76016,124 @@ components:
                     - Archived
                 detailedStatus:
                   type: string
+                needsAttention:
+                  description: Whether the app flags this experiment as needing attention.
+                  type: boolean
+                decision:
+                  description: >-
+                    The decision behind `detailedStatus` for a running
+                    experiment, based on the latest successful standard snapshot
+                    of the latest phase. Omitted when there is nothing to report
+                    yet.
+                  type: object
+                  properties:
+                    category:
+                      description: >-
+                        What `status` asks of you. `ready-for-action`: the
+                        results are ready to act on (`ship-now`, `rollback-now`,
+                        `ready-for-review`, `scheduled-end-review`).
+                        `has-issue`: something needs fixing before the results
+                        can be trusted (`unhealthy`, `data-incomplete`,
+                        `no-data`). `collecting-data`: keep the experiment
+                        running (`days-left`, `before-min-duration`).
+                      type: string
+                      enum:
+                        - ready-for-action
+                        - has-issue
+                        - collecting-data
+                    status:
+                      description: >-
+                        `ship-now`, `rollback-now` and `ready-for-review` are
+                        recommendations from the Experiment Decision Framework
+                        and are only rendered if the Decision Framework is
+                        enabled for your organization. `unhealthy` means a
+                        health check is failing (see `healthIssues`).
+                        `data-incomplete` means some metrics could not be
+                        computed (see `erroredMetricIds`). `days-left` and
+                        `before-min-duration` mean the experiment should keep
+                        running. `scheduled-end-review` means the scheduled end
+                        date passed without a recommendation.
+                      type: string
+                      enum:
+                        - ship-now
+                        - rollback-now
+                        - ready-for-review
+                        - scheduled-end-review
+                        - days-left
+                        - before-min-duration
+                        - no-data
+                        - unhealthy
+                        - data-incomplete
+                    reason:
+                      description: Explanation of the status, as shown in the app.
+                      type: string
+                    daysLeft:
+                      description: >-
+                        Days until the scheduled end date or, without one, until
+                        the experiment is expected to reach its target power.
+                        Set when `status` is `days-left`. null when the
+                        experiment is not expected to reach its target power at
+                        the current traffic.
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    variations:
+                      description: >-
+                        Variations the recommendation applies to. Set for
+                        `ship-now`, `rollback-now` and `ready-for-review`.
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          variationId:
+                            type: string
+                          action:
+                            description: >-
+                              Action the decision criteria reached for this
+                              variation. null when no rule applied.
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - ship
+                                  - rollback
+                                  - review
+                              - type: 'null'
+                        required:
+                          - variationId
+                          - action
+                        additionalProperties: false
+                    healthIssues:
+                      description: >-
+                        What is wrong with the experiment. Set when `status` is
+                        `unhealthy`. The results endpoint has the numbers behind
+                        each one under `result.health`: `sample-ratio-mismatch`
+                        in `srm`, `multiple-exposures` in `multipleExposures`,
+                        `low-power` in `power`, `covariate-imbalance` in
+                        `covariateImbalance`, `mixed-cluster-assignment` in
+                        `cluster.mixedAssignment` and
+                        `units-in-multiple-clusters` in
+                        `cluster.unitsInMultipleClusters`.
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                          - sample-ratio-mismatch
+                          - multiple-exposures
+                          - low-power
+                          - covariate-imbalance
+                          - mixed-cluster-assignment
+                          - units-in-multiple-clusters
+                    erroredMetricIds:
+                      description: >-
+                        Metrics that could not be computed. Set when `status` is
+                        `data-incomplete`.
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - category
+                    - status
+                  additionalProperties: false
               required:
                 - status
               additionalProperties: false
@@ -75143,12 +76237,15 @@ components:
         dateUpdated:
           type: string
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -75482,12 +76579,15 @@ components:
         id:
           type: string
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -75547,12 +76647,15 @@ components:
         dateUpdated:
           type: string
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -75565,6 +76668,27 @@ components:
           maxLength: 10000
         query:
           type: string
+        timing:
+          description: >-
+            What the query returns and how the value at a unit's first exposure
+            is resolved. `none` (default): one value per unit, resolved with
+            MAX(value). `rowTimestamp`: timestamped rows; the query also returns
+            a `timestamp` column and the latest row at or before first exposure
+            is used. `validityRange`: validity ranges; the query also returns
+            `start_timestamp` and `end_timestamp` (NULL = still valid) columns
+            and the row valid at first exposure is used. Only supported for SQL
+            Data Sources.
+          type: string
+          enum:
+            - none
+            - rowTimestamp
+            - validityRange
+        nullLabel:
+          description: >-
+            Label used in experiment results for units with no dimension value.
+            Leave empty to use the default null label.
+          type: string
+          maxLength: 100
         managedBy:
           description: >-
             Where this dimension must be managed from. If not set (empty
@@ -75618,12 +76742,15 @@ components:
             new targeting (and All Projects); existing targeting is kept.
           type: boolean
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         settings:
           type: object
@@ -75786,6 +76913,11 @@ components:
           type: boolean
         includeExperimentScheduleInMetadata:
           type: boolean
+        tracesEnabled:
+          description: >-
+            Send SDK evaluation traces to GrowthBook. Only available to
+            organizations with tracing enabled.
+          type: boolean
         key:
           type: string
         proxyEnabled:
@@ -75814,6 +76946,12 @@ components:
             - referencesV1
             - referencesV2
         includeReferencedPrerequisites:
+          type: boolean
+        archived:
+          description: >-
+            An archived connection serves no payload. When the organization
+            requires approvals for the connection, it must be archived before it
+            can be deleted.
           type: boolean
       required:
         - id
@@ -75926,6 +77064,9 @@ components:
                   variationNameColumn:
                     type: string
                 additionalProperties: false
+              error:
+                description: Why the last validation of this query failed
+                type: string
             required:
               - id
               - name
@@ -75969,6 +77110,51 @@ components:
             - variationIdProperty
             - extraUserIdProperty
           additionalProperties: false
+        pipelineSettings:
+          type: object
+          properties:
+            allowWriting:
+              description: Let GrowthBook write temporary tables to speed up analysis
+              type: boolean
+            mode:
+              type: string
+              enum:
+                - ephemeral
+                - incremental
+            writeDatabase:
+              type: string
+            writeDataset:
+              description: Schema (or dataset) to write tables to
+              type: string
+            unitsTableRetentionHours:
+              type: number
+              exclusiveMinimum: 0
+            unitsTableDeletion:
+              type: boolean
+            includedExperimentIds:
+              type: array
+              items:
+                type: string
+            excludedExperimentIds:
+              type: array
+              items:
+                type: string
+            incrementalOptInExperimentIds:
+              type: array
+              items:
+                type: string
+          required:
+            - allowWriting
+            - mode
+            - writeDataset
+            - unitsTableRetentionHours
+          additionalProperties: false
+        maxConcurrentQueries:
+          type: integer
+          minimum: 0
+        queryCacheTTLMins:
+          type: integer
+          minimum: 0
       required:
         - id
         - dateCreated
@@ -76168,12 +77354,15 @@ components:
         name:
           type: string
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         condition:
           description: >-
@@ -76828,12 +78017,15 @@ components:
             - string
             - json
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         value:
           description: >-
@@ -77275,12 +78467,15 @@ components:
         name:
           type: string
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         parent:
           description: >-
@@ -78175,12 +79370,15 @@ components:
           type: string
           maxLength: 10000
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         projects:
           type: array
@@ -78898,12 +80096,15 @@ components:
           type: string
           maxLength: 10000
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         projects:
           type: array
@@ -79693,7 +80894,14 @@ components:
               - role
               - environments
             additionalProperties: false
+        managedByIdp:
+          description: >-
+            Whether the member is provisioned and managed by an identity
+            provider (SCIM).
+          type: boolean
         managedbyIdp:
+          description: 'Deprecated: use `managedByIdp`.'
+          deprecated: true
           type: boolean
         teams:
           type: array
@@ -79774,6 +80982,10 @@ components:
           type: string
         startedAt:
           type: string
+        finishedAt:
+          anyOf:
+            - type: string
+            - type: 'null'
         status:
           type: string
           enum:
@@ -79782,6 +80994,11 @@ components:
             - failed
             - partially-succeeded
             - succeeded
+        error:
+          description: Why the query failed
+          anyOf:
+            - type: string
+            - type: 'null'
         externalId:
           type: string
         dependencies:
@@ -79799,7 +81016,9 @@ components:
         - queryType
         - createdAt
         - startedAt
+        - finishedAt
         - status
+        - error
         - externalId
         - dependencies
         - runAtEnd
@@ -79941,11 +81160,6 @@ components:
           type: string
         killswitchConfirmation:
           type: boolean
-        featureKillSwitchBehavior:
-          type: string
-          enum:
-            - 'off'
-            - warn
         requireReviews:
           type: array
           items:
@@ -79957,8 +81171,13 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/SavedGroupApprovalRule'
+            sdkConnections:
+              type: array
+              items:
+                $ref: '#/components/schemas/SdkConnectionApprovalRule'
           required:
             - savedGroups
+            - sdkConnections
           additionalProperties: false
         targetingReviewMode:
           type: array
@@ -80098,6 +81317,38 @@ components:
       required:
         - required
       additionalProperties: false
+    SdkConnectionApprovalRule:
+      type: object
+      properties:
+        required:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        requireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+        environments:
+          description: >-
+            Environment IDs this rule applies to. Omitted or empty means every
+            environment. Unlike the other fields, a Project rule does not
+            inherit this from the all-Projects rule.
+          type: array
+          items:
+            type: string
+      required:
+        - required
+      additionalProperties: false
     TargetingReviewRule:
       type: object
       properties:
@@ -80221,6 +81472,7 @@ components:
                   - rampSchedule.delete
                   - rampSchedule.other
                   - settings.approvals
+                  - settings.dataSources
                   - settings.webhooks
                   - settings.other
                   - access.members
@@ -80288,7 +81540,6 @@ components:
                 body: {}
               required:
                 - status
-                - body
               additionalProperties: false
             - type: 'null'
         note:
@@ -81045,6 +82296,30 @@ components:
           anyOf:
             - type: string
             - type: 'null'
+        stepFailure:
+          description: >-
+            Set while the scheduler is retrying a failed step. The schedule
+            holds at its current step and pauses once the retries run out. Use
+            `/actions/retry` to make the next attempt now.
+          anyOf:
+            - type: object
+              properties:
+                attempts:
+                  description: Failed attempts since the last clean pass.
+                  type: integer
+                lastError:
+                  description: The most recent attempt's error.
+                  type: string
+                retryAt:
+                  description: When the scheduler makes the next attempt.
+                  type: string
+                  format: date-time
+              required:
+                - attempts
+                - lastError
+                - retryAt
+              additionalProperties: false
+            - type: 'null'
         monitoringStatus:
           description: Read-only monitoring status. Present when monitoringConfig is set.
           anyOf:
@@ -81188,7 +82463,7 @@ components:
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         snapshotId:
           description: Snapshot ID (experiment-snapshot type only)
@@ -83688,6 +84963,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -83773,6 +85050,18 @@ components:
                                   anyOf:
                                     - type: string
                                     - type: 'null'
+                                showAs:
+                                  description: >-
+                                    How a mean metric renders: `total` sums the
+                                    numerator, `per_unit` divides it by the unit
+                                    count. Ignored for other metric types. Omit
+                                    to use the default (`per_unit` for `max` and
+                                    `count distinct` aggregations, otherwise
+                                    `total`).
+                                  type: string
+                                  enum:
+                                    - total
+                                    - per_unit
                               required:
                                 - name
                                 - rowFilters
@@ -84096,6 +85385,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -84504,6 +85795,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -84929,6 +86222,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -85357,6 +86652,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -85499,12 +86796,15 @@ components:
                   - config
                 additionalProperties: false
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
       required:
         - id
@@ -85616,12 +86916,15 @@ components:
         project:
           type: string
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         tags:
           type: array
@@ -85884,12 +87187,15 @@ components:
           type: string
           format: date-time
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -85928,12 +87234,15 @@ components:
           type: string
           format: date-time
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         datasourceId:
           type: string
@@ -85980,12 +87289,15 @@ components:
         project:
           type: string
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         tags:
           type: array
@@ -86695,12 +88007,15 @@ components:
           type: string
           format: date-time
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         name:
           type: string
@@ -86853,12 +88168,15 @@ components:
         project:
           type: string
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         templateMetadata:
           type: object
@@ -87362,6 +88680,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -87447,6 +88767,17 @@ components:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          showAs:
+                            description: >-
+                              How a mean metric renders: `total` sums the
+                              numerator, `per_unit` divides it by the unit
+                              count. Ignored for other metric types. Omit to use
+                              the default (`per_unit` for `max` and `count
+                              distinct` aggregations, otherwise `total`).
+                            type: string
+                            enum:
+                              - total
+                              - per_unit
                         required:
                           - name
                           - rowFilters
@@ -87651,6 +88982,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -87941,6 +89274,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -88248,6 +89583,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -88558,6 +89895,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -88861,6 +90200,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -89349,12 +90690,15 @@ components:
           type: string
           format: date-time
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         authors:
           type: array
@@ -89427,12 +90771,15 @@ components:
           items:
             type: string
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         tags:
           type: array
@@ -89863,12 +91210,15 @@ components:
           items:
             type: string
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         name:
           type: string
@@ -90085,160 +91435,6 @@ components:
         - confirmation
         - message
       additionalProperties: false
-      $defs:
-        Confirmation:
-          id: Confirmation
-          type: object
-          properties:
-            id:
-              type: string
-            status:
-              type: string
-              enum:
-                - pending
-                - running
-                - completed
-                - rejected
-                - expired
-            actions:
-              type: array
-              items:
-                type: object
-                properties:
-                  action:
-                    type: string
-                    enum:
-                      - feature.create
-                      - feature.draft
-                      - feature.review
-                      - feature.publish
-                      - feature.archive
-                      - feature.delete
-                      - feature.other
-                      - experiment.create
-                      - experiment.draft
-                      - experiment.start
-                      - experiment.stop
-                      - experiment.targeting
-                      - experiment.traffic
-                      - experiment.phases
-                      - experiment.visualEditor
-                      - experiment.checklist
-                      - experiment.other
-                      - savedGroup.create
-                      - savedGroup.draft
-                      - savedGroup.review
-                      - savedGroup.publish
-                      - savedGroup.archive
-                      - savedGroup.delete
-                      - savedGroup.other
-                      - constant.create
-                      - constant.draft
-                      - constant.review
-                      - constant.publish
-                      - constant.archive
-                      - constant.delete
-                      - constant.other
-                      - config.create
-                      - config.draft
-                      - config.review
-                      - config.publish
-                      - config.archive
-                      - config.delete
-                      - config.other
-                      - rampSchedule.create
-                      - rampSchedule.start
-                      - rampSchedule.pause
-                      - rampSchedule.progression
-                      - rampSchedule.approve
-                      - rampSchedule.edit
-                      - rampSchedule.delete
-                      - rampSchedule.other
-                      - settings.approvals
-                      - settings.webhooks
-                      - settings.other
-                      - access.members
-                      - access.teams
-                      - customHook.create
-                      - customHook.edit
-                      - customHook.delete
-                      - environment.create
-                      - environment.edit
-                      - environment.delete
-                      - project.create
-                      - project.edit
-                      - project.delete
-                      - attribute.create
-                      - attribute.edit
-                      - attribute.delete
-                      - customField.create
-                      - customField.edit
-                      - customField.delete
-                      - sdkConnection.create
-                      - sdkConnection.edit
-                      - sdkConnection.delete
-                      - metric.create
-                      - metric.edit
-                      - metric.delete
-                      - factTable.create
-                      - factTable.edit
-                      - factTable.delete
-                      - segment.create
-                      - segment.edit
-                      - segment.delete
-                      - dimension.create
-                      - dimension.edit
-                      - dimension.delete
-                      - override.ignoreWarnings
-                      - override.skipSchemaValidation
-                      - override.skipHooks
-                      - override.bypassApproval
-                      - override.restBypassesReviews
-                      - override.draftLimit
-                      - override.skipChecklist
-                      - override.bypassDuplicateKeyCheck
-                      - override.unscopedRules
-                      - other.write
-                  environments:
-                    type: array
-                    items:
-                      type: string
-                required:
-                  - action
-                  - environments
-                additionalProperties: false
-            summary:
-              type: string
-            url:
-              type: string
-            expiresAt:
-              type: string
-            response:
-              anyOf:
-                - type: object
-                  properties:
-                    status:
-                      type: number
-                    body: {}
-                  required:
-                    - status
-                    - body
-                  additionalProperties: false
-                - type: 'null'
-            note:
-              anyOf:
-                - type: string
-                - type: 'null'
-          required:
-            - id
-            - status
-            - actions
-            - summary
-            - url
-            - expiresAt
-            - response
-            - note
-          additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -90527,8 +91723,6 @@ components:
                   Distance from the family root along the `parent` spine (root
                   is 0).
                 type: integer
-                minimum: -9007199254740991
-                maximum: 9007199254740991
               isTarget:
                 description: True for the requested config.
                 type: boolean
@@ -90587,85 +91781,6 @@ components:
         - effective
         - additionalProperties
       additionalProperties: false
-      $defs:
-        ConfigSchemaSource:
-          id: ConfigSchemaSource
-          anyOf:
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: json-schema
-                value:
-                  description: A JSON Schema document (an object).
-                  type: object
-                  propertyNames:
-                    type: string
-                  additionalProperties: {}
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: typescript
-                value:
-                  description: TypeScript source — an interface or object type.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: protobuf
-                value:
-                  description: Protobuf (proto3) source — a `message` definition.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: python
-                value:
-                  description: Python source — a Pydantic `BaseModel` class.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: go
-                value:
-                  description: Go source — a `struct` definition.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: rust
-                value:
-                  description: Rust source — a serde `struct` definition.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
     ConfigSchemaVerify:
       type: object
       properties:
@@ -90761,28 +91876,6 @@ components:
         - fingerprint
         - incomingFingerprint
       additionalProperties: false
-      $defs:
-        ConfigSchemaWarning:
-          id: ConfigSchemaWarning
-          type: object
-          properties:
-            code:
-              type: string
-              enum:
-                - dropped-declaration
-                - non-object-root
-                - unresolved-type
-                - unsupported-member
-                - redundant-declaration
-                - undeclared-rule-field
-            message:
-              type: string
-            path:
-              type: string
-          required:
-            - code
-            - message
-          additionalProperties: false
     SavedGroupReferences:
       type: object
       properties:
@@ -90839,20 +91932,6 @@ components:
         - interleavings
         - savedGroups
       additionalProperties: false
-      $defs:
-        SavedGroupReferenceResource:
-          id: SavedGroupReferenceResource
-          type: object
-          properties:
-            id:
-              type: string
-            name:
-              type: string
-            project:
-              type: string
-          required:
-            - id
-          additionalProperties: false
     ConstantReferences:
       type: object
       properties:
@@ -92731,8 +93810,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SavedGroupApprovalRule'
+        sdkConnections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SdkConnectionApprovalRule'
       required:
         - savedGroups
+        - sdkConnections
       additionalProperties: false
     monitoring:
       type: object
@@ -93417,12 +94501,15 @@ components:
           type: string
           format: date-time
         owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
+          description: >-
+            The userId of the owner (or raw owner name/email for legacy
+            records). An owner set by email comes back here as its userId;
+            compare against `ownerEmail` instead.
           type: string
         ownerEmail:
           description: >-
             The email address of the owner, when the owner can be resolved to a
-            known user.
+            known user. Matches an `owner` that was sent as an email address.
           type: string
         authors:
           type: array
@@ -93563,29 +94650,15 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: >
-        If using Bearer auth, pass the Secret Key as the token:
-
-        ```bash
-
-        curl https://api.growthbook.io/api/v1/features   -H "Authorization:
-        Bearer secret_abc123DEF456"
-
-        ```
+      description: >-
+        Pass your API key as the Bearer token. See
+        [Authentication](/api/introduction#authentication).
     basicAuth:
       type: http
       scheme: basic
-      description: >
-        If using HTTP Basic auth, pass the Secret Key as the username and leave
-        the password blank:
-
-        ```bash
-
-        curl https://api.growthbook.io/api/v1/features   -u secret_abc123DEF456:
-
-        # The ":" at the end stops curl from asking for a password
-
-        ```
+      description: >-
+        Pass your API key as the username and leave the password blank. See
+        [Authentication](/api/introduction#authentication).
 x-tagGroups:
   - name: Endpoints
     tags:
@@ -93628,6 +94701,7 @@ x-tagGroups:
       - usage
       - meta
       - ContextualBandits
+      - information-schema-tables
       - Dashboards
       - ContextualBanditQueries
       - InterleavingExposureQueries
@@ -93759,6 +94833,7 @@ x-tagGroups:
       - ScheduleRule_model
       - ScheduledStopPlan_model
       - SdkConnection_model
+      - SdkConnectionApprovalRule_model
       - SdkWebhook_model
       - Segment_model
       - Settings_model

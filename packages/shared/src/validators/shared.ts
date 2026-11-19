@@ -276,6 +276,15 @@ export const bypassApprovalPublishBodyField = z
     "Deprecated and ignored. Approval is bypassed automatically when the caller has Bypass draft approvals access for this resource or when the organization enables the REST API approval bypass. Otherwise, the revision must be approved before it can be published.",
   );
 
+// Direct REST writes to an SDK Connection, or to its webhooks, while an
+// approval rule covers it.
+export const sdkConnectionBypassApprovalBodyField = z
+  .boolean()
+  .optional()
+  .describe(
+    "Set to true to write directly to the live SDK Connection without approval. The caller must have Bypass draft approvals access in the SDK Connection's Projects, unless the organization enables the REST API approval bypass. This field has no effect when approval is not required.",
+  );
+
 /**
  * The closed set of bypass sources a response may report: a request field
  * (`ignoreWarnings`, the privileged `skipSchemaValidation`, `skipHooks`, or an

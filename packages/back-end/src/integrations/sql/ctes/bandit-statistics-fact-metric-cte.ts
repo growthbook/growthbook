@@ -287,7 +287,7 @@ export function getBanditStatisticsFactMetricCTE(
         ${dimensionCols.map((d) => `, ${d.alias}`).join("")}
     )
     SELECT
-      bps.variation
+      bps.variation AS variation
       ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
       , SUM(bps.users) AS users
       ${metricData

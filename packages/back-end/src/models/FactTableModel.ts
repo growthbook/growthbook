@@ -33,6 +33,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { NotFoundError } from "back-end/src/util/errors";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
@@ -49,6 +50,8 @@ import {
   buildTopValuesWrite,
   keepStoredTopValues,
   storedTopValuesFilter,
+  toStoredColumn,
+  withDerivedTopValues,
   type TopValuesUpdate,
 } from "back-end/src/util/topValues";
 import { logger } from "back-end/src/util/logger";
@@ -94,7 +97,8 @@ const factTableSchema = new mongoose.Schema({
       deleted: Boolean,
       alwaysInlineFilter: Boolean,
       conditionalInlineFilters: {},
-      topValues: [String],
+      // Read-only: columns saved before topValueCounts existed. Never written.
+      topValues: { type: [String], default: undefined },
       topValuesDate: Date,
       topValueCounts: {
         type: [{ _id: false, value: String, count: Number }],
@@ -154,7 +158,10 @@ const FactTableModel = mongoose.model<FactTableInterface>(
 
 function toInterface(doc: FactTableDocument): FactTableInterface {
   const ret = doc.toJSON<FactTableDocument>();
-  return omit(ret, ["__v", "_id"]);
+  return {
+    ...omit(ret, ["__v", "_id"]),
+    columns: (ret.columns || []).map(withDerivedTopValues),
+  };
 }
 
 // Every whole-array column write goes through here. Each column keeps the
@@ -178,7 +185,7 @@ async function persistColumns<T extends { column: string }>(
     const next = keepStoredTopValues(stored, columns);
     const { matchedCount } = await FactTableModel.updateOne(
       { ...filter, ...storedTopValuesFilter(stored) },
-      { $set: { ...$set, columns: next } },
+      { $set: { ...$set, columns: next.map(toStoredColumn) } },
     );
     if (matchedCount || !doc) return next;
   }
@@ -403,7 +410,10 @@ export async function createFactTable(
   // the same time the background job is scheduling the aggregated table update
   await deferAggregatedFactTableToNextSlot(context, factTableProps);
 
-  const doc = await FactTableModel.create(factTableProps);
+  const doc = await FactTableModel.create({
+    ...factTableProps,
+    columns: factTableProps.columns.map(toStoredColumn),
+  });
 
   const factTable = toInterface(doc);
 
@@ -748,7 +758,7 @@ export async function updateColumn({
   changes: UpdateColumnProps;
 }) {
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
-  if (columnIndex < 0) throw new Error("Could not find that column");
+  if (columnIndex < 0) throw new NotFoundError("Could not find that column");
 
   if (
     changes.alwaysInlineFilter &&
@@ -942,7 +952,7 @@ export async function deleteColumn(
 ): Promise<void> {
   const col = factTable.columns.find((c) => c.column === columnName);
   if (!col) {
-    throw new Error("Could not find that column");
+    throw new NotFoundError("Could not find that column");
   }
   // Only virtual columns can be hard-deleted. SQL-detected columns are managed
   // by the column refresh (soft delete) and must not be removed here.
@@ -1195,7 +1205,8 @@ export async function updateFactFilter(
   const filters = [...factTable.filters];
 
   const filterIndex = filters.findIndex((f) => f.id === filterId);
-  if (filterIndex < 0) throw new Error("Could not find filter with that id");
+  if (filterIndex < 0)
+    throw new NotFoundError("Could not find filter with that id");
 
   const existingFilter = filters[filterIndex];
 
@@ -1285,6 +1296,19 @@ export async function projectHasFactTables(
   }));
 }
 
+// Ignores read permissions, so a dependency check can't miss a hidden table
+export async function datasourceHasFactTables(
+  context: ReqContext | ApiReqContext,
+  datasourceId: string,
+  ignoreIds: string[] = [],
+): Promise<boolean> {
+  return !!(await FactTableModel.exists({
+    organization: context.org.id,
+    datasource: datasourceId,
+    id: { $nin: ignoreIds },
+  }));
+}
+
 export async function deleteAllFactTablesForAProject({
   projectId,
   context,
@@ -1323,7 +1347,7 @@ export async function deleteFactFilter(
   const newFilters = factTable.filters.filter((f) => f.id !== filterId);
 
   if (newFilters.length === factTable.filters.length) {
-    throw new Error("Could not find filter with that id");
+    throw new NotFoundError("Could not find filter with that id");
   }
 
   await FactTableModel.updateOne(
@@ -1411,7 +1435,7 @@ export function toFactTableFilterApiInterface(
   const filter = factTable.filters.find((f) => f.id === filterId);
 
   if (!filter) {
-    throw new Error("Cannot find filter with that id");
+    throw new NotFoundError("Cannot find filter with that id");
   }
 
   return {

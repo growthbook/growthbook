@@ -15,22 +15,39 @@ const TOP_VALUE_FIELDS = [
   "topValuesDate",
 ] as const;
 
-// The stored form of a snapshot. topValues is derived for Auto Slices and
-// filter pickers; counts are kept only when every value has one.
+// The stored form of a snapshot: one ranked list, each value with its count
+// when the query returned one
 export function getTopValueFields(snapshot: TopValuesSnapshot): {
-  topValues: string[];
-  topValueCounts: ColumnInterface["topValueCounts"];
+  topValueCounts: NonNullable<ColumnInterface["topValueCounts"]>;
   topValuesDate: Date;
 } {
-  const { values } = snapshot;
-  const counts = values.flatMap((v) =>
-    v.count === undefined ? [] : [{ value: v.value, count: v.count }],
-  );
   return {
-    topValues: values.map((v) => v.value),
-    topValueCounts: counts.length === values.length ? counts : undefined,
+    // A missing count is left off, so the list compares equal to the stored one
+    topValueCounts: snapshot.values.map(({ value, count }) =>
+      (count ?? null) === null ? { value } : { value, count },
+    ),
     topValuesDate: snapshot.refreshedAt,
   };
+}
+
+// Only topValueCounts is stored; topValues is always read from it, so the two
+// can't disagree. Columns saved before counts existed have only topValues.
+export function withDerivedTopValues(column: ColumnInterface): ColumnInterface {
+  const topValueCounts = column.topValueCounts?.length
+    ? column.topValueCounts
+    : column.topValues?.length
+      ? column.topValues.map((value) => ({ value }))
+      : undefined;
+  return {
+    ...column,
+    topValueCounts,
+    topValues: (topValueCounts ?? []).map((v) => v.value),
+  };
+}
+
+// What a column write stores: everything but the derived topValues
+export function toStoredColumn<T extends object>(column: T) {
+  return omit(column, "topValues");
 }
 
 export type TopValuesUpdate = {
@@ -86,8 +103,8 @@ export function canHaveTopValues(
   return (
     col.datatype === "string" &&
     !col.deleted &&
-    // Virtual columns aren't real columns in the SQL, so a top-values query
-    // keyed on their name would be invalid.
+    // Virtual columns get top values on demand (column modal, Auto Slice
+    // job), not from a schema refresh.
     !col.isVirtual &&
     canInlineFilterColumn(factTable, col.column)
   );
@@ -101,12 +118,12 @@ function getTopValuesUpdateFields(
   maxSliceLevels?: number,
 ): Partial<ColumnInterface> {
   const fields: Partial<ColumnInterface> = getTopValueFields(update.snapshot);
-  const topValues = fields.topValues ?? [];
+  const topValues = update.snapshot.values.map((v) => v.value);
   const autoSlices = !column.isAutoSliceColumn
     ? undefined
     : update.slices === "fill"
       ? populateAutoSlices(column, topValues, maxSliceLevels)
-      : update.slices === "refill" && topValues.length
+      : update.slices === "refill"
         ? refillAutoSlices(column, topValues, maxSliceLevels)
         : undefined;
   if (autoSlices) {
@@ -118,7 +135,9 @@ function getTopValuesUpdateFields(
 
 // The positional write for stored columns: only the updated fields of each
 // still-existing column, so concurrent edits to anything else survive.
-// Clears counts the snapshot doesn't have. Null when nothing applies.
+// Clears a topValues list stored before counts existed. Skips an update with
+// no values, since an empty result may be transient: the column keeps its last
+// snapshot and Auto Slice levels. Null when nothing applies.
 // `changed` is false when only the refresh dates moved. `filter` matches only
 // while each column whose Auto Slice levels it rewrites still has the slice
 // settings they were built from, so a concurrent slice save isn't undone.
@@ -143,7 +162,7 @@ export function buildTopValuesWrite(
   let changed = false;
   updates.forEach((update, i) => {
     const column = current.columns.find((c) => c.column === update.column);
-    if (!column || column.deleted) return;
+    if (!column || column.deleted || !update.snapshot.values.length) return;
     const id = `c${i}`;
     const fields = getTopValuesUpdateFields(column, update, maxSliceLevels);
     if (fields.autoSlices) {
@@ -159,15 +178,13 @@ export function buildTopValuesWrite(
         },
       });
     }
-    Object.entries({ topValueCounts: undefined, ...fields }).forEach(
-      ([key, value]) => {
-        if (value === undefined) $unset[`columns.$[${id}].${key}`] = "";
-        else $set[`columns.$[${id}].${key}`] = value;
-        if (key !== "topValuesDate" && key !== "dateUpdated") {
-          changed ||= !isEqual(column[key as keyof ColumnInterface], value);
-        }
-      },
-    );
+    $unset[`columns.$[${id}].topValues`] = "";
+    Object.entries(fields).forEach(([key, value]) => {
+      $set[`columns.$[${id}].${key}`] = value;
+      if (key !== "topValuesDate" && key !== "dateUpdated") {
+        changed ||= !isEqual(column[key as keyof ColumnInterface], value);
+      }
+    });
     arrayFilters.push({ [`${id}.column`]: update.column });
   });
   const filter = guards.length ? { $and: guards } : {};

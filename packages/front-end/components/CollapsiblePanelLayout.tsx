@@ -1,7 +1,9 @@
 import {
+  createContext,
   PointerEvent as ReactPointerEvent,
   ReactNode,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -15,10 +17,19 @@ import styles from "./CollapsiblePanelLayout.module.scss";
 export const PANEL_WIDTH_PX = 360;
 const MIN_PANEL_WIDTH_PX = 280;
 const MAX_PANEL_SHARE = 2 / 3;
+// The narrowest the content takes beside a docked panel without overlapping or
+// cutting off (the experiment page's linked changes and Hypothesis). Less
+// room than this beside it, the panel floats instead.
+const MIN_CONTENT_WIDTH_PX = 540;
 // Drag this far past the minimum width to close the panel instead.
 const COLLAPSE_DELTA_PX = 60;
 const HANDLE_WIDTH_PX = 20;
 const SLIDE_MS = 160;
+
+// True while the panel slides open or shut, narrowing or widening the content
+// beside it each frame. What reflows in steps (a grid counting its columns)
+// can hold still until it's done, and lay out once.
+export const PanelSlidingContext = createContext(false);
 
 export interface Props {
   children: ReactNode;
@@ -26,8 +37,9 @@ export interface Props {
   // Sticks to the bottom of the content column; a floating panel ends above it.
   footer?: ReactNode;
   open: boolean;
-  // Viewport offset the panel sticks to, below any fixed page header.
-  top?: number;
+  // CSS length the panel sticks to, below any fixed page header, e.g.
+  // "var(--tabs-bottom)".
+  top?: string;
   // Fixed so the panel does not stretch on wide screens.
   width?: number;
   onWidthChange: (width: number) => void;
@@ -38,19 +50,20 @@ export interface Props {
 }
 
 // A right panel that sticks beside the content at full screen height. Wide, it
-// docks and the content reflows; narrow, it floats so the content keeps its width.
+// docks and the content reflows; narrow, or with too little room beside it, it
+// floats so the content keeps its width.
 export default function CollapsiblePanelLayout({
   children,
   panel,
   footer = null,
   open,
-  top = 0,
+  top = "0px",
   width = PANEL_WIDTH_PX,
   onWidthChange,
   onCollapse,
   busy = false,
 }: Props) {
-  const overlay = useMediaQuery(
+  const narrowWindow = useMediaQuery(
     `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
   );
   const [dragWidth, setDragWidth] = useState<number | null>(null);
@@ -76,16 +89,55 @@ export default function CollapsiblePanelLayout({
     observer.observe(footerEl);
     return () => observer.disconnect();
   }, []);
-  // Floating, the panel ends where the footer starts, so the footer stays whole.
-  const footerClearance = overlay ? footerHeight : 0;
+  // Where the layout starts on the page, so it can reach the screen's bottom
+  // and no further.
+  const [layoutTop, setLayoutTop] = useState(0);
+  // Before paint, so the first frame isn't drawn a screen tall.
+  useLayoutEffect(() => {
+    const el = layout.current;
+    if (!el) return;
+    const measure = () =>
+      setLayoutTop(el.getBoundingClientRect().top + window.scrollY);
+    measure();
+    // Moved by whatever above it changes size: what comes before it, and
+    // before each of its ancestors. A page held a screen tall wouldn't
+    // change size with them.
+    const observer = new ResizeObserver(measure);
+    for (let node: Element | null = el; node && node !== document.body; ) {
+      for (let s = node.previousElementSibling; s; s = s.previousElementSibling)
+        observer.observe(s);
+      node = node.parentElement;
+    }
+    observer.observe(document.body);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
   const [previewCollapsed, setPreviewCollapsed] = useState(false);
   // Clamped at render rather than stored, so widening the window restores the
-  // dragged width.
+  // dragged width. Docked, it also leaves the content MIN_CONTENT_WIDTH_PX, so
+  // dragging it wider never flips it to floating.
   const maxPanelWidth = layoutWidth
-    ? Math.max(MIN_PANEL_WIDTH_PX, Math.round(layoutWidth * MAX_PANEL_SHARE))
+    ? Math.max(
+        MIN_PANEL_WIDTH_PX,
+        Math.min(
+          Math.round(layoutWidth * MAX_PANEL_SHARE),
+          narrowWindow ? Infinity : layoutWidth - MIN_CONTENT_WIDTH_PX,
+        ),
+      )
     : Infinity;
   const panelWidth = Math.min(dragWidth ?? width, maxPanelWidth);
   const collapseBelow = MIN_PANEL_WIDTH_PX - COLLAPSE_DELTA_PX;
+  // Floats on a narrow window, or when even the narrowest panel would squeeze
+  // the content. The layout's own width holds still as the panel docks or
+  // floats, so it can't flip back and forth.
+  const overlay =
+    narrowWindow ||
+    (layoutWidth > 0 && layoutWidth - panelWidth < MIN_CONTENT_WIDTH_PX);
+  // Floating, the panel ends where the footer starts, so the footer stays whole.
+  const footerClearance = overlay ? footerHeight : 0;
 
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -136,6 +188,19 @@ export default function CollapsiblePanelLayout({
     return () => clearTimeout(timer);
   }, [showPanel]);
 
+  const [slidingFor, setSlidingFor] = useState(showPanel);
+  const [sliding, setSliding] = useState(false);
+  if (slidingFor !== showPanel) {
+    setSlidingFor(showPanel);
+    setSliding(true);
+  }
+  useEffect(() => {
+    if (!sliding) return;
+    // An open waits two frames before it starts.
+    const timer = setTimeout(() => setSliding(false), SLIDE_MS + 50);
+    return () => clearTimeout(timer);
+  }, [sliding, showPanel]);
+
   // Two frames: the browser must paint the zero width before it can animate
   // from it.
   useEffect(() => {
@@ -158,6 +223,7 @@ export default function CollapsiblePanelLayout({
   // width to paint.
   const shown = expanded && showPanel;
   const currentWidth = shown ? panelWidth : 0;
+  const docked = shown && !overlay;
 
   // Overlaid, the panel gives back its space and floats over the content.
   const overlaid = overlay
@@ -180,19 +246,25 @@ export default function CollapsiblePanelLayout({
       align="start"
       width="100%"
       ref={layout}
+      // For what's laid out around it: whether the panel takes room beside
+      // the content.
+      data-panel-docked={docked ? "" : undefined}
       // The drag handle straddles the panel's edge, which reaches the window's
       // while it slides; clip, not hidden, so nothing inside stops sticking.
-      style={{ overflowX: "clip" }}
+      // To the bottom of the screen, so the footer starts there even under
+      // short content.
+      style={{ overflowX: "clip", minHeight: `calc(100vh - ${layoutTop}px)` }}
     >
-      {/* At least as tall as the panel, so the footer starts at the bottom of
-          the screen even under short content. */}
+      {/* As tall as the layout. */}
       <Flex
         direction="column"
         flexGrow="1"
         style={{ minWidth: 0, alignSelf: "stretch" }}
       >
         <Box ref={contentBox} flexGrow="1" aria-busy={busy}>
-          {children}
+          <PanelSlidingContext.Provider value={sliding}>
+            {children}
+          </PanelSlidingContext.Provider>
         </Box>
         <div ref={footerBox} className={styles.footer}>
           {footer}
@@ -205,10 +277,12 @@ export default function CollapsiblePanelLayout({
           width={`${currentWidth}px`}
           style={{
             top,
-            // Its stuck height throughout: resized as the page scrolled, it
-            // would lag the scroll. Until it sticks, its end runs past the
-            // window's.
-            height: `calc(100vh - ${top + footerClearance}px)`,
+            // As tall as the content beside it, up to its stuck height. Taller
+            // before it sticks, its end would run past the window's and make
+            // the page scroll. Its own contents don't size it.
+            alignSelf: "stretch",
+            contain: "size",
+            maxHeight: `calc(100vh - ${top} - ${footerClearance}px)`,
             background: "var(--color-panel-solid)",
             // Matches the tab row's underline.
             borderLeft: shown ? "1px solid var(--gray-a5)" : "none",

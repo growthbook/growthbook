@@ -138,7 +138,7 @@ const bodySchema = z
             z.object({
               toolCallId: z.string().min(1).max(200),
               toolName: z.string().min(1).max(100),
-              result: z.unknown(),
+              result: z.unknown().optional(),
             }),
           )
           .max(10),

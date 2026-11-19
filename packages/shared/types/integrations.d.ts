@@ -349,8 +349,6 @@ export type ColumnTopValuesParams = {
   lookbackDays: number;
   maxValueLength?: number;
   searchTerm?: string;
-  // Runs the exact aggregate instead of an approximate query, for counts
-  needsCounts?: boolean;
 };
 
 /** Rows are returned most-frequent-first per column. */
