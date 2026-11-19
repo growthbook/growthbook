@@ -6,6 +6,7 @@ import {
 import {
   getColumnTopValues,
   getTopValuesNote,
+  pluralize,
 } from "@/services/factTableColumns";
 import {
   getEventColumns,
@@ -409,5 +410,21 @@ describe("getTopValuesNote", () => {
         canRefresh: false,
       }),
     ).toBe("Top 20 events over the last 14 days.");
+  });
+
+  it("uses the singular for one item", () => {
+    expect(pluralize(1, "event")).toBe("1 event");
+    expect(pluralize(0, "event")).toBe("0 events");
+    expect(
+      getTopValuesNote({
+        ...base,
+        count: 1,
+        hasCounts: true,
+        countsUnavailable: false,
+        canRefresh: true,
+      }),
+    ).toBe(
+      "Top 1 event by row count over the last 14 days. Counts may be approximate on some Data Sources.",
+    );
   });
 });

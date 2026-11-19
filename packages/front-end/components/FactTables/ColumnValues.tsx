@@ -22,6 +22,7 @@ import Tooltip from "@/ui/Tooltip";
 import {
   getColumnTopValues,
   getTopValuesNote,
+  pluralize,
 } from "@/services/factTableColumns";
 import columnStyles from "./FactTableDetailsPage.module.scss";
 
@@ -48,8 +49,6 @@ export default function ColumnValues({ column }: { column: ColumnInterface }) {
     </Flex>
   );
 }
-
-const compact = new Intl.NumberFormat(undefined, { notation: "compact" });
 
 const percent = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -103,7 +102,7 @@ export function CountColumnHeaders({
       <TableColumnHeader justify="end">Rows</TableColumnHeader>
       <TableColumnHeader>
         <Tooltip
-          content={`Each ${noun}'s share of all rows across the top ${count} ${noun}s from the last ${lookbackDays} days. Rows from ${noun}s not listed aren't counted.`}
+          content={`Each ${noun}'s share of all rows across the top ${pluralize(count, noun)} from the last ${lookbackDays} days. Rows from ${noun}s not listed aren't counted.`}
         >
           <Flex align="center" gap="1" display="inline-flex">
             Share of listed rows <PiInfo />
@@ -120,7 +119,8 @@ export function CountCells({ count, max }: { count?: number; max: number }) {
     <>
       <TableCell justify="end">
         {count !== undefined ? (
-          <span title={count.toLocaleString()}>{compact.format(count)}</span>
+          // The exact number, so nothing is hidden behind a hover
+          count.toLocaleString()
         ) : (
           <Text color="text-low">…</Text>
         )}

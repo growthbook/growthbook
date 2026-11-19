@@ -44,6 +44,11 @@ export function getColumnTopValues(
   };
 }
 
+// "1 event", "2 events"; nouns here are regular, so "s" is enough
+export function pluralize(count: number, noun: string): string {
+  return `${count} ${count === 1 ? noun : `${noun}s`}`;
+}
+
 // The note under a top values table, shared by the Values panel and the
 // Events tab so the two can't drift
 export function getTopValuesNote({
@@ -62,7 +67,7 @@ export function getTopValuesNote({
   countsUnavailable: boolean;
   canRefresh: boolean;
 }): string {
-  const base = `Top ${count} ${noun}s${hasCounts ? " by row count" : ""} over the last ${lookbackDays} days.`;
+  const base = `Top ${pluralize(count, noun)}${hasCounts ? " by row count" : ""} over the last ${lookbackDays} days.`;
   if (hasCounts)
     return `${base} Counts may be approximate on some Data Sources.`;
   if (countsUnavailable)
