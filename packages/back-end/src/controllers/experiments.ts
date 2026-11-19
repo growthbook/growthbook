@@ -141,6 +141,10 @@ import {
 } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
+import {
+  createScopedExperimentSnapshot,
+  type RanUpdateScope,
+} from "back-end/src/services/snapshotUpdateScope";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import {
   cancelExperimentSnapshot,
@@ -2543,7 +2547,7 @@ export async function postSnapshot(
       dimension?: string;
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
-      missingMetricsOnly?: boolean;
+      updateScope?: RanUpdateScope;
     },
     { id: string },
     { force?: string }
@@ -2553,7 +2557,6 @@ export async function postSnapshot(
   const context = getContextFromReq(req);
   const { id } = req.params;
   const { phase, dimension } = req.body;
-  const missingMetricsOnly = req.body.missingMetricsOnly === true;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -2608,16 +2611,34 @@ export async function postSnapshot(
   }
 
   const useCache = !force;
+  if (req.body.updateScope === "new_metrics" && (dimension || force)) {
+    throw new BadRequestError(
+      "Updating newly added metrics can't be combined with a dimension or a forced rerun.",
+    );
+  }
 
-  const { snapshot } = await createExperimentSnapshot({
+  // The app offers new metrics only inside the org's window, so it isn't
+  // checked again; a refused new-metrics update falls back to a normal one.
+  const { snapshot, updateScope } = await createScopedExperimentSnapshot({
+    scope:
+      req.body.updateScope === "new_metrics"
+        ? { kind: "new_metrics", window: null, onRefusal: "fallback" }
+        : { kind: "all_metrics" },
     context,
     experiment,
     datasource,
-    dimension,
     phase: phaseIndex,
-    useCache,
-    type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
-    missingMetricsOnly,
+    updateAllMetrics: () =>
+      createExperimentSnapshot({
+        context,
+        experiment,
+        datasource,
+        dimension,
+        phase: phaseIndex,
+        useCache,
+        type:
+          experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+      }),
   });
 
   await req.audit({
@@ -2631,12 +2652,13 @@ export async function postSnapshot(
       dimension,
       useCache,
       manual: false,
-      ...(missingMetricsOnly ? { missingMetricsOnly } : {}),
+      updateScope,
     }),
   });
   res.status(200).json({
     status: 200,
     snapshot,
+    updateScope,
   });
 }
 export async function postSnapshotAnalysis(
