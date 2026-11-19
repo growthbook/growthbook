@@ -864,7 +864,9 @@ export default function ResultsTable({
                                   }
                                 : undefined
                             }
-                            onMouseMove={onRowMouseMove}
+                            onMouseMove={
+                              rowOnClick ? onRowMouseMove : undefined
+                            }
                             onMouseLeave={onRowMouseLeave}
                           >
                             {(() => {
