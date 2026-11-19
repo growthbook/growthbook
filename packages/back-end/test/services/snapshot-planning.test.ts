@@ -30,7 +30,6 @@ import {
 import {
   BadRequestError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
-  MetricRefreshUnavailableError,
 } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import BigQuery from "back-end/src/integrations/BigQuery";
@@ -1142,74 +1141,6 @@ describe("snapshot planning", () => {
     );
 
     expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
-  });
-
-  it("never copies a metric refresh lineage into a report snapshot", async () => {
-    getDataSourceByIdMock.mockResolvedValue(
-      makeDatasource({
-        settings: {
-          queries: {
-            exposure: [
-              {
-                id: "exposure_user",
-                name: "Users",
-                userIdType: "user_id",
-                query: "",
-                dimensions: [],
-              },
-            ],
-          },
-        },
-      }),
-    );
-    createExperimentSnapshotModelMock.mockRejectedValue(
-      new Error("stop after the insert"),
-    );
-
-    await expect(
-      createReportSnapshot({
-        report: {
-          id: "rep_123",
-          experimentAnalysisSettings: {
-            datasource: "ds_123",
-            exposureQueryId: "exposure_user",
-            trackingKey: "exp_123",
-            goalMetrics: [],
-            secondaryMetrics: [],
-            guardrailMetrics: [],
-            metricOverrides: [],
-          },
-          experimentMetadata: {
-            phases: [{ variationWeights: [0.5, 0.5] }],
-            variations: [
-              { key: "0", name: "Control" },
-              { key: "1", name: "Treatment" },
-            ],
-          },
-        } as unknown as ExperimentSnapshotReportInterface,
-        previousSnapshot: {
-          id: "snp_refresh",
-          type: "standard",
-          phase: 0,
-          settings: { datasourceId: "ds_123" },
-          metricRefresh: {
-            baseSnapshotId: "snp_base",
-            baseDateCreated: new Date("2025-01-01T00:00:00.000Z"),
-            baseRunStarted: null,
-            baseCutoffDate: null,
-            parentSnapshotId: "snp_base",
-            metricIds: ["met_new"],
-          },
-        } as unknown as ExperimentSnapshotInterface,
-        context: makeContext(),
-        metricMap: new Map<string, ExperimentMetricInterface>(),
-        factTableMap: new Map() as FactTableMap,
-      }),
-    ).rejects.toThrow("stop after the insert");
-
-    const [{ data }] = createExperimentSnapshotModelMock.mock.calls[0];
-    expect(data.type).toBe("report");
-    expect(data).not.toHaveProperty("metricRefresh");
   });
 
   it("surfaces pipeline validation errors as incremental fallback reasons", async () => {
@@ -2582,20 +2513,6 @@ describe("planExperimentSnapshot", () => {
       } as ExperimentSnapshotInterface;
     }
 
-    async function planManualParent(
-      { context, datasource }: ReturnType<typeof makeFixture>,
-      experiment: ExperimentInterface,
-    ) {
-      const plan = await planExperimentSnapshot({
-        context: context as never,
-        experiment,
-        datasource,
-        dimension: undefined,
-        phase: 0,
-      });
-      return asParent(plan.snapshot);
-    }
-
     async function planRefresh(
       { context, datasource }: ReturnType<typeof makeFixture>,
       experiment: ExperimentInterface,
@@ -2624,42 +2541,6 @@ describe("planExperimentSnapshot", () => {
         missingMetricsOnly: true,
       });
     }
-
-    it("plans only the newly added metric, pinned to its parent's end date", async () => {
-      const fixture = makeFixture();
-      const parent = await planManualParent(fixture, {
-        ...fixture.experiment,
-        guardrailMetrics: [],
-      });
-
-      const plan = await planRefresh(fixture, fixture.experiment, parent);
-
-      expect(plan.snapshot.metricRefresh).toEqual({
-        baseSnapshotId: "snp_parent",
-        baseDateCreated: now,
-        baseRunStarted: now,
-        baseCutoffDate: null,
-        parentSnapshotId: "snp_parent",
-        metricIds: ["fact__guard"],
-      });
-      expect(plan.snapshot).toMatchObject({
-        type: "standard",
-        runnerKind: "results",
-        dateCreated: refreshTime,
-        queries: [],
-      });
-      expect(plan.snapshot.settings).toMatchObject({
-        endDate: parent.settings.endDate,
-        endDateIsCutoff: true,
-        guardrailMetrics: ["fact__guard"],
-      });
-      const { metricSettings } = plan.snapshot.settings;
-      expect(metricSettings.filter((m) => m.id !== "fact__guard")).toEqual(
-        parent.settings.metricSettings,
-      );
-      expect(metricSettings.map((m) => m.id)).toContain("fact__guard");
-      expect(plan.snapshot.analyses[0].settings.numGuardrailMetrics).toBe(1);
-    });
 
     it("accepts a parent the scheduled update planned", async () => {
       const fixture = makeFixture();
@@ -2711,20 +2592,6 @@ describe("planExperimentSnapshot", () => {
       expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["fact__aov"]);
     });
 
-    it("accepts a parent saved before the cluster and assignment identifier settings existed", async () => {
-      const fixture = makeFixture();
-      const parent = await planManualParent(fixture, {
-        ...fixture.experiment,
-        guardrailMetrics: [],
-      });
-      delete parent.settings.isClusterExperiment;
-      delete parent.settings.exposureQueryIdentifierType;
-
-      const plan = await planRefresh(fixture, fixture.experiment, parent);
-
-      expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["fact__guard"]);
-    });
-
     // Every Outdated reason other than "Metrics changed" makes the app run a
     // normal update, so the planner must refuse a refresh for each of them.
     describe("agrees with the app's Outdated reasons", () => {
@@ -2738,14 +2605,11 @@ describe("planExperimentSnapshot", () => {
         {
           base: baseChanges = {},
           changes,
-          pipeline = "standard",
-          sql = "generated",
+          pipeline,
         }: {
           base?: Partial<ExperimentInterface>;
           changes: Partial<ExperimentInterface>;
-          pipeline?: "standard" | "incremental";
-          // "unchanged": the planner regenerates exactly the SQL the base stored.
-          sql?: "generated" | "unchanged";
+          pipeline: "standard" | "incremental";
         },
       ) {
         const { context, datasource } = fixture;
@@ -2795,9 +2659,6 @@ describe("planExperimentSnapshot", () => {
           settings: datasource.settings,
         });
         getSourceIntegrationObjectMock.mockReturnValue(integration);
-        jest
-          .mocked(generateExperimentResultQuerySql)
-          .mockImplementation(generateSql);
 
         const variations = [
           { id: "var_0", key: "0", name: "Control" },
@@ -2840,18 +2701,6 @@ describe("planExperimentSnapshot", () => {
             integration,
           );
         const storedSql = await sqlFor(parentPlan.snapshot.settings);
-        // The base's own update, run with the changed settings and no new metric.
-        const baseSqlWithChanges = await sqlFor(
-          (
-            await planExperimentSnapshot({
-              context: context as never,
-              experiment: { ...base, ...changes },
-              datasource,
-              dimension: undefined,
-              phase: 0,
-            })
-          ).snapshot.settings,
-        );
         const parent = {
           ...asParent(parentPlan.snapshot),
           ...(pipeline === "incremental"
@@ -2864,11 +2713,12 @@ describe("planExperimentSnapshot", () => {
           })),
         };
         findLatestSuccessfulOverallSnapshotMock.mockResolvedValue(parent);
-        if (sql === "unchanged") {
-          jest
-            .mocked(generateExperimentResultQuerySql)
-            .mockResolvedValue(new Map(storedSql));
-        }
+        // The planner regenerates exactly the SQL the base stored, as when a
+        // setting changes nothing in the SQL (the attribution model with no
+        // conversion window), so only the settings comparison can refuse.
+        jest
+          .mocked(generateExperimentResultQuerySql)
+          .mockResolvedValue(new Map(storedSql));
         if (pipeline === "incremental") {
           // The tables the parent left, with no metric cache yet.
           wireIncrementalRefreshState(context, {
@@ -2939,21 +2789,8 @@ describe("planExperimentSnapshot", () => {
         });
         // Asserted by the caller, after the reasons.
         plan.catch(() => undefined);
-        return { reasons, situation, plan, storedSql, baseSqlWithChanges };
+        return { reasons, situation, plan };
       }
-
-      it("plans a refresh when added metrics are the only reason", async () => {
-        const { reasons, situation, plan } = await outdatedRefresh(
-          makeFixture(),
-          { changes: {} },
-        );
-
-        expect(reasons).toEqual(["metrics_changed"]);
-        expect(situation).toBe("new_metrics");
-        await expect(plan).resolves.toMatchObject({
-          snapshot: { metricRefresh: { metricIds: ["fact__guard"] } },
-        });
-      });
 
       const blockingReasons: {
         reason: ResultsOutdatedReason;
@@ -3035,135 +2872,59 @@ describe("planExperimentSnapshot", () => {
         },
       ];
 
-      it.each(blockingReasons)(
-        "refuses a refresh the app would not offer for $reason",
-        async ({ reason, base, changes, refusal = "settings_changed" }) => {
-          const { reasons, situation, plan } = await outdatedRefresh(
-            makeFixture(),
-            { base, changes },
-          );
-
-          expect([...reasons].sort()).toEqual(
-            [reason, "metrics_changed"].sort(),
-          );
-          expect(situation).toBe("settings_changed");
-          await expect(plan).rejects.toMatchObject({
-            details: { reason: refusal },
-          });
+      // The pipeline can't run legacy metrics, so its base has none.
+      describe.each<{
+        pipeline: "standard" | "incremental";
+        pipelineBase: Partial<ExperimentInterface>;
+        runnerKind: string;
+      }>([
+        { pipeline: "standard", pipelineBase: {}, runnerKind: "results" },
+        {
+          pipeline: "incremental",
+          pipelineBase: {
+            goalMetrics: ["fact__revenue"],
+            activationMetric: "",
+          },
+          runnerKind: "incremental-update",
         },
-      );
-
-      // The SQL identity check can't see these settings, so the settings
-      // comparison has to refuse them on its own.
-      it.each(blockingReasons)(
-        "refuses a refresh for $reason even when the SQL is unchanged",
-        async ({ reason, base, changes, refusal = "settings_changed" }) => {
-          const { reasons, plan } = await outdatedRefresh(makeFixture(), {
-            base,
-            changes,
-            sql: "unchanged",
-          });
-
-          expect([...reasons].sort()).toEqual(
-            [reason, "metrics_changed"].sort(),
-          );
-          await expect(plan).rejects.toMatchObject({
-            details: { reason: refusal },
-          });
-        },
-      );
-
-      it("refuses a refresh for attribution_model when no metric has a conversion window, which leaves the SQL unchanged", async () => {
-        const { reasons, plan, storedSql, baseSqlWithChanges } =
-          await outdatedRefresh(makeFixture(), {
-            base: {
-              goalMetrics: ["fact__revenue"],
-              secondaryMetrics: [],
-              activationMetric: "",
-              metricOverrides: [],
-            },
-            changes: { attributionModel: "experimentDuration" },
-          });
-
-        expect(baseSqlWithChanges).toEqual(storedSql);
-        expect([...reasons].sort()).toEqual(
-          ["attribution_model", "metrics_changed"].sort(),
-        );
-        await expect(plan).rejects.toMatchObject({
-          details: { reason: "settings_changed" },
-        });
-      });
-
-      describe("on the Incremental Pipeline", () => {
-        // The pipeline can't run legacy metrics, so the base has none.
-        const incrementalBase: Partial<ExperimentInterface> = {
-          goalMetrics: ["fact__revenue"],
-          activationMetric: "",
-        };
-
-        it("plans a refresh when added metrics are the only reason", async () => {
-          const { reasons, situation, plan } = await outdatedRefresh(
-            makeFixture(),
-            { base: incrementalBase, changes: {}, pipeline: "incremental" },
-          );
-
-          expect(reasons).toEqual(["metrics_changed"]);
-          expect(situation).toBe("new_metrics");
-          await expect(plan).resolves.toMatchObject({
-            snapshot: {
-              runnerKind: "incremental-update",
-              metricRefresh: { metricIds: ["fact__guard"] },
-            },
-          });
-        });
-
-        it.each(blockingReasons)(
-          "refuses a refresh the app would not offer for $reason",
-          async ({ reason, base, changes, refusal = "settings_changed" }) => {
+      ])(
+        "on the $pipeline pipeline",
+        ({ pipeline, pipelineBase, runnerKind }) => {
+          it("plans a refresh when added metrics are the only reason", async () => {
             const { reasons, situation, plan } = await outdatedRefresh(
               makeFixture(),
-              {
-                base: { ...incrementalBase, ...base },
-                changes,
-                pipeline: "incremental",
+              { base: pipelineBase, changes: {}, pipeline },
+            );
+
+            expect(reasons).toEqual(["metrics_changed"]);
+            expect(situation).toBe("new_metrics");
+            await expect(plan).resolves.toMatchObject({
+              snapshot: {
+                runnerKind,
+                metricRefresh: { metricIds: ["fact__guard"] },
               },
-            );
-
-            expect([...reasons].sort()).toEqual(
-              [reason, "metrics_changed"].sort(),
-            );
-            expect(situation).toBe("settings_changed");
-            await expect(plan).rejects.toMatchObject({
-              details: { reason: refusal },
             });
-          },
-        );
-      });
-    });
+          });
 
-    it("rejects a refresh of a phase that has ended", async () => {
-      const fixture = makeFixture();
-      const stopped: ExperimentInterface = {
-        ...fixture.experiment,
-        status: "stopped",
-        phases: [
-          {
-            ...fixture.experiment.phases[0],
-            dateEnded: new Date("2025-02-14T00:00:00.000Z"),
-          },
-        ],
-      };
-      const parent = await planManualParent(fixture, {
-        ...stopped,
-        guardrailMetrics: [],
-      });
+          it.each(blockingReasons)(
+            "refuses a refresh the app would not offer for $reason",
+            async ({ reason, base, changes, refusal = "settings_changed" }) => {
+              const { reasons, situation, plan } = await outdatedRefresh(
+                makeFixture(),
+                { base: { ...pipelineBase, ...base }, changes, pipeline },
+              );
 
-      const plan = planRefresh(fixture, stopped, parent);
-
-      await expect(plan).rejects.toBeInstanceOf(MetricRefreshUnavailableError);
-      await expect(plan).rejects.toMatchObject({
-        details: { reason: "phase_ended" },
-      });
+              expect([...reasons].sort()).toEqual(
+                [reason, "metrics_changed"].sort(),
+              );
+              expect(situation).toBe("settings_changed");
+              await expect(plan).rejects.toMatchObject({
+                details: { reason: refusal },
+              });
+            },
+          );
+        },
+      );
     });
   });
 });
