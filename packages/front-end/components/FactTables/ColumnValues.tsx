@@ -117,7 +117,8 @@ export function CountColumnHeaders({
 export function CountCells({ count, max }: { count?: number; max: number }) {
   return (
     <>
-      <TableCell justify="end">
+      {/* Tabular figures keep digits and separators aligned down the column */}
+      <TableCell justify="end" style={{ fontVariantNumeric: "tabular-nums" }}>
         {count !== undefined ? (
           // The exact number, so nothing is hidden behind a hover
           count.toLocaleString()
