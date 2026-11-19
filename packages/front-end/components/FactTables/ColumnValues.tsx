@@ -221,9 +221,11 @@ export function ColumnValuesPanel({
           {`Top ${rows.length} values${showCounts ? " by row count" : ""} over the last ${lookbackDays} days.`}
           {showCounts
             ? " Counts may be approximate on some Data Sources."
-            : onLoad
-              ? " Refresh to load row counts."
-              : ""}
+            : topValues.countsUnavailable
+              ? " This Data Source can only rank values, so row counts aren't shown."
+              : onLoad
+                ? " Refresh to load row counts."
+                : ""}
         </Text>
       ) : null}
     </Flex>

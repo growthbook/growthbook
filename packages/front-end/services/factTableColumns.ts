@@ -18,6 +18,9 @@ export function getColumnTopValues(
 ): {
   values: TopValuesSnapshot["values"];
   hasCounts: boolean;
+  // A refresh this session returned no counts, so the Data Source can only
+  // rank values. Stored lists can't tell: older columns also lack counts.
+  countsUnavailable: boolean;
   refreshedAt: Date | null;
 } {
   // Dates arrive from JSON as strings, so normalize before comparing
@@ -26,6 +29,7 @@ export function getColumnTopValues(
     return {
       values: fresh.values,
       hasCounts: hasAnyCount(fresh.values),
+      countsUnavailable: !hasAnyCount(fresh.values),
       refreshedAt: fresh.refreshedAt,
     };
   }
@@ -35,6 +39,7 @@ export function getColumnTopValues(
   return {
     values: counts ?? (column.topValues || []).map((value) => ({ value })),
     hasCounts: !!counts && hasAnyCount(counts),
+    countsUnavailable: false,
     refreshedAt: storedAt,
   };
 }

@@ -256,7 +256,12 @@ describe("getColumnTopValues", () => {
         { topValues: ["a", "b"], topValueCounts: counts },
         fresh,
       ),
-    ).toEqual({ values: fresh.values, hasCounts: true, refreshedAt: later });
+    ).toEqual({
+      values: fresh.values,
+      hasCounts: true,
+      countsUnavailable: false,
+      refreshedAt: later,
+    });
     // The same refresh, once stored, still reads as the session's counts
     expect(
       getColumnTopValues(
@@ -281,21 +286,30 @@ describe("getColumnTopValues", () => {
         },
         fresh,
       ),
-    ).toEqual({ values: counts, hasCounts: true, refreshedAt });
+    ).toEqual({
+      values: counts,
+      hasCounts: true,
+      countsUnavailable: false,
+      refreshedAt,
+    });
   });
 
   it("reports no counts when the warehouse only ranks values", () => {
     const ranked = [{ value: "a" }, { value: "b" }];
+    // A refresh without counts means the Data Source can't count
     expect(
       getColumnTopValues(
         { topValueCounts: ranked },
         { values: ranked, refreshedAt },
-      ).hasCounts,
-    ).toBe(false);
+      ),
+    ).toMatchObject({ hasCounts: false, countsUnavailable: true });
+    // A stored list without counts may predate counts, so a refresh may help
     expect(
-      getColumnTopValues({ topValueCounts: ranked, topValuesDate: refreshedAt })
-        .hasCounts,
-    ).toBe(false);
+      getColumnTopValues({
+        topValueCounts: ranked,
+        topValuesDate: refreshedAt,
+      }),
+    ).toMatchObject({ hasCounts: false, countsUnavailable: false });
   });
 
   it("uses stored counts, then the plain list", () => {
@@ -305,12 +319,18 @@ describe("getColumnTopValues", () => {
         topValueCounts: counts,
         topValuesDate: refreshedAt,
       }),
-    ).toEqual({ values: counts, hasCounts: true, refreshedAt });
+    ).toEqual({
+      values: counts,
+      hasCounts: true,
+      countsUnavailable: false,
+      refreshedAt,
+    });
     expect(
       getColumnTopValues({ topValues: ["a"], topValueCounts: [] }),
     ).toEqual({
       values: [{ value: "a" }],
       hasCounts: false,
+      countsUnavailable: false,
       refreshedAt: null,
     });
   });
