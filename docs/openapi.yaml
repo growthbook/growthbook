@@ -70287,6 +70287,7 @@ components:
           - feature
           - featureRevisionLog
           - urlRedirect
+          - experimentQaOverride
           - metric
           - metricAnalysis
           - metricGroup

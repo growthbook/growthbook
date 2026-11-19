@@ -2713,6 +2713,15 @@ const onExperimentUpdate = async ({
   };
 
   if (
+    (oldExperiment.status === "draft" && newExperiment.status !== "draft") ||
+    (!oldExperiment.archived && newExperiment.archived)
+  ) {
+    await context.models.experimentQaOverrides.deleteByExperimentForLifecycle(
+      newExperiment.id,
+    );
+  }
+
+  if (
     !bypassWebhooks &&
     hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
   ) {
@@ -2781,6 +2790,9 @@ const onExperimentDelete = async (
   experiment: ExperimentInterface,
 ) => {
   await logExperimentDeleted(context, experiment);
+  await context.models.experimentQaOverrides.deleteByExperimentForLifecycle(
+    experiment.id,
+  );
 
   const featureIds = [...(experiment.linkedFeatures || [])];
   let linkedFeatures: FeatureInterface[] = [];
