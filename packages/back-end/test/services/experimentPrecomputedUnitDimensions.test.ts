@@ -387,4 +387,30 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
       }),
     ).resolves.toBeUndefined();
   });
+
+  it("accepts an experiment the Incremental Pipeline covers, and only that one", async () => {
+    (findDimensionsByIds as jest.Mock).mockResolvedValue([
+      makeDimension({ id: "dim_country" }),
+    ]);
+    const validate = (experimentId?: string) =>
+      assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context,
+        datasource: makeDatasource({
+          allowWriting: true,
+          mode: "incremental",
+          writeDataset: "gb",
+          excludedExperimentIds: ["exp_excluded"],
+        }),
+        experimentId,
+        exposureQueryId: "exposure",
+        dimensionIds: ["dim_country"],
+      });
+
+    await expect(validate("exp_1")).resolves.toBeUndefined();
+    // A new experiment has no ID yet
+    await expect(validate()).resolves.toBeUndefined();
+    await expect(validate("exp_excluded")).rejects.toThrow(
+      "Precomputed unit dimensions require a datasource with ephemeral Pipeline Mode enabled",
+    );
+  });
 });

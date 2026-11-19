@@ -61,7 +61,8 @@ export function toApiContextualBanditLatestStatus(
   if (!summary) return null;
   return {
     id: summary.id,
-    status: summary.status,
+    // Contextual bandit runs are never queued; this only narrows the shared type
+    status: summary.status === "queued" ? "running" : summary.status,
     error: summary.error ?? "",
     queries: summary.queries,
     runStarted: summary.runStarted ? summary.runStarted.toISOString() : null,

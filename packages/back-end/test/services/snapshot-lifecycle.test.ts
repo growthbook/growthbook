@@ -15,7 +15,12 @@ import {
   PlannedExperimentSnapshot,
 } from "back-end/src/services/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
-import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  createExperimentSnapshotModel,
+  deleteQueuedSnapshots,
+  hasQueuedSnapshot,
+  startQueuedSnapshot,
+} from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
@@ -24,7 +29,10 @@ import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/Experime
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
+import {
+  ConcurrentIncrementalRefreshError,
+  QueuedSnapshotSupersededError,
+} from "back-end/src/util/errors";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   updateExperiment: jest.fn(),
@@ -32,6 +40,10 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   createExperimentSnapshotModel: jest.fn(),
+  deleteQueuedSnapshots: jest.fn(),
+  hasQueuedSnapshot: jest.fn(),
+  startQueuedSnapshot: jest.fn(),
+  updateSnapshot: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
@@ -94,6 +106,15 @@ const createExperimentSnapshotModelMock =
   createExperimentSnapshotModel as jest.MockedFunction<
     typeof createExperimentSnapshotModel
   >;
+const deleteQueuedSnapshotsMock = deleteQueuedSnapshots as jest.MockedFunction<
+  typeof deleteQueuedSnapshots
+>;
+const hasQueuedSnapshotMock = hasQueuedSnapshot as jest.MockedFunction<
+  typeof hasQueuedSnapshot
+>;
+const startQueuedSnapshotMock = startQueuedSnapshot as jest.MockedFunction<
+  typeof startQueuedSnapshot
+>;
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
 >;
@@ -138,6 +159,11 @@ function makeContext(): ApiReqContext {
         acquireLock: jest.fn().mockResolvedValue(true),
         acquireReaderLock: jest.fn().mockResolvedValue(true),
         releaseLock: jest.fn().mockResolvedValue(undefined),
+        getByExperimentIdAndPhase: jest.fn().mockResolvedValue(null),
+        getLegacyByExperimentIdWithoutPhase: jest.fn().mockResolvedValue(null),
+      },
+      dags: {
+        create: jest.fn().mockResolvedValue(undefined),
       },
     },
   } as unknown as ApiReqContext;
@@ -256,6 +282,7 @@ describe("snapshot lifecycle", () => {
     createExperimentSnapshotModelMock.mockImplementation(
       async ({ data }) => data as ExperimentSnapshotInterface,
     );
+    hasQueuedSnapshotMock.mockResolvedValue(false);
   });
 
   it("creates a standard snapshot, starts analysis, and refreshes dashboards", async () => {
@@ -579,6 +606,160 @@ describe("snapshot lifecycle", () => {
       expect(
         context.models.incrementalRefresh.releaseLock,
       ).toHaveBeenCalledWith(experiment.id, plan.snapshot.id);
+    });
+
+    describe("queued breakdowns", () => {
+      const args = (context: ApiReqContext) => ({
+        context,
+        experiment: makeExperiment({
+          precomputedUnitDimensionIds: ["dim_a", "dim_a", "dim_b"],
+        }),
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
+      const queuedPlan = (sourceSnapshotId: string) =>
+        makePlan({
+          runnerKind: "incremental-exploratory",
+          snapshot: {
+            type: "exploratory",
+            dimension: "dim_a",
+            status: "queued",
+            sourceSnapshotId,
+          },
+        });
+
+      it("queues one breakdown per dimension and a DAG to start them", async () => {
+        const context = makeContext();
+        const plan = makePlan({ runnerKind: "incremental-update" });
+
+        await createSnapshotFromPlan({ plan, ...args(context) });
+
+        const created = createExperimentSnapshotModelMock.mock.calls.map(
+          ([{ data }]) => data,
+        );
+        expect(created.map((s) => [s.dimension, s.status])).toEqual([
+          [null, "running"],
+          ["dim_a", "queued"],
+          ["dim_b", "queued"],
+        ]);
+        expect(created[1]).toMatchObject({
+          type: "exploratory",
+          triggeredBy: "conditional",
+          runnerKind: "incremental-exploratory",
+          sourceSnapshotId: plan.snapshot.id,
+          runStarted: null,
+        });
+        expect(context.models.dags.create).toHaveBeenCalledWith({
+          status: "active",
+          nodes: [
+            expect.objectContaining({
+              id: "main",
+              targetId: plan.snapshot.id,
+              dependsOn: [],
+              maxAttempts: 1,
+            }),
+            expect.objectContaining({
+              id: "dim_a",
+              targetId: created[1].id,
+              dependsOn: ["main"],
+              maxAttempts: 3,
+            }),
+            expect.objectContaining({ id: "dim_b", targetId: created[2].id }),
+          ],
+        });
+        // Only the Overall Results snapshot starts now
+        expect(incrementalQueryRunnerMock).toHaveBeenCalledTimes(1);
+        expect(exploratoryQueryRunnerMock).not.toHaveBeenCalled();
+      });
+
+      it("still runs the Overall Results update when queueing fails, leaving nothing queued", async () => {
+        const context = makeContext();
+        (context.models.dags.create as jest.Mock).mockRejectedValue(
+          new Error("Mongo unavailable"),
+        );
+        const plan = makePlan({ runnerKind: "incremental-update" });
+
+        await createSnapshotFromPlan({ plan, ...args(context) });
+
+        expect(deleteQueuedSnapshotsMock).toHaveBeenLastCalledWith(context, {
+          experiment: "exp_123",
+          phase: 0,
+        });
+        expect(incrementalQueryRunnerMock).toHaveBeenCalledTimes(1);
+      });
+
+      it("refuses a run of a breakdown that is already queued", async () => {
+        const context = makeContext();
+        hasQueuedSnapshotMock.mockResolvedValue(true);
+
+        await expect(
+          createSnapshotFromPlan({
+            plan: makePlan({
+              snapshot: { type: "exploratory", dimension: "dim_a" },
+            }),
+            ...args(context),
+          }),
+        ).rejects.toThrow(ConcurrentIncrementalRefreshError);
+
+        expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+      });
+
+      it("starts a queued breakdown in place when its source built the tables", async () => {
+        const context = makeContext();
+        (
+          context.models.incrementalRefresh
+            .getByExperimentIdAndPhase as jest.Mock
+        ).mockResolvedValue({ materializedBySnapshotId: "snp_main" });
+        const plan = queuedPlan("snp_main");
+        startQueuedSnapshotMock.mockResolvedValue({
+          ...plan.snapshot,
+          status: "running",
+        });
+        // Its own queued state must not block it
+        hasQueuedSnapshotMock.mockResolvedValue(true);
+
+        await createSnapshotFromPlan({
+          plan,
+          startQueued: true,
+          ...args(context),
+        });
+
+        expect(startQueuedSnapshotMock).toHaveBeenCalledWith(
+          context,
+          plan.snapshot.id,
+        );
+        expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+        expect(updateExperimentMock).not.toHaveBeenCalled();
+        expect(exploratoryQueryRunnerMock).toHaveBeenCalledWith(
+          context,
+          expect.objectContaining({ id: plan.snapshot.id, status: "running" }),
+          expect.any(Object),
+          false,
+        );
+      });
+
+      it("does not start a queued breakdown whose source did not build the tables", async () => {
+        const context = makeContext();
+        (
+          context.models.incrementalRefresh
+            .getByExperimentIdAndPhase as jest.Mock
+        ).mockResolvedValue({ materializedBySnapshotId: "snp_newer" });
+        const plan = queuedPlan("snp_main");
+
+        await expect(
+          createSnapshotFromPlan({
+            plan,
+            startQueued: true,
+            ...args(context),
+          }),
+        ).rejects.toThrow(QueuedSnapshotSupersededError);
+
+        expect(startQueuedSnapshotMock).not.toHaveBeenCalled();
+        expect(exploratoryQueryRunnerMock).not.toHaveBeenCalled();
+        expect(
+          context.models.incrementalRefresh.releaseLock,
+        ).toHaveBeenCalledWith("exp_123", plan.snapshot.id);
+      });
     });
 
     it("does not acquire lock for non-incremental plans", async () => {

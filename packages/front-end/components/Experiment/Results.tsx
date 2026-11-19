@@ -24,7 +24,10 @@ import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import {
+  SNAPSHOT_QUEUED_MESSAGE,
+  useSnapshot,
+} from "@/components/Experiment/SnapshotProvider";
 import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -126,6 +129,8 @@ const Results: FC<{
 
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
   const { status } = queryStatusData;
+  // A queued snapshot has no queries yet, which would read as "succeeded"
+  const isQueued = latest?.status === "queued";
 
   const queryStrings = latest?.queries?.map((q) => q.query) || [];
 
@@ -298,9 +303,16 @@ const Results: FC<{
         </Callout>
       ) : null}
 
+      {isQueued && hasMetrics && (
+        <Callout status="info" contentAlign="center" mx="3" my="3">
+          {SNAPSHOT_QUEUED_MESSAGE}
+        </Callout>
+      )}
+
       {(!hasData || !hasValidStatsEngine) &&
         status !== "failed" && // failed is handled above
         status !== "running" &&
+        !isQueued &&
         !snapshot?.unknownVariations?.length &&
         hasMetrics &&
         !dimensionNeedsOverallResultsFirst &&

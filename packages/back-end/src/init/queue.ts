@@ -29,6 +29,7 @@ import addExperimentStatusUpdateJob from "back-end/src/jobs/updateExperimentStat
 import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
 import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFactTables";
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
+import addDagJob from "back-end/src/jobs/runDags";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
 import addRecreateManagedWarehouseTablesJob from "back-end/src/jobs/recreateManagedWarehouseTables";
@@ -67,6 +68,7 @@ export async function queueInit() {
   addApiKeyExpirationJob(agenda);
   updateAggregatedFactTablesJob(agenda);
   addRampScheduleJob(agenda);
+  addDagJob(agenda);
   addScheduledPublishJob(agenda);
   addSlackAssistantJobs(agenda);
   await addSyncManagedWarehouseJsonErgonomicsJob(agenda);

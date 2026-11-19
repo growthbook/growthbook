@@ -1,4 +1,10 @@
-import React, { useState, ReactNode, useContext, useCallback } from "react";
+import React, {
+  useState,
+  ReactNode,
+  useContext,
+  useCallback,
+  useEffect,
+} from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SnapshotType,
@@ -73,6 +79,9 @@ const snapshotContext = React.createContext<{
   },
   mutate: () => Promise.resolve(),
 });
+
+export const SNAPSHOT_QUEUED_MESSAGE =
+  "Queued: runs when the Overall Results update finishes.";
 
 export function getSnapshotSummaryPath({
   experimentId,
@@ -209,6 +218,16 @@ export default function SnapshotProvider({
   );
 
   const statusLatest = statusData?.latest ?? undefined;
+  // The Update button polls while queries are running. A queued snapshot, or
+  // one that started but has not saved its queries yet, has none to poll on.
+  const awaitingQueries =
+    statusLatest?.status === "queued" ||
+    (statusLatest?.status === "running" && !statusLatest.queries.length);
+  useEffect(() => {
+    if (!awaitingQueries) return;
+    const timer = window.setInterval(() => void mutateStatus(), 10000);
+    return () => window.clearInterval(timer);
+  }, [awaitingQueries, mutateStatus]);
   const snapshotId = data?.snapshot?.id;
   const heavyCaughtUp = heavyReflectsStatus(statusLatest, snapshotId);
   useRefetchHeavyOnStatusSuccess(

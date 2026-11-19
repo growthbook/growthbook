@@ -326,6 +326,15 @@ export class ConcurrentIncrementalRefreshError extends Error {
   }
 }
 
+// A queued snapshot whose source is not the run that built the current tables,
+// so it belongs to a cycle that a later update replaced.
+export class QueuedSnapshotSupersededError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "QueuedSnapshotSupersededError";
+  }
+}
+
 // Another advance holds a ramp schedule's advance lock. Transient: callers
 // either retry briefly (user-initiated actions) or defer to the scheduler.
 export class RampAdvanceLockBusyError extends Error {

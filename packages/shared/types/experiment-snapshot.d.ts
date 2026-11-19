@@ -158,7 +158,9 @@ export type SnapshotTriggeredBy =
   | "schedule"
   | "manual"
   | "manual-dashboard"
-  | "update-dashboards";
+  | "update-dashboards"
+  // Queued by an Overall Results update and started by the DAG job
+  | "conditional";
 
 export interface ExperimentSnapshotAnalysis {
   // Stable per snapshot-analysis key used to identify the chunked row data
@@ -250,7 +252,8 @@ export interface ExperimentSnapshotInterface {
   // Where the source's incremental metric scan stopped
   sourceSnapshotEndDate?: Date;
   runStarted: Date | null;
-  status: "running" | "success" | "error";
+  // "queued": fully planned, waiting for the DAG job to start it
+  status: "queued" | "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;

@@ -464,7 +464,8 @@ const AnalysisForm: FC<{
     form.watch("secondaryMetrics").length > 0;
   const hasEligiblePrecomputedUnitDimensions =
     precomputedUnitDimensionOptions.length > 0 &&
-    datasourceHasWritableEphemeralPipelineEnabled;
+    (datasourceHasWritableEphemeralPipelineEnabled ||
+      isExperimentIncludedInIncrementalRefresh);
   const hasAdvancedSettings = !isBandit && !isHoldout;
   const showSegments =
     !!datasourceProperties?.experimentSegments && filteredSegments.length > 0;
@@ -1187,7 +1188,11 @@ const AnalysisForm: FC<{
                       {hasEligiblePrecomputedUnitDimensions && (
                         <SetupFieldRow
                           label="Unit dimensions"
-                          tooltip={`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
+                          tooltip={`${
+                            isExperimentIncludedInIncrementalRefresh
+                              ? "Computed after every update of the Overall Results."
+                              : "Always computed on every refresh, like precomputed dimensions."
+                          } Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
                         >
                           <MultiSelectField
                             value={selectedPrecomputedUnitDimensionIds}
