@@ -228,8 +228,8 @@ describe("getNewMetricRowStates", () => {
         newMetricsUpdate: refreshOf(["met_goal", "met_secondary"]),
       },
       expected: {
-        met_goal: { status: "running", newMetricsOnly: true },
-        met_secondary: { status: "running", newMetricsOnly: true },
+        met_goal: { status: "running" },
+        met_secondary: { status: "running" },
         met_guardrail: { status: "notComputed" },
       },
     },
@@ -237,9 +237,9 @@ describe("getNewMetricRowStates", () => {
       name: "a running full update shows every new metric as running",
       latest: { type: "standard" as const, status: "running" as const },
       expected: {
-        met_goal: { status: "running", newMetricsOnly: false },
-        met_secondary: { status: "running", newMetricsOnly: false },
-        met_guardrail: { status: "running", newMetricsOnly: false },
+        met_goal: { status: "running" },
+        met_secondary: { status: "running" },
+        met_guardrail: { status: "running" },
       },
     },
     {

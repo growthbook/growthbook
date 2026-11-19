@@ -38,7 +38,7 @@ import {
   resolveAnalysisIdentifierType,
   getSnapshotCutoffDate,
 } from "shared/util";
-import { datetime, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import {
   DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
   DEFAULT_STATS_ENGINE,
@@ -74,7 +74,6 @@ import {
   getUnitDisplayName,
   getUnjoinableMetricIds,
 } from "@/services/experiments";
-import NewMetricsBadge from "@/components/Experiment/NewMetricsBadge";
 import Metadata from "@/ui/Metadata";
 import Tooltip from "@/ui/Tooltip";
 import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
@@ -551,8 +550,7 @@ export default function AnalysisSettingsSummary({
     : [];
   const fullRefreshRequired =
     !viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
-  // The "New metrics" label needs results to sit next to, and the split
-  // button never shows without it.
+  // When this holds, the split Update button stands in for the Outdated badge.
   const offerNewMetricsUpdate =
     !!snapshot &&
     newMetricIds.length > 0 &&
@@ -575,9 +573,6 @@ export default function AnalysisSettingsSummary({
           ((snapshot.runnerKind ?? "results") !== "results") !== isIncremental,
       }),
     });
-  const newMetricNames = offerNewMetricsUpdate
-    ? newMetricIds.map((id) => getExperimentMetricById(id)?.name ?? id)
-    : [];
   const snapshotNewMetricsUpdate = snapshot
     ? getNewMetricsUpdate(snapshot)
     : null;
@@ -797,12 +792,8 @@ export default function AnalysisSettingsSummary({
               />
               {!hasData ||
               status === "running" ||
-              hideOutdatedBadge ? null : offerNewMetricsUpdate && snapshot ? (
-                <NewMetricsBadge
-                  metricNames={newMetricNames}
-                  resultsEndDate={datetime(snapshot.settings.endDate)}
-                />
-              ) : outdatedReasons.length > 0 ? (
+              hideOutdatedBadge ||
+              offerNewMetricsUpdate ? null : outdatedReasons.length > 0 ? (
                 <OutdatedBadge
                   label={`These results are outdated. Click "Update" to re-run the analysis.`}
                   reasons={outdatedReasons.map(getResultsOutdatedReasonLabel)}
