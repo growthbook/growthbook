@@ -411,6 +411,9 @@
   color: hsl(0, 0%, 80%);
   cursor: pointer;
   transition: color 0.15s ease;
+  // A text glyph like {@} stays on one line in a cell that wraps anywhere.
+  white-space: nowrap;
+  overflow-wrap: normal;
 
   &:hover {
     color: hsl(0, 0%, 60%);

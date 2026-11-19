@@ -450,6 +450,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     handleDiscard,
     handleReopen,
     mutateRevisions,
+    userOpenRevision,
   } = useConstantRevision(config?.id, mutate, config, "config");
 
   const liveRevision = useMemo(
@@ -1009,10 +1010,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   );
   const canArchiveNow =
     (canLandArchive || canEditNow) && (!selectedRevision || isDraft);
-  // Inline editing works in a live context too — saving auto-creates a draft
-  // (writeQuery falls back to ?forceCreateRevision=1). Kept in lockstep
-  // with canEditNow so history views and schedule-locked drafts expose none.
-  const canEditInline = canEditNow;
+  // Fields, mixins and rules edit only inside a draft, chosen first. History
+  // views and schedule-locked drafts expose none.
+  const canEditInline = canEditNow && isDraft;
   const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks(
     {
       project: config.project || "",
@@ -1034,9 +1034,8 @@ export default function ConfigDetailPage(): React.ReactElement {
   const ownValue = (): Record<string, unknown> =>
     parsePlainJSONObject(displayedConfig.value ?? "") ?? {};
 
-  // Write to the open draft when one is selected; otherwise (editing from the
-  // live view) auto-create a draft. The forceCreateRevision path is now the
-  // normal route for a live-context edit, not just a fallback.
+  // Inline edits write to the draft in view; a new draft is only a safe
+  // fallback, never a direct publish.
   const writeQuery = (): string =>
     selectedRevision && isDraft
       ? `?revisionId=${selectedRevision.id}`
@@ -1426,6 +1425,17 @@ export default function ConfigDetailPage(): React.ReactElement {
   const parentName = parentKey ? (parentNode?.name ?? parentKey) : null;
 
   const revisionNumbers = getRevisionNumberById(allRevisions);
+  // On live, where inline edits are off, point to a draft to edit in.
+  const myDraft =
+    userOpenRevision && !isRevisionEditLockedBySchedule(userOpenRevision)
+      ? userOpenRevision
+      : null;
+  const editInDraftNote =
+    canEditNow && !selectedRevision
+      ? myDraft
+        ? `Edit in your draft v${revisionNumbers.get(myDraft.id)}.`
+        : "Edit in a draft."
+      : null;
   const canPublishSelected = canPublishRevisionEntity(
     permissionsUtil,
     "config",
@@ -1853,6 +1863,19 @@ export default function ConfigDetailPage(): React.ReactElement {
               <>
                 <SectionFrame
                   title="Fields"
+                  description={
+                    editInDraftNote && myDraft ? (
+                      <>
+                        Edit in your draft{" "}
+                        <Link onClick={() => selectRevision(myDraft)}>
+                          v{revisionNumbers.get(myDraft.id)}
+                        </Link>
+                        .
+                      </>
+                    ) : (
+                      editInDraftNote
+                    )
+                  }
                   mb="4"
                   // Pinned under the page's tabs while the fields scroll by.
                   stickyTop={stickyTop}
@@ -2164,6 +2187,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   declaredKeys={resolved.effectiveSchema.map((f) => f.key)}
                   resolvedValue={invariantValue}
                   canEdit={canEditInline}
+                  blockedReason={editInDraftNote}
                   onChange={(next) =>
                     saveSchema(ownSchema().fields, undefined, undefined, next)
                   }

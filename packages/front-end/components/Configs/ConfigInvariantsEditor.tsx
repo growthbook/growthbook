@@ -24,6 +24,7 @@ import {
   ConditionRowLabel,
 } from "@/components/Features/TargetingConditionsCard";
 import Button from "@/ui/Button";
+import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
@@ -52,6 +53,8 @@ type Props = {
   // The resolved (inherited+own) value, for live pass/fail feedback.
   resolvedValue: Record<string, unknown>;
   canEdit: boolean;
+  // Editing is blocked for now: Add rule shows, disabled, with this reason.
+  blockedReason?: string | null;
   onChange: (next: ConfigInvariant[]) => Promise<void>;
 };
 
@@ -229,6 +232,7 @@ export default function ConfigInvariantsEditor({
   declaredKeys,
   resolvedValue,
   canEdit,
+  blockedReason = null,
   onChange,
 }: Props) {
   // null = closed, -1 = adding, >=0 = editing that row.
@@ -649,10 +653,16 @@ export default function ConfigInvariantsEditor({
         <Heading as="h3" size="md" mb="0">
           Validation rules
         </Heading>
-        {canEdit && (
-          <Button variant="ghost" onClick={() => open(-1)}>
-            + Add rule
-          </Button>
+        {(canEdit || blockedReason) && (
+          <Tooltip content={blockedReason} enabled={!!blockedReason}>
+            <Button
+              variant="ghost"
+              disabled={!!blockedReason}
+              onClick={() => open(-1)}
+            >
+              + Add rule
+            </Button>
+          </Tooltip>
         )}
       </Flex>
       <Box mb="3">

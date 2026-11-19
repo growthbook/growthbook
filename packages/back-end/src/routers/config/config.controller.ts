@@ -696,13 +696,15 @@ export const putConfigProperty = async (
     existing,
     req.query.revisionId,
   );
-  const value = setOwnValueProperty(current, req.body.property, req.body.value);
+  // Read before the body is swapped below: `delegated` is the same request.
+  const { property, value: propertyValue } = req.body;
+  const value = setOwnValueProperty(current, property, propertyValue);
   const delegated = req as unknown as PutConfigRequest;
   delegated.body = { value };
   return putConfig(delegated, res, {
-    property: req.body.property,
+    property,
     remove: false,
-    value: req.body.value,
+    value: propertyValue,
   });
 };
 
@@ -720,18 +722,16 @@ export const deleteConfigProperty = async (
     existing,
     req.query.revisionId,
   );
-  const { value, existed } = removeOwnValueProperty(current, req.body.property);
+  const { property } = req.body;
+  const { value, existed } = removeOwnValueProperty(current, property);
   if (!existed) {
     return context.throwNotFoundError(
-      `No property "${req.body.property}" set on this config`,
+      `No property "${property}" set on this config`,
     );
   }
   const delegated = req as unknown as PutConfigRequest;
   delegated.body = { value };
-  return putConfig(delegated, res, {
-    property: req.body.property,
-    remove: true,
-  });
+  return putConfig(delegated, res, { property, remove: true });
 };
 
 // All edits flow through the revision system (same approval model as constants):

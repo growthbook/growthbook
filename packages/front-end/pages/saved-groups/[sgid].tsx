@@ -463,17 +463,37 @@ export default function EditSavedGroupPage() {
     else next.add(value);
     setSelected(next);
   };
+  // A revision's proposed state, or live without one.
+  const stateOf = (revision: Revision | null | undefined) =>
+    revision
+      ? (applyTopLevelPatchOps(
+          (revision.target.snapshot as SavedGroupInterface) || savedGroup,
+          revision.target.proposedChanges,
+        ) as SavedGroupInterface)
+      : savedGroup;
+  // Edits save into the viewed draft, else your open draft, else a new one,
+  // and start from what that draft holds. The view stays put until they save.
+  const editTarget =
+    selectedRevision ??
+    (userOpenRevision && !isRevisionEditLockedBySchedule(userOpenRevision)
+      ? userOpenRevision
+      : null);
+  const itemsBase = (mode: DraftMode, draftId: string | null) =>
+    (mode === "existing"
+      ? stateOf(openRevisions.find((r) => r.id === draftId))
+      : savedGroup
+    ).values ?? [];
+  const replacedCount = itemsBase(
+    addItemsDraftMode,
+    addItemsDraftSelectedId,
+  ).length;
   const openItemsModal = (operation: "replace" | "append") => {
-    // When viewing live, work in the user's open draft.
-    if (!selectedRevision && userOpenRevision) {
-      selectFlow(userOpenRevision);
-    }
     setImportOperation(operation);
     // Draft first, like the other entities; publishing is one click away.
-    setAddItemsDraftMode(userOpenRevision ? "existing" : "new");
-    setAddItemsDraftSelectedId(userOpenRevision?.id ?? null);
+    setAddItemsDraftMode(editTarget ? "existing" : "new");
+    setAddItemsDraftSelectedId(editTarget?.id ?? null);
     setLiveListPin(savedGroup.values ?? []);
-    addConflict.clear({ values: displayedValues });
+    addConflict.clear({ values: stateOf(editTarget).values ?? [] });
     setAddItems(true);
   };
 
@@ -502,15 +522,7 @@ export default function EditSavedGroupPage() {
     (canDraft || remoteLocked) && !isMerged && !isDiscarded
       ? (focus?: "description") => {
           setFocusDescription(focus === "description");
-          setSavedGroupForm(
-            selectedRevision
-              ? applyTopLevelPatchOps(
-                  (selectedRevision.target.snapshot as SavedGroupInterface) ||
-                    savedGroup,
-                  selectedRevision.target.proposedChanges,
-                )
-              : savedGroup,
-          );
+          setSavedGroupForm(stateOf(selectedRevision));
         }
       : null;
 
@@ -751,7 +763,10 @@ export default function EditSavedGroupPage() {
           }
           submit={async () => {
             if (deleteConflict.hasConflict) return;
-            const newValues = displayedValues.filter((v) => !selected.has(v));
+            const newValues = itemsBase(
+              deleteItemsDraftMode,
+              deleteItemsDraftSelectedId,
+            ).filter((v) => !selected.has(v));
 
             const params = new URLSearchParams();
             if (deleteItemsDraftMode === "publish") {
@@ -877,7 +892,12 @@ export default function EditSavedGroupPage() {
           submit={async () => {
             const newValues =
               importOperation === "append"
-                ? [...new Set([...displayedValues, ...itemsToAdd])]
+                ? [
+                    ...new Set([
+                      ...itemsBase(addItemsDraftMode, addItemsDraftSelectedId),
+                      ...itemsToAdd,
+                    ]),
+                  ]
                 : [...new Set(itemsToAdd)];
 
             const params = new URLSearchParams();
@@ -943,10 +963,10 @@ export default function EditSavedGroupPage() {
               alert={addConflict.alert}
               alertActive={addConflict.alertActive}
             />
-            {importOperation === "replace" && displayedValues.length > 0 ? (
+            {importOperation === "replace" && replacedCount > 0 ? (
               <Text as="p" mb="3">
-                These replace all {displayedValues.length} current item
-                {displayedValues.length === 1 ? "" : "s"}.
+                These replace all {replacedCount} current item
+                {replacedCount === 1 ? "" : "s"}.
               </Text>
             ) : null}
             <IdListItemInput
@@ -1398,26 +1418,12 @@ export default function EditSavedGroupPage() {
                     useVersionDisabledReason={
                       remoteLocked ? REMOTE_LOCKED_REASON : editBlockedReason
                     }
-                    onUseVersion={(version) => {
-                      // Like editing the condition: work in the user's open draft.
-                      // The dialog starts from the revision it saves into, so its
-                      // conflict check compares against that, not live.
-                      const target =
-                        selectedRevision ?? userOpenRevision ?? null;
-                      if (!selectedRevision && userOpenRevision) {
-                        selectFlow(userOpenRevision);
-                      }
+                    onUseVersion={(version) =>
                       setUseUploadModal({
                         version,
-                        current: target
-                          ? applyTopLevelPatchOps(
-                              (target.target.snapshot as SavedGroupInterface) ||
-                                savedGroup,
-                              target.target.proposedChanges,
-                            )
-                          : savedGroup,
-                      });
-                    }}
+                        current: stateOf(editTarget),
+                      })
+                    }
                   />
                 ) : savedGroup.type === "condition" ? (
                   <SectionFrame
@@ -1431,21 +1437,9 @@ export default function EditSavedGroupPage() {
                           <Button
                             variant="ghost"
                             disabled={!!editLockReason}
-                            onClick={() => {
-                              if (!selectedRevision && userOpenRevision) {
-                                selectFlow(userOpenRevision);
-                              }
-                              setEditConditionModal(
-                                selectedRevision
-                                  ? applyTopLevelPatchOps(
-                                      (selectedRevision.target
-                                        .snapshot as SavedGroupInterface) ||
-                                        savedGroup,
-                                      selectedRevision.target.proposedChanges,
-                                    )
-                                  : savedGroup,
-                              );
-                            }}
+                            onClick={() =>
+                              setEditConditionModal(stateOf(editTarget))
+                            }
                           >
                             Edit
                           </Button>
@@ -1490,14 +1484,14 @@ export default function EditSavedGroupPage() {
                                 disabled={!!editLockReason}
                                 onClick={() => {
                                   setDeleteItemsDraftMode(
-                                    userOpenRevision ? "existing" : "new",
+                                    editTarget ? "existing" : "new",
                                   );
                                   setDeleteItemsDraftSelectedId(
-                                    userOpenRevision?.id ?? null,
+                                    editTarget?.id ?? null,
                                   );
                                   setLiveListPin(savedGroup.values ?? []);
                                   deleteConflict.clear({
-                                    values: displayedValues,
+                                    values: stateOf(editTarget).values ?? [],
                                   });
                                   setDeleteItemsModal(true);
                                 }}
