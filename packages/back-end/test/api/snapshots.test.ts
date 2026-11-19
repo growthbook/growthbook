@@ -1066,7 +1066,6 @@ describe("snapshots API", () => {
         type: "standard",
         settings: { ...base.settings, endDate: refreshEndDate },
         newMetricsUpdate: {
-          baseSnapshotId: "snp_base",
           baseDateCreated: refreshEndDate,
           baseRunStarted: null,
           baseCutoffDate: null,

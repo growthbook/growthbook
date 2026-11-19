@@ -88,7 +88,6 @@ const experimentSnapshotSchema = new mongoose.Schema({
   runnerKind: String,
   newMetricsUpdate: new mongoose.Schema(
     {
-      baseSnapshotId: String,
       baseDateCreated: Date,
       baseRunStarted: Date,
       baseCutoffDate: Date,

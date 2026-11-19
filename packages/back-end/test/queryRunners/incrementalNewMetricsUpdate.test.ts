@@ -727,7 +727,6 @@ describe("a new-metrics update run on the Incremental Pipeline", () => {
         runnerKind: "incremental-update",
         settings,
         newMetricsUpdate: {
-          baseSnapshotId: "snp_base",
           baseDateCreated: BASE_END,
           baseRunStarted: null,
           baseCutoffDate: BASE_END,

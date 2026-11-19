@@ -161,7 +161,6 @@ describe("getNewMetricRowStates", () => {
       }),
     );
   const refreshOf = (metricIds: string[]) => ({
-    baseSnapshotId: "snp_base",
     baseDateCreated: new Date("2026-11-16T09:00:00Z"),
     baseRunStarted: null,
     baseCutoffDate: null,

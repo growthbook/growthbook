@@ -335,7 +335,6 @@ describe("planNewMetricsUpdate", () => {
 
     expect(args.planSnapshotAt).toHaveBeenCalledWith(PARENT_END);
     expect(plan.snapshot.newMetricsUpdate).toEqual({
-      baseSnapshotId: "snp_parent",
       baseDateCreated: PARENT_CREATED,
       baseRunStarted: null,
       baseCutoffDate: PARENT_END,
@@ -358,7 +357,6 @@ describe("planNewMetricsUpdate", () => {
     makeParent({
       id,
       newMetricsUpdate: {
-        baseSnapshotId: "snp_base",
         baseDateCreated: PARENT_CREATED,
         baseRunStarted: null,
         baseCutoffDate: PARENT_END,
@@ -477,7 +475,7 @@ describe("planNewMetricsUpdate", () => {
       }),
       expected: {
         type: MetricsAlreadyUpToDateError,
-        details: { baseSnapshotId: "snp_parent" },
+        details: { latestSnapshotId: "snp_parent" },
       },
     },
     {
@@ -598,7 +596,7 @@ describe("planNewMetricsUpdate", () => {
       }),
       expected: {
         type: MetricsAlreadyUpToDateError,
-        details: { baseSnapshotId: "snp_parent" },
+        details: { latestSnapshotId: "snp_parent" },
       },
     },
   ])("rejects $name", async ({ setup, expected }) => {
@@ -984,7 +982,6 @@ describe("getNewMetricsUpdateLineage", () => {
     });
 
     expect(getNewMetricsUpdateLineage(refresh, ["met_d"])).toEqual({
-      baseSnapshotId: "snp_parent",
       baseDateCreated: PARENT_CREATED,
       baseRunStarted: PARENT_CREATED,
       baseCutoffDate: PARENT_END,

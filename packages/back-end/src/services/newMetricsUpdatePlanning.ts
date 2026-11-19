@@ -410,13 +410,11 @@ export function getNewMetricsUpdateLineage(
 ): SnapshotNewMetricsUpdate {
   const root = parent.newMetricsUpdate
     ? {
-        baseSnapshotId: parent.newMetricsUpdate.baseSnapshotId,
         baseDateCreated: parent.newMetricsUpdate.baseDateCreated,
         baseRunStarted: parent.newMetricsUpdate.baseRunStarted,
         baseCutoffDate: parent.newMetricsUpdate.baseCutoffDate,
       }
     : {
-        baseSnapshotId: parent.id,
         baseDateCreated: parent.dateCreated,
         baseRunStarted: parent.runStarted,
         baseCutoffDate: getSnapshotCutoffDate(parent.settings),

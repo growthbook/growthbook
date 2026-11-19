@@ -1354,7 +1354,6 @@ describe("ExperimentSnapshotModel", () => {
           ...overrides,
           status: "running",
           newMetricsUpdate: {
-            baseSnapshotId: parentSnapshotId,
             baseDateCreated: at(0),
             baseRunStarted: null,
             baseCutoffDate: at(0),

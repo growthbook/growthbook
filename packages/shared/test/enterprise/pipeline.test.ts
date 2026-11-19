@@ -298,7 +298,6 @@ describe("isNewerOverallResultsDataAvailable", () => {
       type: "standard" as const,
       dateCreated,
       newMetricsUpdate: {
-        baseSnapshotId: "root",
         baseDateCreated,
         baseRunStarted: null,
         baseCutoffDate: null,

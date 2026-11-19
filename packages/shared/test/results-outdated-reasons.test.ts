@@ -266,7 +266,6 @@ describe("getResultsOutdatedReasons", () => {
         snapshot: snapshot(laggedSettings, {
           dateCreated: new Date(now),
           newMetricsUpdate: {
-            baseSnapshotId: "snp_base",
             parentSnapshotId: "snp_base",
             metricIds: ["fact__a"],
             baseDateCreated: threeDaysAgo,

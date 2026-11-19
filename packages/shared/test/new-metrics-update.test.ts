@@ -114,7 +114,6 @@ describe("getSnapshotSideEffects", () => {
       dateCreated: new Date("2026-11-12T00:00:00Z"),
       settings: { metricSettings: [{ id: "met_a" }, { id: "met_c" }] },
       newMetricsUpdate: {
-        baseSnapshotId: "snp_base",
         baseDateCreated,
         baseRunStarted: null,
         baseCutoffDate: null,
@@ -141,7 +140,6 @@ describe("a report snapshot copied from a new-metrics update", () => {
     dateCreated: new Date("2026-11-12T00:00:00Z"),
     settings: { metricSettings: [{ id: "fact__a" }] },
     newMetricsUpdate: {
-      baseSnapshotId: "snp_base",
       baseDateCreated: new Date("2026-11-10T00:00:00Z"),
       baseRunStarted: null,
       baseCutoffDate: null,

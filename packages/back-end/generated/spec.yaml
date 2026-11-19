@@ -93464,10 +93464,11 @@ components:
     ApiErrorMetricsAlreadyUpToDateDetails:
       type: object
       properties:
-        baseSnapshotId:
+        latestSnapshotId:
           type: string
+          description: The snapshot of the latest Overall Results
       required:
-        - baseSnapshotId
+        - latestSnapshotId
       additionalProperties: false
     ApiErrorSnapshotInProgressDetails:
       type: object

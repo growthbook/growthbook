@@ -97,7 +97,9 @@ export const apiErrorRegistry = {
     description:
       "Every metric of the experiment that an update can compute already has results in the latest Overall Results",
     detailsSchema: z.object({
-      baseSnapshotId: z.string(),
+      latestSnapshotId: z
+        .string()
+        .describe("The snapshot of the latest Overall Results"),
     }),
   },
   snapshot_in_progress: {

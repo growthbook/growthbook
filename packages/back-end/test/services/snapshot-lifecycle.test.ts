@@ -626,7 +626,6 @@ describe("snapshot lifecycle", () => {
               endDateIsCutoff: true,
             } as ExperimentSnapshotSettings,
             newMetricsUpdate: {
-              baseSnapshotId: "snp_base",
               baseDateCreated: cutoff,
               baseRunStarted: null,
               baseCutoffDate: cutoff,

@@ -348,11 +348,11 @@ export class DimensionAlreadyUpToDateError extends ApiError<"dimension_already_u
 }
 
 export class MetricsAlreadyUpToDateError extends ApiError<"metrics_already_up_to_date"> {
-  constructor(baseSnapshotId: string) {
+  constructor(latestSnapshotId: string) {
     super(
       "metrics_already_up_to_date",
       "Every metric of this experiment that an update can compute already has results in the latest update.",
-      { baseSnapshotId },
+      { latestSnapshotId },
     );
     this.name = "MetricsAlreadyUpToDateError";
   }

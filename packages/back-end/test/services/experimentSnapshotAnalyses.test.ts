@@ -374,7 +374,6 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
       runStarted: ranAt,
       settings: { ...refresh.settings, endDate: dataEnd },
       newMetricsUpdate: {
-        baseSnapshotId: "snp_base",
         baseDateCreated: baseRanAt,
         baseRunStarted,
         baseCutoffDate: dataEnd,
