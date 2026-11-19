@@ -1858,6 +1858,65 @@ describe("computeExplorationComparisonPayload", () => {
     expect(out.tableTrendsByRow[1]["__metric_0____trend"]).toBeNull();
   });
 
+  it("lines up table trends with the table's rows for days without Population members", () => {
+    const base = metricConfig("m1", { showAs: "total" });
+    const config: ExplorationConfig =
+      base.dataset.type === "metric"
+        ? {
+            ...base,
+            dataset: {
+              ...base.dataset,
+              population: { populationId: "pop_1", unit: "user_id" },
+            },
+          }
+        : base;
+    const row = (date: string, numerator: number) => ({
+      dimensions: [date],
+      values: [{ metricId: "m1", numerator, denominator: null }],
+      populationCount: 10,
+    });
+    // Jan 1 has no members, so it has no row.
+    const primary: ProductAnalyticsExploration = {
+      ...explorationOneRow(0, null, "2024-01-01", config),
+      result: {
+        rows: [
+          row("2024-01-02", 110),
+          row("2024-01-03", 120),
+          row("2024-01-04", 130),
+        ],
+      },
+    };
+    const comparison: ProductAnalyticsExploration = {
+      ...explorationOneRow(0, null, "2023-01-01", config),
+      result: {
+        rows: [
+          row("2023-01-02", 100),
+          row("2023-01-03", 100),
+          row("2023-01-04", 100),
+        ],
+      },
+    };
+
+    const out = computeExplorationComparisonPayload(
+      primary,
+      comparison,
+      config,
+      prevFrame,
+      getFactMetricById,
+    );
+
+    // One trend per table row, Jan 1 to Jan 7.
+    expect(out.tableTrendsByRow.map((t) => t["__metric_0____trend"])).toEqual([
+      null,
+      10,
+      20,
+      30,
+      null,
+      null,
+      null,
+    ]);
+  });
+
   it("returns empty table trends when ratio metric", () => {
     const getRatioMetricById = (id: string) =>
       id === "m1" ? ratioMetric : null;

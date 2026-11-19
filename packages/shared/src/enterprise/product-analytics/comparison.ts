@@ -1044,11 +1044,10 @@ export function computeExplorationComparisonPayload(
 
   const isTimeseries =
     submittedConfig.dimensions?.[0]?.dimensionType === "date";
-  const sortedRows = sortExplorationRows(
-    primary.result.rows,
-    isTimeseries,
-    renderOpts,
-  );
+  // Includes days without Population members, as the table does, so each
+  // trend lines up with the table row at the same index.
+  const primaryRows = densifyPopulationTimeseriesRows(primary, submittedConfig);
+  const sortedRows = sortExplorationRows(primaryRows, isTimeseries, renderOpts);
   const cmpSorted = sortExplorationRows(
     exploration.result.rows,
     isTimeseries,
@@ -1060,9 +1059,7 @@ export function computeExplorationComparisonPayload(
     cmpSorted,
     isTimeseries,
     alignment,
-    densifyPopulationTimeseriesRows(primary, submittedConfig).map((r) =>
-      String(r.dimensions[0] ?? ""),
-    ),
+    primaryRows.map((r) => String(r.dimensions[0] ?? "")),
   );
 
   const tableTrendsByRow = sortedRows.map((row) => {
