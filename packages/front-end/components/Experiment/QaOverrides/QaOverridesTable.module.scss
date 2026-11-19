@@ -1,5 +1,3 @@
-// Sized to the design: a flush table under the card's header, 12px muted
-// column headers, 13px rows. The outer border is the card's.
 .table {
   border-top: 1px solid var(--gray-a5);
   font-size: 13px;
@@ -35,19 +33,15 @@
     }
   }
 
-  // Rows are separated by a light line; the stronger one is under the column
-  // headers only, as in the design.
   :global(.rt-TableBody .rt-TableRow) > * {
     box-shadow: inset 0 -1px var(--gray-a3);
   }
 
-  // The card's border closes the table.
   :global(.rt-TableBody .rt-TableRow:last-child) > * {
     box-shadow: none;
   }
 }
 
-// The row menu shows on hover and keyboard focus, and stays while it is open.
 .actions {
   opacity: 0;
   transition: opacity 0.1s ease-in;

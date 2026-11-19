@@ -665,8 +665,6 @@ export function generateAutoExperimentsPayload({
     ...newVisualExperiments,
   ];
 
-  // The condition a QA override's copy of `e` runs under: the experiment's own
-  // targeting for random assignment, the override's filters either way.
   const qaAutoExperimentCondition = (
     e: ExperimentInterface,
     qaOverride: ExperimentQaOverrideInterface,
@@ -686,7 +684,6 @@ export function generateAutoExperimentsPayload({
   const buildAutoExperiment = (
     data: VisualExperiment | URLRedirectExperiment,
     qaOverride: ExperimentQaOverrideInterface | undefined,
-    // Requests already claimed by an earlier override; see the flatMap below.
     excludeCondition?: ConditionInterface,
   ): AutoExperimentWithMetadata | null => {
     const { experiment: e } = data;
@@ -849,14 +846,9 @@ export function generateAutoExperimentsPayload({
     });
   };
 
-  // A draft with QA overrides becomes one auto experiment per override. The
-  // SDK evaluates every visual experiment, so to keep "first match wins" each
-  // copy also excludes the requests earlier overrides cover. Only a copy that
-  // serves everyone its condition matches can block the ones after it: a
-  // random copy with partial coverage or a namespace leaves some of those
-  // users unserved, and a Feature Flag rule would fall through to the next
-  // override for them. Those copies can therefore overlap with later ones,
-  // as the SDK's own visual experiments do.
+  // A draft with QA overrides becomes one auto experiment per override. To
+  // keep "first match wins", each copy excludes requests that an earlier copy
+  // fully serves (forced, or random at full coverage with no namespace).
   const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
     sortedAutoExperiments.flatMap((data) => {
       const { experiment: e } = data;
@@ -1742,8 +1734,6 @@ export async function refreshSDKPayloadCache({
   // Holdouts, contextual bandits and interleavings carry targeting the
   // features and experiments do not.
   const orgEnvironments = getEnvironments(context.org);
-  // QA overrides only serve non-production environments; skip the lookup
-  // entirely when there are none.
   const allQaOverrides = orgEnvironments.some(
     (e) => !isProductionEnvironment(e),
   )
@@ -1856,8 +1846,6 @@ export async function refreshSDKPayloadCache({
               connection.includeExperimentScheduleInMetadata,
             qaOverrides: qaOverridesForConnection({
               overrides: rawData.qaOverridesByEnvironment?.get(env),
-              // The projects the connection actually serves in this
-              // environment, the same scope the cold build uses.
               connection: {
                 id: connection.id,
                 environment: env,

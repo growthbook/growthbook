@@ -7,23 +7,11 @@ import { SavedGroupTargeting } from "shared/validators";
 import { qaOverrideHasCondition, sortQaOverrides } from "shared/util";
 import { jsonToConds } from "@/services/features";
 
-// Pure helpers behind the QA overrides UI: grouping rows by environment,
-// summarizing filters into words, and the add/edit form's shape. Kept free
-// of React so they can be unit-tested directly.
-
-// ---------------------------------------------------------------------------
-// Grouping
-
 export type QaOverrideGroup<T> = {
   environment: string;
-  // `priority` restarts at 1 inside each environment: first match wins there.
   rows: { item: T; priority: number }[];
 };
 
-/**
- * Overrides grouped by environment, in the org's environment order, each
- * group sorted by `order`. Environments the org no longer lists go last.
- */
 export function groupQaOverrides<
   T extends Pick<
     ExperimentQaOverrideInterface,
@@ -47,15 +35,11 @@ export function groupQaOverrides<
   }));
 }
 
-/** The grouped layout (environment header rows) is for when order matters. */
 export function qaOverridesNeedGrouping<T>(
   groups: QaOverrideGroup<T>[],
 ): boolean {
   return groups.some((g) => g.rows.length > 1);
 }
-
-// ---------------------------------------------------------------------------
-// Filters
 
 export type QaOverrideFilterKind = keyof QaOverrideFilters;
 
@@ -73,19 +57,12 @@ export type QaOverrideNameLookups = {
   operatorText: (operator: string) => string;
 };
 
-// ---------------------------------------------------------------------------
-// "Who sees it" summary
-
-// One piece of the summary per filter type that has something in it, e.g.
-// `id = 123`, `QA team, Beta testers`, `Local dev (React)`.
 export type QaOverrideAudienceSegment = {
   kind: QaOverrideFilterKind;
   text: string;
-  // An attribute condition too involved to put into words.
   custom?: boolean;
 };
 
-// Lists longer than this show the first few and a count.
 export const QA_OVERRIDE_SUMMARY_MAX_VALUES = 3;
 
 function listValues(names: string[]): string {
@@ -102,11 +79,6 @@ const NO_VALUE_OPERATORS = new Set([
 ]);
 const SAVED_GROUP_OPERATORS = new Set(["$inGroup", "$notInGroup"]);
 
-/**
- * An attribute condition in words: `id = 123 and country = US`, with OR
- * groups joined by "or". `null` when it can't be said simply (advanced JSON,
- * or saved groups referenced from inside the condition).
- */
 function conditionText(
   condition: string,
   lookups: QaOverrideNameLookups,
@@ -153,12 +125,6 @@ function savedGroupsText(
     .join(", ");
 }
 
-/**
- * The filled-in filters as short phrases, one per filter type. Values only,
- * no type labels; comma-separated within a type. `order` is the order the
- * filter cards appear in (defaults to attribute, groups, connections,
- * projects). Types with nothing in them are left out.
- */
 export function summarizeQaOverrideAudience(
   filters: QaOverrideFilters,
   lookups: QaOverrideNameLookups,
@@ -211,11 +177,6 @@ export function summarizeQaOverrideAudience(
   return segments;
 }
 
-/**
- * The summary as one plain sentence, as shown under "Who sees it":
- * "Anyone matching id = 123 AND Local dev (React)." In Test mode
- * (`usesExperimentTargeting`) the experiment's own targeting always leads.
- */
 export function qaOverrideAudienceSentence({
   segments,
   environment,
@@ -237,19 +198,13 @@ export function qaOverrideAudienceSentence({
   return `Anyone matching ${values.join(" AND ")}.`;
 }
 
-// ---------------------------------------------------------------------------
-// Add / edit form
-
 export type QaOverrideFormValues = {
   environment: string;
-  // Filter cards the user has added, in the order they were added. A card can
-  // exist while still empty; that blocks saving rather than being dropped.
   filters: QaOverrideFilterKind[];
   condition: string;
   savedGroups: SavedGroupTargeting[];
   sdkConnections: string[];
   projects: string[];
-  // Nothing is picked until the user chooses; the CTA waits for it.
   assignmentType: ExperimentQaOverrideAssignment["type"] | "";
   forcedVariationId: string;
 };
@@ -288,7 +243,6 @@ export function qaOverrideFormDefaults(
   };
 }
 
-// Operators that take no value, so an empty value box is fine.
 const VALUELESS_OPERATORS = new Set([
   "$exists",
   "$notExists",
@@ -298,7 +252,6 @@ const VALUELESS_OPERATORS = new Set([
   "$false",
 ]);
 
-/** Whether the filter card of this kind has something usable in it. */
 export function qaOverrideFilterIsComplete(
   values: QaOverrideFormValues,
   kind: QaOverrideFilterKind,
@@ -308,7 +261,6 @@ export function qaOverrideFilterIsComplete(
       if (!values.condition || values.condition === "{}") return false;
       const conds = jsonToConds(values.condition);
       if (conds === null) {
-        // Advanced JSON: anything that parses counts.
         try {
           JSON.parse(values.condition);
           return true;
@@ -341,10 +293,6 @@ export function qaOverrideFilterIsComplete(
   }
 }
 
-/**
- * The form's filters that have something usable in them, for the live
- * summary: a card that was added but not filled in doesn't count yet.
- */
 export function completeQaOverrideFilters(
   values: QaOverrideFormValues,
 ): QaOverrideFilters {
@@ -377,7 +325,6 @@ export type QaOverrideBody = {
   assignment: ExperimentQaOverrideAssignment;
 };
 
-/** The request body for a complete form. Cards the user removed are omitted. */
 export function buildQaOverrideBody(
   values: QaOverrideFormValues,
 ): QaOverrideBody {
@@ -416,7 +363,6 @@ function normalizeBody(body: QaOverrideBody) {
   };
 }
 
-/** Same effect on the payload, ignoring list order and empty leftovers. */
 export function qaOverrideBodyEquals(
   a: QaOverrideBody,
   b: QaOverrideBody,

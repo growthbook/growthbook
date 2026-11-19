@@ -87,7 +87,6 @@ export function getQaOverrideWaitingFeatures(
         {
           featureId: f.feature.id,
           reason: f.state,
-          // Lets the UI link straight to the draft that needs publishing.
           ...(f.state === "draft" && f.draftRevisionVersion !== undefined
             ? { draftVersion: f.draftRevisionVersion }
             : {}),
@@ -104,10 +103,8 @@ export function getQaOverrideWaitingFeatures(
 
 export type QaOverrideWaitingReason = QaOverrideWaitingFeature["reason"];
 
-// Why an override isn't applying yet, as the "Not applied" popover shows it:
-// the problem as a title, one line of detail, and the one action that fixes
-// it. `note` is the same thing as a single sentence, for the add/edit modal.
-// Flag names are wrapped in backticks so the UI can show them as code.
+// Why an override isn't applying yet. Flag names are wrapped in backticks so
+// the UI can show them as code.
 export type QaOverrideWaitingMessage = {
   featureId: string;
   reason: QaOverrideWaitingReason;
@@ -115,7 +112,6 @@ export type QaOverrideWaitingMessage = {
   description: string;
   action: string;
   note: string;
-  // Set when the fix is on a specific draft of the Feature Flag.
   draftVersion?: number;
 };
 
@@ -175,7 +171,6 @@ export function getQaOverrideWaitingMessage(
   }
 }
 
-/** One message per Feature Flag that isn't serving the override yet. */
 export function getQaOverrideWaitingMessages(
   waitingOn: QaOverrideWaitingFeature[],
   environment: string,

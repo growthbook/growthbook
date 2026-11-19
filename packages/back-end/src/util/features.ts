@@ -1232,8 +1232,6 @@ export function getFeatureDefinition({
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
   includeDraftExperimentRefs?: boolean;
-  // Draft experiments served to this connection through QA overrides, by
-  // experiment id, in priority order.
   qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>;
   namespaces?: Map<
     string,
@@ -1373,12 +1371,8 @@ export function getFeatureDefinition({
     }
   }
 
-  // QA overrides ignore holdouts: the holdout's force rule sits above the
-  // experiment rule, so a tester in holdout control would never reach the
-  // override. Dropping it only happens on non-production connections while
-  // the experiment is a draft.
-  // Conditions of the QA rules this feature will emit (see the experiment-ref
-  // branch below), computed up front so the holdout can exclude them.
+  // Conditions of the QA rules this feature will emit, so the holdout can
+  // exclude them.
   const qaRuleConditions: (ConditionInterface | undefined)[] = qaOverrides?.size
     ? (rules ?? []).flatMap((r) => {
         if (r.type !== "experiment-ref") return [];

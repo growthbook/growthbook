@@ -75,7 +75,6 @@ describe("groupQaOverrides", () => {
   });
 });
 
-// Every row of the design's "Who sees it · summary sentence" scenarios.
 describe("the who-sees-it summary", () => {
   const sentence = (
     filters: Parameters<typeof summarizeQaOverrideAudience>[0],

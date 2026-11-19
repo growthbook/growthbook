@@ -5,11 +5,6 @@ import Badge from "@/ui/Badge";
 import { Popover } from "@/ui/Popover";
 import { QaOverrideWaitingPopoverContent } from "./QaOverrideWaitingMessages";
 
-/**
- * Active, or Not applied with a hover popover that says what's in the way on
- * the Feature Flag and links to where to fix it. A popover rather than a
- * tooltip so the link can be clicked.
- */
 export default function QaOverrideStatusBadge({
   override,
 }: {

@@ -43,17 +43,13 @@ export type QaOverrideRow = {
 
 export type QaOverridesTableProps = {
   groups: QaOverrideGroup<QaOverrideRow>[];
-  /** Environment header rows with priority numbers, for when order matters. */
   grouped?: boolean;
-  /** Drag handles inside each environment group. Needs `grouped`. */
   reorderable?: boolean;
   lookups: QaOverrideNameLookups;
   canEdit: (row: QaOverrideRow) => boolean;
   onEdit: (row: QaOverrideRow) => void;
-  /** Throws to keep the confirmation open with the error shown inline. */
   onRemove: (row: QaOverrideRow) => Promise<void>;
   removeConfirmation: (row: QaOverrideRow) => string;
-  /** The group's overrides in their new order. Rejections are the caller's. */
   onReorder?: (environment: string, orderedIds: string[]) => Promise<void>;
 };
 
@@ -224,7 +220,6 @@ function Group({
     }),
   );
   const ids = group.rows.map((r) => r.item.override.id);
-  // Dragging reorders the whole group, so it needs edit access to all of it.
   const canDrag =
     reorderable &&
     ids.length > 1 &&

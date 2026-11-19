@@ -35,10 +35,6 @@ export const QA_OVERRIDE_FILTER_META: Record<
   },
 };
 
-/**
- * State of the add/edit override form: the fields, which filter cards are
- * open, and whether it can be saved (complete, and changed when editing).
- */
 export default function useQaOverrideForm({
   existing,
   defaultEnvironment,
@@ -58,12 +54,9 @@ export default function useQaOverrideForm({
   const addFilter = (kind: QaOverrideFilterKind) => {
     if (values.filters.includes(kind)) return;
     form.setValue("filters", [...values.filters, kind]);
-    // A first row, ready to type into, instead of an empty card.
     if (kind === "condition" && values.condition === "{}") {
       form.setValue("condition", JSON.stringify({ [hashAttribute]: "" }));
     }
-    // Same for saved groups: open on the picker, not an "Add" link. An empty
-    // group keeps the form incomplete until one is chosen.
     if (kind === "savedGroups" && values.savedGroups.length === 0) {
       form.setValue("savedGroups", [{ match: "any", ids: [] }]);
     }

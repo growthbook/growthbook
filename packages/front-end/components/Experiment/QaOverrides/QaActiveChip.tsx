@@ -6,14 +6,8 @@ import Tooltip from "@/ui/Tooltip";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 import { qaOverridesCountLabel } from "./QaOverridesStartNote";
 
-// The id the chip scrolls to; set on the QA Overrides card.
 export const QA_OVERRIDES_SECTION_ID = "qa-overrides";
 
-/**
- * "QA active" next to a draft's status while it has QA overrides. The status
- * itself stays Draft. Hovering says how many and where; clicking goes to the
- * QA Overrides card.
- */
 export default function QaActiveChip({
   experiment,
   onClick,
@@ -24,7 +18,6 @@ export default function QaActiveChip({
   >;
   onClick: () => void;
 }) {
-  // Only drafts can have QA overrides.
   const isDraft = experiment.status === "draft" && !experiment.archived;
   const { data } = useExperimentQaOverrides(
     isDraft ? experiment.id : undefined,

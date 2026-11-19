@@ -66,7 +66,6 @@ const CARD_STYLE = {
   borderRadius: "var(--radius-3)",
 } as const;
 
-// Between cards under "Who sees it": every one of them has to match.
 function AndDivider() {
   const line = (
     <Box flexGrow="1" style={{ height: 1, background: "var(--gray-a4)" }} />
@@ -82,10 +81,6 @@ function AndDivider() {
 
 const percent = (n: number) => `${+(n * 100).toFixed(1)}%`;
 
-/**
- * Read-only: what "Test the experiment as configured" takes from the
- * experiment itself. Filters added below it only narrow this audience.
- */
 function ExperimentTargetingCard({
   experiment,
 }: {
@@ -107,7 +102,6 @@ function ExperimentTargetingCard({
         <Text weight="semibold">From the experiment</Text>
         <PiLockBold size={12} color="var(--color-text-mid)" />
       </Flex>
-      {/* The same label/value grid the start popover summarizes with. */}
       <SummaryGrid>
         <SummaryRow label="Targeting">
           {hasTargeting ? (
@@ -176,22 +170,16 @@ export default function QaOverrideModal({
   const { projects } = useDefinitions();
   const { data: connectionData } = useSDKConnections();
   const lookups = useQaOverrideNameLookups();
-  // Focus goes to a filter the user just added, not to ones an existing
-  // override already had when the modal opened.
   const [justAdded, setJustAdded] = useState<QaOverrideFilterKind | null>(null);
   const { environments, eligibleEnvironments, canEditIn } =
     useQaOverridePermissions(experiment);
 
   const variations = getLatestPhaseVariations(experiment);
-  // Production stays listed, disabled, so people learn why it's missing;
-  // environments the user can't run experiments in are left out since the
-  // server would refuse them anyway.
   const environmentOptions = useMemo(
     () =>
       environments
         .map((e) => ({ id: e.id, isProduction: isProductionEnvironment(e) }))
         .filter((e) => e.isProduction || canEditIn(e.id))
-        // Selectable ones first; otherwise the org's environment order.
         .sort((a, b) => Number(a.isProduction) - Number(b.isProduction)),
     [environments, canEditIn],
   );
@@ -229,8 +217,6 @@ export default function QaOverrideModal({
   const addFilterMenu = (
     <DropdownMenu
       trigger={
-        // Sized to the design, between the sm and md steps: 28px tall, 13px
-        // text, 12px icons.
         <Button
           variant="outline"
           size="sm"
@@ -253,7 +239,6 @@ export default function QaOverrideModal({
         return (
           <DropdownMenuItem
             key={kind}
-            // Two lines: menu items are one line tall unless told otherwise.
             className="multiline-item"
             onClick={() => {
               addFilter(kind);

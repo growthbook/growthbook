@@ -16,12 +16,6 @@ import { Popover } from "@/ui/Popover";
 
 type NamedConnection = { id: string; name: string };
 
-/**
- * Display names for ids in filters. `connections` lets a page that already
- * fetched the relevant SDK connections (the experiment endpoint returns the
- * ones the viewer may see) avoid a second request; anything missing falls
- * back to the org-wide list.
- */
 export function useQaOverrideNameLookups(
   connections?: NamedConnection[],
 ): QaOverrideNameLookups {
@@ -52,15 +46,6 @@ export function QaOverrideAnd() {
   return <span style={AND_STYLE}>AND</span>;
 }
 
-/**
- * Who an override applies to, in words. Values only, comma-separated within
- * a filter type and joined by a small AND between types.
- *
- * - `sentence` (the add/edit modal): "Anyone matching **id = 123** AND
- *   **Local dev (React)**." or "Everyone in **dev**."
- * - `inline` (the table): the same without the opener or the full stop, and
- *   "Experiment targeting" leading when the experiment's targeting applies.
- */
 export default function QaOverrideAudience({
   filters,
   lookups,
@@ -71,10 +56,8 @@ export default function QaOverrideAudience({
 }: {
   filters: QaOverrideFilters;
   lookups: QaOverrideNameLookups;
-  /** Order of the filter cards, so the sentence reads top to bottom. */
   order?: QaOverrideFilterKind[];
   environment?: string;
-  /** Test mode: filters narrow the experiment's own targeting. */
   usesExperimentTargeting?: boolean;
   variant: "sentence" | "inline";
 }) {

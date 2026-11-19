@@ -30,9 +30,7 @@
   }
 }
 
-// As wide as the variations table, so what sits below it (the QA Overrides
-// card) lines up with it. Children that shouldn't widen it opt out with
-// `contain: inline-size`.
+// As wide as the variations table, so the QA Overrides card lines up with it.
 .tableColumn {
   width: fit-content;
   max-width: 100%;

@@ -128,7 +128,6 @@ function StartContent({
     setBypassed(false);
   }
   const editsBlocked = useEditsBlockedReason();
-  // Only drafts can have QA overrides; starting deletes them.
   const { data: qaData } = useExperimentQaOverrides(
     experiment.status === "draft" ? experiment.id : undefined,
   );
@@ -273,7 +272,6 @@ function StartContent({
           </Callout>
         ) : null}
         <Flex justify="between" align="center" gap="3">
-          {/* Starting ends QA: the overrides go with the draft. */}
           <Text size="sm" color="text-mid">
             {qaOverrideCount > 0
               ? `Deletes ${qaOverridesCountLabel(qaOverrideCount)}`

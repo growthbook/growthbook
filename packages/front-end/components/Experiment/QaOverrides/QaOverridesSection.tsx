@@ -26,10 +26,8 @@ import { useQaOverrideNameLookups } from "./QaOverrideAudience";
 import { QA_OVERRIDES_SECTION_ID } from "./QaActiveChip";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 
-// Takes the width of the variations table above it instead of widening the
-// column to fit its own content (see `.tableColumn` in the funnel).
+// Takes the variations table's width instead of widening the column.
 const MATCH_TABLE_WIDTH = { contain: "inline-size" } as const;
-// Clears the pinned header when the "QA active" chip scrolls here.
 const SCROLL_TARGET = { scrollMarginTop: "100px" } as const;
 
 const ABOUT =
@@ -37,10 +35,6 @@ const ABOUT =
   "Testers skip holdout, targeting and traffic. When several overrides match, " +
   "the first one wins. Overrides are removed automatically when the experiment starts.";
 
-/**
- * The QA Overrides card at the bottom of a draft's Implementation panel.
- * Rendered through `TrafficAllocationFunnel`'s `qaOverrides` slot.
- */
 export default function QaOverridesSection({
   experiment,
   linkedFeatures,
@@ -81,8 +75,6 @@ export default function QaOverridesSection({
     await mutate();
   };
 
-  // Optimistic: the dragged row stays where it was dropped while the order
-  // saves; a failure refetches and reports.
   const reorder = async (environment: string, orderedIds: string[]) => {
     setActionError(null);
     const others = overrides.filter((o) => o.environment !== environment);
@@ -140,7 +132,6 @@ export default function QaOverridesSection({
                 <Button
                   variant="outline"
                   icon={<PiPlusBold size={12} />}
-                  // The design's empty-state button: md height, 13px text.
                   style={{ fontSize: 13, paddingInline: 14, gap: 6 }}
                   onClick={() => setModal({ mode: "create" })}
                 >
@@ -168,7 +159,6 @@ export default function QaOverridesSection({
   return (
     <>
       <Separator size="4" my="5" />
-      {/* The table runs to the card's edges, so the padding is on the header. */}
       <Frame
         id={QA_OVERRIDES_SECTION_ID}
         px="0"
@@ -199,7 +189,6 @@ export default function QaOverridesSection({
               variant="outline"
               size="sm"
               icon={<PiPlusBold size={12} />}
-              // Sized to the design, between the sm and md steps.
               style={{ height: 30, fontSize: 13, paddingInline: 12, gap: 6 }}
               onClick={() => setModal({ mode: "create" })}
             >

@@ -10,7 +10,6 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 
-// The shared copy wraps flag names in backticks.
 function InlineCode({ text }: { text: string }) {
   return (
     <>
@@ -27,8 +26,6 @@ function InlineCode({ text }: { text: string }) {
   );
 }
 
-// Where the fix happens: the draft that needs publishing when there is one,
-// otherwise the Feature Flag's page.
 function fixHref(message: QaOverrideWaitingMessage): string {
   const base = `/features/${message.featureId}`;
   return message.draftVersion !== undefined
@@ -36,10 +33,6 @@ function fixHref(message: QaOverrideWaitingMessage): string {
     : base;
 }
 
-/**
- * The add/edit modal's note: one sentence per Feature Flag that isn't serving
- * the override yet, with a link to the flag. It doesn't block saving.
- */
 export function QaOverrideWaitingNote({
   waitingOn,
   environment,
@@ -61,11 +54,6 @@ export function QaOverrideWaitingNote({
   );
 }
 
-/**
- * The "Not applied" popover: for each Feature Flag in the way, a status
- * header naming the problem, a line of detail, and the one action that fixes
- * it.
- */
 export function QaOverrideWaitingPopoverContent({
   waitingOn,
   environment,
