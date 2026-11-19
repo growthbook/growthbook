@@ -1915,6 +1915,10 @@ describe("computeExplorationComparisonPayload", () => {
       null,
       null,
     ]);
+    // Previous-period gaps are created here, so they carry the same count.
+    expect(out.exploration?.result.rows.map((r) => r.populationCount)).toEqual([
+      0, 10, 10, 10, 0, 0, 0,
+    ]);
   });
 
   it("returns empty table trends when ratio metric", () => {

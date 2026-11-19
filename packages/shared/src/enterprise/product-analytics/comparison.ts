@@ -791,6 +791,12 @@ export function densifyComparisonExplorationTimeseries(params: {
   // the union type on ProductAnalyticsResultRow["values"] (funnel rows omit it).
   const zeroValues = buildZeroValueRow(metricIds)!;
   const comparisonRows = comparison.result?.rows ?? [];
+  // A bucket the query omitted had no Population members.
+  const emptyBucket = (dimensions: string[]): ProductAnalyticsResultRow => ({
+    dimensions,
+    values: zeroValues.map((v) => ({ ...v })),
+    ...(configHasPopulation(submittedConfig) ? { populationCount: 0 } : {}),
+  });
 
   if (!isGrouped) {
     const byMergeKey = new Map<string, ProductAnalyticsResultRow>();
@@ -813,10 +819,7 @@ export function densifyComparisonExplorationTimeseries(params: {
         if (existing) {
           return existing;
         }
-        return {
-          dimensions: [bucketIso],
-          values: zeroValues.map((v) => ({ ...v })),
-        };
+        return emptyBucket([bucketIso]);
       },
     );
 
@@ -866,10 +869,7 @@ export function densifyComparisonExplorationTimeseries(params: {
         merged.push(existing);
         continue;
       }
-      merged.push({
-        dimensions: [bucketIso, breakdown],
-        values: zeroValues.map((v) => ({ ...v })),
-      });
+      merged.push(emptyBucket([bucketIso, breakdown]));
     }
   }
 
@@ -889,14 +889,12 @@ export function densifyPopulationTimeseriesRows(
 ): ProductAnalyticsResultRow[] {
   const rows = exploration.result?.rows ?? [];
   if (!configHasPopulation(config)) return rows;
-  const densified = densifyComparisonExplorationTimeseries({
-    comparison: exploration,
-    submittedConfig: config,
-    previousTimeFrame: config.dateRange,
-  })?.result?.rows;
-  if (!densified) return rows;
-  return densified.map((row) =>
-    row.populationCount === undefined ? { ...row, populationCount: 0 } : row,
+  return (
+    densifyComparisonExplorationTimeseries({
+      comparison: exploration,
+      submittedConfig: config,
+      previousTimeFrame: config.dateRange,
+    })?.result?.rows ?? rows
   );
 }
 
