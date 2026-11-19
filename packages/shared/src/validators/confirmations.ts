@@ -292,6 +292,8 @@ export const confirmationValidator = baseSchema.safeExtend({
   path: z.string(),
   query: z.record(z.string(), z.unknown()),
   body: z.unknown().optional(),
+  // Body fields stored encrypted; decrypted for the replay, redacted for display.
+  secretBodyFields: z.array(z.string()).optional(),
   requestHash: z.string(),
   // What the key's rules matched, shown as why it was held.
   actions: z.array(heldActionValidator),
