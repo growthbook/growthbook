@@ -427,6 +427,7 @@ export function createApiRequestHandler<
     possibleErrors,
     confirmation,
     confirmationInHandler,
+    secretBodyFields,
   } = data;
 
   return (
@@ -454,6 +455,7 @@ export function createApiRequestHandler<
           path,
           req,
           summary,
+          secretBodyFields,
         );
         return inner(req);
       };
