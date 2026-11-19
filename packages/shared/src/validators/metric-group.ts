@@ -48,6 +48,6 @@ export const apiCreateMetricGroupBody = z.strictObject({
   metrics: z.array(z.string()),
   datasource: z.string(),
   owner: ownerInputField.optional(),
-  archived: z.boolean().optional(),
+  archived: z.boolean().optional().meta({ "x-growthbook-default": false }),
 });
 export const apiUpdateMetricGroupBody = apiCreateMetricGroupBody.partial();

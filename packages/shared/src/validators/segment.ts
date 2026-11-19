@@ -111,7 +111,9 @@ const postSegmentBody = z
       .describe(
         "SQL query that defines the Segment. This is required for SQL segments.",
       )
-      .optional(),
+      .optional()
+      // Required by SQL segments, so updates keep it rather than clear it.
+      .meta({ "x-growthbook-server-default": true }),
     factTableId: z
       .string()
       .describe(

@@ -283,7 +283,7 @@ const apiUpdateDashboardFields = apiCreateDashboardFields
     owner: dashboardOwnerInput
       .optional()
       .describe(
-        "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. Omit to leave the current owner unchanged.",
+        "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. Omit to leave the current owner unchanged. A private dashboard owned by another member can only be retrieved or updated using its owner's Personal Access Token (PAT), not an organization secret API key.",
       ),
   })
   .partial();

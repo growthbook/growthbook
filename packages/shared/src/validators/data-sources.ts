@@ -454,9 +454,9 @@ export const postDataSourceValidator = {
       name: z.string().min(1),
       description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       projectIds: z.array(z.string()).optional(),
-      connection: apiDataSourceConnectionValidator.describe(
-        "Credentials are stored encrypted and never returned",
-      ),
+      connection: apiDataSourceConnectionValidator
+        .describe("Credentials are stored encrypted and never returned")
+        .meta({ "x-growthbook-sensitive": true }),
       ...dataSourceSettingsInput,
     })
     .strict(),

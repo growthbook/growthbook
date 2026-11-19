@@ -245,7 +245,7 @@ const postMetricBody = z
       .array(z.string())
       .describe("List of project IDs for projects that can access this metric")
       .optional(),
-    archived: z.boolean().optional(),
+    archived: z.boolean().optional().meta({ "x-growthbook-default": false }),
     behavior: z
       .object({
         goal: z.enum(["increase", "decrease"]).optional(),
