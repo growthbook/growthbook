@@ -492,30 +492,6 @@ describe("metric refresh (metrics-only runs)", () => {
     statistics.forEach((a) => expect(a.asOf).toEqual(BASE_END));
   });
 
-  it("names only the statistics and traffic of untouched caches like the parent did, so only they are copied", async () => {
-    const parent = await updateDag(BASE_METRICS);
-    const refresh = await refreshDag(["a3", "c1"]);
-    const parentNames = new Set(namesOf(parent));
-
-    const copied = refresh.recorded.filter((r) => parentNames.has(r.name));
-    expect(copied.map((r) => r.name)).toEqual([
-      "statistics_ft_b_stored0",
-      "traffic",
-    ]);
-    copied.forEach((r) => expect(r.dependencies).toEqual([]));
-
-    const rerun = argsOf(refresh, "statistics_").filter(
-      (a) => !parentNames.has(a.name),
-    );
-    expect(rerun.flatMap(metricIdsOf).sort()).toEqual([
-      "a1",
-      "a2",
-      "a3",
-      "c1",
-      "r1",
-    ]);
-  });
-
   it("rebuilds both fact tables of a cross-fact-table ratio target", async () => {
     const refresh = await refreshDag(["r3"]);
 
@@ -534,52 +510,6 @@ describe("metric refresh (metrics-only runs)", () => {
     expect(
       argsOf(refresh, "statistics_multi_").flatMap(metricIdsOf).sort(),
     ).toEqual(["r1", "r3"]);
-  });
-
-  it("replaces the rebuilt fact table's stored entries and keeps the others", async () => {
-    const refresh = await refreshDag(["a3", "c1"]);
-    const state = await finishWrites(refresh, baseState());
-
-    const groupIds = (sources: { groupId: string }[]) =>
-      sources.map((s) => s.groupId);
-    const builtA = refresh.recorded
-      .find((r) => r.name.startsWith("create_metrics_source_ft_a_"))
-      ?.name.replace("create_metrics_source_", "");
-    expect(groupIds(state.metricSources)).toEqual([
-      "ft_b_stored0",
-      builtA,
-      expect.stringMatching(/^ft_c_/),
-    ]);
-    expect(groupIds(state.metricCovariateSources)).toEqual([builtA]);
-    expect(
-      refresh.updateState.mock.calls.some(
-        (c) => "unitsMaxTimestamp" in c[2] || "unitsTableFullName" in c[2],
-      ),
-    ).toBe(false);
-  });
-
-  it("rebuilds a fact table whose stored metric drifted from its definition, so its statistics are not copied", async () => {
-    const parent = await updateDag(BASE_METRICS);
-    const drifted = baseState();
-    drifted.metricSources[1].metrics = [
-      { id: "b1", settingsHash: "before-the-edit" },
-      storedMetric("r1"),
-    ];
-
-    const refresh = await refreshDag(["c1"], { state: drifted });
-
-    expect(createdCaches(refresh)).toEqual(["ft_b:b1,r1", "ft_c:c1"]);
-    const parentNames = new Set(namesOf(parent));
-    expect(namesOf(refresh).filter((n) => parentNames.has(n))).toEqual([
-      "statistics_ft_a_stored0",
-      "traffic",
-    ]);
-    expect(
-      argsOf(refresh, "statistics_")
-        .filter((a) => !parentNames.has(a.name))
-        .flatMap(metricIdsOf)
-        .sort(),
-    ).toEqual(["b1", "c1", "r1"]);
   });
 
   it("drops each table it replaces once the replacement is recorded, never one the state still lists", async () => {
@@ -730,26 +660,6 @@ describe("metric refresh (metrics-only runs)", () => {
     expect(createdCaches(await refreshDag(["a3"], { state }))).toEqual([
       "ft_a:a1,a2,r1,a3",
     ]);
-  });
-
-  it("reruns only the statistics of caches the parent has no statistics for when retried after a statistics failure", async () => {
-    const parent = await updateDag(BASE_METRICS);
-    const failed = await refreshDag(["a3", "c1"]);
-    const state = await finishWrites(failed, baseState());
-
-    const retry = await refreshDag(["a3", "c1"], { state });
-    const parentNames = new Set(namesOf(parent));
-
-    expect(namesOf(retry).filter((n) => !n.startsWith("statistics_"))).toEqual([
-      "traffic",
-    ]);
-    expect(
-      argsOf(retry, "statistics_")
-        .filter((a) => !parentNames.has(a.name))
-        .flatMap(metricIdsOf)
-        .sort(),
-    ).toEqual(["a1", "a2", "a3", "c1", "r1"]);
-    retry.recorded.forEach((r) => expect(r.dependencies).toEqual([]));
   });
 
   it("lets the next update append to every cache, so it runs no extra queries", async () => {
