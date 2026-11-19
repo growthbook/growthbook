@@ -496,10 +496,9 @@ const BreakDownResults: FC<{
                   <div
                     className="pl-3 font-weight-bold"
                     style={{
-                      display: "-webkit-box",
-                      WebkitLineClamp: 1,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
                       color: "var(--color-text-mid)",
                     }}
                   >
@@ -542,7 +541,16 @@ const BreakDownResults: FC<{
                         </RadixTooltip>
                       </span>
                     ) : null}
-                    <span className={hasSteps ? "ml-2" : undefined}>
+                    <span
+                      className={hasSteps ? "ml-2" : undefined}
+                      style={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 1,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        minWidth: 0,
+                      }}
+                    >
                       {label ? (
                         label === NULL_DIMENSION_VALUE ? (
                           <em>{formatDimensionValueForDisplay(label)}</em>
