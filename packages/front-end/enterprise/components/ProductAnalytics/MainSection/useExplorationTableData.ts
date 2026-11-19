@@ -704,7 +704,12 @@ export default function useExplorationTableData(
   }, [submittedExploreState]);
 
   const rowData = useMemo(() => {
-    const rawRows = exploration?.result?.rows ?? [];
+    // With a Population, includes buckets without members so they read as a
+    // Population count of 0 rather than missing.
+    const rawRows =
+      exploration && submittedExploreState
+        ? densifyPopulationTimeseriesRows(exploration, submittedExploreState)
+        : [];
     const isTimeseries =
       submittedExploreState?.dimensions?.[0]?.dimensionType === "date";
 
@@ -734,10 +739,7 @@ export default function useExplorationTableData(
         // Rank against every bucket, as the chart does, so a missing day
         // doesn't shift the pairing.
         exploration && submittedExploreState
-          ? densifyPopulationTimeseriesRows(
-              exploration,
-              submittedExploreState,
-            ).map((r) => String(r.dimensions[0] ?? ""))
+          ? rawRows.map((r) => String(r.dimensions[0] ?? ""))
           : undefined,
       );
       return sortedRows.map((row, idx) => {

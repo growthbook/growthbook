@@ -1476,10 +1476,11 @@ describe("densifyComparisonExplorationTimeseries", () => {
     ]);
     const filled = densifyPopulationTimeseriesRows(sparse, withPopulation);
     expect(filled).toHaveLength(7);
-    // Filled days have no member count, so "% of Population" reads no data.
-    expect(filled.filter((r) => r.populationCount === undefined)).toHaveLength(
-      6,
-    );
+    // Filled days have no members, so the table shows a count of 0 and
+    // "% of Population" reads no data.
+    expect(filled.map((r) => r.populationCount)).toEqual([
+      10, 0, 0, 0, 0, 0, 0,
+    ]);
     expect(densifyPopulationTimeseriesRows(sparse, baseConfig)).toHaveLength(1);
   });
 

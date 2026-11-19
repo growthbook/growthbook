@@ -880,7 +880,8 @@ export function densifyComparisonExplorationTimeseries(params: {
  * A result's rows with a row for every date bucket in its range when a
  * Population is applied. A bucket with no members has no row, so without these
  * a "% of Population" line would join across it, and rank-based comparison
- * pairing would shift every later bucket by one.
+ * pairing would shift every later bucket by one. Added rows have a
+ * `populationCount` of 0, so the table can say why the bucket has no data.
  */
 export function densifyPopulationTimeseriesRows(
   exploration: ProductAnalyticsExploration,
@@ -888,12 +889,14 @@ export function densifyPopulationTimeseriesRows(
 ): ProductAnalyticsResultRow[] {
   const rows = exploration.result?.rows ?? [];
   if (!configHasPopulation(config)) return rows;
-  return (
-    densifyComparisonExplorationTimeseries({
-      comparison: exploration,
-      submittedConfig: config,
-      previousTimeFrame: config.dateRange,
-    })?.result?.rows ?? rows
+  const densified = densifyComparisonExplorationTimeseries({
+    comparison: exploration,
+    submittedConfig: config,
+    previousTimeFrame: config.dateRange,
+  })?.result?.rows;
+  if (!densified) return rows;
+  return densified.map((row) =>
+    row.populationCount === undefined ? { ...row, populationCount: 0 } : row,
   );
 }
 
