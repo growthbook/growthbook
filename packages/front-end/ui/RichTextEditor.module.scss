@@ -231,6 +231,48 @@
   white-space: pre-wrap;
 }
 
+// Wide tables scroll sideways inside the field instead of widening it.
+.tableWrapper {
+  max-width: 100%;
+  margin: 0 0 var(--space-2);
+  overflow-x: auto;
+}
+
+.table {
+  border-collapse: collapse;
+  margin: 0 0 var(--space-2);
+
+  .tableWrapper > & {
+    margin: 0;
+  }
+}
+
+.tableCell,
+.tableCellHeader {
+  min-width: 60px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--gray-a6);
+  text-align: left;
+  vertical-align: top;
+
+  .paragraph {
+    margin: 0;
+  }
+}
+
+.tableCellHeader {
+  background-color: var(--gray-a2);
+  font-weight: var(--font-weight-bold);
+}
+
+.tableSelection *::selection {
+  background-color: transparent;
+}
+
+.tableCellSelected {
+  background-color: var(--accent-a3);
+}
+
 .imageWrapper {
   display: inline-block;
   max-width: 100%;
