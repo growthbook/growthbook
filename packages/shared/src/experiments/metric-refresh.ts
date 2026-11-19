@@ -152,6 +152,31 @@ export type MetricRefreshBlocker = Extract<
   | "metric_not_supported"
 >;
 
+type MetricRefreshBlockerArgs = {
+  experiment: Pick<ExperimentInterface, "type"> & {
+    phases: { dateEnded?: string | Date }[];
+  };
+  phase: number;
+  separateExperimentResultQueries: boolean;
+};
+
+/**
+ * What the experiment and its Data Source alone rule out, before any results
+ * are read.
+ */
+export function getMetricRefreshSetupBlocker({
+  experiment,
+  phase,
+  separateExperimentResultQueries,
+}: MetricRefreshBlockerArgs): MetricRefreshBlocker | null {
+  if ((experiment.type ?? "standard") !== "standard") {
+    return "unsupported_experiment_type";
+  }
+  if (phase !== experiment.phases.length - 1) return "not_latest_phase";
+  if (!separateExperimentResultQueries) return "unsupported_data_source";
+  return null;
+}
+
 /**
  * Why no update can compute only new metrics for this phase, if anything.
  * `pipelineChanged`: the next update would run on a different pipeline than
@@ -159,24 +184,14 @@ export type MetricRefreshBlocker = Extract<
  * Pipeline fall back.
  */
 export function getMetricRefreshBlocker({
-  experiment,
-  phase,
-  separateExperimentResultQueries,
   pipelineChanged,
-}: {
-  experiment: Pick<ExperimentInterface, "type"> & {
-    phases: { dateEnded?: string | Date }[];
-  };
-  phase: number;
-  separateExperimentResultQueries: boolean;
+  ...args
+}: MetricRefreshBlockerArgs & {
   pipelineChanged: boolean;
 }): MetricRefreshBlocker | null {
-  if ((experiment.type ?? "standard") !== "standard") {
-    return "unsupported_experiment_type";
-  }
-  if (phase !== experiment.phases.length - 1) return "not_latest_phase";
-  if (experiment.phases[phase]?.dateEnded) return "phase_ended";
-  if (!separateExperimentResultQueries) return "unsupported_data_source";
+  const setupBlocker = getMetricRefreshSetupBlocker(args);
+  if (setupBlocker) return setupBlocker;
+  if (args.experiment.phases[args.phase]?.dateEnded) return "phase_ended";
   if (pipelineChanged) return "metric_not_supported";
   return null;
 }
@@ -200,21 +215,10 @@ export function isWithinNewMetricsUpdateWindow({
 }
 
 /**
- * - `up_to_date`: nothing to show, a normal Update.
- * - `new_metrics`: added metrics are the only change and the results are
- *   recent, so Update computes only those metrics.
- * - `metrics_added`: added metrics are the only change, but the results are
- *   too old or no update can compute only new metrics: Outdated, a normal
- *   Update.
- * - `settings_changed`: anything else changed: Outdated, a normal Update.
+ * Whether Update computes only the newly added metrics: they are the only
+ * change, the results are recent, and nothing blocks such an update.
  */
-export type ResultsUpdateSituation =
-  | "up_to_date"
-  | "new_metrics"
-  | "metrics_added"
-  | "settings_changed";
-
-export function getResultsUpdateSituation({
+export function shouldOfferNewMetricsUpdate({
   reasons,
   resultsEndDate,
   windowHours,
@@ -226,11 +230,11 @@ export function getResultsUpdateSituation({
   windowHours: number;
   now: Date;
   refreshBlocker: MetricRefreshBlocker | null;
-}): ResultsUpdateSituation {
-  if (!reasons.length) return "up_to_date";
-  if (reasons.some((r) => r !== "metrics_changed")) return "settings_changed";
-  return !refreshBlocker &&
+}): boolean {
+  return (
+    reasons.length > 0 &&
+    reasons.every((r) => r === "metrics_changed") &&
+    !refreshBlocker &&
     isWithinNewMetricsUpdateWindow({ resultsEndDate, windowHours, now })
-    ? "new_metrics"
-    : "metrics_added";
+  );
 }

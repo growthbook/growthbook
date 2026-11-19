@@ -450,6 +450,11 @@ describe("planMetricRefresh", () => {
     {
       name: "a phase that has ended",
       setup: () => ({
+        experiment: makeExperiment({
+          phases: [
+            { dateStarted: PARENT_START, dateEnded: PARENT_END },
+          ] as ExperimentInterface["phases"],
+        }),
         planSnapshotAt: async () =>
           makePlan({ settings: { endDateIsCutoff: false } }),
       }),

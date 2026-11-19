@@ -25,7 +25,7 @@ import {
   getResultsOutdatedReasons,
   getResultsOutdatedReasonLabel,
   getMetricRefreshBlocker,
-  getResultsUpdateSituation,
+  shouldOfferNewMetricsUpdate,
   getMetricIdsMissingFromSnapshot,
 } from "shared/experiments";
 import {
@@ -557,7 +557,7 @@ export default function AnalysisSettingsSummary({
     hasData &&
     !dimension &&
     !fullRefreshRequired &&
-    getResultsUpdateSituation({
+    shouldOfferNewMetricsUpdate({
       reasons: outdatedReasons,
       resultsEndDate: getValidDate(snapshot.settings.endDate),
       windowHours:
@@ -572,7 +572,7 @@ export default function AnalysisSettingsSummary({
         pipelineChanged:
           ((snapshot.runnerKind ?? "results") !== "results") !== isIncremental,
       }),
-    }) === "new_metrics";
+    });
   const uncomputableMetricIds = offerNewMetricsUpdate
     ? getMetricIdsNoSnapshotComputes({
         experiment,

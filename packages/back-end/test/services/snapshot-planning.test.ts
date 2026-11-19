@@ -4,7 +4,7 @@ import {
   getLatestPhaseVariations,
   getMetricSnapshotSettings,
   getResultsOutdatedReasons,
-  getResultsUpdateSituation,
+  shouldOfferNewMetricsUpdate,
   type ResultsOutdatedReason,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
@@ -2770,7 +2770,7 @@ describe("planExperimentSnapshot", () => {
           newerOverallResultsAvailable: false,
           resultsUpdateDisabled: false,
         });
-        const situation = getResultsUpdateSituation({
+        const offered = shouldOfferNewMetricsUpdate({
           reasons,
           resultsEndDate: parent.settings.endDate,
           windowHours: 4,
@@ -2791,7 +2791,7 @@ describe("planExperimentSnapshot", () => {
         });
         // Asserted by the caller, after the reasons.
         plan.catch(() => undefined);
-        return { reasons, situation, plan };
+        return { reasons, offered, plan };
       }
 
       const blockingReasons: {
@@ -2893,13 +2893,13 @@ describe("planExperimentSnapshot", () => {
         "on the $pipeline pipeline",
         ({ pipeline, pipelineBase, runnerKind }) => {
           it("plans a refresh when added metrics are the only reason", async () => {
-            const { reasons, situation, plan } = await outdatedRefresh(
+            const { reasons, offered, plan } = await outdatedRefresh(
               makeFixture(),
               { base: pipelineBase, changes: {}, pipeline },
             );
 
             expect(reasons).toEqual(["metrics_changed"]);
-            expect(situation).toBe("new_metrics");
+            expect(offered).toBe(true);
             await expect(plan).resolves.toMatchObject({
               snapshot: {
                 runnerKind,
@@ -2911,7 +2911,7 @@ describe("planExperimentSnapshot", () => {
           it.each(blockingReasons)(
             "refuses a refresh the app would not offer for $reason",
             async ({ reason, base, changes, refusal = "settings_changed" }) => {
-              const { reasons, situation, plan } = await outdatedRefresh(
+              const { reasons, offered, plan } = await outdatedRefresh(
                 makeFixture(),
                 { base: { ...pipelineBase, ...base }, changes, pipeline },
               );
@@ -2919,7 +2919,7 @@ describe("planExperimentSnapshot", () => {
               expect([...reasons].sort()).toEqual(
                 [reason, "metrics_changed"].sort(),
               );
-              expect(situation).toBe("settings_changed");
+              expect(offered).toBe(false);
               await expect(plan).rejects.toMatchObject({
                 details: { reason: refusal },
               });

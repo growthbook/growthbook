@@ -3,9 +3,12 @@ import omitBy from "lodash/omitBy";
 import {
   getDefinitionMetricId,
   getMetricIdsMissingFromSnapshot,
+  getMetricRefreshBlocker,
+  getMetricRefreshSetupBlocker,
   getSnapshotDataAsOf,
   isAnalysisDateRangeOutdated,
   isWithinNewMetricsUpdateWindow,
+  type MetricRefreshBlocker,
 } from "shared/experiments";
 import {
   getIdentifierTypeForSettingsHash,
@@ -88,15 +91,18 @@ export async function planMetricRefresh({
       "Updating newly added metrics can't be combined with a forced rerun.",
     );
   }
-  if ((experiment.type ?? "standard") !== "standard") {
-    throw new MetricRefreshUnavailableError("unsupported_experiment_type");
-  }
-  if (phase !== experiment.phases.length - 1) {
-    throw new MetricRefreshUnavailableError("not_latest_phase");
-  }
-  const integration = getSourceIntegrationObject(context, datasource, true);
-  if (!integration.getSourceProperties().separateExperimentResultQueries) {
-    throw new MetricRefreshUnavailableError("unsupported_data_source");
+  const blockerArgs = {
+    experiment,
+    phase,
+    separateExperimentResultQueries: !!getSourceIntegrationObject(
+      context,
+      datasource,
+      true,
+    ).getSourceProperties().separateExperimentResultQueries,
+  };
+  const setupBlocker = getMetricRefreshSetupBlocker(blockerArgs);
+  if (setupBlocker) {
+    throw new MetricRefreshUnavailableError(setupBlocker);
   }
 
   const latest = await getLatestSnapshotStatus({
@@ -170,10 +176,19 @@ export async function planMetricRefresh({
       throw error;
     },
   );
-  if (!getSnapshotCutoffDate(plan.snapshot.settings)) {
-    throw new MetricRefreshUnavailableError("phase_ended");
+  // A refresh appends to its parent's pipeline, on the Incremental Pipeline to
+  // the tables the parent left, which an "incremental-full" run would rebuild.
+  const blocker = getMetricRefreshBlocker({
+    ...blockerArgs,
+    pipelineChanged:
+      plan.snapshot.runnerKind !==
+      ((parent.runnerKind ?? "results") === "results"
+        ? "results"
+        : "incremental-update"),
+  });
+  if (blocker) {
+    throw getBlockerRefusal(blocker, plan);
   }
-  assertRefreshablePipeline({ parent, plan });
   if (
     getSettingsChangedSinceParent({
       parent,
@@ -218,26 +233,24 @@ export async function planMetricRefresh({
   return { ...plan, snapshot };
 }
 
-function assertRefreshablePipeline({
-  parent,
-  plan,
-}: {
-  parent: Pick<ExperimentSnapshotInterface, "runnerKind">;
+// What the back end knows beyond the shared rules: why the planned run is on
+// another pipeline.
+function getBlockerRefusal(
+  blocker: MetricRefreshBlocker,
   plan: Pick<PlannedExperimentSnapshot, "incrementalFallbackReason"> & {
     snapshot: Pick<PlannedExperimentSnapshot["snapshot"], "runnerKind">;
-  };
-}): void {
-  const parentKind = parent.runnerKind ?? "results";
-  const expected = parentKind === "results" ? "results" : "incremental-update";
-  if (plan.snapshot.runnerKind === expected) return;
-  // The pipeline runs this experiment but has no tables to append to.
+  },
+): MetricRefreshUnavailableError {
+  if (blocker !== "metric_not_supported") {
+    return new MetricRefreshUnavailableError(blocker);
+  }
   if (plan.snapshot.runnerKind === "incremental-full") {
-    throw new MetricRefreshUnavailableError(
+    return new MetricRefreshUnavailableError(
       "incremental_pipeline",
       'The Incremental Pipeline has no tables for this experiment\'s current settings yet, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" to build them.',
     );
   }
-  throw plan.incrementalFallbackReason
+  return plan.incrementalFallbackReason
     ? new MetricRefreshUnavailableError(
         "metric_not_supported",
         `The latest results ran on the Incremental Pipeline, which can't run this experiment now. ${plan.incrementalFallbackReason} Send "updateScope": "all_metrics" instead.`,
