@@ -3,6 +3,7 @@ import {
   type ComponentType,
   type ReactNode,
   useEffect,
+  useLayoutEffect,
   useState,
   useRef,
   createElement,
@@ -369,6 +370,7 @@ export default function CodeTextArea({
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const editorBox = useRef<HTMLDivElement>(null);
   const editorUid = useId();
   const editorScope = `[data-editor-uid="${editorUid}"]`;
   const codeTheme = getCodeTheme(theme);
@@ -458,6 +460,37 @@ export default function CodeTextArea({
     return () => clearTimeout(timer);
   }, [editor, isFullscreen]);
 
+  // Full screen lifts the editor out of what would keep it under the rest of
+  // the page: an isolated box around it (a scroll area's) or a sticky one.
+  useLayoutEffect(() => {
+    if (!isFullscreen) return;
+    const lifted: [HTMLElement, string, string, string][] = [];
+    const lift = (el: HTMLElement, prop: string, value: string) => {
+      lifted.push([
+        el,
+        prop,
+        el.style.getPropertyValue(prop),
+        el.style.getPropertyPriority(prop),
+      ]);
+      el.style.setProperty(prop, value, "important");
+    };
+    for (
+      let el = editorBox.current?.parentElement;
+      el && el !== document.body;
+      el = el.parentElement
+    ) {
+      const { isolation, position } = getComputedStyle(el);
+      if (isolation === "isolate") lift(el, "isolation", "auto");
+      if (position === "sticky") lift(el, "position", "static");
+    }
+    return () => {
+      for (const [el, prop, value, priority] of lifted) {
+        if (value) el.style.setProperty(prop, value, priority);
+        else el.style.removeProperty(prop);
+      }
+    };
+  }, [isFullscreen]);
+
   // Escape key to exit fullscreen
   useEffect(() => {
     if (!isFullscreen) return;
@@ -506,16 +539,10 @@ export default function CodeTextArea({
                 flex: 1;
                 overflow: hidden;
               }
-              ${
-                // An isolated box around the editor, such as a scroll area's,
-                // would keep its full screen under the rest of the page.
-                isFullscreen
-                  ? `:has(${editorScope}.code-editor-fullscreen) { isolation: auto !important; }`
-                  : ""
-              }
               ${getAceCodeCss(editorScope, codeTheme, language)}
             `}</style>
             <div
+              ref={editorBox}
               id={editorUid}
               data-editor-uid={editorUid}
               className={clsx({

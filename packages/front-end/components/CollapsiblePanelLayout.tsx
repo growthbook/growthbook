@@ -2,6 +2,7 @@ import {
   createContext,
   PointerEvent as ReactPointerEvent,
   ReactNode,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -31,6 +32,11 @@ const SLIDE_MS = 160;
 // beside it each frame. What reflows in steps (a grid counting its columns)
 // can hold still until it's done, and lay out once.
 export const PanelSlidingContext = createContext(false);
+
+// The width a left panel's layout leaves its content once the panel has slid
+// open or shut; zero until measured. A panel nested beside it sizes against
+// this rather than its own width mid-slide, so it decides to float only once.
+const SettledRoomContext = createContext<number | null>(null);
 
 export interface Props {
   children: ReactNode;
@@ -126,19 +132,23 @@ export default function CollapsiblePanelLayout({
     };
   }, []);
   const [previewCollapsed, setPreviewCollapsed] = useState(false);
+  const settledRoom = useContext(SettledRoomContext);
+  const room = !left && settledRoom !== null ? settledRoom : layoutWidth;
   // Clamped at render rather than stored, so widening the window restores the
   // dragged width. Docked, it also leaves the content MIN_CONTENT_WIDTH_PX, so
   // dragging it wider never flips it to floating.
-  const maxPanelWidth = layoutWidth
+  const maxPanelWidth = room
     ? Math.max(
         MIN_PANEL_WIDTH_PX,
         Math.min(
-          Math.round(layoutWidth * MAX_PANEL_SHARE),
-          narrowWindow && !left ? Infinity : layoutWidth - MIN_CONTENT_WIDTH_PX,
+          Math.round(room * MAX_PANEL_SHARE),
+          narrowWindow && !left ? Infinity : room - MIN_CONTENT_WIDTH_PX,
         ),
       )
     : Infinity;
   const panelWidth = Math.min(dragWidth ?? width, maxPanelWidth);
+  // Without a drag in progress, which commits its width only on release.
+  const panelWidthAtRest = Math.min(width, maxPanelWidth);
   const collapseBelow = MIN_PANEL_WIDTH_PX - COLLAPSE_DELTA_PX;
   // Floats on a narrow window, or when even the narrowest panel would squeeze
   // the content. The layout's own width holds still as the panel docks or
@@ -146,9 +156,11 @@ export default function CollapsiblePanelLayout({
   // always moves the content over.
   const overlay =
     !left &&
-    (narrowWindow ||
-      (layoutWidth > 0 && layoutWidth - panelWidth < MIN_CONTENT_WIDTH_PX));
-  useLayoutEffect(() => onFloatChange?.(overlay), [overlay, onFloatChange]);
+    (narrowWindow || (room > 0 && room - panelWidth < MIN_CONTENT_WIDTH_PX));
+  const measured = narrowWindow || room > 0;
+  useLayoutEffect(() => {
+    if (measured) onFloatChange?.(overlay);
+  }, [measured, overlay, onFloatChange]);
   // Floating, the panel ends where the footer starts, so the footer stays whole.
   const footerClearance = overlay ? footerHeight : 0;
 
@@ -231,6 +243,12 @@ export default function CollapsiblePanelLayout({
 
   // Only the toggle animates; a drag tracks the pointer.
   const resizing = dragWidth !== null;
+  // Nor before the first paint: a panel that floats on load closes at once.
+  const [painted, setPainted] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setPainted(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   // A close starts sliding with the render that closes it, so the content
   // beside it never holds still at the old width; an open waits for the zero
@@ -275,9 +293,10 @@ export default function CollapsiblePanelLayout({
         maxHeight: `calc(100vh - ${top} - ${footerClearance}px)`,
         background: "var(--color-panel-solid)",
         ...(left ? { borderRight: edge } : { borderLeft: edge }),
-        transition: resizing
-          ? "none"
-          : `width ${SLIDE_MS}ms ease, ${left ? "margin-right" : "margin-left"} ${SLIDE_MS}ms ease`,
+        transition:
+          resizing || !painted
+            ? "none"
+            : `width ${SLIDE_MS}ms ease, ${left ? "margin-right" : "margin-left"} ${SLIDE_MS}ms ease`,
         ...overlaid,
       }}
     >
@@ -338,7 +357,15 @@ export default function CollapsiblePanelLayout({
       >
         <Box ref={contentBox} flexGrow="1" aria-busy={busy}>
           <PanelSlidingContext.Provider value={sliding}>
-            {children}
+            <SettledRoomContext.Provider
+              value={
+                left
+                  ? layoutWidth && layoutWidth - (open ? panelWidthAtRest : 0)
+                  : settledRoom
+              }
+            >
+              {children}
+            </SettledRoomContext.Provider>
           </PanelSlidingContext.Provider>
         </Box>
         <div ref={footerBox} className={styles.footer}>

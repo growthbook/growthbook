@@ -35,7 +35,7 @@ export default function ReferencesPanelSection({
           <em>{intro}</em>
         </Text>
         {/* Held short, so a long list doesn't push the rest of the panel down. */}
-        <ScrollArea edgeCue="fade" style={{ maxHeight: MAX_HEIGHT_PX }}>
+        <ScrollArea gutter edgeCue="fade" style={{ maxHeight: MAX_HEIGHT_PX }}>
           <Flex direction="column" gap="3">
             {shown.map((row) => (
               <Metadata

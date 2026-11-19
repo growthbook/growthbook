@@ -57,7 +57,7 @@ export function useDetailsPanel({
   const [floating, setFloating] = useState(false);
   const onRequest = narrow || floating;
   const [openOnRequest, setOpenOnRequest] = useState(false);
-  useEffect(() => setOpenOnRequest(false), [onRequest]);
+  useEffect(() => setOpenOnRequest(false), [onRequest, tab]);
   const [openOffHome, setOpenOffHome] = useState(false);
   useEffect(() => setOpenOffHome(false), [tab]);
   const [open, setOpen]: [boolean, (open: boolean) => void] = onRequest
