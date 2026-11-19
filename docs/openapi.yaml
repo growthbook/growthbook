@@ -93229,6 +93229,10 @@ components:
           type: string
         status:
           type: string
+          enum:
+            - running
+            - success
+            - error
           description: '"running" while the update is in progress, then "success" or "error"'
         error:
           type: string
@@ -94695,6 +94699,10 @@ components:
           type: string
         status:
           type: string
+          enum:
+            - running
+            - success
+            - error
           description: '"running" while the update is in progress, then "success" or "error"'
         error:
           type: string

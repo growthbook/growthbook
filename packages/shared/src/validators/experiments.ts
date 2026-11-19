@@ -1242,7 +1242,7 @@ const apiExperimentSnapshotShape = z.object({
   id: z.string(),
   experiment: z.string(),
   status: z
-    .string()
+    .enum(["running", "success", "error"])
     .describe(
       '"running" while the update is in progress, then "success" or "error"',
     ),
