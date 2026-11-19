@@ -1363,7 +1363,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "5.0.0",
+    version: "5.0.1",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [
