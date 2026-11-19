@@ -494,7 +494,7 @@
         "groups": [
           {
             "group": "Introduction",
-            "pages": ["api/introduction", "api/update-experiment-results"]
+            "pages": ["api/introduction"]
           },
           {
             "group": "Endpoints",
