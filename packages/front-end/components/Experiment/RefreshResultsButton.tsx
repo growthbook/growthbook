@@ -225,8 +225,12 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
       <>
         <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
         <NewMetricsUpdateButton
-          onUpdateNewMetrics={() => submitUpdate({ newMetricsOnly: true })}
-          onUpdateAllMetrics={() => submitUpdate()}
+          onUpdateNewMetrics={() =>
+            submitUpdate({ updateScope: "new_metrics" })
+          }
+          onUpdateAllMetrics={() =>
+            submitUpdate({ updateScope: "all_metrics" })
+          }
           disabled={disabled}
         />
       </>

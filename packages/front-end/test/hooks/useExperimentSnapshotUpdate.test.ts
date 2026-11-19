@@ -124,6 +124,27 @@ describe("useExperimentSnapshotUpdate", () => {
     );
   });
 
+  it("sends the update scope and notes a new-metrics update that ran all metrics", async () => {
+    apiCall.mockResolvedValue({
+      status: 200,
+      snapshot: { id: "snap_1" },
+      updateScope: "all_metrics",
+    });
+    const { result } = render();
+
+    await act(() =>
+      result.current.submitUpdate({ updateScope: "new_metrics" }),
+    );
+
+    expect(apiCall.mock.calls[0][0]).toBe("/experiment/exp_1/snapshot");
+    expect(JSON.parse(apiCall.mock.calls[0][1].body)).toEqual({
+      phase: 0,
+      dimension: "",
+      updateScope: "new_metrics",
+    });
+    expect(result.current.notice?.snapshotId).toBe("snap_1");
+  });
+
   it("revalidates through the caller-owned mutator after a snapshot post", async () => {
     apiCall.mockResolvedValue({ status: 200, snapshot: { id: "snap_1" } });
     const mutate = vi.fn();
