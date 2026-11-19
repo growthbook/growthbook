@@ -1,7 +1,13 @@
-import { ASK_ROW_LIMIT, assertSafeReadOnlySQL, ensureLimit } from "shared/sql";
+import {
+  ASK_ROW_LIMIT,
+  assertSafeReadOnlySQL,
+  ensureLimit,
+  getSqlStringRules,
+} from "shared/sql";
 import { runSqlQueryValidator } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  getIntegrationSqlDialect,
   getSourceIntegrationObject,
   runFreeFormQuery,
 } from "back-end/src/services/datasource";
@@ -12,6 +18,7 @@ import {
 } from "back-end/src/agent/ask-data-tools";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
+import { NotFoundError } from "back-end/src/util/errors";
 
 const DEFAULT_THRESHOLD_BYTES = 1073741824; // 1 GiB
 
@@ -20,7 +27,7 @@ export const runSqlQuery = createApiRequestHandler(runSqlQueryValidator)(async (
 ) => {
   const datasource = await getDataSourceById(req.context, req.params.id);
   if (!datasource) {
-    throw new Error("Could not find data source with that id");
+    throw new NotFoundError("Could not find data source with that id");
   }
   if (!req.context.org.settings?.aiAskDataEnabled) {
     throw new Error("Ask data is not enabled for this organization");
@@ -35,8 +42,14 @@ export const runSqlQuery = createApiRequestHandler(runSqlQueryValidator)(async (
     req.context.permissions.throwPermissionError();
   }
 
-  assertSafeReadOnlySQL(req.body.sql);
-  const limited = ensureLimit(req.body.sql, ASK_ROW_LIMIT);
+  const integration = getSourceIntegrationObject(req.context, datasource);
+  const dialect = getIntegrationSqlDialect(integration);
+  if (!dialect) {
+    throw new Error("This Data Source does not support SQL queries");
+  }
+  const stringRules = getSqlStringRules(dialect);
+  assertSafeReadOnlySQL(req.body.sql, stringRules);
+  const limited = ensureLimit(req.body.sql, ASK_ROW_LIMIT, stringRules);
 
   // Cost estimation gate (skip if caller already confirmed)
   if (!req.body.confirm) {
@@ -44,7 +57,6 @@ export const runSqlQuery = createApiRequestHandler(runSqlQueryValidator)(async (
       datasource.settings?.askData?.runPolicy ?? "auto-below-threshold";
 
     if (policy === "always-confirm") {
-      const integration = getSourceIntegrationObject(req.context, datasource);
       const estimate = integration.estimateQueryCost
         ? await integration.estimateQueryCost(limited)
         : { bytesProcessed: 0 };
@@ -64,7 +76,6 @@ export const runSqlQuery = createApiRequestHandler(runSqlQueryValidator)(async (
     if (policy === "auto-below-threshold") {
       const threshold =
         datasource.settings?.askData?.thresholdBytes ?? DEFAULT_THRESHOLD_BYTES;
-      const integration = getSourceIntegrationObject(req.context, datasource);
       const estimate = integration.estimateQueryCost
         ? await integration.estimateQueryCost(limited)
         : { bytesProcessed: 0 };

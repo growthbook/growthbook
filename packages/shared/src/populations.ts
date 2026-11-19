@@ -1,10 +1,24 @@
 import type { PopulationStep } from "shared/validators";
 import type { FactTableInterface } from "shared/types/fact-table";
+import { columnOnlyRowFilterOperators } from "./validators/fact-table";
 import { getSelectedColumnDatatype } from "./experiments/experiments";
 import { parseAggregateFilter } from "./aggregate-filters";
 
 // Multi-step populations aren't supported yet.
 export const MAX_POPULATION_STEPS = 1;
+
+/**
+ * A Population's only step. Null for any other number of steps, so callers
+ * reject or skip a multi-step Population instead of reading just its first
+ * step. Every single-step assumption goes through here; revisit each caller
+ * when multi-step Populations are supported.
+ */
+export function getSinglePopulationStep(population: {
+  steps: PopulationStep[];
+}): PopulationStep | null {
+  if (population.steps.length !== 1) return null;
+  return population.steps[0];
+}
 /** Distinct fact tables a population's steps may read from. */
 export const MAX_POPULATION_FACT_TABLES = 5;
 
@@ -18,6 +32,12 @@ export type PopulationRuleFactTable = Pick<
 function isValidAggregateFilter(aggregateFilter: string): boolean {
   const { conditions, invalid } = parseAggregateFilter(aggregateFilter);
   return conditions.length > 0 && !invalid.length;
+}
+
+// Names the steps a violation is about. With a single step the label adds
+// nothing, and the editor never mentions steps.
+function stepLabel(stepNumbers: number[], stepCount: number): string {
+  return stepCount > 1 ? ` (step ${stepNumbers.join(", ")})` : "";
 }
 
 export type PopulationRuleInput = {
@@ -38,18 +58,23 @@ export function getPopulationRuleViolations({
   steps,
   factTables,
 }: PopulationRuleInput): string[] {
-  const violations: string[] = [];
+  const factTableMap: FactTableMap = new Map(factTables.map((f) => [f.id, f]));
+  return [
+    ...getFactTableViolations(steps, factTableMap, datasource, userIdTypes),
+    ...getRowFilterViolations(steps, factTableMap),
+    ...getAggregateFilterViolations(steps, factTableMap),
+  ];
+}
 
-  const halfAggregateSteps = steps
-    .map((step, i) =>
-      !!step.aggregateFilter !== !!step.aggregateFilterColumn ? i + 1 : null,
-    )
-    .filter((n): n is number => n !== null);
-  if (halfAggregateSteps.length) {
-    violations.push(
-      `Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither (step ${halfAggregateSteps.join(", ")}).`,
-    );
-  }
+type FactTableMap = Map<string, PopulationRuleFactTable>;
+
+function getFactTableViolations(
+  steps: PopulationStep[],
+  factTableMap: FactTableMap,
+  datasource: string,
+  userIdTypes: string[],
+): string[] {
+  const violations: string[] = [];
 
   const factTableIds = getPopulationFactTableIds(steps);
   if (factTableIds.length > MAX_POPULATION_FACT_TABLES) {
@@ -58,7 +83,6 @@ export function getPopulationRuleViolations({
     );
   }
 
-  const factTableMap = new Map(factTables.map((f) => [f.id, f]));
   for (const factTableId of factTableIds) {
     const factTable = factTableMap.get(factTableId);
     if (!factTable) {
@@ -81,28 +105,106 @@ export function getPopulationRuleViolations({
     }
   }
 
-  steps.forEach((step, i) => {
-    // An unknown saved filter would be dropped from the SQL, silently widening
-    // the population.
-    const stepFactTable = factTableMap.get(step.source.factTableId);
-    const missingFilters = stepFactTable
-      ? step.rowFilters
-          .filter((f) => f.operator === "saved_filter")
-          .map((f) => f.values?.[0] ?? "")
-          .filter((id) => !stepFactTable.filters.some((f) => f.id === id))
-      : [];
-    if (missingFilters.length) {
-      violations.push(
-        `Saved filter not found on Fact Table ${step.source.factTableId}: ${missingFilters.join(", ")} (step ${i + 1}).`,
-      );
-    }
+  return violations;
+}
 
+function getRowFilterViolations(
+  steps: PopulationStep[],
+  factTableMap: FactTableMap,
+): string[] {
+  const violations: string[] = [];
+
+  steps.forEach((step, i) => {
+    const label = stepLabel([i + 1], steps.length);
+    const factTable = factTableMap.get(step.source.factTableId);
+
+    step.rowFilters.forEach((filter, j) => {
+      const violation = getRowFilterViolation(filter, factTable);
+      if (violation) {
+        violations.push(`Row filter ${j + 1} ${violation}${label}.`);
+      }
+    });
+  });
+
+  return violations;
+}
+
+/**
+ * Why a row filter can't be saved, or null when it can. Each of these would be
+ * dropped from the SQL, silently widening the population, or is an input the
+ * editor treats as untouched. The editor uses it to block the same filters the
+ * server rejects.
+ */
+export function getRowFilterViolation(
+  filter: PopulationStep["rowFilters"][number],
+  factTable: PopulationRuleFactTable | undefined,
+): string | null {
+  const values = filter.values ?? [];
+
+  // getRowFilterSQL reads only the first value of these two.
+  if (filter.operator === "sql_expr") {
+    return values[0]?.trim() ? null : "has no SQL expression";
+  }
+  if (filter.operator === "saved_filter") {
+    const id = values[0];
+    if (!id?.trim()) return "has no saved filter";
+    // A missing fact table is already its own violation.
+    if (factTable && !factTable.filters.some((f) => f.id === id)) {
+      return `uses saved filter ${id}, which isn't on Fact Table ${factTable.id}`;
+    }
+    return null;
+  }
+
+  if (!filter.column) return "needs a column";
+  if (
+    (columnOnlyRowFilterOperators as readonly string[]).includes(
+      filter.operator,
+    )
+  ) {
+    return null;
+  }
+
+  // An empty value is what an untouched input holds. getRowFilterSQL also
+  // ignores blank bounds on a range, which reads only its first two values,
+  // and blank values on a date column.
+  if (filter.operator === "between" || filter.operator === "not_between") {
+    return values.slice(0, 2).some((v) => v.trim() !== "")
+      ? null
+      : "needs a value";
+  }
+  const isDate =
+    !!factTable &&
+    getSelectedColumnDatatype({ factTable, column: filter.column }) === "date";
+  return values.some((v) => (isDate ? v.trim() : v) !== "")
+    ? null
+    : "needs a value";
+}
+
+function getAggregateFilterViolations(
+  steps: PopulationStep[],
+  factTableMap: FactTableMap,
+): string[] {
+  const violations: string[] = [];
+
+  const halfAggregateSteps = steps
+    .map((step, i) =>
+      !!step.aggregateFilter !== !!step.aggregateFilterColumn ? i + 1 : null,
+    )
+    .filter((n): n is number => n !== null);
+  if (halfAggregateSteps.length) {
+    violations.push(
+      `Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither${stepLabel(halfAggregateSteps, steps.length)}.`,
+    );
+  }
+
+  steps.forEach((step, i) => {
     const { aggregateFilter, aggregateFilterColumn } = step;
     if (!aggregateFilter || !aggregateFilterColumn) return;
+    const label = stepLabel([i + 1], steps.length);
 
     if (!isValidAggregateFilter(aggregateFilter)) {
       violations.push(
-        `Invalid aggregate filter "${aggregateFilter}" (step ${i + 1}). Use comparisons such as ">=3" or ">=3,<10".`,
+        `Invalid aggregate filter "${aggregateFilter}"${label}. Use comparisons such as ">=3" or ">=3,<10".`,
       );
     }
 
@@ -115,7 +217,7 @@ export function getPopulationRuleViolations({
     });
     if (columnType !== "number") {
       violations.push(
-        `Aggregate filter column '${aggregateFilterColumn}' must be a numeric column or "$$count" (step ${i + 1}).`,
+        `Aggregate filter column '${aggregateFilterColumn}' must be a numeric column or "$$count"${label}.`,
       );
     }
   });

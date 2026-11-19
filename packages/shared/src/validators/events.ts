@@ -12,6 +12,23 @@ import {
   holdoutNewLinkageNotificationPayload,
 } from "./holdout-notifications";
 import { sdkConnectionPayloadSizeNotificationPayload } from "./sdk-connection-notifications";
+import {
+  sdkConnectionRevisionCreatedPayload,
+  sdkConnectionRevisionUpdatedPayload,
+  sdkConnectionRevisionReviewRequestedPayload,
+  sdkConnectionRevisionApprovedPayload,
+  sdkConnectionRevisionChangesRequestedPayload,
+  sdkConnectionRevisionCommentedPayload,
+  sdkConnectionRevisionDiscardedPayload,
+  sdkConnectionRevisionRebasedPayload,
+  sdkConnectionRevisionPublishedPayload,
+  sdkConnectionRevisionRevertedPayload,
+  sdkConnectionRevisionReopenedPayload,
+  sdkConnectionRevisionRecalledPayload,
+  sdkConnectionRevisionReviewRetractedPayload,
+  sdkConnectionRevisionPublishScheduleChangedPayload,
+  sdkConnectionRevisionPublishFailedPayload,
+} from "./sdk-connection-revision-notifications";
 import { apiExperimentValidator } from "./experiments";
 import { featureWebhookPayload } from "./feature-webhook-schemas";
 import {
@@ -26,6 +43,8 @@ import {
   rampScheduleRolledBackPayload,
   rampScheduleErrorPausedPayload,
   rampScheduleStepHeldPayload,
+  rampScheduleStepRetryingPayload,
+  rampScheduleStepRecoveredPayload,
   rampSchedulePausedPayload,
   rampScheduleResumedPayload,
   rampScheduleCreatedPayload,
@@ -235,6 +254,12 @@ export const notificationEvents = {
     "rampSchedule.actions.stepHeld": {
       schema: rampScheduleStepHeldPayload,
     },
+    "rampSchedule.actions.stepRetrying": {
+      schema: rampScheduleStepRetryingPayload,
+    },
+    "rampSchedule.actions.stepRecovered": {
+      schema: rampScheduleStepRecoveredPayload,
+    },
     "rampSchedule.actions.paused": {
       schema: rampSchedulePausedPayload,
     },
@@ -349,6 +374,51 @@ export const notificationEvents = {
   sdkConnection: {
     "payloadSize.warning": {
       schema: sdkConnectionPayloadSizeNotificationPayload,
+    },
+    "revision.created": {
+      schema: sdkConnectionRevisionCreatedPayload,
+    },
+    "revision.updated": {
+      schema: sdkConnectionRevisionUpdatedPayload,
+    },
+    "revision.reviewRequested": {
+      schema: sdkConnectionRevisionReviewRequestedPayload,
+    },
+    "revision.approved": {
+      schema: sdkConnectionRevisionApprovedPayload,
+    },
+    "revision.changesRequested": {
+      schema: sdkConnectionRevisionChangesRequestedPayload,
+    },
+    "revision.commented": {
+      schema: sdkConnectionRevisionCommentedPayload,
+    },
+    "revision.discarded": {
+      schema: sdkConnectionRevisionDiscardedPayload,
+    },
+    "revision.rebased": {
+      schema: sdkConnectionRevisionRebasedPayload,
+    },
+    "revision.published": {
+      schema: sdkConnectionRevisionPublishedPayload,
+    },
+    "revision.reverted": {
+      schema: sdkConnectionRevisionRevertedPayload,
+    },
+    "revision.reopened": {
+      schema: sdkConnectionRevisionReopenedPayload,
+    },
+    "revision.recalled": {
+      schema: sdkConnectionRevisionRecalledPayload,
+    },
+    "revision.reviewRetracted": {
+      schema: sdkConnectionRevisionReviewRetractedPayload,
+    },
+    "revision.publishScheduleChanged": {
+      schema: sdkConnectionRevisionPublishScheduleChangedPayload,
+    },
+    "revision.publishFailed": {
+      schema: sdkConnectionRevisionPublishFailedPayload,
     },
   },
   savedGroup: {

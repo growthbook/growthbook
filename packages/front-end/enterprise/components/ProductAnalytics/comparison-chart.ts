@@ -4,9 +4,10 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   buildComparisonDateRangeForMode,
   calculateProductAnalyticsDateRange,
+  computeBigNumberTrend,
   createComparisonAlignmentResolver,
 } from "shared/enterprise";
-import type { ComparisonAlignmentStrategy } from "shared/enterprise";
+import type { ComparisonAlignmentStrategy, ValueAxis } from "shared/enterprise";
 import type {
   ComparisonMode,
   ExplorationConfig,
@@ -15,9 +16,8 @@ import type {
 } from "shared/validators";
 import {
   formatDateByGranularity,
+  getExplorationRenderOpts,
   getEffectiveMetricValue,
-  getEffectiveShowAs,
-  getIsRatioByIndex,
   type RenderOpts,
   type ResolvedGranularity,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -282,6 +282,58 @@ export function getAlignedComparisonDimensionKeyForTooltip(
   )(currentKey);
 }
 
+/** Members who converted over the Population's member count. */
+export type PopulationFraction = { numerator: number; populationCount: number };
+
+/**
+ * A chart point. A null value is a gap (no data, e.g. "% of Population" on a
+ * day with no members), unlike a bucket with no rows, which reads as 0. A
+ * "% of Population" point also carries its fraction, which the tooltip shows.
+ */
+export type ChartPoint = {
+  value: number | null;
+  fraction?: PopulationFraction;
+};
+
+// Sorted by time, not as strings: a warehouse's dates (`2026-09-01 02:00:00`)
+// and the ISO dates filled in for missing buckets are formatted differently.
+export function sortDateXValues(xValues: Iterable<string>): string[] {
+  return Array.from(xValues).sort(
+    (a, b) => parseWarehouseDate(a).getTime() - parseWarehouseDate(b).getTime(),
+  );
+}
+
+// "% of Population" series keys. With no members there's no percentage, so a
+// date these series have no bucket for is a gap, not 0.
+export function getPopulationSeriesKeys(
+  seriesMeta: Record<string, { valueIndex: number }>,
+  renderOpts: RenderOpts,
+): Set<string> {
+  return new Set(
+    Object.keys(seriesMeta).filter(
+      (seriesKey) =>
+        renderOpts.values[seriesMeta[seriesKey].valueIndex]?.showAs ===
+        "percent_of_population",
+    ),
+  );
+}
+
+// Marks each date in `xValues` that a "% of Population" series has no bucket
+// for as a gap, e.g. dates past the end of the current window that the axis
+// reaches for a longer comparison window.
+export function fillPopulationSeriesGaps(
+  dataMap: Record<string, Record<string, ChartPoint>>,
+  populationSeriesKeys: ReadonlySet<string>,
+  xValues: readonly string[],
+): void {
+  for (const seriesKey of populationSeriesKeys) {
+    const points = (dataMap[seriesKey] ??= {});
+    for (const x of xValues) {
+      if (!(x in points)) points[x] = { value: null };
+    }
+  }
+}
+
 /**
  * Maps comparison-period values onto the chart's x categories.
  *
@@ -293,16 +345,21 @@ export function getAlignedComparisonDimensionKeyForTooltip(
  *   window pairs with the i-th bucket in the comparison window.
  * - **Non-date:** keys should match between periods (e.g. country); align by
  *   string equality on the category label.
+ *
+ * A bucket the comparison has no value for reads as 0, except in
+ * `gapSeriesKeys` ("% of Population" series), where it's a gap: with no
+ * members there's no percentage.
  */
 export function alignComparisonOverlayToCategories(
   sortedXValues: string[],
-  comparisonDataMap: Record<string, Record<string, number>>,
+  comparisonDataMap: Record<string, Record<string, ChartPoint>>,
   sortedSeriesKeys: string[],
   comparisonXValues: string[],
   firstDimensionIsDate: boolean,
   strategy?: ComparisonAlignmentStrategy,
-): Record<string, Record<string, number>> {
-  const aligned: Record<string, Record<string, number>> = {};
+  gapSeriesKeys: ReadonlySet<string> = new Set(),
+): Record<string, Record<string, ChartPoint>> {
+  const aligned: Record<string, Record<string, ChartPoint>> = {};
   const resolveComparisonKey = createComparisonAlignmentResolver(
     sortedXValues,
     comparisonXValues,
@@ -315,9 +372,14 @@ export function alignComparisonOverlayToCategories(
     aligned[seriesKey] = {};
     for (const x of sortedXValues) {
       const compKey = resolveComparisonKey(x);
-      // Buckets past the end of a shorter comparison window read as zero, same
-      // as a matched bucket the comparison simply had no rows in.
-      aligned[seriesKey][x] = compKey !== undefined ? (src[compKey] ?? 0) : 0;
+      // Buckets past the end of a shorter comparison window read the same as a
+      // matched bucket the comparison simply had no rows in.
+      aligned[seriesKey][x] =
+        compKey !== undefined && compKey in src
+          ? src[compKey]
+          : gapSeriesKeys.has(seriesKey)
+            ? { value: null }
+            : { value: 0 };
     }
   }
   return aligned;
@@ -336,13 +398,27 @@ function metricIdForDatasetValue(
 }
 
 function metricNameForDatasetValue(
-  config: ExplorationConfig,
+  renderOpts: RenderOpts,
   metricIndex: number,
 ): string {
-  if (config.dataset?.type === "funnel" || config.dataset?.type === "journey")
-    return `Metric ${metricIndex}`;
-  return config.dataset?.values?.[metricIndex]?.name ?? `Metric ${metricIndex}`;
+  return renderOpts.values[metricIndex]?.seriesName ?? `Metric ${metricIndex}`;
 }
+
+function valueAxisForDatasetValue(
+  renderOpts: RenderOpts,
+  metricIndex: number,
+): ValueAxis {
+  return renderOpts.values[metricIndex]?.valueAxis ?? "primary";
+}
+
+export type ExplorerSeriesMeta = {
+  metricId: string;
+  name: string;
+  /** The dataset value the series draws. */
+  valueIndex: number;
+  /** The value's axis, from its render options. */
+  valueAxis: ValueAxis;
+};
 
 /**
  * Maps exploration rows into per-series maps keyed by the primary dimension (x).
@@ -353,12 +429,12 @@ export function buildComparisonOverlaySeriesMaps(
   renderOpts: RenderOpts,
 ): {
   uniqueXValues: Set<string>;
-  dataMap: Record<string, Record<string, number>>;
-  seriesMeta: Record<string, { metricId: string; name: string }>;
+  dataMap: Record<string, Record<string, ChartPoint>>;
+  seriesMeta: Record<string, ExplorerSeriesMeta>;
 } {
   const uniqueXValues = new Set<string>();
-  const dataMap: Record<string, Record<string, number>> = {};
-  const seriesMeta: Record<string, { metricId: string; name: string }> = {};
+  const dataMap: Record<string, Record<string, ChartPoint>> = {};
+  const seriesMeta: Record<string, ExplorerSeriesMeta> = {};
 
   const numMetrics =
     config.dataset?.type !== "funnel" && config.dataset?.type !== "journey"
@@ -366,10 +442,36 @@ export function buildComparisonOverlaySeriesMaps(
       : 0;
   const numDimensions = config.dimensions?.length ?? 0;
 
-  const bump = (seriesKey: string, x: string, y: number) => {
+  const bump = (seriesKey: string, x: string, point: ChartPoint) => {
     uniqueXValues.add(x);
-    if (!dataMap[seriesKey]) dataMap[seriesKey] = {};
-    dataMap[seriesKey][x] = (dataMap[seriesKey][x] ?? 0) + y;
+    const points = (dataMap[seriesKey] ??= {});
+    const prev = points[x];
+    const value =
+      point.value === null
+        ? (prev?.value ?? null)
+        : (prev?.value ?? 0) + point.value;
+    // A Population chart has one row per series and x (the parser allows one
+    // dimension), so there's never a fraction already here to merge.
+    points[x] = point.fraction
+      ? { value, fraction: point.fraction }
+      : { value };
+  };
+  const pointFor = (
+    row: ProductAnalyticsResultRow,
+    valueIndex: number,
+  ): ChartPoint | null => {
+    const cell = row.values?.[valueIndex];
+    if (!cell) return null;
+    const opts = renderOpts.values[valueIndex];
+    const value = getEffectiveMetricValue(cell, opts, row.populationCount);
+    // A "% of Population" point has a fraction whenever it has a value;
+    // getEffectiveMetricValue decides when it has one.
+    if (opts?.showAs === "percent_of_population" && value !== null) {
+      const numerator = cell.numerator ?? 0;
+      const populationCount = row.populationCount ?? 0;
+      return { value, fraction: { numerator, populationCount } };
+    }
+    return { value };
   };
 
   for (const row of rows) {
@@ -381,19 +483,14 @@ export function buildComparisonOverlaySeriesMaps(
         if (!seriesMeta[seriesKey]) {
           seriesMeta[seriesKey] = {
             metricId: metricIdForDatasetValue(config, mi),
-            name: metricNameForDatasetValue(config, mi),
+            name: metricNameForDatasetValue(renderOpts, mi),
+            valueIndex: mi,
+            valueAxis: valueAxisForDatasetValue(renderOpts, mi),
           };
         }
-        const cell = row.values?.[mi];
-        if (!cell) continue;
-        bump(
-          seriesKey,
-          x,
-          getEffectiveMetricValue(cell, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[mi] ?? false,
-          }),
-        );
+        const point = pointFor(row, mi);
+        if (!point) continue;
+        bump(seriesKey, x, point);
       }
       continue;
     }
@@ -409,19 +506,14 @@ export function buildComparisonOverlaySeriesMaps(
       if (!seriesMeta[seriesKey]) {
         seriesMeta[seriesKey] = {
           metricId: metricIdForDatasetValue(config, 0),
-          name: group || metricNameForDatasetValue(config, 0),
+          name: group || metricNameForDatasetValue(renderOpts, 0),
+          valueIndex: 0,
+          valueAxis: valueAxisForDatasetValue(renderOpts, 0),
         };
       }
-      const cell = row.values?.[0];
-      if (!cell) continue;
-      bump(
-        seriesKey,
-        x,
-        getEffectiveMetricValue(cell, {
-          showAs: renderOpts.showAs,
-          isRatio: renderOpts.isRatioByIndex[0] ?? false,
-        }),
-      );
+      const point = pointFor(row, 0);
+      if (!point) continue;
+      bump(seriesKey, x, point);
       continue;
     }
 
@@ -429,22 +521,67 @@ export function buildComparisonOverlaySeriesMaps(
     if (!seriesMeta[seriesKey]) {
       seriesMeta[seriesKey] = {
         metricId: metricIdForDatasetValue(config, 0),
-        name: metricNameForDatasetValue(config, 0),
+        name: metricNameForDatasetValue(renderOpts, 0),
+        valueIndex: 0,
+        valueAxis: valueAxisForDatasetValue(renderOpts, 0),
       };
     }
-    const cell = row.values?.[0];
-    if (!cell) continue;
-    bump(
-      seriesKey,
-      x,
-      getEffectiveMetricValue(cell, {
-        showAs: renderOpts.showAs,
-        isRatio: renderOpts.isRatioByIndex[0] ?? false,
-      }),
-    );
+    const point = pointFor(row, 0);
+    if (!point) continue;
+    bump(seriesKey, x, point);
   }
 
   return { uniqueXValues, dataMap, seriesMeta };
+}
+
+// --- Explorer chart: second "% of Population" value axis ---
+
+/**
+ * The chart's value axis option: the primary axis alone, or with a second copy
+ * changed by `secondaryAxisOverrides` (its title and labels). The second axis
+ * sits on the right of a vertical chart and on top of a horizontal one. Grid
+ * lines follow the primary axis only, and the second axis's ticks snap to them
+ * so a value can be read across.
+ */
+export function buildValueAxes<T extends object>(
+  primaryAxis: T,
+  secondaryAxisOverrides: object | null,
+  secondaryAxisPosition: "right" | "top",
+): T | [T, T] {
+  if (!secondaryAxisOverrides) return primaryAxis;
+  const secondaryAxis = {
+    ...primaryAxis,
+    ...secondaryAxisOverrides,
+    position: secondaryAxisPosition,
+    alignTicks: true,
+    splitLine: { show: false },
+  };
+  return [primaryAxis, secondaryAxis];
+}
+
+/**
+ * Moves each series whose `valueAxis` is "secondary" onto the second value
+ * axis. `valueAxisKey` is the value axis's index key: `yAxisIndex` on vertical
+ * charts, `xAxisIndex` on horizontal ones, where `yAxisIndex` is the category
+ * axis (compare mode already uses index 1 for the previous period's category
+ * axis, which is kept). Stacked series get their own stack, so counts and
+ * percents don't stack together.
+ */
+export function assignSecondaryValueAxis(
+  seriesConfigs: unknown[],
+  valueAxisKey: "xAxisIndex" | "yAxisIndex",
+): unknown[] {
+  return seriesConfigs.map((config) => {
+    const seriesConfig = config as { valueAxis?: ValueAxis; stack?: string };
+    if (seriesConfig.valueAxis !== "secondary") return config;
+    return {
+      ...seriesConfig,
+      [valueAxisKey]: 1,
+      ...(seriesConfig.stack !== undefined
+        ? { stack: `${seriesConfig.stack}:secondary` }
+        : {}),
+    };
+  });
 }
 
 // --- Explorer chart: ECharts compare overlay (constants + series builders) ---
@@ -457,6 +594,18 @@ const COMPARE_OVERLAY_Z_CURRENT_OVER = 2;
 const COMPARE_OVERLAY_Z_PREVIOUS_LINE_ON_TOP = 3;
 
 const COMPARE_OVERLAY_BAR_GAP = "-100%";
+/**
+ * How far the previous period extends past the current bar on each side, in px:
+ * a share of the bar width, kept within [minPx, maxPx].
+ */
+export function compareBarFramePx(
+  barWidth: number,
+  minPx: number,
+  maxPx: number,
+  fraction: number,
+): number {
+  return Math.max(minPx, Math.min(maxPx, Math.round(barWidth * fraction)));
+}
 /**
  * Compare-mode bar widths (see `currentBarWidth` / `previousBarWidth`). The
  * current bar uses a responsive percentage so it scales with the available width,
@@ -512,16 +661,18 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
   firstDimensionIsDate: boolean;
   comparisonAlignment?: ComparisonAlignmentStrategy;
 }): {
-  alignedMap: Record<string, Record<string, number>>;
+  alignedMap: Record<string, Record<string, ChartPoint>>;
   comparisonXValues: string[];
 } | null {
   if (!args.comparisonRows.length) return null;
-  const { uniqueXValues, dataMap } = buildComparisonOverlaySeriesMaps(
-    args.comparisonRows,
-    args.submittedExploreState,
-    args.renderOpts,
-  );
+  const { uniqueXValues, dataMap, seriesMeta } =
+    buildComparisonOverlaySeriesMaps(
+      args.comparisonRows,
+      args.submittedExploreState,
+      args.renderOpts,
+    );
   const comparisonXValues = Array.from(uniqueXValues);
+  const gapSeriesKeys = getPopulationSeriesKeys(seriesMeta, args.renderOpts);
   const alignedMap = alignComparisonOverlayToCategories(
     args.sortedXValues,
     dataMap,
@@ -529,14 +680,40 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
     comparisonXValues,
     args.firstDimensionIsDate,
     args.comparisonAlignment,
+    gapSeriesKeys,
   );
   return { alignedMap, comparisonXValues };
 }
 
-type ExplorerChartCompareSeriesMeta = {
-  metricId: string;
-  name: string;
+/**
+ * An ECharts data item: the point's value (paired with its time on a time
+ * axis) and, for a "% of Population" point, the fraction the tooltip shows.
+ */
+type EChartsDataItem = {
+  value: number | null | [number, number | null];
+  fraction?: PopulationFraction;
 };
+
+/**
+ * The series' data item at `x`. A series with no bucket at `x` reads as 0,
+ * unlike a null point, which is a gap.
+ */
+function eChartsDataItemAt(
+  map: Record<string, ChartPoint> | undefined,
+  x: string,
+  time?: number,
+): EChartsDataItem {
+  const point = map && x in map ? map[x] : { value: 0 };
+  const value: EChartsDataItem["value"] =
+    time === undefined ? point.value : [time, point.value];
+  return point.fraction ? { value, fraction: point.fraction } : { value };
+}
+
+/** Each series config carries its `valueAxis`, for `assignSecondaryValueAxis`. */
+type ExplorerChartCompareSeriesMeta = Pick<
+  ExplorerSeriesMeta,
+  "metricId" | "name" | "valueAxis"
+>;
 
 /**
  * Compare mode for non-stacked bar / horizontalBar with multiple metrics (or grouped
@@ -549,8 +726,8 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
   sourceSortedXValues: string[];
   sourceSeriesKeys: string[];
   sourceSeriesMeta: Record<string, ExplorerChartCompareSeriesMeta>;
-  currentDataMap: Record<string, Record<string, number>>;
-  previousDataMap: Record<string, Record<string, number>>;
+  currentDataMap: Record<string, Record<string, ChartPoint>>;
+  previousDataMap: Record<string, Record<string, ChartPoint>>;
   comparisonPeriodLabels: {
     currentLabel: string;
     previousLabel: string;
@@ -591,8 +768,7 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
   for (const x of sourceSortedXValues) {
     for (let ki = 0; ki < K; ki++) {
       const sk = sourceSeriesKeys[ki]!;
-      const { name } = sourceSeriesMeta[sk] ?? { name: sk };
-      flatCategoryData.push(`${x} — ${name}`);
+      flatCategoryData.push(`${x} — ${sourceSeriesMeta[sk].name}`);
     }
   }
 
@@ -606,7 +782,7 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
 
   for (let ki = 0; ki < K; ki++) {
     const sk = sourceSeriesKeys[ki]!;
-    const { name } = sourceSeriesMeta[sk] ?? { name: sk };
+    const { name, valueAxis } = sourceSeriesMeta[sk];
     const currName = formatComparisonMetricLabel(
       name,
       comparisonPeriodLabels.currentLabel,
@@ -616,16 +792,16 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
       comparisonPeriodLabels.previousLabel,
     );
 
-    const currData: (number | null)[] = [];
-    const prevData: (number | null)[] = [];
+    const currData: (EChartsDataItem | null)[] = [];
+    const prevData: (EChartsDataItem | null)[] = [];
 
     for (let j = 0; j < flatLen; j++) {
       const xi = Math.floor(j / K);
       const slotKi = j % K;
       const x = sourceSortedXValues[xi]!;
       if (slotKi === ki) {
-        currData.push(currentDataMap[sk]?.[x] ?? 0);
-        prevData.push(previousDataMap[sk]?.[x] ?? 0);
+        currData.push(eChartsDataItemAt(currentDataMap[sk], x));
+        prevData.push(eChartsDataItemAt(previousDataMap[sk], x));
       } else {
         currData.push(null);
         prevData.push(null);
@@ -636,6 +812,7 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
     // previous bar behind it shows through.
     series.push({
       name: currName,
+      valueAxis,
       type: "bar" as const,
       data: currData,
       color: seriesColor(ki),
@@ -652,6 +829,7 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
     // overlaid category axis), so it frames it. On hover it becomes outline-only.
     series.push({
       name: prevName,
+      valueAxis,
       type: "bar" as const,
       data: prevData,
       color: comparisonSeriesColor(ki),
@@ -681,7 +859,7 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
  */
 export function buildExplorerChartComparisonSeriesList(params: {
   chartType: ExplorationConfig["chartType"];
-  sourceDataMap: Record<string, Record<string, number>>;
+  sourceDataMap: Record<string, Record<string, ChartPoint>>;
   sourceSeriesMeta: Record<string, ExplorerChartCompareSeriesMeta>;
   sourceSeriesKeys: string[];
   sourceSortedXValues: string[];
@@ -729,7 +907,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
 
   return sourceSeriesKeys
     .map((seriesKey, idx) => {
-      const { name } = sourceSeriesMeta[seriesKey];
+      const { name, valueAxis } = sourceSeriesMeta[seriesKey];
       const seriesDataMap = sourceDataMap[seriesKey];
       const displayName = comparisonPeriodLabels
         ? formatComparisonMetricLabel(
@@ -742,13 +920,13 @@ export function buildExplorerChartComparisonSeriesList(params: {
       const color = isPrevious ? comparisonSeriesColor(idx) : seriesColor(idx);
 
       if (isPrevious && chartType === "line") {
-        const data = sourceSortedXValues.map((x) => [
-          parseWarehouseDate(x).getTime(),
-          seriesDataMap[x] ?? 0,
-        ]);
+        const data = sourceSortedXValues.map((x) =>
+          eChartsDataItemAt(seriesDataMap, x, parseWarehouseDate(x).getTime()),
+        );
 
         return {
           name: displayName,
+          valueAxis,
           data,
           color,
           type: "line" as const,
@@ -771,16 +949,24 @@ export function buildExplorerChartComparisonSeriesList(params: {
           !compareOverlayActive
         ) {
           const data = sourceSortedXValues.map((x, i) => ({
-            value: seriesDataMap[x] ?? 0,
+            ...eChartsDataItemAt(seriesDataMap, x),
             itemStyle: { color: seriesColor(i) },
           }));
-          return { name: displayName, data, type: "bar" as const };
+          return {
+            name: displayName,
+            valueAxis,
+            data,
+            type: "bar" as const,
+          };
         }
 
-        const data = sourceSortedXValues.map((x) => seriesDataMap[x] ?? 0);
+        const data = sourceSortedXValues.map((x) =>
+          eChartsDataItemAt(seriesDataMap, x),
+        );
         if (compareOverlayActive) {
           return {
             name: displayName,
+            valueAxis,
             data,
             color,
             type: "bar" as const,
@@ -822,6 +1008,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
         }
         return {
           name: displayName,
+          valueAxis,
           data,
           color,
           type: "bar" as const,
@@ -830,14 +1017,14 @@ export function buildExplorerChartComparisonSeriesList(params: {
       }
 
       if (chartType === "line" || chartType === "area") {
-        const data = sourceSortedXValues.map((x) => [
-          parseWarehouseDate(x).getTime(),
-          seriesDataMap[x] ?? 0,
-        ]);
+        const data = sourceSortedXValues.map((x) =>
+          eChartsDataItemAt(seriesDataMap, x, parseWarehouseDate(x).getTime()),
+        );
 
         if (chartType === "area" && isPrevious && compareOverlayActive) {
           return {
             name: displayName,
+            valueAxis,
             data,
             color,
             type: "line" as const,
@@ -861,6 +1048,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
 
         const lineConfig = {
           name: displayName,
+          valueAxis,
           data,
           color,
           type: "line" as const,
@@ -897,7 +1085,8 @@ export function buildExplorerChartComparisonSeriesList(params: {
 }
 
 /**
- * Comparison trend for one metric column on the aggregate row (Big Number view).
+ * Comparison trend for one metric column on the aggregate row (Big Number
+ * view), from the same shared calculation as the server's trends.
  */
 export function computeBigNumberComparisonTrendForMetricIndex(
   exploration: ProductAnalyticsExploration | null,
@@ -906,42 +1095,19 @@ export function computeBigNumberComparisonTrendForMetricIndex(
   getFactMetricById: (id: string) => FactMetricInterface | null,
   metricIndex: number,
 ): BigNumberComparisonTrend | null {
-  if (
-    !exploration?.result?.rows?.length ||
-    !comparisonExploration?.result?.rows?.length ||
-    metricIndex < 0
-  ) {
-    return null;
-  }
-
-  const renderOpts: RenderOpts = {
-    showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-    isRatioByIndex: getIsRatioByIndex(submittedExploreState, getFactMetricById),
-  };
-
-  const currCell = exploration.result.rows[0]?.values?.[metricIndex];
-  const prevCell = comparisonExploration.result.rows[0]?.values?.[metricIndex];
-  if (!currCell || !prevCell) return null;
-
-  const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;
-  const currentValue = getEffectiveMetricValue(currCell, {
-    showAs: renderOpts.showAs,
-    isRatio,
-  });
-  const previousValue = getEffectiveMetricValue(prevCell, {
-    showAs: renderOpts.showAs,
-    isRatio,
-  });
-
-  if (previousValue === 0) {
-    return { currentValue, previousValue, pctChange: 0 };
-  }
-
-  return {
-    currentValue,
-    previousValue,
-    pctChange: (currentValue - previousValue) / Math.abs(previousValue),
-  };
+  const trend = computeBigNumberTrend(
+    exploration,
+    comparisonExploration,
+    getExplorationRenderOpts(submittedExploreState, getFactMetricById),
+    metricIndex,
+  );
+  return trend
+    ? {
+        currentValue: trend.currentValue,
+        previousValue: trend.previousValue,
+        pctChange: trend.pctChangeFraction,
+      }
+    : null;
 }
 
 /** One entry per `dataset.values` index (aligned with explorer metric slots). */
@@ -996,6 +1162,8 @@ type TooltipAxisItem = {
   marker: string;
   seriesName: string;
   value: number | [number, number];
+  /** The series' data item here; null for the blank slots sparse bars are laid out with. */
+  data?: EChartsDataItem | null;
   /** Series color, surfaced by ECharts on each axis-tooltip item. */
   color?: string;
 };
@@ -1034,6 +1202,22 @@ function compareTooltipMarker(
   } ${c};border-radius:2px;margin-right:8px;vertical-align:middle"></span>`;
 }
 
+// Matches the fraction under each value in experiment results.
+const fractionNumberFormatter = Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+// A "% of Population" value's fraction, muted like the fraction in experiment
+// results.
+function populationFractionHtml({
+  numerator,
+  populationCount,
+}: PopulationFraction): string {
+  const fraction = `${fractionNumberFormatter.format(numerator)} / ${fractionNumberFormatter.format(populationCount)}`;
+  return `<span style="font-size:11px;font-style:italic;opacity:0.6;margin-right:6px">${escapeHtmlForProductAnalyticsTooltip(fraction)}</span>`;
+}
+
 function buildGroupedCompareTooltipRows(
   formatNumber: (value: number) => string,
   items: Array<{
@@ -1041,6 +1225,7 @@ function buildGroupedCompareTooltipRows(
     seriesName: string;
     value: number | [number, number];
     color?: string;
+    data?: EChartsDataItem | null;
   }>,
   comparisonPeriodLabels: { currentLabel: string; previousLabel: string },
   markerStyle: CompareTooltipMarkerStyle,
@@ -1057,9 +1242,11 @@ function buildGroupedCompareTooltipRows(
 
   const fmtVal = (item: (typeof items)[0]) => {
     const numValue = Array.isArray(item.value) ? item.value[1] : item.value;
-    return typeof numValue === "number"
-      ? formatNumber(numValue)
-      : String(numValue);
+    if (numValue === null || numValue === undefined) return "No data";
+    const formatted =
+      typeof numValue === "number" ? formatNumber(numValue) : String(numValue);
+    const fraction = item.data?.fraction;
+    return fraction ? populationFractionHtml(fraction) + formatted : formatted;
   };
 
   // Stacked "Current" / "Previous" row: swatch + label on the left, value
@@ -1174,6 +1361,27 @@ export function buildExplorerChartTooltipFormatter({
   const useDateGranularityTooltip =
     Boolean(resolvedGranularity) && !compositeCategoryAxisTooltip;
 
+  // Most empty points are the blank slots sparse bars are laid out with, which
+  // have no data item. A "% of Population" bucket with no members is a data
+  // item with no value, shown as "No data".
+  const isShownItem = (item: Omit<TooltipAxisItem, "dataIndex">) => {
+    if (tooltipItemNumericValue(item) !== null) return true;
+    const data = item.data ?? null;
+    return data !== null && tooltipItemNumericValue(data) === null;
+  };
+
+  // The value cell's HTML. A "% of Population" value is preceded by its
+  // fraction.
+  const formatItemValueHtml = (item: Omit<TooltipAxisItem, "dataIndex">) => {
+    const numValue = tooltipItemNumericValue(item);
+    const formatted = numValue !== null ? formatNumber(numValue) : "No data";
+    const valueHtml = `<b>${formatted}</b>`;
+    if (numValue === null) return valueHtml;
+
+    const fraction = item.data?.fraction;
+    return fraction ? populationFractionHtml(fraction) + valueHtml : valueHtml;
+  };
+
   if (useDateGranularityTooltip && resolvedGranularity) {
     const dateGranularity = resolvedGranularity;
     return (params: unknown) => {
@@ -1186,9 +1394,7 @@ export function buildExplorerChartTooltipFormatter({
         itemsRaw,
         comparisonPeriodLabels,
       );
-      const items = itemsSorted.filter(
-        (item) => tooltipItemNumericValue(item) !== null,
-      );
+      const items = itemsSorted.filter(isShownItem);
       if (!items.length) return "";
 
       const rawAxisValue = items[0].axisValue;
@@ -1268,10 +1474,8 @@ export function buildExplorerChartTooltipFormatter({
             )
           : items
               .map((item) => {
-                const numValue = tooltipItemNumericValue(item);
-                const formatted =
-                  numValue !== null ? formatNumber(numValue) : "";
-                return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker ?? ""}${item.seriesName ?? ""}</span><span><b>${formatted}</b></span></div>`;
+                const valueHtml = formatItemValueHtml(item);
+                return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker ?? ""}${item.seriesName ?? ""}</span><span>${valueHtml}</span></div>`;
               })
               .join("");
 
@@ -1291,9 +1495,20 @@ export function buildExplorerChartTooltipFormatter({
         itemsRaw,
         comparisonPeriodLabels,
       );
-      const items = itemsSorted.filter(
-        (item) => tooltipItemNumericValue(item) !== null,
-      );
+      const items = itemsSorted.filter((item) => {
+        if (!isShownItem(item)) return false;
+        if (tooltipItemNumericValue(item) !== null) return true;
+        if (!compositeCategoryAxisTooltip || !comparisonPeriodLabels) {
+          return true;
+        }
+        // A sparse bar's slot holds one metric; the other metrics' empty
+        // points only lay it out.
+        const { baseName } = parseComparisonTooltipSeriesName(
+          item.seriesName,
+          comparisonPeriodLabels,
+        );
+        return String(item.axisValue).endsWith(` — ${baseName}`);
+      });
       if (!items.length) return "";
 
       const rawAxisValue = items[0].axisValue;
@@ -1334,9 +1549,8 @@ export function buildExplorerChartTooltipFormatter({
 
       const seriesRows = items
         .map((item) => {
-          const numValue = tooltipItemNumericValue(item);
-          const formatted = numValue !== null ? formatNumber(numValue) : "";
-          return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker ?? ""}${item.seriesName ?? ""}</span><span><b>${formatted}</b></span></div>`;
+          const valueHtml = formatItemValueHtml(item);
+          return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker ?? ""}${item.seriesName ?? ""}</span><span>${valueHtml}</span></div>`;
         })
         .join("");
 

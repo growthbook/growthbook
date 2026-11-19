@@ -5,6 +5,7 @@ import {
   quoteColumnIdentifier,
   SQL_ROW_LIMIT,
   stripTrailingSemicolon,
+  getSqlStringRules,
 } from "shared/sql";
 import {
   buildPrevResolvedExpr,
@@ -41,7 +42,7 @@ import {
   ProductAnalyticsResultRow,
   FunnelDataset,
   PopulationDataset,
-  ExplorationPopulation,
+  ResolvedExplorationPopulation,
   dateGranularity,
 } from "../../validators/product-analytics";
 import {
@@ -239,7 +240,7 @@ function getMetricsAndUnitsFromValues(
 // A population as a distinct-units count with an optional aggregate filter.
 // Used for population previews and for a metric dataset's population.
 function createPopulationMetric(
-  population: Omit<ExplorationPopulation, "unit">,
+  population: Omit<ResolvedExplorationPopulation, "unit">,
   id: string,
   name: string,
 ): MinimalMetric {
@@ -267,7 +268,7 @@ function createPopulationMetric(
 
 // The Population count series, placed after a metric dataset's metrics.
 function createPopulationCountSeries(
-  population: ExplorationPopulation,
+  population: ResolvedExplorationPopulation,
 ): Series {
   return {
     metric: createPopulationMetric(population, "population", "Population"),
@@ -315,11 +316,15 @@ function getFactTableGroups({
   factTableMap,
   metricMap,
   datasource,
+  population,
+  dialect,
 }: {
   config: ExplorationConfig;
   factTableMap: FactTableMap;
   metricMap: Map<string, FactMetricInterface>;
   datasource: MinimalDatasourceInterface;
+  population: ResolvedExplorationPopulation | null;
+  dialect: SqlDialect;
 }): FactTableGroup[] {
   if (!config.dataset) {
     throw new Error("Dataset is required");
@@ -357,7 +362,10 @@ function getFactTableGroups({
         {
           index: 0,
           factTable: createStubFactTable(
-            stripTrailingSemicolon(config.dataset.sql),
+            stripTrailingSemicolon(
+              config.dataset.sql,
+              getSqlStringRules(dialect),
+            ),
             config.dataset.timestampColumn,
             config.dataset.columnTypes,
             datasourceSettings,
@@ -394,7 +402,9 @@ function getFactTableGroups({
     case "metric":
       return (() => {
         const groups: Record<string, FactTableGroup> = {};
-        const population = config.dataset.population;
+        if (config.dataset.population && !population) {
+          throw new Error("The exploration's Population was not resolved");
+        }
         let metricIndex = 0;
         for (const value of config.dataset.values) {
           const originalMetric = metricMap.get(value.metricId);
@@ -1081,12 +1091,12 @@ function getMetricData(
 
   // Always expose a denominator (unit count) for unit-aggregated non-ratio,
   // non-quantile metrics so the frontend can render either the raw numerator
-  // (totals) or numerator/denominator (per-unit averages) based on the
-  // chart-level `showAs` setting.
+  // (totals) or numerator/denominator (per-unit averages) based on each
+  // value's `showAs` setting.
   //
   // Intentionally symmetric across dataset types: fact_table/data_source
-  // datasets (where `showAsAppliesTo` returns false and the denominator is
-  // never surfaced) still emit this column. The extra `COUNT(...)` is cheap
+  // datasets (which offer no Show as options, so the denominator is never
+  // surfaced) still emit this column. The extra `COUNT(...)` is cheap
   // relative to the rest of the rollup and keeps the SQL shape / result
   // column set identical regardless of dataset type, which simplifies the
   // downstream parser and test fixtures. If this ever becomes a measurable
@@ -2064,6 +2074,9 @@ export function generateProductAnalyticsSQL(
   metricMap: Map<string, FactMetricInterface>,
   dialect: SqlDialect,
   datasource: MinimalDatasourceInterface,
+  // The saved Population behind `config.dataset.population`, resolved by the
+  // caller. Null when the config has none.
+  population: ResolvedExplorationPopulation | null = null,
 ): {
   sql: string;
   orderedMetricIds: string[];
@@ -2096,6 +2109,8 @@ export function generateProductAnalyticsSQL(
     factTableMap,
     metricMap,
     datasource,
+    population,
+    dialect,
   });
 
   // Get all metric aliases
@@ -2321,7 +2336,7 @@ function generateProductAnalyticsRawTableSQL(
 
   return format(
     dialect.selectStarLimit(
-      `(\n${stripTrailingSemicolon(config.dataset.sql)}\n) t`,
+      `(\n${stripTrailingSemicolon(config.dataset.sql, getSqlStringRules(dialect))}\n) t`,
       SQL_ROW_LIMIT + 1,
       whereClause,
     ),

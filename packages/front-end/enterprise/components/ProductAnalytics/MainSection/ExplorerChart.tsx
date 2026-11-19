@@ -12,17 +12,18 @@ import { isManagedWarehousePendingQueryError } from "shared/util";
 import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
+  densifyPopulationTimeseriesRows,
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getDateGranularity,
+  getSecondaryValueAxisName,
 } from "shared/enterprise";
 import {
   shouldChartSectionShow,
-  getEffectiveMetricValue,
   computeDimensionTotals,
-  getIsRatioByIndex,
-  getEffectiveShowAs,
-  getDefaultValueAxisName,
+  getExplorationRenderOpts,
+  getEffectiveMetricValue,
+  getValueAxisName,
   formatDateByGranularity,
   type ResolvedGranularity,
   type RenderOpts,
@@ -39,6 +40,11 @@ import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/Manag
 import {
   buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
+  getPopulationSeriesKeys,
+  fillPopulationSeriesGaps,
+  sortDateXValues,
+  assignSecondaryValueAxis,
+  buildValueAxes,
   buildExplorerChartComparisonSeriesList,
   buildExplorerCompareSparseFlatBarSeries,
   computeBigNumberComparisonTrends,
@@ -49,6 +55,7 @@ import {
   buildExplorerChartTooltipFormatter,
   buildCompareChartLegendModel,
   type CompareCategoryAxisKey,
+  compareBarFramePx,
 } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
 import ComparisonChartLegend from "@/enterprise/components/ProductAnalytics/ComparisonChartLegend";
@@ -70,6 +77,9 @@ export const CHART_GRID = {
   bottom: 8,
   top: 16,
   topWithLegend: 58,
+  // Extra room for a horizontal chart's top value axis title, so it clears
+  // the legend.
+  topValueAxisTitle: 28,
   // Rough allowance for tick labels + names outside the plot; only used for
   // compare-bar sizing and name truncation.
   axisGutterX: 80,
@@ -195,26 +205,19 @@ export default function ExplorerChart({
   useEffect(() => () => resizeObserverRef.current?.disconnect(), []);
 
   const renderOpts: RenderOpts = useMemo(
-    () => ({
-      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-      isRatioByIndex: getIsRatioByIndex(
-        submittedExploreState,
-        getFactMetricById,
-      ),
-    }),
+    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
     [submittedExploreState, getFactMetricById],
   );
 
-  const defaultValueAxisName = getDefaultValueAxisName(
-    submittedExploreState,
-    getFactMetricById,
-  );
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
     submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
-  const customValueAxisName =
-    submittedExploreState.chartSettings?.valueAxisLabel?.trim();
-  const valueAxisName = customValueAxisName ?? defaultValueAxisName;
+  const valueAxisName = getValueAxisName(submittedExploreState, renderOpts);
+  // Horizontal bars put the second value axis on top (see buildValueAxes).
+  const hasTopValueAxis =
+    (submittedExploreState.chartType === "horizontalBar" ||
+      submittedExploreState.chartType === "stackedHorizontalBar") &&
+    getSecondaryValueAxisName(renderOpts) !== null;
 
   const bigNumberComparisonTrends = useMemo(() => {
     if (!compareEnabled) return null;
@@ -254,26 +257,14 @@ export default function ExplorerChart({
     const row = exploration.result.rows[0];
     if (submittedExploreState.dataset?.type === "funnel") return null;
     if (submittedExploreState.dataset?.type === "journey") return null;
-    const valuesMeta = submittedExploreState.dataset?.values ?? [];
-    return valuesMeta.map((v, metricIndex) => {
+    return renderOpts.values.map((opts, metricIndex) => {
       const cell = row?.values?.[metricIndex];
       const value = cell
-        ? getEffectiveMetricValue(cell, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[metricIndex] ?? false,
-          })
+        ? getEffectiveMetricValue(cell, opts, row.populationCount)
         : 0;
-      return {
-        value,
-        label: v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`,
-      };
+      return { value, label: opts.seriesName };
     });
-  }, [
-    exploration?.result?.rows,
-    submittedExploreState,
-    renderOpts.showAs,
-    renderOpts.isRatioByIndex,
-  ]);
+  }, [exploration?.result?.rows, submittedExploreState, renderOpts]);
 
   // Compare is on and the previous-period query finished, but returned no rows
   // (e.g. a grouped breakdown with no prior data that densification can't fill).
@@ -302,7 +293,10 @@ export default function ExplorerChart({
       submittedExploreState.dataset?.type === "journey"
     )
       return null;
-    const rows = exploration.result.rows;
+    const rows = densifyPopulationTimeseriesRows(
+      exploration,
+      submittedExploreState,
+    );
 
     // Resolve date granularity for tooltip formatting
     const dateDimension = submittedExploreState.dimensions?.find(
@@ -331,8 +325,8 @@ export default function ExplorerChart({
     // 2. Compute cumulative totals for sorting
     const seriesTotals: Record<string, number> = {};
     for (const [seriesKey, seriesData] of Object.entries(dataMap)) {
-      seriesTotals[seriesKey] = Object.values(seriesData).reduce(
-        (sum, v) => sum + v,
+      seriesTotals[seriesKey] = Object.values(seriesData).reduce<number>(
+        (sum, point) => sum + (point.value ?? 0),
         0,
       );
     }
@@ -357,6 +351,8 @@ export default function ExplorerChart({
           ? xValueTotals[a] - xValueTotals[b]
           : xValueTotals[b] - xValueTotals[a],
       );
+    } else if (firstDimensionIsDate) {
+      sortedXValues = sortDateXValues(uniqueXValues);
     } else {
       sortedXValues = Array.from(uniqueXValues).sort();
     }
@@ -384,6 +380,11 @@ export default function ExplorerChart({
         ];
       }
     }
+    const populationSeriesKeys = getPopulationSeriesKeys(
+      seriesMeta,
+      renderOpts,
+    );
+    fillPopulationSeriesGaps(dataMap, populationSeriesKeys, sortedXValues);
 
     // 3. Build Series (ordered by cumulative total, highest first)
     const seriesColor = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
@@ -495,12 +496,11 @@ export default function ExplorerChart({
       // Derive the frame from the ideal (uncapped) bar width so it doesn't feed
       // back into the fit-cap below.
       const idealCurrent = band * COMPARE_BAR_CURRENT_FRACTION;
-      const framePx = Math.max(
+      const framePx = compareBarFramePx(
+        idealCurrent,
         COMPARE_BAR_FRAME_MIN_PX,
-        Math.min(
-          COMPARE_BAR_FRAME_MAX_PX,
-          Math.round(idealCurrent * COMPARE_BAR_FRAME_FRACTION),
-        ),
+        COMPARE_BAR_FRAME_MAX_PX,
+        COMPARE_BAR_FRAME_FRACTION,
       );
       const frameTotal = 2 * framePx;
       const maxCurrent = Math.max(4, band - frameTotal - 2);
@@ -588,6 +588,16 @@ export default function ExplorerChart({
       );
     }
 
+    // "% of Population" values mixed with other modes get a second value
+    // axis: on the right of a vertical chart, on top of a horizontal one.
+    const secondaryValueAxisName = getSecondaryValueAxisName(renderOpts);
+    if (secondaryValueAxisName !== null) {
+      seriesConfigs = assignSecondaryValueAxis(
+        seriesConfigs,
+        isHorizontalBar ? "xAxisIndex" : "yAxisIndex",
+      );
+    }
+
     const legendShow = seriesConfigs.length > 0;
 
     const axisPointerLabelFormatter =
@@ -653,7 +663,7 @@ export default function ExplorerChart({
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 
-    const valueAxis = {
+    const primaryValueAxis = {
       type: "value" as const,
       // Anchored to 0 unless a line chart opts out; `scale: true` lets ECharts
       // fit the axis to the data range instead.
@@ -666,6 +676,20 @@ export default function ExplorerChart({
       axisLabel: { color: textColor, formatter: formatNumber },
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
+    const valueAxis = buildValueAxes(
+      primaryValueAxis,
+      secondaryValueAxisName !== null
+        ? {
+            ...axisTitle(secondaryValueAxisName, valueNameMaxWidth),
+            // A % suffix keeps these ticks from reading as counts.
+            axisLabel: {
+              color: textColor,
+              formatter: (value: number) => `${formatNumber(value)}%`,
+            },
+          }
+        : null,
+      isHorizontalBar ? "top" : "right",
+    );
 
     // Compare-mode bars overlay the previous period on a second category axis
     // (same categories, hidden) so a wider previous bar stays centered behind
@@ -770,7 +794,7 @@ export default function ExplorerChart({
       series: seriesConfigs,
     };
   }, [
-    exploration?.result?.rows,
+    exploration,
     comparisonExploration?.result?.rows,
     compareEnabled,
     submittedExploreState,
@@ -1097,9 +1121,11 @@ export default function ExplorerChart({
                 grid: {
                   left: CHART_GRID.left,
                   right: CHART_GRID.right,
-                  top: chartConfig.legend?.show
-                    ? CHART_GRID.topWithLegend
-                    : CHART_GRID.top,
+                  top:
+                    (chartConfig.legend?.show
+                      ? CHART_GRID.topWithLegend
+                      : CHART_GRID.top) +
+                    (hasTopValueAxis ? CHART_GRID.topValueAxisTitle : 0),
                   bottom: CHART_GRID.bottom,
                 },
               }}

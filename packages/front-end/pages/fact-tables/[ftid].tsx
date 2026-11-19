@@ -161,7 +161,7 @@ function LegacyFactTablePage({ page }: { page: FactTablePageData }) {
         </Callout>
       )}
       <Flex align="start" justify="between" gap="2" mb="2">
-        <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
+        <Flex align="center" gap="3">
           <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
             {factTable.name}
             <OfficialBadge
@@ -366,7 +366,7 @@ function LegacyFactTablePage({ page }: { page: FactTablePageData }) {
         <Box pt="4">
           <TabsContent value="metrics">
             <h3>Metrics</h3>
-            <div className="mb-5">
+            <div>
               <Text as="div" mb="2" color="text-mid">
                 Metrics are built on top of Columns and Filters. These are what
                 you use as Goals and Guardrails in experiments. This page only

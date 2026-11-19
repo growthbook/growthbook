@@ -15,6 +15,9 @@ const eventForwarderConfigAudit = createModelAuditLogger({
   deleteEvent: "eventForwarderConfig.delete",
 });
 
+export const EVENT_FORWARDER_ENVIRONMENT_INDEX =
+  "organization_region_environments_unique";
+
 const BaseClass = MakeModelClass({
   schema: eventForwarderConfigValidator,
   collectionName: "eventForwarderConfigs",
@@ -26,6 +29,16 @@ const BaseClass = MakeModelClass({
     {
       fields: { organization: 1, datasourceId: 1 },
       unique: true,
+    },
+    // One forwarder per environment per data region, so simultaneous saves
+    // cannot both claim it.
+    // - Multikey: one entry per listed environment, unique across forwarders
+    // - Rows with no environments are not indexed
+    {
+      fields: { organization: 1, region: 1, environments: 1 },
+      unique: true,
+      name: EVENT_FORWARDER_ENVIRONMENT_INDEX,
+      partialFilterExpression: { environments: { $gt: "" } },
     },
   ],
   auditLog: {

@@ -144,8 +144,8 @@ async function updateAutoSlicesForColumns(
 
         // Process results for each column
         for (const col of columnChunk) {
-          // An empty response may be transient, not worth losing the slices,
-          // so "refill" leaves them alone when there are no top values
+          // An empty response may be transient, so updateColumnsTopValues
+          // skips it and the column keeps its values and slices
           updates.push({
             column: col.column,
             snapshot: {

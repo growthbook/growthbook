@@ -1,6 +1,8 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
 import { DimensionInterface } from "shared/types/dimension";
+import { DimensionTiming } from "shared/validators";
+import { DEFAULT_DIMENSION_TIMING } from "shared/experiments";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -16,6 +18,8 @@ import {
   getDataSourceById,
   getDataSourcesByOrganization,
 } from "back-end/src/models/DataSourceModel";
+import { validateDimensionBeforeSave } from "back-end/src/services/dimensions";
+import { NotFoundError } from "back-end/src/util/errors";
 
 // region GET /dimensions
 
@@ -63,6 +67,8 @@ type CreateDimensionRequest = AuthRequest<{
   name: string;
   sql: string;
   description: string;
+  timing?: DimensionTiming;
+  nullLabel?: string;
 }>;
 
 type CreateDimensionResponse = {
@@ -86,12 +92,20 @@ export const postDimension = async (
     context.permissions.throwPermissionError();
   }
   const { org, userId } = context;
-  const { datasource, name, sql, userIdType, description } = req.body;
+  const { datasource, name, sql, userIdType, description, timing, nullLabel } =
+    req.body;
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
+
+  await validateDimensionBeforeSave(context, datasourceDoc, {
+    datasource,
+    sql,
+    userIdType,
+    timing,
+  });
 
   const doc = await createDimension({
     datasource,
@@ -99,6 +113,8 @@ export const postDimension = async (
     owner: userId,
     name,
     sql,
+    timing: timing ?? DEFAULT_DIMENSION_TIMING,
+    nullLabel: nullLabel ?? "",
     id: uniqid("dim_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -125,6 +141,8 @@ type PutDimensionRequest = AuthRequest<
     sql: string;
     owner: string;
     description: string;
+    timing?: DimensionTiming;
+    nullLabel?: string;
   },
   { id: string },
   Record<string, never>
@@ -152,25 +170,40 @@ export const putDimension = async (
   const { id } = req.params;
   const dimension = await findDimensionById(id, org.id);
 
-  if (!dimension) {
-    throw new Error("Could not find dimension");
-  }
-  if (!(await hasDimensionDatasourceAccess(context, dimension))) {
-    throw new Error("You don't have access to this dimension");
+  if (!dimension || !(await hasDimensionDatasourceAccess(context, dimension))) {
+    throw new NotFoundError("Could not find dimension");
   }
 
-  const { datasource, name, sql, userIdType, owner, description } = req.body;
+  const {
+    datasource,
+    name,
+    sql,
+    userIdType,
+    owner,
+    description,
+    timing,
+    nullLabel,
+  } = req.body;
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
+  await validateDimensionBeforeSave(
+    context,
+    datasourceDoc,
+    { datasource, sql, userIdType, timing },
+    dimension,
+  );
+
   await updateDimension(context, dimension, {
     datasource,
     userIdType,
     name,
     sql,
+    timing: timing ?? DEFAULT_DIMENSION_TIMING,
+    nullLabel: nullLabel ?? "",
     owner,
     description,
     managedBy: "",
@@ -210,11 +243,8 @@ export const deleteDimension = async (
   const { org } = context;
   const dimension = await findDimensionById(id, org.id);
 
-  if (!dimension) {
-    throw new Error("Could not find dimension");
-  }
-  if (!(await hasDimensionDatasourceAccess(context, dimension))) {
-    throw new Error("You don't have access to this dimension");
+  if (!dimension || !(await hasDimensionDatasourceAccess(context, dimension))) {
+    throw new NotFoundError("Could not find dimension");
   }
   try {
     await deleteDimensionById(context, dimension);

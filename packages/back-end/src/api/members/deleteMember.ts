@@ -1,6 +1,7 @@
 import { deleteMemberValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { removeUserFromOrg } from "back-end/src/scim/users/patchUser";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const deleteMember = createApiRequestHandler(deleteMemberValidator)(
   async (req) => {
@@ -13,7 +14,7 @@ export const deleteMember = createApiRequestHandler(deleteMemberValidator)(
     );
 
     if (!orgUser) {
-      throw new Error("Could not find user with that ID");
+      throw new NotFoundError("Could not find user with that ID");
     }
 
     if (orgUser.managedByIdp) {

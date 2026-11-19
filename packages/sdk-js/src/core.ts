@@ -691,7 +691,7 @@ export function runExperiment<T>(
   const n = hash(
     experiment.seed || key,
     hashValue,
-    experiment.hashVersion || 1,
+    experiment.hashVersion || ctx.global.defaultHashVersion || 1,
   );
   if (n === null) {
     process.env.NODE_ENV !== "production" &&
@@ -1035,7 +1035,11 @@ function isIncludedInRollout(
     return false;
   }
 
-  const n = hash(seed, hashValue, hashVersion || 1);
+  const n = hash(
+    seed,
+    hashValue,
+    hashVersion || ctx.global.defaultHashVersion || 1,
+  );
   if (n === null) return false;
 
   return range

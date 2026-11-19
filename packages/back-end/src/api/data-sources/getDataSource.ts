@@ -4,12 +4,13 @@ import {
   toDataSourceApiInterface,
 } from "back-end/src/models/DataSourceModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const getDataSource = createApiRequestHandler(getDataSourceValidator)(
   async (req) => {
     const dataSource = await getDataSourceById(req.context, req.params.id);
     if (!dataSource) {
-      throw new Error("Could not find dataSource with that id");
+      throw new NotFoundError("Could not find dataSource with that id");
     }
 
     return {
