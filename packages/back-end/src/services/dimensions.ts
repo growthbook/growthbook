@@ -112,7 +112,7 @@ type PrecomputedUnitDimensionSkip = {
   dimensionId?: string;
 };
 
-async function resolvePrecomputedUnitDimensions({
+export async function resolvePrecomputedUnitDimensions({
   context,
   datasource,
   exposureQueryId,
@@ -220,14 +220,23 @@ export async function getEligiblePrecomputedUnitDimensionIds({
   }
 
   if (!datasourceHasWritableEphemeralPipeline({ context, datasource })) {
-    logger.info(
-      {
-        experimentId: experiment.id,
-        datasourceId: datasource.id,
-        dimensionIds,
-      },
-      "Ignoring precomputed unit dimensions because datasource cannot honor them",
-    );
+    // Not ignored under the Incremental Pipeline: they run as queued
+    // breakdowns after the Overall Results update, not inside this snapshot.
+    if (
+      !isExperimentCoveredByIncrementalPipeline(
+        datasource.settings.pipelineSettings,
+        experiment.id,
+      )
+    ) {
+      logger.info(
+        {
+          experimentId: experiment.id,
+          datasourceId: datasource.id,
+          dimensionIds,
+        },
+        "Ignoring precomputed unit dimensions because datasource cannot honor them",
+      );
+    }
     return [];
   }
 

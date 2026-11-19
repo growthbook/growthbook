@@ -1,5 +1,6 @@
 import { ExperimentMetricInterface } from "shared/experiments";
 import { DataSourceInterface } from "shared/types/datasource";
+import { DimensionInterface } from "shared/types/dimension";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -29,6 +30,7 @@ import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/Experime
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { resolvePrecomputedUnitDimensions } from "back-end/src/services/dimensions";
 import {
   ConcurrentIncrementalRefreshError,
   QueuedSnapshotSupersededError,
@@ -48,6 +50,11 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/dimensions", () => ({
+  ...jest.requireActual("back-end/src/services/dimensions"),
+  resolvePrecomputedUnitDimensions: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/datasource", () => ({
@@ -115,6 +122,10 @@ const hasQueuedSnapshotMock = hasQueuedSnapshot as jest.MockedFunction<
 const startQueuedSnapshotMock = startQueuedSnapshot as jest.MockedFunction<
   typeof startQueuedSnapshot
 >;
+const resolvePrecomputedUnitDimensionsMock =
+  resolvePrecomputedUnitDimensions as jest.MockedFunction<
+    typeof resolvePrecomputedUnitDimensions
+  >;
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
 >;
@@ -283,6 +294,12 @@ describe("snapshot lifecycle", () => {
       async ({ data }) => data as ExperimentSnapshotInterface,
     );
     hasQueuedSnapshotMock.mockResolvedValue(false);
+    resolvePrecomputedUnitDimensionsMock.mockImplementation(
+      async ({ dimensionIds }) => ({
+        dimensions: dimensionIds.map((id) => ({ id }) as DimensionInterface),
+        skipped: [],
+      }),
+    );
   });
 
   it("creates a standard snapshot, starts analysis, and refreshes dashboards", async () => {
@@ -672,6 +689,32 @@ describe("snapshot lifecycle", () => {
         expect(exploratoryQueryRunnerMock).not.toHaveBeenCalled();
       });
 
+      it("does not queue a dimension that was deleted or no longer fits", async () => {
+        const context = makeContext();
+        resolvePrecomputedUnitDimensionsMock.mockResolvedValue({
+          dimensions: [{ id: "dim_b" } as DimensionInterface],
+          skipped: [{ reason: "not-found", dimensionId: "dim_a" }],
+        });
+
+        await createSnapshotFromPlan({
+          plan: makePlan({ runnerKind: "incremental-update" }),
+          ...args(context),
+        });
+
+        expect(
+          createExperimentSnapshotModelMock.mock.calls.map(
+            ([{ data }]) => data.dimension,
+          ),
+        ).toEqual([null, "dim_b"]);
+        expect(context.models.dags.create).toHaveBeenCalledWith({
+          status: "active",
+          nodes: [
+            expect.objectContaining({ id: "main" }),
+            expect.objectContaining({ id: "dim_b" }),
+          ],
+        });
+      });
+
       it("still runs the Overall Results update when queueing fails, leaving nothing queued", async () => {
         const context = makeContext();
         (context.models.dags.create as jest.Mock).mockRejectedValue(
@@ -702,6 +745,29 @@ describe("snapshot lifecycle", () => {
         ).rejects.toThrow(ConcurrentIncrementalRefreshError);
 
         expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+      });
+
+      it("lets a dashboard run a breakdown that is already queued", async () => {
+        const context = makeContext();
+        hasQueuedSnapshotMock.mockResolvedValue(true);
+
+        for (const triggeredBy of [
+          "update-dashboards",
+          "manual-dashboard",
+        ] as const) {
+          await createSnapshotFromPlan({
+            plan: makePlan({
+              snapshot: {
+                type: "exploratory",
+                dimension: "dim_a",
+                triggeredBy,
+              },
+            }),
+            ...args(context),
+          });
+        }
+
+        expect(createExperimentSnapshotModelMock).toHaveBeenCalledTimes(2);
       });
 
       it("starts a queued breakdown in place when its source built the tables", async () => {

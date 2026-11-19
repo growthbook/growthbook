@@ -264,6 +264,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   getEligiblePrecomputedUnitDimensionIds,
   getExposureQueryEligibleDimensions,
+  resolvePrecomputedUnitDimensions,
 } from "back-end/src/services/dimensions";
 import {
   getErrorMessage,
@@ -2289,12 +2290,14 @@ async function createQueuedBreakdowns({
   plan,
   context,
   experiment,
+  datasource,
   metricMap,
   factTableMap,
 }: {
   plan: PlannedExperimentSnapshot;
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }): Promise<void> {
@@ -2302,9 +2305,32 @@ async function createQueuedBreakdowns({
   // Whatever is still queued belongs to the cycle this update supersedes
   await deleteQueuedSnapshots(context, { experiment: experiment.id, phase });
 
-  const dimensionIds = [...new Set(experiment.precomputedUnitDimensionIds)];
   const mainAnalysisSettings = plan.snapshot.analyses[0]?.settings;
-  if (!dimensionIds.length || !mainAnalysisSettings) return;
+  if (!mainAnalysisSettings) return;
+
+  // A dimension that was deleted, or no longer fits the experiment's data
+  // source or identifier type, would run as an unsplit copy of the results.
+  const requestedDimensionIds = [
+    ...new Set(experiment.precomputedUnitDimensionIds),
+  ];
+  const { dimensions, skipped } = await resolvePrecomputedUnitDimensions({
+    context,
+    datasource,
+    exposureQueryId: experiment.exposureQueryId,
+    exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
+    dimensionIds: requestedDimensionIds,
+  });
+  if (skipped.length > 0) {
+    logger.info(
+      { experimentId: experiment.id, skipped },
+      "Ignoring ineligible precomputed unit dimensions",
+    );
+  }
+  const eligibleDimensionIds = new Set(dimensions.map((d) => d.id));
+  const dimensionIds = requestedDimensionIds.filter((id) =>
+    eligibleDimensionIds.has(id),
+  );
+  if (!dimensionIds.length) return;
 
   const nodes: DagNode[] = [
     {
@@ -2383,10 +2409,14 @@ export async function createSnapshotFromPlan({
   const lockRole = getIncrementalRefreshLockRole(runnerKind);
 
   // The queued snapshot will produce these results, so a second run of the
-  // same breakdown is refused whichever runner it would use.
+  // same breakdown is refused whichever runner it would use. A dashboard's
+  // run is let through: its blocks only take results from a run of their
+  // own, never from the queued one.
   if (
     !startQueued &&
     plan.snapshot.dimension &&
+    plan.snapshot.triggeredBy !== "update-dashboards" &&
+    plan.snapshot.triggeredBy !== "manual-dashboard" &&
     (await hasQueuedSnapshot(context, {
       experiment: experiment.id,
       phase: plan.snapshot.phase,
@@ -2507,6 +2537,7 @@ export async function createSnapshotFromPlan({
         plan,
         context,
         experiment,
+        datasource,
         metricMap,
         factTableMap,
       }).catch(async (e) => {
