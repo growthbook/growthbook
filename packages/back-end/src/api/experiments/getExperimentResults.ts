@@ -5,10 +5,7 @@ import {
 import { NotFoundError } from "back-end/src/util/errors";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
-  createSnapshotComputesMetric,
   getHealthSettingsForOrg,
   getMetricMapForExperiment,
   toExperimentApiInterface,
@@ -17,7 +14,6 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { getMetricIdsMissingFromResults } from "back-end/src/services/metricRefreshPlanning";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 import { toApiResultHealth } from "./resultHealth";
 
@@ -58,20 +54,6 @@ export const getExperimentResults = createApiRequestHandler(
     getMetricMapForExperiment(req.context, experiment),
     getExposureQueriesForDatasource(req.context, experiment.datasource),
   ]);
-  const metricGroups = await req.context.models.metricGroups.getAll();
-  const missingMetricIds = await getMetricIdsMissingFromResults({
-    experiment,
-    snapshot,
-    metricGroups,
-    loadSnapshotComputesMetric: async () =>
-      createSnapshotComputesMetric({
-        experiment,
-        datasource: await getDataSourceById(req.context, experiment.datasource),
-        metricMap: metricsById,
-        factTableMap: await getFactTableMap(req.context),
-        metricGroups,
-      }),
-  });
   const result = toSnapshotApiInterface(
     experiment,
     snapshot,
@@ -89,6 +71,5 @@ export const getExperimentResults = createApiRequestHandler(
         healthSettings: getHealthSettingsForOrg(req.context),
       }),
     },
-    ...(missingMetricIds ? { missingMetricIds } : {}),
   };
 });

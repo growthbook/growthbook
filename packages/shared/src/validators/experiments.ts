@@ -3127,12 +3127,6 @@ export const getExperimentResultsValidator = {
     .object({
       experiment: apiExperimentWithEnhancedStatus,
       result: apiExperimentResultsValidator,
-      missingMetricIds: z
-        .array(z.string())
-        .describe(
-          "Metrics on the experiment that \"result\" doesn't include yet, because they were added after it was computed. Create a snapshot (POST /experiments/{id}/snapshot) to compute them. Metrics no snapshot can compute, such as ones that can't join the experiment's assignment identifier, aren't listed. Present only for Overall Results of the latest phase.",
-        )
-        .optional(),
     })
     .strict(),
   summary: "Get results for an experiment",

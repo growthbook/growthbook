@@ -59,7 +59,6 @@ import {
 import {
   needsPercentileCapSubquery,
   expandMetricGroups,
-  getMetricIdsExcludedByExperimentType,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
@@ -733,58 +732,6 @@ export function createMetricEligibilityResolver(params: {
     getMetricEligibility,
     isEligible: (metricId: string) => getMetricEligibility(metricId).allowed,
   };
-}
-
-/**
- * Whether a snapshot of the experiment would analyze a metric: one that no
- * longer exists, that getSnapshotSettings finds ineligible, or that the
- * experiment's type leaves out, is never computed.
- */
-export function createSnapshotComputesMetric({
-  experiment,
-  datasource,
-  metricMap,
-  factTableMap,
-  metricGroups,
-}: {
-  experiment: Pick<
-    ExperimentInterface,
-    | "type"
-    | "goalMetrics"
-    | "secondaryMetrics"
-    | "guardrailMetrics"
-    | "exposureQueryId"
-    | "exposureQueryIdentifierType"
-    | "isClusterExperiment"
-    | "clusterSubUnitIdentifier"
-  >;
-  datasource: DataSourceInterface | null;
-  metricMap: Map<string, ExperimentMetricInterface>;
-  factTableMap: FactTableMap;
-  metricGroups: MetricGroupInterface[];
-}): (metricId: string) => boolean {
-  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
-    (q) => q.id === experiment.exposureQueryId,
-  );
-  const { isEligible } = createMetricEligibilityResolver({
-    metricMap,
-    factTableMap,
-    datasource: datasource ?? undefined,
-    exposureQueryIdentifierType: resolveAnalysisIdentifierType(
-      exposureQuery,
-      experiment.exposureQueryIdentifierType,
-    ),
-    clusterSubUnitIdentifier: experiment.isClusterExperiment
-      ? experiment.clusterSubUnitIdentifier
-      : undefined,
-  });
-  const excluded = getMetricIdsExcludedByExperimentType({
-    experiment,
-    metricGroups,
-    getMetricById: (id) => metricMap.get(id),
-  });
-  return (metricId) =>
-    metricMap.has(metricId) && !excluded.has(metricId) && isEligible(metricId);
 }
 
 export function getSnapshotSettings({
