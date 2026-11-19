@@ -16,8 +16,10 @@ import Tooltip from "@/ui/Tooltip";
 import { ExperimentTableRow } from "@/services/experiments";
 import {
   AdjustmentEffectSize,
-  AdjustmentImpact,
+  formatAdjustmentChange,
+  formatAdjustmentQualifiers,
   getAdjustmentImpactSummary,
+  getFamilyAdjustedPValues,
   SupplementalField,
 } from "./helpers";
 
@@ -49,20 +51,6 @@ const EFFECT_SIZE_DISPLAY: Record<
   large: { label: "Large effect", color: "amber" },
 };
 
-function formatAdjustmentChange(relativeChange: number): string {
-  return `${(relativeChange * 100).toFixed(1)}% change in estimate`;
-}
-
-function formatAdjustmentQualifiers({
-  significanceChanged,
-  signFlipped,
-}: Pick<AdjustmentImpact, "significanceChanged" | "signFlipped">): string {
-  const parts: string[] = [];
-  if (signFlipped) parts.push("sign flip");
-  if (significanceChanged) parts.push("significance change");
-  return parts.join(" · ");
-}
-
 const MetricDrilldownAdjustmentSummary: FC<
   MetricDrilldownAdjustmentSummaryProps
 > = ({
@@ -80,6 +68,11 @@ const MetricDrilldownAdjustmentSummary: FC<
   const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
   const { ciUpper, ciLower } = bayesianConfidenceLevels;
 
+  const familyAdjustedPValues = useMemo(
+    () => getFamilyAdjustedPValues({ goalRows, statsEngine, pValueCorrection }),
+    [goalRows, statsEngine, pValueCorrection],
+  );
+
   const summary = useMemo(
     () =>
       getAdjustmentImpactSummary({
@@ -92,8 +85,7 @@ const MetricDrilldownAdjustmentSummary: FC<
         ciUpper,
         ciLower,
         pValueThreshold,
-        goalRows,
-        pValueCorrection,
+        familyAdjustedPValues,
       }),
     [
       row,
@@ -105,8 +97,7 @@ const MetricDrilldownAdjustmentSummary: FC<
       ciUpper,
       ciLower,
       pValueThreshold,
-      goalRows,
-      pValueCorrection,
+      familyAdjustedPValues,
     ],
   );
 
@@ -117,7 +108,7 @@ const MetricDrilldownAdjustmentSummary: FC<
   return (
     <Box mb="5">
       <Heading as="h4" size="md" weight="medium" mb="3">
-        Impact Summary
+        Adjustment Summary
       </Heading>
       <Flex direction="row" gap="8" wrap="wrap">
         {summary.map(

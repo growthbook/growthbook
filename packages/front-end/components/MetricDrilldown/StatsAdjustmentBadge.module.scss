@@ -1,0 +1,19 @@
+.wrapper,
+.link {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.link {
+  text-decoration: none !important;
+
+  // Badge has no hover state of its own; step the soft fill like soft buttons.
+  &:hover .badge {
+    background-color: var(--accent-a4);
+  }
+
+  &:active .badge {
+    background-color: var(--accent-a5);
+  }
+}

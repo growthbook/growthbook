@@ -38,7 +38,10 @@ import {
   isFactFunnelMetric,
 } from "shared/experiments";
 import Link from "@/ui/Link";
-import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
+import {
+  getGoalFamilyRows,
+  useExperimentTableRows,
+} from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   excludeFunnelSliceRows,
@@ -54,6 +57,12 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { ReplacedMetricWarning } from "@/components/Metrics/MetricReplacement";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import { getFamilyAdjustedPValues } from "@/components/MetricDrilldown/helpers";
+import StatsAdjustmentBadge, {
+  StatsAdjustmentBadgeSettings,
+} from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -231,6 +240,65 @@ const CompactResults: FC<{
     expandedMetrics,
     pValueThreshold: significanceThresholds.pValueThreshold,
   });
+
+  const drilldownContext = useMetricDrilldownContext();
+  const _metricDefaults = useOrganizationMetricDefaults();
+  const { metricDefaults } =
+    ssrPolyfills?.useOrganizationMetricDefaults?.() || _metricDefaults;
+
+  // Same family the drilldown's Stats Adjustments tab uses, so the badge and
+  // that tab agree on which adjustments have a large effect.
+  const goalRows = useMemo(
+    () =>
+      results
+        ? getGoalFamilyRows({
+            results,
+            goalMetrics,
+            metricGroups,
+            metricOverrides,
+            settingsForSnapshotMetrics,
+            getExperimentMetricById,
+            getFactTableById,
+          })
+        : [],
+    [
+      results,
+      goalMetrics,
+      metricGroups,
+      metricOverrides,
+      settingsForSnapshotMetrics,
+      getExperimentMetricById,
+      getFactTableById,
+    ],
+  );
+  const familyAdjustedPValues = useMemo(
+    () => getFamilyAdjustedPValues({ goalRows, statsEngine, pValueCorrection }),
+    [goalRows, statsEngine, pValueCorrection],
+  );
+  const statsAdjustmentBadge = useMemo<StatsAdjustmentBadgeSettings>(
+    () => ({
+      baselineRow: baselineRow ?? 0,
+      variationFilter,
+      statsEngine,
+      differenceType,
+      significanceThresholds,
+      metricDefaults,
+      familyAdjustedPValues,
+    }),
+    [
+      baselineRow,
+      variationFilter,
+      statsEngine,
+      differenceType,
+      significanceThresholds,
+      metricDefaults,
+      familyAdjustedPValues,
+    ],
+  );
+  const onStatsAdjustmentClick = drilldownContext
+    ? (row: ExperimentTableRow) =>
+        drilldownContext.openDrilldown(row, { initialTab: "debug" })
+    : undefined;
 
   const expandedGoals = useMemo(
     () =>
@@ -444,6 +512,8 @@ const CompactResults: FC<{
             getChildRowCounts,
             sliceTagsFilter,
             customMetricSlices,
+            statsAdjustmentBadge,
+            onStatsAdjustmentClick,
           })}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
@@ -502,6 +572,8 @@ const CompactResults: FC<{
               getChildRowCounts,
               sliceTagsFilter,
               customMetricSlices,
+              statsAdjustmentBadge,
+              onStatsAdjustmentClick,
             })}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -560,6 +632,8 @@ const CompactResults: FC<{
               getChildRowCounts,
               sliceTagsFilter,
               customMetricSlices,
+              statsAdjustmentBadge,
+              onStatsAdjustmentClick,
             })}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -594,6 +668,8 @@ export function getRenderLabelColumn({
   getChildRowCounts,
   sliceTagsFilter,
   customMetricSlices,
+  statsAdjustmentBadge,
+  onStatsAdjustmentClick,
 }: {
   expandedMetrics?: Record<string, boolean>;
   toggleExpandedMetric?: (
@@ -606,6 +682,8 @@ export function getRenderLabelColumn({
   getChildRowCounts?: (metricId: string) => number;
   sliceTagsFilter?: string[];
   customMetricSlices?: CustomMetricSlice[];
+  statsAdjustmentBadge?: StatsAdjustmentBadgeSettings;
+  onStatsAdjustmentClick?: (row: ExperimentTableRow) => void;
 }) {
   // Resolved per metric rather than per row: a step row only links to the
   // drilldown when the funnel actually has slices to show there.
@@ -887,6 +965,17 @@ export function getRenderLabelColumn({
               </Text>
               {row?.replacedByMetricName ? (
                 <ReplacedMetricWarning name={row.replacedByMetricName} />
+              ) : null}
+              {row && statsAdjustmentBadge ? (
+                <StatsAdjustmentBadge
+                  row={row}
+                  settings={statsAdjustmentBadge}
+                  onClick={
+                    onStatsAdjustmentClick
+                      ? () => onStatsAdjustmentClick(row)
+                      : undefined
+                  }
+                />
               ) : null}
             </span>
           </span>

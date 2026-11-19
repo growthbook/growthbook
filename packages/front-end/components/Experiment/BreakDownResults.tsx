@@ -1,4 +1,4 @@
-import { FC, Fragment, useState } from "react";
+import { FC, Fragment, useMemo, useState } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import {
@@ -48,8 +48,17 @@ import FunnelStepSliceLink, {
 import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
+import { getGoalFamilyRows } from "@/hooks/useExperimentTableRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import {
+  DrilldownOptions,
+  useMetricDrilldownContext,
+} from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { getFamilyAdjustedPValues } from "@/components/MetricDrilldown/helpers";
+import StatsAdjustmentBadge, {
+  StatsAdjustmentBadgeSettings,
+} from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import UsersTable from "./UsersTable";
@@ -64,6 +73,10 @@ export const includeVariation = (
     dimensionValuesFilter.includes(d.name)
   );
 };
+
+function getRowDimensionValue(row: ExperimentTableRow): string {
+  return row.dimensionValue ?? (typeof row.label === "string" ? row.label : "");
+}
 
 const BreakDownResults: FC<{
   experimentId: string;
@@ -174,8 +187,10 @@ const BreakDownResults: FC<{
     getDimensionById,
     getExperimentMetricById,
     getFactTableById: _getFactTableById,
+    metricGroups: _metricGroups,
   } = useDefinitions();
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
 
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
@@ -246,17 +261,75 @@ const BreakDownResults: FC<{
   const isHoldout = experimentType === "holdout";
 
   // Wrap drilldown to include dimension info
-  const handleRowClick = drilldownContext
-    ? (row: ExperimentTableRow) => {
-        const rawValue =
-          row.dimensionValue ??
-          (typeof row.label === "string" ? row.label : "");
+  const openDimensionDrilldown = drilldownContext
+    ? (
+        row: ExperimentTableRow,
+        options?: Omit<DrilldownOptions, "dimensionInfo">,
+      ) => {
+        const rawValue = getRowDimensionValue(row);
         const value = formatDimensionValueForDisplay(rawValue);
         drilldownContext.openDrilldown(row, {
+          ...options,
           dimensionInfo: { id: dimensionId, name: dimension, value, rawValue },
         });
       }
     : undefined;
+  const handleRowClick = openDimensionDrilldown
+    ? (row: ExperimentTableRow) => openDimensionDrilldown(row)
+    : undefined;
+
+  const _metricDefaults = useOrganizationMetricDefaults();
+  const { metricDefaults } =
+    ssrPolyfills?.useOrganizationMetricDefaults?.() || _metricDefaults;
+
+  // The drilldown for a dimension value corrects p-values across all of that
+  // value's goal metrics, so the badge builds the same family per value.
+  const statsAdjustmentBadgeByDimensionValue = useMemo(() => {
+    const settingsByValue = new Map<string, StatsAdjustmentBadgeSettings>();
+    results.forEach((dimensionResults) => {
+      const goalRows = getGoalFamilyRows({
+        results: dimensionResults,
+        goalMetrics,
+        metricGroups,
+        metricOverrides,
+        settingsForSnapshotMetrics,
+        getExperimentMetricById: (id) =>
+          ssrPolyfills?.getExperimentMetricById?.(id) ||
+          getExperimentMetricById(id),
+        getFactTableById,
+      });
+      settingsByValue.set(dimensionResults.name, {
+        baselineRow: baselineRow ?? 0,
+        variationFilter,
+        statsEngine,
+        differenceType,
+        significanceThresholds,
+        metricDefaults,
+        familyAdjustedPValues: getFamilyAdjustedPValues({
+          goalRows,
+          statsEngine,
+          pValueCorrection,
+        }),
+      });
+    });
+    return settingsByValue;
+  }, [
+    results,
+    goalMetrics,
+    metricGroups,
+    metricOverrides,
+    settingsForSnapshotMetrics,
+    ssrPolyfills,
+    getExperimentMetricById,
+    getFactTableById,
+    baselineRow,
+    variationFilter,
+    statsEngine,
+    differenceType,
+    significanceThresholds,
+    metricDefaults,
+    pValueCorrection,
+  ]);
 
   return (
     <div className="mb-3">
@@ -391,6 +464,11 @@ const BreakDownResults: FC<{
                 const childLabel = isFactFunnelMetric(table.metric)
                   ? "funnel steps"
                   : "metric slices";
+                const statsAdjustmentBadge = row
+                  ? statsAdjustmentBadgeByDimensionValue.get(
+                      getRowDimensionValue(row),
+                    )
+                  : undefined;
                 const rowName =
                   typeof label === "string" && label
                     ? formatDimensionValueForDisplay(label)
@@ -456,6 +534,20 @@ const BreakDownResults: FC<{
                         <em>unknown</em>
                       )}
                     </span>
+                    {row && statsAdjustmentBadge ? (
+                      <StatsAdjustmentBadge
+                        row={row}
+                        settings={statsAdjustmentBadge}
+                        onClick={
+                          openDimensionDrilldown
+                            ? () =>
+                                openDimensionDrilldown(row, {
+                                  initialTab: "debug",
+                                })
+                            : undefined
+                        }
+                      />
+                    ) : null}
                   </div>
                 );
               }}

@@ -198,13 +198,18 @@ function classifyPair({
   return { effectSize, relativeChange, significanceChanged, signFlipped };
 }
 
-export function computeSupplementalAdjustedPValues({
+/**
+ * Recomputes multiple-testing-corrected p-values across the goal-metric family.
+ * `field` picks the supplemental result to correct; null corrects the primary
+ * result, so both sides of a comparison come from the same family.
+ */
+export function computeFamilyAdjustedPValues({
   goalRows,
   field,
   pValueCorrection,
 }: {
   goalRows: ExperimentTableRow[];
-  field: SupplementalField;
+  field: SupplementalField | null;
   pValueCorrection: PValueCorrection;
 }): Map<string, number> | null {
   if (!pValueCorrection) return null;
@@ -215,8 +220,6 @@ export function computeSupplementalAdjustedPValues({
 
   let missingCoverage = false;
 
-  // Rebuild a single-dimension result whose goal-metric p-values are the field's
-  // unadjusted values.
   const variations: SnapshotVariation[] = [];
   for (
     let variationIndex = 0;
@@ -227,10 +230,14 @@ export function computeSupplementalAdjustedPValues({
     goalRows.forEach((goalRow) => {
       const stats = goalRow.variations[variationIndex];
       if (stats?.pValue === undefined) return; // not part of the family
-      const supplementalPValue = (
-        stats.supplementalResults?.[field] as { pValue?: number } | undefined
-      )?.pValue;
-      if (supplementalPValue === undefined) {
+      const pValue = field
+        ? (
+            stats.supplementalResults?.[field] as
+              | { pValue?: number }
+              | undefined
+          )?.pValue
+        : stats.pValue;
+      if (pValue === undefined) {
         // A family member lacks this adjustment's supplemental result, so we
         // cannot build a comparable family — signal fallback.
         missingCoverage = true;
@@ -238,7 +245,7 @@ export function computeSupplementalAdjustedPValues({
       }
       metrics[goalRow.metric.id] = {
         ...stats,
-        pValue: supplementalPValue,
+        pValue,
         pValueAdjusted: undefined,
       };
     });
@@ -265,6 +272,46 @@ export function computeSupplementalAdjustedPValues({
   return map.size > 0 ? map : null;
 }
 
+export interface FamilyAdjustedPValues {
+  primary: Map<string, number> | null;
+  supplemental: Partial<Record<SupplementalField, Map<string, number> | null>>;
+}
+
+/**
+ * Family-wide corrected p-values for the primary result and every adjustment.
+ * Compute once per family and share across rows: each map corrects the whole
+ * family, so per-row recomputation is quadratic in the number of goal metrics.
+ */
+export function getFamilyAdjustedPValues({
+  goalRows,
+  statsEngine,
+  pValueCorrection,
+}: {
+  goalRows?: ExperimentTableRow[];
+  statsEngine: StatsEngine;
+  pValueCorrection?: PValueCorrection;
+}): FamilyAdjustedPValues | null {
+  if (statsEngine !== "frequentist" || !pValueCorrection || !goalRows?.length)
+    return null;
+
+  const supplemental: FamilyAdjustedPValues["supplemental"] = {};
+  ADJUSTMENTS.forEach(({ field }) => {
+    supplemental[field] = computeFamilyAdjustedPValues({
+      goalRows,
+      field,
+      pValueCorrection,
+    });
+  });
+  return {
+    primary: computeFamilyAdjustedPValues({
+      goalRows,
+      field: null,
+      pValueCorrection,
+    }),
+    supplemental,
+  };
+}
+
 /**
  * Classify a single adjustment's impact across the displayed treatment
  * variations. Returns null when the supplemental data required for the
@@ -281,8 +328,7 @@ export function classifyAdjustmentImpact({
   ciUpper,
   ciLower,
   pValueThreshold,
-  goalRows,
-  pValueCorrection,
+  familyAdjustedPValues,
 }: {
   row: ExperimentTableRow;
   field: SupplementalField;
@@ -294,21 +340,12 @@ export function classifyAdjustmentImpact({
   ciUpper: number;
   ciLower: number;
   pValueThreshold: number;
-  /** All non-slice goal rows, used to recompute family-wide adjusted p-values. */
-  goalRows?: ExperimentTableRow[];
-  pValueCorrection?: PValueCorrection;
+  familyAdjustedPValues?: FamilyAdjustedPValues | null;
 }): AdjustmentClassification | null {
   const baseline = row.variations[baselineRow];
   if (!baseline) return null;
 
-  const altAdjustedPValues =
-    statsEngine === "frequentist" && pValueCorrection && goalRows
-      ? computeSupplementalAdjustedPValues({
-          goalRows,
-          field,
-          pValueCorrection,
-        })
-      : null;
+  const altAdjustedPValues = familyAdjustedPValues?.supplemental[field];
 
   let worst: AdjustmentClassification | null = null;
 
@@ -340,7 +377,9 @@ export function classifyAdjustmentImpact({
       differenceType,
     };
 
-    const altAdjusted = altAdjustedPValues?.get(`${row.metric.id}:${index}`);
+    const familyKey = `${row.metric.id}:${index}`;
+    const altAdjusted = altAdjustedPValues?.get(familyKey);
+    const primaryAdjusted = familyAdjustedPValues?.primary?.get(familyKey);
 
     // Is the displayed primary result's significance driven by a
     // multiple-testing-corrected p-value.
@@ -351,7 +390,10 @@ export function classifyAdjustmentImpact({
     let compareSignificance = true;
     if (altAdjusted !== undefined) {
       // Adjusted-vs-adjusted: both sides use family-wide corrected p-values.
-      primaryForSignificance = primaryStats;
+      primaryForSignificance =
+        primaryAdjusted !== undefined
+          ? { ...primaryStats, pValueAdjusted: primaryAdjusted }
+          : primaryStats;
       altForSignificance = { ...altStats, pValueAdjusted: altAdjusted };
     } else if (primaryIsCorrected) {
       // The displayed result is corrected, but we could not recompute the
@@ -393,6 +435,20 @@ export function classifyAdjustmentImpact({
   return worst;
 }
 
+export function formatAdjustmentChange(relativeChange: number): string {
+  return `${(relativeChange * 100).toFixed(1)}% change in estimate`;
+}
+
+export function formatAdjustmentQualifiers({
+  significanceChanged,
+  signFlipped,
+}: Pick<AdjustmentImpact, "significanceChanged" | "signFlipped">): string {
+  const parts: string[] = [];
+  if (signFlipped) parts.push("sign flip");
+  if (significanceChanged) parts.push("significance change");
+  return parts.join(" · ");
+}
+
 /**
  * Build the adjustment-impact summary for a metric row. Only adjustments
  * with the supplemental data needed for a comparison are included.
@@ -407,9 +463,7 @@ export function getAdjustmentImpactSummary(args: {
   ciUpper: number;
   ciLower: number;
   pValueThreshold: number;
-  /** All non-slice goal rows, used to recompute family-wide adjusted p-values. */
-  goalRows?: ExperimentTableRow[];
-  pValueCorrection?: PValueCorrection;
+  familyAdjustedPValues?: FamilyAdjustedPValues | null;
 }): AdjustmentImpact[] {
   const summary: AdjustmentImpact[] = [];
   ADJUSTMENTS.forEach(({ field, label }) => {
