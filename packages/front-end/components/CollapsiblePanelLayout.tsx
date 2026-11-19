@@ -33,9 +33,8 @@ const SLIDE_MS = 160;
 // can hold still until it's done, and lay out once.
 export const PanelSlidingContext = createContext(false);
 
-// The width a left panel's layout leaves its content once the panel has slid
-// open or shut; zero until measured. A panel nested beside it sizes against
-// this rather than its own width mid-slide, so it decides to float only once.
+// The room a left panel leaves its content once settled, 0 until measured. A
+// panel nested beside it sizes against this, so it decides to float only once.
 const SettledRoomContext = createContext<number | null>(null);
 
 export interface Props {
@@ -52,7 +51,6 @@ export interface Props {
   onWidthChange: (width: number) => void;
   // A drag well past the minimum width closes the panel.
   onCollapse: () => void;
-  // Whether the panel floats over the content rather than docking beside it.
   onFloatChange?: (floats: boolean) => void;
   // Takes no input in the content, while the footer stays usable.
   busy?: boolean;
@@ -152,8 +150,7 @@ export default function CollapsiblePanelLayout({
   const collapseBelow = MIN_PANEL_WIDTH_PX - COLLAPSE_DELTA_PX;
   // Floats on a narrow window, or when even the narrowest panel would squeeze
   // the content. The layout's own width holds still as the panel docks or
-  // floats, so it can't flip back and forth. A left panel never floats: it
-  // always moves the content over.
+  // floats, so it can't flip back and forth.
   const overlay =
     !left &&
     (narrowWindow || (room > 0 && room - panelWidth < MIN_CONTENT_WIDTH_PX));

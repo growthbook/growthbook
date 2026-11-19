@@ -428,8 +428,6 @@ const KEY_WIDTH = 200;
 const FEATURE_WIDTH = 200;
 const EXPERIMENT_WIDTH = 160;
 
-// The section tables below the editor scroll sideways once narrower than
-// this, the Override trigger pinned at the end.
 const SECTION_TABLE_MIN_WIDTH = 1000;
 
 // A key's rows read as one group: no divider until its last row.

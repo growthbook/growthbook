@@ -1,7 +1,5 @@
 import Callout from "@/ui/Callout";
 
-// Under a details page's title: an archived entity, or a viewed draft that
-// would archive it once published.
 export default function ArchiveStateCallout({
   noun,
   liveArchived,

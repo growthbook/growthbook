@@ -87,7 +87,6 @@ const SavedGroupForm: FC<{
   liveVersion?: SavedGroupInterface;
   editInfoOnly?: boolean;
   editConditionOnly?: boolean;
-  // Opens with the description showing and focused.
   focusDescription?: boolean;
   /** Remote groups: switch to this upload version, and nothing else. */
   useUploadVersion?: number;
@@ -178,6 +177,10 @@ const SavedGroupForm: FC<{
   const [draftMode, setDraftMode] = useState<DraftMode>(() => {
     if (isMetadataOnlyRevisionFlow) return "new";
     return draftSelectedId ? "existing" : "new";
+  });
+  const cta = draftModeCta(draftMode, {
+    bypassesApproval: isApprovalFlowRequired && !autoBypassApproval,
+    publishLabel: editInfoOnly ? "Save" : "Publish",
   });
 
   const allRevisionsForLabel = allRevisions ?? openRevisions;
@@ -475,22 +478,8 @@ const SavedGroupForm: FC<{
               ? "Edit Condition"
               : `${current.id ? "Edit" : "Add"} ${SAVED_GROUP_TYPE_LABELS[type]}`
       }
-      cta={
-        !current.id
-          ? "Submit"
-          : draftModeCta(draftMode, {
-              bypassesApproval: isApprovalFlowRequired && !autoBypassApproval,
-              publishLabel: editInfoOnly ? "Save" : "Publish",
-            })
-      }
-      submitColor={
-        current.id &&
-        draftMode === "publish" &&
-        isApprovalFlowRequired &&
-        !autoBypassApproval
-          ? "danger"
-          : "primary"
-      }
+      cta={current.id ? cta.label : "Submit"}
+      submitColor={current.id && cta.bypass ? "danger" : "primary"}
       ctaEnabled={
         isValid &&
         (editContentOnly || hasProjectPermission) &&

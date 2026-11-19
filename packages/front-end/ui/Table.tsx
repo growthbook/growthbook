@@ -56,7 +56,6 @@ export type TableProps = Omit<
 // The element a `scrollX` table scrolls sideways in, for TableViewportCell.
 const TableScrollContext = createContext<HTMLDivElement | null>(null);
 
-// The box a cell's table scrolls sideways in, if it scrolls.
 function tableScroller(cell: HTMLElement): HTMLElement | null {
   // A TableViewportCell's content already follows the scroll.
   if (cell.hasAttribute("data-viewport-cell")) return null;
@@ -67,9 +66,8 @@ function tableScroller(cell: HTMLElement): HTMLElement | null {
   return scroller && scroller !== document.documentElement ? scroller : null;
 }
 
-// Scrolls the table so the cell shows in full beside a pinned last column, or
-// from its own left edge when it's wider than the room. Returns whether it
-// scrolled.
+// Shows the cell in full beside a pinned last column, or from its left edge
+// when it's wider than the room. Returns whether it scrolled.
 function scrollIntoTable(cell: HTMLElement, scroller: HTMLElement): boolean {
   const pinned = cell.parentElement?.lastElementChild;
   const isPinned = (e: Element | null | undefined): e is HTMLElement =>
@@ -94,9 +92,8 @@ const scrollBacks = new WeakMap<
   { left: number; open: number; moved: boolean; frame: number }
 >();
 
-// For an editor opening in a cell: brings the cell into view, and returns what
-// scrolls the table back. The scroll-back waits a frame, so an editor opening
-// as another closes takes it over instead of being scrolled out of view.
+// Brings an editor's cell into view and returns what scrolls back. That waits a
+// frame, so an editor opening as another closes takes the scroll-back over.
 export function revealTableCell(cell: HTMLElement): () => void {
   const scroller = tableScroller(cell);
   if (!scroller) return () => {};
@@ -304,18 +301,17 @@ export default function Table({
   // the pinned column rather than under it.
   const pinnedScroll = !isListVariant && !!scrollX && !!stickyLastColumn;
   useEffect(() => {
-    const el = scroller;
-    if (!pinnedScroll || !el) return;
+    if (!pinnedScroll || !scroller) return;
     const onFocus = (e: FocusEvent) => {
       const cell =
         e.target instanceof Element ? e.target.closest("td, th") : null;
-      if (cell instanceof HTMLElement && el.contains(cell)) {
-        const scroller = tableScroller(cell);
-        if (scroller) scrollIntoTable(cell, scroller);
+      if (cell instanceof HTMLElement && scroller.contains(cell)) {
+        const box = tableScroller(cell);
+        if (box) scrollIntoTable(cell, box);
       }
     };
-    el.addEventListener("focusin", onFocus);
-    return () => el.removeEventListener("focusin", onFocus);
+    scroller.addEventListener("focusin", onFocus);
+    return () => scroller.removeEventListener("focusin", onFocus);
   }, [pinnedScroll, scroller]);
 
   const radixVariant = variant === "list" ? "surface" : variant;
@@ -447,9 +443,8 @@ export function TableColumnHeader({
   );
 }
 
-// A full-row cell (give it the row's colSpan) whose content spans what the
-// table shows rather than the whole table, and stays put while the table
-// scrolls sideways. For a panel under a row, such as an inline editor's.
+// A full-row cell (give it the row's colSpan) whose content spans the visible
+// width and stays put while the table scrolls sideways, e.g. an inline editor.
 export function TableViewportCell({
   children,
   ...props

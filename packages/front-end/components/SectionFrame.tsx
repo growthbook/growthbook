@@ -71,7 +71,6 @@ export default function SectionFrame({
           }),
         }}
       >
-        {/* Actions that don't fit beside the title wrap under it. */}
         <Flex
           align="center"
           justify="between"

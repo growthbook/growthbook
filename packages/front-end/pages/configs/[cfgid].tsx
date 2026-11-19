@@ -405,14 +405,12 @@ export default function ConfigDetailPage(): React.ReactElement {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Open state is remembered per config; width is a global preference.
   const details = useDetailsPanel({
     openKey: `config-details-panel-open__${configKey}`,
     widthKey: "config-details-panel-width",
     tab,
     homeTab: ["overview", "validation"],
   });
-  // The family tree, open or not across every Config.
   const lineagePanel = useDetailsPanel({
     openKey: "config-lineage-panel-open",
     widthKey: "config-lineage-panel-width",
@@ -457,7 +455,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     () => getLiveRevision(allRevisions) ?? null,
     [allRevisions],
   );
-  // While viewing live, the review tab and the panel show the live revision.
   const panelRevision = selectedRevision ?? liveRevision;
 
   // The page instance is reused across configs (and the selected revision can
@@ -868,12 +865,11 @@ export default function ConfigDetailPage(): React.ReactElement {
   // empty footprint SKIPS the environment check rather than narrowing it.
   const revisionPublishEnvironments = useMemo(() => {
     if (!config) return [];
-    const pending = panelRevision;
     const scoped = configPublishEnvironments(config);
-    if (!pending) return scoped;
+    if (!panelRevision) return scoped;
     return revisionPublishFootprint({
       proposedChanges: {
-        archived: proposedArchivedValue(pending.target.proposedChanges),
+        archived: proposedArchivedValue(panelRevision.target.proposedChanges),
       },
       currentArchived: config.archived,
       scoped,
@@ -976,11 +972,8 @@ export default function ConfigDetailPage(): React.ReactElement {
   const canDeleteNow =
     canDeleteArchivedEntity(permissionsUtil, "config", config) &&
     !hasDescendants;
-  // A locked Config still takes drafts; only publishing past its pinned
-  // revision waits for an unlock (archiving publishes too). Editing is allowed
-  // in a draft and from the live view; a selected merged/discarded revision is
-  // a read-only history view. A draft locked for a scheduled publish keeps its
-  // info controls, disabled, and drops the rest.
+  // A locked Config still takes drafts; only publishing waits for an unlock. A
+  // draft locked for a scheduled publish keeps its info controls, disabled.
   const isLocked = !!config.lock;
   const canEditInfo = canDraft && (!selectedRevision || isDraft);
   const editLockReason =
@@ -1010,8 +1003,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   );
   const canArchiveNow =
     (canLandArchive || canEditNow) && (!selectedRevision || isDraft);
-  // Fields, mixins and rules edit only inside a draft, chosen first. History
-  // views and schedule-locked drafts expose none.
+  // Fields, mixins and rules edit only inside a draft, never from live.
   const canEditInline = canEditNow && isDraft;
   const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks(
     {
@@ -1877,7 +1869,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                     )
                   }
                   mb="4"
-                  // Pinned under the page's tabs while the fields scroll by.
                   stickyTop={stickyTop}
                   tabs={
                     <ConfigEnvTabs
@@ -2004,7 +1995,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                           stickyLastColumn
                           pinScrollbar
                           mt="2"
-                          // Room for a readable Value column before it scrolls.
                           style={{ minWidth: 980 }}
                         >
                           <TableHeader>

@@ -488,7 +488,6 @@
     &.rt-r-size-1 {
       height: var(--space-5);
     }
-    // Between sm and md; see SegmentedControl.
     &.rt-r-size-1.gb-segmented-control--normal {
       height: calc(var(--space-5) + 6px);
     }

@@ -53,7 +53,7 @@ type Props = {
   // The resolved (inherited+own) value, for live pass/fail feedback.
   resolvedValue: Record<string, unknown>;
   canEdit: boolean;
-  // Editing is blocked for now: Add rule shows, disabled, with this reason.
+  // Shows Add rule disabled, with this reason.
   blockedReason?: string | null;
   onChange: (next: ConfigInvariant[]) => Promise<void>;
 };

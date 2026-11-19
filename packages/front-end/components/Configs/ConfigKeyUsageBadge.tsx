@@ -27,8 +27,6 @@ function UsageBadge({
   content: React.ReactNode;
 }): React.ReactElement {
   return (
-    // Below and right-aligned, so a wide table slides to stay on screen rather
-    // than running off the left edge.
     <Popover
       side="bottom"
       align="end"

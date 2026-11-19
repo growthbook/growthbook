@@ -20,6 +20,16 @@ const WHEEL_DEADSPACE_PX = 100;
 // A trackpad swipe carries some sideways movement; a mouse wheel's never does.
 const TRACKPAD_MEMORY_MS = 600;
 
+function sidewaysWheelDelta(e: WheelEvent, el: HTMLElement): number {
+  const unit =
+    e.deltaMode === WheelEvent.DOM_DELTA_LINE
+      ? 16
+      : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
+        ? el.clientWidth
+        : 1;
+  return e.deltaY * unit;
+}
+
 // Scrollbars overlay the content. The ref is the element that scrolls.
 const ScrollArea = forwardRef<
   HTMLDivElement,
@@ -139,13 +149,7 @@ const ScrollArea = forwardRef<
       }
       const max = el.scrollWidth - el.clientWidth;
       if (max <= 0) return;
-      const unit =
-        e.deltaMode === WheelEvent.DOM_DELTA_LINE
-          ? 16
-          : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
-            ? el.clientWidth
-            : 1;
-      const delta = e.deltaY * unit;
+      const delta = sidewaysWheelDelta(e, el);
       const atEnd = () =>
         delta < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
       if (atEnd()) {
@@ -183,13 +187,7 @@ const ScrollArea = forwardRef<
         return;
       }
       const max = el.scrollWidth - el.clientWidth;
-      const delta =
-        e.deltaY *
-        (e.deltaMode === WheelEvent.DOM_DELTA_LINE
-          ? 16
-          : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
-            ? el.clientWidth
-            : 1);
+      const delta = sidewaysWheelDelta(e, el);
       const atEnd = delta < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
       if (max <= 0 || atEnd) return;
       e.preventDefault();

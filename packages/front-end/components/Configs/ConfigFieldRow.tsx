@@ -145,8 +145,6 @@ export default function ConfigFieldRow({
   // shape/validation; offer a click-to-inspect popover with the full JSON Schema.
   const schemaPreview = fieldSchemaPreview(f.field);
 
-  // Opening an editor on a narrow table scrolls its value out from under the
-  // pinned Save/Cancel column, and closing it scrolls back.
   const valueCellRef = useRef<HTMLTableCellElement>(null);
   useEffect(() => {
     const valueCell = valueCellRef.current;
@@ -159,7 +157,6 @@ export default function ConfigFieldRow({
     : hasValidationError
       ? "var(--red-a2)"
       : null;
-  // Headroom over a JSON editor, whose "Insert constant" button floats above it.
   const cellStyle = hasJsonEditor
     ? { paddingTop: "var(--space-6)" }
     : undefined;
@@ -169,7 +166,6 @@ export default function ConfigFieldRow({
       <TableCell
         style={{
           ...cellStyle,
-          // A failing row's marker, drawn inside so nothing shifts.
           ...(hasValidationError &&
             !isEditing && { boxShadow: "inset 3px 0 0 var(--red-9)" }),
         }}

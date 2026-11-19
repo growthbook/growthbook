@@ -66,7 +66,6 @@ export default function ReferencesPanelSection({
             <em>{emptyText}</em>
           </Text>
         )}
-        {/* Held short, so a long list doesn't push the rest of the panel down. */}
         {count ? (
           <ScrollArea
             gutter

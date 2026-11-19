@@ -86,9 +86,8 @@ export type SelectFieldProps = Omit<
   // Rendered before the dropdown caret; mirrors MultiSelectField's copy button.
   extraIndicator?: ReactNode;
   withRadixThemedPortal?: boolean;
-  // Renders the menu at the app's theme root, so no scroll box or stacking
-  // context holds it. For page content only: in a modal, which sits above the
-  // root, the menu would open beneath it.
+  // Portals the menu to the theme root, out of any scroll box or stacking
+  // context. Not in a modal: the menu would open beneath it.
   portalMenu?: boolean;
   legacyLabelFormatting?: boolean;
   labelSize?: TextSizes;

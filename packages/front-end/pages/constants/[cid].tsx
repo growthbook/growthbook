@@ -208,7 +208,6 @@ export default function ConstantDetailPage(): React.ReactElement {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Open state is remembered per constant; width is a global preference.
   const details = useDetailsPanel({
     openKey: `constant-details-panel-open__${constantKey}`,
     widthKey: "constant-details-panel-width",
@@ -222,7 +221,6 @@ export default function ConstantDetailPage(): React.ReactElement {
     () => getLiveRevision(allRevisions) ?? null,
     [allRevisions],
   );
-  // While viewing live, the review tab and the panel show the live revision.
   const panelRevision = selectedRevision ?? liveRevision;
 
   // The environments the pending change actually touches. A base-value change
@@ -371,7 +369,6 @@ export default function ConstantDetailPage(): React.ReactElement {
   // merged/discarded revision). On live it starts a new draft; on a draft it
   // updates it.
   const canEditNow = canDraft && (!selectedRevision || isDraft);
-  // A draft locked for a scheduled publish shows its edit controls disabled.
   const editLockReason =
     selectedRevision &&
     isDraft &&
@@ -555,7 +552,6 @@ export default function ConstantDetailPage(): React.ReactElement {
         onRename={canEditNow ? () => setEditInfoOpen("info") : null}
         renameBlockedReason={editLockReason}
         badges={
-          // Live state, like the menu's Archive/Unarchive.
           constant.archived ? <Badge label="Archived" color="gray" /> : null
         }
         actions={

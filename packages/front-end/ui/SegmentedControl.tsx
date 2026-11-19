@@ -4,8 +4,8 @@ import { ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
 
-// Sizes match button heights, to sit level in a row. "normal", between sm and
-// md and off the shared ladder, is sm with breathing room, for legibility.
+// "normal", between sm and md and off the shared ladder, is sm with breathing
+// room, for legibility.
 type SegmentedControlSize = Size<"sm" | "md" | "lg"> | "normal";
 
 export type SegmentedControlOption<T extends string> = {

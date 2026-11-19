@@ -558,8 +558,7 @@ export default function ConfigJsonEditor({
     setNewProjLang("typescript");
   };
 
-  // As tall as the value editor's label row, and as far from its editor, so
-  // both columns start at the same height.
+  // Sized to the value editor's label row so both columns line up.
   const columnHeader = (text: string, actions: ReactNode = null) => (
     <Flex
       justify="between"

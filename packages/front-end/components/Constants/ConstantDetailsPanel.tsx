@@ -36,10 +36,8 @@ export default function ConstantDetailsPanel({
 }: {
   // As viewed: the selected revision's changes over live.
   constant: ConstantInterface;
-  // Opens the info form, with the description first when asked; none while
-  // the viewer can't edit.
+  // Opens the info form; none while the viewer can't edit.
   onEditInfo: ((focus?: "description") => void) | null;
-  // Shown on the pencils, disabled, while the info can't change for now.
   editInfoBlockedReason: string | null;
   references: PanelReferences;
   // The viewed revision, or live's.

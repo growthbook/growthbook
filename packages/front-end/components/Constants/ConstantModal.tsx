@@ -59,7 +59,6 @@ export default function ConstantModal({
 }: {
   existing: ConstantWithoutValue | null;
   close: () => void;
-  // Opens with the description showing and focused.
   focusDescription?: boolean;
   // Required when editing (info changes route through the revision system).
   revisionCtx?: ConstantRevisionContext;
@@ -115,6 +114,10 @@ export default function ConstantModal({
     true,
     holdsMoveDestination,
   );
+  const cta = draftModeCta(draft.draftMode, {
+    bypassesApproval: draft.selectorApprovalRequired,
+    publishLabel: "Save",
+  });
 
   // Auto-derive the slug key from the name until the user edits the key.
   const keyTouched = useRef(editing);
@@ -167,21 +170,8 @@ export default function ConstantModal({
       header={editing ? "Edit Information" : "Add Constant"}
       size="lg"
       close={close}
-      cta={
-        editing
-          ? draftModeCta(draft.draftMode, {
-              bypassesApproval: draft.selectorApprovalRequired,
-              publishLabel: "Save",
-            })
-          : "Create"
-      }
-      ctaColor={
-        editing &&
-        draft.draftMode === "publish" &&
-        draft.selectorApprovalRequired
-          ? "red"
-          : "violet"
-      }
+      cta={editing ? cta.label : "Create"}
+      ctaColor={editing && cta.bypass ? "red" : "violet"}
       submit={validatedSubmit(form, async (values) => {
         if (editing && existing) {
           const res = await apiCall<{ revision?: Revision }>(

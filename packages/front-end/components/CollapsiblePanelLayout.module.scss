@@ -21,7 +21,6 @@
   transition: opacity 120ms ease;
 }
 
-// A left panel's handle straddles its right border.
 .dragHandleLeft::before {
   box-shadow: 1px 0 2px var(--panel-handle-edge);
 }

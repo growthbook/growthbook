@@ -154,9 +154,7 @@ export default function ConfigEnvTabs({
 
   return (
     <>
-      {/* The button sits beside the tab list, not in it, so tabs that don't
-          fit fold into the list's More menu. Made for a card header's tabs
-          slot, whose rule is the tabs' underline. */}
+      {/* Outside TabsList so tabs that don't fit can fold into its More menu. */}
       <Flex align="center" gap="4">
         <Tabs
           value={currentKey}

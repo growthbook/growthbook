@@ -236,7 +236,6 @@ export default function EditSavedGroupPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Open state is remembered per saved group; width is a global preference.
   const details = useDetailsPanel({
     openKey: `saved-group-details-panel-open__${sgid}`,
     widthKey: "saved-group-details-panel-width",
@@ -329,7 +328,6 @@ export default function EditSavedGroupPage() {
       ? displayedValues.filter((v) => v.toLowerCase().includes(term))
       : displayedValues;
   }, [displayedValues, filter]);
-  // Where each item sits in the list, 1 being the first added.
   const positions = useMemo(
     () => new Map(displayedValues.map((v, i) => [v, i + 1])),
     [displayedValues],
@@ -339,7 +337,6 @@ export default function EditSavedGroupPage() {
     [filteredValues, newestFirst],
   );
 
-  // A list that shrinks (items deleted, another revision) keeps to its last page.
   const page = Math.min(
     currentPage,
     Math.max(1, Math.ceil(sortedValues.length / NUM_PER_PAGE)),
@@ -411,7 +408,6 @@ export default function EditSavedGroupPage() {
 
   const largeSavedGroupSupport = useLargeSavedGroupSupport();
 
-  // Opens the info form with its description first.
   const [focusDescription, setFocusDescription] = useState(false);
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
@@ -442,7 +438,6 @@ export default function EditSavedGroupPage() {
     () => getLiveRevision(allRevisions) ?? null,
     [allRevisions],
   );
-  // While viewing live, the review tab and the panel show the live revision.
   const panelRevision = selectedRevision ?? liveRevision;
 
   if (error) {
@@ -463,7 +458,6 @@ export default function EditSavedGroupPage() {
     else next.add(value);
     setSelected(next);
   };
-  // A revision's proposed state, or live without one.
   const stateOf = (revision: Revision | null | undefined) =>
     revision
       ? (applyTopLevelPatchOps(
@@ -471,8 +465,7 @@ export default function EditSavedGroupPage() {
           revision.target.proposedChanges,
         ) as SavedGroupInterface)
       : savedGroup;
-  // Edits save into the viewed draft, else your open draft, else a new one,
-  // and start from what that draft holds. The view stays put until they save.
+  // Edits go to the viewed draft, else your open draft, else a new one.
   const editTarget =
     selectedRevision ??
     (userOpenRevision && !isRevisionEditLockedBySchedule(userOpenRevision)
@@ -487,9 +480,14 @@ export default function EditSavedGroupPage() {
     addItemsDraftMode,
     addItemsDraftSelectedId,
   ).length;
+  const addCta = draftModeCta(addItemsDraftMode, {
+    bypassesApproval: approvalRequired && canAdminPublish,
+  });
+  const removeCta = draftModeCta(deleteItemsDraftMode, {
+    bypassesApproval: approvalRequired && canAdminPublish,
+  });
   const openItemsModal = (operation: "replace" | "append") => {
     setImportOperation(operation);
-    // Draft first, like the other entities; publishing is one click away.
     setAddItemsDraftMode(editTarget ? "existing" : "new");
     setAddItemsDraftSelectedId(editTarget?.id ?? null);
     setLiveListPin(savedGroup.values ?? []);
@@ -497,8 +495,6 @@ export default function EditSavedGroupPage() {
     setAddItems(true);
   };
 
-  // Past revisions, and viewers who can't draft, show no edit controls. A draft
-  // locked for a scheduled publish shows them disabled.
   const canEditView = canDraft && !isMerged && !isDiscarded;
   const editLockReason =
     selectedRevision &&
@@ -506,7 +502,6 @@ export default function EditSavedGroupPage() {
     isRevisionEditLockedBySchedule(selectedRevision)
       ? SCHEDULE_EDIT_LOCK_REASON
       : null;
-  // A Remote Group's upload picker explains itself instead.
   const editBlockedReason = isMerged
     ? "You cannot edit a published revision."
     : isDiscarded
@@ -514,7 +509,6 @@ export default function EditSavedGroupPage() {
       : !canDraft
         ? "You don't have permission to edit drafts for this Saved Group."
         : null;
-  // With metadata review off, information edits land straight from any view.
   const editInfoBlockedReason = remoteLocked
     ? REMOTE_LOCKED_REASON
     : editLockReason;
@@ -531,7 +525,6 @@ export default function EditSavedGroupPage() {
     "draft",
     savedGroup,
   );
-  // Archiving still works without Enterprise, for cleanup.
   const canPublishFromBar =
     canPublishRevisionEntity(
       permissionsUtil,
@@ -745,16 +738,8 @@ export default function EditSavedGroupPage() {
           close={() => setDeleteItemsModal(false)}
           open={deleteItemsModal}
           header={`Remove ${selected.size} Item${selected.size !== 1 ? "s" : ""}`}
-          cta={draftModeCta(deleteItemsDraftMode, {
-            bypassesApproval: approvalRequired && canAdminPublish,
-          })}
-          submitColor={
-            deleteItemsDraftMode === "publish" &&
-            approvalRequired &&
-            canAdminPublish
-              ? "danger"
-              : "primary"
-          }
+          cta={removeCta.label}
+          submitColor={removeCta.bypass ? "danger" : "primary"}
           ctaEnabled={!deleteConflict.hasConflict}
           disabledMessage={
             deleteConflict.hasConflict
@@ -874,16 +859,8 @@ export default function EditSavedGroupPage() {
               ? "Add List Items"
               : "Overwrite List Contents"
           }
-          cta={draftModeCta(addItemsDraftMode, {
-            bypassesApproval: approvalRequired && canAdminPublish,
-          })}
-          submitColor={
-            addItemsDraftMode === "publish" &&
-            approvalRequired &&
-            canAdminPublish
-              ? "danger"
-              : "primary"
-          }
+          cta={addCta.label}
+          submitColor={addCta.bypass ? "danger" : "primary"}
           ctaEnabled={
             itemsToAdd.length > 0 &&
             (!listAboveSizeLimit || adminBypassSizeLimit) &&
@@ -1145,7 +1122,6 @@ export default function EditSavedGroupPage() {
         onRename={editInfo}
         renameBlockedReason={editInfoBlockedReason}
         badges={
-          // Live state, like the menu's Archive/Unarchive.
           savedGroup.archived ? <Badge label="Archived" color="gray" /> : null
         }
         actions={

@@ -56,6 +56,9 @@ export default function ConstantValueModal({
 
   // Value is a content edit (not metadata-only).
   const draft = useConstantDraftTarget(revisionCtx, false);
+  const cta = draftModeCta(draft.draftMode, {
+    bypassesApproval: draft.selectorApprovalRequired,
+  });
 
   const type = existing.type;
 
@@ -143,14 +146,8 @@ export default function ConstantValueModal({
       header="Edit Value"
       size="lg"
       close={close}
-      cta={draftModeCta(draft.draftMode, {
-        bypassesApproval: draft.selectorApprovalRequired,
-      })}
-      ctaColor={
-        draft.draftMode === "publish" && draft.selectorApprovalRequired
-          ? "red"
-          : "violet"
-      }
+      cta={cta.label}
+      ctaColor={cta.bypass ? "red" : "violet"}
       submit={validatedSubmit(form, async (values) => {
         // A key's presence is the override (even when its value is empty): an
         // empty override forces that environment's resolved value to empty,

@@ -68,7 +68,6 @@ export default function ConfigModal({
   close,
   focusDescription = false,
 }: {
-  // Opens with the description showing and focused.
   focusDescription?: boolean;
   // Present → edit info; absent → create.
   existing?: ConfigWithoutValue | null;
@@ -138,6 +137,10 @@ export default function ConfigModal({
     true,
     holdsMoveDestination,
   );
+  const cta = draftModeCta(draft.draftMode, {
+    bypassesApproval: draft.selectorApprovalRequired,
+    publishLabel: "Save",
+  });
 
   // For create, the base/child distinction follows the selected parent.
   const isBaseSelection = editing ? isBaseConfig : !form.watch("parent");
@@ -195,21 +198,8 @@ export default function ConfigModal({
       header={editing ? "Edit Information" : "New Config"}
       size="lg"
       close={close}
-      cta={
-        editing
-          ? draftModeCta(draft.draftMode, {
-              bypassesApproval: draft.selectorApprovalRequired,
-              publishLabel: "Save",
-            })
-          : "Create"
-      }
-      ctaColor={
-        editing &&
-        draft.draftMode === "publish" &&
-        draft.selectorApprovalRequired
-          ? "red"
-          : "violet"
-      }
+      cta={editing ? cta.label : "Create"}
+      ctaColor={editing && cta.bypass ? "red" : "violet"}
       submit={validatedSubmit(form, async (values) => {
         if (editing && existing) {
           const res = await apiCall<{ revision?: Revision }>(

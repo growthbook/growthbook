@@ -513,8 +513,7 @@ export default function FieldDefForm({
     </Box>
   );
 
-  // An existing field opens scrolled to its value, its key being fixed, and
-  // scrolls back on close. A new one starts at its key, which takes focus.
+  // A new field stays at its key, which takes focus.
   const valueCellRef = useRef<HTMLTableCellElement>(null);
   useEffect(() => {
     const valueCell = valueCellRef.current;

@@ -20,7 +20,6 @@ export default function ConfigUsageSection({
   implementations: ConfigKeyImplementation[];
   // Field order, so the "by key" sections match the table above.
   fieldKeys?: string[];
-  // Where the card's header pins while its tables scroll by.
   stickyTop?: number;
 }): React.ReactElement | null {
   const [groupBy, setGroupBy] = useState("key");
@@ -75,7 +74,6 @@ export default function ConfigUsageSection({
   if (!deduped.length) return null;
 
   return (
-    // The tab list sits in the card's header, so the root wraps the card.
     <Tabs value={groupBy} onValueChange={setGroupBy}>
       <SectionFrame
         title="Usage"
