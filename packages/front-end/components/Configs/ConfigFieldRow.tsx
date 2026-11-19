@@ -147,10 +147,10 @@ export default function ConfigFieldRow({
 
   // Opening an editor on a narrow table scrolls its value out from under the
   // pinned Save/Cancel column, and closing it scrolls back.
-  const rowRef = useRef<HTMLTableRowElement>(null);
+  const valueCellRef = useRef<HTMLTableCellElement>(null);
   useEffect(() => {
-    const valueCell = rowRef.current?.children[1];
-    if (!isEditing || !(valueCell instanceof HTMLElement)) return;
+    const valueCell = valueCellRef.current;
+    if (!isEditing || !valueCell) return;
     return revealTableCell(valueCell);
   }, [isEditing]);
 
@@ -165,11 +165,7 @@ export default function ConfigFieldRow({
     : undefined;
 
   return (
-    <TableRow
-      ref={rowRef}
-      align="start"
-      style={tint ? { background: tint } : undefined}
-    >
+    <TableRow align="start" style={tint ? { background: tint } : undefined}>
       <TableCell
         style={{
           ...cellStyle,
@@ -217,8 +213,14 @@ export default function ConfigFieldRow({
         </Flex>
       </TableCell>
       <TableCell
+        ref={valueCellRef}
         className={styles.valueCell}
-        style={{ ...cellStyle, overflowWrap: "anywhere" }}
+        style={{
+          ...cellStyle,
+          overflowWrap: "anywhere",
+          // Keeps the code editor's scrollbar under the pinned column.
+          ...(hasJsonEditor && { isolation: "isolate" }),
+        }}
       >
         <Flex align="center" style={{ minHeight: 32 }}>
           <Box style={{ width: "100%", minWidth: 0 }}>
@@ -237,6 +239,7 @@ export default function ConfigFieldRow({
                     <>
                       {vt === "boolean" ? (
                         <SelectField
+                          portalMenu
                           size="md"
                           value={editText}
                           onChange={setEditText}
@@ -250,6 +253,7 @@ export default function ConfigFieldRow({
                         />
                       ) : enumValues.length > 0 ? (
                         <SelectField
+                          portalMenu
                           size="md"
                           value={editText}
                           onChange={setEditText}

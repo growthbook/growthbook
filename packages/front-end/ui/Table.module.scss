@@ -320,12 +320,6 @@ $pinned-hover-tints:
       z-index: 1;
     }
 
-    // Every other body cell keeps what it raises (an editor's scrollbar or
-    // resize grip) inside itself, under the pinned column.
-    :global(.rt-TableBody .rt-TableRow > *:not(:last-child)) {
-      isolation: isolate;
-    }
-
     // Opaque, so what scrolls under it doesn't show through. The header cell
     // already is, in the header's own color.
     :global(.rt-TableBody .rt-TableRow > *:last-child:not([colspan])) {
@@ -469,12 +463,6 @@ $pinned-hover-tints:
       right: 0;
       z-index: 1;
       background-color: var(--color-panel-solid);
-    }
-
-    // Every other body cell keeps what it raises (an editor's scrollbar or
-    // resize grip) inside itself, under the pinned column.
-    :global(.rt-TableBody .rt-TableRow > *:not(:last-child)) {
-      isolation: isolate;
     }
 
     // While more lies under it, the content fades out on its way there; the

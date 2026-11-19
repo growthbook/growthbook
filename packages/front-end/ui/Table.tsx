@@ -1,4 +1,12 @@
-import React, { forwardRef, useEffect, useRef, useState } from "react";
+import React, {
+  createContext,
+  forwardRef,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Box, Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
@@ -45,7 +53,8 @@ export type TableProps = Omit<
   minTableWidth?: number;
 };
 
-const TABLE_SCROLL_ATTR = "data-table-scroll";
+// The element a `scrollX` table scrolls sideways in, for TableViewportCell.
+const TableScrollContext = createContext<HTMLDivElement | null>(null);
 
 // Scrolls a cell's table sideways so the cell shows in full beside a pinned
 // last column, or from its own left edge when it's wider than the room.
@@ -253,16 +262,13 @@ export default function Table({
     pageTopOffset,
   ]);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  // Marks the region that scrolls sideways, for TableViewportCell.
-  useEffect(() => {
-    scrollRef.current?.setAttribute(TABLE_SCROLL_ATTR, "");
-  }, [scrollX]);
+  // State, not a ref: the scroll box arrives after its cells' first effects.
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   // Whatever takes focus in a sideways-scrolling table comes into view, past
   // the pinned column rather than under it.
   const pinnedScroll = !isListVariant && !!scrollX && !!stickyLastColumn;
   useEffect(() => {
-    const el = scrollRef.current;
+    const el = scroller;
     if (!pinnedScroll || !el) return;
     const onFocus = (e: FocusEvent) => {
       const cell =
@@ -273,7 +279,7 @@ export default function Table({
     };
     el.addEventListener("focusin", onFocus);
     return () => el.removeEventListener("focusin", onFocus);
-  }, [pinnedScroll]);
+  }, [pinnedScroll, scroller]);
 
   const radixVariant = variant === "list" ? "surface" : variant;
 
@@ -302,25 +308,27 @@ export default function Table({
   if (!isListVariant) {
     if (!scrollX) return tableElement;
     return (
-      <ScrollArea
-        ref={scrollRef}
-        direction="horizontal"
-        size="md"
-        gutter
-        // A tall table leaves the wheel to the page but over its scrollbar.
-        wheelScrollsSideways={pinScrollbar ? "scrollbar" : "area"}
-        pinScrollbar={pinScrollbar}
-        edgeCue="fade"
-        // A pinned column fades what's under it itself, above the row
-        // borders a mask would fade too; the left edge goes unmarked to match.
-        skipEdges={stickyLastColumn ? ["left", "right"] : []}
-        className={clsx(
-          styles.scrollPlain,
-          stickyLastColumn && styles.pinLastColumn,
-        )}
-      >
-        {tableElement}
-      </ScrollArea>
+      <TableScrollContext.Provider value={scroller}>
+        <ScrollArea
+          ref={setScroller}
+          direction="horizontal"
+          size="md"
+          gutter
+          // A tall table leaves the wheel to the page but over its scrollbar.
+          wheelScrollsSideways={pinScrollbar ? "scrollbar" : "area"}
+          pinScrollbar={pinScrollbar}
+          edgeCue="fade"
+          // A pinned column fades what's under it itself, above the row
+          // borders a mask would fade too; the left edge goes unmarked to match.
+          skipEdges={stickyLastColumn ? ["left", "right"] : []}
+          className={clsx(
+            styles.scrollPlain,
+            stickyLastColumn && styles.pinLastColumn,
+          )}
+        >
+          {tableElement}
+        </ScrollArea>
+      </TableScrollContext.Provider>
     );
   }
 
@@ -409,11 +417,11 @@ export function TableViewportCell({
   children,
   ...props
 }: React.ComponentProps<typeof RadixTable.Cell>) {
+  const viewport = useContext(TableScrollContext);
   const cellRef = useRef<HTMLTableCellElement>(null);
   const [box, setBox] = useState<{ left: number; width: number } | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const cell = cellRef.current;
-    const viewport = cell?.closest<HTMLElement>(`[${TABLE_SCROLL_ATTR}]`);
     if (!cell || !viewport) return;
     const measure = () => {
       const { paddingLeft, paddingRight } = getComputedStyle(cell);
@@ -427,7 +435,7 @@ export function TableViewportCell({
     const observer = new ResizeObserver(measure);
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, []);
+  }, [viewport]);
   return (
     <RadixTable.Cell ref={cellRef} data-viewport-cell {...props}>
       <div
@@ -443,9 +451,13 @@ export function TableViewportCell({
   );
 }
 
-export function TableCell({
-  children,
-  ...props
-}: React.ComponentProps<typeof RadixTable.Cell>) {
-  return <RadixTable.Cell {...props}>{children}</RadixTable.Cell>;
-}
+export const TableCell = forwardRef<
+  HTMLTableCellElement,
+  React.ComponentProps<typeof RadixTable.Cell>
+>(function TableCell({ children, ...props }, ref) {
+  return (
+    <RadixTable.Cell ref={ref} {...props}>
+      {children}
+    </RadixTable.Cell>
+  );
+});

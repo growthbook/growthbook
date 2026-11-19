@@ -293,6 +293,7 @@ export default function FieldDefForm({
       : FIELD_TYPE_OPTIONS;
   const typeSelect = (
     <SelectField
+      portalMenu
       size="md"
       value={typeValue}
       onChange={onTypeChange}
@@ -305,6 +306,7 @@ export default function FieldDefForm({
   const valueInput =
     valueType === "boolean" ? (
       <SelectField
+        portalMenu
         size="md"
         value={valueText === "true" ? "true" : "false"}
         onChange={setValueText}
@@ -316,6 +318,7 @@ export default function FieldDefForm({
       />
     ) : enumValues.length > 0 ? (
       <SelectField
+        portalMenu
         size="md"
         value={valueText}
         onChange={setValueText}
@@ -512,10 +515,10 @@ export default function FieldDefForm({
 
   // An existing field opens scrolled to its value, its key being fixed, and
   // scrolls back on close. A new one starts at its key, which takes focus.
-  const rowRef = useRef<HTMLTableRowElement>(null);
+  const valueCellRef = useRef<HTMLTableCellElement>(null);
   useEffect(() => {
-    const valueCell = rowRef.current?.children[1];
-    if (isNew || !(valueCell instanceof HTMLElement)) return;
+    const valueCell = valueCellRef.current;
+    if (isNew || !valueCell) return;
     return revealTableCell(valueCell);
   }, [isNew]);
   const showsDetails = configureOpen || !!err;
@@ -534,7 +537,7 @@ export default function FieldDefForm({
   const tint = "var(--violet-a2)";
   return (
     <>
-      <TableRow ref={rowRef} align="start" style={{ background: tint }}>
+      <TableRow align="start" style={{ background: tint }}>
         <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>
             <Box style={{ width: "100%" }}>
@@ -550,7 +553,11 @@ export default function FieldDefForm({
             </Box>
           </Flex>
         </TableCell>
-        <TableCell>
+        <TableCell
+          ref={valueCellRef}
+          // Keeps the code editor's scrollbar under the pinned column.
+          style={valueIsJson ? { isolation: "isolate" } : undefined}
+        >
           {withValue && (
             <>
               <Flex align="center" style={{ minHeight: 32 }}>

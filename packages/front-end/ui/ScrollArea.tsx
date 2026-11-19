@@ -76,9 +76,10 @@ const ScrollArea = forwardRef<
   const [overflowsSideways, setOverflowsSideways] = useState(false);
   useEffect(() => {
     const el = viewport.current;
-    if ((!edgeCue && !sidewaysGutter) || !el) return;
+    if ((!edgeCue && !sidewaysGutter && !pinScrollbar) || !el) return;
     const update = () => {
-      setOverflowsSideways(el.scrollWidth - el.clientWidth > 1);
+      // Radix's own test for showing the sideways bar.
+      setOverflowsSideways(el.offsetWidth < el.scrollWidth);
       if (!edgeCue) return;
       const past: Record<Edge, boolean> = {
         top: vertical && el.scrollTop > 0,
@@ -100,7 +101,7 @@ const ScrollArea = forwardRef<
       el.removeEventListener("scroll", update);
       observer.disconnect();
     };
-  }, [edgeCue, sidewaysGutter, vertical, sideways]);
+  }, [edgeCue, sidewaysGutter, pinScrollbar, vertical, sideways]);
 
   useEffect(() => {
     const el = viewport.current;
@@ -199,6 +200,8 @@ const ScrollArea = forwardRef<
   }, [wheelScrollsSideways]);
 
   const shadowed = edgeCue === "shadow" || edgeCue === "deep-shadow";
+  // With nothing past the sides, no bar, so no gutter to pin over the content.
+  const pinned = pinScrollbar && overflowsSideways;
   const marked = more.filter((edge) => !skipEdges.includes(edge));
   const underPinned = more.filter((edge) => skipEdges.includes(edge));
   const scrollArea = (
@@ -213,12 +216,12 @@ const ScrollArea = forwardRef<
         (fill || !sideways) && styles.fullWidth,
         fill && fillMinHeight !== undefined && styles.bounded,
         edgeCue === "fade" && styles.fades,
-        pinScrollbar && styles.pinsScrollbar,
+        pinned && styles.pinsScrollbar,
         shadowed ? styles.fillsWrapper : className,
       )}
       style={{
         ...(shadowed ? undefined : style),
-        ...(pinScrollbar && {
+        ...(pinned && {
           "--pinned-scrollbar-size": `var(--space-${radixSize(size)})`,
         }),
       }}
