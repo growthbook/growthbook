@@ -3,7 +3,6 @@ import omitBy from "lodash/omitBy";
 import {
   getDefinitionMetricId,
   getMetricIdsMissingFromSnapshot,
-  getMetricRefresh,
   getSnapshotDataAsOf,
   isAnalysisDateRangeOutdated,
   isWithinNewMetricsUpdateWindow,
@@ -11,7 +10,6 @@ import {
 import {
   getIdentifierTypeForSettingsHash,
   getSnapshotCutoffDate,
-  isDefined,
 } from "shared/util";
 import type { IncrementalRefreshInterface } from "shared/validators";
 import type {
@@ -23,102 +21,39 @@ import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-  MetricForSnapshot,
   SnapshotMetricRefresh,
 } from "shared/types/experiment-snapshot";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
-import type { QueryPointer } from "shared/types/query";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import type { PlannedExperimentSnapshot } from "back-end/src/services/experiments";
 import {
   findLatestSuccessfulOverallSnapshot,
-  findMetricRefreshAncestor,
   getLatestSnapshotStatus,
-  type MetricRefreshAncestor,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { getQueriesByIds } from "back-end/src/models/QueryModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { isCarriedMetricRefreshQuery } from "back-end/src/queryRunners/metricRefreshQueryNaming";
 import {
-  getIndexAfterLastGroup,
-  isCarriedMetricRefreshQuery,
-  type ResultQueryScope,
-} from "back-end/src/queryRunners/metricRefreshQueryNaming";
+  assertCarriedQuerySqlUnchanged,
+  type GenerateResultQuerySql,
+} from "back-end/src/services/metricRefreshSqlIdentity";
 import {
   BadRequestError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   MetricRefreshOutsideWindowError,
   MetricRefreshUnavailableError,
-  MetricRefreshUnavailableReason,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
 } from "back-end/src/util/errors";
 
-const UNAVAILABLE_MESSAGES: Record<MetricRefreshUnavailableReason, string> = {
-  no_base_snapshot:
-    'This experiment has no results to add metrics to yet. Send "updateScope": "all_metrics" to compute every metric.',
-  not_latest_phase:
-    "Only the current phase's results can be updated for newly added metrics.",
-  phase_ended:
-    'This phase has ended, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
-  unsupported_experiment_type:
-    'Bandits and holdouts can\'t update newly added metrics on their own. Send "updateScope": "all_metrics" instead.',
-  unsupported_data_source:
-    'This Data Source analyzes every metric in one query, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
-  incremental_pipeline:
-    'The experiment\'s Incremental Pipeline tables don\'t match its latest results, for example because a later update failed. Send "updateScope": "all_metrics" to fix this.',
-  metric_not_supported:
-    'The latest results ran on a different pipeline than this experiment\'s metrics need now, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
-  settings_changed:
-    'The last update\'s results can\'t be reused for newly added metrics. Send "updateScope": "all_metrics" instead.',
-  analysis_dates_changed:
-    'The analysis dates changed by a day or more since the latest results, so newly added metrics would cover different dates than the other metrics. Send "updateScope": "all_metrics" instead.',
-  base_incomplete:
-    'The last update\'s results are incomplete, so they can\'t be reused. Send "updateScope": "all_metrics" instead.',
-};
-
-function unavailable(
-  reason: MetricRefreshUnavailableReason,
-  message: string = UNAVAILABLE_MESSAGES[reason],
-): MetricRefreshUnavailableError {
-  return new MetricRefreshUnavailableError(reason, message);
-}
-
 export type NewMetricsUpdateWindow = { windowHours: number; now: Date };
-
-/**
- * Whether an update that didn't choose a scope should compute only the newly
- * added metrics: some are missing and the latest results end less than the
- * window before now. A window of 0 never applies.
- */
-export function shouldUpdateNewMetricsOnly({
-  missingMetricIds,
-  resultsEndDate,
-  now,
-  windowHours,
-}: NewMetricsUpdateWindow & {
-  missingMetricIds: readonly string[];
-  resultsEndDate: Date;
-}): boolean {
-  return (
-    missingMetricIds.length > 0 &&
-    isWithinNewMetricsUpdateWindow({ resultsEndDate, windowHours, now })
-  );
-}
-
-/** The SQL of a dry run of the standard pipeline's result queries, by name. */
-export type GenerateResultQuerySql = (args: {
-  settings: ExperimentSnapshotSettings;
-  queryParentId: string;
-  scope?: ResultQueryScope;
-}) => Promise<Map<string, string>>;
 
 /**
  * Plans a snapshot that queries only the experiment's metrics missing from
  * the latest successful Overall snapshot (its parent) and copies the
  * parent's query results for every other metric, pinned to the parent's end
- * date. Throws a typed error before anything is written. With `window`, also
- * throws MetricRefreshOutsideWindowError when shouldUpdateNewMetricsOnly says no.
+ * date. Throws a typed error before anything is written, including
+ * MetricRefreshOutsideWindowError when the parent ends outside `window`.
  */
 export async function planMetricRefresh({
   context,
@@ -154,14 +89,14 @@ export async function planMetricRefresh({
     );
   }
   if ((experiment.type ?? "standard") !== "standard") {
-    throw unavailable("unsupported_experiment_type");
+    throw new MetricRefreshUnavailableError("unsupported_experiment_type");
   }
   if (phase !== experiment.phases.length - 1) {
-    throw unavailable("not_latest_phase");
+    throw new MetricRefreshUnavailableError("not_latest_phase");
   }
   const integration = getSourceIntegrationObject(context, datasource, true);
   if (!integration.getSourceProperties().separateExperimentResultQueries) {
-    throw unavailable("unsupported_data_source");
+    throw new MetricRefreshUnavailableError("unsupported_data_source");
   }
 
   const latest = await getLatestSnapshotStatus({
@@ -179,7 +114,7 @@ export async function planMetricRefresh({
     phase,
   });
   if (!parent) {
-    throw unavailable("no_base_snapshot");
+    throw new MetricRefreshUnavailableError("no_base_snapshot");
   }
 
   const missingMetricIds = getMetricIdsMissingFromSnapshot({
@@ -192,9 +127,8 @@ export async function planMetricRefresh({
   }
   if (
     window &&
-    !shouldUpdateNewMetricsOnly({
+    !isWithinNewMetricsUpdateWindow({
       ...window,
-      missingMetricIds,
       resultsEndDate: parent.settings.endDate,
     })
   ) {
@@ -207,11 +141,11 @@ export async function planMetricRefresh({
       snapshotDateCreated: getSnapshotDataAsOf(parent),
     })
   ) {
-    throw unavailable("analysis_dates_changed");
+    throw new MetricRefreshUnavailableError("analysis_dates_changed");
   }
   // A refresh extends the parent's default analysis.
   if (parent.analyses[0]?.status !== "success") {
-    throw unavailable("base_incomplete");
+    throw new MetricRefreshUnavailableError("base_incomplete");
   }
 
   // Planning reports tables past the cutoff as changed settings, so check the
@@ -231,13 +165,13 @@ export async function planMetricRefresh({
       if (
         error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
       ) {
-        throw unavailable("settings_changed");
+        throw new MetricRefreshUnavailableError("settings_changed");
       }
       throw error;
     },
   );
   if (!getSnapshotCutoffDate(plan.snapshot.settings)) {
-    throw unavailable("phase_ended");
+    throw new MetricRefreshUnavailableError("phase_ended");
   }
   assertRefreshablePipeline({ parent, plan });
   if (
@@ -247,7 +181,7 @@ export async function planMetricRefresh({
       exposureQueries: datasource.settings.queries?.exposure ?? [],
     }).length
   ) {
-    throw unavailable("settings_changed");
+    throw new MetricRefreshUnavailableError("settings_changed");
   }
 
   const { settings, queriedMetricIds } = mergeMetricRefreshSettings({
@@ -267,7 +201,7 @@ export async function planMetricRefresh({
     isCarriedMetricRefreshQuery(q.name, snapshot, snapshot.metricRefresh),
   );
   if (carriedQueries.some((q) => q.status !== "succeeded")) {
-    throw unavailable("base_incomplete");
+    throw new MetricRefreshUnavailableError("base_incomplete");
   }
   // The Incremental Pipeline's carried SQL only reads its cache tables, so
   // identical text there would prove nothing about the metrics behind them.
@@ -298,290 +232,17 @@ function assertRefreshablePipeline({
   if (plan.snapshot.runnerKind === expected) return;
   // The pipeline runs this experiment but has no tables to append to.
   if (plan.snapshot.runnerKind === "incremental-full") {
-    throw unavailable(
+    throw new MetricRefreshUnavailableError(
       "incremental_pipeline",
       'The Incremental Pipeline has no tables for this experiment\'s current settings yet, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" to build them.',
     );
   }
   throw plan.incrementalFallbackReason
-    ? unavailable(
+    ? new MetricRefreshUnavailableError(
         "metric_not_supported",
         `The latest results ran on the Incremental Pipeline, which can't run this experiment now. ${plan.incrementalFallbackReason} Send "updateScope": "all_metrics" instead.`,
       )
-    : unavailable("metric_not_supported");
-}
-
-// Each refresh adds a level, and each level costs a dry run of its queries.
-const MAX_METRIC_REFRESH_LINEAGE_LENGTH = 10;
-
-/** Base full update first, parent last, at most the cap. */
-async function loadMetricRefreshLineage(
-  context: ReqContext | ApiReqContext,
-  parent: MetricRefreshAncestor,
-): Promise<MetricRefreshAncestor[]> {
-  const lineage = [parent];
-  for (
-    let metricRefresh = getMetricRefresh(parent);
-    metricRefresh;
-    metricRefresh = getMetricRefresh(lineage[0])
-  ) {
-    if (lineage.length >= MAX_METRIC_REFRESH_LINEAGE_LENGTH) {
-      throw unavailable(
-        "base_incomplete",
-        `The latest results come from ${MAX_METRIC_REFRESH_LINEAGE_LENGTH - 1} updates of newly added metrics in a row, the most that can build on each other. Send "updateScope": "all_metrics" instead.`,
-      );
-    }
-    const ancestor = await findMetricRefreshAncestor(
-      context,
-      metricRefresh.parentSnapshotId,
-    );
-    if (!ancestor) {
-      throw unavailable(
-        "base_incomplete",
-        'An earlier update the latest results were built from no longer exists, so they can\'t be reused. Send "updateScope": "all_metrics" instead.',
-      );
-    }
-    lineage.unshift(ancestor);
-  }
-  return lineage;
-}
-
-/**
- * One snapshot of a refresh lineage as it would run today: its stored metrics
- * in stored order with today's settings, and the metrics it queried itself
- * when it is a refresh.
- */
-export type MetricRefreshReplayLevel = {
-  snapshotId: string;
-  metricSettings: MetricForSnapshot[];
-  refreshedMetricIds: string[] | null;
-  /**
-   * Null for a run with a cutoff. A run without one read the clock when it
-   * generated its SQL, at most this long after its end date.
-   */
-  maxSqlClockDriftMs: number | null;
-};
-
-/**
- * Today's SQL for a stored query. A run without a cutoff wrote the
- * skipPartialData exposure cutoff from its clock, so each such literal may be
- * up to `maxDriftMs` later than in `sqlAsOfEndDate`.
- */
-export type ReplayedQuerySql = {
-  sql: string;
-  clockedExposureCutoffs: { sqlAsOfEndDate: string; maxDriftMs: number } | null;
-};
-
-/**
- * The SQL each level would run today, by query name. A refresh numbers its
- * own metric groups after the groups it copied, so the levels replay base
- * first to reproduce the stored grouping. Each level names its own units
- * table, and replays with or without a cutoff as it ran.
- */
-export async function replayMetricRefreshLineage({
-  levels,
-  settings,
-  generateResultQuerySql,
-}: {
-  levels: readonly MetricRefreshReplayLevel[];
-  settings: ExperimentSnapshotSettings;
-  generateResultQuerySql: GenerateResultQuerySql;
-}): Promise<Map<string, ReplayedQuerySql>> {
-  const sqlByName = new Map<string, ReplayedQuerySql>();
-  for (const level of levels) {
-    const scope = level.refreshedMetricIds
-      ? {
-          metricIds: new Set(level.refreshedMetricIds),
-          firstGroupIndex: getIndexAfterLastGroup([...sqlByName.keys()]),
-        }
-      : undefined;
-    const generate = (endDateIsCutoff: boolean) =>
-      generateResultQuerySql({
-        settings: {
-          ...settings,
-          metricSettings: level.metricSettings,
-          endDateIsCutoff,
-        },
-        queryParentId: level.snapshotId,
-        scope,
-      });
-    const driftMs = level.maxSqlClockDriftMs;
-    const levelSql = await generate(driftMs === null);
-    const asOfEndDate =
-      driftMs !== null && settings.skipPartialData
-        ? await generate(true)
-        : null;
-    levelSql.forEach((sql, name) =>
-      sqlByName.set(name, {
-        sql,
-        clockedExposureCutoffs:
-          asOfEndDate && driftMs !== null
-            ? {
-                sqlAsOfEndDate: asOfEndDate.get(name) ?? "",
-                maxDriftMs: driftMs,
-              }
-            : null,
-      }),
-    );
-  }
-  return sqlByName;
-}
-
-// Comment lines carry metric and fact table names, which don't change results.
-const withoutCommentLines = (sql: string): string =>
-  sql
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("--"))
-    .join("\n");
-
-// The clause skipPartialData adds, in each dialect's timestamp literal.
-const EXPOSURE_CUTOFF_CLAUSE =
-  /\b(first_(?:exposure|activation)_timestamp <= \w*\(?')(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d{3})?)Z?'/g;
-
-function splitExposureCutoffs(sql: string): {
-  sqlWithoutCutoffs: string;
-  cutoffs: number[];
-} {
-  const cutoffs: number[] = [];
-  const sqlWithoutCutoffs = sql.replace(
-    EXPOSURE_CUTOFF_CLAUSE,
-    (_, clause: string, utcTimestamp: string) => {
-      cutoffs.push(Date.parse(`${utcTimestamp.replace(" ", "T")}Z`));
-      return `${clause}'`;
-    },
-  );
-  return { sqlWithoutCutoffs, cutoffs };
-}
-
-function isSqlUnchanged(stored: string, today: ReplayedQuerySql): boolean {
-  const storedSql = withoutCommentLines(stored);
-  const todaysSql = withoutCommentLines(today.sql);
-  const clocked = today.clockedExposureCutoffs;
-  if (!clocked) return storedSql === todaysSql;
-
-  const storedParts = splitExposureCutoffs(storedSql);
-  const earliest = splitExposureCutoffs(
-    withoutCommentLines(clocked.sqlAsOfEndDate),
-  ).cutoffs;
-  return (
-    storedParts.sqlWithoutCutoffs ===
-      splitExposureCutoffs(todaysSql).sqlWithoutCutoffs &&
-    storedParts.cutoffs.length === earliest.length &&
-    storedParts.cutoffs.every((cutoff, i) => {
-      const drift = cutoff - earliest[i];
-      // Some dialects write whole seconds.
-      return drift >= 0 && drift < clocked.maxDriftMs + 1000;
-    })
-  );
-}
-
-/** The named queries whose stored SQL is missing or differs from today's. */
-export function getQueriesWithChangedSql({
-  queryNames,
-  storedSql,
-  todaysSql,
-}: {
-  queryNames: readonly string[];
-  storedSql: ReadonlyMap<string, string>;
-  todaysSql: ReadonlyMap<string, ReplayedQuerySql>;
-}): string[] {
-  return queryNames.filter((name) => {
-    const stored = storedSql.get(name);
-    const today = todaysSql.get(name);
-    return (
-      stored === undefined ||
-      today === undefined ||
-      !isSqlUnchanged(stored, today)
-    );
-  });
-}
-
-/**
- * Refuses unless every query the refresh would copy from a results parent,
- * and every units table those queries read, would be generated with the same
- * SQL today. This catches changed metric definitions, exposure and segment
- * SQL, identity joins, and releases that change how SQL is generated.
- */
-async function assertCarriedQuerySqlUnchanged({
-  context,
-  parent,
-  planned,
-  carriedQueries,
-  generateResultQuerySql,
-}: {
-  context: ReqContext | ApiReqContext;
-  parent: ExperimentSnapshotInterface;
-  planned: ExperimentSnapshotSettings;
-  carriedQueries: QueryPointer[];
-  generateResultQuerySql: GenerateResultQuerySql;
-}): Promise<void> {
-  const lineage = await loadMetricRefreshLineage(context, parent);
-
-  const todaysEntries = new Map(planned.metricSettings.map((m) => [m.id, m]));
-  const levels = lineage.map((level): MetricRefreshReplayLevel => {
-    const metricSettings = level.settings.metricSettings.map((m) =>
-      todaysEntries.get(m.id),
-    );
-    // A metric no longer on the experiment has no settings to regenerate its
-    // group from, so the group can't be checked.
-    if (!metricSettings.every(isDefined)) {
-      throw unavailable("settings_changed");
-    }
-    return {
-      snapshotId: level.id,
-      metricSettings,
-      refreshedMetricIds: getMetricRefresh(level)?.metricIds ?? null,
-      maxSqlClockDriftMs: getSnapshotCutoffDate(level.settings)
-        ? null
-        : Math.max(
-            0,
-            (level.runStarted ?? level.settings.endDate).getTime() -
-              level.settings.endDate.getTime(),
-          ),
-    };
-  });
-
-  // In pipeline mode, exposure and segment SQL live in each level's units table query.
-  const unitsQueries = lineage.flatMap((level) =>
-    level.queries.filter((q) => q.name === level.id),
-  );
-  const comparedQueries = [...carriedQueries, ...unitsQueries];
-  const sqlById = new Map(
-    (
-      await getQueriesByIds(
-        context,
-        comparedQueries.map((q) => q.query),
-        false,
-      )
-    ).map((doc) => [doc.id, doc.query]),
-  );
-  const storedSql = new Map(
-    comparedQueries.flatMap((q): [string, string][] => {
-      const sql = sqlById.get(q.query);
-      return sql === undefined ? [] : [[q.name, sql]];
-    }),
-  );
-
-  const todaysSql = await replayMetricRefreshLineage({
-    levels,
-    settings: planned,
-    generateResultQuerySql,
-  }).catch((error: unknown) => {
-    // A normal update reports the error itself if it is real.
-    context.logger.warn(
-      error,
-      "Could not regenerate the SQL a metric refresh would copy",
-    );
-    throw unavailable("settings_changed");
-  });
-  const changed = getQueriesWithChangedSql({
-    queryNames: comparedQueries.map((q) => q.name),
-    storedSql,
-    todaysSql,
-  });
-  if (changed.length) {
-    throw unavailable("settings_changed");
-  }
+    : new MetricRefreshUnavailableError("metric_not_supported");
 }
 
 const REFRESH_SPECIFIC_SETTINGS = [
@@ -753,8 +414,8 @@ export function getMetricRefreshLineage(
     ? {
         baseSnapshotId: parent.metricRefresh.baseSnapshotId,
         baseDateCreated: parent.metricRefresh.baseDateCreated,
-        baseRunStarted: parent.metricRefresh.baseRunStarted ?? null,
-        baseCutoffDate: parent.metricRefresh.baseCutoffDate ?? null,
+        baseRunStarted: parent.metricRefresh.baseRunStarted,
+        baseCutoffDate: parent.metricRefresh.baseCutoffDate,
       }
     : {
         baseSnapshotId: parent.id,
@@ -796,7 +457,7 @@ export function assertIncrementalTablesMatchParent({
       ...state.metricSources.map((s) => s.maxTimestamp),
     ].some(pastScanEnd);
   if (!tablesMatchParent) {
-    throw unavailable("incremental_pipeline");
+    throw new MetricRefreshUnavailableError("incremental_pipeline");
   }
 }
 

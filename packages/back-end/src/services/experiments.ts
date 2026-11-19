@@ -231,10 +231,8 @@ import {
   type RevisionApprovalState,
 } from "back-end/src/services/featurePublishGates";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
-import {
-  ExperimentResultsQueryRunner,
-  generateExperimentResultQuerySql,
-} from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { generateExperimentResultQuerySql } from "back-end/src/services/metricRefreshSqlIdentity";
 import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   FactTableMap,

@@ -372,8 +372,37 @@ export class SnapshotInProgressError extends ApiError<"snapshot_in_progress"> {
 export type MetricRefreshUnavailableReason =
   ApiErrorDetails<"metric_refresh_unavailable">["reason"];
 
+const METRIC_REFRESH_UNAVAILABLE_MESSAGES: Record<
+  MetricRefreshUnavailableReason,
+  string
+> = {
+  no_base_snapshot:
+    'This experiment has no results to add metrics to yet. Send "updateScope": "all_metrics" to compute every metric.',
+  not_latest_phase:
+    "Only the current phase's results can be updated for newly added metrics.",
+  phase_ended:
+    'This phase has ended, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
+  unsupported_experiment_type:
+    'Bandits and holdouts can\'t update newly added metrics on their own. Send "updateScope": "all_metrics" instead.',
+  unsupported_data_source:
+    'This Data Source analyzes every metric in one query, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
+  incremental_pipeline:
+    'The experiment\'s Incremental Pipeline tables don\'t match its latest results, for example because a later update failed. Send "updateScope": "all_metrics" to fix this.',
+  metric_not_supported:
+    'The latest results ran on a different pipeline than this experiment\'s metrics need now, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
+  settings_changed:
+    'The last update\'s results can\'t be reused for newly added metrics. Send "updateScope": "all_metrics" instead.',
+  analysis_dates_changed:
+    'The analysis dates changed by a day or more since the latest results, so newly added metrics would cover different dates than the other metrics. Send "updateScope": "all_metrics" instead.',
+  base_incomplete:
+    'The last update\'s results are incomplete, so they can\'t be reused. Send "updateScope": "all_metrics" instead.',
+};
+
 export class MetricRefreshUnavailableError extends ApiError<"metric_refresh_unavailable"> {
-  constructor(reason: MetricRefreshUnavailableReason, message: string) {
+  constructor(
+    reason: MetricRefreshUnavailableReason,
+    message: string = METRIC_REFRESH_UNAVAILABLE_MESSAGES[reason],
+  ) {
     super("metric_refresh_unavailable", message, { reason });
     this.name = "MetricRefreshUnavailableError";
   }

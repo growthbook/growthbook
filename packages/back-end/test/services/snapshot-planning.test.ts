@@ -59,7 +59,7 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
-import { generateExperimentResultQuerySql } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { generateExperimentResultQuerySql } from "back-end/src/services/metricRefreshSqlIdentity";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import {
@@ -90,10 +90,8 @@ jest.mock("back-end/src/models/QueryModel", () => ({
   getQueriesByIds: jest.fn(),
 }));
 
-jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
-  ...jest.requireActual(
-    "back-end/src/queryRunners/ExperimentResultsQueryRunner",
-  ),
+jest.mock("back-end/src/services/metricRefreshSqlIdentity", () => ({
+  ...jest.requireActual("back-end/src/services/metricRefreshSqlIdentity"),
   generateExperimentResultQuerySql: jest.fn(),
 }));
 
@@ -2597,8 +2595,8 @@ describe("planExperimentSnapshot", () => {
     describe("agrees with the app's Outdated reasons", () => {
       const { generateExperimentResultQuerySql: generateSql } =
         jest.requireActual<
-          typeof import("back-end/src/queryRunners/ExperimentResultsQueryRunner")
-        >("back-end/src/queryRunners/ExperimentResultsQueryRunner");
+          typeof import("back-end/src/services/metricRefreshSqlIdentity")
+        >("back-end/src/services/metricRefreshSqlIdentity");
 
       async function outdatedRefresh(
         fixture: ReturnType<typeof makeFixture>,

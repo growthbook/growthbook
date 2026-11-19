@@ -25,14 +25,16 @@ import {
 } from "back-end/src/services/metricRefreshExecution";
 import {
   getMetricRefreshLineage,
-  getQueriesWithChangedSql,
   getSettingsChangedSinceParent,
   mergeMetricRefreshSettings,
   assertIncrementalTablesMatchParent,
   planMetricRefresh,
+} from "back-end/src/services/metricRefreshPlanning";
+import {
+  getQueriesWithChangedSql,
   type GenerateResultQuerySql,
   type ReplayedQuerySql,
-} from "back-end/src/services/metricRefreshPlanning";
+} from "back-end/src/services/metricRefreshSqlIdentity";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { isCarriedMetricRefreshQuery } from "back-end/src/queryRunners/metricRefreshQueryNaming";
