@@ -5,9 +5,6 @@ import {
   StatsEngine,
   PValueCorrection,
   SignificanceThresholds,
-  BayesianVariationResponseIndividual,
-  FrequentistVariationResponseIndividual,
-  BaselineResponse,
 } from "shared/types/stats";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
@@ -20,7 +17,10 @@ import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import Heading from "@/ui/Heading";
 import MetricDrilldownAdjustmentSummary from "./MetricDrilldownAdjustmentSummary";
-import { SupplementalField } from "./helpers";
+import {
+  getMetricDrilldownDebugVariations,
+  SupplementalField,
+} from "./helpers";
 
 type ComparisonSection = "variance" | "prior" | "capping";
 
@@ -92,22 +92,10 @@ function createSupplementalRow(
   description: string,
   supplementalField: keyof NonNullable<SnapshotMetric["supplementalResults"]>,
 ): ExperimentTableRow {
-  const newVariations = baseRow.variations.map((variation) => {
-    const supplemental = variation.supplementalResults?.[supplementalField] as
-      | BayesianVariationResponseIndividual
-      | FrequentistVariationResponseIndividual
-      | BaselineResponse
-      | undefined;
-
-    if (!supplemental) {
-      return variation;
-    }
-
-    return {
-      ...variation,
-      ...supplemental,
-    };
-  });
+  const newVariations = getMetricDrilldownDebugVariations(
+    baseRow.variations,
+    supplementalField,
+  );
 
   return {
     ...baseRow,
@@ -228,6 +216,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
     rows.push({
       ...row,
       label: createRowLabel(defaultDesc),
+      variations: getMetricDrilldownDebugVariations(row.variations),
     });
 
     if (cupedEnabled && postStratEnabled) {
@@ -289,6 +278,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
     rows.push({
       ...row,
       label: createRowLabel("Proper Prior"),
+      variations: getMetricDrilldownDebugVariations(row.variations),
     });
 
     rows.push(createSupplementalRow(row, "Flat Prior", "flatPrior"));
@@ -310,6 +300,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
     rows.push({
       ...row,
       label: createRowLabel("Capped"),
+      variations: getMetricDrilldownDebugVariations(row.variations),
     });
 
     rows.push(createSupplementalRow(row, "Uncapped", "uncapped"));
@@ -381,7 +372,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             labelHeader=""
             renderLabelColumn={({ label }) => label}
             statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
-            pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             setDifferenceType={setDifferenceType}
             sequentialTestingEnabled={sequentialTestingEnabled}
@@ -424,7 +414,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             labelHeader=""
             renderLabelColumn={({ label }) => label}
             statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
-            pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             setDifferenceType={setDifferenceType}
             sequentialTestingEnabled={sequentialTestingEnabled}
@@ -467,7 +456,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             labelHeader=""
             renderLabelColumn={({ label }) => label}
             statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
-            pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             setDifferenceType={setDifferenceType}
             sequentialTestingEnabled={sequentialTestingEnabled}

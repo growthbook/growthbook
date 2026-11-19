@@ -1,3 +1,4 @@
+import { omit } from "lodash";
 import {
   funnelStepMetricId,
   getMetricResultStatus,
@@ -18,6 +19,25 @@ import {
   ExperimentTableRow,
   NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
+
+export function getMetricDrilldownDebugVariations(
+  variations: SnapshotMetric[],
+  supplementalField?: keyof NonNullable<SnapshotMetric["supplementalResults"]>,
+): SnapshotMetric[] {
+  return variations.map((variation) =>
+    // Corrections on the main result do not apply to its supplemental analyses.
+    omit(
+      {
+        ...variation,
+        ...(supplementalField
+          ? variation.supplementalResults?.[supplementalField]
+          : null),
+      },
+      "pValueAdjusted",
+      "ciAdjusted",
+    ),
+  );
+}
 
 export function filterRowsForMetricDrilldown(
   rows: ExperimentTableRow[],
