@@ -56,7 +56,12 @@ function mockContext(stored?: EventForwarderConfigInterface | null) {
   return {
     context: {
       org: { id: "org1" },
-      models: { eventForwarderConfigs: { updateWithCas: update } },
+      models: {
+        eventForwarderConfigs: {
+          updateWithCas: update,
+          getAllBypassingReadPermissions: async () => [],
+        },
+      },
     } as never,
     update,
   };
@@ -75,7 +80,12 @@ describe("migrateEventForwarderToInHouseConsumer", () => {
     expect(migrated.topic).toBe("event_forwarder_bigquery");
     expect(migrated.status).toBe("pending");
     expect(update).toHaveBeenCalledTimes(1);
-    expect(update.mock.calls[0][1]).toEqual(["topic", "status", "config"]);
+    expect(update.mock.calls[0][1]).toEqual([
+      "topic",
+      "status",
+      "config",
+      "environments",
+    ]);
     expect(decrypt(migrated.config)).toMatchObject({
       projectId: "proj",
       dataset: "ds",
@@ -121,6 +131,25 @@ describe("migrateEventForwarderToInHouseConsumer", () => {
         bqParams,
       ),
     ).rejects.toThrow("already on the in-house consumer");
+  });
+
+  it("rejects an environment change against a binding saved after the caller's read", async () => {
+    const { context } = mockContext(
+      legacyBigQueryConfig({ environments: ["production"] }),
+    );
+    await expect(
+      migrateEventForwarderToInHouseConsumer(
+        {
+          ...context,
+          org: {
+            settings: { environments: [{ id: "production" }, { id: "dev" }] },
+          },
+        } as never,
+        legacyBigQueryConfig(),
+        bqParams,
+        ["dev"],
+      ),
+    ).rejects.toThrow("cannot be changed");
   });
 
   it("rejects a pause that landed after the caller's read", async () => {

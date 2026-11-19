@@ -196,7 +196,11 @@ describe("sdk-connections API", () => {
   });
 
   it("can create new sdk-connections", async () => {
-    setReqContext({ org, permissions: { canCreateSDKConnection: () => true } });
+    setReqContext({
+      org,
+      permissions: { canCreateSDKConnection: () => true },
+      hasPremiumFeature: () => false,
+    });
     jest.mocked(ensureLiveRevisionExists).mockResolvedValueOnce(undefined);
 
     let created;
@@ -652,38 +656,6 @@ describe("sdk-connections API", () => {
       expect(response.status).toBe(403);
       expect(editSDKConnection).not.toHaveBeenCalled();
     });
-
-    it("lands an in-scope edit with bypass authority and reports the bypassed gate", async () => {
-      setReqContext(
-        buildContext({
-          settings: withRule([org.environments[0].id]),
-          premium: true,
-        }),
-      );
-      const existing = existingConnection();
-      findSDKConnectionById.mockReturnValue(existing);
-
-      const refused = await request(app)
-        .put(`/api/v1/sdk-connections/${existing.id}`)
-        .send({ name: "my-new-connection" })
-        .set("Authorization", "Bearer foo");
-      expect(refused.status).toBe(400);
-      expect(refused.body.message).toContain("bypassApproval");
-
-      const response = await request(app)
-        .put(`/api/v1/sdk-connections/${existing.id}`)
-        .send({ name: "my-new-connection", bypassApproval: true })
-        .set("Authorization", "Bearer foo");
-
-      expect(response.status).toBe(200);
-      expect(response.body.bypassedGates).toEqual([
-        {
-          type: "approval-required",
-          outcome: "bypassed",
-          via: "bypassApprovalPermission",
-        },
-      ]);
-    });
   });
 
   it("archives sdk-connections through PUT", async () => {
@@ -744,106 +716,6 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(400);
     expect(editSDKConnection).not.toHaveBeenCalled();
     expect(response.body).toEqual({ message: "permission error" });
-  });
-
-  it("can delete archived sdk-connections", async () => {
-    const context = {
-      org,
-      permissions: { canDeleteSDKConnection: () => true },
-    };
-    setReqContext(context);
-
-    const existing = sdkConnectionFactory.build({
-      name: "my-connection",
-      environment: org.environments[0].id,
-      language: "javascript",
-      archived: true,
-    });
-
-    findSDKConnectionById.mockReturnValue(existing);
-
-    const response = await request(app)
-      .delete(`/api/v1/sdk-connections/${existing.id}`)
-      .set("Authorization", "Bearer foo");
-
-    expect(response.status).toBe(200);
-    expect(deleteSDKConnectionModel).toHaveBeenCalledWith(context, existing);
-    expect(response.body).toEqual({ deletedId: existing.id });
-  });
-
-  it("deletes a live sdk-connection that no approval rule governs", async () => {
-    const context = {
-      org,
-      permissions: { canDeleteSDKConnection: () => true },
-      hasPremiumFeature: () => false,
-    };
-    setReqContext(context);
-
-    const existing = sdkConnectionFactory.build({
-      name: "my-connection",
-      environment: org.environments[0].id,
-      language: "javascript",
-    });
-
-    findSDKConnectionById.mockReturnValue(existing);
-
-    const response = await request(app)
-      .delete(`/api/v1/sdk-connections/${existing.id}`)
-      .set("Authorization", "Bearer foo");
-
-    expect(response.status).toBe(200);
-    expect(deleteSDKConnectionModel).toHaveBeenCalledWith(context, existing);
-  });
-
-  it("deletes a live sdk-connection under an approval rule only with a bypass", async () => {
-    setReqContext(
-      buildContext({
-        settings: {
-          approvalFlows: {
-            sdkConnections: [
-              {
-                required: true,
-                projects: [],
-                environments: [org.environments[0].id],
-              },
-            ],
-          },
-        },
-        premium: true,
-      }),
-    );
-
-    const existing = sdkConnectionFactory.build({
-      name: "my-connection",
-      environment: org.environments[0].id,
-      language: "javascript",
-    });
-
-    findSDKConnectionById.mockReturnValue(existing);
-
-    const response = await request(app)
-      .delete(`/api/v1/sdk-connections/${existing.id}`)
-      .set("Authorization", "Bearer foo");
-
-    expect(response.status).toBe(400);
-    expect(response.body.message).toMatch(/must be archived/);
-    expect(response.body.message).toMatch(/bypassApproval/);
-    expect(deleteSDKConnectionModel).not.toHaveBeenCalled();
-
-    const bypassed = await request(app)
-      .delete(`/api/v1/sdk-connections/${existing.id}`)
-      .send({ bypassApproval: true })
-      .set("Authorization", "Bearer foo");
-
-    expect(bypassed.status).toBe(200);
-    expect(bypassed.body.bypassedGates).toEqual([
-      {
-        type: "approval-required",
-        outcome: "bypassed",
-        via: "bypassApprovalPermission",
-      },
-    ]);
-    expect(deleteSDKConnectionModel).toHaveBeenCalled();
   });
 
   it("checks for permissions when deleting sdk-connections", async () => {

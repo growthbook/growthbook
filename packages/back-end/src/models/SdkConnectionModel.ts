@@ -9,6 +9,7 @@ import {
   savedGroupFormatValidator,
   SdkPayloadSize,
   SdkPayloadSizeLevel,
+  withNewSdkConnectionDefaults,
 } from "shared/validators";
 import {
   CreateSDKConnectionParams,
@@ -340,7 +341,7 @@ export const createSDKConnectionValidator = z
   })
   .strict();
 
-function assertCanEnableTraces(context: ReqContext | ApiReqContext) {
+export function assertCanEnableTraces(context: ReqContext | ApiReqContext) {
   if (
     !getBackendFeatureValue(
       "trace-ingest",
@@ -364,21 +365,13 @@ export async function createSDKConnection(
   context: ReqContext | ApiReqContext,
   params: CreateSDKConnectionParams,
 ) {
-  const {
-    proxyEnabled,
-    proxyHost,
-    languages,
-    // Written explicitly so "absent" keeps one meaning: off, for the
-    // connections that predate the setting.
-    includeReferencedPrerequisites = true,
-    ...otherParams
-  } = createSDKConnectionValidator.parse(params);
+  const { proxyEnabled, proxyHost, languages, ...otherParams } =
+    withNewSdkConnectionDefaults(createSDKConnectionValidator.parse(params));
   if (otherParams.tracesEnabled) assertCanEnableTraces(context);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
     ...withLegacySavedGroupFlag(otherParams),
-    includeReferencedPrerequisites,
     organization: context.org.id,
     languages: languages as SDKLanguage[],
     id: uniqid("sdk_"),

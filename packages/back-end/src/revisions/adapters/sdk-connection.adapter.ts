@@ -2,7 +2,6 @@ import { isEqual, omit } from "lodash";
 import { z } from "zod";
 import {
   EditSDKConnectionParams,
-  ProxyConnection,
   SDKConnectionInterface,
 } from "shared/types/sdk-connection";
 import { WebhookInterface } from "shared/types/webhook";
@@ -13,8 +12,12 @@ import {
   orgHasAnySdkConnectionApproval,
   isAutopublishOnApprovalEnabled,
   normalizeProposedChanges,
+  sdkConnectionDraftSettingsAfterSave,
   sdkConnectionPublishFootprint,
   sdkConnectionSettingsAfter,
+  sdkConnectionSettingsEqual,
+  withAbsentSdkSettings,
+  applyTopLevelPatchOps,
 } from "shared/enterprise";
 import {
   SDKConnectionRevisionSnapshot,
@@ -25,6 +28,9 @@ import {
   parseSdkWebhookSnapshot,
   sdkWebhookSnapshotValidator,
   sdkWebhookStableId,
+  pickSdkConnectionSettings,
+  sdkConnectionSettingsOf,
+  withoutProxySettings,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
@@ -38,7 +44,20 @@ import {
   findSDKConnectionById,
   findSDKConnectionsByIds,
 } from "back-end/src/models/SdkConnectionModel";
-import { ConflictError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  TerminalPublishError,
+  getErrorMessage,
+} from "back-end/src/util/errors";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import { buildArmAcknowledgments } from "back-end/src/services/armGuards";
+import {
+  assertWebhookSecrets,
+  captureWebhookSecretsAcknowledgment,
+  missingWebhookSecrets,
+  webhookSecretGates,
+} from "back-end/src/services/webhookSecretGuard";
 import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
@@ -59,28 +78,24 @@ type SdkConnectionValidations =
 function loadValidations(): Promise<SdkConnectionValidations> {
   return import("back-end/src/api/sdk-connections/validations");
 }
+// Likewise for the hook runner.
+function loadHooks() {
+  return import("back-end/src/enterprise/sandbox/sandbox-eval");
+}
 
 // Run once the landing stands. A payload rebuild it queued for the connection
 // sends every webhook itself, after the new payload is cached.
+// `refresh` is the buffer the landing wrote into: a release has detached it
+// from the context by the time this runs.
 function sendLandedWebhookEdits(
   context: Context,
+  refresh: Context["sdkPayloadRefreshBuffer"],
   connection: SDKConnectionInterface,
   webhooks: WebhookInterface[],
 ) {
-  const refresh = context.sdkPayloadRefreshBuffer;
-  if (
-    refresh &&
-    !refresh.closed &&
-    refresh.sdkConnections?.some((c) => c.key === connection.key)
-  ) {
-    return;
-  }
+  if (refresh?.sdkConnections?.some((c) => c.key === connection.key)) return;
   webhooks.forEach((w) => context.models.sdkWebhooks.send(w));
 }
-
-const SETTINGS_ALLOWED_KEYS = Object.keys(
-  sdkConnectionSettingsSnapshotValidator.shape,
-);
 
 export const CONNECTION_UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
   Object.keys(sdkConnectionUpdatableFieldsSchema.shape),
@@ -170,6 +185,62 @@ export function restoreWebhookHeaders(
   );
 }
 
+// A landed webhook stores no headers as "".
+const withHeaders = (wh: SDKWebhookRevisionSnapshot) => ({
+  ...wh,
+  headers: wh.headers ?? "",
+});
+
+// What reverting to the state a published revision left changes on the live
+// connection: live's settings with that state's on top, where a setting the
+// state predates is turned off, and the webhooks as they were. Archiving is
+// its own action, so a revert leaves it alone.
+export function sdkConnectionRevertChanges(
+  live: SDKConnectionRevisionSnapshot,
+  then: SDKConnectionRevisionSnapshot,
+): Partial<SDKConnectionRevisionSnapshot> {
+  const sdkConnection = pickSdkConnectionSettings(
+    sdkConnectionDraftSettingsAfterSave(
+      live.sdkConnection,
+      live.sdkConnection,
+      withAbsentSdkSettings(omit(then.sdkConnection, "archived")),
+    ),
+  );
+  const liveById = new Map(live.sdkWebhooks.map((wh) => [wh.id, wh]));
+  const sdkWebhooks = then.sdkWebhooks.map((wh) => {
+    const was = parseSdkWebhookSnapshot(wh);
+    const now = liveById.get(was.id);
+    return now && isEqual(withHeaders(was), withHeaders(now)) ? now : was;
+  });
+  return {
+    ...(!sdkConnectionSettingsEqual(sdkConnection, live.sdkConnection) && {
+      sdkConnection,
+    }),
+    ...(!isEqual(sdkWebhooks, live.sdkWebhooks) && { sdkWebhooks }),
+  };
+}
+
+// Whether a change is exactly that revert. The change may come from a
+// caller's request, so naming a revision is not enough to count as one.
+export function isSdkConnectionRevert(
+  live: SDKConnectionRevisionSnapshot,
+  then: SDKConnectionRevisionSnapshot,
+  changes: Partial<SDKConnectionRevisionSnapshot>,
+): boolean {
+  const revert = sdkConnectionRevertChanges(live, then);
+  return (
+    Object.keys(revert).length > 0 &&
+    sdkConnectionSettingsEqual(
+      changes.sdkConnection ?? live.sdkConnection,
+      revert.sdkConnection ?? live.sdkConnection,
+    ) &&
+    isEqual(
+      (changes.sdkWebhooks ?? live.sdkWebhooks).map(withHeaders),
+      (revert.sdkWebhooks ?? live.sdkWebhooks).map(withHeaders),
+    )
+  );
+}
+
 const UPDATABLE_FIELDS: ReadonlySet<string> = new Set([
   "sdkConnection",
   "sdkWebhooks",
@@ -185,30 +256,20 @@ export type SDKConnectionLiveSnapshot = SDKConnectionRevisionSnapshot & {
   dateUpdated?: Date;
 };
 
-// The settings a revision holds, from a connection flattened to them. Secrets
-// and system fields are dropped by the key whitelist.
-export function pickSettingsSnapshot(
-  flat: Record<string, unknown>,
-): SDKConnectionSettingsRevisionSnapshot {
-  const settings: Record<string, unknown> = {};
-  for (const key of SETTINGS_ALLOWED_KEYS) {
-    const value = flat[key];
-    if (value === null || value === undefined) continue;
-    settings[key] = value;
-  }
-  return settings as unknown as SDKConnectionSettingsRevisionSnapshot;
+// Webhook rows a landing in this request changed or removed, as they were. A
+// snapshot leaves out the signing key and delivery state, so a rollback puts
+// these back instead of rebuilding the row from one.
+const replacedWebhookRows = new WeakMap<
+  Context,
+  Map<string, WebhookInterface>
+>();
+function replacedRows(context: Context): Map<string, WebhookInterface> {
+  const rows = replacedWebhookRows.get(context) ?? new Map();
+  replacedWebhookRows.set(context, rows);
+  return rows;
 }
-
-function toConnectionSettingsSnapshot(
-  entity: Record<string, unknown>,
-): SDKConnectionSettingsRevisionSnapshot {
-  const proxy = entity.proxy as ProxyConnection | undefined;
-  return pickSettingsSnapshot({
-    ...entity,
-    proxyEnabled: proxy ? proxy.enabled : entity.proxyEnabled,
-    proxyHost: proxy ? proxy.host : entity.proxyHost,
-  });
-}
+const asStored = (row: WebhookInterface) =>
+  omit(row, ["id", "organization", "dateCreated", "dateUpdated"]);
 
 function toWebhookSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
   return {
@@ -231,7 +292,7 @@ function toSnapshot(
 ): SDKConnectionRevisionSnapshot {
   const whs = (entity._webhooks as WebhookInterface[] | undefined) ?? [];
   return {
-    sdkConnection: toConnectionSettingsSnapshot(entity),
+    sdkConnection: sdkConnectionSettingsOf(entity),
     sdkWebhooks: whs.map(toWebhookSnapshot),
   };
 }
@@ -246,7 +307,7 @@ function toLiveSnapshot(
     ...(connection.dateUpdated !== undefined && {
       dateUpdated: connection.dateUpdated,
     }),
-    sdkConnection: toConnectionSettingsSnapshot({ ...connection }),
+    sdkConnection: sdkConnectionSettingsOf({ ...connection }),
     sdkWebhooks,
   };
 }
@@ -335,7 +396,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       // dropped on purpose.
       if ("sdkConnection" in raw) {
         return {
-          sdkConnection: toConnectionSettingsSnapshot(
+          sdkConnection: sdkConnectionSettingsOf(
             (raw.sdkConnection ?? {}) as Record<string, unknown>,
           ),
           sdkWebhooks: (raw.sdkWebhooks ?? []) as SDKWebhookRevisionSnapshot[],
@@ -344,6 +405,9 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
 
       return toSnapshot(raw);
     },
+
+    behindLiveView: (snapshot) =>
+      IS_CLOUD ? snapshot : withoutProxySettings(snapshot),
 
     isRevisionRequired(context: Context): boolean {
       return isSdkConnectionApprovalRequired(context);
@@ -487,15 +551,17 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       );
     },
 
-    async scrubForViewer(context, target, fragment) {
+    async scrubForViewer(context, target, fragment, hideAll) {
       const rows = fragment.sdkWebhooks;
       if (!Array.isArray(rows) || !rows.some((w) => w?.headers !== undefined)) {
         return fragment;
       }
-      const canSee = await webhookHeaderViewer(
-        context,
-        target.id,
-      )(rows.filter((w) => w?.headers !== undefined).map((w) => w.id));
+      const canSee = hideAll
+        ? () => false
+        : await webhookHeaderViewer(
+            context,
+            target.id,
+          )(rows.filter((w) => w?.headers !== undefined).map((w) => w.id));
       return {
         ...fragment,
         sdkWebhooks: rows.map((w) => (canSee(w.id) ? w : omit(w, "headers"))),
@@ -513,6 +579,33 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       };
     },
 
+    async validateRevisionWrite(context, write) {
+      const { runValidateSdkConnectionRevisionHooks } = await loadHooks();
+      await runValidateSdkConnectionRevisionHooks({ context, ...write });
+    },
+
+    async collectPublishGates(context, entity, revision, desiredState) {
+      return webhookSecretGates(
+        await missingWebhookSecrets(
+          context,
+          entity.sdkWebhooks,
+          webhookListValidator.parse(
+            desiredState.sdkWebhooks ?? entity.sdkWebhooks,
+          ),
+        ),
+      );
+    },
+
+    async captureArmAcknowledgment(context, entity, proposedChanges) {
+      return buildArmAcknowledgments({
+        "webhook-secrets": await captureWebhookSecretsAcknowledgment(
+          context,
+          entity.sdkWebhooks,
+          applyTopLevelPatchOps(entity, proposedChanges).sdkWebhooks,
+        ),
+      });
+    },
+
     // For the generic publish paths that skip the PUT controller. Runs before
     // the merge is claimed, so a rejection leaves the draft open.
     async assertPublishable(
@@ -520,103 +613,146 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       entity: SDKConnectionRevisionSnapshot,
       desiredState: Record<string, unknown>,
       revision: Revision,
+      options?: { hooksAlreadyRan?: boolean; deferred?: boolean },
     ): Promise<void> {
-      // A draft cut before the connection moved was judged against the rules
-      // of where it used to be, so it takes on the new scope first. A claimed
-      // merge is past rebasing and still has to be recoverable.
-      const drafted = (
-        revision.target.snapshot as SDKConnectionRevisionSnapshot
-      ).sdkConnection;
-      const live = entity.sdkConnection;
-      if (
-        revision.status !== "merged" &&
-        isSdkConnectionApprovalRequired(context) &&
-        (drafted.environment !== live.environment ||
-          !isEqual([...drafted.projects].sort(), [...live.projects].sort()))
-      ) {
-        throw new ConflictError(
-          "This SDK connection's environment or Projects changed after this draft was created. Rebase the draft with live, then publish it.",
-        );
-      }
-
-      if (desiredState.sdkConnection !== undefined) {
-        const settings = sdkConnectionSettingsSnapshotValidator.parse(
-          desiredState.sdkConnection,
-        );
-        const changes = filterUpdatableChanges(
-          settings,
-          entity.sdkConnection,
-          CONNECTION_UPDATABLE_FIELDS,
-        );
-        const { premiumSettingsWithoutPlan, validateSdkConnectionChanges } =
-          await loadValidations();
-        await validateSdkConnectionChanges(
-          context,
-          changes,
-          entity.sdkConnection,
-        );
-        // `changes` holds only what differs, so true means turned on.
-        const [blocked] = premiumSettingsWithoutPlan(context, changes);
-        if (blocked) {
-          throw new Error(
-            `Enabling ${blocked[1]} requires the "${blocked[0]}" premium feature`,
+      const proposed = { ...entity };
+      try {
+        // A draft cut before the connection moved was judged against the rules
+        // of where it used to be, so it takes on the new scope first. A claimed
+        // merge is past rebasing and still has to be recoverable.
+        const drafted = (
+          revision.target.snapshot as SDKConnectionRevisionSnapshot
+        ).sdkConnection;
+        const live = entity.sdkConnection;
+        if (
+          revision.status !== "merged" &&
+          isSdkConnectionApprovalRequired(context) &&
+          (drafted.environment !== live.environment ||
+            !isEqual([...drafted.projects].sort(), [...live.projects].sort()))
+        ) {
+          throw new ConflictError(
+            "This SDK connection's environment or Projects changed after this draft was created. Rebase the draft with live, then publish it.",
           );
         }
-      }
 
-      if (desiredState.sdkWebhooks !== undefined) {
-        const webhooks = webhookListValidator.parse(desiredState.sdkWebhooks);
-        const proposedIds = new Set(webhooks.map((w) => w.id));
-        const baselineIds = new Set(entity.sdkWebhooks.map((w) => w.id));
-        await assertSdkWebhookPlanLimit(
-          context,
-          webhooks.filter((w) => !baselineIds.has(w.id)).length,
-          entity.sdkWebhooks.filter((w) => !proposedIds.has(w.id)).length,
-        );
-        // Only the API can attach a webhook to several connections, and one
-        // connection's draft doesn't speak for the others.
-        const touchedIds = entity.sdkWebhooks
-          .filter((old) => {
-            const next = webhooks.find((w) => w.id === old.id);
-            return !next || !isEqual(next, old);
-          })
-          .map((w) => w.id);
-        // A restored webhook whose row now fires only for other connections
-        // would be skipped by the landing as already there.
-        for (const w of webhooks.filter((w) => !baselineIds.has(w.id))) {
-          const row = await context.models.sdkWebhooks.getById(w.id);
-          if (row?.sdks && !row.sdks.includes(entity.sdkConnection.id)) {
-            throw new Error(
-              `The webhook "${w.name}" now belongs to another SDK connection, so this one can't bring it back. Remove it from the draft, or move it back through the API.`,
+        if (desiredState.sdkConnection !== undefined) {
+          const settings = sdkConnectionSettingsSnapshotValidator.parse(
+            desiredState.sdkConnection,
+          );
+          proposed.sdkConnection = settings;
+          const changes = filterUpdatableChanges(
+            settings,
+            entity.sdkConnection,
+            CONNECTION_UPDATABLE_FIELDS,
+          );
+          const { premiumSettingsWithoutPlan, validateSdkConnectionChanges } =
+            await loadValidations();
+          await validateSdkConnectionChanges(
+            context,
+            changes,
+            entity.sdkConnection,
+          );
+          // `changes` holds only what differs, so true means turned on.
+          const [blocked] = premiumSettingsWithoutPlan(context, changes);
+          if (blocked) {
+            throw new BadRequestError(
+              `Enabling ${blocked[1]} requires the "${blocked[0]}" premium feature`,
             );
           }
         }
-        // Refused here, before the merge is claimed, not partway through landing.
-        webhooks
-          .filter((w) => !baselineIds.has(w.id) || touchedIds.includes(w.id))
-          .forEach((w) => {
-            const old = entity.sdkWebhooks.find((o) => o.id === w.id) ?? null;
-            assertSdkWebhookNotManaged(old, w.payloadFormat);
-            assertSdkWebhookFields(w, old);
+
+        if (desiredState.sdkWebhooks !== undefined) {
+          const webhooks = webhookListValidator.parse(desiredState.sdkWebhooks);
+          proposed.sdkWebhooks = webhooks;
+          const proposedIds = new Set(webhooks.map((w) => w.id));
+          const baselineIds = new Set(entity.sdkWebhooks.map((w) => w.id));
+          await assertSdkWebhookPlanLimit(
+            context,
+            webhooks.filter((w) => !baselineIds.has(w.id)).length,
+            entity.sdkWebhooks.filter((w) => !proposedIds.has(w.id)).length,
+          );
+          // Only the API can attach a webhook to several connections, and one
+          // connection's draft doesn't speak for the others.
+          const touchedIds = entity.sdkWebhooks
+            .filter((old) => {
+              const next = webhooks.find((w) => w.id === old.id);
+              return !next || !isEqual(next, old);
+            })
+            .map((w) => w.id);
+          // A restored webhook whose row now fires only for other connections
+          // would be skipped by the landing as already there.
+          for (const w of webhooks.filter((w) => !baselineIds.has(w.id))) {
+            const row = await context.models.sdkWebhooks.getById(w.id);
+            if (row?.sdks && !row.sdks.includes(entity.sdkConnection.id)) {
+              throw new BadRequestError(
+                `The webhook "${w.name}" now belongs to another SDK connection, so this one can't bring it back. Remove it from the draft, or move it back through the API.`,
+              );
+            }
+          }
+          // Refused here, before the merge is claimed, not partway through landing.
+          webhooks
+            .filter((w) => !baselineIds.has(w.id) || touchedIds.includes(w.id))
+            .forEach((w) => {
+              const old = entity.sdkWebhooks.find((o) => o.id === w.id) ?? null;
+              assertSdkWebhookNotManaged(old, w.payloadFormat);
+              assertSdkWebhookFields(w, old);
+            });
+          if (touchedIds.length) {
+            const rows =
+              await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
+                entity.sdkConnection.id,
+              ]);
+            rows
+              .filter((row) => touchedIds.includes(row.id))
+              .forEach((row) => assertSdkWebhookNotManaged(row));
+            const shared = rows.some(
+              (row) =>
+                touchedIds.includes(row.id) &&
+                row.sdks.some((id) => id !== entity.sdkConnection.id),
+            );
+            if (shared) {
+              throw new BadRequestError(
+                "A webhook used by other SDK connections can't be changed from this one. Change it through the API.",
+              );
+            }
+          }
+        }
+      } catch (e) {
+        // A refusal repeats on every retry, so a scheduled publish stops.
+        const refused = ((e as { status?: number }).status ?? 500) < 500;
+        throw options?.deferred && refused
+          ? new TerminalPublishError(getErrorMessage(e))
+          : e;
+      }
+
+      // A caller that collected gates has already put the warnings to its
+      // caller, hooks' and this one alike.
+      if (!options?.hooksAlreadyRan) {
+        await assertWebhookSecrets(
+          context,
+          entity.sdkWebhooks,
+          proposed.sdkWebhooks,
+          options?.deferred ? revision : undefined,
+        );
+        const {
+          runValidateSdkConnectionHooks,
+          runValidateSdkConnectionRevisionHooks,
+        } = await loadHooks();
+        await runValidateSdkConnectionHooks({
+          context,
+          original: entity,
+          sdkConnection: proposed,
+        });
+        // A direct write checks itself against a stand-in with no id.
+        if (revision.id) {
+          await runValidateSdkConnectionRevisionHooks({
+            context,
+            live: entity,
+            revision,
+            publishing: true,
+            proposed,
+            before: entity,
           });
-        if (touchedIds.length) {
-          const rows =
-            await context.models.sdkWebhooks.findLiveSdkWebhooksForRevision([
-              entity.sdkConnection.id,
-            ]);
-          rows
-            .filter((row) => touchedIds.includes(row.id))
-            .forEach((row) => assertSdkWebhookNotManaged(row));
-          const shared = rows.some(
-            (row) =>
-              touchedIds.includes(row.id) &&
-              row.sdks.some((id) => id !== entity.sdkConnection.id),
-          );
-          if (shared) {
-            throw new Error(
-              "A webhook used by other SDK connections can't be changed from this one. Change it through the API.",
-            );
-          }
         }
       }
     },
@@ -648,7 +784,6 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         parseSdkWebhookSnapshot({
           ...wh,
           id: sdkWebhookStableId(entity.sdkConnection.id, wh.id),
-          httpMethod: wh.httpMethod ?? "POST",
         }),
       );
       const settingsChanges = newSettings
@@ -753,6 +888,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       if (webhooksChanged) {
         const oldById = new Map(entity.sdkWebhooks.map((w) => [w.id, w]));
         const newById = new Map(newWebhooks.map((w) => [w.id, w]));
+        const replaced = replacedRows(context);
 
         // Reported after every write, so a failure part-way leaves compensation
         // the webhooks that are actually live.
@@ -767,12 +903,16 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
 
         for (const wh of newWebhooks) {
           if (oldById.has(wh.id)) continue;
+          const removed = options?.isCompensation && replaced.get(wh.id);
           // A retried landing skips webhooks an earlier attempt created.
-          if (!(await context.models.sdkWebhooks.getById(wh.id))) {
-            await context.models.sdkWebhooks.create({
-              ...context.models.sdkWebhooks.getDefaultCreateProps(
-                entity.sdkConnection.id,
-              ),
+          const row =
+            (await context.models.sdkWebhooks.getById(wh.id)) ??
+            (await context.models.sdkWebhooks.create({
+              ...(removed
+                ? asStored(removed)
+                : context.models.sdkWebhooks.getDefaultCreateProps(
+                    entity.sdkConnection.id,
+                  )),
               id: wh.id,
               name: wh.name,
               endpoint: wh.endpoint,
@@ -785,9 +925,9 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
               ...((wh.timeoutSeconds ?? null) !== null && {
                 timeoutSeconds: wh.timeoutSeconds,
               }),
-            });
-          }
-          current = [...current, wh];
+            }));
+          // As stored, which is what compensation compares live against.
+          current = [...current, toWebhookSnapshot(row)];
           recordWebhooks();
         }
 
@@ -799,21 +939,27 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             newWh.id,
           );
           if (liveWebhook) {
-            const saved = await context.models.sdkWebhooks.saveEdit(
-              liveWebhook,
-              {
-                name: newWh.name,
-                endpoint: newWh.endpoint,
-                httpMethod: newWh.httpMethod,
-                headers: newWh.headers,
-                payloadFormat: newWh.payloadFormat,
-                payloadKey: newWh.payloadKey,
-                timeoutSeconds: newWh.timeoutSeconds ?? null,
-              },
-            );
+            const original = options?.isCompensation && replaced.get(newWh.id);
+            if (!replaced.has(newWh.id)) replaced.set(newWh.id, liveWebhook);
+            const saved = original
+              ? await context.models.sdkWebhooks.update(
+                  liveWebhook,
+                  asStored(original),
+                )
+              : await context.models.sdkWebhooks.saveEdit(liveWebhook, {
+                  name: newWh.name,
+                  endpoint: newWh.endpoint,
+                  httpMethod: newWh.httpMethod,
+                  headers: newWh.headers,
+                  payloadFormat: newWh.payloadFormat,
+                  payloadKey: newWh.payloadKey,
+                  timeoutSeconds: newWh.timeoutSeconds ?? null,
+                });
             edited.push(saved);
+            current = current.map((w) =>
+              w.id === newWh.id ? toWebhookSnapshot(saved) : w,
+            );
           }
-          current = current.map((w) => (w.id === newWh.id ? newWh : w));
           recordWebhooks();
         }
 
@@ -823,18 +969,23 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             oldWh.id,
           );
           if (liveWebhook) {
+            if (!replaced.has(oldWh.id)) replaced.set(oldWh.id, liveWebhook);
             await context.models.sdkWebhooks.delete(liveWebhook);
           }
           current = current.filter((w) => w.id !== oldWh.id);
           recordWebhooks();
         }
 
-        current = newWebhooks;
+        // In the revision's order, each as stored.
+        const stored = new Map(current.map((w) => [w.id, w]));
+        current = newWebhooks.map((w) => stored.get(w.id) ?? w);
         recordWebhooks();
 
         if (edited.length) {
+          const refresh = context.sdkPayloadRefreshBuffer;
           await emitOrDeferBulkPublishEvent(
-            async () => sendLandedWebhookEdits(context, liveConnection, edited),
+            async () =>
+              sendLandedWebhookEdits(context, refresh, liveConnection, edited),
             entityKey("sdk-connection", entity.sdkConnection.id),
             captureEventBuffer(context),
           );

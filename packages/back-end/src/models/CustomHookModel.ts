@@ -19,13 +19,21 @@ import { MakeModelClass } from "./BaseModel";
 // can only ever be the correct entity type. Pure + exported for unit testing.
 export function customHookMatchesScope(
   hook: Pick<CustomHookInterface, "entityType" | "entityId" | "projects">,
-  target: { entityId?: string; project?: string; ancestorIds?: string[] },
+  target: {
+    entityId?: string;
+    // A list for an entity in several projects; any one of them matches.
+    project?: string | string[];
+    ancestorIds?: string[];
+  },
 ): boolean {
   if (hook.entityType && hook.entityId) {
     if (hook.entityId === target.entityId) return true;
     return (target.ancestorIds ?? []).includes(hook.entityId);
   }
-  return !hook.projects.length || hook.projects.includes(target.project ?? "");
+  return (
+    !hook.projects.length ||
+    [target.project ?? ""].flat().some((p) => hook.projects.includes(p))
+  );
 }
 
 const BaseClass = MakeModelClass({
@@ -56,10 +64,11 @@ export class CustomHookModel extends BaseClass {
     return this.getForeignRefs(doc, false).experiment ?? null;
   }
 
-  // Config-scoped hooks fall through to the generic `canCreate/Update/Delete
-  // CustomHook` gates below (org-level `manageCustomHooks`) rather than a
-  // per-config permission: configs aren't a `getForeignRefs` type, so a
-  // per-config check can't run in these synchronous permission methods. Managing
+  // Config- and SDK Connection-scoped hooks fall through to the generic
+  // `canCreate/Update/Delete CustomHook` gates below (org-level
+  // `manageCustomHooks`) rather than a per-entity permission: neither is a
+  // `getForeignRefs` type, so a per-entity check can't run in these
+  // synchronous permission methods. Managing
   // sandboxed hooks is an org-level operation, so this is a deliberate (safe)
   // simplification vs the feature-scoped `canManageFeatureCustomHooks` path.
 
@@ -182,6 +191,18 @@ export class CustomHookModel extends BaseClass {
     if (entityType === "experiment" && this.experimentRef(doc) === null) {
       throw new Error(`Could not find experiment for custom hook: ${entityId}`);
     }
+
+    if (entityType === "sdkConnection" && entityId) {
+      // Loaded here: the connection model's imports cycle back to this one.
+      const { findSDKConnectionById } = await import(
+        "back-end/src/models/SdkConnectionModel"
+      );
+      if (!(await findSDKConnectionById(this.context, entityId))) {
+        throw new Error(
+          `Could not find SDK Connection for custom hook: ${entityId}`,
+        );
+      }
+    }
   }
 
   public toApiInterface(hook: CustomHookInterface): ApiCustomHook {
@@ -206,7 +227,7 @@ export class CustomHookModel extends BaseClass {
 
   public async getByHook(
     hook: CustomHookType,
-    project: string = "",
+    project: string | string[] = "",
     entityId: string = "",
     // The target config's staged immediate bases, when the hook type targets
     // configs. A config-scoped hook matches the lineage the write is about to

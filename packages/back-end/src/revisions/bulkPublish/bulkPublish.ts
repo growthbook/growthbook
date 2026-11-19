@@ -259,17 +259,20 @@ export async function planBulkPublish(
     // Armed (non-locking) sibling schedules deliberately do NOT gate — they
     // behave as under sequential manual publishing, where fire-time
     // governance owns that collision. Only lock-others siblings block.
-    const bypassPermission = l.adapter.canBypassApproval(context, l.entity);
+    const bypassPermission = l.adapter.canBypassApproval(
+      context,
+      l.entity,
+      l.revision,
+    );
     const clearance: PublishGateClearance = {
       ignoreWarnings: flags.ignoreWarnings,
       skipSchemaValidation: flags.skipSchemaValidation && orgWideBypass,
       skipHooks: flags.skipHooks && orgWideBypass,
       bypassApprovalPermission: bypassPermission,
       restApiBypassesReviews: flags.restApiBypassesReviews,
-      canForceMergeStaleBase:
-        bypassPermission ||
-        (l.adapter.staleBaseForceAllowsRestBypass &&
-          flags.restApiBypassesReviews),
+      // As a single publish: the REST bypass setting clears approval, not an
+      // out-of-date draft.
+      canForceMergeStaleBase: bypassPermission,
     };
 
     const bypassedGates: PlannedItemPublish["bypassedGates"] = [];

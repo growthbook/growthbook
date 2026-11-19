@@ -135,6 +135,12 @@ export interface EntityRevisionAdapter<
   /** Normalize an entity object for storage as a revision snapshot. */
   buildSnapshot(entity: TSnapshot): TSnapshot;
 
+  /**
+   * A built snapshot, less what is managed outside the entity. Asking whether
+   * live has moved since a draft was cut compares these.
+   */
+  behindLiveView?(snapshot: TSnapshot): TSnapshot;
+
   /** Whether the approval-flow revision workflow is required for this org/entity. */
   isRevisionRequired(context: Context): boolean;
 
@@ -309,6 +315,8 @@ export interface EntityRevisionAdapter<
     context: Context,
     target: { id: string },
     fragment: Partial<TSnapshot>,
+    // Hide it from everyone: a write's response is shown on its confirmation.
+    hideAll?: boolean,
   ): Promise<Partial<TSnapshot>>;
 
   // The write-side counterpart: a value a client left out, having never
@@ -317,6 +325,25 @@ export interface EntityRevisionAdapter<
     base: Partial<TSnapshot>,
     incoming: Partial<TSnapshot>,
   ): Partial<TSnapshot>;
+
+  // Runs whenever a revision's content is written: a save into a draft, a
+  // rebase, or a direct landing. Throwing refuses the write. `revision` is null
+  // when the write creates it. `proposed` is the entity as the revision leaves
+  // it; `before` is what it proposed until now, which is live for a new one.
+  validateRevisionWrite?(
+    context: Context,
+    write: {
+      live: TSnapshot;
+      revision: Revision | null;
+      // A direct landing: the revision is created already published.
+      direct?: boolean;
+      // What a write that creates the revision names it.
+      title?: string;
+      comment?: string;
+      proposed: TSnapshot;
+      before: TSnapshot;
+    },
+  ): Promise<void>;
 
   // Validate what a merge would apply BEFORE the merge is claimed: throwing here leaves
   // the revision open and editable, instead of stranding it "merged" and relying on a
