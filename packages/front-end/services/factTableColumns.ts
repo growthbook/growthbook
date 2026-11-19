@@ -4,12 +4,17 @@ import { ColumnInterface, TopValuesSnapshot } from "shared/types/fact-table";
 // refresh this session, unless the stored ones are newer (a later column
 // refresh or SQL edit), then stored counts, then the plain list saved before
 // counts existed
+// Warehouses that can only rank values return them without counts
+function hasAnyCount(values: { count?: number }[]): boolean {
+  return values.some((v) => v.count !== undefined);
+}
+
 export function getColumnTopValues(
   column: Pick<
     ColumnInterface,
     "topValues" | "topValueCounts" | "topValuesDate"
   >,
-  fresh?: { values: { value: string; count: number }[]; refreshedAt: Date },
+  fresh?: { values: TopValuesSnapshot["values"]; refreshedAt: Date },
 ): {
   values: TopValuesSnapshot["values"];
   hasCounts: boolean;
@@ -20,7 +25,7 @@ export function getColumnTopValues(
   if (fresh && (!storedAt || storedAt <= fresh.refreshedAt)) {
     return {
       values: fresh.values,
-      hasCounts: true,
+      hasCounts: hasAnyCount(fresh.values),
       refreshedAt: fresh.refreshedAt,
     };
   }
@@ -29,7 +34,7 @@ export function getColumnTopValues(
     : undefined;
   return {
     values: counts ?? (column.topValues || []).map((value) => ({ value })),
-    hasCounts: !!counts,
+    hasCounts: !!counts && hasAnyCount(counts),
     refreshedAt: storedAt,
   };
 }

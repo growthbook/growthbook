@@ -2,7 +2,8 @@ import { useRef, useState } from "react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
-export type ValueCount = { value: string; count: number };
+// count is missing when the warehouse can only rank values
+export type ValueCount = { value: string; count?: number };
 // refreshedAt is the server's, so it compares with the stored topValuesDate
 export type FreshValueCounts = { values: ValueCount[]; refreshedAt: Date };
 

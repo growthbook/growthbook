@@ -284,6 +284,20 @@ describe("getColumnTopValues", () => {
     ).toEqual({ values: counts, hasCounts: true, refreshedAt });
   });
 
+  it("reports no counts when the warehouse only ranks values", () => {
+    const ranked = [{ value: "a" }, { value: "b" }];
+    expect(
+      getColumnTopValues(
+        { topValueCounts: ranked },
+        { values: ranked, refreshedAt },
+      ).hasCounts,
+    ).toBe(false);
+    expect(
+      getColumnTopValues({ topValueCounts: ranked, topValuesDate: refreshedAt })
+        .hasCounts,
+    ).toBe(false);
+  });
+
   it("uses stored counts, then the plain list", () => {
     expect(
       getColumnTopValues({
