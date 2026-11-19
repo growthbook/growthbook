@@ -1,4 +1,5 @@
 import type { SnapshotUpdateScope } from "shared/validators";
+import { findLatestSuccessfulSnapshotEndDate } from "back-end/src/models/ExperimentSnapshotModel";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import {
   createScopedExperimentSnapshot,
@@ -6,21 +7,25 @@ import {
 } from "back-end/src/services/snapshotUpdateScope";
 import {
   BadRequestError,
-  NewMetricsUpdateOutsideWindowError,
   NewMetricsUpdateUnavailableError,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
 } from "back-end/src/util/errors";
 
+jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  findLatestSuccessfulSnapshotEndDate: jest.fn(),
+}));
+
 jest.mock("back-end/src/services/experiments", () => ({
   createExperimentSnapshot: jest.fn(),
 }));
 
+const HOUR_MS = 3_600_000;
 const now = new Date("2026-11-18T12:00:00Z");
+const recentEnd = new Date(now.getTime() - HOUR_MS);
 const newMetricsResult = { snapshot: { id: "snp_new" } };
 const allMetricsResult = { snapshot: { id: "snp_all" } };
 const notMissing = new MetricsAlreadyUpToDateError("snp_base");
-const tooOld = new NewMetricsUpdateOutsideWindowError();
 const unavailable = new NewMetricsUpdateUnavailableError(
   "analysis_dates_changed",
   "Dates changed.",
@@ -35,8 +40,10 @@ describe("updateScope", () => {
     dimension?: string;
     triggeredBy?: "schedule";
     windowHours?: number;
+    // The latest Overall Results' end date.
+    resultsEndDate?: Date | null;
     newMetrics?: Error;
-    // Null when the new-metrics update must not be tried.
+    // Undefined when the new-metrics update must not be tried.
     window?: { windowHours: number; now: Date } | null;
     expected: "new_metrics" | "all_metrics" | Error;
   }>([
@@ -44,6 +51,16 @@ describe("updateScope", () => {
       name: "omitted: new metrics in the window",
       window: { windowHours: 4, now },
       expected: "new_metrics",
+    },
+    {
+      name: "omitted: all, without planning, when the results ended before the window",
+      resultsEndDate: new Date(now.getTime() - 5 * HOUR_MS),
+      expected: "all_metrics",
+    },
+    {
+      name: "omitted: all, without planning, when there are no results",
+      resultsEndDate: null,
+      expected: "all_metrics",
     },
     {
       name: '"auto" with a window of 0: all',
@@ -61,7 +78,7 @@ describe("updateScope", () => {
       triggeredBy: "schedule",
       expected: "all_metrics",
     },
-    ...[notMissing, tooOld, unavailable, running].map((newMetrics) => ({
+    ...[notMissing, unavailable, running].map((newMetrics) => ({
       name: `"auto" falls back after ${newMetrics.name}`,
       newMetrics,
       window: { windowHours: 4, now },
@@ -76,6 +93,7 @@ describe("updateScope", () => {
     {
       name: '"new_metrics": new metrics, no window',
       updateScope: "new_metrics",
+      resultsEndDate: new Date(now.getTime() - 5 * HOUR_MS),
       window: null,
       expected: "new_metrics",
     },
@@ -99,8 +117,18 @@ describe("updateScope", () => {
     },
   ])(
     "$name",
-    async ({ newMetrics, window, expected, windowHours = 4, ...request }) => {
+    async ({
+      newMetrics,
+      window,
+      expected,
+      windowHours = 4,
+      resultsEndDate = recentEnd,
+      ...request
+    }) => {
       jest.mocked(createExperimentSnapshot).mockReset();
+      jest
+        .mocked(findLatestSuccessfulSnapshotEndDate)
+        .mockResolvedValue(resultsEndDate);
       if (newMetrics) {
         jest.mocked(createExperimentSnapshot).mockRejectedValue(newMetrics);
       } else {
@@ -122,7 +150,7 @@ describe("updateScope", () => {
             now,
           }),
           context: {} as never,
-          experiment: {} as never,
+          experiment: { id: "exp_1" } as never,
           datasource: {} as never,
           phase: 0,
           updateAllMetrics,

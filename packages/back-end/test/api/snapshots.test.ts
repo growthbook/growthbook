@@ -3,6 +3,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
+  findLatestSuccessfulSnapshotEndDate,
   findSnapshotById,
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -13,7 +14,6 @@ import {
 } from "back-end/src/services/experiments";
 import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
-  NewMetricsUpdateOutsideWindowError,
   MetricsAlreadyUpToDateError,
 } from "back-end/src/util/errors";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
@@ -32,6 +32,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 }));
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  findLatestSuccessfulSnapshotEndDate: jest.fn(),
   findSnapshotById: jest.fn(),
   getLatestSuccessfulSnapshot: jest.fn(),
 }));
@@ -44,6 +45,11 @@ jest.mock("back-end/src/services/experiments", () => ({
 
 describe("snapshots API", () => {
   const { app, setReqContext, auditMock } = setupApp();
+
+  beforeEach(() => {
+    // Recent Overall Results, so a request without a scope tries new metrics.
+    findLatestSuccessfulSnapshotEndDate.mockResolvedValue(new Date());
+  });
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -1126,16 +1132,17 @@ describe("snapshots API", () => {
       );
     });
 
-    it("falls back to a normal update without a reason when the window from the organization setting has passed", async () => {
+    it("runs a normal update without planning new metrics when the window from the organization setting has passed", async () => {
       const { snapshot, experiment, datasource } = setup({
         newMetricsUpdateWindowHours: 2,
       });
-      createExperimentSnapshot
-        .mockRejectedValueOnce(new NewMetricsUpdateOutsideWindowError())
-        .mockResolvedValueOnce({
-          snapshot: { ...snapshot, newMetricsUpdate: undefined },
-          queryRunner: {},
-        });
+      findLatestSuccessfulSnapshotEndDate.mockResolvedValueOnce(
+        new Date(Date.now() - 3 * 3_600_000),
+      );
+      createExperimentSnapshot.mockResolvedValueOnce({
+        snapshot: { ...snapshot, newMetricsUpdate: undefined },
+        queryRunner: {},
+      });
 
       const response = await post(experiment.id, {});
 
@@ -1148,17 +1155,12 @@ describe("snapshots API", () => {
           updateScope: "all_metrics",
         },
       });
-      expect(createExperimentSnapshot).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({
-          updateScope: {
-            kind: "new_metrics",
-            window: { windowHours: 2, now: expect.any(Date) },
-            onRefusal: "fallback",
-          },
-        }),
+      expect(findLatestSuccessfulSnapshotEndDate).toHaveBeenCalledWith(
+        expect.anything(),
+        { experiment: experiment.id, phase: 1 },
       );
-      expect(createExperimentSnapshot).toHaveBeenNthCalledWith(2, {
+      expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
+      expect(createExperimentSnapshot).toHaveBeenCalledWith({
         context: expect.objectContaining({ org: expect.anything() }),
         experiment,
         datasource,

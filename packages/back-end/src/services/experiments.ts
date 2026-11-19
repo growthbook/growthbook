@@ -3276,7 +3276,6 @@ export async function planExperimentSnapshot({
           integration,
           scope,
         ),
-      window: updateScope.window ?? undefined,
     });
   }
   return planSnapshot(planSnapshotArgs);

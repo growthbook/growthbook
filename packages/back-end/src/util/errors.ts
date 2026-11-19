@@ -408,15 +408,6 @@ export class NewMetricsUpdateUnavailableError extends ApiError<"new_metrics_upda
   }
 }
 
-// The results are too old for an update that didn't choose a scope. Callers
-// run a normal update instead; it never reaches a client.
-export class NewMetricsUpdateOutsideWindowError extends Error {
-  constructor() {
-    super("The latest results end before the new metrics update window");
-    this.name = "NewMetricsUpdateOutsideWindowError";
-  }
-}
-
 // Snapshot failures that repeat on every retry; auto-updates get disabled, even for bandits
 export class UnrecoverableSnapshotError extends Error {
   constructor(message: string) {

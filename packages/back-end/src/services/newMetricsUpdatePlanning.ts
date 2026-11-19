@@ -7,7 +7,6 @@ import {
   getNewMetricsUpdateBlocker,
   getNewMetricsUpdateSetupBlocker,
   getResultsOutdatedReasons,
-  isWithinNewMetricsUpdateWindow,
   type NewMetricsUpdateBlocker,
 } from "shared/experiments";
 import { getSnapshotCutoffDate } from "shared/util";
@@ -38,20 +37,16 @@ import {
 import {
   BadRequestError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
-  NewMetricsUpdateOutsideWindowError,
   NewMetricsUpdateUnavailableError,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
 } from "back-end/src/util/errors";
 
-export type NewMetricsUpdateWindow = { windowHours: number; now: Date };
-
 /**
  * Plans a snapshot that queries only the experiment's metrics missing from
  * the latest successful Overall snapshot (its parent) and copies the
  * parent's query results for every other metric, pinned to the parent's end
- * date. Throws a typed error before anything is written, including
- * NewMetricsUpdateOutsideWindowError when the parent ends outside `window`.
+ * date. Throws a typed error before anything is written.
  */
 export async function planNewMetricsUpdate({
   context,
@@ -65,7 +60,6 @@ export async function planNewMetricsUpdate({
   pValueThreshold,
   planSnapshotAt,
   generateResultQuerySql,
-  window,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
@@ -78,7 +72,6 @@ export async function planNewMetricsUpdate({
   pValueThreshold: number;
   planSnapshotAt: (cutoff: Date) => Promise<PlannedExperimentSnapshot>;
   generateResultQuerySql: GenerateResultQuerySql;
-  window?: NewMetricsUpdateWindow;
 }): Promise<PlannedExperimentSnapshot> {
   if (dimension) {
     throw new BadRequestError(
@@ -129,15 +122,6 @@ export async function planNewMetricsUpdate({
   });
   if (!missingMetricIds.length) {
     throw new MetricsAlreadyUpToDateError(parent.id);
-  }
-  if (
-    window &&
-    !isWithinNewMetricsUpdateWindow({
-      ...window,
-      resultsEndDate: parent.settings.endDate,
-    })
-  ) {
-    throw new NewMetricsUpdateOutsideWindowError();
   }
   // The app offers a new-metrics update only when "Metrics changed" is the one
   // Outdated reason, so the back end refuses on the same reasons.

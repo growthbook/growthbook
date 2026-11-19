@@ -1,16 +1,18 @@
+import { isWithinNewMetricsUpdateWindow } from "shared/experiments";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { SnapshotUpdateScope } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
-import type { NewMetricsUpdateWindow } from "back-end/src/services/newMetricsUpdatePlanning";
+import { findLatestSuccessfulSnapshotEndDate } from "back-end/src/models/ExperimentSnapshotModel";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import {
   BadRequestError,
-  NewMetricsUpdateOutsideWindowError,
   NewMetricsUpdateUnavailableError,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
 } from "back-end/src/util/errors";
+
+type NewMetricsUpdateWindow = { windowHours: number; now: Date };
 
 // Which metrics an update computes, once the request has been read.
 export type ResolvedUpdateScope =
@@ -74,9 +76,31 @@ export function resolveApiUpdateScope({
 function isFallbackRefusal(error: unknown): boolean {
   return (
     error instanceof MetricsAlreadyUpToDateError ||
-    error instanceof NewMetricsUpdateOutsideWindowError ||
     error instanceof NewMetricsUpdateUnavailableError ||
     error instanceof SnapshotInProgressError
+  );
+}
+
+// The window is counted from the end date the latest Overall Results cover.
+// Without results the new-metrics update would be refused anyway.
+async function latestResultsAreInWindow({
+  context,
+  experiment,
+  phase,
+  window,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  phase: number;
+  window: NewMetricsUpdateWindow;
+}): Promise<boolean> {
+  const resultsEndDate = await findLatestSuccessfulSnapshotEndDate(context, {
+    experiment: experiment.id,
+    phase,
+  });
+  return (
+    !!resultsEndDate &&
+    isWithinNewMetricsUpdateWindow({ ...window, resultsEndDate })
   );
 }
 
@@ -100,7 +124,16 @@ export async function createScopedExperimentSnapshot({
   phase: number;
   updateAllMetrics: () => Promise<SnapshotResult>;
 }): Promise<SnapshotResult & { updateScope: RanUpdateScope }> {
-  if (scope.kind === "new_metrics") {
+  if (
+    scope.kind === "new_metrics" &&
+    (!scope.window ||
+      (await latestResultsAreInWindow({
+        context,
+        experiment,
+        phase,
+        window: scope.window,
+      })))
+  ) {
     try {
       const result = await createExperimentSnapshot({
         context,

@@ -59,7 +59,6 @@ import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
-  NewMetricsUpdateOutsideWindowError,
   NewMetricsUpdateUnavailableError,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
@@ -627,25 +626,6 @@ describe("planNewMetricsUpdate", () => {
       expect(args.planSnapshotAt).not.toHaveBeenCalled();
     },
   );
-
-  it("measures the window from the end date the results cover, not from when they ran, before planning", async () => {
-    findParentMock.mockResolvedValue(
-      makeParent({
-        dateCreated: new Date(PARENT_END.getTime() + 3 * 3_600_000),
-      }),
-    );
-    const args = refreshArgs({
-      window: {
-        windowHours: 4,
-        now: new Date(PARENT_END.getTime() + 5 * 3_600_000),
-      },
-    });
-
-    await expect(planNewMetricsUpdate(args)).rejects.toBeInstanceOf(
-      NewMetricsUpdateOutsideWindowError,
-    );
-    expect(args.planSnapshotAt).not.toHaveBeenCalled();
-  });
 
   it("accepts a parent whose only failed query is its own units table drop, which it does not copy", async () => {
     findParentMock.mockResolvedValue(
