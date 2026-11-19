@@ -1,32 +1,26 @@
 import isEqual from "lodash/isEqual";
 import omitBy from "lodash/omitBy";
+import pick from "lodash/pick";
 import {
   getDefinitionMetricId,
   getMetricIdsMissingFromSnapshot,
   getNewMetricsUpdateBlocker,
   getNewMetricsUpdateSetupBlocker,
-  getSnapshotDataAsOf,
-  isAnalysisDateRangeOutdated,
+  getResultsOutdatedReasons,
   isWithinNewMetricsUpdateWindow,
   type NewMetricsUpdateBlocker,
 } from "shared/experiments";
-import {
-  getIdentifierTypeForSettingsHash,
-  getSnapshotCutoffDate,
-} from "shared/util";
+import { getSnapshotCutoffDate } from "shared/util";
 import type { IncrementalRefreshInterface } from "shared/validators";
-import type {
-  DataSourceInterface,
-  ExposureQuery,
-} from "shared/types/datasource";
+import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type {
-  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotNewMetricsUpdate,
 } from "shared/types/experiment-snapshot";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { StatsEngine } from "shared/types/stats";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import type { PlannedExperimentSnapshot } from "back-end/src/services/experiments";
@@ -35,6 +29,7 @@ import {
   getLatestSnapshotStatus,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { isCarriedNewMetricsUpdateQuery } from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
 import {
   assertCarriedQuerySqlUnchanged,
@@ -66,6 +61,8 @@ export async function planNewMetricsUpdate({
   dimension,
   useCache,
   metricGroups,
+  statsEngine,
+  pValueThreshold,
   planSnapshotAt,
   generateResultQuerySql,
   window,
@@ -77,6 +74,8 @@ export async function planNewMetricsUpdate({
   dimension: string | undefined;
   useCache: boolean;
   metricGroups: MetricGroupInterface[];
+  statsEngine: StatsEngine;
+  pValueThreshold: number;
   planSnapshotAt: (cutoff: Date) => Promise<PlannedExperimentSnapshot>;
   generateResultQuerySql: GenerateResultQuerySql;
   window?: NewMetricsUpdateWindow;
@@ -140,13 +139,40 @@ export async function planNewMetricsUpdate({
   ) {
     throw new NewMetricsUpdateOutsideWindowError();
   }
-  if (
-    isAnalysisDateRangeOutdated({
-      phase: experiment.phases[phase],
-      snapshotSettings: parent.settings,
-      snapshotDateCreated: getSnapshotDataAsOf(parent),
-    })
-  ) {
+  // The app offers a new-metrics update only when "Metrics changed" is the one
+  // Outdated reason, so the back end refuses on the same reasons.
+  const outdatedReasons = getResultsOutdatedReasons({
+    experiment,
+    snapshot: parent,
+    metricGroups,
+    orgSettings: context.org.settings ?? {},
+    pValueThreshold,
+    statsEngine,
+    features: {
+      regressionAdjustment: orgHasPremiumFeature(
+        context.org,
+        "regression-adjustment",
+      ),
+      postStratification: orgHasPremiumFeature(
+        context.org,
+        "post-stratification",
+      ),
+      sequentialTesting: orgHasPremiumFeature(
+        context.org,
+        "sequential-testing",
+      ),
+    },
+    phase,
+    exposureQueries: datasource.settings.queries?.exposure ?? [],
+    // Only "Metrics changed" reads these, and it never refuses.
+    unjoinableMetricIds: new Set(),
+    conversionWindowMetricIds: new Set(),
+    // The parent is the latest Overall Results.
+    newerOverallResultsAvailable: false,
+    // Callers refuse frozen results before planning.
+    resultsUpdateDisabled: false,
+  });
+  if (outdatedReasons.includes("analysis_dates_changed")) {
     throw new NewMetricsUpdateUnavailableError("analysis_dates_changed");
   }
   // A new-metrics update extends the parent's default analysis.
@@ -191,11 +217,8 @@ export async function planNewMetricsUpdate({
     throw getBlockerRefusal(blocker, plan);
   }
   if (
-    getSettingsChangedSinceParent({
-      parent,
-      planned: plan.snapshot,
-      exposureQueries: datasource.settings.queries?.exposure ?? [],
-    }).length
+    outdatedReasons.some((reason) => reason !== "metrics_changed") ||
+    changesUnreasonedSetting(parent, plan.snapshot.settings)
   ) {
     throw new NewMetricsUpdateUnavailableError("settings_changed");
   }
@@ -259,33 +282,31 @@ function getBlockerRefusal(
     : new NewMetricsUpdateUnavailableError("metric_not_supported");
 }
 
-const NEW_METRICS_UPDATE_SPECIFIC_SETTINGS = [
-  "metricSettings",
-  "goalMetrics",
-  "secondaryMetrics",
-  "guardrailMetrics",
-  "clusterLevelMetricIds",
-  "endDateIsCutoff",
-  "manual",
+// Settings no Outdated reason covers whose change would make a copied result
+// differ from a normal update's. Copied metrics keep the parent's analysis, so
+// settings the stats engine reads count as well as those in the queries.
+const UNREASONED_SETTINGS = [
+  // The same SQL can run against another Data Source.
+  "datasourceId",
+  // Copied metrics keep the priors the parent analyzed them with.
+  "defaultMetricPriorSettings",
+  // The badge compares variation keys; the SRM check reads their weights.
+  "variations",
+  "coverage",
+  // The tracking key the queries filter on.
+  "experimentId",
+  // The badge tolerates a day of drift; the queries start at this exact time.
+  "startDate",
 ] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
-// Settings the stats engine never reads and the Outdated badge doesn't count:
-// they only shape result query SQL, which a results parent's new-metrics update
-// regenerates and compares instead. A setting the badge counts is compared on
-// both pipelines, because changing it can leave the SQL as it was (the
-// attribution model, when no metric has a conversion window). The badge's
-// CUPED reason reads the analysis's regressionAdjusted, compared below.
-const SETTINGS_ONLY_IN_RESULT_QUERY_SQL = [
+// Settings that only shape result query SQL. A results parent's update
+// regenerates and compares that SQL; on the Incremental Pipeline the carried
+// SQL only reads its tables, so they are compared here.
+const UNREASONED_QUERY_SETTINGS = [
   "customFields",
   "dimensions",
   "lookbackOverride",
-  "phase",
   "precomputedUnitDimensionIds",
-  "regressionAdjustmentEnabled",
 ] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
-const METRIC_COUNT_ANALYSIS_SETTINGS = [
-  "numGoalMetrics",
-  "numGuardrailMetrics",
-] as const satisfies readonly (keyof ExperimentSnapshotAnalysisSettings)[];
 
 const isEmptySetting = (value: unknown): boolean =>
   value === null ||
@@ -293,82 +314,22 @@ const isEmptySetting = (value: unknown): boolean =>
   value === "" ||
   (typeof value === "object" && !Object.keys(value).length);
 
-function getChangedKeys(
-  before: object,
-  after: object,
-  ignored: readonly string[],
-): string[] {
-  const withoutEmptySettings = (value: object): Record<string, unknown> =>
-    omitBy(JSON.parse(JSON.stringify(value)), isEmptySetting);
-  const a = withoutEmptySettings(before);
-  const b = withoutEmptySettings(after);
-  return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter(
-    (key) => !ignored.includes(key) && !isEqual(a[key], b[key]),
-  );
-}
-
-/**
- * The parent's settings a new-metrics update would not honor if it copied the
- * parent's results. On the standard pipeline this leaves the analysis
- * settings, the snapshot settings the stats engine reads and those behind an
- * Outdated reason; the carried SQL check covers the rest.
- */
-export function getSettingsChangedSinceParent({
-  parent,
-  planned,
-  exposureQueries,
-}: {
-  parent: Pick<
-    ExperimentSnapshotInterface,
-    "settings" | "analyses" | "runnerKind"
-  >;
-  planned: Pick<ExperimentSnapshotInterface, "settings" | "analyses">;
-  exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[];
-}): string[] {
-  // The scheduled job and a manual update derive the snapshot-level flags
-  // differently when the experiment adjusts but every metric opts out. A metric
-  // is only adjusted when its own flag is on too, so that difference changes no
-  // number, as long as the plan would not start adjusting a copied metric.
-  const copiedMetricIds = new Set(
-    parent.settings.metricSettings.map((m) => m.id),
-  );
-  const optsOut = (m: ExperimentSnapshotSettings["metricSettings"][number]) =>
-    m.computedSettings?.regressionAdjustmentEnabled === false;
-  const noCopiedMetricIsAdjusted =
-    parent.settings.metricSettings.every(optsOut) &&
-    planned.settings.metricSettings
-      .filter((m) => copiedMetricIds.has(m.id))
-      .every(optsOut);
-  const comparable = (settings: ExperimentSnapshotSettings) => ({
-    ...settings,
-    exposureQueryIdentifierType: getIdentifierTypeForSettingsHash(
-      settings.exposureQueryId,
-      settings.exposureQueryIdentifierType,
-      exposureQueries,
-    ),
-  });
-  return [
-    ...getChangedKeys(
-      comparable(parent.settings),
-      comparable(planned.settings),
-      [
-        ...NEW_METRICS_UPDATE_SPECIFIC_SETTINGS,
-        ...((parent.runnerKind ?? "results") === "results"
-          ? SETTINGS_ONLY_IN_RESULT_QUERY_SQL
-          : noCopiedMetricIsAdjusted
-            ? ["regressionAdjustmentEnabled"]
-            : []),
-      ],
-    ),
-    ...getChangedKeys(
-      parent.analyses[0]?.settings ?? {},
-      planned.analyses[0]?.settings ?? {},
-      [
-        ...METRIC_COUNT_ANALYSIS_SETTINGS,
-        ...(noCopiedMetricIsAdjusted ? ["regressionAdjusted"] : []),
-      ],
-    ).map((key) => `analysis.${key}`),
+// A setting one side lacks counts as that setting left empty.
+function changesUnreasonedSetting(
+  parent: Pick<ExperimentSnapshotInterface, "settings" | "runnerKind">,
+  planned: ExperimentSnapshotSettings,
+): boolean {
+  const keys: string[] = [
+    ...UNREASONED_SETTINGS,
+    ...((parent.runnerKind ?? "results") === "results"
+      ? []
+      : UNREASONED_QUERY_SETTINGS),
   ];
+  const comparable = (settings: ExperimentSnapshotSettings) =>
+    omitBy(JSON.parse(JSON.stringify(pick(settings, keys))), isEmptySetting);
+  const before = comparable(parent.settings);
+  const after = comparable(planned);
+  return keys.some((key) => !isEqual(before[key], after[key]));
 }
 
 /**

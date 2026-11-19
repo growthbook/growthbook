@@ -2467,9 +2467,7 @@ export async function createSnapshotFromPlan({
               experiment.phases[plan.snapshot.phase],
               plan.snapshot.settings,
             ),
-        mode: newMetricsUpdate
-          ? { kind: "new-metrics" }
-          : { kind: runnerKind === "incremental-full" ? "full" : "update" },
+        mode: { kind: runnerKind === "incremental-full" ? "full" : "update" },
       });
     } else if (runnerKind === "incremental-exploratory") {
       await (
@@ -3258,6 +3256,8 @@ export async function planExperimentSnapshot({
       dimension,
       useCache,
       metricGroups,
+      statsEngine,
+      pValueThreshold: settings.pValueThreshold.value,
       planSnapshotAt: (cutoff) => planSnapshot({ ...planSnapshotArgs, cutoff }),
       generateResultQuerySql: ({ settings, queryParentId, scope }) =>
         generateExperimentResultQuerySql(
@@ -5752,7 +5752,6 @@ export async function getSettingsForSnapshotMetrics(
   regressionAdjustmentEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
 }> {
-  let regressionAdjustmentEnabled = false;
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
   const metricMap = await getMetricMap(context);
 
@@ -5784,15 +5783,14 @@ export async function getSettingsForSnapshotMetrics(
       organizationSettings: context.org.settings,
       metricOverrides: experiment.metricOverrides,
     });
-    if (metricSnapshotSettings.regressionAdjustmentEnabled) {
-      regressionAdjustmentEnabled = true;
-    }
     settingsForSnapshotMetrics.push(metricSnapshotSettings);
   }
-  if (!experiment.regressionAdjustmentEnabled) {
-    regressionAdjustmentEnabled = false;
-  }
-  return { regressionAdjustmentEnabled, settingsForSnapshotMetrics };
+  // Same flag as a manual update and the Outdated badge: each metric's own flag
+  // still decides whether it is adjusted.
+  return {
+    regressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
+    settingsForSnapshotMetrics,
+  };
 }
 
 export function visualChangesetsHaveChanges({

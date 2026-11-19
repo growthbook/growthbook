@@ -31,7 +31,6 @@ import {
 } from "back-end/src/services/newMetricsUpdateExecution";
 import {
   getNewMetricsUpdateLineage,
-  getSettingsChangedSinceParent,
   mergeNewMetricsUpdateSettings,
   assertIncrementalTablesMatchParent,
   planNewMetricsUpdate,
@@ -142,6 +141,8 @@ function makeExperiment(
   return {
     id: "exp_1",
     type: "standard",
+    exposureQueryId: "eq_1",
+    variations: [],
     phases: [{ dateStarted: PARENT_START }],
     goalMetrics: ["met_a", "met_b", "met_c"],
     secondaryMetrics: [],
@@ -253,6 +254,8 @@ function refreshArgs(
     dimension: undefined,
     useCache: true,
     metricGroups: [],
+    statsEngine: "bayesian",
+    pValueThreshold: 0.05,
     planSnapshotAt: jest.fn(async () => makePlan()),
     generateResultQuerySql: jest.fn(storedSqlGenerator),
     ...overrides,
@@ -550,11 +553,42 @@ describe("planNewMetricsUpdate", () => {
       expected: unavailable("settings_changed"),
     },
     {
-      name: "changed analysis settings",
+      name: "another Outdated reason beside the added metrics",
+      setup: () => ({ statsEngine: "frequentist" }),
+      expected: unavailable("settings_changed"),
+    },
+    {
+      name: "CUPED turned on, even with no copied metric adjusted",
+      setup: () => {
+        jest.mocked(orgHasPremiumFeature).mockReturnValue(true);
+        return {
+          experiment: makeExperiment({ regressionAdjustmentEnabled: true }),
+        };
+      },
+      expected: unavailable("settings_changed"),
+    },
+    {
+      name: "a setting no Outdated reason covers",
       setup: () => ({
         planSnapshotAt: async () =>
-          makePlan({ analysisSettings: { statsEngine: "frequentist" } }),
+          makePlan({ settings: { datasourceId: "ds_2" } }),
       }),
+      expected: unavailable("settings_changed"),
+    },
+    {
+      name: "a query-only setting on the Incremental Pipeline",
+      setup: () => {
+        findParentMock.mockResolvedValue(
+          makeParent({ runnerKind: "incremental-update" }),
+        );
+        return {
+          planSnapshotAt: async () =>
+            makePlan({
+              runnerKind: "incremental-update",
+              settings: { customFields: { team: "growth" } },
+            }),
+        };
+      },
       expected: unavailable("settings_changed"),
     },
     {
@@ -903,142 +937,6 @@ describe("assertIncrementalTablesMatchParent", () => {
     expect(parse(withSource(source("ftc_1", ["met_c"], after(1))))).toThrow(
       expect.objectContaining({ details: { reason: "incremental_pipeline" } }),
     );
-  });
-});
-
-describe("getSettingsChangedSinceParent", () => {
-  const incremental = { runnerKind: "incremental-update" } as const;
-  const planned = (
-    settings: object,
-    analysisSettings: Partial<ExperimentSnapshotAnalysisSettings> = {},
-  ) => {
-    const plan = makePlan({ analysisSettings }).snapshot;
-    Object.assign(plan.settings, settings);
-    return plan;
-  };
-  // The parent's and the plan's regression adjustment of copied metrics.
-  const adjustedParent = (
-    adjusted: boolean,
-    runnerKind: ExperimentSnapshotInterface["runnerKind"] = "incremental-update",
-  ) =>
-    makeParent({
-      runnerKind,
-      settings: makeSettings(["met_a", "met_b"], {
-        regressionAdjustmentEnabled: false,
-        metricSettings: metricSettingsFor(["met_a", "met_b"], {
-          regressionAdjustmentEnabled: adjusted,
-        }),
-      }),
-    });
-  const adjustingPlan = (adjustsCopiedMetrics: boolean) =>
-    makePlan({
-      settings: {
-        regressionAdjustmentEnabled: true,
-        metricSettings: [
-          ...metricSettingsFor(["met_a", "met_b"], {
-            regressionAdjustmentEnabled: adjustsCopiedMetrics,
-          }),
-          ...metricSettingsFor(["met_c"], {
-            regressionAdjustmentEnabled: true,
-          }),
-        ],
-      },
-      analysisSettings: { regressionAdjusted: true },
-    }).snapshot;
-  const adjustmentFlags = [
-    "analysis.regressionAdjusted",
-    "regressionAdjustmentEnabled",
-  ];
-
-  // The parity test in snapshot-planning.test.ts covers every setting behind
-  // an Outdated reason; these rows cover what it can't reach.
-  it.each<{
-    name: string;
-    parent?: ExperimentSnapshotInterface;
-    planned: Pick<ExperimentSnapshotInterface, "settings" | "analyses">;
-    expected: string[];
-  }>([
-    {
-      name: "on the standard pipeline, ignores a custom field edit",
-      planned: planned({ customFields: { team: "growth" } }),
-      expected: [],
-    },
-    {
-      name: "ignores the regression adjustment flags when no copied metric is or would be adjusted",
-      parent: adjustedParent(false),
-      planned: adjustingPlan(false),
-      expected: [],
-    },
-    {
-      name: "names the regression adjustment flags when a copied metric is adjusted",
-      parent: adjustedParent(true),
-      planned: adjustingPlan(true),
-      expected: adjustmentFlags,
-    },
-    {
-      name: "on the standard pipeline, names only the analysis flag and leaves the snapshot flag to the SQL check",
-      parent: adjustedParent(true, "results"),
-      planned: adjustingPlan(true),
-      expected: ["analysis.regressionAdjusted"],
-    },
-    {
-      name: "names the regression adjustment flags when turning it on would adjust a copied metric",
-      parent: adjustedParent(false),
-      planned: adjustingPlan(true),
-      expected: adjustmentFlags,
-    },
-    {
-      name: "treats a setting one side lacks as that setting left empty",
-      planned: planned(
-        {
-          isClusterExperiment: false,
-          clusterSubUnitIdentifier: "",
-          customFields: {},
-          precomputedUnitDimensionIds: [],
-          lookbackOverride: null,
-        },
-        { postStratificationEnabled: false },
-      ),
-      expected: [],
-    },
-    {
-      name: "still names a setting one side lacks when the other side sets it",
-      planned: planned(
-        { isClusterExperiment: true, coverage: 0 },
-        { postStratificationEnabled: true },
-      ),
-      expected: [
-        "analysis.postStratificationEnabled",
-        "coverage",
-        "isClusterExperiment",
-      ],
-    },
-    {
-      name: "treats a missing assignment identifier as the query's legacy one",
-      parent: makeParent(incremental),
-      planned: planned({ exposureQueryIdentifierType: "user_id" }),
-      expected: [],
-    },
-    {
-      name: "names an assignment identifier other than the query's legacy one",
-      parent: makeParent(incremental),
-      planned: planned({ exposureQueryIdentifierType: "anonymous_id" }),
-      expected: ["exposureQueryIdentifierType"],
-    },
-  ])("$name", ({ parent = makeParent(), planned, expected }) => {
-    expect(
-      getSettingsChangedSinceParent({
-        parent,
-        planned,
-        exposureQueries: [
-          {
-            id: "eq_1",
-            userIdType: "user_id",
-            userIdTypes: ["user_id", "anonymous_id"],
-          },
-        ],
-      }).sort(),
-    ).toEqual(expected);
   });
 });
 

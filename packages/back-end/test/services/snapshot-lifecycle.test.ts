@@ -673,7 +673,7 @@ describe("snapshot lifecycle", () => {
         expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
           expect.objectContaining({
             incrementalRefreshStartTime: cutoff,
-            mode: { kind: "new-metrics" },
+            mode: { kind: "update" },
           }),
         );
       });
