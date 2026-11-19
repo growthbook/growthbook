@@ -22,20 +22,24 @@ export class DagModel extends BaseClass {
   }
 
   /**
-   * Points a node at a new attempt, only while it still points at the attempt
-   * the caller saw fail. False when another process already replaced it.
+   * Points a node at a new attempt, only while it is still on the attempt the
+   * caller saw fail. False when another process already replaced it.
+   *
+   * The attempt is matched by its number as well as its target, so a retry
+   * that reuses the same target is still recorded only once.
    *
    * Compare-and-swap with a plain $set of the whole array, so it needs no
    * array update operators.
    */
   public async replaceNodeTarget(
     dagId: string,
-    nodeId: string,
-    fromTargetId: string,
+    failed: Pick<DagNode, "id" | "targetId" | "previousTargetIds">,
     toTargetId: string,
   ): Promise<boolean> {
     const isFailedAttempt = (node: DagNode) =>
-      node.id === nodeId && node.targetId === fromTargetId;
+      node.id === failed.id &&
+      node.targetId === failed.targetId &&
+      node.previousTargetIds.length === failed.previousTargetIds.length;
     const updated = await this.updateWithCas(
       dagId,
       ["status", "nodes"],
@@ -49,7 +53,7 @@ export class DagModel extends BaseClass {
               ? {
                   ...node,
                   targetId: toTargetId,
-                  previousTargetIds: [...node.previousTargetIds, fromTargetId],
+                  previousTargetIds: [...node.previousTargetIds, node.targetId],
                 }
               : node,
           ),

@@ -71,11 +71,9 @@ describe("DagModel", () => {
   });
 
   it("swaps a node's target and records the failed attempt", async () => {
-    await seedDag();
+    const [, country] = (await seedDag()).nodes;
 
-    expect(
-      await model.replaceNodeTarget("dag_1", "dim_country", "snp_a", "snp_b"),
-    ).toBe(true);
+    expect(await model.replaceNodeTarget("dag_1", country, "snp_b")).toBe(true);
 
     expect(await getNode("dim_country")).toMatchObject({
       targetId: "snp_b",
@@ -88,11 +86,11 @@ describe("DagModel", () => {
   });
 
   it("lets only one of two swaps from the same attempt win", async () => {
-    await seedDag();
+    const [, country] = (await seedDag()).nodes;
 
     const results = await Promise.all([
-      model.replaceNodeTarget("dag_1", "dim_country", "snp_a", "snp_b"),
-      model.replaceNodeTarget("dag_1", "dim_country", "snp_a", "snp_c"),
+      model.replaceNodeTarget("dag_1", country, "snp_b"),
+      model.replaceNodeTarget("dag_1", country, "snp_c"),
     ]);
 
     expect(results.filter(Boolean)).toHaveLength(1);
@@ -101,12 +99,38 @@ describe("DagModel", () => {
     ]);
   });
 
-  it("keeps both of two concurrent swaps on different nodes", async () => {
-    await seedDag();
+  it("records a retry that reuses the same target once per attempt", async () => {
+    const [, country] = (await seedDag()).nodes;
 
     const results = await Promise.all([
-      model.replaceNodeTarget("dag_1", "main", "snp_main", "snp_main_2"),
-      model.replaceNodeTarget("dag_1", "dim_country", "snp_a", "snp_b"),
+      model.replaceNodeTarget("dag_1", country, "snp_a"),
+      model.replaceNodeTarget("dag_1", country, "snp_a"),
+    ]);
+
+    expect(results.filter(Boolean)).toHaveLength(1);
+    const secondAttempt = await getNode("dim_country");
+    expect(secondAttempt).toMatchObject({
+      targetId: "snp_a",
+      previousTargetIds: ["snp_a"],
+    });
+
+    // The same target failing again is a new attempt
+    expect(
+      secondAttempt &&
+        (await model.replaceNodeTarget("dag_1", secondAttempt, "snp_a")),
+    ).toBe(true);
+    expect((await getNode("dim_country"))?.previousTargetIds).toEqual([
+      "snp_a",
+      "snp_a",
+    ]);
+  });
+
+  it("keeps both of two concurrent swaps on different nodes", async () => {
+    const [main, country] = (await seedDag()).nodes;
+
+    const results = await Promise.all([
+      model.replaceNodeTarget("dag_1", main, "snp_main_2"),
+      model.replaceNodeTarget("dag_1", country, "snp_b"),
     ]);
 
     expect(results).toEqual([true, true]);
@@ -121,18 +145,18 @@ describe("DagModel", () => {
   });
 
   it("refuses a swap on a done DAG or another organization's DAG", async () => {
-    await seedDag({ status: "done" });
-    expect(
-      await model.replaceNodeTarget("dag_1", "dim_country", "snp_a", "snp_b"),
-    ).toBe(false);
+    const [, country] = (await seedDag({ status: "done" })).nodes;
+    expect(await model.replaceNodeTarget("dag_1", country, "snp_b")).toBe(
+      false,
+    );
 
     await collection().updateOne(
       { id: "dag_1" },
       { $set: { status: "active", organization: "org_2" } },
     );
-    expect(
-      await model.replaceNodeTarget("dag_1", "dim_country", "snp_a", "snp_b"),
-    ).toBe(false);
+    expect(await model.replaceNodeTarget("dag_1", country, "snp_b")).toBe(
+      false,
+    );
   });
 
   it("drops a done DAG from the active list but keeps the document", async () => {
