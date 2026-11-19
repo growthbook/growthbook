@@ -29,6 +29,8 @@ export function getDefaultValueAxisName({
   if (primaryAxisShowAs === null) return "";
   if (primaryAxisShowAs === "total") return "Total";
   if (primaryAxisShowAs === "percent_of_population") return "% of Population";
+  if (primaryAxisShowAs === "per_population_member")
+    return "Per Population member";
   return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
 }
 
@@ -72,6 +74,8 @@ function getAnnotatedName(
   const name = getValueName(value, index);
   if (showAs === "total") return `${name} (total)`;
   if (showAs === "percent_of_population") return `${name} (% of Population)`;
+  if (showAs === "per_population_member")
+    return `${name} (per Population member)`;
   const unit =
     ("unit" in value && typeof value.unit === "string" ? value.unit : null) ||
     sharedUnit ||
@@ -87,8 +91,8 @@ function getAnnotatedName(
  *
  * `populationCount` is the result row's population member count, undefined
  * when the request has no population. Required so no caller can forget it.
- * "% of Population" is null (no data) when the row has no members, since a
- * share of nobody isn't 0%.
+ * Modes that divide by it are null (no data) when the row has no members,
+ * since a share of nobody isn't 0%.
  */
 export function getEffectiveMetricValue(
   v: { numerator: number | null; denominator: number | null },
@@ -107,7 +111,20 @@ export function getEffectiveMetricValue(
     const shareOfPopulation = num / populationCount;
     return shareOfPopulation * 100;
   }
+  if (opts?.showAs === "per_population_member") {
+    if (!populationCount) return null;
+    return num / populationCount;
+  }
   return num;
+}
+
+/** Whether a mode divides by the row's Population member count. */
+export function dividesByPopulationCount(
+  showAs: ShowAs | null | undefined,
+): boolean {
+  return (
+    showAs === "percent_of_population" || showAs === "per_population_member"
+  );
 }
 
 /** Whether a dataset value is a ratio metric. Only metric values can be. */
@@ -228,7 +245,7 @@ export function getExplorationRenderOpts(
   const annotateNames =
     modesAreMixed ||
     (sharedShowAs === "per_unit" && !axisTitleNamesTheUnit) ||
-    (sharedShowAs === "percent_of_population" && hasCustomAxisTitle);
+    (dividesByPopulationCount(sharedShowAs) && hasCustomAxisTitle);
 
   return {
     values: values.map((v, i) => ({
@@ -362,7 +379,7 @@ export function buildExplorationColumns(
     // A plain header means total, unless other modes' columns sit beside it.
     const annotate =
       showAs === "per_unit" ||
-      showAs === "percent_of_population" ||
+      dividesByPopulationCount(showAs) ||
       modesAreMixed;
     const singleLabel = annotate
       ? getAnnotatedName(v, metricIndex, showAs, sharedUnit)
@@ -421,12 +438,13 @@ export function getExplorationCellValue(
       return v.numerator / v.denominator;
     return null;
   }
-  // With population members that day, no converting units is a real 0%
+  // With population members that day, no events from them is a real 0
   // (getEffectiveMetricValue handles no members). Other modes can't tell 0
   // from no data.
-  const isShareOfMembers =
-    renderOpts.values[col.metricIndex]?.showAs === "percent_of_population";
-  if (v.numerator == null && !isShareOfMembers) return null;
+  const isOverMembers = dividesByPopulationCount(
+    renderOpts.values[col.metricIndex]?.showAs,
+  );
+  if (v.numerator == null && !isOverMembers) return null;
   return getEffectiveMetricValue(
     v,
     renderOpts.values[col.metricIndex],

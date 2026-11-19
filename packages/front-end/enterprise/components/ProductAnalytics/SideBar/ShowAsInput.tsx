@@ -17,6 +17,7 @@ const getLabels = (unit: string | null): Record<LabelKey, string> => ({
   event_totals: "Event totals",
   per_unit: unit ? `Per ${unit}` : "Per unit",
   percent_of_population: "% of Population",
+  per_population_member: "Per Population member",
 });
 
 export default function ShowAsInput({

@@ -670,7 +670,6 @@ describe("proportions with a population", () => {
       "percent_of_population",
     ]);
     expect(getShowAsOptions("proportion", false)).toEqual([]);
-    expect(getShowAsOptions("mean", true)).toEqual(MEAN_OPTIONS);
   });
 
   it("defaults to % of Population, keeping an explicit choice", () => {
@@ -879,5 +878,108 @@ describe("proportions with a population", () => {
       getFactMetricById,
     );
     expect(getDefaultValueAxisName(renderOpts)).toBe("% of Population");
+  });
+});
+
+describe("means with a population", () => {
+  const population = { populationId: "pop_1", unit: "user_id" };
+  function populationConfig(values: MetricValue[]): ExplorationConfig {
+    const config = metricConfig(values);
+    if (config.dataset.type === "metric")
+      config.dataset.population = population;
+    return config;
+  }
+  const options = ["total", "per_unit", "per_population_member"];
+
+  it("offers per Population member only with a population", () => {
+    expect(getShowAsOptions("mean", true)).toEqual(options);
+    expect(getShowAsOptions("mean", false)).toEqual(MEAN_OPTIONS);
+  });
+
+  it("defaults every aggregation to per Population member, keeping an explicit choice", () => {
+    for (const metricId of ["revenue", "maxOrder"]) {
+      expect(
+        getShowAsChoice(
+          metricValue(metricId),
+          undefined,
+          getFactMetricById,
+          true,
+        ),
+      ).toEqual({ options, showAs: "per_population_member" });
+    }
+    expect(
+      getShowAsChoice(
+        metricValue("revenue", "per_unit"),
+        undefined,
+        getFactMetricById,
+        true,
+      ),
+    ).toEqual({ options, showAs: "per_unit" });
+  });
+
+  it("divides by every member, counting members without events as 0", () => {
+    const config = populationConfig([
+      metricValue("revenue", "per_population_member"),
+    ]);
+    const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
+    const [column] = buildExplorationColumns(config, renderOpts).filter(
+      (c) => c.kind === "metric",
+    );
+    // 50 of the 200 members had events.
+    const cell = { numerator: 500, denominator: 50 };
+    expect(getEffectiveMetricValue(cell, renderOpts.values[0], 200)).toBe(2.5);
+    expect(
+      getExplorationCellValue(
+        {
+          dimensions: [],
+          values: [{ numerator: null, denominator: 0 }],
+          populationCount: 200,
+        },
+        column,
+        renderOpts,
+      ),
+    ).toBe(0);
+    for (const populationCount of [0, undefined]) {
+      expect(
+        getEffectiveMetricValue(cell, renderOpts.values[0], populationCount),
+      ).toBeNull();
+    }
+  });
+
+  it("strips per Population member once the population is removed", () => {
+    const withoutPopulation = metricConfig([
+      metricValue("revenue", "per_population_member"),
+    ]);
+    expect(
+      normalizeShowAs(withoutPopulation, getFactMetricById).dataset,
+    ).toEqual({ type: "metric", values: [metricValue("revenue")] });
+  });
+
+  it("names the axis, and shares it with other modes except % of Population", () => {
+    const allPerMember = getExplorationRenderOpts(
+      populationConfig([metricValue("revenue"), metricValue("maxOrder")]),
+      getFactMetricById,
+    );
+    expect(getDefaultValueAxisName(allPerMember)).toBe("Per Population member");
+    expect(allPerMember.values.map((v) => v.seriesName)).toEqual([
+      "revenue",
+      "maxOrder",
+    ]);
+
+    const mixed = getExplorationRenderOpts(
+      populationConfig([
+        metricValue("revenue"),
+        metricValue("revenue", "per_unit"),
+        metricValue("converted"),
+      ]),
+      getFactMetricById,
+    );
+    expect(mixed.values.map((v) => v.valueAxis)).toEqual([
+      "primary",
+      "primary",
+      "secondary",
+    ]);
+    expect(mixed.values[0].seriesName).toBe("revenue (per Population member)");
+    expect(getDefaultValueAxisName(mixed)).toBe("");
   });
 });

@@ -43659,6 +43659,7 @@ paths:
                                       - total
                                       - per_unit
                                       - percent_of_population
+                                      - per_population_member
                                   chartSettings:
                                     type: object
                                     properties:
@@ -43744,22 +43745,28 @@ paths:
                                               description: >-
                                                 How a metric renders: `total` sums the
                                                 numerator, `per_unit` divides it by the
-                                                unit count (mean metrics only), and
+                                                unit count (mean metrics only),
                                                 `percent_of_population` divides it by
                                                 the population's member count as a
                                                 percentage (proportion metrics with a
-                                                population only). Ignored for other
-                                                metric types. Omit to use the default
-                                                (`per_unit` for mean metrics with `max`
-                                                and `count distinct` aggregations,
-                                                `percent_of_population` for proportion
-                                                metrics with a population, otherwise
+                                                population only), and
+                                                `per_population_member` divides it by
+                                                the population's member count (mean
+                                                metrics with a population only). Ignored
+                                                for other metric types. Omit to use the
+                                                default (`percent_of_population` for
+                                                proportion metrics and
+                                                `per_population_member` for mean metrics
+                                                with a population, otherwise `per_unit`
+                                                for mean metrics with `max` and `count
+                                                distinct` aggregations, otherwise
                                                 `total`).
                                               type: string
                                               enum:
                                                 - total
                                                 - per_unit
                                                 - percent_of_population
+                                                - per_population_member
                                           required:
                                             - name
                                             - rowFilters
@@ -44097,6 +44104,7 @@ paths:
                                       - total
                                       - per_unit
                                       - percent_of_population
+                                      - per_population_member
                                   chartSettings:
                                     type: object
                                     properties:
@@ -44512,6 +44520,7 @@ paths:
                                       - total
                                       - per_unit
                                       - percent_of_population
+                                      - per_population_member
                                   chartSettings:
                                     type: object
                                     properties:
@@ -44944,6 +44953,7 @@ paths:
                                       - total
                                       - per_unit
                                       - percent_of_population
+                                      - per_population_member
                                   chartSettings:
                                     type: object
                                     properties:
@@ -45376,6 +45386,7 @@ paths:
                                       - total
                                       - per_unit
                                       - percent_of_population
+                                      - per_population_member
                                   chartSettings:
                                     type: object
                                     properties:
@@ -47113,6 +47124,7 @@ paths:
                                       - total
                                       - per_unit
                                       - percent_of_population
+                                      - per_population_member
                                   chartSettings:
                                     type: object
                                     properties:
@@ -47198,22 +47210,28 @@ paths:
                                               description: >-
                                                 How a metric renders: `total` sums the
                                                 numerator, `per_unit` divides it by the
-                                                unit count (mean metrics only), and
+                                                unit count (mean metrics only),
                                                 `percent_of_population` divides it by
                                                 the population's member count as a
                                                 percentage (proportion metrics with a
-                                                population only). Ignored for other
-                                                metric types. Omit to use the default
-                                                (`per_unit` for mean metrics with `max`
-                                                and `count distinct` aggregations,
-                                                `percent_of_population` for proportion
-                                                metrics with a population, otherwise
+                                                population only), and
+                                                `per_population_member` divides it by
+                                                the population's member count (mean
+                                                metrics with a population only). Ignored
+                                                for other metric types. Omit to use the
+                                                default (`percent_of_population` for
+                                                proportion metrics and
+                                                `per_population_member` for mean metrics
+                                                with a population, otherwise `per_unit`
+                                                for mean metrics with `max` and `count
+                                                distinct` aggregations, otherwise
                                                 `total`).
                                               type: string
                                               enum:
                                                 - total
                                                 - per_unit
                                                 - percent_of_population
+                                                - per_population_member
                                           required:
                                             - name
                                             - rowFilters
@@ -47543,6 +47561,7 @@ paths:
                                       - total
                                       - per_unit
                                       - percent_of_population
+                                      - per_population_member
                                   chartSettings:
                                     type: object
                                     properties:
@@ -47950,6 +47969,7 @@ paths:
                                       - total
                                       - per_unit
                                       - percent_of_population
+                                      - per_population_member
                                   chartSettings:
                                     type: object
                                     properties:
@@ -48374,6 +48394,7 @@ paths:
                                       - total
                                       - per_unit
                                       - percent_of_population
+                                      - per_population_member
                                   chartSettings:
                                     type: object
                                     properties:
@@ -48798,6 +48819,7 @@ paths:
                                       - total
                                       - per_unit
                                       - percent_of_population
+                                      - per_population_member
                                   chartSettings:
                                     type: object
                                     properties:
@@ -50762,6 +50784,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -50847,22 +50870,28 @@ paths:
                                           description: >-
                                             How a metric renders: `total` sums the
                                             numerator, `per_unit` divides it by the
-                                            unit count (mean metrics only), and
+                                            unit count (mean metrics only),
                                             `percent_of_population` divides it by
                                             the population's member count as a
                                             percentage (proportion metrics with a
-                                            population only). Ignored for other
-                                            metric types. Omit to use the default
-                                            (`per_unit` for mean metrics with `max`
-                                            and `count distinct` aggregations,
-                                            `percent_of_population` for proportion
-                                            metrics with a population, otherwise
+                                            population only), and
+                                            `per_population_member` divides it by
+                                            the population's member count (mean
+                                            metrics with a population only). Ignored
+                                            for other metric types. Omit to use the
+                                            default (`percent_of_population` for
+                                            proportion metrics and
+                                            `per_population_member` for mean metrics
+                                            with a population, otherwise `per_unit`
+                                            for mean metrics with `max` and `count
+                                            distinct` aggregations, otherwise
                                             `total`).
                                           type: string
                                           enum:
                                             - total
                                             - per_unit
                                             - percent_of_population
+                                            - per_population_member
                                       required:
                                         - name
                                         - rowFilters
@@ -51189,6 +51218,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -51594,6 +51624,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -52016,6 +52047,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -52438,6 +52470,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -54413,6 +54446,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -54498,22 +54532,28 @@ paths:
                                           description: >-
                                             How a metric renders: `total` sums the
                                             numerator, `per_unit` divides it by the
-                                            unit count (mean metrics only), and
+                                            unit count (mean metrics only),
                                             `percent_of_population` divides it by
                                             the population's member count as a
                                             percentage (proportion metrics with a
-                                            population only). Ignored for other
-                                            metric types. Omit to use the default
-                                            (`per_unit` for mean metrics with `max`
-                                            and `count distinct` aggregations,
-                                            `percent_of_population` for proportion
-                                            metrics with a population, otherwise
+                                            population only), and
+                                            `per_population_member` divides it by
+                                            the population's member count (mean
+                                            metrics with a population only). Ignored
+                                            for other metric types. Omit to use the
+                                            default (`percent_of_population` for
+                                            proportion metrics and
+                                            `per_population_member` for mean metrics
+                                            with a population, otherwise `per_unit`
+                                            for mean metrics with `max` and `count
+                                            distinct` aggregations, otherwise
                                             `total`).
                                           type: string
                                           enum:
                                             - total
                                             - per_unit
                                             - percent_of_population
+                                            - per_population_member
                                       required:
                                         - name
                                         - rowFilters
@@ -54840,6 +54880,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -55245,6 +55286,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -55667,6 +55709,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -56089,6 +56132,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -60538,6 +60582,7 @@ paths:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:
@@ -60623,19 +60668,23 @@ paths:
                             description: >-
                               How a metric renders: `total` sums the numerator,
                               `per_unit` divides it by the unit count (mean
-                              metrics only), and `percent_of_population` divides
-                              it by the population's member count as a
-                              percentage (proportion metrics with a population
-                              only). Ignored for other metric types. Omit to use
-                              the default (`per_unit` for mean metrics with
-                              `max` and `count distinct` aggregations,
-                              `percent_of_population` for proportion metrics
-                              with a population, otherwise `total`).
+                              metrics only), `percent_of_population` divides it
+                              by the population's member count as a percentage
+                              (proportion metrics with a population only), and
+                              `per_population_member` divides it by the
+                              population's member count (mean metrics with a
+                              population only). Ignored for other metric types.
+                              Omit to use the default (`percent_of_population`
+                              for proportion metrics and `per_population_member`
+                              for mean metrics with a population, otherwise
+                              `per_unit` for mean metrics with `max` and `count
+                              distinct` aggregations, otherwise `total`).
                             type: string
                             enum:
                               - total
                               - per_unit
                               - percent_of_population
+                              - per_population_member
                         required:
                           - name
                           - rowFilters
@@ -61012,6 +61061,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -61097,22 +61147,28 @@ paths:
                                           description: >-
                                             How a metric renders: `total` sums the
                                             numerator, `per_unit` divides it by the
-                                            unit count (mean metrics only), and
+                                            unit count (mean metrics only),
                                             `percent_of_population` divides it by
                                             the population's member count as a
                                             percentage (proportion metrics with a
-                                            population only). Ignored for other
-                                            metric types. Omit to use the default
-                                            (`per_unit` for mean metrics with `max`
-                                            and `count distinct` aggregations,
-                                            `percent_of_population` for proportion
-                                            metrics with a population, otherwise
+                                            population only), and
+                                            `per_population_member` divides it by
+                                            the population's member count (mean
+                                            metrics with a population only). Ignored
+                                            for other metric types. Omit to use the
+                                            default (`percent_of_population` for
+                                            proportion metrics and
+                                            `per_population_member` for mean metrics
+                                            with a population, otherwise `per_unit`
+                                            for mean metrics with `max` and `count
+                                            distinct` aggregations, otherwise
                                             `total`).
                                           type: string
                                           enum:
                                             - total
                                             - per_unit
                                             - percent_of_population
+                                            - per_population_member
                                       required:
                                         - name
                                         - rowFilters
@@ -61378,6 +61434,7 @@ paths:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:
@@ -61835,6 +61892,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -62179,6 +62237,7 @@ paths:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:
@@ -62653,6 +62712,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -63014,6 +63074,7 @@ paths:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:
@@ -63491,6 +63552,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -63855,6 +63917,7 @@ paths:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:
@@ -64325,6 +64388,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -64682,6 +64746,7 @@ paths:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:
@@ -65174,6 +65239,7 @@ paths:
                                   - total
                                   - per_unit
                                   - percent_of_population
+                                  - per_population_member
                               chartSettings:
                                 type: object
                                 properties:
@@ -85928,6 +85994,7 @@ components:
                           - total
                           - per_unit
                           - percent_of_population
+                          - per_population_member
                       chartSettings:
                         type: object
                         properties:
@@ -86013,21 +86080,26 @@ components:
                                   description: >-
                                     How a metric renders: `total` sums the
                                     numerator, `per_unit` divides it by the unit
-                                    count (mean metrics only), and
+                                    count (mean metrics only),
                                     `percent_of_population` divides it by the
                                     population's member count as a percentage
-                                    (proportion metrics with a population only).
-                                    Ignored for other metric types. Omit to use
-                                    the default (`per_unit` for mean metrics
-                                    with `max` and `count distinct`
-                                    aggregations, `percent_of_population` for
-                                    proportion metrics with a population,
-                                    otherwise `total`).
+                                    (proportion metrics with a population only),
+                                    and `per_population_member` divides it by
+                                    the population's member count (mean metrics
+                                    with a population only). Ignored for other
+                                    metric types. Omit to use the default
+                                    (`percent_of_population` for proportion
+                                    metrics and `per_population_member` for mean
+                                    metrics with a population, otherwise
+                                    `per_unit` for mean metrics with `max` and
+                                    `count distinct` aggregations, otherwise
+                                    `total`).
                                   type: string
                                   enum:
                                     - total
                                     - per_unit
                                     - percent_of_population
+                                    - per_population_member
                               required:
                                 - name
                                 - rowFilters
@@ -86359,6 +86431,7 @@ components:
                           - total
                           - per_unit
                           - percent_of_population
+                          - per_population_member
                       chartSettings:
                         type: object
                         properties:
@@ -86770,6 +86843,7 @@ components:
                           - total
                           - per_unit
                           - percent_of_population
+                          - per_population_member
                       chartSettings:
                         type: object
                         properties:
@@ -87198,6 +87272,7 @@ components:
                           - total
                           - per_unit
                           - percent_of_population
+                          - per_population_member
                       chartSettings:
                         type: object
                         properties:
@@ -87629,6 +87704,7 @@ components:
                           - total
                           - per_unit
                           - percent_of_population
+                          - per_population_member
                       chartSettings:
                         type: object
                         properties:
@@ -89600,6 +89676,7 @@ components:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:
@@ -89685,19 +89762,23 @@ components:
                             description: >-
                               How a metric renders: `total` sums the numerator,
                               `per_unit` divides it by the unit count (mean
-                              metrics only), and `percent_of_population` divides
-                              it by the population's member count as a
-                              percentage (proportion metrics with a population
-                              only). Ignored for other metric types. Omit to use
-                              the default (`per_unit` for mean metrics with
-                              `max` and `count distinct` aggregations,
-                              `percent_of_population` for proportion metrics
-                              with a population, otherwise `total`).
+                              metrics only), `percent_of_population` divides it
+                              by the population's member count as a percentage
+                              (proportion metrics with a population only), and
+                              `per_population_member` divides it by the
+                              population's member count (mean metrics with a
+                              population only). Ignored for other metric types.
+                              Omit to use the default (`percent_of_population`
+                              for proportion metrics and `per_population_member`
+                              for mean metrics with a population, otherwise
+                              `per_unit` for mean metrics with `max` and `count
+                              distinct` aggregations, otherwise `total`).
                             type: string
                             enum:
                               - total
                               - per_unit
                               - percent_of_population
+                              - per_population_member
                         required:
                           - name
                           - rowFilters
@@ -89910,6 +89991,7 @@ components:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:
@@ -90203,6 +90285,7 @@ components:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:
@@ -90513,6 +90596,7 @@ components:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:
@@ -90826,6 +90910,7 @@ components:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:
@@ -91132,6 +91217,7 @@ components:
                     - total
                     - per_unit
                     - percent_of_population
+                    - per_population_member
                 chartSettings:
                   type: object
                   properties:

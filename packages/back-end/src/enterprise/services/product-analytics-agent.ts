@@ -37,6 +37,7 @@ import {
   sanitizeDimensions,
   getValidDateGranularities,
   calculateProductAnalyticsDateRange,
+  dividesByPopulationCount,
 } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
@@ -402,13 +403,13 @@ function buildResultCsv(
       return typeof raw === "number" ? String(raw) : String(raw);
     }
     // value (ratio) and single: 4dp for divided values (ratios, per unit,
-    // % of Population), integer for totals.
+    // per Population member, % of Population), integer for totals.
     if (typeof raw === "number") {
       const showAs = renderOpts.values[col.metricIndex]?.showAs;
       const isDividedValue =
         col.sub === "value" ||
         showAs === "per_unit" ||
-        showAs === "percent_of_population";
+        dividesByPopulationCount(showAs);
       return isDividedValue ? raw.toFixed(4) : String(raw);
     }
     return String(raw);
