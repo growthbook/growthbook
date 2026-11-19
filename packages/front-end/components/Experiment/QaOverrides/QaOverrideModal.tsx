@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiCaretDownBold, PiLockBold, PiPlusBold } from "react-icons/pi";
+import { PiCaretDownBold, PiPlusBold } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -15,20 +15,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import {
   QaOverrideFilterKind,
-  completeQaOverrideFilters,
+  qaOverrideFiltersFromForm,
 } from "@/services/qaOverrides";
-import {
-  SummaryGrid,
-  SummaryRow,
-} from "@/components/Experiment/TabbedPage/StartSections";
-import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import ConditionInput from "@/components/Features/ConditionInput";
-import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import { Select, SelectItem } from "@/ui/Select";
 import RadioGroup from "@/ui/RadioGroup";
-import MultiSelectField from "@/ui/MultiSelectField";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -41,11 +33,14 @@ import QaOverrideAudience, {
   QaOverrideAnd,
   useQaOverrideNameLookups,
 } from "./QaOverrideAudience";
+import QaOverrideExperimentCard from "./QaOverrideExperimentCard";
+import QaOverrideFilterCard from "./QaOverrideFilterCard";
 import { QaOverrideWaitingNote } from "./QaOverrideWaitingMessages";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 import useQaOverrideForm, {
   QA_OVERRIDE_FILTER_META,
 } from "./useQaOverrideForm";
+import styles from "./QaOverrides.module.scss";
 
 export type QaOverrideModalExperiment = Pick<
   ExperimentInterfaceStringDates,
@@ -60,95 +55,14 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-const CARD_STYLE = {
-  backgroundColor: "var(--gray-a2)",
-  border: "1px solid var(--gray-a3)",
-  borderRadius: "var(--radius-3)",
-} as const;
-
 function AndDivider() {
-  const line = (
-    <Box flexGrow="1" style={{ height: 1, background: "var(--gray-a4)" }} />
-  );
+  const line = <Box className={styles.andLine} />;
   return (
     <Flex align="center" gap="2" aria-hidden>
       {line}
       <QaOverrideAnd />
       {line}
     </Flex>
-  );
-}
-
-const percent = (n: number) => `${+(n * 100).toFixed(1)}%`;
-
-function ExperimentTargetingCard({
-  experiment,
-}: {
-  experiment: QaOverrideModalExperiment;
-}) {
-  const phase = experiment.phases[experiment.phases.length - 1];
-  const variations = getLatestPhaseVariations(experiment);
-  const hasTargeting =
-    (!!phase?.condition && phase.condition !== "{}") ||
-    !!phase?.savedGroups?.length ||
-    !!phase?.prerequisites?.length;
-  return (
-    <Box
-      role="group"
-      aria-label="From the experiment (read-only)"
-      style={{ ...CARD_STYLE, padding: "10px 12px 12px" }}
-    >
-      <Flex align="center" gap="2" mb="2">
-        <Text weight="semibold">From the experiment</Text>
-        <PiLockBold size={12} color="var(--color-text-mid)" />
-      </Flex>
-      <SummaryGrid>
-        <SummaryRow label="Targeting">
-          {hasTargeting ? (
-            <ConditionDisplay
-              condition={phase?.condition}
-              savedGroups={phase?.savedGroups}
-              prerequisites={phase?.prerequisites}
-            />
-          ) : (
-            "Everyone"
-          )}
-        </SummaryRow>
-        <SummaryRow label="Traffic">{percent(phase?.coverage ?? 1)}</SummaryRow>
-        <SummaryRow label="Split">
-          <Flex display="inline-flex" wrap="wrap" gapX="4" gapY="1">
-            {variations.map((v, i) => (
-              <Flex key={v.id} align="center" gap="1" flexShrink="0">
-                <VariationLabel number={i} name={v.name} size="sm" />
-                <Text size="sm" color="text-mid">
-                  {percent(phase?.variationWeights?.[i] ?? 0)}
-                </Text>
-              </Flex>
-            ))}
-          </Flex>
-        </SummaryRow>
-      </SummaryGrid>
-    </Box>
-  );
-}
-
-function RemoveFilterButton({
-  kind,
-  onClick,
-}: {
-  kind: QaOverrideFilterKind;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      variant="ghost"
-      color="gray"
-      size="sm"
-      aria-label={`Remove ${QA_OVERRIDE_FILTER_META[kind].label} filter`}
-      onClick={onClick}
-    >
-      Remove
-    </Button>
   );
 }
 
@@ -260,67 +174,6 @@ export default function QaOverrideModal({
       })}
     </DropdownMenu>
   );
-
-  const filterCard = (kind: QaOverrideFilterKind) => {
-    const remove = (
-      <RemoveFilterButton kind={kind} onClick={() => removeFilter(kind)} />
-    );
-    const header = (
-      <Flex align="center" justify="between" mb="1">
-        <Text weight="semibold">{QA_OVERRIDE_FILTER_META[kind].label}</Text>
-        {remove}
-      </Flex>
-    );
-    return (
-      <Box key={kind} style={{ ...CARD_STYLE, padding: "10px 12px 14px" }}>
-        {kind === "condition" && (
-          <ConditionInput
-            label={QA_OVERRIDE_FILTER_META.condition.label}
-            labelActions={remove}
-            defaultValue={values.condition}
-            onChange={(v) => form.setValue("condition", v)}
-            project={experiment.project || ""}
-            emptyText=""
-          />
-        )}
-        {kind === "savedGroups" && (
-          <SavedGroupTargetingField
-            label={QA_OVERRIDE_FILTER_META.savedGroups.label}
-            labelActions={remove}
-            value={values.savedGroups}
-            setValue={(v) => form.setValue("savedGroups", v)}
-            project={experiment.project || ""}
-          />
-        )}
-        {kind === "sdkConnections" && (
-          <>
-            {header}
-            <MultiSelectField
-              aria-label={QA_OVERRIDE_FILTER_META.sdkConnections.label}
-              value={values.sdkConnections}
-              onChange={(v) => form.setValue("sdkConnections", v)}
-              options={connectionOptions}
-              placeholder="Select SDK connections…"
-              autoFocus={justAdded === kind}
-            />
-          </>
-        )}
-        {kind === "projects" && (
-          <>
-            {header}
-            <MultiSelectField
-              aria-label={QA_OVERRIDE_FILTER_META.projects.label}
-              value={values.projects}
-              onChange={(v) => form.setValue("projects", v)}
-              options={projectOptions}
-              placeholder="Select projects…"
-              autoFocus={justAdded === kind}
-            />
-          </>
-        )}
-      </Box>
-    );
-  };
 
   const testing = values.assignmentType === "random";
 
@@ -454,7 +307,7 @@ export default function QaOverrideModal({
           </Flex>
           <QaOverrideAudience
             variant="sentence"
-            filters={completeQaOverrideFilters(values)}
+            filters={qaOverrideFiltersFromForm(values)}
             order={values.filters}
             environment={values.environment}
             usesExperimentTargeting={testing}
@@ -462,11 +315,19 @@ export default function QaOverrideModal({
           />
           {(testing || values.filters.length > 0) && (
             <Flex direction="column" gap="2" mt="1">
-              {testing && <ExperimentTargetingCard experiment={experiment} />}
+              {testing && <QaOverrideExperimentCard experiment={experiment} />}
               {values.filters.map((kind, i) => (
                 <Fragment key={kind}>
                   {(testing || i > 0) && <AndDivider />}
-                  {filterCard(kind)}
+                  <QaOverrideFilterCard
+                    kind={kind}
+                    form={form}
+                    project={experiment.project || ""}
+                    connectionOptions={connectionOptions}
+                    projectOptions={projectOptions}
+                    autoFocus={justAdded === kind}
+                    onRemove={() => removeFilter(kind)}
+                  />
                 </Fragment>
               ))}
             </Flex>

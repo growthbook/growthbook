@@ -1,9 +1,7 @@
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import {
   getQaOverrideWaitingFeatures,
-  getQaOverrideWaitingMessages,
   qaOverrideAppliesToConnection,
-  qaOverrideFiltersAreEmpty,
   qaOverrideHasCondition,
   sortQaOverrides,
 } from "../src/util/qa-overrides";
@@ -70,12 +68,10 @@ describe("getQaOverrideWaitingFeatures", () => {
 });
 
 describe("filter helpers", () => {
-  it("treats {} and an empty condition as no filters", () => {
-    expect(qaOverrideFiltersAreEmpty({})).toBe(true);
-    expect(qaOverrideFiltersAreEmpty({ condition: "{}" })).toBe(true);
+  it("treats {} and an empty condition as no condition", () => {
+    expect(qaOverrideHasCondition({})).toBe(false);
     expect(qaOverrideHasCondition({ condition: "{}" })).toBe(false);
-    expect(qaOverrideFiltersAreEmpty({ condition: '{"id":"x"}' })).toBe(false);
-    expect(qaOverrideFiltersAreEmpty({ projects: ["p"] })).toBe(false);
+    expect(qaOverrideHasCondition({ condition: '{"id":"x"}' })).toBe(true);
   });
 
   it("matches a connection by environment, connection filter and project filter", () => {
@@ -97,7 +93,6 @@ describe("filter helpers", () => {
         dev,
       ),
     ).toBe(false);
-    // A connection serving every project matches any project filter.
     expect(
       qaOverrideAppliesToConnection(
         { ...base, filters: { projects: ["p2"] } },
@@ -113,75 +108,6 @@ describe("filter helpers", () => {
     const input = [a, b, c];
     expect(sortQaOverrides(input).map((o) => o.id)).toEqual(["b", "c", "a"]);
     expect(input.map((o) => o.id)).toEqual(["a", "b", "c"]);
-  });
-});
-
-describe("getQaOverrideWaitingMessages", () => {
-  it("gives the problem, the detail and the fix for a flag that is off", () => {
-    expect(
-      getQaOverrideWaitingMessages(
-        [{ featureId: "checkout", reason: "disabled-env" }],
-        "staging",
-      ),
-    ).toEqual([
-      {
-        featureId: "checkout",
-        reason: "disabled-env",
-        title: "`checkout` is off in staging",
-        description:
-          "The override starts applying as soon as the flag is on in staging.",
-        action: "Turn on flag",
-        note: "`checkout` is off in staging, so this override won't apply until the flag is on.",
-      },
-    ]);
-  });
-
-  it("returns one message per flag, in order", () => {
-    const messages = getQaOverrideWaitingMessages(
-      [
-        { featureId: "a", reason: "disabled-env" },
-        { featureId: "b", reason: "draft", draftVersion: 7 },
-      ],
-      "dev",
-    );
-    expect(messages.map((m) => [m.featureId, m.action])).toEqual([
-      ["a", "Turn on flag"],
-      ["b", "Review and publish draft"],
-    ]);
-    expect(messages[1].draftVersion).toBe(7);
-  });
-
-  it("treats a discarded draft like a missing rule", () => {
-    const [discarded] = getQaOverrideWaitingMessages(
-      [{ featureId: "f", reason: "discarded" }],
-      "dev",
-    );
-    const [missing] = getQaOverrideWaitingMessages(
-      [{ featureId: "f", reason: "missing" }],
-      "dev",
-    );
-    expect(discarded.title).toBe(missing.title);
-    expect(discarded.action).toBe("Add experiment rule");
-  });
-
-  it("has a message for every reason", () => {
-    const reasons = [
-      "draft",
-      "discarded",
-      "archived",
-      "missing",
-      "disabled-env",
-      "disabled-rule",
-    ] as const;
-    for (const reason of reasons) {
-      const [m] = getQaOverrideWaitingMessages(
-        [{ featureId: "f", reason }],
-        "dev",
-      );
-      expect(m.title.length).toBeGreaterThan(0);
-      expect(m.note).toContain("`f`");
-      expect(m.action.length).toBeGreaterThan(0);
-    }
   });
 });
 

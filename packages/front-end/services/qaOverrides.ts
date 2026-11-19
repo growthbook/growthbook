@@ -5,6 +5,7 @@ import {
 } from "shared/types/experiment-qa-override";
 import { SavedGroupTargeting } from "shared/validators";
 import { qaOverrideHasCondition, sortQaOverrides } from "shared/util";
+import groupBy from "lodash/groupBy";
 import { jsonToConds } from "@/services/features";
 
 export type QaOverrideGroup<T> = {
@@ -18,10 +19,9 @@ export function groupQaOverrides<
     "environment" | "order" | "dateCreated"
   >,
 >(overrides: T[], environmentOrder: string[]): QaOverrideGroup<T>[] {
-  const byEnv = new Map<string, T[]>();
-  for (const o of sortQaOverrides(overrides)) {
-    byEnv.set(o.environment, [...(byEnv.get(o.environment) ?? []), o]);
-  }
+  const byEnv = new Map(
+    Object.entries(groupBy(sortQaOverrides(overrides), "environment")),
+  );
   const known = environmentOrder.filter((e) => byEnv.has(e));
   const unknown = [...byEnv.keys()]
     .filter((e) => !environmentOrder.includes(e))
@@ -71,11 +71,13 @@ function listValues(names: string[]): string {
   return `${shown} +${names.length - QA_OVERRIDE_SUMMARY_MAX_VALUES} more`;
 }
 
-const NO_VALUE_OPERATORS = new Set([
+const VALUELESS_OPERATORS = new Set([
   "$exists",
   "$notExists",
   "$empty",
   "$notEmpty",
+  "$true",
+  "$false",
 ]);
 const SAVED_GROUP_OPERATORS = new Set(["$inGroup", "$notInGroup"]);
 
@@ -100,7 +102,7 @@ function conditionText(
       }
       const op = lookups.operatorText(c.operator);
       parts.push(
-        NO_VALUE_OPERATORS.has(c.operator)
+        VALUELESS_OPERATORS.has(c.operator)
           ? `${c.field} ${op}`
           : [c.field, op, c.value].filter((p) => p !== "").join(" "),
       );
@@ -177,25 +179,61 @@ export function summarizeQaOverrideAudience(
   return segments;
 }
 
-export function qaOverrideAudienceSentence({
+export type QaOverrideAudiencePart = {
+  type: "text" | "value" | "and";
+  text: string;
+  suffix?: string;
+  custom?: boolean;
+};
+
+export function qaOverrideAudienceParts({
   segments,
   environment,
-  usesExperimentTargeting,
+  usesExperimentTargeting = false,
+  variant,
 }: {
   segments: QaOverrideAudienceSegment[];
   environment?: string;
   usesExperimentTargeting?: boolean;
-}): string {
-  const values = segments.map((s) => s.text);
+  variant: "sentence" | "inline";
+}): QaOverrideAudiencePart[] {
+  const sentence = variant === "sentence";
+  const parts: QaOverrideAudiencePart[] = [];
+
   if (usesExperimentTargeting) {
-    return `${["Anyone matching the experiment's targeting", ...values].join(" AND ")}.`;
+    parts.push({
+      type: "text",
+      text: sentence
+        ? "Anyone matching the experiment\u2019s targeting"
+        : "Experiment targeting",
+    });
+  } else if (!segments.length) {
+    parts.push({ type: "text", text: "Everyone in" });
+    parts.push(
+      environment
+        ? { type: "value", text: environment }
+        : { type: "text", text: "the selected environment" },
+    );
+  } else if (sentence) {
+    parts.push({ type: "text", text: "Anyone matching" });
   }
-  if (!values.length) {
-    return environment
-      ? `Everyone in ${environment}.`
-      : "Everyone in the selected environment.";
-  }
-  return `Anyone matching ${values.join(" AND ")}.`;
+
+  segments.forEach((segment, i) => {
+    if (i > 0 || usesExperimentTargeting)
+      parts.push({ type: "and", text: "AND" });
+    parts.push(
+      segment.custom
+        ? {
+            type: "text",
+            text: sentence ? segment.text : "Custom condition",
+            custom: true,
+          }
+        : { type: "value", text: segment.text },
+    );
+  });
+
+  if (sentence) parts[parts.length - 1].suffix = ".";
+  return parts;
 }
 
 export type QaOverrideFormValues = {
@@ -243,15 +281,6 @@ export function qaOverrideFormDefaults(
   };
 }
 
-const VALUELESS_OPERATORS = new Set([
-  "$exists",
-  "$notExists",
-  "$empty",
-  "$notEmpty",
-  "$true",
-  "$false",
-]);
-
 export function qaOverrideFilterIsComplete(
   values: QaOverrideFormValues,
   kind: QaOverrideFilterKind,
@@ -293,7 +322,7 @@ export function qaOverrideFilterIsComplete(
   }
 }
 
-export function completeQaOverrideFilters(
+export function qaOverrideFiltersFromForm(
   values: QaOverrideFormValues,
 ): QaOverrideFilters {
   const done = (kind: QaOverrideFilterKind) =>
@@ -328,26 +357,11 @@ export type QaOverrideBody = {
 export function buildQaOverrideBody(
   values: QaOverrideFormValues,
 ): QaOverrideBody {
-  const has = (kind: QaOverrideFilterKind) => values.filters.includes(kind);
-  const filters: QaOverrideFilters = {
-    ...(has("condition") && values.condition !== "{}"
-      ? { condition: values.condition }
-      : {}),
-    ...(has("savedGroups") && values.savedGroups.length
-      ? { savedGroups: values.savedGroups }
-      : {}),
-    ...(has("sdkConnections") && values.sdkConnections.length
-      ? { sdkConnections: values.sdkConnections }
-      : {}),
-    ...(has("projects") && values.projects.length
-      ? { projects: values.projects }
-      : {}),
-  };
   const assignment: ExperimentQaOverrideAssignment =
     values.assignmentType === "forced"
       ? { type: "forced", variationId: values.forcedVariationId }
       : { type: "random" };
-  return { filters, assignment };
+  return { filters: qaOverrideFiltersFromForm(values), assignment };
 }
 
 function normalizeBody(body: QaOverrideBody) {

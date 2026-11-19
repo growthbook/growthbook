@@ -36,11 +36,6 @@ router.put(
   }),
   controller.putExperimentQaOverridesOrder,
 );
-router.delete(
-  "/experiment/:id",
-  validateRequestMiddleware({ params: idParams }),
-  controller.deleteExperimentQaOverrides,
-);
 
 router.put(
   "/:id",

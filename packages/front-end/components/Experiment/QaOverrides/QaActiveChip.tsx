@@ -1,9 +1,11 @@
+import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import useExperimentQaOverrides from "@/hooks/useExperimentQaOverrides";
 import { groupQaOverrides } from "@/services/qaOverrides";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 import useQaOverridePermissions from "./useQaOverridePermissions";
+import styles from "./QaOverrides.module.scss";
 import { qaOverridesCountLabel } from "./QaOverridesStartNote";
 
 export const QA_OVERRIDES_SECTION_ID = "qa-overrides";
@@ -37,18 +39,7 @@ export default function QaActiveChip({
         type="button"
         onClick={onClick}
         aria-label="QA active. Go to QA Overrides"
-        // Resets only what it must: `all: unset` would also remove the
-        // keyboard focus ring.
-        style={{
-          display: "inline-flex",
-          padding: 0,
-          border: 0,
-          background: "none",
-          font: "inherit",
-          color: "inherit",
-          cursor: "pointer",
-          borderRadius: 9999,
-        }}
+        className={clsx(styles.plainButton, styles.pill)}
       >
         <Badge label="QA active" color="gray" variant="soft" radius="full" />
       </button>

@@ -4,6 +4,7 @@ import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-overr
 import Badge from "@/ui/Badge";
 import { Popover } from "@/ui/Popover";
 import { QaOverrideWaitingPopoverContent } from "./QaOverrideWaitingMessages";
+import styles from "./QaOverrides.module.scss";
 
 export default function QaOverrideStatusBadge({
   override,
@@ -23,21 +24,14 @@ export default function QaOverrideStatusBadge({
       align="start"
       contentStyle={{ padding: 0 }}
       trigger={
-        <span tabIndex={0} style={{ display: "inline-flex", cursor: "help" }}>
+        <span tabIndex={0} className={styles.help}>
           <Badge
             color="amber"
             variant="soft"
             label={
               <Flex align="center" gap="1" style={{ whiteSpace: "nowrap" }}>
                 <PiWarningBold size={12} style={{ flexShrink: 0 }} />
-                <span
-                  style={{
-                    textDecoration: "underline dotted var(--amber-11)",
-                    textUnderlineOffset: 3,
-                  }}
-                >
-                  Not applied
-                </span>
+                <span className={styles.dotted}>Not applied</span>
               </Flex>
             }
           />

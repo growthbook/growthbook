@@ -71,8 +71,7 @@ export default function useQaOverrideForm({
   };
   const setEnvironment = (environment: string) => {
     form.setValue("environment", environment);
-    // Connections belong to one environment, so a different environment makes
-    // any connection filter meaningless.
+    // SDK Connections belong to one environment.
     form.setValue("sdkConnections", []);
   };
 

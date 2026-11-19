@@ -562,8 +562,6 @@ export async function editSDKConnection(
   // A key also being set (the legacy saved group flag) can't be unset too.
   const unset = (options?.unset ?? []).filter((key) => !(key in fullChanges));
 
-  // QA override filters name connections by id; one that leaves the
-  // environment can no longer be served the override.
   if (
     otherChanges.environment !== undefined &&
     otherChanges.environment !== connection.environment

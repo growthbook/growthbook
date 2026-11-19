@@ -33,7 +33,6 @@ const phase = {
   seed: "phase-seed",
 } as unknown as ExperimentPhase;
 
-// Inline strategy: saved groups become `$inGroup` references, nothing is rewritten.
 const savedGroupStrategy = {
   format: "referencesV1",
   groupMap: new Map([
@@ -413,8 +412,6 @@ describe("getFeatureDefinition with QA overrides", () => {
     });
     expect(forcedOnly?.rules?.[0]?.parentConditions).toBeUndefined();
 
-    // A random override needs the prerequisites, so the live behaviour (the
-    // whole feature is excluded) stands.
     expect(buildGated([forcedOverride, randomOverride])).toBeNull();
   });
 
@@ -537,7 +534,6 @@ describe("qaOverridesForConnection", () => {
       { ...forcedOverride, filters: { sdkConnections: ["sdk_other"] } },
       { ...randomOverride, filters: { projects: ["p2"] } },
     ];
-    // Unscoped connection: only the connection filter excludes.
     expect(
       qaOverridesForConnection({
         overrides: scoped,
@@ -547,7 +543,6 @@ describe("qaOverridesForConnection", () => {
         ?.get("exp_1")
         ?.map((o) => o.id),
     ).toEqual(["eqo_2"]);
-    // Scoped to p1 in this environment: the project filter excludes too.
     expect(
       qaOverridesForConnection({
         overrides: scoped,
@@ -555,7 +550,6 @@ describe("qaOverridesForConnection", () => {
         environments,
       }),
     ).toBeUndefined();
-    // Scrubbed to no projects: serves nothing.
     expect(
       qaOverridesForConnection({
         overrides,
@@ -632,6 +626,42 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
     expect(visualDraft.status).toBe("draft");
   });
 
+  it("forcing a variation drops the experiment's namespace", () => {
+    const namespaced = {
+      ...visualDraft,
+      phases: [
+        {
+          ...visualDraft.phases[0],
+          namespace: { enabled: true, name: "ns", range: [0, 0.5] },
+        },
+      ],
+    } as unknown as ExperimentInterface;
+    const buildNamespaced = (override: ExperimentQaOverrideInterface) =>
+      generateAutoExperimentsPayload({
+        visualExperiments: [
+          {
+            type: "visual",
+            experiment: namespaced,
+            visualChangeset: changeset,
+          } as unknown as Parameters<
+            typeof generateAutoExperimentsPayload
+          >[0]["visualExperiments"][number],
+        ],
+        urlRedirectExperiments: [],
+        cbVisualExperiments: [],
+        groupMap: new Map(),
+        features: [],
+        environment: "dev",
+        capabilities: ["looseUnmarshalling"],
+        qaOverrides: new Map([["exp_1", [override]]]),
+      })[0];
+
+    const forced = buildNamespaced(forcedOverride);
+    expect(forced.namespace).toBeUndefined();
+    expect(forced.filters).toBeUndefined();
+    expect(buildNamespaced(randomOverride).namespace).toEqual(["ns", 0, 0.5]);
+  });
+
   it("emits one copy per override, each excluding the requests earlier ones cover", () => {
     const first = {
       ...forcedOverride,
@@ -657,10 +687,6 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
   });
 
   it("does not let a partial-coverage random copy block the overrides after it", () => {
-    // Random at 50% coverage, unfiltered: a feature rule would fall through to
-    // the next override for users outside the coverage, so the forced copy
-    // must still be emitted (and without an exclusion, since the random copy
-    // can't be excluded by condition).
     const payload = build(
       new Map([["exp_1", [randomOverride, forcedOverride]]]),
     );

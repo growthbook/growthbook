@@ -274,9 +274,6 @@ function warnSavedGroupProblemOnce(problem: string) {
  *
  * The strategy decides how the group itself is written, not this function.
  */
-// The override's own filters (attribute condition + saved groups), in the
-// connection's saved-group format. Connection and project filters are resolved
-// before the payload is built, so they never appear here.
 export function qaOverrideFiltersCondition({
   override,
   savedGroupStrategy,
@@ -291,8 +288,6 @@ export function qaOverrideFiltersCondition({
   });
 }
 
-// Random assignment keeps the experiment's own targeting and narrows it with
-// the filters; forcing a variation ignores the experiment's targeting.
 export function qaOverrideCondition({
   override,
   experimentCondition,
@@ -335,9 +330,8 @@ export function applyQaOverrideToRule(
   const forced = override.assignment.type === "forced";
 
   rule.key = getQaTrackingKey(experiment.trackingKey);
-  // Hash on the same seed the live experiment will use, so a user lands in
-  // the same bucket during QA as after the experiment starts. Without a seed
-  // the SDK falls back to the key, which differs here.
+  // Same seed as the live experiment, so users keep their bucket after it
+  // starts.
   rule.seed = phase.seed || experiment.trackingKey;
   rule.weights = qaOverrideWeights(override, experiment, phase);
   rule.coverage = forced ? 1 : phase.coverage;
@@ -362,10 +356,7 @@ export function applyQaOverrideToRule(
   return rule;
 }
 
-// Condition for requests that match none of the given QA rule conditions, so
-// a holdout (or a later override) applies only to requests no override covers.
-// `undefined` when there is nothing to exclude; `null` when a rule has no
-// condition and therefore matches everyone.
+// `undefined`: nothing to exclude. `null`: a rule matches everyone.
 export function qaOverridesExclusionCondition(
   qaRuleConditions: (ConditionInterface | undefined)[],
 ): ConditionInterface | null | undefined {
@@ -380,8 +371,6 @@ export function qaOverridesExclusionCondition(
   };
 }
 
-// Whether every QA override on a draft forces a variation, in which case the
-// experiment's prerequisites never reach the SDK and don't gate the feature.
 export function qaOverridesAllForced(
   overrides: ExperimentQaOverrideInterface[] | undefined,
 ): boolean {
@@ -1354,8 +1343,6 @@ export function getFeatureDefinition({
         const exp = experimentMap.get(r.experimentId);
         const phase = exp?.phases?.slice(-1)?.[0];
         if (!phase?.prerequisites?.length) return false;
-        // Forced QA overrides drop the experiment's prerequisites, so a draft
-        // served only that way doesn't gate the feature.
         return !(
           exp?.status === "draft" &&
           qaOverridesAllForced(qaOverrides?.get(exp.id))
@@ -1371,8 +1358,6 @@ export function getFeatureDefinition({
     }
   }
 
-  // Conditions of the QA rules this feature will emit, so the holdout can
-  // exclude them.
   const qaRuleConditions: (ConditionInterface | undefined)[] = qaOverrides?.size
     ? (rules ?? []).flatMap((r) => {
         if (r.type !== "experiment-ref") return [];
@@ -1394,10 +1379,8 @@ export function getFeatureDefinition({
         );
       })
     : [];
-  // Requests matching a QA override skip the holdout (the holdout's force rule
-  // sits above the experiment rule, so a tester in holdout control would never
-  // reach the override); everyone else keeps it. `null` means an override
-  // matches everyone, so the holdout rule is dropped for this connection.
+  // The holdout's force rule sits above the experiment rule, so requests
+  // matching an override must skip it.
   const holdoutExclusion = qaOverridesExclusionCondition(qaRuleConditions);
 
   // If the feature has a holdout and it's enabled for the environment, add holdout as a
@@ -1501,17 +1484,14 @@ export function getFeatureDefinition({
           // Get current experiment phase and use it to set rule properties
           const phase = exp.phases[exp.phases.length - 1];
           if (!phase) return null;
-          // Without the prerequisites capability only forced QA overrides can
-          // be served (they drop the prerequisites); random ones need them.
-          const servedQaOverrides =
-            !hasPrerequisites && phase.prerequisites?.length
-              ? expQaOverrides?.filter((o) => o.assignment.type === "forced")
-              : expQaOverrides;
-          if (
-            !hasPrerequisites &&
-            phase.prerequisites?.length &&
-            !servedQaOverrides?.length
-          )
+          // Forced overrides drop prerequisites, so they can be served without
+          // that capability.
+          const prerequisitesUnsupported =
+            !hasPrerequisites && !!phase.prerequisites?.length;
+          const servedQaOverrides = prerequisitesUnsupported
+            ? expQaOverrides?.filter((o) => o.assignment.type === "forced")
+            : expQaOverrides;
+          if (prerequisitesUnsupported && !servedQaOverrides?.length)
             return null;
 
           const condition = mergeConditionAndSavedGroups({
@@ -1639,9 +1619,7 @@ export function getFeatureDefinition({
             return rule;
           };
 
-          // One rule per QA override, in priority order: the first one whose
-          // filters match wins, the same as any other feature rule.
-          if (servedQaOverrides?.length && exp.status !== "stopped") {
+          if (servedQaOverrides?.length) {
             return servedQaOverrides.map((override) =>
               finalizeExperimentRule(
                 applyQaOverrideToRule(

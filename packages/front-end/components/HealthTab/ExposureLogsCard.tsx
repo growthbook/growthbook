@@ -81,7 +81,6 @@ export interface Props {
   /** The phase selected on the Health tab, so the log compiles the exposure
    * query for the same phase the snapshot cards show. */
   phase: number;
-  /** "qa" reads exposures served through QA overrides (`<trackingKey>::qa`). */
   exposureSource?: "live" | "qa";
   title?: string;
 }

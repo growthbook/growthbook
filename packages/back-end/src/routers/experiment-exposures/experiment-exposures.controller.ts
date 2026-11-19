@@ -72,7 +72,6 @@ export async function postExposures(
       /** Phase to compile `{{phase.index}}` for; defaults to the active one. */
       phase?: number;
       cache?: "preferred" | "required" | "never";
-      /** "qa" reads exposures served through QA overrides (`<trackingKey>::qa`). */
       exposureSource?: "live" | "qa";
     },
     { id: string }

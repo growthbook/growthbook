@@ -4,7 +4,7 @@ import useApi from "@/hooks/useApi";
 
 export type QaOverrideSdkConnection = Pick<
   SDKConnectionInterface,
-  "id" | "name" | "environment" | "projects" | "key" | "languages"
+  "id" | "name"
 >;
 
 export default function useExperimentQaOverrides(

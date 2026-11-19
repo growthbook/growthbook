@@ -20,27 +20,19 @@ import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel"
 
 type Context = ReturnType<typeof getContextFromReq>;
 
-type QaOverrideSdkConnection = Pick<
-  SDKConnectionInterface,
-  "id" | "name" | "environment" | "projects" | "key" | "languages"
->;
+type QaOverrideSdkConnection = Pick<SDKConnectionInterface, "id" | "name">;
+
+type OverridesResponse = {
+  status: 200;
+  overrides: ExperimentQaOverrideWithStatus[];
+  sdkConnections: QaOverrideSdkConnection[];
+};
 
 type OverrideResponse = {
   status: 200;
   override: ExperimentQaOverrideWithStatus;
   sdkConnections: QaOverrideSdkConnection[];
 };
-
-const toConnectionSummary = (
-  c: SDKConnectionInterface,
-): QaOverrideSdkConnection => ({
-  id: c.id,
-  name: c.name,
-  environment: c.environment,
-  projects: c.projects,
-  key: c.key,
-  languages: c.languages,
-});
 
 function withStatus(
   override: ExperimentQaOverrideInterface,
@@ -85,8 +77,7 @@ async function loadOverride(
   return { context, override, experiment };
 }
 
-// Connections named by the overrides' filters, hydrated for display. Only
-// ones the caller may read: the summary carries the client key.
+// Only connections the caller may read.
 async function filteredConnections(
   context: Context,
   overrides: ExperimentQaOverrideInterface[],
@@ -98,7 +89,7 @@ async function filteredConnections(
   const connections = await findSDKConnectionsByIds(context, ids);
   return connections
     .filter((c) => context.permissions.canReadMultiProjectResource(c.projects))
-    .map(toConnectionSummary);
+    .map(({ id, name }) => ({ id, name }));
 }
 
 async function overrideResponse(
@@ -114,8 +105,21 @@ async function overrideResponse(
   };
 }
 
-// Writes `order` 0..n-1 in list order, touching only the rows that move, and
-// refreshes each affected environment once.
+async function overridesResponse(
+  context: Context,
+  overrides: ExperimentQaOverrideInterface[],
+  experiment: ExperimentInterface,
+): Promise<OverridesResponse> {
+  const linkedFeatures = overrides.length
+    ? await getLinkedFeatureInfo(context, experiment)
+    : [];
+  return {
+    status: 200,
+    overrides: overrides.map((o) => withStatus(o, linkedFeatures)),
+    sdkConnections: await filteredConnections(context, overrides),
+  };
+}
+
 async function applyOrder(
   context: Context,
   ordered: ExperimentQaOverrideInterface[],
@@ -144,24 +148,13 @@ async function applyOrder(
 
 export const getExperimentQaOverrides = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{
-    status: 200;
-    overrides: ExperimentQaOverrideWithStatus[];
-    sdkConnections: QaOverrideSdkConnection[];
-  }>,
+  res: Response<OverridesResponse>,
 ) => {
   const { context, experiment } = await loadExperiment(req);
   const overrides = await context.models.experimentQaOverrides.findByExperiment(
     experiment.id,
   );
-  const linkedFeatures = overrides.length
-    ? await getLinkedFeatureInfo(context, experiment)
-    : [];
-  res.status(200).json({
-    status: 200,
-    overrides: overrides.map((o) => withStatus(o, linkedFeatures)),
-    sdkConnections: await filteredConnections(context, overrides),
-  });
+  res.status(200).json(await overridesResponse(context, overrides, experiment));
 };
 
 export const postExperimentQaOverride = async (
@@ -177,7 +170,6 @@ export const postExperimentQaOverride = async (
     filters: req.body.filters ?? {},
     assignment: req.body.assignment,
     experiment: experiment.id,
-    // New overrides go last; the first matching one wins in the payload.
     order: existing.reduce((max, o) => Math.max(max, o.order + 1), 0),
     createdBy: context.userId,
   });
@@ -186,7 +178,7 @@ export const postExperimentQaOverride = async (
 
 export const putExperimentQaOverridesOrder = async (
   req: AuthRequest<ReorderExperimentQaOverridesBody, { id: string }>,
-  res: Response<{ status: 200; overrides: ExperimentQaOverrideInterface[] }>,
+  res: Response<OverridesResponse>,
 ) => {
   const { context, experiment } = await loadExperiment(req);
   const { overrideIds } = req.body;
@@ -207,16 +199,7 @@ export const putExperimentQaOverridesOrder = async (
     context,
     overrideIds.map((id) => byId.get(id) as ExperimentQaOverrideInterface),
   );
-  res.status(200).json({ status: 200, overrides });
-};
-
-export const deleteExperimentQaOverrides = async (
-  req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>,
-) => {
-  const { context, experiment } = await loadExperiment(req);
-  await context.models.experimentQaOverrides.deleteByExperiment(experiment.id);
-  res.status(200).json({ status: 200 });
+  res.status(200).json(await overridesResponse(context, overrides, experiment));
 };
 
 export const putExperimentQaOverride = async (
@@ -224,21 +207,10 @@ export const putExperimentQaOverride = async (
   res: Response<OverrideResponse>,
 ) => {
   const { context, override, experiment } = await loadOverride(req);
-  const { order, ...fields } = req.body;
-  let updated = Object.keys(fields).length
-    ? await context.models.experimentQaOverrides.update(override, fields)
-    : override;
-
-  if (order !== undefined) {
-    const others = (
-      await context.models.experimentQaOverrides.findByExperiment(experiment.id)
-    ).filter((o) => o.id !== updated.id);
-    const ordered = [...others];
-    ordered.splice(Math.min(order, others.length), 0, updated);
-    updated =
-      (await applyOrder(context, ordered)).find((o) => o.id === updated.id) ??
-      updated;
-  }
+  const updated = await context.models.experimentQaOverrides.update(
+    override,
+    req.body,
+  );
   res.status(200).json(await overrideResponse(context, updated, experiment));
 };
 

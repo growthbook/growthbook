@@ -300,7 +300,6 @@ export default function EnvironmentModal({
         onChange={(value) => {
           form.setValue("toggleOnList", value);
         }}
-        mb="3"
       />
     </Modal>
   );

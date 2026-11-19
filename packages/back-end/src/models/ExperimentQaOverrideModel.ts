@@ -2,7 +2,6 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import {
   experimentSupportsQaOverrides,
   isProductionEnvironment,
-  PermissionError,
   qaOverrideHasCondition,
   sortQaOverrides,
 } from "shared/util";
@@ -31,7 +30,7 @@ const BaseClass = MakeModelClass({
     deleteEvent: "experimentQaOverride.delete",
   },
   globallyUniquePrimaryKeys: false,
-  readonlyFields: ["experiment", "createdBy"],
+  readonlyFields: ["experiment", "environment", "createdBy"],
   additionalIndexes: [
     { fields: { organization: 1, experiment: 1 } },
     { fields: { organization: 1, environment: 1 } },
@@ -60,39 +59,8 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
     return sortQaOverrides(docs);
   }
 
-  public countByExperiment(experiment: string): Promise<number> {
-    return this._countDocuments({ experiment });
-  }
-
-  // User-triggered "remove all": every delete is permission-checked, so the
-  // experiment has to be in `foreignRefs` (reads that bypass permission checks
-  // don't load it).
-  public async deleteByExperiment(
-    experiment: string,
-    writeOptions?: WriteOptions,
-  ) {
-    const docs = await this.findByExperiment(experiment);
-    await this.populateForeignRefs(docs);
-    // All or nothing: a forbidden row must not leave the others half-deleted
-    // with the payload refresh never reached.
-    if (docs.some((doc) => !this.canDelete(doc))) {
-      throw new PermissionError(
-        "You do not have access to remove every QA override on this experiment",
-      );
-    }
-    for (const doc of docs) {
-      await this._deleteOne(doc, { ...writeOptions, skipSDKRefresh: true });
-    }
-    await this.refreshEnvironments(
-      docs.map((d) => d.environment),
-      writeOptions,
-    );
-    return docs;
-  }
-
-  // Cleanup when the experiment starts, is archived or deleted: no permission
-  // check, since the actor already changed the experiment itself and it may
-  // no longer exist.
+  // No permission check: the actor already changed the experiment, which
+  // may no longer exist.
   public async deleteByExperimentForLifecycle(
     experiment: string,
     writeOptions?: WriteOptions,
@@ -129,15 +97,15 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
     return docs;
   }
 
-  // Called when a connection is deleted or moves to another environment. An
-  // override that only named this connection is deleted rather than widened
-  // to the whole environment.
+  // An override that only named this connection is deleted, not widened to
+  // the whole environment.
   public async removeSdkConnectionFromFilters(
     connectionId: string,
     writeOptions?: WriteOptions,
   ) {
-    const docs = (await this.getAllForPayload()).filter((o) =>
-      o.filters.sdkConnections?.includes(connectionId),
+    const docs = await this._find(
+      { "filters.sdkConnections": connectionId },
+      { bypassReadPermissionChecks: true },
     );
     const touched: ExperimentQaOverrideInterface[] = [];
     for (const doc of docs) {
@@ -187,13 +155,8 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
   protected canCreate(doc: ExperimentQaOverrideInterface): boolean {
     return this.canWrite(doc);
   }
-  protected canUpdate(
-    existing: ExperimentQaOverrideInterface,
-    updates: unknown,
-    newDoc: ExperimentQaOverrideInterface,
-  ): boolean {
-    // Moving an override needs access to both environments.
-    return this.canWrite(existing) && this.canWrite(newDoc);
+  protected canUpdate(existing: ExperimentQaOverrideInterface): boolean {
+    return this.canWrite(existing);
   }
   protected canDelete(doc: ExperimentQaOverrideInterface): boolean {
     return this.canWrite(doc);
@@ -293,8 +256,6 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
     }
   }
 
-  // Every connection in the environment may be affected: with no connection
-  // filter the override reaches all of them.
   public async refreshEnvironments(
     environments: string[],
     writeOptions?: WriteOptions,
@@ -322,18 +283,6 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
     writeOptions?: WriteOptions,
   ) {
     await this.refreshEnvironments([doc.environment], writeOptions);
-  }
-
-  protected async afterUpdate(
-    existing: ExperimentQaOverrideInterface,
-    updates: unknown,
-    newDoc: ExperimentQaOverrideInterface,
-    writeOptions?: WriteOptions,
-  ) {
-    // The environment it left must stop serving it too.
-    if (existing.environment !== newDoc.environment) {
-      await this.refreshEnvironments([existing.environment], writeOptions);
-    }
   }
 
   protected async afterDelete(

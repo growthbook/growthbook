@@ -36,8 +36,6 @@ import {
   cleanupDeletedEnvironment,
 } from "back-end/src/services/environments";
 
-// QA overrides only serve non-production environments, so flipping one to
-// production clears them (the model refreshes the environment's payloads).
 async function clearQaOverridesIfNowProduction(
   context: ReturnType<typeof getContextFromReq>,
   previous: Environment,

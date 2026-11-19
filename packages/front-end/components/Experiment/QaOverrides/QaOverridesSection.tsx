@@ -26,7 +26,6 @@ import { useQaOverrideNameLookups } from "./QaOverrideAudience";
 import { QA_OVERRIDES_SECTION_ID } from "./QaActiveChip";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 
-// Takes the variations table's width instead of widening the column.
 const MATCH_TABLE_WIDTH = { contain: "inline-size" } as const;
 const SCROLL_TARGET = { scrollMarginTop: "100px" } as const;
 
@@ -102,18 +101,25 @@ export default function QaOverridesSection({
     }
   };
 
-  if (overrides.length === 0 && !error) {
-    const allProduction = eligibleEnvironments.length === 0;
-    return (
-      <>
-        <Separator size="4" my="5" />
-        <Frame
-          id={QA_OVERRIDES_SECTION_ID}
-          py="5"
-          px="6"
-          mb="0"
-          style={{ ...MATCH_TABLE_WIDTH, ...SCROLL_TARGET }}
-        >
+  const isEmpty = overrides.length === 0 && !error;
+  const allProduction = eligibleEnvironments.length === 0;
+  const openCreate = () => setModal({ mode: "create" });
+
+  return (
+    <>
+      <Separator size="4" my="5" />
+      <Frame
+        id={QA_OVERRIDES_SECTION_ID}
+        px={isEmpty ? "6" : "0"}
+        py={isEmpty ? "5" : "0"}
+        mb="0"
+        style={{
+          ...MATCH_TABLE_WIDTH,
+          ...SCROLL_TARGET,
+          overflow: isEmpty ? undefined : "hidden",
+        }}
+      >
+        {isEmpty ? (
           <Flex direction="column" align="center" gap="2">
             <Heading as="h4" size="xs" mb="0">
               QA Overrides
@@ -133,96 +139,80 @@ export default function QaOverridesSection({
                   variant="outline"
                   icon={<PiPlusBold size={12} />}
                   style={{ fontSize: 13, paddingInline: 14, gap: 6 }}
-                  onClick={() => setModal({ mode: "create" })}
+                  onClick={openCreate}
                 >
                   Add Override
                 </Button>
               </Box>
             ) : null}
           </Flex>
-        </Frame>
-        {modal && (
-          <QaOverrideModal
-            experiment={experiment}
-            linkedFeatures={linkedFeatures}
-            close={() => setModal(null)}
-            onSaved={async () => {
-              await mutate();
-              setModal(null);
-            }}
-          />
-        )}
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Separator size="4" my="5" />
-      <Frame
-        id={QA_OVERRIDES_SECTION_ID}
-        px="0"
-        py="0"
-        mb="0"
-        style={{ ...MATCH_TABLE_WIDTH, ...SCROLL_TARGET, overflow: "hidden" }}
-      >
-        {modal && (
-          <QaOverrideModal
-            experiment={experiment}
-            linkedFeatures={linkedFeatures}
-            existing={modal.mode === "edit" ? modal.override : undefined}
-            close={() => setModal(null)}
-            onSaved={async () => {
-              await mutate();
-              setModal(null);
-            }}
-          />
-        )}
-        <Flex align="center" gap="2" px="4" style={{ paddingBlock: 14 }}>
-          <Heading as="h4" size="xs" mb="0">
-            QA Overrides
-          </Heading>
-          <InfoTip content={ABOUT} />
-          <Box flexGrow="1" />
-          {canAdd && (
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<PiPlusBold size={12} />}
-              style={{ height: 30, fontSize: 13, paddingInline: 12, gap: 6 }}
-              onClick={() => setModal({ mode: "create" })}
-            >
-              Add Override
-            </Button>
-          )}
-        </Flex>
-        {(error || actionError) && (
-          <Box px="4" pb="3">
-            <Callout status="error">
-              {error
-                ? `Could not load QA overrides: ${error.message}`
-                : actionError}
-            </Callout>
-          </Box>
-        )}
-        {overrides.length > 0 && (
-          <QaOverridesTable
-            groups={groups}
-            grouped={grouped}
-            // Order only matters with a Feature Flag; Visual Editor and URL
-            // Redirect changes each ship as their own experiment copy.
-            reorderable={grouped && !!linkedFeatures?.length}
-            lookups={lookups}
-            canEdit={(row) => canEditIn(row.override.environment)}
-            onEdit={(row) => setModal({ mode: "edit", override: row.override })}
-            onRemove={remove}
-            removeConfirmation={(row) =>
-              `This draft will stop being served to ${row.override.environment} through this override.`
-            }
-            onReorder={reorder}
-          />
+        ) : (
+          <>
+            <Flex align="center" gap="2" px="4" style={{ paddingBlock: 14 }}>
+              <Heading as="h4" size="xs" mb="0">
+                QA Overrides
+              </Heading>
+              <InfoTip content={ABOUT} />
+              <Box flexGrow="1" />
+              {canAdd && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<PiPlusBold size={12} />}
+                  style={{
+                    height: 30,
+                    fontSize: 13,
+                    paddingInline: 12,
+                    gap: 6,
+                  }}
+                  onClick={openCreate}
+                >
+                  Add Override
+                </Button>
+              )}
+            </Flex>
+            {(error || actionError) && (
+              <Box px="4" pb="3">
+                <Callout status="error">
+                  {error
+                    ? `Could not load QA overrides: ${error.message}`
+                    : actionError}
+                </Callout>
+              </Box>
+            )}
+            {overrides.length > 0 && (
+              <QaOverridesTable
+                groups={groups}
+                grouped={grouped}
+                // Order only matters with a Feature Flag.
+                reorderable={grouped && !!linkedFeatures?.length}
+                lookups={lookups}
+                canEdit={(row) => canEditIn(row.override.environment)}
+                onEdit={(row) =>
+                  setModal({ mode: "edit", override: row.override })
+                }
+                onRemove={remove}
+                removeConfirmation={(row) =>
+                  `This draft will stop being served to ${row.override.environment} through this override.`
+                }
+                onReorder={reorder}
+              />
+            )}
+          </>
         )}
       </Frame>
+      {modal && (
+        <QaOverrideModal
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          existing={modal.mode === "edit" ? modal.override : undefined}
+          close={() => setModal(null)}
+          onSaved={async () => {
+            await mutate();
+            setModal(null);
+          }}
+        />
+      )}
     </>
   );
 }

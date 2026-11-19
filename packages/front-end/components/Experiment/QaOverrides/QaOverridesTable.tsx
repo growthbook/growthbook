@@ -156,8 +156,7 @@ function RowCells({
                     cta: "Remove",
                     ctaColor: "red",
                     getConfirmationContent: async () => removeConfirmation(row),
-                    // Errors propagate so the dialog shows them inline
-                    // instead of closing as if the remove worked.
+                    // Let errors propagate so the dialog shows them inline.
                     submit: () => onRemove(row),
                   }}
                 >

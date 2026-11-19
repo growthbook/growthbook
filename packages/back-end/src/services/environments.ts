@@ -28,7 +28,6 @@ export async function cleanupDeletedEnvironment(
     organizationId: context.org.id,
     envId: environmentId,
   });
-  // Its connections are gone (assertEnvironmentDeletable), so nothing to refresh.
   await context.models.experimentQaOverrides.deleteByEnvironment(
     environmentId,
     {

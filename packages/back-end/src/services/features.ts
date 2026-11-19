@@ -2,6 +2,7 @@ import { webcrypto as crypto } from "node:crypto";
 import { createHash } from "crypto";
 import { z } from "zod";
 import uniqid from "uniqid";
+import groupBy from "lodash/groupBy";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import uniqBy from "lodash/uniqBy";
@@ -32,7 +33,6 @@ import {
   getConfigBackingPatch,
   getDependentFeatures,
   getSavedGroupsValuesFromGroupMap,
-  getQaTrackingKey,
   isProductionEnvironment,
   getTargetingProjectIds,
   isDefined,
@@ -208,9 +208,9 @@ import {
   mergeConditionAndSavedGroups,
   pairedWeightsToPositional,
   prerequisiteParentConditions,
+  applyQaOverrideToRule,
   qaOverrideCondition,
   qaOverridesExclusionCondition,
-  qaOverrideWeights,
   buildPrerequisiteProjectReach,
   expandPayloadKeysForPrerequisites,
   experimentMapForFeatures,
@@ -690,9 +690,6 @@ export function generateAutoExperimentsPayload({
     if (e.status === "stopped" && e.excludeFromPayload) return null;
 
     const qaForced = qaOverride?.assignment.type === "forced";
-    const trackingKey = qaOverride
-      ? getQaTrackingKey(e.trackingKey)
-      : e.trackingKey;
 
     const phase: ExperimentPhase | null = e.phases?.slice(-1)?.[0] ?? null;
 
@@ -704,18 +701,11 @@ export function generateAutoExperimentsPayload({
       ? variations.find((v) => v.id === e.releasedVariationId)
       : null;
 
-    const experimentCondition = mergeConditionAndSavedGroups({
+    const condition = mergeConditionAndSavedGroups({
       savedGroupStrategy,
       condition: phase?.condition,
       savedGroups: phase?.savedGroups,
     });
-    const ownCondition = qaOverride
-      ? qaAutoExperimentCondition(e, qaOverride)
-      : experimentCondition;
-    const condition =
-      excludeCondition && ownCondition
-        ? { $and: [ownCondition, excludeCondition] }
-        : (excludeCondition ?? ownCondition);
 
     const prerequisites = (qaForced ? [] : (phase?.prerequisites ?? []))
       ?.map((p) => {
@@ -744,18 +734,9 @@ export function generateAutoExperimentsPayload({
       data.type === "redirect" ? data.urlRedirect.id : data.visualChangeset.id;
 
     const exp: AutoExperimentWithMetadata = {
-      key: trackingKey,
-      // Each QA override is its own auto experiment, so its changeId must
-      // differ from the others' (and from the live experiment's).
-      changeId: sha256(
-        `${trackingKey}_${data.type}_${implementationId}${
-          qaOverride ? `_${qaOverride.id}` : ""
-        }`,
-        "",
-      ),
-      // The SDK skips drafts; the QA copy must run while the stored experiment
-      // stays a draft.
-      status: qaOverride ? "running" : e.status,
+      key: e.trackingKey,
+      changeId: sha256(`${e.trackingKey}_${data.type}_${implementationId}`, ""),
+      status: e.status,
       variations: variations.map((v) => {
         if (data.type === "redirect") {
           const match = data.urlRedirect.destinationURLs.find(
@@ -778,7 +759,7 @@ export function generateAutoExperimentsPayload({
       hashVersion: e.hashVersion,
       hashAttribute: e.hashAttribute,
       fallbackAttribute: e.fallbackAttribute,
-      disableStickyBucketing: qaOverride ? true : e.disableStickyBucketing,
+      disableStickyBucketing: e.disableStickyBucketing,
       bucketVersion: e.bucketVersion,
       minBucketVersion: e.minBucketVersion,
       urlPatterns:
@@ -791,22 +772,18 @@ export function generateAutoExperimentsPayload({
               },
             ]
           : data.visualChangeset.urlPatterns,
-      weights: qaOverride
-        ? qaOverrideWeights(qaOverride, e, phase)
-        : phase.variationWeights,
+      weights: phase.variationWeights,
       meta: variations.map((v) =>
         includeExperimentNames === true
           ? { key: v.key, name: v.name }
           : { key: v.key },
       ),
-      // QA keeps the live seed so users land in the same bucket after the
-      // experiment starts; the SDK would otherwise fall back to the QA key.
-      seed: qaOverride ? phase.seed || e.trackingKey : phase.seed,
+      seed: phase.seed,
       ...(includeExperimentNames === true ? { name: e.name } : {}),
       phase: `${e.phases.length - 1}`,
       force: forcedVariation ? variations.indexOf(forcedVariation) : undefined,
       condition,
-      coverage: qaForced ? 1 : phase.coverage,
+      coverage: phase.coverage,
     };
 
     // Handle namespace
@@ -824,6 +801,21 @@ export function generateAutoExperimentsPayload({
 
     if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
       exp.persistQueryString = true;
+    }
+
+    if (qaOverride) {
+      applyQaOverrideToRule(exp, e, phase, qaOverride, savedGroupStrategy);
+      // Each override is its own auto experiment, and the SDK skips drafts.
+      exp.changeId = sha256(
+        `${exp.key}_${data.type}_${implementationId}_${qaOverride.id}`,
+        "",
+      );
+      exp.status = "running";
+      if (excludeCondition) {
+        exp.condition = exp.condition
+          ? { $and: [exp.condition, excludeCondition] }
+          : excludeCondition;
+      }
     }
 
     return finalizeAutoExperiment(exp, {
@@ -846,9 +838,8 @@ export function generateAutoExperimentsPayload({
     });
   };
 
-  // A draft with QA overrides becomes one auto experiment per override. To
-  // keep "first match wins", each copy excludes requests that an earlier copy
-  // fully serves (forced, or random at full coverage with no namespace).
+  // One auto experiment per QA override. To keep "first match wins", each
+  // copy excludes requests that an earlier copy fully serves.
   const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
     sortedAutoExperiments.flatMap((data) => {
       const { experiment: e } = data;
@@ -1787,14 +1778,9 @@ export async function refreshSDKPayloadCache({
   }
 
   if (allQaOverrides.length) {
-    const byEnvironment = new Map<string, ExperimentQaOverrideInterface[]>();
-    allQaOverrides.forEach((o) => {
-      byEnvironment.set(o.environment, [
-        ...(byEnvironment.get(o.environment) ?? []),
-        o,
-      ]);
-    });
-    rawData.qaOverridesByEnvironment = byEnvironment;
+    rawData.qaOverridesByEnvironment = new Map(
+      Object.entries(groupBy(allQaOverrides, "environment")),
+    );
   }
 
   const payloadSizeLimitBytes = await getSdkPayloadSizeLimitBytes();
@@ -2202,17 +2188,15 @@ export type ConnectionPayloadOptions = {
   qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>;
 };
 
-// The overrides a connection serves, by experiment, in priority order. The
-// production check here is a second safeguard: an override saved before its
-// environment was switched to production must never be served.
+// The production check is a second safeguard for overrides saved before
+// their environment became production.
 export function qaOverridesForConnection({
   overrides,
   connection,
   environments,
 }: {
   overrides: ExperimentQaOverrideInterface[] | undefined;
-  // `projects` is the effective list for this environment (see
-  // filterProjectsByEnvironmentWithNull): [] serves every project, null none.
+  // [] serves every project, null serves none.
   connection: {
     id: string;
     environment: string;
@@ -2224,16 +2208,17 @@ export function qaOverridesForConnection({
   if (connection.projects === null) return undefined;
   const env = environments.find((e) => e.id === connection.environment);
   if (!env || isProductionEnvironment(env)) return undefined;
-  const byExperiment = new Map<string, ExperimentQaOverrideInterface[]>();
   const scope = { ...connection, projects: connection.projects ?? [] };
-  sortQaOverrides(overrides)
-    .filter((o) => qaOverrideAppliesToConnection(o, scope))
-    .forEach((o) => {
-      byExperiment.set(o.experiment, [
-        ...(byExperiment.get(o.experiment) ?? []),
-        o,
-      ]);
-    });
+  const byExperiment = new Map(
+    Object.entries(
+      groupBy(
+        sortQaOverrides(overrides).filter((o) =>
+          qaOverrideAppliesToConnection(o, scope),
+        ),
+        "experiment",
+      ),
+    ),
+  );
   return byExperiment.size ? byExperiment : undefined;
 }
 

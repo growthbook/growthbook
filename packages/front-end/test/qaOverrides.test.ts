@@ -6,8 +6,8 @@ import {
   qaOverrideBodyEquals,
   qaOverrideFormDefaults,
   qaOverridesNeedGrouping,
-  completeQaOverrideFilters,
-  qaOverrideAudienceSentence,
+  qaOverrideFiltersFromForm,
+  qaOverrideAudienceParts,
   summarizeQaOverrideAudience,
 } from "@/services/qaOverrides";
 
@@ -83,10 +83,15 @@ describe("the who-sees-it summary", () => {
     },
     order?: Parameters<typeof summarizeQaOverrideAudience>[2],
   ) =>
-    qaOverrideAudienceSentence({
-      segments: summarizeQaOverrideAudience(filters, lookups, order),
-      ...opts,
-    });
+    joined(
+      qaOverrideAudienceParts({
+        segments: summarizeQaOverrideAudience(filters, lookups, order),
+        variant: "sentence",
+        ...opts,
+      }),
+    );
+  const joined = (parts: ReturnType<typeof qaOverrideAudienceParts>) =>
+    parts.map((p) => p.text + (p.suffix ?? "")).join(" ");
   const cond = (c: unknown) => ({ condition: JSON.stringify(c) });
 
   it("says everyone when there are no filters", () => {
@@ -174,20 +179,26 @@ describe("the who-sees-it summary", () => {
     expect(segments).toEqual([
       { kind: "condition", text: "a custom condition", custom: true },
     ]);
-    expect(qaOverrideAudienceSentence({ segments, environment: "dev" })).toBe(
-      "Anyone matching a custom condition.",
-    );
+    expect(
+      joined(
+        qaOverrideAudienceParts({
+          segments,
+          environment: "dev",
+          variant: "sentence",
+        }),
+      ),
+    ).toBe("Anyone matching a custom condition.");
   });
 
   it("ignores filters that were added but not filled in", () => {
     const base = qaOverrideFormDefaults(undefined, "dev");
-    const emptyAttribute = completeQaOverrideFilters({
+    const emptyAttribute = qaOverrideFiltersFromForm({
       ...base,
       filters: ["condition"],
       condition: JSON.stringify({ id: "" }),
     });
     expect(sentence(emptyAttribute)).toBe("Everyone in dev.");
-    const oneFilled = completeQaOverrideFilters({
+    const oneFilled = qaOverrideFiltersFromForm({
       ...base,
       filters: ["condition", "sdkConnections"],
       condition: JSON.stringify({ id: "123" }),
@@ -195,10 +206,32 @@ describe("the who-sees-it summary", () => {
     expect(sentence(oneFilled)).toBe("Anyone matching id = 123.");
   });
 
+  it("drops the opener and the full stop in table cells", () => {
+    const inline = (
+      filters: Parameters<typeof summarizeQaOverrideAudience>[0],
+      usesExperimentTargeting = false,
+    ) =>
+      joined(
+        qaOverrideAudienceParts({
+          segments: summarizeQaOverrideAudience(filters, lookups),
+          environment: "staging",
+          usesExperimentTargeting,
+          variant: "inline",
+        }),
+      );
+    expect(inline({})).toBe("Everyone in staging");
+    expect(inline(cond({ id: "123" }))).toBe("id = 123");
+    expect(inline({}, true)).toBe("Experiment targeting");
+    expect(inline({ sdkConnections: ["c1"] }, true)).toBe(
+      "Experiment targeting AND Local dev (React)",
+    );
+    expect(inline(cond({ $nor: [{ id: "1" }] }))).toBe("Custom condition");
+  });
+
   it("leads with the experiment's targeting in Test mode", () => {
     const test = { environment: "dev", usesExperimentTargeting: true };
     expect(sentence({}, test)).toBe(
-      "Anyone matching the experiment's targeting.",
+      "Anyone matching the experiment’s targeting.",
     );
     expect(
       sentence(
@@ -209,7 +242,7 @@ describe("the who-sees-it summary", () => {
         test,
       ),
     ).toBe(
-      "Anyone matching the experiment's targeting AND QA team AND Local dev (React).",
+      "Anyone matching the experiment’s targeting AND QA team AND Local dev (React).",
     );
   });
 });
@@ -238,7 +271,6 @@ describe("the add/edit form", () => {
         forcedVariationId: "v1",
       }),
     ).toBe(true);
-    // An added but empty card blocks saving instead of being dropped.
     expect(
       isQaOverrideFormComplete({
         ...v,
@@ -273,7 +305,6 @@ describe("the add/edit form", () => {
       forcedVariationId: "v1",
       filters: ["sdkConnections" as const],
       sdkConnections: ["c2", "c1"],
-      // Not added as a card, so it must not be sent.
       projects: ["p1"],
     };
     const body = buildQaOverrideBody(v);

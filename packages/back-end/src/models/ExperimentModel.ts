@@ -958,9 +958,8 @@ export async function getSampleExperiment(
   return exp ? toInterface(exp) : null;
 }
 
-// The app can't generate a key with this suffix, so the guard only protects
-// dashboard users from a confusing collision with QA exposure data. The REST
-// API keeps accepting any string, so existing integrations are unaffected.
+// Dashboard only: the REST API keeps accepting any key, so existing
+// integrations aren't broken.
 function assertNotQaTrackingKey(
   context: ReqContext | ApiReqContext,
   trackingKey: string,
