@@ -8,7 +8,7 @@ import {
   funnelStepValidator,
   factMetricValidator,
 } from "./fact-table";
-import { populationStepValidator } from "./population";
+import { populationStepValidator, type PopulationStep } from "./population";
 
 import { componentSchema, namedSchema } from "./openapi-helpers";
 
@@ -29,28 +29,27 @@ export const draftExplorationMetricValidator = factMetricValidator.omit({
 
 export const explorationPopulationValidator = componentSchema(
   "ExplorationPopulation",
-  populationStepValidator
-    .extend({
-      rowFilters: z
-        .array(rowFilterValidator)
-        .optional()
-        .transform((filters) => filters ?? [])
-        // Re-declares the array after the transform so the OpenAPI spec still documents it
-        .pipe(z.array(rowFilterValidator))
-        .meta({ default: [] }),
-      unit: z
-        .string()
-        .describe(
-          "Identifier type that defines population membership. Every metric's unit must match it.",
-        ),
-    })
-    .strict(),
+  z.strictObject({
+    populationId: z.string().describe("ID of the saved Population"),
+    unit: z
+      .string()
+      .describe(
+        "Identifier type that defines population membership. Every metric's unit must match it, and the Population must support it.",
+      ),
+  }),
 );
 export type ExplorationPopulation = z.infer<
   typeof explorationPopulationValidator
 >;
+// A saved Population's single step, counted by the exploration's identifier
+// type. Built on the server at run time; never stored on a config.
+export type ResolvedExplorationPopulation = PopulationStep & { unit: string };
 
-export const showAsValidator = z.enum(["total", "per_unit"]);
+export const showAsValidator = z.enum([
+  "total",
+  "per_unit",
+  "percent_of_population",
+]);
 export type ShowAs = z.infer<typeof showAsValidator>;
 
 const metricValueValidator = baseValueValidator.extend({
@@ -62,7 +61,7 @@ const metricValueValidator = baseValueValidator.extend({
   showAs: showAsValidator
     .optional()
     .describe(
-      "How a mean metric renders: `total` sums the numerator, `per_unit` divides it by the unit count. Ignored for other metric types. Omit to use the default (`per_unit` for `max` and `count distinct` aggregations, otherwise `total`).",
+      "How a metric renders: `total` sums the numerator, `per_unit` divides it by the unit count (mean metrics only), and `percent_of_population` divides it by the population's member count as a percentage (proportion metrics with a population only). Ignored for other metric types. Omit to use the default (`per_unit` for mean metrics with `max` and `count distinct` aggregations, `percent_of_population` for proportion metrics with a population, otherwise `total`).",
     ),
 });
 // Internal only (metric editor live preview): an unsaved metric definition to
@@ -90,7 +89,7 @@ const metricDatasetValidator = z
     population: explorationPopulationValidator
       .optional()
       .describe(
-        "**Beta** — this field is new and may change in backwards-incompatible ways. A population applied to every metric in the request. Only proportion metrics on the population's Fact Table are supported; the request is rejected if any metric is incompatible.",
+        "**Beta** — this field is new and may change in backwards-incompatible ways. A saved Population applied to every metric in the request. Only proportion metrics on the Population's Fact Table are supported; the request is rejected if any metric is incompatible.",
       ),
   })
   .strict();

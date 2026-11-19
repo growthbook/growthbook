@@ -10,6 +10,7 @@ import {
   SDKCapability,
 } from "shared/sdk-versioning";
 import { SDKConnectionRevisionSnapshot } from "shared/validators";
+import { withAbsentSdkSettings } from "shared/enterprise";
 
 // What the oldest SDK version supports now, and what upgrading could unlock.
 export function connectionCapabilities(c: {
@@ -173,41 +174,6 @@ export function sanitizeAdvancedForSave(
   };
 }
 
-// How the payload reads a setting a snapshot leaves out. A revert sends these
-// for what the older snapshot lacked, so options added since are turned back
-// off rather than kept. The legacy saved-group boolean is left out: sent on its
-// own it would switch the format to inline.
-const ABSENT_SETTING_VALUES: Record<string, unknown> = {
-  hashSecureAttributes: false,
-  includeVisualExperiments: false,
-  includeDraftExperiments: false,
-  includeDraftExperimentRefs: false,
-  includeExperimentNames: false,
-  includeRedirectExperiments: false,
-  includeRuleIds: false,
-  includeProjectIdInMetadata: false,
-  includeCustomFieldsInMetadata: false,
-  allowedCustomFieldsInMetadata: [],
-  includeTagsInMetadata: false,
-  includeExperimentScheduleInMetadata: false,
-  remoteEvalEnabled: false,
-  tracesEnabled: false,
-  includeReferencedPrerequisites: false,
-  proxyEnabled: false,
-};
-
-export function withAbsentSettings(
-  settings: Record<string, unknown>,
-): Record<string, unknown> {
-  const filled = { ...settings };
-  for (const [key, value] of Object.entries(ABSENT_SETTING_VALUES)) {
-    if (filled[key] === undefined) filled[key] = value;
-  }
-  return filled;
-}
-
-export const ABSENT_SETTING_KEYS = Object.keys(ABSENT_SETTING_VALUES);
-
 // A snapshot as the payload reads it, so a setting one side left out still
 // diffs against the other.
 export function snapshotWithAbsentSettings<
@@ -216,7 +182,7 @@ export function snapshotWithAbsentSettings<
   if (!snapshot.sdkConnection) return snapshot;
   return {
     ...snapshot,
-    sdkConnection: withAbsentSettings(
+    sdkConnection: withAbsentSdkSettings(
       snapshot.sdkConnection,
     ) as T["sdkConnection"],
   };

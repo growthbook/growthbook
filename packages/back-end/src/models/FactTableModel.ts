@@ -5,7 +5,10 @@ import {
   getMetricAutoSliceFactTableIds,
 } from "shared/experiments";
 import { sqlReferencesColumn } from "shared/sql";
-import { explorationConfigReferencesColumn } from "shared/enterprise";
+import {
+  explorationConfigReferencesColumn,
+  populationReferencesColumn,
+} from "shared/enterprise";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { isEqual, omit } from "lodash";
 import {
@@ -979,9 +982,16 @@ export async function deleteColumn(
   );
   // Org-wide for the same reason as explorations/dashboards below: a metric in a
   // project the caller cannot read must still block the delete.
-  const [allFactMetrics, visibleFactMetrics] = await Promise.all([
+  const [
+    allFactMetrics,
+    visibleFactMetrics,
+    allPopulations,
+    visiblePopulations,
+  ] = await Promise.all([
     context.models.factMetrics.dangerousGetAllForDependencyScan(),
     context.models.factMetrics.getAll(),
+    context.models.populations.dangerousGetAllForDependencyScan(),
+    context.models.populations.getAll(),
   ]);
   const visibleFactMetricIds = new Set(visibleFactMetrics.map((m) => m.id));
   const allDependentMetrics = allFactMetrics.filter((metric) =>
@@ -999,6 +1009,24 @@ export async function deleteColumn(
   );
   const hiddenMetricCount =
     allDependentMetrics.length - dependentMetrics.length;
+
+  // Explorations reference saved Populations by id, so a column a Population
+  // reads would otherwise break every exploration and dashboard using it.
+  const visiblePopulationIds = new Set(visiblePopulations.map((p) => p.id));
+  const allDependentPopulations = allPopulations.filter((population) =>
+    populationReferencesColumn(
+      population,
+      factTable,
+      columnName,
+      identifierQuote,
+      factTable.filters,
+    ),
+  );
+  const dependentPopulations = allDependentPopulations.filter((p) =>
+    visiblePopulationIds.has(p.id),
+  );
+  const hiddenPopulationCount =
+    allDependentPopulations.length - dependentPopulations.length;
 
   // Explorations and dashboard blocks persist column references (valueColumn,
   // dimensions, row filters) that resolve through the same query-time
@@ -1024,12 +1052,13 @@ export async function deleteColumn(
     ),
     ...dependentFilters.map((f) => `\n - Filter: ${f.name || f.id}`),
     ...dependentMetrics.map((m) => `\n - Fact Metric: ${m.name || m.id}`),
+    ...dependentPopulations.map((p) => `\n - Population: ${p.name || p.id}`),
     ...dependentExplorations.map((e) => `\n - Exploration: ${e.name || e.id}`),
     ...dependentDashboards.map((d) => `\n - Dashboard: ${d.name || d.id}`),
   ];
   // Counted, not named, so the error never reveals resources the caller cannot
   // read — while still blocking the delete.
-  const totalHidden = hiddenCount + hiddenMetricCount;
+  const totalHidden = hiddenCount + hiddenMetricCount + hiddenPopulationCount;
   if (totalHidden > 0) {
     lines.push(
       `\n - ${totalHidden} other resource(s) you do not have access to`,

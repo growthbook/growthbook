@@ -230,6 +230,8 @@ export type CreateOrUpdateRevisionOptions = {
   comment?: string;
   revertedFrom?: string;
   revisionId?: string;
+  // The caller publishes the new revision at once, so it is a direct landing.
+  direct?: boolean;
 };
 
 /**
@@ -250,7 +252,31 @@ export async function createOrUpdateRevision(
     comment,
     revertedFrom,
     revisionId,
+    direct,
   } = options;
+
+  const adapter = getAdapter(entityType);
+  // Asked once, on the row as read. A CAS retry re-derives without asking again.
+  const validateWrite = async (row: Revision | null) => {
+    if (!adapter.validateRevisionWrite) return;
+    const live = adapter.buildSnapshot(entity);
+    const base = (row?.target.snapshot ?? live) as Record<string, unknown>;
+    const before = row
+      ? applyPatchToSnapshot(base, row.target.proposedChanges)
+      : live;
+    const derived =
+      typeof proposedChanges === "function"
+        ? await proposedChanges(row)
+        : proposedChanges;
+    await adapter.validateRevisionWrite(context, {
+      live,
+      revision: row,
+      direct: !row && direct,
+      ...(!row && { title, comment }),
+      proposed: applyPatchToSnapshot(replaceChanges ? base : before, derived),
+      before,
+    });
+  };
 
   if (revisionId) {
     // Live-entity basis, matching the handlers that resolved this id: the
@@ -295,6 +321,7 @@ export async function createOrUpdateRevision(
                 proposedChanges,
               );
 
+      await validateWrite(targetRevision);
       return context.models.revisions.updateProposedChanges(
         targetRevision.id,
         finalChanges,
@@ -332,6 +359,7 @@ export async function createOrUpdateRevision(
                 proposedChanges,
               );
 
+      await validateWrite(existingRevision);
       return context.models.revisions.updateProposedChanges(
         existingRevision.id,
         finalChanges,
@@ -341,8 +369,9 @@ export async function createOrUpdateRevision(
     }
   }
 
-  const snapshot = getAdapter(entityType).buildSnapshot(entity);
+  const snapshot = adapter.buildSnapshot(entity);
 
+  await validateWrite(null);
   return context.models.revisions.createRequest({
     type: entityType,
     id: entity.id,
@@ -397,9 +426,33 @@ export function isRevisionDiverged(
   snapshot: Record<string, unknown>,
   entity: Record<string, unknown>,
 ): boolean {
-  const base = adapter.buildSnapshot(snapshot);
-  const live = adapter.buildSnapshot(entity);
+  const view = (value: Record<string, unknown>) => {
+    const built = adapter.buildSnapshot(value);
+    return adapter.behindLiveView?.(built) ?? built;
+  };
+  const base = view(snapshot);
+  const live = view(entity);
   return [...adapter.getUpdatableFields()].some(
     (key) => !isEqual(deepOmitNullish(base[key]), deepOmitNullish(live[key])),
   );
+}
+
+// Behind live, what lands isn't what the draft holds: live keeps what changed
+// since, and history should say so. Undefined when the draft is up to date.
+export function landedTarget(
+  adapter: EntityRevisionAdapter,
+  revision: Revision,
+  entity: Record<string, unknown>,
+): Pick<Revision["target"], "snapshot" | "proposedChanges"> | undefined {
+  const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
+  if (!isRevisionDiverged(adapter, baseSnapshot, entity)) return undefined;
+  return {
+    snapshot: adapter.buildSnapshot(entity),
+    proposedChanges: landedOps(
+      entity,
+      baseSnapshot,
+      revision.target.proposedChanges,
+      adapter.getUpdatableFields(),
+    ),
+  } as Pick<Revision["target"], "snapshot" | "proposedChanges">;
 }

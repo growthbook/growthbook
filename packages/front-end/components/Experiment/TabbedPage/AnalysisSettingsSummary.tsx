@@ -76,6 +76,7 @@ import {
   getIsExperimentIncludedInIncrementalRefresh,
   getPipelineSettingsAfterDisablingExperiment,
   getHonoredPrecomputedUnitDimensionIds,
+  getResultsSubUnitTotal,
   getUnitDisplayName,
 } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
@@ -251,16 +252,32 @@ export default function AnalysisSettingsSummary({
   const totalUnits = healthUnits ?? resultsUnits;
   // A cluster's subunits can fall into several breakdown slices, so summing
   // slices would count it more than once. Use the overall results instead.
-  const overallClusterUnits = useMemo(() => {
-    const overall = dimensionless?.analyses?.find(
-      (a) => !a.settings.dimensions.length,
-    );
-    if (!overall?.results?.length) return null;
-    return (overall.results[0].variations ?? []).reduce(
-      (acc, v) => acc + (v?.users || 0),
-      0,
-    );
-  }, [dimensionless?.analyses]);
+  const overallVariations = useMemo(
+    () =>
+      dimensionless?.analyses?.find((a) => !a.settings.dimensions.length)
+        ?.results?.[0]?.variations ?? null,
+    [dimensionless?.analyses],
+  );
+  const overallClusterUnits = useMemo(
+    () =>
+      overallVariations
+        ? overallVariations.reduce((acc, v) => acc + (v?.users || 0), 0)
+        : null,
+    [overallVariations],
+  );
+  // From the overall snapshot too, so a breakdown keeps it. Without health
+  // traffic, fall back to the metrics' own subunit counts.
+  const overallSubUnits = useMemo(() => {
+    const healthVariationUnits =
+      dimensionless?.health?.traffic?.overall?.variationUnits;
+    if (healthVariationUnits?.length) {
+      return healthVariationUnits.reduce((acc, a) => acc + a, 0);
+    }
+    return overallVariations ? getResultsSubUnitTotal(overallVariations) : null;
+  }, [
+    dimensionless?.health?.traffic?.overall?.variationUnits,
+    overallVariations,
+  ]);
 
   // Cluster results are analyzed per cluster, so their unit counts are
   // clusters, while health traffic counts subunits.
@@ -952,10 +969,10 @@ export default function AnalysisSettingsSummary({
                     style={{ whiteSpace: "nowrap" }}
                   />
                 )}
-                {healthUnits !== null && (
+                {overallSubUnits !== null && (
                   <Metadata
                     label={getUnitDisplayName(clusterSubUnitIdentifier)}
-                    value={numberFormatter.format(healthUnits)}
+                    value={numberFormatter.format(overallSubUnits)}
                     style={{ whiteSpace: "nowrap" }}
                   />
                 )}

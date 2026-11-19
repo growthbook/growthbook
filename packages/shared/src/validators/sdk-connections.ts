@@ -1,10 +1,12 @@
 import { z } from "zod";
+import omit from "lodash/omit";
 import {
   apiPaginationFieldsValidator,
   booleanQueryField,
   paginationQueryFields,
   publishBypassedGatesField,
   sdkConnectionBypassApprovalBodyField,
+  sdkConnectionHookOverrideFields,
 } from "./shared";
 import { namedSchema } from "./openapi-helpers";
 import {
@@ -96,7 +98,7 @@ export const apiSdkConnectionValidator = namedSchema(
         .boolean()
         .optional()
         .describe(
-          "An archived connection serves no payload. When the organization requires approvals for the connection, it must be archived before it can be deleted.",
+          "An archived connection serves no payload. A connection must be archived before it can be deleted.",
         ),
     })
     .strict(),
@@ -146,6 +148,54 @@ export type SDKConnectionSettingsRevisionSnapshot = z.infer<
   typeof sdkConnectionSettingsSnapshotValidator
 >;
 
+const SETTINGS_SNAPSHOT_KEYS = Object.keys(
+  sdkConnectionSettingsSnapshotValidator.shape,
+);
+
+// The settings a revision holds, from a connection flattened to them. Secrets
+// and system fields are dropped by the key whitelist, and unset ones left out.
+export function pickSdkConnectionSettings(
+  flat: Record<string, unknown>,
+): SDKConnectionSettingsRevisionSnapshot {
+  const settings: Record<string, unknown> = {};
+  for (const key of SETTINGS_SNAPSHOT_KEYS) {
+    const value = flat[key];
+    if (value === null || value === undefined) continue;
+    settings[key] = value;
+  }
+  return settings as unknown as SDKConnectionSettingsRevisionSnapshot;
+}
+
+// Settings without the proxy's. A self-hosted instance reads those from its
+// environment, so a change to them isn't a change to the connection.
+export const omitProxySettings = <
+  T extends { proxyEnabled?: unknown; proxyHost?: unknown },
+>(
+  settings: T,
+): Omit<T, "proxyEnabled" | "proxyHost"> =>
+  omit(settings, ["proxyEnabled", "proxyHost"]);
+
+export const withoutProxySettings = (
+  snapshot: SDKConnectionRevisionSnapshot,
+): SDKConnectionRevisionSnapshot => ({
+  ...snapshot,
+  sdkConnection: omitProxySettings(snapshot.sdkConnection),
+});
+
+// The same, from a stored connection, whose proxy settings are nested.
+export function sdkConnectionSettingsOf(
+  connection: Record<string, unknown>,
+): SDKConnectionSettingsRevisionSnapshot {
+  const proxy = connection.proxy as
+    | { enabled?: boolean; host?: string }
+    | undefined;
+  return pickSdkConnectionSettings({
+    ...connection,
+    proxyEnabled: proxy ? proxy.enabled : connection.proxyEnabled,
+    proxyHost: proxy ? proxy.host : connection.proxyHost,
+  });
+}
+
 // Runtime and secret webhook fields are omitted.
 export const sdkWebhookSnapshotValidator = z.object({
   id: z.string(),
@@ -171,11 +221,15 @@ export function sdkWebhookStableId(connectionId: string, id: string): string {
 }
 
 // A null timeout means "use the default", same as an absent one; dropping it
-// keeps the two from diffing as a change.
+// keeps the two from diffing as a change. Rows predating `httpMethod` lack it.
 export function parseSdkWebhookSnapshot(
   value: unknown,
 ): SDKWebhookRevisionSnapshot {
-  const { timeoutSeconds, ...rest } = sdkWebhookSnapshotValidator.parse(value);
+  const row = (value ?? {}) as { httpMethod?: unknown };
+  const { timeoutSeconds, ...rest } = sdkWebhookSnapshotValidator.parse({
+    ...row,
+    httpMethod: row.httpMethod ?? "POST",
+  });
   return (timeoutSeconds ?? null) === null ? rest : { ...rest, timeoutSeconds };
 }
 
@@ -187,6 +241,40 @@ export const sdkConnectionSnapshotValidator = z.object({
 export type SDKConnectionRevisionSnapshot = z.infer<
   typeof sdkConnectionSnapshotValidator
 >;
+
+export function webhookHeadersObject(headers?: string): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(headers || "{}");
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, string>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+// What a new connection is saved with where the request leaves a setting out.
+// Written explicitly so "absent" keeps one meaning: off, for the connections
+// that predate the setting.
+export const withNewSdkConnectionDefaults = <T extends object>(
+  params: T & { includeReferencedPrerequisites?: boolean },
+) => ({
+  ...params,
+  includeReferencedPrerequisites: params.includeReferencedPrerequisites ?? true,
+});
+
+// What a Custom Hook receives: the settings, and each webhook with its headers
+// as an object. A reference to a secret stays as written, never its value.
+export const sdkConnectionHookArgs = ({
+  sdkConnection,
+  sdkWebhooks,
+}: SDKConnectionRevisionSnapshot) => ({
+  sdkConnection,
+  sdkWebhooks: sdkWebhooks.map((webhook) => ({
+    ...webhook,
+    headers: webhookHeadersObject(webhook.headers),
+  })),
+});
 
 // The fields a revision may write to the live connection.
 export const sdkConnectionUpdatableFieldsSchema =
@@ -246,7 +334,7 @@ const postSdkConnectionBody = z
   .strict();
 
 // Corresponds to payload-schemas/PutSdkConnectionPayload.yaml
-const putSdkConnectionBody = postSdkConnectionBody
+export const putSdkConnectionBody = postSdkConnectionBody
   .partial()
   .extend({
     archived: z
@@ -256,6 +344,7 @@ const putSdkConnectionBody = postSdkConnectionBody
         "Archive (true) or restore (false) the connection. Archiving takes the same authority as deleting it; restoring takes publish authority.",
       ),
     bypassApproval: sdkConnectionBypassApprovalBodyField,
+    ...sdkConnectionHookOverrideFields,
   })
   .strict();
 
@@ -293,7 +382,9 @@ export const listSdkConnectionsValidator = {
 };
 
 export const postSdkConnectionValidator = {
-  bodySchema: postSdkConnectionBody,
+  bodySchema: postSdkConnectionBody
+    .extend(sdkConnectionHookOverrideFields)
+    .strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
   responseSchema: z
@@ -338,7 +429,7 @@ export const putSdkConnectionValidator = {
     .strict(),
   summary: "Update a single sdk connection",
   description:
-    "Applies the change immediately and records it as a published revision, so it appears in the connection's history. When the organization requires approvals for this connection's Projects and environment, open a draft from the SDK Connection page instead, or pass `bypassApproval`. Set `archived` to archive or restore the connection.",
+    "Applies the change immediately and records it as a published revision, so it appears in the connection's history. When the organization requires approvals for this connection's Projects and environment, stage the change in a draft revision instead (`PUT /sdk-connections-revisions/{id}/new/settings`), or pass `bypassApproval`. Set `archived` to archive or restore the connection.",
   confirmation: [
     "sdkConnection.edit",
     "override.bypassApproval",
@@ -351,24 +442,15 @@ export const putSdkConnectionValidator = {
 };
 
 export const deleteSdkConnectionValidator = {
-  bodySchema: z
-    .object({ bypassApproval: sdkConnectionBypassApprovalBodyField })
-    .strict()
-    .optional(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: z
-    .object({
-      deletedId: z.string(),
-      bypassedGates: publishBypassedGatesField,
-    })
-    .strict(),
+  responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Deletes a single SDK connection",
   description:
-    "When the organization requires approvals for this connection's Projects and environment, archive it first (`PUT /sdk-connections/{id}` with `archived: true`), then delete it. To delete a live connection in one step, pass `bypassApproval`.",
+    "Deletes an archived SDK Connection. Archive a live one first (`PUT /sdk-connections/{id}` with `archived: true`, or in a draft revision when the organization requires approvals for it), then delete it. A live connection deletes in one step only when the organization enables 'REST API always bypasses approval requirements'.",
   confirmation: [
     "sdkConnection.delete",
-    "override.bypassApproval",
     "override.restBypassesReviews",
   ] as const,
   operationId: "deleteSdkConnection",

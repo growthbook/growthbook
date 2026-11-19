@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { MetricInterface } from "shared/types/metric";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { SnapshotVariation } from "shared/types/experiment-snapshot";
 import {
   convertExperimentToTemplate,
   getClusterSubUnitsLabel,
   getClusterUnitsLabel,
   getIneligibleClusterMetrics,
+  getResultsSubUnitTotal,
   getUnitDisplayName,
 } from "@/services/experiments";
 
@@ -77,6 +79,39 @@ describe("getClusterSubUnitsLabel", () => {
     expect(
       getClusterSubUnitsLabel(cluster, "fact_region_spend"),
     ).toBeUndefined();
+  });
+});
+
+describe("getResultsSubUnitTotal", () => {
+  const variation = (subCounts: (number | undefined)[]) =>
+    ({
+      users: 0,
+      metrics: Object.fromEntries(
+        subCounts.map((sub_count, i) => [
+          `m${i}`,
+          {
+            users: 0,
+            value: 0,
+            cr: 0,
+            stats:
+              sub_count === undefined
+                ? undefined
+                : { users: 0, count: 0, stddev: 0, mean: 0, sub_count },
+          },
+        ]),
+      ),
+    }) as SnapshotVariation;
+
+  it("sums each variation's largest metric subunit count", () => {
+    expect(
+      getResultsSubUnitTotal([variation([40, 50]), variation([60, undefined])]),
+    ).toBe(110);
+  });
+
+  it("returns null when no metric has a subunit count", () => {
+    expect(
+      getResultsSubUnitTotal([variation([undefined]), variation([0])]),
+    ).toBeNull();
   });
 });
 

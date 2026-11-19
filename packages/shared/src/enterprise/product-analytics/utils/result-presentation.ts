@@ -7,6 +7,7 @@ import type {
   ProductAnalyticsValue,
   ShowAs,
 } from "../../../validators/product-analytics";
+import { configHasPopulation } from "../populations";
 import { getDraftOrSavedMetric, getShowAsChoice } from "./show-as";
 import { getSharedUnit } from "./units";
 
@@ -18,16 +19,24 @@ import { getSharedUnit } from "./units";
 // drift between what the chart renders and what the agent sees in its CSV.
 
 /**
- * Value-axis title when no custom `valueAxisLabel` is set. Empty unless every
- * value on the axis renders the same way (see `sharedShowAs`).
+ * Title of the (left) value axis when no custom `valueAxisLabel` is set. Empty
+ * unless every value on that axis renders the same way.
  */
 export function getDefaultValueAxisName({
-  sharedShowAs,
+  primaryAxisShowAs,
   sharedUnit,
 }: ExplorationRenderOpts): string {
-  if (sharedShowAs === null) return "";
-  if (sharedShowAs === "total") return "Total";
+  if (primaryAxisShowAs === null) return "";
+  if (primaryAxisShowAs === "total") return "Total";
+  if (primaryAxisShowAs === "percent_of_population") return "% of Population";
   return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+}
+
+export function getSecondaryValueAxisName(
+  renderOpts: ExplorationRenderOpts,
+): string | null {
+  if (!renderOpts.values.some((v) => v.valueAxis === "secondary")) return null;
+  return "% of Population";
 }
 
 /**
@@ -62,6 +71,7 @@ function getAnnotatedName(
 ): string {
   const name = getValueName(value, index);
   if (showAs === "total") return `${name} (total)`;
+  if (showAs === "percent_of_population") return `${name} (% of Population)`;
   const unit =
     ("unit" in value && typeof value.unit === "string" ? value.unit : null) ||
     sharedUnit ||
@@ -74,17 +84,28 @@ function getAnnotatedName(
  * the effective showAs and whether the underlying metric is a ratio. Ratios
  * always render as N/D regardless of showAs. Without render settings (no
  * dataset value at that index) the raw numerator is used.
+ *
+ * `populationCount` is the result row's population member count, undefined
+ * when the request has no population. Required so no caller can forget it.
+ * "% of Population" is null (no data) when the row has no members, since a
+ * share of nobody isn't 0%.
  */
 export function getEffectiveMetricValue(
   v: { numerator: number | null; denominator: number | null },
   opts: Pick<ValueRenderOpts, "showAs" | "isRatio"> | undefined,
-): number {
+  populationCount: number | undefined,
+): number | null {
   const num = v.numerator ?? 0;
   if (opts?.isRatio) {
     return v.denominator ? num / v.denominator : num;
   }
   if (opts?.showAs === "per_unit") {
     return v.denominator ? num / v.denominator : num;
+  }
+  if (opts?.showAs === "percent_of_population") {
+    if (!populationCount) return null;
+    const shareOfPopulation = num / populationCount;
+    return shareOfPopulation * 100;
   }
   return num;
 }
@@ -100,12 +121,30 @@ export function isRatioValue(
   );
 }
 
+function isProportionValue(
+  value: ProductAnalyticsValue,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): boolean {
+  return (
+    value.type === "metric" &&
+    getDraftOrSavedMetric(value, getFactMetricById)?.metricType === "proportion"
+  );
+}
+
+/** The value axis a value is drawn against. */
+export type ValueAxis = "primary" | "secondary";
+
 /** How one dataset value renders. */
 export type ValueRenderOpts = {
   showAs: ShowAs;
   isRatio: boolean;
   /** Chart legend and tooltip name. */
   seriesName: string;
+  /**
+   * "secondary" for a "% of Population" value when other values use another
+   * mode: it's on a different scale, so it gets its own right-hand axis.
+   */
+  valueAxis: ValueAxis;
 };
 
 /** How a config's values render: each value, plus what they share. */
@@ -116,6 +155,11 @@ export type ExplorationRenderOpts = {
   sharedShowAs: ShowAs | null;
   /** Some values render as totals and others per unit. */
   modesAreMixed: boolean;
+  /**
+   * The mode every value on the left axis renders in; null when they differ or
+   * none of them names one (ratios, quantiles).
+   */
+  primaryAxisShowAs: ShowAs | null;
   /** See `getSharedUnit`. */
   sharedUnit: string | null;
 };
@@ -124,6 +168,7 @@ const NO_VALUES_RENDER_OPTS: ExplorationRenderOpts = {
   values: [],
   sharedShowAs: null,
   modesAreMixed: false,
+  primaryAxisShowAs: null,
   sharedUnit: null,
 };
 
@@ -137,8 +182,9 @@ export function getExplorationRenderOpts(
 ): ExplorationRenderOpts {
   if (!datasetHasValues(config?.dataset)) return NO_VALUES_RENDER_OPTS;
   const { values } = config.dataset;
+  const hasPopulation = configHasPopulation(config);
   const choices = values.map((v) =>
-    getShowAsChoice(v, config.showAs, getFactMetricById),
+    getShowAsChoice(v, config.showAs, getFactMetricById, hasPopulation),
   );
   const someValueOffersShowAs = choices.some(
     (choice) => choice.options.length > 0,
@@ -149,12 +195,40 @@ export function getExplorationRenderOpts(
   const modesAreMixed = someValueOffersShowAs && sharedShowAs === null;
   const sharedUnit = getSharedUnit(config, getFactMetricById);
 
+  // "% of Population" is on a different scale from every other mode, so when
+  // it's mixed with them it moves to its own axis. Then each axis keeps a title.
+  const otherModes = new Set<ShowAs>();
+  for (const choice of choices) {
+    if (choice.showAs !== "percent_of_population")
+      otherModes.add(choice.showAs);
+  }
+  const hasSecondAxis =
+    choices.some((choice) => choice.showAs === "percent_of_population") &&
+    otherModes.size > 0;
+  const valueAxisFor = (showAs: ShowAs): ValueAxis =>
+    hasSecondAxis && showAs === "percent_of_population"
+      ? "secondary"
+      : "primary";
+  let primaryAxisShowAs = sharedShowAs;
+  if (hasSecondAxis) {
+    primaryAxisShowAs = otherModes.size === 1 ? [...otherModes][0] : null;
+  } else if (
+    !someValueOffersShowAs &&
+    values.every((v) => isProportionValue(v, getFactMetricById))
+  ) {
+    // Proportions offer no choice without a population but still plot a count
+    // of units. Ratios and quantiles don't, so they stay untitled.
+    primaryAxisShowAs = "total";
+  }
+
   // Annotate series names when the axis title can't tell readers how the
   // values are calculated.
   const hasCustomAxisTitle = config.chartSettings?.valueAxisLabel !== undefined;
   const axisTitleNamesTheUnit = !hasCustomAxisTitle && sharedUnit !== null;
   const annotateNames =
-    modesAreMixed || (sharedShowAs === "per_unit" && !axisTitleNamesTheUnit);
+    modesAreMixed ||
+    (sharedShowAs === "per_unit" && !axisTitleNamesTheUnit) ||
+    (sharedShowAs === "percent_of_population" && hasCustomAxisTitle);
 
   return {
     values: values.map((v, i) => ({
@@ -163,9 +237,11 @@ export function getExplorationRenderOpts(
       seriesName: annotateNames
         ? getAnnotatedName(v, i, choices[i].showAs, sharedUnit)
         : getValueName(v, i),
+      valueAxis: valueAxisFor(choices[i].showAs),
     })),
     sharedShowAs,
     modesAreMixed,
+    primaryAxisShowAs,
     sharedUnit,
   };
 }
@@ -197,6 +273,12 @@ export type ExplorationColumn =
        * - "single": one column whose value respects the effective showAs.
        */
       sub: "numerator" | "denominator" | "value" | "single";
+    }
+  | {
+      /** Each row's Population member count, last when the chart has one. */
+      kind: "populationCount";
+      key: string;
+      label: string;
     };
 
 /**
@@ -277,8 +359,11 @@ export function buildExplorationColumns(
       return;
     }
 
-    // A plain header means total, unless per-unit columns sit beside it.
-    const annotate = showAs === "per_unit" || modesAreMixed;
+    // A plain header means total, unless other modes' columns sit beside it.
+    const annotate =
+      showAs === "per_unit" ||
+      showAs === "percent_of_population" ||
+      modesAreMixed;
     const singleLabel = annotate
       ? getAnnotatedName(v, metricIndex, showAs, sharedUnit)
       : name;
@@ -290,6 +375,14 @@ export function buildExplorationColumns(
       sub: "single",
     });
   });
+
+  if (configHasPopulation(config)) {
+    cols.push({
+      kind: "populationCount",
+      key: "__population_count__",
+      label: "Population count",
+    });
+  }
 
   return cols;
 }
@@ -308,12 +401,16 @@ export function getExplorationCellValue(
     // shared schema for funnels is dimension-only (no metric columns), so
     // values is always undefined for funnel callers and treated as empty.
     values?: { numerator: number | null; denominator: number | null }[];
+    populationCount?: number;
   },
   col: ExplorationColumn,
   renderOpts: ExplorationRenderOpts,
 ): string | number | null {
   if (col.kind === "dimension") {
     return row.dimensions[col.dimIndex] ?? null;
+  }
+  if (col.kind === "populationCount") {
+    return row.populationCount ?? null;
   }
   const v = row.values?.[col.metricIndex];
   if (!v) return null;
@@ -324,8 +421,17 @@ export function getExplorationCellValue(
       return v.numerator / v.denominator;
     return null;
   }
-  if (v.numerator == null) return null;
-  return getEffectiveMetricValue(v, renderOpts.values[col.metricIndex]);
+  // With population members that day, no converting units is a real 0%
+  // (getEffectiveMetricValue handles no members). Other modes can't tell 0
+  // from no data.
+  const isShareOfMembers =
+    renderOpts.values[col.metricIndex]?.showAs === "percent_of_population";
+  if (v.numerator == null && !isShareOfMembers) return null;
+  return getEffectiveMetricValue(
+    v,
+    renderOpts.values[col.metricIndex],
+    row.populationCount,
+  );
 }
 
 function getRowTotal(
@@ -333,7 +439,9 @@ function getRowTotal(
   opts: ExplorationRenderOpts,
 ): number {
   return (row.values ?? []).reduce(
-    (sum, v, i) => sum + getEffectiveMetricValue(v, opts.values[i]),
+    (sum, v, i) =>
+      sum +
+      (getEffectiveMetricValue(v, opts.values[i], row.populationCount) ?? 0),
     0,
   );
 }

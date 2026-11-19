@@ -537,8 +537,18 @@ export function ExplorerProvider({
         return;
       }
 
-      // Cache miss when cache=required
-      if (cache === "required" && fetchResult === null && !fetchError) {
+      // Cache miss when cache=required. A cached current period whose previous
+      // period was never run for this config (e.g. after a chart type change)
+      // is a miss too, so the chart isn't drawn without its comparison.
+      const comparisonMissing =
+        previousForRequest !== null &&
+        !comparison?.exploration &&
+        !comparison?.error;
+      if (
+        cache === "required" &&
+        !fetchError &&
+        (fetchResult === null || comparisonMissing)
+      ) {
         setIsStale(true);
         return;
       }
