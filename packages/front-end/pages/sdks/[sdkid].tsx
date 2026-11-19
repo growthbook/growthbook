@@ -6,9 +6,10 @@ import {
 } from "shared/sdk-versioning";
 import {
   isActiveDraftStatus,
+  omitProxySettings,
   parseSdkWebhookSnapshot,
+  sdkConnectionSettingsOf,
   SDKConnectionRevisionSnapshot,
-  SDKConnectionSettingsRevisionSnapshot,
 } from "shared/validators";
 import { useRouter } from "next/router";
 import { holdsSdkConnectionDraftDestination } from "shared/permissions";
@@ -22,6 +23,7 @@ import {
   getSdkConnectionReviewRules,
   isScheduledPublishLockActive,
   sdkConnectionSettingsAfter,
+  withAbsentSdkSettings,
 } from "shared/enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -34,6 +36,8 @@ import useApi from "@/hooks/useApi";
 import { useSDKConnectionRevision } from "@/hooks/useSDKConnectionRevision";
 import PageHead from "@/components/Layout/PageHead";
 import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
+import CustomHooksSection from "@/components/CustomHooks/CustomHooksSection";
+import { isCloud } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
@@ -43,7 +47,6 @@ import SDKConnectionEditsBar from "@/components/Features/SDKConnections/SDKConne
 import { useSdkConnectionStagedEdits } from "@/components/Features/SDKConnections/useSdkConnectionStagedEdits";
 import Tooltip from "@/ui/Tooltip";
 import SDKConnectionEditModal from "@/components/Features/SDKConnections/SDKConnectionEditModal";
-import { withAbsentSettings } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import { TabsTrigger } from "@/ui/Tabs";
@@ -83,7 +86,12 @@ import {
 import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
 import { useTabsTop } from "@/components/Layout/pageTopOffset";
 
-const SDK_CONNECTION_TABS = ["overview", "webhooks", "review"] as const;
+const SDK_CONNECTION_TABS = [
+  "overview",
+  "webhooks",
+  "validation",
+  "review",
+] as const;
 type SDKConnectionTab = (typeof SDK_CONNECTION_TABS)[number];
 
 // Webhooks are required: an empty list reads as "every webhook was added" and
@@ -92,87 +100,9 @@ function flattenConnection(
   connection: SDKConnectionInterface,
   webhooks: WebhookInterface[],
 ): SDKConnectionRevisionSnapshot {
-  const settings: SDKConnectionSettingsRevisionSnapshot = {
-    id: connection.id,
-    organization: connection.organization,
-    name: connection.name,
-    ...(connection.eventTracker !== undefined && {
-      eventTracker: connection.eventTracker,
-    }),
-    languages: connection.languages,
-    ...(connection.sdkVersion !== undefined && {
-      sdkVersion: connection.sdkVersion,
-    }),
-    environment: connection.environment,
-    projects: connection.projects,
-    encryptPayload: connection.encryptPayload,
-    ...(connection.hashSecureAttributes !== undefined && {
-      hashSecureAttributes: connection.hashSecureAttributes,
-    }),
-    ...(connection.includeVisualExperiments !== undefined && {
-      includeVisualExperiments: connection.includeVisualExperiments,
-    }),
-    ...(connection.includeDraftExperiments !== undefined && {
-      includeDraftExperiments: connection.includeDraftExperiments,
-    }),
-    ...(connection.includeDraftExperimentRefs !== undefined && {
-      includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
-    }),
-    ...(connection.includeExperimentNames !== undefined && {
-      includeExperimentNames: connection.includeExperimentNames,
-    }),
-    ...(connection.includeRedirectExperiments !== undefined && {
-      includeRedirectExperiments: connection.includeRedirectExperiments,
-    }),
-    ...(connection.includeRuleIds !== undefined && {
-      includeRuleIds: connection.includeRuleIds,
-    }),
-    ...(connection.includeProjectIdInMetadata !== undefined && {
-      includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
-    }),
-    ...(connection.includeCustomFieldsInMetadata !== undefined && {
-      includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
-    }),
-    ...(connection.allowedCustomFieldsInMetadata !== undefined && {
-      allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
-    }),
-    ...(connection.includeTagsInMetadata !== undefined && {
-      includeTagsInMetadata: connection.includeTagsInMetadata,
-    }),
-    ...(connection.includeExperimentScheduleInMetadata !== undefined && {
-      includeExperimentScheduleInMetadata:
-        connection.includeExperimentScheduleInMetadata,
-    }),
-    ...(connection.remoteEvalEnabled !== undefined && {
-      remoteEvalEnabled: connection.remoteEvalEnabled,
-    }),
-    ...(connection.tracesEnabled !== undefined && {
-      tracesEnabled: connection.tracesEnabled,
-    }),
-    ...(connection.savedGroupReferencesEnabled !== undefined && {
-      savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
-    }),
-    ...(connection.savedGroupFormat !== undefined && {
-      savedGroupFormat: connection.savedGroupFormat,
-    }),
-    ...(connection.includeReferencedPrerequisites !== undefined && {
-      includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
-    }),
-    // Omitted when unset: an explicit `undefined` isn't isEqual to an absent
-    // key, which would show as a phantom diff.
-    ...(connection.proxy.enabled !== undefined && {
-      proxyEnabled: connection.proxy.enabled,
-    }),
-    ...(connection.proxy.host !== undefined && {
-      proxyHost: connection.proxy.host,
-    }),
-    ...(connection.archived !== undefined && { archived: connection.archived }),
-  };
   return {
-    sdkConnection: settings,
-    sdkWebhooks: webhooks.map((wh) =>
-      parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
-    ),
+    sdkConnection: sdkConnectionSettingsOf({ ...connection }),
+    sdkWebhooks: webhooks.map(parseSdkWebhookSnapshot),
   };
 }
 
@@ -206,17 +136,19 @@ function buildDisplayedConnection(
 ): SDKConnectionInterface {
   if (!revision) return connection;
   // A draft shows what it holds: its own changes over where it started.
-  const settings = sdkConnectionSettingsAfter(
+  const held = sdkConnectionSettingsAfter(
     revision.target.snapshot as SDKConnectionRevisionSnapshot,
     revision.target.proposedChanges,
   ) as Record<string, unknown>;
   // A setting history left out was off then, whatever live says now. A draft
   // keeps live's, as publishing it would.
+  const settings = isActiveDraftStatus(revision.status)
+    ? held
+    : withAbsentSdkSettings(held);
+  // Self-hosted reads the proxy from its environment, whatever a revision says.
   return overlayFlattenedOnConnection(
     connection,
-    isActiveDraftStatus(revision.status)
-      ? settings
-      : withAbsentSettings(settings),
+    isCloud() ? settings : omitProxySettings(settings),
   );
 }
 
@@ -258,7 +190,10 @@ export default function SDKConnectionPage() {
   };
   useEffect(() => {
     const hash = new URL(router.asPath, "http://x").hash.slice(1).split(",")[0];
-    const next = SDK_CONNECTION_TABS.find((t) => t === hash);
+    // Custom hooks are self-hosted only, so Cloud has no Validation tab.
+    const next = SDK_CONNECTION_TABS.find(
+      (t) => t === hash && !(t === "validation" && isCloud()),
+    );
     if (next) setTab(next);
   }, [router.asPath]);
 
@@ -267,7 +202,7 @@ export default function SDKConnectionPage() {
     openKey: `sdk-connection-details-panel-open__${sdkid}`,
     widthKey: "sdk-connection-details-panel-width",
     tab,
-    homeTab: ["overview", "webhooks"],
+    homeTab: ["overview", "webhooks", "validation"],
   });
 
   const tabsTop = useTabsTop();
@@ -540,13 +475,18 @@ export default function SDKConnectionPage() {
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-        {/* Under an approval rule, live must be archived before deleting. */}
-        {canDelete && (connection.archived || !approvalRequired) && (
+        {canDelete && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem
                 color="red"
+                disabled={!connection.archived}
+                tooltip={
+                  connection.archived
+                    ? undefined
+                    : "Archive this SDK Connection before deleting it."
+                }
                 confirmation={{
                   confirmationTitle: "Delete SDK Connection",
                   cta: "Delete",
@@ -733,6 +673,9 @@ export default function SDKConnectionPage() {
               Webhooks
               <TabCount count={webhookData?.webhooks?.length ?? 0} />
             </TabsTrigger>
+            {!isCloud() && (
+              <TabsTrigger value="validation">Validation</TabsTrigger>
+            )}
             <TabsTrigger value="review">
               Review &amp; Publish
               <ReviewTabCount statuses={allRevisions.map((r) => r.status)} />
@@ -886,6 +829,25 @@ export default function SDKConnectionPage() {
                     mutate(),
                     mutateWebhooks(),
                   ]);
+                }}
+              />
+            )}
+            {tab === "validation" && (
+              <CustomHooksSection
+                scope={{
+                  entityType: "sdkConnection",
+                  entityId: connection.id,
+                  label: "SDK Connection",
+                }}
+                projects={connection.projects}
+                description="Run sandboxed JavaScript validation before this SDK Connection or its webhooks are changed."
+                // A connection-scoped hook is saved with no Projects.
+                canManage={permissionsUtil.canCreateCustomHook({
+                  projects: [],
+                })}
+                modalProps={{
+                  sdkConnection: liveSnapshot,
+                  sdkConnectionRevision: viewingDraft ? selectedRevision : null,
                 }}
               />
             )}

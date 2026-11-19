@@ -2,7 +2,10 @@ import { CSSProperties, forwardRef, useRef, useState } from "react";
 import type { Ace } from "ace-builds";
 import { PiKey } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
-import { WebhookSecretFrontEndInterface } from "shared/validators";
+import {
+  referencedWebhookSecrets,
+  WebhookSecretFrontEndInterface,
+} from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatJSON } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -18,9 +21,6 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
-
-// `{{ KEY }}` or `{{[KEY]}}`, as the server reads them.
-const SECRET_REF_RE = /\{\{\s*\[?([^\]{}]+?)\]?\s*\}\}/g;
 
 function isJson(value: string): boolean {
   try {
@@ -157,9 +157,7 @@ export default function WebhookHeadersField({
   const canManageSecrets = usePermissionsUtil().canManageWebhookSecrets();
   const editor = useRef<Ace.Editor | null>(null);
 
-  const referenced = new Set(
-    [...value.matchAll(SECRET_REF_RE)].map((m) => m[1].trim()),
-  );
+  const referenced = new Set(referencedWebhookSecrets(value));
   const used = webhookSecrets.filter((s) => referenced.has(s.key));
 
   return (

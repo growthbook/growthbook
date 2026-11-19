@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { withAbsentSdkSettings } from "shared/enterprise";
 import {
   advancedValueFromConnection,
   defaultSavedGroupFormat,
@@ -6,7 +7,6 @@ import {
   sanitizeAdvancedForSave,
   SDKConnectionAdvancedValue,
   shouldShowPayloadSecurity,
-  withAbsentSettings,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
 
 const allOn: SDKConnectionAdvancedValue = {
@@ -194,9 +194,9 @@ describe("defaultSavedGroupFormat", () => {
   });
 });
 
-describe("withAbsentSettings", () => {
+describe("withAbsentSdkSettings", () => {
   it("fills what a snapshot left out as the payload reads it", () => {
-    const filled = withAbsentSettings({ name: "Web", encryptPayload: true });
+    const filled = withAbsentSdkSettings({ name: "Web", encryptPayload: true });
     expect(filled).toMatchObject({
       name: "Web",
       encryptPayload: true,
@@ -209,7 +209,7 @@ describe("withAbsentSettings", () => {
 
   it("keeps values the snapshot has", () => {
     expect(
-      withAbsentSettings({
+      withAbsentSdkSettings({
         includeExperimentNames: true,
         allowedCustomFieldsInMetadata: ["cf_1"],
       }),
@@ -220,7 +220,7 @@ describe("withAbsentSettings", () => {
   });
 
   it("leaves the legacy saved-group flag and the format alone", () => {
-    const filled = withAbsentSettings({});
+    const filled = withAbsentSdkSettings({});
     expect(filled).not.toHaveProperty("savedGroupReferencesEnabled");
     expect(filled).not.toHaveProperty("savedGroupFormat");
   });

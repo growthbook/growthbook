@@ -7,9 +7,13 @@ import {
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { CasConflictError, type Context } from "back-end/src/models/BaseModel";
 import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
-import { sdkConnectionAdapter } from "back-end/src/revisions/adapters/sdk-connection.adapter";
+import {
+  isSdkConnectionRevert,
+  sdkConnectionAdapter,
+} from "back-end/src/revisions/adapters/sdk-connection.adapter";
 import { getAdapter } from "back-end/src/revisions/index";
 import { restoreEntityPreImage } from "back-end/src/revisions/landingSequence";
+import { isRevisionDiverged } from "back-end/src/revisions/util";
 import {
   restoreScrubbedOps,
   scrubConflictsForViewer,
@@ -185,8 +189,13 @@ function makeContext(overrides: {
         findSdkWebhooksByIdsForRevision: jest.fn(async () => []),
         countSdkWebhooksByOrg: jest.fn(async () => overrides.webhookCount ?? 0),
         getDefaultCreateProps: (id: string) => ({ sdks: [id] }),
-        create: jest.fn(async () => ({})),
-        saveEdit: jest.fn(async (w: { id: string }) => ({ ...w, saved: true })),
+        // As the model does: each returns the row it stored.
+        create: jest.fn(async (props: object) => props),
+        saveEdit: jest.fn(async (w: { id: string }, updates: object) => ({
+          ...w,
+          ...updates,
+          saved: true,
+        })),
         send: jest.fn(),
         delete: jest.fn(async () => undefined),
         getById: jest.fn(async (id: string) => ({ id })),
@@ -286,6 +295,23 @@ describe("sdkConnectionAdapter", () => {
         baseSnapshot,
       );
     });
+  });
+
+  // Self-hosted reads the proxy settings from its environment.
+  it("doesn't read a draft as behind live over the proxy settings alone", () => {
+    const cut = snapshotWith({ proxyEnabled: false, proxyHost: "" });
+    const live = (
+      overrides: Partial<SDKConnectionRevisionSnapshot["sdkConnection"]>,
+    ) =>
+      snapshotWith({
+        proxyEnabled: true,
+        proxyHost: "https://proxy.example.com",
+        ...overrides,
+      });
+    expect(isRevisionDiverged(sdkConnectionAdapter, cut, live({}))).toBe(false);
+    expect(
+      isRevisionDiverged(sdkConnectionAdapter, cut, live({ name: "Renamed" })),
+    ).toBe(true);
   });
 
   describe("getUpdatableFields", () => {
@@ -524,6 +550,46 @@ describe("sdkConnectionAdapter", () => {
           snapshotWith({ environment: "dev" }),
         ),
       ).toBe(false);
+    });
+  });
+
+  describe("isSdkConnectionRevert", () => {
+    // Live renamed the connection and dropped its webhook since `then`.
+    const then = snapshotWith({ name: "Prod Web" }, [baseWebhook]);
+    const live = snapshotWith({ name: "Renamed" });
+
+    it("accepts the revert however its settings object was assembled", () => {
+      expect(
+        isSdkConnectionRevert(live, then, {
+          sdkConnection: settings({ name: "Prod Web" }),
+          // A client that was never shown the headers leaves them out.
+          sdkWebhooks: [omit(baseWebhook, "headers")],
+        }),
+      ).toBe(true);
+    });
+
+    it.each([
+      {
+        change: "another setting changed alongside",
+        overrides: { remoteEvalEnabled: true },
+        withWebhook: true,
+      },
+      {
+        change: "only part of the revert",
+        overrides: { name: "Prod Web" },
+        withWebhook: false,
+      },
+    ])("refuses $change", ({ overrides, withWebhook }) => {
+      expect(
+        isSdkConnectionRevert(live, then, {
+          sdkConnection: settings({ name: "Prod Web", ...overrides }),
+          ...(withWebhook ? { sdkWebhooks: [baseWebhook] } : {}),
+        }),
+      ).toBe(false);
+    });
+
+    it("refuses when the revision already matches live", () => {
+      expect(isSdkConnectionRevert(live, live, {})).toBe(false);
     });
   });
 
@@ -796,6 +862,16 @@ describe("sdkConnectionAdapter", () => {
       await expect(
         assert(makeContext({ webhookCount: 1 }), { sdkWebhooks: added }),
       ).rejects.toThrow("one SDK webhook");
+      // A scheduled publish gives up on a refusal instead of retrying it.
+      await expect(
+        sdkConnectionAdapter.assertPublishable!(
+          makeContext({ webhookCount: 1 }),
+          liveEntity,
+          { sdkWebhooks: added },
+          revision,
+          { deferred: true },
+        ),
+      ).rejects.toMatchObject({ terminalPublishFailure: true });
       await expect(
         assert(makeContext({ webhookCount: 0 }), { sdkWebhooks: added }),
       ).resolves.toBeUndefined();
@@ -1186,7 +1262,7 @@ describe("sdkConnectionAdapter", () => {
         const model = webhooksModel(ctx);
         await editOnly(ctx);
         expect(model.send).toHaveBeenCalledTimes(1);
-        expect(model.send.mock.calls[0][0]).toEqual({
+        expect(model.send.mock.calls[0][0]).toMatchObject({
           id: "wh-1",
           saved: true,
         });
@@ -1280,8 +1356,10 @@ describe("sdkConnectionAdapter", () => {
 
     it("reports both keys when settings and webhooks change together", async () => {
       const onPersisted = jest.fn();
+      const ctx = makeContext({});
+      webhooksModel(ctx).getById.mockResolvedValue(null);
       const result = await sdkConnectionAdapter.applyChanges(
-        makeContext({}),
+        ctx,
         liveEntity,
         {
           sdkConnection: settings({ name: "New Name" }),

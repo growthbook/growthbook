@@ -5,7 +5,10 @@ import {
   SDKConnectionRevisionSnapshot,
   SDKConnectionSettingsRevisionSnapshot,
   SDKWebhookRevisionSnapshot,
+  webhookHeadersObject,
+  withoutProxySettings,
 } from "shared/validators";
+import { isCloud } from "@/services/env";
 import Text from "@/ui/Text";
 import { ChangeField } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import {
@@ -555,15 +558,10 @@ const WEBHOOK_DIFF_FIELDS: {
   },
 ];
 
-function headerNames(headers: unknown): string[] {
-  if (typeof headers !== "string" || !headers.trim()) return [];
-  try {
-    const parsed: unknown = JSON.parse(headers);
-    return parsed && typeof parsed === "object" ? Object.keys(parsed) : [];
-  } catch {
-    return [];
-  }
-}
+const headerNames = (headers: unknown): string[] =>
+  Object.keys(
+    webhookHeadersObject(typeof headers === "string" ? headers : undefined),
+  );
 
 function renderSDKConnectionWebhooks(pre: Pre, post: Post): ReactNode | null {
   const preWebhooks = pre?.sdkWebhooks ?? [];
@@ -664,6 +662,8 @@ export const REVISION_SDK_CONNECTION_DIFF_CONFIG: RevisionDiffConfig<SDKConnecti
   {
     // Rows skip a setting the newer side lacks, so fill both sides first.
     normalizeSnapshot: snapshotWithAbsentSettings,
+    behindLiveView: (snapshot) =>
+      isCloud() ? snapshot : withoutProxySettings(snapshot),
     proposedStateFor: draftLandedState,
     sections: [
       {

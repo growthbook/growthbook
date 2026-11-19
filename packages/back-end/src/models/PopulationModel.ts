@@ -51,6 +51,16 @@ const BaseClass = MakeModelClass({
 });
 
 export class PopulationModel extends BaseClass {
+  // Every Population in the org, ignoring the caller's read permissions. Only
+  // for authoritative dependency scans (blocking deletion of a fact table
+  // column a Population reads), where missing one the caller cannot read would
+  // let the delete through. Never return these to the caller.
+  public async dangerousGetAllForDependencyScan(): Promise<
+    PopulationInterface[]
+  > {
+    return this._find({}, { bypassReadPermissionChecks: true });
+  }
+
   public override async handleApiList(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
   ) {

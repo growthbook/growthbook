@@ -4,8 +4,8 @@ import {
   SDKConnectionSettingsRevisionSnapshot,
   sdkConnectionUpdatableFieldsSchema,
 } from "shared/validators";
+import { ABSENT_SDK_SETTING_KEYS } from "shared/enterprise";
 import { REVISION_SDK_CONNECTION_DIFF_CONFIG } from "@/components/Features/SDKConnections/SDKConnectionDiffRenders";
-import { ABSENT_SETTING_KEYS } from "@/components/Features/SDKConnections/sdkConnectionRules";
 
 // Every setting a revision tracks has to show up in the review diff. One that
 // doesn't makes a draft changing only it read as empty (so it can't publish),
@@ -113,11 +113,11 @@ describe("SDK connection review diff", () => {
       sdkConnectionUpdatableFieldsSchema.shape[k].isOptional(),
     );
     expect(optional.filter((k) => !ABSENT_KEPT_AS_UNSET.has(k)).sort()).toEqual(
-      [...ABSENT_SETTING_KEYS].sort(),
+      [...ABSENT_SDK_SETTING_KEYS].sort(),
     );
   });
 
-  describe.each(ABSENT_SETTING_KEYS as Array<keyof Settings>)(
+  describe.each(ABSENT_SDK_SETTING_KEYS as Array<keyof Settings>)(
     "a snapshot without %s",
     (key) => {
       it("differs from one that turned it on", () => {

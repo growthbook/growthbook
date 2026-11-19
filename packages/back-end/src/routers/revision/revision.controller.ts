@@ -368,6 +368,19 @@ export const postRevision = async (
     );
   }
 
+  const adapter = getAdapter(entityType);
+  if (adapter.validateRevisionWrite) {
+    const live = adapter.buildSnapshot(
+      originalEntity as Record<string, unknown>,
+    );
+    await adapter.validateRevisionWrite(context, {
+      live,
+      revision: null,
+      proposed: applyTopLevelPatchOps(live, restoredChanges),
+      before: live,
+    });
+  }
+
   const revisionModel = context.models.revisions;
 
   const revision = await revisionModel.createRequest({
@@ -947,6 +960,14 @@ export const putProposedChanges = async (
       restoredChanges,
     );
   }
+
+  const adapter = getAdapter(existingRevision.target.type);
+  await adapter.validateRevisionWrite?.(context, {
+    live: adapter.buildSnapshot(liveForDestination),
+    revision: existingRevision,
+    proposed: applyTopLevelPatchOps(draftSnapshot, restoredChanges),
+    before: draftState,
+  });
 
   const revision = await revisionModel.updateProposedChanges(
     id,

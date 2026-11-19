@@ -29,7 +29,7 @@ using a local flags.ts file and the GrowthBook SDK, following
 https://docs.growthbook.io/guides-for-agents/local-feature-flags-typescript
 
 Read the guide in full before editing. Create flags.ts with the AppFeatures
-and AppAttributes types, a payload typed as Payload, and the
+and AppAttributes types, the features typed as LocalFeatures, and the
 Register declaration. Load it with the GrowthBook SDK and read every flag
 through the SDK. You do not need to create a GrowthBook account or add a
 client key. Never put secrets or personal data in flags.ts.
@@ -44,10 +44,10 @@ changed, and how you verified that each flag evaluates as intended.
 npm install @growthbook/growthbook
 ```
 
-Create `flags.ts`. It has three parts: the types, the flags, and a `Register` declaration that tells the SDK about the types.
+Create `flags.ts`. It has three parts: the types, the features, and a `Register` declaration that tells the SDK about the types.
 
 ```ts
-import type { Payload } from "@growthbook/growthbook";
+import type { LocalFeatures } from "@growthbook/growthbook";
 
 export type AppFeatures = {
   newCheckout: boolean;
@@ -60,24 +60,22 @@ export type AppAttributes = {
   env: "dev" | "staging" | "production";
 };
 
-export const flags: Payload = {
-  features: {
-    // Redesigned checkout flow
-    newCheckout: {
-      defaultValue: false,
-      rules: [
-        // On for everyone in dev and staging
-        { condition: { env: { $in: ["dev", "staging"] } }, force: true },
-        // Rolled out to 20% of users everywhere else
-        { force: true, coverage: 0.2, hashAttribute: "id" },
-      ],
-    },
-    // Maximum upload size in MB
-    uploadLimitMb: {
-      defaultValue: 10,
-      // Bigger uploads for Pro users
-      rules: [{ condition: { plan: "pro" }, force: 20 }],
-    },
+export const features: LocalFeatures = {
+  // Redesigned checkout flow
+  newCheckout: {
+    defaultValue: false,
+    rules: [
+      // On for everyone in dev and staging
+      { condition: { env: { $in: ["dev", "staging"] } }, force: true },
+      // Rolled out to 20% of users everywhere else
+      { force: true, coverage: 0.2, hashAttribute: "id" },
+    ],
+  },
+  // Maximum upload size in MB
+  uploadLimitMb: {
+    defaultValue: 10,
+    // Bigger uploads for Pro users
+    rules: [{ condition: { plan: "pro" }, force: 20 }],
   },
 };
 
@@ -93,11 +91,13 @@ Load it and read flags anywhere:
 
 ```ts
 import { GrowthBook } from "@growthbook/growthbook";
-import { flags } from "./flags";
+import { features } from "./flags";
 
 export const gb = new GrowthBook({
   attributes: { id: user.id, plan: user.plan, env: config.env },
-}).initSync({ payload: flags });
+  // Use the newer unbiased hashing algorithm for percentage rollouts
+  defaultHashVersion: 2,
+}).initSync({ payload: { features } });
 
 if (gb.isOn("newCheckout")) {
   renderNewCheckout();
@@ -150,11 +150,42 @@ The full GrowthBook platform (Cloud or Self-Hosted) provides these capabilities 
 
 ## Set up by platform
 
-Every platform uses the same `flags.ts`. It needs SDK version 2.1.0 or later. Don't configure a client key, API host, streaming, or polling. Without them, the SDK makes no network requests.
+Every platform uses the same `flags.ts`. It needs SDK version 2.2.0 or later. Don't configure a client key, API host, streaming, or polling. Without them, the SDK makes no network requests.
 
 ### Browser
 
-The [Quick start](#quick-start) is the complete setup. Create the instance once the user's attributes are known. If they change later, for example on login, call `gb.updateAttributes()` with the new values and re-evaluate the feature flags.
+Create the instance once the user's attributes are known. Read flags in one function and register it as the renderer. The SDK calls the renderer whenever flag values may have changed:
+
+```ts
+import { GrowthBook } from "@growthbook/growthbook";
+import { features } from "./flags";
+
+export const gb = new GrowthBook({
+  attributes: { id: user.id, plan: user.plan, env: config.env },
+  defaultHashVersion: 2,
+}).initSync({ payload: { features } });
+
+// Reads every flag and applies it to the page
+function applyFlags() {
+  if (gb.isOn("newCheckout")) {
+    renderNewCheckout();
+  } else {
+    renderOldCheckout();
+  }
+
+  setUploadLimit(gb.getFeatureValue("uploadLimitMb", 10));
+}
+
+// Run it now, and again whenever attributes or flags change
+applyFlags();
+gb.setRenderer(applyFlags);
+```
+
+If an attribute changes later, update it on the GrowthBook instance and it will re-render the flags automatically.
+
+```ts
+gb.updateAttributes({ plan: "pro" });
+```
 
 ### React and React Native
 
@@ -172,7 +203,7 @@ import {
   useFeatureIsOn,
   useFeatureValue,
 } from "@growthbook/growthbook-react";
-import { flags, type AppAttributes } from "./flags";
+import { features, type AppAttributes } from "./flags";
 
 export function App({ user }: { user: Pick<AppAttributes, "id" | "plan"> }) {
   // Create the instance with the user's attributes, so the first render uses them
@@ -180,7 +211,8 @@ export function App({ user }: { user: Pick<AppAttributes, "id" | "plan"> }) {
     () =>
       new GrowthBook({
         attributes: { id: user.id, plan: user.plan, env: config.env },
-      }).initSync({ payload: flags }),
+        defaultHashVersion: 2,
+      }).initSync({ payload: { features } }),
     [user.id, user.plan],
   );
 
@@ -223,7 +255,7 @@ import {
   GrowthBookClient,
   type UserScopedGrowthBook,
 } from "@growthbook/growthbook";
-import { flags } from "./flags";
+import { features } from "./flags";
 
 // Type the scoped instance that the middleware adds to each request
 declare global {
@@ -235,7 +267,9 @@ declare global {
 }
 
 // Once, at startup
-const client = new GrowthBookClient().initSync({ payload: flags });
+const client = new GrowthBookClient({ defaultHashVersion: 2 }).initSync({
+  payload: { features },
+});
 
 // Scoped instance per request
 app.use((req, res, next) => {
@@ -320,7 +354,7 @@ Maps each flag key to its value type. Code reads flags by these keys.
 
 A flag's type can be a boolean, string, number, or object. Prefer a union when possible such as `"compact" | "full"`, which can help prevent typos.
 
-Read boolean flags with `gb.isOn` (or `useFeatureIsOn`) and all other flags with `gb.getFeatureValue` (or `useFeatureValue`). The second argument is a fallback. It's used only when the flag is missing from `flags`, so give it the same safe value as the flag's `defaultValue`.
+Read boolean flags with `gb.isOn` (or `useFeatureIsOn`) and all other flags with `gb.getFeatureValue` (or `useFeatureValue`). The second argument is an in-code fallback. It's used only when the flag is missing from `features`.
 
 ### `AppAttributes`
 
@@ -328,16 +362,16 @@ Describes the user and request attributes that your code passes to the SDK and t
 
 Narrow types catch more mistakes. With `plan: "free" | "pro"`, a rule that targets `"premium"` doesn't compile.
 
-### `flags`
+### `features`
 
-The value of every flag and the rules for assigning values to users. The `Payload` annotation checks it against both types, which it picks up from the `Register` block.
+The value of every flag and the rules for assigning values to users. The `LocalFeatures` annotation checks it against both types, which it picks up from the `Register` block.
 
-Each entry in `features` is a flag definition:
+Each entry is a flag definition:
 
-| Field          | Type            | Description                                                                 |
-| -------------- | --------------- | --------------------------------------------------------------------------- |
-| `defaultValue` | the flag's type | The value when no rule matches. Always set it, to the safe, "off" behavior. |
-| `rules`        | array of rules  | Optional. Rules are checked in order, and the first matching rule wins.     |
+| Field          | Type            | Description                                                                   |
+| -------------- | --------------- | ----------------------------------------------------------------------------- |
+| `defaultValue` | the flag's type | Required. The value when no rule matches. Set it to the safe, "off" behavior. |
+| `rules`        | array of rules  | Optional. Rules are checked in order, and the first matching rule wins.       |
 
 Each rule has these fields:
 
@@ -347,6 +381,7 @@ Each rule has these fields:
 | `condition`     | object (see below) | Optional. Attribute targeting. The rule matches only users whose attributes pass the condition.                          |
 | `coverage`      | number, 0–1        | Optional. Percentage rollout. Only this fraction of matching users gets `force`. `0.2` means 20%.                        |
 | `hashAttribute` | attribute name     | Optional. The string or number attribute used to assign users in a percentage rollout. Required when setting `coverage`. |
+| `seed`          | string             | Optional, with `coverage`. The hashing seed. Defaults to the flag key when missing.                                      |
 
 Put a comment above every flag and rule that says what it does and why.
 
@@ -359,13 +394,27 @@ for rule in flag.rules:
     if rule.coverage is set:
         if attributes[rule.hashAttribute] is missing:
             continue
-        if hash(flag_key, attributes[rule.hashAttribute]) >= rule.coverage:
+        if hash(rule.seed or flag_key, attributes[rule.hashAttribute]) >= rule.coverage:
             continue
     return rule.force
 return flag.defaultValue
 ```
 
-Percentage rollouts use a deterministic hash of the flag key and the user's `hashAttribute` value. The same user gets the same result every time. Raising `coverage` from `0.2` to `0.5` keeps the original 20% included so you can cleanly ramp up traffic without constantly reassigning users.
+Percentage rollouts use a deterministic hash of a seed and the user's `hashAttribute` value. The same seed+user gets the same result every time. Raising `coverage` from `0.2` to `0.5` keeps the original 20% included so you can cleanly ramp up traffic without constantly reassigning users.
+
+Because the default hash seed is the flag's key, two flags at 20% reach two independent sets of users, and renaming a flag reassigns its users. Explicitly set `seed` to change that. Rollouts that share a `seed` and a `hashAttribute` include the same users, and a renamed flag keeps its users when `seed` is the old key:
+
+```ts
+// The same 20% of users get both the new checkout and the new cart
+newCheckout: {
+  defaultValue: false,
+  rules: [{ force: true, coverage: 0.2, hashAttribute: "id", seed: "checkout-revamp" }],
+},
+newCart: {
+  defaultValue: false,
+  rules: [{ force: true, coverage: 0.2, hashAttribute: "id", seed: "checkout-revamp" }],
+},
+```
 
 ### `Register`
 
@@ -493,7 +542,8 @@ Use a single `flags.ts` for every environment. To target features to different e
 ```ts
 const gb = new GrowthBook({
   attributes: { id: user.id, plan: user.plan, env: config.env },
-}).initSync({ payload: flags });
+  defaultHashVersion: 2,
+}).initSync({ payload: { features } });
 ```
 
 Then, use that in a condition just like any other attribute:
@@ -516,16 +566,16 @@ Just like with any attribute, by default a rule applies to every environment unl
 
 ## Rules for agents editing flags.ts
 
-- **Add the type first.** To add a flag, add it to `AppFeatures`, then to `flags`. TypeScript rejects a flag in `flags` that isn't in `AppFeatures`, but not the reverse, so check that every flag in `AppFeatures` is also defined in `flags`.
+- **Add the type first.** To add a flag, add it to `AppFeatures`, then to `features`.
 - **Make `defaultValue` the safe value.** It's what users get when no rule matches, including users with missing attributes.
-- **Comment every flag and rule.** Say what it does and why. Use only the fields in this guide.
+- **Comment every flag and rule.** Say what it does and why.
 - **Don't weaken the types.** Don't use `any`, `as` casts, or `@ts-expect-error` to silence an error in `flags.ts` or in code that reads flags. Fix the flag, the attribute, or the type instead.
 - **Don't put secrets or personal data in `flags.ts`.** A file bundled into a browser or mobile app can be read by anyone. Don't include API keys, internal URLs that should stay private, or lists of customer emails or IDs.
 - **Don't use flags for authorization.** A flag can hide a button, but the server must still check permissions and entitlements.
 - **Target only attributes you pass.** Add an attribute to `AppAttributes` before using it in a condition, and pass it wherever an instance is created. A rollout excludes users with a missing or empty `hashAttribute` value.
 - **Keep one file.** Don't create per-environment or per-feature flag files. Target environments with a top-level `env` condition, as described in [Environments](#environments).
 - **Rule order matters.** The first matching rule wins. If no rules match, the `defaultValue` is used.
-- **Remove stale flags.** When a flag is no longer needed (e.g. fully rolled out and stable), delete it from `AppFeatures` and `flags`, then remove the code branches that TypeScript reports. Stale flags are tech debt.
+- **Remove stale flags.** When a flag is no longer needed (e.g. fully rolled out and stable), delete it from `AppFeatures` and `features`, then remove the code branches that TypeScript reports. Stale flags are tech debt.
 
 ## Testing
 
@@ -533,18 +583,41 @@ TypeScript checks that `flags.ts` is well-formed, but not that the rules do what
 
 ```ts
 import { GrowthBook } from "@growthbook/growthbook";
-import { flags, type AppAttributes } from "./flags";
+import { features, type AppAttributes } from "./flags";
 
 const withAttributes = (attributes: Partial<AppAttributes>) =>
   new GrowthBook({
     attributes: { id: "1", plan: "free", env: "production", ...attributes },
-  }).initSync({ payload: flags });
+    defaultHashVersion: 2,
+  }).initSync({ payload: { features } });
 
 test("uploadLimitMb is 20 for Pro users and 10 for everyone else", () => {
   expect(withAttributes({ plan: "pro" }).getFeatureValue("uploadLimitMb", 0)).toBe(20);
   expect(withAttributes({ plan: "free" }).getFeatureValue("uploadLimitMb", 0)).toBe(10);
 });
 ```
+
+When a flag doesn't evaluate the way you expect, `gb.evalFeature("newCheckout")` returns the `value` along with its `source`: `"force"` when a rule matched and `"defaultValue"` when none did. For a step-by-step trace, create the instance with `debug: true`. The SDK then logs each rule it skips and why.
+
+## Let the user QA in the browser
+
+In a browser or React app, turn on dev mode so the user can try different flag values without editing `flags.ts`:
+
+```ts
+export const gb = new GrowthBook({
+  attributes: { id: user.id, plan: user.plan, env: config.env },
+  defaultHashVersion: 2,
+  enableDevMode: config.env !== "production",
+}).initSync({ payload: { features } });
+```
+
+Dev mode is for the user, not for you. Verify your own work as described in [Testing](#testing). When you hand the project back, tell the user that they can install the [GrowthBook DevTools browser extension](https://docs.growthbook.io/tools/chrome-extension) for Chrome or Firefox to:
+
+- See every flag, its current value, and the rule that produced it
+- Override a flag's value
+- Override attributes, for example to see the page as a Pro user
+
+Overrides apply instantly and only in their own browser session. Dev mode exposes every flag and its rules to anyone with the browser extension, so keep it off in production.
 
 ## Finish the local setup
 
@@ -554,5 +627,6 @@ Before handing the project back:
 - Verify safe defaults, environment overrides, and attribute targeting for the flags you added. For percentage rollouts, check that the same ID gets the same result across repeated evaluations and that a missing ID is excluded from the percentage rollout.
 - Check the flag reads in the application, including attribute changes such as login or a plan change when applicable.
 - Return the flags you added, their defaults and rules, the files you changed, and the verification results. Explain any checks you could not complete.
+- If you turned on dev mode, tell the user how to QA flags with the DevTools extension.
 
 The local setup is complete. No GrowthBook account or client key is required.
