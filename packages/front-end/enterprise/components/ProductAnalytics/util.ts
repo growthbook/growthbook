@@ -1507,28 +1507,16 @@ export function formatDateByGranularity(
 }
 
 /**
- * A compact time-axis tick label. The year (or, for hourly buckets, the date)
- * appears only on the first tick and where it changes from the previous tick,
- * so a run of labels reads "Jan 2025, Feb, Mar, …" instead of repeating it.
- * Warehouse dates are UTC, so labels are too.
+ * A compact time-axis tick label. Every tick on an axis uses the same format;
+ * `showYear` is decided once for the whole axis. Warehouse dates are UTC, so
+ * labels are too.
  */
 function formatDateAxisLabel(
   date: Date,
   granularity: ResolvedGranularity,
-  prev: Date | null,
+  showYear: boolean,
 ): string {
-  const newYear = !prev || prev.getUTCFullYear() !== date.getUTCFullYear();
-  const newDay =
-    !prev ||
-    prev.toISOString().slice(0, 10) !== date.toISOString().slice(0, 10);
-  const monthDay = (withYear: boolean) =>
-    date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      ...(withYear ? { year: "numeric" } : {}),
-      timeZone: "UTC",
-    });
-
+  const yearOpt = showYear ? { year: "numeric" as const } : {};
   switch (granularity) {
     case "year":
       return date.toLocaleDateString(undefined, {
@@ -1538,20 +1526,28 @@ function formatDateAxisLabel(
     case "month":
       return date.toLocaleDateString(undefined, {
         month: "short",
-        ...(newYear ? { year: "numeric" } : {}),
+        ...yearOpt,
         timeZone: "UTC",
       });
     case "week":
     case "day":
-      return monthDay(newYear);
-    case "hour": {
-      const time = date.toLocaleTimeString(undefined, {
+      return date.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        ...yearOpt,
+        timeZone: "UTC",
+      });
+    case "hour":
+      return `${date.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        ...yearOpt,
+        timeZone: "UTC",
+      })} ${date.toLocaleTimeString(undefined, {
         hour: "2-digit",
         minute: "2-digit",
         timeZone: "UTC",
-      });
-      return newDay ? `${monthDay(newYear)} ${time}` : time;
-    }
+      })}`;
   }
 }
 
@@ -1563,16 +1559,19 @@ function formatDateAxisLabel(
  * coarse buckets get ticks between them. Pinning ticks to bucket starts
  * (thinned to at most `maxTicks`) keeps every tick and grid line on a real
  * bucket. A lone bucket also gets an explicit extent of half a bucket either
- * side, so it sits centred under its one label.
+ * side, so it sits centred under its one label. Labels share one format: all
+ * with the year, or (when every tick falls in the current year) all without.
  */
 export function buildDateTimeAxisTicks({
   bucketIsos,
   granularity,
   maxTicks,
+  now = Date.now(),
 }: {
   bucketIsos: string[];
   granularity: ResolvedGranularity;
   maxTicks: number;
+  now?: number;
 }): {
   tickValues: number[];
   labels: Map<number, string>;
@@ -1590,12 +1589,15 @@ export function buildDateTimeAxisTicks({
   const stride = Math.max(1, Math.ceil(times.length / Math.max(1, maxTicks)));
   const tickValues = times.filter((_, i) => i % stride === 0);
 
+  // Leave the year off only when every tick is in the current year, where it
+  // goes without saying.
+  const currentYear = new Date(now).getUTCFullYear();
+  const showYear = tickValues.some(
+    (t) => new Date(t).getUTCFullYear() !== currentYear,
+  );
   const labels = new Map<number, string>();
-  let prev: Date | null = null;
   for (const t of tickValues) {
-    const date = new Date(t);
-    labels.set(t, formatDateAxisLabel(date, granularity, prev));
-    prev = date;
+    labels.set(t, formatDateAxisLabel(new Date(t), granularity, showYear));
   }
 
   let min: number | null = null;

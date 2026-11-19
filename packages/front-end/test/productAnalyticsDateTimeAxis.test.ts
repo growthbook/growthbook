@@ -84,32 +84,60 @@ describe("buildDateTimeAxisTicks", () => {
     expect(result.tickValues[1]).toBe(Date.UTC(2025, 0, 4));
   });
 
-  it("shows the year on the first tick and where it changes", () => {
+  it("labels every tick without the year when all are in the current year", () => {
     const result = buildDateTimeAxisTicks({
-      bucketIsos: ["2024-11-01", "2024-12-01", "2025-01-01", "2025-02-01"],
-      granularity: "month",
+      bucketIsos: ["2026-10-25", "2026-11-01"],
+      granularity: "week",
       maxTicks: 12,
+      now: Date.UTC(2026, 10, 19),
     });
     const labels = result.tickValues.map((t) => result.labels.get(t) ?? "");
-    expect(labels[0]).toContain("2024");
-    expect(labels[1]).not.toContain("2024");
-    expect(labels[2]).toContain("2025");
-    expect(labels[3]).not.toContain("2025");
+    expect(labels).toHaveLength(2);
+    for (const label of labels) expect(label).not.toContain("2026");
   });
 
-  it("shows the date on hourly ticks only when the day changes", () => {
+  it("labels every tick with the year when any is outside the current year", () => {
+    const result = buildDateTimeAxisTicks({
+      bucketIsos: ["2025-11-01", "2025-12-01", "2026-01-01", "2026-02-01"],
+      granularity: "month",
+      maxTicks: 12,
+      now: Date.UTC(2026, 10, 19),
+    });
+    const labels = result.tickValues.map((t) => result.labels.get(t) ?? "");
+    expect(labels[0]).toContain("2025");
+    expect(labels[1]).toContain("2025");
+    expect(labels[2]).toContain("2026");
+    expect(labels[3]).toContain("2026");
+  });
+
+  it("labels a past year's ticks with the year even within one year", () => {
+    const result = buildDateTimeAxisTicks({
+      bucketIsos: ["2024-03-04", "2024-03-11"],
+      granularity: "day",
+      maxTicks: 12,
+      now: Date.UTC(2026, 10, 19),
+    });
+    for (const t of result.tickValues) {
+      expect(result.labels.get(t)).toContain("2024");
+    }
+  });
+
+  it("gives hourly ticks the same date-and-time format throughout", () => {
     const result = buildDateTimeAxisTicks({
       bucketIsos: [
-        "2025-06-01 22:00:00",
-        "2025-06-01 23:00:00",
-        "2025-06-02 00:00:00",
+        "2026-06-01 22:00:00",
+        "2026-06-01 23:00:00",
+        "2026-06-02 00:00:00",
       ],
       granularity: "hour",
       maxTicks: 12,
+      now: Date.UTC(2026, 10, 19),
     });
     const labels = result.tickValues.map((t) => result.labels.get(t) ?? "");
-    expect(labels[0].length).toBeGreaterThan(labels[1].length);
-    expect(labels[2].length).toBeGreaterThan(labels[1].length);
+    // Each label carries its date, not just the first or day-change ticks.
+    expect(labels[0]).not.toBe(labels[1]);
+    expect(labels[0].slice(0, 5)).toBe(labels[1].slice(0, 5));
+    expect(labels[1].slice(0, 5)).not.toBe(labels[2].slice(0, 5));
   });
 
   it("returns no ticks for no buckets", () => {
