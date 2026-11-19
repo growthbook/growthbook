@@ -11,11 +11,17 @@ import type { ExperimentReportResultDimension } from "shared/types/report";
 import type { QueryInterface } from "shared/types/query";
 import type { ExperimentMetricInterface } from "shared/experiments";
 import {
+  getComputableNewMetricIds,
+  getDefinitionMetricId,
   getMetricFilterForCarriedQueries,
   getResultsDateEnd,
 } from "shared/experiments";
 import type { ReqContext } from "back-end/types/request";
-import type { PlannedExperimentSnapshot } from "back-end/src/services/experiments";
+import {
+  getSnapshotSettings,
+  type PlannedExperimentSnapshot,
+} from "back-end/src/services/experiments";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
@@ -61,6 +67,7 @@ import {
 } from "back-end/src/util/errors";
 import { snapshotFactory } from "../factories/Snapshot.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
+import { factTableFactory } from "../factories/FactTable.factory";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   findLatestSuccessfulOverallSnapshot: jest.fn(),
@@ -1902,5 +1909,159 @@ describe("analyzeNewMetricsUpdate", () => {
       [0, 0],
       [0, 0],
     ]);
+  });
+});
+
+// The page predicts which added metrics a new-metrics update computes; the
+// planner keeps the ones the planned snapshot gives a metricSettings entry.
+describe("getComputableNewMetricIds matches the snapshot planner", () => {
+  const datasource = {
+    id: "ds_1",
+    type: "postgres",
+    settings: {
+      queries: {
+        exposure: [
+          {
+            id: "exposure_user",
+            name: "Users",
+            userIdType: "user_id",
+            query: "SELECT * FROM exposures",
+            dimensions: [],
+          },
+          {
+            id: "exposure_region",
+            name: "Regions",
+            userIdType: "region_id",
+            userIdTypes: ["region_id", "user_id"],
+            query: "SELECT * FROM exposures",
+            dimensions: [],
+          },
+        ],
+      },
+    },
+  } as unknown as DataSourceInterface;
+  const factTableMap = new Map(
+    [
+      factTableFactory.build({ id: "ft_user", userIdTypes: ["user_id"] }),
+      factTableFactory.build({ id: "ft_region", userIdTypes: ["region_id"] }),
+      factTableFactory.build({ id: "ft_device", userIdTypes: ["device_id"] }),
+    ].map((t) => [t.id, t]),
+  ) as FactTableMap;
+  const metrics: ExperimentMetricInterface[] = [
+    factMetricFactory.build({
+      id: "fact__user",
+      numerator: { factTableId: "ft_user" },
+    }),
+    factMetricFactory.build({
+      id: "fact__region",
+      numerator: { factTableId: "ft_region" },
+    }),
+    factMetricFactory.build({
+      id: "fact__device",
+      numerator: { factTableId: "ft_device" },
+    }),
+    factMetricFactory.build({
+      id: "fact__conversion",
+      numerator: { factTableId: "ft_user" },
+      windowSettings: { type: "conversion" },
+    }),
+    {
+      ...factMetricFactory.build({
+        id: "fact__quantile",
+        metricType: "quantile",
+        numerator: { factTableId: "ft_user" },
+      }),
+      quantileSettings: { type: "unit", quantile: 0.5, ignoreZeros: false },
+    },
+  ];
+  const allMetricIds = [...metrics.map((m) => m.id), "fact__deleted"];
+
+  it.each<{
+    name: string;
+    experiment: Partial<ExperimentInterface>;
+    expected: string[];
+  }>([
+    {
+      name: "a standard experiment",
+      experiment: {
+        exposureQueryId: "exposure_user",
+        goalMetrics: allMetricIds,
+      },
+      expected: ["fact__user", "fact__conversion", "fact__quantile"],
+    },
+    {
+      name: "a holdout",
+      experiment: {
+        type: "holdout",
+        exposureQueryId: "exposure_user",
+        goalMetrics: ["fact__user", "fact__conversion"],
+        secondaryMetrics: ["fact__device"],
+        guardrailMetrics: ["fact__quantile", "fact__user"],
+      },
+      expected: ["fact__user"],
+    },
+    {
+      name: "a cluster experiment",
+      experiment: {
+        exposureQueryId: "exposure_region",
+        exposureQueryIdentifierType: "region_id",
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "user_id",
+        goalMetrics: allMetricIds,
+      },
+      expected: ["fact__user", "fact__region", "fact__conversion"],
+    },
+  ])("$name", ({ experiment: overrides, expected }) => {
+    const experiment = {
+      id: "exp_1",
+      organization: "org_1",
+      datasource: datasource.id,
+      type: "standard",
+      variations: [{ name: "Control" }, { name: "Treatment" }],
+      phases: [
+        {
+          dateStarted: new Date("2026-11-01T00:00:00Z"),
+          variationWeights: [0.5, 0.5],
+        },
+      ],
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      metricOverrides: [],
+      ...overrides,
+    } as unknown as ExperimentInterface;
+    const metricMap = new Map(metrics.map((m) => [m.id, m]));
+
+    const planned = getSnapshotSettings({
+      experiment,
+      phaseIndex: 0,
+      snapshotType: "standard",
+      dimension: null,
+      regressionAdjustmentEnabled: false,
+      orgPriorSettings: undefined,
+      orgDisabledPrecomputedDimensions: true,
+      settingsForSnapshotMetrics: [],
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      incrementalRefreshModel: null,
+      datasource,
+    });
+    const computable = getComputableNewMetricIds({
+      experiment,
+      snapshotSettings: { metricSettings: [] },
+      metricGroups: [],
+      getMetricById: (id) => metricMap.get(id),
+      getFactTableById: (id) => factTableMap.get(id),
+      identifierType: planned.exposureQueryIdentifierType,
+      datasourceSettings: datasource.settings,
+    });
+
+    expect(computable).toEqual(expected);
+    expect(computable).toEqual(
+      planned.metricSettings
+        .map((m) => m.id)
+        .filter((id) => getDefinitionMetricId(id) === id),
+    );
   });
 });
