@@ -1,5 +1,6 @@
 import type { AIUsageData } from "shared/ai";
 import type { StatsEngine } from "shared/types/stats";
+import type { InitialPlanOptions } from "@/components/Auth/SelectInitialPlan";
 
 // An event that has no properties
 type NoProps = Record<string, never>;
@@ -35,7 +36,7 @@ type ModalEventProps = {
 // urlPlan is the ?plan= value the user arrived with ("pro" or "starter"), or
 // "" when it was not recorded.
 type InitialSignupEventProps = {
-  urlPlan: string;
+  urlPlan: InitialPlanOptions;
 };
 
 type AIFeedbackProps = {
@@ -597,15 +598,19 @@ export type AppEvents = {
   "Presentation created": NoProps;
   "Presentation edited": NoProps;
   // Sent once the license server has created the Pro subscription.
-  "Pro subscription started": {
-    flow: "initial-signup" | "upgrade-modal";
-    // Org members, excluding pending invites, matching the seats Pro bills
-    seats: number;
-    // The upgrade modal's CTA source; only sent by the upgrade modal
-    source?: string;
-    // Only sent by the initial signup flow
-    urlPlan?: string;
-  };
+  // seats is the org's members, excluding pending invites, matching the seats
+  // Pro bills. Each flow sends its own extra field.
+  "Pro subscription started":
+    | (InitialSignupEventProps & {
+        flow: "initial-signup";
+        seats: number;
+      })
+    | {
+        flow: "upgrade-modal";
+        seats: number;
+        // The upgrade modal's CTA source
+        source: string;
+      };
   "Product Analytics Explorer: Chart Type Changed": {
     from_chart_type: string;
     type: string;
