@@ -6,8 +6,8 @@ import {
 } from "back-end/src/services/snapshotUpdateScope";
 import {
   BadRequestError,
-  MetricRefreshOutsideWindowError,
-  MetricRefreshUnavailableError,
+  NewMetricsUpdateOutsideWindowError,
+  NewMetricsUpdateUnavailableError,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
 } from "back-end/src/util/errors";
@@ -20,8 +20,8 @@ const now = new Date("2026-11-18T12:00:00Z");
 const newMetricsResult = { snapshot: { id: "snp_new" } };
 const allMetricsResult = { snapshot: { id: "snp_all" } };
 const notMissing = new MetricsAlreadyUpToDateError("snp_base");
-const tooOld = new MetricRefreshOutsideWindowError();
-const unavailable = new MetricRefreshUnavailableError(
+const tooOld = new NewMetricsUpdateOutsideWindowError();
+const unavailable = new NewMetricsUpdateUnavailableError(
   "analysis_dates_changed",
   "Dates changed.",
 );

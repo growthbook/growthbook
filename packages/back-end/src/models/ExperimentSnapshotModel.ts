@@ -12,7 +12,7 @@ import {
   getSnapshotAnalysis,
   isString,
 } from "shared/util";
-import { getMetricRefresh } from "shared/experiments";
+import { getNewMetricsUpdate } from "shared/experiments";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -86,7 +86,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   triggeredBy: String,
   report: String,
   runnerKind: String,
-  metricRefresh: new mongoose.Schema(
+  newMetricsUpdate: new mongoose.Schema(
     {
       baseSnapshotId: String,
       baseDateCreated: Date,
@@ -625,14 +625,14 @@ export async function updateSnapshot({
       });
     }
 
-    const metricRefresh = getMetricRefresh(experimentSnapshot);
+    const newMetricsUpdate = getNewMetricsUpdate(experimentSnapshot);
     superseded =
-      !!metricRefresh &&
+      !!newMetricsUpdate &&
       experimentSnapshot.status === "success" &&
       !(await isParentStillLatestOverall(
         context,
         experimentSnapshot,
-        metricRefresh.parentSnapshotId,
+        newMetricsUpdate.parentSnapshotId,
       ));
 
     const shouldUpdateExperimentAnalysisSummary =
@@ -1265,9 +1265,9 @@ export async function getSnapshotQueryPointers(
   return doc?.queries ?? null;
 }
 
-export type MetricRefreshAncestor = Pick<
+export type NewMetricsUpdateAncestor = Pick<
   ExperimentSnapshotInterface,
-  "id" | "type" | "metricRefresh" | "queries" | "runStarted"
+  "id" | "type" | "newMetricsUpdate" | "queries" | "runStarted"
 > & {
   settings: Pick<
     ExperimentSnapshotSettings,
@@ -1275,17 +1275,17 @@ export type MetricRefreshAncestor = Pick<
   >;
 };
 
-export async function findMetricRefreshAncestor(
+export async function findNewMetricsUpdateAncestor(
   context: Context,
   id: string,
-): Promise<MetricRefreshAncestor | null> {
+): Promise<NewMetricsUpdateAncestor | null> {
   return ExperimentSnapshotModel.findOne(
     { organization: context.org.id, id },
     {
       _id: 0,
       id: 1,
       type: 1,
-      metricRefresh: 1,
+      newMetricsUpdate: 1,
       queries: 1,
       runStarted: 1,
       "settings.metricSettings": 1,
@@ -1293,7 +1293,7 @@ export async function findMetricRefreshAncestor(
       "settings.endDateIsCutoff": 1,
     },
   )
-    .lean<MetricRefreshAncestor>()
+    .lean<NewMetricsUpdateAncestor>()
     .exec();
 }
 
@@ -1435,7 +1435,7 @@ const snapshotStatusProjection = {
   banditResult: 1,
   type: 1,
   triggeredBy: 1,
-  metricRefresh: 1,
+  newMetricsUpdate: 1,
 } as const;
 
 function toSnapshotStatusSummary(
@@ -1453,7 +1453,7 @@ function toSnapshotStatusSummary(
     banditResult: raw.banditResult,
     type: raw.type,
     triggeredBy: raw.triggeredBy,
-    metricRefresh: raw.metricRefresh,
+    newMetricsUpdate: raw.newMetricsUpdate,
   };
 }
 

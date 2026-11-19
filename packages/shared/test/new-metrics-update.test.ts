@@ -4,7 +4,7 @@ import {
   getMetricIdsExcludedByExperimentType,
   getMetricIdsMissingFromSnapshot,
   getSnapshotSideEffects,
-} from "../src/experiments/metric-refresh";
+} from "../src/experiments/new-metrics-update";
 
 function snapshotSettingsFor(metricIds: string[]) {
   return {
@@ -105,13 +105,13 @@ describe("getMetricIdsMissingFromSnapshot", () => {
 });
 
 describe("getSnapshotSideEffects", () => {
-  it("lets a metric refresh skip the schedule, dashboards and update alerts", () => {
+  it("lets a new-metrics update skip the schedule, dashboards and update alerts", () => {
     const baseDateCreated = new Date("2026-11-10T00:00:00Z");
     const effects = getSnapshotSideEffects({
       type: "standard",
       dateCreated: new Date("2026-11-12T00:00:00Z"),
       settings: { metricSettings: [{ id: "met_a" }, { id: "met_c" }] },
-      metricRefresh: {
+      newMetricsUpdate: {
         baseSnapshotId: "snp_base",
         baseDateCreated,
         baseRunStarted: null,
@@ -133,12 +133,12 @@ describe("getSnapshotSideEffects", () => {
 });
 
 // A report never copies a lineage, but one that did must act as a report.
-describe("a report snapshot copied from a metric refresh", () => {
+describe("a report snapshot copied from a new-metrics update", () => {
   const report = {
     type: "report",
     dateCreated: new Date("2026-11-12T00:00:00Z"),
     settings: { metricSettings: [{ id: "fact__a" }] },
-    metricRefresh: {
+    newMetricsUpdate: {
       baseSnapshotId: "snp_base",
       baseDateCreated: new Date("2026-11-10T00:00:00Z"),
       baseRunStarted: null,
@@ -148,7 +148,7 @@ describe("a report snapshot copied from a metric refresh", () => {
     },
   } as unknown as ExperimentSnapshotInterface;
 
-  it("has the side effects of a report, not of a metric refresh", () => {
+  it("has the side effects of a report, not of a new-metrics update", () => {
     const effects = getSnapshotSideEffects(report);
 
     expect(effects).toMatchObject({

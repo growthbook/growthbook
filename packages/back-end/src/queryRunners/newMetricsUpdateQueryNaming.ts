@@ -1,6 +1,6 @@
 import type {
   ExperimentSnapshotInterface,
-  SnapshotMetricRefresh,
+  SnapshotNewMetricsUpdate,
 } from "shared/types/experiment-snapshot";
 import { parseUnitDimQueryName } from "./unitDimensionQueryNaming";
 
@@ -47,20 +47,20 @@ export function getIndexAfterLastGroup(queryNames: readonly string[]): number {
 }
 
 /**
- * Which of its parent's queries a metric refresh copies. On the standard
+ * Which of its parent's queries a new-metrics update copies. On the standard
  * pipeline: metric groups and traffic always, a single metric's query only
  * while that metric is still analyzed, never the parent's units table or its
  * drop. On the Incremental Pipeline: statistics and traffic, since every other
  * query writes the cache tables.
  */
-export function isCarriedMetricRefreshQuery(
+export function isCarriedNewMetricsUpdateQuery(
   name: string,
-  refresh: Pick<ExperimentSnapshotInterface, "runnerKind" | "settings">,
-  { parentSnapshotId }: Pick<SnapshotMetricRefresh, "parentSnapshotId">,
+  snapshot: Pick<ExperimentSnapshotInterface, "runnerKind" | "settings">,
+  { parentSnapshotId }: Pick<SnapshotNewMetricsUpdate, "parentSnapshotId">,
 ): boolean {
   if (HEALTH_QUERY_NAMES.has(name)) return true;
   const baseName = parseUnitDimQueryName(name)?.baseQueryName ?? name;
-  if ((refresh.runnerKind ?? "results") !== "results") {
+  if ((snapshot.runnerKind ?? "results") !== "results") {
     return baseName.startsWith(STATISTICS_QUERY_PREFIX);
   }
   if (name === parentSnapshotId || name === `drop_${parentSnapshotId}`) {
@@ -68,6 +68,6 @@ export function isCarriedMetricRefreshQuery(
   }
   return (
     GROUP_QUERY_NAME.test(baseName) ||
-    refresh.settings.metricSettings.some((m) => m.id === baseName)
+    snapshot.settings.metricSettings.some((m) => m.id === baseName)
   );
 }

@@ -244,7 +244,7 @@ describe("getResultsOutdatedReasons", () => {
     expect(reasons(overrides)).toEqual([]);
   });
 
-  it("measures a lagged running phase from the base update of a refresh", () => {
+  it("measures a lagged running phase from the base update of a new-metrics update", () => {
     const now = Date.now();
     const runningExperiment = experiment({
       phases: [{ dateStarted: START.toISOString(), variations: [] }],
@@ -265,7 +265,7 @@ describe("getResultsOutdatedReasons", () => {
         experiment: runningExperiment,
         snapshot: snapshot(laggedSettings, {
           dateCreated: new Date(now),
-          metricRefresh: {
+          newMetricsUpdate: {
             baseSnapshotId: "snp_base",
             parentSnapshotId: "snp_base",
             metricIds: ["fact__a"],

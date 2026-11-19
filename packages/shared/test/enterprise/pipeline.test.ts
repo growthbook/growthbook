@@ -292,12 +292,12 @@ describe("isNewerOverallResultsDataAvailable", () => {
     ).toBe(true);
   });
 
-  describe("when the latest Overall snapshot is a metric refresh", () => {
+  describe("when the latest Overall snapshot is a new-metrics update", () => {
     const rootDate = new Date("2024-06-01T12:00:00Z");
     const makeRefresh = (dateCreated: Date, baseDateCreated: Date) => ({
       type: "standard" as const,
       dateCreated,
-      metricRefresh: {
+      newMetricsUpdate: {
         baseSnapshotId: "root",
         baseDateCreated,
         baseRunStarted: null,
@@ -314,9 +314,9 @@ describe("isNewerOverallResultsDataAvailable", () => {
     };
 
     it.each([
-      ["false for that same refresh", refresh, false],
+      ["false for that same new-metrics update", refresh, false],
       [
-        "false after a later refresh of the same root",
+        "false after a later new-metrics update of the same root",
         makeRefresh(new Date("2024-06-01T14:00:00Z"), rootDate),
         false,
       ],
@@ -329,7 +329,7 @@ describe("isNewerOverallResultsDataAvailable", () => {
         true,
       ],
       [
-        "true for a refresh whose root is a later full update",
+        "true for a new-metrics update whose root is a later full update",
         makeRefresh(
           new Date("2024-06-01T16:00:00Z"),
           new Date("2024-06-01T15:00:00Z"),

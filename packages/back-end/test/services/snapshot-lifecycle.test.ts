@@ -615,7 +615,7 @@ describe("snapshot lifecycle", () => {
       expect(resultsQueryRunnerMock).toHaveBeenCalled();
     });
 
-    describe("for a metric refresh", () => {
+    describe("for a new-metrics update", () => {
       const cutoff = new Date("2025-02-01T00:00:00.000Z");
       const refreshPlan = () =>
         makePlan({
@@ -625,7 +625,7 @@ describe("snapshot lifecycle", () => {
               endDate: cutoff,
               endDateIsCutoff: true,
             } as ExperimentSnapshotSettings,
-            metricRefresh: {
+            newMetricsUpdate: {
               baseSnapshotId: "snp_base",
               baseDateCreated: cutoff,
               baseRunStarted: null,
@@ -673,7 +673,7 @@ describe("snapshot lifecycle", () => {
         expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
           expect.objectContaining({
             incrementalRefreshStartTime: cutoff,
-            mode: { kind: "metrics-only" },
+            mode: { kind: "new-metrics" },
           }),
         );
       });

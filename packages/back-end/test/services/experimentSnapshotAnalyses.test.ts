@@ -363,7 +363,7 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
     expect(settings.assignmentQueryId).toBe("eq_new");
   });
 
-  it("dates a metric refresh's results by its base update, not its own run", () => {
+  it("dates a new-metrics update's results by its base update, not its own run", () => {
     const refresh = makeSnapshot();
     const dataEnd = new Date("2025-01-02T00:00:00.000Z");
     const baseRanAt = new Date("2025-01-02T00:05:00.000Z");
@@ -373,7 +373,7 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
       dateCreated: ranAt,
       runStarted: ranAt,
       settings: { ...refresh.settings, endDate: dataEnd },
-      metricRefresh: {
+      newMetricsUpdate: {
         baseSnapshotId: "snp_base",
         baseDateCreated: baseRanAt,
         baseRunStarted,
@@ -382,7 +382,7 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
         metricIds: ["met_1"],
       },
     });
-    const fullRun = { ...refresh, metricRefresh: undefined };
+    const fullRun = { ...refresh, newMetricsUpdate: undefined };
 
     const toDates = (snapshot: typeof refresh) => {
       const { dateEnd, dateUpdated } = toSnapshotApiInterface(

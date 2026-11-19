@@ -1,4 +1,4 @@
-import { getMetricRefresh } from "shared/experiments";
+import { getNewMetricsUpdate } from "shared/experiments";
 import { getSnapshotCutoffDate, isDefined } from "shared/util";
 import type {
   ExperimentSnapshotInterface,
@@ -10,8 +10,8 @@ import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
-  findMetricRefreshAncestor,
-  type MetricRefreshAncestor,
+  findNewMetricsUpdateAncestor,
+  type NewMetricsUpdateAncestor,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
 import {
@@ -21,8 +21,8 @@ import {
 import {
   getIndexAfterLastGroup,
   type ResultQueryScope,
-} from "back-end/src/queryRunners/metricRefreshQueryNaming";
-import { MetricRefreshUnavailableError } from "back-end/src/util/errors";
+} from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
+import { NewMetricsUpdateUnavailableError } from "back-end/src/util/errors";
 
 /**
  * The SQL of every query startExperimentResultQueries would start, by query
@@ -54,32 +54,32 @@ export type GenerateResultQuerySql = (args: {
   scope?: ResultQueryScope;
 }) => Promise<Map<string, string>>;
 
-// Each refresh adds a level, and each level costs a dry run of its queries.
-const MAX_METRIC_REFRESH_LINEAGE_LENGTH = 10;
+// Each new-metrics update adds a level, and each level costs a dry run of its queries.
+const MAX_NEW_METRICS_UPDATE_LINEAGE_LENGTH = 10;
 
 /** Base full update first, parent last. */
-async function loadMetricRefreshLineage(
+async function loadNewMetricsUpdateLineage(
   context: ReqContext | ApiReqContext,
-  parent: MetricRefreshAncestor,
-): Promise<MetricRefreshAncestor[]> {
+  parent: NewMetricsUpdateAncestor,
+): Promise<NewMetricsUpdateAncestor[]> {
   const lineage = [parent];
   for (
-    let metricRefresh = getMetricRefresh(parent);
-    metricRefresh;
-    metricRefresh = getMetricRefresh(lineage[0])
+    let newMetricsUpdate = getNewMetricsUpdate(parent);
+    newMetricsUpdate;
+    newMetricsUpdate = getNewMetricsUpdate(lineage[0])
   ) {
-    if (lineage.length >= MAX_METRIC_REFRESH_LINEAGE_LENGTH) {
-      throw new MetricRefreshUnavailableError(
+    if (lineage.length >= MAX_NEW_METRICS_UPDATE_LINEAGE_LENGTH) {
+      throw new NewMetricsUpdateUnavailableError(
         "base_incomplete",
-        `The latest results come from ${MAX_METRIC_REFRESH_LINEAGE_LENGTH - 1} updates of newly added metrics in a row, the most that can build on each other. Send "updateScope": "all_metrics" instead.`,
+        `The latest results come from ${MAX_NEW_METRICS_UPDATE_LINEAGE_LENGTH - 1} updates of newly added metrics in a row, the most that can build on each other. Send "updateScope": "all_metrics" instead.`,
       );
     }
-    const ancestor = await findMetricRefreshAncestor(
+    const ancestor = await findNewMetricsUpdateAncestor(
       context,
-      metricRefresh.parentSnapshotId,
+      newMetricsUpdate.parentSnapshotId,
     );
     if (!ancestor) {
-      throw new MetricRefreshUnavailableError(
+      throw new NewMetricsUpdateUnavailableError(
         "base_incomplete",
         'An earlier update the latest results were built from no longer exists, so they can\'t be reused. Send "updateScope": "all_metrics" instead.',
       );
@@ -90,13 +90,13 @@ async function loadMetricRefreshLineage(
 }
 
 /**
- * One snapshot of a refresh lineage as it would run today: its stored metrics
+ * One snapshot of a new-metrics update lineage as it would run today: its stored metrics
  * in stored order with today's settings.
  */
-export type MetricRefreshReplayLevel = {
+export type NewMetricsUpdateReplayLevel = {
   snapshotId: string;
   metricSettings: MetricForSnapshot[];
-  refreshedMetricIds: string[] | null;
+  newMetricIds: string[] | null;
   /**
    * Null for a run with a cutoff. A run without one read the clock when it
    * generated its SQL, at most this long after its end date.
@@ -115,24 +115,24 @@ export type ReplayedQuerySql = {
 };
 
 /**
- * The SQL each level would run today, by query name. A refresh numbers its
+ * The SQL each level would run today, by query name. A new-metrics update numbers its
  * own metric groups after the groups it copied, so the levels replay base
  * first to reproduce the stored grouping.
  */
-export async function replayMetricRefreshLineage({
+export async function replayNewMetricsUpdateLineage({
   levels,
   settings,
   generateResultQuerySql,
 }: {
-  levels: readonly MetricRefreshReplayLevel[];
+  levels: readonly NewMetricsUpdateReplayLevel[];
   settings: ExperimentSnapshotSettings;
   generateResultQuerySql: GenerateResultQuerySql;
 }): Promise<Map<string, ReplayedQuerySql>> {
   const sqlByName = new Map<string, ReplayedQuerySql>();
   for (const level of levels) {
-    const scope = level.refreshedMetricIds
+    const scope = level.newMetricIds
       ? {
-          metricIds: new Set(level.refreshedMetricIds),
+          metricIds: new Set(level.newMetricIds),
           firstGroupIndex: getIndexAfterLastGroup([...sqlByName.keys()]),
         }
       : undefined;
@@ -238,7 +238,7 @@ export function getQueriesWithChangedSql({
 }
 
 /**
- * Refuses unless every query the refresh would copy from a results parent,
+ * Refuses unless every query the new-metrics update would copy from a results parent,
  * and every units table those queries read, would be generated with the same
  * SQL today. This catches changed metric definitions, exposure and segment
  * SQL, identity joins, and releases that change how SQL is generated.
@@ -256,22 +256,22 @@ export async function assertCarriedQuerySqlUnchanged({
   carriedQueries: QueryPointer[];
   generateResultQuerySql: GenerateResultQuerySql;
 }): Promise<void> {
-  const lineage = await loadMetricRefreshLineage(context, parent);
+  const lineage = await loadNewMetricsUpdateLineage(context, parent);
 
   const todaysEntries = new Map(planned.metricSettings.map((m) => [m.id, m]));
-  const levels = lineage.map((level): MetricRefreshReplayLevel => {
+  const levels = lineage.map((level): NewMetricsUpdateReplayLevel => {
     const metricSettings = level.settings.metricSettings.map((m) =>
       todaysEntries.get(m.id),
     );
     // A metric no longer on the experiment has no settings to regenerate its
     // group from, so the group can't be checked.
     if (!metricSettings.every(isDefined)) {
-      throw new MetricRefreshUnavailableError("settings_changed");
+      throw new NewMetricsUpdateUnavailableError("settings_changed");
     }
     return {
       snapshotId: level.id,
       metricSettings,
-      refreshedMetricIds: getMetricRefresh(level)?.metricIds ?? null,
+      newMetricIds: getNewMetricsUpdate(level)?.metricIds ?? null,
       maxSqlClockDriftMs: getSnapshotCutoffDate(level.settings)
         ? null
         : Math.max(
@@ -303,7 +303,7 @@ export async function assertCarriedQuerySqlUnchanged({
     }),
   );
 
-  const todaysSql = await replayMetricRefreshLineage({
+  const todaysSql = await replayNewMetricsUpdateLineage({
     levels,
     settings: planned,
     generateResultQuerySql,
@@ -311,9 +311,9 @@ export async function assertCarriedQuerySqlUnchanged({
     // A normal update reports the error itself if it is real.
     context.logger.warn(
       error,
-      "Could not regenerate the SQL a metric refresh would copy",
+      "Could not regenerate the SQL a new-metrics update would copy",
     );
-    throw new MetricRefreshUnavailableError("settings_changed");
+    throw new NewMetricsUpdateUnavailableError("settings_changed");
   });
   const changed = getQueriesWithChangedSql({
     queryNames: comparedQueries.map((q) => q.name),
@@ -321,6 +321,6 @@ export async function assertCarriedQuerySqlUnchanged({
     todaysSql,
   });
   if (changed.length) {
-    throw new MetricRefreshUnavailableError("settings_changed");
+    throw new NewMetricsUpdateUnavailableError("settings_changed");
   }
 }

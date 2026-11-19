@@ -19,28 +19,28 @@ import type { PlannedExperimentSnapshot } from "back-end/src/services/experiment
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
-  analyzeMetricRefresh,
-  getMetricRefreshQueryStatus,
-  mergeMetricRefreshAnalyses,
-} from "back-end/src/services/metricRefreshExecution";
+  analyzeNewMetricsUpdate,
+  getNewMetricsUpdateQueryStatus,
+  mergeNewMetricsUpdateAnalyses,
+} from "back-end/src/services/newMetricsUpdateExecution";
 import {
-  getMetricRefreshLineage,
+  getNewMetricsUpdateLineage,
   getSettingsChangedSinceParent,
-  mergeMetricRefreshSettings,
+  mergeNewMetricsUpdateSettings,
   assertIncrementalTablesMatchParent,
-  planMetricRefresh,
-} from "back-end/src/services/metricRefreshPlanning";
+  planNewMetricsUpdate,
+} from "back-end/src/services/newMetricsUpdatePlanning";
 import {
   getQueriesWithChangedSql,
   type GenerateResultQuerySql,
   type ReplayedQuerySql,
-} from "back-end/src/services/metricRefreshSqlIdentity";
+} from "back-end/src/services/newMetricsUpdateSqlIdentity";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import { isCarriedMetricRefreshQuery } from "back-end/src/queryRunners/metricRefreshQueryNaming";
+import { isCarriedNewMetricsUpdateQuery } from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
 import {
   findLatestSuccessfulOverallSnapshot,
-  findMetricRefreshAncestor,
+  findNewMetricsUpdateAncestor,
   findSnapshotById,
   getLatestSnapshotStatus,
   getSnapshotQueryPointers,
@@ -54,8 +54,8 @@ import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
-  MetricRefreshOutsideWindowError,
-  MetricRefreshUnavailableError,
+  NewMetricsUpdateOutsideWindowError,
+  NewMetricsUpdateUnavailableError,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
 } from "back-end/src/util/errors";
@@ -64,7 +64,7 @@ import { factMetricFactory } from "../factories/FactMetric.factory";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   findLatestSuccessfulOverallSnapshot: jest.fn(),
-  findMetricRefreshAncestor: jest.fn(),
+  findNewMetricsUpdateAncestor: jest.fn(),
   findSnapshotById: jest.fn(),
   getLatestSnapshotStatus: jest.fn(),
   getSnapshotQueryPointers: jest.fn(),
@@ -99,7 +99,7 @@ const getQueriesByIdsMock = jest.mocked(getQueriesByIds);
 const integrationMock = jest.mocked(getSourceIntegrationObject);
 const analyzeMock = jest.mocked(analyzeExperimentResults);
 const findSnapshotByIdMock = jest.mocked(findSnapshotById);
-const findAncestorMock = jest.mocked(findMetricRefreshAncestor);
+const findAncestorMock = jest.mocked(findNewMetricsUpdateAncestor);
 
 const PARENT_START = new Date("2026-11-01T00:00:00Z");
 const PARENT_END = new Date("2026-11-10T12:00:00Z");
@@ -236,8 +236,8 @@ function makePlan(
 }
 
 function refreshArgs(
-  overrides: Partial<Parameters<typeof planMetricRefresh>[0]> = {},
-): Parameters<typeof planMetricRefresh>[0] {
+  overrides: Partial<Parameters<typeof planNewMetricsUpdate>[0]> = {},
+): Parameters<typeof planNewMetricsUpdate>[0] {
   return {
     context,
     experiment: makeExperiment(),
@@ -295,7 +295,7 @@ beforeEach(() => {
   });
 });
 
-describe("planMetricRefresh", () => {
+describe("planNewMetricsUpdate", () => {
   // The analysis dates are outdated once the results are a day old.
   const NOW = new Date(PARENT_CREATED.getTime() + 60 * 60_000);
   beforeAll(() => {
@@ -321,10 +321,10 @@ describe("planMetricRefresh", () => {
 
   it("queries only the missing metric, pinned to the parent's end date", async () => {
     const args = refreshArgs();
-    const plan = await planMetricRefresh(args);
+    const plan = await planNewMetricsUpdate(args);
 
     expect(args.planSnapshotAt).toHaveBeenCalledWith(PARENT_END);
-    expect(plan.snapshot.metricRefresh).toEqual({
+    expect(plan.snapshot.newMetricsUpdate).toEqual({
       baseSnapshotId: "snp_parent",
       baseDateCreated: PARENT_CREATED,
       baseRunStarted: null,
@@ -347,7 +347,7 @@ describe("planMetricRefresh", () => {
   ) =>
     makeParent({
       id,
-      metricRefresh: {
+      newMetricsUpdate: {
         baseSnapshotId: "snp_base",
         baseDateCreated: PARENT_CREATED,
         baseRunStarted: null,
@@ -360,11 +360,11 @@ describe("planMetricRefresh", () => {
 
   type Rejection = {
     name: string;
-    setup: () => Partial<Parameters<typeof planMetricRefresh>[0]> | void;
+    setup: () => Partial<Parameters<typeof planNewMetricsUpdate>[0]> | void;
     expected: { type: new (...args: never[]) => Error; details?: object };
   };
   const unavailable = (reason: string) => ({
-    type: MetricRefreshUnavailableError,
+    type: NewMetricsUpdateUnavailableError,
     details: { reason },
   });
 
@@ -562,7 +562,7 @@ describe("planMetricRefresh", () => {
     },
   ])("rejects $name", async ({ setup, expected }) => {
     const overrides = setup() ?? {};
-    const promise = planMetricRefresh(refreshArgs(overrides));
+    const promise = planNewMetricsUpdate(refreshArgs(overrides));
     await expect(promise).rejects.toBeInstanceOf(expected.type);
     if (expected.details) {
       await expect(promise).rejects.toMatchObject({
@@ -582,7 +582,7 @@ describe("planMetricRefresh", () => {
       );
       const args = refreshArgs();
 
-      await expect(planMetricRefresh(args)).rejects.toMatchObject({
+      await expect(planNewMetricsUpdate(args)).rejects.toMatchObject({
         details: { reason: "base_incomplete" },
       });
       expect(args.planSnapshotAt).not.toHaveBeenCalled();
@@ -602,8 +602,8 @@ describe("planMetricRefresh", () => {
       },
     });
 
-    await expect(planMetricRefresh(args)).rejects.toBeInstanceOf(
-      MetricRefreshOutsideWindowError,
+    await expect(planNewMetricsUpdate(args)).rejects.toBeInstanceOf(
+      NewMetricsUpdateOutsideWindowError,
     );
     expect(args.planSnapshotAt).not.toHaveBeenCalled();
   });
@@ -618,9 +618,9 @@ describe("planMetricRefresh", () => {
       }),
     );
 
-    const plan = await planMetricRefresh(refreshArgs());
+    const plan = await planNewMetricsUpdate(refreshArgs());
 
-    expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
+    expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["met_c"]);
   });
 
   it("refuses as changed settings when a metric the parent copied is no longer on the experiment", async () => {
@@ -629,7 +629,7 @@ describe("planMetricRefresh", () => {
     );
     storeQueries({ qry_group: groupSql(["met_a", "met_b", "met_gone"], 0) });
 
-    await expect(planMetricRefresh(refreshArgs())).rejects.toMatchObject({
+    await expect(planNewMetricsUpdate(refreshArgs())).rejects.toMatchObject({
       details: { reason: "settings_changed" },
     });
   });
@@ -639,20 +639,20 @@ describe("planMetricRefresh", () => {
     findParentMock.mockResolvedValue(
       makeParent({ runnerKind: "incremental-full" }),
     );
-    const plan = await planMetricRefresh(
+    const plan = await planNewMetricsUpdate(
       refreshArgs({
         planSnapshotAt: async () =>
           makePlan({ runnerKind: "incremental-update" }),
       }),
     );
     expect(plan.snapshot.runnerKind).toBe("incremental-update");
-    expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["met_c"]);
+    expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["met_c"]);
   });
 
   describe("comparing the SQL it would copy", () => {
     it("refuses as changed settings when today's SQL can't be generated, and logs why", async () => {
       const error = new Error("Unknown exposure query: user_id");
-      const promise = planMetricRefresh(
+      const promise = planNewMetricsUpdate(
         refreshArgs({
           generateResultQuerySql: jest.fn().mockRejectedValue(error),
         }),
@@ -663,11 +663,11 @@ describe("planMetricRefresh", () => {
       });
       expect(context.logger.warn).toHaveBeenCalledWith(
         error,
-        "Could not regenerate the SQL a metric refresh would copy",
+        "Could not regenerate the SQL a new-metrics update would copy",
       );
     });
 
-    it("checks a refresh of a refresh against each run's own groups, numbered after the earlier runs", async () => {
+    it("checks a new-metrics update of a new-metrics update against each run's own groups, numbered after the earlier runs", async () => {
       // base snp_base ran met_a; snp_mid added met_b; the parent added met_d.
       findAncestorMock.mockImplementation(async (ctx, id) =>
         id === "snp_mid"
@@ -692,7 +692,7 @@ describe("planMetricRefresh", () => {
           qry_group_1: midGroupSql,
           qry_group_2: groupSql(["met_d"], 2),
         });
-        return planMetricRefresh(
+        return planNewMetricsUpdate(
           refreshArgs({
             experiment: makeExperiment({
               goalMetrics: ["met_a", "met_b", "met_c", "met_d"],
@@ -704,7 +704,7 @@ describe("planMetricRefresh", () => {
       };
 
       await expect(plan(groupSql(["met_b"], 1))).resolves.toMatchObject({
-        snapshot: { metricRefresh: { metricIds: ["met_c"] } },
+        snapshot: { newMetricsUpdate: { metricIds: ["met_c"] } },
       });
       await expect(
         plan(`${groupSql(["met_b"], 1)} WHERE x`),
@@ -881,11 +881,11 @@ describe("assertIncrementalTablesMatchParent", () => {
   it.each<[string, () => State]>([
     ["the state the parent left", () => state()],
     [
-      "a cache that already holds a target, left by a refresh that failed after rebuilding it",
+      "a cache that already holds a target, left by a new-metrics update that failed after rebuilding it",
       () => withSource(source("ftc_1", ["met_c"], SCAN_END)),
     ],
     [
-      "a rebuilt cache sharing a target with a metric the refresh copies",
+      "a rebuilt cache sharing a target with a metric the new-metrics update copies",
       () => withSource(source("fta_1", ["met_d", "met_c"], before(1))),
     ],
   ])("accepts %s", (name, makeState) => {
@@ -1035,7 +1035,7 @@ describe("getSettingsChangedSinceParent", () => {
   });
 });
 
-describe("mergeMetricRefreshSettings", () => {
+describe("mergeNewMetricsUpdateSettings", () => {
   it("keeps the parent's entries, adds the targets with their slices, drops departed metrics", () => {
     const parent = makeSettings(["met_a", "met_gone", "met_b"], {
       clusterLevelMetricIds: ["met_a", "met_gone"],
@@ -1049,7 +1049,7 @@ describe("mergeMetricRefreshSettings", () => {
       { planned: true },
     );
 
-    const { settings, queriedMetricIds } = mergeMetricRefreshSettings({
+    const { settings, queriedMetricIds } = mergeNewMetricsUpdateSettings({
       parent,
       planned,
       targetMetricIds: ["met_c", "met_d"],
@@ -1066,19 +1066,19 @@ describe("mergeMetricRefreshSettings", () => {
   });
 });
 
-describe("getMetricRefreshLineage", () => {
-  it("points a refresh of a refresh at the root full run", () => {
+describe("getNewMetricsUpdateLineage", () => {
+  it("points a new-metrics update of a new-metrics update at the root full run", () => {
     const refresh = makeParent({
       id: "snp_refresh",
       dateCreated: new Date("2026-11-11T00:00:00Z"),
       runStarted: new Date("2026-11-11T00:00:01Z"),
-      metricRefresh: getMetricRefreshLineage(
+      newMetricsUpdate: getNewMetricsUpdateLineage(
         makeParent({ runStarted: PARENT_CREATED }),
         ["met_c"],
       ),
     });
 
-    expect(getMetricRefreshLineage(refresh, ["met_d"])).toEqual({
+    expect(getNewMetricsUpdateLineage(refresh, ["met_d"])).toEqual({
       baseSnapshotId: "snp_parent",
       baseDateCreated: PARENT_CREATED,
       baseRunStarted: PARENT_CREATED,
@@ -1090,8 +1090,8 @@ describe("getMetricRefreshLineage", () => {
 });
 
 // The results endpoint must report the same dateEnd before and after a
-// refresh; metricRefresh.dateEnd is the analysis end the refresh is pinned to.
-describe("dateEnd of a refresh", () => {
+// new-metrics update; newMetricsUpdate.dateEnd is the analysis end the new-metrics update is pinned to.
+describe("dateEnd of a new-metrics update", () => {
   const baseRan = new Date("2026-11-18T22:17:36.299Z");
   const runningPhase = { dateEnded: undefined };
 
@@ -1105,25 +1105,25 @@ describe("dateEnd of a refresh", () => {
       runStarted: ran,
       dateCreated: ran,
       settings: { ...parent.settings },
-      metricRefresh: getMetricRefreshLineage(parent, ["met_c"]),
+      newMetricsUpdate: getNewMetricsUpdateLineage(parent, ["met_c"]),
     });
   }
 
   it.each([
     {
-      name: "a refresh of a base analyzed through its run time",
+      name: "a new-metrics update of a base analyzed through its run time",
       endDate: new Date("2026-11-18T22:17:36.208Z"),
       endDateIsCutoff: false,
       refreshes: 1,
     },
     {
-      name: "a refresh of a base analyzed through a lagged cutoff",
+      name: "a new-metrics update of a base analyzed through a lagged cutoff",
       endDate: new Date("2026-11-17T21:17:36.208Z"),
       endDateIsCutoff: true,
       refreshes: 1,
     },
     {
-      name: "a refresh of a refresh of a lagged base",
+      name: "a new-metrics update of a new-metrics update of a lagged base",
       endDate: new Date("2026-11-17T21:17:36.208Z"),
       endDateIsCutoff: true,
       refreshes: 2,
@@ -1173,7 +1173,7 @@ describe("query carry-over", () => {
     ["met_gone", false],
   ])("carries %s: %s", (name, carried) => {
     expect(
-      isCarriedMetricRefreshQuery(name, refresh, {
+      isCarriedNewMetricsUpdateQuery(name, refresh, {
         parentSnapshotId: "snp_parent",
       }),
     ).toBe(carried);
@@ -1196,7 +1196,7 @@ describe("Incremental Pipeline carry-over", () => {
     ["max_timestamp_metrics_source_ftc_1", false],
   ])("carries %s: %s", (name, carried) => {
     expect(
-      isCarriedMetricRefreshQuery(
+      isCarriedNewMetricsUpdateQuery(
         name,
         makeParent({ runnerKind: "incremental-update" }),
         { parentSnapshotId: "snp_parent" },
@@ -1205,9 +1205,9 @@ describe("Incremental Pipeline carry-over", () => {
   });
 });
 
-// One rule on both pipelines: a refresh can't partly succeed, except when
+// One rule on both pipelines: a new-metrics update can't partly succeed, except when
 // only the cleanup of a table it no longer needs fails.
-describe("metric refresh status", () => {
+describe("new-metrics update status", () => {
   const pipelines = {
     results: {
       queries: ["group_0", "group_1", "met_c"],
@@ -1227,13 +1227,13 @@ describe("metric refresh status", () => {
   it.each([
     {
       runnerKind: "results",
-      run: "a refresh",
+      run: "a new-metrics update",
       failed: "met_c",
       expected: "failed",
     },
     {
       runnerKind: "results",
-      run: "a refresh",
+      run: "a new-metrics update",
       failed: "cleanup",
       expected: "partially-succeeded",
     },
@@ -1245,13 +1245,13 @@ describe("metric refresh status", () => {
     },
     {
       runnerKind: "incremental-update",
-      run: "a refresh",
+      run: "a new-metrics update",
       failed: "insert_metrics_source_data_ftc_1",
       expected: "failed",
     },
     {
       runnerKind: "incremental-update",
-      run: "a refresh",
+      run: "a new-metrics update",
       failed: "cleanup",
       expected: "partially-succeeded",
     },
@@ -1280,20 +1280,24 @@ describe("metric refresh status", () => {
           query: `qry_${name}`,
           status: name === failedName ? "failed" : "succeeded",
         })),
-        ...(run === "a refresh"
-          ? { metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]) }
+        ...(run === "a new-metrics update"
+          ? {
+              newMetricsUpdate: getNewMetricsUpdateLineage(makeParent(), [
+                "met_c",
+              ]),
+            }
           : {}),
       });
 
-      expect(getMetricRefreshQueryStatus(snapshot, "partially-succeeded")).toBe(
-        expected,
-      );
+      expect(
+        getNewMetricsUpdateQueryStatus(snapshot, "partially-succeeded"),
+      ).toBe(expected);
     },
   );
 });
 
-describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
-  it("records itself as the tables' builder, so the next refresh builds on it", async () => {
+describe("a new-metrics update that succeeds on the Incremental Pipeline", () => {
+  it("records itself as the tables' builder, so the next new-metrics update builds on it", async () => {
     const updateState = jest.fn().mockResolvedValue(true);
     const incrementalContext = contextWith({
       models: {
@@ -1313,7 +1317,7 @@ describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
         { name: "statistics_fta_0", query: "qry_a", status: "succeeded" },
         { name: "statistics_ftc_1", query: "qry_c", status: "succeeded" },
       ],
-      metricRefresh: getMetricRefreshLineage(root, ["met_c"]),
+      newMetricsUpdate: getNewMetricsUpdateLineage(root, ["met_c"]),
     });
 
     await new ExperimentIncrementalRefreshQueryRunner(
@@ -1329,7 +1333,7 @@ describe("a metric refresh that succeeds on the Incremental Pipeline", () => {
   });
 });
 
-describe("starting a metric refresh's queries", () => {
+describe("starting a new-metrics update's queries", () => {
   const metricMap = new Map<string, ExperimentMetricInterface>(
     ["met_a", "met_b", "met_c"].map((id) => [
       id,
@@ -1396,7 +1400,7 @@ describe("starting a metric refresh's queries", () => {
       settings: makeSettings(["met_a", "met_b", "met_c"], {
         exposureQueryId: "eq_1",
       }),
-      metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
+      newMetricsUpdate: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
     });
 
   beforeEach(() => {
@@ -1480,7 +1484,7 @@ describe("starting a metric refresh's queries", () => {
   });
 });
 
-// Result queries and metrics for the metrics a refresh analyzes.
+// Result queries and metrics for the metrics a new-metrics update analyzes.
 const metricMap = new Map<string, ExperimentMetricInterface>(
   ["met_a", "met_gone", "met_c"].map((id) => [
     id,
@@ -1503,11 +1507,11 @@ function resultQuery(
   return { queryType, query: "", result } as unknown as QueryInterface;
 }
 
-describe("re-analysis of a stored metric refresh", () => {
+describe("re-analysis of a stored new-metrics update", () => {
   const stored = makeParent({
     id: "snp_refresh",
     settings: makeSettings(["met_a", "met_c"]),
-    metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
+    newMetricsUpdate: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
   });
   const queryMap: QueryMap = new Map([
     [
@@ -1573,12 +1577,12 @@ function analysis(
   };
 }
 
-describe("mergeMetricRefreshAnalyses", () => {
+describe("mergeNewMetricsUpdateAnalyses", () => {
   const merge = (
     analyses: ExperimentSnapshotAnalysis[],
     freshResults: ExperimentReportResultDimension[][],
   ) =>
-    mergeMetricRefreshAnalyses({
+    mergeNewMetricsUpdateAnalyses({
       analyses,
       freshResults,
       analyzedMetricIds: new Set([
@@ -1685,11 +1689,11 @@ describe("mergeMetricRefreshAnalyses", () => {
   });
 });
 
-describe("analyzeMetricRefresh", () => {
+describe("analyzeNewMetricsUpdate", () => {
   const refresh = makeParent({
     id: "snp_refresh",
     settings: makeSettings(["met_a", "met_c"]),
-    metricRefresh: getMetricRefreshLineage(makeParent(), ["met_c"]),
+    newMetricsUpdate: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
   });
   const queryMap: QueryMap = new Map([
     [
@@ -1735,10 +1739,10 @@ describe("analyzeMetricRefresh", () => {
   });
 
   const analyze = () =>
-    analyzeMetricRefresh({
+    analyzeNewMetricsUpdate({
       context,
       snapshot: refresh,
-      metricRefresh: refresh.metricRefresh!,
+      newMetricsUpdate: refresh.newMetricsUpdate!,
       queryMap,
       metricMap,
       variationNames: ["Control", "Treatment"],
@@ -1812,10 +1816,10 @@ describe("analyzeMetricRefresh", () => {
     });
 
     const analyzeIncremental = (settings: ExperimentSnapshotSettings) =>
-      analyzeMetricRefresh({
+      analyzeNewMetricsUpdate({
         context,
         snapshot: { ...refresh, runnerKind: "incremental-update", settings },
-        metricRefresh: refresh.metricRefresh!,
+        newMetricsUpdate: refresh.newMetricsUpdate!,
         queryMap: statisticsQueryMap,
         metricMap,
         variationNames: ["Control", "Treatment"],
@@ -1831,7 +1835,7 @@ describe("analyzeMetricRefresh", () => {
     });
 
     it("keeps the parent's numbers and settings for a metric edited since the parent", async () => {
-      const { settings } = mergeMetricRefreshSettings({
+      const { settings } = mergeNewMetricsUpdateSettings({
         parent: parentSettings,
         planned: editedPlan,
         targetMetricIds: ["met_c"],
@@ -1850,7 +1854,7 @@ describe("analyzeMetricRefresh", () => {
     });
   });
 
-  it("counts a new goal metric among the refresh's goals when the parent had none", async () => {
+  it("counts a new goal metric among the new-metrics update's goals when the parent had none", async () => {
     const parentSettings = { numGoalMetrics: 0, numGuardrailMetrics: 0 };
     findSnapshotByIdMock.mockResolvedValue(
       makeParent({
@@ -1861,7 +1865,7 @@ describe("analyzeMetricRefresh", () => {
       }),
     );
 
-    const result = await analyzeMetricRefresh({
+    const result = await analyzeNewMetricsUpdate({
       context,
       snapshot: {
         ...refresh,
@@ -1873,7 +1877,7 @@ describe("analyzeMetricRefresh", () => {
           ),
         ],
       },
-      metricRefresh: refresh.metricRefresh!,
+      newMetricsUpdate: refresh.newMetricsUpdate!,
       queryMap,
       metricMap,
       variationNames: ["Control", "Treatment"],

@@ -1,7 +1,7 @@
 import {
-  getMetricRefreshBlocker,
+  getNewMetricsUpdateBlocker,
   shouldOfferNewMetricsUpdate,
-} from "../src/experiments/metric-refresh";
+} from "../src/experiments/new-metrics-update";
 
 const HOUR = 60 * 60 * 1000;
 const NOW = new Date("2026-03-01T12:00:00Z");
@@ -11,14 +11,14 @@ function offered({
   reasons = ["metrics_changed"],
   resultsEndDate = hoursAgo(1),
   windowHours = 4,
-  refreshBlocker = null,
+  newMetricsUpdateBlocker = null,
 }: Partial<Parameters<typeof shouldOfferNewMetricsUpdate>[0]> = {}) {
   return shouldOfferNewMetricsUpdate({
     reasons,
     resultsEndDate,
     windowHours,
     now: NOW,
-    refreshBlocker,
+    newMetricsUpdateBlocker,
   });
 }
 
@@ -44,7 +44,7 @@ describe("shouldOfferNewMetricsUpdate", () => {
     ["the window is 0", { windowHours: 0, resultsEndDate: NOW }, false],
     [
       "no update can compute only new metrics",
-      { refreshBlocker: "metric_not_supported" },
+      { newMetricsUpdateBlocker: "metric_not_supported" },
       false,
     ],
     [
@@ -72,15 +72,15 @@ describe("shouldOfferNewMetricsUpdate", () => {
   });
 });
 
-describe("getMetricRefreshBlocker", () => {
+describe("getNewMetricsUpdateBlocker", () => {
   const phases = [
     { dateStarted: "2026-01-01", dateEnded: "2026-01-10" },
     { dateStarted: "2026-01-10" },
   ];
   const blocker = (
-    overrides: Partial<Parameters<typeof getMetricRefreshBlocker>[0]> = {},
+    overrides: Partial<Parameters<typeof getNewMetricsUpdateBlocker>[0]> = {},
   ) =>
-    getMetricRefreshBlocker({
+    getNewMetricsUpdateBlocker({
       experiment: { type: "standard", phases },
       phase: 1,
       separateExperimentResultQueries: true,

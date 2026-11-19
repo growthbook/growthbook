@@ -369,11 +369,11 @@ export class SnapshotInProgressError extends ApiError<"snapshot_in_progress"> {
   }
 }
 
-export type MetricRefreshUnavailableReason =
-  ApiErrorDetails<"metric_refresh_unavailable">["reason"];
+export type NewMetricsUpdateUnavailableReason =
+  ApiErrorDetails<"new_metrics_update_unavailable">["reason"];
 
-const METRIC_REFRESH_UNAVAILABLE_MESSAGES: Record<
-  MetricRefreshUnavailableReason,
+const NEW_METRICS_UPDATE_UNAVAILABLE_MESSAGES: Record<
+  NewMetricsUpdateUnavailableReason,
   string
 > = {
   no_base_snapshot:
@@ -398,22 +398,22 @@ const METRIC_REFRESH_UNAVAILABLE_MESSAGES: Record<
     'The last update\'s results are incomplete, so they can\'t be reused. Send "updateScope": "all_metrics" instead.',
 };
 
-export class MetricRefreshUnavailableError extends ApiError<"metric_refresh_unavailable"> {
+export class NewMetricsUpdateUnavailableError extends ApiError<"new_metrics_update_unavailable"> {
   constructor(
-    reason: MetricRefreshUnavailableReason,
-    message: string = METRIC_REFRESH_UNAVAILABLE_MESSAGES[reason],
+    reason: NewMetricsUpdateUnavailableReason,
+    message: string = NEW_METRICS_UPDATE_UNAVAILABLE_MESSAGES[reason],
   ) {
-    super("metric_refresh_unavailable", message, { reason });
-    this.name = "MetricRefreshUnavailableError";
+    super("new_metrics_update_unavailable", message, { reason });
+    this.name = "NewMetricsUpdateUnavailableError";
   }
 }
 
 // The results are too old for an update that didn't choose a scope. Callers
 // run a normal update instead; it never reaches a client.
-export class MetricRefreshOutsideWindowError extends Error {
+export class NewMetricsUpdateOutsideWindowError extends Error {
   constructor() {
     super("The latest results end before the new metrics update window");
-    this.name = "MetricRefreshOutsideWindowError";
+    this.name = "NewMetricsUpdateOutsideWindowError";
   }
 }
 

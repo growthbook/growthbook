@@ -94,7 +94,7 @@ import {
   getSnapshotDataAsOf,
   getSnapshotSideEffects,
   getMetricFilterForCarriedQueries,
-  getMetricRefresh,
+  getNewMetricsUpdate,
   getResultsDateEnd,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
@@ -232,7 +232,7 @@ import {
 } from "back-end/src/services/featurePublishGates";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { generateExperimentResultQuerySql } from "back-end/src/services/metricRefreshSqlIdentity";
+import { generateExperimentResultQuerySql } from "back-end/src/services/newMetricsUpdateSqlIdentity";
 import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   FactTableMap,
@@ -290,9 +290,9 @@ import {
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import {
-  assertIncrementalMetricRefreshBase,
-  planMetricRefresh,
-} from "back-end/src/services/metricRefreshPlanning";
+  assertIncrementalNewMetricsUpdateBase,
+  planNewMetricsUpdate,
+} from "back-end/src/services/newMetricsUpdatePlanning";
 import { interruptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
 import type { ResolvedUpdateScope } from "back-end/src/services/snapshotUpdateScope";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
@@ -2291,7 +2291,7 @@ export async function createSnapshotFromPlan({
   const { runnerKind } = plan.snapshot;
   const lockRole = getIncrementalRefreshLockRole(runnerKind);
 
-  const metricRefresh = getMetricRefresh(plan.snapshot);
+  const newMetricsUpdate = getNewMetricsUpdate(plan.snapshot);
   let hasIncrementalRefreshLock = false;
   if (lockRole !== null) {
     const lockParams = {
@@ -2337,11 +2337,11 @@ export async function createSnapshotFromPlan({
 
   const sideEffects = getSnapshotSideEffects(plan.snapshot);
   try {
-    if (metricRefresh && hasIncrementalRefreshLock) {
-      await assertIncrementalMetricRefreshBase({
+    if (newMetricsUpdate && hasIncrementalRefreshLock) {
+      await assertIncrementalNewMetricsUpdateBase({
         context,
         snapshot: plan.snapshot,
-        metricRefresh,
+        newMetricsUpdate,
       });
     }
 
@@ -2461,14 +2461,14 @@ export async function createSnapshotFromPlan({
       ).startAnalysis({
         ...analysisProps,
         experimentId: experiment.id,
-        incrementalRefreshStartTime: metricRefresh
+        incrementalRefreshStartTime: newMetricsUpdate
           ? plan.snapshot.settings.endDate
           : getIncrementalMetricScanEnd(
               experiment.phases[plan.snapshot.phase],
               plan.snapshot.settings,
             ),
-        mode: metricRefresh
-          ? { kind: "metrics-only" }
+        mode: newMetricsUpdate
+          ? { kind: "new-metrics" }
           : { kind: runnerKind === "incremental-full" ? "full" : "update" },
       });
     } else if (runnerKind === "incremental-exploratory") {
@@ -3250,7 +3250,7 @@ export async function planExperimentSnapshot({
   };
   if (updateScope.kind === "new_metrics") {
     const integration = getSourceIntegrationObject(context, datasource, true);
-    return planMetricRefresh({
+    return planNewMetricsUpdate({
       context,
       experiment,
       datasource,

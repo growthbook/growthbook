@@ -8,7 +8,7 @@ import {
   getDefinitionMetricId,
   getFactTableIdsForMetrics,
   getIsolatedDimensionIds,
-  getMetricRefresh,
+  getNewMetricsUpdate,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
@@ -71,9 +71,9 @@ import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
 import {
   analyzeSnapshotResults,
-  getMetricRefreshQueryStatus,
-  startMetricRefreshResultQueries,
-} from "back-end/src/services/metricRefreshExecution";
+  getNewMetricsUpdateQueryStatus,
+  startNewMetricsUpdateResultQueries,
+} from "back-end/src/services/newMetricsUpdateExecution";
 import {
   QueryRunner,
   QueryMap,
@@ -89,7 +89,7 @@ import {
   getGroupQueryName,
   type ResultQueryScope,
   TRAFFIC_QUERY_NAME,
-} from "./metricRefreshQueryNaming";
+} from "./newMetricsUpdateQueryNaming";
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
@@ -651,19 +651,19 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         this.startQuery.bind(this),
         scope,
       );
-    const metricRefresh = getMetricRefresh(this.model);
-    return metricRefresh
-      ? startMetricRefreshResultQueries(
+    const newMetricsUpdate = getNewMetricsUpdate(this.model);
+    return newMetricsUpdate
+      ? startNewMetricsUpdateResultQueries(
           this.context,
           this.model,
-          metricRefresh,
+          newMetricsUpdate,
           startQueries,
         )
       : startQueries();
   }
 
   protected override getOverallQueryStatus(): QueryStatus {
-    return getMetricRefreshQueryStatus(
+    return getNewMetricsUpdateQueryStatus(
       this.model,
       super.getOverallQueryStatus(),
     );

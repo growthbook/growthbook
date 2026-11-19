@@ -1,6 +1,6 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import { getMetricRefresh, getSnapshotDataAsOf } from "shared/experiments";
+import { getNewMetricsUpdate, getSnapshotDataAsOf } from "shared/experiments";
 import { ago, date, datetime } from "shared/dates";
 import { PiEye } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -28,7 +28,7 @@ export default function PublicExperimentAnalysisSettingsBar({
 
   if (!snapshot) return null;
   // A new-metrics update shows when its copied results were computed.
-  const lastUpdated = getMetricRefresh(snapshot)
+  const lastUpdated = getNewMetricsUpdate(snapshot)
     ? getSnapshotDataAsOf(snapshot)
     : snapshot.runStarted;
 

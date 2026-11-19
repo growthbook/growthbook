@@ -529,7 +529,7 @@ export async function createReportSnapshot({
   const snapshotType = "report";
   // Fill in and sanitize the model
   snapshotData = {
-    ...omit(snapshotData, ["metricRefresh"]),
+    ...omit(snapshotData, ["newMetricsUpdate"]),
     id: generateId("snp_"),
     type: snapshotType,
     report: report.id,

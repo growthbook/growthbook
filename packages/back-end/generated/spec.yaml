@@ -18657,10 +18657,10 @@ paths:
                       code:
                         type: string
                         enum:
-                          - metric_refresh_unavailable
+                          - new_metrics_update_unavailable
                       details:
                         $ref: >-
-                          #/components/schemas/ApiErrorMetricRefreshUnavailableDetails
+                          #/components/schemas/ApiErrorNewMetricsUpdateUnavailableDetails
                     required:
                       - message
                       - code
@@ -93474,7 +93474,7 @@ components:
             The running update's snapshot. Poll it until it finishes. Absent
             when it isn't known
       additionalProperties: false
-    ApiErrorMetricRefreshUnavailableDetails:
+    ApiErrorNewMetricsUpdateUnavailableDetails:
       type: object
       properties:
         reason:

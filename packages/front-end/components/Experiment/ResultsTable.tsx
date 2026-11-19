@@ -95,7 +95,7 @@ export type ResultsTableProps = {
   tableRowAxis: "metric" | "dimension";
   labelHeader: ReactElement | string;
   editMetrics?: () => void;
-  onViewRefreshQueries?: () => void;
+  onViewNewMetricsUpdateQueries?: () => void;
   resultGroup?: "goal" | "secondary" | "guardrail";
   renderLabelColumn: ({
     label,
@@ -184,7 +184,7 @@ export default function ResultsTable({
   tableRowAxis,
   labelHeader,
   editMetrics,
-  onViewRefreshQueries,
+  onViewNewMetricsUpdateQueries,
   variations,
   variationFilter,
   setVariationFilter,
@@ -960,7 +960,9 @@ export default function ResultsTable({
                                         ) : null}
                                         <NewMetricRowStatus
                                           state={row.newMetricState}
-                                          onViewQueries={onViewRefreshQueries}
+                                          onViewQueries={
+                                            onViewNewMetricsUpdateQueries
+                                          }
                                         />
                                       </>
                                     ),

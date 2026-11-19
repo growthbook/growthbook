@@ -1324,7 +1324,7 @@ describe("ExperimentSnapshotModel", () => {
       ).toBe(20);
     });
 
-    describe("a metric refresh finishing", () => {
+    describe("a new-metrics update finishing", () => {
       const at = (hour: number) => new Date(Date.UTC(2026, 10, 10, hour));
 
       async function insertOverall(
@@ -1353,7 +1353,7 @@ describe("ExperimentSnapshotModel", () => {
         await insertOverall("snp_refresh", at(3), {
           ...overrides,
           status: "running",
-          metricRefresh: {
+          newMetricsUpdate: {
             baseSnapshotId: parentSnapshotId,
             baseDateCreated: at(0),
             baseRunStarted: null,

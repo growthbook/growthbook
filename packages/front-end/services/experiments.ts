@@ -41,7 +41,7 @@ import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getMetricIdsMissingFromSnapshot,
-  getMetricRefresh,
+  getNewMetricsUpdate,
   getClusterExperimentMetricEligibility,
   getEqualWeights,
   getFunnelStepMetric,
@@ -357,18 +357,21 @@ export function getNewMetricRowStates({
   snapshotSettings: Pick<ExperimentSnapshotSettings, "metricSettings">;
   latest: Pick<
     SnapshotStatusSummary,
-    "type" | "status" | "error" | "metricRefresh"
+    "type" | "status" | "error" | "newMetricsUpdate"
   > | null;
   uncomputableMetricIds: ReadonlySet<string>;
 }): Map<string, NewMetricRowState> {
-  const refresh = latest ? getMetricRefresh(latest) : null;
+  const newMetricsUpdate = latest ? getNewMetricsUpdate(latest) : null;
   const getState = (metricId: string): NewMetricRowState => {
     if (latest?.status === "running") {
-      return !refresh || refresh.metricIds.includes(metricId)
-        ? { status: "running", newMetricsOnly: !!refresh }
+      return !newMetricsUpdate || newMetricsUpdate.metricIds.includes(metricId)
+        ? { status: "running", newMetricsOnly: !!newMetricsUpdate }
         : { status: "notComputed" };
     }
-    if (latest?.status === "error" && refresh?.metricIds.includes(metricId)) {
+    if (
+      latest?.status === "error" &&
+      newMetricsUpdate?.metricIds.includes(metricId)
+    ) {
       return { status: "failed", error: latest.error ?? null };
     }
     return { status: "notComputed" };

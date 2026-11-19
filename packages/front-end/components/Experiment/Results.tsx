@@ -16,7 +16,7 @@ import {
   getEffectiveLookbackOverride,
   getAllMetricIdsFromExperiment,
   getLatestPhaseVariations,
-  getMetricRefresh,
+  getNewMetricsUpdate,
   getSnapshotDataAsOf,
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
@@ -483,9 +483,9 @@ const Results: FC<{
               significanceThresholds={significanceThresholds}
               editMetrics={editMetrics}
               newMetricStates={newMetricStates}
-              onViewRefreshQueries={
+              onViewNewMetricsUpdateQueries={
                 latest?.status === "error" &&
-                getMetricRefresh(latest) &&
+                getNewMetricsUpdate(latest) &&
                 hasQueries
                   ? () => setQueriesModalOpen(true)
                   : undefined

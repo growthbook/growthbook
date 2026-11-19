@@ -4,7 +4,7 @@ import pickBy from "lodash/pickBy";
 import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-  SnapshotMetricRefresh,
+  SnapshotNewMetricsUpdate,
   SnapshotVariation,
 } from "shared/types/experiment-snapshot";
 import type { ExperimentReportResults } from "shared/types/report";
@@ -12,7 +12,7 @@ import type { BanditResult } from "shared/types/experiment";
 import type { Queries, QueryPointer, QueryStatus } from "shared/types/query";
 import {
   getDefinitionMetricId,
-  getMetricRefresh,
+  getNewMetricsUpdate,
   type ExperimentMetricInterface,
 } from "shared/experiments";
 import type { ReqContext } from "back-end/types/request";
@@ -35,10 +35,10 @@ import type {
 } from "back-end/src/queryRunners/QueryRunner";
 import {
   getIndexAfterLastGroup,
-  isCarriedMetricRefreshQuery,
+  isCarriedNewMetricsUpdateQuery,
   isTableCleanupQuery,
   type ResultQueryScope,
-} from "back-end/src/queryRunners/metricRefreshQueryNaming";
+} from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
 
 export type AnalyzedSnapshotResults = {
   unknownVariations: string[];
@@ -47,7 +47,7 @@ export type AnalyzedSnapshotResults = {
   banditResult?: BanditResult;
 };
 
-type RefreshSnapshot = Pick<
+type NewMetricsUpdateSnapshot = Pick<
   ExperimentSnapshotInterface,
   "runnerKind" | "settings"
 >;
@@ -58,20 +58,20 @@ type RefreshSnapshot = Pick<
  */
 async function getParentQueryCopiers(
   context: ReqContext | ApiReqContext,
-  refresh: RefreshSnapshot,
-  metricRefresh: SnapshotMetricRefresh,
+  snapshot: NewMetricsUpdateSnapshot,
+  newMetricsUpdate: SnapshotNewMetricsUpdate,
 ): Promise<Map<string, () => Promise<QueryPointer>>> {
   const parentQueries = await getSnapshotQueryPointers(
     context,
-    metricRefresh.parentSnapshotId,
+    newMetricsUpdate.parentSnapshotId,
   );
   if (!parentQueries) {
     throw new Error(
-      `Could not load snapshot ${metricRefresh.parentSnapshotId} to copy its results`,
+      `Could not load snapshot ${newMetricsUpdate.parentSnapshotId} to copy its results`,
     );
   }
   const pointers = parentQueries.filter(({ name }) =>
-    isCarriedMetricRefreshQuery(name, refresh, metricRefresh),
+    isCarriedNewMetricsUpdateQuery(name, snapshot, newMetricsUpdate),
   );
   const docs = new Map(
     (
@@ -89,7 +89,7 @@ async function getParentQueryCopiers(
         const existing = docs.get(pointer.query);
         if (existing?.status !== "succeeded") {
           throw new Error(
-            `Query "${pointer.name}" of snapshot ${metricRefresh.parentSnapshotId} is no longer available`,
+            `Query "${pointer.name}" of snapshot ${newMetricsUpdate.parentSnapshotId} is no longer available`,
           );
         }
         const copy = await createNewQueryFromCached({
@@ -104,12 +104,12 @@ async function getParentQueryCopiers(
 }
 
 /**
- * The refresh's queries that this run started. A carried query keeps its
- * parent query's name, and every query a refresh starts has a new name: new
+ * The new-metrics update's queries that this run started. A carried query keeps its
+ * parent query's name, and every query a new-metrics update starts has a new name: new
  * result groups are numbered after the parent's, and a rebuilt Incremental
  * Pipeline cache gets a new group id.
  */
-function getQueriesStartedByRefresh(
+function getQueriesStartedByNewMetricsUpdate(
   queryMap: QueryMap,
   parentQueries: Queries,
 ): QueryMap {
@@ -125,7 +125,7 @@ function getQueriesStartedByRefresh(
  * parent's numbers. Units are the most any metric saw, as in a full analysis,
  * and SRM is recomputed when they change.
  */
-export function mergeMetricRefreshAnalyses({
+export function mergeNewMetricsUpdateAnalyses({
   analyses,
   freshResults,
   analyzedMetricIds,
@@ -212,35 +212,38 @@ export function mergeMetricRefreshAnalyses({
  * sees only this run's query rows, and every other metric keeps the numbers
  * its parent computed under the definition it had then.
  */
-export async function analyzeMetricRefresh({
+export async function analyzeNewMetricsUpdate({
   context,
   snapshot,
-  metricRefresh,
+  newMetricsUpdate,
   queryMap,
   metricMap,
   variationNames,
 }: {
   context: ReqContext | ApiReqContext;
   snapshot: ExperimentSnapshotInterface;
-  metricRefresh: SnapshotMetricRefresh;
+  newMetricsUpdate: SnapshotNewMetricsUpdate;
   queryMap: QueryMap;
   metricMap: Map<string, ExperimentMetricInterface>;
   variationNames: string[];
 }): Promise<AnalyzedSnapshotResults> {
   const parent = await findSnapshotById(
     context,
-    metricRefresh.parentSnapshotId,
+    newMetricsUpdate.parentSnapshotId,
   );
-  // The default analysis must stay first, or the refresh would show another.
+  // The default analysis must stay first, or the new-metrics update would show another.
   if (parent?.analyses[0]?.status !== "success") {
     throw new Error(
-      `Snapshot ${metricRefresh.parentSnapshotId} has no finished results to add the new metrics to`,
+      `Snapshot ${newMetricsUpdate.parentSnapshotId} has no finished results to add the new metrics to`,
     );
   }
   // An analysis that failed or is still being computed is left out, so a
   // request for it computes it like any analysis a snapshot lacks.
   const analyses = parent.analyses.filter((a) => a.status === "success");
-  const freshQueries = getQueriesStartedByRefresh(queryMap, parent.queries);
+  const freshQueries = getQueriesStartedByNewMetricsUpdate(
+    queryMap,
+    parent.queries,
+  );
   const analyzedMetricIds = new Set(
     snapshot.settings.metricSettings.map((m) => m.id),
   );
@@ -277,11 +280,11 @@ export async function analyzeMetricRefresh({
   }
 
   return {
-    analyses: mergeMetricRefreshAnalyses({
+    analyses: mergeNewMetricsUpdateAnalyses({
       analyses,
       freshResults: freshResults.map((r) => r?.dimensions ?? []),
       analyzedMetricIds,
-      newMetricIds: new Set(metricRefresh.metricIds),
+      newMetricIds: new Set(newMetricsUpdate.metricIds),
       variationWeights: snapshot.settings.variations.map((v) => v.weight),
     }),
     unknownVariations: [
@@ -298,7 +301,7 @@ export async function analyzeMetricRefresh({
 }
 
 /**
- * Stats engine results for every analysis of a snapshot. A metric refresh
+ * Stats engine results for every analysis of a snapshot. A new-metrics update
  * analyzes only the metrics its own queries returned and copies the rest.
  */
 export async function analyzeSnapshotResults({
@@ -314,12 +317,12 @@ export async function analyzeSnapshotResults({
   metricMap: Map<string, ExperimentMetricInterface>;
   variationNames: string[];
 }): Promise<AnalyzedSnapshotResults> {
-  const metricRefresh = getMetricRefresh(snapshot);
-  if (metricRefresh) {
-    return analyzeMetricRefresh({
+  const newMetricsUpdate = getNewMetricsUpdate(snapshot);
+  if (newMetricsUpdate) {
+    return analyzeNewMetricsUpdate({
       context,
       snapshot,
-      metricRefresh,
+      newMetricsUpdate,
       queryMap,
       metricMap,
       variationNames,
@@ -358,18 +361,22 @@ export async function analyzeSnapshotResults({
  * pipeline's queries for the new metrics, numbering their groups after the
  * copied ones.
  */
-export async function startMetricRefreshResultQueries(
+export async function startNewMetricsUpdateResultQueries(
   context: ReqContext | ApiReqContext,
-  refresh: RefreshSnapshot,
-  metricRefresh: SnapshotMetricRefresh,
+  snapshot: NewMetricsUpdateSnapshot,
+  newMetricsUpdate: SnapshotNewMetricsUpdate,
   startResultQueries: (scope: ResultQueryScope) => Promise<Queries>,
 ): Promise<Queries> {
-  const copiers = await getParentQueryCopiers(context, refresh, metricRefresh);
+  const copiers = await getParentQueryCopiers(
+    context,
+    snapshot,
+    newMetricsUpdate,
+  );
   const carried = await Promise.all(
     [...copiers.values()].map((copy) => copy()),
   );
   const started = await startResultQueries({
-    metricIds: new Set(metricRefresh.metricIds),
+    metricIds: new Set(newMetricsUpdate.metricIds),
     firstGroupIndex: getIndexAfterLastGroup(carried.map((q) => q.name)),
   });
   return [...carried, ...started];
@@ -380,32 +387,36 @@ type StartQuery = (
 ) => Promise<QueryPointer>;
 
 /**
- * `startQuery` for a metric refresh that names its queries as its parent did:
+ * `startQuery` for a new-metrics update that names its queries as its parent did:
  * a carried query is copied from the parent instead of run. A query reading a
  * cache rebuilt in this run is named after the cache's new group id, so it runs.
  */
-export async function getMetricRefreshStartQuery(
+export async function getNewMetricsUpdateStartQuery(
   context: ReqContext | ApiReqContext,
-  refresh: RefreshSnapshot,
-  metricRefresh: SnapshotMetricRefresh,
+  snapshot: NewMetricsUpdateSnapshot,
+  newMetricsUpdate: SnapshotNewMetricsUpdate,
   startQuery: StartQuery,
 ): Promise<StartQuery> {
-  const copiers = await getParentQueryCopiers(context, refresh, metricRefresh);
+  const copiers = await getParentQueryCopiers(
+    context,
+    snapshot,
+    newMetricsUpdate,
+  );
   return (query) => copiers.get(query.name)?.() ?? startQuery(query);
 }
 
 /**
- * A metric refresh can't partly succeed on either pipeline, since its results
+ * A new-metrics update can't partly succeed on either pipeline, since its results
  * would lack metrics. A failed drop of a table it no longer needs doesn't count.
  */
-export function getMetricRefreshQueryStatus(
+export function getNewMetricsUpdateQueryStatus(
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "id" | "type" | "metricRefresh" | "queries"
+    "id" | "type" | "newMetricsUpdate" | "queries"
   >,
   status: QueryStatus,
 ): QueryStatus {
-  if (status !== "partially-succeeded" || !getMetricRefresh(snapshot)) {
+  if (status !== "partially-succeeded" || !getNewMetricsUpdate(snapshot)) {
     return status;
   }
   const incomplete = snapshot.queries.some(

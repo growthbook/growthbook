@@ -20,11 +20,11 @@ import {
   isAutoSnapshotScheduled,
   isExperimentResultsUpdateDisabled,
   EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
-  getMetricRefresh,
+  getNewMetricsUpdate,
   getSnapshotDataAsOf,
   getResultsOutdatedReasons,
   getResultsOutdatedReasonLabel,
-  getMetricRefreshBlocker,
+  getNewMetricsUpdateBlocker,
   shouldOfferNewMetricsUpdate,
   getMetricIdsMissingFromSnapshot,
 } from "shared/experiments";
@@ -564,7 +564,7 @@ export default function AnalysisSettingsSummary({
         orgSettings.newMetricsUpdateWindowHours ??
         DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
       now: new Date(),
-      refreshBlocker: getMetricRefreshBlocker({
+      newMetricsUpdateBlocker: getNewMetricsUpdateBlocker({
         experiment,
         phase,
         separateExperimentResultQueries:
@@ -592,12 +592,14 @@ export default function AnalysisSettingsSummary({
         .filter((id) => !uncomputableMetricIds.has(id))
         .map((id) => getExperimentMetricById(id)?.name ?? id)
     : [];
-  const snapshotRefresh = snapshot ? getMetricRefresh(snapshot) : null;
-  // A refresh keeps its base's cutoff, where null means none.
+  const snapshotNewMetricsUpdate = snapshot
+    ? getNewMetricsUpdate(snapshot)
+    : null;
+  // A new-metrics update keeps its base's cutoff, where null means none.
   const snapshotCutoffDate = !snapshot
     ? null
-    : snapshotRefresh
-      ? snapshotRefresh.baseCutoffDate
+    : snapshotNewMetricsUpdate
+      ? snapshotNewMetricsUpdate.baseCutoffDate
       : getSnapshotCutoffDate(snapshot.settings);
 
   // If a dimension breakdown already covers the latest Overall Results, another

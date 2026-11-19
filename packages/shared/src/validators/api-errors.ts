@@ -13,7 +13,7 @@ const checklistItemSchema = z.object({
   hardBlock: z.boolean().optional(),
 });
 
-export const metricRefreshUnavailableReasons = [
+export const newMetricsUpdateUnavailableReasons = [
   "no_base_snapshot",
   "not_latest_phase",
   "phase_ended",
@@ -112,12 +112,12 @@ export const apiErrorRegistry = {
         .optional(),
     }),
   },
-  metric_refresh_unavailable: {
+  new_metrics_update_unavailable: {
     status: 409,
     description:
       'Newly added metrics can\'t be updated on their own; send "updateScope": "all_metrics" instead',
     detailsSchema: z.object({
-      reason: z.enum(metricRefreshUnavailableReasons),
+      reason: z.enum(newMetricsUpdateUnavailableReasons),
     }),
   },
   invalid_tracking_key: {

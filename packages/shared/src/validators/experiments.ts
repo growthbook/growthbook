@@ -3016,7 +3016,7 @@ export const postExperimentSnapshotValidator = {
     "dimension_already_up_to_date",
     "metrics_already_up_to_date",
     "snapshot_in_progress",
-    "metric_refresh_unavailable",
+    "new_metrics_update_unavailable",
   ] as const,
 };
 

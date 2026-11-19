@@ -2,10 +2,10 @@ import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-  SnapshotMetricRefresh,
+  SnapshotNewMetricsUpdate,
 } from "shared/types/experiment-snapshot";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
-import type { metricRefreshUnavailableReasons } from "../validators/api-errors";
+import type { newMetricsUpdateUnavailableReasons } from "../validators/api-errors";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
@@ -74,42 +74,48 @@ export function getMetricIdsExcludedByExperimentType({
 
 type SnapshotLineage = Pick<
   ExperimentSnapshotInterface,
-  "type" | "dateCreated" | "metricRefresh"
+  "type" | "dateCreated" | "newMetricsUpdate"
 >;
 
-export function getMetricRefresh(
-  snapshot: Pick<ExperimentSnapshotInterface, "type" | "metricRefresh">,
-): SnapshotMetricRefresh | null {
-  return snapshot.type === "standard" ? (snapshot.metricRefresh ?? null) : null;
+export function getNewMetricsUpdate(
+  snapshot: Pick<ExperimentSnapshotInterface, "type" | "newMetricsUpdate">,
+): SnapshotNewMetricsUpdate | null {
+  return snapshot.type === "standard"
+    ? (snapshot.newMetricsUpdate ?? null)
+    : null;
 }
 
 export function getSnapshotDataAsOf(snapshot: SnapshotLineage): Date {
-  return getMetricRefresh(snapshot)?.baseDateCreated ?? snapshot.dateCreated;
+  return getNewMetricsUpdate(snapshot)?.baseDateCreated ?? snapshot.dateCreated;
 }
 
 /**
- * The results endpoint's `dateEnd`. A metric refresh reports what its base
+ * The results endpoint's `dateEnd`. A new-metrics update reports what its base
  * reported, so adding metrics never moves it.
  */
 export function getResultsDateEnd(
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "type" | "metricRefresh" | "runStarted"
+    "type" | "newMetricsUpdate" | "runStarted"
   >,
   phase: { dateEnded?: Date | null } | undefined,
 ): Date | null {
   if (phase?.dateEnded) return phase.dateEnded;
-  const refresh = getMetricRefresh(snapshot);
-  return (refresh ? refresh.baseRunStarted : snapshot.runStarted) ?? null;
+  const newMetricsUpdate = getNewMetricsUpdate(snapshot);
+  return (
+    (newMetricsUpdate
+      ? newMetricsUpdate.baseRunStarted
+      : snapshot.runStarted) ?? null
+  );
 }
 
 /**
- * Side effects that differ between a full run and a metric refresh. Callers
+ * Side effects that differ between a full run and a new-metrics update. Callers
  * keep their own conditions and also require the flag.
  */
 export function getSnapshotSideEffects(snapshot: SnapshotLineage) {
-  const refresh = getMetricRefresh(snapshot);
-  if (!refresh) {
+  const newMetricsUpdate = getNewMetricsUpdate(snapshot);
+  if (!newMetricsUpdate) {
     return {
       advanceUpdateSchedule: true,
       refreshDashboards: true,
@@ -120,15 +126,15 @@ export function getSnapshotSideEffects(snapshot: SnapshotLineage) {
       },
     };
   }
-  const refreshed = new Set(refresh.metricIds);
+  const newMetricIds = new Set(newMetricsUpdate.metricIds);
   return {
     advanceUpdateSchedule: false,
     refreshDashboards: false,
     ownsUpdateFailedAlert: false,
     timeSeries: {
       includesMetric: (metricId: string): boolean =>
-        refreshed.has(getDefinitionMetricId(metricId)),
-      pointDate: refresh.baseDateCreated,
+        newMetricIds.has(getDefinitionMetricId(metricId)),
+      pointDate: newMetricsUpdate.baseDateCreated,
     },
   };
 }
@@ -136,15 +142,15 @@ export function getSnapshotSideEffects(snapshot: SnapshotLineage) {
 export function getMetricFilterForCarriedQueries(
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "type" | "metricRefresh" | "settings"
+    "type" | "newMetricsUpdate" | "settings"
   >,
 ): ReadonlySet<string> | undefined {
-  if (!getMetricRefresh(snapshot)) return undefined;
+  if (!getNewMetricsUpdate(snapshot)) return undefined;
   return new Set(snapshot.settings.metricSettings.map((m) => m.id));
 }
 
-export type MetricRefreshBlocker = Extract<
-  (typeof metricRefreshUnavailableReasons)[number],
+export type NewMetricsUpdateBlocker = Extract<
+  (typeof newMetricsUpdateUnavailableReasons)[number],
   | "unsupported_experiment_type"
   | "not_latest_phase"
   | "phase_ended"
@@ -152,7 +158,7 @@ export type MetricRefreshBlocker = Extract<
   | "metric_not_supported"
 >;
 
-type MetricRefreshBlockerArgs = {
+type NewMetricsUpdateBlockerArgs = {
   experiment: Pick<ExperimentInterface, "type"> & {
     phases: { dateEnded?: string | Date }[];
   };
@@ -164,11 +170,11 @@ type MetricRefreshBlockerArgs = {
  * What the experiment and its Data Source alone rule out, before any results
  * are read.
  */
-export function getMetricRefreshSetupBlocker({
+export function getNewMetricsUpdateSetupBlocker({
   experiment,
   phase,
   separateExperimentResultQueries,
-}: MetricRefreshBlockerArgs): MetricRefreshBlocker | null {
+}: NewMetricsUpdateBlockerArgs): NewMetricsUpdateBlocker | null {
   if ((experiment.type ?? "standard") !== "standard") {
     return "unsupported_experiment_type";
   }
@@ -183,13 +189,13 @@ export function getMetricRefreshSetupBlocker({
  * the results did, for example because a new metric makes the Incremental
  * Pipeline fall back.
  */
-export function getMetricRefreshBlocker({
+export function getNewMetricsUpdateBlocker({
   pipelineChanged,
   ...args
-}: MetricRefreshBlockerArgs & {
+}: NewMetricsUpdateBlockerArgs & {
   pipelineChanged: boolean;
-}): MetricRefreshBlocker | null {
-  const setupBlocker = getMetricRefreshSetupBlocker(args);
+}): NewMetricsUpdateBlocker | null {
+  const setupBlocker = getNewMetricsUpdateSetupBlocker(args);
   if (setupBlocker) return setupBlocker;
   if (args.experiment.phases[args.phase]?.dateEnded) return "phase_ended";
   if (pipelineChanged) return "metric_not_supported";
@@ -223,18 +229,18 @@ export function shouldOfferNewMetricsUpdate({
   resultsEndDate,
   windowHours,
   now,
-  refreshBlocker,
+  newMetricsUpdateBlocker,
 }: {
   reasons: readonly ResultsOutdatedReason[];
   resultsEndDate: Date;
   windowHours: number;
   now: Date;
-  refreshBlocker: MetricRefreshBlocker | null;
+  newMetricsUpdateBlocker: NewMetricsUpdateBlocker | null;
 }): boolean {
   return (
     reasons.length > 0 &&
     reasons.every((r) => r === "metrics_changed") &&
-    !refreshBlocker &&
+    !newMetricsUpdateBlocker &&
     isWithinNewMetricsUpdateWindow({ resultsEndDate, windowHours, now })
   );
 }

@@ -13,7 +13,7 @@ import {
 } from "back-end/src/services/experiments";
 import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
-  MetricRefreshOutsideWindowError,
+  NewMetricsUpdateOutsideWindowError,
   MetricsAlreadyUpToDateError,
 } from "back-end/src/util/errors";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
@@ -1065,7 +1065,7 @@ describe("snapshots API", () => {
         status: "running",
         type: "standard",
         settings: { ...base.settings, endDate: refreshEndDate },
-        metricRefresh: {
+        newMetricsUpdate: {
           baseSnapshotId: "snp_base",
           baseDateCreated: refreshEndDate,
           baseRunStarted: null,
@@ -1132,9 +1132,9 @@ describe("snapshots API", () => {
         newMetricsUpdateWindowHours: 2,
       });
       createExperimentSnapshot
-        .mockRejectedValueOnce(new MetricRefreshOutsideWindowError())
+        .mockRejectedValueOnce(new NewMetricsUpdateOutsideWindowError())
         .mockResolvedValueOnce({
-          snapshot: { ...snapshot, metricRefresh: undefined },
+          snapshot: { ...snapshot, newMetricsUpdate: undefined },
           queryRunner: {},
         });
 

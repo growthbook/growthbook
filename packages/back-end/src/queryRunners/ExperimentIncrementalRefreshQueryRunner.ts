@@ -5,7 +5,7 @@ import {
   getClusterSubUnit,
   getFactMetricFactTableIds,
   getIsolatedDimensionIds,
-  getMetricRefresh,
+  getNewMetricsUpdate,
   isFactMetric,
   isRegressionAdjusted,
   quantileMetricType,
@@ -89,9 +89,9 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
   analyzeSnapshotResults,
-  getMetricRefreshQueryStatus,
-  getMetricRefreshStartQuery,
-} from "back-end/src/services/metricRefreshExecution";
+  getNewMetricsUpdateQueryStatus,
+  getNewMetricsUpdateStartQuery,
+} from "back-end/src/services/newMetricsUpdateExecution";
 import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 import {
   QueryRunner,
@@ -108,7 +108,7 @@ import {
   REPLACED_TABLE_DROP_QUERY_PREFIX,
   STATISTICS_QUERY_PREFIX,
   TRAFFIC_QUERY_NAME,
-} from "./metricRefreshQueryNaming";
+} from "./newMetricsUpdateQueryNaming";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
@@ -161,7 +161,7 @@ export function getStatisticsQueryVariants({
 export type IncrementalRunMode =
   | { kind: "full" }
   | { kind: "update" }
-  | { kind: "metrics-only" };
+  | { kind: "new-metrics" };
 
 export type ExperimentIncrementalRefreshQueryParams = {
   snapshotType: SnapshotType;
@@ -336,9 +336,9 @@ export const startExperimentIncrementalRefreshQueries = async (
 ): Promise<Queries> => {
   const { snapshotSettings, queryParentId, experimentId, metricMap, mode } =
     params;
-  // A metric refresh reads every stored table as its parent left it and
+  // A new-metrics update reads every stored table as its parent left it and
   // writes only the caches it builds or rebuilds.
-  const appendsToStoredTables = mode.kind !== "metrics-only";
+  const appendsToStoredTables = mode.kind !== "new-metrics";
 
   const { org } = context;
 
@@ -556,7 +556,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     alter: [],
     maxTimestamp: [],
   };
-  if (mode.kind !== "metrics-only") {
+  if (mode.kind !== "new-metrics") {
     let createUnitsTableQuery: QueryPointer | null = null;
     if (mode.kind === "full") {
       const dropOldUnitsTableQuery = await startQuery({
@@ -1570,17 +1570,17 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.experimentUpdateExecutionLogger.execution.covariateSources = [];
     }
 
-    const metricRefresh = getMetricRefresh(this.model);
+    const newMetricsUpdate = getNewMetricsUpdate(this.model);
     const startQuery = this.startQuery.bind(this);
     return startExperimentIncrementalRefreshQueries(
       this.context,
       params,
       this.integration,
-      metricRefresh
-        ? await getMetricRefreshStartQuery(
+      newMetricsUpdate
+        ? await getNewMetricsUpdateStartQuery(
             this.context,
             this.model,
-            metricRefresh,
+            newMetricsUpdate,
             startQuery,
           )
         : startQuery,
@@ -1589,7 +1589,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   }
 
   protected override getOverallQueryStatus(): QueryStatus {
-    return getMetricRefreshQueryStatus(
+    return getNewMetricsUpdateQueryStatus(
       this.model,
       super.getOverallQueryStatus(),
     );

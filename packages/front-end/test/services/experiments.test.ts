@@ -269,11 +269,11 @@ describe("getNewMetricRowStates", () => {
 
   it.each([
     {
-      name: "a running refresh shows its metrics as running and the rest as not computed",
+      name: "a running new-metrics update shows its metrics as running and the rest as not computed",
       latest: {
         type: "standard" as const,
         status: "running" as const,
-        metricRefresh: refreshOf(["met_goal", "met_secondary"]),
+        newMetricsUpdate: refreshOf(["met_goal", "met_secondary"]),
       },
       expected: {
         met_goal: { status: "running", newMetricsOnly: true },
@@ -291,12 +291,12 @@ describe("getNewMetricRowStates", () => {
       },
     },
     {
-      name: "a failed refresh shows its metrics as failed",
+      name: "a failed new-metrics update shows its metrics as failed",
       latest: {
         type: "standard" as const,
         status: "error" as const,
         error: "Query failed",
-        metricRefresh: refreshOf(["met_goal"]),
+        newMetricsUpdate: refreshOf(["met_goal"]),
       },
       expected: {
         met_goal: { status: "failed", error: "Query failed" },

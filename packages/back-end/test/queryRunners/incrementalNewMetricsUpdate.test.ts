@@ -390,7 +390,7 @@ function refreshDag(
 ) {
   return buildDag({
     params: {
-      mode: { kind: "metrics-only" },
+      mode: { kind: "new-metrics" },
       snapshotSettings: snapshotSettings(
         [...BASE_METRICS, ...targets],
         BASE_END,
@@ -460,7 +460,7 @@ async function finishWrites(
 const UNITS =
   /^(update|drop|alter|max_timestamp|create)_snp_run|^drop_snp_run_old$/;
 
-describe("metric refresh (metrics-only runs)", () => {
+describe("new-metrics update (new-metrics runs)", () => {
   it("rebuilds a target's fact table cache like an update, on the base's units table and end", async () => {
     const refresh = await refreshDag(["a3", "c1"]);
     const update = await updateDag([...BASE_METRICS, "a3", "c1"]);
@@ -644,7 +644,7 @@ describe("metric refresh (metrics-only runs)", () => {
     ).toEqual([]);
   });
 
-  it("leaves state that the next update and the next refresh rebuild from when a rebuild fails", async () => {
+  it("leaves state that the next update and the next new-metrics update rebuild from when a rebuild fails", async () => {
     const refresh = await refreshDag(["a3"]);
     refresh.recorded
       .find((r) => r.name.startsWith("max_timestamp_metrics_source_ft_a_"))
@@ -688,7 +688,7 @@ describe("metric refresh (metrics-only runs)", () => {
   });
 });
 
-describe("a metric refresh run on the Incremental Pipeline", () => {
+describe("a new-metrics update run on the Incremental Pipeline", () => {
   it("copies the parent's traffic and untouched statistics queries instead of running them", async () => {
     jest
       .mocked(getSnapshotQueryPointers)
@@ -723,7 +723,7 @@ describe("a metric refresh run on the Incremental Pipeline", () => {
         type: "standard",
         runnerKind: "incremental-update",
         settings,
-        metricRefresh: {
+        newMetricsUpdate: {
           baseSnapshotId: "snp_base",
           baseDateCreated: BASE_END,
           baseRunStarted: null,
@@ -750,7 +750,7 @@ describe("a metric refresh run on the Incremental Pipeline", () => {
       queryParentId: "snp_run",
       experimentId: "exp_1",
       experimentQueryMetadata: null,
-      mode: { kind: "metrics-only" },
+      mode: { kind: "new-metrics" },
       incrementalRefreshStartTime: BASE_END,
     });
 

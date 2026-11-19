@@ -4,14 +4,14 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 import type { SegmentInterface } from "shared/types/segment";
 import type { ApiReqContext } from "back-end/types/api";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import { getIndexAfterLastGroup } from "back-end/src/queryRunners/metricRefreshQueryNaming";
+import { getIndexAfterLastGroup } from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
 import {
   generateExperimentResultQuerySql,
   type GenerateResultQuerySql,
   getQueriesWithChangedSql,
-  replayMetricRefreshLineage,
-  type MetricRefreshReplayLevel,
-} from "back-end/src/services/metricRefreshSqlIdentity";
+  replayNewMetricsUpdateLineage,
+  type NewMetricsUpdateReplayLevel,
+} from "back-end/src/services/newMetricsUpdateSqlIdentity";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 import { factTableFactory } from "back-end/test/factories/FactTable.factory";
 
@@ -109,22 +109,22 @@ const settings: ExperimentSnapshotSettings = {
 const BASE_SQL_GENERATED_AT = new Date(settings.endDate.getTime() + 3_000);
 const BASE_QUERIES_STARTED_AFTER_MS = 5_000;
 
-// A full update with Revenue, then a refresh that added Clicks.
-const levels: MetricRefreshReplayLevel[] = [
+// A full update with Revenue, then a new-metrics update that added Clicks.
+const levels: NewMetricsUpdateReplayLevel[] = [
   {
     snapshotId: "snp_base",
     metricSettings: [{ id: revenue.id }],
-    refreshedMetricIds: null,
+    newMetricIds: null,
     maxSqlClockDriftMs: BASE_QUERIES_STARTED_AFTER_MS,
   },
   {
     snapshotId: "snp_refresh",
     metricSettings: [{ id: revenue.id }, { id: clicks.id }],
-    refreshedMetricIds: [clicks.id],
+    newMetricIds: [clicks.id],
     maxSqlClockDriftMs: null,
   },
 ];
-// The queries a refresh of snp_refresh compares: the groups it would copy and
+// The queries a new-metrics update of snp_refresh compares: the groups it would copy and
 // the units table each of them reads.
 const comparedQueryNames = ["group_0", "group_1", "snp_base", "snp_refresh"];
 
@@ -194,7 +194,7 @@ async function storedSql(variant: Variant = {}): Promise<Map<string, string>> {
     settings: { ...runSettings, metricSettings: levels[1].metricSettings },
     queryParentId: levels[1].snapshotId,
     scope: {
-      metricIds: new Set(levels[1].refreshedMetricIds),
+      metricIds: new Set(levels[1].newMetricIds),
       firstGroupIndex: getIndexAfterLastGroup([...base.keys()]),
     },
   });
@@ -205,7 +205,7 @@ async function getChangedQueries(stored: Variant, today: Variant) {
   return getQueriesWithChangedSql({
     queryNames: comparedQueryNames,
     storedSql: await storedSql(stored),
-    todaysSql: await replayMetricRefreshLineage({
+    todaysSql: await replayNewMetricsUpdateLineage({
       levels,
       settings: { ...settings, ...today.settings },
       generateResultQuerySql: makeGenerator(today),

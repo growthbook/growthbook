@@ -59,7 +59,7 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
-import { generateExperimentResultQuerySql } from "back-end/src/services/metricRefreshSqlIdentity";
+import { generateExperimentResultQuerySql } from "back-end/src/services/newMetricsUpdateSqlIdentity";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import {
@@ -90,8 +90,8 @@ jest.mock("back-end/src/models/QueryModel", () => ({
   getQueriesByIds: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/metricRefreshSqlIdentity", () => ({
-  ...jest.requireActual("back-end/src/services/metricRefreshSqlIdentity"),
+jest.mock("back-end/src/services/newMetricsUpdateSqlIdentity", () => ({
+  ...jest.requireActual("back-end/src/services/newMetricsUpdateSqlIdentity"),
   generateExperimentResultQuerySql: jest.fn(),
 }));
 
@@ -2587,16 +2587,16 @@ describe("planExperimentSnapshot", () => {
         asParent(scheduled.snapshot),
       );
 
-      expect(plan.snapshot.metricRefresh?.metricIds).toEqual(["fact__aov"]);
+      expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["fact__aov"]);
     });
 
     // Every Outdated reason other than "Metrics changed" makes the app run a
-    // normal update, so the planner must refuse a refresh for each of them.
+    // normal update, so the planner must refuse a new-metrics update for each of them.
     describe("agrees with the app's Outdated reasons", () => {
       const { generateExperimentResultQuerySql: generateSql } =
         jest.requireActual<
-          typeof import("back-end/src/services/metricRefreshSqlIdentity")
-        >("back-end/src/services/metricRefreshSqlIdentity");
+          typeof import("back-end/src/services/newMetricsUpdateSqlIdentity")
+        >("back-end/src/services/newMetricsUpdateSqlIdentity");
 
       async function outdatedRefresh(
         fixture: ReturnType<typeof makeFixture>,
@@ -2775,7 +2775,7 @@ describe("planExperimentSnapshot", () => {
           resultsEndDate: parent.settings.endDate,
           windowHours: 4,
           now: refreshTime,
-          refreshBlocker: null,
+          newMetricsUpdateBlocker: null,
         });
         const plan = planExperimentSnapshot({
           context: context as never,
@@ -2892,7 +2892,7 @@ describe("planExperimentSnapshot", () => {
       ])(
         "on the $pipeline pipeline",
         ({ pipeline, pipelineBase, runnerKind }) => {
-          it("plans a refresh when added metrics are the only reason", async () => {
+          it("plans a new-metrics update when added metrics are the only reason", async () => {
             const { reasons, offered, plan } = await outdatedRefresh(
               makeFixture(),
               { base: pipelineBase, changes: {}, pipeline },
@@ -2903,13 +2903,13 @@ describe("planExperimentSnapshot", () => {
             await expect(plan).resolves.toMatchObject({
               snapshot: {
                 runnerKind,
-                metricRefresh: { metricIds: ["fact__guard"] },
+                newMetricsUpdate: { metricIds: ["fact__guard"] },
               },
             });
           });
 
           it.each(blockingReasons)(
-            "refuses a refresh the app would not offer for $reason",
+            "refuses a new-metrics update the app would not offer for $reason",
             async ({ reason, base, changes, refusal = "settings_changed" }) => {
               const { reasons, offered, plan } = await outdatedRefresh(
                 makeFixture(),

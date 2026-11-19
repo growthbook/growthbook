@@ -2,12 +2,12 @@ import type { ExperimentInterface } from "shared/types/experiment";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { SnapshotUpdateScope } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
-import type { NewMetricsUpdateWindow } from "back-end/src/services/metricRefreshPlanning";
+import type { NewMetricsUpdateWindow } from "back-end/src/services/newMetricsUpdatePlanning";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import {
   BadRequestError,
-  MetricRefreshOutsideWindowError,
-  MetricRefreshUnavailableError,
+  NewMetricsUpdateOutsideWindowError,
+  NewMetricsUpdateUnavailableError,
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
 } from "back-end/src/util/errors";
@@ -74,8 +74,8 @@ export function resolveApiUpdateScope({
 function isFallbackRefusal(error: unknown): boolean {
   return (
     error instanceof MetricsAlreadyUpToDateError ||
-    error instanceof MetricRefreshOutsideWindowError ||
-    error instanceof MetricRefreshUnavailableError ||
+    error instanceof NewMetricsUpdateOutsideWindowError ||
+    error instanceof NewMetricsUpdateUnavailableError ||
     error instanceof SnapshotInProgressError
   );
 }

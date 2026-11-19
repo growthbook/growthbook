@@ -415,7 +415,7 @@ export function isNewerOverallResultsDataAvailable(
   latestSuccessfulOverallResultsSnapshot:
     | Pick<
         ExperimentSnapshotInterface,
-        "type" | "dateCreated" | "metricRefresh"
+        "type" | "dateCreated" | "newMetricsUpdate"
       >
     | undefined,
 ): boolean {
