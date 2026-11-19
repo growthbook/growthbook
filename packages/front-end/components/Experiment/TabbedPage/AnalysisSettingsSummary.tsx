@@ -199,13 +199,12 @@ export default function AnalysisSettingsSummary({
   useEffect(() => {
     if (
       previousLatestStatusRef.current === "running" &&
-      latest?.status === "success" &&
-      !getMetricRefresh(latest)
+      latest?.status === "success"
     ) {
       onSnapshotSuccessfulUpdate?.();
     }
     previousLatestStatusRef.current = latest?.status;
-  }, [latest, onSnapshotSuccessfulUpdate]);
+  }, [latest?.status, onSnapshotSuccessfulUpdate]);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =

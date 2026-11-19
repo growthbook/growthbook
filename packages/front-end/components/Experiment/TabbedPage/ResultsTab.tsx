@@ -6,13 +6,7 @@ import {
   isDimensionPrecomputed,
   getEffectiveLookbackOverride,
 } from "shared/experiments";
-import React, {
-  useState,
-  useCallback,
-  useMemo,
-  useEffect,
-  useRef,
-} from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
@@ -39,7 +33,6 @@ import {
   getNewMetricRowStates,
   getMetricIdsNoSnapshotComputes,
 } from "@/services/experiments";
-import { refreshLacksSelectedAnalysis } from "@/services/snapshots";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
@@ -129,7 +122,6 @@ export default function ResultsTab({
     analysis,
     latestSummary,
     phase,
-    analysisSettings,
     setSnapshotType,
     setAnalysisSettings,
   } = useSnapshot();
@@ -247,17 +239,6 @@ export default function ResultsTab({
     setAnalysisSettings,
     honoredPrecomputedUnitDimensionIds,
   ]);
-
-  // Checked only when another snapshot arrives: a chooser selects an analysis
-  // it just created before the snapshot is refetched with it.
-  const checkedSnapshotId = useRef(snapshot?.id);
-  useEffect(() => {
-    if (snapshot?.id === checkedSnapshotId.current) return;
-    checkedSnapshotId.current = snapshot?.id;
-    if (refreshLacksSelectedAnalysis(snapshot, analysisSettings)) {
-      onSnapshotSuccessfulUpdate();
-    }
-  }, [snapshot, analysisSettings, onSnapshotSuccessfulUpdate]);
 
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;

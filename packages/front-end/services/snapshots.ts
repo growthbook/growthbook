@@ -5,7 +5,6 @@ import {
   ExperimentSnapshotAnalysisSettings,
 } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import { getMetricRefresh } from "shared/experiments";
 import { getValidDate } from "shared/dates";
 import { SourceSnapshotRef } from "shared/enterprise";
 
@@ -49,23 +48,6 @@ export async function analysisUpdate(
   }
 
   return status;
-}
-
-/**
- * A metric refresh copies its parent's finished analyses, so it lacks the
- * selected one only when the parent's had failed or was added after the
- * refresh copied them.
- */
-export function refreshLacksSelectedAnalysis(
-  snapshot: ExperimentSnapshotInterface | undefined,
-  analysisSettings: ExperimentSnapshotAnalysisSettings | null | undefined,
-): boolean {
-  return (
-    !!snapshot &&
-    !!getMetricRefresh(snapshot) &&
-    !!analysisSettings &&
-    !getSnapshotAnalysis(snapshot, analysisSettings)
-  );
 }
 
 export type ResultsFreshness =
