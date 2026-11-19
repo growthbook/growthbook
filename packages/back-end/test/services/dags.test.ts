@@ -89,11 +89,18 @@ describe("getDagActions", () => {
     expect(actions({ main: success, b: success })).toEqual([{ type: "done" }]);
   });
 
-  it("fails a stalled run only on nodes with dependencies", () => {
+  it("fails a stalled run, whether its creator or the DAG started it", () => {
     const stalled: DagNodeState = { status: "running", stalled: true };
-    expect(actions({ main: stalled, a: queued, b: queued })).toEqual([]);
+    expect(actions({ main: stalled, a: queued, b: queued })).toEqual([
+      { type: "fail-unstarted", nodeId: "main" },
+    ]);
     expect(actions({ main: success, a: stalled, b: running })).toEqual([
       { type: "fail-unstarted", nodeId: "a" },
+    ]);
+    // A retried node without dependencies, which the DAG started
+    const retried = node("main", { maxAttempts: 3, previousTargetIds: ["x"] });
+    expect(actions({ main: stalled }, [retried])).toEqual([
+      { type: "fail-unstarted", nodeId: "main" },
     ]);
   });
 

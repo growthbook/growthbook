@@ -1,7 +1,7 @@
-import mongoose from "mongoose";
 import { DagInterface, DagNode, dagValidator } from "shared/validators";
 import { assertValidDagNodes } from "back-end/src/services/dags";
 import { logger } from "back-end/src/util/logger";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { MakeModelClass } from "./BaseModel";
 
@@ -66,10 +66,9 @@ export class DagModel extends BaseClass {
     );
   }
 
-  /** Cross-tenant query for the DAG job's sweep. Do not use elsewhere. */
+  /** Cross-tenant query for the DAG job's sweep. */
   public static async dangerousFindAllActive(): Promise<DagInterface[]> {
-    const docs = await mongoose.connection.db
-      .collection(COLLECTION_NAME)
+    const docs = await getCollection(COLLECTION_NAME)
       .find({ status: "active" }, { projection: { _id: 0 } })
       .toArray();
     return docs.flatMap((doc) => {
