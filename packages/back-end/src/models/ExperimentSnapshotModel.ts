@@ -695,6 +695,7 @@ export async function updateSnapshot({
 
   if (
     experimentSnapshot.status !== "running" &&
+    experimentSnapshot.status !== "queued" &&
     experimentSnapshot.status !== existingInterface.status
   ) {
     if (conclusion) {
@@ -1149,6 +1150,103 @@ export async function errorSnapshotIfStillRunning(
   return true;
 }
 
+/** Claims a queued snapshot for a run. Null when it is no longer queued. */
+export async function startQueuedSnapshot(
+  context: Context,
+  id: string,
+): Promise<ExperimentSnapshotInterface | null> {
+  const now = new Date();
+  const updated = await ExperimentSnapshotModel.findOneAndUpdate(
+    { organization: context.org.id, id, status: "queued" },
+    // dateCreated moves so the stalled-snapshot reaper times the run, not the wait.
+    // Changing this requires substantial changes to the collection indices and
+    // the reapers
+    { $set: { status: "running", runStarted: now, dateCreated: now } },
+    { new: true },
+  );
+  return updated ? toInterface(updated) : null;
+}
+
+export async function errorQueuedSnapshot(
+  context: Context,
+  id: string,
+  error: string,
+): Promise<boolean> {
+  const updated = await ExperimentSnapshotModel.findOneAndUpdate(
+    { organization: context.org.id, id, status: "queued" },
+    { $set: { status: "error", error } },
+    { new: true },
+  );
+  if (!updated) return false;
+  logExperimentUpdated(context, {
+    snapshot: toInterface(updated),
+    snapshotStatus: "error",
+    conclusion: { concludedBy: "dag" },
+    executionLogger: null,
+  });
+  return true;
+}
+
+/** Queued snapshots have no results, so there are no analysis chunks to clean up. */
+export async function deleteQueuedSnapshots(
+  context: Context,
+  filter: { ids: string[] } | { experiment: string; phase: number },
+): Promise<void> {
+  await ExperimentSnapshotModel.deleteMany({
+    organization: context.org.id,
+    status: "queued",
+    ...("ids" in filter
+      ? { id: { $in: filter.ids } }
+      : { experiment: filter.experiment, phase: filter.phase }),
+  });
+}
+
+export async function hasQueuedSnapshot(
+  context: Context,
+  {
+    experiment,
+    phase,
+    dimension,
+  }: { experiment: string; phase: number; dimension: string },
+): Promise<boolean> {
+  const found = await ExperimentSnapshotModel.exists({
+    organization: context.org.id,
+    experiment,
+    phase,
+    dimension,
+    status: "queued",
+  });
+  return found !== null;
+}
+
+export type SnapshotRunStatus = {
+  id: string;
+  status: ExperimentSnapshotInterface["status"];
+  error: string | null;
+  runStarted: Date | null;
+  queryCount: number;
+};
+
+/** Run status of snapshots from any organization, without their results. */
+export async function dangerousFindSnapshotStatusesByIds(
+  ids: string[],
+): Promise<SnapshotRunStatus[]> {
+  if (!ids.length) return [];
+  const docs = await ExperimentSnapshotModel.find(
+    { id: { $in: ids } },
+    { id: 1, status: 1, error: 1, runStarted: 1, "queries.name": 1 },
+  )
+    .lean<Partial<ExperimentSnapshotInterface>[]>()
+    .exec();
+  return docs.map((doc) => ({
+    id: doc.id ?? "",
+    status: doc.status ?? "running",
+    error: doc.error || null,
+    runStarted: doc.runStarted ?? null,
+    queryCount: doc.queries?.length ?? 0,
+  }));
+}
+
 /** Rewrites only the pointers of a concluded snapshot; status, error and results are left alone. */
 export async function reconcileSnapshotQueryPointers(
   context: Context,
@@ -1385,7 +1483,7 @@ export async function getLatestSnapshotStatus({
   const mostRecent = await ExperimentSnapshotModel.findOne(
     {
       ...query,
-      status: { $in: ["success", "running", "error"] },
+      status: { $in: ["success", "running", "error", "queued"] },
     },
     snapshotStatusProjection,
     { sort: { dateCreated: -1 } },

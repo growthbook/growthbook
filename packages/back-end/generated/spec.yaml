@@ -19551,6 +19551,7 @@ paths:
                           status:
                             type: string
                             enum:
+                              - queued
                               - running
                               - success
                               - error
@@ -19650,6 +19651,7 @@ paths:
                           status:
                             type: string
                             enum:
+                              - queued
                               - running
                               - success
                               - error
@@ -84229,6 +84231,7 @@ components:
         snapshotStatus:
           type: string
           enum:
+            - queued
             - running
             - success
             - error

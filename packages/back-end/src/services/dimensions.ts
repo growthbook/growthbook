@@ -10,6 +10,7 @@ import {
 } from "shared/validators";
 import { DEFAULT_DIMENSION_TIMING } from "shared/experiments";
 import { MAX_PRECOMPUTED_UNIT_DIMENSIONS } from "shared/constants";
+import { isExperimentCoveredByIncrementalPipeline } from "shared/enterprise";
 import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { ReqContext } from "back-end/types/request";
@@ -111,7 +112,7 @@ type PrecomputedUnitDimensionSkip = {
   dimensionId?: string;
 };
 
-async function resolvePrecomputedUnitDimensions({
+export async function resolvePrecomputedUnitDimensions({
   context,
   datasource,
   exposureQueryId,
@@ -219,14 +220,23 @@ export async function getEligiblePrecomputedUnitDimensionIds({
   }
 
   if (!datasourceHasWritableEphemeralPipeline({ context, datasource })) {
-    logger.info(
-      {
-        experimentId: experiment.id,
-        datasourceId: datasource.id,
-        dimensionIds,
-      },
-      "Ignoring precomputed unit dimensions because datasource cannot honor them",
-    );
+    // Not ignored under the Incremental Pipeline: they run as queued
+    // breakdowns after the Overall Results update, not inside this snapshot.
+    if (
+      !isExperimentCoveredByIncrementalPipeline(
+        datasource.settings.pipelineSettings,
+        experiment.id,
+      )
+    ) {
+      logger.info(
+        {
+          experimentId: experiment.id,
+          datasourceId: datasource.id,
+          dimensionIds,
+        },
+        "Ignoring precomputed unit dimensions because datasource cannot honor them",
+      );
+    }
     return [];
   }
 
@@ -287,12 +297,15 @@ export function datasourceHasWritableEphemeralPipeline({
 export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
   context,
   datasource,
+  experimentId,
   exposureQueryId,
   exposureQueryIdentifierType,
   dimensionIds,
 }: {
   context: ReqContext;
   datasource: DataSourceInterface | null;
+  // Omitted for an experiment that is being created
+  experimentId?: string;
   exposureQueryId: string | undefined;
   exposureQueryIdentifierType?: string;
   dimensionIds: string[];
@@ -314,9 +327,19 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
     );
   }
 
-  if (!datasourceHasWritableEphemeralPipeline({ context, datasource })) {
+  // Under the Incremental Pipeline each dimension runs as its own breakdown
+  // after the Overall Results update, instead of inside the snapshot. A new
+  // experiment has no ID to be listed under, so it is covered only when the
+  // pipeline takes every experiment.
+  if (
+    !isExperimentCoveredByIncrementalPipeline(
+      datasource.settings.pipelineSettings,
+      experimentId ?? "",
+    ) &&
+    !datasourceHasWritableEphemeralPipeline({ context, datasource })
+  ) {
     throw new Error(
-      "Precomputed unit dimensions require a datasource with ephemeral Pipeline Mode enabled",
+      "Precomputed unit dimensions require a datasource with ephemeral Pipeline Mode enabled, or an experiment in Incremental Pipeline mode",
     );
   }
 

@@ -54,7 +54,10 @@ import ResultMoreMenu, {
   shouldOfferMenuRefresh,
 } from "@/components/Experiment/ResultMoreMenu";
 import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import {
+  SNAPSHOT_QUEUED_MESSAGE,
+  useSnapshot,
+} from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -289,6 +292,8 @@ export default function AnalysisSettingsSummary({
 
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
+  // Planned by an Overall Results update, which starts it when it finishes
+  const isQueued = latest?.status === "queued";
 
   const {
     customValidation: confirmIncrementalPipelineFallback,
@@ -1018,6 +1023,7 @@ export default function AnalysisSettingsSummary({
               {hasData &&
               outdated &&
               status !== "running" &&
+              !isQueued &&
               !hideOutdatedBadge ? (
                 <OutdatedBadge
                   label={`These results are outdated. Click "Update" to re-run the analysis.`}
@@ -1031,8 +1037,12 @@ export default function AnalysisSettingsSummary({
             permissionsUtil.canRunExperimentQueries(ds) &&
             allMetrics.length > 0 ? (
               <Tooltip
-                content={EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE}
-                enabled={resultsUpdateDisabled}
+                content={
+                  isQueued
+                    ? SNAPSHOT_QUEUED_MESSAGE
+                    : EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE
+                }
+                enabled={resultsUpdateDisabled || isQueued}
               >
                 <Flex display="inline-flex">
                   <RefreshResultsButton
@@ -1068,6 +1078,7 @@ export default function AnalysisSettingsSummary({
                     onSnapshotRefreshBlocked={handleSnapshotRefreshBlocked}
                     disabled={
                       resultsUpdateDisabled ||
+                      isQueued ||
                       (viewingDimensionThatRequiresOverallFirst &&
                         overallResultsRequiredBeforeDimensionRefresh)
                     }

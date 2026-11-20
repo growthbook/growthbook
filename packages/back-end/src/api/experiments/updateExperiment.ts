@@ -425,6 +425,7 @@ export const updateExperiment = createApiRequestHandler(
       await assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context: req.context,
         datasource,
+        experimentId: experiment.id,
         exposureQueryId:
           payload.assignmentQueryId ?? experiment.exposureQueryId,
         exposureQueryIdentifierType,
