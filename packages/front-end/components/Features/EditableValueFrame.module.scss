@@ -59,6 +59,18 @@
   right: 10px;
 }
 
+// Beside "No value set": centred on the line, as a value's own buttons are.
+.openEditorCentered {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+// Lines up with the value's own buttons, which sit inside a flush frame's
+// padding.
+.frame.flush .openEditor {
+  right: calc(10px + var(--frame-end));
+}
+
 // A flush frame keeps to the value's column, and the value sits inside it
 // where an input's text would.
 .frame.flush {

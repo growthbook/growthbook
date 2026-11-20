@@ -1882,8 +1882,8 @@ export default function ConfigDetailPage(): React.ReactElement {
           fieldCounts={data.fieldCounts}
           namesByKey={data.configNames}
           archivedByKey={data.archivedByKey}
-          // Only this node's draft is merged into the tree, so flag only it.
-          draftKeys={isDraft ? { [config.key]: true } : undefined}
+          // Every Config here with an open draft.
+          draftKeys={data.draftByKey}
           extensible={effectiveExtensible}
         />
         {/* Creating an override Config is a create, not an edit of the
@@ -1926,8 +1926,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                   fieldCounts={data.fieldCounts}
                   namesByKey={data.configNames}
                   archivedByKey={data.archivedByKey}
-                  // This config is the mixin row in each composer tree; flag it as draft.
-                  draftKeys={isDraft ? { [config.key]: true } : undefined}
+                  // Every Config here with an open draft.
+                  draftKeys={data.draftByKey}
                 />
               </Box>
             ))}
@@ -2264,6 +2264,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                                     }
                                     initialValue={seed.text}
                                     initialNull={seed.kind === "null"}
+                                    valueMissing={f.value === undefined}
                                     existingKeys={resolved.fields.map(
                                       (rf) => rf.key,
                                     )}

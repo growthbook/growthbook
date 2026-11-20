@@ -75,7 +75,11 @@ export default function RevisionStatusBar<T>({
 }) {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
-  useEffect(() => setPublishError(null), [selectedRevision?.id]);
+  // A publish error is about the content it tried; a change clears it.
+  useEffect(
+    () => setPublishError(null),
+    [selectedRevision?.id, selectedRevision?.dateUpdated],
+  );
   const numbers = getRevisionNumberById(allRevisions);
   const numberOf = (r: Revision) => numbers.get(r.id) ?? 1;
 

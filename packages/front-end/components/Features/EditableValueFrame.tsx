@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import clsx from "clsx";
-import { Box, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { ActionsOverlay } from "@/components/Features/CornerActions";
 import cornerStyles from "@/components/Features/CornerActions.module.scss";
 import Tooltip from "@/ui/Tooltip";
@@ -103,12 +103,15 @@ export default function EditableValueFrame({
         extraActions: ownButton ? null : editButton,
       })}
       {editButton && ownButton ? (
-        <Box
-          className={clsx(styles.openEditor, tall && cornerStyles.actions)}
-          style={tall ? undefined : ONE_LINE_ACTIONS.style}
+        <Flex
+          align="center"
+          className={clsx(
+            styles.openEditor,
+            tall ? cornerStyles.actions : styles.openEditorCentered,
+          )}
         >
           {editButton}
-        </Box>
+        </Flex>
       ) : null}
     </Box>
   );

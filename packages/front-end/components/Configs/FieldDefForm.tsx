@@ -57,6 +57,7 @@ export default function FieldDefForm({
   isNew = false,
   initialValue = "",
   initialNull = false,
+  valueMissing = false,
   constantContext,
   onDirtyChange,
   onSavingChange,
@@ -71,6 +72,8 @@ export default function FieldDefForm({
   isNew?: boolean;
   initialValue?: string;
   initialNull?: boolean;
+  // The field has no value yet.
+  valueMissing?: boolean;
   constantContext?: { project?: string; excludeKeys?: string[] };
   onDirtyChange?: (dirty: boolean) => void;
   onSavingChange?: (saving: boolean) => void;
@@ -226,8 +229,10 @@ export default function FieldDefForm({
   // string, not JSON.
   const retyped =
     valueText !== "" && valueType !== fieldValueType(initialField);
+  // A required field with no value yet takes one now.
+  const needsValue = field.required && (isNew || valueMissing);
   const parsedValue =
-    withValue && (valueTouched || retyped)
+    withValue && (valueTouched || retyped || needsValue)
       ? parseFieldValueInput(valueText, field, valueIsNull)
       : null;
 
