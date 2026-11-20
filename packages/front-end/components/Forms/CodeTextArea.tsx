@@ -550,6 +550,7 @@ export default function CodeTextArea({
               data-editor-uid={editorUid}
               className={clsx(styles.editor, {
                 [styles.valueEditor]: matchValueDisplay,
+                [styles.readOnly]: readOnly,
                 "ace-editor-disabled": fieldProps.disabled,
                 "h-100": fullHeight && !isFullscreen,
                 "code-editor-fullscreen": isFullscreen,

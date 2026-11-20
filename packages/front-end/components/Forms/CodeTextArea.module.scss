@@ -4,6 +4,14 @@
   box-shadow: none;
 }
 
+// Read-only: a faint fill, so it doesn't look like it takes typing.
+.editor.readOnly :global(.ace_editor) {
+  &,
+  :global(.ace_gutter) {
+    background: var(--gray-a1) !important;
+  }
+}
+
 // See CodeTextArea's matchValueDisplay.
 .valueEditor {
   // The text and gutter share one surface.
