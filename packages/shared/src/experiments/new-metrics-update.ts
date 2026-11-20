@@ -151,6 +151,24 @@ export function getNewMetricsUpdate(
     : null;
 }
 
+export type StatsEngineMetricCounts = {
+  numGoalMetrics: number;
+  numGuardrailMetrics: number;
+};
+
+/** The goal and guardrail counts a new-metrics update's stats engine runs use. */
+export function getNewMetricsUpdateMetricCounts(
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "goalMetrics" | "guardrailMetrics"
+  >,
+): StatsEngineMetricCounts {
+  return {
+    numGoalMetrics: settings.goalMetrics.length,
+    numGuardrailMetrics: settings.guardrailMetrics.length,
+  };
+}
+
 /**
  * The settings the stats engine runs an analysis of this snapshot with. A
  * new-metrics update's analyses keep the parent's settings so the front end
@@ -167,9 +185,35 @@ export function getStatsEngineAnalysisSettings(
   if (!getNewMetricsUpdate(snapshot)) return analysisSettings;
   return {
     ...analysisSettings,
-    numGoalMetrics: snapshot.settings.goalMetrics.length,
-    numGuardrailMetrics: snapshot.settings.guardrailMetrics.length,
+    ...getNewMetricsUpdateMetricCounts(snapshot.settings),
   };
+}
+
+/**
+ * A snapshot that a new-metrics update's copied results come from, with the
+ * metrics it queried (null for the full update the lineage starts from, which
+ * queried every metric) and the counts its stats engine ran with.
+ */
+export type MetricCountsLineageLevel = {
+  queriedMetricIds: readonly string[] | null;
+  counts: StatsEngineMetricCounts;
+};
+
+/**
+ * The counts the stats engine computed a copied metric's results with: those
+ * of the latest snapshot in the lineage, parent first, that queried it, since
+ * every later one copied its results. Null when the lineage ends before one.
+ */
+export function getCopiedMetricCounts(
+  lineage: readonly MetricCountsLineageLevel[],
+  metricId: string,
+): StatsEngineMetricCounts | null {
+  const definitionId = getDefinitionMetricId(metricId);
+  const level = lineage.find(
+    ({ queriedMetricIds }) =>
+      !queriedMetricIds || queriedMetricIds.includes(definitionId),
+  );
+  return level?.counts ?? null;
 }
 
 export function getSnapshotDataAsOfDate(snapshot: SnapshotLineage): Date {

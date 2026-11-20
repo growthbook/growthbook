@@ -7,6 +7,7 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 import type { ExperimentMetricDefinition } from "../src/experiments/experiments";
 import {
   getComputableNewMetricIds,
+  getCopiedMetricCounts,
   getMetricIdsMissingFromSnapshot,
   getMetricStatsEngineInputs,
   getPlannedMetricStatsEngineInputs,
@@ -509,5 +510,30 @@ describe("getStatsEngineAnalysisSettings", () => {
     expect(getStatsEngineAnalysisSettings(snapshot(), analysisSettings)).toBe(
       analysisSettings,
     );
+  });
+});
+
+describe("getCopiedMetricCounts", () => {
+  const counts = (numGoalMetrics: number) => ({
+    numGoalMetrics,
+    numGuardrailMetrics: 1,
+  });
+  // Parent first: two new-metrics updates on a full update with 6 goals.
+  const lineage = [
+    { queriedMetricIds: ["met_c"], counts: counts(10) },
+    { queriedMetricIds: ["met_b"], counts: counts(9) },
+    { queriedMetricIds: null, counts: counts(6) },
+  ];
+
+  it("gives each metric the counts of the latest snapshot that queried it", () => {
+    expect(getCopiedMetricCounts(lineage, "met_c")).toEqual(counts(10));
+    expect(getCopiedMetricCounts(lineage, "met_b?dim:country=US")).toEqual(
+      counts(9),
+    );
+    expect(getCopiedMetricCounts(lineage, "met_a")).toEqual(counts(6));
+  });
+
+  it("is null for a metric queried before a lineage that ends early", () => {
+    expect(getCopiedMetricCounts(lineage.slice(0, 2), "met_a")).toBeNull();
   });
 });

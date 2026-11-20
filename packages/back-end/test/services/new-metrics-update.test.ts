@@ -7,6 +7,7 @@ import type {
   ExperimentSnapshotSettings,
   MetricStatsEngineInputs,
   SnapshotMetric,
+  SnapshotNewMetricsUpdate,
 } from "shared/types/experiment-snapshot";
 import type { ExperimentReportResultDimension } from "shared/types/report";
 import type { QueryInterface } from "shared/types/query";
@@ -27,6 +28,7 @@ import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   analyzeNewMetricsUpdate,
   getNewMetricsUpdateQueryStatus,
+  isCopiedGoalMetricPowerMissing,
   mergeNewMetricsUpdateAnalyses,
 } from "back-end/src/services/newMetricsUpdateExecution";
 import {
@@ -1691,6 +1693,11 @@ describe("mergeNewMetricsUpdateAnalyses", () => {
       ]),
       newMetricIds: new Set(["met_c"]),
       variationWeights: [0.5, 0.5],
+      counts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
+      getCountsComputedWith: () => ({
+        numGoalMetrics: 2,
+        numGuardrailMetrics: 0,
+      }),
     });
 
   it("copies the parent's metrics verbatim and adds the fresh ones to each analysis", () => {
@@ -1853,7 +1860,12 @@ describe("analyzeNewMetricsUpdate", () => {
     const [{ queryData, analysisSettings: settings }] =
       analyzeMock.mock.calls[0];
     expect([...queryData.keys()]).toEqual(["group_1"]);
-    expect(settings).toEqual([analysisSettings, byBaseline.settings]);
+    expect(settings).toEqual(
+      [analysisSettings, byBaseline.settings].map((s) => ({
+        ...s,
+        numGuardrailMetrics: 0,
+      })),
+    );
     expect(result.analyses.map((a) => a.settings)).toEqual([
       analysisSettings,
       byBaseline.settings,
@@ -1943,13 +1955,11 @@ describe("analyzeNewMetricsUpdate", () => {
       context,
       snapshot: {
         ...refresh,
-        analyses: [
-          analysis(
-            { numGoalMetrics: 1, numGuardrailMetrics: 2 },
-            [],
-            "running",
-          ),
-        ],
+        settings: {
+          ...refresh.settings,
+          goalMetrics: ["met_c"],
+          guardrailMetrics: ["met_g", "met_h"],
+        },
       },
       newMetricsUpdate: refresh.newMetricsUpdate!,
       queryMap,
@@ -1975,6 +1985,212 @@ describe("analyzeNewMetricsUpdate", () => {
       [0, 0],
       [0, 0],
     ]);
+  });
+
+  describe("after earlier new-metrics updates, which each counted their own goals", () => {
+    // The base computed met_a with 6 goals, then a new-metrics update added
+    // met_b with 9, and this one adds met_c.
+    const power = { status: "successful", targetMDE: 0.1, scalingFactor: 2 };
+    const withCountedValues = (value: number): SnapshotMetric =>
+      ({
+        ...metricResult(value),
+        ci: [value - 1, value + 1],
+        power,
+        supplementalResults: {
+          cupedUnadjusted: { ...metricResult(value), ci: [0, 1], power },
+        },
+      }) as SnapshotMetric;
+    const countedDimension = (metricIds: string[]) => ({
+      name: "All",
+      srm: 0.5,
+      variations: [10, 10].map((users) => ({
+        users,
+        metrics: Object.fromEntries(
+          metricIds.map((id, i) => [id, withCountedValues(i + 1)]),
+        ),
+      })),
+    });
+    const covariate = {
+      differenceType: "absolute",
+      statsEngine: "frequentist",
+      sequentialTesting: false,
+      useCovariateAsResponse: true,
+    } as const;
+    const base = makeParent({ id: "snp_base" });
+    const earlier = makeParent({
+      id: "snp_earlier",
+      settings: makeSettings([
+        "met_a",
+        "met_b",
+        "g3",
+        "g4",
+        "g5",
+        "g6",
+        "g7",
+        "g8",
+        "g9",
+      ]),
+      newMetricsUpdate: getNewMetricsUpdateLineage(base, ["met_b"]),
+      analyses: [
+        analysis({ numGoalMetrics: 6 }, [countedDimension(["met_a", "met_b"])]),
+        analysis({ ...covariate, numGoalMetrics: 6 }, [
+          countedDimension(["met_a", "met_b"]),
+        ]),
+      ],
+    });
+    const goals = (n: number) =>
+      [
+        "met_a",
+        "met_b",
+        "met_c",
+        "g3",
+        "g4",
+        "g5",
+        "g6",
+        "g7",
+        "g8",
+        "g9",
+      ].slice(0, n);
+
+    const analyzeAfterEarlier = async (
+      goalMetrics: string[],
+      guardrailMetrics: string[] = [],
+      baseExists = true,
+    ) => {
+      findSnapshotByIdMock.mockResolvedValue(earlier);
+      findAncestorMock.mockImplementation(async (ctx, id) =>
+        baseExists && id === "snp_base" ? base : null,
+      );
+      analyzeMock.mockImplementation(async ({ analysisSettings }) => ({
+        results: analysisSettings.map(() => ({
+          unknownVariations: [],
+          multipleExposures: 0,
+          dimensions: [countedDimension(["met_c"])],
+        })),
+      }));
+      const newMetricsUpdate = getNewMetricsUpdateLineage(earlier, ["met_c"]);
+      const result = await analyzeNewMetricsUpdate({
+        context,
+        snapshot: makeParent({
+          id: "snp_refresh",
+          settings: makeSettings(["met_a", "met_b", "met_c"], {
+            goalMetrics,
+            guardrailMetrics,
+          }),
+          newMetricsUpdate,
+        }),
+        newMetricsUpdate,
+        queryMap: new Map([
+          ["group_2", resultQuery("experimentMultiMetric", { m0_id: "met_c" })],
+        ]),
+        metricMap,
+        variationNames: ["Control", "Treatment"],
+      });
+      const [relative, imbalance] = result.analyses.map(
+        (a) => a.results[0].variations[1].metrics,
+      );
+      return { relative, imbalance };
+    };
+    const fields = (metric: SnapshotMetric) => ({
+      power: "power" in metric,
+      ci: "ci" in metric,
+      supplementalPower:
+        "power" in metric.supplementalResults!.cupedUnadjusted!,
+      supplementalCi: "ci" in metric.supplementalResults!.cupedUnadjusted!,
+    });
+
+    it("drops power and pre-exposure intervals from each copied metric computed with other goal counts, and keeps its other numbers", async () => {
+      const { relative, imbalance } = await analyzeAfterEarlier(goals(10));
+
+      expect(
+        analyzeMock.mock.calls[0][0].analysisSettings[0].numGoalMetrics,
+      ).toBe(10);
+      for (const id of ["met_a", "met_b"]) {
+        expect(fields(relative[id])).toEqual({
+          power: false,
+          ci: true,
+          supplementalPower: false,
+          supplementalCi: true,
+        });
+        expect(fields(imbalance[id])).toMatchObject({
+          ci: false,
+          supplementalCi: false,
+        });
+      }
+      expect(relative.met_a.ci).toEqual([0, 2]);
+      expect(imbalance.met_b).toMatchObject({ value: 2, cr: 2, users: 10 });
+      expect(fields(relative.met_c)).toEqual({
+        power: true,
+        ci: true,
+        supplementalPower: true,
+        supplementalCi: true,
+      });
+      expect(fields(imbalance.met_c).ci).toBe(true);
+    });
+
+    it("keeps a copied metric's values when the update that computed it counted today's goals", async () => {
+      const { relative, imbalance } = await analyzeAfterEarlier(goals(9));
+
+      expect(fields(relative.met_b).power).toBe(true);
+      expect(fields(imbalance.met_b).ci).toBe(true);
+      expect(fields(relative.met_a).power).toBe(false);
+      expect(fields(imbalance.met_a).ci).toBe(false);
+    });
+
+    it("keeps power but drops pre-exposure intervals when only the guardrail count changed", async () => {
+      const { relative, imbalance } = await analyzeAfterEarlier(goals(9), [
+        "met_r",
+      ]);
+
+      expect(fields(relative.met_b).power).toBe(true);
+      expect(fields(imbalance.met_b).ci).toBe(false);
+    });
+
+    it("drops both from a copied metric whose computing update can no longer be found", async () => {
+      const { relative, imbalance } = await analyzeAfterEarlier(
+        goals(9),
+        [],
+        false,
+      );
+
+      expect(fields(relative.met_b).power).toBe(true);
+      expect(fields(relative.met_a).power).toBe(false);
+      expect(fields(imbalance.met_a).ci).toBe(false);
+    });
+  });
+});
+
+describe("isCopiedGoalMetricPowerMissing", () => {
+  const withPower = (value: number) =>
+    ({
+      ...metricResult(value),
+      power: { status: "successful", targetMDE: 0.1 },
+    }) as SnapshotMetric;
+  const relative = (metrics: Record<string, SnapshotMetric>) =>
+    analysis({}, [
+      {
+        name: "All",
+        srm: 0.5,
+        variations: [
+          { users: 10, metrics: {} },
+          { users: 10, metrics },
+        ],
+      },
+    ]);
+  const newMetricsUpdate = { metricIds: ["met_c"] } as SnapshotNewMetricsUpdate;
+  const missing = (metrics: Record<string, SnapshotMetric>) =>
+    isCopiedGoalMetricPowerMissing({
+      analysis: relative(metrics),
+      goalMetrics: ["met_a", "met_c", "met_none"],
+      newMetricsUpdate,
+    });
+
+  it("is true only when a copied goal metric's result has no power", () => {
+    expect(missing({ met_a: metricResult(1), met_c: withPower(2) })).toBe(true);
+    expect(missing({ met_a: withPower(1), met_c: metricResult(2) })).toBe(
+      false,
+    );
+    expect(missing({ met_a: withPower(1), met_c: withPower(2) })).toBe(false);
   });
 });
 

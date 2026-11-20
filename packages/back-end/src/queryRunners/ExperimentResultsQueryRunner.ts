@@ -72,6 +72,7 @@ import { updateReport } from "back-end/src/models/ReportModel";
 import {
   analyzeSnapshotResults,
   getNewMetricsUpdateQueryStatus,
+  isCopiedGoalMetricPowerMissing,
   startNewMetricsUpdateResultQueries,
 } from "back-end/src/services/newMetricsUpdateExecution";
 import {
@@ -730,11 +731,20 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         (a) => a.settings.differenceType === "relative",
       );
 
+      const newMetricsUpdate = getNewMetricsUpdate(this.model);
       const isEligibleForMidExperimentPowerAnalysis =
         relativeAnalysis &&
         this.model.settings.banditSettings === undefined &&
         rows &&
-        rows.length;
+        rows.length &&
+        !(
+          newMetricsUpdate &&
+          isCopiedGoalMetricPowerMissing({
+            analysis: relativeAnalysis,
+            goalMetrics: this.model.settings.goalMetrics,
+            newMetricsUpdate,
+          })
+        );
 
       if (isEligibleForMidExperimentPowerAnalysis) {
         const today = new Date();

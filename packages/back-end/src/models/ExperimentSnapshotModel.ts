@@ -1270,7 +1270,11 @@ export type NewMetricsUpdateAncestor = Pick<
 > & {
   settings: Pick<
     ExperimentSnapshotSettings,
-    "metricSettings" | "endDateIsCutoff" | "analysisAsOf"
+    | "metricSettings"
+    | "endDateIsCutoff"
+    | "analysisAsOf"
+    | "goalMetrics"
+    | "guardrailMetrics"
   >;
 };
 
@@ -1289,6 +1293,8 @@ export async function findNewMetricsUpdateAncestor(
       "settings.metricSettings": 1,
       "settings.endDateIsCutoff": 1,
       "settings.analysisAsOf": 1,
+      "settings.goalMetrics": 1,
+      "settings.guardrailMetrics": 1,
     },
   )
     .lean<NewMetricsUpdateAncestor>()
