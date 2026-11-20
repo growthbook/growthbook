@@ -1456,6 +1456,14 @@ export function compareConfig(
 
 export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
 
+/** Whether the browser's locale writes times on a 12-hour clock. */
+function usesHour12(): boolean {
+  return (
+    new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions()
+      .hour12 ?? false
+  );
+}
+
 /**
  * A date bucket's label. `timeZone`: "utc" shows warehouse dates (see
  * parseWarehouseDate) unshifted; "local" is for buckets built in the browser.
@@ -1498,6 +1506,19 @@ export function formatDateByGranularity(
       return compact ? start : `Week of ${start}`;
     }
     case "hour":
+      if (compact) {
+        // Hourly buckets always start on the hour, so 12-hour locales drop the
+        // minutes ("Jul 25, 9 AM"); 24-hour ones keep them ("25 Jul, 09:00"),
+        // where a bare "09" would read oddly.
+        return date.toLocaleString(undefined, {
+          ...year,
+          month,
+          day: "numeric",
+          hour: "numeric",
+          ...(usesHour12() ? {} : { minute: "2-digit" as const }),
+          timeZone: tz,
+        });
+      }
       return `${date.toLocaleDateString(undefined, {
         ...year,
         month,

@@ -179,6 +179,24 @@ describe("formatDateByGranularity compact style", () => {
     ).toContain("2026");
   });
 
+  it("gives hourly ticks the date on every label, without minutes on a 12-hour clock", () => {
+    const nineAm = new Date(Date.UTC(2022, 6, 25, 9));
+    const label = formatDateByGranularity(nineAm, "hour", "utc", {
+      compact: true,
+      showYear: false,
+    });
+    expect(label).not.toContain("2022");
+    expect(label.length).toBeLessThan(
+      formatDateByGranularity(nineAm, "hour").length,
+    );
+    if (Intl.DateTimeFormat().resolvedOptions().locale === "en-US") {
+      expect(label).toBe("Jul 25, 9 AM");
+      expect(
+        formatDateByGranularity(nineAm, "hour", "utc", { compact: true }),
+      ).toBe("Jul 25, 2022, 9 AM");
+    }
+  });
+
   it("uses a shorter month than the default style", () => {
     const full = formatDateByGranularity(nov2, "month");
     const compact = formatDateByGranularity(nov2, "month", "utc", {
