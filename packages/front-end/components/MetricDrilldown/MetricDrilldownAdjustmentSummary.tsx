@@ -6,6 +6,11 @@ import {
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
+import {
+  AdjustmentEffectSize,
+  getAdjustmentImpactSummaries,
+  SupplementalField,
+} from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
@@ -14,14 +19,7 @@ import Text from "@/ui/Text";
 import { RadixColor } from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import { ExperimentTableRow } from "@/services/experiments";
-import {
-  AdjustmentEffectSize,
-  formatAdjustmentChange,
-  formatAdjustmentQualifiers,
-  getAdjustmentImpactSummary,
-  getFamilyAdjustedPValues,
-  SupplementalField,
-} from "./helpers";
+import { formatAdjustmentChange, formatAdjustmentQualifiers } from "./helpers";
 
 interface MetricDrilldownAdjustmentSummaryProps {
   row: ExperimentTableRow;
@@ -68,16 +66,11 @@ const MetricDrilldownAdjustmentSummary: FC<
   const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
   const { ciUpper, ciLower } = bayesianConfidenceLevels;
 
-  const familyAdjustedPValues = useMemo(
-    () => getFamilyAdjustedPValues({ goalRows, statsEngine, pValueCorrection }),
-    [goalRows, statsEngine, pValueCorrection],
-  );
-
   const summary = useMemo(
     () =>
-      getAdjustmentImpactSummary({
-        row,
-        baselineRow,
+      getAdjustmentImpactSummaries({
+        metrics: [row],
+        baselineIndex: baselineRow,
         variationFilter,
         metricDefaults,
         statsEngine,
@@ -85,8 +78,9 @@ const MetricDrilldownAdjustmentSummary: FC<
         ciUpper,
         ciLower,
         pValueThreshold,
-        familyAdjustedPValues,
-      }),
+        goalMetrics: goalRows,
+        pValueCorrection,
+      })[0],
     [
       row,
       baselineRow,
@@ -97,7 +91,8 @@ const MetricDrilldownAdjustmentSummary: FC<
       ciUpper,
       ciLower,
       pValueThreshold,
-      familyAdjustedPValues,
+      goalRows,
+      pValueCorrection,
     ],
   );
 
@@ -117,11 +112,15 @@ const MetricDrilldownAdjustmentSummary: FC<
             label,
             effectSize,
             relativeChange,
+            standardErrorShift,
             significanceChanged,
             signFlipped,
           }) => {
             const display = EFFECT_SIZE_DISPLAY[effectSize];
-            const changeText = formatAdjustmentChange(relativeChange);
+            const changeText = formatAdjustmentChange({
+              relativeChange,
+              standardErrorShift,
+            });
             const qualifiers = formatAdjustmentQualifiers({
               significanceChanged,
               signFlipped,

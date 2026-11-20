@@ -1,18 +1,15 @@
 import { FC, ReactNode } from "react";
 import { PiWarningFill } from "react-icons/pi";
+import { AdjustmentImpact } from "shared/experiments";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
-import {
-  AdjustmentImpact,
-  formatAdjustmentChange,
-  formatAdjustmentQualifiers,
-} from "./helpers";
+import { formatAdjustmentChange, formatAdjustmentQualifiers } from "./helpers";
 import styles from "./StatsAdjustmentBadge.module.scss";
 
 function formatImpact(impact: AdjustmentImpact): string {
   const qualifiers = formatAdjustmentQualifiers(impact);
-  return `${formatAdjustmentChange(impact.relativeChange)}${
+  return `${formatAdjustmentChange(impact)}${
     qualifiers ? ` (${qualifiers})` : ""
   }.`;
 }

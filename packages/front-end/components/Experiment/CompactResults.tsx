@@ -36,6 +36,7 @@ import {
   ExperimentSortBy,
   SetExperimentSortBy,
   isFactFunnelMetric,
+  AdjustmentImpact,
 } from "shared/experiments";
 import Link from "@/ui/Link";
 import {
@@ -59,12 +60,7 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { ReplacedMetricWarning } from "@/components/Metrics/MetricReplacement";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
-import {
-  AdjustmentImpact,
-  AdjustmentImpactSettings,
-  getFamilyAdjustedPValues,
-  getLargeAdjustmentImpacts,
-} from "@/components/MetricDrilldown/helpers";
+import { getLargeAdjustmentImpacts } from "@/components/MetricDrilldown/helpers";
 import StatsAdjustmentBadge from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
@@ -274,41 +270,38 @@ const CompactResults: FC<{
       getFactTableById,
     ],
   );
-  const familyAdjustedPValues = useMemo(
-    () => getFamilyAdjustedPValues({ goalRows, statsEngine, pValueCorrection }),
-    [goalRows, statsEngine, pValueCorrection],
-  );
-  const adjustmentImpactSettings = useMemo<AdjustmentImpactSettings>(
-    () => ({
-      baselineRow: baselineRow ?? 0,
-      variationFilter,
-      statsEngine,
-      differenceType,
-      significanceThresholds,
-      metricDefaults,
-      familyAdjustedPValues,
-    }),
-    [
-      baselineRow,
-      variationFilter,
-      statsEngine,
-      differenceType,
-      significanceThresholds,
-      metricDefaults,
-      familyAdjustedPValues,
-    ],
-  );
   const largeImpactsByRow = useMemo(() => {
+    const metricRows = rows.filter((row) => !row.isChildRow);
+    const impacts = getLargeAdjustmentImpacts(metricRows, {
+      baselineIndex: baselineRow ?? 0,
+      variationFilter,
+      statsEngine,
+      differenceType,
+      metricDefaults,
+      ciUpper: significanceThresholds.bayesianConfidenceLevels.ciUpper,
+      ciLower: significanceThresholds.bayesianConfidenceLevels.ciLower,
+      pValueThreshold: significanceThresholds.pValueThreshold,
+      pValueCorrection,
+      goalRows,
+    });
     const impactsByRow = new Map<string, AdjustmentImpact[]>();
-    rows.forEach((row) => {
-      if (row.isChildRow) return;
-      const impacts = getLargeAdjustmentImpacts(row, adjustmentImpactSettings);
-      if (impacts.length) {
-        impactsByRow.set(`${row.resultGroup}:${row.metric.id}`, impacts);
+    metricRows.forEach((row, i) => {
+      if (impacts[i].length) {
+        impactsByRow.set(`${row.resultGroup}:${row.metric.id}`, impacts[i]);
       }
     });
     return impactsByRow;
-  }, [rows, adjustmentImpactSettings]);
+  }, [
+    rows,
+    goalRows,
+    baselineRow,
+    variationFilter,
+    statsEngine,
+    differenceType,
+    metricDefaults,
+    significanceThresholds,
+    pValueCorrection,
+  ]);
   const getStatsAdjustmentImpacts = (row: ExperimentTableRow) =>
     largeImpactsByRow.get(`${row.resultGroup}:${row.metric.id}`) ?? [];
   const onStatsAdjustmentClick = drilldownContext

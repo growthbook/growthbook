@@ -28,6 +28,7 @@ import {
   SetExperimentSortBy,
   formatDimensionValueForDisplay,
   isFactFunnelMetric,
+  AdjustmentImpact,
 } from "shared/experiments";
 import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { CustomMetricSlice } from "shared/validators";
@@ -55,12 +56,7 @@ import {
   useMetricDrilldownContext,
 } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import {
-  AdjustmentImpact,
-  AdjustmentImpactSettings,
-  getFamilyAdjustedPValues,
-  getLargeAdjustmentImpacts,
-} from "@/components/MetricDrilldown/helpers";
+import { getLargeAdjustmentImpacts } from "@/components/MetricDrilldown/helpers";
 import StatsAdjustmentBadge from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -285,8 +281,8 @@ const BreakDownResults: FC<{
 
   // The drilldown for a dimension value corrects p-values across all of that
   // value's goal metrics, so the badge builds the same family per value.
-  const adjustmentImpactSettingsByValue = useMemo(() => {
-    const settingsByValue = new Map<string, AdjustmentImpactSettings>();
+  const goalRowsByValue = useMemo(() => {
+    const rowsByValue = new Map<string, ExperimentTableRow[]>();
     results.forEach((dimensionResults) => {
       const goalRows = getGoalFamilyRows({
         results: dimensionResults,
@@ -299,21 +295,9 @@ const BreakDownResults: FC<{
           getExperimentMetricById(id),
         getFactTableById,
       });
-      settingsByValue.set(dimensionResults.name, {
-        baselineRow: baselineRow ?? 0,
-        variationFilter,
-        statsEngine,
-        differenceType,
-        significanceThresholds,
-        metricDefaults,
-        familyAdjustedPValues: getFamilyAdjustedPValues({
-          goalRows,
-          statsEngine,
-          pValueCorrection,
-        }),
-      });
+      rowsByValue.set(dimensionResults.name, goalRows);
     });
-    return settingsByValue;
+    return rowsByValue;
   }, [
     results,
     goalMetrics,
@@ -323,30 +307,54 @@ const BreakDownResults: FC<{
     ssrPolyfills,
     getExperimentMetricById,
     getFactTableById,
-    baselineRow,
-    variationFilter,
-    statsEngine,
-    differenceType,
-    significanceThresholds,
-    metricDefaults,
-    pValueCorrection,
   ]);
   const largeImpactsByRow = useMemo(() => {
-    const impactsByRow = new Map<string, AdjustmentImpact[]>();
+    const metricRowsByValue = new Map<string, ExperimentTableRow[]>();
     tables.forEach((table) =>
       table.rows.forEach((row) => {
         if (row.isChildRow) return;
         const value = getRowDimensionValue(row);
-        const settings = adjustmentImpactSettingsByValue.get(value);
-        if (!settings) return;
-        const impacts = getLargeAdjustmentImpacts(row, settings);
-        if (impacts.length) {
-          impactsByRow.set(`${row.metric.id}:${value}`, impacts);
-        }
+        metricRowsByValue.set(value, [
+          ...(metricRowsByValue.get(value) ?? []),
+          row,
+        ]);
       }),
     );
+
+    const impactsByRow = new Map<string, AdjustmentImpact[]>();
+    metricRowsByValue.forEach((metricRows, value) => {
+      const goalRows = goalRowsByValue.get(value);
+      if (!goalRows) return;
+      const impacts = getLargeAdjustmentImpacts(metricRows, {
+        baselineIndex: baselineRow ?? 0,
+        variationFilter,
+        statsEngine,
+        differenceType,
+        metricDefaults,
+        ciUpper: significanceThresholds.bayesianConfidenceLevels.ciUpper,
+        ciLower: significanceThresholds.bayesianConfidenceLevels.ciLower,
+        pValueThreshold: significanceThresholds.pValueThreshold,
+        pValueCorrection,
+        goalRows,
+      });
+      metricRows.forEach((row, i) => {
+        if (impacts[i].length) {
+          impactsByRow.set(`${row.metric.id}:${value}`, impacts[i]);
+        }
+      });
+    });
     return impactsByRow;
-  }, [tables, adjustmentImpactSettingsByValue]);
+  }, [
+    tables,
+    goalRowsByValue,
+    baselineRow,
+    variationFilter,
+    statsEngine,
+    differenceType,
+    metricDefaults,
+    significanceThresholds,
+    pValueCorrection,
+  ]);
 
   return (
     <div className="mb-3">
