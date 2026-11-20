@@ -36,6 +36,8 @@ import { isExperimentationLeaning } from "@/services/onboarding";
 import { DocSection } from "@/components/DocLink";
 import useApi from "@/hooks/useApi";
 import useAgentOnboarding from "@/hooks/useAgentOnboarding";
+import useMediaQuery from "@/hooks/useMediaQuery";
+import styles from "./GetStarted.module.scss";
 
 type AdvancedFeature = (
   | { docSection: DocSection; href?: never }
@@ -198,6 +200,50 @@ const GetStartedAndHomePage = ({
       .slice(0, 3);
   }, []);
 
+  // Main's Create menu. Beside the docs card it tops the right column, level
+  // with the first heading on the left; stacked (below 768px), it sits in that
+  // heading's row instead.
+  const stacked = useMediaQuery("(max-width: 767px)");
+  const showCreate =
+    !!orgHasConnectedSDK && (canCreateFeature || canCreateExperiment);
+  const createMenu = showCreate ? (
+    <DropdownMenu
+      // Under the button's right edge, the page's right edge beside the docs.
+      menuPlacement="end"
+      trigger={
+        <Button icon={<PiCaretDownFill />} iconPosition="right">
+          Create
+        </Button>
+      }
+    >
+      {canCreateFeature && (
+        <DropdownMenuItem
+          onClick={() => {
+            setOpenNewFeatureFlagModal(true);
+          }}
+        >
+          Feature Flag
+        </DropdownMenuItem>
+      )}
+      {canCreateExperiment && (
+        <DropdownMenuItem
+          onClick={() => {
+            setOpenNewExperimentModal(true);
+          }}
+        >
+          Experiment
+        </DropdownMenuItem>
+      )}
+    </DropdownMenu>
+  ) : null;
+  // A new org's Get Started row carries it at every width (below).
+  const createInHeading =
+    showCreate && stacked && orgIsUsingFeatureOrExperiment ? (
+      <div className={styles.createInHeading}>{createMenu}</div>
+    ) : null;
+  const createInColumn =
+    showCreate && !stacked && orgIsUsingFeatureOrExperiment;
+
   return (
     <>
       {upgradeModal && (
@@ -234,48 +280,8 @@ const GetStartedAndHomePage = ({
 
       <Box>
         {showMarketingBanner && <HomeMarketingBanner />}
-        <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
-          <Text size="7" weight="regular" mb="5" as="div">
-            Home
-          </Text>
-          {orgHasConnectedSDK && (canCreateFeature || canCreateExperiment) && (
-            <Flex justify={{ initial: "end", sm: "start" }} align="center">
-              <DropdownMenu
-                trigger={
-                  <Button icon={<PiCaretDownFill />} iconPosition="right">
-                    Create
-                  </Button>
-                }
-              >
-                {canCreateFeature && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setOpenNewFeatureFlagModal(true);
-                    }}
-                  >
-                    Feature Flag
-                  </DropdownMenuItem>
-                )}
-                {canCreateExperiment && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setOpenNewExperimentModal(true);
-                    }}
-                  >
-                    Experiment
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenu>
-            </Flex>
-          )}
-        </Grid>
-
-        {!orgIsUsingFeatureOrExperiment && (
-          <Text size="4" weight="medium" mb="3" as="div">
-            Get Started
-          </Text>
-        )}
         <Grid
+          className={createInColumn ? styles.withCreate : undefined}
           columns={{
             // A wide table further down mustn't widen the stacked column
             // past the window.
@@ -286,11 +292,28 @@ const GetStartedAndHomePage = ({
           gapX="4"
           rows="auto 1fr"
         >
-          <Box>
+          {/* A new org's Get Started heading runs across both columns, with
+              Create at its end, so the docs card starts with the cards
+              under it, as on main. */}
+          {!orgIsUsingFeatureOrExperiment && (
+            <Flex
+              align="center"
+              justify="between"
+              gap="3"
+              pb="3"
+              style={{ gridColumn: "1 / -1" }}
+            >
+              <Text size="4" weight="medium" as="div">
+                Get Started
+              </Text>
+              {createMenu}
+            </Flex>
+          )}
+          <Box className={styles.mainColumn}>
             <Box>
               {orgIsUsingFeatureOrExperiment && (
                 <Box>
-                  <NeedingAttention />
+                  <NeedingAttention headingAction={createInHeading} flushTop />
                   <Box mt="6" mb="2">
                     <Box mb="3">
                       <Text
@@ -427,13 +450,12 @@ const GetStartedAndHomePage = ({
               )}
             </Box>
           </Box>
-          <Box
-            mt={
-              orgIsUsingFeatureOrExperiment
-                ? { initial: "0", sm: "37px" }
-                : undefined
-            }
-          >
+          <Box>
+            {createInColumn ? (
+              <Flex justify="end" mb="3" className={styles.createInColumn}>
+                {createMenu}
+              </Flex>
+            ) : null}
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"

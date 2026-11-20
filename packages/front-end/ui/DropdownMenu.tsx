@@ -9,11 +9,13 @@ import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.j
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { amber } from "@radix-ui/colors";
+import clsx from "clsx";
 import React, {
   forwardRef,
   ReactElement,
   useCallback,
   useEffect,
+  useRef,
   useState,
   createContext,
   useContext,
@@ -60,6 +62,9 @@ type DropdownProps = {
   onCloseAutoFocus?: React.ComponentProps<
     typeof RadixDropdownMenu.Content
   >["onCloseAutoFocus"];
+  menuSideOffset?: number;
+  menuAlignOffset?: number;
+  menuClassName?: string;
 } & MarginProps;
 
 const MORE_ICON_SIZES = { sm: 14, md: 16, lg: 18 };
@@ -108,6 +113,9 @@ export function DropdownMenu({
   onOpenChange,
   modal = false,
   onCloseAutoFocus,
+  menuSideOffset,
+  menuAlignOffset,
+  menuClassName,
   ...props
 }: DropdownProps) {
   const triggerComponent =
@@ -197,13 +205,24 @@ export function DropdownMenu({
         </RadixDropdownMenu.Trigger>
         <RadixDropdownMenu.Content
           side={menuSide}
+          // Only when set: an explicit undefined would replace Radix Themes'
+          // default sideOffset of 4 with 0.
+          {...(menuSideOffset === undefined
+            ? {}
+            : { sideOffset: menuSideOffset })}
+          {...(menuAlignOffset === undefined
+            ? {}
+            : { alignOffset: menuAlignOffset })}
           ref={contentRef}
           align={menuPlacement}
           color={color}
           variant={variant}
           onCloseAutoFocus={onCloseAutoFocus}
           className={
-            menuWidth === "full" ? "dropdown-content-width-full" : undefined
+            clsx(
+              menuWidth === "full" && "dropdown-content-width-full",
+              menuClassName,
+            ) || undefined
           }
           style={{
             width: typeof menuWidth === "number" ? menuWidth : undefined,
@@ -223,6 +242,50 @@ type DropdownContentProps = {
   trigger: AllowedChildren;
   triggerClassName?: string;
 } & MarginProps;
+
+/**
+ * A control inside the menu, such as a Select. Radix's arrow keys only move
+ * between items (and Tab is blocked in a menu), so this adds the control to
+ * their path.
+ */
+export function DropdownMenuField({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const field = ref.current;
+    const menu = field?.closest<HTMLElement>('[role="menu"]');
+    if (!field || !menu) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      const control = field.querySelector<HTMLElement>(
+        "button:not(:disabled), input:not(:disabled)",
+      );
+      if (!control) return;
+      const stops = [
+        ...menu.querySelectorAll<HTMLElement>(
+          '[role="menuitem"]:not([data-disabled])',
+        ),
+        control,
+      ].sort((a, b) =>
+        a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
+          ? -1
+          : 1,
+      );
+      const from = stops.findIndex((el) => el === document.activeElement);
+      const to = stops[from + (e.key === "ArrowDown" ? 1 : -1)];
+      // Item to item is left to Radix.
+      if (from === -1 || !to || (stops[from] !== control && to !== control)) {
+        return;
+      }
+      // Capture phase: runs before Radix, and before a Select opens on the key.
+      e.preventDefault();
+      e.stopPropagation();
+      to.focus();
+    };
+    menu.addEventListener("keydown", onKeyDown, true);
+    return () => menu.removeEventListener("keydown", onKeyDown, true);
+  }, []);
+  return <div ref={ref}>{children}</div>;
+}
 
 export function DropdownSubMenu({
   children,
@@ -251,6 +314,10 @@ type DropdownItemProps = {
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
   tooltip?: string;
   tooltipSide?: "top" | "right" | "bottom" | "left";
+  /**
+   * Typeahead text (Radix's textValue); defaults to the item's text content.
+   */
+  textValue?: string;
   confirmation?: {
     submit: () => Promise<void> | void;
     getConfirmationContent?: (

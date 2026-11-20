@@ -50,7 +50,7 @@ export default function PreviewPanel({
     : null;
 
   return (
-    <Frame className={styles.panel} px="0" py="0" mb="0">
+    <Frame className={styles.panel} px="0" py="0" mb="0" data-metric-preview>
       <Tabs
         className={styles.tabRoot}
         value={view}

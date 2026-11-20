@@ -57,7 +57,15 @@ type ComputedFeaturesAndRevisions = FeaturesAndRevisions & {
   dateAndStatus: number;
 };
 
-const NeedingAttention = (): React.ReactElement | null => {
+const NeedingAttention = ({
+  headingAction,
+  flushTop = false,
+}: {
+  /** Beside the first heading, right-aligned (Home's Create, when narrow). */
+  headingAction?: React.ReactNode;
+  /** Opt-in (Home without its "Home" title): no top margin when first. */
+  flushTop?: boolean;
+} = {}): React.ReactElement | null => {
   const [experimentsPage, setExperimentsPage] = useState<number>(1);
   const [featureFlagsPage, setFeatureFlagsPage] = useState(1);
   const { snapshot: snapshotWithResults } = useSafeRolloutSnapshot();
@@ -311,11 +319,23 @@ const NeedingAttention = (): React.ReactElement | null => {
       },
     );
 
+    const recentHeading = (
+      <Text size="4" weight="medium" as="div">
+        Recent
+      </Text>
+    );
     return recentFeatures.length > 0 ? (
       <Box className="recent-items-container">
-        <Text size="4" weight="medium" as="div">
-          Recent
-        </Text>
+        {/* The old shell's Home passes none; the new one always passes it,
+          null included. */}
+        {headingAction === undefined ? (
+          recentHeading
+        ) : (
+          <Flex align="center" justify="between" gap="3">
+            {recentHeading}
+            {headingAction}
+          </Flex>
+        )}
         <Grid
           columns={{
             initial: "1fr",
@@ -353,6 +373,7 @@ const NeedingAttention = (): React.ReactElement | null => {
       </Box>
     ) : null;
   };
+  const showsRecent = Object.keys(getRecentlyUsedFeatures()).length > 0;
   const displayExperimentsRequiringAttention = () => {
     const ITEMS_PER_PAGE = 5;
     const startIndex = (experimentsPage - 1) * ITEMS_PER_PAGE;
@@ -363,7 +384,8 @@ const NeedingAttention = (): React.ReactElement | null => {
     );
 
     return (
-      <Box mt="8">
+      // Spaced from Recent, or from the title above.
+      <Box mt={showsRecent || !flushTop ? "8" : undefined}>
         <Flex direction="row" align="center">
           <Text size="4" weight="medium">
             Experiments requiring attention
@@ -375,6 +397,11 @@ const NeedingAttention = (): React.ReactElement | null => {
             ml="2"
             label={experimentsNeedingAttention.length.toString()}
           />
+          {!showsRecent && headingAction ? (
+            <Box ml="auto" pl="3">
+              {headingAction}
+            </Box>
+          ) : null}
         </Flex>
         {experimentsNeedingAttention.length > 0 ? (
           <table className="table gbtable needs-attentions-table mt-3 rounded-table">

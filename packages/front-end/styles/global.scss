@@ -1,5 +1,4 @@
 @use "colors";
-@use "variables";
 @import "theme";
 
 // Bootstrap variable overrides must be loaded BEFORE Bootstrap
@@ -14,13 +13,16 @@
 // (components/Layout/PageFrame) and whatever pins under the header or fills
 // the window.
 :root {
-  // Keep in sync with HEADER_HEIGHT_PX in components/Layout/pageTopOffset.ts.
+  // Keep in sync with HEADER_HEIGHT_PX in components/Layout/headerHeight.ts.
   --header-height: 56px;
   --sidebar-width: 240px;
   // The header plus any bar pinned under it (--pinned-bar-height,
   // pageTopOffset.ts): where sticky bars pin and what full-window pages
   // leave room for.
   --page-top-offset: calc(var(--header-height) + var(--pinned-bar-height, 0px));
+  // Keep in sync with AGENT_DOCK_MOTION_MS (AgentPanelContext.tsx).
+  --agent-dock-duration: 220ms;
+  --agent-dock-easing: cubic-bezier(0.22, 1, 0.36, 1);
 
   // Sticky page tabs pin 1px under the header and any bar under it, to cover
   // its edge. Keep in sync with components/Layout/pageTopOffset.ts.
@@ -30,11 +32,12 @@
   --tabs-bottom: calc(var(--tabs-top) + var(--tabs-bar-height));
 
   // The page's side padding steps with the window's width; past a 1680px page
-  // (beside the side nav) the content centers. Computed, not a container
-  // query: containment would trap the fixed overlays inside. Classic
-  // scrollbars count toward the widths.
+  // (beside the side nav) the content centers. Computed from the window, so
+  // classic scrollbars count toward the widths.
   --page-nav-width: var(--sidebar-width);
-  --page-area-width: calc(100vw - var(--page-nav-width));
+  --page-area-width: calc(
+    100vw - var(--page-nav-width) - var(--agent-rail-width, 0px)
+  );
   // 16px, then 24px from a 768px and 32px from a 1180px window.
   --page-padding-step: calc(
     16px + clamp(0px, (100vw - 767px) * 1000, 8px) +
@@ -74,10 +77,29 @@
   // General's column of cards.
   --settings-general-width: 920px;
 }
+// The new app shell (components/Layout/AppShell.tsx).
+html.app-shell-new {
+  --header-height: 44px;
+  // The page area, for `@container page` rules. Contained, a fixed overlay
+  // inside still positions against the viewport.
+  main.main {
+    container: page / inline-size;
+  }
+}
+html.app-sidebar-collapsed {
+  --sidebar-width: 48px;
+}
 // The side nav is a drawer from here down.
 @media (max-width: 1180px) {
   :root {
     --page-nav-width: 0px;
+  }
+  html.app-sidebar-collapsed {
+    --sidebar-width: 240px;
+  }
+  // Two rows on pages with the sidebar (TopNav.module.scss).
+  html.app-shell-new:has(#main-menu-toggle) {
+    --header-height: 80px;
   }
 }
 // The narrow Settings layout: the nav is a jump menu at the page's top
@@ -91,6 +113,32 @@
     );
     --settings-layout-left: 0px;
   }
+}
+// The same layout when the docked AI panel leaves too little room
+// (SettingsNavContext), beside the side nav.
+:root.settings-narrow {
+  --settings-jump-bar-height: 56px;
+  --settings-section-top: calc(
+    var(--page-top-offset) + var(--settings-jump-bar-height)
+  );
+  --settings-layout-left: var(--page-nav-width);
+}
+
+// Set briefly by Sidebar.tsx when crossing 1180px or restoring a collapsed
+// sidebar, so the layout switches without animating.
+html.app-breakpoint-switch,
+html.app-breakpoint-switch *,
+html.app-breakpoint-switch *::before,
+html.app-breakpoint-switch *::after,
+html.app-sidebar-restore,
+html.app-sidebar-restore *,
+html.app-sidebar-restore *::before,
+html.app-sidebar-restore *::after {
+  transition: none !important;
+}
+html.app-drawer-open,
+html.app-drawer-open body {
+  overflow: hidden;
 }
 
 main {
@@ -130,6 +178,29 @@ body {
 
 .main {
   padding-left: var(--sidebar-width);
+  padding-right: var(--agent-rail-width, 0px);
+  // Only the new sidebar changes width.
+  html.app-shell-new & {
+    transition:
+      padding-left 200ms ease,
+      padding-right var(--agent-dock-duration) var(--agent-dock-easing);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+  html.agent-dock-motion & {
+    transition:
+      padding-left var(--agent-dock-duration) var(--agent-dock-easing),
+      padding-right var(--agent-dock-duration) var(--agent-dock-easing);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+  html.agent-dock-resizing & {
+    transition: none;
+  }
   &.settings-layout {
     padding-left: var(--settings-layout-left);
   }
@@ -1549,19 +1620,6 @@ main.main {
     strong,
     b {
       font-weight: 800;
-    }
-  }
-}
-
-.app-sidebar-header {
-  .selected {
-    background-color: colors.$purple;
-  }
-  .divider {
-    margin-top: 9px;
-    border-top: 1px solid rgba(0, 0, 0, 0.5);
-    a {
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
   }
 }
@@ -3367,9 +3425,6 @@ html {
   .main {
     padding-left: 0;
   }
-  .sidebar.open {
-    left: 0;
-  }
 }
 
 @mixin clearfix() {
@@ -4131,20 +4186,6 @@ input:disabled {
   }
 }
 
-// For absolute or fixed containers that should position themselves after the sidebar
-.sidebarLeft {
-  left: variables.$sidebarwidth;
-}
-// Conditionally add these classes based on the SidebarOpenProvider
-@media (max-width: 1180px) {
-  .sidebarLeftOpen {
-    left: variables.$sidebarwidth !important;
-  }
-  .sidebarLeftClosed {
-    left: 0 !important;
-  }
-}
-
 .rr-player {
   float: none !important;
   box-shadow: none !important;
@@ -4262,11 +4303,12 @@ input:disabled {
   background: var(--accent-9) !important;
 }
 
-// Every help launcher rises above a bottom bar the same way (see
-// useBottomBarClearance): our own, and Pylon's bubble and chat window. A margin
-// lifts each one from where it already sits, so no launcher's offsets are restated.
-.help-launcher,
+// Pylon's bubble and chat window rise above a bottom bar (see
+// useBottomBarClearance). A margin lifts each from where it already sits, so
+// Pylon's offsets aren't restated.
 .PylonChat-bubbleFrameContainer,
 .PylonChat-chatWindowFrameContainer {
   margin-bottom: var(--bottom-bar-clearance, 0px) !important;
 }
+
+@import "../components/Layout/legacy/shell-globals";

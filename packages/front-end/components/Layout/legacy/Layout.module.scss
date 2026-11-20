@@ -1,5 +1,5 @@
-@use "../../styles/variables";
-@import "../../styles/colors.scss";
+@use "variables";
+@import "../../../styles/colors.scss";
 
 .sidebar {
   background-color: var(--color-landmark);

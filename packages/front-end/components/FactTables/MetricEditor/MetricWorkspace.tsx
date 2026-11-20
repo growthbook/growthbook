@@ -188,9 +188,14 @@ export default function MetricWorkspace({
     const updateFloating = () => {
       // Keep the actions inline until the full header button area has passed
       // behind the top navigation, rather than switching at its first edge.
-      // Below 1024px the form is one column, so a floating card would cover it.
+      // The floating card only fits while the preview is pinned beside the
+      // form (PreviewPanel.module.scss); one column, it would cover the form.
+      const preview = workspaceRef.current?.querySelector(
+        "[data-metric-preview]",
+      );
       setFloating(
-        window.matchMedia("(min-width: 1024px)").matches &&
+        !!preview &&
+          getComputedStyle(preview).position === "sticky" &&
           window.scrollY > 0 &&
           actionsContainer.getBoundingClientRect().bottom < 56,
       );
@@ -198,9 +203,13 @@ export default function MetricWorkspace({
     updateFloating();
     window.addEventListener("scroll", updateFloating, { passive: true });
     window.addEventListener("resize", updateFloating);
+    // Docking or undocking the AI panel resizes the workspace, not the window.
+    const resizeObserver = new ResizeObserver(updateFloating);
+    if (workspaceRef.current) resizeObserver.observe(workspaceRef.current);
     return () => {
       window.removeEventListener("scroll", updateFloating);
       window.removeEventListener("resize", updateFloating);
+      resizeObserver.disconnect();
     };
   }, [actionsContainer, isEditing]);
   const [error, setError] = useState<string | null>(null);

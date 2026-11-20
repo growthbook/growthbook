@@ -36,6 +36,11 @@ interface MarkdownProps
   // on the review surfaces (revision descriptions / comments); other markdown
   // surfaces keep plain code blocks.
   highlightCode?: boolean;
+  /**
+   * Wraps each table in a div with this class, e.g. a frame it scrolls
+   * sideways in while its header and body stay together.
+   */
+  tableFrameClassName?: string;
 }
 
 const Markdown: FC<MarkdownProps> = ({
@@ -46,6 +51,7 @@ const Markdown: FC<MarkdownProps> = ({
   shareType = "experiment",
   resolveInternalHref,
   highlightCode = false,
+  tableFrameClassName,
   ...props
 }) => {
   if (typeof children !== "string") {
@@ -87,8 +93,24 @@ const Markdown: FC<MarkdownProps> = ({
             ),
           }
         : {}),
+      ...(tableFrameClassName
+        ? {
+            table: ({ children }) => (
+              <div className={tableFrameClassName}>
+                <table>{children}</table>
+              </div>
+            ),
+          }
+        : {}),
     }),
-    [isPublic, shareUid, shareType, resolveInternalHref, highlightCode],
+    [
+      isPublic,
+      shareUid,
+      shareType,
+      resolveInternalHref,
+      highlightCode,
+      tableFrameClassName,
+    ],
   );
 
   return (

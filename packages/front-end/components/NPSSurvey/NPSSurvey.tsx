@@ -19,6 +19,8 @@ import { isCloud } from "@/services/env";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import { isNavIntroDue } from "@/services/nav-intro";
+import { useNewAppShell } from "@/components/Layout/newAppShellContext";
 import styles from "./NPSSurvey.module.scss";
 import {
   inSampledCohort,
@@ -140,6 +142,7 @@ export default function NPSSurvey() {
   // Per-user: the server half of this cooldown is per-account, so a shared key
   // would let one person suppress the next account on the same browser.
   const storageKey = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+  const newShell = useNewAppShell();
   // Staff-gated rather than flag-gated; the server re-checks this before
   // honouring `preview`.
   const isStaff = hasSuperAdminPermission(superAdmin, "view");
@@ -201,6 +204,9 @@ export default function NPSSurvey() {
       withinCooldown(readStored(storageKey)?.date)
     )
       return;
+    // One prompt per load: the intro modal would leave this card behind its
+    // overlay, unclickable, yet recorded as shown. A later load asks instead.
+    if (newShell === true && isNavIntroDue(accountCreatedAt)) return;
     const t = window.setTimeout(() => {
       // A background tab still fires this timer; don't spend the once-per-cycle
       // slot on a card nobody saw.
@@ -216,6 +222,8 @@ export default function NPSSurvey() {
     forceShow,
     orgSuspended,
     storageKey,
+    newShell,
+    accountCreatedAt,
   ]);
 
   // Tabs opened together all pass the gate before any records an impression, so

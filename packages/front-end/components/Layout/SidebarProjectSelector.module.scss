@@ -1,0 +1,50 @@
+// The avatar centers on the icon column, and the name lines up with the other
+// rows' labels.
+.expanded.expanded {
+  padding-left: 3px;
+
+  .avatar {
+    // Its own 8px margin and 4px more, so the name sits 6px after it.
+    margin-right: -12px;
+  }
+}
+
+// The avatar's own 8px right margin (LetterAvatar) taken back, so it centers
+// in the collapsed icon's box.
+.avatar {
+  display: flex;
+  flex-shrink: 0;
+  margin-right: -8px;
+
+  // LetterAvatar's 26px size shown at 20px, as the profile avatar, nearer the
+  // 18px icons, without changing the component. A transform keeps its 26px
+  // layout box.
+  > * {
+    transform: scale(calc(20 / 26));
+  }
+}
+
+// Held to one project: nothing to open.
+.static.static {
+  cursor: default;
+
+  &:hover {
+    background: transparent;
+    color: var(--sidebar-text);
+  }
+}
+
+// The name and the Demo badge, 8px apart as a page's name and its Beta badge.
+// The name only takes its own width, so the badge sits beside it rather than
+// at the row's end, and it still truncates.
+.nameWithBadge {
+  display: flex;
+  flex-grow: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+
+  > :first-child {
+    flex-grow: 0;
+  }
+}

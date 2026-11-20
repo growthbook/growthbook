@@ -1,0 +1,128 @@
+@use "../../../styles/colors.scss";
+
+$sidebarwidth: 240px;
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  position: fixed;
+  top: 0;
+  left: $sidebarwidth;
+  right: 0;
+  height: 56px;
+  z-index: 1010;
+  background-color: var(--color-surface-solid);
+  box-shadow: 0px 0px 1px 0px var(--border-color-200);
+  // The step padding, as the page's header bands: past --page-max-width the
+  // page centers and the bar stays wide.
+  padding: 0 var(--page-padding-step);
+  @media (max-width: 1180px) {
+    left: 0;
+    .pagetitle {
+      padding-left: 10px;
+    }
+    .mobilemenu {
+      display: block;
+    }
+  }
+}
+.topbarlite {
+  display: flex;
+  justify-content: space-between;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  z-index: 1010;
+  background-color: var(--color-surface-solid);
+  border-bottom: 1px solid var(--slate-a3);
+  padding: 0 16px;
+  @media (max-width: 520px) {
+    padding: 0 8px;
+  }
+}
+.pagetitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: middle;
+  // Fades a title the notices crowd out instead of cutting it hard. The box
+  // fills the free space, so a title that fits never reaches the fade.
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 32px),
+    transparent
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+.mobilemenu {
+  display: none;
+  font-size: 24px;
+  line-height: 24px;
+}
+
+.navbar {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+
+  // A notice slot whose notice renders nothing would otherwise keep its padding.
+  > :global(.nav-link):empty {
+    display: none;
+  }
+}
+
+.navbar .account {
+  gap: var(--space-2);
+  // Its caret ends on the bar's edge.
+  padding-right: 0;
+}
+
+.dropdownItemIconColor {
+  &:focus {
+    svg {
+      color: white;
+    }
+  }
+  svg {
+    color: var(--text-color-muted);
+  }
+}
+
+.agentTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-color-main);
+  padding: 6px 8px;
+  margin-right: 4px;
+  border-radius: 6px;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+
+  &:hover {
+    background-color: var(--gray-a3);
+    color: var(--violet-11);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 2px;
+  }
+}
+
+.agentTriggerActive {
+  background-color: var(--violet-a3);
+  color: var(--violet-11);
+
+  &:hover {
+    background-color: var(--violet-a4);
+  }
+}

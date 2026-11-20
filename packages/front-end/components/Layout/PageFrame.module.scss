@@ -1,7 +1,10 @@
+@use "../../styles/page-padding-motion" as *;
+
 .frame {
   // Its own formatting context, so the two margins below stay inside it.
   display: flow-root;
   padding: 0 var(--page-padding);
+  @include page-padding-motion(padding-left, padding-right);
 
   // The space above and below is a margin, not padding. A page's first top
   // margin and last bottom margin collapse into it instead of adding to it,
@@ -47,7 +50,9 @@
   // in the page (a table's header) doesn't cover it.
   --page-sticky-top: var(--settings-section-top);
   --page-nav-width: var(--settings-layout-left);
-  --page-area-width: calc(100vw - var(--page-nav-width));
+  --page-area-width: calc(
+    100vw - var(--page-nav-width) - var(--agent-rail-width, 0px)
+  );
   --page-padding: max(
     var(--page-padding-step),
     (var(--page-area-width) - var(--page-max-width)) / 2
@@ -63,6 +68,7 @@
   margin-right: calc(-1 * var(--page-padding));
   padding-left: var(--page-padding-step);
   padding-right: var(--page-padding-step);
+  @include page-padding-motion(margin-left, margin-right);
 
   // Inside, the page's padding is the band's, so a band nested in it (the
   // feature page's status bar, in its tab row) reaches the same edges.

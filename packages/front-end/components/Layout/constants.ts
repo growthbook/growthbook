@@ -11,6 +11,12 @@ export const NARROW_LAYOUT_BREAKPOINT_PX = 1180;
  */
 export const SETTINGS_NAV_MIN_WIDTH_PX = 1024;
 
+export const SETTINGS_WIDE_MIN_PAGE_AREA_PX = 1012;
+
+// Below 1024px there's too little room beside the AI panel, so it covers the
+// window.
+export const AGENT_PANEL_OVERLAY_QUERY = "(max-width: 1023px)";
+
 // Where an in-page link lands, just under the pinned tab bar.
 export const SCROLL_MARGIN_UNDER_TABS =
   "calc(var(--tabs-bottom) + var(--space-1))";

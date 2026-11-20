@@ -85,6 +85,7 @@ export type AppFeatures = {
   "metric-dimensions": boolean;
   "metric-slices": boolean;
   "my-feature": boolean;
+  "new-app-shell": boolean;
   "new-exec-reports": boolean;
   "new-experiment": boolean;
   "new-experiment-modal": boolean;

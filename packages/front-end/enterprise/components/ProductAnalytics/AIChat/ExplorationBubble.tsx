@@ -60,6 +60,12 @@ interface ExplorationBubbleProps {
   animate?: boolean;
   compact?: boolean;
   showSaveAction?: boolean;
+  /**
+   * The title takes only the space beside the actions and truncates there,
+   * rather than the row wrapping them below it (the AI Assistant panel, at
+   * narrow widths).
+   */
+  truncateTitle?: boolean;
 }
 
 export default function ExplorationBubble({
@@ -68,6 +74,7 @@ export default function ExplorationBubble({
   animate = true,
   compact = false,
   showSaveAction = true,
+  truncateTitle = false,
 }: ExplorationBubbleProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const explorerPath = EXPLORER_PATHS[chartData.config.type];
@@ -86,7 +93,13 @@ export default function ExplorationBubble({
         />
       )}
       <Flex align="center" gap="2" mb="2" wrap="wrap" style={{ minWidth: 0 }}>
-        <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+        <Flex
+          align="center"
+          gap="2"
+          style={
+            truncateTitle ? { minWidth: 0, flex: "1 1 0" } : { minWidth: 0 }
+          }
+        >
           <PiSparkle size={12} style={{ flexShrink: 0 }} />
           <Text size="sm" weight="medium" truncate>
             {isTable ? "Generated table" : "Generated chart"}

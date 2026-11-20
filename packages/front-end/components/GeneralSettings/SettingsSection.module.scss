@@ -50,7 +50,7 @@
     );
   // Ends Save at the cards' right edge.
   padding-right: max(
-    var(--page-padding),
+    calc(var(--page-padding) + var(--agent-rail-width, 0px)),
     calc(
       100% - var(--settings-layout-left) - var(--page-padding) - var(
           --settings-general-width
@@ -62,6 +62,14 @@
   box-shadow:
     0 -1px 2px var(--lift-shadow-near),
     0 -4px 4px var(--lift-shadow-far);
+  // Follows the new sidebar as it collapses.
+  :global(html.app-shell-new) & {
+    transition: left 200ms ease;
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
   // The sidebar slides away here and the content starts at the window edge.
   @media (max-width: 1180px) {
     --unsaved-bar-left: 0px;
@@ -69,6 +77,9 @@
   // Without the sub nav (the narrow layout), the count lines up with the page
   // content instead.
   @media (max-width: 1023px) {
+    padding-left: var(--page-padding);
+  }
+  :global(html.settings-narrow) & {
     padding-left: var(--page-padding);
   }
 }
@@ -120,7 +131,7 @@
 
   // Under the jump menu, the first item starts as close as a page's title
   // does.
-  @media (max-width: 1023px) {
+  @mixin under-jump-menu {
     padding-top: 0;
 
     // 12px under the jump menu's trigger: takes back the gap under its row.
@@ -134,6 +145,12 @@
     .section:first-child .header {
       margin-top: calc(-1 * var(--header-pad-top));
     }
+  }
+  @media (max-width: 1023px) {
+    @include under-jump-menu;
+  }
+  :global(html.settings-narrow) & {
+    @include under-jump-menu;
   }
 }
 

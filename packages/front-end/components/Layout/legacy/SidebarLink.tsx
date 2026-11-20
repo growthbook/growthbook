@@ -4,28 +4,16 @@ import { IconType } from "react-icons/lib";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
-import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
-import { GlobalPermission } from "shared/types/organization";
-import { Permissions, hasSuperAdminPermission } from "shared/permissions";
-import { SuperAdmin } from "shared/validators";
-import { SegmentInterface } from "shared/types/segment";
-import { isCloud, isMultiOrg } from "@/services/env";
-import { PermissionFunctions, useUser } from "@/services/UserContext";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
+import {
+  buildSidebarLinkFilterProps,
+  SidebarLinkFilterProps,
+} from "@/components/Layout/sidebarNav";
 import styles from "./SidebarLink.module.scss";
-
-export type SidebarLinkFilterProps = {
-  permissionsUtils: Permissions;
-  segments: SegmentInterface[];
-  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
-  superAdmin: boolean;
-  isCloud: boolean;
-  isMultiOrg: boolean;
-  gb?: GrowthBook;
-  project?: string;
-};
 
 export type SidebarLinkProps = {
   name: string;
@@ -44,28 +32,6 @@ export type SidebarLinkProps = {
   hideSubLinks?: boolean;
   beta?: boolean;
 };
-
-/** Same inputs the sidebar uses for `filter` on nav links — use for Cmd+K / tests so visibility stays in sync. */
-export function buildSidebarLinkFilterProps(input: {
-  permissionsUtils: Permissions;
-  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
-  superAdmin: SuperAdmin | undefined;
-  gb: GrowthBook | undefined;
-  project: string | undefined;
-  segments: SegmentInterface[];
-}): SidebarLinkFilterProps {
-  return {
-    permissionsUtils: input.permissionsUtils,
-    permissions: input.permissions,
-    // Any super admin permission includes the admin page
-    superAdmin: hasSuperAdminPermission(input.superAdmin, "view"),
-    isCloud: isCloud(),
-    isMultiOrg: isMultiOrg(),
-    gb: input.gb,
-    project: input.project,
-    segments: input.segments,
-  };
-}
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, superAdmin } = useUser();

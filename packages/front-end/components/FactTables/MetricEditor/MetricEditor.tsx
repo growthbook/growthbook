@@ -57,6 +57,7 @@ import {
   UnrepresentableReason,
   windowOk,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
+import styles from "./MetricEditor.module.scss";
 
 const UNREPRESENTABLE_REASON_COPY: Record<UnrepresentableReason, string> = {
   "retention-lookback-window":
@@ -384,7 +385,11 @@ export default function MetricEditor({
   const valueShape = shapeForValueType(formType);
 
   const grid = (
-    <Grid columns={{ initial: "1", md: "minmax(0, 1fr) 380px" }} gap="4">
+    <Grid
+      columns={{ initial: "1", md: "minmax(0, 1fr) 380px" }}
+      gap="4"
+      className={styles.layout}
+    >
       <Flex direction="column" gap="4" minWidth="0">
         <Frame px="4" py="4" mb="0">
           <Heading as="h4" size="sm" mb="3">
@@ -403,7 +408,11 @@ export default function MetricEditor({
                 onChange={(e) => form.setValue("name", e.target.value)}
                 required
               />
-              <Grid columns={{ initial: "1", sm: "2" }} gap="4">
+              <Grid
+                columns={{ initial: "1", sm: "2" }}
+                gap="4"
+                className={styles.fields}
+              >
                 <div style={{ minWidth: 0 }}>
                   {showDescription || form.watch("description") ? (
                     <Field

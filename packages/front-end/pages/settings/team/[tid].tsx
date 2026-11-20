@@ -23,6 +23,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import SettingsPage from "@/components/Layout/SettingsPage";
+import { useNewAppShell } from "@/components/Layout/AppShell";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -50,10 +51,14 @@ const TeamPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
   const canManageTeam = permissionsUtil.canManageTeam();
-  // Organization lands on Projects, so only link it for users who can open it.
+  // The new header shows the Settings nav group as plain text: a group isn't a
+  // page. The old header links it for users who can open Projects.
+  const newShell = useNewAppShell();
   const orgCrumb = {
     display: "Organization",
-    ...(permissionsUtil.canViewProjectsPage() ? { href: "/projects" } : {}),
+    ...(!newShell && permissionsUtil.canViewProjectsPage()
+      ? { href: "/projects" }
+      : {}),
   };
 
   const { teams, refreshOrganization, settings, organization } = useUser();

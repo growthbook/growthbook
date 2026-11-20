@@ -10,7 +10,7 @@ import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
-import InAppHelp from "./Auth/InAppHelp";
+import { AppShellHelp, AppShellProvider } from "./Layout/AppShell";
 import TopNavLite from "./Layout/TopNavLite";
 
 const LoggedInPageGuard = ({
@@ -119,18 +119,23 @@ const ProtectedPage: React.FC<{
 
   return (
     <UserContextProvider key={orgId}>
-      <LoggedInPageGuard organizationRequired={organizationRequired}>
-        <InAppHelp />
-        {!organizationRequired ? (
-          <>{children}</>
-        ) : orgId ? (
-          <InitialPlanGate>
-            <WatchProvider>{children}</WatchProvider>
-          </InitialPlanGate>
-        ) : (
-          <CreateOrJoinOrganization />
-        )}
-      </LoggedInPageGuard>
+      <AppShellProvider
+        key={String(organizationRequired)}
+        organizationRequired={organizationRequired}
+      >
+        <LoggedInPageGuard organizationRequired={organizationRequired}>
+          <AppShellHelp />
+          {!organizationRequired ? (
+            <>{children}</>
+          ) : orgId ? (
+            <InitialPlanGate>
+              <WatchProvider>{children}</WatchProvider>
+            </InitialPlanGate>
+          ) : (
+            <CreateOrJoinOrganization />
+          )}
+        </LoggedInPageGuard>
+      </AppShellProvider>
     </UserContextProvider>
   );
 };

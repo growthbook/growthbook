@@ -1,0 +1,13 @@
+// Contained, so a long name truncates instead of scrolling the menu sideways
+// (as the project menu's list).
+.list {
+  contain: inline-size;
+}
+
+.option {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}

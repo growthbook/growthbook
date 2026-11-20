@@ -9,7 +9,7 @@ import { useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import DropdownLink from "@/components/Dropdown/DropdownLink";
-import LetterAvatar from "./LetterAvatar";
+import LetterAvatar from "@/components/Layout/LetterAvatar";
 
 const demoBadge = {
   badgeText: "Demo",

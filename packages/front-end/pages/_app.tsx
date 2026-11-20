@@ -33,12 +33,11 @@ import {
 import LoadingOverlay from "@/components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import "react-grid-layout/css/styles.css";
-import Layout from "@/components/Layout/Layout";
+import { AppShellGate, AppShellLayout } from "@/components/Layout/AppShell";
 import { AppearanceUIThemeProvider } from "@/services/AppearanceUIThemeProvider";
 import TopNavLite from "@/components/Layout/TopNavLite";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
-import LayoutLite from "@/components/Layout/LayoutLite";
 import { growthbook } from "@/services/utils";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
@@ -249,38 +248,40 @@ function App({
                                     <AgentPanelProvider>
                                       <SettingsNavProvider>
                                         <SettingsForm>
-                                          {liteLayout ? (
-                                            <LayoutLite />
-                                          ) : (
-                                            <Layout />
-                                          )}
-                                          <CommandPaletteLauncher />
-                                          <AgentLauncher />
-                                          <main
-                                            className={clsx("main", parts[0], {
-                                              "settings-layout": inSettings,
-                                            })}
-                                          >
-                                            <OrgSuspendedBannerContainer />
-                                            <OrganizationMessagesContainer />
-                                            <DemoDataSourceGlobalBannerContainer />
-                                            <NPSSurvey />
-                                            <OrgPageContent>
-                                              <GuidedGetStartedBar />
-                                              <DefinitionsGuard>
-                                                {Component.noPageWrapper ||
-                                                liteLayout ? (
-                                                  page
-                                                ) : (
-                                                  <PageFrame
-                                                    settings={inSettings}
-                                                  >
-                                                    {page}
-                                                  </PageFrame>
-                                                )}
-                                              </DefinitionsGuard>
-                                            </OrgPageContent>
-                                          </main>
+                                          <AppShellGate>
+                                            <AppShellLayout lite={liteLayout} />
+                                            <CommandPaletteLauncher />
+                                            <AgentLauncher />
+                                            <main
+                                              className={clsx(
+                                                "main",
+                                                parts[0],
+                                                {
+                                                  "settings-layout": inSettings,
+                                                },
+                                              )}
+                                            >
+                                              <OrgSuspendedBannerContainer />
+                                              <OrganizationMessagesContainer />
+                                              <DemoDataSourceGlobalBannerContainer />
+                                              <NPSSurvey />
+                                              <OrgPageContent>
+                                                <GuidedGetStartedBar />
+                                                <DefinitionsGuard>
+                                                  {Component.noPageWrapper ||
+                                                  liteLayout ? (
+                                                    page
+                                                  ) : (
+                                                    <PageFrame
+                                                      settings={inSettings}
+                                                    >
+                                                      {page}
+                                                    </PageFrame>
+                                                  )}
+                                                </DefinitionsGuard>
+                                              </OrgPageContent>
+                                            </main>
+                                          </AppShellGate>
                                         </SettingsForm>
                                       </SettingsNavProvider>
                                     </AgentPanelProvider>

@@ -1,35 +1,34 @@
 import React, {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   useMemo,
 } from "react";
-import { createPortal } from "react-dom";
+import clsx from "clsx";
 import { useRouter } from "next/router";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton, VisuallyHidden } from "@radix-ui/themes";
 import {
-  PiArrowsInSimple,
-  PiArrowsOutSimple,
   PiChartLine,
   PiChartLineUp,
+  PiCornersInBold,
+  PiCornersOutBold,
   PiFlag,
   PiFlask,
-  PiPlus,
-  PiSparkle,
-  PiX,
+  PiXBold,
 } from "react-icons/pi";
 import { useSWRConfig } from "swr";
 import { getMessageText, type AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
-import Heading from "@/ui/Heading";
+import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import track from "@/services/track";
 import { AIFeedbackEventName } from "@/types/app-events";
 import { suggestedReplyFromOptions } from "@/enterprise/components/AIChat/Composer/useAutocomplete";
 import { useUser } from "@/services/UserContext";
-import { RadixTheme } from "@/services/RadixTheme";
 import { useAuth } from "@/services/auth";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
@@ -68,11 +67,20 @@ import ChatComposer, {
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
+import { GHOST_TEXT_CLASS } from "@/enterprise/components/AIChat/Composer/extensions/ghostText";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
+import { useIsomorphicLayoutEffect } from "@/hooks/useIsomorphicLayoutEffect";
+import {
+  prefersReducedMotion,
+  visibleFocusables,
+} from "@/components/Layout/dom";
+import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import AgentChatHistory from "./AgentChatHistory";
 import {
+  AGENT_DOCK_MOTION_MS,
   AGENT_PANEL_PORTAL_Z_INDEX,
   AGENT_PANEL_Z_INDEX,
+  useAgentPanel,
 } from "./AgentPanelContext";
 import {
   type MessageTurn,
@@ -86,11 +94,25 @@ import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
+import styles from "./AgentPanel.module.scss";
+import AgentPanelResizeHandle from "./AgentPanelResizeHandle";
+import {
+  PANEL_DEFAULT_WIDTH,
+  panelWidthCss,
+  parseSavedPanelWidth,
+} from "./agentPanelWidth";
+import AiAssistantLimitCallout from "./AiAssistantLimitCallout";
+import { formatResetsIn } from "./aiAssistantLimit";
+import { useAiAssistantLimit } from "./useAiAssistantLimit";
 
 // Scoped per org and user below: conversation ids are unique across the whole
 // collection but only readable by their owner, so a stale id from another org
 // or account would make the next send collide on insert.
 const STORAGE_KEY = "growthbook.agent.conversationId";
+
+// A loading conversation stays hidden this long at most, then its loading
+// state shows.
+const SWITCH_HOLD_MS = 300;
 
 const CALL_API_LABEL = "Calling GrowthBook API…";
 const ASK_USER_LABEL = "Asking you a question…";
@@ -105,11 +127,11 @@ function resolveAgentPanelInternalHref(href: string): string | null {
 
 const STARTER_PROMPTS = [
   {
-    prompt: "Help me understand and analyze my product metrics",
+    prompt: "Help me analyze my product metrics",
     Icon: PiChartLine,
   },
   {
-    prompt: "Show me how my recently started experiments are going",
+    prompt: "Help me check on my recent experiments",
     Icon: PiChartLineUp,
   },
   { prompt: "Help me create a Feature Flag", Icon: PiFlag },
@@ -196,6 +218,28 @@ function preWorkToSteps(
   });
 }
 
+// Past the AI Assistant button's fade back in, however slow the frames.
+const FOCUS_RETURN_MAX_MS = 1000;
+// The mounted panel whose room (--agent-rail-width, agent-dock-full) is on
+// <html>.
+let railOwner: string | null = null;
+// The mounted panel's element, for the one that replaces it on a remount.
+let livePanel: HTMLElement | null = null;
+const LIMIT_CALLOUT_ID = "ai-assistant-limit-callout";
+/**
+ * Marks a table's scrolling frame with which edges have more to scroll
+ * (data-more-left, data-more-right), for the fade (AgentPanel.module.scss).
+ */
+function markTableFrameEdges(tableFrame: HTMLElement) {
+  if (!/auto|scroll/.test(getComputedStyle(tableFrame).overflowX)) return;
+  const { scrollLeft, clientWidth, scrollWidth } = tableFrame;
+  tableFrame.toggleAttribute("data-more-left", scrollLeft > 1);
+  tableFrame.toggleAttribute(
+    "data-more-right",
+    scrollLeft + clientWidth < scrollWidth - 1,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -218,6 +262,8 @@ export default function AgentPanel({
   onToggleExpanded,
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
+  // At the limit, past conversations stay readable; nothing new can be sent.
+  const { limitReached, resetsAt, refreshUsage } = useAiAssistantLimit();
   const { userId, organization } = useUser();
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
@@ -267,24 +313,46 @@ export default function AgentPanel({
     conversationIdRef: feedbackConversationIdRef,
   } = useChatFeedback("/agent/chat");
 
-  // Below this width the left sidebar collapses (see TopNav.module.scss
-  // `@media (max-width: 1180px)`), so the docked expanded panel must run to
-  // the left edge instead of clearing the 240px sidebar.
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { docked, presence } = useAgentPanel();
+  const overlay = !docked;
+  // Kept mounted while it slides out ("closing").
+  const rendered = presence === "open" || presence === "closing";
+  const { open: drawerOpen } = useSidebarOpen();
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  // Portaled to body so the panel stacks against body-portaled page controls
-  // instead of being sealed inside the root theme's stacking context. Tradeoff:
-  // #portal-root stays sealed, so legacy modals render under an open panel.
-  const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
-  useEffect(() => setPortalHost(document.body), []);
+  // Docked, its width is yours to drag (AgentPanelResizeHandle), saved for
+  // you; the browser keeps it within agentPanelWidth.ts's limits.
+  const panelWidthKey = userId ? `gb-agent-panel-width:${userId}` : null;
+  const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
+  useIsomorphicLayoutEffect(() => {
+    if (!panelWidthKey) return;
+    let saved: string | null = null;
+    try {
+      saved = window.localStorage.getItem(panelWidthKey);
+    } catch (e) {
+      // Storage blocked: the default width.
+    }
+    setPanelWidth(parseSavedPanelWidth(saved) ?? PANEL_DEFAULT_WIDTH);
+  }, [panelWidthKey]);
+  const commitPanelWidth = useCallback(
+    (width: number) => {
+      setPanelWidth(width);
+      try {
+        if (panelWidthKey) {
+          window.localStorage.setItem(panelWidthKey, String(width));
+        }
+      } catch (e) {
+        // Storage blocked: the width still holds for this page view.
+      }
+    },
+    [panelWidthKey],
+  );
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(max-width: 1180px)");
-    const update = () => setSidebarCollapsed(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
+  // While dragging, straight onto the page and the panel: no re-render.
+  const previewPanelWidth = useCallback((width: number) => {
+    const css = panelWidthCss(width);
+    document.documentElement.style.setProperty("--agent-rail-width", css);
+    panelRef.current?.style.setProperty("--agent-panel-width", css);
   }, []);
 
   const { mutate } = useSWRConfig();
@@ -389,7 +457,9 @@ export default function AgentPanel({
     onSSEEvent: handleAgentSSEEvent,
     onConversationLoaded: handleConversationLoaded,
     conversationStorageKey: `${STORAGE_KEY}:${organization.id}:${userId}`,
+    // Each answer adds to the usage, and a failed send may be the limit (429).
     onMessageComplete: (info) => {
+      refreshUsage();
       track("AI Assistant Response Completed", {
         model: defaultAIModel,
         durationMs: info.durationMs,
@@ -403,6 +473,7 @@ export default function AgentPanel({
       });
     },
     onMessageError: (info) => {
+      refreshUsage();
       track("AI Assistant Error", {
         errorType: info.errorType,
         httpStatus: info.httpStatus,
@@ -436,14 +507,25 @@ export default function AgentPanel({
     };
   }, [askPrompt, messages, loading]);
 
-  // Panel stays mounted while closed; listeners need the container to exist.
+  // The panel has no DOM while closed, so the listeners start once it's open
+  // and rendered, when the scroll container exists.
   const { scrollContainerRef, handleScroll, resumeAutoScroll } = useAutoScroll({
     messages,
     activeTurnItems,
     displayedTextMap,
     conversationId,
-    enabled: open,
+    enabled: open && rendered,
   });
+
+  // Checked on scroll, on resize, and as replies stream in.
+  const [fadeTop, setFadeTop] = useState(false);
+  const [fadeBottom, setFadeBottom] = useState(false);
+  const checkFades = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    setFadeTop(el.scrollTop > 1);
+    setFadeBottom(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+  }, [scrollContainerRef]);
 
   const { ref: activeTurnRef, minHeight: activeTurnMinHeight } =
     useRatchetedMinHeight(loading);
@@ -482,6 +564,280 @@ export default function AgentPanel({
     prevLoadingRef.current = loading;
   }, [loading, open, focusInput]);
 
+  // Entering or leaving Settings remounts the panel with the page (main's
+  // SettingsForm swap, _app.tsx). Open already, it comes back as it was: in
+  // place, and with focus only if the panel it replaces had it (read while
+  // that one is still in the page). Until it next opens.
+  const [restored, setRestored] = useState<{ focus: boolean } | null>(() =>
+    presence === "open"
+      ? { focus: !!livePanel?.contains(document.activeElement) }
+      : null,
+  );
+  useIsomorphicLayoutEffect(() => {
+    const panelEl = panelRef.current;
+    if (!rendered || !panelEl) return;
+    livePanel = panelEl;
+    return () => {
+      if (livePanel === panelEl) livePanel = null;
+    };
+  }, [rendered]);
+
+  // Otherwise it mounts off-screen and starts sliding before the first paint:
+  // the read below makes the browser take in the off-screen position first,
+  // which waiting a frame doesn't guarantee on a busy page (the slide is then
+  // skipped). html.agent-dock-motion is on by then (AgentPanelContext), so
+  // what moves on its own timing (the side nav) picks it up.
+  const [shown, setShown] = useState(restored !== null);
+  useIsomorphicLayoutEffect(() => {
+    if (!open) setShown(false);
+    else if (!rendered) setRestored(null);
+  }, [open, rendered]);
+  useIsomorphicLayoutEffect(() => {
+    if (!open || !rendered || shown) return;
+    panelRef.current?.getBoundingClientRect();
+    setShown(true);
+  }, [open, rendered, shown]);
+  const reduceMotion = prefersReducedMotion();
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!rendered || !el) return;
+    let frame = 0;
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(checkFades);
+    };
+    schedule();
+    const resize = new ResizeObserver(schedule);
+    resize.observe(el);
+    const mutations = new MutationObserver(schedule);
+    mutations.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      mutations.disconnect();
+    };
+  }, [rendered, checkFades, scrollContainerRef]);
+
+  // Switching conversations: the next one fades in once it's loaded, already
+  // at its end rather than scrolling through it.
+  const conversationRef = useRef<HTMLDivElement>(null);
+  const switchRef = useRef<{
+    from: string;
+    needsLoad: boolean;
+    loadSeen: boolean;
+  } | null>(null);
+  const [switchHolding, setSwitchHolding] = useState(false);
+  const beginSwitch = useCallback(
+    (needsLoad: boolean) => {
+      if (reduceMotion) return;
+      switchRef.current = { from: conversationId, needsLoad, loadSeen: false };
+      setSwitchHolding(true);
+    },
+    [conversationId, reduceMotion],
+  );
+  const stopRevealPin = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopRevealPin.current?.(), []);
+  const revealConversation = useCallback(() => {
+    setSwitchHolding(false);
+    stopRevealPin.current?.();
+    const scroller = scrollContainerRef.current;
+    const el = conversationRef.current;
+    if (!scroller || !el) return;
+    el.animate(
+      [
+        { opacity: 0, transform: "translateY(6px)" },
+        { opacity: 1, transform: "none" },
+      ],
+      {
+        duration: AGENT_DOCK_MOTION_MS,
+        easing: getComputedStyle(el)
+          .getPropertyValue("--agent-dock-easing")
+          .trim(),
+      },
+    );
+    // Charts settle their height after mounting, so hold the end meanwhile.
+    // Until you scroll, or another reveal or the panel closing takes over.
+    const end = performance.now() + AGENT_DOCK_MOTION_MS;
+    const userEvents = ["wheel", "touchstart", "pointerdown", "keydown"];
+    let frame = 0;
+    const stop = () => {
+      cancelAnimationFrame(frame);
+      userEvents.forEach((type) => scroller.removeEventListener(type, stop));
+      if (stopRevealPin.current === stop) stopRevealPin.current = null;
+    };
+    const pin = () => {
+      scroller.scrollTop = scroller.scrollHeight;
+      if (performance.now() < end) frame = requestAnimationFrame(pin);
+      else stop();
+    };
+    userEvents.forEach((type) =>
+      scroller.addEventListener(type, stop, { passive: true }),
+    );
+    stopRevealPin.current = stop;
+    pin();
+  }, [scrollContainerRef]);
+  useIsomorphicLayoutEffect(() => {
+    const pending = switchRef.current;
+    if (!pending || conversationId === pending.from) return;
+    if (isLoadingConversation) {
+      pending.loadSeen = true;
+      return;
+    }
+    if (pending.needsLoad && !pending.loadSeen) return;
+    switchRef.current = null;
+    revealConversation();
+  }, [conversationId, isLoadingConversation, revealConversation]);
+  useEffect(() => {
+    if (!switchHolding) return;
+    const timer = window.setTimeout(() => {
+      if (!switchRef.current) return;
+      // Shows the loading state; the conversation fades in again on arrival.
+      switchRef.current.needsLoad = false;
+      revealConversation();
+    }, SWITCH_HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [switchHolding, revealConversation]);
+
+  // html.agent-dock-full styles what sits beside the panel (the header's
+  // AI Assistant button fades out).
+  // Set as the slide starts (shown), so everything moves together.
+  const dockedShown = docked && shown;
+  const instance = useId();
+  useIsomorphicLayoutEffect(() => {
+    const root = document.documentElement;
+    if (dockedShown) {
+      root.style.setProperty("--agent-rail-width", panelWidthCss(panelWidth));
+      railOwner = instance;
+    } else {
+      root.style.removeProperty("--agent-rail-width");
+    }
+    root.classList.toggle("agent-dock-full", dockedShown);
+  }, [dockedShown, panelWidth, instance]);
+  // Passive, and only while the room is still this panel's. Entering or
+  // leaving Settings remounts the panel and the page, and the panel that
+  // replaces this one sets the room first: as a layout cleanup, or
+  // unconditionally, the new page would start without it and slide into it.
+  useEffect(
+    () => () => {
+      if (railOwner !== instance) return;
+      railOwner = null;
+      const root = document.documentElement;
+      root.style.removeProperty("--agent-rail-width");
+      root.classList.remove("agent-dock-full");
+    },
+    [instance],
+  );
+
+  // Where there's no message box (at the daily limit), focus goes to the
+  // panel itself.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (open) {
+      if (restored && !restored.focus) return;
+      const active = document.activeElement;
+      returnFocusRef.current =
+        active instanceof HTMLElement && active !== document.body
+          ? active
+          : null;
+      const timer = window.setTimeout(() => {
+        const panelEl = panelRef.current;
+        if (panelEl && !panelEl.contains(document.activeElement)) {
+          panelEl.focus({ preventScroll: true });
+        }
+      }, 50);
+      return () => window.clearTimeout(timer);
+    }
+    const panelEl = panelRef.current;
+    const active = document.activeElement;
+    const focusWasInPanel =
+      !!panelEl && (panelEl.contains(active) || active === document.body);
+    const target =
+      returnFocusRef.current && returnFocusRef.current.isConnected
+        ? returnFocusRef.current
+        : document.querySelector<HTMLElement>("[data-ai-assistant-trigger]");
+    if (!focusWasInPanel || !target) return;
+    // The button stays hidden for the start of its fade back in
+    // (AiAssistantButton.module.scss), and focus() does nothing until it shows,
+    // so try each frame until focus lands, unless it has moved on meanwhile.
+    const deadline = Date.now() + FOCUS_RETURN_MAX_MS;
+    let frame = 0;
+    const tryFocus = () => {
+      const now = document.activeElement;
+      const stillAway =
+        !now || now === document.body || !!panelEl?.contains(now);
+      if (!stillAway || Date.now() > deadline) return;
+      target.focus({ preventScroll: true });
+      if (document.activeElement !== target) {
+        frame = requestAnimationFrame(tryFocus);
+      }
+    };
+    tryFocus();
+    return () => cancelAnimationFrame(frame);
+  }, [open, restored]);
+
+  // Not while the side nav's drawer is open over it (it keeps its own), nor
+  // once focus has left the panel.
+  useEffect(() => {
+    if (!overlay || !open || drawerOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || e.defaultPrevented) return;
+      const panelEl = panelRef.current;
+      const active = document.activeElement;
+      if (!panelEl || !active || !panelEl.contains(active)) return;
+      const items = visibleFocusables(panelEl);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && (active === first || active === panelEl)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [overlay, open, drawerOpen]);
+
+  // The editor claims every Esc (ProseMirror), so whether the message box
+  // owns it is decided before it sees the key: only an open suggestion or
+  // ghost text does. A draft stays when the panel closes.
+  const composerOwnsEscRef = useRef(false);
+  const handlePanelKeyDownCapture = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "Escape") return;
+      const editor = (event.target as HTMLElement).closest<HTMLElement>(
+        "[contenteditable='true']",
+      );
+      composerOwnsEscRef.current =
+        !!editor &&
+        (editor.getAttribute("aria-expanded") === "true" ||
+          !!editor.querySelector(`.${GHOST_TEXT_CLASS}`));
+    },
+    [],
+  );
+  const handlePanelKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "Escape") return;
+      const target = event.target as HTMLElement;
+      // From a portaled menu or popover (React bubbles it here): theirs.
+      if (!panelRef.current?.contains(target)) return;
+      const fromComposer = !!target.closest("[contenteditable='true']");
+      if (fromComposer ? composerOwnsEscRef.current : event.defaultPrevented) {
+        return;
+      }
+      event.preventDefault();
+      onClose();
+    },
+    [onClose],
+  );
+
   const trackMessageSent = useCallback(() => {
     track("AI Assistant Message Sent", {
       model: defaultAIModel,
@@ -503,7 +859,7 @@ export default function AgentPanel({
       },
     ) => {
       const text = submission.text.trim();
-      if (!text || loading) return;
+      if (!text || loading || limitReached) return;
       stepsExpandedRef.current = false;
       pendingSubmissionRef.current = submission;
       resolveOnUserMessage();
@@ -517,6 +873,7 @@ export default function AgentPanel({
     [
       input,
       loading,
+      limitReached,
       sendMessage,
       resolveOnUserMessage,
       resumeAutoScroll,
@@ -560,6 +917,7 @@ export default function AgentPanel({
       previousConversationMessageCount: messages.length,
     });
     stepsExpandedRef.current = false;
+    beginSwitch(false);
     newChat();
     resetTransientState();
     clearFeedback();
@@ -570,20 +928,91 @@ export default function AgentPanel({
     resetTransientState,
     clearFeedback,
     focusInput,
+    beginSwitch,
   ]);
 
   const handleSelectConversation = useCallback(
     (id: string) => {
       track("AI Assistant Load Conversation");
       stepsExpandedRef.current = false;
+      if (id !== conversationId) beginSwitch(true);
       void loadConversation(id);
       resetTransientState();
       focusInput();
     },
-    [loadConversation, resetTransientState, focusInput],
+    [
+      conversationId,
+      beginSwitch,
+      loadConversation,
+      resetTransientState,
+      focusInput,
+    ],
   );
 
-  if (!open || !portalHost) return null;
+  // Tables in answers scroll sideways in their frames (AgentPanel.module.scss);
+  // a frame's cut-off edge fades while there's more that way.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    let frame = 0;
+    // Only the tables that changed: an answer streams a token at a time.
+    const pending = new Set<HTMLTableElement>();
+    const update = () => {
+      frame = 0;
+      pending.forEach((table) => {
+        const tableFrame = table.parentElement;
+        if (tableFrame) markTableFrameEdges(tableFrame);
+      });
+      pending.clear();
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    const scheduleAll = () => {
+      panel.querySelectorAll("table").forEach((table) => pending.add(table));
+      schedule();
+    };
+    const onMutations = (records: MutationRecord[]) => {
+      for (const record of records) {
+        const changed =
+          record.target instanceof Element
+            ? record.target.closest("table")
+            : null;
+        if (changed) pending.add(changed);
+        record.addedNodes.forEach((node) => {
+          if (!(node instanceof Element)) return;
+          if (node instanceof HTMLTableElement) pending.add(node);
+          node.querySelectorAll("table").forEach((table) => pending.add(table));
+        });
+      }
+      if (pending.size) schedule();
+    };
+    // Scroll doesn't bubble: caught on the way down.
+    const onScroll = (e: Event) => {
+      if (
+        e.target instanceof HTMLElement &&
+        e.target.querySelector(":scope > table")
+      ) {
+        markTableFrameEdges(e.target);
+      }
+    };
+    scheduleAll();
+    panel.addEventListener("scroll", onScroll, true);
+    const resize = new ResizeObserver(scheduleAll);
+    resize.observe(panel);
+    // New and streaming answers.
+    const mutations = new MutationObserver(onMutations);
+    mutations.observe(panel, { childList: true, subtree: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      panel.removeEventListener("scroll", onScroll, true);
+      resize.disconnect();
+      mutations.disconnect();
+    };
+    // The panel's element only exists while it's rendered.
+  }, [rendered]);
+
+  if (!rendered) return null;
 
   const latestActivityItem = [...visibleItems]
     .reverse()
@@ -646,111 +1075,141 @@ export default function AgentPanel({
 
   const panel = (
     <Box
-      role="dialog"
+      ref={panelRef}
+      // Docked, part of the page's chrome, so a complementary region; as an
+      // overlay, a dialog.
+      role={docked ? "complementary" : "dialog"}
       aria-label="GrowthBook AI assistant"
+      // Focusable, so focus can move into it where there's no message box.
+      tabIndex={-1}
+      onKeyDownCapture={handlePanelKeyDownCapture}
+      onKeyDown={handlePanelKeyDown}
+      // Hidden from screen readers while it slides out.
+      aria-hidden={open ? undefined : true}
+      className={clsx(
+        styles.panel,
+        docked ? styles.docked : styles.overlay,
+        expanded && styles.expanded,
+      )}
       style={{
-        position: "fixed",
-        right: 0,
-        top: 0,
-        bottom: 0,
-        // Right-anchored, overlapping the navbar. Expanded grows to ~90% of the
-        // main content region (100vw minus the 240px sidebar, or full width when
-        // the sidebar is collapsed) so a sliver of the page stays visible
-        // behind it; collapsed is a lightweight right-edge overlay. Width
-        // animates between the two states.
-        left: "auto",
-        width: expanded
-          ? `calc((100vw - ${sidebarCollapsed ? 0 : 240}px) * 0.9)`
-          : "min(400px, 100vw)",
-        background: "var(--color-background)",
-        borderLeft: "1px solid var(--gray-a3)",
-        boxShadow: "-8px 0 24px var(--black-a4)",
-        display: "flex",
-        flexDirection: "column",
+        ...({
+          // Translucent, so a touch lighter than the panel in dark mode.
+          "--ai-artifact-bg": "var(--slate-a2)",
+          "--ai-artifact-border": "var(--slate-a4)",
+          "--ai-artifact-inner-bg": "var(--color-panel-solid)",
+          "--ai-artifact-strip-outline": "inset 0 0 0 1px var(--gray-a3)",
+          "--agent-panel-width": panelWidthCss(panelWidth),
+        } as React.CSSProperties),
         zIndex: AGENT_PANEL_Z_INDEX,
-        transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+        transform: shown ? "translateX(0)" : "translateX(100%)",
+        pointerEvents: open ? undefined : "none",
+        // In step with the page making room (--agent-dock-*, global.scss).
+        transition: reduceMotion
+          ? "none"
+          : "width var(--agent-dock-duration) var(--agent-dock-easing), transform var(--agent-dock-duration) var(--agent-dock-easing)",
       }}
     >
-      {/* Header */}
+      {docked && open && !expanded ? (
+        <AgentPanelResizeHandle
+          panelRef={panelRef}
+          width={panelWidth}
+          onPreview={previewPanelWidth}
+          onCommit={commitPanelWidth}
+          onExpand={() => onToggleExpanded?.()}
+        />
+      ) : null}
+      {/* The "AI Assistant" title stays for screen readers. */}
       <Flex
         align="center"
         justify="between"
-        px="4"
-        py="3"
-        style={{
-          borderBottom: "1px solid var(--gray-a3)",
-          background: "var(--color-panel-solid)",
-        }}
+        // The title truncates short of the buttons (AgentChatHistory).
+        gap="3"
+        px="5"
+        style={{ minHeight: 44, paddingTop: 8, paddingBottom: 4 }}
       >
-        <Flex align="center" gap="3">
-          <Flex
-            align="center"
-            justify="center"
-            style={{
-              width: 32,
-              height: 32,
-              flexShrink: 0,
-              background: "var(--violet-a4)",
-              borderRadius: "999px",
-            }}
-          >
-            <PiSparkle size={16} color="var(--violet-11)" />
-          </Flex>
-          <Heading as="h2" size="xs">
-            AI Assistant
-          </Heading>
-        </Flex>
-        <Flex align="center" gap="3">
+        <Flex align="center" minWidth="0">
+          <VisuallyHidden asChild>
+            <h2>AI Assistant</h2>
+          </VisuallyHidden>
           <AgentChatHistory
             activeConversationId={conversationId}
             onSelect={handleSelectConversation}
+            onNewChat={handleNewChat}
+            newChatDisabled={limitReached}
           />
-          <IconButton
-            variant="ghost"
-            size="1"
-            onClick={handleNewChat}
-            title="Start new conversation"
-            aria-label="Start new conversation"
-          >
-            <PiPlus size={18} />
-          </IconButton>
+        </Flex>
+        <Flex align="center" gap="3" flexShrink="0">
           {onToggleExpanded && (
+            <Tooltip
+              content={expanded ? "Collapse" : "Expand"}
+              side="bottom"
+              style={{ zIndex: AGENT_PANEL_PORTAL_Z_INDEX }}
+            >
+              <IconButton
+                variant="ghost"
+                color="gray"
+                size="2"
+                style={{ color: "var(--slate-12)" }}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={onToggleExpanded}
+                aria-label={
+                  expanded ? "Collapse agent panel" : "Expand agent panel"
+                }
+              >
+                {expanded ? (
+                  <PiCornersInBold size={16} />
+                ) : (
+                  <PiCornersOutBold size={16} />
+                )}
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip
+            content="Close"
+            side="bottom"
+            style={{ zIndex: AGENT_PANEL_PORTAL_Z_INDEX }}
+          >
             <IconButton
               variant="ghost"
-              size="1"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={onToggleExpanded}
-              title={expanded ? "Minimize panel" : "Maximize panel"}
-              aria-label={
-                expanded ? "Minimize agent panel" : "Maximize agent panel"
-              }
+              color="gray"
+              size="2"
+              style={{ color: "var(--slate-12)" }}
+              onClick={onClose}
+              aria-label="Close agent panel"
             >
-              {expanded ? (
-                <PiArrowsInSimple size={18} />
-              ) : (
-                <PiArrowsOutSimple size={18} />
-              )}
+              <PiXBold size={16} />
             </IconButton>
-          )}
-          <IconButton
-            variant="ghost"
-            size="1"
-            onClick={onClose}
-            title="Close"
-            aria-label="Close agent panel"
-          >
-            <PiX size={18} />
-          </IconButton>
+          </Tooltip>
         </Flex>
       </Flex>
 
       {/* Messages */}
+      {/* 6px below the header, so scrolled messages stop short of it. */}
       <Box
         ref={scrollContainerRef}
-        onScroll={handleScroll}
-        style={{ flex: 1, overflowY: "auto", padding: "20px" }}
+        onScroll={() => {
+          handleScroll();
+          checkFades();
+        }}
+        className={clsx(
+          styles.messages,
+          fadeTop && styles.fadeTop,
+          fadeBottom && styles.fadeBottom,
+        )}
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          marginTop: 6,
+          padding: "14px 24px 20px",
+        }}
       >
-        <Flex direction="column" gap="3">
+        <Flex
+          ref={conversationRef}
+          direction="column"
+          gap="3"
+          className={styles.column}
+          style={switchHolding ? { opacity: 0 } : undefined}
+        >
           {messages.length === 0 &&
             !loading &&
             !isLoadingConversation &&
@@ -762,62 +1221,60 @@ export default function AgentPanel({
                   alignSelf: "flex-start",
                   width: expanded ? "100%" : "min(640px, 100%)",
                 }}
+                className={styles.intro}
               >
-                <Box
-                  p="4"
-                  style={{
-                    border: "1px solid var(--violet-a3)",
-                    borderRadius: "var(--radius-3)",
-                    background: "var(--gray-a2)",
-                  }}
-                >
-                  <Flex direction="column" gap="3">
-                    <Text size="md" weight="semibold">
-                      Hey there! 👋
-                    </Text>
-                    <Text size="md" color="text-mid">
-                      I&apos;m your AI Assistant. I have access to your
-                      experiments, Feature Flags, metrics, and database schemas.
+                <Flex direction="column" gap="3">
+                  <Text size="md" weight="semibold">
+                    Hey there! 👋
+                  </Text>
+                  <Text size="md" color="text-mid">
+                    I&apos;m your AI Assistant. I have access to your
+                    experiments, Feature Flags, metrics, and database schemas.
+                    <span
+                      style={{ display: "block", marginTop: "var(--space-2)" }}
+                    >
                       Let me know what you&apos;d like to build or explore
                       today!
-                    </Text>
-                  </Flex>
-                </Box>
-                <Flex direction="column" gap="2">
-                  <Heading as="h3" size="xs" color="text-low">
-                    Suggestions
-                  </Heading>
-                  <Grid columns={expanded ? "2" : "1"} gap="2">
-                    {STARTER_PROMPTS.map(({ prompt, Icon }) => (
-                      <Button
-                        key={prompt}
-                        variant="outline"
-                        color="gray"
-                        size="sm"
-                        icon={
-                          <Flex
-                            align="center"
-                            justify="center"
-                            style={{
-                              width: 26,
-                              height: 26,
-                              flexShrink: 0,
-                              borderRadius: "var(--radius-2)",
-                              background: "var(--violet-a4)",
-                              color: "var(--violet-11)",
-                            }}
-                          >
-                            <Icon size={16} />
-                          </Flex>
-                        }
-                        onClick={() => handleStarterPrompt(prompt)}
-                        className={aiChatStyles.suggestedPrompt}
-                      >
-                        {prompt}
-                      </Button>
-                    ))}
-                  </Grid>
+                    </span>
+                  </Text>
                 </Flex>
+                {limitReached ? null : (
+                  <Flex direction="column" gap="2">
+                    <Heading as="h3" size="xs">
+                      Suggestions
+                    </Heading>
+                    <Grid columns={expanded ? "2" : "1"} gap="2">
+                      {STARTER_PROMPTS.map(({ prompt, Icon }) => (
+                        <Button
+                          key={prompt}
+                          variant="outline"
+                          color="gray"
+                          size="sm"
+                          icon={
+                            <Flex
+                              align="center"
+                              justify="center"
+                              style={{
+                                width: 26,
+                                height: 26,
+                                flexShrink: 0,
+                                borderRadius: "var(--radius-2)",
+                                background: "var(--violet-a4)",
+                                color: "var(--violet-11)",
+                              }}
+                            >
+                              <Icon size={16} />
+                            </Flex>
+                          }
+                          onClick={() => handleStarterPrompt(prompt)}
+                          className={aiChatStyles.suggestedPrompt}
+                        >
+                          {prompt}
+                        </Button>
+                      ))}
+                    </Grid>
+                  </Flex>
+                )}
               </Flex>
             )}
 
@@ -920,32 +1377,55 @@ export default function AgentPanel({
         </Flex>
       </Box>
 
-      {/* Input */}
-      <ChatComposer
-        variant="compact"
-        ref={composerRef}
-        autoFocus
-        mentionItems={mentionItems}
-        mentionItemsReady={mentionItemsReady}
-        skillItems={skillItems}
-        autocomplete={aiAutocompleteEnabled}
-        suggestedReply={suggestedReply}
-        quickSuggestions={
-          messages.length === 0 ? STARTER_PROMPT_TEXTS : undefined
-        }
-        conversationId={conversationId}
-        value={input}
-        onChange={setInput}
-        onSend={handleSend}
-        onCancel={cancelGeneration}
-        loading={loading}
-        isLocalStream={isLocalStream}
-        placeholder="Ask GrowthBook anything…"
-      />
+      {/* At the limit the message box stays, disabled and explained by the
+        callout above it; Stop still works while an answer streams in. */}
+      <Box className={styles.composerColumn}>
+        {limitReached ? (
+          <Box px="5" pb="2">
+            <AiAssistantLimitCallout
+              id={LIMIT_CALLOUT_ID}
+              resetsAt={resetsAt}
+            />
+          </Box>
+        ) : null}
+        <ChatComposer
+          variant="compact"
+          seamless
+          ref={composerRef}
+          autoFocus={restored?.focus ?? true}
+          mentionItems={mentionItems}
+          mentionItemsReady={mentionItemsReady}
+          skillItems={skillItems}
+          autocomplete={aiAutocompleteEnabled && !limitReached}
+          suggestedReply={limitReached ? undefined : suggestedReply}
+          quickSuggestions={
+            messages.length === 0 && !limitReached
+              ? STARTER_PROMPT_TEXTS
+              : undefined
+          }
+          disabled={limitReached}
+          describedBy={limitReached ? LIMIT_CALLOUT_ID : undefined}
+          conversationId={conversationId}
+          value={input}
+          onChange={setInput}
+          onSend={handleSend}
+          onCancel={cancelGeneration}
+          loading={loading}
+          isLocalStream={isLocalStream}
+          placeholder={
+            limitReached
+              ? `Available again ${resetsAt ? formatResetsIn(resetsAt, Date.now()) : "after the daily reset"}`
+              : "Ask GrowthBook anything…"
+          }
+        />
+      </Box>
     </Box>
   );
 
-  return createPortal(<RadixTheme>{panel}</RadixTheme>, portalHost);
+  // In the app's own layer (the root theme's stacking context), not portaled
+  // to body: above the header, and below #portal-root, so the command
+  // palette and modals open over it.
+  return panel;
 }
 
 // ---------------------------------------------------------------------------
@@ -1009,6 +1489,7 @@ function ActiveTurnItemRow({
           chartData={chartData}
           compact
           showSaveAction={false}
+          truncateTitle
           toolTransparency={
             <ToolUsageDetails
               embedded
@@ -1043,9 +1524,11 @@ function ActiveTurnItemRow({
       <AssistantBubble>
         <Markdown
           resolveInternalHref={resolveAgentPanelInternalHref}
-          className={
-            waitingForLink ? aiChatStyles.streamingMarkdown : undefined
-          }
+          className={clsx(
+            styles.prose,
+            waitingForLink && aiChatStyles.streamingMarkdown,
+          )}
+          tableFrameClassName={styles.tableFrame}
         >
           {displayed}
         </Markdown>
@@ -1122,6 +1605,7 @@ function PersistedTurn({
           animate={false}
           compact
           showSaveAction={false}
+          truncateTitle
           toolTransparency={
             <ToolUsageDetails
               embedded
@@ -1141,8 +1625,8 @@ function PersistedTurn({
   return (
     <>
       {turn.user && (
-        <UserBubble>
-          <Text size="sm">
+        <UserBubble soft>
+          <Text size="md">
             <MessageTokens
               text={getUserText(turn.user)}
               mentions={
@@ -1169,7 +1653,11 @@ function PersistedTurn({
 
       {hasReply && !replyIsError && (
         <AssistantBubble>
-          <Markdown resolveInternalHref={resolveAgentPanelInternalHref}>
+          <Markdown
+            resolveInternalHref={resolveAgentPanelInternalHref}
+            className={styles.prose}
+            tableFrameClassName={styles.tableFrame}
+          >
             {replyContent}
           </Markdown>
         </AssistantBubble>

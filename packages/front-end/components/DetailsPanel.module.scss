@@ -1,8 +1,11 @@
+@use "../styles/page-padding-motion" as *;
+
 // Reaches past the page frame's padding to the side nav, the window's right
 // edge and its bottom: the panel sits flush against the window, and the
 // footer spans the working area.
 .layout {
   margin: 0 calc(-1 * var(--page-padding)) calc(-1 * var(--page-bottom-padding));
+  @include page-padding-motion(margin-left, margin-right);
 }
 
 // The working area beside the panel: the page's content, capped at
@@ -25,6 +28,7 @@
     var(--column-end),
     (100% + var(--column-end) - var(--column-start) - var(--page-max-width)) / 2
   );
+  @include page-padding-motion(padding-left, padding-right);
 
   // A margin, which the last item's own bottom margin collapses into
   // (PageFrame.module.scss).

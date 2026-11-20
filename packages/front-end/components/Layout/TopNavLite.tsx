@@ -23,7 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
-import styles from "./TopNav.module.scss";
+import styles from "./TopNavLite.module.scss";
 
 export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
   const { email, name, user } = useUser();
@@ -166,7 +166,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
   };
 
   return (
-    <div className={`navbar ${styles.topbarlite}`}>
+    <div className={`navbar ${styles.topbar}`}>
       <Head>
         <title>GrowthBook</title>
       </Head>

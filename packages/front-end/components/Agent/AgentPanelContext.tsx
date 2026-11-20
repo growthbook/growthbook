@@ -7,13 +7,32 @@ import React, {
 } from "react";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
+import useMediaQuery from "@/hooks/useMediaQuery";
+import { useIsomorphicLayoutEffect } from "@/hooks/useIsomorphicLayoutEffect";
+import { useNewAppShell } from "@/components/Layout/newAppShellContext";
+import { AGENT_PANEL_OVERLAY_QUERY } from "@/components/Layout/constants";
 import track from "@/services/track";
+
+/**
+ * The new shell's panel. "opening": open, for the one commit before its DOM
+ * mounts, so html.agent-dock-motion lands before the panel's forced read.
+ * "closing": its slide out (AGENT_DOCK_MOTION_MS) after open goes false. The
+ * panel has DOM in "open" and "closing", and none in "opening". The old
+ * shell's panel only ever sees "closed" and "opening".
+ */
+type AgentPanelPresence = "closed" | "opening" | "open" | "closing";
 
 interface AgentPanelContextValue {
   /** Whether the agent UI should be available to the current user/org. */
   available: boolean;
   open: boolean;
   expanded: boolean;
+  presence: AgentPanelPresence;
+  /**
+   * The new shell, and the window is wide enough for the panel to sit beside
+   * the page rather than over it. Always false in the old shell.
+   */
+  docked: boolean;
   openPanel: () => void;
   closePanel: () => void;
   togglePanel: () => void;
@@ -22,8 +41,13 @@ interface AgentPanelContextValue {
 
 const AgentPanelContext = createContext<AgentPanelContextValue | null>(null);
 
-/** Above the panel. Portaling the panel to body also puts it over its own body portals. */
-export const AGENT_PANEL_Z_INDEX = 10001;
+/**
+ * Above the header (1010) and its notices (1015), below the command palette
+ * and modals (1050 and up), which open over it.
+ */
+export const AGENT_PANEL_Z_INDEX = 1020;
+// The panel's slide, as --agent-dock-duration (global.scss).
+export const AGENT_DOCK_MOTION_MS = 220;
 export const AGENT_PANEL_PORTAL_Z_INDEX = AGENT_PANEL_Z_INDEX + 1;
 
 /**
@@ -77,12 +101,52 @@ export function AgentPanelProvider({
     setExpanded((prev) => !prev);
   }, []);
 
+  // Everything below is the new shell's, and does nothing in the old one: no
+  // state change, no timer, no write to <html>.
+  const newShell = useNewAppShell() === true;
+  const overlay = useMediaQuery(
+    newShell ? AGENT_PANEL_OVERLAY_QUERY : "not all",
+  );
+  const docked = newShell && available && !overlay;
+  const [rendered, setRendered] = useState(false);
+  useIsomorphicLayoutEffect(() => {
+    if (!newShell) return;
+    if (open) {
+      setRendered(true);
+      return;
+    }
+    const timer = window.setTimeout(
+      () => setRendered(false),
+      AGENT_DOCK_MOTION_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [newShell, open]);
+  const presence: AgentPanelPresence = rendered
+    ? open
+      ? "open"
+      : "closing"
+    : open
+      ? "opening"
+      : "closed";
+  // On for the whole slide in and out, so what moves on its own timing (the
+  // side nav, the page) follows the panel's. Written here, not by the panel,
+  // which remounts on entering or leaving Settings.
+  const dockMotion = docked && presence !== "closed";
+  useIsomorphicLayoutEffect(() => {
+    if (!dockMotion) return;
+    const root = document.documentElement;
+    root.classList.add("agent-dock-motion");
+    return () => root.classList.remove("agent-dock-motion");
+  }, [dockMotion]);
+
   return (
     <AgentPanelContext.Provider
       value={{
         available,
         open,
         expanded,
+        presence,
+        docked,
         openPanel,
         closePanel,
         togglePanel,

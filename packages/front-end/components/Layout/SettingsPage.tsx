@@ -5,6 +5,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import { useNewAppShell } from "./AppShell";
 import PageHead from "./PageHead";
 
 export function SettingsPageHeader({
@@ -80,13 +81,19 @@ export default function SettingsPage({
   children: ReactNode;
 }) {
   const permissionsUtil = usePermissionsUtil();
+  // The new header shows the page's Settings nav group as plain text: a group
+  // isn't a page. The old header keeps its links.
+  const newShell = useNewAppShell();
   const root: BreadcrumbItem =
     section && permissionsUtil.canManageOrgSettings()
-      ? { display: "General", href: `/settings#${section}` }
+      ? {
+          display: "General",
+          ...(newShell ? {} : { href: `/settings#${section}` }),
+        }
       : {
           display: "Organization",
           // Organization lands on Projects, so only link it for users who can open it.
-          ...(permissionsUtil.canViewProjectsPage()
+          ...(!newShell && permissionsUtil.canViewProjectsPage()
             ? { href: "/projects" }
             : {}),
         };

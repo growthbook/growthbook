@@ -1,18 +1,26 @@
 import { useCallback } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiChatCircleDots, PiClockCounterClockwise } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
+import {
+  PiCaretDownBold,
+  PiChatCircleDots,
+  PiPlus,
+  PiSparkleBold,
+} from "react-icons/pi";
 import { datetime, formatShortAgo } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
 import { AGENT_PANEL_PORTAL_Z_INDEX } from "./AgentPanelContext";
 import { groupConversationsByRecency } from "./chatHistoryUtils";
+import styles from "./AgentChatHistory.module.scss";
 
 const MENU_WIDTH = 300;
 // ScrollArea's viewport is max-content sized, so a nowrap title needs a hard cap.
@@ -22,17 +30,21 @@ interface AgentChatHistoryProps {
   activeConversationId: string;
   /** Switch the panel to a previously persisted conversation. */
   onSelect: (id: string) => void;
+  onNewChat: () => void;
+  /** No new conversations (e.g. at the usage limit). */
+  newChatDisabled?: boolean;
 }
 
 /**
- * Clock-icon dropdown in the agent panel header listing the user's recent
- * conversations (newest-first). Selecting one loads it into the panel. The
- * list is refetched each time the menu opens so freshly persisted chats
- * appear without a manual refresh.
+ * The agent panel header's title: a dropdown to start a new conversation or
+ * open a recent one (newest-first). The list is refetched each time the menu
+ * opens so freshly persisted chats appear without a manual refresh.
  */
 export default function AgentChatHistory({
   activeConversationId,
   onSelect,
+  onNewChat,
+  newChatDisabled = false,
 }: AgentChatHistoryProps) {
   const { data, mutate } = useApi<{ conversations: ConversationSummary[] }>(
     "/agent/chat",
@@ -47,41 +59,91 @@ export default function AgentChatHistory({
     [mutate],
   );
 
+  const currentTitle =
+    conversations.find((c) => c.conversationId === activeConversationId)
+      ?.title || "New Conversation";
+
   return (
     <DropdownMenu
       onOpenChange={handleOpenChange}
-      menuPlacement="end"
+      menuPlacement="start"
       menuWidth={MENU_WIDTH}
       menuMaxHeight={420}
       menuZIndex={AGENT_PANEL_PORTAL_Z_INDEX}
       variant="soft"
       trigger={
-        <IconButton
+        // Pulled left by its 12px padding, so its text lines up with the content
+        // below.
+        <Button
           variant="ghost"
-          size="1"
-          title="Chat history"
-          aria-label="Chat history"
+          color="gray"
+          size="md"
+          icon={<PiCaretDownBold size={12} />}
+          iconPosition="right"
+          className={styles.titleButton}
+          aria-label={`${currentTitle}. Conversations: start a new one or open a recent one`}
+          style={{
+            maxWidth: "100%",
+            // Shifted, not a margin: the app forces ghost buttons'
+            // margins to 0 (.rt-Button.rt-variant-ghost, !important).
+            position: "relative",
+            left: "calc(-1 * var(--space-3))",
+            color: "var(--slate-12)",
+          }}
         >
-          <PiClockCounterClockwise size={18} />
-        </IconButton>
+          {/* On one line with the title: Button wraps its children, where they'd
+            stack. */}
+          <Flex as="span" align="center" gap="2" minWidth="0">
+            <PiSparkleBold
+              size={16}
+              aria-hidden="true"
+              style={{ flexShrink: 0 }}
+            />
+            <span
+              style={{
+                display: "block",
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontWeight: 500,
+              }}
+            >
+              {currentTitle}
+            </span>
+          </Flex>
+        </Button>
       }
     >
+      <DropdownMenuItem
+        onClick={onNewChat}
+        disabled={newChatDisabled}
+        style={{ padding: "8px 10px" }}
+      >
+        <Flex align="center" gap="2">
+          <PiPlus size={14} aria-hidden="true" />
+          New Conversation
+        </Flex>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
       {groups.length === 0 ? (
-        <Flex
-          direction="column"
-          align="center"
-          gap="2"
-          px="4"
-          py="6"
-          style={{ color: "var(--color-text-low)" }}
-        >
-          <PiChatCircleDots size={22} />
-          <Text size="sm" weight="medium" color="text-mid" align="center">
-            No previous chats
-          </Text>
-          <Text size="sm" color="text-low" align="center">
-            Your conversations will show up here.
-          </Text>
+        <Flex direction="column" align="center" gap="2" px="4" py="6">
+          <PiChatCircleDots
+            size={24}
+            aria-hidden
+            style={{ color: "var(--slate-10)" }}
+          />
+          <Box style={{ color: "var(--slate-12)" }}>
+            <Text as="div" align="center" size="md" weight="medium">
+              No previous chats
+            </Text>
+          </Box>
+          {/* --slate-11, off the text tokens, so set on the wrapper. */}
+          <Box style={{ color: "var(--slate-11)", maxWidth: 240 }}>
+            <Text as="div" align="center" size="sm">
+              Your conversations will show up here.
+            </Text>
+          </Box>
         </Flex>
       ) : (
         groups.map((group, groupIdx) => (

@@ -465,7 +465,8 @@ const ProjectPage: FC = () => {
                   justify="end"
                   align="center"
                   gap="4"
-                  // Clears the help launcher, which publishes its footprint (see InAppHelp).
+                  // Clears the help launcher, which publishes its footprint (see
+                  // PylonLoader, or legacy/InAppHelp in the old shell).
                   style={{
                     paddingRight: "var(--help-launcher-clearance, 0px)",
                   }}

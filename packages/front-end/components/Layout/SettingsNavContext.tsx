@@ -6,14 +6,19 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useInsertionEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { useRouter } from "next/router";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import usePageAreaCrowded from "./usePageAreaCrowded";
 import { isSettingsRoute } from "./sidebarNav";
-import { SETTINGS_NAV_MIN_WIDTH_PX } from "./constants";
+import {
+  SETTINGS_NAV_MIN_WIDTH_PX,
+  SETTINGS_WIDE_MIN_PAGE_AREA_PX,
+} from "./constants";
 
 type SettingsNavContextValue = {
   query: string;
@@ -27,6 +32,8 @@ type SettingsNavContextValue = {
   setCount: (sectionId: string, count: number | null) => void;
   searchRef: RefObject<HTMLInputElement>;
   navMode: "column" | "jumpMenu";
+  /** The docked AI panel narrows Settings (html.settings-narrow). */
+  crowded: boolean;
 };
 
 const SettingsNavContext = createContext<SettingsNavContextValue | null>(null);
@@ -37,11 +44,27 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!inSettings) setQuery("");
   }, [inSettings]);
-  const navMode: SettingsNavContextValue["navMode"] = useMediaQuery(
+  const narrowWindow = useMediaQuery(
     `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
-  )
-    ? "jumpMenu"
-    : "column";
+  );
+  const crowded = usePageAreaCrowded(
+    SETTINGS_WIDE_MIN_PAGE_AREA_PX,
+    inSettings,
+  );
+  const navMode: SettingsNavContextValue["navMode"] =
+    narrowWindow || crowded ? "jumpMenu" : "column";
+  // Only for the docked panel: below 1024px the stylesheets' own media
+  // queries give the same layout, as they do in the old shell.
+  const crowdedSettings = inSettings && crowded;
+  // Before any layout effect: Next's route-change Head reads layout first,
+  // and read without the class, entering Settings beside the docked panel
+  // slides the page from the column nav's padding to the jump menu's.
+  useInsertionEffect(() => {
+    if (!crowdedSettings) return;
+    const root = document.documentElement;
+    root.classList.add("settings-narrow");
+    return () => root.classList.remove("settings-narrow");
+  }, [crowdedSettings]);
 
   const [activeSection, setActiveSection] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -74,8 +97,17 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
       setCount,
       searchRef,
       navMode,
+      crowded: crowdedSettings,
     }),
-    [query, activeSection, counts, setCount, pinSection, navMode],
+    [
+      query,
+      activeSection,
+      counts,
+      setCount,
+      pinSection,
+      navMode,
+      crowdedSettings,
+    ],
   );
 
   return (
@@ -83,6 +115,10 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
       {children}
     </SettingsNavContext.Provider>
   );
+}
+
+export function useSettingsNarrow(): boolean {
+  return useContext(SettingsNavContext)?.crowded === true;
 }
 
 export function useSettingsNav() {

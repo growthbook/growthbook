@@ -9,6 +9,14 @@
   overflow: hidden;
   z-index: 999;
   font-size: 13px;
+  // Follows the new sidebar as it collapses.
+  :global(html.app-shell-new) & {
+    transition: left 200ms ease;
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
 }
 
 // The title starts where page titles do, --page-top-padding under the

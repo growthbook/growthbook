@@ -1,9 +1,11 @@
 import {
   cloneElement,
+  createContext,
   forwardRef,
   isValidElement,
   PointerEvent,
   ReactNode,
+  useContext,
   useState,
 } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
@@ -26,6 +28,13 @@ type TooltipProps = Omit<
   // from it (e.g. one that makes a whole row click the trigger).
   confineToTrigger?: boolean;
 };
+
+/**
+ * Where tooltips inside portal to, by default `body`. A layer drawn over the
+ * page in its own stacking context (e.g. the sidebar drawer) provides itself,
+ * so its tooltips paint in it instead of under it.
+ */
+export const TooltipContainerContext = createContext<HTMLElement | null>(null);
 
 type PointerHandler = (event: PointerEvent<HTMLElement>) => void;
 
@@ -68,6 +77,7 @@ const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
     },
     ref,
   ) => {
+    const contextContainer = useContext(TooltipContainerContext);
     const [shown, setShown] = useState(false);
     // Otherwise a tooltip disabled while open reopens, unhovered, when enabled.
     if (!enabled && shown) setShown(false);
@@ -104,7 +114,10 @@ const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
         disableHoverableContent={disableHoverableContent}
       >
         <TooltipPrimitive.Trigger asChild>{trigger}</TooltipPrimitive.Trigger>
-        <TooltipPrimitive.Portal container={container} forceMount={forceMount}>
+        <TooltipPrimitive.Portal
+          container={container ?? contextContainer ?? undefined}
+          forceMount={forceMount}
+        >
           <Theme asChild>
             <TooltipPrimitive.Content
               sideOffset={4}

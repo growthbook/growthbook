@@ -1,0 +1,22 @@
+@use "../../../styles/colors";
+
+// The old shell's global rules, imported at the end of global.scss.
+
+.app-sidebar-header {
+  .selected {
+    background-color: colors.$purple;
+  }
+  .divider {
+    margin-top: 9px;
+    border-top: 1px solid rgba(0, 0, 0, 0.5);
+    a {
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  }
+}
+
+// The floating "?" (Auth/legacy/InAppHelp) rises above a bottom bar the same
+// way as Pylon's bubble (global.scss).
+.help-launcher {
+  margin-bottom: var(--bottom-bar-clearance, 0px) !important;
+}

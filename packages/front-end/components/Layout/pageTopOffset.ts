@@ -1,7 +1,5 @@
 import { useCallback, useRef, useSyncExternalStore } from "react";
-
-/** Keep in sync with --header-height in global.scss. */
-const HEADER_HEIGHT_PX = 56;
+import { useHeaderHeight } from "./headerHeight";
 
 // A bar pinned under the app header (the getting-started bar) pushes down
 // what sticks or fills the window below it. The tallest is
@@ -71,7 +69,7 @@ export function usePageTopOffset(): number {
     () => barHeight,
     () => 0,
   );
-  return HEADER_HEIGHT_PX + pinnedBarHeight;
+  return useHeaderHeight() + pinnedBarHeight;
 }
 
 /**
