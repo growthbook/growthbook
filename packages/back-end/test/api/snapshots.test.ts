@@ -15,6 +15,7 @@ import {
 import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   MetricsAlreadyUpToDateError,
+  NewMetricsUpdateUnavailableError,
 } from "back-end/src/util/errors";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import { setupApp } from "./api.setup";
@@ -1130,6 +1131,52 @@ describe("snapshots API", () => {
           details: expect.stringContaining('"updateScope":"new_metrics"'),
         }),
       );
+    });
+
+    // Planning refuses this way when a copied metric was edited since the
+    // latest Overall Results, on either pipeline.
+    const copiedMetricEdited = () =>
+      new NewMetricsUpdateUnavailableError("settings_changed");
+
+    it('returns 409 settings_changed for "new_metrics" when a copied metric was edited', async () => {
+      const { experiment } = setup();
+      createExperimentSnapshot.mockRejectedValueOnce(copiedMetricEdited());
+
+      const response = await post(experiment.id, {
+        updateScope: "new_metrics",
+      });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toMatchObject({
+        code: "new_metrics_update_unavailable",
+        details: { reason: "settings_changed" },
+      });
+      expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it('runs a normal update for "auto" when a copied metric was edited', async () => {
+      const { snapshot, experiment, datasource } = setup();
+      createExperimentSnapshot
+        .mockRejectedValueOnce(copiedMetricEdited())
+        .mockResolvedValueOnce({
+          snapshot: { ...snapshot, newMetricsUpdate: undefined },
+          queryRunner: {},
+        });
+
+      const response = await post(experiment.id, { updateScope: "auto" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.snapshot.updateScope).toBe("all_metrics");
+      expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
+      expect(createExperimentSnapshot).toHaveBeenLastCalledWith({
+        context: expect.objectContaining({ org: expect.anything() }),
+        experiment,
+        datasource,
+        triggeredBy: undefined,
+        phase: 1,
+        dimension: undefined,
+        useCache: true,
+      });
     });
 
     it("runs a normal update without planning new metrics when the window from the organization setting has passed", async () => {

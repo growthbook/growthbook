@@ -55,6 +55,7 @@ import {
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getMetricSettingsHashesForIncrementalRefresh } from "back-end/src/enterprise/services/data-pipeline";
 import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   NewMetricsUpdateUnavailableError,
@@ -253,6 +254,8 @@ function refreshArgs(
     metricGroups: [],
     statsEngine: "bayesian",
     pValueThreshold: 0.05,
+    metricMap: new Map(),
+    factTableMap: new Map(),
     planSnapshotAt: jest.fn(async () => makePlan()),
     generateResultQuerySql: jest.fn(storedSqlGenerator),
     ...overrides,
@@ -664,6 +667,105 @@ describe("planNewMetricsUpdate", () => {
     );
     expect(plan.snapshot.runnerKind).toBe("incremental-update");
     expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["met_c"]);
+  });
+
+  describe("a copied metric edited since the parent", () => {
+    const orders = factTableFactory.build({
+      id: "ft_orders",
+      sql: "SELECT user_id, timestamp, amount FROM orders",
+      userIdTypes: ["user_id"],
+    });
+    const factTableMap = new Map([[orders.id, orders]]);
+    const factMetric = (id: string, column = "amount") =>
+      factMetricFactory.build({
+        id,
+        metricType: "mean",
+        numerator: { factTableId: orders.id, column, rowFilters: [] },
+      });
+    const asBuilt = ["met_a", "met_b", "met_c"].map((id) => factMetric(id));
+    const withEditedMetA = [
+      factMetric("met_a", "$$count"),
+      ...asBuilt.slice(1),
+    ];
+
+    // The parent's caches, with each metric's hash as the parent stored it.
+    const storedHashes = getMetricSettingsHashesForIncrementalRefresh({
+      factMetrics: asBuilt,
+      factTableMap,
+      snapshotSettings: makePlan({ runnerKind: "incremental-update" }).snapshot
+        .settings,
+    });
+
+    const planWith = (
+      runnerKind: "results" | "incremental-update",
+      todaysMetrics: typeof asBuilt,
+    ) => {
+      findParentMock.mockResolvedValue(makeParent({ runnerKind }));
+      pipelineStateMock.mockResolvedValue({
+        unitsTableFullName: "t_units",
+        unitsMaxTimestamp: PARENT_END,
+        materializedBySnapshotId: "snp_parent",
+        metricSources: [
+          {
+            groupId: "ft_orders_0",
+            factTableId: orders.id,
+            metrics: ["met_a", "met_b"].map((id) => ({
+              id,
+              settingsHash: storedHashes.get(id),
+            })),
+            maxTimestamp: PARENT_END,
+            tableFullName: "t_orders",
+          },
+        ],
+      });
+      const edited = todaysMetrics !== asBuilt;
+      const args = refreshArgs({
+        metricMap: new Map(todaysMetrics.map((m) => [m.id, m])),
+        factTableMap,
+        planSnapshotAt: async () => makePlan({ runnerKind }),
+        // Today's SQL for the copied group reflects the edit.
+        generateResultQuerySql: jest.fn(async () =>
+          edited
+            ? new Map([["group_0", `${groupSql(["met_a", "met_b"], 0)} -- n`]])
+            : storedSqlGenerator({
+                settings: makeSettings(["met_a", "met_b"]),
+                queryParentId: "snp_parent",
+              }),
+        ),
+      });
+      return { args, promise: planNewMetricsUpdate(args) };
+    };
+
+    it.each(["results", "incremental-update"] as const)(
+      "refuses as changed settings on the %s pipeline",
+      async (runnerKind) => {
+        const { promise } = planWith(runnerKind, withEditedMetA);
+
+        await expect(promise).rejects.toBeInstanceOf(
+          NewMetricsUpdateUnavailableError,
+        );
+        await expect(promise).rejects.toMatchObject({
+          details: { reason: "settings_changed" },
+        });
+      },
+    );
+
+    it("on the Incremental Pipeline, compares the stored settings hash rather than the SQL", async () => {
+      const { args, promise } = planWith("incremental-update", withEditedMetA);
+
+      await expect(promise).rejects.toMatchObject({
+        details: { reason: "settings_changed" },
+      });
+      expect(args.generateResultQuerySql).not.toHaveBeenCalled();
+    });
+
+    it("on the Incremental Pipeline, accepts copied metrics whose caches match today's settings", async () => {
+      await expect(
+        planWith("incremental-update", asBuilt).promise,
+      ).resolves.toMatchObject({
+        snapshot: { newMetricsUpdate: { metricIds: ["met_c"] } },
+      });
+    });
   });
 
   describe("comparing the SQL it would copy", () => {

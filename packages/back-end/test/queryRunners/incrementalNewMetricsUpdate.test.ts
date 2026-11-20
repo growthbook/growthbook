@@ -569,6 +569,33 @@ describe("new-metrics update (new-metrics runs)", () => {
     expect(dropsOf(await updateDag(BASE_METRICS))).toEqual([]);
   });
 
+  it("lets the normal update that replaces a refused new-metrics update rebuild a metric edited since its cache was built", async () => {
+    const asBuilt = metricMap.get("b1");
+    if (!asBuilt) throw new Error("unknown metric b1");
+    const settings = snapshotSettings(["b1"], BASE_END);
+    const hashBeforeEdit = getMetricSettingsHashForIncrementalRefresh({
+      factMetric: {
+        ...asBuilt,
+        numerator: { ...asBuilt.numerator, column: "$$count" },
+      },
+      factTableMap,
+      metricSettings: settings.metricSettings[0],
+    });
+    const state = baseState();
+    state.metricSources.forEach((source) =>
+      source.metrics.forEach((m) => {
+        if (m.id === "b1") m.settingsHash = hashBeforeEdit;
+      }),
+    );
+
+    const update = await updateDag([...BASE_METRICS, "c1"], { state });
+
+    expect(createdCaches(update)).toEqual(["ft_b:b1,r1", "ft_c:c1"]);
+    expect(createdCaches(await updateDag([...BASE_METRICS, "c1"]))).toEqual([
+      "ft_c:c1",
+    ]);
+  });
+
   describe("dropping a replaced table", () => {
     const replacedSourceDrop = async (state: IncrementalRefreshInterface) => {
       const refresh = await refreshDag(["a3"], { state });

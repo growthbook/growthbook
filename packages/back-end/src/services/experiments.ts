@@ -3258,6 +3258,8 @@ export async function planExperimentSnapshot({
       metricGroups,
       statsEngine,
       pValueThreshold: settings.pValueThreshold.value,
+      metricMap,
+      factTableMap,
       planSnapshotAt: (cutoff) => planSnapshot({ ...planSnapshotArgs, cutoff }),
       generateResultQuerySql: ({ settings, queryParentId, scope }) =>
         generateExperimentResultQuerySql(

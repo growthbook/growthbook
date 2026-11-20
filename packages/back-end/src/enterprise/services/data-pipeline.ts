@@ -49,6 +49,7 @@ import {
   getFiltersForHash,
 } from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
+import { getClusterMetricCacheLevel } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import type { MetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 
@@ -363,6 +364,34 @@ export function getMetricSettingsHashForIncrementalRefresh({
       filters: getFiltersForHash(denominatorFactTable, factMetric.denominator),
     },
   });
+}
+
+/** Each metric's settings hash as a run with these snapshot settings stores it. */
+export function getMetricSettingsHashesForIncrementalRefresh({
+  factMetrics,
+  factTableMap,
+  snapshotSettings,
+}: {
+  factMetrics: FactMetricInterface[];
+  factTableMap: Map<string, FactTableInterface>;
+  snapshotSettings: ExperimentSnapshotSettings;
+}): Map<string, string> {
+  return new Map(
+    factMetrics.map((factMetric) => [
+      factMetric.id,
+      getMetricSettingsHashForIncrementalRefresh({
+        factMetric,
+        factTableMap,
+        metricSettings: snapshotSettings.metricSettings.find(
+          (ms) => ms.id === factMetric.id,
+        ),
+        clusterMetricLevel: getClusterMetricCacheLevel(
+          snapshotSettings,
+          factMetric.id,
+        ),
+      }),
+    ]),
+  );
 }
 
 /**

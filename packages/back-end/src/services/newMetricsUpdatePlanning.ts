@@ -7,6 +7,8 @@ import {
   getNewMetricsUpdateBlocker,
   getNewMetricsUpdateSetupBlocker,
   getResultsOutdatedReasons,
+  isFactMetric,
+  type ExperimentMetricInterface,
   type NewMetricsUpdateBlocker,
 } from "shared/experiments";
 import { getSnapshotCutoffDate } from "shared/util";
@@ -27,7 +29,10 @@ import {
   findLatestSuccessfulOverallSnapshot,
   getLatestSnapshotStatus,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
+import { getMetricSettingsHashesForIncrementalRefresh } from "back-end/src/enterprise/services/data-pipeline";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { isCarriedNewMetricsUpdateQuery } from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
 import {
@@ -58,6 +63,8 @@ export async function planNewMetricsUpdate({
   metricGroups,
   statsEngine,
   pValueThreshold,
+  metricMap,
+  factTableMap,
   planSnapshotAt,
   generateResultQuerySql,
 }: {
@@ -70,6 +77,9 @@ export async function planNewMetricsUpdate({
   metricGroups: MetricGroupInterface[];
   statsEngine: StatsEngine;
   pValueThreshold: number;
+  // Today's definitions, including the derived metrics planning expands.
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
   planSnapshotAt: (cutoff: Date) => Promise<PlannedExperimentSnapshot>;
   generateResultQuerySql: GenerateResultQuerySql;
 }): Promise<PlannedExperimentSnapshot> {
@@ -166,12 +176,16 @@ export async function planNewMetricsUpdate({
 
   // Planning reports tables past the cutoff as changed settings, so check the
   // tables a later run may have left first.
-  if ((parent.runnerKind ?? "results") !== "results") {
-    assertIncrementalTablesMatchParent({
-      state: await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+  const onIncrementalPipeline = (parent.runnerKind ?? "results") !== "results";
+  const incrementalState = onIncrementalPipeline
+    ? await context.models.incrementalRefresh.getByExperimentIdAndPhase(
         experiment.id,
         phase,
-      ),
+      )
+    : null;
+  if (onIncrementalPipeline) {
+    assertIncrementalTablesMatchParent({
+      state: incrementalState,
       parentSnapshotId: parent.id,
       scanEnd: parent.settings.endDate,
     });
@@ -235,8 +249,27 @@ export async function planNewMetricsUpdate({
     throw new NewMetricsUpdateUnavailableError("base_incomplete");
   }
   // The Incremental Pipeline's carried SQL only reads its cache tables, so
-  // identical text there would prove nothing about the metrics behind them.
-  if ((parent.runnerKind ?? "results") === "results") {
+  // identical text there would prove nothing about the metrics behind them;
+  // the settings hash stored for each cached metric does.
+  if (onIncrementalPipeline) {
+    const queried = new Set(queriedMetricIds);
+    assertCopiedMetricCachesUnchanged({
+      metricSources: incrementalState?.metricSources ?? [],
+      copiedMetricIds: new Set(
+        settings.metricSettings
+          .map((m) => m.id)
+          .filter((id) => !queried.has(id)),
+      ),
+      todaysSettingsHashes: getMetricSettingsHashesForIncrementalRefresh({
+        factMetrics: getQueryableMetricsFromSnapshotSettings(
+          plan.snapshot.settings,
+          metricMap,
+        ).filter(isFactMetric),
+        factTableMap,
+        snapshotSettings: plan.snapshot.settings,
+      }),
+    });
+  } else {
     await assertCarriedQuerySqlUnchanged({
       context,
       parent,
@@ -439,6 +472,35 @@ export function assertIncrementalTablesMatchParent({
     ].some(pastScanEnd);
   if (!tablesMatchParent) {
     throw new NewMetricsUpdateUnavailableError("incremental_pipeline");
+  }
+}
+
+/**
+ * Refuses when a copied metric's cache was built with settings other than
+ * today's, such as before its definition was edited. Its copied results came
+ * from that cache, which a normal update would rebuild.
+ */
+function assertCopiedMetricCachesUnchanged({
+  metricSources,
+  copiedMetricIds,
+  todaysSettingsHashes,
+}: {
+  metricSources: IncrementalRefreshInterface["metricSources"];
+  copiedMetricIds: ReadonlySet<string>;
+  todaysSettingsHashes: ReadonlyMap<string, string>;
+}): void {
+  const changed = metricSources.some((source) =>
+    source.metrics.some((m) => {
+      const todaysHash = todaysSettingsHashes.get(m.id);
+      return (
+        copiedMetricIds.has(m.id) &&
+        todaysHash !== undefined &&
+        todaysHash !== m.settingsHash
+      );
+    }),
+  );
+  if (changed) {
+    throw new NewMetricsUpdateUnavailableError("settings_changed");
   }
 }
 

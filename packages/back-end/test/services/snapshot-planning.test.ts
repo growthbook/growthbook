@@ -131,6 +131,16 @@ jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
         typeof import("back-end/src/enterprise/services/data-pipeline")
       >("back-end/src/enterprise/services/data-pipeline")
       .legacyDocDescribesPhase(args),
+  getMetricSettingsHashesForIncrementalRefresh: (
+    args: Parameters<
+      (typeof import("back-end/src/enterprise/services/data-pipeline"))["getMetricSettingsHashesForIncrementalRefresh"]
+    >[0],
+  ) =>
+    jest
+      .requireActual<
+        typeof import("back-end/src/enterprise/services/data-pipeline")
+      >("back-end/src/enterprise/services/data-pipeline")
+      .getMetricSettingsHashesForIncrementalRefresh(args),
 }));
 
 const {
