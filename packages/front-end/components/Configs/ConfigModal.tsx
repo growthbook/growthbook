@@ -231,20 +231,32 @@ export default function ConfigModal({
           const extendsKeys = [...new Set(values.extends)].filter(
             (key) => key && key !== values.parent,
           );
-          await apiCall(`/configs`, {
-            method: "POST",
-            body: JSON.stringify({
-              key: values.key,
-              name: values.name,
-              parent: values.parent || undefined,
-              extends: extendsKeys.length ? extendsKeys : undefined,
-              description: values.description || undefined,
-              project: values.project || undefined,
-              ...(values.parent ? {} : { extensible: values.extensible }),
-            }),
-          });
+          const created = await apiCall<{ config?: { id: string } }>(
+            `/configs`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                key: values.key,
+                name: values.name,
+                parent: values.parent || undefined,
+                extends: extendsKeys.length ? extendsKeys : undefined,
+                description: values.description || undefined,
+                project: values.project || undefined,
+                ...(values.parent ? {} : { extensible: values.extensible }),
+              }),
+            },
+          );
+          // A new base Config opens in a draft, ready for its first fields.
+          let href = `/configs/${values.key}`;
+          if (!values.parent && created?.config) {
+            const draft = await apiCall<{ revision?: Revision }>(
+              `/configs/${created.config.id}?forceCreateRevision=1`,
+              { method: "PUT", body: JSON.stringify({}) },
+            );
+            if (draft?.revision) href += `?v=${draft.revision.version}`;
+          }
           await mutateDefinitions();
-          await router.push(`/configs/${values.key}`);
+          await router.push(href);
         }
       })}
     >

@@ -108,10 +108,10 @@ export default function ConfigFieldRow({
   squashConstants: (value: unknown) => unknown;
   editing: boolean;
   editText: string;
-  editKind: "value" | "null" | "undefined";
+  editKind: "value" | "null";
   editError: string | null;
   setEditText: (v: string) => void;
-  setEditKind: (k: "value" | "null" | "undefined") => void;
+  setEditKind: (k: "value" | "null") => void;
   onStartEdit: () => void;
   onSubmit: () => void;
   onCancelEdit: () => void;
@@ -224,10 +224,8 @@ export default function ConfigFieldRow({
               <>
                 {(() => {
                   const nullable = fieldIsNullable(nf);
-                  const optional = nf?.required === false;
                   const isNull = editKind === "null";
-                  const isUndefined = editKind === "undefined";
-                  const disabled = isNull || isUndefined;
+                  const disabled = isNull;
                   const vt = fieldValueType(nf);
                   const enumValues =
                     vt !== "json" && vt !== "boolean" ? (nf?.enum ?? []) : [];
@@ -243,7 +241,7 @@ export default function ConfigFieldRow({
                             { value: "true", label: "true" },
                             { value: "false", label: "false" },
                           ]}
-                          initialOption="value…"
+                          initialOption="Not set"
                           sort={false}
                           disabled={disabled}
                         />
@@ -257,7 +255,7 @@ export default function ConfigFieldRow({
                             value: v,
                             label: v,
                           }))}
-                          initialOption="value…"
+                          initialOption="Not set"
                           sort={false}
                           disabled={disabled}
                         />
@@ -268,6 +266,7 @@ export default function ConfigFieldRow({
                           value={disabled ? "" : editText}
                           setValue={setEditText}
                           valueType={vt}
+                          placeholder="Not set"
                           codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                           constantContext={constantContext}
                           disabled={disabled}
@@ -289,31 +288,17 @@ export default function ConfigFieldRow({
                           </span>
                         </Tooltip>
                       )}
-                      {((nullable && vt !== "json") || optional) && (
-                        <Flex mt="1" gap="4" align="center">
-                          {nullable && vt !== "json" && (
-                            <Checkbox
-                              size="sm"
-                              label="null"
-                              disabled={isUndefined}
-                              value={isNull}
-                              setValue={(v) => {
-                                setEditKind(v ? "null" : "value");
-                                if (v) setEditText("");
-                              }}
-                            />
-                          )}
-                          {optional && (
-                            <Checkbox
-                              size="sm"
-                              label="undefined"
-                              value={isUndefined}
-                              setValue={(v) => {
-                                setEditKind(v ? "undefined" : "value");
-                                if (v) setEditText("");
-                              }}
-                            />
-                          )}
+                      {nullable && vt !== "json" && (
+                        <Flex mt="1" align="center">
+                          <Checkbox
+                            size="sm"
+                            label={<code>null</code>}
+                            value={isNull}
+                            setValue={(v) => {
+                              setEditKind(v ? "null" : "value");
+                              if (v) setEditText("");
+                            }}
+                          />
                         </Flex>
                       )}
                     </>
@@ -328,9 +313,7 @@ export default function ConfigFieldRow({
             ) : (
               <>
                 {f.value === undefined ? (
-                  <Text color="text-low">
-                    <code>undefined</code>
-                  </Text>
+                  <Text color="text-low">Not set</Text>
                 ) : f.value === null ? (
                   <ValueDisplay
                     value="null"
@@ -363,9 +346,7 @@ export default function ConfigFieldRow({
                     style={{ textDecoration: "line-through", opacity: 0.5 }}
                   >
                     {parentValue === undefined ? (
-                      <Text color="text-low">
-                        <code>undefined</code>
-                      </Text>
+                      <Text color="text-low">Not set</Text>
                     ) : parentValue === null ? (
                       <ValueDisplay
                         value="null"

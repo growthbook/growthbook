@@ -167,7 +167,6 @@ import {
   blankField,
   isJsonField,
   fieldValueType,
-  typeDefault,
 } from "@/components/Configs/fieldSchema";
 
 type ResolvedResponse = {
@@ -185,6 +184,7 @@ type ResolvedResponse = {
   fieldCounts?: Record<string, number>;
   configNames?: Record<string, string>;
   archivedByKey?: Record<string, boolean>;
+  draftByKey?: Record<string, boolean>;
   // The editor and JSON view keep references raw; this drives `@const:` squashing in the table.
   constants: (Pick<
     ConstantInterface,
@@ -368,9 +368,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   // Separate from the text so an explicit null and a concrete value stay distinct
   // (not overriding at all is a third axis: the inherit / Reset action).
-  const [editKind, setEditKind] = useState<"value" | "null" | "undefined">(
-    "value",
-  );
+  const [editKind, setEditKind] = useState<"value" | "null">("value");
 
   // "add" shows a blank field form; a key string edits that field's definition.
   const [schemaEdit, setSchemaEdit] = useState<"add" | string | null>(null);
@@ -1091,18 +1089,23 @@ export default function ConfigDetailPage(): React.ReactElement {
       setEditText("");
     } else {
       setEditKind("value");
-      const v = f.value !== undefined ? f.value : typeDefault(f.field);
-      setEditText(isJson ? JSON.stringify(v, null, 2) : String(v));
+      setEditText(
+        f.value === undefined
+          ? ""
+          : isJson
+            ? JSON.stringify(f.value, null, 2)
+            : String(f.value),
+      );
     }
     setEditKey(f.key);
   };
 
   const submitOverride = async () => {
     if (!editKey) return;
-    // Unset = omit the key from this config's own value (optional field absent).
-    if (editKind === "undefined") {
+    // An empty value is "not set": drop this config's own value, if it has one.
+    if (editKind === "value" && editText.trim() === "") {
       try {
-        await removePropertyValue(editKey);
+        if (editKey in ownValue()) await removePropertyValue(editKey);
         setEditKey(null);
       } catch (e) {
         setEditError(e instanceof Error ? e.message : "Failed to save value");
@@ -1877,6 +1880,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       lineage={data.lineage}
                       configNames={data.configNames}
                       archivedByKey={data.archivedByKey}
+                      draftByKey={data.draftByKey}
                       canCreate={
                         hasConfigsFeature &&
                         permissionsUtil.canCreateConfig({
@@ -2038,10 +2042,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                                 // JSON editors accept `null` as literal text, so only
                                 // non-JSON fields use the null flag/checkbox.
                                 const seedNull = f.value === null && !isJson;
-                                const seedVal =
-                                  f.value !== undefined && f.value !== null
-                                    ? f.value
-                                    : typeDefault(f.field);
                                 return (
                                   <FieldDefForm
                                     key={f.key}
@@ -2052,20 +2052,13 @@ export default function ConfigDetailPage(): React.ReactElement {
                                       ) ?? blankField()
                                     }
                                     initialValue={
-                                      seedNull
+                                      f.value === undefined || seedNull
                                         ? ""
                                         : isJson
-                                          ? JSON.stringify(
-                                              f.value !== undefined
-                                                ? f.value
-                                                : seedVal,
-                                              null,
-                                              2,
-                                            )
-                                          : String(seedVal)
+                                          ? JSON.stringify(f.value, null, 2)
+                                          : String(f.value)
                                     }
                                     initialNull={seedNull}
-                                    initialUndefined={f.value === undefined}
                                     existingKeys={resolved.fields.map(
                                       (rf) => rf.key,
                                     )}

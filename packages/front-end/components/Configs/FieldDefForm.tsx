@@ -39,7 +39,6 @@ import {
   normalizeField,
   presetKeyFromField,
   presetSchemaString,
-  typeDefault,
 } from "@/components/Configs/fieldSchema";
 
 // Inline editor for creating or editing a field (editing locks the key). The
@@ -51,7 +50,6 @@ export default function FieldDefForm({
   isNew = false,
   initialValue = "",
   initialNull = false,
-  initialUndefined = false,
   constantContext,
   onCancel,
   onSave,
@@ -64,8 +62,6 @@ export default function FieldDefForm({
   isNew?: boolean;
   initialValue?: string;
   initialNull?: boolean;
-  // The field currently has no value; keep it unset unless the user sets one.
-  initialUndefined?: boolean;
   constantContext?: { project?: string; excludeKeys?: string[] };
   onCancel: () => void;
   // `unset` = explicitly remove the field's value (distinct from "leave as-is").
@@ -92,7 +88,6 @@ export default function FieldDefForm({
   });
   const [valueText, setValueText] = useState(initialValue);
   const [valueIsNull, setValueIsNull] = useState(initialNull);
-  const [valueIsUndefined, setValueIsUndefined] = useState(initialUndefined);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -230,8 +225,8 @@ export default function FieldDefForm({
       }
     }
     // Parse against the value surface so {type:string} saves a string, not JSON.
-    // `undefined` + the unset flag tells the caller to delete the value key.
-    const unset = withValue && valueIsUndefined;
+    // An empty value is "not set": the caller deletes the value key.
+    const unset = withValue && !valueIsNull && valueText.trim() === "";
     let value: unknown = undefined;
     if (unset) {
       value = undefined;
@@ -240,29 +235,21 @@ export default function FieldDefForm({
     } else if (withValue) {
       const t = valueText.trim();
       if (valueIsJson) {
-        if (t === "") {
-          value = typeDefault(field);
-        } else {
-          try {
-            value = JSON.parse(t);
-          } catch (e) {
-            setErr(e instanceof Error ? e.message : "Value must be valid JSON");
-            return;
-          }
+        try {
+          value = JSON.parse(t);
+        } catch (e) {
+          setErr(e instanceof Error ? e.message : "Value must be valid JSON");
+          return;
         }
       } else if (valueType === "boolean") {
         value = t === "true";
       } else if (valueType === "number") {
-        if (t === "") {
-          value = 0;
-        } else {
-          const n = field.type === "integer" ? parseInt(t, 10) : parseFloat(t);
-          if (Number.isNaN(n)) {
-            setErr("Value must be a number");
-            return;
-          }
-          value = n;
+        const n = field.type === "integer" ? parseInt(t, 10) : parseFloat(t);
+        if (Number.isNaN(n)) {
+          setErr("Value must be a number");
+          return;
         }
+        value = n;
       } else {
         value = valueText;
       }
@@ -308,12 +295,13 @@ export default function FieldDefForm({
       <SelectField
         portalMenu
         size="md"
-        value={valueText === "true" ? "true" : "false"}
+        value={valueText}
         onChange={setValueText}
         options={[
           { value: "true", label: "true" },
           { value: "false", label: "false" },
         ]}
+        initialOption="Not set"
         sort={false}
       />
     ) : enumValues.length > 0 ? (
@@ -323,7 +311,7 @@ export default function FieldDefForm({
         value={valueText}
         onChange={setValueText}
         options={enumValues.map((v) => ({ value: v, label: v }))}
-        initialOption="value…"
+        initialOption="Not set"
         sort={false}
       />
     ) : (
@@ -333,6 +321,7 @@ export default function FieldDefForm({
         value={valueText}
         setValue={onValueChange}
         valueType={valueType}
+        placeholder="Not set"
         codeInputDefaultHeight={FIVE_LINES_HEIGHT}
         constantContext={constantContext}
       />
@@ -561,11 +550,7 @@ export default function FieldDefForm({
             <>
               <Flex align="center" style={{ minHeight: 32 }}>
                 <Box style={{ width: "100%", minWidth: 0 }}>
-                  {valueIsUndefined ? (
-                    <Text color="text-low">
-                      <code>undefined</code>
-                    </Text>
-                  ) : valueIsNull ? (
+                  {valueIsNull ? (
                     <Text color="text-low">
                       <code>null</code>
                     </Text>
@@ -574,42 +559,17 @@ export default function FieldDefForm({
                   )}
                 </Box>
               </Flex>
-              {(() => {
-                const nullable = fieldIsNullable(field) && !valueIsJson;
-                // Keep the checkbox visible while checked so a required field
-                // seeded from a valueless state can still be given a value.
-                const optional = field.required === false || valueIsUndefined;
-                if (!nullable && !optional) return null;
-                return (
-                  <Flex mt="1" gap="4" align="center">
-                    {nullable && (
-                      <Checkbox
-                        size="sm"
-                        weight="regular"
-                        disabled={valueIsUndefined}
-                        value={valueIsNull}
-                        setValue={(v) => {
-                          setValueIsNull(v);
-                          if (v) setValueIsUndefined(false);
-                        }}
-                        label={<code>null</code>}
-                      />
-                    )}
-                    {optional && (
-                      <Checkbox
-                        size="sm"
-                        weight="regular"
-                        value={valueIsUndefined}
-                        setValue={(v) => {
-                          setValueIsUndefined(v);
-                          if (v) setValueIsNull(false);
-                        }}
-                        label={<code>undefined</code>}
-                      />
-                    )}
-                  </Flex>
-                );
-              })()}
+              {fieldIsNullable(field) && !valueIsJson && (
+                <Flex mt="1" align="center">
+                  <Checkbox
+                    size="sm"
+                    weight="regular"
+                    value={valueIsNull}
+                    setValue={setValueIsNull}
+                    label={<code>null</code>}
+                  />
+                </Flex>
+              )}
             </>
           )}
         </TableCell>

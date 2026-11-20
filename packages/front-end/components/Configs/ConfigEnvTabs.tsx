@@ -23,6 +23,8 @@ type Props = {
   // An archived override still shows a (struck-through) tab so it can be opened
   // to unarchive, but no longer serves a value.
   archivedByKey?: Record<string, boolean>;
+  // Overrides with an open draft, flagged so it doesn't seem to vanish.
+  draftByKey?: Record<string, boolean>;
   canCreate: boolean;
   mutate: () => Promise<unknown>;
 };
@@ -59,6 +61,7 @@ export default function ConfigEnvTabs({
   lineage,
   configNames,
   archivedByKey,
+  draftByKey,
   canCreate,
   mutate,
 }: Props) {
@@ -166,15 +169,30 @@ export default function ConfigEnvTabs({
           <TabsList style={{ width: "100%", boxShadow: "none" }}>
             {tabs.map((t) => (
               <TabsTrigger key={t.key} value={t.key}>
-                {archivedByKey?.[t.key] ? (
-                  <Tooltip content="Archived — this override no longer serves a value">
-                    <span style={{ textDecoration: "line-through" }}>
-                      {t.label}
-                    </span>
-                  </Tooltip>
-                ) : (
-                  t.label
-                )}
+                <Flex align="center" gap="2">
+                  {archivedByKey?.[t.key] ? (
+                    <Tooltip content="Archived — this override no longer serves a value">
+                      <span style={{ textDecoration: "line-through" }}>
+                        {t.label}
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    t.label
+                  )}
+                  {t.key !== baseKey && draftByKey?.[t.key] && (
+                    <Tooltip content="This override has an unpublished draft">
+                      <Box
+                        style={{
+                          flexShrink: 0,
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: "var(--amber-9)",
+                        }}
+                      />
+                    </Tooltip>
+                  )}
+                </Flex>
               </TabsTrigger>
             ))}
           </TabsList>

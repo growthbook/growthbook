@@ -452,6 +452,11 @@ export const getConfigResolved = async (
   const fieldCounts: Record<string, number> = {};
   const configNames: Record<string, string> = {};
   const archivedByKey: Record<string, boolean> = {};
+  // Family members with an open draft, so the page can flag them.
+  const openDraftIds = new Set(
+    await context.models.revisions.getOpenRevisionTargetIds("config"),
+  );
+  const draftByKey: Record<string, boolean> = {};
   for (const key of referencedKeys) {
     const c = byKey.get(key);
     if (!c) continue;
@@ -462,6 +467,7 @@ export const getConfigResolved = async (
     fieldCounts[c.key] = configOwnFieldCount(c.value);
     configNames[c.key] = c.name;
     if (c.archived) archivedByKey[c.key] = true;
+    if (openDraftIds.has(c.id)) draftByKey[c.key] = true;
   }
 
   return res.status(200).json({
@@ -476,6 +482,7 @@ export const getConfigResolved = async (
     fieldCounts,
     configNames,
     archivedByKey,
+    draftByKey,
     constants,
   });
 };
