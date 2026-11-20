@@ -361,6 +361,11 @@ export const getConfigResolved = async (
   // on each node rather than as separate tree branches.
   const spineRootKey = getConfigSpineRootKey(config.key, byKey);
 
+  // Counted live, the viewed Config included, so the tree's counts read the
+  // same from any of its pages; an open draft has its own flag.
+  const liveFieldCount = (node: ConfigInterface) =>
+    configOwnFieldCount((node.key === config.key ? config : node).value);
+
   const buildSpineLineage = (rootKey: string) =>
     getConfigSpineSubtree(rootKey, allConfigs).flatMap((key) => {
       const node = byKey.get(key);
@@ -381,7 +386,7 @@ export const getConfigResolved = async (
           parentKey: getConfigParentKey(node),
           // Composition mixins (the non-spine bases) for same-level chips.
           extendsKeys: node.extends ?? [],
-          fieldCount: configOwnFieldCount(node.value),
+          fieldCount: liveFieldCount(node),
           // Own schema field keys, so the editor can preview "base wins"
           // reconciliation (a descendant's field is stripped when an ancestor
           // declares the same key).
@@ -464,7 +469,7 @@ export const getConfigResolved = async (
     // doesn't filter them — a readable node can reference a mixin in a project
     // the caller can't read. Gate the map so that mixin's name/count don't leak.
     if (!context.permissions.canReadSingleProjectResource(c.project)) continue;
-    fieldCounts[c.key] = configOwnFieldCount(c.value);
+    fieldCounts[c.key] = liveFieldCount(c);
     configNames[c.key] = c.name;
     if (c.archived) archivedByKey[c.key] = true;
     if (openDraftIds.has(c.id)) draftByKey[c.key] = true;
