@@ -18,7 +18,11 @@ import {
   getLatestPhaseVariations,
   getVisibleVariations,
 } from "shared/experiments";
-import { changesetOwnerRef, generateVariationId } from "shared/util";
+import {
+  changesetOwnerRef,
+  generateVariationId,
+  implementationTypeAfterUnlink,
+} from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import {
@@ -196,7 +200,15 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
     this.experiment = await updateExperiment({
       context: this.context,
       experiment: this.experiment,
-      changes: { hasVisualChangesets: value },
+      changes: value
+        ? { hasVisualChangesets: true }
+        : {
+            hasVisualChangesets: false,
+            implementationType: implementationTypeAfterUnlink({
+              ...this.experiment,
+              hasVisualChangesets: false,
+            }),
+          },
       bypassWebhooks: true,
     });
   }

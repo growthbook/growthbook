@@ -103,7 +103,7 @@ const ENVIRONMENT_STATE_LABELS: Record<LinkedFeatureEnvState, string> = {
   missing: "Not included",
 };
 
-function EnvironmentStateIcon({ isActive }: { isActive: boolean }) {
+export function EnvironmentStateIcon({ isActive }: { isActive: boolean }) {
   return (
     <Box
       flexShrink="0"

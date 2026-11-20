@@ -1,5 +1,6 @@
 import {
   PENDING_APPROVAL_ITEM_PREFIX,
+  STALE_VALUES_ITEM_PREFIX,
   type ManualLaunchChecklistItem,
 } from "shared/validators";
 import type { CheckListItem } from "./PreLaunchChecklistItems";
@@ -58,9 +59,15 @@ export function summarizeChecklist(items: CheckListItem[]): ChecklistSummary {
   };
 }
 
-/** What an admin's start bypass waives: the server skips the check with it. */
-export function isBypassableStartItem(item: Pick<CheckListItem, "key">) {
+export function isPendingApprovalItem(item: Pick<CheckListItem, "key">) {
   return item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX);
+}
+
+/** What an admin's start bypass waives: the server skips both checks with it. */
+export function isBypassableStartItem(item: Pick<CheckListItem, "key">) {
+  return (
+    isPendingApprovalItem(item) || item.key.startsWith(STALE_VALUES_ITEM_PREFIX)
+  );
 }
 
 export function nextManualChecklist(

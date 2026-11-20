@@ -14,10 +14,19 @@ import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunc
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { hasPendingScheduledStart, startBypassCovers } from "shared/util";
+import {
+  getImplementationType,
+  hasPendingScheduledStart,
+  isManagedByExperiment,
+  startBypassCovers,
+} from "shared/util";
+import {
+  PENDING_APPROVAL_ITEM_PREFIX,
+  STALE_VALUES_ITEM_PREFIX,
+} from "shared/validators";
 import track from "@/services/track";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
-import { isBypassableStartItem } from "./checklistSummary";
+import { isPendingApprovalItem } from "./checklistSummary";
 
 export type ChecklistAction =
   | { onClick: () => void }
@@ -32,13 +41,14 @@ export type CheckListItem = {
   type: "auto" | "manual";
   required: boolean;
   // Blocks the start outright, since auto-publish would fail. Only an admin's
-  // start bypass waives any: the approval rows (isBypassableStartItem).
+  // start bypass waives any: the approval and stale-values rows
+  // (isBypassableStartItem).
   hardBlock?: boolean;
   warning?: string;
   description?: string | ReactElement;
   // What a manual task's status is stored under.
   manualKey?: string;
-  // The Feature Flag an approval row waits on.
+  // The Feature Flag an approval or stale-values row waits on.
   featureId?: string;
 };
 
@@ -46,10 +56,14 @@ export type CheckListItem = {
 // the flag itself.
 export function linkedFeatureAction(
   f: LinkedFeatureInfo,
-  version = f.draftRevisionVersion ?? null,
+  {
+    version = f.draftRevisionVersion ?? null,
+    // Straight to the draft's review, for a row waiting on it.
+    review = false,
+  }: { version?: number | null; review?: boolean } = {},
 ): ChecklistAction {
   return {
-    href: `/features/${f.feature.id}${version !== null ? `?v=${version}` : ""}`,
+    href: `/features/${f.feature.id}${version !== null ? `?v=${version}` : ""}${review ? "#review" : ""}`,
     external: true,
   };
 }
@@ -87,7 +101,10 @@ function toRow(
     ...(item.manual ? { manualKey: item.key } : {}),
     ...(flag
       ? {
-          action: linkedFeatureAction(flag, item.revision),
+          action: linkedFeatureAction(flag, {
+            version: item.revision,
+            review: isPendingApprovalItem(item),
+          }),
         }
       : {}),
   };
@@ -134,6 +151,8 @@ export function getChecklistItems({
   // In-page fixes. Callers leave out the ones this viewer can't make.
   openAnalysisSettings,
   openImplementation,
+  editVariationValues,
+  openManagedApproval,
   editTargeting,
   editSchedule,
   createSdkConnection,
@@ -147,6 +166,8 @@ export function getChecklistItems({
   publishingFeatureId?: string;
   openAnalysisSettings?: ((focus: AnalysisFormFocus | null) => void) | null;
   openImplementation?: (() => void) | null;
+  editVariationValues?: (() => void) | null;
+  openManagedApproval?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editSchedule?: (() => void) | null;
   createSdkConnection?: (() => void) | null;
@@ -157,6 +178,35 @@ export function getChecklistItems({
   const openSettingsOn = (focus: AnalysisFormFocus | null) =>
     onClick(openAnalysisSettings && (() => openAnalysisSettings(focus)));
   const verifiedConnections = connections.some((c) => c.connected);
+  const managed =
+    linkedFeatures.find((f) =>
+      isManagedByExperiment(f.feature, experiment.id),
+    ) ?? null;
+  const valuesMode =
+    getImplementationType({ ...experiment, hasManagedFlag: !!managed }) ===
+    "values";
+  // The flag page refuses writes on a managed flag, so its rows open the
+  // experiment's values or their review instead.
+  const managedRowAction = (
+    key: string,
+    fallback: ChecklistAction | undefined,
+  ): ChecklistAction | undefined => {
+    switch (key.slice(0, key.indexOf(":") + 1)) {
+      case "mergeConflict:":
+        // Resolved by discarding the draft, which only its review offers.
+        return onClick(openManagedApproval ?? editVariationValues);
+      case PENDING_APPROVAL_ITEM_PREFIX:
+      case STALE_VALUES_ITEM_PREFIX:
+        return onClick(openManagedApproval);
+      case "missingVariationValues:":
+      case "malformedVariationValues:":
+        return onClick(editVariationValues);
+      case "publishPermission:":
+        return undefined;
+      default:
+        return fallback;
+    }
+  };
 
   return getLaunchChecklistItems({
     experiment,
@@ -167,7 +217,11 @@ export function getChecklistItems({
     checklist,
     publishingFeatureId,
   }).map((item): CheckListItem => {
-    const row = toRow(item, linkedFeatures);
+    const base = toRow(item, linkedFeatures);
+    const row =
+      managed && item.featureId === managed.feature.id
+        ? { ...base, action: managedRowAction(item.key, base.action) }
+        : base;
     if (item.customTask) {
       const isSchedule =
         !item.manual && item.customTask.propertyKey === "schedule";
@@ -180,7 +234,7 @@ export function getChecklistItems({
             : undefined,
       };
     }
-    if (isBypassableStartItem(item)) {
+    if (isPendingApprovalItem(item)) {
       const draft = linkedFeatures.find(
         (f) => f.feature.id === item.featureId,
       )?.pendingDraft;
@@ -191,7 +245,10 @@ export function getChecklistItems({
         ? {
             ...row,
             status: "complete",
-            display: `Approval bypassed for the Feature Flag draft for ${item.featureId}`,
+            display:
+              item.featureId === managed?.feature.id
+                ? "Approval bypassed for the variation values"
+                : `Approval bypassed for the Feature Flag draft for ${item.featureId}`,
           }
         : row;
     }
@@ -204,6 +261,12 @@ export function getChecklistItems({
       case "banditGoalMetric":
         return { ...row, action: openSettingsOn(null) };
       case "linkedChanges":
+        return {
+          ...row,
+          action: onClick(
+            valuesMode ? editVariationValues : openImplementation,
+          ),
+        };
       case "visualEditorChanges":
         return { ...row, action: onClick(openImplementation) };
       case "targeting":

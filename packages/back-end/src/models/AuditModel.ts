@@ -154,11 +154,11 @@ function historyQuery(
   organization: string,
   side: "entity" | "parent",
   type: EntityType,
-  id: string | undefined,
+  id: string | string[] | undefined,
   { auditId, event, before, excludeIds }: AuditHistoryFilters = {},
 ): FilterQuery<AuditDocument> {
   const idMatch = {
-    ...(id ? { $eq: id } : {}),
+    ...(Array.isArray(id) ? { $in: id } : id ? { $eq: id } : {}),
     ...(excludeIds?.length ? { $nin: excludeIds } : {}),
   };
   return {
@@ -285,7 +285,7 @@ export async function getAuditedApiKeyKinds(organization: string) {
 export async function getAuditHistory(
   organization: string,
   type: EntityType,
-  id: string | undefined,
+  id: string | string[] | undefined,
   limit: number,
   filters: AuditHistoryFilters = {},
 ) {

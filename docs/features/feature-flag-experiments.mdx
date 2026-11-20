@@ -8,6 +8,10 @@ GrowthBook allows you to run experiments using feature flags. This method of run
 released as an A/B test. It is ideal for more complex experiments requiring multiple code changes, or for companies that
 want to have an experimentation development culture, and determining the impact on your metrics of any feature or code change.
 
+## Feature Flags Managed by an Experiment
+
+An experiment using the **Values** implementation creates and manages its own Feature Flag. See [Variation Values](/app/experiment-configuration#variation-values). That flag's page is read-only, because its rule and values belong to the experiment. To manage it yourself, convert it to an unmanaged Feature Flag, from the experiment or from the flag's page. It stays linked to the experiment as an ordinary Feature Flag.
+
 ## Running Experiments with Feature Flags
 
 Feature flag experiments use an experiment override rule. Saving and publishing the rule makes it available to the SDK.

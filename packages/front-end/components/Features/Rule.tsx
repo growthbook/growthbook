@@ -23,6 +23,7 @@ import {
   getReviewSetting,
   getTargetingProjectIds,
   isRampScheduleServing,
+  isManagedFeature,
 } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { RxCircleBackslash } from "react-icons/rx";
@@ -473,7 +474,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const router = useRouter();
     const useDummyData = router.query["dummy"] === "true";
 
-    const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
+    // Managed flags refuse direct rule writes; the experiment owns them.
+    const isManagedFlag = isManagedFeature(feature);
+
+    const canEdit =
+      !isManagedFlag && permissionsUtil.canEditFeatureDrafts(feature);
     // RuleModal has no `contextual-bandit-ref` form, and a second rule for one
     // bandit is rejected on update: its values are edited from its own page.
     const canEditRule =
@@ -486,11 +491,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const canPublishFeatureEnvs = useMemo(
       () =>
+        !isManagedFlag &&
         permissionsUtil.canPublishFeature(
           feature,
           environments.map((e) => e.id),
         ),
-      [feature, permissionsUtil, environments],
+      [feature, permissionsUtil, environments, isManagedFlag],
     );
 
     const canControlRamp = useMemo(() => {

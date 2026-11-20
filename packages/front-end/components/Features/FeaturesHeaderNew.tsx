@@ -6,7 +6,11 @@ import { useRouter } from "next/router";
 import React, { ReactNode, useEffect, useRef, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
-import { filterEnvironmentsByFeature, isDefined } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  isDefined,
+  isManagedFeature,
+} from "shared/util";
 import { PiEye } from "react-icons/pi";
 import { isActiveDraftStatus, HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -154,11 +158,15 @@ export default function FeaturesHeaderNew({
     await healthHook.fetchSome([feature.id]);
   };
 
+  // Managed flags refuse direct writes, so offer no edit/publish/archive/delete.
+  const isManagedFlag = isManagedFeature(feature);
   // Editing an existing flag takes draft authority, not the create gate:
   // `canViewFeatureModal` answers "may this user create a feature".
-  const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
+  const canEdit =
+    !isManagedFlag && permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
-  const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
+  const canPublish =
+    !isManagedFlag && permissionsUtil.canPublishFeature(feature, enabledEnvs);
   // Duplicating CREATES a flag, so it takes create authority — not authority over
   // the one being copied. The modal gates its own environment toggles.
   const canDuplicate = permissionsUtil.canCreateFeature(
@@ -175,22 +183,22 @@ export default function FeaturesHeaderNew({
     baseFeature,
     liveArchiveEnvs,
   );
-  const canDelete = permissionsUtil.canDeleteFeature(
-    baseFeature,
-    NO_ENVIRONMENT_BINDING,
-  );
+  const canDelete =
+    !isManagedFlag &&
+    permissionsUtil.canDeleteFeature(baseFeature, NO_ENVIRONMENT_BINDING);
   const canUnarchive = permissionsUtil.canPublishFeature(
     baseFeature,
     liveArchiveEnvs,
   );
   const canToggleArchive =
-    (isArchived ? canUnarchive : canArchive) ||
-    canStageArchiveDraft({
-      permissions: permissionsUtil,
-      model: "feature",
-      entity: { project: baseFeature.project },
-      archived: !isArchived,
-    });
+    !isManagedFlag &&
+    ((isArchived ? canUnarchive : canArchive) ||
+      canStageArchiveDraft({
+        permissions: permissionsUtil,
+        model: "feature",
+        entity: { project: baseFeature.project },
+        archived: !isArchived,
+      }));
 
   const viewedRevision = revisions.find(
     (r) => r.version === (version ?? feature.version),
@@ -419,10 +427,12 @@ export default function FeaturesHeaderNew({
         triggers={
           <>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="review">
-              Review &amp; Publish
-              <ReviewTabCount statuses={revisions.map((r) => r.status)} />
-            </TabsTrigger>
+            {!isManagedFlag && (
+              <TabsTrigger value="review">
+                Review &amp; Publish
+                <ReviewTabCount statuses={revisions.map((r) => r.status)} />
+              </TabsTrigger>
+            )}
             <TabsTrigger value="test">Simulate</TabsTrigger>
             <TabsTrigger value="stats">Code Refs</TabsTrigger>
             <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>

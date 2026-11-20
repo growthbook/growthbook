@@ -101,6 +101,7 @@ const FIELD_LABELS: Record<keyof ExperimentChangesFields, string> = {
   description: "description",
   hypothesis: "hypothesis",
   variations: "variations",
+  implementationType: "implementation type",
   holdoutId: "holdout",
   condition: "attribute targeting",
   savedGroups: "Saved Group targeting",

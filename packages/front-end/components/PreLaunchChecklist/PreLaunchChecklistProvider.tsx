@@ -86,8 +86,10 @@ export interface PreLaunchChecklistProviderProps {
   canEdit: boolean;
   editTargeting?: (() => void) | null;
   editSchedule?: (() => void) | null;
+  editVariationValues?: () => void;
   openImplementation?: () => void;
   openAnalysisSettings?: (focus: AnalysisFormFocus | null) => void;
+  openManagedApproval?: () => void;
   children: ReactNode;
 }
 
@@ -100,8 +102,10 @@ export function PreLaunchChecklistProvider({
   canEdit,
   editTargeting,
   editSchedule,
+  editVariationValues,
   openImplementation,
   openAnalysisSettings,
+  openManagedApproval,
   children,
 }: PreLaunchChecklistProviderProps) {
   const permissionsUtil = usePermissionsUtil();
@@ -127,6 +131,8 @@ export function PreLaunchChecklistProvider({
       PreLaunchChecklistProviderProps,
       | "openAnalysisSettings"
       | "openImplementation"
+      | "editVariationValues"
+      | "openManagedApproval"
       | "editTargeting"
       | "editSchedule"
     >
@@ -134,6 +140,8 @@ export function PreLaunchChecklistProvider({
   handlers.current = {
     openAnalysisSettings,
     openImplementation,
+    editVariationValues,
+    openManagedApproval,
     editTargeting,
     editSchedule,
   };
@@ -141,6 +149,8 @@ export function PreLaunchChecklistProvider({
   const canOpenAnalysis =
     canEdit && !!openAnalysisSettings && (!isBandit || !!editTargeting);
   const canOpenImplementation = canEdit && !!openImplementation;
+  const canEditVariationValues = canEdit && !!editVariationValues;
+  const canOpenManagedApproval = !!openManagedApproval;
   const canEditTargeting = !!editTargeting;
   const canEditSchedule = canEdit && !!editSchedule;
 
@@ -161,6 +171,12 @@ export function PreLaunchChecklistProvider({
                 : null,
               openImplementation: canOpenImplementation
                 ? () => handlers.current.openImplementation?.()
+                : null,
+              editVariationValues: canEditVariationValues
+                ? () => handlers.current.editVariationValues?.()
+                : null,
+              openManagedApproval: canOpenManagedApproval
+                ? () => handlers.current.openManagedApproval?.()
                 : null,
               editTargeting: canEditTargeting
                 ? () => handlers.current.editTargeting?.()
@@ -184,6 +200,8 @@ export function PreLaunchChecklistProvider({
       connections,
       canOpenAnalysis,
       canOpenImplementation,
+      canEditVariationValues,
+      canOpenManagedApproval,
       canEditTargeting,
       canEditSchedule,
       canCreateSdkConnection,

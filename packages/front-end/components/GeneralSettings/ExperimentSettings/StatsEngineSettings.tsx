@@ -29,7 +29,10 @@ import {
   SettingsSubheading,
   UnsavedMark,
 } from "@/components/GeneralSettings/SettingsGroup";
-import { getConfidenceLevelHighlight } from "./ChanceToWinThresholdField";
+import {
+  getConfidenceLevelHighlight,
+  warningHighlight,
+} from "./ChanceToWinThresholdField";
 import { getPValueThresholdHighlight } from "./PValueThresholdField";
 
 interface FormValues {
@@ -83,11 +86,6 @@ export default function StatsEngineSettings() {
   const priorMean = form.watch("metricDefaults.priorSettings.mean");
   const priorStdDev = form.watch("metricDefaults.priorSettings.stddev");
 
-  const highlight = (color: string) => ({
-    borderColor: color,
-    backgroundColor: color ? color + "15" : "",
-  });
-
   return (
     <>
       <SettingsGroup
@@ -133,7 +131,7 @@ export default function StatsEngineSettings() {
               max="99.9999"
               append="%"
               containerClassName="mb-0"
-              style={highlight(confidence.highlightColor)}
+              style={warningHighlight(confidence.highlightColor)}
               disabled={locked}
               placeholder={defaultFor("confidenceLevel")}
               {...form.register("confidenceLevel", {
@@ -243,7 +241,7 @@ export default function StatsEngineSettings() {
               min="0"
               max="0.5"
               containerClassName="mb-0"
-              style={highlight(pValue.highlightColor)}
+              style={warningHighlight(pValue.highlightColor)}
               disabled={locked}
               placeholder={defaultFor("pValueThreshold")}
               {...form.register("pValueThreshold", {
@@ -383,7 +381,9 @@ export default function StatsEngineSettings() {
                     id="settings-regressionAdjustmentDays"
                     size="md"
                     type="number"
-                    style={highlight(regressionAdjustmentDaysHighlightColor)}
+                    style={warningHighlight(
+                      regressionAdjustmentDaysHighlightColor,
+                    )}
                     containerClassName="mb-0"
                     append="days"
                     min="0"

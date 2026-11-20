@@ -1,8 +1,14 @@
 import { useState } from "react";
-import { hasPendingScheduledStart } from "shared/util";
+import { hasPendingScheduledStart, isManagedByExperiment } from "shared/util";
 import { Box, Separator } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
+import {
+  HoldoutInterfaceStringDates,
+  type ImplementationType,
+} from "shared/validators";
 import DetailsPanel, {
   DetailsPanelTab,
   PanelSection,
@@ -34,6 +40,9 @@ export interface Props {
   datasourceMissing?: boolean;
   holdout?: HoldoutInterfaceStringDates;
   stagedHoldoutId?: string | null;
+  linkedFeatures: LinkedFeatureInfo[];
+  /** The page's staged implementation type, shown in place of the stored one. */
+  stagedImplementationType: ImplementationType | null;
   mutate: () => void;
   disableEditing?: boolean;
   tab: DetailsPanelTab;
@@ -45,6 +54,8 @@ export default function ExperimentDetailsPanel({
   datasourceMissing = false,
   holdout,
   stagedHoldoutId = null,
+  linkedFeatures,
+  stagedImplementationType,
   mutate,
   disableEditing,
   tab,
@@ -54,6 +65,10 @@ export default function ExperimentDetailsPanel({
   const editsBlocked = useEditsBlockedReason();
   const { canEdit } = useExperimentEditing(experiment, disableEditing, holdout);
   const [infoSection, setInfoSection] = useState<InfoSection | null>(null);
+  const managedFeature =
+    linkedFeatures.find((f) =>
+      isManagedByExperiment(f.feature, experiment.id),
+    ) ?? null;
   const [customFieldId, setCustomFieldId] = useState<string | null>(null);
   const editSection = (section: InfoSection, fieldId: string | null = null) => {
     setInfoSection(section);
@@ -148,6 +163,8 @@ export default function ExperimentDetailsPanel({
           <ExperimentDataFields
             experiment={experiment}
             datasourceMissing={datasourceMissing}
+            managedFlagId={managedFeature?.feature.id ?? null}
+            stagedImplementationType={stagedImplementationType}
             stagedHoldoutId={stagedHoldoutId}
             fieldAction={fieldAction}
           />

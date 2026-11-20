@@ -80,6 +80,53 @@ describe("startChecklistGates", () => {
   });
 });
 
+describe("startChecklistGates on the managed flag", () => {
+  it("resolves its rows through the experiment's own routes", () => {
+    const gates = startChecklistGates(
+      "exp_1",
+      [
+        item("staleVariationValues:managed", {
+          hardBlock: true,
+          featureId: "managed",
+        }),
+        item("pendingApproval:managed", {
+          hardBlock: true,
+          featureId: "managed",
+        }),
+        item("mergeConflict:managed", {
+          hardBlock: true,
+          featureId: "managed",
+        }),
+      ],
+      new Map([["managed", 4]]),
+      "managed",
+    );
+    expect(gates).toEqual([
+      expect.objectContaining({
+        key: "staleVariationValues:managed",
+        type: "stale-values",
+        requiresPermission: expect.any(String),
+        resolution: expect.objectContaining({
+          path: "/experiments/exp_1/variation-values/rebase",
+        }),
+      }),
+      expect.objectContaining({
+        key: "pendingApproval:managed",
+        resolution: expect.objectContaining({
+          path: "/experiments/exp_1/variation-values/request-review",
+        }),
+      }),
+      expect.objectContaining({
+        key: "mergeConflict:managed",
+        resolution: expect.objectContaining({
+          action: "discard",
+          path: "/experiments/exp_1/variation-values/discard",
+        }),
+      }),
+    ]);
+  });
+});
+
 describe("evaluateStartGates", () => {
   const gates = [
     ...startChecklistGates(
@@ -92,6 +139,10 @@ describe("evaluateStartGates", () => {
           featureId: "theirs",
         }),
         item("mergeConflict:mine", { hardBlock: true, featureId: "mine" }),
+        item("staleVariationValues:mine", {
+          hardBlock: true,
+          featureId: "mine",
+        }),
       ],
       new Map(),
     ),
@@ -115,6 +166,7 @@ describe("evaluateStartGates", () => {
     expect(result.skipped.map(({ key, via }) => ({ key, via }))).toEqual([
       { key: "goalMetric", via: "skipChecklist" },
       { key: "pendingApproval:mine", via: "bypassApprovalPermission" },
+      { key: "staleVariationValues:mine", via: "bypassApprovalPermission" },
     ]);
   });
 

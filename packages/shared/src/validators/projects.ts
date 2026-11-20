@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  statsEngines,
+  MAX_DESCRIPTION_LENGTH,
+  selectableImplementationTypes,
+} from "shared/constants";
 import { managedByValidator } from "./managed-by";
 import {
   optionalOwnerInputField,
@@ -22,6 +26,9 @@ export const projectSettingsValidator = z.object({
   statsEngine: statsEnginesValidator.optional(),
   confidenceLevel: z.number().min(0.5).max(1).optional(),
   pValueThreshold: z.number().gt(0).max(0.5).optional(),
+  defaultExperimentImplementation: z
+    .enum(selectableImplementationTypes)
+    .optional(),
 });
 
 export const projectValidator = baseSchema

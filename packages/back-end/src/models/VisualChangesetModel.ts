@@ -17,12 +17,16 @@ import {
 import { ReqContext } from "back-end/types/request";
 import type { CbVisualExperiment } from "back-end/src/services/contextualBanditPayload";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";
-import type {
-  ChangesetOwner,
-  OwnerVariation,
+import {
+  type ChangesetOwner,
+  ExperimentChangesetOwner,
+  type OwnerVariation,
 } from "back-end/src/services/changesetOwner";
 import { ApiReqContext } from "back-end/types/api";
-import { NotFoundError } from "back-end/src/util/errors";
+import {
+  assertNotValuesImplementation,
+  NotFoundError,
+} from "back-end/src/util/errors";
 
 const visualChangesetURLPatternSchema =
   new mongoose.Schema<VisualChangesetURLPattern>(
@@ -418,6 +422,9 @@ export const createVisualChangeset = async ({
   editorUrl: VisualChangesetInterface["editorUrl"];
   visualChanges?: VisualChange[];
 }): Promise<VisualChangesetInterface> => {
+  if (owner instanceof ExperimentChangesetOwner) {
+    assertNotValuesImplementation(context, owner.experiment);
+  }
   const visualChangeset = toInterface(
     await VisualChangesetModel.create({
       id: uniqid("vcs_"),

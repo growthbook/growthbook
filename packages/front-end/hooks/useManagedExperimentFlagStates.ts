@@ -1,0 +1,100 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  ReactNode,
+  createElement,
+} from "react";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { useAuth } from "@/services/auth";
+
+/** experiment id -> the Feature Flag key it manages */
+type ManagedFlagMap = Record<string, string>;
+
+interface UseManagedExperimentFlagStatesReturn {
+  /** Loads the ids not already known; safe to call on every visible-row change. */
+  fetchSome: (experimentIds: string[]) => Promise<void>;
+  /** The flag an experiment manages, or undefined if it manages none. */
+  getManagedFlag: (experimentId: string) => string | undefined;
+}
+
+const ManagedFlagsContext =
+  createContext<UseManagedExperimentFlagStatesReturn | null>(null);
+
+// Ownership lives on the flag, so list rows ask for the ids on screen, as with
+// `FeatureHealthStatesProvider`.
+export function ManagedExperimentFlagsProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const { apiCall } = useAuth();
+  const [managed, setManaged] = useState<ManagedFlagMap>({});
+  const resolvedIds = useRef(new Set<string>());
+  const inflightKey = useRef<string | null>(null);
+
+  const fetchSome = useCallback(
+    async (experimentIds: string[]) => {
+      const toFetch = experimentIds.filter(
+        (id) => !resolvedIds.current.has(id),
+      );
+      if (!toFetch.length) return;
+
+      const key = [...toFetch].sort().join(",");
+      if (inflightKey.current === key) return;
+      inflightKey.current = key;
+      try {
+        const res = await apiCall<{ managed: ManagedFlagMap }>(
+          `/experiments/managed?ids=${encodeURIComponent(toFetch.join(","))}`,
+        );
+        // Resolve every requested id, or the empty ones refetch on every scroll.
+        toFetch.forEach((id) => resolvedIds.current.add(id));
+        setManaged((prev) => ({ ...prev, ...(res.managed ?? {}) }));
+      } catch (e) {
+        // Swallowed: this decorates an icon, and the next row change retries.
+        console.error("Could not resolve managed experiments", e);
+      } finally {
+        inflightKey.current = null;
+      }
+    },
+    [apiCall],
+  );
+
+  const getManagedFlag = useCallback(
+    (experimentId: string) => managed[experimentId],
+    [managed],
+  );
+
+  return createElement(
+    ManagedFlagsContext.Provider,
+    { value: { fetchSome, getManagedFlag } },
+    children,
+  );
+}
+
+const NOOP: UseManagedExperimentFlagStatesReturn = {
+  fetchSome: async () => {},
+  getManagedFlag: () => undefined,
+};
+
+/**
+ * Loads which of the visible experiments manage a flag. A no-op outside the
+ * provider, so lists can opt in without coupling.
+ */
+export function useManagedExperimentFlagStates(
+  visible: Pick<ExperimentInterfaceStringDates, "id" | "linkedFeatures">[],
+): UseManagedExperimentFlagStatesReturn["getManagedFlag"] {
+  const { fetchSome, getManagedFlag } = useContext(ManagedFlagsContext) ?? NOOP;
+  const idsKey = visible
+    .filter((e) => (e.linkedFeatures || []).length > 0)
+    .map((e) => e.id)
+    .join(",");
+  useEffect(() => {
+    if (!idsKey) return;
+    fetchSome(idsKey.split(","));
+  }, [idsKey, fetchSome]);
+  return getManagedFlag;
+}

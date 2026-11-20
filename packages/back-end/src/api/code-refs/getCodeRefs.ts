@@ -21,7 +21,7 @@ export const getCodeRefs = createApiRequestHandler(getCodeRefsValidator)(async (
   const codeRefs = (
     await getAllCodeRefsForFeature({
       organization: req.context.org,
-      feature: req.params.id,
+      feature,
     })
   ).map(toApiInterface);
   return {

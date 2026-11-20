@@ -29,6 +29,9 @@
 // its hover. Select it more specifically than a bare button in the row.
 @mixin click-row-target {
   position: static;
+  // A flex item stacks on its z-index even unpositioned, which would lift
+  // the stretch over anything raised before it.
+  z-index: auto;
 
   &::after {
     content: "";

@@ -21,6 +21,7 @@ import {
   apiErrorRegistry,
   type ApiErrorDetails,
   type ExperimentChangesBody,
+  type ImplementationType,
   type ExperimentChangesFields,
   type ExperimentRuleEnvironments,
 } from "shared/validators";
@@ -789,6 +790,15 @@ export function useExperimentFieldEdit(
 export function useEditsBlockedReason(): string | null {
   const ctx = useContext(ExperimentEditsContext);
   return ctx?.dirty ? EDITS_BLOCKED_REASON : null;
+}
+
+/**
+ * An implementation type staged for the page's Save. Leaving Values deletes the
+ * managed flag, which the save has to acknowledge.
+ */
+export interface ImplementationTypeDraft {
+  value: { type: ImplementationType; deletesManagedFlag: boolean } | null;
+  set: (value: ImplementationTypeDraft["value"]) => void;
 }
 
 // An upload writes to the stored variation at an index staged variation edits

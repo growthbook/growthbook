@@ -8,6 +8,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ReactElement } from "react";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
 import {
+  PiCaretDownBold,
   PiCaretDownFill,
   PiDesktop,
   PiFlag,
@@ -19,11 +20,20 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
 import Avatar from "@/ui/Avatar";
 import Frame from "@/ui/Frame";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import SplitButton from "@/ui/SplitButton";
 import Tooltip from "@/ui/Tooltip";
+import {
+  IMPLEMENTATION_TYPE_OPTIONS,
+  implementationNoun,
+} from "@/components/Experiment/ImplementationTypeSelect";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
 export const LINKED_CHANGES: Record<
@@ -240,7 +250,7 @@ export default function AddLinkedChanges({
 }
 
 // The experiment page's own add controls.
-type AddableKind = "feature" | "visual" | "urlredirect";
+export type AddableKind = "feature" | "visual" | "urlredirect";
 export const ADDABLE_KINDS: AddableKind[] = [
   "feature",
   "visual",
@@ -276,7 +286,7 @@ const ADD_OPTIONS: Record<
   },
   urlredirect: {
     header: "URL Redirect",
-    description: "A/B test URL redirects",
+    description: "Test standalone pages without a Feature Flag",
     addLabel: "URL redirect",
     icon: <PiLink />,
     color: ICON_PROPERTIES.redirects.radixColor,
@@ -382,48 +392,100 @@ export function AddImplementationMenu({
   experiment,
   onAdd,
   primary = null,
+  changesValuesTo = null,
   blockedReasons = {},
+  values = null,
 }: {
   experiment: ExperimentInterfaceStringDates;
   onAdd: Record<AddableKind, () => void>;
-  // The kind the main button adds; none while nothing is added yet, when
+  // The kind the main button adds; none while no kind is chosen yet, when
   // each kind is listed with what it's for.
   primary?: AddableKind | null;
+  // On a Values experiment, the kinds that can take its place.
+  changesValuesTo?: AddableKind[] | null;
   // Why a kind can't be added right now.
   blockedReasons?: Partial<Record<AddableKind, string | null>>;
+  // Offered while no kind is chosen: values the experiment's own Feature
+  // Flag serves.
+  values?: { choose: () => void; blockedReason: string | null } | null;
 }) {
-  if (!primary) {
+  if (changesValuesTo) {
     return (
-      <Frame width="100%" mb="0" px="4" py="2">
-        {ADDABLE_KINDS.map((type, i) => (
-          <Box key={type}>
-            {i > 0 ? <Separator size="4" /> : null}
-            <Flex align="center" justify="between" gap="3" py="2">
-              <Flex align="center" gap="3" minWidth="0">
-                <Avatar
-                  radius="small"
-                  color={ADD_OPTIONS[type].color}
-                  size="sm"
-                  variant="soft"
-                >
-                  {ADD_OPTIONS[type].icon}
-                </Avatar>
-                <Text weight="semibold" color="text-high" whiteSpace="nowrap">
-                  {ADD_OPTIONS[type].header}
-                </Text>
-                <Text color="text-mid">{ADD_OPTIONS[type].description}</Text>
-              </Flex>
-              <AddImplementationButton
-                type={type}
-                experiment={experiment}
-                onClick={onAdd[type]}
-                blockedReason={blockedReasons[type]}
-                ghost
-              />
-            </Flex>
-          </Box>
+      <DropdownMenu
+        trigger={
+          <Link size="sm" color="gray">
+            Change implementation <PiCaretDownBold size={10} />
+          </Link>
+        }
+        menuPlacement="end"
+        variant="soft"
+      >
+        <DropdownMenuLabel>Change implementation</DropdownMenuLabel>
+        {changesValuesTo.map((type) => (
+          <AddImplementationItem
+            key={type}
+            type={type}
+            experiment={experiment}
+            onClick={onAdd[type]}
+            blockedReason={blockedReasons[type]}
+          />
         ))}
-      </Frame>
+      </DropdownMenu>
+    );
+  }
+  if (!primary) {
+    const valuesOption = IMPLEMENTATION_TYPE_OPTIONS.values;
+    // Values stands apart in its own box; the others are the less routine path.
+    return (
+      <Flex direction="column" gap="2" width="100%" mt="2">
+        {values ? (
+          <Frame mb="0" px="4" py="1">
+            <ChooserRow
+              option={{
+                ...valuesOption,
+                description: valuesOption.description(
+                  implementationNoun(experiment.type),
+                ),
+              }}
+              action={
+                <Tooltip
+                  content={values.blockedReason}
+                  enabled={!!values.blockedReason}
+                >
+                  <Button
+                    variant="ghost"
+                    icon={<PiPlus />}
+                    onClick={values.choose}
+                    disabled={!!values.blockedReason}
+                    aria-label="Add Variation values"
+                  >
+                    Variation values
+                  </Button>
+                </Tooltip>
+              }
+            />
+          </Frame>
+        ) : null}
+        <Frame mb="0" px="4" py="1">
+          {ADDABLE_KINDS.map((type, i) => (
+            <Box key={type}>
+              {i > 0 ? <Separator size="4" /> : null}
+              <ChooserRow
+                option={ADD_OPTIONS[type]}
+                action={
+                  <AddImplementationButton
+                    type={type}
+                    experiment={experiment}
+                    onClick={onAdd[type]}
+                    blockedReason={blockedReasons[type]}
+                    ghost
+                  />
+                }
+              />
+            </Box>
+          ))}
+        </Frame>
+      </Flex>
     );
   }
   return (
@@ -432,16 +494,14 @@ export function AddImplementationMenu({
       menu={
         <DropdownMenu
           trigger={
-            <Button
-              variant="outline"
-              aria-label="Add another kind of implementation"
-            >
+            <Button variant="outline" aria-label="Add implementation menu">
               <PiCaretDownFill />
             </Button>
           }
           menuPlacement="end"
           variant="soft"
         >
+          <DropdownMenuLabel>Add implementation</DropdownMenuLabel>
           {ADDABLE_KINDS.filter((type) => type !== primary).map((type) => (
             <AddImplementationItem
               key={type}
@@ -461,6 +521,32 @@ export function AddImplementationMenu({
         blockedReason={blockedReasons[primary]}
       />
     </SplitButton>
+  );
+}
+
+function ChooserRow({
+  option,
+  action,
+}: {
+  option: Pick<
+    (typeof ADD_OPTIONS)[AddableKind],
+    "header" | "description" | "icon" | "color"
+  >;
+  action: ReactElement;
+}) {
+  return (
+    <Flex align="center" justify="between" gap="3" py="2">
+      <Flex align="center" gap="3" minWidth="0">
+        <Avatar radius="small" color={option.color} size="sm" variant="soft">
+          {option.icon}
+        </Avatar>
+        <Text weight="semibold" color="text-high" whiteSpace="nowrap">
+          {option.header}
+        </Text>
+        <Text color="text-mid">{option.description}</Text>
+      </Flex>
+      {action}
+    </Flex>
   );
 }
 

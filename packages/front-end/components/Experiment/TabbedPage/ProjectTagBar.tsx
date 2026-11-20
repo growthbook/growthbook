@@ -3,11 +3,18 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { PiLockSimple } from "react-icons/pi";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  HoldoutInterfaceStringDates,
+  ImplementationType,
+} from "shared/validators";
 import {
   getExposureQueryIdentifierTypes,
+  getImplementationType,
+  isAnalysisOnly,
   resolveAnalysisIdentifierType,
 } from "shared/util";
+import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
+import { ManagedFlagLink } from "@/components/Experiment/ManagedFlagName";
 import Text from "@/ui/Text";
 import {
   CopyableKey,
@@ -57,11 +64,17 @@ export function RestrictedValue() {
 export function ExperimentDataFields({
   experiment,
   datasourceMissing = false,
+  managedFlagId = null,
+  stagedImplementationType = null,
   stagedHoldoutId = null,
   fieldAction = null,
 }: {
   experiment: ExperimentInterfaceStringDates;
   datasourceMissing?: boolean;
+  managedFlagId?: string | null;
+  // An implementation type staged for the page's Save, shown in place of the
+  // stored one.
+  stagedImplementationType?: ImplementationType | null;
   // A staged holdout ("" to leave), shown in place of the stored one.
   stagedHoldoutId?: string | null;
   fieldAction?: FieldAction;
@@ -101,6 +114,9 @@ export function ExperimentDataFields({
     (q) => q.id === exposureQueryId,
   );
   const isHoldout = experiment.type === "holdout";
+  const implementationType =
+    stagedImplementationType ||
+    getImplementationType({ ...experiment, hasManagedFlag: !!managedFlagId });
 
   return (
     <Flex direction="column" gap="3">
@@ -119,6 +135,28 @@ export function ExperimentDataFields({
           }
         />
       )}
+      {!isHoldout && (
+        <Metadata
+          size="sm"
+          stacked
+          label="Implementation"
+          value={
+            implementationType ? (
+              IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
+            ) : (
+              <EmptyValue label="Not set" />
+            )
+          }
+        />
+      )}
+      {!isHoldout && implementationType === "values" && managedFlagId ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Managed Feature Flag"
+          value={<ManagedFlagLink featureId={managedFlagId} />}
+        />
+      ) : null}
       <Metadata
         size="sm"
         stacked
@@ -194,7 +232,7 @@ export function ExperimentDataFields({
             : experiment.hashAttribute || "id"
         }
       />
-      {!isHoldout && useStickyBucketing ? (
+      {!isHoldout && useStickyBucketing && !isAnalysisOnly(experiment) ? (
         <Metadata
           size="sm"
           stacked

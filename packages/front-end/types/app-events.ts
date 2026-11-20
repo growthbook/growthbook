@@ -573,6 +573,9 @@ export type AppEvents = {
     nps_value: number;
     disposition: string;
   };
+  "Open experiment review": {
+    source: string;
+  };
   "Open health tab": {
     source: string;
   };

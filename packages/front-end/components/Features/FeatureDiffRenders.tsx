@@ -1912,7 +1912,7 @@ export function renderPrerequisites(
 }
 
 // On/off icon for an environment toggle. "muted" is the before half of a diff.
-function EnvEnabledIndicator({
+export function EnvEnabledIndicator({
   enabled,
   tone = "state",
   besideApprovals,
@@ -2128,6 +2128,11 @@ export function renderRevisionMetadata(
       );
     }
   };
+
+  // A re-type changes how every value reads; show it first.
+  if (draft.valueType !== undefined) {
+    stringField("valueType", "Value type", current?.valueType, draft.valueType);
+  }
 
   if (draft.description !== undefined) {
     stringField(

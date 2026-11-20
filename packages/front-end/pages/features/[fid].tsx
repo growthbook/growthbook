@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { isActiveDraftStatus } from "shared/validators";
 import { isRevisionEditLockedBySchedule } from "shared/enterprise";
+import { isManagedFeature } from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
@@ -158,6 +159,13 @@ export default function FeaturePage() {
     }
   }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The tab is sticky in localStorage, so a managed flag can land on the hidden
+  // Review tab and render an empty shell.
+  const isManagedFlag = !!baseFeature && isManagedFeature(baseFeature);
+  useEffect(() => {
+    if (isManagedFlag && tab === "review") setTab("overview");
+  }, [isManagedFlag, tab, setTab]);
+
   // Open state is remembered per feature; width is a global preference.
   const details = useDetailsPanel({
     openKey: `feature-details-panel-open__${fid}`,
@@ -202,7 +210,7 @@ export default function FeaturePage() {
   // Every tab but the overview is the same in both versions of the page.
   const otherTabs = (
     <>
-      {tab === "review" && (
+      {tab === "review" && !isManagedFlag && (
         <ReviewAndPublish
           feature={baseFeature}
           revisions={data.revisions}

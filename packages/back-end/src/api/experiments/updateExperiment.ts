@@ -4,6 +4,7 @@ import {
   getAllMetricIdsFromExperiment,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
+import { ExperimentInterface } from "shared/types/experiment";
 import {
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
@@ -15,6 +16,13 @@ import {
   updateExperimentValidator,
   postExperimentArchiveValidator,
 } from "shared/validators";
+import {
+  assertManagedFlagCanMove,
+  moveManagedFlagWithExperiment,
+  assertManagedFlagReleasable,
+  planImplementationTypeRelease,
+  releaseManagedFlagForImplementationChange,
+} from "back-end/src/services/managedFeatures";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   canBypassReviewChecks,
@@ -93,7 +101,11 @@ import { requireExperiment } from "./requireExperiment";
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
 )(async (req) => {
-  const experiment = await requireExperiment(req.context, req.params.id);
+  // Reassigned when leaving Values releases the managed flag.
+  let experiment: ExperimentInterface = await requireExperiment(
+    req.context,
+    req.params.id,
+  );
 
   const assignmentQueryInput = parseAssignmentQueryInput(
     req.body.assignmentQuery,
@@ -616,6 +628,21 @@ export const updateExperiment = createApiRequestHandler(
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
 
+  // The release (eject or delete) waits until every check has passed.
+  const releaseManagedFlagFor =
+    changes.implementationType === undefined
+      ? null
+      : ((
+          await planImplementationTypeRelease(
+            req.context,
+            experiment,
+            changes.implementationType,
+            "rest",
+          )
+        )?.releaseManagedFlagFor ?? null);
+  if (changes.project !== undefined) {
+    await assertManagedFlagCanMove(req.context, experiment, changes.project);
+  }
   await validateExperimentChange({ context: req.context, experiment, changes });
 
   const skipChecklist = !!payload.skipChecklist;
@@ -678,6 +705,14 @@ export const updateExperiment = createApiRequestHandler(
       ? experiment.pendingFeatureDrafts
       : undefined,
   );
+  if (releaseManagedFlagFor) {
+    await assertManagedFlagReleasable({
+      context: req.context,
+      experiment,
+      next: releaseManagedFlagFor,
+      acknowledged: req.context.ignoreWarnings,
+    });
+  }
   // Everything that can refuse has run, so a confirmed update only writes.
   await requireConfirmation(req.context, {
     actions: [
@@ -699,6 +734,15 @@ export const updateExperiment = createApiRequestHandler(
       queued.pin,
     ],
   });
+  if (releaseManagedFlagFor) {
+    experiment = await releaseManagedFlagForImplementationChange({
+      context: req.context,
+      experiment,
+      next: releaseManagedFlagFor,
+      audit: req.audit,
+      acknowledged: req.context.ignoreWarnings,
+    });
+  }
 
   let experimentForUpdate = experiment;
   if (archive !== null) {
@@ -770,6 +814,9 @@ export const updateExperiment = createApiRequestHandler(
           changes: changesForUpdate,
         })
       : experimentForUpdate;
+  if (changes.project !== undefined) {
+    await moveManagedFlagWithExperiment(req.context, updatedExperiment);
+  }
 
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");

@@ -1,4 +1,7 @@
-import { getLinkedChangeEnvs } from "shared/util";
+import {
+  getLinkedChangeEnvs,
+  implementationTypeAfterUnlink,
+} from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
 import {
   getLatestPhaseVariations,
@@ -8,7 +11,10 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { urlRedirectValidator } from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { BadRequestError } from "back-end/src/util/errors";
+import {
+  assertNotValuesImplementation,
+  BadRequestError,
+} from "back-end/src/util/errors";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
@@ -137,6 +143,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     if (!experiment) {
       throw new Error("Could not find experiment");
     }
+    assertNotValuesImplementation(this.context, experiment);
     assertRedirectDestinations(
       doc,
       getLatestPhaseVariations(experiment).map((v) => v.id),
@@ -190,7 +197,13 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
         await updateExperiment({
           context: this.context,
           experiment,
-          changes: { hasURLRedirects: false },
+          changes: {
+            hasURLRedirects: false,
+            implementationType: implementationTypeAfterUnlink({
+              ...experiment,
+              hasURLRedirects: false,
+            }),
+          },
           bypassWebhooks: true,
         });
       }

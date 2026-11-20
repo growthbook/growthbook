@@ -110,7 +110,7 @@ function getChecklistItems(
       blockingRow({
         key: `approve-${f.feature.id}`,
         display: `Approve the Feature Flag draft for ${f.feature.id}`,
-        action: linkedFeatureAction(f),
+        action: linkedFeatureAction(f, { review: true }),
         description: f.draftRevisionStatus ? (
           <Badge
             label={revisionStatusLabel(f.draftRevisionStatus)}

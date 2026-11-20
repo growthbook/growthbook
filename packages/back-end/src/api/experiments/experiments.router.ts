@@ -19,6 +19,19 @@ import { deleteVariationScreenshot } from "./deleteVariationScreenshot";
 import { getExperimentNames } from "./getExperimentNames";
 import { getExperimentStartChecklist } from "./getExperimentStartChecklist";
 import {
+  getExperimentVariationValues,
+  postExperimentVariationValues,
+  postExperimentVariationValuesDetach,
+  postExperimentVariationValuesDiscard,
+  postExperimentVariationValuesPublish,
+  postExperimentVariationValuesRecallReview,
+  postExperimentVariationValuesRebase,
+  postExperimentVariationValuesRequestReview,
+  postExperimentVariationValuesSubmitReview,
+  postExperimentVariationValuesUndoReview,
+  putExperimentVariationValues,
+} from "./variationValues";
+import {
   deleteExperiment,
   postExperimentArchive,
   postExperimentUnarchive,
@@ -34,6 +47,17 @@ export const experimentsRoutes: OpenApiRoute[] = [
   listExperimentResults,
   getExperiment,
   getExperimentStartChecklist,
+  getExperimentVariationValues,
+  postExperimentVariationValues,
+  putExperimentVariationValues,
+  postExperimentVariationValuesRequestReview,
+  postExperimentVariationValuesSubmitReview,
+  postExperimentVariationValuesRecallReview,
+  postExperimentVariationValuesUndoReview,
+  postExperimentVariationValuesRebase,
+  postExperimentVariationValuesPublish,
+  postExperimentVariationValuesDiscard,
+  postExperimentVariationValuesDetach,
   getExperimentResults,
   getExperimentBulkResults,
   updateExperiment,

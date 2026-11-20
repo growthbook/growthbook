@@ -17,7 +17,12 @@ import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevi
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 
-type RevisionRules = Pick<FeatureRevisionInterface, "rules">;
+type RevisionRules = Pick<FeatureRevisionInterface, "rules"> & {
+  metadata?: Pick<
+    NonNullable<FeatureRevisionInterface["metadata"]>,
+    "valueType"
+  >;
+};
 
 type LaunchCandidate = RevisionRules &
   Pick<FeatureRevisionInterface, "version"> & {
@@ -32,8 +37,8 @@ function matchedRules(rules: unknown, matches: RuleMatcher): FeatureRule[] {
   return JSON.parse(JSON.stringify(naiveFlattenV1Rules(rules).filter(matches)));
 }
 
-// Newest first. A draft carrying the rules unchanged from live or from its own
-// base, or an old copy of them, is someone else's work.
+// Newest first. A draft carrying the rules (and the flag's type) unchanged from
+// live or from its own base, or an old copy of them, is someone else's work.
 export function getRuleChangingDraftVersions(
   matches: RuleMatcher,
   openDrafts: LaunchCandidate[],
@@ -41,9 +46,12 @@ export function getRuleChangingDraftVersions(
 ): number[] {
   const changesFrom = (draft: RevisionRules, from: RevisionRules | null) => {
     const draftRules = matchedRules(draft.rules, matches);
+    const draftType = draft.metadata?.valueType;
+    const fromType = from?.metadata?.valueType;
     return (
       draftRules.length > 0 &&
-      !isEqual(draftRules, matchedRules(from?.rules, matches))
+      (!isEqual(draftRules, matchedRules(from?.rules, matches)) ||
+        (!!draftType && !!fromType && draftType !== fromType))
     );
   };
   return openDrafts

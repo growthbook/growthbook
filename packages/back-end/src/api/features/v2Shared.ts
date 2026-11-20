@@ -12,6 +12,7 @@ import {
   parsePlainJSONObject,
   isScheduledRule,
   findStoredRuleCounterpart,
+  isManagedByExperiment,
 } from "shared/util";
 import isEqual from "lodash/isEqual";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -19,7 +20,11 @@ import type { ExperimentInterface } from "shared/types/experiment";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  assertNotValuesImplementation,
+  BadRequestError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -514,6 +519,8 @@ export async function assertValidRuleExperimentIds(
   rules: FeatureRule[],
   context: ReqContext | ApiReqContext,
   planned: ExperimentInterface[] = [],
+  // The flag written, when known: an experiment's own flag may point at it.
+  feature?: Pick<FeatureInterface, "managedBy">,
 ): Promise<void> {
   const refs = rules.filter(
     (r): r is Extract<FeatureRule, { type: "experiment-ref" }> =>
@@ -535,6 +542,9 @@ export async function assertValidRuleExperimentIds(
       );
     }
     assertRuleVariationsMatchExperiment(rule, experiment);
+    if (!feature || !isManagedByExperiment(feature, experiment.id)) {
+      assertNotValuesImplementation(context, experiment);
+    }
   }
 }
 
@@ -562,6 +572,7 @@ export async function assertValidChangedRuleExperimentIds(
   stored: FeatureRule[],
   context: ReqContext | ApiReqContext,
   planned: ExperimentInterface[] = [],
+  feature?: Pick<FeatureInterface, "managedBy">,
 ): Promise<void> {
   await assertValidRuleExperimentIds(
     inbound.filter(
@@ -571,6 +582,7 @@ export async function assertValidChangedRuleExperimentIds(
     ),
     context,
     planned,
+    feature,
   );
 }
 

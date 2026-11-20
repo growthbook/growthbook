@@ -1,5 +1,5 @@
 import isEqual from "lodash/isEqual";
-import { validateFeatureValue } from "shared/util";
+import { isManagedByExperiment, validateFeatureValue } from "shared/util";
 import { conflictingFields } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -15,6 +15,7 @@ import {
 import { getFeature, getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {
   deleteRevisionForFailedLanding,
+  getActiveDraft,
   getLinkageSyncRevisionSummaries,
   getRevision,
   getRevisionSnapshot,
@@ -45,6 +46,12 @@ import {
   removeFlagFromExperiment,
 } from "back-end/src/services/experiment-feature";
 import {
+  discardDraftIfNoop,
+  stageManagedFeatureFields,
+  healManagedFlag,
+  requireManagedFeature,
+} from "back-end/src/services/managedFeatures";
+import {
   assertScopedRules,
   assertValidRuleWrite,
   isDraftStatus,
@@ -64,6 +71,10 @@ import {
   insertNewFeature,
   prepareNewFeature,
 } from "back-end/src/services/featureCreate";
+import {
+  assertManagedFlagRenamable,
+  renameManagedFlag,
+} from "back-end/src/services/featureRename/renameManagedFlag";
 import {
   ExperimentUpdatePlan,
   finishExperimentUpdate,
@@ -101,6 +112,7 @@ type FlagValuesGroupPlan = Pick<
 // several groups of them when those rules disagree.
 type FlagValuesPlan = Omit<ExperimentFeatureUpdatePlan, "matchingRules"> & {
   groups: FlagValuesGroupPlan[];
+  managed: boolean;
 };
 
 type FlagValuesEntry = NonNullable<ExperimentChangesBody["flagValues"]>[number];
@@ -215,6 +227,16 @@ async function planFlagValues(
       context.permissions.throwPermissionError();
     }
 
+    const managed = isManagedByExperiment(feature, experiment.id);
+    if (
+      !managed &&
+      entries.some((e) => e.valueType && e.valueType !== feature.valueType)
+    ) {
+      throw new BadRequestError(
+        `Feature ${feature.id}: only a Feature Flag managed by this experiment can change its value type here.`,
+      );
+    }
+
     const loadedFrom = entries[0].revision;
     // Groups staged on either side of someone else's save disagree.
     const loadedApart = entries.some(
@@ -243,6 +265,14 @@ async function planFlagValues(
       conflicts.push(feature.id);
       continue;
     }
+    // A managed flag has one draft; writing beside it would fork its review.
+    if (managed) {
+      const activeDraft = await getActiveDraft(context, feature);
+      if ((activeDraft?.version ?? feature.version) !== loaded.version) {
+        conflicts.push(feature.id);
+        continue;
+      }
+    }
 
     let existingRevision: FeatureRevisionInterface | undefined;
     let startingRevision: FeatureRevisionInterface | undefined;
@@ -251,6 +281,7 @@ async function planFlagValues(
     for (const entry of entries) {
       const update: ExperimentLinkedFeatureValueUpdate = {
         variations: entry.variations,
+        ...(entry.valueType && { valueType: entry.valueType }),
         ...(entry.sparse !== undefined && { sparse: entry.sparse }),
         ...(entry.environments && { environments: entry.environments }),
         ...(entry.ruleIds && { ruleIds: entry.ruleIds }),
@@ -284,7 +315,12 @@ async function planFlagValues(
         existingRevision ?? (await getLiveRevisionForFeature(context, feature));
       const base = projected ?? startingRevision;
 
-      const judgedFeature = withStagedSchema(feature, base);
+      const landingType =
+        update.valueType ?? base.metadata?.valueType ?? feature.valueType;
+      const judgedFeature = {
+        ...withStagedSchema(feature, base),
+        valueType: landingType,
+      };
       // Normalizes too: loose JSON is repaired rather than stored malformed.
       update.variations.forEach((v, i) => {
         v.value = validateFeatureValue(
@@ -345,7 +381,7 @@ async function planFlagValues(
       },
     );
 
-    result.push({ feature, existingRevision, groups });
+    result.push({ feature, existingRevision, groups, managed });
   }
   return { plans: result, conflicts };
 }
@@ -361,7 +397,7 @@ async function writeFlagValues({
   eventAudit: EventUser;
   compensations: Compensation[];
 }): Promise<{ featureId: string; version: number }> {
-  const { feature, existingRevision, groups } = plan;
+  const { feature, existingRevision, groups, managed } = plan;
 
   let snapshot: RevisionSnapshot | null = null;
   if (existingRevision) {
@@ -391,6 +427,22 @@ async function writeFlagValues({
   // A draft this save created goes if anything fails; an existing one only
   // needs restoring once this save has written to it.
   if (!snapshot) compensations.push(compensation);
+
+  if (managed) {
+    const valueType = groups.find((g) => g.update.valueType)?.update.valueType;
+    // Control drives a managed flag's default.
+    revision = await stageManagedFeatureFields({
+      context,
+      feature,
+      revision,
+      ...(valueType && { valueType }),
+      defaultValue: groups[0].update.variations[0].value,
+      eventAudit,
+      guardDateUpdated: true,
+    });
+    if (!compensations.includes(compensation)) compensations.push(compensation);
+    compensation.writtenDateUpdated = revision.dateUpdated;
+  }
 
   for (const { matchingRules, update, scope } of groups) {
     revision = await updateExperimentRefVariations({
@@ -426,7 +478,28 @@ async function writeFlagValues({
     }
   }
 
-  return { featureId: feature.id, version: revision.version };
+  let version = revision.version;
+  if (managed) {
+    if (
+      await discardDraftIfNoop({
+        context,
+        feature,
+        revision,
+        eventAudit,
+      })
+    ) {
+      version = feature.version;
+    }
+    // Both write the draft without handing it back.
+    compensation.writtenDateUpdated = (
+      await getRevisionSnapshot(
+        feature.organization,
+        feature.id,
+        revision.version,
+      )
+    )?.dateUpdated;
+  }
+  return { featureId: feature.id, version };
 }
 
 async function compensate(
@@ -515,6 +588,20 @@ export async function applyExperimentChanges({
       urlRedirectIds: [],
       visualChangesetIds: [],
     });
+  }
+  if (body.renameManagedFlag) {
+    // Leaving Values deletes or releases the flag the rename would move.
+    if (experimentPlan?.releaseManagedFlagFor) {
+      throw new BadRequestError(
+        "Change the implementation type or rename the Feature Flag, not both in one save.",
+      );
+    }
+    await assertManagedFlagRenamableUpFront(
+      context,
+      experiment,
+      body,
+      body.renameManagedFlag.to,
+    );
   }
 
   if (body.unlinkFeatures?.some((id) => body.keepFeatures?.includes(id))) {
@@ -642,15 +729,14 @@ export async function applyExperimentChanges({
     }
     await planCreates(context, plannedExperiment, body, { runHooks: false });
     // Pins the short window since the re-read; the field check above covers the rest.
-    written = {
+    written = await writeExperimentUpdatePlan({
+      context,
       experiment: fresh,
-      updated: await writeExperimentUpdatePlan({
-        context,
-        experiment: fresh,
-        plan: experimentPlan,
-        guard: { dateUpdated: fresh.dateUpdated },
-      }),
-    };
+      plan: experimentPlan,
+      audit,
+      guard: { dateUpdated: fresh.dateUpdated },
+      acknowledgeFlagRemoval: body.deleteManagedFlag === true,
+    });
   } catch (e) {
     const failed = await compensate(context, compensations);
     if (!failed.length) throw e;
@@ -798,7 +884,8 @@ function linkCheck(
 }
 
 // Once the values and experiment have landed: flags created, linked again,
-// unlinked or kept, then Visual Editor changes and URL Redirects.
+// unlinked or kept, then Visual Editor changes and URL Redirects, then the
+// managed flag if one is missing.
 async function finishFlags({
   context,
   experiment,
@@ -860,11 +947,45 @@ async function finishFlags({
       audit,
     });
   }
-  return creates.length ||
+  const linked =
+    creates.length ||
     body.linkFeatures?.length ||
     body.unlinkFeatures?.length ||
     body.keepFeatures?.length ||
     linkedPlan
-    ? ((await getExperimentById(context, experiment.id)) ?? experiment)
-    : experiment;
+      ? ((await getExperimentById(context, experiment.id)) ?? experiment)
+      : experiment;
+  const healed = await healManagedFlag({
+    context,
+    experiment: linked,
+    values: body.managedFlag,
+    eventAudit,
+    audit,
+  });
+  if (!body.renameManagedFlag) return healed;
+  await renameManagedFlag({
+    context,
+    experiment: healed,
+    feature: await requireManagedFeature(context, healed),
+    to: body.renameManagedFlag.to,
+    audit,
+  });
+  return (await getExperimentById(context, healed.id)) ?? healed;
+}
+
+// Refuses before anything is written; the rename itself checks again.
+async function assertManagedFlagRenamableUpFront(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+  body: ExperimentChangesBody,
+  to: string,
+) {
+  const feature = await requireManagedFeature(context, experiment);
+  if (to === feature.id) return;
+  if (body.unlinkFeatures?.includes(feature.id)) {
+    throw new BadRequestError(
+      "Unlink the Feature Flag or rename it, not both in one save.",
+    );
+  }
+  await assertManagedFlagRenamable(context, experiment, feature, to);
 }
