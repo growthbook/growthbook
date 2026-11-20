@@ -12,6 +12,7 @@ import {
 } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
+import { SCHEMA_LANG_LABEL } from "@/components/Configs/fieldSchema";
 
 // Combined shape so the render/badge helpers serve both constants and configs.
 type DiffShape = ConstantInterface & ConfigInterface;
@@ -518,6 +519,7 @@ export function renderConfigProjections(
   post: Post,
 ): ReactNode | null {
   const rows = configProjectionRows(pre, post);
+  const lang = (id: string) => SCHEMA_LANG_LABEL[id] ?? id;
   return rows.length ? (
     <Box mt="1">
       {rows.map(({ source, from, to }) => (
@@ -525,14 +527,14 @@ export function renderConfigProjections(
           key={source}
           label={source}
           changed
-          oldNode={from ? from.language : <em>None</em>}
+          oldNode={from ? lang(from.language) : <em>None</em>}
           newNode={
             !to ? (
               <em>None</em>
             ) : from?.language === to.language ? (
-              `${to.language} (updated)`
+              `${lang(to.language)} (updated)`
             ) : (
-              to.language
+              lang(to.language)
             )
           }
         />
@@ -582,7 +584,7 @@ export const REVISION_CONFIG_DIFF_CONFIG: RevisionDiffConfig<ConfigInterface> =
         getBadges: getConfigInvariantBadges,
       },
       {
-        label: "Render projections",
+        label: "Named projections",
         keys: ["renderProjections"] as (keyof ConfigInterface)[],
         render: renderConfigProjections,
         getBadges: getConfigProjectionBadges,

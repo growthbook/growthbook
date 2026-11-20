@@ -307,7 +307,7 @@ export default function FieldDefForm({
           { value: "true", label: "true" },
           { value: "false", label: "false" },
         ]}
-        initialOption="Choose a value"
+        placeholder="Choose a value"
         sort={false}
       />
     ) : enumValues.length > 0 ? (
@@ -317,7 +317,7 @@ export default function FieldDefForm({
         value={valueText}
         onChange={setValueText}
         options={enumValues.map((v) => ({ value: v, label: v }))}
-        initialOption="Choose a value"
+        placeholder="Choose a value"
         sort={false}
       />
     ) : (

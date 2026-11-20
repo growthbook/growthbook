@@ -9,6 +9,14 @@ export default function ArchiveStateCallout({
   liveArchived: boolean;
   viewedArchived: boolean;
 }) {
+  if (liveArchived && !viewedArchived) {
+    return (
+      <Callout status="info" mt="3">
+        <strong>This draft will unarchive the {noun}.</strong> Once published,
+        it becomes active again.
+      </Callout>
+    );
+  }
   if (liveArchived) {
     return (
       <Callout status="info" mt="3">

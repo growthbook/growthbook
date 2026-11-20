@@ -305,7 +305,7 @@ export default function ConfigFieldRow({
                                 { value: "true", label: "true" },
                                 { value: "false", label: "false" },
                               ]}
-                              initialOption="Choose a value"
+                              placeholder="Choose a value"
                               sort={false}
                               disabled={isNull}
                             />
@@ -319,7 +319,7 @@ export default function ConfigFieldRow({
                                 value: v,
                                 label: v,
                               }))}
-                              initialOption="Choose a value"
+                              placeholder="Choose a value"
                               sort={false}
                               disabled={isNull}
                             />

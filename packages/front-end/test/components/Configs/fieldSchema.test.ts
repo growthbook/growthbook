@@ -65,6 +65,7 @@ describe("parseFieldValueInput", () => {
     [{ type: "integer" }, "1.5", "Value must be an integer"],
     [{ type: "integer" }, "12abc", "Value must be a number"],
     [{ type: "boolean" }, "hello", "Value must be true or false"],
+    [{ type: "boolean" }, "", "Choose a value"],
     [object, "{", expect.any(String)],
   ] as const)("rejects %j %j", (overrides, text, error) => {
     expect(parseFieldValueInput(text, field(overrides))).toEqual({
@@ -74,10 +75,15 @@ describe("parseFieldValueInput", () => {
   });
 
   it("asks for an allowed value when the allow-list has no empty string", () => {
-    expect(parseFieldValueInput("", field({ enum: ["eu", "us"] }))).toEqual({
-      kind: "error",
-      error: "Choose a value",
-    });
+    for (const f of [
+      field({ enum: ["eu", "us"] }),
+      field({ type: "integer", enum: ["1", "2"] }),
+    ]) {
+      expect(parseFieldValueInput("", f)).toEqual({
+        kind: "error",
+        error: "Choose a value",
+      });
+    }
   });
 
   it("keeps an empty string, needs a value for other types, and reads null", () => {

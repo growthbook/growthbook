@@ -390,15 +390,22 @@ export function parseFieldValueInput(
 ): { kind: "value"; value: unknown } | { kind: "error"; error: string } {
   if (isNull) return { kind: "value", value: null };
   const valueType = fieldValueType(field);
+  const allowed = field ? normalizeField(field).enum : [];
   if (valueType === "string") {
     // An allow-list without "" needs one of its values.
-    const allowed = field ? normalizeField(field).enum : [];
     return text === "" && allowed.length > 0 && !allowed.includes("")
       ? { kind: "error", error: "Choose a value" }
       : { kind: "value", value: text };
   }
   const t = text.trim();
-  if (t === "") return { kind: "error", error: "Enter a value" };
+  if (t === "") {
+    // Booleans and allow-lists are picked from a menu.
+    const picked = valueType === "boolean" || allowed.length > 0;
+    return {
+      kind: "error",
+      error: picked ? "Choose a value" : "Enter a value",
+    };
+  }
   switch (valueType) {
     case "json":
       try {
@@ -461,3 +468,12 @@ export function configRelation(
   if (aboveKey.length > 0 && aboveKey[0] === aboveCurrent[0]) return "sibling";
   return "related";
 }
+
+export const SCHEMA_LANG_LABEL: Record<string, string> = {
+  typescript: "TypeScript",
+  protobuf: "Protobuf",
+  python: "Python",
+  go: "Go",
+  rust: "Rust",
+  "json-schema": "JSON Schema",
+};

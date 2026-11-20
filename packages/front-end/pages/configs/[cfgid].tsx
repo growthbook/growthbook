@@ -190,6 +190,7 @@ import {
   valueEditSeed,
   ValueEditSeed,
   configRelation,
+  SCHEMA_LANG_LABEL,
 } from "@/components/Configs/fieldSchema";
 
 type ResolvedResponse = {
@@ -252,15 +253,6 @@ const SCHEMA_EXPORT_FORMATS: { id: string; label: string }[] = [
   { id: "go", label: "Go" },
   { id: "rust", label: "Rust" },
 ];
-
-const SCHEMA_LANG_LABEL: Record<string, string> = {
-  typescript: "TypeScript",
-  protobuf: "Protobuf",
-  python: "Python",
-  go: "Go",
-  rust: "Rust",
-  "json-schema": "JSON Schema",
-};
 
 // Derived from the displayed revision, so the export is revision-sensitive.
 // Schemas keyed by format id; named projections listed separately.
@@ -800,9 +792,10 @@ export default function ConfigDetailPage(): React.ReactElement {
     () =>
       resolved.fields.map((f) => ({
         ...f,
-        value: f.value === undefined ? undefined : squashConstants(f.value),
+        value:
+          f.value === undefined ? layerValues[f.key] : squashConstants(f.value),
       })),
-    [resolved.fields, squashConstants],
+    [resolved.fields, squashConstants, layerValues],
   );
 
   // The resolved (inherited+own) value cross-field rules run against, with
@@ -1042,11 +1035,6 @@ export default function ConfigDetailPage(): React.ReactElement {
       }
     };
 
-    const resolvedObj: Record<string, unknown> = {};
-    for (const f of resolved.fields) {
-      if (f.value !== undefined) resolvedObj[f.key] = f.value;
-    }
-
     const ownFields = displayedConfig?.schema?.fields ?? [];
     const ap = effectiveExtensible;
     const codeRenderers: Record<
@@ -1101,7 +1089,7 @@ export default function ConfigDetailPage(): React.ReactElement {
 
     return {
       ownValue: prettyJSON(displayedConfig?.value ?? "{}"),
-      resolvedValue: JSON.stringify(squashConstants(resolvedObj), null, 2),
+      resolvedValue: JSON.stringify(invariantValue, null, 2),
       ownSchema: renderAll(ownFields),
       effectiveSchema: renderAll(resolved.effectiveSchema),
       ownProjections,
@@ -1113,7 +1101,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     displayedConfig?.renderProjections,
     resolved,
     effectiveExtensible,
-    squashConstants,
+    invariantValue,
   ]);
 
   // Above the early returns: hooks must run in the same order every render, so
@@ -2279,12 +2267,17 @@ export default function ConfigDetailPage(): React.ReactElement {
                                   Value
                                   {overrideCount > 0 && (
                                     <Flex align="center" gap="2">
-                                      <Text size="sm" color="text-low">
+                                      <Text
+                                        as="label"
+                                        htmlFor="config-show-overrides"
+                                        size="sm"
+                                        color="text-low"
+                                      >
                                         Show overrides
                                       </Text>
                                       <Switch
+                                        id="config-show-overrides"
                                         size="sm"
-                                        ariaLabel="Show overrides"
                                         value={showOverrides}
                                         onChange={setShowOverrides}
                                       />
