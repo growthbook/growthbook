@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { isEqual } from "lodash";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -442,7 +442,7 @@ export default function ExposureLogsCard({
   const unitNoun = subUnitIdColumn ? "subunits" : "units";
 
   return (
-    <div ref={containerRef} style={{ scrollMarginTop: "100px" }}>
+    <Box ref={containerRef} style={{ scrollMarginTop: "100px" }}>
       <RecordsPanel
         title="Exposure Logs"
         query={query}
@@ -464,6 +464,6 @@ export default function ExposureLogsCard({
         idleMessage="No recent results. Click Refresh to load exposure records."
         warning={warning}
       />
-    </div>
+    </Box>
   );
 }
