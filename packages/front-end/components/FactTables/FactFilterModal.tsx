@@ -7,50 +7,82 @@ import {
 } from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
-import { FaAngleDown, FaAngleRight, FaPlay } from "react-icons/fa";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiPlay } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import Modal from "@/components/Modal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Field from "@/components/Forms/Field";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Button from "@/ui/Button";
+import Text from "@/ui/Text";
+import { TextField } from "@/ui/TextField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Button from "@/components/Button";
-import Checkbox from "@/ui/Checkbox";
-import Callout from "@/ui/Callout";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
   factTable: FactTableInterface;
   existing?: FactFilterInterface;
+  canDelete?: boolean;
   close: () => void;
 }
 
-export default function FactFilterModal({ existing, factTable, close }: Props) {
+export default function FactFilterModal({
+  existing,
+  factTable,
+  canDelete = false,
+  close,
+}: Props) {
   const { apiCall } = useAuth();
+  const { mutateDefinitions, getDatasourceById } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
 
-  const [showDescription, setShowDescription] = useState(
-    !!existing?.description?.length,
-  );
-
-  const [testResult, setTestResult] = useState<null | FactFilterTestResults>(
-    null,
-  );
-
-  const [testBeforeSave, setTestBeforeSave] = useState(true);
-
-  const [showExamples, setShowExamples] = useState(false);
-
-  const { mutateDefinitions } = useDefinitions();
-
-  const form = useForm<CreateFactFilterProps>({
+  const form = useForm<
+    Pick<CreateFactFilterProps, "name" | "value" | "description">
+  >({
     defaultValues: {
-      description: existing?.description || "",
       name: existing?.name || "",
       value: existing?.value || "",
+      description: existing?.description || "",
     },
   });
+
+  const datasource = getDatasourceById(factTable.datasource);
+  const canTest = !!datasource && permissionsUtil.canRunTestQueries(datasource);
+  const [testResult, setTestResult] = useState<FactFilterTestResults | null>(
+    null,
+  );
+  const testFilter = async (value: string) => {
+    const { result } = await apiCall<{ result: FactFilterTestResults }>(
+      `/fact-tables/${factTable.id}/test-filter`,
+      { method: "POST", body: JSON.stringify({ value }) },
+    );
+    setTestResult(result);
+    return result;
+  };
+
+  // Clicking a column in the list inserts it at the cursor
+  const sqlRef = useRef<HTMLTextAreaElement | null>(null);
+  const { ref: registerSqlRef, ...valueField } = form.register("value");
+  const insertColumn = (column: string) => {
+    const el = sqlRef.current;
+    const current = form.getValues("value");
+    const start = el?.selectionStart ?? current.length;
+    const end = el?.selectionEnd ?? start;
+    form.setValue(
+      "value",
+      current.slice(0, start) + column + current.slice(end),
+    );
+    window.requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(start + column.length, start + column.length);
+    });
+  };
+  const hasColumns = factTable.columns.some((c) => !c.deleted);
 
   const isNew = !existing;
   useEffect(() => {
@@ -59,71 +91,36 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
     );
   }, [isNew]);
 
-  const testQuery = async (value: string) => {
-    setTestResult(null);
-    const result = await apiCall<{
-      result: FactFilterTestResults;
-    }>(`/fact-tables/${factTable.id}/test-filter`, {
-      method: "POST",
-      body: JSON.stringify({ value }),
-    });
-    setTestResult(result.result);
-    return result.result;
-  };
-
-  // Ref to the Filter SQL textarea so clicking a column inserts it at the cursor.
-  const sqlRef = useRef<HTMLTextAreaElement | null>(null);
-  const { ref: registerSqlRef, ...valueField } = form.register("value");
-
-  const insertColumn = (column: string) => {
-    const el = sqlRef.current;
-    const current = form.watch("value");
-    if (el && typeof el.selectionStart === "number") {
-      const start = el.selectionStart;
-      const end = el.selectionEnd ?? start;
-      form.setValue(
-        "value",
-        current.slice(0, start) + column + current.slice(end),
-      );
-      // Restore focus and place the cursor just after the inserted text.
-      window.requestAnimationFrame(() => {
-        el.focus();
-        const pos = start + column.length;
-        el.setSelectionRange(pos, pos);
-      });
-    } else {
-      form.setValue("value", current ? `${current} ${column}` : column);
-    }
-  };
-
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
-      cta={"Save"}
+      header={existing ? "Edit Saved Filter" : "New Saved Filter"}
       size="lg"
-      header={existing ? "Edit Filter" : "Add Filter"}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         // If they added their own "WHERE" to the start, remove it
         value.value = value.value.replace(/^\s*where\s*/i, "").trim();
 
         if (!value.value) {
-          throw new Error("Cannot leave Filter SQL blank");
+          throw new Error("Cannot leave the SQL condition blank");
         }
 
-        if (testBeforeSave) {
-          const result = await testQuery(value.value);
+        // A broken condition would fail every metric that uses it, so check a
+        // changed one against the warehouse. Editors without query access
+        // can still save, as before.
+        if (value.value !== existing?.value && canTest) {
+          const result = await testFilter(value.value);
           if (result.error) {
-            throw new Error("Fix errors before saving");
+            throw new Error(result.error);
           }
         }
 
         if (existing) {
           const data: UpdateFactFilterProps = {
-            description: value.description,
             name: value.name,
             value: value.value,
+            description: value.description,
           };
           await apiCall(`/fact-tables/${factTable.id}/filter/${existing.id}`, {
             method: "PUT",
@@ -131,75 +128,61 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           });
           track("Edit Fact Filter");
         } else {
+          const data: CreateFactFilterProps = value;
           await apiCall(`/fact-tables/${factTable.id}/filter`, {
             method: "POST",
-            body: JSON.stringify(value),
+            body: JSON.stringify(data),
           });
           track("Create Fact Filter");
         }
         mutateDefinitions();
       })}
-      secondaryCTA={
-        <Checkbox
-          value={testBeforeSave}
-          setValue={(v) => setTestBeforeSave(v === true)}
-          label="Test before saving"
-          mr="5"
-        />
+      secondaryAction={
+        existing && canDelete ? (
+          <DeleteButton
+            displayName="Saved Filter"
+            text="Delete"
+            deleteMessage="This will remove the Saved Filter from all metrics that are using it."
+            onClick={async () => {
+              await apiCall(
+                `/fact-tables/${factTable.id}/filter/${existing.id}`,
+                { method: "DELETE" },
+              );
+              mutateDefinitions();
+              close();
+            }}
+          />
+        ) : undefined
       }
     >
-      <div className="row">
-        <div className="col">
-          <Field
-            size="legacy"
-            label="Name"
-            {...form.register("name")}
-            required
-          />
-
-          {showDescription ? (
-            <div className="form-group">
-              <label>Description</label>
-              <MarkdownInput
-                value={form.watch("description")}
-                setValue={(value) => form.setValue("description", value)}
-                autofocus={!existing?.description?.length}
-              />
-            </div>
-          ) : (
-            <a
-              href="#"
-              className="badge badge-light badge-pill mb-3"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowDescription(true);
-              }}
+      <Flex gap="5" align="start">
+        <Box flexGrow="1" minWidth="0">
+          <TextField label="Name" required {...form.register("name")} />
+          <Box my="3">
+            <Text
+              as="label"
+              htmlFor="fact-filter-description"
+              weight="semibold"
+              mb="1"
             >
-              + description
-            </a>
-          )}
-
+              Description
+            </Text>
+            <MarkdownInput
+              id="fact-filter-description"
+              value={form.watch("description")}
+              setValue={(v) => form.setValue("description", v)}
+            />
+          </Box>
           <Field
-            size="legacy"
-            label="Filter SQL"
-            required
+            label="SQL condition"
             textarea
-            minRows={1}
+            minRows={2}
+            required
             helpText={
               <>
-                When this filter is added to a metric, this will be inserted
-                into the WHERE clause.{" "}
-                <a
-                  href="#"
-                  style={{ whiteSpace: "nowrap" }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowExamples(!showExamples);
-                  }}
-                >
-                  {showExamples ? "Hide" : "Show"} examples{" "}
-                  {showExamples ? <FaAngleDown /> : <FaAngleRight />}
-                </a>
+                Added to the WHERE clause of metrics that use this filter, for
+                example <code>status = &apos;active&apos;</code> or{" "}
+                <code>country IN (&apos;US&apos;, &apos;CA&apos;)</code>.
               </>
             }
             {...valueField}
@@ -208,65 +191,41 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
               sqlRef.current = el;
             }}
           />
-
-          {showExamples && (
-            <Callout status="info">
-              <div className="mb-2">Here are some examples of Filter SQL:</div>
-              <table className="table gbtable">
-                <tbody>
-                  <tr>
-                    <td>
-                      <InlineCode code={`status = 'active'`} language="sql" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <InlineCode
-                        code={`discount > 0 AND coupon IS NOT NULL`}
-                        language="sql"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <InlineCode
-                        code={`country IN ('US','CA','UK')`}
-                        language="sql"
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </Callout>
-          )}
-
-          <Button
-            color="primary"
-            className="btn-sm mr-4"
-            onClick={async () => {
-              await testQuery(form.watch("value"));
-            }}
-          >
-            <span className="pr-2">
-              <FaPlay />
-            </span>
-            Test Query
-          </Button>
-        </div>
-        {factTable.columns?.some((col) => !col.deleted) ? (
-          <div className="col-auto border-left">
-            <div className="mb-3">
-              <label>Available Columns</label>
-              <FactTableSchema
-                factTable={factTable}
-                onColumnClick={insertColumn}
-              />
-            </div>
-          </div>
+          {canTest ? (
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<PiPlay />}
+              onClick={async () => {
+                try {
+                  await testFilter(form.getValues("value"));
+                } catch (e) {
+                  // Request failures show in the same results panel
+                  setTestResult({
+                    sql: "",
+                    error: e instanceof Error ? e.message : String(e),
+                  });
+                }
+              }}
+            >
+              Test SQL condition
+            </Button>
+          ) : null}
+        </Box>
+        {hasColumns ? (
+          <Box flexShrink="0">
+            <Text as="div" weight="semibold" mb="1">
+              Available columns
+            </Text>
+            <FactTableSchema
+              factTable={factTable}
+              onColumnClick={insertColumn}
+            />
+          </Box>
         ) : null}
-      </div>
+      </Flex>
       {testResult ? (
-        <div className="border-top mt-3 pt-2">
+        <Box mt="3">
           <DisplayTestQueryResults
             duration={testResult.duration || 0}
             results={testResult.results || []}
@@ -275,8 +234,8 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
             close={() => setTestResult(null)}
             expandable={true}
           />
-        </div>
+        </Box>
       ) : null}
-    </Modal>
+    </ModalStandard>
   );
 }
