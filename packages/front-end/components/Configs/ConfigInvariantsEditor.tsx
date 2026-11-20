@@ -70,7 +70,7 @@ type Props = {
   canEdit: boolean;
   // Shows Add rule disabled, with this reason.
   blockedReason?: string | null;
-  // From live, rule edits go here, to open a draft first; their labels say so.
+  // From live, rule edits go here, to open a draft first.
   onEditInDraft?: (request: RuleRequest) => void;
   // A rule edit asked for before its draft was showing, opened on arrival.
   request?: RuleRequest | null;
@@ -751,7 +751,7 @@ export default function ConfigInvariantsEditor({
               disabled={!!blockedReason}
               onClick={() => act({ kind: "add" })}
             >
-              Add rule{onEditInDraft ? " in draft" : ""}
+              Add rule
             </Button>
           </Tooltip>
         )}
@@ -788,7 +788,7 @@ export default function ConfigInvariantsEditor({
                 size="sm"
                 onClick={() => act({ kind: "edit", name: iv.name })}
               >
-                Edit{onEditInDraft ? " in draft" : ""}
+                Edit
               </Button>
               <Button
                 variant="ghost"
@@ -796,7 +796,7 @@ export default function ConfigInvariantsEditor({
                 color="red"
                 onClick={() => act({ kind: "delete", name: iv.name })}
               >
-                Delete{onEditInDraft ? " in draft" : ""}
+                Delete
               </Button>
             </>
           ),

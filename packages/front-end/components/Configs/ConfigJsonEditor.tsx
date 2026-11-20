@@ -1073,7 +1073,7 @@ export default function ConfigJsonEditor({
               "Value",
               onEditInDraft ? (
                 <Button variant="outline" size="sm" onClick={onEditInDraft}>
-                  Edit in draft
+                  Edit
                 </Button>
               ) : null,
             )}

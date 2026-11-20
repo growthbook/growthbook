@@ -1400,7 +1400,6 @@ export default function ConfigDetailPage(): React.ReactElement {
       onSave={saveField}
     />
   ) : null;
-  const inDraftSuffix = editsFromLive ? " in draft" : "";
   const renderAddField = () =>
     canStartEdits &&
     !editOpen && (
@@ -1408,7 +1407,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         <Link onClick={() => startEdit({ kind: "addField" })}>
           <Flex align="center" gap="1">
             <PiPlus />
-            Add field{inDraftSuffix}
+            Add field
           </Flex>
         </Link>
       </Box>
@@ -1488,7 +1487,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       color="red"
                       onClick={() => startEdit({ kind: "removeMixin", key: k })}
                     >
-                      Remove mixin &ldquo;{name}&rdquo;{inDraftSuffix}
+                      Remove mixin &ldquo;{name}&rdquo;
                     </DropdownMenuItem>
                   );
                 })}
@@ -1536,7 +1535,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         <Link onClick={() => startEdit({ kind: "addMixin" })}>
           <Flex align="center" gap="1">
             <PiPlus />
-            Add Config mixin{inDraftSuffix}
+            Add Config mixin
           </Flex>
         </Link>
         {composeError && (
@@ -2248,7 +2247,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                                   configKey={config.key}
                                   isOwnField={ownSchemaKeys.includes(f.key)}
                                   canEditInline={canStartEdits}
-                                  inDraft={editsFromLive}
                                   constantContext={constantContext}
                                   squashConstants={squashConstants}
                                   editing={editKey === f.key}

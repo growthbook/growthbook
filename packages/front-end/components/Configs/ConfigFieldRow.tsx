@@ -91,7 +91,6 @@ export default function ConfigFieldRow({
   configKey,
   isOwnField,
   canEditInline,
-  inDraft = false,
   constantContext,
   squashConstants,
   editing,
@@ -119,8 +118,6 @@ export default function ConfigFieldRow({
   configKey: string;
   isOwnField: boolean;
   canEditInline: boolean;
-  // Edits open a draft first (from live); their labels say so.
-  inDraft?: boolean;
   constantContext: { project?: string; excludeKeys?: string[] };
   squashConstants: (value: unknown) => unknown;
   editing: boolean;
@@ -178,15 +175,14 @@ export default function ConfigFieldRow({
     typeof f.value === "object" &&
     f.value !== null &&
     Object.keys(f.value).length > 0;
-  const inDraftSuffix = inDraft ? " in draft" : "";
   // In a draft, the value opens its editor from a pencil on its frame.
   const valueEdit =
     canEditInline && !isEditing
-      ? (f.value === undefined
-          ? "Set value"
-          : isOwnField || here
-            ? "Edit value"
-            : "Override value") + inDraftSuffix
+      ? f.value === undefined
+        ? "Set value"
+        : isOwnField || here
+          ? "Edit value"
+          : "Override value"
       : null;
 
   const parsedEdit = isEditing
@@ -607,15 +603,15 @@ export default function ConfigFieldRow({
                     {isOwnField ? (
                       <>
                         <DropdownMenuItem onClick={onEditDefinition}>
-                          Edit field{inDraftSuffix}
+                          Edit field
                         </DropdownMenuItem>
                         <DropdownMenuItem color="red" onClick={onRemoveField}>
-                          Remove field{inDraftSuffix}
+                          Remove field
                         </DropdownMenuItem>
                       </>
                     ) : here ? (
                       <DropdownMenuItem color="red" onClick={onRemoveOverride}>
-                        Remove override{inDraftSuffix}
+                        Remove override
                       </DropdownMenuItem>
                     ) : null}
                   </FieldRowMenu>
