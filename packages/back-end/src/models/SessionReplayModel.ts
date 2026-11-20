@@ -12,6 +12,7 @@ import {
 import {
   filterClientKeysByProject,
   getSessionReplayEventsByChunkKeys,
+  sortReplayChunkKeysByChunkIndex,
 } from "back-end/src/services/session-replay";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
@@ -116,7 +117,8 @@ export class SessionReplayModel {
   }
 
   /**
-   * Merged session metadata plus the S3 key of every chunk backing it.
+   * Merged session metadata plus the S3 key of every chunk backing it, in
+   * chunk-index order.
    *
    * The keys come from the metadata rows the ClickHouse query already
    * returned, so the caller does not need a separate S3 listing to find them.
@@ -138,7 +140,9 @@ export class SessionReplayModel {
     if (projects === undefined) return null;
     if (!this.canRead(session, projects)) return null;
 
-    const chunkKeys = chunks.map((c) => c.s3_key).filter(Boolean);
+    const chunkKeys = sortReplayChunkKeysByChunkIndex(
+      chunks.map((c) => c.s3_key).filter(Boolean),
+    );
     return { session, chunkKeys };
   }
 

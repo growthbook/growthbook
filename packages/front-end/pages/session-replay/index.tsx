@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { eventWithTime } from "@rrweb/types";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
@@ -123,6 +129,7 @@ type SessionMetadata = {
 type SessionResponse = {
   events: eventWithTime[];
   metadata: SessionMetadata;
+  chunkCount: number;
 };
 
 // A session is treated as "still recording" when its most recent chunk was
@@ -361,6 +368,12 @@ export default function SessionReplayPage() {
   const [playerError, setPlayerError] = useState<string | null>(null);
   const [playerLoading, setPlayerLoading] = useState(false);
   const [events, setEvents] = useState<eventWithTime[] | null>(null);
+  const [pendingAppend, setPendingAppend] = useState<eventWithTime[] | null>(
+    null,
+  );
+  const [playerReady, setPlayerReady] = useState(false);
+  const handlePlayerReady = useCallback(() => setPlayerReady(true), []);
+  const [partialLoadError, setPartialLoadError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<SessionMetadata | null>(null);
   const [firstEvent, setFirstEvent] = useState<null | eventWithTime>(null);
   const [evaluations, setEvaluations] = useState<EvaluationEntry[]>([]);
@@ -377,6 +390,9 @@ export default function SessionReplayPage() {
       setEvaluations([]);
       setFirstEvent(null);
       setPlayerError(null);
+      setPendingAppend(null);
+      setPlayerReady(false);
+      setPartialLoadError(null);
       return;
     }
     // Clear previous session's state synchronously before the new fetch
@@ -389,34 +405,69 @@ export default function SessionReplayPage() {
     setMetadata(null);
     setEvaluations([]);
     setFirstEvent(null);
+    setPendingAppend(null);
+    setPlayerReady(false);
+    setPartialLoadError(null);
     let cancelled = false;
     setPlayerLoading(true);
     setPlayerError(null);
 
+    const fetchChunks = async (query: string) => {
+      const response = await apiCall<
+        SessionResponse | { status?: number; message?: string }
+      >(`/session-replay/${selectedSessionId}?${query}`, { method: "GET" });
+
+      if (
+        !response ||
+        !("events" in response) ||
+        !Array.isArray(response.events)
+      ) {
+        const msg =
+          response && "message" in response && response.message
+            ? response.message
+            : "unexpected response shape";
+        throw new Error(`/session-replay/${selectedSessionId} failed: ${msg}`);
+      }
+      return response;
+    };
+
+    const loadRemainingChunks = async () => {
+      try {
+        const rest = await fetchChunks("fromChunk=1");
+        if (cancelled) return;
+        setPendingAppend(rest.events);
+      } catch (e) {
+        if (cancelled) return;
+        console.error("Failed to load remaining session replay chunks", e);
+        setPartialLoadError(
+          "Couldn't load the rest of this session. Playback will stop early — reload to try again.",
+        );
+      }
+    };
+
     const load = async () => {
       try {
-        const response = await apiCall<
-          SessionResponse | { status?: number; message?: string }
-        >(`/session-replay/${selectedSessionId}`, { method: "GET" });
-
+        const first = await fetchChunks("maxChunks=1");
         if (cancelled) return;
 
-        if (
-          !response ||
-          !("events" in response) ||
-          !Array.isArray(response.events)
-        ) {
-          const msg =
-            response && "message" in response && response.message
-              ? response.message
-              : "unexpected response shape";
-          throw new Error(
-            `/session-replay/${selectedSessionId} failed: ${msg}`,
-          );
+        setMetadata(first.metadata);
+
+        const hasMore = first.chunkCount > 1;
+        if (!hasMore) {
+          setEvents(first.events);
+          return;
         }
 
-        setMetadata(response.metadata);
-        setEvents(response.events);
+        if (getReplayBlockReason(first.events)) {
+          const rest = await fetchChunks("fromChunk=1");
+          if (cancelled) return;
+          setEvents([...first.events, ...rest.events]);
+          return;
+        }
+
+        setEvents(first.events);
+        setPlayerLoading(false);
+        void loadRemainingChunks();
       } catch (e) {
         if (cancelled) return;
 
@@ -436,6 +487,14 @@ export default function SessionReplayPage() {
       cancelled = true;
     };
   }, [apiCall, selectedSessionId]);
+
+  useEffect(() => {
+    if (!pendingAppend?.length || !playerReady) return;
+    const handle = playerHandle.current;
+    if (!handle) return;
+    handle.appendEvents(pendingAppend);
+    setPendingAppend(null);
+  }, [pendingAppend, playerReady]);
 
   // Derived during render, not in an effect: React flushes child effects
   // before parent ones, so an effect here runs *after* RrwebPlayer has already
@@ -986,11 +1045,28 @@ export default function SessionReplayPage() {
                 )}
             </Flex>
           ) : events ? (
-            <RrwebPlayer
-              key={selectedSessionId}
-              events={events}
-              handleRef={playerHandle}
-            />
+            <>
+              <RrwebPlayer
+                key={selectedSessionId}
+                initialEvents={events}
+                handleRef={playerHandle}
+                onReady={handlePlayerReady}
+              />
+              {partialLoadError && (
+                <Box
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    left: 8,
+                    right: 8,
+                    maxWidth: 480,
+                    zIndex: 2,
+                  }}
+                >
+                  <Callout status="warning">{partialLoadError}</Callout>
+                </Box>
+              )}
+            </>
           ) : null}
         </Box>
 

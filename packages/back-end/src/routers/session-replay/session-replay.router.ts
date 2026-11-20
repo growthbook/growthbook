@@ -66,6 +66,12 @@ router.get(
   "/:sessionId",
   validateRequestMiddleware({
     params: z.object({ sessionId: z.guid() }).strict(),
+    query: z
+      .object({
+        fromChunk: nonNegativeIntegerString.optional(),
+        maxChunks: nonNegativeIntegerString.optional(),
+      })
+      .strict(),
   }),
   sessionReplayController.getSession,
 );

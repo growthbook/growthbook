@@ -20,6 +20,9 @@ jest.mock("back-end/src/services/session-replay", () => ({
   filterClientKeysByProject: jest.requireActual<
     typeof import("back-end/src/services/session-replay")
   >("back-end/src/services/session-replay").filterClientKeysByProject,
+  sortReplayChunkKeysByChunkIndex: jest.requireActual<
+    typeof import("back-end/src/services/session-replay")
+  >("back-end/src/services/session-replay").sortReplayChunkKeysByChunkIndex,
 }));
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
@@ -531,11 +534,11 @@ describe("SessionReplayModel — getSessionWithChunkKeys()", () => {
     jest.clearAllMocks();
   });
 
-  it("returns one chunk key per metadata row, in row order", async () => {
+  it("returns one chunk key per metadata row, sorted by chunk index", async () => {
     mockGetSessionReplayChunksBySessionId.mockResolvedValue([
-      makeRow({ s3_key: "p/sess_abc123/0.json.gz" }),
-      makeRow({ s3_key: "p/sess_abc123/1.json.gz" }),
       makeRow({ s3_key: "p/sess_abc123/2.json.gz" }),
+      makeRow({ s3_key: "p/sess_abc123/10.json.gz" }),
+      makeRow({ s3_key: "p/sess_abc123/0.json.gz" }),
     ]);
 
     const model = new SessionReplayModel(
@@ -544,10 +547,11 @@ describe("SessionReplayModel — getSessionWithChunkKeys()", () => {
     const result = await model.getSessionWithChunkKeys("sess_abc123");
 
     expect(result).not.toBeNull();
+    // 10 after 2 proves numeric ordering rather than lexicographic.
     expect(result!.chunkKeys).toEqual([
       "p/sess_abc123/0.json.gz",
-      "p/sess_abc123/1.json.gz",
       "p/sess_abc123/2.json.gz",
+      "p/sess_abc123/10.json.gz",
     ]);
   });
 

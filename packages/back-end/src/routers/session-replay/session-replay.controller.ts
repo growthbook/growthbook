@@ -9,7 +9,11 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { MAX_SESSION_PAGE_SIZE } from "back-end/src/services/clickhouse";
 
 type SessionResponse =
-  | { events: SessionReplayRrwebEvent[]; metadata: SessionReplayInterface }
+  | {
+      events: SessionReplayRrwebEvent[];
+      metadata: SessionReplayInterface;
+      chunkCount: number;
+    }
   | { status: number; message: string };
 
 type SessionReplayListItem = Pick<
@@ -135,7 +139,11 @@ function toListItem(session: SessionReplayInterface): SessionReplayListItem {
 }
 
 export async function getSession(
-  req: AuthRequest<unknown, { sessionId: string }>,
+  req: AuthRequest<
+    unknown,
+    { sessionId: string },
+    { fromChunk?: string; maxChunks?: string }
+  >,
   res: Response<SessionResponse>,
 ) {
   const context = getContextFromReq(req);
@@ -148,13 +156,27 @@ export async function getSession(
     return;
   }
 
-  const events = await context.models.sessionReplays.getEventsForChunkKeys(
-    result.chunkKeys,
+  const chunkCount = result.chunkKeys.length;
+
+  const fromChunk = Math.max(
+    0,
+    parseIntWithDefaultCapped(req.query.fromChunk, 0, chunkCount),
   );
-  if (!events.length) {
+  const maxChunks = Math.max(
+    0,
+    parseIntWithDefaultCapped(req.query.maxChunks, chunkCount, chunkCount),
+  );
+  const requestedKeys = result.chunkKeys.slice(
+    fromChunk,
+    fromChunk + maxChunks,
+  );
+
+  const events =
+    await context.models.sessionReplays.getEventsForChunkKeys(requestedKeys);
+  if (!events.length && fromChunk === 0) {
     res.status(404).json({ status: 404, message: "Session data not found" });
     return;
   }
 
-  res.status(200).json({ events, metadata: result.session });
+  res.status(200).json({ events, metadata: result.session, chunkCount });
 }
