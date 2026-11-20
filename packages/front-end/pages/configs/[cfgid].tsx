@@ -718,16 +718,15 @@ export default function ConfigDetailPage(): React.ReactElement {
     [resolved.fields, squashConstants],
   );
 
-  // The resolved (inherited+own) value object cross-field rules run against —
-  // present keys only, mirroring the back-end publish gate (raw values, refs
-  // as-is).
+  // The resolved (inherited+own) value cross-field rules run against, with
+  // Constant references resolved to what's served. Present keys only.
   const invariantValue = useMemo(() => {
     const o: Record<string, unknown> = {};
     for (const f of resolved.fields) {
-      if (f.value !== undefined) o[f.key] = f.value;
+      if (f.value !== undefined) o[f.key] = squashConstants(f.value);
     }
     return o;
-  }, [resolved.fields]);
+  }, [resolved.fields, squashConstants]);
 
   // Invariants that currently fail against the displayed (draft-aware) value.
   const failingInvariants = useMemo(
@@ -762,7 +761,10 @@ export default function ConfigDetailPage(): React.ReactElement {
   const baseNode = useMemo(() => {
     const lineage = data?.lineage ?? [];
     let node = lineage.find((n) => n.key === config?.key);
-    while (node?.parentKey) {
+    // A draft can stage a parent cycle; stop at a repeat.
+    const seen = new Set<string>();
+    while (node?.parentKey && !seen.has(node.key)) {
+      seen.add(node.key);
       const parent = node.parentKey;
       node = lineage.find((n) => n.key === parent);
     }
