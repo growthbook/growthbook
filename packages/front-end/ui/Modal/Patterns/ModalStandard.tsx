@@ -155,7 +155,7 @@ export default function ModalStandard({
           // Offsets the footer's leftward pull so this lines up with the body.
           <Box ml="3">{secondaryAction}</Box>
         ) : null}
-        <Flex gap="3" align="center">
+        <Flex gap="3" align="center" flexShrink="0">
           <CloseButton closeCta={closeCta} close={close} />
           {submit && (
             <SubmitButton

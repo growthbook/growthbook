@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Flex, Separator, Card } from "@radix-ui/themes";
-import { PiPlusBold } from "react-icons/pi";
+import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -294,9 +294,11 @@ export function AddConditionButton({
         cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
-      <Text weight="semibold" size="md">
-        <PiPlusBold className="mr-1" />
-        {children ?? "Add condition"}
+      <Text size="md">
+        <Flex as="span" align="center" gap="1">
+          <PiPlus />
+          {children ?? "Add condition"}
+        </Flex>
       </Text>
     </Link>
   );
@@ -324,9 +326,11 @@ export function AddOrGroupButton({
           cursor: disabled ? "not-allowed" : "pointer",
         }}
       >
-        <Text weight="semibold" size="md">
-          <PiPlusBold className="mr-1" />
-          Add OR group
+        <Text size="md">
+          <Flex as="span" align="center" gap="1">
+            <PiPlus />
+            Add OR group
+          </Flex>
         </Text>
       </Link>
     </Box>
