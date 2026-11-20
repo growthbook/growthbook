@@ -158,6 +158,33 @@ describe("reorderQaOverridesInEnvironment", () => {
     expect(changes?.map((c) => [c.override.id, c.order])).toEqual([["c", 1]]);
   });
 
+  it("finds nothing to change only when the stored order is exactly the requested one", () => {
+    const stored = (orders: Record<string, number>) =>
+      Object.entries(orders).map(([id, order]) => ({
+        id,
+        environment: "dev",
+        order,
+      }));
+    expect(
+      reorderQaOverridesInEnvironment(stored({ b: 0, a: 1, c: 2 }), "dev", [
+        "b",
+        "a",
+        "c",
+      ]),
+    ).toEqual([]);
+    // Two overlapping reorders of [a, b, c], to [b, a, c] and [a, c, b], can
+    // leave this behind. Neither request's order is stored.
+    const overlapped = stored({ b: 0, a: 1, c: 1 });
+    expect(
+      reorderQaOverridesInEnvironment(overlapped, "dev", ["b", "a", "c"])?.map(
+        (c) => [c.override.id, c.order],
+      ),
+    ).toEqual([["c", 2]]);
+    expect(
+      reorderQaOverridesInEnvironment(overlapped, "dev", ["a", "c", "b"]),
+    ).not.toEqual([]);
+  });
+
   it("rejects ids that aren't exactly that environment's overrides", () => {
     expect(reorderQaOverridesInEnvironment(overrides, "dev", ["a"])).toBeNull();
     expect(

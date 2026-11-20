@@ -96,6 +96,11 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
       );
     }
 
+    const conflict = () =>
+      new ConflictError(
+        "The order of these QA overrides changed. Reload and try again.",
+      );
+
     // Each write is guarded on the row as it was read, so a reorder that
     // overlaps a concurrent one is refused instead of interleaving with it.
     let applied = 0;
@@ -108,12 +113,19 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
         );
         applied++;
       }
+
+      // The guards only cover the rows this request wrote; an overlapping
+      // reorder that failed part way can have moved others. Only succeed when
+      // the stored order is exactly the requested one. Anything left behind
+      // is rewritten by the next reorder.
+      const remaining = reorderQaOverridesInEnvironment(
+        await this.findByExperiment(experiment),
+        environment,
+        overrideIds,
+      );
+      if (remaining?.length !== 0) throw conflict();
     } catch (e) {
-      if (e instanceof CasConflictError) {
-        throw new ConflictError(
-          "The order of these QA overrides changed. Reload and try again.",
-        );
-      }
+      if (e instanceof CasConflictError) throw conflict();
       throw e;
     } finally {
       if (applied) await this.refreshEnvironments([environment]);
