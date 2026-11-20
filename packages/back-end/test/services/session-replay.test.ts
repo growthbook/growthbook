@@ -2,21 +2,15 @@ import zlib from "zlib";
 import {
   filterClientKeysByProject,
   getSessionReplayEventsByChunkKeys,
-  getSessionReplayEventsByStoragePrefix,
   parseChunkIndexFromKey,
   sortReplayChunkKeysByChunkIndex,
 } from "back-end/src/services/session-replay";
-import {
-  listSessionReplayChunks,
-  getSessionReplayObjectBuffer,
-} from "back-end/src/services/files";
+import { getSessionReplayObjectBuffer } from "back-end/src/services/files";
 
 jest.mock("back-end/src/services/files", () => ({
-  listSessionReplayChunks: jest.fn(),
   getSessionReplayObjectBuffer: jest.fn(),
 }));
 
-const mockListChunks = jest.mocked(listSessionReplayChunks);
 const mockGetBuffer = jest.mocked(getSessionReplayObjectBuffer);
 
 function gzip(events: unknown[]): Buffer {
@@ -112,113 +106,6 @@ describe("sortReplayChunkKeysByChunkIndex", () => {
 });
 
 // ---------------------------------------------------------------------------
-// getSessionReplayEventsByStoragePrefix
-// ---------------------------------------------------------------------------
-
-describe("getSessionReplayEventsByStoragePrefix", () => {
-  it("returns an empty array when there are no chunks", async () => {
-    mockListChunks.mockResolvedValue([]);
-    const result = await getSessionReplayEventsByStoragePrefix(
-      "org/session",
-      "us-east-1",
-    );
-    expect(result).toEqual([]);
-    expect(mockGetBuffer).not.toHaveBeenCalled();
-  });
-
-  it("decompresses and returns events from a single chunk", async () => {
-    const events = [
-      { type: 2, timestamp: 1000, data: { foo: "bar" } },
-      { type: 3, timestamp: 2000, data: {} },
-    ];
-    mockListChunks.mockResolvedValue(["org/session/0.json.gz"]);
-    mockGetBuffer.mockResolvedValue(gzip(events));
-
-    const result = await getSessionReplayEventsByStoragePrefix(
-      "org/session",
-      "us-east-1",
-    );
-    expect(result).toEqual(events);
-  });
-
-  it("concatenates events from multiple chunks in order", async () => {
-    const chunk0 = [{ type: 2, timestamp: 100, data: {} }];
-    const chunk1 = [{ type: 3, timestamp: 200, data: {} }];
-
-    mockListChunks.mockResolvedValue([
-      "org/session/0.json.gz",
-      "org/session/1.json.gz",
-    ]);
-    mockGetBuffer
-      .mockResolvedValueOnce(gzip(chunk0))
-      .mockResolvedValueOnce(gzip(chunk1));
-
-    const result = await getSessionReplayEventsByStoragePrefix(
-      "org/session",
-      "us-east-1",
-    );
-    expect(result).toEqual([...chunk0, ...chunk1]);
-  });
-
-  it("sorts out-of-order chunk keys before fetching", async () => {
-    const chunk0 = [{ type: 2, timestamp: 100, data: {} }];
-    const chunk2 = [{ type: 5, timestamp: 300, data: {} }];
-
-    // ClickHouse / S3 listing returns them out of order
-    mockListChunks.mockResolvedValue([
-      "org/session/2.json.gz",
-      "org/session/0.json.gz",
-    ]);
-
-    // We need to know which buffer was requested for which key
-    mockGetBuffer.mockImplementation(async (key: string) => {
-      if (key === "org/session/0.json.gz") return gzip(chunk0);
-      if (key === "org/session/2.json.gz") return gzip(chunk2);
-      throw new Error(`unexpected key: ${key}`);
-    });
-
-    const result = await getSessionReplayEventsByStoragePrefix(
-      "org/session",
-      "us-east-1",
-    );
-    // chunk0 events must precede chunk2 events
-    expect(result).toEqual([...chunk0, ...chunk2]);
-  });
-
-  it("flattens events from all chunks into one array", async () => {
-    const chunk0 = [
-      { type: 1, timestamp: 1, data: {} },
-      { type: 2, timestamp: 2, data: {} },
-    ];
-    const chunk1 = [{ type: 3, timestamp: 3, data: {} }];
-
-    mockListChunks.mockResolvedValue([
-      "org/session/0.json.gz",
-      "org/session/1.json.gz",
-    ]);
-    mockGetBuffer
-      .mockResolvedValueOnce(gzip(chunk0))
-      .mockResolvedValueOnce(gzip(chunk1));
-
-    const result = await getSessionReplayEventsByStoragePrefix(
-      "org/session",
-      "us-east-1",
-    );
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(chunk0.length + chunk1.length);
-  });
-
-  it("throws when a chunk buffer cannot be decompressed", async () => {
-    mockListChunks.mockResolvedValue(["org/session/0.json.gz"]);
-    mockGetBuffer.mockResolvedValue(Buffer.from("not-gzip-data"));
-
-    await expect(
-      getSessionReplayEventsByStoragePrefix("org/session", "us-east-1"),
-    ).rejects.toThrow();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // getSessionReplayEventsByChunkKeys
 // ---------------------------------------------------------------------------
 
@@ -227,20 +114,6 @@ describe("getSessionReplayEventsByChunkKeys", () => {
     const result = await getSessionReplayEventsByChunkKeys([], "us-east-1");
     expect(result).toEqual([]);
     expect(mockGetBuffer).not.toHaveBeenCalled();
-  });
-
-  // The whole point of taking keys: the metadata rows already have them.
-  it("never lists S3", async () => {
-    mockGetBuffer.mockResolvedValue(
-      gzip([{ type: 2, timestamp: 1, data: {} }]),
-    );
-
-    await getSessionReplayEventsByChunkKeys(
-      ["org/session/0.json.gz"],
-      "us-east-1",
-    );
-
-    expect(mockListChunks).not.toHaveBeenCalled();
   });
 
   it("sorts out-of-order chunk keys before concatenating", async () => {
