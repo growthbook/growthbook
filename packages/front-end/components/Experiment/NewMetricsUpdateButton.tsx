@@ -4,6 +4,8 @@ import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SplitButton from "@/ui/SplitButton";
 
+type UpdateScope = "new_metrics" | "all_metrics";
+
 export default function NewMetricsUpdateButton({
   onUpdateNewMetrics,
   onUpdateAllMetrics,
@@ -16,18 +18,19 @@ export default function NewMetricsUpdateButton({
   // Shared by both actions, so neither can start while the other's request is
   // in flight. The ref also catches a second click before the re-render.
   const pendingRef = useRef(false);
-  const [pending, setPending] = useState(false);
-  const runUpdate = async (update: () => Promise<void>) => {
+  const [pendingScope, setPendingScope] = useState<UpdateScope | null>(null);
+  const runUpdate = async (scope: UpdateScope, update: () => Promise<void>) => {
     if (pendingRef.current) return;
     pendingRef.current = true;
-    setPending(true);
+    setPendingScope(scope);
     try {
       await update();
     } finally {
       pendingRef.current = false;
-      setPending(false);
+      setPendingScope(null);
     }
   };
+  const pending = pendingScope !== null;
 
   return (
     <SplitButton
@@ -51,7 +54,7 @@ export default function NewMetricsUpdateButton({
               stay open behind it until the update finished. */}
           <DropdownMenuItem
             disabled={pending}
-            onClick={() => void runUpdate(onUpdateAllMetrics)}
+            onClick={() => void runUpdate("all_metrics", onUpdateAllMetrics)}
           >
             Update all metrics
           </DropdownMenuItem>
@@ -63,8 +66,8 @@ export default function NewMetricsUpdateButton({
         size="md"
         icon={<PiArrowClockwise />}
         disabled={disabled || pending}
-        loading={pending}
-        onClick={() => runUpdate(onUpdateNewMetrics)}
+        loading={pendingScope === "new_metrics"}
+        onClick={() => runUpdate("new_metrics", onUpdateNewMetrics)}
       >
         Update new metrics
       </Button>
