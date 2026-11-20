@@ -11,12 +11,10 @@ import { getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import { FaBoltLightning } from "react-icons/fa6";
-import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
-import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import QueryStatsRow, { getNumberOfMetricsInQuery } from "./QueryStatsRow";
@@ -100,32 +98,25 @@ const ExpandableQuery: FC<{
           {title && " - "}
           Query {i + 1} of {total}
         </span>
-        {(query.cachedQueryUsed || isCombinedMetricQuery) && (
-          <Flex gap="1" align="center" style={{ marginLeft: "auto" }}>
-            {query.cachedQueryUsed && (
-              <Tooltip body="These results were reused from an earlier query, so this query didn't run again. Its timings are from the earlier run and aren't counted in the totals.">
-                <Badge color="gray" label="Reused" />
-              </Tooltip>
-            )}
-            {isCombinedMetricQuery && (
-              <Tooltip
-                body={
-                  <>
-                    <h5>Fact Table Query Optimization</h5>
-                    <p>
-                      Multiple metrics in the same Fact Table are being combined
-                      into a single query, which is much faster and more
-                      efficient.
-                    </p>
-                  </>
-                }
-              >
-                <span className="badge badge-warning">
-                  <FaBoltLightning /> Optimized
-                </span>
-              </Tooltip>
-            )}
-          </Flex>
+        {isCombinedMetricQuery && (
+          <div className="ml-auto">
+            <Tooltip
+              body={
+                <>
+                  <h5>Fact Table Query Optimization</h5>
+                  <p>
+                    Multiple metrics in the same Fact Table are being combined
+                    into a single query, which is much faster and more
+                    efficient.
+                  </p>
+                </>
+              }
+            >
+              <span className="badge badge-warning">
+                <FaBoltLightning /> Optimized
+              </span>
+            </Tooltip>
+          </div>
         )}
       </h4>
       <Code language={query.language} code={query.query} expandable={true} />
