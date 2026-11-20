@@ -897,7 +897,11 @@ export const postColumnTopValues = async (
     { forceAutoSlice?: string }
   >,
   // values is missing when the warehouse can't count them
-  res: Response<{ status: 200; values?: ColumnInterface["topValueCounts"] }>,
+  res: Response<{
+    status: 200;
+    values?: ColumnInterface["topValueCounts"];
+    refreshedAt?: Date;
+  }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -935,6 +939,7 @@ export const postColumnTopValues = async (
     : databaseColumn;
 
   let values: ColumnInterface["topValueCounts"] = [];
+  let refreshedAt: Date | undefined;
 
   if (
     forceAutoSlice ||
@@ -954,6 +959,7 @@ export const postColumnTopValues = async (
         refreshedAt: new Date(),
       };
       values = getTopValueFields(snapshot).topValueCounts;
+      refreshedAt = snapshot.refreshedAt;
 
       await updateColumnsTopValues({
         context,
@@ -979,6 +985,7 @@ export const postColumnTopValues = async (
   res.status(200).json({
     status: 200,
     values,
+    refreshedAt,
   });
 };
 
