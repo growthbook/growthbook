@@ -7,6 +7,7 @@ import {
   MAX_METRICS_PER_QUERY,
 } from "back-end/src/services/experimentQueries/constants";
 
+import { ELIGIBLE_USERS_COLUMN_PREFIX } from "back-end/src/integrations/sql/dates/unit-eligibility";
 import { getQuantileBoundsFromQueryResponse } from "back-end/src/integrations/sql/columns/quantile-bounds-from-query-response";
 import { parseFunnelStepSumColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import { isCompoundComponentUnitsColumn } from "back-end/src/integrations/sql/fact-metrics/compound-columns";
@@ -84,12 +85,22 @@ function processRow(
       attributeData[key] = value;
     });
 
+  // Shared unit counts of the metrics that only analyzed units with complete
+  // data; `getMetricUsersColumn` names each metric's column.
+  const eligibleUsersData: Record<string, number> = {};
+  Object.keys(row)
+    .filter((key) => key.startsWith(ELIGIBLE_USERS_COLUMN_PREFIX))
+    .forEach((key) => {
+      eligibleUsersData[key] = parseIntWithDefault(row[key], 0);
+    });
+
   return {
     variation: row.variation ?? "",
     ...dimensionData,
     ...attributeData,
     users: parseIntWithDefault(row.users, 0),
     count: parseIntWithDefault(row.users, 0),
+    ...eligibleUsersData,
     ...(row.sub_count !== undefined
       ? { sub_count: parseIntWithDefault(row.sub_count, 0) }
       : {}),

@@ -37,11 +37,14 @@ export function isCompoundComponentUnitsColumn(column: string): boolean {
  * merges dimensions, so per-dimension counts would have to replicate that.
  */
 export function sumCompoundComponentUnits(
-  queryResults: { rows: Record<string, unknown>[] }[],
+  queryResults: {
+    rows: Record<string, unknown>[];
+    metrics: (string | null)[];
+  }[],
   variationIds: string[],
 ): Map<string, number[][]> {
   const totals = new Map<string, number[][]>();
-  for (const { rows } of queryResults) {
+  for (const { rows, metrics } of queryResults) {
     for (const row of rows) {
       const v = variationIds.indexOf(String(row.variation));
       if (v < 0) continue;
@@ -49,6 +52,10 @@ export function sumCompoundComponentUnits(
         const match = key.match(COMPOUND_COMPONENT_UNITS_COLUMN_RE);
         const metricId = match && row[`${match[1]}_id`];
         if (!match || typeof metricId !== "string") continue;
+        // Some rows in the query results will be analyzed separately by a
+        // different `queryResults` entry that we built with the correct
+        // unit count (i.e. when the metric has `skipPartialData` enabled).
+        if (!metrics.includes(metricId)) continue;
         const byVariation =
           totals.get(metricId) ?? variationIds.map((): number[] => []);
         const k = Number(match[2]);

@@ -35605,6 +35605,21 @@ paths:
                     - type
                   additionalProperties: false
                   description: Controls the conversion window for the metric
+                skipPartialData:
+                  type: boolean
+                  description: >-
+                    If true, experiment analyses of this metric only include
+                    units that have had the full time to convert: the metric
+                    delay plus the conversion window, the delay alone for a
+                    retention metric with no conversion window, or the delay
+                    plus the sum of the step windows for a funnel whose steps
+                    all have one. Has no effect on quantile metrics, on metrics
+                    with no such bound, in Bandits, in experiments with a
+                    lookback override, or on metrics rolled up from sub-units in
+                    cluster experiments. Experiments that already exclude
+                    in-progress conversions apply this to every metric. Defaults
+                    to true when creating a retention metric and false
+                    otherwise.
                 priorSettings:
                   type: object
                   properties:
@@ -36414,6 +36429,21 @@ paths:
                     - type
                   additionalProperties: false
                   description: Controls the conversion window for the metric
+                skipPartialData:
+                  type: boolean
+                  description: >-
+                    If true, experiment analyses of this metric only include
+                    units that have had the full time to convert: the metric
+                    delay plus the conversion window, the delay alone for a
+                    retention metric with no conversion window, or the delay
+                    plus the sum of the step windows for a funnel whose steps
+                    all have one. Has no effect on quantile metrics, on metrics
+                    with no such bound, in Bandits, in experiments with a
+                    lookback override, or on metrics rolled up from sub-units in
+                    cluster experiments. Experiments that already exclude
+                    in-progress conversions apply this to every metric. Defaults
+                    to true when creating a retention metric and false
+                    otherwise.
                 priorSettings:
                   type: object
                   properties:
@@ -37569,6 +37599,23 @@ paths:
                               - type
                             additionalProperties: false
                             description: Controls the conversion window for the metric
+                          skipPartialData:
+                            type: boolean
+                            description: >-
+                              If true, experiment analyses of this metric only
+                              include units that have had the full time to
+                              convert: the metric delay plus the conversion
+                              window, the delay alone for a retention metric
+                              with no conversion window, or the delay plus the
+                              sum of the step windows for a funnel whose steps
+                              all have one. Has no effect on quantile metrics,
+                              on metrics with no such bound, in Bandits, in
+                              experiments with a lookback override, or on
+                              metrics rolled up from sub-units in cluster
+                              experiments. Experiments that already exclude
+                              in-progress conversions apply this to every
+                              metric. Defaults to true when creating a retention
+                              metric and false otherwise.
                           priorSettings:
                             type: object
                             properties:
@@ -82391,6 +82438,18 @@ components:
             - type
           additionalProperties: false
           description: Controls the conversion window for the metric
+        skipPartialData:
+          type: boolean
+          description: >-
+            If true, experiment analyses of this metric only include units that
+            have had the full time to convert: the metric delay plus the
+            conversion window, the delay alone for a retention metric with no
+            conversion window, or the delay plus the sum of the step windows for
+            a funnel whose steps all have one. Has no effect on quantile
+            metrics, on metrics with no such bound, in Bandits, in experiments
+            with a lookback override, or on metrics rolled up from sub-units in
+            cluster experiments. Experiments that already exclude in-progress
+            conversions apply this to every metric.
         priorSettings:
           type: object
           properties:

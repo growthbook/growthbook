@@ -40,6 +40,7 @@ import {
   partitionMetricsByConversionWindow,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
+import { getUnitEligibilityHours } from "back-end/src/integrations/sql/dates/unit-eligibility";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
@@ -159,11 +160,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   }
 
   const asOf = params.asOf;
-  if (snapshotSettings.skipPartialData && !asOf) {
-    throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
-      "Overall Results require a full refresh before Dimension Results can exclude in-progress conversions.",
-    );
-  }
 
   const executionId = params.queryParentId;
 
@@ -199,6 +195,24 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     integration,
     snapshotSettings,
   });
+
+  // Excluding in-progress conversions, for the experiment or for one of its
+  // metrics (overrides applied), is judged against the Overall Results' data
+  // end.
+  const trimsUnits =
+    snapshotSettings.skipPartialData ||
+    metricSourceGroups.some((group) =>
+      group.metrics.some(
+        (m) =>
+          getUnitEligibilityHours(m, snapshotSettings, activationMetric) !==
+          null,
+      ),
+    );
+  if (trimsUnits && !asOf) {
+    throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+      "Overall Results require a full refresh before Dimension Results can exclude in-progress conversions.",
+    );
+  }
 
   // Mirror the main runner: metrics whose numerator and denominator both
   // live in one FT get a stats query against that FT's cache, then we do

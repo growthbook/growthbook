@@ -155,6 +155,7 @@ export async function getCreateMetricPropsFromBody(
     numerator: cleanedNumerator,
     denominator: null,
     metricAutoSlices: [],
+    skipPartialData: body.metricType === "retention",
     ...otherFields,
   };
 

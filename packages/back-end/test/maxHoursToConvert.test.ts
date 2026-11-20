@@ -142,3 +142,45 @@ describe("getMaxHoursToConvert for fact funnel metrics", () => {
     });
   });
 });
+
+describe("getMaxHoursToConvert for retention metrics", () => {
+  const buildRetentionMetric = (
+    type: MetricWindowSettings["type"],
+    metricType: "retention" | "proportion" = "retention",
+  ) =>
+    factMetricFactory.build({
+      metricType,
+      windowSettings: {
+        type,
+        delayUnit: "days",
+        delayValue: 7,
+        windowUnit: "days",
+        windowValue: 3,
+      },
+    });
+
+  it("uses the delay when retention has no end", () => {
+    expect(
+      getMaxHoursToConvert(false, [buildRetentionMetric("")], null),
+    ).toEqual(7 * 24);
+  });
+
+  it("adds the window when retention has an end", () => {
+    expect(
+      getMaxHoursToConvert(false, [buildRetentionMetric("conversion")], null),
+    ).toEqual(10 * 24);
+  });
+
+  it("ignores lookback retention and delays on other unwindowed metrics", () => {
+    expect(
+      getMaxHoursToConvert(false, [buildRetentionMetric("lookback")], null),
+    ).toEqual(0);
+    expect(
+      getMaxHoursToConvert(
+        false,
+        [buildRetentionMetric("", "proportion")],
+        null,
+      ),
+    ).toEqual(0);
+  });
+});

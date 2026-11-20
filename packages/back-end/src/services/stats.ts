@@ -89,7 +89,9 @@ import {
   CLUSTER_HEALTH_KIND_RELIABILITY,
 } from "back-end/src/integrations/sql/queries/experiment-cluster-health-query";
 import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/funnelMetricBlock";
+import { withMetricSlotUsers } from "back-end/src/services/experimentQueries/metricSlotUsers";
 import { sumCompoundComponentUnits } from "back-end/src/integrations/sql/fact-metrics/compound-columns";
+import { getMetricUsersColumn } from "back-end/src/integrations/sql/dates/unit-eligibility";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
@@ -472,6 +474,10 @@ export function getMetricsAndQueryDataForStatsEngine(
         const rows = query.result as ExperimentFactMetricsQueryResponseRows;
         if (!rows?.length) return;
         const metricIds: (string | null)[] = [];
+        // Group metrics together that need their unit count swapped out with
+        // the one from the same user column, mocking the queryResults so
+        // gbstats just sees the same data shape
+        const slotsByUsersColumn = new Map<string, Map<number, string>>();
         for (let i = 0; i < MAX_METRICS_PER_QUERY; i++) {
           const prefix = `m${i}_`;
           if (!rows[0]?.[prefix + "id"]) break;
@@ -485,6 +491,20 @@ export function getMetricsAndQueryDataForStatsEngine(
             continue;
           }
 
+          const usersColumn = getMetricUsersColumn(
+            metric,
+            settings,
+            metricMap.get(settings.activationMetric ?? "") ?? null,
+          );
+          // A snapshot records each metric's count when its queries are
+          // built. Only settings rebuilt later, as a legacy report's notebook
+          // does, can expect a count the rows do not have.
+          if (usersColumn !== null && rows[0][usersColumn] === undefined) {
+            throw new Error(
+              `"${metric.name}" was changed after these results were computed. Update the results to analyze it.`,
+            );
+          }
+
           // A funnel occupies one slot in this query but has no main_sum of
           // its own — its block is a sum per step. Vacate the slot and hand
           // gbstats a separate result whose metrics are the per-step binomials.
@@ -494,7 +514,10 @@ export function getMetricsAndQueryDataForStatsEngine(
               splitFunnelMetricBlock({
                 metric,
                 slotAlias: `m${i}`,
-                rows,
+                rows:
+                  usersColumn === null
+                    ? rows
+                    : withMetricSlotUsers(rows, usersColumn),
                 sql: query.query,
               }),
             );
@@ -517,18 +540,36 @@ export function getMetricsAndQueryDataForStatsEngine(
             continue;
           }
 
-          metricIds.push(metricId);
           metricSettings[metricId] = getMetricSettingsForStatsEngine(
             metric,
             metricMap,
             settings,
             true,
           );
+          if (usersColumn === null) {
+            metricIds.push(metricId);
+          } else {
+            // These metrics will be added as if they came from their own "query"
+            // with the new unit count for all metrics with the same window.
+            // The slot stays as a null here: position i is what ties an id to
+            // its m{i}_ columns.
+            metricIds.push(null);
+            const slots =
+              slotsByUsersColumn.get(usersColumn) ?? new Map<number, string>();
+            slotsByUsersColumn.set(usersColumn, slots.set(i, metricId));
+          }
         }
         queryResults.push({
           metrics: metricIds,
           rows: rows,
           sql: query.query,
+        });
+        slotsByUsersColumn.forEach((slots, usersColumn) => {
+          queryResults.push({
+            metrics: metricIds.map((_id, i) => slots.get(i) ?? null),
+            rows: withMetricSlotUsers(rows, usersColumn),
+            sql: query.query,
+          });
         });
         return;
       }

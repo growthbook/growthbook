@@ -290,6 +290,9 @@ const apiCappingSettings = z
   })
   .describe("Controls how outliers are handled");
 
+const SKIP_PARTIAL_DATA_DESCRIPTION =
+  "If true, experiment analyses of this metric only include units that have had the full time to convert: the metric delay plus the conversion window, the delay alone for a retention metric with no conversion window, or the delay plus the sum of the step windows for a funnel whose steps all have one. Has no effect on quantile metrics, on metrics with no such bound, in Bandits, in experiments with a lookback override, or on metrics rolled up from sub-units in cluster experiments. Experiments that already exclude in-progress conversions apply this to every metric.";
+
 const apiWindowSettings = z
   .object({
     type: z.enum(["none", "conversion", "lookback"]),
@@ -392,6 +395,10 @@ export const apiFactMetricValidator = namedSchema(
       cappingSettings: apiCappingSettings,
       lowerCappingSettings: apiLowerCappingSettings.nullable().optional(),
       windowSettings: apiWindowSettings,
+      skipPartialData: z
+        .boolean()
+        .describe(SKIP_PARTIAL_DATA_DESCRIPTION)
+        .optional(),
       priorSettings: apiPriorSettings,
       regressionAdjustmentSettings: apiRegressionAdjustmentSettings,
       riskThresholdSuccess: retiredRiskDefault(),
@@ -722,6 +729,12 @@ export const postFactMetricBodyFields = z.object({
       "Independent lower cap. Omit on update to preserve it. Use null or type: none to disable it explicitly. Invalid values are rejected. For mixed cap types, the absolute bound takes precedence if thresholds cross.",
     ),
   windowSettings: postWindowSettings.optional(),
+  skipPartialData: z
+    .boolean()
+    .describe(
+      `${SKIP_PARTIAL_DATA_DESCRIPTION} Defaults to true when creating a retention metric and false otherwise.`,
+    )
+    .optional(),
   priorSettings: postPriorSettings.optional(),
   regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
   riskThresholdSuccess: retiredRiskInput(),

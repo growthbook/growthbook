@@ -167,6 +167,10 @@ export function getDefaultFactMetricProps({
       delayUnit: "hours",
       delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     },
+    // On by default for new retention metrics only; saved metrics keep theirs
+    skipPartialData:
+      existing?.skipPartialData ??
+      (!existing?.id && existing?.metricType === "retention"),
     minPercentChange:
       existing?.minPercentChange ??
       metricDefaults.minPercentageChange ??

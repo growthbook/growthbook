@@ -79,6 +79,27 @@ describe("processExperimentFactMetricsQueryRows", () => {
     ]);
   });
 
+  it("keeps the shared counts of eligible units", async () => {
+    const [result] = await processExperimentFactMetricsQueryRows([
+      {
+        variation: "1",
+        users: "10",
+        users_cw60m: "6",
+        m0_id: "fact__all_units",
+        m0_main_sum: "5",
+      },
+    ]);
+
+    expect(result).toEqual({
+      variation: "1",
+      users: 10,
+      count: 10,
+      users_cw60m: 6,
+      m0_id: "fact__all_units",
+      m0_main_sum: 5,
+    });
+  });
+
   it("keeps compound component unit counts", async () => {
     const [result] = await processExperimentFactMetricsQueryRows([
       {

@@ -50,6 +50,15 @@ describe("experimentQueries", () => {
             isBandit: true,
           }),
         ).toBe(baseExpectedCols + 4);
+
+        // + eligible users count
+        expect(
+          maxColumnsNeededForMetric({
+            metric: { ...metric, skipPartialData: true },
+            regressionAdjusted: false,
+            isBandit: false,
+          }),
+        ).toBe(baseExpectedCols + 1);
       });
 
       it("should return 6 columns for mean metric with percentile capping", () => {

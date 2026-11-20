@@ -920,6 +920,7 @@ const factMetricObjectValidator = z
     // (e.g. absolute-0 floor + percentile upper cap).
     lowerCappingSettings: cappingSettingsValidator.optional().nullable(),
     windowSettings: windowSettingsValidator,
+    skipPartialData: z.boolean().optional(),
     priorSettings: priorSettingsValidator,
 
     maxPercentChange: z.number(),
