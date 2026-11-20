@@ -1,4 +1,4 @@
-import { FC, Fragment, useState } from "react";
+import { FC, Fragment, useMemo, useState } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import {
@@ -28,6 +28,7 @@ import {
   SetExperimentSortBy,
   formatDimensionValueForDisplay,
   isFactFunnelMetric,
+  AdjustmentImpact,
 } from "shared/experiments";
 import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { CustomMetricSlice } from "shared/validators";
@@ -48,10 +49,18 @@ import FunnelStepSliceLink, {
 import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
+import { getGoalFamilyRows } from "@/hooks/useExperimentTableRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import {
+  DrilldownOptions,
+  useMetricDrilldownContext,
+} from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { getLargeAdjustmentImpacts } from "@/components/MetricDrilldown/helpers";
+import StatsAdjustmentBadge from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import TruncatedText from "@/ui/TruncatedText";
 import UsersTable from "./UsersTable";
 
 export const includeVariation = (
@@ -64,6 +73,10 @@ export const includeVariation = (
     dimensionValuesFilter.includes(d.name)
   );
 };
+
+function getRowDimensionValue(row: ExperimentTableRow): string {
+  return row.dimensionValue ?? (typeof row.label === "string" ? row.label : "");
+}
 
 const BreakDownResults: FC<{
   experimentId: string;
@@ -174,8 +187,10 @@ const BreakDownResults: FC<{
     getDimensionById,
     getExperimentMetricById,
     getFactTableById: _getFactTableById,
+    metricGroups: _metricGroups,
   } = useDefinitions();
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
 
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
@@ -246,17 +261,100 @@ const BreakDownResults: FC<{
   const isHoldout = experimentType === "holdout";
 
   // Wrap drilldown to include dimension info
-  const handleRowClick = drilldownContext
-    ? (row: ExperimentTableRow) => {
-        const rawValue =
-          row.dimensionValue ??
-          (typeof row.label === "string" ? row.label : "");
+  const openDimensionDrilldown = drilldownContext
+    ? (
+        row: ExperimentTableRow,
+        options?: Omit<DrilldownOptions, "dimensionInfo">,
+      ) => {
+        const rawValue = getRowDimensionValue(row);
         const value = formatDimensionValueForDisplay(rawValue);
         drilldownContext.openDrilldown(row, {
+          ...options,
           dimensionInfo: { id: dimensionId, name: dimension, value, rawValue },
         });
       }
     : undefined;
+
+  const _metricDefaults = useOrganizationMetricDefaults();
+  const { metricDefaults } =
+    ssrPolyfills?.useOrganizationMetricDefaults?.() || _metricDefaults;
+
+  // The drilldown for a dimension value corrects p-values across all of that
+  // value's goal metrics, so the badge builds the same family per value.
+  const goalRowsByValue = useMemo(() => {
+    const rowsByValue = new Map<string, ExperimentTableRow[]>();
+    results.forEach((dimensionResults) => {
+      const goalRows = getGoalFamilyRows({
+        results: dimensionResults,
+        goalMetrics,
+        metricGroups,
+        metricOverrides,
+        settingsForSnapshotMetrics,
+        getExperimentMetricById: (id) =>
+          ssrPolyfills?.getExperimentMetricById?.(id) ||
+          getExperimentMetricById(id),
+        getFactTableById,
+      });
+      rowsByValue.set(dimensionResults.name, goalRows);
+    });
+    return rowsByValue;
+  }, [
+    results,
+    goalMetrics,
+    metricGroups,
+    metricOverrides,
+    settingsForSnapshotMetrics,
+    ssrPolyfills,
+    getExperimentMetricById,
+    getFactTableById,
+  ]);
+  const largeImpactsByRow = useMemo(() => {
+    const metricRowsByValue = new Map<string, ExperimentTableRow[]>();
+    tables.forEach((table) =>
+      table.rows.forEach((row) => {
+        if (row.isChildRow) return;
+        const value = getRowDimensionValue(row);
+        metricRowsByValue.set(value, [
+          ...(metricRowsByValue.get(value) ?? []),
+          row,
+        ]);
+      }),
+    );
+
+    const impactsByRow = new Map<string, AdjustmentImpact[]>();
+    metricRowsByValue.forEach((metricRows, value) => {
+      const goalRows = goalRowsByValue.get(value);
+      if (!goalRows) return;
+      const impacts = getLargeAdjustmentImpacts(metricRows, {
+        baselineIndex: baselineRow ?? 0,
+        variationFilter,
+        statsEngine,
+        differenceType,
+        metricDefaults,
+        ciUpper: significanceThresholds.bayesianConfidenceLevels.ciUpper,
+        ciLower: significanceThresholds.bayesianConfidenceLevels.ciLower,
+        pValueThreshold: significanceThresholds.pValueThreshold,
+        pValueCorrection,
+        goalRows,
+      });
+      metricRows.forEach((row, i) => {
+        if (impacts[i].length) {
+          impactsByRow.set(`${row.metric.id}:${value}`, impacts[i]);
+        }
+      });
+    });
+    return impactsByRow;
+  }, [
+    tables,
+    goalRowsByValue,
+    baselineRow,
+    variationFilter,
+    statsEngine,
+    differenceType,
+    metricDefaults,
+    significanceThresholds,
+    pValueCorrection,
+  ]);
 
   return (
     <div className="mb-3">
@@ -332,7 +430,7 @@ const BreakDownResults: FC<{
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
               rows={visibleRows}
-              onRowClick={handleRowClick}
+              onRowClick={openDimensionDrilldown}
               dimension={dimension}
               id={(idPrefix ? `${idPrefix}_` : "") + table.metric.id}
               tableRowAxis="dimension" // todo: dynamic grouping?
@@ -391,20 +489,21 @@ const BreakDownResults: FC<{
                 const childLabel = isFactFunnelMetric(table.metric)
                   ? "funnel steps"
                   : "metric slices";
+                const statsAdjustmentImpacts = row
+                  ? largeImpactsByRow.get(
+                      `${row.metric.id}:${getRowDimensionValue(row)}`,
+                    )
+                  : undefined;
                 const rowName =
                   typeof label === "string" && label
                     ? formatDimensionValueForDisplay(label)
                     : "unknown";
                 return (
-                  <div
+                  <Flex
+                    align="center"
+                    gap="1"
                     className="pl-3 font-weight-bold"
-                    style={{
-                      display: "-webkit-box",
-                      WebkitLineClamp: 1,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                      color: "var(--color-text-mid)",
-                    }}
+                    style={{ color: "var(--color-text-mid)" }}
                   >
                     {hasSteps ? (
                       <span
@@ -445,10 +544,15 @@ const BreakDownResults: FC<{
                         </RadixTooltip>
                       </span>
                     ) : null}
-                    <span className={hasSteps ? "ml-2" : undefined}>
+                    <span
+                      className={hasSteps ? "ml-2" : undefined}
+                      style={{ minWidth: 0 }}
+                    >
                       {label ? (
                         label === NULL_DIMENSION_VALUE ? (
                           <em>{formatDimensionValueForDisplay(label)}</em>
+                        ) : typeof label === "string" ? (
+                          <TruncatedText text={label} weight="semibold" />
                         ) : (
                           label
                         )
@@ -456,7 +560,20 @@ const BreakDownResults: FC<{
                         <em>unknown</em>
                       )}
                     </span>
-                  </div>
+                    {row && statsAdjustmentImpacts ? (
+                      <StatsAdjustmentBadge
+                        impacts={statsAdjustmentImpacts}
+                        onClick={
+                          openDimensionDrilldown
+                            ? () =>
+                                openDimensionDrilldown(row, {
+                                  initialTab: "debug",
+                                })
+                            : undefined
+                        }
+                      />
+                    ) : null}
+                  </Flex>
                 );
               }}
               isTabActive={true}

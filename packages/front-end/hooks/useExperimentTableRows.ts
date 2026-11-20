@@ -504,6 +504,33 @@ export function generateRowsForMetricGroup({
   });
 }
 
+/**
+ * Every top-level goal row, ignoring the metric and tag filters: the family the
+ * metric drilldown and the stats adjustment badge correct p-values over.
+ */
+export function getGoalFamilyRows({
+  goalMetrics,
+  metricGroups,
+  ...params
+}: Pick<
+  Parameters<typeof generateRowsForMetricGroup>[0],
+  | "results"
+  | "metricOverrides"
+  | "settingsForSnapshotMetrics"
+  | "getExperimentMetricById"
+  | "getFactTableById"
+> & {
+  goalMetrics: string[];
+  metricGroups: MetricGroupInterface[];
+}): ExperimentTableRow[] {
+  return generateRowsForMetricGroup({
+    ...params,
+    metricIds: [...new Set(expandMetricGroups(goalMetrics, metricGroups))],
+    resultGroup: "goal",
+    shouldShowMetricSlices: false,
+  }).filter((row) => !row.isChildRow);
+}
+
 export function getSliceRowLabel(slice: SliceDataForMetric): string {
   return slice.sliceLevels
     .map((dl) => {

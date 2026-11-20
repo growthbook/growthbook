@@ -1,16 +1,15 @@
-.metricLabel {
-  .metricExternalLinkIcon {
-    visibility: hidden;
-    position: relative;
-    margin-left: 4px;
-    top: -1px;
-  }
+.metricExternalLinkIcon {
+  visibility: hidden;
+  position: relative;
+  margin-left: 4px;
+  top: -1px;
+}
 
-  &:hover {
-    .metricExternalLinkIcon {
-      visibility: visible;
-    }
-  }
+// The icon sits inside the name's link, or after the stats adjustment badge
+// when there is one; either way it shows while the name is hovered.
+.metricLabel:hover .metricExternalLinkIcon,
+.metricLabel:hover ~ * .metricExternalLinkIcon {
+  visibility: visible;
 }
 
 .metricLabelLastWord {

@@ -1,4 +1,9 @@
-import { funnelStepMetricId } from "shared/experiments";
+import {
+  AdjustmentImpact,
+  AdjustmentImpactArgs,
+  funnelStepMetricId,
+  getAdjustmentImpactSummaries,
+} from "shared/experiments";
 import { ExperimentReportResultDimension } from "shared/types/report";
 import {
   ExperimentTableRow,
@@ -83,4 +88,46 @@ export function buildFunnelStepSliceRows({
     },
     ...stepSliceRows,
   ];
+}
+
+export function formatAdjustmentChange({
+  relativeChange,
+  standardErrorShift,
+}: Pick<AdjustmentImpact, "relativeChange" | "standardErrorShift">): string {
+  if (standardErrorShift !== null) {
+    return `Estimate shifted by ${standardErrorShift.toFixed(2)} standard errors`;
+  }
+  return `${(relativeChange * 100).toFixed(1)}% change in estimate`;
+}
+
+export function formatAdjustmentQualifiers({
+  significanceChanged,
+  signFlipped,
+}: Pick<AdjustmentImpact, "significanceChanged" | "signFlipped">): string {
+  const parts: string[] = [];
+  if (signFlipped) parts.push("sign flip");
+  if (significanceChanged) parts.push("significance change");
+  return parts.join(" · ");
+}
+
+export type LargeAdjustmentImpactArgs = Omit<
+  AdjustmentImpactArgs,
+  "goalMetrics" | "settings"
+> & {
+  /** Every goal row, from `getGoalFamilyRows`. */
+  goalRows: ExperimentTableRow[];
+};
+
+/** For each row, the adjustments with a large effect, most severe first. */
+export function getLargeAdjustmentImpacts(
+  rows: ExperimentTableRow[],
+  { goalRows, ...args }: LargeAdjustmentImpactArgs,
+): AdjustmentImpact[][] {
+  return getAdjustmentImpactSummaries({
+    ...args,
+    metrics: rows,
+    goalMetrics: goalRows,
+  }).map((impacts) =>
+    impacts.filter(({ effectSize }) => effectSize === "large"),
+  );
 }

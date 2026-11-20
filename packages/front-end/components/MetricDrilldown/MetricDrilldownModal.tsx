@@ -37,7 +37,10 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
+import {
+  getGoalFamilyRows,
+  useExperimentTableRows,
+} from "@/hooks/useExperimentTableRows";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   useSnapshot,
@@ -207,7 +210,16 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
 }) => {
   const { isAuthenticated } = useAuth();
   const { hasCommercialFeature } = useUser();
-  const { getDatasourceById } = useDefinitions();
+  const {
+    getDatasourceById,
+    getExperimentMetricById: _getExperimentMetricById,
+    getFactTableById: _getFactTableById,
+    metricGroups: _metricGroups,
+  } = useDefinitions();
+  const getExperimentMetricById =
+    ssrPolyfills?.getExperimentMetricById || _getExperimentMetricById;
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
   const { analysis, experiment } = useSnapshot();
 
   const liveResults = useMemo(() => {
@@ -257,10 +269,26 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     return updatedRow ?? row;
   }, [allRows, metric.id, row]);
 
-  // Exclude all child rows (slices and funnel steps).
   const goalRows = useMemo(
-    () => allRows.filter((r) => r.resultGroup === "goal" && !r.isChildRow),
-    [allRows],
+    () =>
+      getGoalFamilyRows({
+        results,
+        goalMetrics,
+        metricGroups,
+        metricOverrides,
+        settingsForSnapshotMetrics,
+        getExperimentMetricById,
+        getFactTableById,
+      }),
+    [
+      results,
+      goalMetrics,
+      metricGroups,
+      metricOverrides,
+      settingsForSnapshotMetrics,
+      getExperimentMetricById,
+      getFactTableById,
+    ],
   );
 
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
@@ -686,7 +714,7 @@ const MetricDrilldownModal = ({
                   )}
                 </Flex>
               </TabsTrigger>
-              <TabsTrigger value="debug">Debug</TabsTrigger>
+              <TabsTrigger value="debug">Stats Adjustments</TabsTrigger>
             </TabsList>
           </Box>
         }
