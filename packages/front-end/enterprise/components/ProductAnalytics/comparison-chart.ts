@@ -318,6 +318,22 @@ export function getPopulationSeriesKeys(
   );
 }
 
+// Ratio and per-unit series keys. A bucket with no data has no value for
+// these (see getEffectiveMetricValue), and their line is joined across it
+// rather than broken: an empty hour says nothing about the rate, so joining
+// the neighbours reads better than a gap or a drop to 0.
+export function getJoinGapsSeriesKeys(
+  seriesMeta: Record<string, { valueIndex: number }>,
+  renderOpts: RenderOpts,
+): Set<string> {
+  return new Set(
+    Object.keys(seriesMeta).filter((seriesKey) => {
+      const opts = renderOpts.values[seriesMeta[seriesKey].valueIndex];
+      return opts?.isRatio || opts?.showAs === "per_unit";
+    }),
+  );
+}
+
 // Marks each date in `xValues` that a "% of Population" series has no bucket
 // for as a gap, e.g. dates past the end of the current window that the axis
 // reaches for a longer comparison window.
@@ -884,6 +900,8 @@ export function buildExplorerChartComparisonSeriesList(params: {
   currentBarWidth?: number | string;
   /** Previous bar width — px (= current + a fixed per-side frame) once measured. */
   previousBarWidth?: number | string;
+  /** Line/area series drawn across buckets with no value (getJoinGapsSeriesKeys). */
+  joinGapsSeriesKeys?: ReadonlySet<string>;
 }): unknown[] {
   const {
     chartType,
@@ -902,6 +920,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
     compareCategoryAxisKey,
     currentBarWidth,
     previousBarWidth,
+    joinGapsSeriesKeys,
   } = params;
   const isPrevious = params.previous ?? false;
 
@@ -918,6 +937,9 @@ export function buildExplorerChartComparisonSeriesList(params: {
           )
         : name;
       const color = isPrevious ? comparisonSeriesColor(idx) : seriesColor(idx);
+      const joinGaps = joinGapsSeriesKeys?.has(seriesKey)
+        ? { connectNulls: true }
+        : {};
 
       if (isPrevious && chartType === "line") {
         const data = sourceSortedXValues.map((x) =>
@@ -929,6 +951,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
           valueAxis,
           data,
           color,
+          ...joinGaps,
           type: "line" as const,
           animation: animate,
           animationDuration: animate ? 300 : 0,
@@ -1027,6 +1050,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
             valueAxis,
             data,
             color,
+            ...joinGaps,
             type: "line" as const,
             animation: animate,
             animationDuration: animate ? 300 : 0,
@@ -1051,6 +1075,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
           valueAxis,
           data,
           color,
+          ...joinGaps,
           type: "line" as const,
           animation: animate,
           animationDuration: animate ? 300 : 0,

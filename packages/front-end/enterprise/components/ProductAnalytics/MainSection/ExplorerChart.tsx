@@ -44,6 +44,7 @@ import {
   buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
   getPopulationSeriesKeys,
+  getJoinGapsSeriesKeys,
   fillPopulationSeriesGaps,
   sortDateXValues,
   assignSecondaryValueAxis,
@@ -406,6 +407,7 @@ export default function ExplorerChart({
       renderOpts,
     );
     fillPopulationSeriesGaps(dataMap, populationSeriesKeys, sortedXValues);
+    const joinGapsSeriesKeys = getJoinGapsSeriesKeys(seriesMeta, renderOpts);
 
     // 3. Build Series (ordered by cumulative total, highest first)
     const seriesColor = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
@@ -572,6 +574,7 @@ export default function ExplorerChart({
           : undefined,
         currentBarWidth: compareBarWidths.current,
         previousBarWidth: compareBarWidths.previous,
+        joinGapsSeriesKeys,
       });
 
       if (compareOverlayActive && alignedComparisonDataForCurrent) {
@@ -597,6 +600,7 @@ export default function ExplorerChart({
               : undefined,
             currentBarWidth: compareBarWidths.current,
             previousBarWidth: compareBarWidths.previous,
+            joinGapsSeriesKeys,
           }),
         ];
       }
