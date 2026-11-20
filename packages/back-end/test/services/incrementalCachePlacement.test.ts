@@ -251,6 +251,113 @@ describe("planIncrementalCaches", () => {
     });
   });
 
+  describe("several new metrics of one kind", () => {
+    it("go together into the smallest stored cache that fits them all", () => {
+      // A metric and its two slices: g1 alone has room for all three, so g2 is
+      // left alone even once g1 has more columns than g2.
+      expect(
+        layout(
+          planIncrementalCaches({
+            metrics: [m("n", 3), m("n?dim:c=1", 3), m("n?dim:c=2", 3)],
+            storedCaches: [
+              stored("g1", [m("x", 300)]),
+              stored("g2", [m("y", 300)]),
+            ],
+            maxColumns: 1000,
+          }),
+        ),
+      ).toEqual(["ft_a<g1:x,n,n?dim:c=1,n?dim:c=2"]);
+    });
+
+    it("skip a smaller cache that can't take them all", () => {
+      // g1 has the fewest columns but room for only two more metrics.
+      const nearlyFull = Array.from(
+        { length: MAX_METRICS_PER_QUERY - 2 },
+        (_, i) => m(`x${String(i).padStart(3, "0")}`, 1),
+      );
+      const plan = planIncrementalCaches({
+        metrics: [m("n1", 3), m("n2", 3), m("n3", 3)],
+        storedCaches: [stored("g1", nearlyFull), stored("g2", [m("y", 300)])],
+        maxColumns: budget(1000),
+      });
+      expect(plan.map((c) => [c.replacesGroupId, c.metricIds])).toEqual([
+        ["g2", ["y", "n1", "n2", "n3"]],
+      ]);
+    });
+
+    it("spread over as few stored caches as they need when none fits them all", () => {
+      // 12 columns, and no cache has room for more than 10. Placing each
+      // metric on its own in the smallest cache would rebuild all three.
+      expect(
+        layout(
+          planIncrementalCaches({
+            metrics: [m("n1", 6), m("n2", 3), m("n3", 3)],
+            storedCaches: [
+              stored("g1", [m("x", 90)]),
+              stored("g2", [m("y", 92)]),
+              stored("g3", [m("z", 93)]),
+            ],
+            maxColumns: budget(100),
+          }),
+        ),
+      ).toEqual(["ft_a<g1:x,n1", "ft_a<g2:y,n2,n3"]);
+    });
+
+    it("fill the cache they rebuild before rebuilding another", () => {
+      // 9 columns, and no cache has room for more than 6. n1 rebuilds g1, n2
+      // follows it, and only n3 needs another cache.
+      expect(
+        layout(
+          planIncrementalCaches({
+            metrics: [m("n1", 3), m("n2", 3), m("n3", 3)],
+            storedCaches: [
+              stored("g1", [m("x", 94)]),
+              stored("g2", [m("y", 95)]),
+            ],
+            maxColumns: budget(100),
+          }),
+        ),
+      ).toEqual(["ft_a<g1:x,n1,n2", "ft_a<g2:y,n3"]);
+    });
+
+    it("open one new cache for them all when no stored cache has room", () => {
+      expect(
+        layout(
+          planIncrementalCaches({
+            metrics: [m("n1", 3), m("n2", 3), m("n3", 3)],
+            storedCaches: [stored("g1", [m("x", 98)])],
+            maxColumns: budget(100),
+          }),
+        ),
+      ).toEqual(["ft_a:n1,n2,n3"]);
+    });
+
+    it("are placed the same whatever order they are listed in", () => {
+      const metrics = [
+        m("n", 6),
+        m("n?dim:c=1", 3),
+        m("n?dim:c=2", 3),
+        m("p", 9),
+        m("q", 3, "ft_b"),
+      ];
+      const storedCaches = [
+        stored("g1", [m("x", 80)]),
+        stored("g2", [m("y", 85)]),
+        stored("b1", [m("z", 3, "ft_b")], "ft_b"),
+      ];
+      const plan = (list: CacheMetric[]) =>
+        planIncrementalCaches({
+          metrics: list,
+          storedCaches,
+          maxColumns: budget(100),
+        });
+      expect(plan([...metrics].reverse())).toEqual(plan(metrics));
+      expect(
+        plan([metrics[2], metrics[4], metrics[0], metrics[3], metrics[1]]),
+      ).toEqual(plan(metrics));
+    });
+  });
+
   it("returns nothing when there is nothing to place", () => {
     expect(
       planIncrementalCaches({

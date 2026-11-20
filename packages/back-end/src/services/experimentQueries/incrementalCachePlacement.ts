@@ -52,6 +52,12 @@ export function compareCacheMetrics(a: CacheMetric, b: CacheMetric): number {
  * never rebuilds another, then to the cache with fewer metrics, then to one
  * already joined with a cache holding another side of the same metric, then
  * to the earliest stored group id.
+ *
+ * When a kind has stored caches, its new metrics are placed as one batch so
+ * they rebuild as few caches as possible: the remaining batch goes whole into
+ * the smallest cache this run builds that fits it, else into the smallest
+ * stored cache that fits it. Only when none does is its next metric placed on
+ * its own, into a cache this run builds before any untouched stored cache.
  */
 export function planIncrementalCaches({
   metrics,
@@ -83,6 +89,7 @@ export function planIncrementalCaches({
 
   const cachesByMetricId = new Map<string, Cache[]>();
   const addToCache = (cache: Cache, metric: CacheMetric) => {
+    cache.built = true;
     cache.metrics.push(metric);
     cache.columns += metric.columns;
     cachesByMetricId.set(metric.metricId, [
@@ -99,42 +106,85 @@ export function planIncrementalCaches({
     ),
   );
 
-  for (const metric of [...metrics].sort(compareCacheMetrics)) {
-    const otherSides = cachesByMetricId.get(metric.metricId) ?? [];
-    const joinsOtherSide = (cache: Cache) =>
-      [...cachesByMetricId].some(
+  // How many of these metrics have another side in a cache this one is
+  // already joined with.
+  const joinedSides = (cache: Cache, batch: CacheMetric[]) =>
+    batch.filter((metric) => {
+      const otherSides = cachesByMetricId.get(metric.metricId) ?? [];
+      return [...cachesByMetricId].some(
         ([metricId, holders]) =>
           metricId !== metric.metricId &&
           holders.includes(cache) &&
           holders.some((holder) => otherSides.includes(holder)),
       );
-    const compareCandidates = (a: Cache, b: Cache) =>
-      a.columns - b.columns ||
-      Number(b.built) - Number(a.built) ||
-      a.metrics.length - b.metrics.length ||
-      Number(joinsOtherSide(b)) - Number(joinsOtherSide(a)) ||
-      a.order - b.order;
+    }).length;
+  const fits = (cache: Cache, batch: CacheMetric[]) =>
+    BASE_COLUMNS_PER_QUERY +
+      cache.columns +
+      batch.reduce((sum, m) => sum + m.columns, 0) <=
+      maxColumns &&
+    cache.metrics.length + batch.length <= MAX_METRICS_PER_QUERY;
+  const smallest = (
+    candidates: Cache[],
+    batch: CacheMetric[],
+    { builtFirst }: { builtFirst: boolean },
+  ): Cache | undefined =>
+    candidates.sort(
+      (a, b) =>
+        (builtFirst ? Number(b.built) - Number(a.built) : 0) ||
+        a.columns - b.columns ||
+        Number(b.built) - Number(a.built) ||
+        a.metrics.length - b.metrics.length ||
+        joinedSides(b, batch) - joinedSides(a, batch) ||
+        a.order - b.order,
+    )[0];
+  const openCache = (cacheKind: string): Cache => {
+    const cache: Cache = {
+      order: caches.length,
+      cacheKind,
+      replacesGroupId: null,
+      metrics: [],
+      columns: 0,
+      built: true,
+    };
+    caches.push(cache);
+    return cache;
+  };
 
-    const fitting = caches.filter(
-      (cache) =>
-        cache.cacheKind === metric.cacheKind &&
-        BASE_COLUMNS_PER_QUERY + cache.columns + metric.columns <= maxColumns &&
-        cache.metrics.length < MAX_METRICS_PER_QUERY,
-    );
-    let target = fitting.sort(compareCandidates)[0];
-    if (!target) {
-      target = {
-        order: caches.length,
-        cacheKind: metric.cacheKind,
-        replacesGroupId: null,
-        metrics: [],
-        columns: 0,
-        built: true,
-      };
-      caches.push(target);
+  const sorted = [...metrics].sort(compareCacheMetrics);
+  for (const cacheKind of [...new Set(sorted.map((m) => m.cacheKind))]) {
+    const ofKind = caches.filter((cache) => cache.cacheKind === cacheKind);
+    const batch = sorted.filter((m) => m.cacheKind === cacheKind);
+    const batched = ofKind.some((cache) => cache.replacesGroupId !== null);
+    for (let i = 0; i < batch.length; i++) {
+      const remaining = batch.slice(i);
+      const candidates = caches.filter((c) => c.cacheKind === cacheKind);
+      if (batched) {
+        const whole =
+          smallest(
+            candidates.filter((c) => c.built && fits(c, remaining)),
+            remaining,
+            { builtFirst: false },
+          ) ??
+          smallest(
+            candidates.filter((c) => !c.built && fits(c, remaining)),
+            remaining,
+            { builtFirst: false },
+          );
+        if (whole) {
+          remaining.forEach((metric) => addToCache(whole, metric));
+          break;
+        }
+      }
+      const metric = batch[i];
+      const target =
+        smallest(
+          candidates.filter((c) => fits(c, [metric])),
+          [metric],
+          { builtFirst: batched },
+        ) ?? openCache(cacheKind);
+      addToCache(target, metric);
     }
-    target.built = true;
-    addToCache(target, metric);
   }
 
   return caches

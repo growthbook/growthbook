@@ -114,6 +114,10 @@ const metrics = [
     metricType: "mean",
     numerator: { factTableId: "ft_a", column: "$$count", rowFilters: [] },
   }),
+  metric("a3?dim:country=US", {
+    metricType: "mean",
+    numerator: { factTableId: "ft_a", column: "$$count", rowFilters: [] },
+  }),
   metric("c1", {
     metricType: "mean",
     numerator: { factTableId: "ft_c", column: "value", rowFilters: [] },
@@ -704,6 +708,19 @@ describe("new-metrics update (new-metrics runs)", () => {
           }),
         ),
       ).toEqual(["ft_a:a1,a3", "ft_a:a2,r1"]);
+    });
+
+    it("rebuilds one cache for a new metric and its slice when one cache has room for both", async () => {
+      // a3 takes 6 columns and its slice 3. Placed on their own, a3 would
+      // rebuild ft_a_stored1 and the slice the then smaller ft_a_stored0.
+      const refresh = await refreshDag(["a3", "a3?dim:country=US"], {
+        state: splitState(),
+        maxColumns: 118,
+      });
+      expect(createdCaches(refresh)).toEqual(["ft_a:a3,a3?dim:country=US,r1"]);
+      expect(
+        namesOf(refresh).filter((n) => n.startsWith("drop_replaced_")),
+      ).toEqual(["drop_replaced_metrics_source_ft_a_stored1"]);
     });
 
     it("opens a new cache alongside when no cache has room, and rebuilds none", async () => {
