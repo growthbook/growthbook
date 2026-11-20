@@ -130,6 +130,7 @@ describe("getSnapshotSideEffects", () => {
           runStarted: null,
           cutoffDate: null,
         },
+        metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
       },
     } as unknown as ExperimentSnapshotInterface);
 
@@ -159,6 +160,7 @@ describe("a report snapshot copied from a new-metrics update", () => {
         runStarted: null,
         cutoffDate: null,
       },
+      metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
     },
   } as unknown as ExperimentSnapshotInterface;
 
@@ -596,13 +598,9 @@ describe("getStatsEngineAnalysisSettings", () => {
     ({
       type: "standard",
       updateScope,
-      settings: {
-        goalMetrics: ["met_new"],
-        guardrailMetrics: ["met_a", "met_b", "met_c"],
-      },
     }) as unknown as ExperimentSnapshotInterface;
 
-  it("counts a new-metrics update's goals and guardrails from its own metrics", () => {
+  it("runs a new-metrics update's analyses with the counts it was planned with", () => {
     expect(
       getStatsEngineAnalysisSettings(
         snapshot({
@@ -610,6 +608,7 @@ describe("getStatsEngineAnalysisSettings", () => {
           parentSnapshotId: "snp_parent",
           queriedMetricIds: ["met_new"],
           base: { dateCreated: new Date(), runStarted: null, cutoffDate: null },
+          metricCounts: { numGoalMetrics: 1, numGuardrailMetrics: 3 },
         }),
         analysisSettings,
       ),

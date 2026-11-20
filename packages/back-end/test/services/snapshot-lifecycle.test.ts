@@ -634,6 +634,7 @@ describe("snapshot lifecycle", () => {
                 runStarted: null,
                 cutoffDate: cutoff,
               },
+              metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
             },
           },
         });

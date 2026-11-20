@@ -17,7 +17,6 @@ import {
   getCopiedMetricCounts,
   getDefinitionMetricId,
   getNewMetricsUpdate,
-  getNewMetricsUpdateMetricCounts,
   getStatsEngineAnalysisSettings,
   type ExperimentMetricInterface,
   type MetricCountsLineageLevel,
@@ -304,7 +303,7 @@ async function getMetricCountsLineage(
   const visited = new Set<string>();
   let level: Pick<
     NewMetricsUpdateAncestor,
-    "id" | "type" | "updateScope" | "settings"
+    "id" | "type" | "updateScope"
   > | null = parent;
   while (level && !visited.has(level.id)) {
     visited.add(level.id);
@@ -321,7 +320,7 @@ async function getMetricCountsLineage(
     }
     lineage.push({
       queriedMetricIds: newMetricsUpdate.queriedMetricIds,
-      counts: getNewMetricsUpdateMetricCounts(level.settings),
+      counts: newMetricsUpdate.metricCounts,
     });
     level = await findNewMetricsUpdateAncestor(
       context,
@@ -403,7 +402,7 @@ export async function analyzeNewMetricsUpdate({
       analyzedMetricIds,
       newMetricIds: new Set(newMetricsUpdate.queriedMetricIds),
       variationWeights: snapshot.settings.variations.map((v) => v.weight),
-      counts: getNewMetricsUpdateMetricCounts(snapshot.settings),
+      counts: newMetricsUpdate.metricCounts,
       getCountsComputedWith: (metricId) =>
         getCopiedMetricCounts(lineage, metricId),
     }),

@@ -111,6 +111,7 @@ const findAncestorMock = jest.mocked(findNewMetricsUpdateAncestor);
 const PARENT_START = new Date("2026-11-01T00:00:00Z");
 const PARENT_END = new Date("2026-11-10T12:00:00Z");
 const PARENT_CREATED = new Date("2026-11-10T12:05:00Z");
+const PLANNED_COUNTS = { numGoalMetrics: 2, numGuardrailMetrics: 0 };
 
 const pipelineStateMock = jest.fn();
 const context = {
@@ -134,6 +135,7 @@ const analysisSettings = {
   regressionAdjusted: false,
   differenceType: "relative",
   numGoalMetrics: 2,
+  numGuardrailMetrics: 0,
 } as unknown as ExperimentSnapshotAnalysisSettings;
 
 function makeExperiment(
@@ -354,6 +356,7 @@ describe("planNewMetricsUpdate", () => {
         runStarted: null,
         cutoffDate: PARENT_END,
       },
+      metricCounts: { numGoalMetrics: 3, numGuardrailMetrics: 0 },
     });
     expect(plan.snapshot.settings.metricSettings).toEqual([
       ...metricSettingsFor(["met_a", "met_b"], {}),
@@ -378,6 +381,7 @@ describe("planNewMetricsUpdate", () => {
           runStarted: null,
           cutoffDate: PARENT_END,
         },
+        metricCounts: PLANNED_COUNTS,
       },
       ...overrides,
     });
@@ -1202,10 +1206,13 @@ describe("getNewMetricsUpdateLineage", () => {
       updateScope: getNewMetricsUpdateLineage(
         makeParent({ runStarted: PARENT_CREATED }),
         ["met_c"],
+        PLANNED_COUNTS,
       ),
     });
 
-    expect(getNewMetricsUpdateLineage(refresh, ["met_d"])).toEqual({
+    expect(
+      getNewMetricsUpdateLineage(refresh, ["met_d"], PLANNED_COUNTS),
+    ).toEqual({
       kind: "new_metrics",
       parentSnapshotId: "snp_refresh",
       queriedMetricIds: ["met_d"],
@@ -1214,6 +1221,7 @@ describe("getNewMetricsUpdateLineage", () => {
         runStarted: PARENT_CREATED,
         cutoffDate: PARENT_END,
       },
+      metricCounts: PLANNED_COUNTS,
     });
   });
 });
@@ -1235,7 +1243,11 @@ describe("dateEnd of a new-metrics update", () => {
       runStarted: ran,
       dateCreated: ran,
       settings: { ...parent.settings },
-      updateScope: getNewMetricsUpdateLineage(parent, ["met_c"]),
+      updateScope: getNewMetricsUpdateLineage(
+        parent,
+        ["met_c"],
+        PLANNED_COUNTS,
+      ),
     });
   }
 
@@ -1412,7 +1424,11 @@ describe("new-metrics update status", () => {
         })),
         ...(run === "a new-metrics update"
           ? {
-              updateScope: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
+              updateScope: getNewMetricsUpdateLineage(
+                makeParent(),
+                ["met_c"],
+                PLANNED_COUNTS,
+              ),
             }
           : {}),
       });
@@ -1445,7 +1461,7 @@ describe("a new-metrics update that succeeds on the Incremental Pipeline", () =>
         { name: "statistics_fta_0", query: "qry_a", status: "succeeded" },
         { name: "statistics_ftc_1", query: "qry_c", status: "succeeded" },
       ],
-      updateScope: getNewMetricsUpdateLineage(root, ["met_c"]),
+      updateScope: getNewMetricsUpdateLineage(root, ["met_c"], PLANNED_COUNTS),
     });
 
     await new ExperimentIncrementalRefreshQueryRunner(
@@ -1528,7 +1544,11 @@ describe("starting a new-metrics update's queries", () => {
       settings: makeSettings(["met_a", "met_b", "met_c"], {
         exposureQueryId: "eq_1",
       }),
-      updateScope: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
+      updateScope: getNewMetricsUpdateLineage(
+        makeParent(),
+        ["met_c"],
+        PLANNED_COUNTS,
+      ),
     });
 
   beforeEach(() => {
@@ -1790,7 +1810,11 @@ describe("analyzeNewMetricsUpdate", () => {
   const refresh = makeParent({
     id: "snp_refresh",
     settings: makeSettings(["met_a", "met_c"]),
-    updateScope: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
+    updateScope: getNewMetricsUpdateLineage(
+      makeParent(),
+      ["met_c"],
+      PLANNED_COUNTS,
+    ),
   });
   const queryMap: QueryMap = new Map([
     [
@@ -1932,7 +1956,7 @@ describe("analyzeNewMetricsUpdate", () => {
     });
   });
 
-  it("counts a new goal metric among the new-metrics update's goals when the parent had none", async () => {
+  it("runs the new metrics with the counts the update was planned with, and keeps the parent's analysis settings", async () => {
     const parentSettings = { numGoalMetrics: 0, numGuardrailMetrics: 0 };
     findSnapshotByIdMock.mockResolvedValue(
       makeParent({
@@ -1943,17 +1967,14 @@ describe("analyzeNewMetricsUpdate", () => {
       }),
     );
 
+    const newMetricsUpdate = {
+      ...refresh.updateScope!,
+      metricCounts: { numGoalMetrics: 1, numGuardrailMetrics: 2 },
+    };
     const result = await analyzeNewMetricsUpdate({
       context,
-      snapshot: {
-        ...refresh,
-        settings: {
-          ...refresh.settings,
-          goalMetrics: ["met_c"],
-          guardrailMetrics: ["met_g", "met_h"],
-        },
-      },
-      newMetricsUpdate: refresh.updateScope!,
+      snapshot: { ...refresh, updateScope: newMetricsUpdate },
+      newMetricsUpdate,
       queryMap,
       metricMap,
       variationNames: ["Control", "Treatment"],
@@ -2022,7 +2043,10 @@ describe("analyzeNewMetricsUpdate", () => {
         "g8",
         "g9",
       ]),
-      updateScope: getNewMetricsUpdateLineage(base, ["met_b"]),
+      updateScope: getNewMetricsUpdateLineage(base, ["met_b"], {
+        numGoalMetrics: 9,
+        numGuardrailMetrics: 0,
+      }),
       analyses: [
         analysis({ numGoalMetrics: 6 }, [countedDimension(["met_a", "met_b"])]),
         analysis({ ...covariate, numGoalMetrics: 6 }, [
@@ -2060,7 +2084,10 @@ describe("analyzeNewMetricsUpdate", () => {
           dimensions: [countedDimension(["met_c"])],
         })),
       }));
-      const newMetricsUpdate = getNewMetricsUpdateLineage(earlier, ["met_c"]);
+      const newMetricsUpdate = getNewMetricsUpdateLineage(earlier, ["met_c"], {
+        numGoalMetrics: goalMetrics.length,
+        numGuardrailMetrics: guardrailMetrics.length,
+      });
       const result = await analyzeNewMetricsUpdate({
         context,
         snapshot: makeParent({

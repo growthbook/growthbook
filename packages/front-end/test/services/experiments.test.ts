@@ -169,6 +169,7 @@ describe("getNewMetricRowStates", () => {
       runStarted: null,
       cutoffDate: null,
     },
+    metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
   });
 
   it("marks every new metric as not computed", () => {

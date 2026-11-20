@@ -274,6 +274,7 @@ describe("getResultsOutdatedReasons", () => {
               runStarted: null,
               cutoffDate: laggedSettings.endDate,
             },
+            metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
           },
         }),
       }),

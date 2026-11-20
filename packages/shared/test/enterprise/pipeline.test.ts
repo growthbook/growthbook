@@ -306,6 +306,7 @@ describe("isNewerOverallResultsDataAvailable", () => {
           runStarted: null,
           cutoffDate: null,
         },
+        metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
       },
     });
     const refresh = makeRefresh(new Date("2024-06-01T13:00:00Z"), rootDate);

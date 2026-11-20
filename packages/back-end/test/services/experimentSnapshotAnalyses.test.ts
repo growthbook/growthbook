@@ -382,6 +382,7 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
           runStarted: baseRunStarted,
           cutoffDate: dataEnd,
         },
+        metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
       },
     });
     const fullRun = { ...refresh, updateScope: undefined };

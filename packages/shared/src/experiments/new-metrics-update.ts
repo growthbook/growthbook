@@ -156,23 +156,7 @@ export function getNewMetricsUpdate(
     : null;
 }
 
-export type StatsEngineMetricCounts = {
-  numGoalMetrics: number;
-  numGuardrailMetrics: number;
-};
-
-/** The goal and guardrail counts a new-metrics update's stats engine runs use. */
-export function getNewMetricsUpdateMetricCounts(
-  settings: Pick<
-    ExperimentSnapshotSettings,
-    "goalMetrics" | "guardrailMetrics"
-  >,
-): StatsEngineMetricCounts {
-  return {
-    numGoalMetrics: settings.goalMetrics.length,
-    numGuardrailMetrics: settings.guardrailMetrics.length,
-  };
-}
+export type StatsEngineMetricCounts = SnapshotNewMetricsUpdate["metricCounts"];
 
 /**
  * The settings the stats engine runs an analysis of this snapshot with. A
@@ -181,17 +165,12 @@ export function getNewMetricsUpdateMetricCounts(
  * metrics it added.
  */
 export function getStatsEngineAnalysisSettings(
-  snapshot: Pick<
-    ExperimentSnapshotInterface,
-    "type" | "updateScope" | "settings"
-  >,
+  snapshot: Pick<ExperimentSnapshotInterface, "type" | "updateScope">,
   analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): ExperimentSnapshotAnalysisSettings {
-  if (!getNewMetricsUpdate(snapshot)) return analysisSettings;
-  return {
-    ...analysisSettings,
-    ...getNewMetricsUpdateMetricCounts(snapshot.settings),
-  };
+  const newMetricsUpdate = getNewMetricsUpdate(snapshot);
+  if (!newMetricsUpdate) return analysisSettings;
+  return { ...analysisSettings, ...newMetricsUpdate.metricCounts };
 }
 
 /**

@@ -99,6 +99,13 @@ const experimentSnapshotSchema = new mongoose.Schema({
         },
         { _id: false },
       ),
+      metricCounts: new mongoose.Schema(
+        {
+          numGoalMetrics: Number,
+          numGuardrailMetrics: Number,
+        },
+        { _id: false },
+      ),
     },
     { _id: false },
   ),

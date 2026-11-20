@@ -870,6 +870,7 @@ describe("a new-metrics update run on the Incremental Pipeline", () => {
             runStarted: null,
             cutoffDate: BASE_END,
           },
+          metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
         },
       }),
       fakeIntegration(1000).integration,
