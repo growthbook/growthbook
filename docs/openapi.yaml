@@ -19532,6 +19532,10 @@ paths:
                                   - multipleExposures
                                 additionalProperties: false
                               - type: 'null'
+                          unknownVariations:
+                            type: array
+                            items:
+                              type: string
                         required:
                           - attributes
                           - sseTrajectory
@@ -19540,6 +19544,7 @@ paths:
                           - snapshotId
                           - dateCreated
                           - health
+                          - unknownVariations
                         additionalProperties: false
                       - type: 'null'
                   latest:

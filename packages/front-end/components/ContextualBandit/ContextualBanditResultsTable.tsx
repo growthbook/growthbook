@@ -1,11 +1,12 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
   conditionFromLeafClauses,
+  classifyUnknownVariations,
   getMetricLink,
   isActiveVariation,
   isDeactivatedVariation,
@@ -13,10 +14,12 @@ import {
 import type {
   ContextualBanditResultsLeaf,
   ContextualLeafClause,
+  UnknownVariationCause,
 } from "shared/experiments";
 import { getUnitDisplayName } from "@/services/experiments";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import { DocLink } from "@/components/DocLink";
 import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
@@ -126,6 +129,62 @@ function formatModeValue(value: number, mode: ComparisonMode): string {
   return new Intl.NumberFormat(undefined, {
     maximumSignificantDigits: 3,
   }).format(value);
+}
+
+function CommaCodeList({ vals }: { vals: string[] }) {
+  return (
+    <>
+      {vals.map((v, i) => (
+        <Fragment key={v}>
+          {i > 0 && ", "}
+          <code>{v}</code>
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+function unknownVariationHint(cause: UnknownVariationCause): ReactNode {
+  switch (cause.kind) {
+    case "empty":
+      return (
+        <>
+          is <code>NULL</code> or blank; return a configured variation key
+          instead.
+        </>
+      );
+    case "caseOrWhitespace":
+      return (
+        <>
+          differs only in case or whitespace from the key{" "}
+          <code>{cause.expectedKey}</code> — the match is exact and
+          case-sensitive.
+        </>
+      );
+    case "growthbookId":
+      return cause.expectedKey ? (
+        <>
+          is a GrowthBook variation id; return the key{" "}
+          <code>{cause.expectedKey}</code> instead.
+        </>
+      ) : (
+        <>
+          is a GrowthBook variation id (<code>var_…</code>); return the
+          variation key instead.
+        </>
+      );
+    case "index":
+      return cause.expectedKey !== undefined ? (
+        <>
+          looks like a 0-based index; emit the variation key{" "}
+          <code>{cause.expectedKey}</code> at this position, not the index.
+        </>
+      ) : (
+        <>looks like a 0-based index; emit the variation key, not the index.</>
+      );
+    case "unrecognized":
+      return <>matches no configured variation key.</>;
+  }
 }
 
 function SectionHeading({
@@ -328,6 +387,13 @@ export default function ContextualBanditResultsTable({
       ? null
       : getResultsNotice(hasTableData, isExploring);
 
+  const unknownVariations = results?.unknownVariations ?? [];
+  const configuredKeys = cb.variations.map((v) => v.key);
+  const unknownVariationCauses = classifyUnknownVariations(
+    unknownVariations,
+    cb.variations,
+  );
+
   const comparisonColumns: HeatmapColumn[] = useMemo(
     () =>
       variations.map((v) => ({
@@ -472,6 +538,38 @@ export default function ContextualBanditResultsTable({
       {resultsNotice ? (
         <Callout status="info" mb="3">
           {resultsNotice}
+        </Callout>
+      ) : null}
+
+      {unknownVariationCauses.length > 0 ? (
+        <Callout status="warning" mb="3">
+          The assignment query returned {unknownVariationCauses.length}{" "}
+          <code>variation_id</code> value
+          {unknownVariationCauses.length === 1 ? "" : "s"} that match no
+          configured variation key (<CommaCodeList vals={configuredKeys} />
+          ). Rows with an unrecognized <code>variation_id</code> are dropped, so
+          affected variations show 0 {unitDisplayName.toLowerCase()}.
+          <Box asChild mt="2" mb="0">
+            <ul>
+              {unknownVariationCauses.map((cause) => (
+                <li key={cause.value}>
+                  {cause.kind === "empty" ? (
+                    <Text fontStyle="italic">(empty value)</Text>
+                  ) : (
+                    <code>{cause.value}</code>
+                  )}{" "}
+                  {unknownVariationHint(cause)}
+                </li>
+              ))}
+            </ul>
+          </Box>
+          <Text as="div" mt="2">
+            Map <code>variation_id</code> to your variation keys in the query.{" "}
+            <DocLink docSection="contextualBanditsAssignmentQuery">
+              Learn more
+            </DocLink>
+            .
+          </Text>
         </Callout>
       ) : null}
 

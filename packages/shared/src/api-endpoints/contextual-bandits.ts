@@ -292,6 +292,7 @@ export const getContextualBanditResults = {
               multipleExposures: z.number().nullable(),
             })
             .nullable(),
+          unknownVariations: z.array(z.string()),
         })
         .nullable(),
       latest: contextualBanditLatestStatusSchema.nullable(),

@@ -2,6 +2,7 @@ import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import { contextualBanditAttrCol } from "shared/experiments";
 import {
   buildContextualBanditObservations,
+  detectUnknownContextualVariations,
   filterMetricQueryRowsForStatsEngine,
   prepareRowsForContextualStats,
 } from "back-end/src/enterprise/services/contextualBanditStats";
@@ -202,6 +203,133 @@ describe("buildContextualBanditObservations", () => {
         attributes: [],
       }),
     ).toEqual([]);
+  });
+});
+
+describe("detectUnknownContextualVariations", () => {
+  const variations = [
+    { id: "v0", key: "0" },
+    { id: "v1", key: "1" },
+  ];
+
+  it("returns an empty list when every value matches a key", () => {
+    expect(
+      detectUnknownContextualVariations(
+        rows([
+          { variation: "0", count: 10 },
+          { variation: "1", count: 20 },
+        ]),
+        variations,
+      ),
+    ).toEqual([]);
+  });
+
+  it("reports values that match no configured key, deduped and sorted", () => {
+    expect(
+      detectUnknownContextualVariations(
+        rows([
+          { variation: "0", count: 1 },
+          { variation: "treatment", count: 2 },
+          { variation: "control", count: 3 },
+          { variation: "treatment", count: 4 },
+        ]),
+        variations,
+      ),
+    ).toEqual(["control", "treatment"]);
+  });
+
+  it("flags the internal variation id, which the warehouse should never emit", () => {
+    expect(
+      detectUnknownContextualVariations(
+        rows([{ variation: "v1", count: 5 }]),
+        variations,
+      ),
+    ).toEqual(["v1"]);
+  });
+
+  it("matches keys exactly and case-sensitively", () => {
+    expect(
+      detectUnknownContextualVariations(
+        rows([{ variation: "Control", count: 1 }]),
+        [
+          { id: "v0", key: "control" },
+          { id: "v1", key: "treatment" },
+        ],
+      ),
+    ).toEqual(["Control"]);
+  });
+
+  it("ignores __multiple__ but reports empty values (deduped) so dropped units surface", () => {
+    expect(
+      detectUnknownContextualVariations(
+        rows([
+          { variation: "__multiple__", count: 1 },
+          { variation: "", count: 2 },
+          { count: 3 },
+        ]),
+        variations,
+      ),
+    ).toEqual([""]);
+  });
+
+  it("reports every value when none match (the 0-user incident)", () => {
+    expect(
+      detectUnknownContextualVariations(
+        rows([
+          { variation: "19782307", count: 6000 },
+          { variation: "19782308", count: 7000 },
+        ]),
+        [
+          { id: "v0", key: "control" },
+          { id: "v1", key: "treatment" },
+        ],
+      ),
+    ).toEqual(["19782307", "19782308"]);
+  });
+
+  it("detects unknown values on fact-metric rows (m0_ prefixed columns)", () => {
+    expect(
+      detectUnknownContextualVariations(
+        rows([
+          { variation: "nope", users: 10, m0_id: "met_1", m0_main_sum: 5 },
+        ]),
+        variations,
+      ),
+    ).toEqual(["nope"]);
+  });
+
+  it("does not flag a deactivated variation's historical rows when its key is still configured", () => {
+    // Weights are computed only over active arms, but the query still returns
+    // historical rows for a deactivated arm whose key remains on the bandit.
+    // Passing all configured keys (active + deactivated) must treat those rows
+    // as valid rather than report the query as misconfigured.
+    const allConfigured = [
+      { id: "v0", key: "control" }, // active
+      { id: "v1", key: "treatment" }, // deactivated, key retained on the bandit
+    ];
+    expect(
+      detectUnknownContextualVariations(
+        rows([
+          { variation: "control", count: 10 },
+          { variation: "treatment", count: 5 },
+        ]),
+        allConfigured,
+      ),
+    ).toEqual([]);
+  });
+
+  it("would flag the deactivated arm's rows if only active variations were passed (why callers pass all configured keys)", () => {
+    const activeOnly = [{ id: "v0", key: "control" }];
+    expect(
+      detectUnknownContextualVariations(
+        rows([{ variation: "treatment", count: 5 }]),
+        activeOnly,
+      ),
+    ).toEqual(["treatment"]);
+  });
+
+  it("handles an empty row set", () => {
+    expect(detectUnknownContextualVariations(rows([]), variations)).toEqual([]);
   });
 });
 
