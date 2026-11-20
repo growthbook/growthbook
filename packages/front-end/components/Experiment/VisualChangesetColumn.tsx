@@ -594,10 +594,17 @@ export default function VisualChangesetColumn({
           variation={viewed}
           rows={rowsByVariation.get(viewed.id) ?? []}
           onEdit={
-            canChange && viewedChange
+            canChange
               ? () => {
                   setViewing(null);
-                  setEditingVisualChange(viewedChange);
+                  // Create an empty visual change if none exists yet (new variation)
+                  const changeToEdit: VisualChange = viewedChange ?? {
+                    variation: viewed.id,
+                    domMutations: [],
+                    css: "",
+                    js: "",
+                  };
+                  setEditingVisualChange(changeToEdit);
                 }
               : null
           }
