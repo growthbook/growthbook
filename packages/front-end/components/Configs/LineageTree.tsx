@@ -8,6 +8,7 @@ import {
   PiFolderOpen,
   PiDotOutline,
   PiWarningFill,
+  PiWarningOctagonFill,
   PiPlus,
 } from "react-icons/pi";
 import { isScopedConfig } from "shared/util";
@@ -541,18 +542,18 @@ export default function LineageTree({
             )}
             {hasViolations && (
               <Tooltip
-                content={`Violates validation rule(s): ${n.invariantViolations
+                content={n.invariantViolations
                   ?.map((v) => v.message)
-                  .join("; ")}`}
+                  .join("; ")}
               >
                 <Box
                   style={{
                     display: "inline-flex",
                     flexShrink: 0,
-                    color: "var(--red-11)",
+                    color: "var(--amber-11)",
                   }}
                 >
-                  <PiWarningFill size={12} />
+                  <PiWarningOctagonFill size={12} />
                 </Box>
               </Tooltip>
             )}

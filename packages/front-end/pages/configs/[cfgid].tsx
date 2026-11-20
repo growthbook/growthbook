@@ -774,14 +774,39 @@ export default function ConfigDetailPage(): React.ReactElement {
     return o;
   }, [resolved.fields, squashConstants]);
 
-  // Invariants that currently fail against the displayed (draft-aware) value.
+  // Rules from the Configs this one builds on, the nearest winning a shared name.
+  const inheritedInvariants = useMemo(() => {
+    const byName = new Map<string, InheritedInvariant>();
+    for (const node of data?.chain ?? []) {
+      if (node.key === config?.key) continue;
+      for (const invariant of node.schema?.invariants ?? []) {
+        byName.set(invariant.name, {
+          invariant,
+          sourceKey: node.key,
+          sourceName: node.name ?? node.key,
+        });
+      }
+    }
+    return [...byName.values()];
+  }, [data?.chain, config?.key]);
+
+  // Every rule this Config is checked against: those it inherits, with its own
+  // replacing any of the same name.
+  const effectiveInvariants = useMemo(() => {
+    const own = displayedConfig?.schema?.invariants ?? [];
+    const ownNames = new Set(own.map((iv) => iv.name));
+    return [
+      ...inheritedInvariants
+        .map((r) => r.invariant)
+        .filter((iv) => !ownNames.has(iv.name)),
+      ...own,
+    ];
+  }, [displayedConfig, inheritedInvariants]);
+
+  // Rules that currently fail against the displayed (draft-aware) value.
   const failingInvariants = useMemo(
-    () =>
-      evaluateInvariants(
-        invariantValue,
-        displayedConfig?.schema?.invariants ?? [],
-      ),
-    [invariantValue, displayedConfig],
+    () => evaluateInvariants(invariantValue, effectiveInvariants),
+    [invariantValue, effectiveInvariants],
   );
 
   // Field key → messages of the failing rules that reference it, for row-level
@@ -789,14 +814,14 @@ export default function ConfigDetailPage(): React.ReactElement {
   const failingFieldInfo = useMemo(() => {
     const map = new Map<string, string[]>();
     const failingNames = new Set(failingInvariants.map((v) => v.name));
-    for (const inv of displayedConfig?.schema?.invariants ?? []) {
+    for (const inv of effectiveInvariants) {
       if (!failingNames.has(inv.name)) continue;
       for (const key of invariantRuleFields(inv.rule)) {
         map.set(key, [...(map.get(key) ?? []), inv.message]);
       }
     }
     return map;
-  }, [failingInvariants, displayedConfig]);
+  }, [failingInvariants, effectiveInvariants]);
 
   const parentKey = useMemo(() => {
     const self = data?.lineage.find((n) => n.key === config?.key);
@@ -816,22 +841,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
     return node ?? null;
   }, [data?.lineage, config?.key]);
-
-  // Rules from the Configs this one builds on, the nearest winning a shared name.
-  const inheritedInvariants = useMemo(() => {
-    const byName = new Map<string, InheritedInvariant>();
-    for (const node of data?.chain ?? []) {
-      if (node.key === config?.key) continue;
-      for (const invariant of node.schema?.invariants ?? []) {
-        byName.set(invariant.name, {
-          invariant,
-          sourceKey: node.key,
-          sourceName: node.name ?? node.key,
-        });
-      }
-    }
-    return [...byName.values()];
-  }, [data?.chain, config?.key]);
 
   // The flag lives on the root: a root reads it draft-aware off the displayed revision,
   // a child uses the server-computed family value. Drives schema `additionalProperties`.
