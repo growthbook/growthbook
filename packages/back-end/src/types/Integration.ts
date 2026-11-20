@@ -73,6 +73,8 @@ import {
 import type { DataSourceParamsForType } from "shared/util";
 import {
   AdditionalQueryMetadata,
+  QueryInterface,
+  QueryLogRunnerFailure,
   QueryType,
   RunQueryMetadata,
 } from "shared/types/query";
@@ -108,6 +110,11 @@ export interface SourceIntegrationInterface<
   params: DataSourceParamsForType<T>;
   setAdditionalQueryMetadata?(
     additionalQueryMetadata: AdditionalQueryMetadata,
+  ): void;
+  logQueryFailure?(
+    query: QueryInterface,
+    status: QueryLogRunnerFailure,
+    error: string,
   ): void;
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
