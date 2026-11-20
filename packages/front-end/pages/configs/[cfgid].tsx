@@ -16,6 +16,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
+import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
   Revision,
@@ -746,19 +747,49 @@ export default function ConfigDetailPage(): React.ReactElement {
   }, [config, displayedConfig]);
 
   // Substitute this node's displayed (possibly draft) value so the table reflects the revision.
-  const resolved = useMemo(() => {
-    if (!data || !displayedConfig)
-      return {
-        effectiveSchema: [] as SchemaField[],
-        fields: [] as ResolvedField[],
-      };
-    const chain = data.chain.map((n) =>
-      n.key === displayedConfig.key
-        ? { ...n, value: displayedConfig.value, schema: displayedConfig.schema }
-        : n,
-    );
-    return resolveConfigChain(chain);
-  }, [data, displayedConfig]);
+  // The chain with the displayed revision standing in for this Config.
+  const displayChain = useMemo(
+    () =>
+      !data || !displayedConfig
+        ? []
+        : data.chain.map((n) =>
+            n.key === displayedConfig.key
+              ? {
+                  ...n,
+                  value: displayedConfig.value,
+                  schema: displayedConfig.schema,
+                }
+              : n,
+          ),
+    [data, displayedConfig],
+  );
+  const resolved = useMemo(
+    () =>
+      displayChain.length
+        ? resolveConfigChain(displayChain)
+        : {
+            effectiveSchema: [] as SchemaField[],
+            fields: [] as ResolvedField[],
+          },
+    [displayChain],
+  );
+
+  // What the chain's `$extends` Constant layers supply, under its own keys as
+  // when served. Checks that skipped them would miss the fields they fill.
+  const layerValues = useMemo(() => {
+    const out: Record<string, unknown> = {};
+    for (const node of displayChain) {
+      const refs = parsePlainJSONObject(node.value ?? "")?.[
+        CONSTANT_EXTENDS_KEY
+      ];
+      if (!Array.isArray(refs) || !refs.length) continue;
+      const layer = squashConstants({ [CONSTANT_EXTENDS_KEY]: refs });
+      if (layer && typeof layer === "object" && !Array.isArray(layer)) {
+        Object.assign(out, layer);
+      }
+    }
+    return out;
+  }, [displayChain, squashConstants]);
 
   // For the read-only Resolved tab (inheritance *and* constants); the Form tab squashes per-row.
   const resolvedFieldsResolved = useMemo(
@@ -773,12 +804,12 @@ export default function ConfigDetailPage(): React.ReactElement {
   // The resolved (inherited+own) value cross-field rules run against, with
   // Constant references resolved to what's served. Present keys only.
   const invariantValue = useMemo(() => {
-    const o: Record<string, unknown> = {};
+    const o: Record<string, unknown> = { ...layerValues };
     for (const f of resolved.fields) {
       if (f.value !== undefined) o[f.key] = squashConstants(f.value);
     }
     return o;
-  }, [resolved.fields, squashConstants]);
+  }, [resolved.fields, squashConstants, layerValues]);
 
   // Rules from the Configs this one builds on, the nearest winning a shared name.
   const inheritedInvariants = useMemo(() => {
@@ -925,14 +956,17 @@ export default function ConfigDetailPage(): React.ReactElement {
   const schemaIssuesByKey = useMemo(
     () =>
       collectConfigValueIssuesByKey({
-        value: Object.fromEntries(
-          resolved.fields
-            .filter((f) => f.value !== undefined)
-            .map((f) => [f.key, f.value]),
-        ),
+        value: {
+          ...layerValues,
+          ...Object.fromEntries(
+            resolved.fields
+              .filter((f) => f.value !== undefined)
+              .map((f) => [f.key, f.value]),
+          ),
+        },
         fields: resolved.effectiveSchema,
       }),
-    [resolved],
+    [resolved, layerValues],
   );
 
   // Field key → descendants whose definition of it publishing strips.
