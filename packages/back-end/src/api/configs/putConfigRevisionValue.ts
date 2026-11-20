@@ -5,6 +5,7 @@ import {
   inferFieldsFromValue,
   ancestorCollisionWarnings,
   SchemaWarning,
+  valueHasReferenceToken,
 } from "shared/util";
 import { SimpleSchema } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -19,6 +20,7 @@ import {
   assertConfigValueValid,
   configDraftState,
   configValidationLeaf,
+  getEffectiveConfigSchema,
 } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
@@ -42,7 +44,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const { inferSchemaIfMissing } = req.body;
+  const { inferSchemaIfMissing, declareNewFields } = req.body;
   // Value arrives as a native JSON object; handled as a JSON string internally.
   const value =
     req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
@@ -127,6 +129,34 @@ export const putConfigRevisionValue = createApiRequestHandler(
       warnings.push(
         ...ancestorCollisionWarnings([...identical, ...conflicting]),
       );
+    } else if (declareNewFields && strippedValue !== undefined) {
+      // Only keys no field in the family declares, so an existing field is
+      // never widened; references stay undeclared, as validation skips them.
+      const { fields: declared } = await getEffectiveConfigSchema(
+        req.context,
+        configValidationLeaf(draft),
+      );
+      const obj = parsePlainJSONObject(strippedValue) ?? {};
+      const added = inferFieldsFromValue(
+        Object.fromEntries(
+          Object.entries(obj).filter(([, v]) => !valueHasReferenceToken(v)),
+        ),
+        new Set(declared.map((f) => f.key)),
+      );
+      if (added.length) {
+        fieldsToUpdate.schema = {
+          type: "object",
+          ...draft.schema,
+          fields: [...(draft.schema?.fields ?? []), ...added],
+        };
+        warnings.push(
+          ...added.map((f) => ({
+            code: "declared-field" as const,
+            path: f.key,
+            message: `Declared field "${f.key}" (${f.type}) from the value.`,
+          })),
+        );
+      }
     }
 
     // Validate against the proposed (inferred) schema when this request sets one,

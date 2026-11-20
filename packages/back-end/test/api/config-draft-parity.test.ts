@@ -49,7 +49,11 @@ type Driver = {
     draft: string,
     meta: { extends?: string[]; extensible?: boolean },
   ) => Promise<Outcome>;
-  publish: (key: string, draft: string) => Promise<Outcome>;
+  publish: (
+    key: string,
+    draft: string,
+    opts?: { ignoreWarnings?: boolean },
+  ) => Promise<Outcome>;
 };
 
 const { app, setReqContext } = setupApp();
@@ -131,8 +135,23 @@ const appDriver: Driver = {
     ),
   meta: (key, draft, meta) =>
     callApp(putConfig, { id: `cfg_${key}` }, meta, { revisionId: draft }),
-  publish: (key, draft) => callApp(postMerge, { id: draft }, {}),
+  publish: (key, draft, opts) =>
+    callApp(
+      postMerge,
+      { id: draft },
+      {},
+      opts?.ignoreWarnings ? { ignoreWarnings: "true" } : {},
+    ),
 };
+
+// The REST harness reads override flags from the context's own request.
+const restContext = (body: Record<string, unknown> = {}) =>
+  new ReqContextClass({
+    org,
+    auditUser: { type: "api_key", apiKey: "key_test" },
+    role: "admin",
+    req: { query: {}, headers: {}, body } as unknown as Request,
+  });
 
 const rest = async (
   method: "post" | "put",
@@ -162,7 +181,17 @@ const restDriver: Driver = {
   property: (key, draft, property, value) =>
     rest("put", `${key}/${draft}/property`, { property, value }),
   meta: (key, draft, meta) => rest("put", `${key}/${draft}/metadata`, meta),
-  publish: (key, draft) => rest("post", `${key}/${draft}/publish`),
+  publish: async (key, draft, opts) => {
+    if (!opts?.ignoreWarnings) return rest("post", `${key}/${draft}/publish`);
+    setReqContext(restContext({ ignoreWarnings: true }));
+    try {
+      return await rest("post", `${key}/${draft}/publish`, {
+        ignoreWarnings: true,
+      });
+    } finally {
+      setReqContext(restContext());
+    }
+  },
 };
 
 const insertConfig = (doc: Record<string, unknown>) =>
@@ -187,80 +216,79 @@ const liveValue = async (key: string) =>
     )?.value ?? "null",
   );
 
+const expectOk = (outcome: Outcome) =>
+  expect({ ok: outcome.ok, text: outcome.ok ? "" : outcome.text }).toEqual({
+    ok: true,
+    text: "",
+  });
+
 const requiredLimit: JsonSchema = {
   type: "object",
   required: ["limit"],
   properties: { limit: { type: "integer" } },
 };
 
+beforeEach(async () => {
+  setReqContext(restContext());
+  for (const c of ["configs", "revisions"]) {
+    await mongoose.connection
+      .collection(c)
+      .deleteMany({ organization: ORG_ID });
+  }
+  // Live has no schema and allows no extra fields, so any key fails against it.
+  await insertConfig({ key: "strict", extensible: false });
+  await insertConfig({
+    key: "base",
+    extensible: false,
+    schema: {
+      type: "object",
+      fields: [
+        {
+          key: "limit",
+          type: "integer",
+          required: true,
+          default: "",
+          description: "",
+          enum: [],
+        },
+      ],
+    },
+    scopedOverrides: [{ config: "base_prod", environments: ["production"] }],
+  });
+  await insertConfig({ key: "child", parent: "base" });
+  await insertConfig({ key: "open", extensible: true });
+  await insertConfig({
+    key: "open_child",
+    parent: "open",
+    value: JSON.stringify({ extra: 2 }),
+  });
+  await insertConfig({
+    key: "base_prod",
+    parent: "base",
+    scopedConfig: { parent: "base", environments: ["production"] },
+  });
+  await insertConfig({
+    key: "mix",
+    schema: {
+      type: "object",
+      fields: [
+        {
+          key: "color",
+          type: "string",
+          required: true,
+          default: "",
+          description: "",
+          enum: [],
+        },
+      ],
+    },
+  });
+});
+
 describe.each([
   { surface: "app", api: appDriver },
   { surface: "REST", api: restDriver },
 ])("Config drafts through the $surface", ({ api }) => {
-  beforeEach(async () => {
-    setReqContext(
-      new ReqContextClass({
-        org,
-        auditUser: { type: "api_key", apiKey: "key_test" },
-        role: "admin",
-        req: { query: {}, headers: {}, body: {} } as unknown as Request,
-      }),
-    );
-    for (const c of ["configs", "revisions"]) {
-      await mongoose.connection
-        .collection(c)
-        .deleteMany({ organization: ORG_ID });
-    }
-    // Live has no schema and allows no extra fields, so any key fails against it.
-    await insertConfig({ key: "strict", extensible: false });
-    await insertConfig({
-      key: "base",
-      extensible: false,
-      schema: {
-        type: "object",
-        fields: [
-          {
-            key: "limit",
-            type: "integer",
-            required: true,
-            default: "",
-            description: "",
-            enum: [],
-          },
-        ],
-      },
-      scopedOverrides: [{ config: "base_prod", environments: ["production"] }],
-    });
-    await insertConfig({ key: "child", parent: "base" });
-    await insertConfig({
-      key: "base_prod",
-      parent: "base",
-      scopedConfig: { parent: "base", environments: ["production"] },
-    });
-    await insertConfig({
-      key: "mix",
-      schema: {
-        type: "object",
-        fields: [
-          {
-            key: "color",
-            type: "string",
-            required: true,
-            default: "",
-            description: "",
-            enum: [],
-          },
-        ],
-      },
-    });
-  });
-
-  const expectOk = (outcome: Outcome) =>
-    expect({ ok: outcome.ok, text: outcome.ok ? "" : outcome.text }).toEqual({
-      ok: true,
-      text: "",
-    });
-
   it("publishes a value saved after its schema", async () => {
     const draft = await api.open("strict");
     expectOk(await api.schema("strict", draft, requiredLimit));
@@ -342,11 +370,57 @@ describe.each([
     expect(outcome.text).toContain(message);
   });
 
+  it("warns before disallowing extra fields a child still sets", async () => {
+    const draft = await api.open("open");
+    expectOk(await api.meta("open", draft, { extensible: false }));
+    const warned = await api.publish("open", draft);
+    expect(warned.ok).toBe(false);
+    expect(warned.text).toContain(
+      `sets "extra", which no schema declares and extra fields would no longer allow`,
+    );
+    expectOk(await api.publish("open", draft, { ignoreWarnings: true }));
+  });
+
   it("blocks publishing without a required field, naming it", async () => {
     const draft = await api.open("strict");
     expectOk(await api.schema("strict", draft, requiredLimit));
     const outcome = await api.publish("strict", draft);
     expect(outcome.ok).toBe(false);
     expect(outcome.text).toContain(`"limit" is required`);
+  });
+});
+
+// The app has no equivalent: its editor adds new keys to the schema text the
+// author is editing, so the change is visible before it saves.
+describe("declaring new fields from a REST value", () => {
+  const putValue = (draft: string, body: Record<string, unknown>) =>
+    rest("put", `base/${draft}/value`, body);
+
+  it("rejects an undeclared key unless asked to declare it", async () => {
+    const draft = await restDriver.open("base");
+    const value = { limit: 1, color: "red" };
+    expect((await putValue(draft, { value })).text).toContain(
+      `"color" isn't in the schema`,
+    );
+    const declared = await putValue(draft, { value, declareNewFields: true });
+    expectOk(declared);
+    expect(
+      (declared.body as { warnings?: { code: string; path?: string }[] })
+        .warnings,
+    ).toEqual([
+      expect.objectContaining({ code: "declared-field", path: "color" }),
+    ]);
+    expectOk(await restDriver.publish("base", draft));
+    expect(await liveValue("base")).toEqual(value);
+  });
+
+  it("never changes a field the schema already declares", async () => {
+    const draft = await restDriver.open("base");
+    const res = await putValue(draft, {
+      value: { limit: "many" },
+      declareNewFields: true,
+    });
+    expect(res.ok).toBe(false);
+    expect(res.text).toContain(`"limit" must be number`);
   });
 });

@@ -18,7 +18,9 @@ export type SchemaWarningCode =
   | "redundant-declaration"
   // An invariant rule references a field the effective schema doesn't declare;
   // the path evaluates as null at rule time.
-  | "undeclared-rule-field";
+  | "undeclared-rule-field"
+  // A field was declared for an undeclared value key, because the caller asked.
+  | "declared-field";
 
 export type SchemaWarning = {
   code: SchemaWarningCode;

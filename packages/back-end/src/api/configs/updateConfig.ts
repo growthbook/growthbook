@@ -13,6 +13,7 @@ import {
   ancestorCollisionWarnings,
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
+  configChangeReachesDescendants,
 } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -577,7 +578,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // without committing the root (see assertConfigDescendantsReconcilable for
     // the accepted residual race), then soft-warn when the change removes or
     // retypes fields descendants still use (?ignoreWarnings=true proceeds).
-    if (needsDescendantReconcile) {
+    if (configChangeReachesDescendants(fieldsToUpdate)) {
       const proposedRoot = {
         ...config,
         ...fieldsToUpdate,

@@ -77,6 +77,13 @@ export async function assertConfigDescendantsReconcilable(
   assertNoSiblingConflictsInSubtree(byKey, proposedRoot.key);
 }
 
+function impactHeadline(count: number): string {
+  return (
+    `This change removes, retypes, takes over or disallows fields that ` +
+    `${count} descendant Config(s) still use:`
+  );
+}
+
 function formatImpactLine(impact: ConfigSchemaChangeImpact): string {
   const quote = (keys: string[]) => keys.map((k) => `"${k}"`).join(", ");
   const parts: string[] = [];
@@ -99,6 +106,12 @@ function formatImpactLine(impact: ConfigSchemaChangeImpact): string {
     parts.push(
       `validation rule "${ref.name}" references removed field(s) ` +
         quote(ref.keys),
+    );
+  }
+  if (impact.disallowedKeys.length) {
+    parts.push(
+      `sets ${quote(impact.disallowedKeys)}, which no schema declares and ` +
+        `extra fields would no longer allow`,
     );
   }
   const name = impact.configName
@@ -135,13 +148,11 @@ export async function assertConfigSchemaChangeSafeForDescendants(
     rootKey: proposedRoot.key,
     before,
     after,
+    extensibleDefault: context.org.settings?.configsExtensibleByDefault,
   });
   if (!impacts.length) return;
   const lines = impacts.map(formatImpactLine);
-  const message =
-    `This change removes, retypes, or takes over fields that ` +
-    `${impacts.length} descendant Config(s) still use:\n` +
-    lines.join("\n");
+  const message = `${impactHeadline(impacts.length)}\n${lines.join("\n")}`;
   if (opts?.deferred) {
     throw new TerminalPublishError(message);
   }
@@ -164,6 +175,7 @@ export async function collectConfigSchemaChangeImpactGates(
     rootKey: proposedRoot.key,
     before,
     after,
+    extensibleDefault: context.org.settings?.configsExtensibleByDefault,
   });
   if (!impacts.length) return [];
   return [
@@ -171,7 +183,7 @@ export async function collectConfigSchemaChangeImpactGates(
       type: "schema-change-impact",
       severity: "warning",
       messages: [
-        `This change removes, retypes, or takes over fields that ${impacts.length} descendant Config(s) still use:`,
+        impactHeadline(impacts.length),
         ...impacts.map(formatImpactLine),
       ],
       override: "ignoreWarnings",

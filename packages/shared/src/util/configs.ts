@@ -1024,6 +1024,7 @@ export type ConfigFamilyMember = {
   extends?: string[];
   value?: string;
   schema?: SimpleSchema | null;
+  extensible?: boolean;
   archived?: boolean;
 };
 
@@ -1040,7 +1041,23 @@ export type ConfigSchemaChangeImpact = {
   conflictingStripKeys: string[];
   // Own rules referencing fields the change removes (they'd read null).
   invariantRefs: { name: string; keys: string[] }[];
+  // Own value keys no schema declares, which stop being allowed when the
+  // family stops allowing extra fields.
+  disallowedKeys: string[];
 };
+
+// A Config change that can break its descendants: it changes their effective
+// schema, or whether they may set keys no schema declares.
+export function configChangeReachesDescendants(
+  changes: Record<string, unknown>,
+): boolean {
+  return (
+    changes.schema !== undefined ||
+    changes.parent !== undefined ||
+    "extends" in changes ||
+    changes.extensible !== undefined
+  );
+}
 
 // What a proposed root schema/lineage change does to the rest of the family
 // (`after` = `before` with the proposed root substituted). Per member, in BFS
@@ -1051,13 +1068,21 @@ export function computeConfigSchemaChangeImpact({
   rootKey,
   before,
   after,
+  extensibleDefault,
 }: {
   rootKey: string;
   before: ConfigFamilyMember[];
   after: ConfigFamilyMember[];
+  // The org's `configsExtensibleByDefault`.
+  extensibleDefault?: boolean;
 }): ConfigSchemaChangeImpact[] {
   const beforeByKey = new Map(before.map((c) => [c.key, c]));
   const afterByKey = new Map(after.map((c) => [c.key, c]));
+  const allowsExtra = (key: string, byKey: Map<string, ConfigFamilyMember>) =>
+    configIsExtensible(
+      byKey.get(getConfigSpineRootKey(key, byKey)),
+      extensibleDefault,
+    );
 
   // Union of both subtrees, defensively: the proposed change only rewrites the
   // root's own node, but membership math is cheap and this stays correct if a
@@ -1131,6 +1156,18 @@ export function computeConfigSchemaChangeImpact({
       .conflicting.map((c) => c.key)
       .filter((k) => !conflictingBefore.has(k));
 
+    // Keys a removal orphans are reported above; references stay exempt, as in
+    // validation.
+    const disallowedKeys =
+      allowsExtra(key, beforeByKey) && !allowsExtra(key, afterByKey)
+        ? ownKeys.filter(
+            (k) =>
+              !declaredBefore.has(k) &&
+              !declaredAfter.has(k) &&
+              !valueHasReferenceToken(ownValue[k]),
+          )
+        : [];
+
     const removed = new Set(removedKeys);
     const invariantRefs = (member.schema?.invariants ?? [])
       .map((inv) => ({
@@ -1143,7 +1180,8 @@ export function computeConfigSchemaChangeImpact({
       orphanedKeys.length ||
       newlyIncompatibleKeys.length ||
       conflictingStripKeys.length ||
-      invariantRefs.length
+      invariantRefs.length ||
+      disallowedKeys.length
     ) {
       impacts.push({
         configKey: key,
@@ -1152,6 +1190,7 @@ export function computeConfigSchemaChangeImpact({
         newlyIncompatibleKeys,
         conflictingStripKeys,
         invariantRefs,
+        disallowedKeys,
       });
     }
   }

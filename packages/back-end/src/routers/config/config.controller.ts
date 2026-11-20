@@ -34,6 +34,7 @@ import {
   ScopedOverrideEntry,
   setOwnValueProperty,
   removeOwnValueProperty,
+  configChangeReachesDescendants,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { ReqContext } from "back-end/types/request";
@@ -1317,11 +1318,7 @@ const writeConfig = async (
       // post-write cascade — see assertConfigDescendantsReconcilable for the
       // accepted residual race), then soft-warn when the change removes or
       // retypes fields descendants still use (?ignoreWarnings=true proceeds).
-      if (
-        fieldsToUpdate.schema !== undefined ||
-        fieldsToUpdate.parent !== undefined ||
-        "extends" in fieldsToUpdate
-      ) {
+      if (configChangeReachesDescendants(fieldsToUpdate)) {
         const proposedRoot = {
           ...existing,
           ...fieldsToUpdate,

@@ -595,6 +595,12 @@ export const putConfigRevisionValueValidator = {
         .describe(
           "When the config has no schema yet, infer one from the supplied `value` and stage it on the same draft.",
         ),
+      declareNewFields: z
+        .boolean()
+        .optional()
+        .describe(
+          "Declare a schema field, inferred from its value, for each key in `value` that the Config's effective schema doesn't declare, and stage it on the same draft. Existing fields are never changed, and keys holding a `@const:`/`@config:` reference are skipped. Each added field is listed in `warnings` with code `declared-field`. Without it, an undeclared key is rejected unless the Config allows extra fields.",
+        ),
       ...publishOverrideBodyFields,
     })
     .strict(),

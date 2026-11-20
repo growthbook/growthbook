@@ -17,6 +17,7 @@ import {
   constantAutopublishOnApproval,
   formatAncestorFieldConflictMessage,
   orgRequiresAnyReview,
+  configChangeReachesDescendants,
 } from "shared/util";
 import {
   configValidator,
@@ -346,7 +347,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       normalizedChanges.parent !== undefined ||
       "extends" in normalizedChanges;
 
-    if (touchesLineageOrSchema) {
+    if (configChangeReachesDescendants(normalizedChanges)) {
       const proposedRoot = {
         ...entity,
         ...normalizedChanges,
@@ -671,11 +672,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     // descendants still use — the gate form of
     // assertConfigSchemaChangeSafeForDescendants, evaluated on the same
     // normalized proposed root the apply would write.
-    if (
-      "schema" in filteredChanges ||
-      filteredChanges.parent !== undefined ||
-      "extends" in filteredChanges
-    ) {
+    if (configChangeReachesDescendants(filteredChanges)) {
       const { changes: normalizedChanges, conflicting } =
         await normalizeConfigChangesAgainstAncestors(
           entity,
@@ -920,12 +917,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       );
     }
 
-    const touchesLineageOrSchema =
-      normalizedChanges.schema !== undefined ||
-      normalizedChanges.parent !== undefined ||
-      "extends" in normalizedChanges;
-
-    if (touchesLineageOrSchema) {
+    if (configChangeReachesDescendants(normalizedChanges)) {
       const proposedRoot = {
         ...entity,
         ...normalizedChanges,

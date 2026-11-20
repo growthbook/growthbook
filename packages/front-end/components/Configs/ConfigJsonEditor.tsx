@@ -311,9 +311,13 @@ export default function ConfigJsonEditor({
     seededKeys.current = new Set();
   }, [schemaJson, schemaType, extensible, saveCount]);
 
-  // Live assist (draft only): when the value introduces a brand-new own key,
-  // splice a best-guess property into the schema once. Keys the author removed,
-  // and ancestor-owned override keys, are left alone. JSON Schema only.
+  // Live assist (draft only): a key the author types that the saved value lacks
+  // gets an optional best-guess property in the schema, once. Saved keys stay
+  // undeclared where extra fields are allowed. JSON Schema only.
+  const savedKeys = useMemo(
+    () => new Set(Object.keys(parsePlainObject(valueJson) ?? {})),
+    [valueJson],
+  );
   useEffect(() => {
     if (!canEdit || view === "preview") return;
     const valueObj = parsePlainObject(valueText);
@@ -333,20 +337,17 @@ export default function ConfigJsonEditor({
         !Array.isArray(schemaObj.properties)
           ? { ...(schemaObj.properties as Record<string, unknown>) }
           : {};
-      const required = new Set(
-        Array.isArray(schemaObj.required)
-          ? (schemaObj.required as unknown[]).filter(
-              (r): r is string => typeof r === "string",
-            )
-          : [],
-      );
       let changed = false;
       for (const k of valueKeys) {
-        if (k in props || seededKeys.current.has(k) || ancestorOwned.has(k)) {
+        if (
+          k in props ||
+          savedKeys.has(k) ||
+          seededKeys.current.has(k) ||
+          ancestorOwned.has(k)
+        ) {
           continue;
         }
         props[k] = inferJsonSchemaForValue(valueObj[k]);
-        required.add(k);
         seededKeys.current.add(k);
         changed = true;
       }
@@ -355,11 +356,10 @@ export default function ConfigJsonEditor({
         ...schemaObj,
         type: schemaObj.type ?? "object",
         properties: props,
-        required: [...required],
       };
       return JSON.stringify(next, null, 2);
     });
-  }, [valueText, ancestorOwned, canEdit, schemaLang, view]);
+  }, [valueText, savedKeys, ancestorOwned, canEdit, schemaLang, view]);
 
   const parsedSchema = useMemo(
     () => parseSchemaText(schemaText, schemaLang),

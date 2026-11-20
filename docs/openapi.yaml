@@ -29677,6 +29677,17 @@ paths:
                     When the config has no schema yet, infer one from the
                     supplied `value` and stage it on the same draft.
                   type: boolean
+                declareNewFields:
+                  description: >-
+                    Declare a schema field, inferred from its value, for each
+                    key in `value` that the Config's effective schema doesn't
+                    declare, and stage it on the same draft. Existing fields are
+                    never changed, and keys holding a `@const:`/`@config:`
+                    reference are skipped. Each added field is listed in
+                    `warnings` with code `declared-field`. Without it, an
+                    undeclared key is rejected unless the Config allows extra
+                    fields.
+                  type: boolean
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -77013,6 +77024,7 @@ components:
             - unsupported-member
             - redundant-declaration
             - undeclared-rule-field
+            - declared-field
         message:
           type: string
         path:
