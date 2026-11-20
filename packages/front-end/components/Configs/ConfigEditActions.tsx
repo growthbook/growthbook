@@ -1,5 +1,6 @@
 import { Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
+import Tooltip from "@/ui/Tooltip";
 import { TableRow, TableViewportCell } from "@/ui/Table";
 
 // An open edit's Save and Discard, in a row right under it that spans the
@@ -8,12 +9,15 @@ export default function ConfigEditActions({
   colSpan,
   background,
   saving = false,
+  saveBlockedReason = null,
   onSave,
   onCancel,
 }: {
   colSpan: number;
   background?: string;
   saving?: boolean;
+  // Why the edit can't be saved as it stands; disables Save.
+  saveBlockedReason?: string | null;
   onSave: () => void;
   onCancel: () => void;
 }) {
@@ -29,9 +33,11 @@ export default function ConfigEditActions({
           >
             Discard changes
           </Button>
-          <Button disabled={saving} onClick={onSave}>
-            {saving ? "Saving..." : "Save"}
-          </Button>
+          <Tooltip content={saveBlockedReason} enabled={!!saveBlockedReason}>
+            <Button disabled={saving || !!saveBlockedReason} onClick={onSave}>
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </Tooltip>
         </Flex>
       </TableViewportCell>
     </TableRow>

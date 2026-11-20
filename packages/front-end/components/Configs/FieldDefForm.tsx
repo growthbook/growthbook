@@ -215,6 +215,16 @@ export default function FieldDefForm({
     }
   };
 
+  // An untouched value stays as it is, unless the field now holds another kind
+  // of value. Parsed against the value surface, so {type:string} saves a
+  // string, not JSON.
+  const retyped =
+    valueText !== "" && valueType !== fieldValueType(initialField);
+  const parsedValue =
+    withValue && (valueTouched || retyped)
+      ? parseFieldValueInput(valueText, field, valueIsNull)
+      : null;
+
   const save = async () => {
     if (!dirty) {
       onCancel();
@@ -240,20 +250,8 @@ export default function FieldDefForm({
         return;
       }
     }
-    // An untouched value stays as it is, unless the field now holds another
-    // kind of value. Parsed against the value surface, so {type:string} saves a
-    // string, not JSON.
-    const retyped =
-      valueText !== "" && valueType !== fieldValueType(initialField);
-    let value: unknown = undefined;
-    if (withValue && (valueTouched || retyped)) {
-      const result = parseFieldValueInput(valueText, field, valueIsNull);
-      if (result.kind === "error") {
-        setErr(result.error);
-        return;
-      }
-      value = result.value;
-    }
+    if (parsedValue?.kind === "error") return;
+    const value = parsedValue?.value;
     setErr(null);
     setSaving(true);
     try {
@@ -637,6 +635,9 @@ export default function FieldDefForm({
         colSpan={6}
         background={tint}
         saving={saving}
+        saveBlockedReason={
+          parsedValue?.kind === "error" ? parsedValue.error : null
+        }
         onSave={save}
         onCancel={onCancel}
       />

@@ -43,6 +43,7 @@ import {
   fieldIsNullable,
   fieldSchemaPreview,
   normalizeField,
+  parseFieldValueInput,
   valueToDisplayString,
 } from "@/components/Configs/fieldSchema";
 import {
@@ -183,6 +184,12 @@ export default function ConfigFieldRow({
           ? "Edit value"
           : "Override value"
       : null;
+
+  const parsedEdit = isEditing
+    ? parseFieldValueInput(editText, f.field, editKind === "null")
+    : null;
+  const saveBlockedReason =
+    parsedEdit?.kind === "error" ? parsedEdit.error : null;
 
   const tint = isEditing
     ? "var(--violet-a2)"
@@ -620,6 +627,7 @@ export default function ConfigFieldRow({
           colSpan={6}
           background={tint ?? undefined}
           saving={saving}
+          saveBlockedReason={saveBlockedReason}
           onSave={onSubmit}
           onCancel={onCancelEdit}
         />
