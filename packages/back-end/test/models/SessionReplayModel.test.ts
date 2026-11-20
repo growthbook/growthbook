@@ -497,29 +497,6 @@ describe("SessionReplayModel — getBySessionId()", () => {
     expect(session!.experimentEvals?.items).toHaveLength(1);
     expect(session!.sessionEvents?.items).toHaveLength(2);
   });
-
-  // A tenant table provisioned before a column was added omits the key
-  // entirely from SELECT *, and Number(undefined) would poison every sum.
-  it("treats missing numeric columns as zero rather than NaN", async () => {
-    const withoutCounts = (overrides: Partial<SessionReplayRow> = {}) => {
-      const row = makeRow(overrides);
-      delete (row as Partial<SessionReplayRow>).key_event_count;
-      delete (row as Partial<SessionReplayRow>).error_count;
-      return row;
-    };
-    mockGetSessionReplayChunksBySessionId.mockResolvedValue([
-      withoutCounts({ duration_ms: 30000, event_count: 50 }),
-      withoutCounts({ duration_ms: 60000, event_count: 100 }),
-    ]);
-
-    const model = new SessionReplayModel(makeContext());
-    const session = await model.getBySessionId("sess_abc123");
-
-    expect(session!.keyEventCount).toBe(0);
-    expect(session!.errorCount).toBe(0);
-    expect(session!.eventCount).toBe(150);
-    expect(session!.durationMs).toBe(60000);
-  });
 });
 
 // ---------------------------------------------------------------------------

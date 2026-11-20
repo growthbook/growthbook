@@ -126,6 +126,7 @@ const FLUSH_BYTE_SIZE = 512 * 1024;
 // Backstop when every flush is failing (offline); new events are dropped
 const MAX_BUFFERED_EVENTS = 1000;
 const MAX_PRE_INTERACTION_BYTES = 2 * 1024 * 1024;
+const MAX_REJECTED_SNAPSHOTS = 3;
 const REARM_EVENTS = ["pointerdown", "keydown", "touchstart"] as const;
 
 export type SerializedEvent = { type: number; timestamp: number; json: string };
@@ -246,6 +247,9 @@ export function createReplayRecorder({
   let pausePending = false;
   // Bumped on every start so a stale pause can't stop a newer recording
   let recordingGeneration = 0;
+  let rejectedSnapshots = 0;
+  let sawPreStartInteraction = false;
+  let disarmPreStartLatch: (() => void) | null = null;
 
   const featureEvals: Array<{
     featureKey: string;
@@ -342,6 +346,37 @@ export function createReplayRecorder({
     // Don't flush sessions with no real user interaction (filters out hot-reload noise)
     if (!hasUserInteraction) return;
 
+    const attrs = growthbook.getAttributes();
+    let context: { attributes: string; user_id?: string; device_id?: string };
+    let sessionEventsRedacted: typeof sessionEvents;
+    try {
+      const userIdAttr = attrs.user_id;
+      const deviceIdAttr = attrs.device_id || attrs.anonymous_id || attrs.id;
+      const redactAttrs = resolvedPrivacy.redactAttributes;
+      context = {
+        attributes: JSON.stringify(redactAttrs ? redactAttrs(attrs) : attrs),
+        ...(typeof userIdAttr === "string" && { user_id: userIdAttr }),
+        ...(typeof deviceIdAttr === "string" && { device_id: deviceIdAttr }),
+      };
+
+      const redactProps = resolvedPrivacy.redactEventProperties;
+      // Copied, never aliased: the live buffer is spliced just below
+      sessionEventsRedacted = redactProps
+        ? sessionEvents.map((e) =>
+            e.properties
+              ? { ...e, properties: redactProps(e.eventName, e.properties) }
+              : e,
+          )
+        : [...sessionEvents];
+    } catch (e) {
+      console.error(
+        "session-replay: privacy redaction failed; events stay buffered for " +
+          "the next flush",
+        e,
+      );
+      return;
+    }
+
     flushInFlight = true;
 
     const sessionReplayIdBeingSent = sessionReplayId;
@@ -360,25 +395,6 @@ export function createReplayRecorder({
     bufferedBytes = 0;
 
     try {
-      const attrs = growthbook.getAttributes();
-      const userIdAttr = attrs.user_id;
-      const deviceIdAttr = attrs.device_id || attrs.anonymous_id || attrs.id;
-      const redactAttrs = resolvedPrivacy.redactAttributes;
-      const context = {
-        attributes: JSON.stringify(redactAttrs ? redactAttrs(attrs) : attrs),
-        ...(typeof userIdAttr === "string" && { user_id: userIdAttr }),
-        ...(typeof deviceIdAttr === "string" && { device_id: deviceIdAttr }),
-      };
-
-      const redactProps = resolvedPrivacy.redactEventProperties;
-      const sessionEventsRedacted = redactProps
-        ? sessionEventsBeingSent.map((e) =>
-            e.properties
-              ? { ...e, properties: redactProps(e.eventName, e.properties) }
-              : e,
-          )
-        : sessionEventsBeingSent;
-
       // rrweb custom events (type 5) let the player show feature/experiment
       // panels at the timestamp they occurred — merge before partitioning so
       // they distribute across batches by timestamp
@@ -486,6 +502,7 @@ export function createReplayRecorder({
 
         try {
           await sendWithRetry(payload);
+          rejectedSnapshots = 0;
           nextChunkIndex = batchChunkIndex + 1;
           commitChunk(batchChunkIndex);
         } catch (e) {
@@ -547,6 +564,22 @@ export function createReplayRecorder({
             return;
           }
           if (batchChunkIndex === 0) {
+            // Recovering re-snapshots, and a deterministic rejection would
+            // make us pay that every flush; give up once the budget is spent
+            if (rejectedSnapshots >= MAX_REJECTED_SNAPSHOTS) {
+              console.error(
+                `session-replay: chunk 0 rejected (HTTP ${status}) after ` +
+                  `${MAX_REJECTED_SNAPSHOTS} recovery attempts; stopping the ` +
+                  "recorder. Check that the ingestor accepts this payload.",
+                e,
+              );
+              replayEvents.length = 0;
+              bufferedBytes = 0;
+              autoRestart = false;
+              stopRecording();
+              return;
+            }
+            rejectedSnapshots++;
             rotateAfterLostSnapshot(`permanently rejected (HTTP ${status})`);
             return;
           }
@@ -561,6 +594,8 @@ export function createReplayRecorder({
           continue;
         }
       }
+    } catch (e) {
+      console.error("session-replay: flush failed", e);
     } finally {
       flushInFlight = false;
       // stopRecording's own flush call no-ops while a cancelled retry holds
@@ -636,7 +671,8 @@ export function createReplayRecorder({
     viewportWidth = window.innerWidth || 0;
     viewportHeight = window.innerHeight || 0;
 
-    hasUserInteraction = interacted;
+    hasUserInteraction = interacted || sawPreStartInteraction;
+    consumePreStartLatch();
     lastInteractionAt = Date.now();
     replayEvents = [];
     bufferedBytes = 0;
@@ -780,6 +816,29 @@ export function createReplayRecorder({
     document.removeEventListener("visibilitychange", onVisibilityChange);
   };
 
+  const armInteractionListeners = (handler: () => void): (() => void) => {
+    REARM_EVENTS.forEach((type) =>
+      document.addEventListener(type, handler, {
+        capture: true,
+        passive: true,
+      }),
+    );
+    return () =>
+      REARM_EVENTS.forEach((type) =>
+        document.removeEventListener(type, handler, true),
+      );
+  };
+
+  // Consumed by the first recording that actually starts; a later rotation
+  // must not inherit it
+  const consumePreStartLatch = () => {
+    sawPreStartInteraction = false;
+    if (disarmPreStartLatch) {
+      disarmPreStartLatch();
+      disarmPreStartLatch = null;
+    }
+  };
+
   const cancelPendingStart = () => {
     if (cancelScheduledStart) {
       cancelScheduledStart();
@@ -825,17 +884,9 @@ export function createReplayRecorder({
     replayEvents = [];
     bufferedBytes = 0;
     preInteractionBytes = 0;
-    const onInteraction = () => deferStart(false, true);
-    REARM_EVENTS.forEach((type) =>
-      document.addEventListener(type, onInteraction, {
-        capture: true,
-        passive: true,
-      }),
+    disarmInteractionRestart = armInteractionListeners(() =>
+      deferStart(false, true),
     );
-    disarmInteractionRestart = () =>
-      REARM_EVENTS.forEach((type) =>
-        document.removeEventListener(type, onInteraction, true),
-      );
   };
 
   let cleanedUp = false;
@@ -885,6 +936,7 @@ export function createReplayRecorder({
 
   const forceStart = () => {
     autoRestart = true;
+    rejectedSnapshots = 0;
     cancelPendingStart();
     startRecording(false, true);
   };
@@ -913,6 +965,14 @@ export function createReplayRecorder({
     }
   });
 
+  // Covers both pre-start windows: waiting on the payload, and the load/idle
+  // deferral after it
+  if (autoRecord) {
+    disarmPreStartLatch = armInteractionListeners(() => {
+      sawPreStartInteraction = true;
+    });
+  }
+
   // Before the payload arrives the remote settings are unknown, and the
   // sampling roll would stick; the payload subscription above starts it
   if (autoRecord && growthbook.ready) scheduleStart();
@@ -933,6 +993,7 @@ export function createReplayRecorder({
     offEvent();
     offPayload();
     cancelPendingStart();
+    consumePreStartLatch();
     stopRecording();
     window.removeEventListener("pagehide", onPageHide);
     document.removeEventListener("visibilitychange", onVisibilityHide);

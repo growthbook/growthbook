@@ -1191,6 +1191,34 @@ describe("sessionReplayPlugin — deferred start", () => {
     jest.runOnlyPendingTimers();
     expect(mockRecord).toHaveBeenCalledTimes(1);
   });
+
+  it("latches an interaction that lands before the deferred start", async () => {
+    let emitEvent: (event: eventWithTime) => void = () => undefined;
+    mockRecord.mockImplementation((options) => {
+      emitEvent = (options as { emit: (e: eventWithTime) => void }).emit;
+      return jest.fn();
+    });
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    document.dispatchEvent(new Event("pointerdown"));
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+
+    // Snapshot only: rrweb never saw the click, so without the latch
+    // hasUserInteraction stays false and the replay is never uploaded
+    emitEvent(SNAPSHOT_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalled();
+    delete (global as unknown as Record<string, unknown>).fetch;
+  });
 });
 
 describe("sessionReplayPlugin — pause until first interaction", () => {
@@ -1621,6 +1649,27 @@ describe("sessionReplayPlugin — chunk zero failure", () => {
     expect(mockRecord).toHaveBeenCalledTimes(2);
   });
 
+  it("stops recovering after repeated chunk-0 rejections", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+    } as Response);
+    global.fetch = fetchMock;
+
+    // Each cycle flushes chunk 0, gets a 400, and rotates into a fresh
+    // snapshot — more cycles than the recovery budget allows
+    for (let i = 0; i < 6; i++) {
+      emitEvent(SNAPSHOT_EVENT);
+      emitEvent(INTERACTION_EVENT);
+      jest.advanceTimersByTime(60_000);
+      await flushMicrotasks();
+    }
+
+    // The initial start plus three budgeted recoveries, then it gives up
+    expect(mockRecord).toHaveBeenCalledTimes(4);
+  });
+
   it("carries interaction state across recovery so uploads resume", async () => {
     let failChunkZero = true;
     const fetchMock = jest.fn().mockImplementation(() =>
@@ -1772,10 +1821,7 @@ describe("sessionReplayPlugin — non-DOM redaction", () => {
       ingestorHost: INGESTOR_HOST,
       autoRecord: false,
       privacy: {
-        redactAttributes: (attrs) => {
-          const { email: _email, ...rest } = attrs;
-          return { ...rest, email: "[redacted]" };
-        },
+        redactAttributes: (attrs) => ({ ...attrs, email: "[redacted]" }),
         redactEventProperties: (eventName, props) =>
           eventName === "signup" ? { ...props, ssn: "[redacted]" } : props,
       },
@@ -1855,7 +1901,7 @@ describe("sessionReplayPlugin — non-DOM redaction", () => {
       autoRecord: false,
       privacy: {
         // Non-idempotent on purpose: a second pass would append again
-        redactEventProperties: (_name, props) => {
+        redactEventProperties: (eventName, props) => {
           calls++;
           return { ...props, trail: `${props.trail ?? ""}x` };
         },
@@ -1875,6 +1921,58 @@ describe("sessionReplayPlugin — non-DOM redaction", () => {
     };
     expect(calls).toBe(1);
     expect(body.sessionEvents.items[0].properties).toEqual({ trail: "x" });
+
+    ownGb.destroy();
+  });
+
+  it("keeps chunk 0 buffered when a redactor throws", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+    jest.spyOn(console, "error").mockImplementation(() => {});
+
+    let shouldThrow = true;
+    const ownGb = new GrowthBook({
+      clientKey: "sdk-test-key",
+      apiHost: "https://cdn.example.com",
+      features: {},
+      attributes: { id: "user-1" },
+    });
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      autoRecord: false,
+      privacy: {
+        redactAttributes: (attrs) => {
+          if (shouldThrow) throw new Error("redactor blew up");
+          return attrs;
+        },
+      },
+    })(ownGb);
+
+    ownGb.startSessionReplay();
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // The snapshot has to survive the failed flush, or chunk 0 can never be
+    // assembled and the session is lost for good
+    shouldThrow = false;
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      chunkIndex: number;
+      events: Array<{ type: number }>;
+    };
+    expect(body.chunkIndex).toBe(0);
+    expect(body.events.some((e) => e.type === 2)).toBe(true);
 
     ownGb.destroy();
   });

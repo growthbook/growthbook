@@ -2,6 +2,7 @@ import {
   SessionReplayInterface,
   SessionReplayRrwebEvent,
 } from "shared/validators";
+import { parseIntWithDefault } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -177,10 +178,10 @@ export class SessionReplayModel {
       const ingestedAt = parseClickHouseDate(row.ingested_at);
       if (ingestedAt > base.ingestedAt) base.ingestedAt = ingestedAt;
 
-      const durationMs = Number(row.duration_ms) || 0;
-      const eventCount = Number(row.event_count) || 0;
-      const keyEventCount = Number(row.key_event_count) || 0;
-      const errorCount = Number(row.error_count) || 0;
+      const durationMs = parseIntWithDefault(row.duration_ms, 0);
+      const eventCount = parseIntWithDefault(row.event_count, 0);
+      const keyEventCount = parseIntWithDefault(row.key_event_count, 0);
+      const errorCount = parseIntWithDefault(row.error_count, 0);
       if (durationMs > base.durationMs) base.durationMs = durationMs;
       base.eventCount += eventCount;
       base.keyEventCount += keyEventCount;
@@ -230,15 +231,15 @@ export class SessionReplayModel {
       endedAt,
       lastEventAt,
       ingestedAt,
-      durationMs: Number(row.duration_ms) || 0,
-      eventCount: Number(row.event_count) || 0,
-      keyEventCount: Number(row.key_event_count) || 0,
-      errorCount: Number(row.error_count) || 0,
+      durationMs: parseIntWithDefault(row.duration_ms, 0),
+      eventCount: parseIntWithDefault(row.event_count, 0),
+      keyEventCount: parseIntWithDefault(row.key_event_count, 0),
+      errorCount: parseIntWithDefault(row.error_count, 0),
       urlFirst: row.url_first,
       urlsVisited: row.urls_visited ?? [],
       pageTitle: row.page_title ?? "",
-      viewportWidth: Number(row.viewport_width) || 0,
-      viewportHeight: Number(row.viewport_height) || 0,
+      viewportWidth: parseIntWithDefault(row.viewport_width, 0),
+      viewportHeight: parseIntWithDefault(row.viewport_height, 0),
       attributes: row.attributes ?? {},
       featureKeys: row.feature_keys ?? [],
       experimentKeys: row.experiment_keys ?? [],
