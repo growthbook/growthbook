@@ -455,7 +455,7 @@ export default function ExposureLogsCard({
         columnSource={columnSource}
         truncatedMessage={
           multipleExposuresOnly
-            ? `Row limit exceeded. Data below only contains some of the ${unitNoun} with multiple exposures. Use a narrower timeframe or add a filter to ensure all relevant exposures are included.`
+            ? `Row limit exceeded. Only some of the ${unitNoun} with multiple exposures are shown. Add a filter to narrow the results.`
             : undefined
         }
         renderDetail={renderDetail}
