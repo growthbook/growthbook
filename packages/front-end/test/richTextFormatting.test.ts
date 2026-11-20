@@ -45,6 +45,12 @@ describe("hasMarkdownFormatting tables", () => {
     ).toBe(true);
   });
 
+  it("finds a table without outer pipes", () => {
+    expect(hasMarkdownFormatting("Metric | Lift\n--- | ---:\nCR | +12%")).toBe(
+      true,
+    );
+  });
+
   it("finds none in pipes without a delimiter row", () => {
     expect(hasMarkdownFormatting("| just | pipes |\n| more | pipes |")).toBe(
       false,
@@ -58,6 +64,8 @@ describe("htmlHasFormatting", () => {
     ["<p>some <strong>bold</strong></p>"],
     ['<a href="https://example.com">link</a>'],
     ["<ul><li>item</li></ul>"],
+    ["<pre><code>**literal**</code></pre>"],
+    ["<p>run <code>**literal**</code></p>"],
   ])("finds formatting in %j", (html) => {
     expect(htmlHasFormatting(html)).toBe(true);
   });

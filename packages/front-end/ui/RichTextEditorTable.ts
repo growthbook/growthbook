@@ -3,7 +3,6 @@ import { $isListNode, ListNode } from "@lexical/list";
 import {
   $convertToMarkdownString,
   $generateNodesFromMarkdownString,
-  isTableRowDivider,
   type ElementTransformer,
   type MultilineElementTransformer,
   type Transformer,
@@ -47,8 +46,11 @@ import {
   type PointType,
 } from "lexical";
 
-// A line that starts and ends with a pipe: `| a | b |`.
-const TABLE_ROW = /^[ \t]*\|.*\|[ \t]*$/;
+// A row has a pipe that isn't escaped; as in GFM, outer pipes are optional.
+const TABLE_ROW = /(?<!\\)\|/;
+
+// `| --- | :-: |`, or `--- | :-:`.
+const DELIMITER_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
 
 // The cells of a `| a | b |` row, split on pipes that aren't escaped.
 export function splitTableRow(line: string): string[] {
@@ -134,7 +136,11 @@ export function createTableTransformer(
       const header = splitTableRow(lines[startLineIndex]);
       const divider = lines[startLineIndex + 1]?.trim() ?? "";
       const aligns = splitTableRow(divider).map(alignFromDivider);
-      if (!isTableRowDivider(divider) || aligns.length !== header.length) {
+      if (
+        !DELIMITER_ROW.test(divider) ||
+        !TABLE_ROW.test(divider) ||
+        aligns.length !== header.length
+      ) {
         return null;
       }
 
@@ -150,7 +156,11 @@ export function createTableTransformer(
       appendRow(header, true);
 
       let last = startLineIndex + 1;
-      while (last + 1 < lines.length && TABLE_ROW.test(lines[last + 1])) {
+      while (
+        last + 1 < lines.length &&
+        lines[last + 1].trim() &&
+        TABLE_ROW.test(lines[last + 1])
+      ) {
         last++;
         appendRow(splitTableRow(lines[last]), false);
       }

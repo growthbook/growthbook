@@ -11,8 +11,9 @@ const FORMATTING: RegExp[] = [
   /^>\s?/m,
   /^\s*(?:[-*+]|\d+\.)\s/m,
   /^```/m,
-  // A table: a header row, then a `|---|` delimiter row.
-  /^[ \t]*\|.*\|[ \t]*\n[ \t]*\|[ \t:|-]*-[ \t:|-]*\|[ \t]*$/m,
+  // A table: a row with a pipe, then a `--- | ---` delimiter row, outer pipes
+  // optional.
+  /^.*(?<!\\)\|.*\n[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/m,
   // Inline, unless escaped.
   /(?<!\\)!?\[[^\]\n]*\]\([^)\n]+\)/,
   /(?<!\\)`[^`\n]+`/,
@@ -24,9 +25,9 @@ const FORMATTING: RegExp[] = [
 
 // Whether clipboard HTML carries structure or formatting of its own, rather
 // than being a styled copy of plain text (as a code editor or terminal puts
-// on the clipboard).
+// on the clipboard). Code counts, so its literal text isn't read as markdown.
 export function htmlHasFormatting(html: string): boolean {
-  return /<(?:table|ul|ol|h[1-6]|blockquote|a|strong|b|em|i|img)[\s>]/i.test(
+  return /<(?:table|ul|ol|h[1-6]|blockquote|a|strong|b|em|i|img|pre|code)[\s>]/i.test(
     html,
   );
 }

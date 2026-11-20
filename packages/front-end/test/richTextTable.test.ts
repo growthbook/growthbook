@@ -157,6 +157,12 @@ describe("rich text tables", () => {
     );
   });
 
+  it("loads a table without outer pipes, ending at a blank line", () => {
+    expect(roundTrip("a | b\n--- | :-:\n1 | 2\n\nafter")).toBe(
+      "| a | b |\n| --- | :---: |\n| 1 | 2 |\n\nafter",
+    );
+  });
+
   it("leaves pipes without a delimiter row as text", () => {
     expect(roundTrip("| not | a table |")).toBe("| not | a table |");
   });
