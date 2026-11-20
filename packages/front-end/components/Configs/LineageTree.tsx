@@ -19,7 +19,7 @@ import {
 } from "@/components/Configs/ConfigKeyNotices";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import TruncatedText from "@/ui/TruncatedText";
 import StatusDot from "@/components/Experiment/StatusDot";
 import { draftStatusDotColor } from "@/components/Reviews/RevisionStatusBadge";
 import styles from "./LineageTree.module.scss";
@@ -59,7 +59,7 @@ function RowConnector(): React.ReactElement {
 
 function DraftNodeDot() {
   return (
-    <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live Config.">
+    <Tooltip content="Unpublished draft">
       <StatusDot
         color={draftStatusDotColor("draft")}
         style={{ marginRight: 4 }}
@@ -228,8 +228,7 @@ export default function LineageTree({
           >
             <PiPlus size={10} />
           </Flex>
-          <OverflowText
-            tooltip
+          <TruncatedText
             maxWidth="100%"
             style={{
               flex: 1,
@@ -247,9 +246,8 @@ export default function LineageTree({
                   : undefined,
               textDecoration: isArchived ? "line-through" : undefined,
             }}
-          >
-            {name}
-          </OverflowText>
+            text={name}
+          />
           {isDraftNode && <DraftNodeDot />}
           {count !== undefined && countBadge(count)}
         </Flex>
@@ -292,8 +290,7 @@ export default function LineageTree({
           >
             <PiDotOutline size={20} />
           </Flex>
-          <OverflowText
-            tooltip
+          <TruncatedText
             maxWidth="100%"
             style={{
               flex: 1,
@@ -308,9 +305,8 @@ export default function LineageTree({
                   : undefined,
               textDecoration: isArchived ? "line-through" : undefined,
             }}
-          >
-            {label}
-          </OverflowText>
+            text={label}
+          />
           {isDraftNode && <DraftNodeDot />}
           {n.fieldCount !== undefined && countBadge(n.fieldCount)}
         </Flex>
@@ -340,7 +336,15 @@ export default function LineageTree({
           pl="1"
           pr="3"
           className={styles.row}
+          role="button"
+          tabIndex={0}
+          aria-expanded={isOpen}
           onClick={() => toggleEnvGroup(parentKey)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            toggleEnvGroup(parentKey);
+          }}
           style={{
             height: ROW_HEIGHT,
             borderRadius: "var(--radius-2)",
@@ -352,7 +356,7 @@ export default function LineageTree({
             justify="center"
             style={{ width: 14, flexShrink: 0, color: "var(--slate-11)" }}
           >
-            {/* A folder, not a caret: the group opens, it isn't a page. */}
+            {/* Groups show a folder; Configs, a caret. */}
             {isOpen ? <PiFolderOpen size={13} /> : <PiFolder size={13} />}
           </Flex>
           <span
@@ -486,8 +490,7 @@ export default function LineageTree({
                 <PiDotOutline size={20} />
               )}
             </Flex>
-            <OverflowText
-              tooltip
+            <TruncatedText
               maxWidth="100%"
               style={{
                 flex: 1,
@@ -502,9 +505,8 @@ export default function LineageTree({
                     : undefined,
                 textDecoration: isArchived ? "line-through" : undefined,
               }}
-            >
-              {n.name}
-            </OverflowText>
+              text={n.name}
+            />
             {isDraftNode && <DraftNodeDot />}
             {hasIncompatible && (
               <Tooltip

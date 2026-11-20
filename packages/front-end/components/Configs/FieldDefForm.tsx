@@ -59,6 +59,7 @@ export default function FieldDefForm({
   initialNull = false,
   constantContext,
   onDirtyChange,
+  onSavingChange,
   onCancel,
   onSave,
 }: {
@@ -72,6 +73,7 @@ export default function FieldDefForm({
   initialNull?: boolean;
   constantContext?: { project?: string; excludeKeys?: string[] };
   onDirtyChange?: (dirty: boolean) => void;
+  onSavingChange?: (saving: boolean) => void;
   onCancel: () => void;
   // No value leaves the field's value as it is.
   onSave: (field: SchemaField, value?: unknown) => void | Promise<void>;
@@ -103,6 +105,10 @@ export default function FieldDefForm({
   }, [dirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    onSavingChange?.(saving);
+  }, [saving, onSavingChange]);
+  useEffect(() => () => onSavingChange?.(false), [onSavingChange]);
   const [err, setErr] = useState<string | null>(null);
 
   // A raw schema can still resolve to a simple value surface (e.g. {type:string}).
@@ -225,33 +231,33 @@ export default function FieldDefForm({
       ? parseFieldValueInput(valueText, field, valueIsNull)
       : null;
 
+  const saveBlockedReason = !trimmedKey
+    ? "Enter a field key"
+    : duplicate
+      ? `A field named "${trimmedKey}" already exists`
+      : parsedValue?.kind === "error"
+        ? parsedValue.error
+        : null;
+
   const save = async () => {
     if (!dirty) {
       onCancel();
       return;
     }
-    if (!trimmedKey) {
-      setErr("A field key is required");
-      return;
-    }
-    if (duplicate) {
-      setErr(`A field named "${trimmedKey}" already exists`);
-      return;
-    }
+    if (saveBlockedReason) return;
     if (isJson) {
       try {
         JSON.parse(field.jsonSchema || "");
       } catch (e) {
         setErr(
-          `Invalid JSON Schema — ${
+          `Invalid JSON Schema: ${
             e instanceof Error ? e.message : "could not parse"
           }`,
         );
         return;
       }
     }
-    if (parsedValue?.kind === "error") return;
-    const value = parsedValue?.value;
+    const value = parsedValue?.kind === "value" ? parsedValue.value : undefined;
     setErr(null);
     setSaving(true);
     try {
@@ -634,9 +640,7 @@ export default function FieldDefForm({
         colSpan={6}
         background={tint}
         saving={saving}
-        saveBlockedReason={
-          parsedValue?.kind === "error" ? parsedValue.error : null
-        }
+        saveBlockedReason={saveBlockedReason}
         onSave={save}
         onCancel={onCancel}
       />

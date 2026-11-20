@@ -28,7 +28,7 @@ import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import TruncatedText from "@/ui/TruncatedText";
 import EditableValueFrame, {
   inPlaceEditor,
 } from "@/components/Features/EditableValueFrame";
@@ -334,7 +334,7 @@ export default function ConfigFieldRow({
                         {(deepMerges || nullToggle) && (
                           <Flex align="center" gap="3" mt="1">
                             {deepMerges && (
-                              <Tooltip content="Nested JSON objects deep-merge onto the inherited value — set only the keys you want to change.">
+                              <Tooltip content="Nested objects merge onto the inherited value. Set only the keys to change.">
                                 <span
                                   style={{
                                     display: "inline-flex",
@@ -461,9 +461,7 @@ export default function ConfigFieldRow({
                 fontSize: "0.8em",
               }}
             >
-              <OverflowText tooltip maxWidth="100%">
-                {fieldTypeLabel(nf)}
-              </OverflowText>
+              <TruncatedText maxWidth="100%" text={fieldTypeLabel(nf)} />
             </code>
             {schemaPreview && (
               // Around the button, so its padding and keyboard focus open it.
@@ -565,18 +563,14 @@ export default function ConfigFieldRow({
                           color: "var(--accent-11)",
                         }}
                       >
-                        <OverflowText
-                          tooltip
+                        <TruncatedText
                           maxWidth="100%"
                           className="hover-underline"
-                        >
-                          {sourceName}
-                        </OverflowText>
+                          text={sourceName}
+                        />
                       </Link>
                     ) : (
-                      <OverflowText tooltip maxWidth="100%">
-                        {sourceName}
-                      </OverflowText>
+                      <TruncatedText maxWidth="100%" text={sourceName} />
                     )}
                   </Flex>
                 }

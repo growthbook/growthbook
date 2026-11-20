@@ -208,8 +208,6 @@ export const UNDECLARED_FIELDS_FIX =
 
 export type ConfigValueIssue = { path: string; message: string };
 
-// Ajv's wording names the parent object and hides the offending key or the
-// allowed values, so these keywords say what to fix instead.
 // The top-level key an error is about: the first pointer segment, unescaped,
 // or for an error on the object itself, the property it names.
 function topLevelKey(err: ErrorObject): string {
@@ -222,6 +220,8 @@ function topLevelKey(err: ErrorObject): string {
   return params.missingProperty ?? params.additionalProperty ?? "";
 }
 
+// Ajv's wording names the parent object and hides the offending key or the
+// allowed values, so these keywords say what to fix instead.
 function configValueIssue(err: ErrorObject): ConfigValueIssue {
   const path = err.instancePath?.replace(/^\//, "") ?? "";
   const at = (key: string) => (path ? `${path}/${key}` : key);

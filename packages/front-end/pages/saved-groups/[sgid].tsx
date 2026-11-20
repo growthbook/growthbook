@@ -474,6 +474,7 @@ export default function EditSavedGroupPage() {
   ).length;
   // Counted on the list the add writes to: an append keeps the target's items.
   const listAboveSizeLimit =
+    addItems &&
     !!savedGroupSizeLimit &&
     new Set([
       ...(importOperation === "append"

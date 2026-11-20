@@ -5,7 +5,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import TruncatedText from "@/ui/TruncatedText";
 import VariationNumber from "@/ui/VariationNumber";
 import Table, {
   TableHeader,
@@ -278,9 +278,11 @@ function ConfigSourceCell({
           {/* hover-underline on the span, not the anchor: text-decoration
               doesn't cross an inline-block, so it must sit on the ellipsis'd
               element to reach the text. Config links stay in-app (no target). */}
-          <OverflowText tooltip className="hover-underline" maxWidth={110}>
-            {name}
-          </OverflowText>
+          <TruncatedText
+            className="hover-underline"
+            maxWidth={110}
+            text={name}
+          />
         </Link>
       }
     />
@@ -301,9 +303,11 @@ function FeatureLink({
       : `/features/${impl.featureId}`;
   return (
     <Link href={href} target="_blank" rel="noreferrer">
-      <OverflowText tooltip className="hover-underline" maxWidth={maxWidth}>
-        {impl.featureId}
-      </OverflowText>
+      <TruncatedText
+        className="hover-underline"
+        maxWidth={maxWidth}
+        text={impl.featureId}
+      />
     </Link>
   );
 }
@@ -331,9 +335,11 @@ function ExperimentCell({
     impl.experimentName ?? impl.experimentId ?? impl.contextualBanditId ?? href;
   return (
     <Link href={href} target="_blank" rel="noreferrer">
-      <OverflowText tooltip className="hover-underline" maxWidth={maxWidth}>
-        {label}
-      </OverflowText>
+      <TruncatedText
+        className="hover-underline"
+        maxWidth={maxWidth}
+        text={label}
+      />
     </Link>
   );
 }

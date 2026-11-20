@@ -174,7 +174,7 @@ export default function ConfigEnvTabs({
               <TabsTrigger key={t.key} value={t.key}>
                 <Flex align="center" style={{ gap: 6 }}>
                   {t.key !== baseKey && draftByKey?.[t.key] && (
-                    <Tooltip content="This override has an unpublished draft">
+                    <Tooltip content="Unpublished draft">
                       <StatusDot color={draftStatusDotColor("draft")} />
                     </Tooltip>
                   )}

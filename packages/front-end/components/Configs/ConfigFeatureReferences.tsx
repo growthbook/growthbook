@@ -6,7 +6,7 @@ import { ConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import TruncatedText from "@/ui/TruncatedText";
 import styles from "./ConfigFeatureReferences.module.scss";
 
 const ROW_HEIGHT = 30;
@@ -130,8 +130,7 @@ export default function ConfigFeatureReferences({
         >
           <PiDotOutline size={20} />
         </Flex>
-        <OverflowText
-          tooltip
+        <TruncatedText
           maxWidth="100%"
           style={{
             flex: 1,
@@ -141,9 +140,8 @@ export default function ConfigFeatureReferences({
             fontWeight: isCurrent ? 500 : 400,
             color: isCurrent ? "var(--violet-11)" : undefined,
           }}
-        >
-          {node?.name ?? key}
-        </OverflowText>
+          text={node?.name ?? key}
+        />
       </Flex>
     );
     return isCurrent ? (
@@ -202,8 +200,7 @@ export default function ConfigFeatureReferences({
               >
                 <PiFlag size={13} />
               </Flex>
-              <OverflowText
-                tooltip
+              <TruncatedText
                 maxWidth="100%"
                 style={{
                   minWidth: 0,
@@ -211,9 +208,8 @@ export default function ConfigFeatureReferences({
                   fontSize: "var(--font-size-1)",
                   fontWeight: 500,
                 }}
-              >
-                {f.name}
-              </OverflowText>
+                text={f.name}
+              />
             </Flex>
           </Link>
           <Branch>

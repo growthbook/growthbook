@@ -175,6 +175,7 @@ import ConfigFieldRow, {
 import ConfigInvariantsEditor, {
   InheritedInvariant,
   RuleRequest,
+  RulesEditorHandle,
 } from "@/components/Configs/ConfigInvariantsEditor";
 import LinkButton from "@/ui/LinkButton";
 import ConfigCustomHooksSection from "@/components/Configs/ConfigCustomHooksSection";
@@ -424,17 +425,20 @@ export default function ConfigDetailPage(): React.ReactElement {
     ValueEditSeed & { savesUntouched: boolean }
   >({ text: "", kind: "value", savesUntouched: false });
   const [savingValue, setSavingValue] = useState(false);
-  // An edit asked for on live waits here until its draft is showing.
-  // Tied to the Config that asked, so it never runs on another one.
+  // An edit asked for on live waits here until its draft is showing. Tied to
+  // the Config and draft it was meant for, so it never runs anywhere else.
   const [pendingEdit, setPendingEdit] = useState<{
     configKey: string;
+    revisionId: string;
     edit: LiveEdit;
   } | null>(null);
   const configKeyRef = useRef(configKey);
   configKeyRef.current = configKey;
   const runEditRef = useRef<(edit: LiveEdit) => void>(() => undefined);
   const [openingDraft, setOpeningDraft] = useState(false);
-  const [ruleRequest, setRuleRequest] = useState<RuleRequest | null>(null);
+  const rulesEditorRef = useRef<RulesEditorHandle>(null);
+  // A field-form or JSON save in flight.
+  const [editorSaving, setEditorSaving] = useState(false);
 
   // The key whose field definition is open, or a blank form for a new field.
   const [schemaEdit, setSchemaEdit] = useState<string | null>(null);
@@ -472,7 +476,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   // Tabs, views and revisions don't keep an open edit; one with changes asks
   // first, and one being saved waits for it.
   const discardThen = (next: () => void) => {
-    if (savingValue) return;
+    if (savingValue || editorSaving) return;
     navigationGuard.confirmThen(() => {
       cancelEdits();
       next();
@@ -670,14 +674,18 @@ export default function ConfigDetailPage(): React.ReactElement {
   }, [draftTakesEdits]);
   useEffect(() => {
     if (!pendingEdit) return;
-    if (pendingEdit.configKey !== configKey) {
+    if (
+      pendingEdit.configKey !== configKey ||
+      (selectedRevisionId !== null &&
+        selectedRevisionId !== pendingEdit.revisionId)
+    ) {
       setPendingEdit(null);
       return;
     }
-    if (!draftTakesEdits || !data) return;
+    if (selectedRevisionId === null || !draftTakesEdits || !data) return;
     setPendingEdit(null);
     runEditRef.current(pendingEdit.edit);
-  }, [pendingEdit, configKey, draftTakesEdits, data]);
+  }, [pendingEdit, configKey, selectedRevisionId, draftTakesEdits, data]);
 
   const selectedRevisionRequiresApproval =
     !!selectedRevision &&
@@ -1298,10 +1306,8 @@ export default function ConfigDetailPage(): React.ReactElement {
       resolved.fields.find((f) => f.key === editKey)?.field ?? null,
       editKind === "null",
     );
-    if (result.kind === "error") {
-      setEditError(result.error);
-      return;
-    }
+    // Save is disabled while the value can't be parsed.
+    if (result.kind === "error") return;
     setSavingValue(true);
     try {
       await savePropertyValue(editKey, result.value);
@@ -1407,6 +1413,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       existingKeys={resolved.fields.map((f) => f.key)}
       constantContext={constantContext}
       onDirtyChange={setFieldDirty}
+      onSavingChange={setEditorSaving}
       onCancel={closeEdits}
       onSave={saveField}
     />
@@ -1415,7 +1422,10 @@ export default function ConfigDetailPage(): React.ReactElement {
     canStartEdits &&
     !editOpen && (
       <Box mt="2" py="1">
-        <Link onClick={() => startEdit({ kind: "addField" })}>
+        <Link
+          disabled={openingDraft}
+          onClick={() => startEdit({ kind: "addField" })}
+        >
           <Flex align="center" gap="1">
             <PiPlus />
             Add field
@@ -1543,7 +1553,10 @@ export default function ConfigDetailPage(): React.ReactElement {
       </Box>
     ) : (
       <Box mt="2" py="1">
-        <Link onClick={() => startEdit({ kind: "addMixin" })}>
+        <Link
+          disabled={openingDraft}
+          onClick={() => startEdit({ kind: "addMixin" })}
+        >
           <Flex align="center" gap="1">
             <PiPlus />
             Add Config mixin
@@ -1579,7 +1592,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     setActionError(null);
     const startedOn = config.key;
     if (myDraft) {
-      setPendingEdit({ configKey: startedOn, edit });
+      setPendingEdit({ configKey: startedOn, revisionId: myDraft.id, edit });
       selectRevision(myDraft);
       return;
     }
@@ -1591,11 +1604,19 @@ export default function ConfigDetailPage(): React.ReactElement {
       );
       // Moved to another Config meanwhile: the draft waits there, unopened.
       if (res?.revision && configKeyRef.current === startedOn) {
-        setPendingEdit({ configKey: startedOn, edit });
+        setPendingEdit({
+          configKey: startedOn,
+          revisionId: res.revision.id,
+          edit,
+        });
         await onRevisionCreated(res.revision);
       }
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Failed to open a draft");
+      if (configKeyRef.current === startedOn) {
+        setActionError(
+          e instanceof Error ? e.message : "Failed to open a draft",
+        );
+      }
     } finally {
       setOpeningDraft(false);
     }
@@ -1633,17 +1654,28 @@ export default function ConfigDetailPage(): React.ReactElement {
         setComposeAdding(true);
         return;
       case "rule":
-        setRuleRequest(edit.rule);
+        rulesEditorRef.current?.run(edit.rule);
         return;
+      // The JSON view turns editable once the draft is showing.
       case "json":
         return;
     }
   };
   runEditRef.current = runEdit;
-  const startEdit = (edit: LiveEdit) => {
-    if (editsFromLive) void editInDraft(edit);
-    else runEdit(edit);
-  };
+  const startEdit = (edit: LiveEdit) =>
+    editsFromLive ? editInDraft(edit) : runEdit(edit);
+  // Where edits from live go, shown under the sections they edit.
+  const liveDraftNote = !editsFromLive ? null : myDraft ? (
+    <>
+      Edits go to your draft{" "}
+      <Link onClick={() => selectRevision(myDraft)}>
+        v{revisionNumbers.get(myDraft.id)}
+      </Link>
+      .
+    </>
+  ) : (
+    "Edits start a new draft."
+  );
   const canPublishSelected = canPublishRevisionEntity(
     permissionsUtil,
     "config",
@@ -1995,7 +2027,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             requiresApproval={approvalRequired}
             context="header"
             width={REVISION_SELECTOR_WIDTH_PX}
-            disabled={editOpen}
+            disabled={!!editsBlocked}
           />
         }
         detailsOpen={details.open}
@@ -2076,23 +2108,18 @@ export default function ConfigDetailPage(): React.ReactElement {
       >
         <div className="details-column">
           <Box className="contents container-fluid pagecontents">
+            {/* Row menu actions and opening a draft have no editor to show
+                errors in. */}
+            {actionError && (
+              <Callout status="error" mb="4">
+                <MarkdownLinks text={actionError} />
+              </Callout>
+            )}
             {tab === "overview" && (
               <>
                 <SectionFrame
                   title="Fields"
-                  description={
-                    !editsFromLive ? null : myDraft ? (
-                      <>
-                        Edits go to your draft{" "}
-                        <Link onClick={() => selectRevision(myDraft)}>
-                          v{revisionNumbers.get(myDraft.id)}
-                        </Link>
-                        .
-                      </>
-                    ) : (
-                      "Edits start a new draft."
-                    )
-                  }
+                  description={liveDraftNote}
                   mb="4"
                   stickyTop={stickyTop}
                   tabs={
@@ -2163,12 +2190,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                                     .join("; ")}`,
                               )
                               .join(" · ")}
-                          </Callout>
-                        )}
-                        {/* Row menu actions have no editor to show errors in. */}
-                        {actionError && (
-                          <Callout status="error" mt="3">
-                            <MarkdownLinks text={actionError} />
                           </Callout>
                         )}
                         <Table
@@ -2248,6 +2269,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                                     )}
                                     constantContext={constantContext}
                                     onDirtyChange={setFieldDirty}
+                                    onSavingChange={setEditorSaving}
                                     onCancel={closeEdits}
                                     onSave={saveField}
                                   />
@@ -2370,6 +2392,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                         unpublishedFormats={unpublishedFormats}
                         ribbonEl={ribbonEl}
                         onDirtyChange={setJsonDirty}
+                        onSavingChange={setEditorSaving}
                         onEditInDraft={
                           editsFromLive
                             ? () => startEdit({ kind: "json" })
@@ -2411,9 +2434,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </LinkButton>
                     }
                   >
-                    Rules and hooks set here apply to {displayedConfig.name} and
-                    its descendants. Ones for the whole family belong on its
-                    base Config, {baseNode.name}.
+                    Rules and hooks here apply to {displayedConfig.name} and its
+                    descendants. Put family-wide ones on {baseNode.name}.
                   </Callout>
                 )}
                 <ConfigInvariantsEditor
@@ -2429,8 +2451,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                       ? (rule) => startEdit({ kind: "rule", rule })
                       : undefined
                   }
-                  request={ruleRequest}
-                  onRequestHandled={() => setRuleRequest(null)}
+                  ref={rulesEditorRef}
+                  draftNote={liveDraftNote}
                   onChange={(next) =>
                     saveSchema(ownSchema().fields, undefined, undefined, next)
                   }
@@ -2708,10 +2730,18 @@ export default function ConfigDetailPage(): React.ReactElement {
         />
       )}
 
-      {navigationGuard.pendingHref || navigationGuard.pendingAction ? (
+      {navigationGuard.pendingHref || navigationGuard.confirmingSwitch ? (
         <ConfirmDialog
-          title="Discard unsaved changes?"
-          content="You have unsaved changes to this Config. Continuing discards them."
+          title={
+            navigationGuard.pendingHref
+              ? "Leave without saving?"
+              : "Discard unsaved changes?"
+          }
+          content={
+            navigationGuard.pendingHref
+              ? "You have unsaved changes to this Config. Leaving this page discards them."
+              : "You have unsaved changes to this Config. Switching away discards them."
+          }
           // Staying is the primary action; leaving is the secondary one.
           yesText="Keep editing"
           noText={

@@ -69,6 +69,13 @@ describe("parseFieldValueInput", () => {
     });
   });
 
+  it("asks for an allowed value when the allow-list has no empty string", () => {
+    expect(parseFieldValueInput("", field({ enum: ["eu", "us"] }))).toEqual({
+      kind: "error",
+      error: "Choose a value",
+    });
+  });
+
   it("keeps an empty string, needs a value for other types, and reads null", () => {
     expect(parseFieldValueInput("", field({}))).toEqual({
       kind: "value",

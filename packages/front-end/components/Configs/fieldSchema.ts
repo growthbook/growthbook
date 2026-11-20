@@ -390,7 +390,13 @@ export function parseFieldValueInput(
 ): { kind: "value"; value: unknown } | { kind: "error"; error: string } {
   if (isNull) return { kind: "value", value: null };
   const valueType = fieldValueType(field);
-  if (valueType === "string") return { kind: "value", value: text };
+  if (valueType === "string") {
+    // An allow-list without "" needs one of its values.
+    const allowed = field ? normalizeField(field).enum : [];
+    return text === "" && allowed.length > 0 && !allowed.includes("")
+      ? { kind: "error", error: "Choose a value" }
+      : { kind: "value", value: text };
+  }
   const t = text.trim();
   if (t === "") return { kind: "error", error: "Enter a value" };
   switch (valueType) {

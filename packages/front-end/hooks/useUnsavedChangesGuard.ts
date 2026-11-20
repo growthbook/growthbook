@@ -21,7 +21,8 @@ function sameView(a: string, b: string, watchQuery: readonly string[]) {
 /**
  * While there are unsaved changes, leaving the page asks first and closing the
  * tab warns; same-page changes pass through unless they change a `watchQuery`
- * parameter or go through `confirmThen`. `onLeave` runs on confirm.
+ * parameter or go through `confirmThen`. `onLeave` runs on confirm. Pass a
+ * stable `watchQuery` array: it's an effect dependency.
  */
 export default function useUnsavedChangesGuard(
   hasUnsavedChanges: boolean,
@@ -123,7 +124,7 @@ export default function useUnsavedChangesGuard(
   const confirmNavigation = async () => {
     if (pendingAction) {
       // Lets a navigation the action starts through, until nothing is unsaved.
-      navigationConfirmed.current = true;
+      navigationConfirmed.current = hasUnsavedChanges;
       setPendingAction(null);
       onLeave?.();
       pendingAction();
@@ -142,7 +143,7 @@ export default function useUnsavedChangesGuard(
 
   return {
     pendingHref,
-    pendingAction: pendingAction !== null,
+    confirmingSwitch: pendingAction !== null,
     confirmThen,
     confirmNavigation,
     cancelNavigation: () => {

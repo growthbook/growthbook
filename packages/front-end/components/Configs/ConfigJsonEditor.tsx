@@ -132,7 +132,8 @@ type Props = {
   // Unsaved edits hold the page, as other edits there do.
   onDirtyChange?: (dirty: boolean) => void;
   // From live, where the view is read-only: opens a draft to edit in.
-  onEditInDraft?: () => void;
+  onEditInDraft?: () => void | Promise<void>;
+  onSavingChange?: (saving: boolean) => void;
 };
 
 function prettyValue(json: string): string {
@@ -268,6 +269,7 @@ export default function ConfigJsonEditor({
   ribbonEl = null,
   onDirtyChange,
   onEditInDraft,
+  onSavingChange,
 }: Props) {
   const [valueText, setValueText] = useState<string>(() =>
     prettyValue(valueJson),
@@ -278,6 +280,10 @@ export default function ConfigJsonEditor({
   const [parseError, setParseError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    onSavingChange?.(saving);
+  }, [saving, onSavingChange]);
+  useEffect(() => () => onSavingChange?.(false), [onSavingChange]);
   // Bumped by a successful save, so a save the server stores unchanged still
   // resets the buffers to what's saved.
   const [saveCount, setSaveCount] = useState(0);
@@ -535,6 +541,8 @@ export default function ConfigJsonEditor({
   };
 
   const handleSave = async () => {
+    // A failed save leaves the buffers unsaved, so their bases go back.
+    const bases = [valueBase.current, schemaBase.current] as const;
     valueBase.current = valueText;
     schemaBase.current = schemaText;
     setSaving(true);
@@ -563,6 +571,7 @@ export default function ConfigJsonEditor({
       }
       setSaveCount((n) => n + 1);
     } catch (e) {
+      [valueBase.current, schemaBase.current] = bases;
       setSaveError(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setSaving(false);
