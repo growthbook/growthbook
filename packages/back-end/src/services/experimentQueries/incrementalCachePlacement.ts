@@ -51,7 +51,9 @@ export function compareCacheMetrics(a: CacheMetric, b: CacheMetric): number {
  * queries that read them. Ties go to a cache this run builds anyway, so a tie
  * never rebuilds another, then to the cache with fewer metrics, then to one
  * already joined with a cache holding another side of the same metric, then
- * to the earliest stored group id.
+ * to the cache whose first metric sorts first. That last tie-break reads only
+ * what the caches hold, and from scratch it picks the cache opened first, so
+ * a stored layout and a full refresh break an exact tie the same way.
  *
  * When a kind has stored caches, its new metrics are placed as one batch so
  * they rebuild as few caches as possible: the remaining batch goes whole into
@@ -118,6 +120,16 @@ export function planIncrementalCaches({
           holders.some((holder) => otherSides.includes(holder)),
       );
     }).length;
+  const compareFirstMetrics = (a: Cache, b: Cache) => {
+    const [firstOfA, firstOfB] = [a, b].map((cache) =>
+      cache.metrics.reduce<CacheMetric | null>(
+        (first, metric) =>
+          first && compareCacheMetrics(first, metric) <= 0 ? first : metric,
+        null,
+      ),
+    );
+    return firstOfA && firstOfB ? compareCacheMetrics(firstOfA, firstOfB) : 0;
+  };
   const fits = (cache: Cache, batch: CacheMetric[]) =>
     BASE_COLUMNS_PER_QUERY +
       cache.columns +
@@ -136,6 +148,7 @@ export function planIncrementalCaches({
         Number(b.built) - Number(a.built) ||
         a.metrics.length - b.metrics.length ||
         joinedSides(b, batch) - joinedSides(a, batch) ||
+        compareFirstMetrics(a, b) ||
         a.order - b.order,
     )[0];
   const openCache = (cacheKind: string): Cache => {

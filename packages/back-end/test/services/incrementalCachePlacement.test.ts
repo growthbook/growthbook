@@ -235,19 +235,75 @@ describe("planIncrementalCaches", () => {
       expect(layout(plan)).toEqual(["ft_a<a1:r1,r_new", "ft_b<b2:r1,r_new"]);
     });
 
-    it("go to the earliest stored group id last", () => {
+    it("go to the cache whose first metric sorts first, whatever its group id", () => {
       expect(
         layout(
           planIncrementalCaches({
             metrics: [m("new", 1)],
             storedCaches: [
-              stored("g2", [m("y", 3)]),
-              stored("g1", [m("x", 3)]),
+              stored("g1", [m("y", 3)]),
+              stored("g2", [m("x", 3)]),
             ],
             maxColumns: budget(100),
           }),
         ),
-      ).toEqual(["ft_a<g1:x,new"]);
+      ).toEqual(["ft_a<g2:x,new"]);
+    });
+
+    it("break the same way as a full refresh, whichever random id the first cache got", () => {
+      // 52 metrics of 34 columns pack into two caches of 26, which tie on
+      // every count; the added metric sorts last.
+      const metrics = Array.from({ length: 52 }, (_, i) =>
+        m(`big${String(i).padStart(2, "0")}`, 34),
+      );
+      const added = m("zz_plain", 3);
+      const membership = (
+        caches: { cacheKind: string; metricIds: string[] }[],
+      ) =>
+        caches
+          .map((c) => `${c.cacheKind}:${[...c.metricIds].sort().join(",")}`)
+          .sort();
+      const before = planIncrementalCaches({
+        metrics,
+        storedCaches: [],
+        maxColumns: 1000,
+      });
+      expect(before.map((c) => c.metricIds.length)).toEqual([26, 26]);
+      const fullRefresh = membership(
+        planIncrementalCaches({
+          metrics: [...metrics, added],
+          storedCaches: [],
+          maxColumns: 1000,
+        }),
+      );
+
+      for (const groupIds of [
+        ["ft_a_b0", "ft_a_a1"],
+        ["ft_a_a0", "ft_a_b1"],
+      ]) {
+        const storedCaches = before.map((c, i) =>
+          stored(
+            groupIds[i],
+            c.metricIds.map((id) => m(id, 34)),
+          ),
+        );
+        const update = planIncrementalCaches({
+          metrics: [added],
+          storedCaches,
+          maxColumns: 1000,
+        });
+        expect(
+          membership([
+            ...storedCaches
+              .filter((c) => c.groupId !== update[0].replacesGroupId)
+              .map((c) => ({
+                cacheKind: c.cacheKind,
+                metricIds: c.metrics.map((x) => x.metricId),
+              })),
+            ...update,
+          ]),
+        ).toEqual(fullRefresh);
+      }
     });
   });
 
