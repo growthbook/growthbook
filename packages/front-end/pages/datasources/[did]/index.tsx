@@ -563,7 +563,11 @@ const DataSourcePage: FC = () => {
           ? {
               display: "flex",
               flexDirection: "column",
-              height: pageHeight ?? "calc(100vh - 56px)",
+              // The window under the header and any bar pinned there, less
+              // the page frame's spacing above and below.
+              height:
+                pageHeight ??
+                "calc(100vh - var(--page-top-offset) - var(--page-top-padding) - var(--page-bottom-padding))",
               overflow: "hidden",
               boxSizing: "border-box",
             }
@@ -1070,6 +1074,8 @@ const DataSourcePage: FC = () => {
                     canEdit={canUpdateDataSourceSettings}
                     onRefresh={refreshDataSource}
                     showTitle
+                    // Its own tab appears once it exists, so go there
+                    onCreated={() => setTab("event-forwarder")}
                   />
                 </Frame>
               ) : null}

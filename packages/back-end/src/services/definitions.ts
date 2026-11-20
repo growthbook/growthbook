@@ -39,7 +39,12 @@ export async function getDefinitionsData(context: ReqContext) {
     factMetrics,
     decisionCriteria,
     webhookSecrets,
-    { eventIngestorRegion, hasManagedWarehouse, hasEventForwarder },
+    {
+      eventIngestorRegion,
+      hasManagedWarehouse,
+      hasEventForwarder,
+      eventForwarderEnvironments,
+    },
     targetingOptOutProjectIds,
   ] = await Promise.all([
     getMetricsForDefinitions(context),
@@ -91,6 +96,7 @@ export async function getDefinitionsData(context: ReqContext) {
     eventIngestorRegion,
     hasManagedWarehouse,
     hasEventForwarder,
+    eventForwarderEnvironments,
     targetingOptOutProjectIds,
   };
 }

@@ -169,7 +169,7 @@ function SingleDashboardPage() {
   }
 
   return (
-    <div className="p-3 container-fluid pagecontents">
+    <div className="container-fluid pagecontents">
       <PageHead
         breadcrumb={[
           {

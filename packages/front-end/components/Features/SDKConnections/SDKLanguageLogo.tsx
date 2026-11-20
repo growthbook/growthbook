@@ -1,7 +1,7 @@
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { IconType } from "react-icons";
 import { DiRuby, DiPython, DiReact, DiAndroid } from "react-icons/di";
-import { FaHashtag, FaApple, FaJava, FaCode, FaRust } from "react-icons/fa";
+import { FaHashtag, FaApple, FaJava, FaRust } from "react-icons/fa";
 import {
   SiAwslambda,
   SiCloudflare,
@@ -20,12 +20,13 @@ import {
 } from "react-icons/si";
 import React, { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
-import { HiOutlineExclamationCircle } from "react-icons/hi";
-import { BsFiletypeHtml } from "react-icons/bs";
+import { PiCodeBold, PiFileHtml, PiWarningCircle } from "react-icons/pi";
 import { TbCloudCode } from "react-icons/tb";
+import { Box, Flex } from "@radix-ui/themes";
 import { DocSection } from "@/components/DocLink";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import UITooltip from "@/ui/Tooltip";
+import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 
 export type LanguageFilter =
   | "popular"
@@ -54,9 +55,20 @@ export type LanguageLogo = {
   packageName?: string;
   packageUrl?: string;
 };
+
+const betaBadge = (
+  <Badge
+    label="BETA"
+    color="gray"
+    variant="soft"
+    size="xs"
+    style={{ position: "absolute", top: -16, right: -12 }}
+  />
+);
+
 export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
   "nocode-other": {
-    Icon: BsFiletypeHtml,
+    Icon: PiFileHtml,
     color: "#777",
     label: "Script Tag",
     docLabel: "HTML Script Tag",
@@ -257,14 +269,7 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: ["edge"],
     packageName: "@growthbook/edge-lambda",
     packageUrl: "https://www.npmjs.com/package/@growthbook/edge-lambda",
-    extra: (
-      <span
-        className="badge badge-purple text-uppercase position-absolute"
-        style={{ top: -16, right: -12 }}
-      >
-        Beta
-      </span>
-    ),
+    extra: betaBadge,
   },
   "edge-other": {
     Icon: TbCloudCode,
@@ -275,14 +280,7 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: ["edge"],
     packageName: "@growthbook/edge-utils",
     packageUrl: "https://www.npmjs.com/package/@growthbook/edge-utils",
-    extra: (
-      <span
-        className="badge badge-purple text-uppercase position-absolute"
-        style={{ top: -16, right: -12 }}
-      >
-        Beta
-      </span>
-    ),
+    extra: betaBadge,
   },
   "nocode-shopify": {
     Icon: SiShopify,
@@ -312,7 +310,7 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     hideVersion: true,
   },
   other: {
-    Icon: FaCode,
+    Icon: PiCodeBold,
     color: "#777",
     label: "Other",
     docs: "sdks",
@@ -345,41 +343,69 @@ export default function SDKLanguageLogo({
   let versionText: ReactElement | null = null;
   if (version !== undefined && !hideVersion) {
     versionText = (
-      <span className="nowrap">
-        <span className="text-info small ml-2">ver. {version || "0"}</span>
+      <Text size="inherit" whiteSpace="nowrap">
+        <Text size="sm" color="text-mid" ml="2">
+          ver. {version || "0"}
+        </Text>
         {versionOutdated && (
-          <Tooltip body="A new SDK version may be available">
-            <HiOutlineExclamationCircle
-              className="text-warning-orange position-relative"
-              style={showLabel ? { top: -2, left: 2 } : { left: 4 }}
-            />
+          <Tooltip content="A new SDK version may be available">
+            <Box
+              as="span"
+              display="inline-block"
+              position="relative"
+              top={showLabel ? "-2px" : undefined}
+              left={showLabel ? "2px" : "4px"}
+              tabIndex={0}
+              aria-label="A new SDK version may be available"
+            >
+              <PiWarningCircle color="var(--amber-11)" />
+            </Box>
           </Tooltip>
         )}
-      </span>
+      </Text>
     );
   }
 
+  // react-icons don't forward refs, so a tooltip anchors on this span.
+  const icon = (
+    <Flex
+      as="span"
+      display="inline-flex"
+      role="img"
+      aria-label={titlePrefix + label}
+    >
+      <Icon
+        style={{
+          color,
+          height: size,
+          fontSize: size,
+          lineHeight: size,
+          margin: 0,
+        }}
+      />
+    </Flex>
+  );
+
   return (
-    <span className="d-inline-flex align-items-center position-relative">
-      {/* react-icons don't forward refs, so the tooltip anchors on a span */}
-      <UITooltip content={titlePrefix + label}>
-        <span
-          role="img"
-          aria-label={titlePrefix + label}
-          style={{ display: "inline-flex" }}
-        >
-          <Icon
-            style={{ color, height: size, fontSize: size, lineHeight: size }}
-            className="m-0"
-          />
-        </span>
-      </UITooltip>
-      <span className="ml-1">
+    <Flex as="span" display="inline-flex" align="center" position="relative">
+      {/* With its name beside it, the logo needs no tooltip naming it. */}
+      {showLabel ? (
+        icon
+      ) : (
+        <Tooltip content={titlePrefix + label}>{icon}</Tooltip>
+      )}
+      {/* Beside an icon no taller than a line of text, the name is the logo's
+          baseline, so text next to the logo lines up with it. */}
+      <Box
+        as="span"
+        ml={showLabel ? "2" : "1"}
+        style={size <= 20 ? { alignSelf: "baseline" } : undefined}
+      >
         {showLabel && label}
         {versionText}
-      </span>
+      </Box>
       {!hideExtra ? extra : null}
-    </span>
+    </Flex>
   );
 }
 

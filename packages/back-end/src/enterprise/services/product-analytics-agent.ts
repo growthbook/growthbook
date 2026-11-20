@@ -23,6 +23,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import {
   normalizeShowAs,
   getShowAsChoice,
+  configHasPopulation,
   fillMissingUnits,
   getExplorationRenderOpts,
   buildExplorationColumns,
@@ -275,6 +276,7 @@ function describeShowAs(
         v,
         config.showAs,
         getFactMetricById,
+        configHasPopulation(config),
       );
       return options.length ? [`${v.name}: ${showAs}`] : [];
     })
@@ -395,15 +397,19 @@ function buildResultCsv(
       return typeof raw === "number" ? String(raw) : raw;
     }
     if (raw == null) return "";
+    if (col.kind === "populationCount") return String(raw);
     if (col.sub === "numerator" || col.sub === "denominator") {
       return typeof raw === "number" ? String(raw) : String(raw);
     }
-    // value (ratio) and single: 4dp for ratios/per-unit, integer for totals.
+    // value (ratio) and single: 4dp for divided values (ratios, per unit,
+    // % of Population), integer for totals.
     if (typeof raw === "number") {
-      const isRatioOrPerUnit =
+      const showAs = renderOpts.values[col.metricIndex]?.showAs;
+      const isDividedValue =
         col.sub === "value" ||
-        renderOpts.values[col.metricIndex]?.showAs === "per_unit";
-      return isRatioOrPerUnit ? raw.toFixed(4) : String(raw);
+        showAs === "per_unit" ||
+        showAs === "percent_of_population";
+      return isDividedValue ? raw.toFixed(4) : String(raw);
     }
     return String(raw);
   };
@@ -871,7 +877,7 @@ async function normalizeConfigForExplorer(
   );
   if (dropped.length) {
     warnings.push(
-      `Dropped showAs from ${dropped.map((v) => `"${v.name}"`).join(", ")} — it isn't an option for that metric type (only mean metrics offer showAs). These values render in their default mode (ratio and quantile metrics as computed, others as totals).`,
+      `Dropped showAs from ${dropped.map((v) => `"${v.name}"`).join(", ")} — it isn't an option for that metric type (only mean metrics, and proportion metrics with a population, offer showAs). These values render in their default mode (ratio and quantile metrics as computed, others as totals).`,
     );
   }
 

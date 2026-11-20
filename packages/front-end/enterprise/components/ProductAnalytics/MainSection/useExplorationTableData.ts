@@ -11,6 +11,7 @@ import {
   getComparisonAlignmentStrategy,
   getDateGranularity,
   buildAlignedComparisonRowLookup,
+  densifyPopulationTimeseriesRows,
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import { FactTableDefinition } from "shared/types/fact-table";
@@ -34,6 +35,14 @@ import {
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
+
+// In compare mode only metric columns split into current and previous. A type
+// predicate so the other branch can read the metric column's `sub`.
+function showsCurrentPeriodOnly(
+  col: ExplorationColumn,
+): col is Exclude<ExplorationColumn, { kind: "metric" }> {
+  return col.kind !== "metric";
+}
 
 /**
  * Format a raw cell value (from the shared column schema) for display in the
@@ -69,6 +78,7 @@ function formatCellForTable(
     return raw;
   }
   if (raw == null) return "";
+  if (col.kind === "populationCount") return raw;
   if (col.sub === "numerator" || col.sub === "denominator") return raw;
   return typeof raw === "number" ? raw.toFixed(2) : raw;
 }
@@ -551,7 +561,7 @@ export default function useExplorationTableData(
     if (tableCompareActive) {
       const keys: string[] = [];
       columns.forEach((col, i) => {
-        if (col.kind === "dimension") {
+        if (showsCurrentPeriodOnly(col)) {
           keys.push(col.key);
         } else if (col.sub === "single") {
           keys.push(`${col.key}__curr`, `${col.key}__prev`);
@@ -573,7 +583,7 @@ export default function useExplorationTableData(
     if (!tableCompareActive) return undefined;
     const meta: Record<string, ExplorationTableCompareColumnMeta> = {};
     for (const col of columns) {
-      if (col.kind === "dimension") continue;
+      if (col.kind !== "metric") continue;
       if (col.sub !== "single") continue;
       const prevKey = `${col.key}__prev`;
       const currKey = `${col.key}__curr`;
@@ -597,7 +607,7 @@ export default function useExplorationTableData(
       const { prevHeading, currHeading } = compareHeadings;
       const labels: string[] = [];
       columns.forEach((col, i) => {
-        if (col.kind === "dimension") {
+        if (showsCurrentPeriodOnly(col)) {
           labels.push(col.label);
         } else if (col.sub === "single") {
           labels.push(
@@ -632,7 +642,7 @@ export default function useExplorationTableData(
       const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
       const row2Labels: string[] = [];
       columns.forEach((col, i) => {
-        if (col.kind === "dimension") {
+        if (showsCurrentPeriodOnly(col)) {
           row1.push({ label: col.label, rowSpan: 2 });
         } else if (col.sub === "single") {
           row1.push({ label: col.label, colSpan: 2 });
@@ -650,11 +660,9 @@ export default function useExplorationTableData(
     const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
     const row2Labels: string[] = [];
     for (const col of columns) {
-      if (col.kind === "dimension") {
-        row1.push({ label: col.label, rowSpan: 2 });
-        continue;
-      }
-      if (col.sub === "single") {
+      // Columns with no Numerator / Denominator / Value parts span both
+      // header rows; only ratio metrics have them.
+      if (col.kind !== "metric" || col.sub === "single") {
         row1.push({ label: col.label, rowSpan: 2 });
         continue;
       }
@@ -723,6 +731,14 @@ export default function useExplorationTableData(
         cmpSorted,
         isTimeseries,
         comparisonAlignment,
+        // Rank against every bucket, as the chart does, so a missing day
+        // doesn't shift the pairing.
+        exploration && submittedExploreState
+          ? densifyPopulationTimeseriesRows(
+              exploration,
+              submittedExploreState,
+            ).map((r) => String(r.dimensions[0] ?? ""))
+          : undefined,
       );
       return sortedRows.map((row, idx) => {
         // Pair by dimension key for both timeseries and categorical charts.
@@ -745,7 +761,7 @@ export default function useExplorationTableData(
           ] as const);
         }
         for (const col of columns) {
-          if (col.kind === "dimension") {
+          if (showsCurrentPeriodOnly(col)) {
             const raw = getExplorationCellValue(row, col, renderOpts);
             entries.push([
               col.key,
@@ -796,7 +812,7 @@ export default function useExplorationTableData(
     columns,
     comparisonExploration?.result?.rows,
     comparisonAlignment,
-    exploration?.result?.rows,
+    exploration,
     firstDimensionIsDate,
     renderOpts,
     resolvedGranularity,

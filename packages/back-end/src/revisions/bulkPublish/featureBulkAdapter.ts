@@ -172,8 +172,6 @@ function rawRevision(ref: BulkRevisionRef): FeatureRevisionInterface {
 }
 
 export const featureBulkAdapter: BulkPublishableAdapter = {
-  staleBaseForceAllowsRestBypass: false,
-
   applyScanOverlay(overlayContext, proposedEntities) {
     overlayContext.featureScanOverlay = new Map(
       (proposedEntities as unknown as FeatureInterface[]).map((f) => [f.id, f]),

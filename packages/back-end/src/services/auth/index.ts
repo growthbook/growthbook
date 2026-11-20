@@ -57,7 +57,9 @@ import {
   getGrowthBookClient,
   getGrowthBookRequestUrl,
   getGrowthBookTrackingAttributes,
+  getRequestSource,
   hashOrganizationId,
+  runAsRequestSource,
 } from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
@@ -140,6 +142,7 @@ export async function processJWT(
 ): Promise<void> {
   const parsedJWT = getInitialDataFromJWT(req.user);
   const { email, name, verified } = parsedJWT;
+  const requestSource = getRequestSource(req);
 
   req.authSubject = parsedJWT.sub || "";
   req.email = email || "";
@@ -405,6 +408,7 @@ export async function processJWT(
           ? new Date(user.dateCreated).toISOString()
           : "",
         ...trackingAttributes,
+        requestSource,
         role: org?.members.find((m) => m.id === user.id)?.role,
         hasLicenseKey: org?.licenseKey ? true : false,
         configFile: usingFileConfig(),
@@ -429,6 +433,7 @@ export async function processJWT(
         );
 
         // Create scoped instance for this request (reuses singleton)
+        req.gbUserContext = userContext;
         req.gb = gbClient.createScopedInstance(userContext);
       } catch (error) {
         logger.error("Failed to create GrowthBook scoped instance", {
@@ -444,7 +449,7 @@ export async function processJWT(
     };
   }
 
-  next();
+  runAsRequestSource(requestSource, next);
 }
 
 // For setting up anything that later acts as the stored user, since that carries their stored super admin

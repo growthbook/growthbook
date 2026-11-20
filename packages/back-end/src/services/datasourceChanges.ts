@@ -44,6 +44,21 @@ import { ApiReqContext } from "back-end/types/api";
 
 type Context = ReqContext | ApiReqContext;
 
+/** New data sources start with Mixpanel's standard experiment event names. */
+export function withDefaultEventSettings(
+  settings: DataSourceSettings,
+): DataSourceSettings {
+  return {
+    ...settings,
+    events: {
+      experimentEvent: "$experiment_started",
+      experimentIdProperty: "Experiment name",
+      variationIdProperty: "Variant name",
+      ...settings.events,
+    },
+  };
+}
+
 /** Refuses while anything still depends on the data source. */
 export async function deleteDataSourceWithChecks(
   context: Context,

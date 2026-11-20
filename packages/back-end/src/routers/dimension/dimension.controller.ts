@@ -19,6 +19,7 @@ import {
   getDataSourcesByOrganization,
 } from "back-end/src/models/DataSourceModel";
 import { validateDimensionBeforeSave } from "back-end/src/services/dimensions";
+import { NotFoundError } from "back-end/src/util/errors";
 
 // region GET /dimensions
 
@@ -169,11 +170,8 @@ export const putDimension = async (
   const { id } = req.params;
   const dimension = await findDimensionById(id, org.id);
 
-  if (!dimension) {
-    throw new Error("Could not find dimension");
-  }
-  if (!(await hasDimensionDatasourceAccess(context, dimension))) {
-    throw new Error("You don't have access to this dimension");
+  if (!dimension || !(await hasDimensionDatasourceAccess(context, dimension))) {
+    throw new NotFoundError("Could not find dimension");
   }
 
   const {
@@ -245,11 +243,8 @@ export const deleteDimension = async (
   const { org } = context;
   const dimension = await findDimensionById(id, org.id);
 
-  if (!dimension) {
-    throw new Error("Could not find dimension");
-  }
-  if (!(await hasDimensionDatasourceAccess(context, dimension))) {
-    throw new Error("You don't have access to this dimension");
+  if (!dimension || !(await hasDimensionDatasourceAccess(context, dimension))) {
+    throw new NotFoundError("Could not find dimension");
   }
   try {
     await deleteDimensionById(context, dimension);

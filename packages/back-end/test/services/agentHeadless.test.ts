@@ -1,4 +1,4 @@
-import { dispatchInternal } from "back-end/src/agent/dispatcher";
+import { dispatchForAgent } from "back-end/src/agent/dispatcher";
 import {
   assertAIEnabled,
   assertAIAccess,
@@ -16,7 +16,7 @@ import {
 import { streamingChatCompletion } from "back-end/src/enterprise/services/ai";
 
 jest.mock("back-end/src/agent/dispatcher", () => ({
-  dispatchInternal: jest.fn(),
+  dispatchForAgent: jest.fn(),
 }));
 jest.mock("back-end/src/services/organizations", () => ({
   getAISettingsForOrg: jest
@@ -145,7 +145,7 @@ it.each([assertAIEnabled, assertAIAccess])(
     ).toEqual({ ok: false, message: "Limit reached" });
     expect(beforeResolvePendingAction).not.toHaveBeenCalled();
     expect(buffer.getPendingAction()?.id).toBe("action");
-    jest.mocked(dispatchInternal).mockResolvedValue({ status: 200, body: {} });
+    jest.mocked(dispatchForAgent).mockResolvedValue({ status: 200, body: {} });
     await runAgentTurnToCompletion({
       context,
       config,
@@ -153,7 +153,7 @@ it.each([assertAIEnabled, assertAIAccess])(
       beforeResolvePendingAction,
     });
     expect(beforeResolvePendingAction).toHaveBeenCalledTimes(1);
-    expect(dispatchInternal).toHaveBeenCalledTimes(1);
+    expect(dispatchForAgent).toHaveBeenCalledTimes(1);
   },
 );
 
@@ -183,7 +183,7 @@ it.each([
       createdAt: Date.now(),
     });
     let seen: unknown;
-    jest.mocked(dispatchInternal).mockImplementationOnce(async (ctx) => {
+    jest.mocked(dispatchForAgent).mockImplementationOnce(async (ctx) => {
       seen = ctx.dispatchedRequest;
       return dispatch();
     });
@@ -233,7 +233,7 @@ it("leaves pending approval unmodified when the replay guard refuses dispatch", 
     }),
   ).rejects.toThrow("Already claimed");
   expect(buffer.getPendingAction()?.id).toBe("action");
-  expect(dispatchInternal).not.toHaveBeenCalled();
+  expect(dispatchForAgent).not.toHaveBeenCalled();
   expect(persistConversation).not.toHaveBeenCalled();
 });
 

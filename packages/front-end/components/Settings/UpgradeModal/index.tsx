@@ -775,6 +775,7 @@ export default function UpgradeModal({
           <CloudProUpgradeModal
             close={() => setShowCloudProUpgrade(false)}
             closeParent={close}
+            source={source}
           />
         </StripeProvider>
       ) : orgIsManagedByVercel ? (

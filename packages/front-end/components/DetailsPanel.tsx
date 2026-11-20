@@ -9,11 +9,7 @@ import CollapsiblePanelLayout, {
   PANEL_WIDTH_PX,
   Props as CollapsiblePanelLayoutProps,
 } from "@/components/CollapsiblePanelLayout";
-import {
-  NARROW_LAYOUT_BREAKPOINT_PX,
-  TABS_BAR_HEIGHT_PX,
-  TABS_HEADER_HEIGHT_PX,
-} from "@/components/Layout/constants";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import { revealsQuickEdit } from "@/components/Experiment/TabbedPage/QuickEditButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ScrollArea from "@/ui/ScrollArea";
@@ -23,6 +19,7 @@ import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import styles from "./DetailsPanel.module.scss";
 
 const DETAILS_PANEL_TABS = ["details", "comments"] as const;
 export type DetailsPanelTab = (typeof DETAILS_PANEL_TABS)[number];
@@ -35,7 +32,7 @@ const TAB_FILLS_RAIL = {
 } as const;
 
 // Whether a page's details panel shows, how wide, and on which of its tabs. On
-// the page's home tab the open state is remembered; off it the panel starts
+// the page's home tabs the open state is remembered; off them the panel starts
 // closed, and opening it there lasts until the tab changes. When narrow, it
 // opens only on request, over the content; the stored choice is for a wide
 // window, so narrowing never overwrites it.
@@ -48,7 +45,7 @@ export function useDetailsPanel({
   openKey: string;
   widthKey: string;
   tab: string;
-  homeTab: string;
+  homeTab: string | string[];
 }) {
   const [storedOpen, setStoredOpen] = useLocalStorage(openKey, true);
   const [width, setWidth] = useLocalStorage(widthKey, PANEL_WIDTH_PX);
@@ -59,7 +56,7 @@ export function useDetailsPanel({
   useEffect(() => setOpenOffHome(false), [tab]);
   const [open, setOpen]: [boolean, (open: boolean) => void] = narrow
     ? [openWhileNarrow, setOpenWhileNarrow]
-    : tab === homeTab
+    : [homeTab].flat().includes(tab)
       ? [storedOpen, setStoredOpen]
       : [openOffHome, setOpenOffHome];
   // Held here because the panel unmounts whenever it closes.
@@ -84,7 +81,7 @@ export function useDetailsPanel({
 // panel leaves the content alone.
 export function DetailsPanelLayout({
   details,
-  stickyTop = TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX,
+  stickyTop,
   panel,
   footer,
   busy,
@@ -98,14 +95,10 @@ export function DetailsPanelLayout({
   "panel" | "footer" | "busy" | "children"
 >) {
   return (
-    <Box
-      mx="auto"
-      width="100%"
-      style={{ maxWidth: "var(--page-content-max-width)" }}
-    >
+    <div className={styles.layout}>
       <CollapsiblePanelLayout
         open={!!panel && details.open}
-        top={stickyTop}
+        top={stickyTop === undefined ? "var(--tabs-bottom)" : `${stickyTop}px`}
         width={details.width}
         onWidthChange={details.setWidth}
         onCollapse={() => details.setOpen(false)}
@@ -113,14 +106,50 @@ export function DetailsPanelLayout({
         footer={footer}
         busy={busy}
       >
-        {children}
+        <div className={styles.column}>{children}</div>
       </CollapsiblePanelLayout>
-    </Box>
+    </div>
   );
 }
 
-// A page's right rail: its details, and its comment thread.
-export default function DetailsPanel({
+// The details, scrolling within the rail.
+function DetailsScroll({ children }: { children: ReactNode }) {
+  return (
+    <ScrollArea fill fillMinHeight="300px" style={{ flex: 1, minHeight: 0 }}>
+      <Flex px="5" pt="4" pb="8" direction="column" gap="4">
+        {children}
+      </Flex>
+    </ScrollArea>
+  );
+}
+
+type Discussion = {
+  type: DiscussionParentType;
+  id: string;
+  projects: string[];
+  allowNewComments: boolean;
+};
+
+// A page's right rail: its details, and its comment thread if it has one.
+export default function DetailsPanel(
+  props:
+    | { children: ReactNode }
+    | {
+        tab: DetailsPanelTab;
+        setTab: (tab: DetailsPanelTab) => void;
+        discussion: Discussion;
+        children: ReactNode;
+      },
+) {
+  if ("discussion" in props) return <DetailsWithDiscussion {...props} />;
+  return (
+    <Flex direction="column" flexGrow="1" minHeight="0">
+      <DetailsScroll>{props.children}</DetailsScroll>
+    </Flex>
+  );
+}
+
+function DetailsWithDiscussion({
   tab,
   setTab,
   discussion,
@@ -128,12 +157,7 @@ export default function DetailsPanel({
 }: {
   tab: DetailsPanelTab;
   setTab: (tab: DetailsPanelTab) => void;
-  discussion: {
-    type: DiscussionParentType;
-    id: string;
-    projects: string[];
-    allowNewComments: boolean;
-  };
+  discussion: Discussion;
   children: ReactNode;
 }) {
   // The thread's own request, so a new comment updates the count too.
@@ -191,15 +215,7 @@ export default function DetailsPanel({
       {/* Each held to the rail's height. The comments scroll on their own,
           outside any scroll area, so their composer can stick to the window. */}
       <TabsContent value="details" style={TAB_FILLS_RAIL}>
-        <ScrollArea
-          fill
-          fillMinHeight="300px"
-          style={{ flex: 1, minHeight: 0 }}
-        >
-          <Flex px="5" pt="4" pb="8" direction="column" gap="4">
-            {children}
-          </Flex>
-        </ScrollArea>
+        <DetailsScroll>{children}</DetailsScroll>
       </TabsContent>
       <TabsContent value="comments" style={TAB_FILLS_RAIL}>
         <DiscussionThread
