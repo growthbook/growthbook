@@ -12,7 +12,9 @@ import { isManagedWarehousePendingQueryError } from "shared/util";
 import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
+  densifyComparisonExplorationTimeseries,
   densifyPopulationTimeseriesRows,
+  densifyTimeseriesRows,
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getDateGranularity,
@@ -42,6 +44,7 @@ import {
   buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
   getPopulationSeriesKeys,
+  getJoinGapsSeriesKeys,
   fillPopulationSeriesGaps,
   sortDateXValues,
   assignSecondaryValueAxis,
@@ -294,10 +297,30 @@ export default function ExplorerChart({
       submittedExploreState.dataset?.type === "journey"
     )
       return null;
-    const rows = densifyPopulationTimeseriesRows(
-      exploration,
-      submittedExploreState,
-    );
+    // Line/area charts get a 0 for every bucket in the date range with no
+    // data, so the axis covers the whole range and gaps drop to 0 rather than
+    // being joined across. Bars are left sparse: they sort by value, so
+    // zero bars would only pile up at the end.
+    const fillsDates =
+      submittedExploreState.chartType === "line" ||
+      submittedExploreState.chartType === "area";
+    const rows = fillsDates
+      ? densifyTimeseriesRows(exploration, submittedExploreState)
+      : densifyPopulationTimeseriesRows(exploration, submittedExploreState);
+    // The previous period has to be filled the same way, or pairing its
+    // buckets with the current ones by position would shift. It usually
+    // arrives filled already, but not when any value is a ratio.
+    const comparisonRows =
+      (fillsDates && comparisonExploration && submittedPreviousTimeFrame
+        ? densifyComparisonExplorationTimeseries({
+            comparison: comparisonExploration,
+            submittedConfig: submittedExploreState,
+            previousTimeFrame: submittedPreviousTimeFrame,
+            primaryRows: rows,
+          })?.result?.rows
+        : undefined) ??
+      comparisonExploration?.result?.rows ??
+      [];
 
     // Resolve date granularity for tooltip formatting
     const dateDimension = submittedExploreState.dimensions?.find(
@@ -364,9 +387,7 @@ export default function ExplorerChart({
     // comparison's rank-aligned values fill in.
     if (firstDimensionIsDate && !isBarType && resolvedGranularity) {
       const comparisonBucketCount = new Set(
-        (comparisonExploration?.result?.rows ?? []).map((r) =>
-          String(r.dimensions[0] ?? ""),
-        ),
+        comparisonRows.map((r) => String(r.dimensions[0] ?? "")),
       ).size;
       const shortfall = comparisonBucketCount - sortedXValues.length;
       const lastBucket = sortedXValues[sortedXValues.length - 1];
@@ -386,6 +407,7 @@ export default function ExplorerChart({
       renderOpts,
     );
     fillPopulationSeriesGaps(dataMap, populationSeriesKeys, sortedXValues);
+    const joinGapsSeriesKeys = getJoinGapsSeriesKeys(seriesMeta, renderOpts);
 
     // 3. Build Series (ordered by cumulative total, highest first)
     const seriesColor = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
@@ -417,10 +439,10 @@ export default function ExplorerChart({
       : null;
 
     const alignedComparisonOverlay =
-      compareOverlayActive && comparisonExploration?.result?.rows?.length
+      compareOverlayActive && comparisonRows.length
         ? buildAlignedComparisonOverlayForExplorer({
             sortedXValues,
-            comparisonRows: comparisonExploration.result.rows,
+            comparisonRows,
             submittedExploreState,
             renderOpts,
             sortedSeriesKeys,
@@ -552,6 +574,7 @@ export default function ExplorerChart({
           : undefined,
         currentBarWidth: compareBarWidths.current,
         previousBarWidth: compareBarWidths.previous,
+        joinGapsSeriesKeys,
       });
 
       if (compareOverlayActive && alignedComparisonDataForCurrent) {
@@ -577,6 +600,7 @@ export default function ExplorerChart({
               : undefined,
             currentBarWidth: compareBarWidths.current,
             previousBarWidth: compareBarWidths.previous,
+            joinGapsSeriesKeys,
           }),
         ];
       }
@@ -813,7 +837,7 @@ export default function ExplorerChart({
     };
   }, [
     exploration,
-    comparisonExploration?.result?.rows,
+    comparisonExploration,
     compareEnabled,
     submittedExploreState,
     submittedPreviousTimeFrame,

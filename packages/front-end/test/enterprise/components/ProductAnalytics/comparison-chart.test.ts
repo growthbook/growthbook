@@ -10,6 +10,7 @@ import {
   buildExplorerChartTooltipFormatter,
   buildAlignedComparisonOverlayForExplorer,
   getPopulationSeriesKeys,
+  getJoinGapsSeriesKeys,
   fillPopulationSeriesGaps,
   buildExplorerChartComparisonSeriesList,
   sortDateXValues,
@@ -862,6 +863,63 @@ describe("sortDateXValues", () => {
       "2026-09-01T01:00:00.000Z",
       "2026-09-01 02:00:00",
       "2026-09-01T03:00:00.000Z",
+    ]);
+  });
+});
+
+describe("getJoinGapsSeriesKeys", () => {
+  it("joins ratio and per-unit lines across empty buckets, nothing else", () => {
+    const value = (
+      showAs: "total" | "per_unit" | "percent_of_population",
+      isRatio: boolean,
+    ) => ({
+      showAs,
+      isRatio,
+      seriesName: "",
+      valueAxis: "primary" as const,
+    });
+    const renderOpts = {
+      values: [
+        value("total", false),
+        value("per_unit", false),
+        value("total", true),
+        value("percent_of_population", false),
+      ],
+      sharedShowAs: null,
+      modesAreMixed: true,
+      primaryAxisShowAs: "total" as const,
+      sharedUnit: "user_id",
+    };
+    const seriesMeta = Object.fromEntries(
+      ["count", "perUser", "ratio", "population"].map((key, valueIndex) => [
+        key,
+        { metricId: key, name: key, valueIndex, valueAxis: "primary" as const },
+      ]),
+    );
+    const joinGapsSeriesKeys = getJoinGapsSeriesKeys(seriesMeta, renderOpts);
+    expect(joinGapsSeriesKeys).toEqual(new Set(["perUser", "ratio"]));
+
+    const series = buildExplorerChartComparisonSeriesList({
+      chartType: "line",
+      sourceDataMap: {},
+      sourceSeriesMeta: seriesMeta,
+      sourceSeriesKeys: Object.keys(seriesMeta),
+      sourceSortedXValues: ["2026-09-01"],
+      numMetrics: 4,
+      numDimensions: 1,
+      isStacked: false,
+      compareOverlayActive: false,
+      comparisonPeriodLabels: null,
+      seriesColor: () => "#000",
+      comparisonSeriesColor: () => "#000",
+      animate: false,
+      joinGapsSeriesKeys,
+    }) as { name: string; connectNulls?: boolean }[];
+    expect(series.map((s) => [s.name, s.connectNulls ?? false])).toEqual([
+      ["count", false],
+      ["perUser", true],
+      ["ratio", true],
+      ["population", false],
     ]);
   });
 });

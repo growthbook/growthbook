@@ -427,6 +427,46 @@ describe("getEffectiveMetricValue", () => {
       ),
     ).toEqual([100, 25, 100]);
   });
+
+  it("has no data for a filled bucket, except for totals", () => {
+    const opts = getExplorationRenderOpts(
+      metricConfig([
+        metricValue("revenue", "total"),
+        metricValue("revenue", "per_unit"),
+        metricValue("aov", "total"),
+      ]),
+      getFactMetricById,
+    );
+    // What a bucket with no data is filled with.
+    const filled = { numerator: 0, denominator: 0 };
+    expect(
+      [0, 1, 2].map((i) =>
+        getEffectiveMetricValue(filled, opts.values[i], undefined),
+      ),
+    ).toEqual([0, null, null]);
+  });
+
+  it("keeps a real per-unit value that has no denominator", () => {
+    // With no unit selected, the query returns no denominator at all.
+    const [opts] = getExplorationRenderOpts(
+      metricConfig([metricValue("revenue", "per_unit")]),
+      getFactMetricById,
+    ).values;
+    expect(
+      getEffectiveMetricValue(
+        { numerator: 42, denominator: null },
+        opts,
+        undefined,
+      ),
+    ).toBe(42);
+    expect(
+      getEffectiveMetricValue(
+        { numerator: 0, denominator: null },
+        opts,
+        undefined,
+      ),
+    ).toBe(0);
+  });
 });
 
 describe("isRatioValue", () => {

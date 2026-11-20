@@ -19,6 +19,7 @@ import {
   createComparisonAlignmentResolver,
   densifyComparisonExplorationTimeseries,
   densifyPopulationTimeseriesRows,
+  densifyTimeseriesRows,
   enumerateProductAnalyticsDateBuckets,
   explorerDimensionDateToUtcYyyyMmDd,
   extendDateBucketsForward,
@@ -1354,6 +1355,17 @@ describe("extendDateBucketsForward", () => {
     ).toEqual(["2026-07-13T00:00:00.000Z", "2026-07-20T00:00:00.000Z"]);
   });
 
+  it("keeps a warehouse's Sunday week start", () => {
+    // 2026-11-08 is a Sunday; BigQuery returns weeks like this.
+    expect(
+      extendDateBucketsForward({
+        resolvedGranularity: "week",
+        afterIso: "2026-11-08",
+        count: 2,
+      }),
+    ).toEqual(["2026-11-15T00:00:00.000Z", "2026-11-22T00:00:00.000Z"]);
+  });
+
   it("continues a monthly cadence across a year boundary", () => {
     expect(
       extendDateBucketsForward({
@@ -1481,6 +1493,92 @@ describe("densifyComparisonExplorationTimeseries", () => {
       6,
     );
     expect(densifyPopulationTimeseriesRows(sparse, baseConfig)).toHaveLength(1);
+  });
+
+  describe("densifyTimeseriesRows", () => {
+    const row = (date: string, numerator: number) => ({
+      dimensions: [date],
+      values: [{ metricId: "m1", numerator, denominator: null }],
+    });
+
+    it("fills the whole date range around data in the middle", () => {
+      const out = densifyTimeseriesRows(
+        shellExploration([row("2024-01-03", 5), row("2024-01-04", 7)]),
+        baseConfig,
+      );
+      expect(out.map((r) => r.values?.[0]?.numerator)).toEqual([
+        0, 0, 5, 7, 0, 0, 0,
+      ]);
+      // Rows the warehouse returned keep their own date strings.
+      expect(out[2].dimensions[0]).toBe("2024-01-03");
+      expect(out[0].dimensions[0]).toBe("2024-01-01T00:00:00.000Z");
+    });
+
+    it("fills without a Population applied", () => {
+      expect(
+        densifyTimeseriesRows(
+          shellExploration([row("2024-01-07", 1)]),
+          baseConfig,
+        ),
+      ).toHaveLength(7);
+    });
+
+    it("stops at the current bucket when the range ends in the future", () => {
+      const out = densifyTimeseriesRows(
+        shellExploration([row("2024-01-02", 1)]),
+        baseConfig,
+        new Date(Date.UTC(2024, 0, 4, 12)),
+      );
+      expect(out.map((r) => r.dimensions[0])).toEqual([
+        "2024-01-01T00:00:00.000Z",
+        "2024-01-02",
+        "2024-01-03T00:00:00.000Z",
+        "2024-01-04T00:00:00.000Z",
+      ]);
+    });
+
+    it("lines filled weeks up with a warehouse's Sunday weeks", () => {
+      const weekly: ExplorationConfig = {
+        ...baseConfig,
+        dimensions: [
+          { dimensionType: "date", column: "d", dateGranularity: "week" },
+        ],
+        dateRange: {
+          predefined: "customDateRange",
+          startDate: "2024-01-01",
+          endDate: "2024-01-31",
+        },
+      };
+      // 2024-01-14 is a Sunday.
+      const out = densifyTimeseriesRows(
+        shellExploration([row("2024-01-14", 3)]),
+        weekly,
+      );
+      expect(out.map((r) => r.dimensions[0])).toEqual([
+        "2023-12-31T00:00:00.000Z",
+        "2024-01-07T00:00:00.000Z",
+        "2024-01-14",
+        "2024-01-21T00:00:00.000Z",
+        "2024-01-28T00:00:00.000Z",
+      ]);
+    });
+
+    it("leaves results with more than one breakdown alone", () => {
+      const threeDims: ExplorationConfig = {
+        ...baseConfig,
+        dimensions: [
+          { dimensionType: "date", column: "d", dateGranularity: "day" },
+          { dimensionType: "dynamic", column: "a", maxValues: 5 },
+          { dimensionType: "dynamic", column: "b", maxValues: 5 },
+        ],
+      };
+      expect(
+        densifyTimeseriesRows(
+          shellExploration([row("2024-01-02", 1)]),
+          threeDims,
+        ),
+      ).toHaveLength(1);
+    });
   });
 
   it("fills an empty comparison with one zero row per day", () => {
@@ -1855,6 +1953,48 @@ describe("computeExplorationComparisonPayload", () => {
     expect(out.tableTrendsByRow).toHaveLength(2);
     expect(out.tableTrendsByRow[0]["__metric_0____trend"]).toBe(100);
     expect(out.tableTrendsByRow[1]["__metric_0____trend"]).toBeNull();
+  });
+
+  it("ranks table trends against every current bucket without a Population", () => {
+    const base = metricConfig("m1", { showAs: "total" });
+    const config: ExplorationConfig = {
+      ...base,
+      dateRange: {
+        predefined: "customDateRange",
+        startDate: "2024-01-01",
+        endDate: "2024-01-03",
+      },
+    };
+    // Only Jan 2 has data, so it's the 2nd bucket and pairs with Dec 30.
+    const primary = explorationOneRow(20, null, "2024-01-02", config);
+    const comparison: ProductAnalyticsExploration = {
+      ...explorationOneRow(0, null, "2023-12-29", config),
+      result: {
+        rows: [
+          ["2023-12-29", 10],
+          ["2023-12-30", 40],
+          ["2023-12-31", 80],
+        ].map(([d, n]) => ({
+          dimensions: [String(d)],
+          values: [{ metricId: "m1", numerator: Number(n), denominator: null }],
+        })),
+      },
+    };
+
+    const out = computeExplorationComparisonPayload(
+      primary,
+      comparison,
+      config,
+      {
+        predefined: "customDateRange",
+        startDate: "2023-12-29",
+        endDate: "2023-12-31",
+      },
+      getFactMetricById,
+      "chronological",
+    );
+
+    expect(out.tableTrendsByRow[0]["__metric_0____trend"]).toBe(-50);
   });
 
   it("returns empty table trends when ratio metric", () => {
