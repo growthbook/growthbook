@@ -186,6 +186,7 @@ export default function ConstantDetailPage(): React.ReactElement {
     handleReopen,
     mutateRevisions,
     selectionSettled,
+    revisionsError,
   } = useConstantRevision(constant?.id, mutate, constant);
 
   // ── Page-level tabs: Overview | Review & Publish, driven by the URL hash.
@@ -324,10 +325,11 @@ export default function ConstantDetailPage(): React.ReactElement {
     ) as ConstantInterface;
   }, [selectedRevision, constant]);
 
-  if (error) {
+  const loadError = error ?? revisionsError;
+  if (loadError) {
     return (
       <Callout status="error" mt="4">
-        An error occurred: {error.message}
+        An error occurred: {loadError.message}
       </Callout>
     );
   }

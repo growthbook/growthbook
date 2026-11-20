@@ -544,17 +544,10 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   // Forward the selected revision so a draft's unpublished lineage drives resolution server-side.
   const versionParam = typeof router.query.v === "string" ? router.query.v : "";
-  const {
-    data: fetched,
-    error,
-    mutate,
-  } = useApi<ResolvedResponse>(
+  const { data, error, mutate } = useApi<ResolvedResponse>(
     `/configs/${configKey}/resolved${versionParam ? `?v=${versionParam}` : ""}`,
-    { shouldRun: () => !!configKey, keepPreviousData: true },
+    { shouldRun: () => !!configKey },
   );
-  // A revision change keeps the page up while the new one loads; another
-  // Config's data never stands in for this one.
-  const data = fetched?.config.key === configKey ? fetched : undefined;
   const config = data?.config;
 
   // Env flavors render in the tree grouped under their parent's "Environments"
@@ -569,6 +562,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     selectedRevision,
     selectedRevisionId,
     selectionSettled,
+    revisionsError,
     openRevisions,
     allRevisions,
     selectRevision,
@@ -1106,10 +1100,11 @@ export default function ConfigDetailPage(): React.ReactElement {
     });
   }, [panelRevision, config, environments]);
 
-  if (error) {
+  const loadError = error ?? revisionsError;
+  if (loadError) {
     return (
       <Callout status="error" mt="4">
-        An error occurred: {error.message}
+        An error occurred: {loadError.message}
       </Callout>
     );
   }
@@ -1117,10 +1112,10 @@ export default function ConfigDetailPage(): React.ReactElement {
   // them updates in place. A kept page is inert until the next one is ready.
   const pageShell = (page: React.ReactElement, pending: boolean) => (
     <div
-      style={{
-        display: "contents",
-        pointerEvents: pending ? "none" : undefined,
+      ref={(el) => {
+        if (el) el.inert = pending;
       }}
+      style={{ display: "contents" }}
       aria-busy={pending || undefined}
     >
       {page}

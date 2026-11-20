@@ -677,7 +677,9 @@ export default function CodeTextArea({
                         label={
                           isFullscreen
                             ? "Exit full screen (ESC)"
-                            : "Edit in full screen"
+                            : readOnly
+                              ? "View in full screen"
+                              : "Edit in full screen"
                         }
                         icon={<FullscreenIcon exit={isFullscreen} size="sm" />}
                         onClick={() => {

@@ -402,7 +402,7 @@ export default forwardRef<RulesEditorHandle, Props>(
       try {
         await onChange(invariants.filter((_, i) => i !== index));
       } catch (e) {
-        setListError(e instanceof Error ? e.message : "Failed to delete rule");
+        setListError(e instanceof Error ? e.message : "Failed to remove rule");
       }
     };
 
@@ -412,7 +412,10 @@ export default forwardRef<RulesEditorHandle, Props>(
         return;
       }
       const index = invariants.findIndex((iv) => iv.name === r.name);
-      if (index < 0) return;
+      if (index < 0) {
+        setListError(`This draft has no "${r.name}" rule.`);
+        return;
+      }
       if (r.kind === "edit") open(index);
       else void remove(index);
     };

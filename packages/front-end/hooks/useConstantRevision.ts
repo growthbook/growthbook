@@ -33,7 +33,11 @@ export function useConstantRevision(
       })()
     : null;
 
-  const { data, mutate: mutateRevisions } = useApi<{
+  const {
+    data,
+    error: revisionsError,
+    mutate: mutateRevisions,
+  } = useApi<{
     revisions: Revision[];
   }>(`/revision/entity/${entityType}/${constantId}`, {
     shouldRun: () => !!constantId,
@@ -282,6 +286,7 @@ export function useConstantRevision(
     selectedRevision,
     selectedRevisionId,
     selectionSettled,
+    revisionsError,
     openRevisions,
     allRevisions,
     hasRealRevisions,

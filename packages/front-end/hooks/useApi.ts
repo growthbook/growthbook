@@ -8,8 +8,6 @@ export interface UseApiOptions<Response = unknown> {
   // Number of ms between background refreshes, or a function of the latest
   // data returning the next interval (0 disables it). SWR supports both.
   refreshInterval?: number | ((latestData: Response | undefined) => number);
-  // While a new path loads, keep returning the last path's data.
-  keepPreviousData?: boolean;
 }
 
 export default function useApi<Response = unknown>(
@@ -19,7 +17,6 @@ export default function useApi<Response = unknown>(
     autoRevalidate = true,
     orgScoped = true,
     refreshInterval,
-    keepPreviousData,
   }: UseApiOptions<Response> = {},
 ) {
   const { apiCall, orgId } = useAuth();
@@ -38,10 +35,6 @@ export default function useApi<Response = unknown>(
 
   if (refreshInterval !== undefined) {
     config.refreshInterval = refreshInterval;
-  }
-
-  if (keepPreviousData) {
-    config.keepPreviousData = true;
   }
 
   return useSWR<Response, Error>(
