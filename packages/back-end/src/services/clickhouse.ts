@@ -169,10 +169,20 @@ export async function listSessionReplays(
     conditions.push(`event_count <= ${Math.round(options.maxEventCount)}`);
   }
   if (options?.featureKey) {
-    conditions.push(`has(feature_keys, ${esc(options.featureKey)})`);
+    const vals = options.featureKey.split(",").filter(Boolean);
+    if (vals.length === 1) {
+      conditions.push(`has(feature_keys, ${esc(vals[0])})`);
+    } else if (vals.length > 1) {
+      conditions.push(`hasAny(feature_keys, [${vals.map(esc).join(", ")}])`);
+    }
   }
   if (options?.experimentKey) {
-    conditions.push(`has(experiment_keys, ${esc(options.experimentKey)})`);
+    const vals = options.experimentKey.split(",").filter(Boolean);
+    if (vals.length === 1) {
+      conditions.push(`has(experiment_keys, ${esc(vals[0])})`);
+    } else if (vals.length > 1) {
+      conditions.push(`hasAny(experiment_keys, [${vals.map(esc).join(", ")}])`);
+    }
   }
   if (options?.dateAfter) {
     conditions.push(`started_at >= ${esc(options.dateAfter)}`);

@@ -93,6 +93,7 @@
     "@rollup/plugin-babel": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-replace": "^6.0.3",
+    "@rrweb/record": "2.0.1",
     "@rrweb/types": "2.0.1",
     "@types/jest": "^29.5.14",
     "@types/js-cookie": "^3.0.5",

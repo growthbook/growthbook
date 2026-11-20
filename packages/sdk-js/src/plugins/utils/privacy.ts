@@ -52,6 +52,13 @@ export type PrivacySettings = {
   // Mask every input value (default true)
   maskAllInputs?: boolean;
   url?: UrlScrubSettings;
+  redactAttributes?: (
+    attributes: Record<string, unknown>,
+  ) => Record<string, unknown>;
+  redactEventProperties?: (
+    eventName: string,
+    properties: Record<string, unknown>,
+  ) => Record<string, unknown>;
 };
 
 // Customer selectors add to the shipped defaults, never replace them

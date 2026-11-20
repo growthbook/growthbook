@@ -8,13 +8,13 @@ const router = express.Router();
 
 const sessionReplayController = wrapController(sessionReplayControllerRaw);
 const MAX_FILTER_STRING_LENGTH = 255;
-const MAX_SHORT_FILTER_STRING_LENGTH = 64;
 const MAX_URL_FILTER_LENGTH = 2048;
+const MAX_MULTI_FILTER_LENGTH = 2048;
 const MAX_DURATION_SECS = 30 * 24 * 60 * 60;
 const MAX_EVENT_COUNT = 1_000_000;
 
 const filterString = z.string().max(MAX_FILTER_STRING_LENGTH);
-const shortFilterString = z.string().max(MAX_SHORT_FILTER_STRING_LENGTH);
+const multiFilterString = z.string().max(MAX_MULTI_FILTER_LENGTH);
 const nonNegativeNumberString = z
   .string()
   .regex(/^\d+(\.\d+)?$/)
@@ -33,14 +33,14 @@ router.get(
         userId: filterString.optional(),
         clientKey: filterString.optional(),
         url: z.string().max(MAX_URL_FILTER_LENGTH).optional(),
-        country: shortFilterString.optional(),
-        device: shortFilterString.optional(),
+        country: multiFilterString.optional(),
+        device: multiFilterString.optional(),
         durationMinSecs: nonNegativeNumberString.optional(),
         durationMaxSecs: nonNegativeNumberString.optional(),
         eventCountMin: nonNegativeIntegerString.optional(),
         eventCountMax: nonNegativeIntegerString.optional(),
-        featureKey: filterString.optional(),
-        experimentKey: filterString.optional(),
+        featureKey: multiFilterString.optional(),
+        experimentKey: multiFilterString.optional(),
         dateAfter: isoDateString.optional(),
         dateBefore: isoDateString.optional(),
         project: filterString.optional(),

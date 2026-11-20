@@ -293,6 +293,7 @@ describe("sessionReplayPlugin — chunked flush for oversized buffers", () => {
 });
 
 describe("sessionReplayPlugin — remote settings and sampling", () => {
+  // Settings resolution, not start timing: "deferred start" covers the default
   let gb: GrowthBook;
 
   beforeEach(() => {
@@ -314,7 +315,10 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     mockRecord.mockImplementation(() => () => {
       stopped = true;
     });
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+    })(gb);
     expect(mockRecord).toHaveBeenCalledTimes(1);
 
     await gb.setPayload({ sdkSettings: { sessionReplay: { enabled: false } } });
@@ -328,13 +332,21 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     await gb.setPayload({
       sdkSettings: { sessionReplay: { samplingRate: 0 } },
     });
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, samplingRate: 1 })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+      samplingRate: 1,
+    })(gb);
     expect(mockRecord).not.toHaveBeenCalled();
   });
 
   it("unsampled sessions don't record; startSessionReplay() forces one", () => {
     jest.spyOn(Math, "random").mockReturnValue(0.99);
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, samplingRate: 0.5 })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+      samplingRate: 0.5,
+    })(gb);
     expect(mockRecord).not.toHaveBeenCalled();
 
     gb.startSessionReplay();
@@ -343,7 +355,11 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
 
   it("the sampling decision sticks for the session across plugin inits", () => {
     jest.spyOn(Math, "random").mockReturnValue(0.99);
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, samplingRate: 0.5 })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+      samplingRate: 0.5,
+    })(gb);
     expect(mockRecord).not.toHaveBeenCalled();
     gb.destroy();
 
@@ -351,7 +367,11 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     // decision must win
     jest.spyOn(Math, "random").mockReturnValue(0.01);
     gb = buildGrowthBook();
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, samplingRate: 0.5 })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+      samplingRate: 0.5,
+    })(gb);
     expect(mockRecord).not.toHaveBeenCalled();
   });
 
@@ -359,13 +379,20 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     await gb.setPayload({
       sdkSettings: { sessionReplay: { samplingRate: 1 } },
     });
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+    })(gb);
     expect(mockRecord).toHaveBeenCalledTimes(1);
   });
 
   it("a remote enabled:true cannot override a constructor enabled:false", async () => {
     await gb.setPayload({ sdkSettings: { sessionReplay: { enabled: true } } });
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, enabled: false })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+      enabled: false,
+    })(gb);
     expect(mockRecord).not.toHaveBeenCalled();
 
     await gb.setPayload({ sdkSettings: { sessionReplay: { enabled: true } } });
@@ -378,7 +405,11 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     await gb.setPayload({
       sdkSettings: { sessionReplay: { samplingRate: 1 } },
     });
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, samplingRate: 0.1 })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+      samplingRate: 0.1,
+    })(gb);
     expect(mockRecord).toHaveBeenCalledTimes(1);
   });
 
@@ -387,7 +418,10 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     await gb.setPayload({
       sdkSettings: { sessionReplay: { samplingRate: -1 } },
     });
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+    })(gb);
     expect(mockRecord).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining("sdkSettings.sessionReplay.samplingRate"),
@@ -396,7 +430,10 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
 
   it("the hard cap rotates a recording that never saw an interaction", () => {
     jest.useFakeTimers();
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+    })(gb);
     expect(mockRecord).toHaveBeenCalledTimes(1);
     jest.advanceTimersByTime(31 * 60 * 1000);
     expect(mockRecord).toHaveBeenCalledTimes(2);
@@ -406,7 +443,10 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
   it("waits for the payload so remote settings decide the first sampling roll", async () => {
     gb.destroy();
     gb = buildGrowthBook(false);
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+    })(gb);
     expect(mockRecord).not.toHaveBeenCalled();
 
     await gb.setPayload({
@@ -418,13 +458,20 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     sessionStorage.clear();
     _resetSampleDecisionsForTests();
     gb = buildGrowthBook(false);
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+    })(gb);
     await gb.setPayload({});
     expect(mockRecord).toHaveBeenCalledTimes(1);
   });
 
   it("kill switch beats a forced start", () => {
-    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, enabled: false })(gb);
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      startMode: "immediate",
+      enabled: false,
+    })(gb);
     gb.startSessionReplay();
     expect(mockRecord).not.toHaveBeenCalled();
   });
@@ -1028,5 +1075,905 @@ describe("sessionReplayPlugin — session rotation safety", () => {
     // Fresh session starts at chunk 0 with only its own events
     expect(newBody.chunkIndex).toBe(0);
     expect(newBody.events).toHaveLength(2);
+  });
+});
+
+describe("sessionReplayPlugin — deferred start", () => {
+  let gb: GrowthBook;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockRecord.mockClear();
+    mockRecord.mockImplementation(() => jest.fn());
+    seedSessionReplayId("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+    gb = buildGrowthBook();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    delete (window as unknown as Record<string, unknown>).requestIdleCallback;
+    delete (window as unknown as Record<string, unknown>).cancelIdleCallback;
+    delete (document as unknown as Record<string, unknown>).readyState;
+    delete (document as unknown as Record<string, unknown>).prerendering;
+    gb.destroy();
+    sessionStorage.clear();
+    _resetSampleDecisionsForTests();
+  });
+
+  it("does not snapshot synchronously; starts on the next idle task", () => {
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    expect(mockRecord).not.toHaveBeenCalled();
+
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the snapshot out of setPayload", async () => {
+    gb.destroy();
+    gb = buildGrowthBook(false);
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+
+    await gb.setPayload({});
+    expect(mockRecord).not.toHaveBeenCalled();
+
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses requestIdleCallback with a timeout when available", () => {
+    const ric = jest.fn((cb: () => void) => {
+      cb();
+      return 1;
+    });
+    Object.assign(window, { requestIdleCallback: ric });
+
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    expect(ric).toHaveBeenCalledWith(expect.any(Function), { timeout: 2000 });
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for the load event while the document is still loading", () => {
+    Object.defineProperty(document, "readyState", {
+      configurable: true,
+      get: () => "interactive",
+    });
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).not.toHaveBeenCalled();
+
+    window.dispatchEvent(new Event("load"));
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for a prerendered page to activate", () => {
+    Object.defineProperty(document, "prerendering", {
+      configurable: true,
+      value: true,
+    });
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).not.toHaveBeenCalled();
+
+    document.dispatchEvent(new Event("prerenderingchange"));
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("a kill switch arriving before the deferred start cancels it", async () => {
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    await gb.setPayload({ sdkSettings: { sessionReplay: { enabled: false } } });
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it("destroy cancels a pending start", () => {
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    gb.destroy();
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it("startSessionReplay() starts at once and supersedes a pending start", () => {
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    gb.startSessionReplay();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("repeated payload updates schedule a single start", async () => {
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    await gb.setPayload({});
+    await gb.setPayload({});
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("latches an interaction that lands before the deferred start", async () => {
+    let emitEvent: (event: eventWithTime) => void = () => undefined;
+    mockRecord.mockImplementation((options) => {
+      emitEvent = (options as { emit: (e: eventWithTime) => void }).emit;
+      return jest.fn();
+    });
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    document.dispatchEvent(new Event("pointerdown"));
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+
+    // Snapshot only: rrweb never saw the click, so without the latch
+    // hasUserInteraction stays false and the replay is never uploaded
+    emitEvent(SNAPSHOT_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalled();
+    delete (global as unknown as Record<string, unknown>).fetch;
+  });
+});
+
+describe("sessionReplayPlugin — pause until first interaction", () => {
+  let gb: GrowthBook;
+  let emitEvent: (event: eventWithTime) => void;
+  let stopFns: jest.Mock[];
+  let fetchMock: jest.Mock;
+
+  const MUTATION_EVENT = {
+    type: 3,
+    timestamp: 1002,
+    data: { source: 0 },
+  } as unknown as eventWithTime;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockRecord.mockClear();
+    stopFns = [];
+    seedSessionReplayId("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+    mockRecord.mockImplementation((options) => {
+      emitEvent = (options as { emit: (e: eventWithTime) => void }).emit;
+      const stop = jest.fn();
+      stopFns.push(stop);
+      return stop;
+    });
+    fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    gb = buildGrowthBook();
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, autoRecord: false })(gb);
+    gb.startSessionReplay();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    delete (global as unknown as Record<string, unknown>).fetch;
+    gb.destroy();
+    sessionStorage.clear();
+    _resetSampleDecisionsForTests();
+  });
+
+  const fillBufferWithoutInteraction = async () => {
+    emitEvent(SNAPSHOT_EVENT);
+    for (let i = 0; i < 1000; i++) emitEvent(MUTATION_EVENT);
+    await flushMicrotasks();
+  };
+
+  it("pauses instead of re-snapshotting when the buffer fills before any interaction", async () => {
+    await fillBufferWithoutInteraction();
+
+    expect(stopFns[0]).toHaveBeenCalledTimes(1);
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+
+    // More page activity doesn't restart it
+    jest.advanceTimersByTime(5 * 60 * 1000);
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("pauses when non-snapshot bytes pass the cap, but not for a large snapshot", async () => {
+    emitEvent(makeLargeEvent(3 * 1024 * 1024, 2));
+    await flushMicrotasks();
+    expect(stopFns[0]).not.toHaveBeenCalled();
+
+    emitEvent(makeLargeEvent(1024 * 1024));
+    emitEvent(makeLargeEvent(1024 * 1024));
+    emitEvent(makeLargeEvent(1024 * 1024));
+    await flushMicrotasks();
+    expect(stopFns[0]).toHaveBeenCalledTimes(1);
+  });
+
+  it("restarts after the first interaction and ships the new recording", async () => {
+    await fillBufferWithoutInteraction();
+
+    document.dispatchEvent(new Event("pointerdown"));
+    // Restart happens in idle time, not inside the input handler
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(2);
+
+    // The restart counts the interaction rrweb missed, so the next periodic
+    // flush ships without waiting for another one
+    emitEvent(SNAPSHOT_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      chunkIndex: number;
+      events: Array<{ type: number }>;
+    };
+    expect(body.chunkIndex).toBe(0);
+    expect(body.events[0].type).toBe(2);
+  });
+
+  it("a second interaction while restarting doesn't start twice", async () => {
+    await fillBufferWithoutInteraction();
+    document.dispatchEvent(new Event("pointerdown"));
+    document.dispatchEvent(new Event("keydown"));
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(2);
+  });
+
+  it("payload updates don't restart a paused recorder", async () => {
+    await fillBufferWithoutInteraction();
+    await gb.setPayload({});
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("destroy removes the interaction listeners", async () => {
+    await fillBufferWithoutInteraction();
+    gb.destroy();
+    document.dispatchEvent(new Event("pointerdown"));
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("an interaction before the cap keeps the original recording going", async () => {
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+    for (let i = 0; i < 1500; i++) emitEvent(MUTATION_EVENT);
+    await flushMicrotasks();
+    expect(stopFns[0]).not.toHaveBeenCalled();
+  });
+});
+
+describe("sessionReplayPlugin — startup and serialization cost", () => {
+  let gb: GrowthBook;
+  let emitEvent: (event: eventWithTime) => void;
+  let fetchMock: jest.Mock;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockRecord.mockClear();
+    seedSessionReplayId("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+    mockRecord.mockImplementation((options) => {
+      emitEvent = (options as { emit: (e: eventWithTime) => void }).emit;
+      return jest.fn();
+    });
+    fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+    gb = buildGrowthBook();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    delete (global as unknown as Record<string, unknown>).fetch;
+    gb.destroy();
+    sessionStorage.clear();
+    _resetSampleDecisionsForTests();
+  });
+
+  it("sets session_replay_id without re-rendering or re-running experiments", () => {
+    const renderer = jest.fn();
+    gb.setRenderer(renderer);
+    const setAttributes = jest.spyOn(gb, "setAttributes");
+
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, autoRecord: false })(gb);
+    gb.startSessionReplay();
+
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(gb.getAttributes().session_replay_id).toBe(
+      "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    );
+    // Other attributes survive the merge
+    expect(gb.getAttributes().session_id).toBe("customer-session-id");
+    expect(renderer).not.toHaveBeenCalled();
+    expect(setAttributes).not.toHaveBeenCalled();
+  });
+
+  it("slims the snapshot of nodes the player never uses", () => {
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, autoRecord: false })(gb);
+    gb.startSessionReplay();
+    expect(mockRecord.mock.calls[0][0]).toMatchObject({ slimDOMOptions: true });
+  });
+
+  it("serializes each rrweb event once, from emit through the request body", async () => {
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, autoRecord: false })(gb);
+    gb.startSessionReplay();
+
+    const snapshot = {
+      type: 2,
+      timestamp: 1000,
+      data: { node: { id: 1, childNodes: [] } },
+    } as unknown as eventWithTime;
+    const stringify = jest.spyOn(JSON, "stringify");
+
+    emitEvent(snapshot);
+    emitEvent(INTERACTION_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(stringify.mock.calls.filter((c) => c[0] === snapshot).length).toBe(
+      1,
+    );
+    stringify.mockRestore();
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      events: unknown[];
+      chunkIndex: number;
+      clientKey: string;
+    };
+    expect(body.events).toEqual([snapshot, INTERACTION_EVENT]);
+    expect(body.chunkIndex).toBe(0);
+    expect(body.clientKey).toBe("sdk-test-key");
+  });
+});
+
+describe("sessionReplayPlugin — duplicate registration", () => {
+  let gb: GrowthBook;
+  let emitters: Array<(event: eventWithTime) => void>;
+  let stopFns: jest.Mock[];
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockRecord.mockClear();
+    seedSessionReplayId("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+    emitters = [];
+    stopFns = [];
+
+    mockRecord.mockImplementation((options) => {
+      emitters.push((options as { emit: (e: eventWithTime) => void }).emit);
+      const stop = jest.fn();
+      stopFns.push(stop);
+      return stop;
+    });
+
+    gb = buildGrowthBook();
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    delete (global as unknown as Record<string, unknown>).fetch;
+    gb.destroy();
+    sessionStorage.clear();
+    _resetSampleDecisionsForTests();
+  });
+
+  // autoRecord + immediate so each plugin arms itself on apply — with
+  // autoRecord off only the registered handler ever starts, which would mask
+  // a second recorder entirely.
+  const applyPlugin = () =>
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      autoRecord: true,
+      startMode: "immediate",
+    })(gb);
+
+  it("stands the duplicate down so only one recorder runs", () => {
+    applyPlugin();
+    applyPlugin();
+
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining("registered more than once"),
+    );
+
+    // Overwriting instead of rejecting would leave two live rrweb recorders
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("stopSessionReplay halts capture when registered twice", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    applyPlugin();
+    applyPlugin();
+
+    emitters[0](SNAPSHOT_EVENT);
+    emitters[0](INTERACTION_EVENT);
+
+    gb.stopSessionReplay();
+    await flushMicrotasks();
+    fetchMock.mockClear();
+
+    // The orphaned recorder of the old behavior would keep emitting here
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    expect(stopFns[0]).toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("sessionReplayPlugin — chunk zero failure", () => {
+  let gb: GrowthBook;
+  let emitEvent: (event: eventWithTime) => void;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockRecord.mockClear();
+    seedSessionReplayId("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+
+    mockRecord.mockImplementation((options) => {
+      emitEvent = (options as { emit: (e: eventWithTime) => void }).emit;
+      return jest.fn();
+    });
+
+    gb = buildGrowthBook();
+    jest.spyOn(console, "error").mockImplementation(() => {});
+
+    const plugin = sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      autoRecord: false,
+    });
+    plugin(gb);
+    gb.startSessionReplay();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    delete (global as unknown as Record<string, unknown>).fetch;
+    gb.destroy();
+    sessionStorage.clear();
+    _resetSampleDecisionsForTests();
+  });
+
+  it("rotates to a new session instead of committing past a lost snapshot", async () => {
+    // 400 is non-retriable, so chunk 0 is permanently rejected
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+    } as Response);
+    global.fetch = fetchMock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    const body = JSON.parse(
+      fetchMock.mock.calls[0][1].body as string,
+    ) as Record<string, unknown>;
+    expect(body.chunkIndex).toBe(0);
+
+    // Nothing may be committed for a session whose snapshot never landed —
+    // persisting it would make a reload resume at chunk 1 and cement it
+    const persisted = sessionStorage.getItem("gb_session_replay");
+    if (persisted) {
+      const state = JSON.parse(persisted) as {
+        sessionReplayId: string;
+        lastChunkIndex: number;
+      };
+      expect(state.sessionReplayId).not.toBe(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      );
+    }
+
+    // Rotation restarts rrweb, which emits a fresh FullSnapshot
+    expect(mockRecord).toHaveBeenCalledTimes(2);
+  });
+
+  it("still skips a failed chunk past zero without rotating", async () => {
+    let call = 0;
+    const fetchMock = jest.fn().mockImplementation(() => {
+      call++;
+      return Promise.resolve({
+        ok: call !== 2,
+        status: call !== 2 ? 200 : 400,
+        statusText: call !== 2 ? "OK" : "Bad Request",
+      } as Response);
+    });
+    global.fetch = fetchMock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    emitEvent(INTERACTION_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    // Chunk 0 landed, so a later rejection skips rather than rotating
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  // Recovery is a technical rotation, not a new visit: re-rolling sampling on
+  // the new id could land unsampled and silently end recording
+  it("keeps recording through recovery when sampling would reject the new id", async () => {
+    gb.destroy();
+    sessionStorage.clear();
+    _resetSampleDecisionsForTests();
+    mockRecord.mockClear();
+    seedSessionReplayId("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+    } as Response);
+    global.fetch = fetchMock;
+
+    gb = buildGrowthBook();
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      autoRecord: false,
+      samplingRate: 0,
+    })(gb);
+    // Forced start records despite rate 0; the rotation must not undo that
+    gb.startSessionReplay();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    expect(mockRecord).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops recovering after repeated chunk-0 rejections", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+    } as Response);
+    global.fetch = fetchMock;
+
+    // Each cycle flushes chunk 0, gets a 400, and rotates into a fresh
+    // snapshot — more cycles than the recovery budget allows
+    for (let i = 0; i < 6; i++) {
+      emitEvent(SNAPSHOT_EVENT);
+      emitEvent(INTERACTION_EVENT);
+      jest.advanceTimersByTime(60_000);
+      await flushMicrotasks();
+    }
+
+    // The initial start plus three budgeted recoveries, then it gives up
+    expect(mockRecord).toHaveBeenCalledTimes(4);
+  });
+
+  it("carries interaction state across recovery so uploads resume", async () => {
+    let failChunkZero = true;
+    const fetchMock = jest.fn().mockImplementation(() =>
+      Promise.resolve({
+        ok: !failChunkZero,
+        status: failChunkZero ? 400 : 200,
+        statusText: failChunkZero ? "Bad Request" : "OK",
+      } as Response),
+    );
+    global.fetch = fetchMock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    expect(mockRecord).toHaveBeenCalledTimes(2);
+    failChunkZero = false;
+    fetchMock.mockClear();
+
+    // Only a snapshot — no new click. The pre-rotation interaction should
+    // still count, or flushBuffer's hasUserInteraction guard blocks forever.
+    emitEvent(SNAPSHOT_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  // cancel() only interrupts a back-off sleep, so a stop or destroy can land
+  // while the chunk-0 fetch is still in flight
+  const pendingFetch = () => {
+    let settle: (r: Response) => void = () => undefined;
+    const mock = jest.fn().mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          settle = resolve;
+        }),
+    );
+    return {
+      mock,
+      reject400: () =>
+        settle({
+          ok: false,
+          status: 400,
+          statusText: "Bad Request",
+        } as Response),
+    };
+  };
+
+  it("does not restart when an explicit stop races a failing chunk 0", async () => {
+    const { mock, reject400 } = pendingFetch();
+    global.fetch = mock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+    expect(mock).toHaveBeenCalledTimes(1);
+
+    gb.stopSessionReplay();
+    reject400();
+    await flushMicrotasks();
+
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a stale chunk-0 failure from a superseded session", async () => {
+    const { mock, reject400 } = pendingFetch();
+    global.fetch = mock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+    expect(mock).toHaveBeenCalledTimes(1);
+
+    // Session A's request is still open; the hard cap rotates us into B
+    jest.advanceTimersByTime(31 * 60 * 1000);
+    await flushMicrotasks();
+    expect(mockRecord).toHaveBeenCalledTimes(2);
+
+    // B is live and buffering
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+
+    // A finally fails — it must not clear B's buffers or rotate B into C
+    reject400();
+    await flushMicrotasks();
+
+    expect(mockRecord).toHaveBeenCalledTimes(2);
+
+    mock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    mock.mockClear();
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    // B's buffered events survived
+    const body = JSON.parse(mock.mock.calls[0][1].body as string) as {
+      events: unknown[];
+    };
+    expect(body.events.length).toBeGreaterThan(0);
+  });
+
+  it("does not restart when destroy races a failing chunk 0", async () => {
+    const { mock, reject400 } = pendingFetch();
+    global.fetch = mock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+    expect(mock).toHaveBeenCalledTimes(1);
+
+    gb.destroy();
+    reject400();
+    await flushMicrotasks();
+
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("sessionReplayPlugin — non-DOM redaction", () => {
+  let gb: GrowthBook;
+  let emitEvent: (event: eventWithTime) => void;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockRecord.mockClear();
+    seedSessionReplayId("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+
+    mockRecord.mockImplementation((options) => {
+      emitEvent = (options as { emit: (e: eventWithTime) => void }).emit;
+      return jest.fn();
+    });
+
+    gb = new GrowthBook({
+      clientKey: "sdk-test-key",
+      apiHost: "https://cdn.example.com",
+      features: {},
+      attributes: { id: "user-1", email: "person@example.com", plan: "pro" },
+    });
+
+    const plugin = sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      autoRecord: false,
+      privacy: {
+        redactAttributes: (attrs) => ({ ...attrs, email: "[redacted]" }),
+        redactEventProperties: (eventName, props) =>
+          eventName === "signup" ? { ...props, ssn: "[redacted]" } : props,
+      },
+    });
+    plugin(gb);
+    // Deliberately NOT started here: the pre-start window is what regressed
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    delete (global as unknown as Record<string, unknown>).fetch;
+    gb.destroy();
+    sessionStorage.clear();
+    _resetSampleDecisionsForTests();
+  });
+
+  it("redacts attributes and event properties before they leave the browser", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    // Logged before startRecording, so resolvedPrivacy is still {} here.
+    // Redaction has to happen at flush time for this to be scrubbed.
+    gb.logEvent("signup", { ssn: "123-45-6789", tier: "gold" });
+
+    gb.startSessionReplay();
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    const raw = fetchMock.mock.calls[0][1].body as string;
+    const body = JSON.parse(raw) as {
+      context: { attributes: string; device_id?: string };
+      sessionEvents: { items: Array<{ properties?: Record<string, unknown> }> };
+    };
+
+    const attrs = JSON.parse(body.context.attributes) as Record<string, string>;
+    expect(attrs.email).toBe("[redacted]");
+    expect(attrs.plan).toBe("pro");
+
+    // Ids route the replay, so they survive redaction of the attribute blob
+    expect(body.context.device_id).toBe("user-1");
+
+    const props = body.sessionEvents.items[0].properties;
+    expect(props).toEqual({ ssn: "[redacted]", tier: "gold" });
+
+    // Nothing sensitive anywhere in the serialized request
+    expect(raw).not.toContain("person@example.com");
+    expect(raw).not.toContain("123-45-6789");
+  });
+
+  // The flush keeps a separate redacted projection rather than writing back to
+  // the live buffer, so a non-idempotent customer fn still runs exactly once
+  it("applies the redactor exactly once per event", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    const ownGb = new GrowthBook({
+      clientKey: "sdk-test-key",
+      apiHost: "https://cdn.example.com",
+      features: {},
+      attributes: { id: "user-1" },
+    });
+    let calls = 0;
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      autoRecord: false,
+      privacy: {
+        // Non-idempotent on purpose: a second pass would append again
+        redactEventProperties: (eventName, props) => {
+          calls++;
+          return { ...props, trail: `${props.trail ?? ""}x` };
+        },
+      },
+    })(ownGb);
+
+    ownGb.logEvent("signup", {});
+    ownGb.startSessionReplay();
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      sessionEvents: { items: Array<{ properties?: Record<string, unknown> }> };
+    };
+    expect(calls).toBe(1);
+    expect(body.sessionEvents.items[0].properties).toEqual({ trail: "x" });
+
+    ownGb.destroy();
+  });
+
+  it("keeps chunk 0 buffered when a redactor throws", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+    jest.spyOn(console, "error").mockImplementation(() => {});
+
+    let shouldThrow = true;
+    const ownGb = new GrowthBook({
+      clientKey: "sdk-test-key",
+      apiHost: "https://cdn.example.com",
+      features: {},
+      attributes: { id: "user-1" },
+    });
+    sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      autoRecord: false,
+      privacy: {
+        redactAttributes: (attrs) => {
+          if (shouldThrow) throw new Error("redactor blew up");
+          return attrs;
+        },
+      },
+    })(ownGb);
+
+    ownGb.startSessionReplay();
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // The snapshot has to survive the failed flush, or chunk 0 can never be
+    // assembled and the session is lost for good
+    shouldThrow = false;
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      chunkIndex: number;
+      events: Array<{ type: number }>;
+    };
+    expect(body.chunkIndex).toBe(0);
+    expect(body.events.some((e) => e.type === 2)).toBe(true);
+
+    ownGb.destroy();
   });
 });

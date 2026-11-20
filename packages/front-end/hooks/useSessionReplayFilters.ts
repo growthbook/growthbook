@@ -39,9 +39,24 @@ const PARAM_TO_SYNTAX: Record<string, string> = {
   experimentKey: "experiment:",
 };
 
+/** Params whose value is a comma-joined list rather than a single value. */
+const MULTI_VALUE_PARAMS = new Set([
+  "country",
+  "device",
+  "featureKey",
+  "experimentKey",
+]);
+
 /** Needs quoting if the value contains spaces or commas (parser delimiters). */
 function quoteIfNeeded(val: string): string {
   return val.includes(" ") || val.includes(",") ? `"${val}"` : val;
+}
+
+// Quote each value separately, or the comma joining a multi-value param gets
+// quoted too and the whole list parses back as one value.
+function formatParamValue(param: string, val: string): string {
+  if (!MULTI_VALUE_PARAMS.has(param)) return quoteIfNeeded(val);
+  return val.split(",").filter(Boolean).map(quoteIfNeeded).join(",");
 }
 
 function queryParamsToSearchString(
@@ -51,7 +66,7 @@ function queryParamsToSearchString(
   for (const [param, prefix] of Object.entries(PARAM_TO_SYNTAX)) {
     const val = query[param];
     if (typeof val === "string" && val) {
-      parts.push(`${prefix}${quoteIfNeeded(val)}`);
+      parts.push(`${prefix}${formatParamValue(param, val)}`);
     }
   }
   return parts.join(" ");
@@ -97,10 +112,10 @@ function syntaxFiltersToQueryParams(
         else if (f.operator === "<") params.dateBefore = val;
         break;
       case "flag":
-        params.featureKey = val;
+        params.featureKey = f.values.join(",");
         break;
       case "experiment":
-        params.experimentKey = val;
+        params.experimentKey = f.values.join(",");
         break;
     }
   }
