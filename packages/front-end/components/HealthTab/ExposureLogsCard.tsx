@@ -175,6 +175,9 @@ export default function ExposureLogsCard({
           : null,
     }),
     selectNoCachedResult: (data) => data.noCachedResult === true,
+    // Which units qualify depends on the whole window, so a shorter one has to
+    // be checked by the warehouse.
+    canNarrowTimeframe: (filters) => !filters.some(isMultipleExposuresFilter),
     buildParams: ({
       startDate,
       endDate,
@@ -198,8 +201,15 @@ export default function ExposureLogsCard({
   // units whose conflicting exposures are further apart.
   const containerRef = useRef<HTMLDivElement>(null);
   const handledRequest = useRef(multipleExposuresRequest);
+  const scrolledRequest = useRef(multipleExposuresRequest);
   useEffect(() => {
     if (multipleExposuresRequest === handledRequest.current) return;
+    if (multipleExposuresRequest !== scrolledRequest.current) {
+      scrolledRequest.current = multipleExposuresRequest;
+      containerRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    // A running query would swallow the request; this re-runs once it lands.
+    if (query.isRefreshing) return;
     handledRequest.current = multipleExposuresRequest;
     query.applyControls({
       rowFilters: query.rowFilters.some(isMultipleExposuresFilter)
@@ -208,7 +218,6 @@ export default function ExposureLogsCard({
       dateRange: entirePhaseRange(phaseBounds) ?? undefined,
       run: true,
     });
-    containerRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [multipleExposuresRequest, query, phaseBounds]);
 
   // Indexed off the latest phase so the number matches the traffic card legend.
