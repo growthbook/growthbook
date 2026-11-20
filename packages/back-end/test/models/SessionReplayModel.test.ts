@@ -345,8 +345,6 @@ describe("SessionReplayModel — list()", () => {
     expect(session.pageTitle).toBe(row.page_title);
     expect(session.viewportWidth).toBe(row.viewport_width);
     expect(session.viewportHeight).toBe(row.viewport_height);
-    expect(session.featureKeys).toEqual(row.feature_keys);
-    expect(session.experimentKeys).toEqual(row.experiment_keys);
     expect(session.country).toBe(row.country);
     expect(session.device).toBe(row.device);
     expect(session.browser).toBe(row.browser);
@@ -362,6 +360,8 @@ describe("SessionReplayModel — list()", () => {
     expect(session.urlsVisited).toEqual([]);
     expect(session.attributes).toEqual({});
     expect(session.userAgent).toBe("");
+    expect(session.featureKeys).toEqual([]);
+    expect(session.experimentKeys).toEqual([]);
   });
 
   it("defaults null optional fields to empty strings, arrays, and zero", async () => {

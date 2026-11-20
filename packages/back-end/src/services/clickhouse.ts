@@ -107,8 +107,6 @@ export type SessionReplayListRow = Pick<
   | "country"
   | "device"
   | "browser"
-  | "feature_keys"
-  | "experiment_keys"
 >;
 
 const LIST_SELECT: Record<keyof SessionReplayListRow, string> = {
@@ -133,10 +131,6 @@ const LIST_SELECT: Record<keyof SessionReplayListRow, string> = {
   country: "any(m.country)",
   device: "any(m.device)",
   browser: "any(m.browser)",
-  // Unions with dedup as it goes, rather than materialising every chunk's
-  // array first the way arrayDistinct(arrayFlatten(groupArray(...))) does.
-  feature_keys: "groupUniqArrayArray(m.feature_keys)",
-  experiment_keys: "groupUniqArrayArray(m.experiment_keys)",
 };
 
 const WINDOW_MARGIN_MS = 24 * 60 * 60 * 1000;
@@ -203,9 +197,6 @@ export async function listSessionReplays(
   const dialect = integration.getSqlDialect();
   const esc = (v: string) => `'${dialect.escapeStringLiteral(v)}'`;
 
-  if (options?.userId) {
-    conditions.push(`user_id = ${esc(options.userId)}`);
-  }
   const pre: string[] = [];
   const having: string[] = [];
 
@@ -222,7 +213,6 @@ export async function listSessionReplays(
     pre.push(`m.client_key IN (${options.clientKeys.map(esc).join(", ")})`);
   }
   if (options?.clientKey) {
-    conditions.push(`client_key = ${esc(options.clientKey)}`);
     pre.push(`m.client_key = ${esc(options.clientKey)}`);
   }
 

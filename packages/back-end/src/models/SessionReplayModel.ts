@@ -229,6 +229,8 @@ export class SessionReplayModel {
         urls_visited: [],
         attributes: {},
         user_agent: "",
+        feature_keys: [],
+        experiment_keys: [],
       }),
     };
   }

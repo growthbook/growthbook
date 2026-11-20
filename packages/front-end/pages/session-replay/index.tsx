@@ -655,7 +655,6 @@ export default function SessionReplayPage() {
                 searchInputProps={searchInputProps}
                 syntaxFilters={syntaxFilters}
                 setSearchValue={setSearchValue}
-                sessions={sessions}
               />
             </Flex>
           </Box>
