@@ -72,8 +72,7 @@ import {
   REVISION_SELECTOR_WIDTH_PX,
   ReviewTabCount,
 } from "@/components/Layout/DetailsPageHeader";
-import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
-import { useTabsTop } from "@/components/Layout/pageTopOffset";
+import { useTabsBottom } from "@/components/Layout/pageTopOffset";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
 import {
@@ -216,7 +215,7 @@ export default function ConstantDetailPage(): React.ReactElement {
     tab,
     homeTab: "overview",
   });
-  const tabsTop = useTabsTop();
+  const tabsBottom = useTabsBottom();
   const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
 
   const liveRevision = useMemo(
@@ -432,8 +431,7 @@ export default function ConstantDetailPage(): React.ReactElement {
   const showsStatusBar =
     tab === "overview" &&
     hasRevisionStatus(selectedRevision, liveRevision, allRevisions);
-  const stickyTop =
-    tabsTop + TABS_BAR_HEIGHT_PX + (showsStatusBar ? statusBarHeight : 0);
+  const stickyTop = tabsBottom + (showsStatusBar ? statusBarHeight : 0);
 
   const newDraft = canDraft ? (
     <NewDraftButton
