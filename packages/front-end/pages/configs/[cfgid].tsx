@@ -425,7 +425,13 @@ export default function ConfigDetailPage(): React.ReactElement {
   >({ text: "", kind: "value", savesUntouched: false });
   const [savingValue, setSavingValue] = useState(false);
   // An edit asked for on live waits here until its draft is showing.
-  const [pendingEdit, setPendingEdit] = useState<LiveEdit | null>(null);
+  // Tied to the Config that asked, so it never runs on another one.
+  const [pendingEdit, setPendingEdit] = useState<{
+    configKey: string;
+    edit: LiveEdit;
+  } | null>(null);
+  const configKeyRef = useRef(configKey);
+  configKeyRef.current = configKey;
   const runEditRef = useRef<(edit: LiveEdit) => void>(() => undefined);
   const [openingDraft, setOpeningDraft] = useState(false);
   const [ruleRequest, setRuleRequest] = useState<RuleRequest | null>(null);
@@ -663,10 +669,15 @@ export default function ConfigDetailPage(): React.ReactElement {
     setAddingField(false);
   }, [draftTakesEdits]);
   useEffect(() => {
-    if (!pendingEdit || !draftTakesEdits || !data) return;
+    if (!pendingEdit) return;
+    if (pendingEdit.configKey !== configKey) {
+      setPendingEdit(null);
+      return;
+    }
+    if (!draftTakesEdits || !data) return;
     setPendingEdit(null);
-    runEditRef.current(pendingEdit);
-  }, [pendingEdit, draftTakesEdits, data]);
+    runEditRef.current(pendingEdit.edit);
+  }, [pendingEdit, configKey, draftTakesEdits, data]);
 
   const selectedRevisionRequiresApproval =
     !!selectedRevision &&
@@ -1566,8 +1577,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   const editInDraft = async (edit: LiveEdit) => {
     if (openingDraft) return;
     setActionError(null);
+    const startedOn = config.key;
     if (myDraft) {
-      setPendingEdit(edit);
+      setPendingEdit({ configKey: startedOn, edit });
       selectRevision(myDraft);
       return;
     }
@@ -1577,8 +1589,9 @@ export default function ConfigDetailPage(): React.ReactElement {
         `/configs/${config.id}?forceCreateRevision=1`,
         { method: "PUT", body: JSON.stringify({}) },
       );
-      if (res?.revision) {
-        setPendingEdit(edit);
+      // Moved to another Config meanwhile: the draft waits there, unopened.
+      if (res?.revision && configKeyRef.current === startedOn) {
+        setPendingEdit({ configKey: startedOn, edit });
         await onRevisionCreated(res.revision);
       }
     } catch (e) {
