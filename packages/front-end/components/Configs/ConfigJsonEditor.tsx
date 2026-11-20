@@ -23,11 +23,8 @@ import {
   tsTypesToFields,
 } from "shared/util";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import ValueDisplay from "@/components/Features/ValueDisplay";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Field from "@/components/Forms/Field";
-import ScrollArea from "@/ui/ScrollArea";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
@@ -632,36 +629,38 @@ export default function ConfigJsonEditor({
     </Flex>
   );
 
-  const readonlyJsonSchema = (jsonString: string): ReactNode => (
-    <ValueDisplay
-      value={jsonString}
-      type="json"
-      multiline
+  // Read-only views use the editable view's editors, sized the same, so
+  // switching views keeps the layout.
+  const readonlySchemaEditor = (lang: string, code: string): ReactNode => (
+    <CodeTextArea
+      language={aceMode(lang)}
+      value={code}
+      setValue={() => undefined}
+      readOnly
+      minLines={12}
+      maxLines={40}
+      showCopyButton
       showFullscreenButton
-      fullStyle={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}
+      slimGutter
+      matchValueDisplay
     />
   );
+  const readonlyJsonSchema = (jsonString: string): ReactNode =>
+    readonlySchemaEditor("json", prettyValue(jsonString));
 
-  // Uses the syntax highlighter rather than a disabled code editor. A projection
-  // reproduces named types.
+  // A projection reproduces named types.
   const readonlyCodeSchema = (
     lang: string,
     schemaFields: SchemaField[],
     projection?: SchemaProjection,
-  ): ReactNode => {
-    const render = CODE_RENDERERS[lang] ?? fieldsToTsType;
-    return (
-      <ScrollArea edgeCue="fade" style={{ maxHeight: 320, maxWidth: "100%" }}>
-        <InlineCode
-          language={lang === "go" ? "go" : (lang as "typescript")}
-          code={render(schemaFields, {
-            additionalProperties: extensible,
-            projection,
-          })}
-        />
-      </ScrollArea>
+  ): ReactNode =>
+    readonlySchemaEditor(
+      lang,
+      (CODE_RENDERERS[lang] ?? fieldsToTsType)(schemaFields, {
+        additionalProperties: extensible,
+        projection,
+      }),
     );
-  };
 
   // A child with no own schema still inherits its parent's; say so rather than
   // the bare "No schema defined."
@@ -801,12 +800,17 @@ export default function ConfigJsonEditor({
   );
 
   const readonlyValue = (jsonString: string): ReactNode => (
-    <ValueDisplay
-      value={jsonString}
-      type="json"
-      multiline
+    <CodeTextArea
+      language="json"
+      value={prettyValue(jsonString)}
+      setValue={() => undefined}
+      readOnly
+      resizable
+      defaultHeight={320}
+      showCopyButton
       showFullscreenButton
-      fullStyle={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}
+      slimGutter
+      matchValueDisplay
     />
   );
 

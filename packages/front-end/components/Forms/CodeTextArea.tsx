@@ -295,6 +295,8 @@ export type Props = CodeTextAreaFieldProps & {
   highlightLines?: number[];
   // More `EditorAction`s, shown before copy and fullscreen.
   actions?: ReactNode;
+  // Read-only without looking disabled, e.g. a computed view of an editor's.
+  readOnly?: boolean;
 };
 
 // Ace re-wraps a line on every edit, so wrapping one this long (minified JSON)
@@ -363,6 +365,7 @@ export default function CodeTextArea({
   highlightLines,
   actions,
   containerClassName,
+  readOnly = false,
   ...otherProps
 }: Props) {
   const fieldProps = otherProps as CodeTextAreaFieldProps;
@@ -638,7 +641,7 @@ export default function CodeTextArea({
                         }
                       : {}),
                   }}
-                  readOnly={fieldProps.disabled}
+                  readOnly={fieldProps.disabled || readOnly}
                   onCursorChange={(e) => {
                     if (!setCursorData) return;
                     // Throttle cursor updates to reduce performance impact on large files
