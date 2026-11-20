@@ -1,6 +1,7 @@
 import zlib from "zlib";
 import {
   filterClientKeysByProject,
+  getSessionReplayEventsByChunkKeys,
   getSessionReplayEventsByStoragePrefix,
   parseChunkIndexFromKey,
   sortReplayChunkKeysByChunkIndex,
@@ -213,6 +214,100 @@ describe("getSessionReplayEventsByStoragePrefix", () => {
 
     await expect(
       getSessionReplayEventsByStoragePrefix("org/session", "us-east-1"),
+    ).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSessionReplayEventsByChunkKeys
+// ---------------------------------------------------------------------------
+
+describe("getSessionReplayEventsByChunkKeys", () => {
+  it("returns an empty array when given no keys", async () => {
+    const result = await getSessionReplayEventsByChunkKeys([], "us-east-1");
+    expect(result).toEqual([]);
+    expect(mockGetBuffer).not.toHaveBeenCalled();
+  });
+
+  // The whole point of taking keys: the metadata rows already have them.
+  it("never lists S3", async () => {
+    mockGetBuffer.mockResolvedValue(
+      gzip([{ type: 2, timestamp: 1, data: {} }]),
+    );
+
+    await getSessionReplayEventsByChunkKeys(
+      ["org/session/0.json.gz"],
+      "us-east-1",
+    );
+
+    expect(mockListChunks).not.toHaveBeenCalled();
+  });
+
+  it("sorts out-of-order chunk keys before concatenating", async () => {
+    const chunk0 = [{ type: 2, timestamp: 100, data: {} }];
+    const chunk2 = [{ type: 5, timestamp: 300, data: {} }];
+
+    mockGetBuffer.mockImplementation(async (key: string) => {
+      if (key === "org/session/0.json.gz") return gzip(chunk0);
+      if (key === "org/session/2.json.gz") return gzip(chunk2);
+      throw new Error(`unexpected key: ${key}`);
+    });
+
+    const result = await getSessionReplayEventsByChunkKeys(
+      ["org/session/2.json.gz", "org/session/0.json.gz"],
+      "us-east-1",
+    );
+    expect(result).toEqual([...chunk0, ...chunk2]);
+  });
+
+  // The S3 listing this replaces was a single unpaginated ListObjectsV2,
+  // so a session past 1000 chunks silently lost its tail.
+  it("handles more chunks than an unpaginated S3 listing would return", async () => {
+    const total = 1500;
+    const keys = Array.from(
+      { length: total },
+      (_, i) => `org/session/${i}.json.gz`,
+    );
+    mockGetBuffer.mockImplementation(async (key: string) => {
+      const i = parseChunkIndexFromKey(key);
+      return gzip([{ type: 3, timestamp: i, data: {} }]);
+    });
+
+    const result = await getSessionReplayEventsByChunkKeys(keys, "us-east-1");
+
+    expect(result).toHaveLength(total);
+    expect((result[0] as { timestamp: number }).timestamp).toBe(0);
+    expect((result[total - 1] as { timestamp: number }).timestamp).toBe(
+      total - 1,
+    );
+  });
+
+  it("bounds how many chunks are fetched concurrently", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    mockGetBuffer.mockImplementation(async () => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 0));
+      inFlight--;
+      return gzip([{ type: 3, timestamp: 1, data: {} }]);
+    });
+
+    const keys = Array.from(
+      { length: 200 },
+      (_, i) => `org/session/${i}.json.gz`,
+    );
+    await getSessionReplayEventsByChunkKeys(keys, "us-east-1");
+
+    expect(maxInFlight).toBeGreaterThan(1);
+    expect(maxInFlight).toBeLessThanOrEqual(24);
+  });
+
+  it("throws when a chunk buffer cannot be decompressed", async () => {
+    mockGetBuffer.mockResolvedValue(Buffer.from("not-gzip-data"));
+
+    await expect(
+      getSessionReplayEventsByChunkKeys(["org/session/0.json.gz"], "us-east-1"),
     ).rejects.toThrow();
   });
 });

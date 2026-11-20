@@ -141,20 +141,20 @@ export async function getSession(
   const context = getContextFromReq(req);
   const { sessionId } = req.params;
 
-  const metadata =
-    await context.models.sessionReplays.getBySessionId(sessionId);
-  if (!metadata) {
+  const result =
+    await context.models.sessionReplays.getSessionWithChunkKeys(sessionId);
+  if (!result) {
     res.status(404).json({ status: 404, message: "Session not found" });
     return;
   }
 
-  const events = await context.models.sessionReplays.getEventsForS3Key(
-    metadata.s3Key,
+  const events = await context.models.sessionReplays.getEventsForChunkKeys(
+    result.chunkKeys,
   );
   if (!events.length) {
     res.status(404).json({ status: 404, message: "Session data not found" });
     return;
   }
 
-  res.status(200).json({ events, metadata });
+  res.status(200).json({ events, metadata: result.session });
 }

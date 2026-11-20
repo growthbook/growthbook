@@ -437,27 +437,28 @@ export default function SessionReplayPage() {
     };
   }, [apiCall, selectedSessionId]);
 
+  // Derived during render, not in an effect: React flushes child effects
+  // before parent ones, so an effect here runs *after* RrwebPlayer has already
+  // constructed the Replayer — too late to stop rrweb throwing on an
+  // unplayable session. The render below has to gate on this instead.
+  const blockReason = useMemo(
+    () => (events ? getReplayBlockReason(events) : null),
+    [events],
+  );
+
   useEffect(() => {
-    if (!events) {
-      setFirstEvent(null);
-      setEvaluations([]);
-      return;
-    }
-    const blockReason = getReplayBlockReason(events);
-    if (blockReason) {
-      setPlayerError(blockReason);
+    if (!events || blockReason) {
       setFirstEvent(null);
       setEvaluations([]);
       return;
     }
 
-    setPlayerError(null);
     setFirstEvent(events[0]);
 
     if (metadata) {
       setEvaluations(buildEvaluationsFromMetadata(metadata));
     }
-  }, [events, metadata]);
+  }, [events, metadata, blockReason]);
 
   const jumpToEvent = (timestamp: number) => {
     const offset = firstEvent?.timestamp || 0;
@@ -959,7 +960,7 @@ export default function SessionReplayPage() {
             position: "relative",
           }}
         >
-          {!selectedSessionId || playerLoading || playerError ? (
+          {!selectedSessionId || playerLoading || playerError || blockReason ? (
             <Flex
               align="center"
               justify="center"
@@ -970,14 +971,19 @@ export default function SessionReplayPage() {
                   Select a session on the left to begin playback.
                 </Text>
               )}
-              {selectedSessionId && playerError && (
+              {selectedSessionId && (playerError || blockReason) && (
                 <Box style={{ maxWidth: 480, padding: 16 }}>
-                  <Callout status="warning">{playerError}</Callout>
+                  <Callout status="warning">
+                    {playerError || blockReason}
+                  </Callout>
                 </Box>
               )}
-              {selectedSessionId && playerLoading && !playerError && (
-                <Text color="text-mid">Loading session data…</Text>
-              )}
+              {selectedSessionId &&
+                playerLoading &&
+                !playerError &&
+                !blockReason && (
+                  <Text color="text-mid">Loading session data…</Text>
+                )}
             </Flex>
           ) : events ? (
             <RrwebPlayer

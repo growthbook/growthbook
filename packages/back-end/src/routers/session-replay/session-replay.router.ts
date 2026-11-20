@@ -58,6 +58,16 @@ router.get(
   }),
   sessionReplayController.listSessions,
 );
-router.get("/:sessionId", sessionReplayController.getSession);
+// Mirrors the ingestor's own `session_replay_id: z.guid()`, so every id that
+// could have been stored still validates. Without this the id was silently
+// stripped of non-alphanumerics downstream, turning a malformed id into a
+// lookup for a different one rather than a 400.
+router.get(
+  "/:sessionId",
+  validateRequestMiddleware({
+    params: z.object({ sessionId: z.guid() }).strict(),
+  }),
+  sessionReplayController.getSession,
+);
 
 export { router as sessionReplayRouter };

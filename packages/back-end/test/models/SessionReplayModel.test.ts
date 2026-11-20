@@ -6,7 +6,7 @@ import {
   getSessionReplayChunksBySessionId,
   SessionReplayRow,
 } from "back-end/src/services/clickhouse";
-import { getSessionReplayEventsByStoragePrefix } from "back-end/src/services/session-replay";
+import { getSessionReplayEventsByChunkKeys } from "back-end/src/services/session-replay";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { logger } from "back-end/src/util/logger";
 
@@ -16,7 +16,7 @@ jest.mock("back-end/src/services/clickhouse", () => ({
 }));
 
 jest.mock("back-end/src/services/session-replay", () => ({
-  getSessionReplayEventsByStoragePrefix: jest.fn(),
+  getSessionReplayEventsByChunkKeys: jest.fn(),
   filterClientKeysByProject: jest.requireActual<
     typeof import("back-end/src/services/session-replay")
   >("back-end/src/services/session-replay").filterClientKeysByProject,
@@ -45,7 +45,7 @@ const mockListSessionReplays = jest.mocked(listSessionReplays);
 const mockGetSessionReplayChunksBySessionId = jest.mocked(
   getSessionReplayChunksBySessionId,
 );
-const mockGetEvents = jest.mocked(getSessionReplayEventsByStoragePrefix);
+const mockGetEvents = jest.mocked(getSessionReplayEventsByChunkKeys);
 const mockGetGrowthbookDatasource = jest.mocked(getGrowthbookDatasource);
 const mockLoggerWarn = jest.mocked(logger.warn);
 
@@ -523,16 +523,78 @@ describe("SessionReplayModel — getBySessionId()", () => {
 });
 
 // ---------------------------------------------------------------------------
-// getEventsForS3Key()
+// getSessionWithChunkKeys()
 // ---------------------------------------------------------------------------
 
-describe("SessionReplayModel — getEventsForS3Key()", () => {
+describe("SessionReplayModel — getSessionWithChunkKeys()", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("returns one chunk key per metadata row, in row order", async () => {
+    mockGetSessionReplayChunksBySessionId.mockResolvedValue([
+      makeRow({ s3_key: "p/sess_abc123/0.json.gz" }),
+      makeRow({ s3_key: "p/sess_abc123/1.json.gz" }),
+      makeRow({ s3_key: "p/sess_abc123/2.json.gz" }),
+    ]);
+
+    const model = new SessionReplayModel(
+      makeContext("org_1", { canView: true }),
+    );
+    const result = await model.getSessionWithChunkKeys("sess_abc123");
+
+    expect(result).not.toBeNull();
+    expect(result!.chunkKeys).toEqual([
+      "p/sess_abc123/0.json.gz",
+      "p/sess_abc123/1.json.gz",
+      "p/sess_abc123/2.json.gz",
+    ]);
+  });
+
+  // A row with no s3_key would otherwise become an empty S3 key and 404 the
+  // whole session rather than just skipping that chunk.
+  it("drops rows with an empty s3_key", async () => {
+    mockGetSessionReplayChunksBySessionId.mockResolvedValue([
+      makeRow({ s3_key: "p/sess_abc123/0.json.gz" }),
+      makeRow({ s3_key: "" }),
+    ]);
+
+    const model = new SessionReplayModel(
+      makeContext("org_1", { canView: true }),
+    );
+    const result = await model.getSessionWithChunkKeys("sess_abc123");
+
+    expect(result!.chunkKeys).toEqual(["p/sess_abc123/0.json.gz"]);
+  });
+
+  it("returns null when permission is denied, without exposing chunk keys", async () => {
+    mockGetSessionReplayChunksBySessionId.mockResolvedValue([makeRow()]);
+
+    const model = new SessionReplayModel(
+      makeContext("org_1", { canView: false }),
+    );
+    await expect(
+      model.getSessionWithChunkKeys("sess_abc123"),
+    ).resolves.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getEventsForChunkKeys()
+// ---------------------------------------------------------------------------
+
+const CHUNK_KEYS = [
+  "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
+  "session-replays/org_1/2026/04/29/sess_abc123/1.json.gz",
+];
+
+describe("SessionReplayModel — getEventsForChunkKeys()", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetGrowthbookDatasource.mockResolvedValue(null);
   });
 
-  it("strips the chunk filename and passes the directory prefix and region to the service", async () => {
+  it("passes the chunk keys through to the service unchanged", async () => {
     const events = [
       { type: 2, timestamp: 1000, data: {} },
       { type: 3, timestamp: 2000, data: {} },
@@ -540,26 +602,17 @@ describe("SessionReplayModel — getEventsForS3Key()", () => {
     mockGetEvents.mockResolvedValue(events as never);
 
     const model = new SessionReplayModel(makeContext());
-    const result = await model.getEventsForS3Key(
-      "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
-    );
+    const result = await model.getEventsForChunkKeys(CHUNK_KEYS);
 
     expect(result).toEqual(events);
-    expect(mockGetEvents).toHaveBeenCalledWith(
-      "session-replays/org_1/2026/04/29/sess_abc123/",
-      "us-east-1",
-    );
+    expect(mockGetEvents).toHaveBeenCalledWith(CHUNK_KEYS, "us-east-1");
   });
 
   it("returns an empty array when the service returns no events", async () => {
     mockGetEvents.mockResolvedValue([]);
 
     const model = new SessionReplayModel(makeContext());
-    const result = await model.getEventsForS3Key(
-      "session-replays/org_1/2026/04/29/sess_empty/0.json.gz",
-    );
-
-    expect(result).toEqual([]);
+    await expect(model.getEventsForChunkKeys(CHUNK_KEYS)).resolves.toEqual([]);
   });
 
   it("uses eu-west-1 when the org's managed warehouse is provisioned there", async () => {
@@ -570,14 +623,9 @@ describe("SessionReplayModel — getEventsForS3Key()", () => {
     mockGetEvents.mockResolvedValue([]);
 
     const model = new SessionReplayModel(makeContext());
-    await model.getEventsForS3Key(
-      "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
-    );
+    await model.getEventsForChunkKeys(CHUNK_KEYS);
 
-    expect(mockGetEvents).toHaveBeenCalledWith(
-      "session-replays/org_1/2026/04/29/sess_abc123/",
-      "eu-west-1",
-    );
+    expect(mockGetEvents).toHaveBeenCalledWith(CHUNK_KEYS, "eu-west-1");
   });
 
   it("defaults to us-east-1 when no managed warehouse datasource exists", async () => {
@@ -585,13 +633,8 @@ describe("SessionReplayModel — getEventsForS3Key()", () => {
     mockGetEvents.mockResolvedValue([]);
 
     const model = new SessionReplayModel(makeContext());
-    await model.getEventsForS3Key(
-      "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
-    );
+    await model.getEventsForChunkKeys(CHUNK_KEYS);
 
-    expect(mockGetEvents).toHaveBeenCalledWith(
-      "session-replays/org_1/2026/04/29/sess_abc123/",
-      "us-east-1",
-    );
+    expect(mockGetEvents).toHaveBeenCalledWith(CHUNK_KEYS, "us-east-1");
   });
 });

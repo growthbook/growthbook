@@ -1,5 +1,6 @@
 import { promisify } from "util";
 import zlib from "zlib";
+import { promiseAllChunks } from "back-end/src/util/promise";
 import {
   getSessionReplayObjectBuffer,
   listSessionReplayChunks,
@@ -7,6 +8,11 @@ import {
 } from "./files";
 
 const gunzip = promisify(zlib.gunzip);
+
+// Bounds the fan-out so a pathological session can't open one S3 connection
+// per chunk, without serialising normal ones: a 33-chunk session measured
+// ~1.1s at 24 versus ~1.75s at 6, since each batch costs a full S3 round trip.
+const CHUNK_FETCH_CONCURRENCY = 24;
 
 export async function getSessionReplayEventsByStoragePrefix(
   storagePrefix: string,
@@ -30,6 +36,37 @@ export async function getSessionReplayEventsByStoragePrefix(
       const decompressed = await gunzip(gzippedChunk);
       return JSON.parse(decompressed.toString("utf-8"));
     }),
+  );
+
+  return eventsByChunk.flat();
+}
+
+/**
+ * Fetch and decompress the rrweb events for an explicit list of chunk keys.
+ *
+ * Preferred over getSessionReplayEventsByStoragePrefix: the ClickHouse
+ * metadata rows already carry each chunk's s3_key, so listing S3 is a
+ * redundant round trip -- and that listing is a single unpaginated
+ * ListObjectsV2, which silently truncates a session past 1000 chunks.
+ */
+export async function getSessionReplayEventsByChunkKeys(
+  chunkKeys: string[],
+  region: SessionReplayRegion,
+): Promise<unknown[]> {
+  const sortedChunkKeys = sortReplayChunkKeysByChunkIndex(chunkKeys);
+
+  if (!sortedChunkKeys.length) {
+    return [];
+  }
+
+  // promiseAllChunks preserves input order, so chunk ordering survives.
+  const eventsByChunk = await promiseAllChunks(
+    sortedChunkKeys.map((chunkKey) => async () => {
+      const gzippedChunk = await getSessionReplayObjectBuffer(chunkKey, region);
+      const decompressed = await gunzip(gzippedChunk);
+      return JSON.parse(decompressed.toString("utf-8"));
+    }),
+    CHUNK_FETCH_CONCURRENCY,
   );
 
   return eventsByChunk.flat();
