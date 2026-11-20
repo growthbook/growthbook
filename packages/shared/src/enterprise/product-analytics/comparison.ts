@@ -548,7 +548,7 @@ export function buildAlignedComparisonRowLookup(
   firstDimensionIsDate: boolean,
   strategy: ComparisonAlignmentStrategy = "calendarYearOverYear",
   // The current period's buckets to rank against, when it has more than
-  // `primaryRows` (see `densifyPopulationTimeseriesRows`).
+  // `primaryRows` (see `densifyTimeseriesRows`).
   currentXValues: readonly string[] = primaryRows.map((r) =>
     String(r.dimensions[0] ?? ""),
   ),
@@ -665,7 +665,15 @@ export function extendDateBucketsForward(params: {
 }): string[] {
   const { resolvedGranularity, afterIso, count } = params;
   if (count <= 0) return [];
-  const cur = truncateUtc(parseWarehouseDate(afterIso), resolvedGranularity);
+  // `afterIso` is already a bucket start, so step from it as-is: truncating
+  // would move a Sunday week start (BigQuery, SQL Server) back to Monday.
+  // Months and years are still truncated, since every warehouse starts them
+  // on the 1st and stepping a month from the 31st would overflow.
+  const after = parseWarehouseDate(afterIso);
+  const cur =
+    resolvedGranularity === "month" || resolvedGranularity === "year"
+      ? truncateUtc(after, resolvedGranularity)
+      : after;
   if (Number.isNaN(cur.getTime())) return [];
   const out: string[] = [];
   for (let i = 0; i < count; i++) {
@@ -678,15 +686,29 @@ export function extendDateBucketsForward(params: {
 /**
  * Every bucket start in `[rangeStart, rangeEnd]` inclusive, aligned to Postgres-style
  * `date_trunc` in UTC (week = Monday 00:00 UTC).
+ *
+ * `anchor` is a bucket start the warehouse actually returned. Hour, day and
+ * week buckets are shifted to line up with it, so a warehouse whose weeks
+ * start on Sunday (BigQuery, SQL Server) gets Sunday buckets, not Mondays
+ * mixed in with its own.
  */
 export function enumerateProductAnalyticsDateBuckets(params: {
   resolvedGranularity: ResolvedGranularity;
   rangeStart: Date;
   rangeEnd: Date;
+  anchor?: Date | null;
 }): string[] {
-  const { resolvedGranularity, rangeStart, rangeEnd } = params;
-  const first = truncateUtc(rangeStart, resolvedGranularity);
-  const last = truncateUtc(rangeEnd, resolvedGranularity);
+  const { resolvedGranularity, rangeStart, rangeEnd, anchor } = params;
+  const offset = bucketOffsetMs(anchor ?? null, resolvedGranularity);
+  const truncate = (d: Date) =>
+    new Date(
+      truncateUtc(
+        new Date(d.getTime() - offset),
+        resolvedGranularity,
+      ).getTime() + offset,
+    );
+  const first = truncate(rangeStart);
+  const last = truncate(rangeEnd);
   const out: string[] = [];
   for (
     let cur = new Date(first.getTime());
@@ -696,6 +718,35 @@ export function enumerateProductAnalyticsDateBuckets(params: {
     out.push(cur.toISOString());
   }
   return out;
+}
+
+/**
+ * How far `anchor` sits past the UTC `date_trunc` of itself, e.g. 6 days for
+ * a Sunday week start. Only fixed-length buckets can be shifted this way;
+ * months and years always start on the 1st.
+ */
+function bucketOffsetMs(
+  anchor: Date | null,
+  granularity: ResolvedGranularity,
+): number {
+  if (!anchor || !Number.isFinite(anchor.getTime())) return 0;
+  if (granularity === "month" || granularity === "year") return 0;
+  return anchor.getTime() - truncateUtc(anchor, granularity).getTime();
+}
+
+/** The first row date that parses, as a bucket start to align filled buckets to. */
+function firstBucketAnchor(
+  ...rowSets: (ProductAnalyticsResultRow[] | undefined)[]
+): Date | null {
+  for (const rows of rowSets) {
+    for (const row of rows ?? []) {
+      const dim0 = row.dimensions[0];
+      if (dim0 === null || dim0 === undefined) continue;
+      const d = parseWarehouseDate(String(dim0));
+      if (Number.isFinite(d.getTime())) return d;
+    }
+  }
+  return null;
 }
 
 function orderedMetricIdsForDensify(
@@ -750,9 +801,16 @@ export function densifyComparisonExplorationTimeseries(params: {
   previousTimeFrame: ExplorationDateRange;
   /** Primary-period rows; used to seed breakdown series in the grouped case. */
   primaryRows?: ProductAnalyticsResultRow[];
+  /** Buckets that start after this are left out; they haven't happened yet. */
+  now?: Date;
 }): ProductAnalyticsExploration | null {
-  const { comparison, submittedConfig, previousTimeFrame, primaryRows } =
-    params;
+  const {
+    comparison,
+    submittedConfig,
+    previousTimeFrame,
+    primaryRows,
+    now = new Date(),
+  } = params;
 
   if (!comparison) return null;
 
@@ -779,10 +837,16 @@ export function densifyComparisonExplorationTimeseries(params: {
     dateGranularity,
     calculateProductAnalyticsDateRange(submittedConfig.dateRange),
   );
+  const comparisonRows = comparison.result?.rows ?? [];
   const bucketStrings = enumerateProductAnalyticsDateBuckets({
     resolvedGranularity: resolved,
     rangeStart: dr.startDate,
-    rangeEnd: dr.endDate,
+    // A custom range can end in the future; zeros there would read as
+    // "nothing happened" rather than "not yet".
+    rangeEnd: dr.endDate.getTime() > now.getTime() ? now : dr.endDate,
+    // Both periods come from the same warehouse, so either one's buckets
+    // show where its weeks start.
+    anchor: firstBucketAnchor(comparisonRows, primaryRows),
   });
   if (bucketStrings.length === 0) {
     return null;
@@ -791,7 +855,6 @@ export function densifyComparisonExplorationTimeseries(params: {
   // buildZeroValueRow always returns an array; the `| undefined` comes from
   // the union type on ProductAnalyticsResultRow["values"] (funnel rows omit it).
   const zeroValues = buildZeroValueRow(metricIds)!;
-  const comparisonRows = comparison.result?.rows ?? [];
 
   if (!isGrouped) {
     const byMergeKey = new Map<string, ProductAnalyticsResultRow>();
@@ -887,13 +950,30 @@ export function densifyPopulationTimeseriesRows(
   exploration: ProductAnalyticsExploration,
   config: ExplorationConfig,
 ): ProductAnalyticsResultRow[] {
+  if (!configHasPopulation(config)) return exploration.result?.rows ?? [];
+  return densifyTimeseriesRows(exploration, config);
+}
+
+/**
+ * A result's rows with a row for every date bucket in its whole date range,
+ * up to now. A bucket with no data has no row, so without these a line
+ * chart's axis would only span the dates that have data, and would join
+ * straight across a gap instead of dropping to 0.
+ *
+ * Unchanged unless the first dimension is a date, with at most one breakdown.
+ */
+export function densifyTimeseriesRows(
+  exploration: ProductAnalyticsExploration,
+  config: ExplorationConfig,
+  now?: Date,
+): ProductAnalyticsResultRow[] {
   const rows = exploration.result?.rows ?? [];
-  if (!configHasPopulation(config)) return rows;
   return (
     densifyComparisonExplorationTimeseries({
       comparison: exploration,
       submittedConfig: config,
       previousTimeFrame: config.dateRange,
+      now,
     })?.result?.rows ?? rows
   );
 }

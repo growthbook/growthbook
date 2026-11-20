@@ -13,6 +13,7 @@ import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
   densifyPopulationTimeseriesRows,
+  densifyTimeseriesRows,
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getDateGranularity,
@@ -294,10 +295,15 @@ export default function ExplorerChart({
       submittedExploreState.dataset?.type === "journey"
     )
       return null;
-    const rows = densifyPopulationTimeseriesRows(
-      exploration,
-      submittedExploreState,
-    );
+    // Line/area charts get a 0 for every bucket in the date range with no
+    // data, so the axis covers the whole range and gaps drop to 0 rather than
+    // being joined across. Bars are left sparse: they sort by value, so
+    // zero bars would only pile up at the end.
+    const rows =
+      submittedExploreState.chartType === "line" ||
+      submittedExploreState.chartType === "area"
+        ? densifyTimeseriesRows(exploration, submittedExploreState)
+        : densifyPopulationTimeseriesRows(exploration, submittedExploreState);
 
     // Resolve date granularity for tooltip formatting
     const dateDimension = submittedExploreState.dimensions?.find(
