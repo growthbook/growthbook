@@ -1,21 +1,19 @@
 import { z } from "zod";
 import {
   DifferenceType,
+  IndexedPValue,
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import {
-  SnapshotMetric,
-  SnapshotVariation,
-} from "shared/types/experiment-snapshot";
-import { ExperimentReportResultDimension } from "shared/types/report";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { MetricDefaults } from "shared/types/organization";
 import {
+  adjustPValuesBenjaminiHochberg,
+  adjustPValuesHolmBonferroni,
   ExperimentMetricDefinition,
   getAdjustedCI,
   getMetricResultStatus,
   hasEnoughData,
-  setAdjustedPValuesOnResults,
 } from "./experiments";
 
 export type AdjustmentEffectSize = "small" | "moderate" | "large";
@@ -45,6 +43,24 @@ export interface AdjustmentClassification {
 export interface AdjustmentImpact extends AdjustmentClassification {
   field: SupplementalField;
   label: string;
+}
+
+interface CorrectionArgs {
+  statsEngine: StatsEngine;
+  pValueThreshold: number;
+  /** All non-slice goal rows, the family for adjusted p-values. */
+  goalRows?: AdjustmentImpactRow[];
+  pValueCorrection?: PValueCorrection;
+}
+
+export interface AdjustmentImpactArgs extends CorrectionArgs {
+  baselineRow: number;
+  variationFilter?: number[];
+  metricDefaults: MetricDefaults;
+  differenceType: DifferenceType;
+  ciUpper: number;
+  ciLower: number;
+  settings?: AdjustmentImpactSettings;
 }
 
 const shiftThresholdsSchema = z.object({
@@ -154,47 +170,40 @@ function isMoreSevere(
 
 // Legacy lognormal results store the standard error on the log scale, not the
 // scale of `expected`.
-function getLiftStandardError(stats: SnapshotMetric): number | undefined {
+function getLiftStandardError(stats: SnapshotMetric): number {
   const stddev = stats.uplift?.stddev;
-  if (stats.uplift?.dist !== "normal") return undefined;
-  if (stddev === undefined || !Number.isFinite(stddev)) return undefined;
-  return stddev;
+  if (stats.uplift?.dist !== "normal") return 0;
+  return stddev !== undefined && Number.isFinite(stddev) ? stddev : 0;
 }
 
 function classifyPair({
-  primaryLift,
-  altLift,
-  primaryStandardError,
-  altStandardError,
+  primary,
+  alt,
   primarySignificant,
   altSignificant,
-  compareSignificance = true,
   rule,
 }: {
-  primaryLift: number;
-  altLift: number;
-  primaryStandardError?: number;
-  altStandardError?: number;
+  primary: SnapshotMetric;
+  alt: SnapshotMetric;
   primarySignificant: boolean;
   altSignificant: boolean;
-  compareSignificance?: boolean;
   rule: AdjustmentRule;
 }): AdjustmentClassification {
+  const primaryLift = primary.expected ?? 0;
+  const altLift = alt.expected ?? 0;
   const shift = Math.abs(primaryLift - altLift);
-
-  const denominator = Math.max(Math.abs(primaryLift), Math.abs(altLift));
-  const relativeChange = denominator === 0 ? 0 : shift / denominator;
+  const largerLift = Math.max(Math.abs(primaryLift), Math.abs(altLift));
+  const relativeChange = largerLift === 0 ? 0 : shift / largerLift;
 
   // The larger standard error, so that the shift is not overstated.
   const standardError = Math.max(
-    primaryStandardError ?? 0,
-    altStandardError ?? 0,
+    getLiftStandardError(primary),
+    getLiftStandardError(alt),
   );
   const standardErrorShift =
     rule.scale === "standardError" && standardError > 0
       ? shift / standardError
       : null;
-
   // A standard-error rule with no standard error falls back to the relative
   // scale, where its own thresholds do not apply.
   const thresholds =
@@ -203,37 +212,27 @@ function classifyPair({
       : rule.thresholds;
   const shiftSize = standardErrorShift ?? relativeChange;
 
-  const rawSignFlip =
-    Math.sign(primaryLift) !== Math.sign(altLift) &&
-    primaryLift !== 0 &&
-    altLift !== 0;
+  // A corrected result is not comparable with one whose correction could not
+  // be recomputed.
+  const comparable =
+    primary.pValueAdjusted === undefined || alt.pValueAdjusted !== undefined;
   // A sign flip between two non-significant results is noise around zero.
   const significantSignFlip =
-    rawSignFlip &&
-    (primarySignificant || (compareSignificance && altSignificant));
+    Math.sign(primaryLift) * Math.sign(altLift) < 0 &&
+    (primarySignificant || (comparable && altSignificant));
   const significanceDiffers =
-    compareSignificance && primarySignificant !== altSignificant;
-  const statusChanged = significanceDiffers || significantSignFlip;
-
+    comparable && primarySignificant !== altSignificant;
   const triggered =
-    (rule.largeTrigger === "statusChange"
-      ? statusChanged
-      : significantSignFlip) && shiftSize >= thresholds.largeWithTrigger;
+    shiftSize >= thresholds.largeWithTrigger &&
+    (significantSignFlip ||
+      (rule.largeTrigger === "statusChange" && significanceDiffers));
 
-  let effectSize: AdjustmentEffectSize;
-  if (
-    triggered ||
-    (thresholds.large !== null && shiftSize >= thresholds.large)
-  ) {
-    effectSize = "large";
-  } else if (shiftSize >= thresholds.moderate) {
-    effectSize = "moderate";
-  } else {
-    effectSize = "small";
-  }
+  const large =
+    triggered || (thresholds.large !== null && shiftSize >= thresholds.large);
+  const moderate = shiftSize >= thresholds.moderate;
 
   return {
-    effectSize,
+    effectSize: large ? "large" : moderate ? "moderate" : "small",
     relativeChange,
     standardErrorShift,
     significanceChanged: triggered && significanceDiffers,
@@ -241,94 +240,59 @@ function classifyPair({
   };
 }
 
-export function computeSupplementalAdjustedPValues({
-  goalRows,
-  field,
-  pValueCorrection,
-}: {
-  goalRows: AdjustmentImpactRow[];
-  field: SupplementalField;
-  pValueCorrection: PValueCorrection;
-}): Map<string, number> | null {
-  if (!pValueCorrection) return null;
+const P_VALUE_ADJUSTERS: Record<
+  NonNullable<PValueCorrection>,
+  (pValues: IndexedPValue[]) => IndexedPValue[]
+> = {
+  "benjamini-hochberg": adjustPValuesBenjaminiHochberg,
+  "holm-bonferroni": adjustPValuesHolmBonferroni,
+};
 
-  const metricIds = goalRows.map((goalRow) => goalRow.metric.id);
-  const variationCount = goalRows[0]?.variations.length ?? 0;
-  if (variationCount === 0) return null;
+// The goal metrics' corrected p-values as they would be without one
+// adjustment, by metric and variation. Null when there is no correction.
+function getSupplementalAdjustedPValues({
+  field,
+  statsEngine,
+  goalRows,
+  pValueCorrection,
+}: CorrectionArgs & { field: SupplementalField }): Map<string, number> | null {
+  if (statsEngine !== "frequentist" || !pValueCorrection || !goalRows) {
+    return null;
+  }
 
   // A metric the adjustment does not apply to (e.g. an uncapped metric, for
   // capping) has no supplemental result and keeps its own p-value, since it is
   // the same either way.
-  const variations: SnapshotVariation[] = [];
-  for (
-    let variationIndex = 0;
-    variationIndex < variationCount;
-    variationIndex++
-  ) {
-    const metrics: Record<string, SnapshotMetric> = {};
-    goalRows.forEach((goalRow) => {
-      const stats = goalRow.variations[variationIndex];
-      if (stats?.pValue === undefined) return; // not part of the family
-      const supplementalPValue = (
-        stats.supplementalResults?.[field] as { pValue?: number } | undefined
-      )?.pValue;
-      metrics[goalRow.metric.id] = {
-        ...stats,
-        pValue: supplementalPValue ?? stats.pValue,
-        pValueAdjusted: undefined,
-      };
-    });
-    variations.push({ users: 0, metrics });
-  }
+  const pValues = goalRows.flatMap(({ metric, variations }) =>
+    variations.flatMap((stats, index): IndexedPValue[] => {
+      if (stats.pValue === undefined) return []; // not part of the family
+      const supplemental = stats.supplementalResults?.[field] as
+        | { pValue?: number }
+        | undefined;
+      return [
+        {
+          pValue: supplemental?.pValue ?? stats.pValue,
+          index: [0, index, metric.id],
+        },
+      ];
+    }),
+  );
+  if (pValues.length === 0) return null;
 
-  const results: ExperimentReportResultDimension[] = [
-    { name: "", srm: 0, variations },
-  ];
-  setAdjustedPValuesOnResults(results, metricIds, pValueCorrection);
-
-  const map = new Map<string, number>();
-  results[0].variations.forEach((variation, variationIndex) => {
-    metricIds.forEach((metricId) => {
-      const adjusted = variation.metrics[metricId]?.pValueAdjusted;
-      if (adjusted !== undefined) {
-        map.set(`${metricId}:${variationIndex}`, adjusted);
-      }
-    });
-  });
-
-  return map.size > 0 ? map : null;
+  return new Map(
+    P_VALUE_ADJUSTERS[pValueCorrection](pValues).map(({ pValue, index }) => [
+      `${index[2]}:${index[1]}`,
+      pValue,
+    ]),
+  );
 }
 
-/**
- * A row's results as they would be without one adjustment. The displayed
- * result's multiple-testing-corrected p-value and interval do not carry over:
- * they are recomputed, or cleared when they cannot be.
- */
-export function getSupplementalVariations({
-  row,
-  field,
-  statsEngine,
-  pValueThreshold,
-  goalRows,
-  pValueCorrection,
-}: {
-  row: AdjustmentImpactRow;
-  field: SupplementalField;
-  statsEngine: StatsEngine;
-  pValueThreshold: number;
-  /** All non-slice goal rows, the family for adjusted p-values. */
-  goalRows?: AdjustmentImpactRow[];
-  pValueCorrection?: PValueCorrection;
-}): SnapshotMetric[] {
-  const adjustedPValues =
-    statsEngine === "frequentist" && pValueCorrection && goalRows
-      ? computeSupplementalAdjustedPValues({
-          goalRows,
-          field,
-          pValueCorrection,
-        })
-      : null;
-
+function applySupplemental(
+  row: AdjustmentImpactRow,
+  field: SupplementalField,
+  pValueThreshold: number,
+  adjustedPValues: Map<string, number> | null,
+): SnapshotMetric[] {
   return row.variations.map((stats, index) => {
     const supplemental = stats.supplementalResults?.[field];
     if (!supplemental) return stats;
@@ -359,142 +323,117 @@ export function getSupplementalVariations({
 }
 
 /**
+ * A row's results as they would be without one adjustment. The displayed
+ * result's multiple-testing-corrected p-value and interval do not carry over:
+ * they are recomputed, or cleared when they cannot be.
+ */
+export function getSupplementalVariations({
+  row,
+  field,
+  ...correction
+}: CorrectionArgs & {
+  row: AdjustmentImpactRow;
+  field: SupplementalField;
+}): SnapshotMetric[] {
+  return applySupplemental(
+    row,
+    field,
+    correction.pValueThreshold,
+    getSupplementalAdjustedPValues({ ...correction, field }),
+  );
+}
+
+/**
  * The most affected of the displayed treatment variations. Null when no
  * variation can be compared: no supplemental result, an errored result, or a
  * metric short of its minimum sample size.
  */
-export function classifyAdjustmentImpact({
-  row,
-  field,
-  baselineRow,
-  variationFilter,
-  metricDefaults,
-  statsEngine,
-  differenceType,
-  ciUpper,
-  ciLower,
-  pValueThreshold,
-  goalRows,
-  pValueCorrection,
-  settings = DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
-}: {
-  row: AdjustmentImpactRow;
-  field: SupplementalField;
-  baselineRow: number;
-  variationFilter?: number[];
-  metricDefaults: MetricDefaults;
-  statsEngine: StatsEngine;
-  differenceType: DifferenceType;
-  ciUpper: number;
-  ciLower: number;
-  pValueThreshold: number;
-  /** All non-slice goal rows, the family for adjusted p-values. */
-  goalRows?: AdjustmentImpactRow[];
-  pValueCorrection?: PValueCorrection;
-  settings?: AdjustmentImpactSettings;
-}): AdjustmentClassification | null {
+function classifyRow(
+  row: AdjustmentImpactRow,
+  {
+    field,
+    rule,
+    adjustedPValues,
+  }: {
+    field: SupplementalField;
+    rule: AdjustmentRule;
+    adjustedPValues: Map<string, number> | null;
+  },
+  args: AdjustmentImpactArgs,
+): AdjustmentClassification | null {
+  const { baselineRow, variationFilter, metricDefaults } = args;
   const baseline = row.variations[baselineRow];
   if (!baseline) return null;
 
-  const rule =
-    settings[field === "noVarianceReduction" ? "cupedUnadjusted" : field];
-
-  const altVariations = getSupplementalVariations({
+  const altVariations = applySupplemental(
     row,
     field,
-    statsEngine,
-    pValueThreshold,
-    goalRows,
-    pValueCorrection,
-  });
-
-  const commonArgs = {
-    metric: row.metric,
-    metricDefaults,
-    ciLower,
-    ciUpper,
-    pValueThreshold,
-    statsEngine,
-    differenceType,
-  };
+    args.pValueThreshold,
+    adjustedPValues,
+  );
+  const statusArgs = { ...args, metric: row.metric };
 
   let worst: AdjustmentClassification | null = null;
+  row.variations.forEach((primary, index) => {
+    if (index === baselineRow || variationFilter?.includes(index)) return;
+    if (!primary.supplementalResults?.[field]) return;
 
-  row.variations.forEach((primaryStats, index) => {
-    if (index === baselineRow) return;
-    if (variationFilter?.includes(index)) return;
-    if (!primaryStats.supplementalResults?.[field]) return;
-
-    const altStats = altVariations[index];
+    const alt = altVariations[index];
     // An errored result reports a lift of zero, which would read as a shift.
-    if (primaryStats.errorMessage || altStats.errorMessage) return;
-    if (!hasEnoughData(baseline, primaryStats, row.metric, metricDefaults)) {
-      return;
-    }
-
-    const { significant: primarySignificant } = getMetricResultStatus({
-      ...commonArgs,
-      baseline,
-      stats: primaryStats,
-    });
-    const { significant: altSignificant } = getMetricResultStatus({
-      ...commonArgs,
-      baseline: altVariations[baselineRow],
-      stats: altStats,
-    });
+    if (primary.errorMessage || alt.errorMessage) return;
+    if (!hasEnoughData(baseline, primary, row.metric, metricDefaults)) return;
 
     const classification = classifyPair({
-      primaryLift: primaryStats.expected ?? 0,
-      altLift: altStats.expected ?? 0,
-      primaryStandardError: getLiftStandardError(primaryStats),
-      altStandardError: getLiftStandardError(altStats),
-      primarySignificant,
-      altSignificant,
-      // A corrected result is not comparable with one whose correction could
-      // not be recomputed.
-      compareSignificance:
-        primaryStats.pValueAdjusted === undefined ||
-        altStats.pValueAdjusted !== undefined,
+      primary,
+      alt,
+      primarySignificant: getMetricResultStatus({
+        ...statusArgs,
+        baseline,
+        stats: primary,
+      }).significant,
+      altSignificant: getMetricResultStatus({
+        ...statusArgs,
+        baseline: altVariations[baselineRow],
+        stats: alt,
+      }).significant,
       rule,
     });
-
-    if (!worst || isMoreSevere(classification, worst)) {
-      worst = classification;
-    }
+    if (!worst || isMoreSevere(classification, worst)) worst = classification;
   });
 
   return worst;
 }
 
-export function getAdjustmentImpactSummary(args: {
-  row: AdjustmentImpactRow;
-  baselineRow: number;
-  variationFilter?: number[];
-  metricDefaults: MetricDefaults;
-  statsEngine: StatsEngine;
-  differenceType: DifferenceType;
-  ciUpper: number;
-  ciLower: number;
-  pValueThreshold: number;
-  /** All non-slice goal rows, the family for adjusted p-values. */
-  goalRows?: AdjustmentImpactRow[];
-  pValueCorrection?: PValueCorrection;
-  settings?: AdjustmentImpactSettings;
-}): AdjustmentImpact[] {
-  const summary: AdjustmentImpact[] = [];
-  ADJUSTMENTS.forEach(({ field, label }) => {
-    const classification = classifyAdjustmentImpact({ ...args, field });
-    if (classification !== null) {
-      summary.push({ field, label, ...classification });
-    }
-  });
+/** For each row, the adjustments that apply to it, most severe first. */
+export function getAdjustmentImpactSummaries({
+  rows,
+  ...args
+}: AdjustmentImpactArgs & {
+  rows: AdjustmentImpactRow[];
+}): AdjustmentImpact[][] {
+  const settings = args.settings ?? DEFAULT_ADJUSTMENT_IMPACT_SETTINGS;
+  // The correction spans the goal metrics, so it is done once for all rows.
+  const adjustments = ADJUSTMENTS.map(({ field, label }) => ({
+    field,
+    label,
+    rule: settings[field],
+    adjustedPValues: getSupplementalAdjustedPValues({ ...args, field }),
+  }));
 
-  // Most severe first. Ties break on relative change, which is comparable
-  // across adjustments judged on different scales.
-  return summary.sort((a, b) => {
-    if (SEVERITY_RANK[a.effectSize] !== SEVERITY_RANK[b.effectSize]) {
-      return SEVERITY_RANK[b.effectSize] - SEVERITY_RANK[a.effectSize];
-    }
-    return b.relativeChange - a.relativeChange;
-  });
+  return rows.map((row) =>
+    adjustments
+      .flatMap((adjustment): AdjustmentImpact[] => {
+        const classification = classifyRow(row, adjustment, args);
+        const { field, label } = adjustment;
+        return classification ? [{ field, label, ...classification }] : [];
+      })
+      // Ties break on relative change, which is comparable across adjustments
+      // judged on different scales.
+      .sort((a, b) => {
+        if (SEVERITY_RANK[a.effectSize] !== SEVERITY_RANK[b.effectSize]) {
+          return SEVERITY_RANK[b.effectSize] - SEVERITY_RANK[a.effectSize];
+        }
+        return b.relativeChange - a.relativeChange;
+      }),
+  );
 }

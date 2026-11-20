@@ -1,9 +1,9 @@
 import {
+  AdjustmentImpactArgs,
   AdjustmentImpactRow,
-  classifyAdjustmentImpact,
   DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
   ExperimentMetricInterface,
-  getAdjustmentImpactSummary,
+  getAdjustmentImpactSummaries,
   getSupplementalVariations,
   parseAdjustmentImpactSettings,
   SupplementalField,
@@ -88,19 +88,32 @@ const commonArgs = {
   pValueThreshold: 0.05,
 };
 
+// One adjustment's impact on one row, or null when it cannot be compared.
+function impactFor({
+  row,
+  field,
+  ...args
+}: AdjustmentImpactArgs & {
+  row: AdjustmentImpactRow;
+  field: SupplementalField;
+}) {
+  const [summary] = getAdjustmentImpactSummaries({ ...args, rows: [row] });
+  return summary.find((impact) => impact.field === field) ?? null;
+}
+
 function classify(
   field: SupplementalField,
   primary: Result,
   alternative: Result,
 ) {
-  return classifyAdjustmentImpact({
+  return impactFor({
     ...commonArgs,
     row: makeRow([makeVariation(primary, { [field]: alternative })]),
     field,
   });
 }
 
-describe("classifyAdjustmentImpact", () => {
+describe("one adjustment's impact", () => {
   describe("capping", () => {
     it("ignores a big relative change that is small next to the standard error", () => {
       // The lift halves, but the move is a tenth of a standard error.
@@ -340,7 +353,7 @@ describe("classifyAdjustmentImpact", () => {
         [makeVariation({ ...other, pValueAdjusted: 0.5 }, { uncapped: other })],
         "other",
       );
-      const result = classifyAdjustmentImpact({
+      const result = impactFor({
         ...args,
         goalRows: [row, otherRow],
       });
@@ -354,7 +367,7 @@ describe("classifyAdjustmentImpact", () => {
         [makeVariation({ ...other, pValueAdjusted: 0.5 }, {})],
         "other",
       );
-      const result = classifyAdjustmentImpact({
+      const result = impactFor({
         ...args,
         goalRows: [row, otherRow],
       });
@@ -363,7 +376,7 @@ describe("classifyAdjustmentImpact", () => {
     });
 
     it("skips the significance comparison without the goal metrics", () => {
-      const result = classifyAdjustmentImpact(args);
+      const result = impactFor(args);
       expect(result?.effectSize).toBe("moderate");
       expect(result?.significanceChanged).toBe(false);
     });
@@ -378,7 +391,7 @@ describe("classifyAdjustmentImpact", () => {
       { lift: 0.05, standardError: 0.018, pValue: SIGNIFICANT },
       { uncapped: { lift: 0.1, standardError: 0.02, pValue: SIGNIFICANT } },
     );
-    const result = classifyAdjustmentImpact({
+    const result = impactFor({
       ...commonArgs,
       row: makeRow([steady, moved]),
       field: "uncapped",
@@ -388,7 +401,7 @@ describe("classifyAdjustmentImpact", () => {
   });
 
   it("returns null without the supplemental result", () => {
-    const result = classifyAdjustmentImpact({
+    const result = impactFor({
       ...commonArgs,
       row: makeRow([
         makeVariation(
@@ -411,7 +424,7 @@ describe("classifyAdjustmentImpact", () => {
         ...toStats({ lift: 0, standardError: 0, pValue: 1 }),
         errorMessage: "ZERO_NEGATIVE_VARIANCE",
       };
-      const result = classifyAdjustmentImpact({
+      const result = impactFor({
         ...commonArgs,
         row: makeRow([
           {
@@ -425,7 +438,7 @@ describe("classifyAdjustmentImpact", () => {
     });
 
     it("skips a metric short of its minimum sample size", () => {
-      const result = classifyAdjustmentImpact({
+      const result = impactFor({
         ...commonArgs,
         metricDefaults: { minimumSampleSize: 5000 } as MetricDefaults,
         row: makeRow([
@@ -475,11 +488,10 @@ describe("settings from the feature flag", () => {
         row: makeRow([makeVariation(primary, { [field]: alternative })]),
         field,
       };
-      expect(classifyAdjustmentImpact(args)?.effectSize).toBe("small");
-      expect(
-        classifyAdjustmentImpact({ ...args, settings: oldSettings })
-          ?.effectSize,
-      ).toBe("large");
+      expect(impactFor(args)?.effectSize).toBe("small");
+      expect(impactFor({ ...args, settings: oldSettings })?.effectSize).toBe(
+        "large",
+      );
     }
   });
 
@@ -553,8 +565,14 @@ describe("getSupplementalVariations", () => {
   });
 });
 
-describe("getAdjustmentImpactSummary", () => {
-  it("lists the available adjustments, most severe first", () => {
+describe("getAdjustmentImpactSummaries", () => {
+  it("lists each row's available adjustments, most severe first", () => {
+    const unadjusted = makeRow([
+      makeVariation(
+        { lift: 0.05, standardError: 0.02, pValue: SIGNIFICANT },
+        {},
+      ),
+    ]);
     const row = makeRow([
       makeVariation(
         { lift: 0.05, standardError: 0.02, pValue: SIGNIFICANT },
@@ -574,12 +592,20 @@ describe("getAdjustmentImpactSummary", () => {
         },
       ),
     ]);
-    const summary = getAdjustmentImpactSummary({ ...commonArgs, row });
-    expect(summary.map(({ field, effectSize }) => [field, effectSize])).toEqual(
+    const summaries = getAdjustmentImpactSummaries({
+      ...commonArgs,
+      rows: [unadjusted, row],
+    });
+    expect(
+      summaries.map((summary) =>
+        summary.map(({ field, effectSize }) => [field, effectSize]),
+      ),
+    ).toEqual([
+      [],
       [
         ["uncapped", "large"],
         ["cupedUnadjusted", "moderate"],
       ],
-    );
+    ]);
   });
 });

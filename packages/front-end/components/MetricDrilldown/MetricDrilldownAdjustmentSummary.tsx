@@ -9,7 +9,7 @@ import {
 import {
   AdjustmentEffectSize,
   AdjustmentImpact,
-  getAdjustmentImpactSummary,
+  getAdjustmentImpactSummaries,
   SupplementalField,
 } from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -88,8 +88,8 @@ const MetricDrilldownAdjustmentSummary: FC<
 
   const summary = useMemo(
     () =>
-      getAdjustmentImpactSummary({
-        row,
+      getAdjustmentImpactSummaries({
+        rows: [row],
         baselineRow,
         variationFilter,
         metricDefaults,
@@ -100,7 +100,7 @@ const MetricDrilldownAdjustmentSummary: FC<
         pValueThreshold,
         goalRows,
         pValueCorrection,
-      }),
+      })[0],
     [
       row,
       baselineRow,

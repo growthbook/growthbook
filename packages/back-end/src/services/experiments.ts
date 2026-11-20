@@ -64,7 +64,7 @@ import {
   ExperimentMetricInterface,
   AdjustmentImpactRow,
   DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
-  getAdjustmentImpactSummary,
+  getAdjustmentImpactSummaries,
   parseAdjustmentImpactSettings,
   SupplementalField,
   getAllMetricIdsFromExperiment,
@@ -6589,7 +6589,7 @@ function trackAdjustmentImpact({
   metricMap: Map<string, ExperimentMetricInterface>;
   goalMetricIds: string[];
 } & Pick<
-  Parameters<typeof getAdjustmentImpactSummary>[0],
+  Parameters<typeof getAdjustmentImpactSummaries>[0],
   | "metricDefaults"
   | "statsEngine"
   | "differenceType"
@@ -6625,18 +6625,15 @@ function trackAdjustmentImpact({
     };
     const goalRows = goalMetricIds.map(toRow).filter(isDefined);
 
-    const summaries = Object.keys(variations[0]?.metrics ?? {})
-      .map(toRow)
-      .filter(isDefined)
-      .map((row) =>
-        getAdjustmentImpactSummary({
-          ...analysisSettings,
-          row,
-          baselineRow: 0,
-          goalRows,
-          settings,
-        }),
-      );
+    const summaries = getAdjustmentImpactSummaries({
+      ...analysisSettings,
+      rows: Object.keys(variations[0]?.metrics ?? {})
+        .map(toRow)
+        .filter(isDefined),
+      baselineRow: 0,
+      goalRows,
+      settings,
+    });
     const numFlagged = (field: SupplementalField) =>
       summaries.filter((summary) =>
         summary.some(
