@@ -297,6 +297,8 @@ export type Props = CodeTextAreaFieldProps & {
   actions?: ReactNode;
   // Read-only without looking disabled, e.g. a computed view of an editor's.
   readOnly?: boolean;
+  // Focuses the editor with its text selected once it loads.
+  autoSelect?: boolean;
 };
 
 // Ace re-wraps a line on every edit, so wrapping one this long (minified JSON)
@@ -366,6 +368,7 @@ export default function CodeTextArea({
   actions,
   containerClassName,
   readOnly = false,
+  autoSelect = false,
   ...otherProps
 }: Props) {
   const fieldProps = otherProps as CodeTextAreaFieldProps;
@@ -619,7 +622,12 @@ export default function CodeTextArea({
                     onEditorLoad?.(e);
                     // Clear auto-selection after editor loads
                     setTimeout(() => {
-                      e.clearSelection();
+                      if (!autoSelect) {
+                        e.clearSelection();
+                        return;
+                      }
+                      e.focus();
+                      e.selectAll();
                     }, 100);
                   }}
                   mode={language}

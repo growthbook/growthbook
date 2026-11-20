@@ -166,6 +166,13 @@ export default function ConfigFieldRow({
   useEffect(() => {
     const valueCell = valueCellRef.current;
     if (!isEditing || !valueCell) return;
+    // Opens with the value selected, ready to replace. A JSON editor does
+    // this itself once it loads.
+    const input = valueCell.querySelector<
+      HTMLInputElement | HTMLTextAreaElement
+    >("input:not([type='hidden']), textarea:not(.ace_text-input)");
+    input?.focus();
+    input?.select();
     return revealTableCell(valueCell);
   }, [isEditing]);
 
@@ -327,6 +334,7 @@ export default function ConfigFieldRow({
                               constantContext={constantContext}
                               fullWidth
                               disabled={isNull}
+                              autoSelect
                             />
                           )}
                         </Box>
