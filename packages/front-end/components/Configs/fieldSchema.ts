@@ -253,15 +253,15 @@ export function typeDefault(field: SchemaField | null): unknown {
   if (preset === "json") return {};
   if (preset === "array") return [];
   if (preset === "any") return null;
-  if (field.jsonSchema !== undefined) return {};
-  switch (field.type) {
+  // A value starts as what its editor holds.
+  switch (fieldValueType(field)) {
     case "boolean":
       return false;
-    case "integer":
-    case "float":
+    case "number":
       return 0;
+    case "json":
+      return {};
     case "string":
-    default:
       return "";
   }
 }

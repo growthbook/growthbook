@@ -4,6 +4,7 @@ import {
   fieldValueType,
   parseFieldValueInput,
   pinnedCellBackground,
+  typeDefault,
 } from "@/components/Configs/fieldSchema";
 
 const field = (overrides: Partial<SchemaField>): SchemaField => ({
@@ -30,13 +31,15 @@ describe("pinnedCellBackground", () => {
 
 describe("fieldValueType", () => {
   it.each([
-    ['{"enum":["eu","us"]}', "string"],
-    ['{"enum":[1,2,null]}', "number"],
-    ['{"enum":[true,false]}', "boolean"],
-    ['{"enum":["a",1]}', "json"],
-    ['{"type":"object"}', "json"],
-  ])("reads %s as %s", (jsonSchema, expected) => {
+    ['{"enum":["eu","us"]}', "string", ""],
+    ['{"enum":[1,2,null]}', "number", 0],
+    ['{"enum":[true,false]}', "boolean", false],
+    ['{"type":"string","pattern":"^a"}', "string", ""],
+    ['{"enum":["a",1]}', "json", {}],
+    ['{"type":"object"}', "json", {}],
+  ])("reads %s as %s, starting at %j", (jsonSchema, expected, start) => {
     expect(fieldValueType(field({ jsonSchema }))).toBe(expected);
+    expect(typeDefault(field({ jsonSchema }))).toEqual(start);
   });
 });
 
