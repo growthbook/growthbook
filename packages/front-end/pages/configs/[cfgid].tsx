@@ -492,6 +492,8 @@ export default function ConfigDetailPage(): React.ReactElement {
   const savingExtendsRef = useRef(false);
   // Same for removals: a field removal writes the whole value and schema.
   const removingRef = useRef(false);
+  // The page as last rendered, kept up while another Config loads.
+  const lastPage = useRef<React.ReactElement | null>(null);
 
   // Page-level tab driven by the URL hash. The hash may carry an inner sub-tab
   // after a comma (`#review,changes`); only the first segment selects the page tab.
@@ -1111,8 +1113,27 @@ export default function ConfigDetailPage(): React.ReactElement {
       </Callout>
     );
   }
+  // One wrapper around both the live page and a kept one, so swapping between
+  // them updates in place. A kept page is inert until the next one is ready.
+  const pageShell = (page: React.ReactElement, pending: boolean) => (
+    <div
+      style={{
+        display: "contents",
+        pointerEvents: pending ? "none" : undefined,
+      }}
+      aria-busy={pending || undefined}
+    >
+      {page}
+    </div>
+  );
   if (!data || !config || !displayedConfig || !selectionSettled) {
-    return <LoadingOverlay />;
+    // Only a first load shows a loading screen; another Config's keeps the
+    // last page up instead of flashing one.
+    return lastPage.current ? (
+      pageShell(lastPage.current, true)
+    ) : (
+      <LoadingOverlay />
+    );
   }
 
   const handleLock = async (reason?: string) => {
@@ -1977,7 +1998,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     </DetailsPanel>
   );
 
-  return (
+  const page = (
     <>
       <PageHead
         breadcrumb={[
@@ -2805,4 +2826,6 @@ export default function ConfigDetailPage(): React.ReactElement {
       )}
     </>
   );
+  lastPage.current = page;
+  return pageShell(page, false);
 }
