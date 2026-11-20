@@ -1719,7 +1719,7 @@ export const SdkResources = ({ sdk }) => {
     },
     go: {
       name: "Go SDK",
-      version: "0.7.0",
+      version: "0.8.0",
       github: "https://github.com/growthbook/growthbook-golang",
       examples: [
         {
@@ -1739,6 +1739,9 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v0.8.0",
         },
         {
           savedGroupReferencesV2: "≥ v0.6.0",
@@ -1923,7 +1926,7 @@ export const SdkResources = ({ sdk }) => {
     },
     csharp: {
       name: "C# SDK",
-      version: "2.1.0",
+      version: "2.1.1",
       github: "https://github.com/growthbook/growthbook-c-sharp",
       examples: [
         {
@@ -2581,7 +2584,7 @@ export const SdkResources = ({ sdk }) => {
     },
     flutter: {
       name: "Flutter SDK",
-      version: "5.0.1",
+      version: "5.1.0",
       github: "https://github.com/growthbook/growthbook-flutter",
       examples: [],
       packageRepos: [
@@ -2596,6 +2599,12 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v5.1.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v5.1.0",
         },
         {
           caseInsensitiveRegex: "≥ v4.3.0",
