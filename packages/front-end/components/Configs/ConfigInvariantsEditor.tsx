@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
 import {
@@ -42,6 +42,11 @@ import SelectField, {
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import FormatJsonAction from "@/components/Features/FormatJsonAction";
 
+// A rule edit, by rule name, so it still finds its rule in another revision.
+export type RuleRequest =
+  | { kind: "add" }
+  | { kind: "edit" | "delete"; name: string };
+
 // A rule from a Config this one builds on, which applies here too.
 export type InheritedInvariant = {
   invariant: ConfigInvariant;
@@ -65,6 +70,11 @@ type Props = {
   canEdit: boolean;
   // Shows Add rule disabled, with this reason.
   blockedReason?: string | null;
+  // From live, rule edits go here, to open a draft first; their labels say so.
+  onEditInDraft?: (request: RuleRequest) => void;
+  // A rule edit asked for before its draft was showing, opened on arrival.
+  request?: RuleRequest | null;
+  onRequestHandled?: () => void;
   onChange: (next: ConfigInvariant[]) => Promise<void>;
 };
 
@@ -244,6 +254,9 @@ export default function ConfigInvariantsEditor({
   resolvedValue,
   canEdit,
   blockedReason = null,
+  onEditInDraft,
+  request = null,
+  onRequestHandled,
   onChange,
 }: Props) {
   // null = closed, -1 = adding, >=0 = editing that row.
@@ -384,6 +397,27 @@ export default function ConfigInvariantsEditor({
       setListError(e instanceof Error ? e.message : "Failed to delete rule");
     }
   };
+
+  const runRequest = (r: RuleRequest) => {
+    if (r.kind === "add") {
+      open(-1);
+      return;
+    }
+    const index = invariants.findIndex((iv) => iv.name === r.name);
+    if (index < 0) return;
+    if (r.kind === "edit") open(index);
+    else void remove(index);
+  };
+  const act = (r: RuleRequest) =>
+    onEditInDraft ? onEditInDraft(r) : runRequest(r);
+
+  useEffect(() => {
+    if (!request) return;
+    onRequestHandled?.();
+    runRequest(request);
+    // Runs once per request; the handlers are this render's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request]);
 
   const previewFails = currentRule
     ? evaluateInvariants(resolvedValue, [
@@ -713,8 +747,11 @@ export default function ConfigInvariantsEditor({
         </Heading>
         {(canEdit || blockedReason) && (
           <Tooltip content={blockedReason} enabled={!!blockedReason}>
-            <Button disabled={!!blockedReason} onClick={() => open(-1)}>
-              Add rule
+            <Button
+              disabled={!!blockedReason}
+              onClick={() => act({ kind: "add" })}
+            >
+              Add rule{onEditInDraft ? " in draft" : ""}
             </Button>
           </Tooltip>
         )}
@@ -746,16 +783,20 @@ export default function ConfigInvariantsEditor({
         ruleCard(iv, `own-${i}`, {
           actions: canEdit && (
             <>
-              <Button variant="ghost" size="sm" onClick={() => open(i)}>
-                Edit
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => act({ kind: "edit", name: iv.name })}
+              >
+                Edit{onEditInDraft ? " in draft" : ""}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 color="red"
-                onClick={() => remove(i)}
+                onClick={() => act({ kind: "delete", name: iv.name })}
               >
-                Delete
+                Delete{onEditInDraft ? " in draft" : ""}
               </Button>
             </>
           ),

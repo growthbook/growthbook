@@ -35,6 +35,7 @@ import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
+import Button from "@/ui/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -130,6 +131,8 @@ type Props = {
   ribbonEl?: HTMLElement | null;
   // Unsaved edits hold the page, as other edits there do.
   onDirtyChange?: (dirty: boolean) => void;
+  // From live, where the view is read-only: opens a draft to edit in.
+  onEditInDraft?: () => void;
 };
 
 function prettyValue(json: string): string {
@@ -264,6 +267,7 @@ export default function ConfigJsonEditor({
   onSave,
   ribbonEl = null,
   onDirtyChange,
+  onEditInDraft,
 }: Props) {
   const [valueText, setValueText] = useState<string>(() =>
     prettyValue(valueJson),
@@ -1065,7 +1069,14 @@ export default function ConfigJsonEditor({
       <Box mt="3">
         {twoColumns(
           <>
-            {columnHeader("Value")}
+            {columnHeader(
+              "Value",
+              onEditInDraft ? (
+                <Button variant="outline" size="sm" onClick={onEditInDraft}>
+                  Edit in draft
+                </Button>
+              ) : null,
+            )}
             {readonlyValue(prettyValue(valueJson))}
           </>,
           readonlySchemaColumn(

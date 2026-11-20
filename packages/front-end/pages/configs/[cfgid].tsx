@@ -174,6 +174,7 @@ import ConfigFieldRow, {
 } from "@/components/Configs/ConfigFieldRow";
 import ConfigInvariantsEditor, {
   InheritedInvariant,
+  RuleRequest,
 } from "@/components/Configs/ConfigInvariantsEditor";
 import LinkButton from "@/ui/LinkButton";
 import ConfigCustomHooksSection from "@/components/Configs/ConfigCustomHooksSection";
@@ -212,6 +213,20 @@ type ResolvedResponse = {
 
 const LINEAGE_PANEL_WIDTH_PX = 280;
 const REVISION_QUERY = ["v"];
+
+// An edit started from live, picked up once the draft it goes to is showing.
+type LiveEdit =
+  | {
+      kind:
+        | "value"
+        | "field"
+        | "removeField"
+        | "removeOverride"
+        | "removeMixin";
+      key: string;
+    }
+  | { kind: "addField" | "addMixin" | "json" }
+  | { kind: "rule"; rule: RuleRequest };
 const FIELDS_TABLE_MIN_WIDTH_PX = 850;
 // The Fields card and page padding around the table. The details rail floats
 // before the table would have to scroll beside it.
@@ -397,9 +412,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
-  // Delete failures fire from a row's action menu (not its editing state), so
-  // they can't use the editing-only `editError` slot — surfaced section-level.
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Failures from row menu actions and from opening a draft, which have no
+  // editor of their own to show them in.
+  const [actionError, setActionError] = useState<string | null>(null);
   // Separate from the text so an explicit null and a concrete value stay distinct
   // (not overriding at all is a third axis: the inherit / Reset action).
   const [editKind, setEditKind] = useState<"value" | "null">("value");
@@ -409,6 +424,11 @@ export default function ConfigDetailPage(): React.ReactElement {
     ValueEditSeed & { savesUntouched: boolean }
   >({ text: "", kind: "value", savesUntouched: false });
   const [savingValue, setSavingValue] = useState(false);
+  // An edit asked for on live waits here until its draft is showing.
+  const [pendingEdit, setPendingEdit] = useState<LiveEdit | null>(null);
+  const runEditRef = useRef<(edit: LiveEdit) => void>(() => undefined);
+  const [openingDraft, setOpeningDraft] = useState(false);
+  const [ruleRequest, setRuleRequest] = useState<RuleRequest | null>(null);
 
   // The key whose field definition is open, or a blank form for a new field.
   const [schemaEdit, setSchemaEdit] = useState<string | null>(null);
@@ -419,7 +439,11 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [jsonDirty, setJsonDirty] = useState(false);
   const editOpen =
     editKey !== null || schemaEdit !== null || addingField || jsonDirty;
-  const editsBlocked = editOpen ? EDITS_BLOCKED_REASON : null;
+  const editsBlocked = editOpen
+    ? EDITS_BLOCKED_REASON
+    : openingDraft
+      ? "Opening a draft…"
+      : null;
   const valueDirty =
     editKey !== null &&
     (editText !== editSeed.text || editKind !== editSeed.kind);
@@ -550,7 +574,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     setEditKind("value");
     setSchemaEdit(null);
     setAddingField(false);
-    setDeleteError(null);
+    setActionError(null);
     setShowCreateChild(false);
     setComposeAdding(false);
     setShowOverrides(false);
@@ -638,6 +662,11 @@ export default function ConfigDetailPage(): React.ReactElement {
     setSchemaEdit(null);
     setAddingField(false);
   }, [draftTakesEdits]);
+  useEffect(() => {
+    if (!pendingEdit || !draftTakesEdits || !data) return;
+    setPendingEdit(null);
+    runEditRef.current(pendingEdit);
+  }, [pendingEdit, draftTakesEdits, data]);
 
   const selectedRevisionRequiresApproval =
     !!selectedRevision &&
@@ -1158,10 +1187,13 @@ export default function ConfigDetailPage(): React.ReactElement {
   );
   const canArchiveNow =
     (canLandArchive || canEditNow) && (!selectedRevision || isDraft);
-  // Fields, mixins and rules edit only inside a draft, never from live.
+  // Fields, mixins and rules edit only inside a draft. From live, an edit
+  // opens your draft, or starts one, and carries on there.
   const canEditInline = canEditNow && isDraft;
-  // No row has a menu while editing or off-draft, so the column folds away.
-  const hideRowMenus = editOpen || !canEditInline;
+  const editsFromLive = canEditNow && !selectedRevision;
+  const canStartEdits = canEditInline || editsFromLive;
+  // No row has a menu while editing or where nothing can be edited.
+  const hideRowMenus = editOpen || !canStartEdits;
   const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks(
     {
       project: config.project || "",
@@ -1327,14 +1359,14 @@ export default function ConfigDetailPage(): React.ReactElement {
     const v = ownValue();
     const hadOverride = key in v;
     delete v[key];
-    setDeleteError(null);
+    setActionError(null);
     try {
       await saveSchema(
         ownSchema().fields.filter((f) => f.key !== key),
         hadOverride ? v : undefined,
       );
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : "Failed to remove field");
+      setActionError(e instanceof Error ? e.message : "Failed to remove field");
     } finally {
       removingRef.current = false;
     }
@@ -1344,11 +1376,11 @@ export default function ConfigDetailPage(): React.ReactElement {
   const removeOverride = async (key: string) => {
     if (removingRef.current) return;
     removingRef.current = true;
-    setDeleteError(null);
+    setActionError(null);
     try {
       await removePropertyValue(key);
     } catch (e) {
-      setDeleteError(
+      setActionError(
         e instanceof Error ? e.message : "Failed to remove override",
       );
     } finally {
@@ -1368,21 +1400,15 @@ export default function ConfigDetailPage(): React.ReactElement {
       onSave={saveField}
     />
   ) : null;
+  const inDraftSuffix = editsFromLive ? " in draft" : "";
   const renderAddField = () =>
-    canEditInline &&
+    canStartEdits &&
     !editOpen && (
       <Box mt="2" py="1">
-        <Link
-          onClick={() => {
-            withViewTransition(() => {
-              cancelEdits();
-              setAddingField(true);
-            });
-          }}
-        >
+        <Link onClick={() => startEdit({ kind: "addField" })}>
           <Flex align="center" gap="1">
             <PiPlus />
-            Add field
+            Add field{inDraftSuffix}
           </Flex>
         </Link>
       </Box>
@@ -1452,7 +1478,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         <TableCell>
           <Flex gap="2" align="center" justify="end" style={{ minHeight: 32 }}>
             <FieldRowMenu>
-              {canEditInline &&
+              {canStartEdits &&
                 mixinKeys.map((k) => {
                   const name =
                     allConfigsForGraph.find((c) => c.key === k)?.name ?? k;
@@ -1460,11 +1486,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                     <DropdownMenuItem
                       key={k}
                       color="red"
-                      onClick={() =>
-                        saveExtends(mixinKeys.filter((x) => x !== k))
-                      }
+                      onClick={() => startEdit({ kind: "removeMixin", key: k })}
                     >
-                      Remove mixin &ldquo;{name}&rdquo;
+                      Remove mixin &ldquo;{name}&rdquo;{inDraftSuffix}
                     </DropdownMenuItem>
                   );
                 })}
@@ -1476,7 +1500,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   };
 
   const renderAddMixin = () => {
-    if (!canEditInline || editOpen) return null;
+    if (!canStartEdits || editOpen) return null;
     return composeAdding ? (
       <Box mt="2" py="1" style={{ maxWidth: 380 }}>
         <Flex align="center" gap="3">
@@ -1509,10 +1533,10 @@ export default function ConfigDetailPage(): React.ReactElement {
       </Box>
     ) : (
       <Box mt="2" py="1">
-        <Link onClick={() => setComposeAdding(true)}>
+        <Link onClick={() => startEdit({ kind: "addMixin" })}>
           <Flex align="center" gap="1">
             <PiPlus />
-            Add Config mixin
+            Add Config mixin{inDraftSuffix}
           </Flex>
         </Link>
         {composeError && (
@@ -1539,12 +1563,75 @@ export default function ConfigDetailPage(): React.ReactElement {
     userOpenRevision && !isRevisionEditLockedBySchedule(userOpenRevision)
       ? userOpenRevision
       : null;
-  const editInDraftNote =
-    canEditNow && !selectedRevision
-      ? myDraft
-        ? `Edit in your draft v${revisionNumbers.get(myDraft.id)}.`
-        : "Edit in a draft."
-      : null;
+  // Opens your draft, or starts one, then runs the edit there.
+  const editInDraft = async (edit: LiveEdit) => {
+    if (openingDraft) return;
+    setActionError(null);
+    if (myDraft) {
+      setPendingEdit(edit);
+      selectRevision(myDraft);
+      return;
+    }
+    setOpeningDraft(true);
+    try {
+      const res = await apiCall<{ revision?: Revision }>(
+        `/configs/${config.id}?forceCreateRevision=1`,
+        { method: "PUT", body: JSON.stringify({}) },
+      );
+      if (res?.revision) {
+        setPendingEdit(edit);
+        await onRevisionCreated(res.revision);
+      }
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Failed to open a draft");
+    } finally {
+      setOpeningDraft(false);
+    }
+  };
+  const runEdit = (edit: LiveEdit) => {
+    switch (edit.kind) {
+      case "value": {
+        const f = resolved.fields.find((x) => x.key === edit.key);
+        if (f) startOverride(f);
+        return;
+      }
+      case "field":
+        if (!ownSchemaKeys.includes(edit.key)) return;
+        withViewTransition(() => {
+          cancelEdits();
+          setSchemaEdit(edit.key);
+        });
+        return;
+      case "removeField":
+        void removeField(edit.key);
+        return;
+      case "removeOverride":
+        void removeOverride(edit.key);
+        return;
+      case "removeMixin":
+        void saveExtends(mixinKeys.filter((x) => x !== edit.key));
+        return;
+      case "addField":
+        withViewTransition(() => {
+          cancelEdits();
+          setAddingField(true);
+        });
+        return;
+      case "addMixin":
+        setComposeAdding(true);
+        return;
+      case "rule":
+        setRuleRequest(edit.rule);
+        return;
+      case "json":
+        return;
+    }
+  };
+  runEditRef.current = runEdit;
+  const startEdit = (edit: LiveEdit) => {
+    if (editsFromLive) void editInDraft(edit);
+    else runEdit(edit);
+  };
   const canPublishSelected = canPublishRevisionEntity(
     permissionsUtil,
     "config",
@@ -1982,16 +2069,16 @@ export default function ConfigDetailPage(): React.ReactElement {
                 <SectionFrame
                   title="Fields"
                   description={
-                    editInDraftNote && myDraft ? (
+                    !editsFromLive ? null : myDraft ? (
                       <>
-                        Edit in your draft{" "}
+                        Edits go to your draft{" "}
                         <Link onClick={() => selectRevision(myDraft)}>
                           v{revisionNumbers.get(myDraft.id)}
                         </Link>
                         .
                       </>
                     ) : (
-                      editInDraftNote
+                      "Edits start a new draft."
                     )
                   }
                   mb="4"
@@ -2067,9 +2154,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                           </Callout>
                         )}
                         {/* Row menu actions have no editor to show errors in. */}
-                        {deleteError && (
+                        {actionError && (
                           <Callout status="error" mt="3">
-                            <MarkdownLinks text={deleteError} />
+                            <MarkdownLinks text={actionError} />
                           </Callout>
                         )}
                         <Table
@@ -2160,7 +2247,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                                   field={f}
                                   configKey={config.key}
                                   isOwnField={ownSchemaKeys.includes(f.key)}
-                                  canEditInline={canEditInline}
+                                  canEditInline={canStartEdits}
+                                  inDraft={editsFromLive}
                                   constantContext={constantContext}
                                   squashConstants={squashConstants}
                                   editing={editKey === f.key}
@@ -2170,17 +2258,26 @@ export default function ConfigDetailPage(): React.ReactElement {
                                   saving={savingValue}
                                   setEditText={setEditText}
                                   setEditKind={setEditKind}
-                                  onStartEdit={() => startOverride(f)}
+                                  onStartEdit={() =>
+                                    startEdit({ kind: "value", key: f.key })
+                                  }
                                   onSubmit={submitOverride}
                                   onCancelEdit={closeEdits}
-                                  onEditDefinition={() => {
-                                    withViewTransition(() => {
-                                      cancelEdits();
-                                      setSchemaEdit(f.key);
-                                    });
-                                  }}
-                                  onRemoveField={() => removeField(f.key)}
-                                  onRemoveOverride={() => removeOverride(f.key)}
+                                  onEditDefinition={() =>
+                                    startEdit({ kind: "field", key: f.key })
+                                  }
+                                  onRemoveField={() =>
+                                    startEdit({
+                                      kind: "removeField",
+                                      key: f.key,
+                                    })
+                                  }
+                                  onRemoveOverride={() =>
+                                    startEdit({
+                                      kind: "removeOverride",
+                                      key: f.key,
+                                    })
+                                  }
                                   showParentValue={
                                     showOverrides && isOverrideField(f)
                                   }
@@ -2262,6 +2359,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                         unpublishedFormats={unpublishedFormats}
                         ribbonEl={ribbonEl}
                         onDirtyChange={setJsonDirty}
+                        onEditInDraft={
+                          editsFromLive
+                            ? () => startEdit({ kind: "json" })
+                            : undefined
+                        }
                         onSave={(value, fields, renderProjections) =>
                           saveSchema(fields, value, renderProjections)
                         }
@@ -2309,8 +2411,15 @@ export default function ConfigDetailPage(): React.ReactElement {
                   fieldKeys={resolved.fields.map((f) => f.key)}
                   declaredKeys={resolved.effectiveSchema.map((f) => f.key)}
                   resolvedValue={invariantValue}
-                  canEdit={canEditInline}
-                  blockedReason={editInDraftNote}
+                  canEdit={canStartEdits}
+                  blockedReason={editsBlocked}
+                  onEditInDraft={
+                    editsFromLive
+                      ? (rule) => startEdit({ kind: "rule", rule })
+                      : undefined
+                  }
+                  request={ruleRequest}
+                  onRequestHandled={() => setRuleRequest(null)}
                   onChange={(next) =>
                     saveSchema(ownSchema().fields, undefined, undefined, next)
                   }
