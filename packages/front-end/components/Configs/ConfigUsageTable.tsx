@@ -270,17 +270,15 @@ function ConfigSourceCell({
       color="gray"
       variant="soft"
       radius="full"
-      title={name}
       label={
         <Link
           href={`/configs/${impl.configKey}`}
-          title={name}
           style={{ color: "var(--accent-11)" }}
         >
           {/* hover-underline on the span, not the anchor: text-decoration
               doesn't cross an inline-block, so it must sit on the ellipsis'd
               element to reach the text. Config links stay in-app (no target). */}
-          <OverflowText className="hover-underline" maxWidth={110}>
+          <OverflowText tooltip className="hover-underline" maxWidth={110}>
             {name}
           </OverflowText>
         </Link>
@@ -302,8 +300,8 @@ function FeatureLink({
       ? `/features/${impl.featureId}?v=${impl.revisionVersion}`
       : `/features/${impl.featureId}`;
   return (
-    <Link href={href} title={impl.featureId} target="_blank" rel="noreferrer">
-      <OverflowText className="hover-underline" maxWidth={maxWidth}>
+    <Link href={href} target="_blank" rel="noreferrer">
+      <OverflowText tooltip className="hover-underline" maxWidth={maxWidth}>
         {impl.featureId}
       </OverflowText>
     </Link>
@@ -332,8 +330,8 @@ function ExperimentCell({
   const label =
     impl.experimentName ?? impl.experimentId ?? impl.contextualBanditId ?? href;
   return (
-    <Link href={href} title={label} target="_blank" rel="noreferrer">
-      <OverflowText className="hover-underline" maxWidth={maxWidth}>
+    <Link href={href} target="_blank" rel="noreferrer">
+      <OverflowText tooltip className="hover-underline" maxWidth={maxWidth}>
         {label}
       </OverflowText>
     </Link>
@@ -359,11 +357,7 @@ function StatusCell({
 }
 
 function KeyCode({ k }: { k: string }): React.ReactElement {
-  return (
-    <code title={k} style={{ color: "var(--slate-12)" }}>
-      {k}
-    </code>
-  );
+  return <code style={{ color: "var(--slate-12)" }}>{k}</code>;
 }
 
 // A reference can touch many keys; cap the visible list so a row stays compact.
@@ -597,9 +591,7 @@ export function ByKeyUsageTable({
               <TableRow key={`${key}|${idx}`} align="start">
                 <TableCell style={cell}>
                   {idx === 0 && (
-                    <code title={key} style={{ color: "var(--slate-12)" }}>
-                      {key}
-                    </code>
+                    <code style={{ color: "var(--slate-12)" }}>{key}</code>
                   )}
                 </TableCell>
                 <TableCell style={cell}>

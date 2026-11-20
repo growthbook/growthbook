@@ -42,6 +42,7 @@ import {
   fieldValueType,
   fieldIsNullable,
   normalizeField,
+  parseFieldValueInput,
   presetKeyFromField,
   presetSchemaString,
 } from "@/components/Configs/fieldSchema";
@@ -57,6 +58,7 @@ export default function FieldDefForm({
   initialValue = "",
   initialNull = false,
   constantContext,
+  onDirtyChange,
   onCancel,
   onSave,
 }: {
@@ -69,6 +71,7 @@ export default function FieldDefForm({
   initialValue?: string;
   initialNull?: boolean;
   constantContext?: { project?: string; excludeKeys?: string[] };
+  onDirtyChange?: (dirty: boolean) => void;
   onCancel: () => void;
   // `unset` = explicitly remove the field's value (distinct from "leave as-is").
   onSave: (
@@ -80,7 +83,7 @@ export default function FieldDefForm({
   // Normalize so a raw schema that's really a simple type opens in simple mode.
   // Pretty-print a raw schema once on open so imported/minified schemas show with
   // readable whitespace in the code editor (typing afterward is preserved as-is).
-  const [field, setField] = useState<SchemaField>(() => {
+  const [initialField] = useState<SchemaField>(() => {
     const nf = normalizeField(initial);
     if (nf.jsonSchema === undefined) return nf;
     try {
@@ -92,8 +95,17 @@ export default function FieldDefForm({
       return nf;
     }
   });
+  const [field, setField] = useState(initialField);
   const [valueText, setValueText] = useState(initialValue);
   const [valueIsNull, setValueIsNull] = useState(initialNull);
+  const valueTouched =
+    valueText !== initialValue || valueIsNull !== initialNull;
+  const dirty =
+    valueTouched || JSON.stringify(field) !== JSON.stringify(initialField);
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -103,7 +115,6 @@ export default function FieldDefForm({
   const valueIsJson = valueType === "json";
   const preset = presetKeyFromField(field);
   const [rawMode, setRawMode] = useState(isJson && preset === null);
-  const advanced = rawMode;
 
   const hasBound = field.min !== undefined || field.max !== undefined;
   const [showValidation, setShowValidation] = useState(hasBound);
@@ -151,6 +162,13 @@ export default function FieldDefForm({
       return;
     }
     const type = token as SchemaField["type"];
+    if (
+      isNew &&
+      type === "boolean" &&
+      !["true", "false"].includes(valueText.trim())
+    ) {
+      setValueText("");
+    }
     setField((f) =>
       type === "boolean"
         ? {
@@ -202,6 +220,10 @@ export default function FieldDefForm({
   };
 
   const save = async () => {
+    if (!dirty) {
+      onCancel();
+      return;
+    }
     if (!trimmedKey) {
       setErr("A field key is required");
       return;
@@ -222,35 +244,22 @@ export default function FieldDefForm({
         return;
       }
     }
-    // Parse against the value surface so {type:string} saves a string, not JSON.
-    // An empty value is "not set": the caller deletes the value key.
-    const unset = withValue && !valueIsNull && valueText.trim() === "";
+    // An untouched value stays as it is, unless the field now holds another
+    // kind of value. Parsed against the value surface, so {type:string} saves a
+    // string, not JSON; "not set" deletes the value key.
     let value: unknown = undefined;
-    if (unset) {
-      value = undefined;
-    } else if (withValue && valueIsNull) {
-      value = null;
-    } else if (withValue) {
-      const t = valueText.trim();
-      if (valueIsJson) {
-        try {
-          value = JSON.parse(t);
-        } catch (e) {
-          setErr(e instanceof Error ? e.message : "Value must be valid JSON");
-          return;
-        }
-      } else if (valueType === "boolean") {
-        value = t === "true";
-      } else if (valueType === "number") {
-        const n = field.type === "integer" ? parseInt(t, 10) : parseFloat(t);
-        if (Number.isNaN(n)) {
-          setErr("Value must be a number");
-          return;
-        }
-        value = n;
-      } else {
-        value = valueText;
+    let unset = false;
+    if (
+      withValue &&
+      (valueTouched || valueType !== fieldValueType(initialField))
+    ) {
+      const result = parseFieldValueInput(valueText, field, valueIsNull);
+      if (result.kind === "error") {
+        setErr(result.error);
+        return;
       }
+      if (result.kind === "unset") unset = true;
+      else value = result.value;
     }
     setErr(null);
     setSaving(true);
@@ -327,8 +336,8 @@ export default function FieldDefForm({
     );
 
   const modeToggle = (
-    <Link size="sm" onClick={() => setMode(advanced ? "simple" : "schema")}>
-      {advanced ? "Use simple editor" : "Edit as JSON Schema"}
+    <Link size="sm" onClick={() => setMode(rawMode ? "simple" : "schema")}>
+      {rawMode ? "Use simple editor" : "Edit as JSON Schema"}
     </Link>
   );
 
@@ -336,7 +345,7 @@ export default function FieldDefForm({
   const descriptionField = (
     <Field
       label="Description"
-      labelClassName={styles.settingLabel}
+      labelWeight="medium"
       value={field.description}
       onChange={(e) => setField({ ...field, description: e.target.value })}
       maxLength={256}
@@ -350,7 +359,7 @@ export default function FieldDefForm({
   // Bounds and an allow-list are mutually exclusive (an enum already restricts).
   const canValidate = canEnum && !hasEnum;
 
-  const body = advanced ? (
+  const body = rawMode ? (
     <Box mt="2">
       {descriptionField}
       <CodeTextArea
@@ -431,7 +440,7 @@ export default function FieldDefForm({
             <Box style={{ flex: 1 }}>
               <MultiSelectField
                 label="Allowed values"
-                labelClassName={styles.settingLabel}
+                labelWeight="medium"
                 placeholder="Add a value and press enter"
                 value={field.enum}
                 onChange={(vals) => {
@@ -471,7 +480,7 @@ export default function FieldDefForm({
             <Box style={{ flex: 1 }}>
               <Field
                 label={numeric ? "Minimum" : "Min length"}
-                labelClassName={styles.settingLabel}
+                labelWeight="medium"
                 type="number"
                 step={field.type === "float" ? "any" : 1}
                 min={numeric ? undefined : 0}
@@ -483,7 +492,7 @@ export default function FieldDefForm({
             <Box style={{ flex: 1 }}>
               <Field
                 label={numeric ? "Maximum" : "Max length"}
-                labelClassName={styles.settingLabel}
+                labelWeight="medium"
                 type="number"
                 step={field.type === "float" ? "any" : 1}
                 value={field.max ?? ""}
@@ -533,7 +542,7 @@ export default function FieldDefForm({
       >
         <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>
-            <Box style={{ width: "100%" }} className={inPlaceEditor}>
+            <Box flexGrow="1" className={inPlaceEditor}>
               <Field
                 size="md"
                 autoFocus={isNew}
@@ -555,7 +564,8 @@ export default function FieldDefForm({
             <>
               <Flex align="center" style={{ minHeight: 32 }}>
                 <Box
-                  style={{ width: "100%", minWidth: 0 }}
+                  flexGrow="1"
+                  minWidth="0"
                   className={valueIsNull ? undefined : inPlaceEditor}
                 >
                   {valueIsNull ? (
@@ -583,7 +593,7 @@ export default function FieldDefForm({
         </TableCell>
         <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>
-            <Box style={{ width: "100%" }} className={inPlaceEditor}>
+            <Box flexGrow="1" className={inPlaceEditor}>
               {typeSelect}
             </Box>
           </Flex>

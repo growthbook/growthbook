@@ -12,6 +12,8 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import { LineageNode } from "@/components/Configs/fieldSchema";
+import StatusDot from "@/components/Experiment/StatusDot";
+import { draftStatusDotColor } from "@/components/Reviews/RevisionStatusBadge";
 
 type Props = {
   // The config currently open (from the URL) — a base or one of its flavors.
@@ -173,15 +175,7 @@ export default function ConfigEnvTabs({
                 <Flex align="center" style={{ gap: 6 }}>
                   {t.key !== baseKey && draftByKey?.[t.key] && (
                     <Tooltip content="This override has an unpublished draft">
-                      <Box
-                        style={{
-                          flexShrink: 0,
-                          width: 8,
-                          height: 8,
-                          borderRadius: "50%",
-                          background: "var(--amber-9)",
-                        }}
-                      />
+                      <StatusDot color={draftStatusDotColor("draft")} />
                     </Tooltip>
                   )}
                   {archivedByKey?.[t.key] ? (

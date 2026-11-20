@@ -266,6 +266,13 @@ export function typeDefault(field: SchemaField | null): unknown {
   }
 }
 
+function enumValueType(v: unknown): string {
+  if (typeof v === "string") return "string";
+  if (typeof v === "number") return "number";
+  if (typeof v === "boolean") return "boolean";
+  return "object";
+}
+
 // Value-editor surface from a schema's top-level type; only structured shapes
 // (object/array, multi-type unions, "any") use the JSON editor.
 function jsonSchemaValueType(
@@ -280,8 +287,16 @@ function jsonSchemaValueType(
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return "json";
   }
-  const rawType = (parsed as { type?: unknown }).type;
-  const types = (Array.isArray(rawType) ? rawType : [rawType]).filter(
+  const { type: rawType, enum: enumValues } = parsed as {
+    type?: unknown;
+    enum?: unknown;
+  };
+  // With no type, an allow-list's values say what the field holds.
+  const declared =
+    rawType === undefined && Array.isArray(enumValues)
+      ? [...new Set(enumValues.filter((v) => v !== null).map(enumValueType))]
+      : rawType;
+  const types = (Array.isArray(declared) ? declared : [declared]).filter(
     (t) => t !== "null",
   );
   if (types.length !== 1) return "json";
@@ -338,13 +353,73 @@ export function valueToDisplayString(
 }
 
 // A field row's view-transition name, the same whether it's shown or edited, so
-// the row morphs between them. Characters a CSS name can't hold are encoded
-// rather than replaced, so two keys never share a name. Keyed as a string:
-// React's CSS types don't know view-transition-name yet.
+// the row morphs between them. Characters a CSS name can't hold are encoded.
 export function fieldRowTransitionStyle(key: string): CSSProperties {
   const name = `config-field-${key.replace(
     /[^a-zA-Z0-9-]/g,
     (c) => `_${c.charCodeAt(0)}`,
   )}`;
-  return { ["viewTransitionName" as string]: name };
+  return { ["--view-transition-name" as string]: name };
+}
+
+export type ValueEditSeed = { text: string; kind: "value" | "null" };
+
+// What a field's value editor opens with. JSON editors take `null` as literal
+// text, so only other fields use the null kind.
+export function valueEditSeed(
+  field: SchemaField | null,
+  value: unknown,
+): ValueEditSeed {
+  const isJson = isJsonField(field);
+  if (value === null && !isJson) return { text: "", kind: "null" };
+  return {
+    text:
+      value === undefined
+        ? ""
+        : isJson
+          ? JSON.stringify(value, null, 2)
+          : String(value),
+    kind: "value",
+  };
+}
+
+// What a field's edited value saves as. Empty text is "not set".
+export function parseFieldValueInput(
+  text: string,
+  field: SchemaField | null,
+  isNull = false,
+):
+  | { kind: "value"; value: unknown }
+  | { kind: "unset" }
+  | { kind: "error"; error: string } {
+  if (isNull) return { kind: "value", value: null };
+  const t = text.trim();
+  if (t === "") return { kind: "unset" };
+  switch (fieldValueType(field)) {
+    case "json":
+      try {
+        return { kind: "value", value: JSON.parse(t) };
+      } catch (e) {
+        return {
+          kind: "error",
+          error: e instanceof Error ? e.message : "Value must be valid JSON",
+        };
+      }
+    case "boolean":
+      return t === "true" || t === "false"
+        ? { kind: "value", value: t === "true" }
+        : { kind: "error", error: "Value must be true or false" };
+    case "number": {
+      const n = Number(t);
+      if (!Number.isFinite(n)) {
+        return { kind: "error", error: "Value must be a number" };
+      }
+      if (field?.type === "integer" && !Number.isInteger(n)) {
+        return { kind: "error", error: "Value must be an integer" };
+      }
+      return { kind: "value", value: n };
+    }
+    case "string":
+      return { kind: "value", value: text };
+  }
 }

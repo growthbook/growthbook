@@ -1,6 +1,6 @@
 // The key input's edge: the key cell's padding, less the input's in-place
 // offset. The drawer's toggle and contents line up on it.
-$key-inset: calc(24px - var(--space-2) - 1px);
+$key-inset: calc(var(--key-gutter) - var(--space-2) - 1px);
 
 // A small button's height, and the room above and below it.
 $toggle-height: 24px;
@@ -38,10 +38,4 @@ $toggle-gap-below: 8px;
 
 .drawerNote {
   padding: 0 $key-inset var(--space-2);
-}
-
-// One label for every field setting: a form label's size, at medium weight.
-// Important: Field sets its label's weight inline.
-.settingLabel {
-  font-weight: var(--font-weight-medium) !important;
 }

@@ -17,6 +17,9 @@ import {
 } from "@/components/Configs/ConfigKeyNotices";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import StatusDot from "@/components/Experiment/StatusDot";
+import { draftStatusDotColor } from "@/components/Reviews/RevisionStatusBadge";
 import styles from "./LineageTree.module.scss";
 
 // Label for a flavor row: its environment(s), else project(s), else its name.
@@ -49,6 +52,17 @@ function RowConnector(): React.ReactElement {
         background: GUIDE_COLOR,
       }}
     />
+  );
+}
+
+function DraftNodeDot() {
+  return (
+    <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live Config.">
+      <StatusDot
+        color={draftStatusDotColor("draft")}
+        style={{ marginRight: 4 }}
+      />
+    </Tooltip>
   );
 }
 
@@ -194,7 +208,6 @@ export default function LineageTree({
           pl="1"
           pr="3"
           className={styles.row}
-          title={`Composes ${name}${isArchived ? " (archived)" : ""}`}
           onClick={isCurrent ? undefined : openConfig(mk)}
           onAuxClick={isCurrent ? undefined : openConfig(mk)}
           style={{
@@ -213,7 +226,9 @@ export default function LineageTree({
           >
             <PiPlus size={10} />
           </Flex>
-          <span
+          <OverflowText
+            tooltip
+            maxWidth="100%"
             style={{
               flex: 1,
               minWidth: 0,
@@ -229,27 +244,11 @@ export default function LineageTree({
                   ? "var(--slate-9)"
                   : undefined,
               textDecoration: isArchived ? "line-through" : undefined,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
             }}
           >
             {name}
-          </span>
-          {isDraftNode && (
-            <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live Config.">
-              <Box
-                style={{
-                  flexShrink: 0,
-                  width: 8,
-                  height: 8,
-                  marginRight: 4,
-                  borderRadius: "50%",
-                  background: "var(--amber-9)",
-                }}
-              />
-            </Tooltip>
-          )}
+          </OverflowText>
+          {isDraftNode && <DraftNodeDot />}
           {count !== undefined && countBadge(count)}
         </Flex>
       </Box>
@@ -275,7 +274,6 @@ export default function LineageTree({
           pl="1"
           pr="3"
           className={styles.row}
-          title={`${n.name}${isArchived ? " (archived)" : ""}`}
           onClick={isCurrent ? undefined : openConfig(n.key)}
           onAuxClick={isCurrent ? undefined : openConfig(n.key)}
           style={{
@@ -292,7 +290,9 @@ export default function LineageTree({
           >
             <PiDotOutline size={20} />
           </Flex>
-          <span
+          <OverflowText
+            tooltip
+            maxWidth="100%"
             style={{
               flex: 1,
               minWidth: 0,
@@ -305,27 +305,11 @@ export default function LineageTree({
                   ? "var(--slate-9)"
                   : undefined,
               textDecoration: isArchived ? "line-through" : undefined,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
             }}
           >
             {label}
-          </span>
-          {isDraftNode && (
-            <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live Config.">
-              <Box
-                style={{
-                  flexShrink: 0,
-                  width: 8,
-                  height: 8,
-                  marginRight: 4,
-                  borderRadius: "50%",
-                  background: "var(--amber-9)",
-                }}
-              />
-            </Tooltip>
-          )}
+          </OverflowText>
+          {isDraftNode && <DraftNodeDot />}
           {n.fieldCount !== undefined && countBadge(n.fieldCount)}
         </Flex>
       </Box>
@@ -499,8 +483,9 @@ export default function LineageTree({
                 <PiDotOutline size={20} />
               )}
             </Flex>
-            <span
-              title={`${n.name}${isArchived ? " (archived)" : ""}`}
+            <OverflowText
+              tooltip
+              maxWidth="100%"
               style={{
                 flex: 1,
                 minWidth: 0,
@@ -513,27 +498,11 @@ export default function LineageTree({
                     ? "var(--slate-9)"
                     : undefined,
                 textDecoration: isArchived ? "line-through" : undefined,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
               }}
             >
               {n.name}
-            </span>
-            {isDraftNode && (
-              <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live Config.">
-                <Box
-                  style={{
-                    flexShrink: 0,
-                    width: 8,
-                    height: 8,
-                    marginRight: 4,
-                    borderRadius: "50%",
-                    background: "var(--amber-9)",
-                  }}
-                />
-              </Tooltip>
-            )}
+            </OverflowText>
+            {isDraftNode && <DraftNodeDot />}
             {hasIncompatible && (
               <Tooltip
                 content={

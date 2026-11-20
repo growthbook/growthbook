@@ -11,7 +11,7 @@ import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import { RadixStatusIcon } from "@/ui/HelperText";
 
-export function ConfigName({ name }: { name: string }) {
+function ConfigName({ name }: { name: string }) {
   return (
     <Text weight="semibold" size="inherit">
       {name}
@@ -81,6 +81,10 @@ export function KeyNoticesIcon({ notices }: { notices: KeyNotice[] }) {
       ))}
     >
       <span
+        // Focusable, so the tooltip opens from the keyboard too.
+        tabIndex={0}
+        role="img"
+        aria-label="Field notes"
         style={{
           display: "inline-flex",
           flexShrink: 0,

@@ -6,15 +6,20 @@
     transition: opacity 250ms ease;
   }
 
-  &:hover .copyButton {
+  &:hover .copyButton,
+  &:has(:focus-visible) .copyButton {
     opacity: 1;
     pointer-events: auto;
   }
 }
 
 // Fields table: room left of each key for its row's status icons.
+.fieldsTable {
+  --key-gutter: 24px;
+}
+
 .fieldsTable tr > :first-child {
-  padding-left: 24px;
+  padding-left: var(--key-gutter);
 }
 
 .statusIcons {

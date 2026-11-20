@@ -34,7 +34,7 @@ import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -45,6 +45,8 @@ import Modal from "@/components/Modal";
 import StagedEditsBar from "@/components/StagedEdits/StagedEditsBar";
 import { ResolvedField } from "@/components/Configs/fieldSchema";
 import FormatJsonAction from "@/components/Features/FormatJsonAction";
+import StatusDot from "@/components/Experiment/StatusDot";
+import { draftStatusDotColor } from "@/components/Reviews/RevisionStatusBadge";
 
 // Non-`json` ids match the converter ids (also a projection's `language`), so
 // one dispatch map serves both the schema buffer and projections.
@@ -422,8 +424,8 @@ export default function ConfigJsonEditor({
   const activeProjection = projectionSource
     ? renderProjections?.[projectionSource]
     : undefined;
-  const editingProjection =
-    view === "edit" && canEdit && !!projectionSource && !!activeProjection;
+  // Not tied to the view: the buffer survives Resolved, like the value's.
+  const editingProjection = canEdit && !!projectionSource && !!activeProjection;
   const projectionLang: ProjectionLang =
     activeProjection?.language ?? "typescript";
   const projectionSeed = useMemo(
@@ -489,7 +491,8 @@ export default function ConfigJsonEditor({
     conflictKeys.length === 0 &&
     !saving;
 
-  const holdsPage = canEdit && view === "edit" && dirty;
+  // Resolved shows saved values, but the buffer survives it, so it still holds the page.
+  const holdsPage = canEdit && dirty;
   useEffect(() => {
     onDirtyChange?.(holdsPage);
   }, [holdsPage, onDirtyChange]);
@@ -684,31 +687,17 @@ export default function ConfigJsonEditor({
                   <Flex align="center" justify="between" gap="2">
                     <span>{option.label}</span>
                     {dirtyValues.has(option.value) && (
-                      <Tooltip
-                        flipTheme={false}
-                        body={
-                          <Text size="sm" color="text-high">
-                            Differs from the published version
-                          </Text>
-                        }
-                        style={{
-                          position: "relative",
-                          zIndex: 1000,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          flexShrink: 0,
-                          padding: 6,
-                          margin: -6,
-                        }}
-                      >
+                      <Tooltip content="Differs from the published version">
+                        {/* Padded, so the small dot is easy to hover. */}
                         <span
                           style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: "var(--amber-9)",
+                            display: "inline-flex",
+                            padding: 6,
+                            margin: -6,
                           }}
-                        />
+                        >
+                          <StatusDot color={draftStatusDotColor("draft")} />
+                        </span>
                       </Tooltip>
                     )}
                   </Flex>
@@ -1023,8 +1012,27 @@ export default function ConfigJsonEditor({
     </Modal>
   ) : null;
 
+  const ribbon =
+    holdsPage && ribbonEl
+      ? createPortal(
+          <StagedEditsBar
+            changes={null}
+            saving={saving}
+            saveDisabled={!canSave}
+            onDiscard={handleCancel}
+            onSave={handleSave}
+          />,
+          ribbonEl,
+        )
+      : null;
+
   if (view === "preview") {
-    return <Box mt="3">{previewContent}</Box>;
+    return (
+      <Box mt="3">
+        {previewContent}
+        {ribbon}
+      </Box>
+    );
   }
 
   // Off-draft: read-only view of this config's own stored value + schema.
@@ -1053,18 +1061,7 @@ export default function ConfigJsonEditor({
     <Box mt="3">
       {editContent}
       {newProjectionModal}
-      {holdsPage && ribbonEl
-        ? createPortal(
-            <StagedEditsBar
-              changes={null}
-              saving={saving}
-              saveDisabled={!canSave}
-              onDiscard={handleCancel}
-              onSave={handleSave}
-            />,
-            ribbonEl,
-          )
-        : null}
+      {ribbon}
     </Box>
   );
 }

@@ -165,7 +165,7 @@ import {
   undeclaredKeysNotice,
 } from "@/components/Configs/ConfigKeyNotices";
 import ConfigFeatureReferences from "@/components/Configs/ConfigFeatureReferences";
-import { Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
+import { TabsTrigger } from "@/ui/Tabs";
 import FieldDefForm from "@/components/Configs/FieldDefForm";
 import ConfigFieldRow, {
   fieldsTableClassName,
@@ -177,10 +177,11 @@ import ConfigCustomHooksSection from "@/components/Configs/ConfigCustomHooksSect
 import ConfigUsageSection from "@/components/Configs/ConfigUsageSection";
 import {
   ResolvedField,
+  parseFieldValueInput,
   LineageNode,
   blankField,
-  isJsonField,
-  fieldValueType,
+  valueEditSeed,
+  ValueEditSeed,
 } from "@/components/Configs/fieldSchema";
 
 type ResolvedResponse = {
@@ -261,7 +262,7 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
     label: string,
     description: string | null,
     text: string,
-    // A label with its one-line description, for items shown side by side.
+    // Lets an item without a description match the height of one with it.
     minHeight?: number,
   ) => (
     <DropdownMenuItem
@@ -398,26 +399,56 @@ export default function ConfigDetailPage(): React.ReactElement {
   // Separate from the text so an explicit null and a concrete value stay distinct
   // (not overriding at all is a third axis: the inherit / Reset action).
   const [editKind, setEditKind] = useState<"value" | "null">("value");
+  // What the open value edit started from. Untouched, it has nothing to save,
+  // unless it pins an inherited value here.
+  const [editSeed, setEditSeed] = useState<ValueEditSeed & { pins: boolean }>({
+    text: "",
+    kind: "value",
+    pins: false,
+  });
+  const [savingValue, setSavingValue] = useState(false);
 
-  // "add" shows a blank field form; a key string edits that field's definition.
-  const [schemaEdit, setSchemaEdit] = useState<"add" | string | null>(null);
-  // An open field edit holds the page, as other pages' edit ribbons do: other
-  // edits wait, and leaving asks first.
-  // Unsaved edits in the JSON tab hold the page too.
+  // The key whose field definition is open, or a blank form for a new field.
+  const [schemaEdit, setSchemaEdit] = useState<string | null>(null);
+  const [addingField, setAddingField] = useState(false);
+  const [fieldDirty, setFieldDirty] = useState(false);
+  // An open edit holds the page, as other pages' edit ribbons do: other edits
+  // wait. Leaving, or switching away from it, asks first if it has changes.
   const [jsonDirty, setJsonDirty] = useState(false);
-  const editOpen = editKey !== null || schemaEdit !== null || jsonDirty;
+  const editOpen =
+    editKey !== null || schemaEdit !== null || addingField || jsonDirty;
   const editsBlocked = editOpen ? EDITS_BLOCKED_REASON : null;
-  const navigationGuard = useUnsavedChangesGuard(editOpen, () => {
+  const valueDirty =
+    editKey !== null &&
+    (editText !== editSeed.text || editKind !== editSeed.kind);
+  const unsavedChanges = valueDirty || fieldDirty || jsonDirty;
+
+  const cancelEdits = () => {
     setEditKey(null);
     setEditError(null);
+    setSavingValue(false);
     setSchemaEdit(null);
-  });
+    setAddingField(false);
+  };
+  const closeEdits = () => withViewTransition(cancelEdits);
+  const navigationGuard = useUnsavedChangesGuard(unsavedChanges, cancelEdits);
+  // Tabs, views and revisions don't keep an open edit; one with changes asks
+  // first, and one being saved waits for it.
+  const discardThen = (next: () => void) => {
+    if (savingValue) return;
+    navigationGuard.confirmThen(() => {
+      cancelEdits();
+      next();
+    });
+  };
 
   const [composeError, setComposeError] = useState<string | null>(null);
 
   // Serializes mixin (`extends`) writes: without it, two quick clicks each compute
   // `next` from a stale snapshot and the second clobbers the first.
   const savingExtendsRef = useRef(false);
+  // Same for removals: a field removal writes the whole value and schema.
+  const removingRef = useRef(false);
 
   // Page-level tab driven by the URL hash. The hash may carry an inner sub-tab
   // after a comma (`#review,changes`); only the first segment selects the page tab.
@@ -434,20 +465,18 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
   }, [router.asPath]);
   const setTabAndScroll = (newTab: "overview" | "validation" | "review") => {
-    // The open edit and its ribbon live on the Overview tab, so leaving the
-    // tab closes the edit, as switching between Form and JSON does.
-    if (newTab !== tab) {
-      setEditKey(null);
-      setEditError(null);
-      setSchemaEdit(null);
-    }
-    setTab(newTab);
-    router.replace(
-      { pathname: router.pathname, query: router.query, hash: newTab },
-      undefined,
-      { shallow: true },
-    );
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const go = () => {
+      setTab(newTab);
+      router.replace(
+        { pathname: router.pathname, query: router.query, hash: newTab },
+        undefined,
+        { shallow: true },
+      );
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    // Edits live on the Overview tab, so leaving it closes them.
+    if (newTab === tab) go();
+    else discardThen(go);
   };
 
   const details = useDetailsPanel({
@@ -464,7 +493,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     defaultWidth: LINEAGE_PANEL_WIDTH_PX,
   });
   const tabsTop = useTabsTop();
-  // Where an open edit's Save and Discard render: the bar along the bottom.
+  // Where the JSON tab's Save and Discard render: the bar along the bottom.
   const [ribbonEl, setRibbonEl] = useState<HTMLDivElement | null>(null);
   const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
 
@@ -513,6 +542,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     setComposeError(null);
     setEditKind("value");
     setSchemaEdit(null);
+    setAddingField(false);
+    setDeleteError(null);
     setShowCreateChild(false);
     setComposeAdding(false);
     setShowOverrides(false);
@@ -591,6 +622,15 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   const isDraft =
     !!selectedRevision && isActiveDraftStatus(selectedRevision.status);
+  // A draft published, discarded or scheduled from elsewhere closes open edits.
+  const draftTakesEdits =
+    isDraft && !isRevisionEditLockedBySchedule(selectedRevision);
+  useEffect(() => {
+    if (draftTakesEdits) return;
+    setEditKey(null);
+    setSchemaEdit(null);
+    setAddingField(false);
+  }, [draftTakesEdits]);
 
   const selectedRevisionRequiresApproval =
     !!selectedRevision &&
@@ -1084,6 +1124,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     (canLandArchive || canEditNow) && (!selectedRevision || isDraft);
   // Fields, mixins and rules edit only inside a draft, never from live.
   const canEditInline = canEditNow && isDraft;
+  // No row has a menu while editing or off-draft, so the column folds away.
+  const hideRowMenus = editOpen || !canEditInline;
   const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks(
     {
       project: config.project || "",
@@ -1153,85 +1195,46 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
   };
 
-  // Both cancelled on tab switch so no editor lingers off-tab.
-  const cancelEdits = () => {
-    setEditKey(null);
-    setEditError(null);
-    setSchemaEdit(null);
-  };
-
   const startOverride = (f: ResolvedField) =>
     withViewTransition(() => {
-      setSchemaEdit(null);
-      setEditError(null);
-      // JSON editors accept `null` as literal text, so they never use the null kind.
-      const isJson = isJsonField(f.field);
-      if (f.value === null && !isJson) {
-        setEditKind("null");
-        setEditText("");
-      } else {
-        setEditKind("value");
-        setEditText(
-          f.value === undefined
-            ? ""
-            : isJson
-              ? JSON.stringify(f.value, null, 2)
-              : String(f.value),
-        );
-      }
+      cancelEdits();
+      const seed = valueEditSeed(f.field, f.value);
+      setEditKind(seed.kind);
+      setEditText(seed.text);
+      setEditSeed({
+        ...seed,
+        pins: f.value !== undefined && f.source !== config.key,
+      });
       setEditKey(f.key);
     });
 
   const submitOverride = async () => {
-    if (!editKey) return;
-    // An empty value is "not set": drop this config's own value, if it has one.
-    if (editKind === "value" && editText.trim() === "") {
-      try {
-        if (editKey in ownValue()) await removePropertyValue(editKey);
-        withViewTransition(() => setEditKey(null));
-      } catch (e) {
-        setEditError(e instanceof Error ? e.message : "Failed to save value");
-      }
+    if (!editKey || savingValue) return;
+    if (!valueDirty && !editSeed.pins) {
+      closeEdits();
       return;
     }
-    let parsed: unknown;
-    if (editKind === "null") {
-      parsed = null;
-    } else {
-      const field =
-        resolved.fields.find((f) => f.key === editKey)?.field ?? null;
-      const vt = fieldValueType(field);
-      if (vt === "json") {
-        try {
-          parsed = JSON.parse(editText);
-        } catch (e) {
-          setEditError(e instanceof Error ? e.message : "Invalid JSON");
-          return;
-        }
-      } else if (vt === "boolean") {
-        parsed = editText === "true";
-      } else if (vt === "number") {
-        const t = editText.trim();
-        const n = Number(t);
-        if (t === "" || !Number.isFinite(n)) {
-          setEditError("Value must be a number");
-          return;
-        }
-        if (field?.type === "integer" && !Number.isInteger(n)) {
-          setEditError("Value must be an integer");
-          return;
-        }
-        parsed = n;
-      } else {
-        parsed = editText;
-      }
+    const result = parseFieldValueInput(
+      editText,
+      resolved.fields.find((f) => f.key === editKey)?.field ?? null,
+      editKind === "null",
+    );
+    if (result.kind === "error") {
+      setEditError(result.error);
+      return;
     }
-    // Surface backend rejections inline; the Save button has no setError of its own.
+    setSavingValue(true);
     try {
-      await savePropertyValue(editKey, parsed);
-      withViewTransition(() => setEditKey(null));
+      if (result.kind === "value") {
+        await savePropertyValue(editKey, result.value);
+      } else if (editKey in ownValue()) {
+        // An emptied value is "not set": drop this Config's own value.
+        await removePropertyValue(editKey);
+      }
+      closeEdits();
     } catch (e) {
       setEditError(e instanceof Error ? e.message : "Failed to save value");
+      setSavingValue(false);
     }
   };
 
@@ -1295,10 +1298,12 @@ export default function ConfigDetailPage(): React.ReactElement {
       valueOverride = { ...ownValue(), [field.key]: value };
     }
     await saveSchema(next, valueOverride);
-    withViewTransition(() => setSchemaEdit(null));
+    closeEdits();
   };
 
   const removeField = async (key: string) => {
+    if (removingRef.current) return;
+    removingRef.current = true;
     const v = ownValue();
     const hadOverride = key in v;
     delete v[key];
@@ -1310,11 +1315,15 @@ export default function ConfigDetailPage(): React.ReactElement {
       );
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : "Failed to remove field");
+    } finally {
+      removingRef.current = false;
     }
   };
 
   // Removes only this config's override (reverts to inherited); the parent's definition is untouched.
   const removeOverride = async (key: string) => {
+    if (removingRef.current) return;
+    removingRef.current = true;
     setDeleteError(null);
     try {
       await removePropertyValue(key);
@@ -1322,22 +1331,23 @@ export default function ConfigDetailPage(): React.ReactElement {
       setDeleteError(
         e instanceof Error ? e.message : "Failed to remove override",
       );
+    } finally {
+      removingRef.current = false;
     }
   };
 
-  const addFieldRows =
-    schemaEdit === "add" ? (
-      <FieldDefForm
-        key="add"
-        withValue
-        isNew
-        initial={blankField()}
-        existingKeys={resolved.fields.map((f) => f.key)}
-        constantContext={constantContext}
-        onCancel={() => withViewTransition(() => setSchemaEdit(null))}
-        onSave={saveField}
-      />
-    ) : null;
+  const addFieldRows = addingField ? (
+    <FieldDefForm
+      withValue
+      isNew
+      initial={blankField()}
+      existingKeys={resolved.fields.map((f) => f.key)}
+      constantContext={constantContext}
+      onDirtyChange={setFieldDirty}
+      onCancel={closeEdits}
+      onSave={saveField}
+    />
+  ) : null;
   const renderAddField = () =>
     canEditInline &&
     !editOpen && (
@@ -1345,8 +1355,8 @@ export default function ConfigDetailPage(): React.ReactElement {
         <Link
           onClick={() => {
             withViewTransition(() => {
-              setEditKey(null);
-              setSchemaEdit("add");
+              cancelEdits();
+              setAddingField(true);
             });
           }}
         >
@@ -1890,7 +1900,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 canDiscard={
                   canDraft || selectedRevision?.authorId === currentUserId
                 }
-                onSelectRevision={selectRevision}
+                onSelectRevision={(r) => discardThen(() => selectRevision(r))}
                 onReviewPublish={() => setTabAndScroll("review")}
                 onPublish={
                   canPublishSelected && !config.lock ? handlePublish : null
@@ -1990,8 +2000,12 @@ export default function ConfigDetailPage(): React.ReactElement {
                         aria-label="View"
                         value={activeTab}
                         setValue={(v) => {
-                          cancelEdits();
-                          setActiveTab(v);
+                          // JSON and Resolved share one editor, which keeps its buffer.
+                          if (v !== "form" && activeTab !== "form") {
+                            setActiveTab(v);
+                          } else {
+                            discardThen(() => setActiveTab(v));
+                          }
                         }}
                         options={[
                           { value: "form", label: "Form" },
@@ -2003,20 +2017,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                     </>
                   }
                 >
-                  <Tabs
-                    value={activeTab}
-                    onValueChange={(v) => {
-                      cancelEdits();
-                      setActiveTab(
-                        v === "json"
-                          ? "json"
-                          : v === "resolved"
-                            ? "resolved"
-                            : "form",
-                      );
-                    }}
-                  >
-                    <TabsContent value="form">
+                  <Flex direction="column">
+                    {activeTab === "form" && (
                       <Box>
                         {canEditInline && (
                           <ReconciledFieldsCallout
@@ -2044,13 +2046,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                               .join(" · ")}
                           </Callout>
                         )}
-                        {/* Row-level errors render inline while editing; dropdown
-                            actions (remove field/override) have no row editor. */}
-                        {editError && editKey === null && (
-                          <Callout status="error" mt="3">
-                            <MarkdownLinks text={editError} />
-                          </Callout>
-                        )}
+                        {/* Row menu actions have no editor to show errors in. */}
                         {deleteError && (
                           <Callout status="error" mt="3">
                             <MarkdownLinks text={deleteError} />
@@ -2064,7 +2060,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                           mt="2"
                           className={clsx(
                             fieldsTableClassName,
-                            editOpen && menuColumnHiddenClassName,
+                            hideRowMenus && menuColumnHiddenClassName,
                           )}
                           style={{ minWidth: FIELDS_TABLE_MIN_WIDTH_PX }}
                         >
@@ -2098,7 +2094,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                                 Source
                               </TableColumnHeader>
                               <TableColumnHeader
-                                width={`${USAGE_COLUMN_PX + (editOpen ? MENU_COLUMN_PX : 0)}px`}
+                                width={`${USAGE_COLUMN_PX + (hideRowMenus ? MENU_COLUMN_PX : 0)}px`}
                               >
                                 <LabelWithHelp
                                   label="Usage"
@@ -2116,10 +2112,7 @@ export default function ConfigDetailPage(): React.ReactElement {
 
                             {resolved.fields.map((f) => {
                               if (schemaEdit === f.key) {
-                                const isJson = isJsonField(f.field);
-                                // JSON editors accept `null` as literal text, so only
-                                // non-JSON fields use the null flag/checkbox.
-                                const seedNull = f.value === null && !isJson;
+                                const seed = valueEditSeed(f.field, f.value);
                                 return (
                                   <FieldDefForm
                                     key={f.key}
@@ -2129,23 +2122,14 @@ export default function ConfigDetailPage(): React.ReactElement {
                                         (sf) => sf.key === f.key,
                                       ) ?? blankField()
                                     }
-                                    initialValue={
-                                      f.value === undefined || seedNull
-                                        ? ""
-                                        : isJson
-                                          ? JSON.stringify(f.value, null, 2)
-                                          : String(f.value)
-                                    }
-                                    initialNull={seedNull}
+                                    initialValue={seed.text}
+                                    initialNull={seed.kind === "null"}
                                     existingKeys={resolved.fields.map(
                                       (rf) => rf.key,
                                     )}
                                     constantContext={constantContext}
-                                    onCancel={() =>
-                                      withViewTransition(() =>
-                                        setSchemaEdit(null),
-                                      )
-                                    }
+                                    onDirtyChange={setFieldDirty}
+                                    onCancel={closeEdits}
                                     onSave={saveField}
                                   />
                                 );
@@ -2155,7 +2139,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                                   key={f.key}
                                   field={f}
                                   configKey={config.key}
-                                  inheritsValue={!!parentKey}
                                   isOwnField={ownSchemaKeys.includes(f.key)}
                                   canEditInline={canEditInline}
                                   constantContext={constantContext}
@@ -2164,16 +2147,15 @@ export default function ConfigDetailPage(): React.ReactElement {
                                   editText={editText}
                                   editKind={editKind}
                                   editError={editError}
+                                  saving={savingValue}
                                   setEditText={setEditText}
                                   setEditKind={setEditKind}
                                   onStartEdit={() => startOverride(f)}
                                   onSubmit={submitOverride}
-                                  onCancelEdit={() =>
-                                    withViewTransition(() => setEditKey(null))
-                                  }
+                                  onCancelEdit={closeEdits}
                                   onEditDefinition={() => {
                                     withViewTransition(() => {
-                                      setEditKey(null);
+                                      cancelEdits();
                                       setSchemaEdit(f.key);
                                     });
                                   }}
@@ -2223,26 +2205,27 @@ export default function ConfigDetailPage(): React.ReactElement {
                               );
                             })}
 
-                            {resolved.fields.length === 0 &&
-                              schemaEdit !== "add" && (
-                                <TableRow>
-                                  <TableCell colSpan={6}>
-                                    <Text color="text-low">No fields yet.</Text>
-                                  </TableCell>
-                                </TableRow>
-                              )}
+                            {resolved.fields.length === 0 && !addingField && (
+                              <TableRow>
+                                <TableCell colSpan={6}>
+                                  <Text color="text-low">No fields yet.</Text>
+                                </TableCell>
+                              </TableRow>
+                            )}
                             {addFieldRows}
                           </TableBody>
                         </Table>
                         {renderAddField()}
                         {renderAddMixin()}
                       </Box>
-                    </TabsContent>
+                    )}
 
                     {/* JSON and Resolved share ONE editor instance (only the `view` prop
                     flips), so the component stays mounted and edit buffers survive. */}
                     {(activeTab === "json" || activeTab === "resolved") && (
                       <ConfigJsonEditor
+                        // A revision switch starts it afresh, even when the values match.
+                        key={selectedRevisionId ?? "live"}
                         valueJson={displayedConfig.value ?? "{}"}
                         schemaJson={JSON.stringify(ownSchema().fields)}
                         ancestorOwnedKeys={ancestorOwnedKeys}
@@ -2264,7 +2247,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                         }
                       />
                     )}
-                  </Tabs>
+                  </Flex>
                 </SectionFrame>
 
                 {(keyUsage?.implementations?.length ?? 0) > 0 && (
@@ -2563,13 +2546,15 @@ export default function ConfigDetailPage(): React.ReactElement {
         />
       )}
 
-      {navigationGuard.pendingHref ? (
+      {navigationGuard.pendingHref || navigationGuard.pendingAction ? (
         <ConfirmDialog
-          title="Leave without saving?"
-          content="You have unsaved changes to this Config. Leaving this page discards them."
+          title="Discard unsaved changes?"
+          content="You have unsaved changes to this Config. Continuing discards them."
           // Staying is the primary action; leaving is the secondary one.
           yesText="Keep editing"
-          noText="Leave page"
+          noText={
+            navigationGuard.pendingHref ? "Leave page" : "Discard changes"
+          }
           onConfirm={navigationGuard.cancelNavigation}
           onCancel={navigationGuard.confirmNavigation}
           onDismiss={navigationGuard.cancelNavigation}

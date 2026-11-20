@@ -28,6 +28,7 @@ import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import EditableValueFrame, {
   inPlaceEditor,
 } from "@/components/Features/EditableValueFrame";
@@ -87,7 +88,6 @@ export function FieldRowMenu({ children }: { children: ReactNode }) {
 export default function ConfigFieldRow({
   field: f,
   configKey,
-  inheritsValue = false,
   isOwnField,
   canEditInline,
   constantContext,
@@ -96,6 +96,7 @@ export default function ConfigFieldRow({
   editText,
   editKind,
   editError,
+  saving = false,
   setEditText,
   setEditKind,
   onStartEdit,
@@ -114,8 +115,6 @@ export default function ConfigFieldRow({
 }: {
   field: ResolvedField;
   configKey: string;
-  // The config inherits from a parent, so its JSON edits deep-merge onto it.
-  inheritsValue?: boolean;
   isOwnField: boolean;
   canEditInline: boolean;
   constantContext: { project?: string; excludeKeys?: string[] };
@@ -124,6 +123,7 @@ export default function ConfigFieldRow({
   editText: string;
   editKind: "value" | "null";
   editError: string | null;
+  saving?: boolean;
   setEditText: (v: string) => void;
   setEditKind: (k: "value" | "null") => void;
   onStartEdit: () => void;
@@ -134,6 +134,7 @@ export default function ConfigFieldRow({
   onRemoveOverride: () => void;
   // Render the inherited value struck-through beneath the current value.
   showParentValue?: boolean;
+  // What the parent chain resolves this key to; JSON edits deep-merge onto an object.
   parentValue?: unknown;
   // This field is referenced by a validation rule that currently fails.
   hasValidationError?: boolean;
@@ -265,10 +266,16 @@ export default function ConfigFieldRow({
                   {(() => {
                     const nullable = fieldIsNullable(nf);
                     const isNull = editKind === "null";
-                    const disabled = isNull;
                     const vt = fieldValueType(nf);
                     const enumValues =
                       vt !== "json" && vt !== "boolean" ? (nf?.enum ?? []) : [];
+                    const nullToggle = (nullable || isNull) && vt !== "json";
+                    const deepMerges =
+                      vt === "json" &&
+                      !isNull &&
+                      typeof parentValue === "object" &&
+                      parentValue !== null &&
+                      !Array.isArray(parentValue);
                     return (
                       <>
                         <Box className={inPlaceEditor}>
@@ -284,7 +291,7 @@ export default function ConfigFieldRow({
                               ]}
                               initialOption="Not set"
                               sort={false}
-                              disabled={disabled}
+                              disabled={isNull}
                             />
                           ) : enumValues.length > 0 ? (
                             <SelectField
@@ -298,20 +305,20 @@ export default function ConfigFieldRow({
                               }))}
                               initialOption="Not set"
                               sort={false}
-                              disabled={disabled}
+                              disabled={isNull}
                             />
                           ) : (
                             <FeatureValueField
                               size="md"
                               id={`config-value-${f.key}`}
-                              value={disabled ? "" : editText}
+                              value={isNull ? "" : editText}
                               setValue={setEditText}
                               valueType={vt}
                               placeholder="Not set"
                               codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                               constantContext={constantContext}
                               fullWidth
-                              disabled={disabled}
+                              disabled={isNull}
                             />
                           )}
                         </Box>
@@ -320,10 +327,9 @@ export default function ConfigFieldRow({
                             <MarkdownLinks text={editError} />
                           </HelperText>
                         )}
-                        {((vt === "json" && inheritsValue && !disabled) ||
-                          (nullable && vt !== "json")) && (
+                        {(deepMerges || nullToggle) && (
                           <Flex align="center" gap="3" mt="1">
-                            {vt === "json" && inheritsValue && !disabled && (
+                            {deepMerges && (
                               <Tooltip content="Nested JSON objects deep-merge onto the inherited value — set only the keys you want to change.">
                                 <span
                                   style={{
@@ -338,7 +344,7 @@ export default function ConfigFieldRow({
                                 </span>
                               </Tooltip>
                             )}
-                            {nullable && vt !== "json" && (
+                            {nullToggle && (
                               <Checkbox
                                 size="sm"
                                 label={<code>null</code>}
@@ -405,14 +411,12 @@ export default function ConfigFieldRow({
                       )
                     }
                   </EditableValueFrame>
-                  {showParentValue && (
+                  {showParentValue && parentValue !== undefined && (
                     <Box
                       mt="1"
                       style={{ textDecoration: "line-through", opacity: 0.5 }}
                     >
-                      {parentValue === undefined ? (
-                        <Text color="text-low">Not set</Text>
-                      ) : parentValue === null ? (
+                      {parentValue === null ? (
                         <ValueDisplay
                           value="null"
                           type="json"
@@ -447,14 +451,15 @@ export default function ConfigFieldRow({
           <Flex align="center" gap="1" style={{ minHeight: 32, minWidth: 0 }}>
             <code
               style={{
+                display: "flex",
+                minWidth: 0,
                 color: "var(--slate-9)",
                 fontSize: "0.8em",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
               }}
             >
-              {fieldTypeLabel(nf)}
+              <OverflowText tooltip maxWidth="100%">
+                {fieldTypeLabel(nf)}
+              </OverflowText>
             </code>
             {schemaPreview && (
               <Popover
@@ -469,11 +474,14 @@ export default function ConfigFieldRow({
                     size="1"
                     radius="full"
                     highContrast
-                    title="View JSON Schema"
                     aria-label="View JSON Schema"
                     style={{ flexShrink: 0 }}
                   >
-                    <PiMagnifyingGlass />
+                    <Tooltip content="View JSON Schema">
+                      <span style={{ display: "inline-flex" }}>
+                        <PiMagnifyingGlass />
+                      </span>
+                    </Tooltip>
                   </IconButton>
                 }
                 content={
@@ -539,7 +547,6 @@ export default function ConfigFieldRow({
               <Badge
                 color="gray"
                 variant="soft"
-                title={sourceName}
                 style={{ maxWidth: "100%" }}
                 label={
                   <Flex align="center" gap="1" style={{ minWidth: 0 }}>
@@ -547,35 +554,24 @@ export default function ConfigFieldRow({
                     {f.source ? (
                       <Link
                         href={`/configs/${f.source}`}
-                        title={`View Config: ${sourceName}`}
-                        className="hover-underline"
                         style={{
                           display: "flex",
-                          alignItems: "center",
-                          overflow: "hidden",
+                          minWidth: 0,
                           color: "var(--accent-11)",
                         }}
                       >
-                        <span
-                          style={{
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
+                        <OverflowText
+                          tooltip
+                          maxWidth="100%"
+                          className="hover-underline"
                         >
                           {sourceName}
-                        </span>
+                        </OverflowText>
                       </Link>
                     ) : (
-                      <span
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
+                      <OverflowText tooltip maxWidth="100%">
                         {sourceName}
-                      </span>
+                      </OverflowText>
                     )}
                   </Flex>
                 }
@@ -593,32 +589,27 @@ export default function ConfigFieldRow({
             {isEditing
               ? null
               : canEditInline && (
-                  <>
-                    <FieldRowMenu>
-                      {valueEdit && (
-                        <DropdownMenuItem onClick={onStartEdit}>
-                          {valueEdit}
+                  <FieldRowMenu>
+                    {valueEdit && (
+                      <DropdownMenuItem onClick={onStartEdit}>
+                        {valueEdit}
+                      </DropdownMenuItem>
+                    )}
+                    {isOwnField ? (
+                      <>
+                        <DropdownMenuItem onClick={onEditDefinition}>
+                          Edit field
                         </DropdownMenuItem>
-                      )}
-                      {isOwnField ? (
-                        <>
-                          <DropdownMenuItem onClick={onEditDefinition}>
-                            Edit field
-                          </DropdownMenuItem>
-                          <DropdownMenuItem color="red" onClick={onRemoveField}>
-                            Remove field
-                          </DropdownMenuItem>
-                        </>
-                      ) : here ? (
-                        <DropdownMenuItem
-                          color="red"
-                          onClick={onRemoveOverride}
-                        >
-                          Remove override
+                        <DropdownMenuItem color="red" onClick={onRemoveField}>
+                          Remove field
                         </DropdownMenuItem>
-                      ) : null}
-                    </FieldRowMenu>
-                  </>
+                      </>
+                    ) : here ? (
+                      <DropdownMenuItem color="red" onClick={onRemoveOverride}>
+                        Remove override
+                      </DropdownMenuItem>
+                    ) : null}
+                  </FieldRowMenu>
                 )}
           </Flex>
         </TableCell>
@@ -627,6 +618,7 @@ export default function ConfigFieldRow({
         <ConfigEditActions
           colSpan={6}
           background={tint ?? undefined}
+          saving={saving}
           onSave={onSubmit}
           onCancel={onCancelEdit}
         />

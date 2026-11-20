@@ -1,4 +1,19 @@
-import { pinnedCellBackground } from "@/components/Configs/fieldSchema";
+import { SchemaField } from "shared/types/feature";
+import {
+  fieldValueType,
+  parseFieldValueInput,
+  pinnedCellBackground,
+} from "@/components/Configs/fieldSchema";
+
+const field = (overrides: Partial<SchemaField>): SchemaField => ({
+  key: "k",
+  type: "string",
+  required: false,
+  default: "",
+  description: "",
+  enum: [],
+  ...overrides,
+});
 
 describe("pinnedCellBackground", () => {
   it("lays a row's tint over the opaque panel color", () => {
@@ -9,5 +24,57 @@ describe("pinnedCellBackground", () => {
 
   it("leaves an untinted row to the table's own background", () => {
     expect(pinnedCellBackground(null)).toBeUndefined();
+  });
+});
+
+describe("fieldValueType", () => {
+  it.each([
+    ['{"enum":["eu","us"]}', "string"],
+    ['{"enum":[1,2,null]}', "number"],
+    ['{"enum":[true,false]}', "boolean"],
+    ['{"enum":["a",1]}', "json"],
+    ['{"type":"object"}', "json"],
+  ])("reads %s as %s", (jsonSchema, expected) => {
+    expect(fieldValueType(field({ jsonSchema }))).toBe(expected);
+  });
+});
+
+describe("parseFieldValueInput", () => {
+  const object = { jsonSchema: '{"type":"object"}' };
+
+  it.each([
+    [{ type: "integer" }, " 12 ", 12],
+    [{ type: "float" }, "1.5", 1.5],
+    [{ type: "boolean" }, "true", true],
+    // A string keeps its text as typed.
+    [{}, " a b ", " a b "],
+    [object, '{"a":1}', { a: 1 }],
+  ] as const)("reads %j %j", (overrides, text, value) => {
+    expect(parseFieldValueInput(text, field(overrides))).toEqual({
+      kind: "value",
+      value,
+    });
+  });
+
+  it.each([
+    [{ type: "integer" }, "1.5", "Value must be an integer"],
+    [{ type: "integer" }, "12abc", "Value must be a number"],
+    [{ type: "boolean" }, "hello", "Value must be true or false"],
+    [object, "{", expect.any(String)],
+  ] as const)("rejects %j %j", (overrides, text, error) => {
+    expect(parseFieldValueInput(text, field(overrides))).toEqual({
+      kind: "error",
+      error,
+    });
+  });
+
+  it("reads empty text as not set, and null as null", () => {
+    expect(parseFieldValueInput("  ", field({ type: "float" }))).toEqual({
+      kind: "unset",
+    });
+    expect(parseFieldValueInput("", field({}), true)).toEqual({
+      kind: "value",
+      value: null,
+    });
   });
 });

@@ -12,7 +12,8 @@ function pathnameOf(url: string) {
 
 /**
  * While there are unsaved changes, leaving the page asks first and closing the
- * tab warns; same-page changes pass through. `onLeave` runs on confirm.
+ * tab warns; same-page changes pass through unless sent through `confirmThen`.
+ * `onLeave` runs on confirm.
  */
 export default function useUnsavedChangesGuard(
   hasUnsavedChanges: boolean,
@@ -20,6 +21,7 @@ export default function useUnsavedChangesGuard(
 ) {
   const router = useRouter();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const navigationConfirmed = useRef(false);
 
   useEffect(() => {
@@ -61,6 +63,7 @@ export default function useUnsavedChangesGuard(
 
       event.preventDefault();
       event.stopPropagation();
+      setPendingAction(null);
       setPendingHref(destination.href);
     };
 
@@ -72,6 +75,7 @@ export default function useUnsavedChangesGuard(
       // Another guard's confirmed navigation passes too, so one dialog is enough.
       if (navigationConfirmed.current || isNavigationConfirmed()) return;
       if (pathnameOf(url) === pathnameOf(router.asPath)) return;
+      setPendingAction(null);
       setPendingHref(url);
       router.events.emit("routeChangeError", cancellation.error, url, options);
       // Next's pages router only cancels a route change when a handler throws.
@@ -93,7 +97,23 @@ export default function useUnsavedChangesGuard(
     navigationConfirmed.current = true;
   }, []);
 
+  // An in-page change that would drop the unsaved changes asks first.
+  const confirmThen = (action: () => void) => {
+    if (!hasUnsavedChanges) {
+      action();
+      return;
+    }
+    setPendingHref(null);
+    setPendingAction(() => action);
+  };
+
   const confirmNavigation = async () => {
+    if (pendingAction) {
+      setPendingAction(null);
+      onLeave?.();
+      pendingAction();
+      return;
+    }
     if (!pendingHref) return;
     navigationConfirmed.current = true;
     setPendingHref(null);
@@ -107,8 +127,13 @@ export default function useUnsavedChangesGuard(
 
   return {
     pendingHref,
+    pendingAction: pendingAction !== null,
+    confirmThen,
     confirmNavigation,
-    cancelNavigation: () => setPendingHref(null),
+    cancelNavigation: () => {
+      setPendingHref(null);
+      setPendingAction(null);
+    },
     allowUnload,
   };
 }
