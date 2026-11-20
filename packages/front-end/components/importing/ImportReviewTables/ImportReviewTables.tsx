@@ -1,5 +1,5 @@
 import React, { Fragment, useState } from "react";
-import { Box, Grid, VisuallyHidden } from "@radix-ui/themes";
+import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
 import Frame from "@/ui/Frame";
 import Badge from "@/ui/Badge";
 import Checkbox from "@/ui/Checkbox";
@@ -108,7 +108,7 @@ export default function ImportReviewTables<C extends string>({
               mb="3"
             />
             <Box style={{ maxHeight: 600, overflowY: "auto" }}>
-              <Table size="sm">
+              <Table variant="list" stickyHeader={false}>
                 <TableHeader>
                   <TableRow>
                     <TableColumnHeader style={{ width: 40 }}>
@@ -128,23 +128,27 @@ export default function ImportReviewTables<C extends string>({
                     const id = `${category}:${item.key}`;
                     return (
                       <Fragment key={id}>
-                        <TableRow>
+                        <TableRow align="center">
                           <TableCell>
                             {untouched(item) ? null : (
-                              <Checkbox
-                                size="sm"
-                                label={
-                                  <VisuallyHidden>{item.name}</VisuallyHidden>
-                                }
-                                value={
-                                  item.status !== "invalid" &&
-                                  isSelected(category, item.key)
-                                }
-                                setValue={(v) =>
-                                  setSelected(category, [item.key], v)
-                                }
-                                disabled={item.status === "invalid"}
-                              />
+                              // A block wrapper, so the checkbox centers on the row instead of
+                              // sitting on the text baseline
+                              <Flex align="center">
+                                <Checkbox
+                                  size="sm"
+                                  label={
+                                    <VisuallyHidden>{item.name}</VisuallyHidden>
+                                  }
+                                  value={
+                                    item.status !== "invalid" &&
+                                    isSelected(category, item.key)
+                                  }
+                                  setValue={(v) =>
+                                    setSelected(category, [item.key], v)
+                                  }
+                                  disabled={item.status === "invalid"}
+                                />
+                              </Flex>
                             )}
                           </TableCell>
                           <TableRowHeaderCell>
