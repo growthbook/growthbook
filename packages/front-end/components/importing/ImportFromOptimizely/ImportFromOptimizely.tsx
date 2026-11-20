@@ -113,6 +113,8 @@ export default function ImportFromOptimizely() {
   const [busy, setBusy] = useState<"fetching" | "importing" | null>(null);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Which step the error belongs to, so it shows next to that step's button
+  const [errorStep, setErrorStep] = useState<"fetch" | "import">("fetch");
   const [results, setResults] = useState<Record<string, ImportResult>>({});
   const [selection, setSelection] = useState<Record<string, boolean>>({});
 
@@ -286,6 +288,7 @@ export default function ImportFromOptimizely() {
     setBusy("fetching");
     setProgress("");
     setError(null);
+    setErrorStep("fetch");
     try {
       const [fetched] = await Promise.all([
         fetchOptimizelyData(
@@ -313,6 +316,7 @@ export default function ImportFromOptimizely() {
     });
     setBusy("importing");
     setError(null);
+    setErrorStep("import");
 
     let pending: Record<string, ImportResult> = {};
     const flush = () => {
@@ -397,11 +401,14 @@ export default function ImportFromOptimizely() {
             }}
             helpText="The number after /projects/ in the Optimizely URL"
           />
-          <TextField
+          <SelectField
             label="GrowthBook Project"
             value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
-            placeholder="All Projects"
+            initialOption="All Projects"
+            // Typing a new name creates that Project when the import starts
+            createable
+            options={projects.map((p) => ({ label: p.name, value: p.name }))}
+            onChange={setProjectName}
             helpText={
               newProjectName ? `"${newProjectName}" will be created` : undefined
             }
@@ -424,7 +431,7 @@ export default function ImportFromOptimizely() {
         </Box>
       </Frame>
 
-      {error && !data ? (
+      {error && errorStep === "fetch" ? (
         <Callout status="error" mb="4">
           {error}
         </Callout>
@@ -536,7 +543,7 @@ export default function ImportFromOptimizely() {
         </Callout>
       ) : null}
 
-      {error && data ? (
+      {error && errorStep === "import" ? (
         <Callout status="error" mb="4">
           {error}
         </Callout>

@@ -108,7 +108,8 @@ export default function ImportReviewTables<C extends string>({
               mb="3"
             />
             <Box style={{ maxHeight: 600, overflowY: "auto" }}>
-              <Table variant="list" stickyHeader={false}>
+              {/* The header sticks to this box, not the page */}
+              <Table variant="list" stickyTopOffset={0}>
                 <TableHeader>
                   <TableRow>
                     <TableColumnHeader style={{ width: 40 }}>
