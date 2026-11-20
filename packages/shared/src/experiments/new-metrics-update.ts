@@ -144,14 +144,15 @@ export function getComputableNewMetricIds({
 
 type SnapshotLineage = Pick<
   ExperimentSnapshotInterface,
-  "type" | "dateCreated" | "newMetricsUpdate"
+  "type" | "dateCreated" | "updateScope"
 >;
 
 export function getNewMetricsUpdate(
-  snapshot: Pick<ExperimentSnapshotInterface, "type" | "newMetricsUpdate">,
+  snapshot: Pick<ExperimentSnapshotInterface, "type" | "updateScope">,
 ): SnapshotNewMetricsUpdate | null {
-  return snapshot.type === "standard"
-    ? (snapshot.newMetricsUpdate ?? null)
+  return snapshot.type === "standard" &&
+    snapshot.updateScope?.kind === "new_metrics"
+    ? snapshot.updateScope
     : null;
 }
 
@@ -182,7 +183,7 @@ export function getNewMetricsUpdateMetricCounts(
 export function getStatsEngineAnalysisSettings(
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "type" | "newMetricsUpdate" | "settings"
+    "type" | "updateScope" | "settings"
   >,
   analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): ExperimentSnapshotAnalysisSettings {
@@ -221,7 +222,9 @@ export function getCopiedMetricCounts(
 }
 
 export function getSnapshotDataAsOfDate(snapshot: SnapshotLineage): Date {
-  return getNewMetricsUpdate(snapshot)?.baseDateCreated ?? snapshot.dateCreated;
+  return (
+    getNewMetricsUpdate(snapshot)?.base.dateCreated ?? snapshot.dateCreated
+  );
 }
 
 /**
@@ -231,7 +234,7 @@ export function getSnapshotDataAsOfDate(snapshot: SnapshotLineage): Date {
 export function getResultsDateEnd(
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "type" | "newMetricsUpdate" | "runStarted"
+    "type" | "updateScope" | "runStarted"
   >,
   phase: { dateEnded?: Date | null } | undefined,
 ): Date | null {
@@ -239,7 +242,7 @@ export function getResultsDateEnd(
   const newMetricsUpdate = getNewMetricsUpdate(snapshot);
   return (
     (newMetricsUpdate
-      ? newMetricsUpdate.baseRunStarted
+      ? newMetricsUpdate.base.runStarted
       : snapshot.runStarted) ?? null
   );
 }
@@ -261,7 +264,7 @@ export function getSnapshotSideEffects(snapshot: SnapshotLineage) {
       },
     };
   }
-  const newMetricIds = new Set(newMetricsUpdate.metricIds);
+  const newMetricIds = new Set(newMetricsUpdate.queriedMetricIds);
   return {
     advanceUpdateSchedule: false,
     refreshDashboards: false,
@@ -269,7 +272,7 @@ export function getSnapshotSideEffects(snapshot: SnapshotLineage) {
     timeSeries: {
       includesMetric: (metricId: string): boolean =>
         newMetricIds.has(getDefinitionMetricId(metricId)),
-      pointDate: newMetricsUpdate.baseDateCreated,
+      pointDate: newMetricsUpdate.base.dateCreated,
     },
   };
 }

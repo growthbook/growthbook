@@ -307,19 +307,20 @@ export function getNewMetricRowStates({
   newMetricIds: readonly string[];
   latest: Pick<
     SnapshotStatusSummary,
-    "type" | "status" | "error" | "newMetricsUpdate"
+    "type" | "status" | "error" | "updateScope"
   > | null;
 }): Map<string, NewMetricRowState> {
   const newMetricsUpdate = latest ? getNewMetricsUpdate(latest) : null;
   const getState = (metricId: string): NewMetricRowState => {
     if (latest?.status === "running") {
-      return !newMetricsUpdate || newMetricsUpdate.metricIds.includes(metricId)
+      return !newMetricsUpdate ||
+        newMetricsUpdate.queriedMetricIds.includes(metricId)
         ? { status: "running" }
         : { status: "notComputed" };
     }
     if (
       latest?.status === "error" &&
-      newMetricsUpdate?.metricIds.includes(metricId)
+      newMetricsUpdate?.queriedMetricIds.includes(metricId)
     ) {
       return { status: "failed", error: latest.error ?? null };
     }

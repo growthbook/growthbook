@@ -1072,12 +1072,15 @@ describe("snapshots API", () => {
         status: "running",
         type: "standard",
         settings: { ...base.settings, endDate: refreshEndDate },
-        newMetricsUpdate: {
-          baseDateCreated: refreshEndDate,
-          baseRunStarted: null,
-          baseCutoffDate: null,
+        updateScope: {
+          kind: "new_metrics" as const,
           parentSnapshotId: "snp_base",
-          metricIds: ["fact__new"],
+          queriedMetricIds: ["fact__new"],
+          base: {
+            dateCreated: refreshEndDate,
+            runStarted: null,
+            cutoffDate: null,
+          },
         },
       });
       const experiment = {
@@ -1159,7 +1162,7 @@ describe("snapshots API", () => {
       createExperimentSnapshot
         .mockRejectedValueOnce(copiedMetricEdited())
         .mockResolvedValueOnce({
-          snapshot: { ...snapshot, newMetricsUpdate: undefined },
+          snapshot: { ...snapshot, updateScope: undefined },
           queryRunner: {},
         });
 
@@ -1187,7 +1190,7 @@ describe("snapshots API", () => {
         new Date(Date.now() - 3 * 3_600_000),
       );
       createExperimentSnapshot.mockResolvedValueOnce({
-        snapshot: { ...snapshot, newMetricsUpdate: undefined },
+        snapshot: { ...snapshot, updateScope: undefined },
         queryRunner: {},
       });
 

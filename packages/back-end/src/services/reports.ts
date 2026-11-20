@@ -548,7 +548,7 @@ export async function createReportSnapshot({
     // over from the experiment; warnings then use the report's own results.
     health: undefined,
     // A report refresh queries every metric itself.
-    newMetricsUpdate: undefined,
+    updateScope: undefined,
     hasChunkedAnalyses: false,
     chunkedAnalysesMeta: {},
     analyses: [

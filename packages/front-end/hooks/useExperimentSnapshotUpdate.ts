@@ -1,6 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  SnapshotUpdateScopeKind,
+} from "shared/types/experiment-snapshot";
 import { isDimensionPrecomputed } from "shared/experiments";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useAuth } from "@/services/auth";
@@ -14,20 +17,16 @@ export type SnapshotRefreshBlocker = {
   reason: string;
 };
 
-// "new_metrics" computes only the metrics added since the last update, up to
-// its end date.
-type UpdateScope = "new_metrics" | "all_metrics";
-
 type SubmitUpdateOptions = {
   force?: boolean;
   fullRefreshReasons?: string[];
-  updateScope?: UpdateScope;
+  updateScope?: SnapshotUpdateScopeKind;
 };
 
 type PostSnapshotOptions = {
   force?: boolean;
   trackingSource?: string;
-  updateScope?: UpdateScope;
+  updateScope?: SnapshotUpdateScopeKind;
 };
 
 type PostSnapshotResult =
@@ -174,7 +173,7 @@ export function useExperimentSnapshotUpdate({
         const res = await apiCall<{
           status: 200;
           snapshot: ExperimentSnapshotInterface;
-          updateScope: UpdateScope;
+          updateScope: SnapshotUpdateScopeKind;
         }>(
           `/experiment/${experiment.id}/snapshot${force ? "?force=true" : ""}`,
           {

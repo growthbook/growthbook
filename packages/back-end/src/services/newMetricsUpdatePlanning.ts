@@ -4,6 +4,7 @@ import pick from "lodash/pick";
 import {
   getDefinitionMetricId,
   getMetricIdsMissingFromSnapshot,
+  getNewMetricsUpdate,
   getNewMetricsUpdateParentRefusal,
   getNewMetricsUpdatePlanRefusal,
   getNewMetricsUpdateSetupBlocker,
@@ -233,10 +234,10 @@ export async function planNewMetricsUpdate({
   const snapshot = {
     ...plan.snapshot,
     settings,
-    newMetricsUpdate: getNewMetricsUpdateLineage(parent, queriedMetricIds),
+    updateScope: getNewMetricsUpdateLineage(parent, queriedMetricIds),
   };
   const carriedQueries = parent.queries.filter((q) =>
-    isCarriedNewMetricsUpdateQuery(q.name, snapshot, snapshot.newMetricsUpdate),
+    isCarriedNewMetricsUpdateQuery(q.name, snapshot, snapshot.updateScope),
   );
   if (carriedQueries.some((q) => q.status !== "succeeded")) {
     throw new NewMetricsUpdateUnavailableError("base_incomplete");
@@ -419,22 +420,20 @@ export function mergeNewMetricsUpdateSettings({
 export function getNewMetricsUpdateLineage(
   parent: Pick<
     ExperimentSnapshotInterface,
-    "id" | "dateCreated" | "runStarted" | "settings" | "newMetricsUpdate"
+    "id" | "dateCreated" | "runStarted" | "settings" | "updateScope"
   >,
-  metricIds: string[],
+  queriedMetricIds: string[],
 ): SnapshotNewMetricsUpdate {
-  const root = parent.newMetricsUpdate
-    ? {
-        baseDateCreated: parent.newMetricsUpdate.baseDateCreated,
-        baseRunStarted: parent.newMetricsUpdate.baseRunStarted,
-        baseCutoffDate: parent.newMetricsUpdate.baseCutoffDate,
-      }
-    : {
-        baseDateCreated: parent.dateCreated,
-        baseRunStarted: parent.runStarted,
-        baseCutoffDate: getSnapshotCutoffDate(parent.settings),
-      };
-  return { ...root, parentSnapshotId: parent.id, metricIds };
+  return {
+    kind: "new_metrics",
+    parentSnapshotId: parent.id,
+    queriedMetricIds,
+    base: getNewMetricsUpdate(parent)?.base ?? {
+      dateCreated: parent.dateCreated,
+      runStarted: parent.runStarted,
+      cutoffDate: getSnapshotCutoffDate(parent.settings),
+    },
+  };
 }
 
 /**

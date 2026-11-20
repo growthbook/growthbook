@@ -1,10 +1,9 @@
 import { useRef, useState } from "react";
 import { PiArrowClockwise, PiCaretDownFill } from "react-icons/pi";
+import type { SnapshotUpdateScopeKind } from "shared/types/experiment-snapshot";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SplitButton from "@/ui/SplitButton";
-
-type UpdateScope = "new_metrics" | "all_metrics";
 
 export default function NewMetricsUpdateButton({
   onUpdateNewMetrics,
@@ -18,8 +17,12 @@ export default function NewMetricsUpdateButton({
   // Shared by both actions, so neither can start while the other's request is
   // in flight. The ref also catches a second click before the re-render.
   const pendingRef = useRef(false);
-  const [pendingScope, setPendingScope] = useState<UpdateScope | null>(null);
-  const runUpdate = async (scope: UpdateScope, update: () => Promise<void>) => {
+  const [pendingScope, setPendingScope] =
+    useState<SnapshotUpdateScopeKind | null>(null);
+  const runUpdate = async (
+    scope: SnapshotUpdateScopeKind,
+    update: () => Promise<void>,
+  ) => {
     if (pendingRef.current) return;
     pendingRef.current = true;
     setPendingScope(scope);

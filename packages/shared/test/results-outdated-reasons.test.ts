@@ -265,12 +265,15 @@ describe("getResultsOutdatedReasons", () => {
         experiment: runningExperiment,
         snapshot: snapshot(laggedSettings, {
           dateCreated: new Date(now),
-          newMetricsUpdate: {
+          updateScope: {
+            kind: "new_metrics" as const,
             parentSnapshotId: "snp_base",
-            metricIds: ["fact__a"],
-            baseDateCreated: threeDaysAgo,
-            baseRunStarted: null,
-            baseCutoffDate: laggedSettings.endDate,
+            queriedMetricIds: ["fact__a"],
+            base: {
+              dateCreated: threeDaysAgo,
+              runStarted: null,
+              cutoffDate: laggedSettings.endDate,
+            },
           },
         }),
       }),

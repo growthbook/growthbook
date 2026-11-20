@@ -861,12 +861,15 @@ describe("a new-metrics update run on the Incremental Pipeline", () => {
         type: "standard",
         runnerKind: "incremental-update",
         settings,
-        newMetricsUpdate: {
-          baseDateCreated: BASE_END,
-          baseRunStarted: null,
-          baseCutoffDate: BASE_END,
+        updateScope: {
+          kind: "new_metrics" as const,
           parentSnapshotId: "snp_base",
-          metricIds: ["a3"],
+          queriedMetricIds: ["a3"],
+          base: {
+            dateCreated: BASE_END,
+            runStarted: null,
+            cutoffDate: BASE_END,
+          },
         },
       }),
       fakeIntegration(1000).integration,

@@ -607,7 +607,7 @@ export default function AnalysisSettingsSummary({
   const snapshotCutoffDate = !snapshot
     ? null
     : snapshotNewMetricsUpdate
-      ? snapshotNewMetricsUpdate.baseCutoffDate
+      ? snapshotNewMetricsUpdate.base.cutoffDate
       : getSnapshotCutoffDate(snapshot.settings);
 
   // If a dimension breakdown already covers the latest Overall Results, another

@@ -1353,12 +1353,15 @@ describe("ExperimentSnapshotModel", () => {
         await insertOverall("snp_refresh", at(3), {
           ...overrides,
           status: "running",
-          newMetricsUpdate: {
-            baseDateCreated: at(0),
-            baseRunStarted: null,
-            baseCutoffDate: at(0),
+          updateScope: {
+            kind: "new_metrics" as const,
             parentSnapshotId,
-            metricIds: ["met_1"],
+            queriedMetricIds: ["met_1"],
+            base: {
+              dateCreated: at(0),
+              runStarted: null,
+              cutoffDate: at(0),
+            },
           },
         });
         await updateSnapshot({

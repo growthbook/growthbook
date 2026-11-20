@@ -161,11 +161,14 @@ describe("getNewMetricRowStates", () => {
       }),
     );
   const refreshOf = (metricIds: string[]) => ({
-    baseDateCreated: new Date("2026-11-16T09:00:00Z"),
-    baseRunStarted: null,
-    baseCutoffDate: null,
+    kind: "new_metrics" as const,
     parentSnapshotId: "snp_base",
-    metricIds,
+    queriedMetricIds: metricIds,
+    base: {
+      dateCreated: new Date("2026-11-16T09:00:00Z"),
+      runStarted: null,
+      cutoffDate: null,
+    },
   });
 
   it("marks every new metric as not computed", () => {
@@ -224,7 +227,7 @@ describe("getNewMetricRowStates", () => {
       latest: {
         type: "standard" as const,
         status: "running" as const,
-        newMetricsUpdate: refreshOf(["met_goal", "met_secondary"]),
+        updateScope: refreshOf(["met_goal", "met_secondary"]),
       },
       expected: {
         met_goal: { status: "running" },
@@ -247,7 +250,7 @@ describe("getNewMetricRowStates", () => {
         type: "standard" as const,
         status: "error" as const,
         error: "Query failed",
-        newMetricsUpdate: refreshOf(["met_goal"]),
+        updateScope: refreshOf(["met_goal"]),
       },
       expected: {
         met_goal: { status: "failed", error: "Query failed" },

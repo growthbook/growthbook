@@ -205,7 +205,7 @@ export function getResultsOutdatedReasons({
   experiment: ResultsOutdatedExperiment;
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "settings" | "analyses" | "type" | "dateCreated" | "newMetricsUpdate"
+    "settings" | "analyses" | "type" | "dateCreated" | "updateScope"
   >;
   metricGroups: MetricGroupInterface[];
   orgSettings: Pick<

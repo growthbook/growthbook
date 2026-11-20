@@ -373,15 +373,18 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
       dateCreated: ranAt,
       runStarted: ranAt,
       settings: { ...refresh.settings, endDate: dataEnd },
-      newMetricsUpdate: {
-        baseDateCreated: baseRanAt,
-        baseRunStarted,
-        baseCutoffDate: dataEnd,
+      updateScope: {
+        kind: "new_metrics" as const,
         parentSnapshotId: "snp_base",
-        metricIds: ["met_1"],
+        queriedMetricIds: ["met_1"],
+        base: {
+          dateCreated: baseRanAt,
+          runStarted: baseRunStarted,
+          cutoffDate: dataEnd,
+        },
       },
     });
-    const fullRun = { ...refresh, newMetricsUpdate: undefined };
+    const fullRun = { ...refresh, updateScope: undefined };
 
     const toDates = (snapshot: typeof refresh) => {
       const { dateEnd, dateUpdated } = toSnapshotApiInterface(

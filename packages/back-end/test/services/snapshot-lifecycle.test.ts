@@ -625,12 +625,15 @@ describe("snapshot lifecycle", () => {
               endDate: cutoff,
               endDateIsCutoff: true,
             } as ExperimentSnapshotSettings,
-            newMetricsUpdate: {
-              baseDateCreated: cutoff,
-              baseRunStarted: null,
-              baseCutoffDate: cutoff,
+            updateScope: {
+              kind: "new_metrics" as const,
               parentSnapshotId: "snp_base",
-              metricIds: ["met_new"],
+              queriedMetricIds: ["met_new"],
+              base: {
+                dateCreated: cutoff,
+                runStarted: null,
+                cutoffDate: cutoff,
+              },
             },
           },
         });

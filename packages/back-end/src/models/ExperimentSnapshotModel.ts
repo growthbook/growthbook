@@ -86,13 +86,19 @@ const experimentSnapshotSchema = new mongoose.Schema({
   triggeredBy: String,
   report: String,
   runnerKind: String,
-  newMetricsUpdate: new mongoose.Schema(
+  updateScope: new mongoose.Schema(
     {
-      baseDateCreated: Date,
-      baseRunStarted: Date,
-      baseCutoffDate: Date,
+      kind: String,
       parentSnapshotId: String,
-      metricIds: [String],
+      queriedMetricIds: [String],
+      base: new mongoose.Schema(
+        {
+          dateCreated: Date,
+          runStarted: Date,
+          cutoffDate: Date,
+        },
+        { _id: false },
+      ),
     },
     { _id: false },
   ),
@@ -1266,7 +1272,7 @@ export async function getSnapshotQueryPointers(
 
 export type NewMetricsUpdateAncestor = Pick<
   ExperimentSnapshotInterface,
-  "id" | "type" | "newMetricsUpdate" | "queries"
+  "id" | "type" | "updateScope" | "queries"
 > & {
   settings: Pick<
     ExperimentSnapshotSettings,
@@ -1288,7 +1294,7 @@ export async function findNewMetricsUpdateAncestor(
       _id: 0,
       id: 1,
       type: 1,
-      newMetricsUpdate: 1,
+      updateScope: 1,
       queries: 1,
       "settings.metricSettings": 1,
       "settings.endDateIsCutoff": 1,
@@ -1439,7 +1445,7 @@ const snapshotStatusProjection = {
   banditResult: 1,
   type: 1,
   triggeredBy: 1,
-  newMetricsUpdate: 1,
+  updateScope: 1,
 } as const;
 
 function toSnapshotStatusSummary(
@@ -1457,7 +1463,7 @@ function toSnapshotStatusSummary(
     banditResult: raw.banditResult,
     type: raw.type,
     triggeredBy: raw.triggeredBy,
-    newMetricsUpdate: raw.newMetricsUpdate,
+    updateScope: raw.updateScope,
   };
 }
 

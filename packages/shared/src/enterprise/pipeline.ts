@@ -413,10 +413,7 @@ export function overallResultsBuiltWithoutIncrementalPipeline({
 export function isNewerOverallResultsDataAvailable(
   sourceSnapshot: SourceSnapshotRef | undefined,
   latestSuccessfulOverallResultsSnapshot:
-    | Pick<
-        ExperimentSnapshotInterface,
-        "type" | "dateCreated" | "newMetricsUpdate"
-      >
+    | Pick<ExperimentSnapshotInterface, "type" | "dateCreated" | "updateScope">
     | undefined,
 ): boolean {
   if (!sourceSnapshot || !latestSuccessfulOverallResultsSnapshot) {

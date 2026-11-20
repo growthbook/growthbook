@@ -77,13 +77,13 @@ export async function postReportFromSnapshot(
   // the ones its copied results were computed at.
   const newMetricsUpdate = getNewMetricsUpdate(snapshot);
   if (newMetricsUpdate) {
-    snapshot.dateCreated = newMetricsUpdate.baseDateCreated;
-    snapshot.runStarted = newMetricsUpdate.baseRunStarted;
+    snapshot.dateCreated = newMetricsUpdate.base.dateCreated;
+    snapshot.runStarted = newMetricsUpdate.base.runStarted;
   }
   snapshot.id = generateId("snp_");
   snapshot.type = "report";
   snapshot.triggeredBy = "manual";
-  delete snapshot.newMetricsUpdate;
+  delete snapshot.updateScope;
   if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {
     // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
     snapshot.health.traffic.dimension = {};

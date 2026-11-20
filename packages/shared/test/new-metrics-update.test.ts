@@ -121,12 +121,15 @@ describe("getSnapshotSideEffects", () => {
       type: "standard",
       dateCreated: new Date("2026-11-12T00:00:00Z"),
       settings: { metricSettings: [{ id: "met_a" }, { id: "met_c" }] },
-      newMetricsUpdate: {
-        baseDateCreated,
-        baseRunStarted: null,
-        baseCutoffDate: null,
+      updateScope: {
+        kind: "new_metrics" as const,
         parentSnapshotId: "snp_base",
-        metricIds: ["met_c"],
+        queriedMetricIds: ["met_c"],
+        base: {
+          dateCreated: baseDateCreated,
+          runStarted: null,
+          cutoffDate: null,
+        },
       },
     } as unknown as ExperimentSnapshotInterface);
 
@@ -147,12 +150,15 @@ describe("a report snapshot copied from a new-metrics update", () => {
     type: "report",
     dateCreated: new Date("2026-11-12T00:00:00Z"),
     settings: { metricSettings: [{ id: "fact__a" }] },
-    newMetricsUpdate: {
-      baseDateCreated: new Date("2026-11-10T00:00:00Z"),
-      baseRunStarted: null,
-      baseCutoffDate: null,
+    updateScope: {
+      kind: "new_metrics" as const,
       parentSnapshotId: "snp_base",
-      metricIds: ["fact__new"],
+      queriedMetricIds: ["fact__new"],
+      base: {
+        dateCreated: new Date("2026-11-10T00:00:00Z"),
+        runStarted: null,
+        cutoffDate: null,
+      },
     },
   } as unknown as ExperimentSnapshotInterface;
 
@@ -576,12 +582,10 @@ describe("getStatsEngineAnalysisSettings", () => {
     numGoalMetrics: 0,
     numGuardrailMetrics: 2,
   } as ExperimentSnapshotAnalysisSettings;
-  const snapshot = (
-    newMetricsUpdate?: ExperimentSnapshotInterface["newMetricsUpdate"],
-  ) =>
+  const snapshot = (updateScope?: ExperimentSnapshotInterface["updateScope"]) =>
     ({
       type: "standard",
-      newMetricsUpdate,
+      updateScope,
       settings: {
         goalMetrics: ["met_new"],
         guardrailMetrics: ["met_a", "met_b", "met_c"],
@@ -592,11 +596,10 @@ describe("getStatsEngineAnalysisSettings", () => {
     expect(
       getStatsEngineAnalysisSettings(
         snapshot({
-          baseDateCreated: new Date(),
-          baseRunStarted: null,
-          baseCutoffDate: null,
+          kind: "new_metrics",
           parentSnapshotId: "snp_parent",
-          metricIds: ["met_new"],
+          queriedMetricIds: ["met_new"],
+          base: { dateCreated: new Date(), runStarted: null, cutoffDate: null },
         }),
         analysisSettings,
       ),

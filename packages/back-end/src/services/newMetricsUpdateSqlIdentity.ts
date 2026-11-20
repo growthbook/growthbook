@@ -210,7 +210,7 @@ export async function assertCarriedQuerySqlUnchanged({
     return {
       snapshotId: level.id,
       metricSettings,
-      newMetricIds: getNewMetricsUpdate(level)?.metricIds ?? null,
+      newMetricIds: getNewMetricsUpdate(level)?.queriedMetricIds ?? null,
       endDateIsCutoff,
       analysisAsOf,
     };

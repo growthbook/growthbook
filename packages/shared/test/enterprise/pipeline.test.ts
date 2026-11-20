@@ -297,12 +297,15 @@ describe("isNewerOverallResultsDataAvailable", () => {
     const makeRefresh = (dateCreated: Date, baseDateCreated: Date) => ({
       type: "standard" as const,
       dateCreated,
-      newMetricsUpdate: {
-        baseDateCreated,
-        baseRunStarted: null,
-        baseCutoffDate: null,
+      updateScope: {
+        kind: "new_metrics" as const,
         parentSnapshotId: "root",
-        metricIds: ["met_new"],
+        queriedMetricIds: ["met_new"],
+        base: {
+          dateCreated: baseDateCreated,
+          runStarted: null,
+          cutoffDate: null,
+        },
       },
     });
     const refresh = makeRefresh(new Date("2024-06-01T13:00:00Z"), rootDate);

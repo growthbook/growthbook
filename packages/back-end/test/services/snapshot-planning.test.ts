@@ -2662,7 +2662,9 @@ describe("planExperimentSnapshot", () => {
       const parent = asParent(scheduled.snapshot);
       const plan = await planRefresh(fixture, refresh, parent);
 
-      expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["fact__aov"]);
+      expect(plan.snapshot.updateScope?.queriedMetricIds).toEqual([
+        "fact__aov",
+      ]);
       await expect(
         appRefusal({
           ...fixture,
@@ -2834,7 +2836,7 @@ describe("planExperimentSnapshot", () => {
           dimension: undefined,
           phase: 0,
           updateScope: {
-            kind: "new_metrics",
+            kind: "new_metrics" as const,
             window: null,
             onRefusal: "fail",
           },
@@ -2873,7 +2875,7 @@ describe("planExperimentSnapshot", () => {
             await expect(plan).resolves.toMatchObject({
               snapshot: {
                 runnerKind,
-                newMetricsUpdate: { metricIds: ["fact__guard"] },
+                updateScope: { queriedMetricIds: ["fact__guard"] },
               },
             });
           });

@@ -304,7 +304,7 @@ async function getMetricCountsLineage(
   const visited = new Set<string>();
   let level: Pick<
     NewMetricsUpdateAncestor,
-    "id" | "type" | "newMetricsUpdate" | "settings"
+    "id" | "type" | "updateScope" | "settings"
   > | null = parent;
   while (level && !visited.has(level.id)) {
     visited.add(level.id);
@@ -320,7 +320,7 @@ async function getMetricCountsLineage(
       break;
     }
     lineage.push({
-      queriedMetricIds: newMetricsUpdate.metricIds,
+      queriedMetricIds: newMetricsUpdate.queriedMetricIds,
       counts: getNewMetricsUpdateMetricCounts(level.settings),
     });
     level = await findNewMetricsUpdateAncestor(
@@ -401,7 +401,7 @@ export async function analyzeNewMetricsUpdate({
       analyses,
       freshResults: freshResults.map((r) => r?.dimensions ?? []),
       analyzedMetricIds,
-      newMetricIds: new Set(newMetricsUpdate.metricIds),
+      newMetricIds: new Set(newMetricsUpdate.queriedMetricIds),
       variationWeights: snapshot.settings.variations.map((v) => v.weight),
       counts: getNewMetricsUpdateMetricCounts(snapshot.settings),
       getCountsComputedWith: (metricId) =>
@@ -436,7 +436,8 @@ export function isCopiedGoalMetricPowerMissing({
   newMetricsUpdate: SnapshotNewMetricsUpdate;
 }): boolean {
   const copiedGoalMetrics = goalMetrics.filter(
-    (id) => !newMetricsUpdate.metricIds.includes(getDefinitionMetricId(id)),
+    (id) =>
+      !newMetricsUpdate.queriedMetricIds.includes(getDefinitionMetricId(id)),
   );
   const treatments = analysis.results[0]?.variations.slice(1) ?? [];
   return treatments.some((v) =>
@@ -520,7 +521,7 @@ export async function startNewMetricsUpdateResultQueries(
     [...copiers.values()].map((copy) => copy()),
   );
   const started = await startResultQueries({
-    metricIds: new Set(newMetricsUpdate.metricIds),
+    metricIds: new Set(newMetricsUpdate.queriedMetricIds),
     firstGroupIndex: getIndexAfterLastGroup(carried.map((q) => q.name)),
   });
   return [...carried, ...started];
@@ -558,7 +559,7 @@ export async function getNewMetricsUpdateStartQuery(
 export function getNewMetricsUpdateQueryStatus(
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "id" | "type" | "newMetricsUpdate" | "queries"
+    "id" | "type" | "updateScope" | "queries"
   >,
   status: QueryStatus,
 ): QueryStatus {

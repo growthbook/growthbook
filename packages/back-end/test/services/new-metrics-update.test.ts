@@ -350,12 +350,15 @@ describe("planNewMetricsUpdate", () => {
     const plan = await planNewMetricsUpdate(args);
 
     expect(args.planSnapshotAt).toHaveBeenCalledWith(PARENT_END);
-    expect(plan.snapshot.newMetricsUpdate).toEqual({
-      baseDateCreated: PARENT_CREATED,
-      baseRunStarted: null,
-      baseCutoffDate: PARENT_END,
+    expect(plan.snapshot.updateScope).toEqual({
+      kind: "new_metrics",
       parentSnapshotId: "snp_parent",
-      metricIds: ["met_c"],
+      queriedMetricIds: ["met_c"],
+      base: {
+        dateCreated: PARENT_CREATED,
+        runStarted: null,
+        cutoffDate: PARENT_END,
+      },
     });
     expect(plan.snapshot.settings.metricSettings).toEqual([
       { id: "met_a" },
@@ -372,12 +375,15 @@ describe("planNewMetricsUpdate", () => {
   ) =>
     makeParent({
       id,
-      newMetricsUpdate: {
-        baseDateCreated: PARENT_CREATED,
-        baseRunStarted: null,
-        baseCutoffDate: PARENT_END,
+      updateScope: {
+        kind: "new_metrics" as const,
         parentSnapshotId,
-        metricIds,
+        queriedMetricIds: metricIds,
+        base: {
+          dateCreated: PARENT_CREATED,
+          runStarted: null,
+          cutoffDate: PARENT_END,
+        },
       },
       ...overrides,
     });
@@ -656,7 +662,7 @@ describe("planNewMetricsUpdate", () => {
 
     const plan = await planNewMetricsUpdate(refreshArgs());
 
-    expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["met_c"]);
+    expect(plan.snapshot.updateScope?.queriedMetricIds).toEqual(["met_c"]);
   });
 
   it("refuses as changed settings when a metric the parent copied is no longer on the experiment", async () => {
@@ -682,7 +688,7 @@ describe("planNewMetricsUpdate", () => {
       }),
     );
     expect(plan.snapshot.runnerKind).toBe("incremental-update");
-    expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["met_c"]);
+    expect(plan.snapshot.updateScope?.queriedMetricIds).toEqual(["met_c"]);
   });
 
   describe("on the Incremental Pipeline, the documents of the queries it would copy", () => {
@@ -742,7 +748,7 @@ describe("planNewMetricsUpdate", () => {
       });
 
       expect(plan.snapshot.runnerKind).toBe("incremental-update");
-      expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["met_c"]);
+      expect(plan.snapshot.updateScope?.queriedMetricIds).toEqual(["met_c"]);
     });
   });
 
@@ -840,7 +846,7 @@ describe("planNewMetricsUpdate", () => {
       await expect(
         planWith("incremental-update", asBuilt).promise,
       ).resolves.toMatchObject({
-        snapshot: { newMetricsUpdate: { metricIds: ["met_c"] } },
+        snapshot: { updateScope: { queriedMetricIds: ["met_c"] } },
       });
     });
   });
@@ -979,7 +985,7 @@ describe("planNewMetricsUpdate", () => {
       };
 
       await expect(plan(groupSql(["met_b"], 1))).resolves.toMatchObject({
-        snapshot: { newMetricsUpdate: { metricIds: ["met_c"] } },
+        snapshot: { updateScope: { queriedMetricIds: ["met_c"] } },
       });
       await expect(
         plan(`${groupSql(["met_b"], 1)} WHERE x`),
@@ -1023,7 +1029,7 @@ describe("planNewMetricsUpdate", () => {
         });
 
         await expect(promise).resolves.toMatchObject({
-          snapshot: { newMetricsUpdate: { metricIds: ["met_c"] } },
+          snapshot: { updateScope: { queriedMetricIds: ["met_c"] } },
         });
         expect(args.generateResultQuerySql).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -1048,7 +1054,7 @@ describe("planNewMetricsUpdate", () => {
         await expect(
           planWith({ skipPartialData: false }).promise,
         ).resolves.toMatchObject({
-          snapshot: { newMetricsUpdate: { metricIds: ["met_c"] } },
+          snapshot: { updateScope: { queriedMetricIds: ["met_c"] } },
         });
       });
     });
@@ -1208,24 +1214,27 @@ describe("getNewMetricsUpdateLineage", () => {
       id: "snp_refresh",
       dateCreated: new Date("2026-11-11T00:00:00Z"),
       runStarted: new Date("2026-11-11T00:00:01Z"),
-      newMetricsUpdate: getNewMetricsUpdateLineage(
+      updateScope: getNewMetricsUpdateLineage(
         makeParent({ runStarted: PARENT_CREATED }),
         ["met_c"],
       ),
     });
 
     expect(getNewMetricsUpdateLineage(refresh, ["met_d"])).toEqual({
-      baseDateCreated: PARENT_CREATED,
-      baseRunStarted: PARENT_CREATED,
-      baseCutoffDate: PARENT_END,
+      kind: "new_metrics",
       parentSnapshotId: "snp_refresh",
-      metricIds: ["met_d"],
+      queriedMetricIds: ["met_d"],
+      base: {
+        dateCreated: PARENT_CREATED,
+        runStarted: PARENT_CREATED,
+        cutoffDate: PARENT_END,
+      },
     });
   });
 });
 
 // The results endpoint must report the same dateEnd before and after a
-// new-metrics update; newMetricsUpdate.dateEnd is the analysis end the update
+// new-metrics update; its settings.endDate is the analysis end the update
 // is pinned to.
 describe("dateEnd of a new-metrics update", () => {
   const baseRan = new Date("2026-11-18T22:17:36.299Z");
@@ -1241,7 +1250,7 @@ describe("dateEnd of a new-metrics update", () => {
       runStarted: ran,
       dateCreated: ran,
       settings: { ...parent.settings },
-      newMetricsUpdate: getNewMetricsUpdateLineage(parent, ["met_c"]),
+      updateScope: getNewMetricsUpdateLineage(parent, ["met_c"]),
     });
   }
 
@@ -1418,9 +1427,7 @@ describe("new-metrics update status", () => {
         })),
         ...(run === "a new-metrics update"
           ? {
-              newMetricsUpdate: getNewMetricsUpdateLineage(makeParent(), [
-                "met_c",
-              ]),
+              updateScope: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
             }
           : {}),
       });
@@ -1453,7 +1460,7 @@ describe("a new-metrics update that succeeds on the Incremental Pipeline", () =>
         { name: "statistics_fta_0", query: "qry_a", status: "succeeded" },
         { name: "statistics_ftc_1", query: "qry_c", status: "succeeded" },
       ],
-      newMetricsUpdate: getNewMetricsUpdateLineage(root, ["met_c"]),
+      updateScope: getNewMetricsUpdateLineage(root, ["met_c"]),
     });
 
     await new ExperimentIncrementalRefreshQueryRunner(
@@ -1536,7 +1543,7 @@ describe("starting a new-metrics update's queries", () => {
       settings: makeSettings(["met_a", "met_b", "met_c"], {
         exposureQueryId: "eq_1",
       }),
-      newMetricsUpdate: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
+      updateScope: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
     });
 
   beforeEach(() => {
@@ -1798,7 +1805,7 @@ describe("analyzeNewMetricsUpdate", () => {
   const refresh = makeParent({
     id: "snp_refresh",
     settings: makeSettings(["met_a", "met_c"]),
-    newMetricsUpdate: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
+    updateScope: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
   });
   const queryMap: QueryMap = new Map([
     [
@@ -1847,7 +1854,7 @@ describe("analyzeNewMetricsUpdate", () => {
     analyzeNewMetricsUpdate({
       context,
       snapshot: refresh,
-      newMetricsUpdate: refresh.newMetricsUpdate!,
+      newMetricsUpdate: refresh.updateScope!,
       queryMap,
       metricMap,
       variationNames: ["Control", "Treatment"],
@@ -1924,7 +1931,7 @@ describe("analyzeNewMetricsUpdate", () => {
       analyzeNewMetricsUpdate({
         context,
         snapshot: { ...refresh, runnerKind: "incremental-update", settings },
-        newMetricsUpdate: refresh.newMetricsUpdate!,
+        newMetricsUpdate: refresh.updateScope!,
         queryMap: statisticsQueryMap,
         metricMap,
         variationNames: ["Control", "Treatment"],
@@ -1961,7 +1968,7 @@ describe("analyzeNewMetricsUpdate", () => {
           guardrailMetrics: ["met_g", "met_h"],
         },
       },
-      newMetricsUpdate: refresh.newMetricsUpdate!,
+      newMetricsUpdate: refresh.updateScope!,
       queryMap,
       metricMap,
       variationNames: ["Control", "Treatment"],
@@ -2030,7 +2037,7 @@ describe("analyzeNewMetricsUpdate", () => {
         "g8",
         "g9",
       ]),
-      newMetricsUpdate: getNewMetricsUpdateLineage(base, ["met_b"]),
+      updateScope: getNewMetricsUpdateLineage(base, ["met_b"]),
       analyses: [
         analysis({ numGoalMetrics: 6 }, [countedDimension(["met_a", "met_b"])]),
         analysis({ ...covariate, numGoalMetrics: 6 }, [
@@ -2077,7 +2084,7 @@ describe("analyzeNewMetricsUpdate", () => {
             goalMetrics,
             guardrailMetrics,
           }),
-          newMetricsUpdate,
+          updateScope: newMetricsUpdate,
         }),
         newMetricsUpdate,
         queryMap: new Map([
@@ -2177,7 +2184,9 @@ describe("isCopiedGoalMetricPowerMissing", () => {
         ],
       },
     ]);
-  const newMetricsUpdate = { metricIds: ["met_c"] } as SnapshotNewMetricsUpdate;
+  const newMetricsUpdate = {
+    queriedMetricIds: ["met_c"],
+  } as SnapshotNewMetricsUpdate;
   const missing = (metrics: Record<string, SnapshotMetric>) =>
     isCopiedGoalMetricPowerMissing({
       analysis: relative(metrics),
