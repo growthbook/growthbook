@@ -54,9 +54,7 @@ import {
   getRelevantFactTableIds,
   normalizeShowAs,
   fillMissingUnits,
-  extendDateBucketsForward,
 } from "shared/enterprise";
-import { parseWarehouseDate } from "shared/dates";
 import type { DimensionFactTable } from "shared/enterprise";
 import {
   operatorLabelMap,
@@ -1458,13 +1456,26 @@ export function compareConfig(
 
 export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
 
-// "utc" shows warehouse dates (see parseWarehouseDate) unshifted; "local" is for buckets built in the browser.
+/**
+ * A date bucket's label. `timeZone`: "utc" shows warehouse dates (see
+ * parseWarehouseDate) unshifted; "local" is for buckets built in the browser.
+ *
+ * The default style is for tooltips and tables ("November 2026", "Week of Nov
+ * 2, 2026"). `compact` is for axis ticks: short months, no "Week of", and the
+ * year only when `showYear` is set.
+ */
 export function formatDateByGranularity(
   date: Date,
   granularity: ResolvedGranularity,
   timeZone: "utc" | "local" = "utc",
+  {
+    compact = false,
+    showYear = true,
+  }: { compact?: boolean; showYear?: boolean } = {},
 ): string {
   const tz = timeZone === "utc" ? "UTC" : undefined;
+  const year = !compact || showYear ? { year: "numeric" as const } : {};
+  const month = compact ? ("short" as const) : ("long" as const);
   switch (granularity) {
     case "year":
       return date.toLocaleDateString(undefined, {
@@ -1473,21 +1484,23 @@ export function formatDateByGranularity(
       });
     case "month":
       return date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
+        ...year,
+        month,
         timeZone: tz,
       });
-    case "week":
-      return `Week of ${date.toLocaleDateString(undefined, {
-        year: "numeric",
+    case "week": {
+      const start = date.toLocaleDateString(undefined, {
+        ...year,
         month: "short",
         day: "numeric",
         timeZone: tz,
-      })}`;
+      });
+      return compact ? start : `Week of ${start}`;
+    }
     case "hour":
       return `${date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
+        ...year,
+        month,
         day: "numeric",
         timeZone: tz,
       })} ${date.toLocaleTimeString(undefined, {
@@ -1498,129 +1511,12 @@ export function formatDateByGranularity(
     case "day":
     default:
       return date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
+        ...year,
+        month,
         day: "numeric",
         timeZone: tz,
       });
   }
-}
-
-/**
- * A compact time-axis tick label. Every tick on an axis uses the same format;
- * `showYear` is decided once for the whole axis. Warehouse dates are UTC, so
- * labels are too.
- */
-function formatDateAxisLabel(
-  date: Date,
-  granularity: ResolvedGranularity,
-  showYear: boolean,
-): string {
-  const yearOpt = showYear ? { year: "numeric" as const } : {};
-  switch (granularity) {
-    case "year":
-      return date.toLocaleDateString(undefined, {
-        year: "numeric",
-        timeZone: "UTC",
-      });
-    case "month":
-      return date.toLocaleDateString(undefined, {
-        month: "short",
-        ...yearOpt,
-        timeZone: "UTC",
-      });
-    case "week":
-    case "day":
-      return date.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        ...yearOpt,
-        timeZone: "UTC",
-      });
-    case "hour":
-      return `${date.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        ...yearOpt,
-        timeZone: "UTC",
-      })} ${date.toLocaleTimeString(undefined, {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "UTC",
-      })}`;
-  }
-}
-
-/**
- * Tick positions and labels for a line/area chart's time axis.
- *
- * Left alone, ECharts picks time-axis ticks without knowing the bucket size: a
- * single yearly bucket gets padded to a two-day window labelled in hours, and
- * coarse buckets get ticks between them. Pinning ticks to bucket starts
- * (thinned to at most `maxTicks`, always keeping the latest) keeps every tick and grid line on a real
- * bucket. A lone bucket also gets an explicit extent of half a bucket either
- * side, so it sits centred under its one label. Labels share one format: all
- * with the year, or (when every tick falls in the current year) all without.
- */
-export function buildDateTimeAxisTicks({
-  bucketIsos,
-  granularity,
-  maxTicks,
-  now = Date.now(),
-}: {
-  bucketIsos: string[];
-  granularity: ResolvedGranularity;
-  maxTicks: number;
-  now?: number;
-}): {
-  tickValues: number[];
-  labels: Map<number, string>;
-  min: number | null;
-  max: number | null;
-} {
-  const times = Array.from(
-    new Set(
-      bucketIsos
-        .map((iso) => parseWarehouseDate(iso).getTime())
-        .filter((t) => Number.isFinite(t)),
-    ),
-  ).sort((a, b) => a - b);
-
-  const stride = Math.max(1, Math.ceil(times.length / Math.max(1, maxTicks)));
-  // Count back from the latest bucket so the most recent period, usually the
-  // one people look at, always gets a tick.
-  const last = times.length - 1;
-  const tickValues = times.filter((_, i) => (last - i) % stride === 0);
-
-  // Leave the year off only when every tick is in the current year, where it
-  // goes without saying.
-  const currentYear = new Date(now).getUTCFullYear();
-  const showYear = tickValues.some(
-    (t) => new Date(t).getUTCFullYear() !== currentYear,
-  );
-  const labels = new Map<number, string>();
-  for (const t of tickValues) {
-    labels.set(t, formatDateAxisLabel(new Date(t), granularity, showYear));
-  }
-
-  let min: number | null = null;
-  let max: number | null = null;
-  if (times.length === 1) {
-    const [only] = times;
-    const [nextIso] = extendDateBucketsForward({
-      resolvedGranularity: granularity,
-      afterIso: new Date(only).toISOString(),
-      count: 1,
-    });
-    const next = nextIso ? parseWarehouseDate(nextIso).getTime() : NaN;
-    if (Number.isFinite(next) && next > only) {
-      const half = (next - only) / 2;
-      min = only - half;
-      max = only + half;
-    }
-  }
-
-  return { tickValues, labels, min, max };
 }
 
 /** Formats a millisecond duration as a compact "1m 23s" style string. */

@@ -1,0 +1,97 @@
+import { parseWarehouseDate } from "shared/dates";
+import { stepBucketUtc } from "shared/enterprise";
+import {
+  formatDateByGranularity,
+  type ResolvedGranularity,
+} from "@/enterprise/components/ProductAnalytics/util";
+
+// Roughly the room a rotated tick label needs.
+const TICK_MIN_PX = 60;
+// Tick cap used before the chart has been measured.
+const DEFAULT_MAX_TICKS = 12;
+
+/** ECharts settings for a date time axis, merged into the chart's own axis. */
+export type DateTimeAxisOption = {
+  axis: {
+    min?: number;
+    max?: number;
+    // Also drives the split lines.
+    axisTick: { customValues: number[] };
+  };
+  axisLabel: {
+    customValues: number[];
+    formatter: (value: number) => string;
+  };
+};
+
+/**
+ * Ticks and labels for a line/area chart's date time axis.
+ *
+ * Left alone, ECharts picks time-axis ticks without knowing the bucket size: a
+ * single yearly bucket gets padded to a two-day window labelled in hours, and
+ * coarse buckets get ticks between them. Instead:
+ * - Ticks sit only on bucket starts. When they don't fit, every Nth bucket is
+ *   kept, counted back from the latest so the most recent period always has
+ *   one.
+ * - Every label uses one compact format. The year is left off only when every
+ *   bucket is in the current year.
+ * - A lone bucket gets an extent of half a bucket either side, so it sits
+ *   centred under its one label.
+ *
+ * `bucketIsos` must be sorted and unique, as the chart's x values already are.
+ */
+export function buildDateTimeAxisOption({
+  bucketIsos,
+  granularity,
+  plotWidth,
+  now = Date.now(),
+}: {
+  bucketIsos: string[];
+  granularity: ResolvedGranularity;
+  plotWidth: number | null;
+  now?: number;
+}): DateTimeAxisOption {
+  const times = bucketIsos
+    .map((iso) => parseWarehouseDate(iso).getTime())
+    .filter((t) => Number.isFinite(t));
+
+  const maxTicks =
+    plotWidth === null
+      ? DEFAULT_MAX_TICKS
+      : Math.max(2, Math.floor(plotWidth / TICK_MIN_PX));
+  const stride = Math.max(1, Math.ceil(times.length / maxTicks));
+  const last = times.length - 1;
+  const tickValues = times.filter((_, i) => (last - i) % stride === 0);
+
+  // Decided from every bucket, not just the ticks, so resizing the chart
+  // can't add or drop the year.
+  const currentYear = new Date(now).getUTCFullYear();
+  const showYear = times.some(
+    (t) => new Date(t).getUTCFullYear() !== currentYear,
+  );
+
+  const option: DateTimeAxisOption = {
+    axis: { axisTick: { customValues: tickValues } },
+    axisLabel: {
+      customValues: tickValues,
+      formatter: (value: number) =>
+        formatDateByGranularity(new Date(value), granularity, "utc", {
+          compact: true,
+          showYear,
+        }),
+    },
+  };
+
+  if (times.length === 1) {
+    const only = times[0];
+    // Step from the bucket itself rather than re-truncating it, so a
+    // warehouse's own week start (e.g. Sunday) is respected.
+    const next = new Date(only);
+    stepBucketUtc(next, granularity);
+    const half = (next.getTime() - only) / 2;
+    option.axis.min = only - half;
+    option.axis.max = only + half;
+  }
+
+  return option;
+}

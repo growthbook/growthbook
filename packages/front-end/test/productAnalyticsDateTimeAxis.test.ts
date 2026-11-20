@@ -1,154 +1,166 @@
 import { describe, expect, it } from "vitest";
-import { buildDateTimeAxisTicks } from "@/enterprise/components/ProductAnalytics/util";
+import { buildDateTimeAxisOption } from "@/enterprise/components/ProductAnalytics/dateTimeAxis";
+import { formatDateByGranularity } from "@/enterprise/components/ProductAnalytics/util";
 
-const utc = (iso: string) => Date.parse(`${iso}Z`);
+const NOW = Date.UTC(2026, 10, 19);
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-describe("buildDateTimeAxisTicks", () => {
+function build(
+  bucketIsos: string[],
+  granularity: Parameters<typeof buildDateTimeAxisOption>[0]["granularity"],
+  plotWidth: number | null = null,
+) {
+  const option = buildDateTimeAxisOption({
+    bucketIsos,
+    granularity,
+    plotWidth,
+    now: NOW,
+  });
+  const ticks = option.axis.axisTick.customValues;
+  return {
+    option,
+    ticks,
+    labels: ticks.map((t) => option.axisLabel.formatter(t)),
+  };
+}
+
+describe("buildDateTimeAxisOption", () => {
   it("centres a single yearly bucket in a one-year window with one tick", () => {
-    const result = buildDateTimeAxisTicks({
-      bucketIsos: ["2022-01-01 00:00:00"],
-      granularity: "year",
-      maxTicks: 12,
-    });
-    const jan1 = utc("2022-01-01T00:00:00");
-    const halfYear = (utc("2023-01-01T00:00:00") - jan1) / 2;
+    const { option, ticks, labels } = build(["2022-01-01 00:00:00"], "year");
+    const jan1 = Date.UTC(2022, 0, 1);
+    const halfYear = (Date.UTC(2023, 0, 1) - jan1) / 2;
 
-    expect(result.tickValues).toEqual([jan1]);
-    expect(result.labels.get(jan1)).toBe("2022");
-    expect(result.min).toBe(jan1 - halfYear);
-    expect(result.max).toBe(jan1 + halfYear);
+    expect(ticks).toEqual([jan1]);
+    expect(option.axisLabel.customValues).toEqual([jan1]);
+    expect(labels).toEqual(["2022"]);
+    expect(option.axis.min).toBe(jan1 - halfYear);
+    expect(option.axis.max).toBe(jan1 + halfYear);
   });
 
   it("pads a single daily bucket by half a day either side", () => {
-    const result = buildDateTimeAxisTicks({
-      bucketIsos: ["2024-03-10T00:00:00.000Z"],
-      granularity: "day",
-      maxTicks: 12,
-    });
-    const day = utc("2024-03-10T00:00:00");
-    expect(result.min).toBe(day - 12 * 60 * 60 * 1000);
-    expect(result.max).toBe(day + 12 * 60 * 60 * 1000);
+    const { option } = build(["2024-03-10T00:00:00.000Z"], "day");
+    const day = Date.UTC(2024, 2, 10);
+    expect(option.axis.min).toBe(day - DAY_MS / 2);
+    expect(option.axis.max).toBe(day + DAY_MS / 2);
+  });
+
+  it("pads a single Sunday-start week by half a week, without snapping to Monday", () => {
+    // BigQuery and SQL Server truncate weeks to Sunday.
+    const { option } = build(["2026-11-01 00:00:00"], "week");
+    const sunday = Date.UTC(2026, 10, 1);
+    expect(option.axis.min).toBe(sunday - 3.5 * DAY_MS);
+    expect(option.axis.max).toBe(sunday + 3.5 * DAY_MS);
   });
 
   it("leaves the extent to ECharts when there are several buckets", () => {
-    const result = buildDateTimeAxisTicks({
-      bucketIsos: ["2021-01-01", "2022-01-01", "2023-01-01"],
-      granularity: "year",
-      maxTicks: 12,
-    });
-    expect(result.min).toBeNull();
-    expect(result.max).toBeNull();
-    expect(result.tickValues).toEqual([
-      Date.parse("2021-01-01"),
-      Date.parse("2022-01-01"),
-      Date.parse("2023-01-01"),
-    ]);
-    expect(Array.from(result.labels.values())).toEqual([
-      "2021",
-      "2022",
-      "2023",
-    ]);
+    const { option, labels } = build(
+      ["2021-01-01", "2022-01-01", "2023-01-01"],
+      "year",
+    );
+    expect(option.axis).not.toHaveProperty("min");
+    expect(option.axis).not.toHaveProperty("max");
+    expect(labels).toEqual(["2021", "2022", "2023"]);
   });
 
-  it("only places ticks on bucket starts, sorted and de-duplicated", () => {
-    const result = buildDateTimeAxisTicks({
-      bucketIsos: [
-        "2025-03-01 00:00:00",
-        "2025-01-01 00:00:00",
-        "2025-02-01 00:00:00",
-        "2025-01-01 00:00:00",
-        "not a date",
-      ],
-      granularity: "month",
-      maxTicks: 12,
-    });
-    expect(result.tickValues).toEqual([
-      utc("2025-01-01T00:00:00"),
-      utc("2025-02-01T00:00:00"),
-      utc("2025-03-01T00:00:00"),
-    ]);
+  it("only places ticks on valid bucket starts", () => {
+    const { ticks } = build(
+      ["2026-01-01 00:00:00", "not a date", "2026-02-01 00:00:00"],
+      "month",
+    );
+    expect(ticks).toEqual([Date.UTC(2026, 0, 1), Date.UTC(2026, 1, 1)]);
   });
 
-  it("thins ticks to at most maxTicks, keeping the latest bucket", () => {
+  it("thins ticks to fit the plot width, keeping the latest bucket", () => {
     const bucketIsos = Array.from({ length: 30 }, (_, i) =>
       new Date(Date.UTC(2025, 0, 1 + i)).toISOString(),
     );
-    const result = buildDateTimeAxisTicks({
-      bucketIsos,
-      granularity: "day",
-      maxTicks: 10,
-    });
-    // 30 buckets / 10 ticks → every 3rd bucket, counted back from Jan 30.
-    expect(result.tickValues).toHaveLength(10);
-    expect(result.tickValues[9]).toBe(Date.UTC(2025, 0, 30));
-    expect(result.tickValues[8]).toBe(Date.UTC(2025, 0, 27));
-    expect(result.tickValues[0]).toBe(Date.UTC(2025, 0, 3));
+    // 600px / 60px per tick → at most 10 ticks → every 3rd bucket, counted
+    // back from Jan 30.
+    const { ticks } = build(bucketIsos, "day", 600);
+    expect(ticks).toHaveLength(10);
+    expect(ticks[9]).toBe(Date.UTC(2025, 0, 30));
+    expect(ticks[8]).toBe(Date.UTC(2025, 0, 27));
+    expect(ticks[0]).toBe(Date.UTC(2025, 0, 3));
   });
 
-  it("labels every tick without the year when all are in the current year", () => {
-    const result = buildDateTimeAxisTicks({
-      bucketIsos: ["2026-10-25", "2026-11-01"],
-      granularity: "week",
-      maxTicks: 12,
-      now: Date.UTC(2026, 10, 19),
-    });
-    const labels = result.tickValues.map((t) => result.labels.get(t) ?? "");
+  it("leaves the year off every label when all buckets are in the current year", () => {
+    const { labels } = build(["2026-10-25", "2026-11-01"], "week");
     expect(labels).toHaveLength(2);
     for (const label of labels) expect(label).not.toContain("2026");
   });
 
-  it("labels every tick with the year when any is outside the current year", () => {
-    const result = buildDateTimeAxisTicks({
-      bucketIsos: ["2025-11-01", "2025-12-01", "2026-01-01", "2026-02-01"],
-      granularity: "month",
-      maxTicks: 12,
-      now: Date.UTC(2026, 10, 19),
-    });
-    const labels = result.tickValues.map((t) => result.labels.get(t) ?? "");
+  it("puts the year on every label when any bucket is outside the current year", () => {
+    const { labels } = build(
+      ["2025-11-01", "2025-12-01", "2026-01-01", "2026-02-01"],
+      "month",
+    );
     expect(labels[0]).toContain("2025");
     expect(labels[1]).toContain("2025");
     expect(labels[2]).toContain("2026");
     expect(labels[3]).toContain("2026");
   });
 
-  it("labels a past year's ticks with the year even within one year", () => {
-    const result = buildDateTimeAxisTicks({
-      bucketIsos: ["2024-03-04", "2024-03-11"],
-      granularity: "day",
-      maxTicks: 12,
-      now: Date.UTC(2026, 10, 19),
-    });
-    for (const t of result.tickValues) {
-      expect(result.labels.get(t)).toContain("2024");
+  it("decides the year from every bucket, so thinning can't change it", () => {
+    // Weekly buckets from late 2025 into 2026. Narrow enough that the 2025
+    // buckets get no tick, but they still make every label show the year.
+    const bucketIsos = Array.from({ length: 12 }, (_, i) =>
+      new Date(Date.UTC(2025, 11, 22 + 7 * i)).toISOString(),
+    );
+    const wide = build(bucketIsos, "week", 1200);
+    const narrow = build(bucketIsos, "week", 120);
+    expect(
+      narrow.ticks.every((t) => new Date(t).getUTCFullYear() === 2026),
+    ).toBe(true);
+    for (const label of [...wide.labels, ...narrow.labels]) {
+      expect(label).toMatch(/2025|2026/);
     }
   });
 
   it("gives hourly ticks the same date-and-time format throughout", () => {
-    const result = buildDateTimeAxisTicks({
-      bucketIsos: [
-        "2026-06-01 22:00:00",
-        "2026-06-01 23:00:00",
-        "2026-06-02 00:00:00",
-      ],
-      granularity: "hour",
-      maxTicks: 12,
-      now: Date.UTC(2026, 10, 19),
-    });
-    const labels = result.tickValues.map((t) => result.labels.get(t) ?? "");
-    // Each label carries its date, not just the first or day-change ticks.
+    const { labels } = build(
+      ["2026-06-01 22:00:00", "2026-06-01 23:00:00", "2026-06-02 00:00:00"],
+      "hour",
+    );
+    // Every label carries its date, not just the first or day-change ticks.
     expect(labels[0]).not.toBe(labels[1]);
     expect(labels[0].slice(0, 5)).toBe(labels[1].slice(0, 5));
     expect(labels[1].slice(0, 5)).not.toBe(labels[2].slice(0, 5));
   });
 
   it("returns no ticks for no buckets", () => {
-    const result = buildDateTimeAxisTicks({
-      bucketIsos: [],
-      granularity: "day",
-      maxTicks: 12,
+    const { option, ticks } = build([], "day");
+    expect(ticks).toEqual([]);
+    expect(option.axis).not.toHaveProperty("min");
+  });
+});
+
+describe("formatDateByGranularity compact style", () => {
+  const nov2 = new Date(Date.UTC(2026, 10, 2));
+
+  it("drops the week prefix and keeps it in the default style", () => {
+    expect(formatDateByGranularity(nov2, "week")).toMatch(/^Week of /);
+    expect(
+      formatDateByGranularity(nov2, "week", "utc", { compact: true }),
+    ).not.toMatch(/^Week of /);
+  });
+
+  it("omits the year only when asked", () => {
+    expect(
+      formatDateByGranularity(nov2, "day", "utc", {
+        compact: true,
+        showYear: false,
+      }),
+    ).not.toContain("2026");
+    expect(
+      formatDateByGranularity(nov2, "day", "utc", { compact: true }),
+    ).toContain("2026");
+  });
+
+  it("uses a shorter month than the default style", () => {
+    const full = formatDateByGranularity(nov2, "month");
+    const compact = formatDateByGranularity(nov2, "month", "utc", {
+      compact: true,
     });
-    expect(result.tickValues).toEqual([]);
-    expect(result.min).toBeNull();
-    expect(result.max).toBeNull();
+    expect(compact.length).toBeLessThan(full.length);
   });
 });
