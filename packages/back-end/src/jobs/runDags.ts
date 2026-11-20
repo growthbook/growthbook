@@ -179,7 +179,7 @@ async function sweepDags() {
   }
 }
 
-async function runDagTick(job: RunDagTickJob) {
+export async function runDagTick(job: RunDagTickJob) {
   const { organization, dagId } = job.attrs.data ?? {};
   if (!organization || !dagId) return;
 
@@ -192,10 +192,12 @@ async function runDagTick(job: RunDagTickJob) {
     await getStatesByTargetId(dag.nodes),
     new Date(),
   );
+  let failed = false;
   for (const action of actions) {
     try {
       if (action.type === "done") {
-        await context.models.dags.markDone(dag.id);
+        // Left active after a failure so the next sweep tries again
+        if (!failed) await context.models.dags.markDone(dag.id);
         continue;
       }
       const node = dag.nodes.find((n) => n.id === action.nodeId);
@@ -214,6 +216,7 @@ async function runDagTick(job: RunDagTickJob) {
           throw new Error(`Unknown DAG node type: ${node.type}`);
       }
     } catch (e) {
+      failed = true;
       logger.error(
         { err: e, dagId: dag.id, action },
         "Failed to apply a DAG action",

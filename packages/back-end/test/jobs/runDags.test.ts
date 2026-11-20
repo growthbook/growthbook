@@ -2,10 +2,25 @@ import { DagNode } from "shared/validators";
 import {
   getActions,
   getExperimentSnapshotNodeState,
+  runDagTick,
 } from "back-end/src/jobs/runDags";
 import { DagNodeState } from "back-end/src/services/dags";
-import { SnapshotRunStatus } from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  dangerousFindSnapshotStatusesByIds,
+  deleteQueuedSnapshots,
+  SnapshotRunStatus,
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { SNAPSHOT_INTERRUPTED_ERROR } from "back-end/src/services/snapshotCancellation";
+
+jest.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgId: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  dangerousFindSnapshotStatusesByIds: jest.fn(),
+  deleteQueuedSnapshots: jest.fn(),
+}));
 
 const now = new Date("2026-01-01T12:00:00Z");
 const minutesAgo = (minutes: number) =>
@@ -106,5 +121,60 @@ describe("getActions", () => {
     expect(
       getActions({ nodes, dateCreated: minutesAgo(49 * 60) }, states, now),
     ).toEqual([{ type: "drop", nodeId: "a" }, { type: "done" }]);
+  });
+});
+
+describe("runDagTick", () => {
+  const markDone = jest.fn();
+  const tick = () =>
+    runDagTick({
+      attrs: { data: { organization: "org_1", dagId: "dag_1" } },
+    } as Parameters<typeof runDagTick>[0]);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Older than 48 hours, with a breakdown still queued
+    const dag = {
+      id: "dag_1",
+      status: "active",
+      dateCreated: new Date(0),
+      nodes: [
+        {
+          id: "a",
+          dependsOn: [],
+          type: "experiment-snapshot",
+          targetId: "snp_a",
+          previousTargetIds: [],
+          maxAttempts: 1,
+        },
+      ],
+    };
+    jest.mocked(getContextForAgendaJobByOrgId).mockResolvedValue({
+      models: { dags: { getById: async () => dag, markDone } },
+    } as unknown as Awaited<ReturnType<typeof getContextForAgendaJobByOrgId>>);
+    jest
+      .mocked(dangerousFindSnapshotStatusesByIds)
+      .mockResolvedValue([
+        snapshot({ id: "snp_a", status: "queued", runStarted: null }),
+      ]);
+  });
+
+  it("closes an expired DAG once its queued snapshots are deleted", async () => {
+    await tick();
+
+    expect(deleteQueuedSnapshots).toHaveBeenCalledWith(expect.anything(), {
+      ids: ["snp_a"],
+    });
+    expect(markDone).toHaveBeenCalledWith("dag_1");
+  });
+
+  it("keeps an expired DAG active when deleting a queued snapshot fails", async () => {
+    jest
+      .mocked(deleteQueuedSnapshots)
+      .mockRejectedValueOnce(new Error("Mongo unavailable"));
+
+    await tick();
+
+    expect(markDone).not.toHaveBeenCalled();
   });
 });

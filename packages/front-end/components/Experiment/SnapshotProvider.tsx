@@ -83,6 +83,10 @@ const snapshotContext = React.createContext<{
 export const SNAPSHOT_QUEUED_MESSAGE =
   "Queued: this analysis will start when the Overall Results update finishes.";
 
+// A retry is queued within a sweep or two of the failure (sweeps run every
+// minute), after which the queued snapshot keeps the page polling.
+const RETRY_CHECK_MS = 3 * 60 * 1000;
+
 export function getSnapshotSummaryPath({
   experimentId,
   phase,
@@ -228,6 +232,28 @@ export default function SnapshotProvider({
     const timer = window.setInterval(() => void mutateStatus(), 10000);
     return () => window.clearInterval(timer);
   }, [awaitingQueries, mutateStatus]);
+  // A failed breakdown that an Overall Results update queued may be retried
+  // as a new queued snapshot, which nothing else on the page would discover.
+  // ponytail: the page cannot see whether a retry is coming, so it keeps
+  // checking for RETRY_CHECK_MS after any such failure. If that is too blunt,
+  // have the status endpoint report a pending retry.
+  const failedQueuedAttemptId =
+    statusLatest?.status === "error" &&
+    statusLatest.triggeredBy === "conditional"
+      ? statusLatest.id
+      : null;
+  useEffect(() => {
+    if (!failedQueuedAttemptId) return;
+    const timer = window.setInterval(() => void mutateStatus(), 10000);
+    const stop = window.setTimeout(
+      () => window.clearInterval(timer),
+      RETRY_CHECK_MS,
+    );
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(stop);
+    };
+  }, [failedQueuedAttemptId, mutateStatus]);
   const snapshotId = data?.snapshot?.id;
   const heavyCaughtUp = heavyReflectsStatus(statusLatest, snapshotId);
   useRefetchHeavyOnStatusSuccess(
