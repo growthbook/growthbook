@@ -287,7 +287,7 @@ export default function ConfigFieldRow({
                                 { value: "true", label: "true" },
                                 { value: "false", label: "false" },
                               ]}
-                              initialOption="Not set"
+                              initialOption="Choose a value"
                               sort={false}
                               disabled={isNull}
                             />
@@ -301,7 +301,7 @@ export default function ConfigFieldRow({
                                 value: v,
                                 label: v,
                               }))}
-                              initialOption="Not set"
+                              initialOption="Choose a value"
                               sort={false}
                               disabled={isNull}
                             />
@@ -312,7 +312,9 @@ export default function ConfigFieldRow({
                               value={isNull ? "" : editText}
                               setValue={setEditText}
                               valueType={vt}
-                              placeholder="Not set"
+                              placeholder={
+                                vt === "string" ? "Empty string" : undefined
+                              }
                               codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                               constantContext={constantContext}
                               fullWidth

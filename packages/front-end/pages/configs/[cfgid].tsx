@@ -404,12 +404,10 @@ export default function ConfigDetailPage(): React.ReactElement {
   // (not overriding at all is a third axis: the inherit / Reset action).
   const [editKind, setEditKind] = useState<"value" | "null">("value");
   // What the open value edit started from. Untouched, it has nothing to save,
-  // unless it pins an inherited value here.
-  const [editSeed, setEditSeed] = useState<ValueEditSeed & { pins: boolean }>({
-    text: "",
-    kind: "value",
-    pins: false,
-  });
+  // unless it sets a value that had none or pins an inherited one here.
+  const [editSeed, setEditSeed] = useState<
+    ValueEditSeed & { savesUntouched: boolean }
+  >({ text: "", kind: "value", savesUntouched: false });
   const [savingValue, setSavingValue] = useState(false);
 
   // The key whose field definition is open, or a blank form for a new field.
@@ -1241,14 +1239,14 @@ export default function ConfigDetailPage(): React.ReactElement {
       setEditText(seed.text);
       setEditSeed({
         ...seed,
-        pins: f.value !== undefined && f.source !== config.key,
+        savesUntouched: f.value === undefined || f.source !== config.key,
       });
       setEditKey(f.key);
     });
 
   const submitOverride = async () => {
     if (!editKey || savingValue) return;
-    if (!valueDirty && !editSeed.pins) {
+    if (!valueDirty && !editSeed.savesUntouched) {
       closeEdits();
       return;
     }
@@ -1263,12 +1261,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
     setSavingValue(true);
     try {
-      if (result.kind === "value") {
-        await savePropertyValue(editKey, result.value);
-      } else if (editKey in ownValue()) {
-        // An emptied value is "not set": drop this Config's own value.
-        await removePropertyValue(editKey);
-      }
+      await savePropertyValue(editKey, result.value);
       closeEdits();
     } catch (e) {
       setEditError(e instanceof Error ? e.message : "Failed to save value");
@@ -1314,28 +1307,17 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  const saveField = async (
-    field: SchemaField,
-    value?: unknown,
-    unset?: boolean,
-  ) => {
+  const saveField = async (field: SchemaField, value?: unknown) => {
     const fields = ownSchema().fields;
     const idx = fields.findIndex((f) => f.key === schemaEdit);
     const next =
       idx >= 0
         ? fields.map((f, i) => (i === idx ? field : f))
         : [...fields, field];
-    let valueOverride: Record<string, unknown> | undefined;
-    if (unset) {
-      const v = ownValue();
-      if (field.key in v) {
-        delete v[field.key];
-        valueOverride = v;
-      }
-    } else if (value !== undefined) {
-      valueOverride = { ...ownValue(), [field.key]: value };
-    }
-    await saveSchema(next, valueOverride);
+    await saveSchema(
+      next,
+      value !== undefined ? { ...ownValue(), [field.key]: value } : undefined,
+    );
     closeEdits();
   };
 

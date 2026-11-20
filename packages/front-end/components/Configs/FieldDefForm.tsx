@@ -73,12 +73,8 @@ export default function FieldDefForm({
   constantContext?: { project?: string; excludeKeys?: string[] };
   onDirtyChange?: (dirty: boolean) => void;
   onCancel: () => void;
-  // `unset` = explicitly remove the field's value (distinct from "leave as-is").
-  onSave: (
-    field: SchemaField,
-    value?: unknown,
-    unset?: boolean,
-  ) => void | Promise<void>;
+  // No value leaves the field's value as it is.
+  onSave: (field: SchemaField, value?: unknown) => void | Promise<void>;
 }): React.ReactElement {
   // Normalize so a raw schema that's really a simple type opens in simple mode.
   // Pretty-print a raw schema once on open so imported/minified schemas show with
@@ -246,25 +242,22 @@ export default function FieldDefForm({
     }
     // An untouched value stays as it is, unless the field now holds another
     // kind of value. Parsed against the value surface, so {type:string} saves a
-    // string, not JSON; "not set" deletes the value key.
+    // string, not JSON.
+    const retyped =
+      valueText !== "" && valueType !== fieldValueType(initialField);
     let value: unknown = undefined;
-    let unset = false;
-    if (
-      withValue &&
-      (valueTouched || valueType !== fieldValueType(initialField))
-    ) {
+    if (withValue && (valueTouched || retyped)) {
       const result = parseFieldValueInput(valueText, field, valueIsNull);
       if (result.kind === "error") {
         setErr(result.error);
         return;
       }
-      if (result.kind === "unset") unset = true;
-      else value = result.value;
+      value = result.value;
     }
     setErr(null);
     setSaving(true);
     try {
-      await onSave(normalizeField({ ...field, key: trimmedKey }), value, unset);
+      await onSave(normalizeField({ ...field, key: trimmedKey }), value);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to save field");
     } finally {
@@ -308,7 +301,7 @@ export default function FieldDefForm({
           { value: "true", label: "true" },
           { value: "false", label: "false" },
         ]}
-        initialOption="Not set"
+        initialOption="Choose a value"
         sort={false}
       />
     ) : enumValues.length > 0 ? (
@@ -318,7 +311,7 @@ export default function FieldDefForm({
         value={valueText}
         onChange={setValueText}
         options={enumValues.map((v) => ({ value: v, label: v }))}
-        initialOption="Not set"
+        initialOption="Choose a value"
         sort={false}
       />
     ) : (
@@ -328,7 +321,7 @@ export default function FieldDefForm({
         value={valueText}
         setValue={onValueChange}
         valueType={valueType}
-        placeholder="Not set"
+        placeholder={valueType === "string" ? "Empty string" : undefined}
         codeInputDefaultHeight={FIVE_LINES_HEIGHT}
         constantContext={constantContext}
         fullWidth

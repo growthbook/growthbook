@@ -381,20 +381,18 @@ export function valueEditSeed(
   };
 }
 
-// What a field's edited value saves as. Empty text is "not set".
+// What a field's edited value saves as. A string keeps its text, empty
+// included; other types need a value, with null set explicitly.
 export function parseFieldValueInput(
   text: string,
   field: SchemaField | null,
   isNull = false,
-):
-  | { kind: "value"; value: unknown }
-  | { kind: "unset" }
-  | { kind: "error"; error: string } {
+): { kind: "value"; value: unknown } | { kind: "error"; error: string } {
   if (isNull) return { kind: "value", value: null };
-  const t = text.trim();
   const valueType = fieldValueType(field);
-  // A string keeps whitespace it was given; only no text at all is "not set".
-  if (valueType === "string" ? text === "" : t === "") return { kind: "unset" };
+  if (valueType === "string") return { kind: "value", value: text };
+  const t = text.trim();
+  if (t === "") return { kind: "error", error: "Enter a value" };
   switch (valueType) {
     case "json":
       try {
@@ -419,7 +417,5 @@ export function parseFieldValueInput(
       }
       return { kind: "value", value: n };
     }
-    case "string":
-      return { kind: "value", value: text };
   }
 }

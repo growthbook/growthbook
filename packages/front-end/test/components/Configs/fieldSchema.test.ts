@@ -69,11 +69,16 @@ describe("parseFieldValueInput", () => {
     });
   });
 
-  it("reads empty text as not set, and null as null", () => {
-    expect(parseFieldValueInput("  ", field({ type: "float" }))).toEqual({
-      kind: "unset",
+  it("keeps an empty string, needs a value for other types, and reads null", () => {
+    expect(parseFieldValueInput("", field({}))).toEqual({
+      kind: "value",
+      value: "",
     });
-    expect(parseFieldValueInput("", field({}), true)).toEqual({
+    expect(parseFieldValueInput("  ", field({ type: "float" }))).toEqual({
+      kind: "error",
+      error: "Enter a value",
+    });
+    expect(parseFieldValueInput("", field({ type: "float" }), true)).toEqual({
       kind: "value",
       value: null,
     });
