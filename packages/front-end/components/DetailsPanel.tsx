@@ -93,6 +93,7 @@ export function DetailsPanelLayout({
   footer,
   busy,
   leftPanel,
+  minContentWidth,
   children,
 }: {
   details: ReturnType<typeof useDetailsPanel>;
@@ -104,7 +105,7 @@ export function DetailsPanelLayout({
   };
 } & Pick<
   CollapsiblePanelLayoutProps,
-  "panel" | "footer" | "busy" | "children"
+  "panel" | "footer" | "busy" | "minContentWidth" | "children"
 >) {
   const top = stickyTop === undefined ? "var(--tabs-bottom)" : `${stickyTop}px`;
   const content = (
@@ -115,6 +116,7 @@ export function DetailsPanelLayout({
       onWidthChange={details.setWidth}
       onCollapse={() => details.setOpen(false)}
       onFloatChange={details.setFloating}
+      minContentWidth={minContentWidth}
       panel={panel}
       footer={footer}
       busy={busy}

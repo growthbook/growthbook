@@ -169,16 +169,7 @@ export default function ConfigEnvTabs({
           <TabsList style={{ width: "100%", boxShadow: "none" }}>
             {tabs.map((t) => (
               <TabsTrigger key={t.key} value={t.key}>
-                <Flex align="center" gap="2">
-                  {archivedByKey?.[t.key] ? (
-                    <Tooltip content="Archived — this override no longer serves a value">
-                      <span style={{ textDecoration: "line-through" }}>
-                        {t.label}
-                      </span>
-                    </Tooltip>
-                  ) : (
-                    t.label
-                  )}
+                <Flex align="center" style={{ gap: 6 }}>
                   {t.key !== baseKey && draftByKey?.[t.key] && (
                     <Tooltip content="This override has an unpublished draft">
                       <Box
@@ -191,6 +182,15 @@ export default function ConfigEnvTabs({
                         }}
                       />
                     </Tooltip>
+                  )}
+                  {archivedByKey?.[t.key] ? (
+                    <Tooltip content="Archived — this override no longer serves a value">
+                      <span style={{ textDecoration: "line-through" }}>
+                        {t.label}
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    t.label
                   )}
                 </Flex>
               </TabsTrigger>

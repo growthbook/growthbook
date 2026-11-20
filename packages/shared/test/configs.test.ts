@@ -819,6 +819,19 @@ describe("findSiblingSchemaConflicts", () => {
       findSiblingSchemaConflicts({ parent: "b", extends: ["c"] }, m),
     ).toEqual([]);
   });
+
+  it("lets the base win over a field its own descendant also declares", () => {
+    const m = new Map([
+      ["root", { key: "root", schema: objSchema("note") }],
+      ["child", { key: "child", parent: "root", schema: objSchema("note") }],
+      ["side", { key: "side", schema: objSchema("note") }],
+    ]);
+    expect(findSiblingSchemaConflicts({ parent: "child" }, m)).toEqual([]);
+    // A separate branch declaring it still conflicts with the topmost owner.
+    expect(
+      findSiblingSchemaConflicts({ parent: "child", extends: ["side"] }, m),
+    ).toEqual([{ key: "note", owners: ["root", "side"] }]);
+  });
 });
 
 describe("findIncompatibleConfigValueKeys", () => {

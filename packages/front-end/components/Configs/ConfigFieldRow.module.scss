@@ -11,3 +11,20 @@
     pointer-events: auto;
   }
 }
+
+// Fields table: room left of each key for its row's status icons.
+.fieldsTable tr > :first-child {
+  padding-left: 24px;
+}
+
+.statusIcons {
+  position: absolute;
+  right: 100%;
+  top: 0;
+  bottom: 0;
+  margin-right: 5px;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 2px;
+}

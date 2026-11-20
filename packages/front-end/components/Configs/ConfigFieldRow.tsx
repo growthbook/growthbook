@@ -7,7 +7,6 @@ import {
   PiArrowBendLeftUp,
   PiPlus,
   PiMagnifyingGlass,
-  PiWarningOctagonFill,
 } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -43,7 +42,15 @@ import {
   normalizeField,
   valueToDisplayString,
 } from "@/components/Configs/fieldSchema";
+import {
+  KeyNotice,
+  KeyNoticesIcon,
+  validationRuleNotice,
+} from "@/components/Configs/ConfigKeyNotices";
 import styles from "./ConfigFieldRow.module.scss";
+
+// The Fields table's class, which leaves the gutter for row status icons.
+export const fieldsTableClassName = styles.fieldsTable;
 
 // A row's ⋮ menu, in a slot every row keeps even without one, so the buttons
 // before it line up down the column.
@@ -96,6 +103,7 @@ export default function ConfigFieldRow({
   parentValue,
   hasValidationError = false,
   validationTooltip,
+  keyNotices = [],
   keyImplementations = [],
 }: {
   field: ResolvedField;
@@ -124,6 +132,8 @@ export default function ConfigFieldRow({
   // This field is referenced by a validation rule that currently fails.
   hasValidationError?: boolean;
   validationTooltip?: string;
+  // Shown in the gutter left of the key, as its most severe icon.
+  keyNotices?: KeyNotice[];
   // Feature rules / default values that override this field, for the usage badge.
   keyImplementations?: ConfigKeyImplementation[];
 }): React.ReactElement {
@@ -170,7 +180,25 @@ export default function ConfigFieldRow({
             !isEditing && { boxShadow: "inset 3px 0 0 var(--red-9)" }),
         }}
       >
-        <Flex align="center" gap="1" style={{ minHeight: 32 }}>
+        <Flex
+          align="center"
+          gap="1"
+          style={{ minHeight: 32, position: "relative" }}
+        >
+          <span className={styles.statusIcons}>
+            <KeyNoticesIcon
+              notices={[
+                ...(hasValidationError
+                  ? [
+                      validationRuleNotice(
+                        validationTooltip ?? "Fails a validation rule",
+                      ),
+                    ]
+                  : []),
+                ...keyNotices,
+              ]}
+            />
+          </span>
           <Box style={{ minWidth: 0, overflowWrap: "anywhere" }}>
             <code
               style={{
@@ -180,19 +208,6 @@ export default function ConfigFieldRow({
               {f.key}
             </code>
           </Box>
-          {hasValidationError && (
-            <Tooltip content={validationTooltip ?? "Fails a validation rule"}>
-              <span
-                style={{
-                  display: "inline-flex",
-                  flexShrink: 0,
-                  color: "var(--red-9)",
-                }}
-              >
-                <PiWarningOctagonFill />
-              </span>
-            </Tooltip>
-          )}
           {nf?.description && (
             <Tooltip content={nf.description}>
               <span

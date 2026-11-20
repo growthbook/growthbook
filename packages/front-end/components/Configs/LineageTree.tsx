@@ -5,12 +5,16 @@ import {
   PiCaretDown,
   PiCaretRight,
   PiDotOutline,
-  PiLinkBreak,
   PiWarningFill,
   PiPlus,
 } from "react-icons/pi";
 import { isScopedConfig } from "shared/util";
 import { LineageNode } from "@/components/Configs/fieldSchema";
+import {
+  KeyList,
+  KeyNoticesIcon,
+  undeclaredKeysNotice,
+} from "@/components/Configs/ConfigKeyNotices";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import styles from "./LineageTree.module.scss";
@@ -532,7 +536,12 @@ export default function LineageTree({
             )}
             {hasIncompatible && (
               <Tooltip
-                content={`Incompatible value(s): ${n.incompatibleFields?.join(", ")}`}
+                content={
+                  <>
+                    Doesn&apos;t match the schema:{" "}
+                    <KeyList keys={n.incompatibleFields ?? []} inverted />.
+                  </>
+                }
               >
                 <Box
                   style={{
@@ -546,30 +555,15 @@ export default function LineageTree({
               </Tooltip>
             )}
             {hasOrphaned && (
-              <Tooltip
-                content={
-                  `Undeclared value key(s): ${n.orphanedFields?.join(", ")} — ` +
-                  `the effective schema no longer declares them; they still ` +
-                  `resolve, but nothing validates them and validation rules ` +
-                  `read them as null.` +
-                  (extensible === false
-                    ? " This family is not extensible, so the next changing publish of this Config will be rejected until they are removed or re-declared."
-                    : "")
-                }
-              >
-                <Box
-                  style={{
-                    display: "inline-flex",
-                    flexShrink: 0,
-                    color:
-                      extensible === false
-                        ? "var(--amber-11)"
-                        : "var(--slate-9)",
-                  }}
-                >
-                  <PiLinkBreak size={12} />
-                </Box>
-              </Tooltip>
+              <KeyNoticesIcon
+                notices={[
+                  undeclaredKeysNotice(
+                    n.orphanedFields ?? [],
+                    extensible !== false,
+                    12,
+                  ),
+                ]}
+              />
             )}
             {hasViolations && (
               <Tooltip

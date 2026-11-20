@@ -632,12 +632,26 @@ export function findSiblingSchemaConflicts(
     }
     for (const b of getConfigBaseKeys(c)) stack.push(b);
   }
+  const ancestorsByKey = new Map<string, Set<string>>();
+  const ancestorsOf = (key: string) => {
+    let ancestors = ancestorsByKey.get(key);
+    if (!ancestors) {
+      const node = byKey.get(key);
+      ancestors = node ? getConfigAncestorKeys(node, byKey) : new Set<string>();
+      ancestorsByKey.set(key, ancestors);
+    }
+    return ancestors;
+  };
   const conflicts: { key: string; owners: string[] }[] = [];
   for (const [field, owners] of ownersByField) {
-    // A single owner reached via multiple paths (diamond) is fine; 2+ distinct
-    // owners means divergent sibling branches both declare the field.
-    if (owners.size >= 2) {
-      conflicts.push({ key: field, owners: [...owners].sort() });
+    // An owner below another owner loses its declaration to it (base wins), and
+    // a single owner reached via multiple paths (diamond) is fine. 2+ owners
+    // left means divergent sibling branches both declare the field.
+    const top = [...owners].filter(
+      (o) => ![...owners].some((other) => ancestorsOf(o).has(other)),
+    );
+    if (top.length >= 2) {
+      conflicts.push({ key: field, owners: top.sort() });
     }
   }
   return conflicts;

@@ -38,6 +38,7 @@ import {
   fieldsToPython,
   fieldsToRust,
   fieldsToTsType,
+  collectConfigValueIssuesByKey,
   getConfigSubtree,
   getReviewSetting,
   invariantRuleFields,
@@ -152,10 +153,18 @@ import { ConstantRevisionContext } from "@/components/Constants/useConstantDraft
 import ConfigModal from "@/components/Configs/ConfigModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LineageTree from "@/components/Configs/LineageTree";
+import {
+  DescendantImpactCallout,
+  ReconciledFieldsCallout,
+  reconciledFieldNotice,
+  schemaIssuesNotice,
+  undeclaredKeysNotice,
+} from "@/components/Configs/ConfigKeyNotices";
 import ConfigFeatureReferences from "@/components/Configs/ConfigFeatureReferences";
 import { Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import FieldDefForm from "@/components/Configs/FieldDefForm";
 import ConfigFieldRow, {
+  fieldsTableClassName,
   FieldRowMenu,
 } from "@/components/Configs/ConfigFieldRow";
 import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
@@ -193,6 +202,10 @@ type ResolvedResponse = {
 };
 
 const LINEAGE_PANEL_WIDTH_PX = 280;
+const FIELDS_TABLE_MIN_WIDTH_PX = 980;
+// The Fields card and page padding around the table. The details rail floats
+// before the table would have to scroll beside it.
+const FIELDS_TABLE_CHROME_PX = 100;
 
 const SCHEMA_EXPORT_FORMATS: { id: string; label: string }[] = [
   { id: "json", label: "JSON Schema" },
@@ -723,6 +736,38 @@ export default function ConfigDetailPage(): React.ReactElement {
           (n.incompatibleFields?.length ?? 0) > 0),
     );
   }, [data, displayedConfig]);
+
+  // This config's own value keys no schema declares, as the tree flags them.
+  const undeclaredKeys = useMemo(
+    () =>
+      new Set(
+        data?.lineage.find((n) => n.key === config?.key)?.orphanedFields ?? [],
+      ),
+    [data?.lineage, config?.key],
+  );
+
+  // Schema issues in the displayed, resolved value, by top-level key.
+  const schemaIssuesByKey = useMemo(
+    () =>
+      collectConfigValueIssuesByKey({
+        value: Object.fromEntries(
+          resolved.fields
+            .filter((f) => f.value !== undefined)
+            .map((f) => [f.key, f.value]),
+        ),
+        fields: resolved.effectiveSchema,
+      }),
+    [resolved],
+  );
+
+  // Field key → descendants whose definition of it publishing strips.
+  const reconciledDescendants = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const { name, keys } of reconciliationPreview) {
+      for (const k of keys) map.set(k, [...(map.get(k) ?? []), name]);
+    }
+    return map;
+  }, [reconciliationPreview]);
 
   // Other family members whose effective rules fail against the displayed
   // (draft-aware) state. Above the loading guard for stable hook order.
@@ -1816,6 +1861,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         details={details}
         stickyTop={stickyTop}
         leftPanel={{ details: lineagePanel, panel: lineage }}
+        minContentWidth={FIELDS_TABLE_MIN_WIDTH_PX + FIELDS_TABLE_CHROME_PX}
         panel={
           <ConfigDetailsPanel
             config={displayedConfig}
@@ -1924,46 +1970,15 @@ export default function ConfigDetailPage(): React.ReactElement {
                   >
                     <TabsContent value="form">
                       <Box>
-                        {canEditInline && reconciliationPreview.length > 0 && (
-                          <Callout status="info" mt="3">
-                            Publishing will remove{" "}
-                            {reconciliationPreview
-                              .map(
-                                (h) =>
-                                  `${h.keys.map((k) => `"${k}"`).join(", ")} from ${h.name}`,
-                              )
-                              .join("; ")}{" "}
-                            — this config now defines{" "}
-                            {reconciliationPreview.length === 1 &&
-                            reconciliationPreview[0].keys.length === 1
-                              ? "that field"
-                              : "those fields"}
-                            , so the descendant keeps only a value override
-                            (base wins).
-                          </Callout>
+                        {canEditInline && (
+                          <ReconciledFieldsCallout
+                            descendants={reconciliationPreview}
+                          />
                         )}
-                        {isDraft && draftDescendantImpact.length > 0 && (
-                          <Callout status="warning" mt="3">
-                            These staged changes leave{" "}
-                            {draftDescendantImpact.length === 1
-                              ? "a descendant Config"
-                              : `${draftDescendantImpact.length} descendant Configs`}{" "}
-                            with overrides of removed or retyped fields:{" "}
-                            {draftDescendantImpact
-                              .map((n) => {
-                                const parts = [
-                                  ...(n.orphanedFields ?? []).map(
-                                    (k) => `"${k}" (no longer declared)`,
-                                  ),
-                                  ...(n.incompatibleFields ?? []).map(
-                                    (k) => `"${k}" (type mismatch)`,
-                                  ),
-                                ];
-                                return `${n.name} — ${parts.join(", ")}`;
-                              })
-                              .join(" · ")}
-                            . Publishing will warn before proceeding.
-                          </Callout>
+                        {isDraft && (
+                          <DescendantImpactCallout
+                            nodes={draftDescendantImpact}
+                          />
                         )}
                         {familyInvariantViolations.length > 0 && (
                           <Callout status="warning" mt="3">
@@ -1999,7 +2014,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                           stickyLastColumn
                           pinScrollbar
                           mt="2"
-                          style={{ minWidth: 980 }}
+                          className={fieldsTableClassName}
+                          style={{ minWidth: FIELDS_TABLE_MIN_WIDTH_PX }}
                         >
                           <TableHeader>
                             <TableRow>
@@ -2103,6 +2119,32 @@ export default function ConfigDetailPage(): React.ReactElement {
                                   validationTooltip={failingFieldInfo
                                     .get(f.key)
                                     ?.join("; ")}
+                                  keyNotices={[
+                                    ...(undeclaredKeys.has(f.key)
+                                      ? [
+                                          undeclaredKeysNotice(
+                                            [f.key],
+                                            effectiveExtensible,
+                                          ),
+                                        ]
+                                      : []),
+                                    ...(schemaIssuesByKey.has(f.key)
+                                      ? [
+                                          schemaIssuesNotice(
+                                            schemaIssuesByKey.get(f.key) ?? [],
+                                          ),
+                                        ]
+                                      : []),
+                                    ...(canEditInline &&
+                                    reconciledDescendants.has(f.key)
+                                      ? [
+                                          reconciledFieldNotice(
+                                            reconciledDescendants.get(f.key) ??
+                                              [],
+                                          ),
+                                        ]
+                                      : []),
+                                  ]}
                                   keyImplementations={implementationsByKey.get(
                                     f.key,
                                   )}

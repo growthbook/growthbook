@@ -275,6 +275,64 @@ const ROWS: Row[] = [
     ],
   },
   {
+    name: "base takes over a field a leaf child defines with another type",
+    run: async (api) => {
+      await insertConfig({
+        key: "leaf",
+        parent: "root",
+        schema: { type: "object", fields: [field("region", "string")] },
+        value: JSON.stringify({ region: "eu" }),
+      });
+      const d = await api.open("root");
+      const steps = [
+        await api.schema(
+          "root",
+          d,
+          rootSchema("integer", { region: { type: "integer" } }),
+        ),
+        await api.publish("root", d),
+        await api.publish("root", d, { ignoreWarnings: true }),
+      ];
+      const c = await api.open("leaf");
+      steps.push(await api.value("leaf", c, { region: "us" }));
+      steps.push(await api.value("leaf", c, { region: 2 }));
+      return steps;
+    },
+    expect: [
+      "ok",
+      `"leaf" (leaf): has value(s) that no longer match retyped field(s) "region"; declares conflicting field(s) "region" that would be dropped`,
+      "ok",
+      `"region" must be number`,
+      "ok",
+    ],
+  },
+  {
+    name: "base takes over a field a child with descendants defines",
+    run: async (api) => {
+      const d = await api.open("root");
+      const steps = [
+        await api.schema(
+          "root",
+          d,
+          rootSchema("integer", { note: { type: "integer" } }),
+        ),
+        await api.publish("root", d),
+        await api.publish("root", d, { ignoreWarnings: true }),
+      ];
+      const c = await api.open("child");
+      steps.push(await api.value("child", c, { note: "changed", limit: 6 }));
+      steps.push(await api.value("child", c, { note: 7, limit: 6 }));
+      return steps;
+    },
+    expect: [
+      "ok",
+      `"child" (child): has value(s) that no longer match retyped field(s) "note"; declares conflicting field(s) "note" that would be dropped`,
+      "ok",
+      `"note" must be number`,
+      "ok",
+    ],
+  },
+  {
     name: "base removes a field it and its descendants set",
     run: async (api) => {
       const d = await api.open("root");

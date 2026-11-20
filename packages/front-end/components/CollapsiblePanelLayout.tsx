@@ -20,8 +20,8 @@ export const PANEL_WIDTH_PX = 360;
 const MIN_PANEL_WIDTH_PX = 280;
 const MAX_PANEL_SHARE = 2 / 3;
 // The narrowest the content takes beside a docked panel without overlapping or
-// cutting off (the experiment page's linked changes and Hypothesis). Less
-// room than this beside it, the panel floats instead.
+// cutting off (the experiment page's linked changes and Hypothesis), unless a
+// page needs more. Less room than this beside it, the panel floats instead.
 const MIN_CONTENT_WIDTH_PX = 540;
 // Drag this far past the minimum width to close the panel instead.
 const COLLAPSE_DELTA_PX = 60;
@@ -55,6 +55,8 @@ export interface Props {
   // Takes no input in the content, while the footer stays usable.
   busy?: boolean;
   side?: "left" | "right";
+  // The room the content needs beside a docked panel; with less, it floats.
+  minContentWidth?: number;
 }
 
 // A side panel that sticks beside the content at full screen height. Wide, it
@@ -72,6 +74,7 @@ export default function CollapsiblePanelLayout({
   onFloatChange,
   busy = false,
   side = "right",
+  minContentWidth = MIN_CONTENT_WIDTH_PX,
 }: Props) {
   const left = side === "left";
   const narrowWindow = useMediaQuery(
@@ -133,14 +136,14 @@ export default function CollapsiblePanelLayout({
   const settledRoom = useContext(SettledRoomContext);
   const room = !left && settledRoom !== null ? settledRoom : layoutWidth;
   // Clamped at render rather than stored, so widening the window restores the
-  // dragged width. Docked, it also leaves the content MIN_CONTENT_WIDTH_PX, so
+  // dragged width. Docked, it also leaves the content minContentWidth, so
   // dragging it wider never flips it to floating.
   const maxPanelWidth = room
     ? Math.max(
         MIN_PANEL_WIDTH_PX,
         Math.min(
           Math.round(room * MAX_PANEL_SHARE),
-          narrowWindow && !left ? Infinity : room - MIN_CONTENT_WIDTH_PX,
+          narrowWindow && !left ? Infinity : room - minContentWidth,
         ),
       )
     : Infinity;
@@ -153,7 +156,7 @@ export default function CollapsiblePanelLayout({
   // floats, so it can't flip back and forth.
   const overlay =
     !left &&
-    (narrowWindow || (room > 0 && room - panelWidth < MIN_CONTENT_WIDTH_PX));
+    (narrowWindow || (room > 0 && room - panelWidth < minContentWidth));
   const measured = narrowWindow || room > 0;
   useLayoutEffect(() => {
     if (measured) onFloatChange?.(overlay);

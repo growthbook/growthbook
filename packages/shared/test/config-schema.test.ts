@@ -1,6 +1,7 @@
 import { SchemaField } from "../types/feature";
 import {
   canonicalSchemaString,
+  collectConfigValueIssuesByKey,
   collectInvalidConfigValueKeys,
   diffSchemaFields,
   fieldsCanonicallyEqual,
@@ -888,6 +889,42 @@ describe("validateConfigValue", () => {
         requireAll: true,
       }),
     ).toEqual({ valid: false, errors: ['"timeout" is required'] });
+  });
+
+  it("counts a reference-backed key as present when requireAll is set", () => {
+    expect(
+      validateConfigValue({
+        value: { timeout: "@const:timeout" },
+        fields,
+        additionalProperties: false,
+        requireAll: true,
+      }).valid,
+    ).toBe(true);
+  });
+
+  it("groups a resolved value's issues by top-level key", () => {
+    const issues = collectConfigValueIssuesByKey({
+      value: { name: 1, conn: { host: 1 }, extra: true },
+      fields: [
+        ...fields,
+        field({
+          key: "conn",
+          jsonSchema: JSON.stringify({
+            type: "object",
+            properties: { host: { type: "string" }, port: { type: "integer" } },
+            required: ["host", "port"],
+          }),
+        }),
+      ],
+    });
+    expect(Object.fromEntries(issues)).toEqual({
+      timeout: [{ path: "timeout", message: "is required" }],
+      name: [{ path: "name", message: "must be string" }],
+      conn: expect.arrayContaining([
+        { path: "conn/host", message: "must be string" },
+        { path: "conn/port", message: "is required" },
+      ]),
+    });
   });
 
   it.each([
