@@ -1456,12 +1456,13 @@ export function compareConfig(
 
 export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
 
+let cachedUsesHour12: boolean | null = null;
 /** Whether the browser's locale writes times on a 12-hour clock. */
 function usesHour12(): boolean {
-  return (
+  cachedUsesHour12 ??=
     new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions()
-      .hour12 ?? false
-  );
+      .hour12 ?? false;
+  return cachedUsesHour12;
 }
 
 /**

@@ -70,6 +70,19 @@ describe("buildDateTimeAxisOption", () => {
     expect(ticks).toEqual([Date.UTC(2026, 0, 1), Date.UTC(2026, 1, 1)]);
   });
 
+  it("spans the earliest to latest bucket even if the input is out of order", () => {
+    const { option, ticks } = build(
+      ["2026-03-01 00:00:00", "2026-01-01 00:00:00", "2026-02-01 00:00:00"],
+      "month",
+    );
+    expect(ticks).toEqual([
+      Date.UTC(2026, 0, 1),
+      Date.UTC(2026, 1, 1),
+      Date.UTC(2026, 2, 1),
+    ]);
+    expect(option.axis).not.toHaveProperty("min");
+  });
+
   it("puts ticks under gaps in the data", () => {
     // Hourly data on Jul 25 08:00–10:00, then nothing until Jul 26 08:00.
     const { ticks } = build(

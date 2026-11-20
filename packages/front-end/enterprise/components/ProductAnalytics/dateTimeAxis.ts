@@ -39,7 +39,7 @@ export type DateTimeAxisOption = {
  * - A lone bucket gets an extent of half a bucket either side, so it sits
  *   centred under its one label.
  *
- * `bucketIsos` must be sorted and unique, as the chart's x values already are.
+ * `bucketIsos` can be in any order; only the earliest and latest matter.
  */
 export function buildDateTimeAxisOption({
   bucketIsos,
@@ -99,19 +99,21 @@ export function buildDateTimeAxisOption({
 }
 
 /**
- * Every bucket start from the first data bucket to the last, stepping from the
- * first so the warehouse's own alignment (e.g. Sunday weeks) carries through.
- * The last data bucket is always included, even if a step would miss it.
+ * Every bucket start from the earliest data bucket to the latest, stepping
+ * from the earliest so the warehouse's own alignment (e.g. Sunday weeks)
+ * carries through. The latest data bucket is always included, even if a step
+ * would miss it. Doesn't rely on `dataTimes` being sorted.
  */
 function everyBucketBetween(
   dataTimes: number[],
   granularity: ResolvedGranularity,
 ): number[] {
   if (!dataTimes.length) return [];
-  const end = dataTimes[dataTimes.length - 1];
+  const start = Math.min(...dataTimes);
+  const end = Math.max(...dataTimes);
   const out: number[] = [];
   for (
-    const d = new Date(dataTimes[0]);
+    const d = new Date(start);
     d.getTime() <= end;
     stepBucketUtc(d, granularity)
   ) {
