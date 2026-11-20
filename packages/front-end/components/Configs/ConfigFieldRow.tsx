@@ -319,9 +319,6 @@ export default function ConfigFieldRow({
                               value={isNull ? "" : editText}
                               setValue={setEditText}
                               valueType={vt}
-                              placeholder={
-                                vt === "string" ? "Empty string" : undefined
-                              }
                               codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                               constantContext={constantContext}
                               fullWidth

@@ -319,7 +319,6 @@ export default function FieldDefForm({
         value={valueText}
         setValue={onValueChange}
         valueType={valueType}
-        placeholder={valueType === "string" ? "Empty string" : undefined}
         codeInputDefaultHeight={FIVE_LINES_HEIGHT}
         constantContext={constantContext}
         fullWidth
