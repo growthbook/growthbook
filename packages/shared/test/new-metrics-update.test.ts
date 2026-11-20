@@ -1,5 +1,8 @@
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { ExperimentMetricDefinition } from "../src/experiments/experiments";
 import {
@@ -8,6 +11,7 @@ import {
   getMetricStatsEngineInputs,
   getPlannedMetricStatsEngineInputs,
   getSnapshotSideEffects,
+  getStatsEngineAnalysisSettings,
   haveStatsEngineInputsChanged,
 } from "../src/experiments/new-metrics-update";
 
@@ -461,5 +465,49 @@ describe("stats engine inputs", () => {
         }),
       ).toBe(false);
     });
+  });
+});
+
+describe("getStatsEngineAnalysisSettings", () => {
+  const analysisSettings = {
+    baselineVariationIndex: 1,
+    numGoalMetrics: 0,
+    numGuardrailMetrics: 2,
+  } as ExperimentSnapshotAnalysisSettings;
+  const snapshot = (
+    newMetricsUpdate?: ExperimentSnapshotInterface["newMetricsUpdate"],
+  ) =>
+    ({
+      type: "standard",
+      newMetricsUpdate,
+      settings: {
+        goalMetrics: ["met_new"],
+        guardrailMetrics: ["met_a", "met_b", "met_c"],
+      },
+    }) as unknown as ExperimentSnapshotInterface;
+
+  it("counts a new-metrics update's goals and guardrails from its own metrics", () => {
+    expect(
+      getStatsEngineAnalysisSettings(
+        snapshot({
+          baseDateCreated: new Date(),
+          baseRunStarted: null,
+          baseCutoffDate: null,
+          parentSnapshotId: "snp_parent",
+          metricIds: ["met_new"],
+        }),
+        analysisSettings,
+      ),
+    ).toEqual({
+      baselineVariationIndex: 1,
+      numGoalMetrics: 1,
+      numGuardrailMetrics: 3,
+    });
+  });
+
+  it("leaves another snapshot's settings as requested", () => {
+    expect(getStatsEngineAnalysisSettings(snapshot(), analysisSettings)).toBe(
+      analysisSettings,
+    );
   });
 });

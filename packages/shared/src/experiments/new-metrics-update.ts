@@ -5,6 +5,7 @@ import {
 } from "shared/constants";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type {
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricStatsEngineInputs,
@@ -148,6 +149,27 @@ export function getNewMetricsUpdate(
   return snapshot.type === "standard"
     ? (snapshot.newMetricsUpdate ?? null)
     : null;
+}
+
+/**
+ * The settings the stats engine runs an analysis of this snapshot with. A
+ * new-metrics update's analyses keep the parent's settings so the front end
+ * finds them by equality, but their goal and guardrail counts predate the
+ * metrics it added.
+ */
+export function getStatsEngineAnalysisSettings(
+  snapshot: Pick<
+    ExperimentSnapshotInterface,
+    "type" | "newMetricsUpdate" | "settings"
+  >,
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
+): ExperimentSnapshotAnalysisSettings {
+  if (!getNewMetricsUpdate(snapshot)) return analysisSettings;
+  return {
+    ...analysisSettings,
+    numGoalMetrics: snapshot.settings.goalMetrics.length,
+    numGuardrailMetrics: snapshot.settings.guardrailMetrics.length,
+  };
 }
 
 export function getSnapshotDataAsOfDate(snapshot: SnapshotLineage): Date {
