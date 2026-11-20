@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { safeLogout, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -15,11 +14,15 @@ import TopNavLite from "@/components/Layout/TopNavLite";
 import MfaEnrollment from "./MfaEnrollment";
 import RecoveryCodes from "./RecoveryCodes";
 
-export default function MfaRequired() {
+export default function MfaRequired({
+  recoveryCodes,
+  onEnabled,
+}: {
+  recoveryCodes: string[] | null;
+  onEnabled: (recoveryCodes: string[]) => void;
+}) {
   const { mfaEnabled, mfaManagedByIdp } = useUser();
   const { organizations, orgId, setOrgId } = useAuth();
-  // Kept here: enrolling refetches the user, which flips mfaEnabled and hides the form
-  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const otherOrgs = (organizations || []).filter((o) => o.id !== orgId);
   const canEnroll = !mfaManagedByIdp && !mfaEnabled;
 
@@ -57,7 +60,7 @@ export default function MfaRequired() {
                 ? "Your organization requires multi-factor authentication (MFA). Log out, then log back in with a code from your authenticator app."
                 : "Your organization requires multi-factor authentication (MFA). Set it up to continue."}
           </Callout>
-          {canEnroll && <MfaEnrollment onEnabled={setRecoveryCodes} />}
+          {canEnroll && <MfaEnrollment onEnabled={onEnabled} />}
           <Flex justify="end" gap="3" mt="3">
             {otherOrgs.length > 0 && setOrgId && (
               <DropdownMenu

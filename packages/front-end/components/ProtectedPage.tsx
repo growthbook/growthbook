@@ -24,15 +24,14 @@ const LoggedInPageGuard = ({
   const { error, requiredSSOConnectionId, mfaRequired, ready, organization } =
     useUser();
   const { organizations } = useAuth();
-  // Latched until reload, so enrolling there can't unmount the new recovery codes
-  const [showMfaScreen, setShowMfaScreen] = useState(false);
+  // Held here so enrolling, which clears mfaRequired, can't unmount unsaved codes
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
 
   // Pages that don't need an org (e.g. accepting an invitation) still work
-  if (mfaRequired && organizationRequired && !showMfaScreen) {
-    setShowMfaScreen(true);
-  }
-  if (showMfaScreen || (mfaRequired && organizationRequired)) {
-    return <MfaRequired />;
+  if (recoveryCodes || (mfaRequired && organizationRequired)) {
+    return (
+      <MfaRequired recoveryCodes={recoveryCodes} onEnabled={setRecoveryCodes} />
+    );
   }
 
   if (error && !mfaRequired) {
