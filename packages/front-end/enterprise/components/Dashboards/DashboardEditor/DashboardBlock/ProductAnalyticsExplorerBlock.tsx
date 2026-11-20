@@ -52,6 +52,7 @@ import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/Manag
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 import { BlockProps } from ".";
 
 // Poll interval for a tile's exploration: back off while it's still running,
@@ -430,7 +431,13 @@ export function ProductAnalyticsExplorerVisualization({
   // block's first result, and its button is disabled when nothing has run.
   const tileUpdates = !!runConfig && (headerless || !block.explorerAnalysisId);
   const updateButton = canRun ? (
-    <Button variant="outline" size="sm" onClick={tileRun.run}>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={tileRun.run}
+      // Several tiles each have an Update; name the block for screen readers
+      aria-label={`Update ${block.title || BLOCK_TYPE_INFO[block.type].name}`}
+    >
       {/* Name the scope when the header's Update is also shown */}
       {headerless ? "Update" : "Update block"}
     </Button>
