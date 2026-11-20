@@ -1,4 +1,12 @@
-import React, { forwardRef, useEffect, useRef, useState } from "react";
+import React, {
+  createContext,
+  forwardRef,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Box, Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
@@ -29,6 +37,8 @@ export type TableProps = Omit<
   scrollX?: boolean;
   /** Pins the last column to the right edge while the rest scrolls under it, in a `scrollX` region or once the table is too wide for the page. */
   stickyLastColumn?: boolean;
+  /** For a tall `scrollX` table: its sideways scrollbar sticks to the window's bottom, and the wheel is left to scroll the page. */
+  pinScrollbar?: boolean;
   /**
    * Height cap for the `scrollX` region, e.g. 480 or "60vh". Without it the
    * region grows to the viewport, which pushes anything below the table (such
@@ -43,6 +53,72 @@ export type TableProps = Omit<
   minTableWidth?: number;
 };
 
+// The element a `scrollX` table scrolls sideways in, for TableViewportCell.
+const TableScrollContext = createContext<HTMLDivElement | null>(null);
+
+function tableScroller(cell: HTMLElement): HTMLElement | null {
+  // A TableViewportCell's content already follows the scroll.
+  if (cell.hasAttribute("data-viewport-cell")) return null;
+  let scroller = cell.parentElement;
+  while (scroller && scroller.scrollWidth <= scroller.clientWidth) {
+    scroller = scroller.parentElement;
+  }
+  return scroller && scroller !== document.documentElement ? scroller : null;
+}
+
+// Shows the cell in full beside a pinned last column, or from its left edge
+// when it's wider than the room. Returns whether it scrolled.
+function scrollIntoTable(cell: HTMLElement, scroller: HTMLElement): boolean {
+  const pinned = cell.parentElement?.lastElementChild;
+  const isPinned = (e: Element | null | undefined): e is HTMLElement =>
+    e instanceof HTMLElement && getComputedStyle(e).position === "sticky";
+  // A pinned cell is always in view.
+  if (pinned === cell && isPinned(cell)) return false;
+  const pinnedWidth = isPinned(pinned)
+    ? pinned.getBoundingClientRect().width
+    : 0;
+  const box = scroller.getBoundingClientRect();
+  const rect = cell.getBoundingClientRect();
+  let delta = Math.max(0, rect.right - (box.right - pinnedWidth));
+  if (rect.left - delta < box.left) delta = rect.left - box.left;
+  if (Math.abs(delta) < 1) return false;
+  scroller.scrollBy({ left: delta, behavior: "smooth" });
+  return true;
+}
+
+// Per table: where it scrolls back to once its open editors close.
+const scrollBacks = new WeakMap<
+  HTMLElement,
+  { left: number; open: number; moved: boolean; frame: number }
+>();
+
+// Brings an editor's cell into view and returns what scrolls back. That waits a
+// frame, so an editor opening as another closes takes the scroll-back over.
+export function revealTableCell(cell: HTMLElement): () => void {
+  const scroller = tableScroller(cell);
+  if (!scroller) return () => {};
+  const state = scrollBacks.get(scroller) ?? {
+    left: scroller.scrollLeft,
+    open: 0,
+    moved: false,
+    frame: 0,
+  };
+  scrollBacks.set(scroller, state);
+  cancelAnimationFrame(state.frame);
+  state.open++;
+  state.moved = scrollIntoTable(cell, scroller) || state.moved;
+  return () => {
+    state.open--;
+    if (state.open > 0) return;
+    state.frame = requestAnimationFrame(() => {
+      scrollBacks.delete(scroller);
+      if (state.moved) {
+        scroller.scrollTo({ left: state.left, behavior: "smooth" });
+      }
+    });
+  };
+}
+
 export default function Table({
   children,
   variant,
@@ -52,6 +128,7 @@ export default function Table({
   roundedCorners,
   scrollX,
   stickyLastColumn,
+  pinScrollbar,
   maxHeight,
   minTableWidth,
   className,
@@ -218,6 +295,25 @@ export default function Table({
     pageTopOffset,
   ]);
 
+  // State, not a ref: the scroll box arrives after its cells' first effects.
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+  // Whatever takes focus in a sideways-scrolling table comes into view, past
+  // the pinned column rather than under it.
+  const pinnedScroll = !isListVariant && !!scrollX && !!stickyLastColumn;
+  useEffect(() => {
+    if (!pinnedScroll || !scroller) return;
+    const onFocus = (e: FocusEvent) => {
+      const cell =
+        e.target instanceof Element ? e.target.closest("td, th") : null;
+      if (cell instanceof HTMLElement && scroller.contains(cell)) {
+        const box = tableScroller(cell);
+        if (box) scrollIntoTable(cell, box);
+      }
+    };
+    scroller.addEventListener("focusin", onFocus);
+    return () => scroller.removeEventListener("focusin", onFocus);
+  }, [pinnedScroll, scroller]);
+
   const radixVariant = variant === "list" ? "surface" : variant;
 
   const tableElement = (
@@ -245,22 +341,27 @@ export default function Table({
   if (!isListVariant) {
     if (!scrollX) return tableElement;
     return (
-      <ScrollArea
-        direction="horizontal"
-        size="md"
-        gutter
-        wheelScrollsSideways
-        edgeCue="fade"
-        // A pinned column fades what's under it itself, above the row
-        // borders a mask would fade too; the left edge goes unmarked to match.
-        skipEdges={stickyLastColumn ? ["left", "right"] : []}
-        className={clsx(
-          styles.scrollPlain,
-          stickyLastColumn && styles.pinLastColumn,
-        )}
-      >
-        {tableElement}
-      </ScrollArea>
+      <TableScrollContext.Provider value={scroller}>
+        <ScrollArea
+          ref={setScroller}
+          direction="horizontal"
+          size="md"
+          gutter
+          // A tall table leaves the wheel to the page but over its scrollbar.
+          wheelScrollsSideways={pinScrollbar ? "scrollbar" : "area"}
+          pinScrollbar={pinScrollbar}
+          edgeCue="fade"
+          // A pinned column fades what's under it itself, above the row
+          // borders a mask would fade too; the left edge goes unmarked to match.
+          skipEdges={stickyLastColumn ? ["left", "right"] : []}
+          className={clsx(
+            styles.scrollPlain,
+            stickyLastColumn && styles.pinLastColumn,
+          )}
+        >
+          {tableElement}
+        </ScrollArea>
+      </TableScrollContext.Provider>
     );
   }
 
@@ -342,9 +443,53 @@ export function TableColumnHeader({
   );
 }
 
-export function TableCell({
+// A full-row cell (give it the row's colSpan) whose content spans the visible
+// width and stays put while the table scrolls sideways, e.g. an inline editor.
+export function TableViewportCell({
   children,
   ...props
 }: React.ComponentProps<typeof RadixTable.Cell>) {
-  return <RadixTable.Cell {...props}>{children}</RadixTable.Cell>;
+  const viewport = useContext(TableScrollContext);
+  const cellRef = useRef<HTMLTableCellElement>(null);
+  const [box, setBox] = useState<{ left: number; width: number } | null>(null);
+  useLayoutEffect(() => {
+    const cell = cellRef.current;
+    if (!cell || !viewport) return;
+    const measure = () => {
+      const { paddingLeft, paddingRight } = getComputedStyle(cell);
+      const left = parseFloat(paddingLeft);
+      setBox({
+        left,
+        width: viewport.clientWidth - left - parseFloat(paddingRight),
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [viewport]);
+  return (
+    <RadixTable.Cell ref={cellRef} data-viewport-cell {...props}>
+      <div
+        style={
+          box
+            ? { position: "sticky", left: box.left, width: box.width }
+            : undefined
+        }
+      >
+        {children}
+      </div>
+    </RadixTable.Cell>
+  );
 }
+
+export const TableCell = forwardRef<
+  HTMLTableCellElement,
+  React.ComponentProps<typeof RadixTable.Cell>
+>(function TableCell({ children, ...props }, ref) {
+  return (
+    <RadixTable.Cell ref={ref} {...props}>
+      {children}
+    </RadixTable.Cell>
+  );
+});

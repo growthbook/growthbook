@@ -4,6 +4,13 @@ import TextareaAutosize, {
   TextareaAutosizeProps,
 } from "react-textarea-autosize";
 import HelperText from "@/ui/HelperText";
+import { TextWeights } from "@/ui/Text";
+
+const LABEL_FONT_WEIGHTS: Record<TextWeights, number> = {
+  regular: 400,
+  medium: 500,
+  semibold: 600,
+};
 
 export type FieldSize = "sm" | "md" | "legacy" | "lg";
 
@@ -20,6 +27,7 @@ export type BaseFieldProps = {
   containerStyle?: React.CSSProperties;
   inputGroupClassName?: string;
   labelClassName?: string;
+  labelWeight?: TextWeights;
   customClassName?: string;
   // eslint-disable-next-line
   render?: (id: string, ref: any) => ReactElement;
@@ -55,6 +63,7 @@ const Field = forwardRef(
       containerStyle,
       inputGroupClassName,
       labelClassName,
+      labelWeight = "semibold",
       label,
       markRequired,
       prepend,
@@ -155,7 +164,7 @@ const Field = forwardRef(
             <label
               htmlFor={fieldId}
               className={clsx(labelClassName)}
-              style={{ fontWeight: 600 }}
+              style={{ fontWeight: LABEL_FONT_WEIGHTS[labelWeight] }}
             >
               {label}
               {markRequired && <span className="text-danger ml-1">*</span>}

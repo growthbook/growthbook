@@ -1249,7 +1249,8 @@ export function landedOps(
       continue;
     }
     if (op.op !== "replace" && op.op !== "add") continue;
-    if (isEqual(op.value, baseSnapshot[field])) continue;
+    // A clear of a field the snapshot never had changes nothing, so live wins.
+    if (isEqual(op.value ?? null, baseSnapshot[field] ?? null)) continue;
     const nested = mergeNestedBranch(
       field,
       baseSnapshot[field],
