@@ -47,19 +47,35 @@
     padding: 3px 8px;
     border-radius: 5px;
   }
+  // Takes the room it's given and no more, even from a container that sizes to
+  // its content, so a too-wide table scrolls here instead of widening it.
+  .tableScroll {
+    display: grid;
+    grid-template-columns: minmax(0, max-content);
+    margin-bottom: 1em;
+  }
   table {
-    // Scroll a too-wide table inside its container, like `pre` above,
-    // instead of spilling out of it.
     display: block;
-    width: max-content;
-    max-width: 100%;
     overflow: auto;
     border-collapse: collapse;
-    margin-bottom: 1em;
+    // As the editor draws them, so a table reads the same edited and saved.
     td,
     th {
-      border: 1px solid #ddd;
-      padding: 8px;
+      border: 1px solid var(--gray-a6);
+      padding: var(--space-1) var(--space-2);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background-color: var(--gray-a2);
+      font-weight: var(--font-weight-bold);
+      // The header text is then the table's baseline, so a table opening the
+      // text lines up with a label beside it as a line of text would.
+      vertical-align: baseline;
+    }
+    // A long link breaks rather than widening its column.
+    a {
+      overflow-wrap: anywhere;
     }
   }
 }

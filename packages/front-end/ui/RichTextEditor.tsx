@@ -33,14 +33,20 @@ import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { TablePlugin } from "@lexical/react/LexicalTablePlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { TableCellNode, TableNode, TableRowNode } from "@lexical/table";
+import {
+  $isTableCellNode,
+  $isTableNode,
+  TableCellNode,
+  TableNode,
+  TableRowNode,
+} from "@lexical/table";
 import {
   $isLinkNode,
   $toggleLink,
   AutoLinkNode,
   LinkNode,
 } from "@lexical/link";
-import { $findMatchingParent } from "@lexical/utils";
+import { $findMatchingParent, mergeRegister } from "@lexical/utils";
 import {
   $createParagraphNode,
   $getRoot,
@@ -71,9 +77,15 @@ import {
   IMAGE_TRANSFORMER,
 } from "./RichTextEditorImageNode";
 import RichTextEditorToolbar from "./RichTextEditorToolbar";
+import RichTextEditorTableControls from "./RichTextEditorTableControls";
 import { $insertTextSelected } from "./RichTextEditorLinkEditor";
 import { AUTO_LINK_TRANSFORMER, URL_MATCHERS } from "./RichTextEditorAutoLink";
-import { createTableTransformer } from "./RichTextEditorTable";
+import {
+  createTableTransformer,
+  outsideTableCells,
+  registerTableKeys,
+  registerTableRules,
+} from "./RichTextEditorTable";
 import { hasMarkdownFormatting, htmlHasFormatting } from "./richTextFormatting";
 import styles from "./RichTextEditor.module.scss";
 
@@ -148,11 +160,11 @@ const INLINE_TRANSFORMERS = [
   ...TEXT_MATCH_TRANSFORMERS,
 ];
 
-const SHORTCUT_TRANSFORMERS = [
+const SHORTCUT_TRANSFORMERS = outsideTableCells([
   IMAGE_TRANSFORMER,
   AUTO_LINK_TRANSFORMER,
   ...TRANSFORMERS,
-];
+]);
 
 // Tables load, save and paste, but typing pipes doesn't build one.
 const MARKDOWN_TRANSFORMERS = [
@@ -297,11 +309,14 @@ function PasteAndDrop({
           if (!$isRangeSelection(selection)) return false;
 
           // Markdown copied as text (e.g. from an AI chat) keeps its tables and
-          // formatting; clipboard HTML that has its own formatting wins.
+          // formatting, outside code and cells; clipboard HTML's own wins.
           const plain = data.getData("text/plain");
           if (
             !data.types.includes("application/x-lexical-editor") &&
-            !$findMatchingParent(selection.anchor.getNode(), $isCodeNode) &&
+            !$findMatchingParent(
+              selection.anchor.getNode(),
+              (n) => $isCodeNode(n) || $isTableCellNode(n),
+            ) &&
             !htmlHasFormatting(data.getData("text/html")) &&
             hasMarkdownFormatting(plain)
           ) {
@@ -347,20 +362,31 @@ function PasteAndDrop({
   return null;
 }
 
-// Lexical gives the caret no way out of a code block at the end of the
-// document, so one is always followed by an empty paragraph.
-function TrailingParagraphAfterCode() {
+// The caret has no visible way out below a code block or table at the end of
+// the document, so one is always followed by an empty paragraph.
+function TrailingParagraph() {
   const [editor] = useLexicalComposerContext();
   useEffect(() => {
     const ensure = (root: RootNode) => {
       const last = root.getLastChild();
-      if ($isCodeNode(last)) last.insertAfter($createParagraphNode());
+      if ($isCodeNode(last) || $isTableNode(last)) {
+        last.insertAfter($createParagraphNode());
+      }
     };
     // The value loaded at mount predates the transform. Merged into history,
     // so this is neither an undo step nor a reported change.
     editor.update(() => ensure($getRoot()), { tag: HISTORY_MERGE_TAG });
     return editor.registerNodeTransform(RootNode, ensure);
   }, [editor]);
+  return null;
+}
+
+function TableRules() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(
+    () => mergeRegister(registerTableRules(editor), registerTableKeys(editor)),
+    [editor],
+  );
   return null;
 }
 
@@ -517,6 +543,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
                 }
                 ErrorBoundary={LexicalErrorBoundary}
               />
+              <RichTextEditorTableControls />
             </div>
           </ScrollArea>
           {/* After the text, so a dialog focuses the text rather than this. */}
@@ -564,7 +591,8 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           registerDrop={registerDrop}
         />
         <ValueSync value={value} lastMarkdown={lastMarkdown} />
-        <TrailingParagraphAfterCode />
+        <TrailingParagraph />
+        <TableRules />
         <EditorBridge
           handleRef={ref}
           autoFocus={autoFocus}

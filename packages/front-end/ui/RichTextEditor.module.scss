@@ -52,6 +52,218 @@
   background-color: var(--color-panel-solid);
 }
 
+.tablePicker {
+  display: grid;
+  grid-template-columns: repeat(4, 18px);
+  gap: 3px;
+}
+
+.tablePickerCell {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--gray-a7);
+  border-radius: var(--radius-1);
+  background-color: var(--color-panel-solid);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 1px;
+  }
+}
+
+.tablePickerCellOn {
+  border-color: var(--accent-8);
+  background-color: var(--accent-a4);
+}
+
+// An arrow nudged toward the top left, with a small plus in the corner it
+// leaves free.
+.insertIcon {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+
+  > svg:first-child {
+    width: 0.9em;
+    height: 0.9em;
+  }
+}
+
+.insertIconPlus {
+  position: absolute;
+  right: -0.2em;
+  bottom: -0.2em;
+  width: 0.55em;
+  height: 0.55em;
+}
+
+// Over the text, holding a hovered table's grips; clicks pass through it.
+.tableControls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+// A muted line just outside the table, beside the hovered row or above the
+// hovered column, that thickens to a bar when the pointer comes near. The
+// button spans the gutter out to the table, so near is a hover on it.
+.tableGrip {
+  position: absolute;
+  pointer-events: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+
+  &::before {
+    content: "";
+    position: absolute;
+    border-radius: var(--radius-1);
+    background-color: var(--gray-a6);
+  }
+
+  &:hover::before,
+  &[data-state="open"]::before {
+    background-color: var(--accent-a6);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+  }
+}
+
+// The table's controls rest at half strength, fade in and out, and ease their
+// colors and size, but not their place.
+.tableGrip,
+.tableAdd {
+  opacity: 0.5;
+  animation: tableControlIn 100ms ease;
+  transition:
+    opacity 100ms ease,
+    color 100ms ease;
+
+  &:hover,
+  &:focus-visible,
+  &[data-state="open"] {
+    opacity: 1;
+  }
+
+  &[data-hidden] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &::before,
+  svg {
+    transition:
+      background-color 100ms ease,
+      border-color 100ms ease,
+      transform 100ms ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &::before,
+    svg {
+      animation: none;
+      transition: none;
+    }
+  }
+}
+
+@keyframes tableControlIn {
+  from {
+    opacity: 0;
+  }
+}
+
+// A muted line past the table's last row or column, with a plus at its middle.
+.tableAdd {
+  position: absolute;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--gray-10);
+  cursor: pointer;
+
+  &::before {
+    content: "";
+    position: absolute;
+    border-radius: 1px;
+    background-color: var(--gray-a4);
+  }
+
+  svg {
+    position: relative;
+    box-sizing: content-box;
+    padding: 2px;
+    border: 1px solid var(--gray-a6);
+    border-radius: 50%;
+    background-color: var(--color-panel-solid);
+  }
+
+  &:hover {
+    color: var(--accent-11);
+
+    &::before {
+      background-color: var(--accent-a6);
+    }
+
+    svg {
+      border-color: var(--accent-a7);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+  }
+}
+
+.tableAddRow::before {
+  inset: 50% 0 auto;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.tableAddColumn::before {
+  inset: 0 auto 0 50%;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+// The 6px bar, scaled to a 2px line at its middle (as thick as the add lines)
+// until the pointer is near, so it thickens evenly and only its size animates.
+.rowGrip::before {
+  top: 0;
+  bottom: 0;
+  right: 2px;
+  width: 6px;
+  transform: scaleX(calc(1 / 3));
+}
+
+.columnGrip::before {
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 6px;
+  transform: scaleY(calc(1 / 3));
+}
+
+.rowGrip:hover::before,
+.rowGrip[data-state="open"]::before,
+.columnGrip:hover::before,
+.columnGrip[data-state="open"]::before {
+  transform: none;
+}
+
 // The text scrolls under the app's slim scrollbar. The area and its viewport
 // flex rather than take their parents' full height, so a control that grows
 // still stops at its cap.
@@ -234,7 +446,8 @@
 // Wide tables scroll sideways inside the field instead of widening it.
 .tableWrapper {
   max-width: 100%;
-  margin: 0 0 var(--space-2);
+  // Room below for the line that adds a row.
+  margin: 0 0 var(--space-4);
   overflow-x: auto;
 }
 
@@ -254,6 +467,14 @@
   border: 1px solid var(--gray-a6);
   text-align: left;
   vertical-align: top;
+  // Wraps between words as the saved table does, rather than squeezing every
+  // column to its minimum; only a long link breaks anywhere.
+  word-break: normal;
+  overflow-wrap: break-word;
+
+  a {
+    overflow-wrap: anywhere;
+  }
 
   .paragraph {
     margin: 0;

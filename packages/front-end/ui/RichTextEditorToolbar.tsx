@@ -8,6 +8,7 @@ import {
   PiListBulletsBold,
   PiListNumbersBold,
   PiQuotesBold,
+  PiTableBold,
   PiTextBBold,
   PiTextHOneBold,
   PiTextHThreeBold,
@@ -31,19 +32,30 @@ import {
   REMOVE_LIST_COMMAND,
 } from "@lexical/list";
 import { $isLinkNode } from "@lexical/link";
+import {
+  $findTableNode,
+  $isTableNode,
+  INSERT_TABLE_COMMAND,
+} from "@lexical/table";
 import { $findMatchingParent, mergeRegister } from "@lexical/utils";
 import {
   $createParagraphNode,
+  $getPreviousSelection,
+  $getRoot,
   $getSelection,
+  $isParagraphNode,
   $isRangeSelection,
   $isRootOrShadowRoot,
+  $setSelection,
   FORMAT_TEXT_COMMAND,
   SELECTION_CHANGE_COMMAND,
   COMMAND_PRIORITY_LOW,
   type ElementNode,
   TextFormatType,
 } from "lexical";
+import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
+import RichTextEditorTablePicker from "./RichTextEditorTablePicker";
 import RichTextEditorLinkEditor, {
   LinkTarget,
   useLinkTarget,
@@ -55,6 +67,7 @@ interface ActiveState {
   formats: Set<TextFormatType>;
   block: string;
   inLink: boolean;
+  inTable: boolean;
 }
 
 const TEXT_FORMATS: {
@@ -99,9 +112,11 @@ export default function RichTextEditorToolbar({
     formats: new Set(),
     block: "paragraph",
     inLink: false,
+    inTable: false,
   });
 
   const [linkTarget, setLinkTarget] = useState<LinkTarget | null>(null);
+  const [tablePickerOpen, setTablePickerOpen] = useState(false);
   const hovered = useRef<HTMLElement | null>(null);
   const hoverTimer = useRef<number | undefined>(undefined);
   const { fromSelection, fromElement } = useLinkTarget();
@@ -134,6 +149,7 @@ export default function RichTextEditorToolbar({
       formats,
       block: blockType,
       inLink: $findMatchingParent(anchorNode, $isLinkNode) !== null,
+      inTable: $findTableNode(anchorNode) !== null,
     });
   }, []);
 
@@ -177,6 +193,33 @@ export default function RichTextEditorToolbar({
       undefined,
     );
   };
+
+  const insertTable = (rows: number, columns: number) =>
+    editor.update(() => {
+      // The caret from before the picker took focus, else the end.
+      const selection =
+        $getSelection() ?? $getPreviousSelection()?.clone() ?? null;
+      if ($isRangeSelection(selection)) $setSelection(selection);
+      else $getRoot().selectEnd();
+      const caret = $getSelection();
+      const line = $isRangeSelection(caret)
+        ? caret.anchor.getNode().getTopLevelElement()
+        : null;
+      editor.dispatchCommand(INSERT_TABLE_COMMAND, {
+        rows: String(rows),
+        columns: String(columns),
+        includeHeaders: { rows: true, columns: false },
+      });
+      // On an empty line, the table takes the line's place.
+      if (
+        $isParagraphNode(line) &&
+        line.isAttached() &&
+        line.isEmpty() &&
+        $isTableNode(line.getNextSibling())
+      ) {
+        line.remove();
+      }
+    });
 
   // Hovering a link shows its address; clicking follows it. Editing is one
   // step further in, from the card.
@@ -246,14 +289,24 @@ export default function RichTextEditorToolbar({
     on: boolean,
     onClick: () => void,
     Icon: React.ComponentType<{ size?: number }>,
+    // Blocks other than paragraphs can't go in a table cell.
+    blockInTable = false,
   ) => (
-    <Tooltip key={key} content={label}>
+    <Tooltip
+      key={key}
+      content={
+        blockInTable && active.inTable
+          ? `${label} isn't available in a table`
+          : label
+      }
+    >
       <IconButton
         // Untyped, it would submit the surrounding form.
         type="button"
         size="1"
         variant={on ? "soft" : "ghost"}
         color={on ? undefined : "gray"}
+        disabled={blockInTable && active.inTable}
         aria-label={label}
         aria-pressed={on}
         // Keep focus in the text: the command acts on the live selection.
@@ -296,6 +349,7 @@ export default function RichTextEditorToolbar({
               active.block === tag,
               () => toggleHeading(tag),
               Icon,
+              true,
             ),
           )}
 
@@ -307,6 +361,7 @@ export default function RichTextEditorToolbar({
         active.block === "ul",
         () => toggleList("ul"),
         PiListBulletsBold,
+        true,
       )}
       {button(
         "ol",
@@ -314,6 +369,7 @@ export default function RichTextEditorToolbar({
         active.block === "ol",
         () => toggleList("ol"),
         PiListNumbersBold,
+        true,
       )}
       {button(
         "quote",
@@ -321,6 +377,7 @@ export default function RichTextEditorToolbar({
         active.block === "quote",
         () => setBlock(active.block === "quote" ? null : $createQuoteNode),
         PiQuotesBold,
+        true,
       )}
 
       <Separator orientation="vertical" size="1" />
@@ -336,6 +393,47 @@ export default function RichTextEditorToolbar({
       {onPickImage
         ? button("image", "Insert image", false, onPickImage, PiImageBold)
         : null}
+
+      {simple ? null : active.inTable ? (
+        button("table", "Insert table", false, () => {}, PiTableBold, true)
+      ) : (
+        <Popover
+          open={tablePickerOpen}
+          onOpenChange={setTablePickerOpen}
+          side="bottom"
+          align="start"
+          showArrow={false}
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            editor.focus();
+          }}
+          trigger={
+            <IconButton
+              type="button"
+              size="1"
+              variant={tablePickerOpen ? "soft" : "ghost"}
+              color={tablePickerOpen ? undefined : "gray"}
+              aria-label="Insert table"
+              onMouseDown={(e) => e.preventDefault()}
+              className={styles.toolbarButton}
+            >
+              <Tooltip content="Insert table">
+                <span style={{ display: "inline-flex" }}>
+                  <PiTableBold size={15} />
+                </span>
+              </Tooltip>
+            </IconButton>
+          }
+          content={
+            <RichTextEditorTablePicker
+              onPick={(rows, columns) => {
+                setTablePickerOpen(false);
+                insertTable(rows, columns);
+              }}
+            />
+          }
+        />
+      )}
 
       {linkTarget ? (
         <RichTextEditorLinkEditor
