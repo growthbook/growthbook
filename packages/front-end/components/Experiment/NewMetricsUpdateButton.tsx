@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { PiArrowClockwise, PiCaretDownFill } from "react-icons/pi";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -12,6 +13,22 @@ export default function NewMetricsUpdateButton({
   onUpdateAllMetrics: () => Promise<void>;
   disabled: boolean;
 }) {
+  // Shared by both actions, so neither can start while the other's request is
+  // in flight. The ref also catches a second click before the re-render.
+  const pendingRef = useRef(false);
+  const [pending, setPending] = useState(false);
+  const runUpdate = async (update: () => Promise<void>) => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    setPending(true);
+    try {
+      await update();
+    } finally {
+      pendingRef.current = false;
+      setPending(false);
+    }
+  };
+
   return (
     <SplitButton
       variant="outline"
@@ -22,7 +39,7 @@ export default function NewMetricsUpdateButton({
               variant="outline"
               size="md"
               aria-label="More update options"
-              disabled={disabled}
+              disabled={disabled || pending}
             >
               <PiCaretDownFill />
             </Button>
@@ -32,7 +49,10 @@ export default function NewMetricsUpdateButton({
         >
           {/* Not awaited: the update can open a dialog, and the menu would
               stay open behind it until the update finished. */}
-          <DropdownMenuItem onClick={() => void onUpdateAllMetrics()}>
+          <DropdownMenuItem
+            disabled={pending}
+            onClick={() => void runUpdate(onUpdateAllMetrics)}
+          >
             Update all metrics
           </DropdownMenuItem>
         </DropdownMenu>
@@ -42,8 +62,9 @@ export default function NewMetricsUpdateButton({
         variant="outline"
         size="md"
         icon={<PiArrowClockwise />}
-        disabled={disabled}
-        onClick={onUpdateNewMetrics}
+        disabled={disabled || pending}
+        loading={pending}
+        onClick={() => runUpdate(onUpdateNewMetrics)}
       >
         Update new metrics
       </Button>
