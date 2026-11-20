@@ -111,10 +111,19 @@ export default function MfaEnrollment({
           :
         </Text>
         <CopyableCode value={setup.secret} framed />
+        {/* The code rotates every 30s, so it goes last, right before submit */}
+        <TextField
+          label="Current password"
+          type="password"
+          required
+          autoFocus
+          autoComplete="current-password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+        />
         <TextField
           label="Authentication code"
           required
-          autoFocus
           inputMode="numeric"
           autoComplete="one-time-code"
           pattern="[0-9]{3} ?[0-9]{3}"
@@ -122,14 +131,6 @@ export default function MfaEnrollment({
           helpText="Enter the 6-digit code from your authenticator app."
           value={code}
           onChange={(e) => setCode(e.target.value)}
-        />
-        <TextField
-          label="Current password"
-          type="password"
-          required
-          autoComplete="current-password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
         />
         {error && <Callout status="error">{error}</Callout>}
         <Button type="submit" loading={loading}>
