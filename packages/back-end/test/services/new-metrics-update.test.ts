@@ -5,7 +5,7 @@ import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-  MetricStatsEngineInputs,
+  MetricForSnapshot,
   SnapshotMetric,
   SnapshotNewMetricsUpdate,
 } from "shared/types/experiment-snapshot";
@@ -163,23 +163,18 @@ function makeSettings(
       endDate: PARENT_END,
       endDateIsCutoff: true,
       goalMetrics: metricIds,
-      metricSettings: metricIds.map((id) => ({ id })),
-      metricStatsEngineInputs: metricIds.map((id) => ({
-        id,
-        ...statsEngineInputs,
-      })),
+      metricSettings: metricSettingsFor(metricIds, {}),
       ...overrides,
     },
   }).settings;
 }
 
-const statsEngineInputs: MetricStatsEngineInputs = {
-  inverse: false,
+// The computed settings the stats engine reads.
+const statsEnginePriors = {
   properPrior: false,
   properPriorMean: 0,
   properPriorStdDev: 0.3,
   targetMDE: 0.1,
-  businessMetricTypes: ["goal"],
 };
 
 // Entries with only the computed settings a test reads.
@@ -189,7 +184,7 @@ function metricSettingsFor(
 ): ExperimentSnapshotSettings["metricSettings"] {
   return metricIds.map((id) => ({
     id,
-    computedSettings,
+    computedSettings: { ...statsEnginePriors, ...computedSettings },
   })) as unknown as ExperimentSnapshotSettings["metricSettings"];
 }
 
@@ -361,9 +356,8 @@ describe("planNewMetricsUpdate", () => {
       },
     });
     expect(plan.snapshot.settings.metricSettings).toEqual([
-      { id: "met_a" },
-      { id: "met_b" },
-      { id: "met_c", computedSettings: { planned: true } },
+      ...metricSettingsFor(["met_a", "met_b"], {}),
+      ...metricSettingsFor(["met_c"], { planned: true }),
     ]);
   });
 
@@ -854,30 +848,53 @@ describe("planNewMetricsUpdate", () => {
   // The stats engine reads these, but neither the SQL nor the Incremental
   // Pipeline's settings hash covers them.
   describe("a copied metric whose stats engine inputs changed since the parent", () => {
-    const planWithInputs = (
+    const planWithMetA = (
       runnerKind: "results" | "incremental-update",
-      metAInputs: Partial<MetricStatsEngineInputs>,
+      edit: {
+        computedSettings?: Partial<typeof statsEnginePriors>;
+        settings?: Partial<ExperimentSnapshotSettings>;
+      },
     ) => {
       findParentMock.mockResolvedValue(makeParent({ runnerKind }));
-      const planned = makePlan({ runnerKind });
-      planned.snapshot.settings.metricStatsEngineInputs =
-        planned.snapshot.settings.metricStatsEngineInputs?.map((entry) =>
-          entry.id === "met_a" ? { ...entry, ...metAInputs } : entry,
+      const planned = makePlan({ runnerKind, settings: edit.settings });
+      planned.snapshot.settings.metricSettings =
+        planned.snapshot.settings.metricSettings.map((entry) =>
+          entry.id === "met_a"
+            ? {
+                ...entry,
+                computedSettings: {
+                  ...entry.computedSettings,
+                  ...edit.computedSettings,
+                } as MetricForSnapshot["computedSettings"],
+              }
+            : entry,
         );
       const args = refreshArgs({ planSnapshotAt: async () => planned });
       return { args, promise: planNewMetricsUpdate(args) };
     };
 
-    it.each<[string, Partial<MetricStatsEngineInputs>]>([
-      ["its direction", { inverse: true }],
-      ["its prior", { properPrior: true, properPriorMean: 0.2 }],
-      ["its target MDE", { targetMDE: 0.05 }],
-      ["its goal, secondary or guardrail type", { businessMetricTypes: [] }],
+    it.each<{
+      name: string;
+      computedSettings?: Partial<typeof statsEnginePriors>;
+      settings?: Partial<ExperimentSnapshotSettings>;
+    }>([
+      {
+        name: "its prior",
+        computedSettings: { properPrior: true, properPriorMean: 0.2 },
+      },
+      { name: "its target MDE", computedSettings: { targetMDE: 0.05 } },
+      {
+        name: "its goal, secondary or guardrail type",
+        settings: {
+          goalMetrics: ["met_b", "met_c"],
+          secondaryMetrics: ["met_a"],
+        },
+      },
     ])(
-      "refuses as changed settings after an edit to %s, on either pipeline, before comparing the SQL",
-      async (name, metAInputs) => {
+      "refuses as changed settings after an edit to $name, on either pipeline, before comparing the SQL",
+      async (edit) => {
         for (const runnerKind of ["results", "incremental-update"] as const) {
-          const { args, promise } = planWithInputs(runnerKind, metAInputs);
+          const { args, promise } = planWithMetA(runnerKind, edit);
 
           await expect(promise).rejects.toMatchObject({
             details: { reason: "settings_changed" },
@@ -887,46 +904,15 @@ describe("planNewMetricsUpdate", () => {
       },
     );
 
-    // A copied metric keeps the parent's numbers, so an update that would keep
-    // numbers computed with its old inputs is refused rather than planned.
-    it("refuses rather than keep the parent's numbers and settings for a metric edited since the parent", async () => {
-      const parent = makeParent({
-        runnerKind: "incremental-update",
-        settings: makeSettings(["met_a"]),
+    it("refuses as changed settings when the parent stored no computed settings for a copied metric", async () => {
+      const settings = makeSettings(["met_a", "met_b"], {
+        metricSettings: [{ id: "met_a" }, { id: "met_b" }],
       });
-      findParentMock.mockResolvedValue(parent);
-      const planned = makePlan({
-        runnerKind: "incremental-update",
-        metricIds: ["met_a", "met_c"],
-      });
-      planned.snapshot.settings.metricStatsEngineInputs = [
-        { id: "met_a", ...statsEngineInputs, inverse: true },
-        { id: "met_c", ...statsEngineInputs },
-      ];
-
-      await expect(
-        planNewMetricsUpdate(
-          refreshArgs({ planSnapshotAt: async () => planned }),
-        ),
-      ).rejects.toMatchObject({ details: { reason: "settings_changed" } });
-    });
-
-    it("refuses as changed settings when the parent stored no inputs", async () => {
-      const settings = makeSettings(["met_a", "met_b"]);
-      delete settings.metricStatsEngineInputs;
       findParentMock.mockResolvedValue(makeParent({ settings }));
 
       await expect(planNewMetricsUpdate(refreshArgs())).rejects.toMatchObject({
         details: { reason: "settings_changed" },
       });
-    });
-
-    it("stores the inputs of the copied metrics and the new one", async () => {
-      const plan = await planNewMetricsUpdate(refreshArgs());
-
-      expect(
-        plan.snapshot.settings.metricStatsEngineInputs?.map((m) => m.id),
-      ).toEqual(["met_a", "met_b", "met_c"]);
     });
   });
 
@@ -1191,19 +1177,18 @@ describe("mergeNewMetricsUpdateSettings", () => {
       targetMetricIds: ["met_c", "met_d"],
     });
 
-    expect(settings.metricSettings).toEqual([
-      { id: "met_a" },
-      { id: "met_b" },
-      { id: "met_c", computedSettings: { planned: true } },
-      { id: "met_c?dim:country=US", computedSettings: { planned: true } },
+    expect(
+      settings.metricSettings.map(({ id, computedSettings }) => ({
+        id,
+        planned: "planned" in (computedSettings ?? {}),
+      })),
+    ).toEqual([
+      { id: "met_a", planned: false },
+      { id: "met_b", planned: false },
+      { id: "met_c", planned: true },
+      { id: "met_c?dim:country=US", planned: true },
     ]);
     expect(settings.clusterLevelMetricIds).toEqual(["met_a", "met_c"]);
-    expect(settings.metricStatsEngineInputs?.map((m) => m.id)).toEqual([
-      "met_a",
-      "met_b",
-      "met_c",
-      "met_c?dim:country=US",
-    ]);
     expect(queriedMetricIds).toEqual(["met_c"]);
   });
 });

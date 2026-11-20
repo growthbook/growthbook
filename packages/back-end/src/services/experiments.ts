@@ -72,7 +72,6 @@ import {
   getFunnelStepMetric,
   getMetricResultStatus,
   getMetricSnapshotSettings,
-  getMetricStatsEngineInputs,
   isFactFunnelMetric,
   isFactMetric,
   isFactMetricId,
@@ -1072,22 +1071,6 @@ export function getSnapshotSettings({
     clusterSubUnitIdentifier,
     ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
-    metricStatsEngineInputs: metricSettings.flatMap(({ id }) => {
-      const metric = metricMap.get(id);
-      return metric
-        ? [
-            {
-              id,
-              ...getMetricStatsEngineInputs(metric, {
-                metricSettings,
-                goalMetrics,
-                secondaryMetrics,
-                guardrailMetrics,
-              }),
-            },
-          ]
-        : [];
-    }),
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
       weight: phase.variationWeights[i] || 0,

@@ -392,16 +392,6 @@ export function mergeNewMetricsUpdateSettings({
   );
 
   const settings: ExperimentSnapshotSettings = { ...planned, metricSettings };
-  if (planned.metricStatsEngineInputs || parent.metricStatsEngineInputs) {
-    settings.metricStatsEngineInputs = [
-      ...(parent.metricStatsEngineInputs ?? []).filter(
-        ({ id }) => kept.has(id) && !isTarget(id),
-      ),
-      ...(planned.metricStatsEngineInputs ?? []).filter(({ id }) =>
-        isTarget(id),
-      ),
-    ];
-  }
   if (planned.clusterLevelMetricIds || parent.clusterLevelMetricIds) {
     settings.clusterLevelMetricIds = [
       ...(parent.clusterLevelMetricIds ?? []).filter(

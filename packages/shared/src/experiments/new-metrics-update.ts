@@ -366,17 +366,25 @@ export function getNewMetricsUpdateParentRefusal({
   return null;
 }
 
-type ParentMetricSettings = Pick<
+type BusinessMetricLists = Pick<
   ExperimentSnapshotSettings,
-  "metricSettings" | "metricStatsEngineInputs"
+  "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
 >;
 
 type PlannedMetricSettings = {
   id: string;
   computedSettings?: Pick<
     NonNullable<MetricForSnapshot["computedSettings"]>,
-    "regressionAdjustmentEnabled"
+    | "regressionAdjustmentEnabled"
+    | "properPrior"
+    | "properPriorMean"
+    | "properPriorStdDev"
+    | "targetMDE"
   >;
+};
+
+type ParentMetricSettings = BusinessMetricLists & {
+  metricSettings: readonly PlannedMetricSettings[];
 };
 
 /**
@@ -386,10 +394,7 @@ type PlannedMetricSettings = {
  */
 export type PlannedNewMetricsUpdate = {
   runnerKind: SnapshotQueryRunnerKind;
-  settings: {
-    metricSettings: readonly PlannedMetricSettings[];
-    metricStatsEngineInputs?: ExperimentSnapshotSettings["metricStatsEngineInputs"];
-  };
+  settings: ParentMetricSettings;
 };
 
 const optsOutOfCuped = (m: PlannedMetricSettings) =>
@@ -446,16 +451,11 @@ export function getNewMetricsUpdatePlanRefusal({
     return "settings_changed";
   }
 
-  const plannedInputs = new Map(
-    (planned.settings.metricStatsEngineInputs ?? []).map(
-      ({ id, ...inputs }) => [id, inputs],
-    ),
-  );
   if (
     haveStatsEngineInputsChanged({
-      snapshotSettings: parent.settings,
+      parent: parent.settings,
+      planned: planned.settings,
       metricIds: copied.map((m) => m.id),
-      getInputs: (id) => plannedInputs.get(id) ?? null,
     })
   ) {
     return "settings_changed";
@@ -505,19 +505,17 @@ type StatsEngineInputsSettings = Pick<
   "metricSettings" | "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
 >;
 
-function toStatsEngineInputs(
+function getPriorAndRoleInputs(
   metricId: string,
-  inverse: boolean | undefined,
   priors: {
     properPrior: boolean;
     properPriorMean: number;
     properPriorStdDev: number;
     targetMDE?: number;
   },
-  settings: Omit<StatsEngineInputsSettings, "metricSettings">,
-): MetricStatsEngineInputs {
+  settings: BusinessMetricLists,
+): Omit<MetricStatsEngineInputs, "inverse"> {
   return {
-    inverse: !!inverse,
     properPrior: priors.properPrior,
     properPriorMean: priors.properPriorMean,
     properPriorStdDev: priors.properPriorStdDev,
@@ -549,24 +547,26 @@ export function getMetricStatsEngineInputs(
   const computed = settings.metricSettings.find(
     (m) => m.id === metric.id,
   )?.computedSettings;
-  return toStatsEngineInputs(
-    metric.id,
-    metric.inverse,
-    computed ?? {
-      properPrior: metric.priorSettings.proper,
-      properPriorMean: metric.priorSettings.mean,
-      properPriorStdDev: metric.priorSettings.stddev,
-      targetMDE: metric.targetMDE,
-    },
-    settings,
-  );
+  return {
+    inverse: !!metric.inverse,
+    ...getPriorAndRoleInputs(
+      metric.id,
+      computed ?? {
+        properPrior: metric.priorSettings.proper,
+        properPriorMean: metric.priorSettings.mean,
+        properPriorStdDev: metric.priorSettings.stddev,
+        targetMDE: metric.targetMDE,
+      },
+      settings,
+    ),
+  };
 }
 
 /**
  * What a full update planned now would store for the parent's metrics still on
  * the experiment, from today's definitions, for the app to pass as
  * getNewMetricsUpdateRefusal's `planned` settings. A metric whose definition
- * `getMetricById` can't resolve gets no stats engine inputs, so it counts as
+ * `getMetricById` can't resolve gets no computed settings, so it counts as
  * changed.
  */
 export function getPlannedCopiedMetricSettings({
@@ -611,9 +611,6 @@ export function getPlannedCopiedMetricSettings({
     getAllMetricIdsFromExperiment(experiment, false, metricGroups),
   );
   const metricSettings: PlannedMetricSettings[] = [];
-  const metricStatsEngineInputs: NonNullable<
-    PlannedNewMetricsUpdate["settings"]["metricStatsEngineInputs"]
-  > = [];
   for (const { id } of parentSettings.metricSettings) {
     const definitionMetricId = getDefinitionMetricId(id);
     if (!experimentMetricIds.has(definitionMetricId)) continue;
@@ -650,48 +647,48 @@ export function getPlannedCopiedMetricSettings({
       computedSettings: {
         regressionAdjustmentEnabled:
           metricSnapshotSettings.regressionAdjustmentEnabled,
+        properPrior: metricSnapshotSettings.properPrior,
+        properPriorMean: metricSnapshotSettings.properPriorMean,
+        properPriorStdDev: metricSnapshotSettings.properPriorStdDev,
+        targetMDE:
+          experiment.decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
+            (o) => o.id === definitionMetricId,
+          )?.targetMDE ?? metric.targetMDE,
       },
     });
-    const targetMDE =
-      experiment.decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
-        (o) => o.id === definitionMetricId,
-      )?.targetMDE ?? metric.targetMDE;
-    metricStatsEngineInputs.push({
-      id,
-      ...toStatsEngineInputs(
-        id,
-        metric.inverse,
-        { ...metricSnapshotSettings, targetMDE },
-        businessMetrics,
-      ),
-    });
   }
-  return { metricSettings, metricStatsEngineInputs };
+  return { ...businessMetrics, metricSettings };
+}
+
+// Null when the settings have no computed settings for the metric.
+function getStoredStatsEngineInputs(
+  settings: ParentMetricSettings,
+  metricId: string,
+): Omit<MetricStatsEngineInputs, "inverse"> | null {
+  const computed = settings.metricSettings.find(
+    (m) => m.id === metricId,
+  )?.computedSettings;
+  return computed ? getPriorAndRoleInputs(metricId, computed, settings) : null;
 }
 
 /**
  * Whether the stats engine would read any of these metrics differently than it
- * did for the snapshot, so their copied results would be stale. A metric the
- * snapshot stored no inputs for, or one `getInputs` can't resolve, counts as
- * changed.
+ * did for the parent, so their copied results would be stale. A metric either
+ * side stored no computed settings for counts as changed.
  */
 export function haveStatsEngineInputsChanged({
-  snapshotSettings,
+  parent,
+  planned,
   metricIds,
-  getInputs,
 }: {
-  snapshotSettings: Pick<ExperimentSnapshotSettings, "metricStatsEngineInputs">;
+  parent: ParentMetricSettings;
+  planned: ParentMetricSettings;
   metricIds: Iterable<string>;
-  getInputs: (metricId: string) => MetricStatsEngineInputs | null;
 }): boolean {
-  const stored = new Map(
-    (snapshotSettings.metricStatsEngineInputs ?? []).map(
-      ({ id, ...inputs }) => [id, inputs],
-    ),
-  );
+  // Neither side stores whether a metric is inverse, so flipping it goes unseen.
   return [...metricIds].some((id) => {
-    const before = stored.get(id);
-    const now = getInputs(id);
+    const before = getStoredStatsEngineInputs(parent, id);
+    const now = getStoredStatsEngineInputs(planned, id);
     return !before || !now || !isEqual(before, now);
   });
 }

@@ -2899,16 +2899,31 @@ describe("planExperimentSnapshot", () => {
             });
           });
 
+          // Snapshots don't store a metric's direction, so this edit goes
+          // unseen and the copied results keep the old one.
+          it("plans it, and the app offers it, after an edit to a copied metric's direction", async () => {
+            const { reasons, offered, plan } = await outdatedRefresh(
+              makeFixture(),
+              {
+                base: pipelineBase,
+                editMetric: { id: "fact__revenue", changes: { inverse: true } },
+                pipeline,
+              },
+            );
+
+            expect(reasons).toEqual(["metrics_changed"]);
+            expect(offered).toBe(true);
+            await expect(plan).resolves.toMatchObject({
+              snapshot: { updateScope: { queriedMetricIds: ["fact__guard"] } },
+            });
+          });
+
           // None of these edits reaches the SQL or the settings hash.
           it.each<{
             name: string;
             refresh?: Partial<ExperimentInterface>;
             editMetric?: { id: string; changes: object };
           }>([
-            {
-              name: "a copied metric's direction",
-              editMetric: { id: "fact__revenue", changes: { inverse: true } },
-            },
             {
               name: "a copied metric's prior",
               editMetric: {

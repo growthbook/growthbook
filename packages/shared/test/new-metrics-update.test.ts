@@ -392,18 +392,15 @@ describe("stats engine inputs", () => {
         getMetricById: (id) => definitions[id],
         ...overrides,
       });
-    const inputsOf = (settings: ReturnType<typeof planned>, id = "met_a") =>
-      settings.metricStatsEngineInputs?.find((m) => m.id === id);
+    const computedOf = (settings: ReturnType<typeof planned>, id = "met_a") =>
+      settings.metricSettings.find((m) => m.id === id)?.computedSettings;
 
-    it("expands metric groups and gives a slice its metric's priors but no type", () => {
+    it("expands metric groups and gives a slice its metric's priors", () => {
       const settings = planned({
         parentSettings: snapshotSettingsFor(["met_a", "met_a?dim:country=US"]),
       });
-      expect(inputsOf(settings)).toMatchObject({
-        businessMetricTypes: ["goal"],
-      });
-      expect(inputsOf(settings, "met_a?dim:country=US")).toMatchObject({
-        businessMetricTypes: [],
+      expect(settings.goalMetrics).toEqual(["met_a"]);
+      expect(computedOf(settings, "met_a?dim:country=US")).toMatchObject({
         properPriorStdDev: 0.3,
       });
     });
@@ -414,12 +411,12 @@ describe("stats engine inputs", () => {
           priorSettings: { override: false, proper: true, mean: 0, stddev: 1 },
         },
       } as Parameters<typeof planned>[0]["organizationSettings"];
-      expect(inputsOf(planned({ organizationSettings }))).toMatchObject({
+      expect(computedOf(planned({ organizationSettings }))).toMatchObject({
         properPrior: true,
         properPriorStdDev: 1,
       });
       expect(
-        inputsOf(
+        computedOf(
           planned({
             organizationSettings,
             experiment: {
@@ -444,8 +441,7 @@ describe("stats engine inputs", () => {
 
     it("plans each metric's CUPED flag as the planner computes it", () => {
       const cupedOf = (settings: ReturnType<typeof planned>) =>
-        settings.metricSettings[0]?.computedSettings
-          ?.regressionAdjustmentEnabled;
+        computedOf(settings)?.regressionAdjustmentEnabled;
       expect(cupedOf(planned({}))).toBe(false);
       const adjusted = { ...experiment, regressionAdjustmentEnabled: true };
       expect(cupedOf(planned({ experiment: adjusted }))).toBe(true);
@@ -511,65 +507,79 @@ describe("stats engine inputs", () => {
       expect(settings.metricSettings).toEqual([
         {
           id: "met_act",
-          computedSettings: { regressionAdjustmentEnabled: false },
+          computedSettings: {
+            regressionAdjustmentEnabled: false,
+            properPrior: false,
+            properPriorMean: 0,
+            properPriorStdDev: 0.3,
+            targetMDE: 0.2,
+          },
         },
       ]);
-      expect(inputsOf(settings, "met_act")).toMatchObject({
-        properPrior: false,
-        properPriorStdDev: 0.3,
-        businessMetricTypes: [],
-      });
     });
 
-    it("leaves out metrics no longer on the experiment, and gives an unresolved one no inputs", () => {
+    it("leaves out metrics no longer on the experiment, and gives an unresolved one no computed settings", () => {
       expect(
         planned({
           parentSettings: snapshotSettingsFor(["met_a", "met_gone"]),
         }).metricSettings.map((m) => m.id),
       ).toEqual(["met_a"]);
-      expect(planned({ getMetricById: () => null })).toEqual({
-        metricSettings: [{ id: "met_a" }],
-        metricStatsEngineInputs: [],
-      });
+      expect(planned({ getMetricById: () => null }).metricSettings).toEqual([
+        { id: "met_a" },
+      ]);
     });
   });
 
   describe("haveStatsEngineInputsChanged", () => {
-    const inputs = getMetricStatsEngineInputs(metric, {
+    const computedSettings = {
+      regressionAdjustmentEnabled: false,
+      properPrior: false,
+      properPriorMean: 0,
+      properPriorStdDev: 0.3,
+      targetMDE: 0.1,
+    };
+    const stored = {
       ...lists,
-      metricSettings: [],
-    });
-    const changed = (getInputs: (id: string) => typeof inputs | null) =>
+      metricSettings: [{ id: "met_a", computedSettings }],
+    };
+    const changed = (
+      planned: Partial<typeof stored>,
+      parent: Partial<typeof stored> = {},
+    ) =>
       haveStatsEngineInputsChanged({
-        snapshotSettings: {
-          metricStatsEngineInputs: [{ id: "met_a", ...inputs }],
-        },
+        parent: { ...stored, ...parent },
+        planned: { ...stored, ...planned },
         metricIds: ["met_a"],
-        getInputs,
       });
-
-    it("compares each metric's inputs with the stored ones", () => {
-      expect(changed(() => ({ ...inputs }))).toBe(false);
-      expect(changed(() => ({ ...inputs, inverse: true }))).toBe(true);
-      expect(
-        changed(() => ({ ...inputs, businessMetricTypes: ["goal"] })),
-      ).toBe(true);
+    const withComputed = (changes: Partial<typeof computedSettings>) => ({
+      metricSettings: [
+        { id: "met_a", computedSettings: { ...computedSettings, ...changes } },
+      ],
     });
 
-    it("counts a metric without stored or resolvable inputs as changed", () => {
-      expect(changed(() => null)).toBe(true);
+    it("compares each metric's computed priors, target MDE and role", () => {
+      expect(changed({})).toBe(false);
+      expect(changed(withComputed({ properPrior: true }))).toBe(true);
+      expect(changed(withComputed({ targetMDE: 0.2 }))).toBe(true);
+      expect(changed({ guardrailMetrics: [] })).toBe(true);
+      expect(changed({ secondaryMetrics: ["met_a"] })).toBe(true);
+    });
+
+    it("ignores settings the stats engine doesn't read", () => {
+      expect(changed(withComputed({ regressionAdjustmentEnabled: true }))).toBe(
+        false,
+      );
+    });
+
+    it("counts a metric either side has no computed settings for as changed", () => {
+      const without = { metricSettings: [{ id: "met_a" }] };
+      expect(changed(without)).toBe(true);
+      expect(changed({}, without)).toBe(true);
       expect(
         haveStatsEngineInputsChanged({
-          snapshotSettings: {},
-          metricIds: ["met_a"],
-          getInputs: () => inputs,
-        }),
-      ).toBe(true);
-      expect(
-        haveStatsEngineInputsChanged({
-          snapshotSettings: {},
+          parent: { ...stored, ...without },
+          planned: stored,
           metricIds: [],
-          getInputs: () => inputs,
         }),
       ).toBe(false);
     });

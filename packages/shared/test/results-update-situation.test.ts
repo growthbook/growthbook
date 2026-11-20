@@ -1,4 +1,3 @@
-import type { MetricStatsEngineInputs } from "shared/types/experiment-snapshot";
 import {
   getNewMetricsUpdateRefusal,
   type PlannedNewMetricsUpdate,
@@ -8,17 +7,20 @@ const HOUR = 60 * 60 * 1000;
 const NOW = new Date("2026-03-01T12:00:00Z");
 const hoursAgo = (h: number) => new Date(NOW.getTime() - h * HOUR);
 
-const inputs: MetricStatsEngineInputs = {
-  inverse: false,
+const priors = {
   properPrior: false,
   properPriorMean: 0,
   properPriorStdDev: 0.3,
   targetMDE: 0.1,
-  businessMetricTypes: ["goal"],
 };
 const cuped = (regressionAdjustmentEnabled: boolean) => ({
-  computedSettings: { regressionAdjustmentEnabled },
+  computedSettings: { regressionAdjustmentEnabled, ...priors },
 });
+const lists = {
+  goalMetrics: ["met_a"],
+  secondaryMetrics: [],
+  guardrailMetrics: [],
+};
 
 type Args = Parameters<typeof getNewMetricsUpdateRefusal>[0];
 type Parent = Args["parent"];
@@ -30,7 +32,7 @@ function makeParent(overrides: Partial<Parent> = {}): Parent {
     settings: {
       endDate: hoursAgo(1),
       metricSettings: [{ id: "met_a", ...cuped(true) }],
-      metricStatsEngineInputs: [{ id: "met_a", ...inputs }],
+      ...lists,
       ...overrides.settings,
     } as Parent["settings"],
   };
@@ -46,7 +48,7 @@ function makePlanned(
     ...overrides,
     settings: {
       metricSettings: [{ id: "met_a", ...cuped(true) }],
-      metricStatsEngineInputs: [{ id: "met_a", ...inputs }],
+      ...lists,
       ...overrides.settings,
     },
   };
@@ -242,21 +244,56 @@ describe("getNewMetricsUpdateRefusal", () => {
   });
 
   describe("the stats engine inputs of copied metrics", () => {
-    it("refuses when one changed or the plan has none for it", () => {
+    const withComputed = (
+      computedSettings: Partial<typeof priors>,
+    ): Parent["settings"]["metricSettings"] => [
+      {
+        id: "met_a",
+        computedSettings: {
+          ...cuped(true).computedSettings,
+          ...computedSettings,
+        },
+      },
+    ];
+
+    it.each([
+      { name: "a prior", computedSettings: { properPriorMean: 1 } },
+      { name: "the target MDE", computedSettings: { targetMDE: 0.2 } },
+    ])("refuses when $name changed", ({ computedSettings }) => {
       expect(
         refusal({
           planned: makePlanned({
+            settings: { metricSettings: withComputed(computedSettings) },
+          }),
+        }),
+      ).toBe("settings_changed");
+    });
+
+    it("refuses when a copied metric moved between goals, secondary metrics and guardrails", () => {
+      expect(
+        refusal({
+          planned: makePlanned({
+            settings: { goalMetrics: [], guardrailMetrics: ["met_a"] },
+          }),
+        }),
+      ).toBe("settings_changed");
+    });
+
+    it("refuses when the parent or the plan has no computed settings for it", () => {
+      expect(
+        refusal({
+          parent: makeParent({
             settings: {
-              metricStatsEngineInputs: [
-                { id: "met_a", ...inputs, inverse: true },
-              ],
-            },
+              metricSettings: [{ id: "met_a" }],
+            } as Parent["settings"],
           }),
         }),
       ).toBe("settings_changed");
       expect(
         refusal({
-          planned: makePlanned({ settings: { metricStatsEngineInputs: [] } }),
+          planned: makePlanned({
+            settings: { metricSettings: [{ id: "met_a" }] },
+          }),
         }),
       ).toBe("settings_changed");
     });

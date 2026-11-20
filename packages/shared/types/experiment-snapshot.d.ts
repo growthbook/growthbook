@@ -212,9 +212,6 @@ export interface ExperimentSnapshotSettings {
   /** Always-computed unit dimensions gathered in 1 pass and split into per-dimension analyses. */
   precomputedUnitDimensionIds?: string[];
   metricSettings: MetricForSnapshot[];
-  // Kept apart from metricSettings, whose entries the time series hash whole.
-  // Absent on snapshots planned before they were stored.
-  metricStatsEngineInputs?: ({ id: string } & MetricStatsEngineInputs)[];
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
