@@ -70,7 +70,7 @@ export default function Welcome({
           ? "Look up"
           : state === "firsttime"
             ? "Sign up"
-            : "Submit";
+            : null;
 
   const submit =
     state === "forgotSuccess"
