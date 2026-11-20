@@ -89,6 +89,10 @@ function getAnnotatedName(
  * when the request has no population. Required so no caller can forget it.
  * "% of Population" is null (no data) when the row has no members, since a
  * share of nobody isn't 0%.
+ *
+ * Ratios and per-unit values are null when the denominator is null. The
+ * query always returns one for them, so that's a date bucket filled in for a
+ * gap (see `densifyTimeseriesRows`): an average over nothing isn't 0.
  */
 export function getEffectiveMetricValue(
   v: { numerator: number | null; denominator: number | null },
@@ -96,10 +100,8 @@ export function getEffectiveMetricValue(
   populationCount: number | undefined,
 ): number | null {
   const num = v.numerator ?? 0;
-  if (opts?.isRatio) {
-    return v.denominator ? num / v.denominator : num;
-  }
-  if (opts?.showAs === "per_unit") {
+  if (opts?.isRatio || opts?.showAs === "per_unit") {
+    if (v.denominator === null) return null;
     return v.denominator ? num / v.denominator : num;
   }
   if (opts?.showAs === "percent_of_population") {

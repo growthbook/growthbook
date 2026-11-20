@@ -427,6 +427,24 @@ describe("getEffectiveMetricValue", () => {
       ),
     ).toEqual([100, 25, 100]);
   });
+
+  it("has no data for a filled bucket, except for totals", () => {
+    const opts = getExplorationRenderOpts(
+      metricConfig([
+        metricValue("revenue", "total"),
+        metricValue("revenue", "per_unit"),
+        metricValue("aov", "total"),
+      ]),
+      getFactMetricById,
+    );
+    // What a bucket with no data is filled with.
+    const filled = { numerator: 0, denominator: null };
+    expect(
+      [0, 1, 2].map((i) =>
+        getEffectiveMetricValue(filled, opts.values[i], undefined),
+      ),
+    ).toEqual([0, null, null]);
+  });
 });
 
 describe("isRatioValue", () => {
