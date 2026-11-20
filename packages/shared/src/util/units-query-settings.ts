@@ -19,7 +19,6 @@ export function buildUnitsQuerySettingsFromSnapshot(
     startDate: settings.startDate,
     endDate: settings.endDate,
     endDateIsCutoff: settings.endDateIsCutoff,
-    analysisAsOf: settings.analysisAsOf,
     skipPartialData: settings.skipPartialData,
     attributionModel: settings.attributionModel,
     queryFilter: settings.queryFilter,

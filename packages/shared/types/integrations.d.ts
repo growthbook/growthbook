@@ -366,7 +366,6 @@ export interface ExperimentUnitsQuerySettings {
   startDate: Date;
   endDate: Date;
   endDateIsCutoff?: boolean;
-  analysisAsOf?: Date;
   skipPartialData: boolean;
   attributionModel: AttributionModel;
   queryFilter: string;
