@@ -915,9 +915,9 @@ export default function EventForwarder({
     eventForwarderConfig?.status === "error" &&
     !!eventForwarderConfig.connectorName;
   const hasBacklog = backlogCount > 0;
-  const backlogEvents = `${backlogCount.toLocaleString()} ${
-    backlogCount === 1 ? "event is" : "events are"
-  }`;
+  const countPill = (label: string, color: "red" | "violet") => (
+    <Badge label={label} color={color} variant="solid" radius="full" mr="1" />
+  );
   const action = canRestart ? "restart" : isReady ? "pause" : "resume";
   const actionButton = {
     restart: { label: "Restart", icon: <PiArrowClockwise /> },
@@ -1030,8 +1030,15 @@ export default function EventForwarder({
           />
           {hasBacklog && eventForwarderConfig.status === "error" ? (
             <Box mt="2">
-              {backlogEvents} backed up and will be written to your warehouse
-              when you restart. Backed-up events are deleted after 90 days.
+              {countPill(
+                `${backlogCount.toLocaleString()} ${
+                  backlogCount === 1 ? "event" : "events"
+                }`,
+                "red",
+              )}
+              {backlogCount === 1 ? "is" : "are"} backed up and will be written
+              to your warehouse when you restart. Backed-up events are deleted
+              after 90 days.
             </Box>
           ) : null}
         </Callout>
@@ -1041,16 +1048,20 @@ export default function EventForwarder({
         <Callout status="info" mb="3">
           {/* The total grows while new events are parked behind the replay. */}
           Writing backed-up events to your warehouse:{" "}
-          {replayedCount.toLocaleString()}/
-          {(replayedCount + backlogCount).toLocaleString()}. New events wait
-          until this is done, then forwarding resumes.
+          {countPill(
+            `${replayedCount.toLocaleString()}/${(
+              replayedCount + backlogCount
+            ).toLocaleString()}`,
+            "violet",
+          )}
+          New events wait until this is done, then forwarding resumes.
         </Callout>
       ) : null}
 
       {hasBacklog && isReady && !isProvisioning ? (
         <Callout status="info" mb="3">
           Writing backed-up events to your warehouse:{" "}
-          {backlogCount.toLocaleString()} left.
+          {countPill(`${backlogCount.toLocaleString()} left`, "violet")}
         </Callout>
       ) : null}
 

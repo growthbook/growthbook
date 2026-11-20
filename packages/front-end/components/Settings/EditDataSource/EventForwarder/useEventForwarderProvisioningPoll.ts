@@ -104,10 +104,12 @@ export function useEventForwarderProvisioningPoll({
     });
   }, [datasourceId, fetchConnectorStatus, status]);
 
-  // A replay shrinks the backlog while the forwarder is ready; keep the count current.
+  // Keep the backlog count current:
+  // - errored: it grows as events are parked
+  // - ready: a replay shrinks it
   const hasBacklog = backlogCount > 0;
   useEffect(() => {
-    if (status !== "ready" || !hasBacklog) {
+    if (status !== "error" && (status !== "ready" || !hasBacklog)) {
       return;
     }
     const intervalId = window.setInterval(() => {
