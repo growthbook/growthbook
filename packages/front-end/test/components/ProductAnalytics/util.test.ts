@@ -874,6 +874,13 @@ describe("buildExplorationTableColumnFormats", () => {
     expect(formats).toEqual({ date: { type: "text" } });
   });
 
+  it("keeps decimals for a column whose values all round to zero", () => {
+    const tiny = [{ rate: 0.004 }, { rate: 0.001 }];
+    const formats = buildExplorationTableColumnFormats(tiny, [], [["rate"]]);
+    expect(formats).toEqual({ rate: { type: "number", fractionDigits: 2 } });
+    expect(formatExplorationTableCell(0.004, formats.rate)).toBe("0.00");
+  });
+
   it("uses decimals only for columns that have fractional values", () => {
     const formats = buildExplorationTableColumnFormats(
       rows,

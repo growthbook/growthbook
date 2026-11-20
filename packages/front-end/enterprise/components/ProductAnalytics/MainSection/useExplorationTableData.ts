@@ -49,8 +49,8 @@ function showsCurrentPeriodOnly(
 /**
  * Turn a raw cell value (from the shared column schema) into the row value
  * the table shows and the CSV exports: date buckets become labels, metrics
- * are rounded but stay numbers. Number display formatting is not done here;
- * see `formatExplorationTableCell`.
+ * stay unrounded numbers. Rounding and number display formatting are not
+ * done here; see `formatExplorationTableCell`.
  */
 function formatCellForTable(
   raw: string | number | null,
@@ -81,9 +81,7 @@ function formatCellForTable(
     return raw;
   }
   if (raw == null) return "";
-  if (col.kind === "populationCount") return raw;
-  if (col.sub === "numerator" || col.sub === "denominator") return raw;
-  return typeof raw === "number" ? Number(raw.toFixed(2)) : raw;
+  return raw;
 }
 
 /**

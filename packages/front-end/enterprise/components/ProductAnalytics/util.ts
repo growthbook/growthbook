@@ -1521,7 +1521,7 @@ export function formatExplorationTableCell(
   value: unknown,
   format: ExplorationTableColumnFormat | undefined,
 ): string {
-  if ((value ?? null) === null) return "";
+  if (value == null) return "";
   if (
     format?.type === "number" &&
     typeof value === "number" &&
