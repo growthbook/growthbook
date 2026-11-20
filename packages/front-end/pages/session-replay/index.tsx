@@ -290,8 +290,13 @@ export default function SessionReplayPage() {
   }, [selectedSessionId]);
 
   // ---- search / filters ----------------------------------------------------
-  const { searchInputProps, syntaxFilters, setSearchValue, queryParams } =
-    useSessionReplayFilters(router, project);
+  const {
+    searchInputProps,
+    syntaxFilters,
+    setSearchValue,
+    queryParams,
+    droppedFilters,
+  } = useSessionReplayFilters(router, project);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -305,10 +310,13 @@ export default function SessionReplayPage() {
 
   const { data: sessionsData, error: sessionsError } = useApi<{
     sessions: SessionReplayRow[];
+    hasMore: boolean;
   }>(`/session-replay?${queryString}`);
 
   const sessions = useMemo(() => sessionsData?.sessions ?? [], [sessionsData]);
-  const hasNextPage = sessions.length === 100;
+  // From the server, which over-fetches a row. Counting rows here would offer
+  // an empty next page whenever the result is an exact multiple of the page size.
+  const hasNextPage = !!sessionsData?.hasMore;
 
   // Clear selected session when project changes so a session from another
   // project doesn't stay visible after switching.
@@ -588,6 +596,20 @@ export default function SessionReplayPage() {
               paddingTop: 8,
             }}
           >
+            {droppedFilters.truncated.length > 0 && (
+              <Callout status="warning">
+                Too many values selected for{" "}
+                {droppedFilters.truncated.join(", ")} — some were left out of
+                the filter.
+              </Callout>
+            )}
+            {droppedFilters.negated.length > 0 && (
+              <Callout status="warning">
+                Session replay search cannot exclude values, so the{" "}
+                {droppedFilters.negated.join(", ")} exclusion
+                {droppedFilters.negated.length > 1 ? "s were" : " was"} ignored.
+              </Callout>
+            )}
             {sessionsError && (
               <Callout status="warning">Failed to load sessions</Callout>
             )}

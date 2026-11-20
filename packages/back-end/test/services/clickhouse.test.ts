@@ -10,6 +10,7 @@ import {
 import type { ReqContext } from "back-end/types/request";
 import {
   listSessionReplays,
+  MAX_SESSION_PAGE_SIZE,
   syncManagedWarehouseIdentifiers,
 } from "back-end/src/services/clickhouse";
 import {
@@ -135,6 +136,28 @@ describe("listSessionReplays", () => {
     expect(query).toContain("started_at < '2026-07-22'");
     expect(query).toContain("LIMIT 50");
     expect(query).toContain("OFFSET 100");
+  });
+
+  // The list endpoint over-fetches one row to detect a next page, so the clamp
+  // has to allow page size + 1 rather than the page size itself
+  it("allows one row beyond the page size and clamps above it", async () => {
+    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
+    mockGetSourceIntegrationObject.mockReturnValue({
+      runQuery,
+      getSqlDialect: () => ({
+        escapeStringLiteral: (v: string) => v,
+      }),
+    } as never);
+
+    await listSessionReplays(context, { limit: MAX_SESSION_PAGE_SIZE + 1 });
+    expect(runQuery.mock.calls[0][0]).toContain(
+      `LIMIT ${MAX_SESSION_PAGE_SIZE + 1}`,
+    );
+
+    await listSessionReplays(context, { limit: 5000 });
+    expect(runQuery.mock.calls[1][0]).toContain(
+      `LIMIT ${MAX_SESSION_PAGE_SIZE + 1}`,
+    );
   });
 
   it("returns an empty list when there is no datasource", async () => {

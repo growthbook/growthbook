@@ -255,6 +255,7 @@ export async function getDailyUsageForOrg(
   }
   return parsed.data.days.map((d) => ({
     ...d,
+    sessionReplays: d.sessionReplays ?? 0,
     eventForwarderEvents: d.eventForwarderEvents ?? 0,
   }));
 }

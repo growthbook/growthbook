@@ -6,6 +6,7 @@ import {
 import { parseIntWithDefaultCapped } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { MAX_SESSION_PAGE_SIZE } from "back-end/src/services/clickhouse";
 
 type SessionResponse =
   | { events: SessionReplayRrwebEvent[]; metadata: SessionReplayInterface }
@@ -38,7 +39,10 @@ type SessionReplayListItem = Pick<
   | "device"
   | "browser"
 >;
-type SessionsResponse = { sessions: SessionReplayListItem[] };
+type SessionsResponse = {
+  sessions: SessionReplayListItem[];
+  hasMore: boolean;
+};
 
 export async function listSessions(
   req: AuthRequest<
@@ -66,7 +70,7 @@ export async function listSessions(
 ) {
   const context = getContextFromReq(req);
   const page = parseIntWithDefaultCapped(req.query.page, 1, 1_000);
-  const pageSize = 100;
+  const pageSize = MAX_SESSION_PAGE_SIZE;
   const offset = (page - 1) * pageSize;
 
   const parsePositiveFloat = (s: string | undefined): number | undefined => {
@@ -90,10 +94,15 @@ export async function listSessions(
     dateAfter: req.query.dateAfter,
     dateBefore: req.query.dateBefore,
     project: req.query.project,
-    limit: pageSize,
+    // One extra row tells us a next page exists without a second count query
+    limit: pageSize + 1,
     offset,
   });
-  res.status(200).json({ sessions: sessions.map(toListItem) });
+  const hasMore = sessions.length > pageSize;
+  res.status(200).json({
+    sessions: sessions.slice(0, pageSize).map(toListItem),
+    hasMore,
+  });
 }
 
 function toListItem(session: SessionReplayInterface): SessionReplayListItem {

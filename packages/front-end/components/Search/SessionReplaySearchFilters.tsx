@@ -347,7 +347,7 @@ const SessionReplaySearchFilters: FC<
           setSearchValue={setSearchValue}
         />
         <TextInputRow
-          label="Date after"
+          label="Date on or after"
           field="date"
           operator=">"
           placeholder="YYYY-MM-DD"
@@ -357,7 +357,7 @@ const SessionReplaySearchFilters: FC<
           setSearchValue={setSearchValue}
         />
         <TextInputRow
-          label="Date before"
+          label="Date on or before"
           field="date"
           operator="<"
           placeholder="YYYY-MM-DD"

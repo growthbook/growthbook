@@ -177,10 +177,10 @@ export class SessionReplayModel {
       const ingestedAt = parseClickHouseDate(row.ingested_at);
       if (ingestedAt > base.ingestedAt) base.ingestedAt = ingestedAt;
 
-      const durationMs = Number(row.duration_ms);
-      const eventCount = Number(row.event_count);
-      const keyEventCount = Number(row.key_event_count);
-      const errorCount = Number(row.error_count);
+      const durationMs = Number(row.duration_ms) || 0;
+      const eventCount = Number(row.event_count) || 0;
+      const keyEventCount = Number(row.key_event_count) || 0;
+      const errorCount = Number(row.error_count) || 0;
       if (durationMs > base.durationMs) base.durationMs = durationMs;
       base.eventCount += eventCount;
       base.keyEventCount += keyEventCount;
@@ -230,10 +230,10 @@ export class SessionReplayModel {
       endedAt,
       lastEventAt,
       ingestedAt,
-      durationMs: Number(row.duration_ms),
-      eventCount: Number(row.event_count),
+      durationMs: Number(row.duration_ms) || 0,
+      eventCount: Number(row.event_count) || 0,
       keyEventCount: Number(row.key_event_count) || 0,
-      errorCount: Number(row.error_count),
+      errorCount: Number(row.error_count) || 0,
       urlFirst: row.url_first,
       urlsVisited: row.urls_visited ?? [],
       pageTitle: row.page_title ?? "",

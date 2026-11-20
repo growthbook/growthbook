@@ -23,7 +23,15 @@ const nonNegativeIntegerString = z
   .string()
   .regex(/^\d+$/)
   .refine((value) => Number(value) <= MAX_EVENT_COUNT);
-const isoDateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const isoDateString = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00Z`);
+    return (
+      !isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+    );
+  });
 
 router.get(
   "/",

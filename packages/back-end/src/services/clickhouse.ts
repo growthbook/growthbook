@@ -81,6 +81,8 @@ export type SessionReplayRow = {
   created_at: string;
 };
 
+export const MAX_SESSION_PAGE_SIZE = 100;
+
 export async function listSessionReplays(
   context: ReqContext,
   options?: {
@@ -169,10 +171,20 @@ export async function listSessionReplays(
     conditions.push(`event_count <= ${Math.round(options.maxEventCount)}`);
   }
   if (options?.featureKey) {
-    conditions.push(`has(feature_keys, ${esc(options.featureKey)})`);
+    const vals = options.featureKey.split(",").filter(Boolean);
+    if (vals.length === 1) {
+      conditions.push(`has(feature_keys, ${esc(vals[0])})`);
+    } else if (vals.length > 1) {
+      conditions.push(`hasAny(feature_keys, [${vals.map(esc).join(", ")}])`);
+    }
   }
   if (options?.experimentKey) {
-    conditions.push(`has(experiment_keys, ${esc(options.experimentKey)})`);
+    const vals = options.experimentKey.split(",").filter(Boolean);
+    if (vals.length === 1) {
+      conditions.push(`has(experiment_keys, ${esc(vals[0])})`);
+    } else if (vals.length > 1) {
+      conditions.push(`hasAny(experiment_keys, [${vals.map(esc).join(", ")}])`);
+    }
   }
   if (options?.dateAfter) {
     conditions.push(`started_at >= ${esc(options.dateAfter)}`);
@@ -184,7 +196,10 @@ export async function listSessionReplays(
     conditions.push(`started_at < ${esc(nextDay)}`);
   }
 
-  const limit = Math.max(1, Math.min(100, Math.floor(options?.limit ?? 100)));
+  const limit = Math.max(
+    1,
+    Math.min(MAX_SESSION_PAGE_SIZE + 1, Math.floor(options?.limit ?? 100)),
+  );
   const offset = Math.max(0, Math.floor(options?.offset ?? 0));
   // Always exclude soft-deleted from the list; callers that explicitly want
   // them must use a future bulk-list-by-id endpoint that doesn't go through
