@@ -746,6 +746,136 @@ describe("feature-repo", () => {
     event.clear();
   });
 
+  it("refreshes features when an idle stream resumes", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true, 0);
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/sdk-abc123",
+      responses: [],
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook.init({ streaming: true });
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(f).toHaveBeenCalledTimes(1);
+
+    // The tab goes idle, which closes the stream
+    onHidden();
+
+    // A change is published while the stream is closed, so no event reaches the SDK
+    const [f2, cleanup2] = mockApi(
+      {
+        features: {
+          foo: {
+            defaultValue: "published while idle",
+          },
+        },
+        experiments: [],
+        dateUpdated: "2010-05-01T00:00:12Z",
+      },
+      true,
+      0,
+    );
+
+    // The tab becomes visible again
+    onVisible();
+    await sleep(20);
+
+    expect(f2).toHaveBeenCalledTimes(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("published while idle");
+
+    growthbook.destroy();
+    cleanup();
+    cleanup2();
+    event.clear();
+  });
+
+  it("catches up on resume only after the new stream opens", async () => {
+    const payload = (value: string, dateUpdated: string) => ({
+      features: { foo: { defaultValue: value } },
+      experiments: [],
+      dateUpdated,
+    });
+
+    const [, cleanup] = mockApi(
+      payload("api", "2000-05-01T00:00:12Z"),
+      true,
+      0,
+    );
+
+    // A stream that only opens when the test says so
+    const sources: { onopen: null | (() => void) }[] = [];
+    setPolyfills({
+      EventSource: class {
+        readyState = 0;
+        onerror: null | (() => void) = null;
+        onopen: null | (() => void) = null;
+        constructor() {
+          sources.push(this);
+        }
+        addEventListener() {
+          // No events are delivered; the catch-up fetch is the only update path
+        }
+        close() {
+          // Nothing to release
+        }
+      },
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook.init({ streaming: true });
+    expect(sources.length).toEqual(1);
+
+    onHidden();
+    const [f2, cleanup2] = mockApi(
+      payload("published while idle", "2010-05-01T00:00:12Z"),
+      true,
+      0,
+    );
+    onVisible();
+    expect(sources.length).toEqual(2);
+    await sleep(20);
+
+    // Still connecting: no catch-up fetch yet
+    expect(f2).toHaveBeenCalledTimes(0);
+
+    // A change published after the tab resumed but before the stream opened
+    const [f3, cleanup3] = mockApi(
+      payload("published while connecting", "2011-05-01T00:00:12Z"),
+      true,
+      0,
+    );
+    const resumed = sources[1];
+    resumed.onopen && resumed.onopen();
+    await sleep(20);
+
+    expect(f3).toHaveBeenCalledTimes(1);
+    expect(growthbook.evalFeature("foo").value).toEqual(
+      "published while connecting",
+    );
+
+    setPolyfills({ EventSource });
+    growthbook.destroy();
+    cleanup();
+    cleanup2();
+    cleanup3();
+  });
+
   it("allows streaming to recover when a re-connect attempt fails", async () => {
     const apiPayload = {
       features: {
