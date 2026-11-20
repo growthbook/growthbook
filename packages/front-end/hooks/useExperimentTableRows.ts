@@ -505,9 +505,8 @@ export function generateRowsForMetricGroup({
 }
 
 /**
- * Every top-level goal row, ignoring the metric and tag filters. The metric
- * drilldown renders without those filters, so this is the family it corrects
- * p-values over.
+ * Every top-level goal row, ignoring the metric and tag filters: the family the
+ * metric drilldown and the stats adjustment badge correct p-values over.
  */
 export function getGoalFamilyRows({
   goalMetrics,
