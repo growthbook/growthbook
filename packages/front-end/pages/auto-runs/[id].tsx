@@ -70,6 +70,14 @@ const KIND: Record<
   tag: { label: "Tag", href: () => "/tags", review: "Tags" },
 };
 
+// Importers that record what they did as a run: display name and page path
+const IMPORT_SOURCES: Partial<
+  Record<ApiAutoRun["source"], { name: string; path: string }>
+> = {
+  "eppo-import": { name: "Eppo", path: "eppo" },
+  "optimizely-import": { name: "Optimizely", path: "optimizely" },
+};
+
 // Named resources stay Title Case; experiment, environment and tag are plain
 const NOUN: Record<ArtifactKind, [string, string]> = {
   "sdk-connection": ["SDK Connection", "SDK Connections"],
@@ -360,7 +368,8 @@ export default function AutoRunPage() {
   const failing = run.checks.filter((c) => !c.ok && c.required);
   const environment = autoRunMetaString(run.metadata, "environment");
 
-  if (run.source === "eppo-import") {
+  const importSource = IMPORT_SOURCES[run.source];
+  if (importSource) {
     const failed = run.metadata.failed;
     const failedItems = run.artifacts.filter((a) => a.action === "failed");
     const deletedItems = run.artifacts.filter((a) => a.action === "deleted");
@@ -376,13 +385,16 @@ export default function AutoRunPage() {
         <PageHead
           breadcrumb={[
             { display: "Import Your Data", href: "/importing" },
-            { display: "Eppo Importer", href: "/importing/eppo" },
-            { display: "Eppo Import Report" },
+            {
+              display: `${importSource.name} Importer`,
+              href: `/importing/${importSource.path}`,
+            },
+            { display: `${importSource.name} Import Report` },
           ]}
         />
         <Box mt="4" mb="5">
           <Heading as="h1" size="2xl" mb="0">
-            Eppo Import Report
+            {importSource.name} Import Report
           </Heading>
         </Box>
         {typeof failed === "number" && failed > 0 && (
@@ -390,13 +402,13 @@ export default function AutoRunPage() {
             {failed === 1
               ? "1 item failed to import"
               : `${failed} items failed to import`}
-            . Fetch from Eppo again to retry; imported items update in place
-            instead of being created twice.
+            . Fetch from {importSource.name} again to retry; imported items
+            update in place instead of being created twice.
           </Callout>
         )}
         {imported.length > 0 ? (
           <Section
-            title="Imported From Eppo"
+            title={`Imported From ${importSource.name}`}
             description="Open an item to review its settings. Importing again updates created and updated items instead of creating duplicates."
           >
             <SetUpTable artifacts={imported} />

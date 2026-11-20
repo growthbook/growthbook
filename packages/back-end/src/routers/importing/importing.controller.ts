@@ -130,6 +130,55 @@ export const proxyEppoRequest = async (
   }
 };
 
+export const proxyOptimizelyRequest = async (
+  req: AuthRequest<{
+    endpoint: string;
+    apiToken: string;
+  }>,
+  res: Response,
+) => {
+  getContextFromReq(req);
+  const { endpoint, apiToken } = req.body;
+
+  if (!endpoint || !apiToken) {
+    return res.status(400).json({
+      status: 400,
+      message: "Missing required fields: endpoint and apiToken",
+    });
+  }
+
+  // Covers both the REST API (v2/) and the Flags API (flags/v1/)
+  const url = resolveProxyUrl(endpoint, "https://api.optimizely.com/");
+
+  try {
+    const { responseWithoutBody: response, stringBody } =
+      await cancellableFetch(
+        url,
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+          },
+          redirect: "error",
+        },
+        { maxTimeMs: 30000, maxContentSize: 50 * 1024 * 1024 },
+      );
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        status: response.status,
+        message: `Optimizely API error: ${response.statusText} - ${stringBody}`,
+      });
+    }
+
+    res.status(200).json(JSON.parse(stringBody));
+  } catch (error) {
+    res.status(500).json({
+      status: 500,
+      message: error.message || "Failed to fetch from Optimizely API",
+    });
+  }
+};
+
 export const proxyLaunchDarklyRequest = async (
   req: AuthRequest<{
     url: string;
