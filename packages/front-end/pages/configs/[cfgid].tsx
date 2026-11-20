@@ -159,6 +159,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LineageTree from "@/components/Configs/LineageTree";
 import {
   DescendantImpactCallout,
+  FamilyRuleFailuresCallout,
   ReconciledFieldsCallout,
   reconciledFieldNotice,
   schemaIssuesNotice,
@@ -2185,22 +2186,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                             nodes={draftDescendantImpact}
                           />
                         )}
-                        {familyInvariantViolations.length > 0 && (
-                          <Callout status="warning" mt="3">
-                            {familyInvariantViolations.length === 1
-                              ? "A Config in this family violates its validation rules"
-                              : `${familyInvariantViolations.length} Configs in this family violate their validation rules`}{" "}
-                            against the values shown here:{" "}
-                            {familyInvariantViolations
-                              .map(
-                                (n) =>
-                                  `${n.name} — ${(n.invariantViolations ?? [])
-                                    .map((v) => v.message)
-                                    .join("; ")}`,
-                              )
-                              .join(" · ")}
-                          </Callout>
-                        )}
+                        <FamilyRuleFailuresCallout
+                          nodes={familyInvariantViolations}
+                        />
                         <Table
                           variant="ghost"
                           scrollX

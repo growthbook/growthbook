@@ -228,3 +228,32 @@ export function DescendantImpactCallout({ nodes }: { nodes: LineageNode[] }) {
     </Callout>
   );
 }
+
+// Other Configs in the family that fail their validation rules.
+export function FamilyRuleFailuresCallout({ nodes }: { nodes: LineageNode[] }) {
+  if (!nodes.length) return null;
+  const rules = (n: LineageNode) =>
+    (n.invariantViolations ?? []).map((v) => `"${v.name}"`).join(", ");
+  if (nodes.length === 1) {
+    const [n] = nodes;
+    const one = (n.invariantViolations?.length ?? 0) === 1;
+    return (
+      <Callout status="warning" mt="3">
+        <ConfigName name={n.name} /> fails validation {one ? "rule" : "rules"}{" "}
+        {rules(n)}.
+      </Callout>
+    );
+  }
+  return (
+    <Callout status="warning" mt="3">
+      Other Configs in this family fail validation rules:{" "}
+      {nodes.map((n, i) => (
+        <React.Fragment key={n.key}>
+          {i > 0 && "; "}
+          <ConfigName name={n.name} /> ({rules(n)})
+        </React.Fragment>
+      ))}
+      .
+    </Callout>
+  );
+}
