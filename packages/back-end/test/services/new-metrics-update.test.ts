@@ -981,17 +981,17 @@ describe("planNewMetricsUpdate", () => {
     describe("a parent without a cutoff, whose SQL read the clock it was planned at", () => {
       const planWith = ({
         skipPartialData,
-        analysisAsOf,
+        plannedAt,
       }: {
         skipPartialData: boolean;
-        analysisAsOf?: Date;
+        plannedAt?: Date;
       }) => {
         findParentMock.mockResolvedValue(
           makeParent({
             settings: makeSettings(["met_a", "met_b"], {
               endDateIsCutoff: false,
               skipPartialData,
-              ...(analysisAsOf ? { analysisAsOf } : {}),
+              ...(plannedAt ? { plannedAt } : {}),
             }),
           }),
         );
@@ -999,7 +999,7 @@ describe("planNewMetricsUpdate", () => {
           experiment: makeExperiment({ skipPartialData }),
           planSnapshotAt: async () =>
             makePlan({
-              settings: { skipPartialData, analysisAsOf: new Date() },
+              settings: { skipPartialData, plannedAt: new Date() },
             }),
         });
         return {
@@ -1011,7 +1011,7 @@ describe("planNewMetricsUpdate", () => {
       it("regenerates its SQL with its own stored clock", async () => {
         const { args, promise } = planWith({
           skipPartialData: true,
-          analysisAsOf: PARENT_END,
+          plannedAt: PARENT_END,
         });
 
         await expect(promise).resolves.toMatchObject({
@@ -1021,7 +1021,7 @@ describe("planNewMetricsUpdate", () => {
           expect.objectContaining({
             settings: expect.objectContaining({
               endDateIsCutoff: false,
-              analysisAsOf: PARENT_END,
+              plannedAt: PARENT_END,
             }),
           }),
         );

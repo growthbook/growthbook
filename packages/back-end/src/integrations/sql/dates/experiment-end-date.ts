@@ -4,7 +4,7 @@ import { getSnapshotCutoffDate } from "shared/util";
 export function getExperimentEndDate(
   settings: Pick<
     ExperimentSnapshotSettings,
-    "skipPartialData" | "endDate" | "endDateIsCutoff" | "analysisAsOf"
+    "skipPartialData" | "endDate" | "endDateIsCutoff" | "plannedAt"
   >,
   conversionWindowHours: number,
   // For Incremental Exploratory queries, we need to know when the last update
@@ -12,7 +12,7 @@ export function getExperimentEndDate(
   // data as the overall results did.
   // Otherwise the exploratory could include more units than the overall result
   asOf: Date = getSnapshotCutoffDate(settings) ??
-    settings.analysisAsOf ??
+    settings.plannedAt ??
     new Date(),
 ): Date {
   // Only include users who entered the experiment before this timestamp

@@ -1078,7 +1078,7 @@ export function getSnapshotSettings({
     coverage: phase.coverage ?? 1,
     banditSettings,
     ...(cutoff && !phase.dateEnded ? { endDateIsCutoff: true } : {}),
-    analysisAsOf: currentDate,
+    plannedAt: currentDate,
   };
 }
 

@@ -100,7 +100,7 @@ export type NewMetricsUpdateReplayLevel = {
   newMetricIds: string[] | null;
   // The level's own cutoff flag and clock, which its SQL was generated with.
   endDateIsCutoff: boolean;
-  analysisAsOf: Date | null;
+  plannedAt: Date | null;
 };
 
 /**
@@ -130,7 +130,7 @@ export async function replayNewMetricsUpdateLineage({
         ...settings,
         metricSettings: level.metricSettings,
         endDateIsCutoff: level.endDateIsCutoff,
-        analysisAsOf: level.analysisAsOf ?? undefined,
+        plannedAt: level.plannedAt ?? undefined,
       },
       queryParentId: level.snapshotId,
       scope,
@@ -201,10 +201,10 @@ export async function assertCarriedQuerySqlUnchanged({
       throw new NewMetricsUpdateUnavailableError("settings_changed");
     }
     const endDateIsCutoff = !!level.settings.endDateIsCutoff;
-    const analysisAsOf = level.settings.analysisAsOf ?? null;
+    const plannedAt = level.settings.plannedAt ?? null;
     // Without a cutoff, skipPartialData SQL reads the clock, which snapshots
     // planned before it was stored don't have.
-    if (!endDateIsCutoff && planned.skipPartialData && !analysisAsOf) {
+    if (!endDateIsCutoff && planned.skipPartialData && !plannedAt) {
       throw new NewMetricsUpdateUnavailableError("settings_changed");
     }
     return {
@@ -212,7 +212,7 @@ export async function assertCarriedQuerySqlUnchanged({
       metricSettings,
       newMetricIds: getNewMetricsUpdate(level)?.queriedMetricIds ?? null,
       endDateIsCutoff,
-      analysisAsOf,
+      plannedAt,
     };
   });
 

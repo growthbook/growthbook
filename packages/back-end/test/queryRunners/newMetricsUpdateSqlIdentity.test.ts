@@ -116,14 +116,14 @@ const levels: NewMetricsUpdateReplayLevel[] = [
     metricSettings: [{ id: revenue.id }],
     newMetricIds: null,
     endDateIsCutoff: false,
-    analysisAsOf: settings.endDate,
+    plannedAt: settings.endDate,
   },
   {
     snapshotId: "snp_refresh",
     metricSettings: [{ id: revenue.id }, { id: clicks.id }],
     newMetricIds: [clicks.id],
     endDateIsCutoff: true,
-    analysisAsOf: new Date("2026-11-10T15:00:00Z"),
+    plannedAt: new Date("2026-11-10T15:00:00Z"),
   },
 ];
 // The queries a new-metrics update of snp_refresh compares: the groups it
@@ -200,7 +200,7 @@ async function storedSql(variant: Variant = {}): Promise<Map<string, string>> {
     settings: {
       ...runSettings,
       endDateIsCutoff: false,
-      analysisAsOf: settings.endDate,
+      plannedAt: settings.endDate,
       metricSettings: levels[0].metricSettings,
     },
     queryParentId: levels[0].snapshotId,
@@ -208,7 +208,7 @@ async function storedSql(variant: Variant = {}): Promise<Map<string, string>> {
   const refresh = await generate({
     settings: {
       ...runSettings,
-      analysisAsOf: new Date("2026-11-10T15:00:00Z"),
+      plannedAt: new Date("2026-11-10T15:00:00Z"),
       metricSettings: levels[1].metricSettings,
     },
     queryParentId: levels[1].snapshotId,
