@@ -31,5 +31,9 @@ router.post("/watch/:type/:id", usersController.postWatchItem);
 router.post("/unwatch/:type/:id", usersController.postUnwatchItem);
 router.get("/getRecommendedOrgs", usersController.getRecommendedOrgs);
 router.get("/history", usersController.getHistoryByUser);
+router.post("/mfa/setup", usersController.postMfaSetup);
+router.post("/mfa/enable", usersController.postMfaEnable);
+router.post("/mfa/disable", usersController.postMfaDisable);
+router.post("/mfa/recovery-codes", usersController.postMfaRecoveryCodes);
 
 export { router as usersRouter };

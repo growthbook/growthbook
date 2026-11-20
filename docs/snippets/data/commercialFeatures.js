@@ -245,6 +245,10 @@ export default {
     plan: "enterprise",
     displayName: "Require Approvals",
   },
+  "require-mfa": {
+    plan: "pro",
+    displayName: "Require MFA",
+  },
   "require-project-for-features-setting": {
     plan: "enterprise",
     displayName: "Require Project For Features Setting",

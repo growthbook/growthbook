@@ -1,4 +1,4 @@
-import { FC, ReactNode } from "react";
+import { FC, ReactNode, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth, safeLogout, switchToSSO } from "@/services/auth";
@@ -11,6 +11,7 @@ import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
+import MfaRequired from "./Auth/MfaRequired";
 import TopNavLite from "./Layout/TopNavLite";
 
 const LoggedInPageGuard = ({
@@ -20,10 +21,20 @@ const LoggedInPageGuard = ({
   children: ReactNode;
   organizationRequired: boolean;
 }) => {
-  const { error, requiredSSOConnectionId, ready, organization } = useUser();
+  const { error, requiredSSOConnectionId, mfaRequired, ready, organization } =
+    useUser();
   const { organizations } = useAuth();
+  // Held here so enrolling, which clears mfaRequired, can't unmount unsaved codes
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
 
-  if (error) {
+  // Pages that don't need an org (e.g. accepting an invitation) still work
+  if (recoveryCodes || (mfaRequired && organizationRequired)) {
+    return (
+      <MfaRequired recoveryCodes={recoveryCodes} onEnabled={setRecoveryCodes} />
+    );
+  }
+
+  if (error && !mfaRequired) {
     return (
       <div>
         <TopNavLite />

@@ -891,6 +891,9 @@ importers:
       p-queue:
         specifier: ^8.0.1
         version: 8.0.1
+      qrcode.react:
+        specifier: 4.2.0
+        version: 4.2.0(react@18.2.0)
       query-string:
         specifier: ^9.5.1
         version: 9.5.1
@@ -12055,6 +12058,11 @@ packages:
     deprecated: |-
       You or someone you depend on is using Q, the JavaScript Promise library that gave JavaScript developers strong feelings about promises. They can almost certainly migrate to the native JavaScript promise now. Thank you literally everyone for joining me in this bet against the odds. Be excellent to each other.
       (For a CapTP with native promises, see @endo/eventual-send and @endo/captp)
+
+  qrcode.react@4.2.0:
+    resolution: {integrity: sha512-QpgqWi8rD9DsS9EP3z7BT+5lY5SFhsqGjpgW5DY/i3mK4M9DTBNz3ErMi8BWYEfI3L0d8GIbGmcdFAS1uIRGjA==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   qs@6.17.1:
     resolution: {integrity: sha512-jd3COkaKVgGUW+ZHyEHCG9bH7RoaaiWuMgzsIBjUMVjLAaWGWpoUAVwljVvBHxRu/2qEHnadLGZrkutYUBPQJA==}
@@ -27592,6 +27600,10 @@ snapshots:
   python-shell@3.0.1: {}
 
   q@1.5.1: {}
+
+  qrcode.react@4.2.0(react@18.2.0):
+    dependencies:
+      react: 18.2.0
 
   qs@6.17.1:
     dependencies:

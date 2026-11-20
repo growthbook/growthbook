@@ -17,7 +17,18 @@ describe("getInitialDataFromJWT", () => {
       verified: true,
       issuedAt: 12345,
       sub: "oidc-sub",
+      mfa: false,
     });
+  });
+
+  it("reads MFA from the amr claim", () => {
+    expect(
+      getInitialDataFromJWT({ email: "a@example.com", amr: ["pwd", "mfa"] })
+        .mfa,
+    ).toBe(true);
+    expect(
+      getInitialDataFromJWT({ email: "a@example.com", amr: ["pwd"] }).mfa,
+    ).toBe(false);
   });
 
   it("falls back to given name when full name is missing", () => {

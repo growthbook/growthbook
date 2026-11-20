@@ -38,8 +38,11 @@ export default function Welcome({
       name: "",
       email: "",
       password: "",
+      mfaCode: "",
     },
   });
+  // Password accepted; the account also needs an authenticator code
+  const [mfaStep, setMfaStep] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [welcomeMsgIndex] = useState(Math.floor(Math.random() * 4));
@@ -89,11 +92,17 @@ export default function Welcome({
             token: string;
             message?: string;
             projectId?: string;
+            mfaRequired?: boolean;
           } = await res.json();
           if (json.status > 200) {
             throw new Error(
               json.message || "An error occurred. Please try again.",
             );
+          }
+
+          if (json.mfaRequired) {
+            setMfaStep(true);
+            return;
           }
 
           if (state === "register") {
@@ -318,48 +327,75 @@ export default function Welcome({
               minLength={2}
             />
           )}
-          {(state === "login" ||
-            state === "register" ||
-            state === "forgot" ||
-            state === "firsttime") && (
+          {mfaStep && (
             <Field
-              size="legacy"
-              label="Email Address"
-              required
-              type="email"
-              {...form.register("email")}
-              autoFocus={state === "login" || state === "forgot"}
-              autoComplete="username"
-            />
-          )}
-          {(state === "login" ||
-            state === "register" ||
-            state === "firsttime") && (
-            <Field
-              size="legacy"
-              label="Password"
-              required
-              type="password"
-              {...form.register("password")}
-              autoComplete={
-                state === "login" ? "current-password" : "new-password"
-              }
-              minLength={8}
+              label="Authentication code"
               helpText={
-                state === "login" ? (
+                <>
+                  Enter the code from your authenticator app, or a recovery
+                  code.{" "}
                   <a
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      setState("forgot");
+                      setMfaStep(false);
+                      form.setValue("mfaCode", "");
                     }}
                   >
-                    Forgot Password?
+                    Use a different account
                   </a>
-                ) : null
+                </>
               }
+              required
+              autoFocus
+              autoComplete="one-time-code"
+              {...form.register("mfaCode")}
             />
           )}
+          {!mfaStep &&
+            (state === "login" ||
+              state === "register" ||
+              state === "forgot" ||
+              state === "firsttime") && (
+              <Field
+                size="legacy"
+                label="Email Address"
+                required
+                type="email"
+                {...form.register("email")}
+                autoFocus={state === "login" || state === "forgot"}
+                autoComplete="username"
+              />
+            )}
+          {!mfaStep &&
+            (state === "login" ||
+              state === "register" ||
+              state === "firsttime") && (
+              <Field
+                size="legacy"
+                label="Password"
+                required
+                type="password"
+                {...form.register("password")}
+                autoComplete={
+                  state === "login" ? "current-password" : "new-password"
+                }
+                minLength={8}
+                helpText={
+                  state === "login" ? (
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setState("forgot");
+                      }}
+                    >
+                      Forgot Password?
+                    </a>
+                  ) : null
+                }
+              />
+            )}
           {error && (
             <Callout status="error" mb="3">
               {error}
@@ -375,7 +411,7 @@ export default function Welcome({
           >
             {cta}
           </Button>
-          {state === "login" && (
+          {state === "login" && !mfaStep && (
             <Flex justify="center" align="center">
               <Text color="text-mid" weight="regular" align="center">
                 Don&apos;t have an account yet?{" "}

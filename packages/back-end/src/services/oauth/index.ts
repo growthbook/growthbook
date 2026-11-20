@@ -25,6 +25,7 @@ import {
   getContextForAgendaJobByOrgObject,
   getContextForUserIdInOrg,
 } from "back-end/src/services/organizations";
+import { meetsOrgMfaRequirement } from "back-end/src/services/auth/authChecks";
 import { ApiReqContext } from "back-end/types/api";
 import {
   hashToken,
@@ -262,6 +263,7 @@ export async function mintAuthorizationCode(params: {
   resource?: string;
   state?: string;
   permissions: OAuthTokenPermissions | null;
+  mfa: boolean;
 }): Promise<{ redirectTo: string }> {
   if (params.codeChallengeMethod !== "S256") {
     throw new OAuthError(
@@ -300,6 +302,7 @@ export async function mintAuthorizationCode(params: {
     scope: params.scope,
     resource: params.resource,
     permissions: params.permissions,
+    mfa: params.mfa,
     used: false,
     expiresAt: new Date(now.getTime() + AUTH_CODE_TTL_MS),
   });
@@ -358,6 +361,7 @@ export async function exchangeAuthorizationCode(params: {
     scope: authCode.scope,
     resource: authCode.resource,
     permissions: authCode.permissions ?? null,
+    mfa: !!authCode.mfa,
   });
 
   return issueTokenPair(context, {
@@ -421,6 +425,14 @@ export async function exchangeRefreshToken(params: {
   if (grant.revoked) {
     await tearDownGrant(context, existing.clientId, existing.userId);
     throw new OAuthError("invalid_grant", "Grant has been revoked");
+  }
+  // Ends grants approved without MFA once the org starts requiring it
+  if (!meetsOrgMfaRequirement(org, grant.mfa)) {
+    await tearDownGrant(context, existing.clientId, existing.userId);
+    throw new OAuthError(
+      "invalid_grant",
+      "Your organization requires multi-factor authentication (MFA). Authorize again after signing in with MFA.",
+    );
   }
 
   // Reuse detection (RFC 9700 §4.14.2): null consume means replay — tear down

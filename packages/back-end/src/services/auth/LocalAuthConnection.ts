@@ -7,7 +7,7 @@ import { JWT_SECRET } from "back-end/src/util/secrets";
 import {
   AuthRefreshModel,
   createRefreshToken,
-  getUserIdFromAuthRefreshToken,
+  getSessionFromAuthRefreshToken,
 } from "back-end/src/models/AuthRefreshModel";
 import { RefreshTokenCookie } from "back-end/src/util/cookie";
 import {
@@ -32,7 +32,7 @@ export class LocalAuthConnection implements AuthConnection {
     res: Response,
     refreshToken: string,
   ): Promise<TokensResponse> {
-    const userId = await getUserIdFromAuthRefreshToken(refreshToken);
+    const { userId, mfa } = await getSessionFromAuthRefreshToken(refreshToken);
     if (!userId) {
       throw new Error("No user found with that refresh token");
     }
@@ -43,7 +43,7 @@ export class LocalAuthConnection implements AuthConnection {
     }
 
     return {
-      idToken: this.generateJWT(user),
+      idToken: this.generateJWT(user, mfa),
       refreshToken,
       expiresIn: 1800,
     };
@@ -59,9 +59,10 @@ export class LocalAuthConnection implements AuthConnection {
     req: Request,
     res: Response,
     user: UserInterface,
+    mfa = false,
   ): Promise<TokensResponse> {
-    const idToken = this.generateJWT(user);
-    const refreshToken = await createRefreshToken(req, user);
+    const idToken = this.generateJWT(user, mfa);
+    const refreshToken = await createRefreshToken(req, user, mfa);
 
     const email = user?.email;
     if (email) {
@@ -89,13 +90,14 @@ export class LocalAuthConnection implements AuthConnection {
     }
     jwtCheck(req, res, next);
   }
-  private generateJWT(user: UserInterface) {
+  private generateJWT(user: UserInterface, mfa: boolean) {
     return jwt.sign(
       {
         scope: "profile openid email",
         email: user.email,
         given_name: user.name,
         email_verified: false,
+        amr: mfa ? ["pwd", "mfa"] : ["pwd"],
       },
       JWT_SECRET,
       {

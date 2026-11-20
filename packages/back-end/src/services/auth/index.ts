@@ -63,13 +63,17 @@ import {
 } from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
+import { isOidcMfaSession } from "back-end/src/models/OidcMfaSessionModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
 import {
+  amrIncludesMfa,
   canUseSuperAdmin,
   getAuthSubjectAction,
   getSignInMethodName,
+  isMfaExemptPath,
+  meetsOrgMfaRequirement,
 } from "./authChecks";
 
 type JWTInfo = {
@@ -79,6 +83,7 @@ type JWTInfo = {
   issuedAt?: number;
   sub?: string;
   vercelInstallationId?: string;
+  mfa: boolean;
 };
 
 type IdToken = {
@@ -91,6 +96,9 @@ type IdToken = {
   installation_id?: string;
   sub?: string;
   iat?: number;
+  amr?: unknown;
+  iss?: string;
+  sid?: string;
 };
 
 export function getAuthConnection(): AuthConnection {
@@ -123,6 +131,7 @@ export function getInitialDataFromJWT(user: IdToken): JWTInfo {
       name: user["user_name"] || "",
       vercelInstallationId: user["installation_id"] || "",
       sub: user.sub,
+      mfa: false,
     };
   }
 
@@ -132,6 +141,7 @@ export function getInitialDataFromJWT(user: IdToken): JWTInfo {
     name: user.name || user.given_name || "",
     issuedAt: user.iat,
     sub: user.sub,
+    mfa: amrIncludesMfa(user.amr),
   };
 }
 
@@ -148,6 +158,8 @@ export async function processJWT(
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
+  // A refreshed IdP token can lack `amr`, so fall back to its session's MFA login
+  req.mfa = parsedJWT.mfa || (await isOidcMfaSession(req.user));
   req.teams = [];
   req.currentUser = {
     id: "",
@@ -325,6 +337,19 @@ export async function processJWT(
           res.status(403).json({
             status: 403,
             message: e.message,
+          });
+          return;
+        }
+
+        if (
+          !meetsOrgMfaRequirement(req.organization, req.mfa) &&
+          !isMfaExemptPath(req.method, req.path)
+        ) {
+          res.status(403).json({
+            status: 403,
+            message:
+              "Your organization requires multi-factor authentication (MFA).",
+            code: "mfa_required",
           });
           return;
         }

@@ -1,11 +1,14 @@
 import {
+  amrIncludesMfa,
   canUseSuperAdmin,
   createNonce,
   deriveAuthChecks,
   getAuthSubjectAction,
   getSignInMethodName,
+  isMfaExemptPath,
   isNonceExpired,
   loginMethodOwnsOrg,
+  meetsOrgMfaRequirement,
   nonceFromState,
 } from "back-end/src/services/auth/authChecks";
 
@@ -188,5 +191,47 @@ describe("canUseSuperAdmin", () => {
         requiredSubPrefix: "",
       }),
     ).toBe(true);
+  });
+});
+
+describe("amrIncludesMfa", () => {
+  it("is true only when the amr array names mfa", () => {
+    expect(amrIncludesMfa(["pwd", "mfa"])).toBe(true);
+    expect(amrIncludesMfa(["mfa"])).toBe(true);
+    expect(amrIncludesMfa(["pwd"])).toBe(false);
+    expect(amrIncludesMfa("mfa")).toBe(false);
+    expect(amrIncludesMfa(undefined)).toBe(false);
+  });
+});
+
+describe("meetsOrgMfaRequirement", () => {
+  it("only demands MFA from orgs that require it", () => {
+    expect(meetsOrgMfaRequirement({}, false)).toBe(true);
+    expect(meetsOrgMfaRequirement({ requireMFA: false }, undefined)).toBe(true);
+    expect(meetsOrgMfaRequirement({ requireMFA: true }, true)).toBe(true);
+    expect(meetsOrgMfaRequirement({ requireMFA: true }, false)).toBe(false);
+    expect(meetsOrgMfaRequirement({ requireMFA: true }, undefined)).toBe(false);
+  });
+});
+
+describe("isMfaExemptPath", () => {
+  it("exempts the MFA screen's routes and those that pick their own org", () => {
+    expect(isMfaExemptPath("GET", "/user")).toBe(true);
+    expect(isMfaExemptPath("POST", "/user/mfa/setup")).toBe(true);
+    expect(isMfaExemptPath("POST", "/invite/accept")).toBe(true);
+    expect(isMfaExemptPath("GET", "/invite/abc123")).toBe(true);
+    expect(isMfaExemptPath("GET", "/oauth/authorize/info")).toBe(true);
+    expect(isMfaExemptPath("POST", "/oauth/authorize")).toBe(true);
+  });
+
+  it("keeps the selected org's own routes gated", () => {
+    expect(isMfaExemptPath("GET", "/user/history")).toBe(false);
+    expect(isMfaExemptPath("GET", "/user/mfa")).toBe(false);
+    expect(isMfaExemptPath("GET", "/organization")).toBe(false);
+    expect(isMfaExemptPath("POST", "/invite")).toBe(false);
+    expect(isMfaExemptPath("POST", "/invite/resend")).toBe(false);
+    expect(isMfaExemptPath("PUT", "/invite/abc123/role")).toBe(false);
+    expect(isMfaExemptPath("DELETE", "/invite")).toBe(false);
+    expect(isMfaExemptPath("GET", "/oauth/connected-apps")).toBe(false);
   });
 });

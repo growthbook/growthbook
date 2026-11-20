@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, Fragment, ReactElement, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import InviteList from "@/components/Settings/Team/InviteList";
@@ -14,6 +14,7 @@ import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
 import { isCloud, isMultiOrg } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
 import DefaultRoleCard from "@/components/Settings/Team/DefaultRoleCard";
+import RequireMfaToggle from "@/components/Settings/Team/RequireMfaToggle";
 import VerifyingEmailModal from "@/components/Settings/UpgradeModal/VerifyingEmailModal";
 import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVerifyEmailModal";
 import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
@@ -33,6 +34,7 @@ export const MembersTabView: FC = () => {
     organization,
     hasCommercialFeature,
     teams,
+    mfaSession,
   } = useUser();
 
   const { project, projects } = useDefinitions();
@@ -73,6 +75,24 @@ export const MembersTabView: FC = () => {
   }, [apiCall, checkoutSessionId, refreshOrganization, router]);
 
   const ssoConnection = enterpriseSSO;
+
+  // Cloud's default login can't report MFA yet, so only show it where it can be turned on (or off)
+  const showRequireMfa =
+    !isCloud() || !!organization?.requireMFA || !!mfaSession;
+  const settingRows: ReactElement[] = [];
+  if (showRequireMfa) {
+    settingRows.push(
+      <RequireMfaToggle key="mfa" mutate={refreshOrganization} />,
+    );
+  }
+  if (isMultiOrg()) {
+    settingRows.push(
+      <AutoApproveMembersToggle key="auto" mutate={refreshOrganization} />,
+    );
+  }
+  if (hasCommercialFeature("sso")) {
+    settingRows.push(<DefaultRoleCard key="role" />);
+  }
 
   if (!permissions.manageTeam) {
     return (
@@ -120,15 +140,14 @@ export const MembersTabView: FC = () => {
         />
       )}
       <SSOSettings ssoConnection={ssoConnection || null} />
-      {(isMultiOrg() || hasCommercialFeature("sso")) && (
+      {settingRows.length > 0 && (
         <Frame px="0" py="0" mb="4" overflow="hidden">
-          {isMultiOrg() && (
-            <AutoApproveMembersToggle mutate={refreshOrganization} />
-          )}
-          {isMultiOrg() && hasCommercialFeature("sso") && (
-            <Separator size="4" />
-          )}
-          {hasCommercialFeature("sso") && <DefaultRoleCard />}
+          {settingRows.map((row, i) => (
+            <Fragment key={row.key}>
+              {i > 0 && <Separator size="4" />}
+              {row}
+            </Fragment>
+          ))}
         </Frame>
       )}
       <MemberList

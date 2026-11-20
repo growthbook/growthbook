@@ -82,7 +82,11 @@ import {
   setLicenseKey,
   assertProjectRulesReferenceProjects,
 } from "back-end/src/services/organizations";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  NotFoundError,
+  PlanDoesNotAllowError,
+} from "back-end/src/util/errors";
 import { updatePassword } from "back-end/src/services/users";
 import {
   auditDetailsCreate,
@@ -148,10 +152,13 @@ import {
 } from "back-end/src/util/namespaces";
 import {
   deleteUser,
+  disableMfa,
   getUserById,
   getAllUsers,
   getUserByEmail,
+  resetMinTokenDate,
 } from "back-end/src/models/UserModel";
+import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
@@ -713,6 +720,47 @@ export async function postAutoApproveMembers(
   }
 }
 
+export async function putRequireMFA(
+  req: AuthRequest<{ requireMFA: unknown }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org } = context;
+  const { requireMFA } = z
+    .object({ requireMFA: z.boolean() })
+    .strict()
+    .parse(req.body);
+
+  // Turning it off stays allowed, so a downgraded org isn't stuck with it
+  if (requireMFA && !context.hasPremiumFeature("require-mfa")) {
+    throw new PlanDoesNotAllowError(
+      "Requiring MFA is available on paid plans. Upgrade to turn it on.",
+    );
+  }
+
+  // Otherwise the admin's very next request would lock them out
+  if (requireMFA && !req.mfa) {
+    throw new Error(
+      "Sign in with multi-factor authentication (MFA) yourself before requiring it for the organization.",
+    );
+  }
+
+  await updateOrganization(org.id, { requireMFA });
+  await req.audit({
+    event: "organization.update",
+    entity: { object: "organization", id: org.id },
+    details: auditDetailsUpdate(
+      { requireMFA: !!org.requireMFA },
+      { requireMFA },
+    ),
+  });
+
+  res.status(200).json({ status: 200 });
+}
+
 export async function putInviteRole(
   req: AuthRequest<MemberRoleWithProjects, { key: string }>,
   res: Response,
@@ -995,6 +1043,7 @@ export async function getOrganization(
         environments: filteredEnvironments,
       },
       autoApproveMembers: org.autoApproveMembers,
+      requireMFA: org.requireMFA,
       suspended: org.suspended,
       members: org.members,
       messages: messages || [],
@@ -2641,6 +2690,13 @@ export async function putAdminResetUserPassword(
   }
 
   await updatePassword(userToUpdateId, updatedPassword);
+  // Recovers a lost authenticator, but never waives another org's MFA requirement
+  const memberOrgs = await findOrganizationsByMemberId(userToUpdateId);
+  if (memberOrgs.every((o) => o.id === org.id)) {
+    await disableMfa(userToUpdateId);
+  }
+  await resetMinTokenDate(userToUpdateId);
+  await AuthRefreshModel.deleteMany({ userId: userToUpdateId });
 
   res.status(200).json({
     status: 200,

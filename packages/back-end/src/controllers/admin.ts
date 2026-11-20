@@ -30,6 +30,7 @@ import {
   getTotalNumUsers,
   getUserById,
   getUsersByIds,
+  redactUserSecrets,
   updateUser,
 } from "back-end/src/models/UserModel";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -537,7 +538,7 @@ export async function _dangerousAdminGetUser(
 
   return res.status(200).json({
     status: 200,
-    user: { ...user, passwordHash: "" },
+    user: redactUserSecrets(user),
     organizations: orgs.map((org) => {
       const member = org.members.find((m) => m.id === user.id);
       return {
@@ -578,7 +579,7 @@ export async function _dangerousAdminGetOrganizationMembers(
 
   return res.status(200).json({
     status: 200,
-    members: members.map((m) => ({ ...m, passwordHash: "" })),
+    members: members.map(redactUserSecrets),
   });
 }
 

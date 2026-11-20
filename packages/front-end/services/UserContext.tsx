@@ -151,6 +151,13 @@ export interface UserContextValue {
   error?: string;
   // The Enterprise SSO connection the user's orgs require when the current login doesn't use it
   requiredSSOConnectionId?: string;
+  // The org requires MFA and the current session didn't use it
+  mfaRequired?: boolean;
+  mfaEnabled?: boolean;
+  mfaRecoveryCodesRemaining?: number;
+  // From the server, which knows the real login method
+  mfaSession?: boolean;
+  mfaManagedByIdp?: boolean;
   orgSuspended: boolean;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
@@ -178,6 +185,10 @@ interface UserResponse {
   npsSurveyAt?: string;
   accountCreatedAt?: string;
   npsSurveyEnabled?: boolean;
+  mfaEnabled?: boolean;
+  mfaRecoveryCodesRemaining?: number;
+  mfaSession?: boolean;
+  mfaManagedByIdp?: boolean;
   organizations?: UserOrganizations;
   currentUserPermissions: UserPermissions;
 }
@@ -652,6 +663,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         teams,
         error: error?.message || orgLoadingError?.message,
         requiredSSOConnectionId: getRequiredSSOConnectionId(error),
+        mfaRequired:
+          orgLoadingError instanceof ApiCallError &&
+          orgLoadingError.code === "mfa_required",
+        mfaEnabled: data?.mfaEnabled,
+        mfaRecoveryCodesRemaining: data?.mfaRecoveryCodesRemaining,
+        mfaSession: data?.mfaSession,
+        mfaManagedByIdp: data?.mfaManagedByIdp,
         orgSuspended:
           organization?.suspended === true &&
           !hasSuperAdminPermission(data?.superAdmin, "impersonate"),

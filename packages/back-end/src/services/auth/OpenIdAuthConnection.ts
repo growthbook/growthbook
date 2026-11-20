@@ -41,8 +41,10 @@ import {
   VERCEL_CLIENT_SECRET,
 } from "back-end/src/services/vercel-native-integration.service";
 import { vercelInstallationExists } from "back-end/src/models/VercelNativeIntegrationModel";
+import { recordOidcMfaSession } from "back-end/src/models/OidcMfaSessionModel";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import {
+  amrIncludesMfa,
   createNonce,
   RetriableAuthError,
   deriveAuthChecks,
@@ -160,7 +162,12 @@ export class OpenIdAuthConnection implements AuthConnection {
     );
     PendingSSOConnectionCookie.setValue("", req, res);
 
-    const email = tokenSet.claims().email;
+    const claims = tokenSet.claims();
+    if (amrIncludesMfa(claims.amr)) {
+      await recordOidcMfaSession(claims);
+    }
+
+    const email = claims.email;
     if (email) {
       const trackingProperties = getUserLoginPropertiesFromRequest(req);
       trackLoginForUser({

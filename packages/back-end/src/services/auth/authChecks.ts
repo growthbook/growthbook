@@ -79,6 +79,31 @@ export function loginMethodOwnsOrg(
   );
 }
 
+// OIDC `amr`: IdPs (Auth0, Okta) put "mfa" there; local logins set it themselves
+export function amrIncludesMfa(amr: unknown): boolean {
+  return Array.isArray(amr) && amr.includes("mfa");
+}
+
+export function meetsOrgMfaRequirement(
+  org: { requireMFA?: boolean },
+  sessionMfa: boolean | undefined,
+): boolean {
+  return !org.requireMFA || !!sessionMfa;
+}
+
+// Routes the MFA screen needs, or that pick their own org instead of the selected one
+const MFA_EXEMPT_ROUTES = new Set([
+  "GET /user",
+  "POST /invite/accept",
+  "GET /oauth/authorize/info",
+  "POST /oauth/authorize",
+]);
+export function isMfaExemptPath(method: string, path: string): boolean {
+  if (path.startsWith("/user/mfa/")) return true;
+  if (method === "GET" && /^\/invite\/[^/]+$/.test(path)) return true;
+  return MFA_EXEMPT_ROUTES.has(`${method} ${path}`);
+}
+
 // Super admin needs a login that proves who the user is, not just their email address
 export function canUseSuperAdmin({
   orgScopedLogin,

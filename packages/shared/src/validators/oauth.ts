@@ -61,6 +61,8 @@ export const oauthAuthCodeValidator = createBaseSchemaWithPrimaryKey({
   scope: z.string().optional(),
   resource: z.string().optional(),
   permissions: oauthTokenPermissionsValidator.nullable().optional(),
+  // The consenting session used MFA
+  mfa: z.boolean().optional(),
   used: z.boolean(),
   expiresAt: z.date(),
 });
@@ -106,6 +108,8 @@ export const oauthGrantValidator = createBaseSchemaWithPrimaryKey({
   scope: z.string().optional(),
   resource: z.string().optional(),
   permissions: oauthTokenPermissionsValidator.nullable().optional(),
+  // The last consent used MFA; checked on refresh against the org's requirement
+  mfa: z.boolean().optional(),
   revoked: z.boolean(),
   // Last revoked, kept through a later consent so work a revoked sign-in
   // scheduled never runs.

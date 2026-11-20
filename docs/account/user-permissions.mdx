@@ -79,6 +79,21 @@ If you are the account owner, you will see a toggle at the top of the members' p
 
 To remove a user from your organization, you can click on the three dots next to their name and select `Remove User`. This will remove the user from your organization and revoke their access to all projects and resources within your organization.
 
+### Requiring Multi-Factor Authentication (MFA)
+
+<CommercialFeature feature="require-mfa" />
+
+Admins can require multi-factor authentication (MFA) for every member with the toggle at the top of **Settings → Members**. You can only turn it on while signed in with MFA yourself, so you can't lock yourself out.
+
+- **Email and password logins**: members set up an authenticator app from the account menu (**Multi-factor authentication**) and get 10 one-time recovery codes. Members who haven't set up MFA are asked to before they can continue.
+- **SSO logins**: a login counts as MFA when your identity provider reports it. See [Requiring MFA with SSO](/sso#requiring-mfa-with-sso).
+
+Turning MFA on or off for your own account signs you out of every other session.
+
+If a member loses both their authenticator app and their recovery codes, an admin can reset their password from the members list. That also turns off their MFA, unless they belong to another organization.
+
+API keys and Personal Access Tokens aren't affected. OAuth apps, such as MCP clients, that were approved without MFA have to be approved again.
+
 ## Permissions
 
 Fine-tuning user permissions in an application like GrowthBook ensures a tailored experience, empowering organizations to grant precisely defined access levels. This granular control not only enhances security but also enables teams to collaborate efficiently while safeguarding sensitive features or data.
