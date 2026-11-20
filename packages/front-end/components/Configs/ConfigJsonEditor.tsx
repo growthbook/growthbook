@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiBracketsCurly } from "react-icons/pi";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
@@ -26,7 +27,6 @@ import ValueDisplay from "@/components/Features/ValueDisplay";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Field from "@/components/Forms/Field";
-import Button from "@/ui/Button";
 import ScrollArea from "@/ui/ScrollArea";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
@@ -42,6 +42,7 @@ import {
 } from "@/ui/DropdownMenu";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
+import StagedEditsBar from "@/components/StagedEdits/StagedEditsBar";
 import { ResolvedField } from "@/components/Configs/fieldSchema";
 import FormatJsonAction from "@/components/Features/FormatJsonAction";
 
@@ -123,6 +124,10 @@ type Props = {
     // When provided, replaces the config's per-source projections (set/clear).
     renderProjections?: Record<string, SchemaProjection>,
   ) => Promise<void>;
+  // The page's bottom bar, where unsaved edits show their Save and Discard.
+  ribbonEl?: HTMLElement | null;
+  // Unsaved edits hold the page, as other edits there do.
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 function prettyValue(json: string): string {
@@ -255,6 +260,8 @@ export default function ConfigJsonEditor({
   renderProjections,
   unpublishedFormats,
   onSave,
+  ribbonEl = null,
+  onDirtyChange,
 }: Props) {
   const [valueText, setValueText] = useState<string>(() =>
     prettyValue(valueJson),
@@ -481,6 +488,13 @@ export default function ConfigJsonEditor({
     (editingProjection ? !parsedProjection?.error : !schemaError) &&
     conflictKeys.length === 0 &&
     !saving;
+
+  const holdsPage = canEdit && view === "edit" && dirty;
+  useEffect(() => {
+    onDirtyChange?.(holdsPage);
+  }, [holdsPage, onDirtyChange]);
+  // Unmounted (another tab, another Config), nothing is held.
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   const handleCancel = () => {
     setValueText(pristineValue);
@@ -835,6 +849,9 @@ export default function ConfigJsonEditor({
         maxLines={40}
         showCopyButton
         showFullscreenButton
+        // The same editor as the value's beside it.
+        slimGutter
+        matchValueDisplay
       />
       <HelperText status="info" size="sm" mt="1">
         <span>
@@ -918,6 +935,9 @@ export default function ConfigJsonEditor({
                   maxLines={40}
                   showCopyButton
                   showFullscreenButton
+                  // The same editor as the value's beside it.
+                  slimGutter
+                  matchValueDisplay
                   // Format JSON only applies to the JSON Schema surface.
                   actions={
                     schemaLang === "json" ? (
@@ -1031,26 +1051,20 @@ export default function ConfigJsonEditor({
 
   return (
     <Box mt="3">
-      <Flex justify="end" gap="2" mb="3">
-        <Button
-          size="md"
-          onClick={handleSave}
-          disabled={!canSave}
-          loading={saving}
-        >
-          Save
-        </Button>
-        <Button
-          size="md"
-          variant="ghost"
-          onClick={handleCancel}
-          disabled={!dirty || saving}
-        >
-          Cancel
-        </Button>
-      </Flex>
       {editContent}
       {newProjectionModal}
+      {holdsPage && ribbonEl
+        ? createPortal(
+            <StagedEditsBar
+              changes={null}
+              saving={saving}
+              saveDisabled={!canSave}
+              onDiscard={handleCancel}
+              onSave={handleSave}
+            />,
+            ribbonEl,
+          )
+        : null}
     </Box>
   );
 }

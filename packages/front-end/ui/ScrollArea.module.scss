@@ -180,8 +180,9 @@
   }
 }
 
-// The sideways scrollbar held to the window's bottom along a tall area. Clip,
-// not hidden: hidden would make the area the scrollbar's sticky container.
+// The sideways scrollbar held to the window's bottom along a tall area, above
+// any bar along it (--bottom-bar-clearance). Clip, not hidden: hidden would
+// make the area the scrollbar's sticky container.
 .root.pinsScrollbar {
   --pinned-scrollbar-gap: var(--space-2);
   --pinned-scrollbar-box: calc(
@@ -193,7 +194,9 @@
 
   > :global(.rt-ScrollAreaScrollbar[data-orientation="horizontal"]) {
     position: sticky !important;
-    bottom: var(--pinned-scrollbar-gap) !important;
+    bottom: calc(
+      var(--pinned-scrollbar-gap) + var(--bottom-bar-clearance, 0px)
+    ) !important;
     z-index: 3;
     // Opaque, so rows it's held over don't show through.
     background-color: var(--color-panel-solid);
@@ -205,7 +208,7 @@
   &::after {
     content: "";
     position: sticky;
-    bottom: 0;
+    bottom: var(--bottom-bar-clearance, 0px);
     z-index: 2;
     flex-shrink: 0;
     height: calc(

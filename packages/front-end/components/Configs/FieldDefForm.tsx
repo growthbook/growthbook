@@ -3,8 +3,8 @@ import { SchemaField } from "shared/types/feature";
 import { simpleSchemaFieldToJSONSchema } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
-  PiCaretDownFill,
-  PiCaretRightFill,
+  PiCaretDownBold,
+  PiCaretUpBold,
   PiPlus,
   PiTrash,
 } from "react-icons/pi";
@@ -12,6 +12,9 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import Collapse from "@/ui/Collapse";
+import { inPlaceEditor } from "@/components/Features/EditableValueFrame";
+import ConfigEditActions from "@/components/Configs/ConfigEditActions";
 import {
   TableCell,
   TableRow,
@@ -27,12 +30,14 @@ import CodeTextArea, {
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import FormatJsonAction from "@/components/Features/FormatJsonAction";
 import {
   pinnedCellBackground,
   FIELD_TYPE_OPTIONS,
   JSON_SCHEMA_PRESETS,
   OTHER_TYPE_VALUE,
   PresetKey,
+  fieldRowTransitionStyle,
   fieldTypeSelectValue,
   fieldValueType,
   fieldIsNullable,
@@ -40,6 +45,7 @@ import {
   presetKeyFromField,
   presetSchemaString,
 } from "@/components/Configs/fieldSchema";
+import styles from "./FieldDefForm.module.scss";
 
 // Inline editor for creating or editing a field (editing locks the key). The
 // simple surface and the raw JSON Schema surface both compile to a JSON Schema.
@@ -103,16 +109,8 @@ export default function FieldDefForm({
   const [showValidation, setShowValidation] = useState(hasBound);
   const [showEnum, setShowEnum] = useState(field.enum.length > 0);
 
-  // Expand when an existing field already has extra definition to show.
-  const [configureOpen, setConfigureOpen] = useState(
-    !isNew &&
-      (isJson ||
-        !!field.description ||
-        field.nullable === true ||
-        hasBound ||
-        field.enum.length > 0),
-  );
-
+  // The settings drawer opens only on request.
+  const [configureOpen, setConfigureOpen] = useState(false);
   const trimmedKey = field.key.trim();
   const duplicate =
     trimmedKey !== initial.key && existingKeys.includes(trimmedKey);
@@ -324,6 +322,7 @@ export default function FieldDefForm({
         placeholder="Not set"
         codeInputDefaultHeight={FIVE_LINES_HEIGHT}
         constantContext={constantContext}
+        fullWidth
       />
     );
 
@@ -337,6 +336,7 @@ export default function FieldDefForm({
   const descriptionField = (
     <Field
       label="Description"
+      labelClassName={styles.settingLabel}
       value={field.description}
       onChange={(e) => setField({ ...field, description: e.target.value })}
       maxLength={256}
@@ -362,6 +362,15 @@ export default function FieldDefForm({
         resizable
         showCopyButton
         showFullscreenButton
+        // The same editor as a JSON value's.
+        slimGutter
+        matchValueDisplay
+        actions={
+          <FormatJsonAction
+            value={field.jsonSchema ?? ""}
+            setValue={(v) => setField({ ...field, jsonSchema: v })}
+          />
+        }
         containerStyle={{ marginBottom: 0 }}
       />
       <Text size="sm" color="text-low">
@@ -418,12 +427,11 @@ export default function FieldDefForm({
       </Flex>
       {canEnum && showEnum && (
         <Box mt="3">
-          <Text as="label" size="sm" weight="medium">
-            Allowed values
-          </Text>
-          <Flex gap="3" align="start">
+          <Flex gap="3" align="end">
             <Box style={{ flex: 1 }}>
               <MultiSelectField
+                label="Allowed values"
+                labelClassName={styles.settingLabel}
                 placeholder="Add a value and press enter"
                 value={field.enum}
                 onChange={(vals) => {
@@ -444,7 +452,7 @@ export default function FieldDefForm({
               variant="ghost"
               color="red"
               radius="full"
-              mt="2"
+              mb="2"
               style={{ marginLeft: 0, marginRight: 0 }}
               aria-label="Remove allowed values"
               onClick={() => {
@@ -463,6 +471,7 @@ export default function FieldDefForm({
             <Box style={{ flex: 1 }}>
               <Field
                 label={numeric ? "Minimum" : "Min length"}
+                labelClassName={styles.settingLabel}
                 type="number"
                 step={field.type === "float" ? "any" : 1}
                 min={numeric ? undefined : 0}
@@ -474,6 +483,7 @@ export default function FieldDefForm({
             <Box style={{ flex: 1 }}>
               <Field
                 label={numeric ? "Maximum" : "Max length"}
+                labelClassName={styles.settingLabel}
                 type="number"
                 step={field.type === "float" ? "any" : 1}
                 value={field.max ?? ""}
@@ -509,26 +519,21 @@ export default function FieldDefForm({
     if (isNew || !valueCell) return;
     return revealTableCell(valueCell);
   }, [isNew]);
-  const showsDetails = configureOpen || !!err;
-
-  const saveCancel = (
-    <Flex gap="3" align="center">
-      <Button size="md" onClick={save} disabled={saving}>
-        Save
-      </Button>
-      <Link size="md" onClick={saving ? undefined : onCancel}>
-        Cancel
-      </Link>
-    </Flex>
-  );
 
   const tint = "var(--violet-a2)";
   return (
     <>
-      <TableRow align="start" style={{ background: tint }}>
+      <TableRow
+        align="start"
+        className={styles.editRow}
+        style={{
+          background: tint,
+          ...fieldRowTransitionStyle(isNew ? "" : initial.key),
+        }}
+      >
         <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>
-            <Box style={{ width: "100%" }}>
+            <Box style={{ width: "100%" }} className={inPlaceEditor}>
               <Field
                 size="md"
                 autoFocus={isNew}
@@ -549,7 +554,10 @@ export default function FieldDefForm({
           {withValue && (
             <>
               <Flex align="center" style={{ minHeight: 32 }}>
-                <Box style={{ width: "100%", minWidth: 0 }}>
+                <Box
+                  style={{ width: "100%", minWidth: 0 }}
+                  className={valueIsNull ? undefined : inPlaceEditor}
+                >
                   {valueIsNull ? (
                     <Text color="text-low">
                       <code>null</code>
@@ -575,46 +583,62 @@ export default function FieldDefForm({
         </TableCell>
         <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>
-            <Box style={{ width: "100%" }}>{typeSelect}</Box>
+            <Box style={{ width: "100%" }} className={inPlaceEditor}>
+              {typeSelect}
+            </Box>
           </Flex>
         </TableCell>
-        <TableCell colSpan={2}>
-          <Flex align="center" style={{ minHeight: 32 }}>
-            <Link
-              aria-expanded={configureOpen}
-              onClick={() => setConfigureOpen((o) => !o)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-            >
-              {configureOpen ? <PiCaretDownFill /> : <PiCaretRightFill />}
-              Configure
-            </Link>
-          </Flex>
-        </TableCell>
-        <TableCell style={{ background: pinnedCellBackground(tint) }}>
-          <Flex align="center" justify="center" style={{ minHeight: 32 }}>
-            {saveCancel}
-          </Flex>
-        </TableCell>
+        <TableCell colSpan={2} />
+        <TableCell style={{ background: pinnedCellBackground(tint) }} />
       </TableRow>
-      {showsDetails ? (
-        <TableRow style={{ background: tint }}>
-          <TableViewportCell colSpan={6}>
-            {configureOpen && (
-              <Box>
+      {/* The field's settings, in a drawer under the row. */}
+      <TableRow style={{ background: tint }}>
+        {/* No height of its own: shut, the drawer is only its toggle. */}
+        <TableViewportCell colSpan={6} style={{ padding: 0, height: 0 }}>
+          <Box position="relative">
+            <Button
+              variant="soft"
+              color="gray"
+              size="sm"
+              className={styles.drawerToggle}
+              aria-expanded={configureOpen}
+              icon={
+                configureOpen ? (
+                  <PiCaretUpBold size={10} />
+                ) : (
+                  <PiCaretDownBold size={10} />
+                )
+              }
+              iconPosition="right"
+              onClick={() => setConfigureOpen((open) => !open)}
+            >
+              Field settings
+            </Button>
+            <Collapse open={configureOpen}>
+              <Box className={styles.drawer}>
                 {body}
                 <Flex justify="end" mt="2">
                   {modeToggle}
                 </Flex>
               </Box>
-            )}
+            </Collapse>
             {err && (
-              <Callout status="error" mt="2" size="sm">
-                <MarkdownLinks text={err} />
-              </Callout>
+              <Box className={styles.drawerNote} mt={configureOpen ? "0" : "2"}>
+                <Callout status="error" size="sm">
+                  <MarkdownLinks text={err} />
+                </Callout>
+              </Box>
             )}
-          </TableViewportCell>
-        </TableRow>
-      ) : null}
+          </Box>
+        </TableViewportCell>
+      </TableRow>
+      <ConfigEditActions
+        colSpan={6}
+        background={tint}
+        saving={saving}
+        onSave={save}
+        onCancel={onCancel}
+      />
     </>
   );
 }

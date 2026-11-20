@@ -4248,3 +4248,10 @@ input:disabled {
 .PylonChat-chatWindowFrameContainer {
   margin-bottom: var(--bottom-bar-clearance, 0px) !important;
 }
+
+// View transitions (services/viewTransition) run briskly.
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 150ms;
+}

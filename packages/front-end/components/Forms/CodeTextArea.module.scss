@@ -1,3 +1,9 @@
+// Ace shades the text's left edge once it's scrolled sideways by even a pixel,
+// which a trackpad's page scroll nudges it into. Its scrollbar says as much.
+.editor :global(.ace_scroller.ace_scroll-left) {
+  box-shadow: none;
+}
+
 // See CodeTextArea's matchValueDisplay.
 .valueEditor {
   // The text and gutter share one surface.

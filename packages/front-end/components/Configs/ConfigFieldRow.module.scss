@@ -28,3 +28,18 @@
   align-items: center;
   gap: 2px;
 }
+
+.menuColumnHidden :global(.rt-TableRow) > :last-child:not([colspan]) {
+  width: 0;
+  padding: 0;
+
+  > * {
+    display: none;
+  }
+
+  // Nothing is pinned, so nothing fades in under it. Important: the Table's
+  // fade rule is far more specific.
+  &::before {
+    display: none !important;
+  }
+}

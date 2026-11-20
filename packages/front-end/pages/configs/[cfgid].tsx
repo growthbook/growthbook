@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import {
   archiveFootprintForControl,
   NO_ENVIRONMENT_BINDING,
@@ -88,6 +89,9 @@ import Callout from "@/ui/Callout";
 import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import HelperText from "@/ui/HelperText";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import { EDITS_BLOCKED_REASON } from "@/components/StagedEdits/StagedEditsBar";
+import useUnsavedChangesGuard from "@/hooks/useUnsavedChangesGuard";
+import { withViewTransition } from "@/services/viewTransition";
 import ConfigJsonEditor from "@/components/Configs/ConfigJsonEditor";
 import ConfigEnvTabs from "@/components/Configs/ConfigEnvTabs";
 import SelectField from "@/components/Forms/SelectField";
@@ -166,6 +170,7 @@ import FieldDefForm from "@/components/Configs/FieldDefForm";
 import ConfigFieldRow, {
   fieldsTableClassName,
   FieldRowMenu,
+  menuColumnHiddenClassName,
 } from "@/components/Configs/ConfigFieldRow";
 import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
 import ConfigCustomHooksSection from "@/components/Configs/ConfigCustomHooksSection";
@@ -202,10 +207,18 @@ type ResolvedResponse = {
 };
 
 const LINEAGE_PANEL_WIDTH_PX = 280;
-const FIELDS_TABLE_MIN_WIDTH_PX = 980;
+const FIELDS_TABLE_MIN_WIDTH_PX = 850;
 // The Fields card and page padding around the table. The details rail floats
 // before the table would have to scroll beside it.
 const FIELDS_TABLE_CHROME_PX = 100;
+// Two usage badges side by side (a two-digit count and its dots each), and at
+// least its header's width, so it renders at exactly this.
+const USAGE_COLUMN_PX = 136;
+// The Copy menu's value items share a height: a label and one line under it.
+const VALUE_ITEM_HEIGHT_PX = 48;
+// The row menu's column. While a field is edited it folds away, and Usage takes
+// its width, so no other column moves.
+const MENU_COLUMN_PX = 36;
 
 const SCHEMA_EXPORT_FORMATS: { id: string; label: string }[] = [
   { id: "json", label: "JSON Schema" },
@@ -244,10 +257,16 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
   });
   if (!copySupported) return null;
 
-  const item = (label: string, description: string | null, text: string) => (
+  const item = (
+    label: string,
+    description: string | null,
+    text: string,
+    // A label with its one-line description, for items shown side by side.
+    minHeight?: number,
+  ) => (
     <DropdownMenuItem
       onClick={() => performCopy(text)}
-      style={{ height: "auto" }}
+      style={{ height: "auto", minHeight }}
     >
       <Flex direction="column" gap="0" py="1">
         <Text weight="medium">{label}</Text>
@@ -275,29 +294,26 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
       color="violet"
       trigger={
         <Button variant="outline" size="md">
-          <Flex align="center" gap="1">
+          {/* A copy shows as the check; the label keeps the button's width. */}
+          <Flex align="center" gap="2">
             {copySuccess ? <PiCheck /> : <PiCopy />}
-            {/* Fixed width so the "Copied!" swap doesn't shift layout. */}
-            <Box
-              style={{ width: 92, textAlign: "center", whiteSpace: "nowrap" }}
-            >
-              {copySuccess ? "Copied!" : "Copy Config"}
-            </Box>
-            <PiCaretDown />
+            <Flex align="center" gap="1">
+              Copy
+              <PiCaretDown />
+            </Flex>
           </Flex>
         </Button>
       }
     >
-      <DropdownMenuGroup label="Value">
-        {item("Config", "This Config's own value", payloads.ownValue)}
-        {item(
-          "Resolved Config",
-          "Inheritance + Constants resolved",
-          payloads.resolvedValue,
-        )}
-      </DropdownMenuGroup>
+      {item("Copy Config", null, payloads.ownValue, VALUE_ITEM_HEIGHT_PX)}
+      {item(
+        "Copy Resolved Config",
+        "Inheritance + Constants resolved",
+        payloads.resolvedValue,
+        VALUE_ITEM_HEIGHT_PX,
+      )}
       <DropdownMenuSeparator />
-      <DropdownSubMenu trigger="Schema">
+      <DropdownSubMenu trigger="Copy schema">
         {SCHEMA_EXPORT_FORMATS.map((f) => (
           <React.Fragment key={f.id}>
             {item(f.label, null, payloads.ownSchema[f.id])}
@@ -310,7 +326,7 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
           </React.Fragment>
         ))}
       </DropdownSubMenu>
-      <DropdownSubMenu trigger="Resolved schema">
+      <DropdownSubMenu trigger="Copy resolved schema">
         {SCHEMA_EXPORT_FORMATS.map((f) => (
           <React.Fragment key={f.id}>
             {item(f.label, null, payloads.effectiveSchema[f.id])}
@@ -385,6 +401,17 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   // "add" shows a blank field form; a key string edits that field's definition.
   const [schemaEdit, setSchemaEdit] = useState<"add" | string | null>(null);
+  // An open field edit holds the page, as other pages' edit ribbons do: other
+  // edits wait, and leaving asks first.
+  // Unsaved edits in the JSON tab hold the page too.
+  const [jsonDirty, setJsonDirty] = useState(false);
+  const editOpen = editKey !== null || schemaEdit !== null || jsonDirty;
+  const editsBlocked = editOpen ? EDITS_BLOCKED_REASON : null;
+  const navigationGuard = useUnsavedChangesGuard(editOpen, () => {
+    setEditKey(null);
+    setEditError(null);
+    setSchemaEdit(null);
+  });
 
   const [composeError, setComposeError] = useState<string | null>(null);
 
@@ -407,6 +434,13 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
   }, [router.asPath]);
   const setTabAndScroll = (newTab: "overview" | "validation" | "review") => {
+    // The open edit and its ribbon live on the Overview tab, so leaving the
+    // tab closes the edit, as switching between Form and JSON does.
+    if (newTab !== tab) {
+      setEditKey(null);
+      setEditError(null);
+      setSchemaEdit(null);
+    }
     setTab(newTab);
     router.replace(
       { pathname: router.pathname, query: router.query, hash: newTab },
@@ -430,6 +464,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     defaultWidth: LINEAGE_PANEL_WIDTH_PX,
   });
   const tabsTop = useTabsTop();
+  // Where an open edit's Save and Discard render: the bar along the bottom.
+  const [ribbonEl, setRibbonEl] = useState<HTMLDivElement | null>(null);
   const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
 
   // Forward the selected revision so a draft's unpublished lineage drives resolution server-side.
@@ -1124,26 +1160,27 @@ export default function ConfigDetailPage(): React.ReactElement {
     setSchemaEdit(null);
   };
 
-  const startOverride = (f: ResolvedField) => {
-    setSchemaEdit(null);
-    setEditError(null);
-    // JSON editors accept `null` as literal text, so they never use the null kind.
-    const isJson = isJsonField(f.field);
-    if (f.value === null && !isJson) {
-      setEditKind("null");
-      setEditText("");
-    } else {
-      setEditKind("value");
-      setEditText(
-        f.value === undefined
-          ? ""
-          : isJson
-            ? JSON.stringify(f.value, null, 2)
-            : String(f.value),
-      );
-    }
-    setEditKey(f.key);
-  };
+  const startOverride = (f: ResolvedField) =>
+    withViewTransition(() => {
+      setSchemaEdit(null);
+      setEditError(null);
+      // JSON editors accept `null` as literal text, so they never use the null kind.
+      const isJson = isJsonField(f.field);
+      if (f.value === null && !isJson) {
+        setEditKind("null");
+        setEditText("");
+      } else {
+        setEditKind("value");
+        setEditText(
+          f.value === undefined
+            ? ""
+            : isJson
+              ? JSON.stringify(f.value, null, 2)
+              : String(f.value),
+        );
+      }
+      setEditKey(f.key);
+    });
 
   const submitOverride = async () => {
     if (!editKey) return;
@@ -1151,7 +1188,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (editKind === "value" && editText.trim() === "") {
       try {
         if (editKey in ownValue()) await removePropertyValue(editKey);
-        setEditKey(null);
+        withViewTransition(() => setEditKey(null));
       } catch (e) {
         setEditError(e instanceof Error ? e.message : "Failed to save value");
       }
@@ -1192,7 +1229,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     // Surface backend rejections inline; the Save button has no setError of its own.
     try {
       await savePropertyValue(editKey, parsed);
-      setEditKey(null);
+      withViewTransition(() => setEditKey(null));
     } catch (e) {
       setEditError(e instanceof Error ? e.message : "Failed to save value");
     }
@@ -1258,7 +1295,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       valueOverride = { ...ownValue(), [field.key]: value };
     }
     await saveSchema(next, valueOverride);
-    setSchemaEdit(null);
+    withViewTransition(() => setSchemaEdit(null));
   };
 
   const removeField = async (key: string) => {
@@ -1297,18 +1334,20 @@ export default function ConfigDetailPage(): React.ReactElement {
         initial={blankField()}
         existingKeys={resolved.fields.map((f) => f.key)}
         constantContext={constantContext}
-        onCancel={() => setSchemaEdit(null)}
+        onCancel={() => withViewTransition(() => setSchemaEdit(null))}
         onSave={saveField}
       />
     ) : null;
   const renderAddField = () =>
     canEditInline &&
-    schemaEdit === null && (
+    !editOpen && (
       <Box mt="2" py="1">
         <Link
           onClick={() => {
-            setEditKey(null);
-            setSchemaEdit("add");
+            withViewTransition(() => {
+              setEditKey(null);
+              setSchemaEdit("add");
+            });
           }}
         >
           <Flex align="center" gap="1">
@@ -1407,7 +1446,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   };
 
   const renderAddMixin = () => {
-    if (!canEditInline) return null;
+    if (!canEditInline || editOpen) return null;
     return composeAdding ? (
       <Box mt="2" py="1" style={{ maxWidth: 380 }}>
         <Flex align="center" gap="3">
@@ -1537,7 +1576,11 @@ export default function ConfigDetailPage(): React.ReactElement {
   ) : null;
 
   const menu = (
-    <DetailsPageMenu open={menuOpen} onOpenChange={setMenuOpen}>
+    <DetailsPageMenu
+      open={menuOpen}
+      onOpenChange={setMenuOpen}
+      disabledReason={editsBlocked}
+    >
       <DropdownMenuGroup>
         <DropdownMenuItem
           onClick={() => {
@@ -1685,29 +1728,30 @@ export default function ConfigDetailPage(): React.ReactElement {
         {/* Creating an override Config is a create, not an edit of the
             parent — gating it on the parent's draft rights both offered
             an action that fails and hid one create-only users hold. */}
-        {permissionsUtil.canCreateConfig({
-          project: config.project || "",
-        }) && (
-          <Box pl="1">
-            {hasConfigsFeature ? (
-              <Link onClick={() => setShowCreateChild(true)}>
-                <Flex align="center" gap="1">
-                  <PiPlus />
-                  Add override Config
-                </Flex>
-              </Link>
-            ) : (
-              <PremiumTooltip commercialFeature="feature-configs" usePortal>
-                <Link color="gray">
+        {!editOpen &&
+          permissionsUtil.canCreateConfig({
+            project: config.project || "",
+          }) && (
+            <Box pl="1">
+              {hasConfigsFeature ? (
+                <Link onClick={() => setShowCreateChild(true)}>
                   <Flex align="center" gap="1">
                     <PiPlus />
                     Add override Config
                   </Flex>
                 </Link>
-              </PremiumTooltip>
-            )}
-          </Box>
-        )}
+              ) : (
+                <PremiumTooltip commercialFeature="feature-configs" usePortal>
+                  <Link color="gray">
+                    <Flex align="center" gap="1">
+                      <PiPlus />
+                      Add override Config
+                    </Flex>
+                  </Link>
+                </PremiumTooltip>
+              )}
+            </Box>
+          )}
       </PanelSection>
       {data.composerFamilies?.length ? (
         <>
@@ -1760,7 +1804,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       <DetailsPageTitleBar
         title={displayedConfig.name}
         onRename={canEditInfo ? () => setEditInfoOpen("info") : null}
-        renameBlockedReason={editLockReason}
+        renameBlockedReason={editLockReason ?? editsBlocked}
         badges={
           <>
             {/* Live state, like the menu's Archive/Unarchive. */}
@@ -1822,6 +1866,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             requiresApproval={approvalRequired}
             context="header"
             width={REVISION_SELECTOR_WIDTH_PX}
+            disabled={editOpen}
           />
         }
         detailsOpen={details.open}
@@ -1851,6 +1896,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   canPublishSelected && !config.lock ? handlePublish : null
                 }
                 onDiscard={handleDiscard}
+                blockedReason={editsBlocked}
               />
             </div>
           ) : null
@@ -1862,6 +1908,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         stickyTop={stickyTop}
         leftPanel={{ details: lineagePanel, panel: lineage }}
         minContentWidth={FIELDS_TABLE_MIN_WIDTH_PX + FIELDS_TABLE_CHROME_PX}
+        footer={<div ref={setRibbonEl} />}
         panel={
           <ConfigDetailsPanel
             config={displayedConfig}
@@ -1873,7 +1920,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             onEditInfo={
               canEditInfo ? (focus) => setEditInfoOpen(focus ?? "info") : null
             }
-            editInfoBlockedReason={editLockReason}
+            editInfoBlockedReason={editLockReason ?? editsBlocked}
             revision={panelRevision}
             allRevisions={allRevisions}
             isLive={!selectedRevision}
@@ -1928,6 +1975,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       archivedByKey={data.archivedByKey}
                       draftByKey={data.draftByKey}
                       canCreate={
+                        !editOpen &&
                         hasConfigsFeature &&
                         permissionsUtil.canCreateConfig({
                           project: config.project || "",
@@ -2014,7 +2062,10 @@ export default function ConfigDetailPage(): React.ReactElement {
                           stickyLastColumn
                           pinScrollbar
                           mt="2"
-                          className={fieldsTableClassName}
+                          className={clsx(
+                            fieldsTableClassName,
+                            editOpen && menuColumnHiddenClassName,
+                          )}
                           style={{ minWidth: FIELDS_TABLE_MIN_WIDTH_PX }}
                         >
                           <TableHeader>
@@ -2022,30 +2073,41 @@ export default function ConfigDetailPage(): React.ReactElement {
                               <TableColumnHeader width="200px">
                                 Key
                               </TableColumnHeader>
-                              <TableColumnHeader>Value</TableColumnHeader>
+                              <TableColumnHeader>
+                                <Flex align="baseline" gap="5">
+                                  Value
+                                  {overrideCount > 0 && (
+                                    <Flex align="center" gap="2">
+                                      <Text size="sm" color="text-low">
+                                        Show overrides
+                                      </Text>
+                                      <Switch
+                                        size="sm"
+                                        ariaLabel="Show overrides"
+                                        value={showOverrides}
+                                        onChange={setShowOverrides}
+                                      />
+                                    </Flex>
+                                  )}
+                                </Flex>
+                              </TableColumnHeader>
                               <TableColumnHeader width="110px">
                                 Type
                               </TableColumnHeader>
                               <TableColumnHeader width="120px">
                                 Source
                               </TableColumnHeader>
-                              <TableColumnHeader width="72px">
+                              <TableColumnHeader
+                                width={`${USAGE_COLUMN_PX + (editOpen ? MENU_COLUMN_PX : 0)}px`}
+                              >
                                 <LabelWithHelp
                                   label="Usage"
                                   help="Feature Flag rules and defaults that override this key."
                                 />
                               </TableColumnHeader>
-                              <TableColumnHeader width="180px">
-                                <Flex align="center" justify="end">
-                                  {overrideCount > 0 && (
-                                    <Switch
-                                      value={showOverrides}
-                                      onChange={setShowOverrides}
-                                      label="Show overrides"
-                                    />
-                                  )}
-                                </Flex>
-                              </TableColumnHeader>
+                              <TableColumnHeader
+                                width={`${MENU_COLUMN_PX}px`}
+                              />
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -2079,7 +2141,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                                       (rf) => rf.key,
                                     )}
                                     constantContext={constantContext}
-                                    onCancel={() => setSchemaEdit(null)}
+                                    onCancel={() =>
+                                      withViewTransition(() =>
+                                        setSchemaEdit(null),
+                                      )
+                                    }
                                     onSave={saveField}
                                   />
                                 );
@@ -2102,10 +2168,14 @@ export default function ConfigDetailPage(): React.ReactElement {
                                   setEditKind={setEditKind}
                                   onStartEdit={() => startOverride(f)}
                                   onSubmit={submitOverride}
-                                  onCancelEdit={() => setEditKey(null)}
+                                  onCancelEdit={() =>
+                                    withViewTransition(() => setEditKey(null))
+                                  }
                                   onEditDefinition={() => {
-                                    setEditKey(null);
-                                    setSchemaEdit(f.key);
+                                    withViewTransition(() => {
+                                      setEditKey(null);
+                                      setSchemaEdit(f.key);
+                                    });
                                   }}
                                   onRemoveField={() => removeField(f.key)}
                                   onRemoveOverride={() => removeOverride(f.key)}
@@ -2119,6 +2189,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                                   validationTooltip={failingFieldInfo
                                     .get(f.key)
                                     ?.join("; ")}
+                                  blockedReason={editsBlocked}
                                   keyNotices={[
                                     ...(undeclaredKeys.has(f.key)
                                       ? [
@@ -2186,6 +2257,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                         parentName={parentName}
                         renderProjections={displayedConfig.renderProjections}
                         unpublishedFormats={unpublishedFormats}
+                        ribbonEl={ribbonEl}
+                        onDirtyChange={setJsonDirty}
                         onSave={(value, fields, renderProjections) =>
                           saveSchema(fields, value, renderProjections)
                         }
@@ -2490,6 +2563,18 @@ export default function ConfigDetailPage(): React.ReactElement {
         />
       )}
 
+      {navigationGuard.pendingHref ? (
+        <ConfirmDialog
+          title="Leave without saving?"
+          content="You have unsaved changes to this Config. Leaving this page discards them."
+          // Staying is the primary action; leaving is the secondary one.
+          yesText="Keep editing"
+          noText="Leave page"
+          onConfirm={navigationGuard.cancelNavigation}
+          onCancel={navigationGuard.confirmNavigation}
+          onDismiss={navigationGuard.cancelNavigation}
+        />
+      ) : null}
       {lockConfirm === "unlock" && (
         <ConfirmDialog
           title={`Unlock "${config.name}"?`}

@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { FeatureValueType, SchemaField } from "shared/types/feature";
 import {
   JSON_SCHEMA_PRESETS,
@@ -334,4 +335,16 @@ export function valueToDisplayString(
     default:
       return typeof value === "string" ? value : JSON.stringify(value);
   }
+}
+
+// A field row's view-transition name, the same whether it's shown or edited, so
+// the row morphs between them. Characters a CSS name can't hold are encoded
+// rather than replaced, so two keys never share a name. Keyed as a string:
+// React's CSS types don't know view-transition-name yet.
+export function fieldRowTransitionStyle(key: string): CSSProperties {
+  const name = `config-field-${key.replace(
+    /[^a-zA-Z0-9-]/g,
+    (c) => `_${c.charCodeAt(0)}`,
+  )}`;
+  return { ["viewTransitionName" as string]: name };
 }

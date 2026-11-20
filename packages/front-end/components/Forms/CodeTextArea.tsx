@@ -545,7 +545,7 @@ export default function CodeTextArea({
               ref={editorBox}
               id={editorUid}
               data-editor-uid={editorUid}
-              className={clsx({
+              className={clsx(styles.editor, {
                 [styles.valueEditor]: matchValueDisplay,
                 "ace-editor-disabled": fieldProps.disabled,
                 "h-100": fullHeight && !isFullscreen,

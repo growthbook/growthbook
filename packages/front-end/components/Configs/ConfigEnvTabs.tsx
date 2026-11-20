@@ -157,8 +157,9 @@ export default function ConfigEnvTabs({
 
   return (
     <>
-      {/* Outside TabsList so tabs that don't fit can fold into its More menu. */}
-      <Flex align="center" gap="4">
+      {/* Outside TabsList so tabs that don't fit can fold into its More menu.
+          Set apart from the header's controls above. */}
+      <Flex align="center" gap="4" mt="1">
         <Tabs
           value={currentKey}
           onValueChange={(v) => {
