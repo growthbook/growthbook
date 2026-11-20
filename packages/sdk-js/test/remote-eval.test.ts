@@ -552,6 +552,157 @@ describe("remote-eval", () => {
     event.clear();
   });
 
+  it("doesn't overwrite an instance with a payload evaluated for other attributes", async () => {
+    await clearCache();
+    const [f, cleanup] = mockApi(sdkPayload);
+
+    const subscribed = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      remoteEval: true,
+      attributes: { uid: "5" },
+    });
+    await subscribed.init({ pollingInterval: 100000 });
+    expect(subscribed.evalFeature("foo").value).toEqual("ruleEvaluated");
+
+    // Same host and client key, but the rule doesn't match this user
+    const other = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      remoteEval: true,
+      attributes: { uid: "1" },
+    });
+    await other.init();
+    await sleep(10);
+
+    expect(f.mock.calls.length).toEqual(2);
+    expect(other.evalFeature("foo").value).toEqual("initial");
+    expect(subscribed.evalFeature("foo").value).toEqual("ruleEvaluated");
+
+    await clearCache();
+    subscribed.destroy();
+    other.destroy();
+    cleanup();
+  });
+
+  it("evaluates remotely for each subscribed user on an SSE update", async () => {
+    await clearCache();
+    const [, cleanup] = mockApi(sdkPayload, true);
+
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 50,
+      responses: [{ type: "features-updated", data: "{}" }],
+    });
+
+    const options = {
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      remoteEval: true,
+    };
+    const matching = new GrowthBook({ ...options, attributes: { uid: "5" } });
+    const other = new GrowthBook({ ...options, attributes: { uid: "1" } });
+    await Promise.all([
+      matching.init({ streaming: true }),
+      other.init({ streaming: true }),
+    ]);
+
+    const [f2, cleanup2] = mockApi(sdkPayloadUpdated, true);
+    await sleep(150);
+
+    expect(f2.mock.calls.length).toEqual(2);
+    expect(matching.evalFeature("bar").value).toEqual("changedForSSE");
+    expect(other.evalFeature("bar").value).toEqual("changedForSSE");
+    expect(matching.evalFeature("foo").value).toEqual("ruleEvaluated");
+    expect(other.evalFeature("foo").value).toEqual("initial");
+
+    matching.destroy();
+    other.destroy();
+    event.clear();
+    // Let a request still in flight land before clearing what it would cache
+    await sleep(60);
+    await clearCache();
+    cleanup();
+    cleanup2();
+  });
+
+  it("evaluates remotely for each subscribed user on a poll", async () => {
+    await clearCache();
+    const [, cleanup] = mockApi(sdkPayload, false, 0);
+
+    const options = {
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      remoteEval: true,
+    };
+    const matching = new GrowthBook({ ...options, attributes: { uid: "5" } });
+    const other = new GrowthBook({ ...options, attributes: { uid: "1" } });
+    await matching.init({ pollingInterval: 30 });
+    await other.init({ pollingInterval: 30 });
+
+    const [f2, cleanup2] = mockApi(sdkPayloadUpdated, false, 0);
+    await sleep(100);
+
+    const polledUids = f2.mock.calls.map(
+      ([, init]) => JSON.parse(init.body).attributes.uid,
+    );
+    expect(polledUids).toEqual(expect.arrayContaining(["5", "1"]));
+    expect(matching.evalFeature("bar").value).toEqual("changedForSSE");
+    expect(other.evalFeature("bar").value).toEqual("changedForSSE");
+    expect(matching.evalFeature("foo").value).toEqual("ruleEvaluated");
+    expect(other.evalFeature("foo").value).toEqual("initial");
+
+    matching.destroy();
+    other.destroy();
+    // Let a request still in flight land before clearing what it would cache
+    await sleep(10);
+    await clearCache();
+    cleanup();
+    cleanup2();
+  });
+
+  it("keeps polling for other users while one user's request stalls", async () => {
+    await clearCache();
+    const [, cleanup] = mockApi(sdkPayload, false, 0);
+
+    const options = {
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      remoteEval: true,
+    };
+    const healthy = new GrowthBook({ ...options, attributes: { uid: "5" } });
+    const stalled = new GrowthBook({ ...options, attributes: { uid: "1" } });
+    await healthy.init({ pollingInterval: 30 });
+    await stalled.init({ pollingInterval: 30 });
+
+    const [f2, cleanup2] = mockApi(sdkPayloadUpdated, false, 0);
+    const respond = f2.getMockImplementation();
+    // eslint-disable-next-line
+    f2.mockImplementation((url: string, resp: any) =>
+      JSON.parse(resp.body).attributes.uid === "1"
+        ? new Promise(() => {})
+        : (respond as NonNullable<typeof respond>)(url, resp),
+    );
+    await sleep(250);
+
+    const uids = f2.mock.calls.map(
+      ([, init]) => JSON.parse(init.body).attributes.uid,
+    );
+    expect(uids.filter((uid) => uid === "5").length).toBeGreaterThan(1);
+    // Its request is still in flight, so polls share it rather than adding more
+    expect(uids.filter((uid) => uid === "1").length).toEqual(1);
+    expect(healthy.evalFeature("bar").value).toEqual("changedForSSE");
+    expect(stalled.evalFeature("bar").value).toEqual("initial");
+
+    healthy.destroy();
+    stalled.destroy();
+    // Let a request still in flight land before clearing what it would cache
+    await sleep(10);
+    await clearCache();
+    cleanup();
+    cleanup2();
+  });
+
   it("uses localStorage cache", async () => {
     useFrozenClock();
     await clearCache();
