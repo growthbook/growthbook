@@ -20,7 +20,10 @@ import {
   errorSnapshotIfStillRunning,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import type { Context } from "back-end/src/models/BaseModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  resetAutoUpdateFailures,
+} from "back-end/src/models/ExperimentModel";
 import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
@@ -31,6 +34,7 @@ import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: jest.fn(),
+  resetAutoUpdateFailures: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/experiments", () => ({
@@ -766,6 +770,35 @@ describe("ExperimentSnapshotModel", () => {
           ]),
         }),
       });
+    });
+
+    it("resets failed auto-update attempts when any latest-phase refresh succeeds", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_manual_success");
+      snapshot.type = "standard";
+      snapshot.triggeredBy = "manual";
+      const experiment = mockSuccessfulExperimentLoad(snapshot.experiment);
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        autoUpdateFailures: 2,
+      });
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [
+            makeAnalysis({ settings: makeAnalysisSettings(), value: 10 }),
+          ],
+        },
+      });
+
+      expect(resetAutoUpdateFailures).toHaveBeenCalledWith(
+        context,
+        snapshot.experiment,
+      );
     });
 
     it("logs experiment_updated for error snapshots without propagation side effects", async () => {

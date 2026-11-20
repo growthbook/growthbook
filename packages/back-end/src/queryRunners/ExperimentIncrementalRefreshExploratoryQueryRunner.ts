@@ -47,7 +47,10 @@ import { parseDimension } from "back-end/src/services/experiments";
 import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
-import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
+import {
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  UnrecoverableSnapshotError,
+} from "back-end/src/util/errors";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   QueryRunner,
@@ -94,7 +97,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   ).find((q) => q.id === snapshotSettings.exposureQueryId);
 
   if (!exposureQuery) {
-    throw new Error("Exposure query not found");
+    throw new UnrecoverableSnapshotError("Exposure query not found");
   }
 
   const resolvedExposureQuery = resolveExposureQueryForAnalysis(
