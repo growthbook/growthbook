@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
 import {
@@ -400,10 +400,7 @@ export default function ConfigInvariantsEditor({
     ? undeclaredIn(JSON.stringify(currentRule))
     : [];
 
-  const inheritedByName = useMemo(
-    () => new Map(inherited.map((r) => [r.invariant.name, r])),
-    [inherited],
-  );
+  const inheritedByName = new Map(inherited.map((r) => [r.invariant.name, r]));
   const ownNames = new Set(invariants.map((iv) => iv.name));
   const shownInherited = inherited.filter(
     (r) => !ownNames.has(r.invariant.name),
@@ -419,7 +416,7 @@ export default function ConfigInvariantsEditor({
   const ruleCard = (
     iv: ConfigInvariant,
     key: string,
-    { actions, note }: { actions?: ReactNode; note?: ReactNode },
+    { actions, warning }: { actions?: ReactNode; warning?: string | null },
   ) => {
     const fails = evaluateInvariants(resolvedValue, [iv]).length > 0;
     const undeclared = undeclaredIn(iv.rule);
@@ -460,7 +457,11 @@ export default function ConfigInvariantsEditor({
         <Text as="div" size="sm" color="text-low" mt="1">
           {iv.message}
         </Text>
-        {note}
+        {warning && (
+          <HelperText status="warning" size="sm" mt="1">
+            {warning}
+          </HelperText>
+        )}
       </Frame>
     );
   };
@@ -758,11 +759,7 @@ export default function ConfigInvariantsEditor({
               </Button>
             </>
           ),
-          note: replaces(iv.name) && (
-            <HelperText status="warning" size="sm" mt="1">
-              {replaces(iv.name)}
-            </HelperText>
-          ),
+          warning: replaces(iv.name),
         }),
       )}
 
