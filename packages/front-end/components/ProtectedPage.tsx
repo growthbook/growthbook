@@ -1,4 +1,4 @@
-import { FC, ReactNode } from "react";
+import { FC, ReactNode, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth, safeLogout, switchToSSO } from "@/services/auth";
@@ -24,9 +24,14 @@ const LoggedInPageGuard = ({
   const { error, requiredSSOConnectionId, mfaRequired, ready, organization } =
     useUser();
   const { organizations } = useAuth();
+  // Latched until reload, so enrolling there can't unmount the new recovery codes
+  const [showMfaScreen, setShowMfaScreen] = useState(false);
 
   // Pages that don't need an org (e.g. accepting an invitation) still work
-  if (mfaRequired && organizationRequired) {
+  if (mfaRequired && organizationRequired && !showMfaScreen) {
+    setShowMfaScreen(true);
+  }
+  if (showMfaScreen || (mfaRequired && organizationRequired)) {
     return <MfaRequired />;
   }
 

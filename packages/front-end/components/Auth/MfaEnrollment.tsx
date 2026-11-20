@@ -8,14 +8,12 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import CopyableCode from "@/components/Settings/CopyableCode";
-import RecoveryCodes from "./RecoveryCodes";
 
-// Enable/disable swap the session cookies, so a reload picks up the new token
-// onEnabled lets a host show the recovery codes itself and own the exit
+// The host shows the recovery codes, since a refetch can unmount this form
 export default function MfaEnrollment({
   onEnabled,
 }: {
-  onEnabled?: (recoveryCodes: string[]) => void;
+  onEnabled: (recoveryCodes: string[]) => void;
 }) {
   const { apiCall, setToken } = useAuth();
   const [setup, setSetup] = useState<{
@@ -24,7 +22,6 @@ export default function MfaEnrollment({
   } | null>(null);
   const [code, setCode] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
-  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -38,15 +35,6 @@ export default function MfaEnrollment({
     }
     setLoading(false);
   };
-
-  if (recoveryCodes) {
-    return (
-      <Flex direction="column" gap="3">
-        <RecoveryCodes codes={recoveryCodes} />
-        <Button onClick={() => window.location.reload()}>Done</Button>
-      </Flex>
-    );
-  }
 
   if (!setup) {
     return (
@@ -89,8 +77,7 @@ export default function MfaEnrollment({
           );
           // The old token was revoked; keep this tab working while it shows the codes
           setToken?.(res.token);
-          if (onEnabled) onEnabled(res.recoveryCodes);
-          else setRecoveryCodes(res.recoveryCodes);
+          onEnabled(res.recoveryCodes);
         });
       }}
     >
