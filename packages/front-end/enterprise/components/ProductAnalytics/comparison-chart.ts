@@ -195,46 +195,113 @@ export function buildCompareChartLegendModel(
     .filter((i): i is CompareChartLegendItem => i !== undefined);
 }
 
+type ComparisonPeriodLabels = { currentLabel: string; previousLabel: string };
+
 /**
- * Orders axis-tooltip rows: alphabetically by metric/series label, and for
- * period-compare charts keeps current vs previous for the same metric adjacent
- * (current first, then previous).
+ * Splits series into per-metric groups, in first-appearance order. In compare
+ * mode a metric's current and previous series share a group (current first).
+ * Series without a period are never merged, even when their names match.
+ */
+function groupCompareSeries<T extends { seriesName: string }>(
+  items: T[],
+  comparisonPeriodLabels: ComparisonPeriodLabels | null,
+): { item: T; period: ComparisonTooltipSeriesPeriod }[][] {
+  const groups = new Map<
+    string,
+    { item: T; period: ComparisonTooltipSeriesPeriod }[]
+  >();
+  items.forEach((item, index) => {
+    const { baseName, period } = parseComparisonTooltipSeriesName(
+      item.seriesName,
+      comparisonPeriodLabels,
+    );
+    const key =
+      period === "neutral" ? `neutral:${index}` : `metric:${baseName}`;
+    const group = groups.get(key) ?? [];
+    group.push({ item, period });
+    groups.set(key, group);
+  });
+  return Array.from(groups.values()).map((group) =>
+    // Stable, so same-period entries keep their input order.
+    [...group].sort(
+      (a, b) =>
+        comparisonTooltipPeriodOrder(a.period) -
+        comparisonTooltipPeriodOrder(b.period),
+    ),
+  );
+}
+
+/**
+ * Keeps series in their given order, except that in compare mode each metric's
+ * previous series moves up to sit right after its current one. Used for the
+ * compare legend and series list, which stay in highest-total-first order.
+ */
+export function groupCompareSeriesInOrder<T extends { seriesName: string }>(
+  items: T[],
+  comparisonPeriodLabels: ComparisonPeriodLabels | null,
+): T[] {
+  return groupCompareSeries(items, comparisonPeriodLabels).flatMap((group) =>
+    group.map(({ item }) => item),
+  );
+}
+
+/**
+ * How axis-tooltip rows are ordered:
+ * - `value`: highest hovered value first, so the order follows the data as
+ *   lines cross. Only meaningful when every series shares one value axis.
+ * - `series`: the chart's series order (the legend order).
+ * - `seriesReversed`: the reverse, which reads top-to-bottom like the bands of
+ *   a vertical stack (the first series is the bottom band).
+ */
+export type ProductAnalyticsTooltipRowOrder =
+  | "value"
+  | "series"
+  | "seriesReversed";
+
+/**
+ * Orders axis-tooltip rows. `items` arrive in series order. In compare mode
+ * each metric's current and previous rows stay adjacent (current first) and
+ * move together.
+ *
+ * For `value`, a metric is ranked by its current value, falling back to its
+ * largest value when the current period has none. Metrics without a value go
+ * last, and ties keep series order.
  */
 export function sortProductAnalyticsTooltipAxisItems<
   T extends { seriesName: string },
 >(
   items: T[],
-  comparisonPeriodLabels: {
-    currentLabel: string;
-    previousLabel: string;
-  } | null,
+  comparisonPeriodLabels: ComparisonPeriodLabels | null,
+  order: ProductAnalyticsTooltipRowOrder,
+  getValue: (item: NoInfer<T>) => number | null,
 ): T[] {
-  if (items.length <= 1) return [...items];
-  if (!comparisonPeriodLabels) {
-    return [...items].sort((a, b) =>
-      a.seriesName.localeCompare(b.seriesName, undefined, {
-        sensitivity: "base",
-      }),
-    );
-  }
-  return [...items].sort((a, b) => {
-    const ka = parseComparisonTooltipSeriesName(
-      a.seriesName,
-      comparisonPeriodLabels,
-    );
-    const kb = parseComparisonTooltipSeriesName(
-      b.seriesName,
-      comparisonPeriodLabels,
-    );
-    const cmp = ka.baseName.localeCompare(kb.baseName, undefined, {
-      sensitivity: "base",
+  const groups = groupCompareSeries(items, comparisonPeriodLabels);
+
+  if (order === "seriesReversed") groups.reverse();
+
+  if (order === "value") {
+    const ranked = groups.map((group) => {
+      let current: number | null = null;
+      let max: number | null = null;
+      for (const { item, period } of group) {
+        const value = getValue(item);
+        if (value === null) continue;
+        if (period === "current" && current === null) current = value;
+        max = max === null ? value : Math.max(max, value);
+      }
+      return { group, rank: current ?? max };
     });
-    if (cmp !== 0) return cmp;
-    return (
-      comparisonTooltipPeriodOrder(ka.period) -
-      comparisonTooltipPeriodOrder(kb.period)
-    );
-  });
+    // Stable sort: equal ranks keep series order.
+    ranked.sort((a, b) => {
+      if (a.rank === b.rank) return 0;
+      if (a.rank === null) return 1;
+      if (b.rank === null) return -1;
+      return b.rank - a.rank;
+    });
+    return ranked.flatMap(({ group }) => group.map(({ item }) => item));
+  }
+
+  return groups.flatMap((group) => group.map(({ item }) => item));
 }
 
 function getComparisonStackId(
@@ -1341,6 +1408,8 @@ type BuildExplorerChartTooltipFormatterArgs = {
   seriesConfigsLength: number;
   formatNumber: (value: number) => string;
   comparisonAlignment?: ComparisonAlignmentStrategy;
+  /** How rows are ordered; see `ProductAnalyticsTooltipRowOrder`. */
+  rowOrder: ProductAnalyticsTooltipRowOrder;
 };
 
 export function buildExplorerChartTooltipFormatter({
@@ -1355,6 +1424,7 @@ export function buildExplorerChartTooltipFormatter({
   seriesConfigsLength,
   formatNumber,
   comparisonAlignment,
+  rowOrder,
 }: BuildExplorerChartTooltipFormatterArgs):
   | ((params: unknown) => string)
   | undefined {
@@ -1393,6 +1463,8 @@ export function buildExplorerChartTooltipFormatter({
       const itemsSorted = sortProductAnalyticsTooltipAxisItems(
         itemsRaw,
         comparisonPeriodLabels,
+        rowOrder,
+        tooltipItemNumericValue,
       );
       const items = itemsSorted.filter(isShownItem);
       if (!items.length) return "";
@@ -1494,6 +1566,8 @@ export function buildExplorerChartTooltipFormatter({
       const itemsSorted = sortProductAnalyticsTooltipAxisItems(
         itemsRaw,
         comparisonPeriodLabels,
+        rowOrder,
+        tooltipItemNumericValue,
       );
       const items = itemsSorted.filter((item) => {
         if (!isShownItem(item)) return false;
