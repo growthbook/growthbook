@@ -277,9 +277,6 @@ const BreakDownResults: FC<{
         });
       }
     : undefined;
-  const handleRowClick = openDimensionDrilldown
-    ? (row: ExperimentTableRow) => openDimensionDrilldown(row)
-    : undefined;
 
   const _metricDefaults = useOrganizationMetricDefaults();
   const { metricDefaults } =
@@ -424,7 +421,7 @@ const BreakDownResults: FC<{
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
               rows={visibleRows}
-              onRowClick={handleRowClick}
+              onRowClick={openDimensionDrilldown}
               dimension={dimension}
               id={(idPrefix ? `${idPrefix}_` : "") + table.metric.id}
               tableRowAxis="dimension" // todo: dynamic grouping?

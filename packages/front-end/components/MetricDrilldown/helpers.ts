@@ -204,7 +204,7 @@ function classifyPair({
  * `field` picks the supplemental result to correct; null corrects the primary
  * result, so both sides of a comparison come from the same family.
  */
-export function computeFamilyAdjustedPValues({
+function computeFamilyAdjustedPValues({
   goalRows,
   field,
   pValueCorrection,
@@ -279,9 +279,8 @@ export interface FamilyAdjustedPValues {
 }
 
 /**
- * Family-wide corrected p-values for the primary result and every adjustment.
- * Compute once per family and share across rows: each map corrects the whole
- * family, so per-row recomputation is quadratic in the number of goal metrics.
+ * Corrected p-values for the primary result and every adjustment. Compute once
+ * and share across rows; each call corrects every goal metric.
  */
 export function getFamilyAdjustedPValues({
   goalRows,
