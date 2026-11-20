@@ -430,16 +430,18 @@ export function ProductAnalyticsExplorerVisualization({
   // one only for a block with no stored result: the header can't run that
   // block's first result, and its button is disabled when nothing has run.
   const tileUpdates = !!runConfig && (headerless || !block.explorerAnalysisId);
+  // Name the scope when the header's Update is also shown
+  const updateLabel = headerless ? "Update" : "Update block";
   const updateButton = canRun ? (
     <Button
       variant="outline"
       size="sm"
       onClick={tileRun.run}
-      // Several tiles each have an Update; name the block for screen readers
-      aria-label={`Update ${block.title || BLOCK_TYPE_INFO[block.type].name}`}
+      // Several tiles each have an Update; name the block for screen readers,
+      // keeping the visible label first so voice control still matches it
+      aria-label={`${updateLabel}: ${block.title || BLOCK_TYPE_INFO[block.type].name}`}
     >
-      {/* Name the scope when the header's Update is also shown */}
-      {headerless ? "Update" : "Update block"}
+      {updateLabel}
     </Button>
   ) : undefined;
   const updatePrompt = (message: string, status: "info" | "error" = "info") => {
