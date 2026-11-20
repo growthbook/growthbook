@@ -32,11 +32,8 @@ export default function RequireMfaToggle({ mutate }: { mutate: () => void }) {
         disabled={saving || (!enabled && (!canEnable || needsOwnMfa))}
         label={
           <LabelWithHelp
-            label={
-              <PremiumTooltip commercialFeature="require-mfa">
-                Require multi-factor authentication (MFA)
-              </PremiumTooltip>
-            }
+            label="Require multi-factor authentication (MFA)"
+            adornment={<PremiumTooltip commercialFeature="require-mfa" />}
             help={
               mfaManagedByIdp
                 ? "Members must sign in through an identity provider that reports MFA. Others are blocked until they sign in again with MFA."
