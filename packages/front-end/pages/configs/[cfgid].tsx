@@ -542,10 +542,17 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   // Forward the selected revision so a draft's unpublished lineage drives resolution server-side.
   const versionParam = typeof router.query.v === "string" ? router.query.v : "";
-  const { data, error, mutate } = useApi<ResolvedResponse>(
+  const {
+    data: fetched,
+    error,
+    mutate,
+  } = useApi<ResolvedResponse>(
     `/configs/${configKey}/resolved${versionParam ? `?v=${versionParam}` : ""}`,
-    { shouldRun: () => !!configKey },
+    { shouldRun: () => !!configKey, keepPreviousData: true },
   );
+  // A revision change keeps the page up while the new one loads; another
+  // Config's data never stands in for this one.
+  const data = fetched?.config.key === configKey ? fetched : undefined;
   const config = data?.config;
 
   // Env flavors render in the tree grouped under their parent's "Environments"
