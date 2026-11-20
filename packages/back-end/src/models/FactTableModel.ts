@@ -73,6 +73,7 @@ const factTableSchema = new mongoose.Schema({
   organization: String,
   dateCreated: Date,
   dateUpdated: Date,
+  sqlUpdated: Date,
   name: String,
   description: String,
   owner: String,
@@ -239,6 +240,7 @@ export function createPropsToInterface(
     description: props.description,
     dateCreated: new Date(),
     dateUpdated: new Date(),
+    sqlUpdated: new Date(),
     datasource: props.datasource,
     filters: [],
     owner: props.owner,
@@ -473,6 +475,7 @@ export async function updateFactTable(
   await persistColumns(factTable, columns, {
     ...rest,
     dateUpdated: new Date(),
+    ...(sqlChanged(factTable, changes) && { sqlUpdated: new Date() }),
   });
 
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
@@ -609,6 +612,13 @@ export async function updateFactTableColumns(
 // Unlike updateFactTable, this is allowed from internal (non-API) requests because
 // GrowthBook itself owns this table's sql/columns/userIdTypes. Used when the org's
 // identifiers (hashAttribute attributes) change.
+function sqlChanged(
+  factTable: Pick<FactTableInterface, "sql">,
+  changes: Pick<UpdateFactTableProps, "sql">,
+) {
+  return changes.sql !== undefined && changes.sql !== factTable.sql;
+}
+
 export async function dangerouslySyncManagedWarehouseFactTable(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
@@ -628,6 +638,7 @@ export async function dangerouslySyncManagedWarehouseFactTable(
   await persistColumns(factTable, columns, {
     ...rest,
     dateUpdated: new Date(),
+    ...(sqlChanged(factTable, changes) && { sqlUpdated: new Date() }),
   });
   await touchDefinitionsVersion(
     factTable.organization,
