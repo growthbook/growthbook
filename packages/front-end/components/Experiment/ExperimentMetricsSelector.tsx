@@ -138,6 +138,17 @@ export function useMetricDisabledInfo(
             reason: "Funnel metrics are not supported in Bandit experiments",
           };
         }
+        // Bandit snapshots only compute means, so a quantile would be shown as a mean.
+        const hasQuantileMetric = ids.some((id) => {
+          const metric = getExperimentMetricById(id);
+          return metric && quantileMetricType(metric);
+        });
+        if (hasQuantileMetric) {
+          return {
+            disabled: true,
+            reason: "Quantile metrics are not supported in Bandit experiments",
+          };
+        }
       }
 
       if (clusterSubUnit && clusterIdentifier) {

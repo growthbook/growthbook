@@ -562,6 +562,60 @@ describe("snapshot planning", () => {
     });
   });
 
+  it.each([
+    { action: "drops", type: "multi-armed-bandit", analyzed: false },
+    { action: "keeps", type: "standard", analyzed: true },
+  ] as const)(
+    "$action quantile secondary and guardrail metrics for a $type experiment",
+    ({ type, analyzed }) => {
+      const {
+        datasource,
+        factTableMap,
+        metricMap,
+        settingsForSnapshotMetrics,
+      } = makeJoinabilityFixture();
+      const quantileMetric = factMetricFactory.build({
+        id: "m_quantile",
+        metricType: "quantile",
+        numerator: { factTableId: "ft_joinable", column: "$$count" },
+        quantileSettings: { type: "unit", quantile: 0.5, ignoreZeros: true },
+      });
+      metricMap.set(quantileMetric.id, quantileMetric);
+      const experiment = makeExperiment({
+        type,
+        exposureQueryId: "exposure_user",
+        goalMetrics: ["m_joinable"],
+        secondaryMetrics: ["m_quantile"],
+        guardrailMetrics: ["m_quantile"],
+        metricOverrides: [],
+      });
+
+      const snapshotSettings = getSnapshotSettings({
+        experiment,
+        phaseIndex: 0,
+        snapshotType: "standard",
+        dimension: null,
+        regressionAdjustmentEnabled: false,
+        orgPriorSettings: undefined,
+        orgDisabledPrecomputedDimensions: true,
+        settingsForSnapshotMetrics,
+        metricMap,
+        factTableMap,
+        metricGroups: [],
+        incrementalRefreshModel: null,
+        datasource,
+      });
+
+      const expected = analyzed ? ["m_quantile"] : [];
+      expect(snapshotSettings.goalMetrics).toEqual(["m_joinable"]);
+      expect(snapshotSettings.secondaryMetrics).toEqual(expected);
+      expect(snapshotSettings.guardrailMetrics).toEqual(expected);
+      expect(
+        snapshotSettings.metricSettings.some((m) => m.id === "m_quantile"),
+      ).toBe(analyzed);
+    },
+  );
+
   it("sizes a holdout's analysis window from a lagged end date", () => {
     const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
       makeJoinabilityFixture();
