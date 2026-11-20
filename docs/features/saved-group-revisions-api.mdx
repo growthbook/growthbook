@@ -115,9 +115,9 @@ curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123
   -d '{"strategy": "draft", "title": "Roll back the Q2 cohort change"}'
 ```
 
-### Discarding
+### Discarding and Reopening
 
-Open drafts you no longer want can be discarded with `POST .../discard`. Merged and already-discarded revisions are rejected.
+Open drafts you no longer want can be discarded with `POST .../discard`. Merged and already-discarded revisions are rejected. `POST .../reopen` brings a discarded revision back as a draft.
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/4/discard' \
@@ -125,6 +125,12 @@ curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123
   -H 'Content-Type: application/json' \
   -d '{"reason": "superseded by revision 5"}'
 ```
+
+### Scheduling a Publish
+
+<CommercialFeature feature="scheduled-revisions" />
+
+`POST .../schedule-publish` with `{"scheduledPublishAt": "2027-01-31T09:00:00Z"}` publishes the draft at that time. Send `null` to cancel. A draft that still needs approval must request review first, unless a caller who can bypass approval sends `"bypassApproval": true`.
 
 ## Merge Conflicts
 
@@ -187,7 +193,7 @@ curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123
 
 ### Reviewing
 
-A reviewer submits a decision with `POST .../submit-review`. `decision` is one of `approve`, `request-changes`, or `comment`. With `blockSelfApproval` enabled (controlled by the org's **Require approval from a non-editor** setting), authors and contributors cannot submit `approve` on their own drafts.
+A reviewer submits a decision with `POST .../submit-review`. `decision` is one of `approve`, `request-changes`, or `comment`. The draft's creator can't approve it. When the org's **Block contributors from self-approving** setting is on, other contributors can't either.
 
 An organization API key reviews as itself, judged on its own role, unless it assumes the role of a member it names with `X-GrowthBook-Requested-By`; then the decision counts as that member's.
 
@@ -200,6 +206,8 @@ curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123
 ```
 
 The revision's `reviews` array on subsequent reads shows every decision, who made it, and when.
+
+`POST .../recall-review` withdraws a review request and returns the revision to `draft`. `POST .../undo-review` retracts your own `approve` or `request-changes` verdict.
 
 ### Publishing with Approvals
 

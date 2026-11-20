@@ -9,7 +9,6 @@ import {
 } from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import React, { useState, useEffect } from "react";
-import { canInlineFilterColumn } from "shared/experiments";
 import { getValidDate, abbreviateAgo, datetime, ago } from "shared/dates";
 import {
   PiPlus,
@@ -28,7 +27,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
@@ -36,6 +35,14 @@ import RadixButton from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
 import { useUser } from "@/services/UserContext";
+import useSaveFactTableColumn from "@/hooks/useSaveFactTableColumn";
+import {
+  COLUMN_DATATYPE_OPTIONS,
+  getColumnEligibility,
+  getSecondaryFilterColumnOptions,
+  NUMBER_FORMAT_OPTIONS,
+  toConditionalInlineFilters,
+} from "@/services/columnEditModel";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
 import {
@@ -45,6 +52,7 @@ import {
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import SecondaryFiltersField from "./SecondaryFiltersField";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -67,14 +75,6 @@ function toPersistedJSONFields(
   );
 }
 
-function toConditionalInlineFilters(
-  mappings: { value: string; column: string }[],
-): Record<string, string> {
-  return Object.fromEntries(
-    mappings.filter((m) => m.value && m.column).map((m) => [m.value, m.column]),
-  );
-}
-
 export default function ColumnModal({
   existing,
   factTable,
@@ -82,6 +82,7 @@ export default function ColumnModal({
   slicesOnly = false,
 }: Props) {
   const { apiCall } = useAuth();
+  const saveColumn = useSaveFactTableColumn(factTable);
   const { hasCommercialFeature, settings } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
@@ -287,38 +288,12 @@ export default function ColumnModal({
     lockedAutoSlices: form.watch("lockedAutoSlices"),
     deleted: false,
   };
+  const eligibility = getColumnEligibility(factTable, updatedColumn);
 
-  // Other string columns a conditional prompt can key off.
-  // Columns (or JSON fields) that can be prompted for alongside this one
-  const mappingColumnOptions: SingleValue[] = [];
-  factTable.columns.forEach((c) => {
-    if (c.deleted || c.column === existing?.column) return;
-    if (c.datatype === "json") {
-      Object.entries(c.jsonFields ?? {}).forEach(([field, f]) => {
-        if (
-          f.datatype === "string" ||
-          f.datatype === "boolean" ||
-          !f.datatype
-        ) {
-          mappingColumnOptions.push({
-            label: `${c.name || c.column}.${field}`,
-            value: `${c.column}.${field}`,
-          });
-        }
-      });
-      return;
-    }
-    if (canInlineFilterColumn(factTable, c.column)) {
-      mappingColumnOptions.push({ label: c.name || c.column, value: c.column });
-    }
-  });
-
-  const showInlineFilterPrompt =
-    !slicesOnly &&
-    canInlineFilterColumn(
-      { ...factTable, columns: [updatedColumn] },
-      form.watch("column"),
-    );
+  const mappingColumnOptions = getSecondaryFilterColumnOptions(
+    factTable,
+    existing?.column ?? "",
+  );
 
   return (
     <Modal
@@ -355,51 +330,23 @@ export default function ColumnModal({
             track("auto-slices-changed-for-column");
           }
 
-          // If the column can no longer be inline filtered
-          if (data.alwaysInlineFilter) {
-            const updatedFactTable = {
-              ...factTable,
-              columns: factTable.columns.map((c) =>
-                c.column === existing.column
-                  ? {
-                      ...c,
-                      ...data,
-                      datatype: data.datatype ?? c.datatype,
-                      jsonFields: data.jsonFields
-                        ? toPersistedJSONFields(data.jsonFields)
-                        : c.jsonFields,
-                    }
-                  : c,
-              ),
-            };
-            if (!canInlineFilterColumn(updatedFactTable, existing.column)) {
-              data.alwaysInlineFilter = false;
-            }
-          }
-
           if (data.datatype === "json") {
             data.jsonFields = value.jsonFields;
           }
 
-          if (data.datatype === "boolean" && data.autoSlices) {
-            data.autoSlices = ["true", "false"];
-          }
-
-          await apiCall(
-            `/fact-tables/${factTable.id}/column/${existing.column}`,
-            {
-              method: "PUT",
-              // Slices-only edits send just slice fields so hidden ones can't clobber concurrent edits.
-              body: JSON.stringify(
-                slicesOnly
-                  ? {
-                      isAutoSliceColumn: data.isAutoSliceColumn,
-                      autoSlices: data.autoSlices,
-                      lockedAutoSlices: data.lockedAutoSlices,
-                    }
-                  : data,
-              ),
-            },
+          // The modal loads top values when Auto Slice is ticked, so levels
+          // the user cleared stay cleared
+          await saveColumn(
+            existing,
+            // Slices-only edits send just slice fields so hidden ones can't clobber concurrent edits.
+            slicesOnly
+              ? {
+                  isAutoSliceColumn: data.isAutoSliceColumn,
+                  autoSlices: data.autoSlices,
+                  lockedAutoSlices: data.lockedAutoSlices,
+                }
+              : data,
+            { loadTopValues: false },
           );
         } else {
           if (value.datatype === "boolean" && value.autoSlices) {
@@ -415,8 +362,8 @@ export default function ColumnModal({
                 : undefined,
             }),
           });
+          mutateDefinitions();
         }
-        mutateDefinitions();
       })}
     >
       {!existing && (
@@ -443,36 +390,7 @@ export default function ColumnModal({
             initialOption="Unknown"
             required
             sort={false}
-            options={[
-              {
-                label: "Number",
-                value: "number",
-              },
-              {
-                label: "String",
-                value: "string",
-              },
-              {
-                label: "Date / Datetime",
-                value: "date",
-              },
-              {
-                label: "Boolean",
-                value: "boolean",
-              },
-              {
-                label: "JSON",
-                value: "json",
-              },
-              {
-                label: "Binary",
-                value: "binary",
-              },
-              {
-                label: "Other",
-                value: "other",
-              },
-            ]}
+            options={COLUMN_DATATYPE_OPTIONS}
           />
         </>
       )}
@@ -483,32 +401,7 @@ export default function ColumnModal({
           value={form.watch("numberFormat") || ""}
           helpText="Used to properly format numbers in the UI"
           onChange={(f) => form.setValue("numberFormat", f as NumberFormat)}
-          options={[
-            {
-              label: "Plain Number",
-              value: "",
-            },
-            {
-              label: "Currency",
-              value: "currency",
-            },
-            {
-              label: "Time (seconds)",
-              value: "time:seconds",
-            },
-            {
-              label: "Time (milliseconds)",
-              value: "time:milliseconds",
-            },
-            {
-              label: "Memory (bytes)",
-              value: "memory:bytes",
-            },
-            {
-              label: "Memory (kilobytes)",
-              value: "memory:kilobytes",
-            },
-          ]}
+          options={NUMBER_FORMAT_OPTIONS}
         />
       )}
       {form.watch("datatype") === "json" && (
@@ -688,390 +581,384 @@ export default function ColumnModal({
         </Link>
       )}
 
-      {(form.watch("datatype") === "string" ||
-        form.watch("datatype") === "boolean") &&
-        !factTable.userIdTypes.includes(form.watch("column")) &&
-        form.watch("column") !== "timestamp" && (
-          <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
-            <div className="d-flex align-items-center mb-2">
-              <Checkbox
-                value={form.watch("isAutoSliceColumn") ?? false}
-                setValue={(v) => form.setValue("isAutoSliceColumn", v === true)}
-                label={
-                  <>
-                    Enable Auto Slices
-                    {!hasMetricSlicesFeature ? (
-                      <PaidFeatureBadge
-                        commercialFeature="metric-slices"
-                        premiumText="This is an Enterprise feature"
-                        variant="outline"
-                        ml="2"
-                      />
-                    ) : null}
-                  </>
-                }
-                description={
-                  <>
-                    Column may be used to automatically slice metrics during
-                    experiment analysis.{" "}
-                    <DocLink useRadix={false} docSection="autoSlices">
-                      Learn More <PiArrowSquareOut />
-                    </DocLink>
-                  </>
-                }
-                disabled={!hasMetricSlicesFeature}
-              />
-            </div>
+      {eligibility.canAutoSlice && (
+        <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
+          <div className="d-flex align-items-center mb-2">
+            <Checkbox
+              value={form.watch("isAutoSliceColumn") ?? false}
+              setValue={(v) => form.setValue("isAutoSliceColumn", v === true)}
+              label={
+                <>
+                  Enable Auto Slices
+                  {!hasMetricSlicesFeature ? (
+                    <PaidFeatureBadge
+                      commercialFeature="metric-slices"
+                      premiumText="This is an Enterprise feature"
+                      variant="outline"
+                      ml="2"
+                    />
+                  ) : null}
+                </>
+              }
+              description={
+                <>
+                  Column may be used to automatically slice metrics during
+                  experiment analysis.{" "}
+                  <DocLink useRadix={false} docSection="autoSlices">
+                    Learn More <PiArrowSquareOut />
+                  </DocLink>
+                </>
+              }
+              disabled={!hasMetricSlicesFeature}
+            />
+          </div>
 
-            {form.watch("isAutoSliceColumn") &&
-              hasMetricSlicesFeature &&
-              form.watch("datatype") !== "boolean" && (
-                <div className="mt-4 mb-2">
-                  <Flex align="center" gap="3" mt="2" mb="1">
-                    <label className="form-label mb-0">Slices</label>
-                    <div className="flex-1" />
-                    <Flex align="center" gap="1">
+          {form.watch("isAutoSliceColumn") &&
+            hasMetricSlicesFeature &&
+            form.watch("datatype") !== "boolean" && (
+              <div className="mt-4 mb-2">
+                <Flex align="center" gap="3" mt="2" mb="1">
+                  <label className="form-label mb-0">Slices</label>
+                  <div className="flex-1" />
+                  <Flex align="center" gap="1">
+                    <Tooltip
+                      tipPosition="top"
+                      body={
+                        <Flex direction="column">
+                          {(() => {
+                            const autoUpdateFrequencyText =
+                              getAutoSliceUpdateFrequencyText();
+                            return (
+                              <>
+                                {factTable.autoSliceUpdatesEnabled ? (
+                                  <>
+                                    <Text as="p">
+                                      Auto-update slice levels based on top
+                                      column values. Locked levels are always
+                                      preserved.
+                                    </Text>
+                                    <Text as="p">
+                                      <strong>Enabled</strong> — runs every{" "}
+                                      {autoUpdateFrequencyText}. Limited to{" "}
+                                      {maxMetricSliceLevels} slice levels
+                                      (customizable in Organization Settings).
+                                    </Text>
+                                    {existing?.topValuesDate && (
+                                      <div>
+                                        <Text>
+                                          Last run:{" "}
+                                          {datetime(existing.topValuesDate)}
+                                        </Text>
+                                        {(() => {
+                                          const frequencyHours =
+                                            getAutoSliceUpdateFrequencyHours();
+                                          const lastRun = getValidDate(
+                                            existing.topValuesDate,
+                                          );
+                                          const nextRun = new Date(
+                                            lastRun.getTime() +
+                                              frequencyHours * 60 * 60 * 1000,
+                                          );
+                                          const now = new Date();
+                                          return (
+                                            <div>
+                                              Next run:{" "}
+                                              {nextRun > now ? (
+                                                <>
+                                                  {datetime(nextRun)} (
+                                                  {ago(nextRun)})
+                                                </>
+                                              ) : (
+                                                <>
+                                                  overdue (should run{" "}
+                                                  {ago(nextRun)})
+                                                </>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Text as="p">
+                                      Auto-update slice levels based on top
+                                      column values.
+                                    </Text>
+                                    <Text as="p">
+                                      <strong>Disabled</strong> — Fact Table
+                                      editors can choose &quot;Turn on Auto
+                                      Slice updates&quot; from the page&apos;s
+                                      menu.
+                                    </Text>
+                                  </>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </Flex>
+                      }
+                    >
+                      {factTable.autoSliceUpdatesEnabled ? (
+                        <PiLightning size={16} />
+                      ) : (
+                        <PiLightningSlash size={16} />
+                      )}
+                    </Tooltip>
+                    {existing?.topValuesDate ? (
                       <Tooltip
-                        tipPosition="top"
                         body={
-                          <Flex direction="column">
-                            {(() => {
-                              const autoUpdateFrequencyText =
-                                getAutoSliceUpdateFrequencyText();
-                              return (
-                                <>
-                                  {factTable.autoSliceUpdatesEnabled ? (
-                                    <>
-                                      <Text as="p">
-                                        Auto-update slice levels based on top
-                                        column values. Locked levels are always
-                                        preserved.
-                                      </Text>
-                                      <Text as="p">
-                                        <strong>Enabled</strong> — runs every{" "}
-                                        {autoUpdateFrequencyText}. Limited to{" "}
-                                        {maxMetricSliceLevels} slice levels
-                                        (customizable in Organization Settings).
-                                      </Text>
-                                      {existing?.topValuesDate && (
-                                        <div>
-                                          <Text>
-                                            Last run:{" "}
-                                            {datetime(existing.topValuesDate)}
-                                          </Text>
-                                          {(() => {
-                                            const frequencyHours =
-                                              getAutoSliceUpdateFrequencyHours();
-                                            const lastRun = getValidDate(
-                                              existing.topValuesDate,
-                                            );
-                                            const nextRun = new Date(
-                                              lastRun.getTime() +
-                                                frequencyHours * 60 * 60 * 1000,
-                                            );
-                                            const now = new Date();
-                                            return (
-                                              <div>
-                                                Next run:{" "}
-                                                {nextRun > now ? (
-                                                  <>
-                                                    {datetime(nextRun)} (
-                                                    {ago(nextRun)})
-                                                  </>
-                                                ) : (
-                                                  <>
-                                                    overdue (should run{" "}
-                                                    {ago(nextRun)})
-                                                  </>
-                                                )}
-                                              </div>
-                                            );
-                                          })()}
-                                        </div>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Text as="p">
-                                        Auto-update slice levels based on top
-                                        column values.
-                                      </Text>
-                                      <Text as="p">
-                                        <strong>Disabled</strong> — Fact Table
-                                        editors can choose &quot;Turn on Auto
-                                        Slice updates&quot; from the page&apos;s
-                                        menu.
-                                      </Text>
-                                    </>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </Flex>
+                          <Text>
+                            Last run: {datetime(existing.topValuesDate)}
+                          </Text>
                         }
                       >
-                        {factTable.autoSliceUpdatesEnabled ? (
-                          <PiLightning size={16} />
-                        ) : (
-                          <PiLightningSlash size={16} />
-                        )}
-                      </Tooltip>
-                      {existing?.topValuesDate ? (
-                        <Tooltip
-                          body={
-                            <Text>
-                              Last run: {datetime(existing.topValuesDate)}
-                            </Text>
-                          }
-                        >
-                          <Text
-                            weight="regular"
-                            size="1"
-                            style={{ color: "var(--color-text-mid)" }}
-                          >
-                            Last run: {abbreviateAgo(existing.topValuesDate)}
-                          </Text>
-                        </Tooltip>
-                      ) : (
                         <Text
                           weight="regular"
                           size="1"
                           style={{ color: "var(--color-text-mid)" }}
                         >
-                          Last run: Never
+                          Last run: {abbreviateAgo(existing.topValuesDate)}
                         </Text>
-                      )}
-                    </Flex>
-                    <RadixButton
-                      size="sm"
-                      variant="outline"
-                      onClick={refreshTopValues}
-                      loading={refreshingTopValues}
-                    >
-                      <PiArrowClockwise />{" "}
-                      {!factTable.autoSliceUpdatesEnabled
-                        ? "Use Top Values"
-                        : "Update"}
-                    </RadixButton>
+                      </Tooltip>
+                    ) : (
+                      <Text
+                        weight="regular"
+                        size="1"
+                        style={{ color: "var(--color-text-mid)" }}
+                      >
+                        Last run: Never
+                      </Text>
+                    )}
                   </Flex>
+                  <RadixButton
+                    size="sm"
+                    variant="outline"
+                    onClick={refreshTopValues}
+                    loading={refreshingTopValues}
+                  >
+                    <PiArrowClockwise />{" "}
+                    {!factTable.autoSliceUpdatesEnabled
+                      ? "Use Top Values"
+                      : "Update"}
+                  </RadixButton>
+                </Flex>
 
-                  {autoSlicesWarning ||
-                  (form.watch("autoSlices") || [])?.length >
-                    maxMetricSliceLevels ? (
-                    <HelperText status="warning" mb="1">
-                      Limit {maxMetricSliceLevels + ""} slices
-                    </HelperText>
-                  ) : null}
+                {autoSlicesWarning ||
+                (form.watch("autoSlices") || [])?.length >
+                  maxMetricSliceLevels ? (
+                  <HelperText status="warning" mb="1">
+                    Limit {maxMetricSliceLevels + ""} slices
+                  </HelperText>
+                ) : null}
 
-                  {factTable.autoSliceUpdatesEnabled ? (
-                    <div className="mt-2">
-                      {(existing?.topValues || []).length === 0 &&
-                      existing?.topValuesDate ? (
-                        <HelperText status="warning" mb="1">
-                          No slices returned from top values query
-                        </HelperText>
-                      ) : null}
-                      <table className="table table-tiny gbtable mb-0">
-                        <tbody>
-                          {(form.watch("autoSlices") || []).map((slice) => {
-                            const isLocked = (
-                              form.watch("lockedAutoSlices") || []
-                            ).includes(slice);
-                            const isInTopValues = (
-                              existing?.topValues || []
-                            ).includes(slice);
-                            return (
-                              <tr key={slice}>
-                                <td>{slice}</td>
-                                <td style={{ width: "110px" }}>
-                                  {!isInTopValues && (
-                                    <Text size="1" color="gray">
-                                      Not a top value
-                                    </Text>
-                                  )}
-                                </td>
-                                <td style={{ width: "85px" }}>
-                                  <div style={{ marginTop: "1px" }}>
-                                    <Tooltip
-                                      body="Locked slices are always preserved and will not be removed by auto-slice updates"
-                                      tipPosition="right"
-                                    >
-                                      <Checkbox
-                                        label={
-                                          <Text
-                                            size="1"
-                                            color={
-                                              !isLocked ? "gray" : "violet"
-                                            }
-                                          >
-                                            Lock{isLocked ? "ed" : ""}
-                                          </Text>
-                                        }
-                                        weight="regular"
-                                        value={isLocked}
-                                        setValue={(value) => {
-                                          const currentLocked =
-                                            form.watch("lockedAutoSlices") ||
-                                            [];
-                                          const currentSlices =
-                                            form.watch("autoSlices") || [];
-                                          if (value) {
-                                            form.setValue("lockedAutoSlices", [
-                                              ...currentLocked,
-                                              slice,
-                                            ]);
+                {factTable.autoSliceUpdatesEnabled ? (
+                  <div className="mt-2">
+                    {(existing?.topValues || []).length === 0 &&
+                    existing?.topValuesDate ? (
+                      <HelperText status="warning" mb="1">
+                        No slices returned from top values query
+                      </HelperText>
+                    ) : null}
+                    <table className="table table-tiny gbtable mb-0">
+                      <tbody>
+                        {(form.watch("autoSlices") || []).map((slice) => {
+                          const isLocked = (
+                            form.watch("lockedAutoSlices") || []
+                          ).includes(slice);
+                          const isInTopValues = (
+                            existing?.topValues || []
+                          ).includes(slice);
+                          return (
+                            <tr key={slice}>
+                              <td>{slice}</td>
+                              <td style={{ width: "110px" }}>
+                                {!isInTopValues && (
+                                  <Text size="1" color="gray">
+                                    Not a top value
+                                  </Text>
+                                )}
+                              </td>
+                              <td style={{ width: "85px" }}>
+                                <div style={{ marginTop: "1px" }}>
+                                  <Tooltip
+                                    body="Locked slices are always preserved and will not be removed by auto-slice updates"
+                                    tipPosition="right"
+                                  >
+                                    <Checkbox
+                                      label={
+                                        <Text
+                                          size="1"
+                                          color={!isLocked ? "gray" : "violet"}
+                                        >
+                                          Lock{isLocked ? "ed" : ""}
+                                        </Text>
+                                      }
+                                      weight="regular"
+                                      value={isLocked}
+                                      setValue={(value) => {
+                                        const currentLocked =
+                                          form.watch("lockedAutoSlices") || [];
+                                        const currentSlices =
+                                          form.watch("autoSlices") || [];
+                                        if (value) {
+                                          form.setValue("lockedAutoSlices", [
+                                            ...currentLocked,
+                                            slice,
+                                          ]);
+                                        } else {
+                                          // If unlocking a slice that's not in topValues, remove it completely
+                                          if (!isInTopValues) {
+                                            form.setValue(
+                                              "autoSlices",
+                                              currentSlices.filter(
+                                                (s) => s !== slice,
+                                              ),
+                                            );
+                                            form.setValue(
+                                              "lockedAutoSlices",
+                                              currentLocked.filter(
+                                                (s) => s !== slice,
+                                              ),
+                                            );
                                           } else {
-                                            // If unlocking a slice that's not in topValues, remove it completely
-                                            if (!isInTopValues) {
-                                              form.setValue(
-                                                "autoSlices",
-                                                currentSlices.filter(
-                                                  (s) => s !== slice,
-                                                ),
-                                              );
-                                              form.setValue(
-                                                "lockedAutoSlices",
-                                                currentLocked.filter(
-                                                  (s) => s !== slice,
-                                                ),
-                                              );
-                                            } else {
-                                              // Just unlock if it's in topValues
-                                              form.setValue(
-                                                "lockedAutoSlices",
-                                                currentLocked.filter(
-                                                  (s) => s !== slice,
-                                                ),
-                                              );
-                                            }
+                                            // Just unlock if it's in topValues
+                                            form.setValue(
+                                              "lockedAutoSlices",
+                                              currentLocked.filter(
+                                                (s) => s !== slice,
+                                              ),
+                                            );
                                           }
-                                        }}
-                                      />
-                                    </Tooltip>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                      {!showAddSliceInput ? (
-                        <Link
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setShowAddSliceInput(true);
-                          }}
-                          mt="2"
-                        >
-                          <Flex align="center" gap="1">
-                            <PiPlus />
-                            <Text weight="medium">Add slices manually</Text>
-                          </Flex>
-                        </Link>
-                      ) : (
-                        <Flex mt="2" gap="2" align="center">
-                          <div style={{ flex: 1 }}>
-                            <Field
-                              size="legacy"
-                              style={{ height: 28 }}
-                              value={newSliceValue}
-                              onChange={(e) => setNewSliceValue(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  const trimmed = newSliceValue.trim();
-                                  if (trimmed) {
-                                    const currentSlices =
-                                      form.watch("autoSlices") || [];
-                                    const currentLocked =
-                                      form.watch("lockedAutoSlices") || [];
-                                    if (!currentSlices.includes(trimmed)) {
-                                      form.setValue("autoSlices", [
-                                        ...currentSlices,
-                                        trimmed,
-                                      ]);
-                                      form.setValue("lockedAutoSlices", [
-                                        ...currentLocked,
-                                        trimmed,
-                                      ]);
-                                      setNewSliceValue("");
-                                    }
-                                  }
-                                }
-                              }}
-                              placeholder="Enter slice..."
-                              containerClassName="mb-0"
-                              autoFocus
-                            />
-                          </div>
-                          <RadixButton
-                            size="md"
-                            variant="ghost"
-                            ml="2"
+                                        }
+                                      }}
+                                    />
+                                  </Tooltip>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {!showAddSliceInput ? (
+                      <Link
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowAddSliceInput(true);
+                        }}
+                        mt="2"
+                      >
+                        <Flex align="center" gap="1">
+                          <PiPlus />
+                          <Text weight="medium">Add slices manually</Text>
+                        </Flex>
+                      </Link>
+                    ) : (
+                      <Flex mt="2" gap="2" align="center">
+                        <div style={{ flex: 1 }}>
+                          <Field
+                            size="legacy"
                             style={{ height: 28 }}
-                            onClick={() => {
-                              const trimmed = newSliceValue.trim();
-                              if (trimmed) {
-                                const currentSlices =
-                                  form.watch("autoSlices") || [];
-                                const currentLocked =
-                                  form.watch("lockedAutoSlices") || [];
-                                if (!currentSlices.includes(trimmed)) {
-                                  form.setValue("autoSlices", [
-                                    ...currentSlices,
-                                    trimmed,
-                                  ]);
-                                  form.setValue("lockedAutoSlices", [
-                                    ...currentLocked,
-                                    trimmed,
-                                  ]);
-                                  setNewSliceValue("");
+                            value={newSliceValue}
+                            onChange={(e) => setNewSliceValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const trimmed = newSliceValue.trim();
+                                if (trimmed) {
+                                  const currentSlices =
+                                    form.watch("autoSlices") || [];
+                                  const currentLocked =
+                                    form.watch("lockedAutoSlices") || [];
+                                  if (!currentSlices.includes(trimmed)) {
+                                    form.setValue("autoSlices", [
+                                      ...currentSlices,
+                                      trimmed,
+                                    ]);
+                                    form.setValue("lockedAutoSlices", [
+                                      ...currentLocked,
+                                      trimmed,
+                                    ]);
+                                    setNewSliceValue("");
+                                  }
                                 }
                               }
                             }}
-                          >
-                            Add
-                          </RadixButton>
-                        </Flex>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      {(form.watch("autoSlices") || []).length === 0 && (
-                        <div className="text-muted mb-2 small">
-                          No slices configured. Click &quot;Use Top Values&quot;
-                          or manually enter slices below.
+                            placeholder="Enter slice..."
+                            containerClassName="mb-0"
+                            autoFocus
+                          />
                         </div>
-                      )}
-                      <MultiSelectField
-                        legacyHeight
-                        value={form.watch("autoSlices") || []}
-                        onChange={(values) => {
-                          if (values.length > maxMetricSliceLevels) {
-                            values = values.slice(0, maxMetricSliceLevels);
-                            setAutoSlicesWarning(true);
-                            setTimeout(() => {
-                              setAutoSlicesWarning(false);
-                            }, 3000);
-                          }
-                          // Track if user manually clears all slices
-                          if (values.length === 0) {
-                            setHasManuallyClearedSlices(true);
-                          }
-                          form.setValue("autoSlices", values);
-                        }}
-                        options={autoSliceOptions}
-                        creatable={true}
-                        placeholder="Select or enter slices..."
-                      />
-                    </>
-                  )}
-                </div>
-              )}
-          </div>
-        )}
+                        <RadixButton
+                          size="md"
+                          variant="ghost"
+                          ml="2"
+                          style={{ height: 28 }}
+                          onClick={() => {
+                            const trimmed = newSliceValue.trim();
+                            if (trimmed) {
+                              const currentSlices =
+                                form.watch("autoSlices") || [];
+                              const currentLocked =
+                                form.watch("lockedAutoSlices") || [];
+                              if (!currentSlices.includes(trimmed)) {
+                                form.setValue("autoSlices", [
+                                  ...currentSlices,
+                                  trimmed,
+                                ]);
+                                form.setValue("lockedAutoSlices", [
+                                  ...currentLocked,
+                                  trimmed,
+                                ]);
+                                setNewSliceValue("");
+                              }
+                            }
+                          }}
+                        >
+                          Add
+                        </RadixButton>
+                      </Flex>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {(form.watch("autoSlices") || []).length === 0 && (
+                      <div className="text-muted mb-2 small">
+                        No slices configured. Click &quot;Use Top Values&quot;
+                        or manually enter slices below.
+                      </div>
+                    )}
+                    <MultiSelectField
+                      legacyHeight
+                      value={form.watch("autoSlices") || []}
+                      onChange={(values) => {
+                        if (values.length > maxMetricSliceLevels) {
+                          values = values.slice(0, maxMetricSliceLevels);
+                          setAutoSlicesWarning(true);
+                          setTimeout(() => {
+                            setAutoSlicesWarning(false);
+                          }, 3000);
+                        }
+                        // Track if user manually clears all slices
+                        if (values.length === 0) {
+                          setHasManuallyClearedSlices(true);
+                        }
+                        form.setValue("autoSlices", values);
+                      }}
+                      options={autoSliceOptions}
+                      creatable={true}
+                      placeholder="Select or enter slices..."
+                    />
+                  </>
+                )}
+              </div>
+            )}
+        </div>
+      )}
 
-      {showInlineFilterPrompt && (
+      {!slicesOnly && eligibility.canFilter && (
         <div className="px-3 pb-1 mb-4">
           <Checkbox
             value={form.watch("alwaysInlineFilter") ?? false}
@@ -1089,86 +976,12 @@ export default function ColumnModal({
                   When certain values are chosen, prompt for an additional
                   filter.
                 </Text>
-                <Flex direction="column" gap="2">
-                  {valueMappings.map((m, i) => (
-                    <Flex key={i} gap="2" align="center">
-                      <SelectField
-                        containerStyle={{
-                          flex: 1,
-                          minWidth: 0,
-                          marginBottom: 0,
-                        }}
-                        value={m.value}
-                        createable
-                        onChange={(value) =>
-                          setValueMappings((prev) =>
-                            // A value maps once; a duplicate would overwrite on save
-                            prev.some((x, j) => j !== i && x.value === value)
-                              ? prev
-                              : prev.map((x, j) =>
-                                  j === i ? { ...x, value } : x,
-                                ),
-                          )
-                        }
-                        options={topValues
-                          .filter(
-                            (v) =>
-                              v === m.value ||
-                              !valueMappings.some((x) => x.value === v),
-                          )
-                          .map((v) => ({ label: v, value: v }))}
-                        placeholder="Value..."
-                      />
-                      <Text>→</Text>
-                      <SelectField
-                        containerStyle={{
-                          flex: 1,
-                          minWidth: 0,
-                          marginBottom: 0,
-                        }}
-                        value={m.column}
-                        onChange={(column) =>
-                          setValueMappings((prev) =>
-                            prev.map((x, j) =>
-                              j === i ? { ...x, column } : x,
-                            ),
-                          )
-                        }
-                        options={mappingColumnOptions}
-                        placeholder="Filter on..."
-                      />
-                      <RadixButton
-                        variant="ghost"
-                        size="sm"
-                        aria-label="Remove"
-                        onClick={() =>
-                          setValueMappings((prev) =>
-                            prev.filter((_, j) => j !== i),
-                          )
-                        }
-                      >
-                        <PiX size={14} />
-                      </RadixButton>
-                    </Flex>
-                  ))}
-                  {valueMappings.every((m) => m.value && m.column) && (
-                    <Flex>
-                      <RadixButton
-                        variant="ghost"
-                        size="sm"
-                        icon={<PiPlus size={14} />}
-                        onClick={() =>
-                          setValueMappings((prev) => [
-                            ...prev,
-                            { value: "", column: "" },
-                          ])
-                        }
-                      >
-                        Add value
-                      </RadixButton>
-                    </Flex>
-                  )}
-                </Flex>
+                <SecondaryFiltersField
+                  mappings={valueMappings}
+                  setMappings={setValueMappings}
+                  topValues={topValues}
+                  columnOptions={mappingColumnOptions}
+                />
               </Frame>
             )}
         </div>

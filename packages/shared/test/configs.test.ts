@@ -41,7 +41,10 @@ import {
   ancestorCollisionWarnings,
   findOrphanedConfigValueKeys,
   computeConfigSchemaChangeImpact,
+  configChangeReachesDescendants,
+  configChangeReshapesFamily,
   ConfigFamilyMember,
+  ConfigSchemaChangeImpact,
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
   getFeatureBaseConfigKey,
@@ -815,6 +818,19 @@ describe("findSiblingSchemaConflicts", () => {
     expect(
       findSiblingSchemaConflicts({ parent: "b", extends: ["c"] }, m),
     ).toEqual([]);
+  });
+
+  it("lets the base win over a field its own descendant also declares", () => {
+    const m = new Map([
+      ["root", { key: "root", schema: objSchema("note") }],
+      ["child", { key: "child", parent: "root", schema: objSchema("note") }],
+      ["side", { key: "side", schema: objSchema("note") }],
+    ]);
+    expect(findSiblingSchemaConflicts({ parent: "child" }, m)).toEqual([]);
+    // A separate branch declaring it still conflicts with the topmost owner.
+    expect(
+      findSiblingSchemaConflicts({ parent: "child", extends: ["side"] }, m),
+    ).toEqual([{ key: "note", owners: ["root", "side"] }]);
   });
 });
 
@@ -1857,6 +1873,22 @@ describe("findOrphanedConfigValueKeys", () => {
   });
 });
 
+describe("Config change predicates", () => {
+  it.each([
+    [{ schema: null }, true, true],
+    [{ parent: "" }, true, true],
+    [{ extends: [] }, true, true],
+    [{ extensible: false }, false, true],
+    [{ value: "{}", name: "x" }, false, false],
+  ])(
+    "%j reshapes: %s, reaches descendants: %s",
+    (changes, reshapes, reaches) => {
+      expect(configChangeReshapesFamily(changes)).toBe(reshapes);
+      expect(configChangeReachesDescendants(changes)).toBe(reaches);
+    },
+  );
+});
+
 describe("computeConfigSchemaChangeImpact", () => {
   const optInt = (key: string): SchemaField => ({
     key,
@@ -1905,6 +1937,7 @@ describe("computeConfigSchemaChangeImpact", () => {
         newlyIncompatibleKeys: [],
         conflictingStripKeys: [],
         invariantRefs: [],
+        disallowedKeys: [],
       },
     ]);
   });
@@ -1928,6 +1961,7 @@ describe("computeConfigSchemaChangeImpact", () => {
         newlyIncompatibleKeys: ["b"],
         conflictingStripKeys: [],
         invariantRefs: [],
+        disallowedKeys: [],
       },
     ]);
   });
@@ -1950,6 +1984,7 @@ describe("computeConfigSchemaChangeImpact", () => {
         newlyIncompatibleKeys: [],
         conflictingStripKeys: ["c"],
         invariantRefs: [],
+        disallowedKeys: [],
       },
     ]);
   });
@@ -1992,6 +2027,7 @@ describe("computeConfigSchemaChangeImpact", () => {
         newlyIncompatibleKeys: [],
         conflictingStripKeys: [],
         invariantRefs: [{ name: "order", keys: ["a"] }],
+        disallowedKeys: [],
       },
     ]);
   });
@@ -2011,6 +2047,7 @@ describe("computeConfigSchemaChangeImpact", () => {
         newlyIncompatibleKeys: [],
         conflictingStripKeys: [],
         invariantRefs: [],
+        disallowedKeys: [],
       },
     ]);
   });
@@ -2030,6 +2067,7 @@ describe("computeConfigSchemaChangeImpact", () => {
         newlyIncompatibleKeys: [],
         conflictingStripKeys: [],
         invariantRefs: [],
+        disallowedKeys: [],
       },
     ]);
   });
@@ -2077,8 +2115,55 @@ describe("computeConfigSchemaChangeImpact", () => {
         newlyIncompatibleKeys: [],
         conflictingStripKeys: [],
         invariantRefs: [],
+        disallowedKeys: [],
       },
     ]);
+  });
+
+  it("reports undeclared keys once the family stops allowing extra fields", () => {
+    const before: ConfigFamilyMember[] = [
+      { key: "base", schema: schemaOf(optInt("a")) },
+      {
+        key: "child",
+        parent: "base",
+        value: '{"a":1,"extra":2,"ref":"@const:limit"}',
+      },
+      { key: "grandchild", parent: "child", value: '{"other":1}' },
+      // A composer's own spine decides its extra fields, so it isn't affected.
+      { key: "composer", extends: ["base"], value: '{"free":1}' },
+    ];
+    const closed = { ...before[0], extensible: false };
+    const disallowed = (impacts: ConfigSchemaChangeImpact[]) =>
+      impacts.map((i) => [i.configKey, i.disallowedKeys]);
+    expect(disallowed(impact("base", before, closed))).toEqual([
+      ["child", ["extra"]],
+      ["grandchild", ["other"]],
+    ]);
+    // Removing the whole schema orphans nothing, so its keys are reported here.
+    expect(
+      disallowed(impact("base", before, { ...closed, schema: undefined })),
+    ).toEqual([
+      ["child", ["a", "extra"]],
+      ["grandchild", ["other"]],
+    ]);
+    // A closed family losing its whole schema leaves declared keys disallowed.
+    const closedBefore = before.map((c) =>
+      c.key === "base" ? { ...c, extensible: false } : c,
+    );
+    expect(
+      disallowed(
+        impact("base", closedBefore, { ...closed, schema: undefined }),
+      ),
+    ).toEqual([["child", ["a"]]]);
+    // Already closed by the org default: nothing changes, so nothing to report.
+    expect(
+      computeConfigSchemaChangeImpact({
+        rootKey: "base",
+        before,
+        after: before.map((c) => (c.key === "base" ? closed : c)),
+        extensibleDefault: false,
+      }),
+    ).toEqual([]);
   });
 });
 

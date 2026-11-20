@@ -16,6 +16,14 @@ export type AppEvents = {
     usedOwnKey: boolean;
     outcome: string;
   };
+  // The num*Flagged counts are metrics where that adjustment's impact is large
+  "Experiment Adjustment Impact": {
+    numMetrics: number;
+    numPostStratificationFlagged: number;
+    numCupedFlagged: number;
+    numPriorFlagged: number;
+    numCappingFlagged: number;
+  };
   "Experiment Started": {
     source: string;
     hasDatasource: boolean;
