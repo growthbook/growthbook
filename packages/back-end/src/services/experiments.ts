@@ -62,6 +62,7 @@ import {
   needsPercentileCapSubquery,
   expandMetricGroups,
   ExperimentMetricInterface,
+  AdjustmentImpactArgs,
   DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
   getAdjustmentImpactSummaries,
   MetricResults,
@@ -6528,6 +6529,15 @@ export async function getExperimentAnalysisSummary({
         context,
         analysis: relativeAnalysis,
         experiment,
+        // Telemetry only, so it runs after the results status has been returned.
+        onComputed: (inputs) =>
+          setImmediate(() =>
+            trackAdjustmentImpact({
+              context,
+              experimentId: experiment.id,
+              ...inputs,
+            }),
+          ),
       });
 
       if (resultsStatus) {
@@ -6573,6 +6583,22 @@ function getLatestPhaseVariationId(
   return i + "";
 }
 
+// The corrected results the status was computed from, and their settings.
+type ResultsStatusInputs = {
+  variations: { metrics: Record<string, SnapshotMetric> }[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+  goalMetricIds: string[];
+} & Pick<
+  AdjustmentImpactArgs,
+  | "metricDefaults"
+  | "statsEngine"
+  | "differenceType"
+  | "ciUpper"
+  | "ciLower"
+  | "pValueThreshold"
+  | "pValueCorrection"
+>;
+
 // One event per results update: how many metrics each adjustment (CUPED,
 // post-stratification, capping, Bayesian prior) would alert on.
 function trackAdjustmentImpact({
@@ -6582,22 +6608,7 @@ function trackAdjustmentImpact({
   metricMap,
   goalMetricIds,
   ...analysisSettings
-}: {
-  context: ReqContext;
-  experimentId: string;
-  variations: { metrics: Record<string, SnapshotMetric> }[];
-  metricMap: Map<string, ExperimentMetricInterface>;
-  goalMetricIds: string[];
-} & Pick<
-  Parameters<typeof getAdjustmentImpactSummaries>[0],
-  | "metricDefaults"
-  | "statsEngine"
-  | "differenceType"
-  | "ciUpper"
-  | "ciLower"
-  | "pValueThreshold"
-  | "pValueCorrection"
->) {
+}: ResultsStatusInputs & { context: ReqContext; experimentId: string }) {
   try {
     // The settings are under test, randomized by experiment. The id is hashed
     // like other entity ids in events, and sent with the event so that it
@@ -6661,10 +6672,12 @@ export async function computeResultsStatus({
   context,
   analysis,
   experiment,
+  onComputed,
 }: {
   context: ReqContext;
   analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
   experiment: ExperimentInterface | SafeRolloutInterface;
+  onComputed?: (inputs: ResultsStatusInputs) => void;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = analysis.settings.statsEngine;
   const projectId =
@@ -6702,26 +6715,18 @@ export async function computeResultsStatus({
       ? analysis.settings.differenceType
       : "relative";
 
-  // Safe rollouts share this function but are not experiment updates.
-  // Telemetry only, so it runs after the results status has been returned.
-  if ("goalMetrics" in experiment) {
-    setImmediate(() =>
-      trackAdjustmentImpact({
-        context,
-        experimentId: experiment.id,
-        variations,
-        metricMap,
-        goalMetricIds: expandedGoalMetrics,
-        metricDefaults,
-        statsEngine,
-        differenceType,
-        ciUpper,
-        ciLower,
-        pValueThreshold,
-        pValueCorrection,
-      }),
-    );
-  }
+  onComputed?.({
+    variations,
+    metricMap,
+    goalMetricIds: expandedGoalMetrics,
+    metricDefaults,
+    statsEngine,
+    differenceType,
+    ciUpper,
+    ciLower,
+    pValueThreshold,
+    pValueCorrection,
+  });
 
   const variationStatuses: ExperimentAnalysisSummaryVariationStatus[] = [];
   const baselineVariation = variations[0];

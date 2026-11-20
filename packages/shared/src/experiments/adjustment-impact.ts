@@ -8,12 +8,11 @@ import {
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { MetricDefaults } from "shared/types/organization";
 import {
-  adjustPValuesBenjaminiHochberg,
-  adjustPValuesHolmBonferroni,
+  adjustPValues,
   ExperimentMetricDefinition,
-  getAdjustedCI,
   getMetricResultStatus,
   hasEnoughData,
+  setAdjustedCI,
 } from "./experiments";
 
 export type AdjustmentEffectSize = "small" | "moderate" | "large";
@@ -177,16 +176,15 @@ const SEVERITY_RANK: Record<AdjustmentEffectSize, number> = {
   large: 2,
 };
 
-function isMoreSevere(
+// Most severe first. Ties break on relative change, which every result has
+// and which is comparable across adjustments judged on different scales.
+function bySeverity(
   a: AdjustmentClassification,
   b: AdjustmentClassification,
-): boolean {
-  if (SEVERITY_RANK[a.effectSize] !== SEVERITY_RANK[b.effectSize]) {
-    return SEVERITY_RANK[a.effectSize] > SEVERITY_RANK[b.effectSize];
-  }
+): number {
   return (
-    (a.standardErrorShift ?? a.relativeChange) >
-    (b.standardErrorShift ?? b.relativeChange)
+    SEVERITY_RANK[b.effectSize] - SEVERITY_RANK[a.effectSize] ||
+    b.relativeChange - a.relativeChange
   );
 }
 
@@ -199,28 +197,28 @@ function getLiftStandardError(stats: SnapshotMetric): number {
 }
 
 function classifyPair({
-  primary,
-  alt,
-  primarySignificant,
-  altSignificant,
+  adjusted,
+  unadjusted,
+  adjustedSignificant,
+  unadjustedSignificant,
   rule,
 }: {
-  primary: SnapshotMetric;
-  alt: SnapshotMetric;
-  primarySignificant: boolean;
-  altSignificant: boolean;
+  adjusted: SnapshotMetric;
+  unadjusted: SnapshotMetric;
+  adjustedSignificant: boolean;
+  unadjustedSignificant: boolean;
   rule: AdjustmentRule;
 }): AdjustmentClassification {
-  const primaryLift = primary.expected ?? 0;
-  const altLift = alt.expected ?? 0;
-  const shift = Math.abs(primaryLift - altLift);
-  const largerLift = Math.max(Math.abs(primaryLift), Math.abs(altLift));
+  const adjustedLift = adjusted.expected ?? 0;
+  const unadjustedLift = unadjusted.expected ?? 0;
+  const shift = Math.abs(adjustedLift - unadjustedLift);
+  const largerLift = Math.max(Math.abs(adjustedLift), Math.abs(unadjustedLift));
   const relativeChange = largerLift === 0 ? 0 : shift / largerLift;
 
   // The larger standard error, so that the shift is not overstated.
   const standardError = Math.max(
-    getLiftStandardError(primary),
-    getLiftStandardError(alt),
+    getLiftStandardError(adjusted),
+    getLiftStandardError(unadjusted),
   );
   const usesStandardErrors = [...rule.moderate, ...rule.large].some(
     (condition) => condition.standardErrors !== undefined,
@@ -235,13 +233,14 @@ function classifyPair({
   // A corrected result is not comparable with one whose correction could not
   // be recomputed.
   const comparable =
-    primary.pValueAdjusted === undefined || alt.pValueAdjusted !== undefined;
+    adjusted.pValueAdjusted === undefined ||
+    unadjusted.pValueAdjusted !== undefined;
   // A sign flip between two non-significant results is noise around zero.
   const significantSignFlip =
-    Math.sign(primaryLift) * Math.sign(altLift) < 0 &&
-    (primarySignificant || (comparable && altSignificant));
+    Math.sign(adjustedLift) * Math.sign(unadjustedLift) < 0 &&
+    (adjustedSignificant || (comparable && unadjustedSignificant));
   const significanceDiffers =
-    comparable && primarySignificant !== altSignificant;
+    comparable && adjustedSignificant !== unadjustedSignificant;
 
   const isMet = (condition: ShiftCondition): boolean =>
     (condition.standardErrors === undefined ||
@@ -269,14 +268,6 @@ function classifyPair({
     signFlipped: triggered && significantSignFlip,
   };
 }
-
-const P_VALUE_ADJUSTERS: Record<
-  NonNullable<PValueCorrection>,
-  (pValues: IndexedPValue[]) => IndexedPValue[]
-> = {
-  "benjamini-hochberg": adjustPValuesBenjaminiHochberg,
-  "holm-bonferroni": adjustPValuesHolmBonferroni,
-};
 
 // The goal metrics' corrected p-values as they would be without one
 // adjustment, by metric and variation. Null when there is no correction.
@@ -310,7 +301,7 @@ function getSupplementalAdjustedPValues({
   if (pValues.length === 0) return null;
 
   return new Map(
-    P_VALUE_ADJUSTERS[pValueCorrection](pValues).map(({ pValue, index }) => [
+    adjustPValues(pValues, pValueCorrection).map(({ pValue, index }) => [
       `${index[2]}:${index[1]}`,
       pValue,
     ]),
@@ -330,24 +321,10 @@ function applySupplemental(
     const result: SnapshotMetric = {
       ...stats,
       ...(supplemental as Partial<SnapshotMetric>),
-      pValueAdjusted: undefined,
+      pValueAdjusted: adjustedPValues?.get(`${metric.id}:${index}`),
       ciAdjusted: undefined,
     };
-
-    const pValueAdjusted = adjustedPValues?.get(`${metric.id}:${index}`);
-    if (pValueAdjusted !== undefined) {
-      result.pValueAdjusted = pValueAdjusted;
-      // Mirrors setAdjustedCIs.
-      if (result.uplift && result.ci) {
-        result.ciAdjusted =
-          getAdjustedCI(
-            pValueAdjusted,
-            result.uplift.mean,
-            pValueThreshold,
-            result.ci,
-          ) ?? result.ci;
-      }
-    }
+    setAdjustedCI(result, pValueThreshold);
     return result;
   });
 }
@@ -396,7 +373,7 @@ function classifyMetric(
   const baseline = variations[baselineIndex];
   if (!baseline) return null;
 
-  const altVariations = applySupplemental(
+  const unadjustedVariations = applySupplemental(
     metricResults,
     field,
     args.pValueThreshold,
@@ -405,31 +382,31 @@ function classifyMetric(
   const statusArgs = { ...args, metric };
 
   let worst: AdjustmentClassification | null = null;
-  variations.forEach((primary, index) => {
+  variations.forEach((adjusted, index) => {
     if (index === baselineIndex || variationFilter?.includes(index)) return;
-    if (!primary.supplementalResults?.[field]) return;
+    if (!adjusted.supplementalResults?.[field]) return;
 
-    const alt = altVariations[index];
+    const unadjusted = unadjustedVariations[index];
     // An errored result reports a lift of zero, which would read as a shift.
-    if (primary.errorMessage || alt.errorMessage) return;
-    if (!hasEnoughData(baseline, primary, metric, metricDefaults)) return;
+    if (adjusted.errorMessage || unadjusted.errorMessage) return;
+    if (!hasEnoughData(baseline, adjusted, metric, metricDefaults)) return;
 
     const classification = classifyPair({
-      primary,
-      alt,
-      primarySignificant: getMetricResultStatus({
+      adjusted,
+      unadjusted,
+      adjustedSignificant: getMetricResultStatus({
         ...statusArgs,
         baseline,
-        stats: primary,
+        stats: adjusted,
       }).significant,
-      altSignificant: getMetricResultStatus({
+      unadjustedSignificant: getMetricResultStatus({
         ...statusArgs,
-        baseline: altVariations[baselineIndex],
-        stats: alt,
+        baseline: unadjustedVariations[baselineIndex],
+        stats: unadjusted,
       }).significant,
       rule,
     });
-    if (!worst || isMoreSevere(classification, worst)) worst = classification;
+    if (!worst || bySeverity(classification, worst) < 0) worst = classification;
   });
 
   return worst;
@@ -458,13 +435,6 @@ export function getAdjustmentImpactSummaries({
         const { field, label } = adjustment;
         return classification ? [{ field, label, ...classification }] : [];
       })
-      // Ties break on relative change, which is comparable across adjustments
-      // judged on different scales.
-      .sort((a, b) => {
-        if (SEVERITY_RANK[a.effectSize] !== SEVERITY_RANK[b.effectSize]) {
-          return SEVERITY_RANK[b.effectSize] - SEVERITY_RANK[a.effectSize];
-        }
-        return b.relativeChange - a.relativeChange;
-      }),
+      .sort(bySeverity),
   );
 }
