@@ -91,11 +91,13 @@ export default function FactTableRowsPerDay({
 
   const chart = exploration ? getRowsPerDay(exploration) : null;
   // The exploration cache key has no SQL in it, so a SQL edit still hits it.
+  // Compare to when the run started, since that's when it read the SQL.
   // Dates arrive as JSON strings.
   const sqlChangedSince =
     !!exploration &&
     !!factTable.sqlUpdated &&
-    new Date(factTable.sqlUpdated) > new Date(exploration.dateUpdated);
+    new Date(factTable.sqlUpdated) >
+      new Date(exploration.runStarted ?? exploration.dateUpdated);
   const max = chart ? Math.max(...chart.counts, 1) : 1;
 
   return (

@@ -608,10 +608,6 @@ export async function updateFactTableColumns(
   }
 }
 
-// System-driven update of the managed-warehouse events fact table (managedBy "api").
-// Unlike updateFactTable, this is allowed from internal (non-API) requests because
-// GrowthBook itself owns this table's sql/columns/userIdTypes. Used when the org's
-// identifiers (hashAttribute attributes) change.
 function sqlChanged(
   factTable: Pick<FactTableInterface, "sql">,
   changes: Pick<UpdateFactTableProps, "sql">,
@@ -619,6 +615,10 @@ function sqlChanged(
   return changes.sql !== undefined && changes.sql !== factTable.sql;
 }
 
+// System-driven update of the managed-warehouse events fact table (managedBy "api").
+// Unlike updateFactTable, this is allowed from internal (non-API) requests because
+// GrowthBook itself owns this table's sql/columns/userIdTypes. Used when the org's
+// identifiers (hashAttribute attributes) change.
 export async function dangerouslySyncManagedWarehouseFactTable(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
