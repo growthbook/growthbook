@@ -39,6 +39,7 @@ import {
 import {
   assertConfigInvariantsValid,
   assertConfigValueValidForPublish,
+  configValidationLeaf,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import {
@@ -523,13 +524,8 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         ? await captureConfigSchemaBreakAcknowledgment(
             context,
             {
-              key: entity.key,
+              ...configValidationLeaf(proposedConfig),
               project: entity.project,
-              value: proposedConfig.value,
-              schema: proposedConfig.schema,
-              parent: proposedConfig.parent,
-              extends: proposedConfig.extends,
-              extensible: proposedConfig.extensible,
             },
             proposedArchived,
           )
@@ -639,27 +635,14 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       });
     }
 
-    // Presence-aware for the clearable fields (schema/parent/extends), matching
-    // assertPublishable: `?? entity` would resurrect a cleared value.
+    // A spread is presence-aware, so a cleared schema/parent/extends stays
+    // cleared rather than falling back to live's.
     const schemaBreaks = await evaluateConfigOwnSchemaBreakConflicts(context, {
-      key: entity.key,
+      ...configValidationLeaf({
+        ...entity,
+        ...filteredChanges,
+      } as ConfigInterface),
       project: entity.project,
-      value: (filteredChanges.value as string | undefined) ?? entity.value,
-      schema:
-        "schema" in filteredChanges
-          ? (filteredChanges.schema as ConfigInterface["schema"])
-          : entity.schema,
-      parent:
-        "parent" in filteredChanges
-          ? (filteredChanges.parent as string | undefined)
-          : entity.parent,
-      extends:
-        "extends" in filteredChanges
-          ? (filteredChanges.extends as string[] | undefined)
-          : entity.extends,
-      extensible:
-        (filteredChanges.extensible as boolean | undefined) ??
-        entity.extensible,
     });
     if (schemaBreaks.length) {
       if (override) {
@@ -902,29 +885,12 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         entity,
         revision,
         { armed: !!options?.deferred },
-        {
-          value: (filteredChanges.value as string | undefined) ?? entity.value,
-          // Presence-aware for the clearable fields: `?? entity` can't tell
-          // "unchanged" from "cleared" (schema clears to null, parent/extends to
-          // ""/[]), which would resurrect the pre-clear value and desync this
-          // fire from the arm-time capture (applyPatchToSnapshot) — bricking the
-          // deferred publish with a terminal guard error.
-          schema:
-            "schema" in filteredChanges
-              ? (filteredChanges.schema as ConfigInterface["schema"])
-              : entity.schema,
-          parent:
-            "parent" in filteredChanges
-              ? (filteredChanges.parent as string | undefined)
-              : entity.parent,
-          extends:
-            "extends" in filteredChanges
-              ? (filteredChanges.extends as string[] | undefined)
-              : entity.extends,
-          extensible:
-            (filteredChanges.extensible as boolean | undefined) ??
-            entity.extensible,
-        },
+        // Presence-aware: `?? entity` would resurrect a cleared schema/parent/
+        // extends and desync this fire from the arm-time capture.
+        configValidationLeaf({
+          ...entity,
+          ...filteredChanges,
+        } as ConfigInterface),
         // Model an archive/unarchive transition only when this revision flips
         // `archived` (mirrors the arm-time capture). assertConfigPublishGuards
         // then runs assertConfigArchiveSchemaBreakGuard against dependents, and —
@@ -973,29 +939,15 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       });
     }
 
-    const postValue =
-      (normalizedChanges.value as string | undefined) ?? entity.value;
+    // Presence-aware, so a schema-less revert publishes against no schema.
+    const published = configValidationLeaf({
+      ...entity,
+      ...normalizedChanges,
+    } as ConfigInterface);
     await assertConfigValueValidForPublish(
       context,
-      {
-        key: entity.key,
-        name: entity.name,
-        value: postValue,
-        // Honor an explicit schema clear (null): a schema-less revert publishes
-        // against no schema rather than the schema it's removing.
-        schema:
-          "schema" in normalizedChanges
-            ? (normalizedChanges.schema as ConfigInterface["schema"])
-            : entity.schema,
-        parent:
-          (normalizedChanges.parent as string | undefined) ?? entity.parent,
-        extends:
-          "extends" in normalizedChanges
-            ? (normalizedChanges.extends as string[] | undefined)
-            : entity.extends,
-        extensible: entity.extensible,
-      },
-      { value: postValue },
+      published,
+      { value: published.value },
       revision,
       {
         deferred: !!options?.deferred,

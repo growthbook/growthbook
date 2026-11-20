@@ -25,10 +25,11 @@ import {
   buildConstantValueMap,
   resolveConstantRefs,
 } from "shared/sdk-versioning";
-import { Revision } from "shared/enterprise";
+import { Revision, getRevisionUpdatableFields } from "shared/enterprise";
 import type { FeatureValues } from "back-end/src/util/featureValues";
 import { Context } from "back-end/src/models/BaseModel";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import {
   collectValidateConfigRevisionHookResults,
   runValidateConfigRevisionHooks,
@@ -54,6 +55,34 @@ type ConfigLeaf = Pick<ConfigInterface, "key" | "name" | "value"> & {
   extends?: string[];
   extensible?: boolean;
 };
+
+// Every field validation reads, picked in one place so no app or REST write,
+// nor publish, can judge a value with one of them left at live's.
+export function configValidationLeaf(config: ConfigLeaf): ConfigLeaf {
+  return {
+    key: config.key,
+    name: config.name,
+    value: config.value,
+    schema: config.schema,
+    parent: config.parent,
+    extends: config.extends,
+    extensible: config.extensible,
+  };
+}
+
+// What a draft would publish: live with the draft's own changes landed. App and
+// REST draft writes start from it, so they judge what publish will judge.
+export function configDraftState(
+  live: ConfigInterface,
+  revision: Pick<Revision, "target">,
+): ConfigInterface {
+  return buildMergeDesiredState(
+    live as unknown as Record<string, unknown>,
+    revision.target.snapshot as Record<string, unknown>,
+    revision.target.proposedChanges,
+    getRevisionUpdatableFields("config"),
+  ) as unknown as ConfigInterface;
+}
 
 // Resolve a config's effective schema fields + extensibility across its full
 // base DAG (parent + every `extends` mixin) — the same accumulation

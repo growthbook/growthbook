@@ -885,8 +885,50 @@ describe("validateConfigValue", () => {
         fields,
         additionalProperties: false,
         requireAll: true,
-      }).valid,
-    ).toBe(false);
+      }),
+    ).toEqual({ valid: false, errors: ['"timeout" is required'] });
+  });
+
+  it.each([
+    {
+      name: "keys with no schema",
+      value: { a: 1, b: 2 },
+      fields: [],
+      error:
+        '"a", "b" aren\'t in the schema: add them, or turn on "Allow extra fields" on the base Config',
+    },
+    {
+      name: "an undeclared top-level key",
+      value: { timeout: 1, other: 1 },
+      fields,
+      error:
+        '"other" isn\'t in the schema: add it, or turn on "Allow extra fields" on the base Config',
+    },
+    {
+      name: "an undeclared nested key",
+      value: { conn: { host: "h", extra: 1 } },
+      fields: [
+        field({
+          key: "conn",
+          jsonSchema: JSON.stringify({
+            type: "object",
+            properties: { host: { type: "string" } },
+            additionalProperties: false,
+          }),
+        }),
+      ],
+      error: '"conn/extra" isn\'t in the schema',
+    },
+    {
+      name: "a value outside an enum",
+      value: { mode: "x" },
+      fields: [field({ key: "mode", type: "string", enum: ["a", "b"] })],
+      error: '"mode" must be one of "a", "b"',
+    },
+  ])("names what to fix for $name", ({ value, fields, error }) => {
+    expect(
+      validateConfigValue({ value, fields, additionalProperties: false }),
+    ).toEqual({ valid: false, errors: [error] });
   });
 
   it("does not enforce NESTED required for a sparse patch", () => {
@@ -918,8 +960,8 @@ describe("validateConfigValue", () => {
         fields: nested,
         additionalProperties: false,
         requireAll: true,
-      }).valid,
-    ).toBe(false);
+      }),
+    ).toEqual({ valid: false, errors: ['"conn/port" is required'] });
     // A present nested value with a wrong type is still rejected when sparse.
     expect(
       validateConfigValue({

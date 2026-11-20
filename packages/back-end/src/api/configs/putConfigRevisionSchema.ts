@@ -10,10 +10,13 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import {
+  assertConfigValueValid,
+  configDraftState,
+  configValidationLeaf,
+} from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
-  applyRevisionToSnapshot,
   discardIfJustCreated,
   isDraftStatus,
   pickNewDraftMetadata,
@@ -60,7 +63,7 @@ export const putConfigRevisionSchema = createApiRequestHandler(
 
     // Resolve against the draft's own staged value/parent so `infer` and "base
     // wins" reflect what the revision will publish.
-    const draft = applyRevisionToSnapshot(revision);
+    const draft = configDraftState(config, revision);
 
     const { schema, warnings } = resolveConfigSchemaSource({
       source: req.body.schema,
@@ -100,14 +103,7 @@ export const putConfigRevisionSchema = createApiRequestHandler(
     // The new schema must still admit the draft's value(s).
     await assertConfigValueValid(
       req.context,
-      {
-        key: config.key,
-        name: config.name,
-        value: draft.value,
-        schema: normalizedSchema,
-        parent: draft.parent,
-        extends: draft.extends,
-      },
+      configValidationLeaf({ ...draft, schema: normalizedSchema }),
       { value: draft.value },
     );
 

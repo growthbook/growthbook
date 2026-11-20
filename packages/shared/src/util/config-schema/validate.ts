@@ -1,4 +1,4 @@
-import Ajv from "ajv";
+import Ajv, { ErrorObject } from "ajv";
 import { SchemaField } from "shared/types/feature";
 import { simpleToJSONSchema } from "../features";
 import { CONSTANT_EXTENDS_KEY } from "../../constants";
@@ -169,6 +169,38 @@ function stripRequiredDeep(schema: unknown): void {
   }
 }
 
+// One message for every top-level key no schema declares, naming both fixes.
+function extraFieldsError(keys: string[]): string {
+  const list = keys.map((k) => `"${k}"`).join(", ");
+  const fix = `turn on "Allow extra fields" on the base Config`;
+  return keys.length === 1
+    ? `${list} isn't in the schema: add it, or ${fix}`
+    : `${list} aren't in the schema: add them, or ${fix}`;
+}
+
+// Ajv's wording names the parent object and hides the offending key or the
+// allowed values, so these keywords say what to fix instead.
+function describeConfigValueError(err: ErrorObject): string {
+  const path = err.instancePath?.replace(/^\//, "") ?? "";
+  const at = (key: string) => (path ? `${path}/${key}` : key);
+  const params = err.params as {
+    missingProperty?: string;
+    additionalProperty?: string;
+    allowedValues?: unknown[];
+  };
+  if (err.keyword === "required" && params.missingProperty) {
+    return `"${at(params.missingProperty)}" is required`;
+  }
+  if (err.keyword === "additionalProperties" && params.additionalProperty) {
+    return `"${at(params.additionalProperty)}" isn't in the schema`;
+  }
+  if (err.keyword === "enum" && path && params.allowedValues) {
+    const allowed = params.allowedValues.map((v) => JSON.stringify(v));
+    return `"${path}" must be one of ${allowed.join(", ")}`;
+  }
+  return `${path ? `"${path}" ` : ""}${err.message ?? "is invalid"}`;
+}
+
 export function validateConfigValue({
   value,
   fields,
@@ -195,16 +227,7 @@ export function validateConfigValue({
   // config with no schema may not carry any keys).
   if (!fields.length) {
     if (!additionalProperties && Object.keys(data).length > 0) {
-      return {
-        valid: false,
-        errors: [
-          `Unexpected field(s) ${Object.keys(data)
-            .map((k) => `"${k}"`)
-            .join(
-              ", ",
-            )}: this Config has no schema and does not allow extra fields.`,
-        ],
-      };
+      return { valid: false, errors: [extraFieldsError(Object.keys(data))] };
     }
     return { valid: true, errors: [] };
   }
@@ -232,21 +255,23 @@ export function validateConfigValue({
     const ajv = new Ajv({ strictSchema: false, allErrors: true });
     const validate = ajv.compile(schemaObj);
     const valid = validate(data);
+    const errors = validate.errors ?? [];
+    const extras = errors.flatMap((e) =>
+      e.keyword === "additionalProperties" && !e.instancePath
+        ? [(e.params as { additionalProperty: string }).additionalProperty]
+        : [],
+    );
     return {
       valid: !!valid,
       errors: [
-        ...new Set(
-          validate.errors?.map((v) => {
-            const field =
-              v.instancePath?.replace(/^\//, "") ||
-              (v.params as { missingProperty?: string })?.missingProperty ||
-              (v.params as { additionalProperty?: string })
-                ?.additionalProperty ||
-              "";
-            const where = field ? `"${field}" ` : "";
-            return `${where}${v.message ?? "is invalid"}`;
-          }) ?? [],
-        ),
+        ...new Set([
+          ...(extras.length ? [extraFieldsError(extras)] : []),
+          ...errors
+            .filter(
+              (e) => !(e.keyword === "additionalProperties" && !e.instancePath),
+            )
+            .map(describeConfigValueError),
+        ]),
       ],
     };
   } catch (e) {

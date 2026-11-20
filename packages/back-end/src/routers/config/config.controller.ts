@@ -11,6 +11,7 @@ import {
 } from "shared/validators";
 import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
 import {
+  JsonPatchOperation,
   Revision,
   normalizeProposedChanges,
   getConstantRevisionChange,
@@ -90,6 +91,8 @@ import {
   assertConfigValueValid,
   assertConfigValueValidForCreate,
   assertConfigValueValidForPublish,
+  configDraftState,
+  configValidationLeaf,
 } from "back-end/src/services/configValidation";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
@@ -660,27 +663,45 @@ type DeleteConfigPropertyRequest = AuthRequest<
   PutConfigRequest["query"]
 >;
 
-// The draft's own value, or live's when writing outside a draft.
+// The draft a write goes into, or null when it lands on live: a publish-now
+// request ignores a named draft, so that draft must not shape the checks.
+const loadTargetDraft = async (
+  context: ReqContext,
+  existing: ConfigInterface,
+  query: PutConfigRequest["query"],
+): Promise<Revision | null> => {
+  const { revisionId, bypassApproval, autoPublish } = query;
+  if (!revisionId || bypassApproval === "1" || autoPublish === "1") return null;
+  const revision = await context.models.revisions.getByIdReadable(revisionId);
+  if (!revision) return context.throwNotFoundError("Revision not found");
+  if (revision.target.type !== "config" || revision.target.id !== existing.id) {
+    throw new BadRequestError("Revision does not belong to this Config");
+  }
+  return revision;
+};
+
+// The value a property write starts from: the draft's, or live's.
 const resolveConfigOwnValue = async (
   context: ReqContext,
   existing: ConfigInterface,
-  revisionId?: string,
+  query: PutConfigRequest["query"],
 ): Promise<string | undefined> => {
-  if (!revisionId) return existing.value;
-  const targetRevision =
-    await context.models.revisions.getByIdReadable(revisionId);
-  if (targetRevision && targetRevision.target.type === "config") {
-    const patched = applyPatchToSnapshot(
-      targetRevision.target.snapshot as ConfigInterface,
-      normalizeProposedChanges(targetRevision.target.proposedChanges),
-    );
-    return ({ ...existing, ...patched } as ConfigInterface).value;
-  }
-  return existing.value;
+  const draft = await loadTargetDraft(context, existing, query);
+  return draft ? configDraftState(existing, draft).value : existing.value;
 };
 
+// buildPatchOps drops null, but a null schema is a clear the draft must carry.
+const configPatchOps = (
+  changes: Record<string, unknown>,
+): JsonPatchOperation[] => [
+  ...buildPatchOps(changes),
+  ...(changes.schema === null
+    ? [{ op: "replace" as const, path: "/schema", value: null }]
+    : []),
+];
+
 // Property-scoped writes, mirroring PUT/DELETE /configs-revisions/:key/:version/property.
-// Both delegate to putConfig, so permissions, validation, revisions and events
+// Both delegate to writeConfig, so permissions, validation, revisions and events
 // stay identical to a whole-value write.
 export const putConfigProperty = async (
   req: PutConfigPropertyRequest,
@@ -691,17 +712,13 @@ export const putConfigProperty = async (
   if (!existing) {
     return context.throwNotFoundError("Config not found");
   }
-  const current = await resolveConfigOwnValue(
-    context,
-    existing,
-    req.query.revisionId,
-  );
+  const current = await resolveConfigOwnValue(context, existing, req.query);
   // Read before the body is swapped below: `delegated` is the same request.
   const { property, value: propertyValue } = req.body;
   const value = setOwnValueProperty(current, property, propertyValue);
   const delegated = req as unknown as PutConfigRequest;
   delegated.body = { value };
-  return putConfig(delegated, res, {
+  return writeConfig(delegated, res, {
     property,
     remove: false,
     value: propertyValue,
@@ -717,11 +734,7 @@ export const deleteConfigProperty = async (
   if (!existing) {
     return context.throwNotFoundError("Config not found");
   }
-  const current = await resolveConfigOwnValue(
-    context,
-    existing,
-    req.query.revisionId,
-  );
+  const current = await resolveConfigOwnValue(context, existing, req.query);
   const { property } = req.body;
   const { value, existed } = removeOwnValueProperty(current, property);
   if (!existed) {
@@ -731,12 +744,19 @@ export const deleteConfigProperty = async (
   }
   const delegated = req as unknown as PutConfigRequest;
   delegated.body = { value };
-  return putConfig(delegated, res, { property, remove: true });
+  return writeConfig(delegated, res, { property, remove: true });
 };
 
 // All edits flow through the revision system (same approval model as constants):
 // merged immediately when approval isn't required, else stored as a draft.
-export const putConfig = async (
+// Two parameters only: Express passes `next` third, which must never be read as
+// a property op.
+export const putConfig = (
+  req: PutConfigRequest,
+  res: Response<PutConfigResponse | ApiErrorResponse>,
+) => writeConfig(req, res);
+
+const writeConfig = async (
   req: PutConfigRequest,
   res: Response<PutConfigResponse | ApiErrorResponse>,
   // Set by the property endpoints: lets the revision write recompute the value
@@ -797,38 +817,40 @@ export const putConfig = async (
       ),
     });
 
-  // If updating a specific revision, compare against its current (patched) state
-  // rather than the live entity so we don't re-propose unchanged fields.
+  // A write into a draft is diffed against the draft's own content, so
+  // unchanged fields aren't re-proposed, and judged against what that draft
+  // would publish, the same state the publish checks see.
   const revisionId = req.query.revisionId;
-  let comparisonBase: ConfigInterface = existing;
-  if (revisionId) {
-    const targetRevision =
-      await context.models.revisions.getByIdReadable(revisionId);
-    // Writing `archived` into a PINNED revision is a write into someone
-    // else's draft: it makes that draft delete-class, so its author — a
-    // publisher without delete — could no longer publish their own work.
-    // `archiveOnlyRequest` inspects only the body, so it does not cover
-    // this query-param path.
-    if (
-      targetRevision &&
-      typeof archived === "boolean" &&
-      !canWriteArchiveIntoDraft({
-        permissions: context.permissions,
-        model: "config",
-        entity: existing,
-        revision: targetRevision,
-        userId: context.userId,
-      })
-    ) {
-      context.permissions.throwPermissionError();
-    }
-    if (targetRevision && targetRevision.target.type === "config") {
-      const patchedSnapshot = applyPatchToSnapshot(
-        targetRevision.target.snapshot as ConfigInterface,
-        normalizeProposedChanges(targetRevision.target.proposedChanges),
-      );
-      comparisonBase = { ...existing, ...patchedSnapshot };
-    }
+  const targetRevision = await loadTargetDraft(context, existing, req.query);
+  const comparisonBase: ConfigInterface = targetRevision
+    ? {
+        ...existing,
+        ...applyPatchToSnapshot(
+          targetRevision.target.snapshot as ConfigInterface,
+          normalizeProposedChanges(targetRevision.target.proposedChanges),
+        ),
+      }
+    : existing;
+  const draftState = targetRevision
+    ? configDraftState(existing, targetRevision)
+    : existing;
+  // Writing `archived` into a PINNED revision is a write into someone
+  // else's draft: it makes that draft delete-class, so its author — a
+  // publisher without delete — could no longer publish their own work.
+  // `archiveOnlyRequest` inspects only the body, so it does not cover
+  // this query-param path.
+  if (
+    targetRevision &&
+    typeof archived === "boolean" &&
+    !canWriteArchiveIntoDraft({
+      permissions: context.permissions,
+      model: "config",
+      entity: existing,
+      revision: targetRevision,
+      userId: context.userId,
+    })
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   // The destination of a move. A draft may already carry one: editing it
@@ -997,15 +1019,15 @@ export const putConfig = async (
   // ancestors and write the remnant back. Same basis as
   // `postConfigRevisionRevert`; see `configSchemaNormalize.test.ts`.
   const schemaToNormalize =
-    "schema" in fieldsToUpdate ? fieldsToUpdate.schema : existing.schema;
+    "schema" in fieldsToUpdate ? fieldsToUpdate.schema : draftState.schema;
   if ((fieldsToUpdate.schema || lineageChanged) && schemaToNormalize) {
     const { schema: normalized, conflicting } =
       await context.models.configs.normalizeSchemaAgainstAncestors(
         {
           key: existing.key,
-          parent: fieldsToUpdate.parent ?? existing.parent,
-          extends: extendsKeys ?? existing.extends,
-          value: fieldsToUpdate.value ?? existing.value,
+          parent: fieldsToUpdate.parent ?? draftState.parent,
+          extends: extendsKeys ?? draftState.extends,
+          value: fieldsToUpdate.value ?? draftState.value,
         },
         schemaToNormalize,
       );
@@ -1039,19 +1061,10 @@ export const putConfig = async (
     );
   }
 
-  // The proposed (merged) config state, used to validate the staged value(s)
-  // against the effective schema — same check the REST write path enforces, so
-  // the UI can't save/publish a schema-violating value.
-  const proposed = { ...existing, ...fieldsToUpdate } as ConfigInterface;
-  const proposedLeaf = {
-    key: proposed.key,
-    name: proposed.name,
-    value: proposed.value,
-    schema: proposed.schema,
-    parent: proposed.parent,
-    extends: proposed.extends,
-    extensible: proposed.extensible,
-  };
+  // The state this write leaves behind (the draft's when writing into one), so
+  // a value is judged against the schema it is staged with, not live's.
+  const proposed = { ...draftState, ...fieldsToUpdate } as ConfigInterface;
+  const proposedLeaf = configValidationLeaf(proposed);
   const proposedValues = {
     value: proposed.value,
   };
@@ -1059,6 +1072,7 @@ export const putConfig = async (
     fieldsToUpdate.value !== undefined ||
     fieldsToUpdate.schema !== undefined ||
     fieldsToUpdate.parent !== undefined ||
+    fieldsToUpdate.extensible !== undefined ||
     "extends" in fieldsToUpdate;
   if (valueAffectingChange) {
     await assertConfigValueValid(context, proposedLeaf, proposedValues);
@@ -1116,7 +1130,7 @@ export const putConfig = async (
     existing as unknown as RevisionEntityArg,
   );
 
-  const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
+  const patchOps = configPatchOps(fieldsToUpdate as Record<string, unknown>);
 
   // Resolved once (only for a request that names a revert target) and consulted
   // by both the write-narrowing check and the landing gate below.
@@ -1212,10 +1226,7 @@ export const putConfig = async (
     valuePropertyOp
       ? async (row) => {
           if (!row) return patchOps;
-          const draft = applyPatchToSnapshot(
-            row.target.snapshot as ConfigInterface,
-            normalizeProposedChanges(row.target.proposedChanges),
-          ) as ConfigInterface;
+          const draft = configDraftState(existing, row);
           const nextValue = valuePropertyOp.remove
             ? removeOwnValueProperty(draft.value, valuePropertyOp.property)
                 .value
@@ -1230,17 +1241,10 @@ export const putConfig = async (
           // has to hold for the aggregate that actually lands.
           await assertConfigValueValid(
             context,
-            {
-              key: existing.key,
-              name: existing.name,
-              value: strippedValue,
-              schema: draft.schema,
-              parent: draft.parent,
-              extends: draft.extends,
-            },
+            configValidationLeaf({ ...draft, value: strippedValue }),
             { value: strippedValue },
           );
-          return buildPatchOps({
+          return configPatchOps({
             ...(fieldsToUpdate as Record<string, unknown>),
             value: strippedValue,
           });

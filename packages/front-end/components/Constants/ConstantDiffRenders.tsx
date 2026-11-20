@@ -156,7 +156,7 @@ export function renderConstantSettings(pre: Pre, post: Post): ReactNode | null {
     );
   }
 
-  if (!isEqual(pre?.project, post.project)) {
+  if ((pre?.project ?? "") !== (post.project ?? "")) {
     const node = (id: string | undefined) =>
       id ? <ProjectName id={id} /> : <em>All Projects</em>;
     rows.push(
@@ -442,6 +442,109 @@ export const REVISION_CONSTANT_DIFF_CONFIG: RevisionDiffConfig<ConstantInterface
     },
   };
 
+// Parent, mixins and extensibility change the effective schema, so a draft that
+// only changes them still has something to review and publish.
+function configLineageRows(pre: Pre, post: Post) {
+  const list = (keys?: string[]) =>
+    keys?.length ? keys.join(", ") : <em>None</em>;
+  const allows = (v?: boolean) =>
+    (v ?? null) === null ? <em>Default</em> : v ? "Yes" : "No";
+  return [
+    {
+      key: "parent",
+      label: "Parent Config",
+      badge: "Edit parent",
+      changed: (pre?.parent || "") !== (post.parent || ""),
+      oldNode: pre?.parent || <em>None</em>,
+      newNode: post.parent || <em>None</em>,
+    },
+    {
+      key: "extends",
+      label: "Config mixins",
+      badge: "Edit mixins",
+      changed: !isEqual(pre?.extends ?? [], post.extends ?? []),
+      oldNode: list(pre?.extends),
+      newNode: list(post.extends),
+    },
+    {
+      key: "extensible",
+      label: "Allow extra fields",
+      badge: "Edit extra fields",
+      changed: (pre?.extensible ?? null) !== (post.extensible ?? null),
+      oldNode: allows(pre?.extensible),
+      newNode: allows(post.extensible),
+    },
+  ].filter((row) => row.changed);
+}
+
+export function renderConfigLineage(pre: Pre, post: Post): ReactNode | null {
+  const rows = configLineageRows(pre, post);
+  return rows.length ? (
+    <Box mt="1">
+      {rows.map((row) => (
+        <ChangeField
+          key={row.key}
+          label={row.label}
+          changed
+          oldNode={row.oldNode}
+          newNode={row.newNode}
+        />
+      ))}
+    </Box>
+  ) : null;
+}
+
+export function getConfigLineageBadges(pre: Pre, post: Post): DiffBadge[] {
+  return configLineageRows(pre, post).map((row) => ({
+    label: row.badge,
+    action: row.badge.toLowerCase(),
+  }));
+}
+
+// A projection-only draft still has something to review and publish.
+function configProjectionRows(pre: Pre, post: Post) {
+  const before = pre?.renderProjections ?? {};
+  const after = post.renderProjections ?? {};
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .sort()
+    .filter((source) => !isEqual(before[source], after[source]))
+    .map((source) => ({ source, from: before[source], to: after[source] }));
+}
+
+export function renderConfigProjections(
+  pre: Pre,
+  post: Post,
+): ReactNode | null {
+  const rows = configProjectionRows(pre, post);
+  return rows.length ? (
+    <Box mt="1">
+      {rows.map(({ source, from, to }) => (
+        <ChangeField
+          key={source}
+          label={source}
+          changed
+          oldNode={from ? from.language : <em>None</em>}
+          newNode={
+            !to ? (
+              <em>None</em>
+            ) : from?.language === to.language ? (
+              `${to.language} (updated)`
+            ) : (
+              to.language
+            )
+          }
+        />
+      ))}
+    </Box>
+  ) : null;
+}
+
+export function getConfigProjectionBadges(pre: Pre, post: Post): DiffBadge[] {
+  return configProjectionRows(pre, post).length
+    ? [{ label: "Edit projections", action: "edit projections" }]
+    : [];
+}
+
 export const REVISION_CONFIG_DIFF_CONFIG: RevisionDiffConfig<ConfigInterface> =
   {
     sections: [
@@ -450,6 +553,12 @@ export const REVISION_CONFIG_DIFF_CONFIG: RevisionDiffConfig<ConfigInterface> =
         keys: [...SETTINGS_KEYS] as (keyof ConfigInterface)[],
         render: renderConstantSettings,
         getBadges: getConstantSettingsBadges,
+      },
+      {
+        label: "Inheritance",
+        keys: ["parent", "extends", "extensible"] as (keyof ConfigInterface)[],
+        render: renderConfigLineage,
+        getBadges: getConfigLineageBadges,
       },
       {
         // Configs are environment-agnostic — no `environmentValues`.
@@ -469,6 +578,12 @@ export const REVISION_CONFIG_DIFF_CONFIG: RevisionDiffConfig<ConfigInterface> =
         keys: ["schema"] as (keyof ConfigInterface)[],
         render: renderConfigInvariants,
         getBadges: getConfigInvariantBadges,
+      },
+      {
+        label: "Render projections",
+        keys: ["renderProjections"] as (keyof ConfigInterface)[],
+        render: renderConfigProjections,
+        getBadges: getConfigProjectionBadges,
       },
     ],
     // Configs are always JSON objects, so their value/overrides are always parsed.

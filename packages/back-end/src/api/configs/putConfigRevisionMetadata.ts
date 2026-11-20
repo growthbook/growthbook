@@ -13,10 +13,13 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import {
+  assertConfigValueValid,
+  configDraftState,
+  configValidationLeaf,
+} from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
-  applyRevisionToSnapshot,
   discardIfJustCreated,
   isDraftStatus,
   pickNewDraftMetadata,
@@ -113,23 +116,20 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
       typeof extendsKeys !== "undefined" ||
       typeof extensible !== "undefined"
     ) {
-      const draft = applyRevisionToSnapshot(revision);
+      const draft = configDraftState(config, revision);
       const effectiveParent =
         typeof parent !== "undefined" ? parent : draft.parent;
       const effectiveExtends =
         typeof extendsKeys !== "undefined" ? extendsKeys : draft.extends;
       await assertConfigValueValid(
         req.context,
-        {
-          key: config.key,
-          name: config.name,
-          value: draft.value,
-          schema: draft.schema,
+        configValidationLeaf({
+          ...draft,
           parent: effectiveParent,
           extends: effectiveExtends,
           extensible:
             typeof extensible !== "undefined" ? extensible : draft.extensible,
-        },
+        }),
         { value: draft.value },
       );
 

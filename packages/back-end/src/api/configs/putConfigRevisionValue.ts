@@ -15,10 +15,13 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { assertNoReferenceCycle } from "back-end/src/services/constants";
-import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import {
+  assertConfigValueValid,
+  configDraftState,
+  configValidationLeaf,
+} from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
-  applyRevisionToSnapshot,
   assertValidConfigValueEdit,
   discardIfJustCreated,
   isDraftStatus,
@@ -89,7 +92,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
 
     // Judge against the draft's OWN staged lineage/schema, not live: a draft may
     // have changed parent/extends/schema, so live values would give false results.
-    const draft = applyRevisionToSnapshot(revision);
+    const draft = configDraftState(config, revision);
 
     const fieldsToUpdate: Record<string, unknown> = {};
     if (strippedValue !== undefined) fieldsToUpdate.value = strippedValue;
@@ -130,14 +133,11 @@ export const putConfigRevisionValue = createApiRequestHandler(
     // so a value-first import validates against the schema it derives.
     await assertConfigValueValid(
       req.context,
-      {
-        key: config.key,
-        name: config.name,
+      configValidationLeaf({
+        ...draft,
         value: strippedValue ?? draft.value,
         schema: (fieldsToUpdate.schema as typeof config.schema) ?? draft.schema,
-        parent: draft.parent,
-        extends: draft.extends,
-      },
+      }),
       { value: strippedValue },
     );
 

@@ -210,8 +210,16 @@ export default function ConfigModal({
                 name: values.name,
                 owner: values.owner,
                 description: values.description || undefined,
-                project: values.project,
-                ...(isBaseConfig ? { extensible: values.extensible } : {}),
+                // Only real changes: an unset project or extensibility would
+                // otherwise stage its default as a change on every edit.
+                ...(values.project !== (existing.project ?? "")
+                  ? { project: values.project }
+                  : {}),
+                ...(isBaseConfig &&
+                values.extensible !==
+                  (existing.extensible ?? orgExtensibleDefault)
+                  ? { extensible: values.extensible }
+                  : {}),
               }),
             },
           );
@@ -366,11 +374,11 @@ export default function ConfigModal({
       {isBaseSelection && (
         <Box mt="3">
           <Checkbox
-            label="Allow extra fields in extensions"
+            label="Allow extra fields"
             description={
               <Text weight="regular" color="text-high">
-                Child Configs and Feature Flag rules can add keys beyond this
-                Config&apos;s schema.
+                This Config, its child Configs and Feature Flag rules can set
+                keys beyond the schema.
               </Text>
             }
             value={form.watch("extensible")}

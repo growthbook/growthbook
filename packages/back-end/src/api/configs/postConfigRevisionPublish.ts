@@ -8,7 +8,7 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { postConfigRevisionPublishValidator } from "shared/validators";
-import { SimpleSchema } from "shared/types/feature";
+import { ConfigInterface } from "shared/types/config";
 import {
   publishRevision,
   assertCanPublishRevision,
@@ -34,6 +34,7 @@ import {
 import {
   assertConfigValueValidForPublish,
   collectConfigPublishHookGates,
+  configValidationLeaf,
 } from "back-end/src/services/configValidation";
 import {
   assertConfigNotLocked,
@@ -246,23 +247,14 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   // Publish-time safety net: the post-publish value must still conform to its
   // effective schema (catches ancestor-schema changes and skip-flag stages).
-  const postValue = (desiredState.value as string | undefined) ?? config.value;
+  const published = configValidationLeaf({
+    ...config,
+    ...desiredState,
+  } as ConfigInterface);
   await assertConfigValueValidForPublish(
     req.context,
-    {
-      key: config.key,
-      name: config.name,
-      value: postValue,
-      // Use desiredState.schema directly (a full post-merge snapshot, so it's
-      // authoritative): `?? config.schema` would resurrect the live schema on
-      // a `null` clear (revert to a schema-less revision).
-      schema: desiredState.schema as SimpleSchema | null | undefined,
-      parent: (desiredState.parent as string | undefined) ?? config.parent,
-      extends: (desiredState.extends as string[] | undefined) ?? config.extends,
-      extensible:
-        (desiredState.extensible as boolean | undefined) ?? config.extensible,
-    },
-    { value: postValue },
+    published,
+    { value: published.value },
     revision,
     // Hooks already ran above as gates — don't re-execute the sandboxed hook.
     { skipHooks: true },

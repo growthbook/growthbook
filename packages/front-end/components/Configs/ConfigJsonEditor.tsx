@@ -265,6 +265,9 @@ export default function ConfigJsonEditor({
   const [parseError, setParseError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Bumped by a successful save, so a save the server stores unchanged still
+  // resets the buffers to what's saved.
+  const [saveCount, setSaveCount] = useState(0);
   const [schemaCodeMode, setSchemaCodeMode] = useState(true);
   // Held in a ref too so the reseed effect (which must not re-run on a language
   // switch) can read the current language.
@@ -300,13 +303,13 @@ export default function ConfigJsonEditor({
   // Reseed when the saved value/schema changes (post-save mutate, revision switch).
   useEffect(() => {
     setValueText(prettyValue(valueJson));
-  }, [valueJson]);
+  }, [valueJson, saveCount]);
   useEffect(() => {
     setSchemaText(
       seedSchemaText(schemaJson, schemaType, extensible, schemaLangRef.current),
     );
     seededKeys.current = new Set();
-  }, [schemaJson, schemaType, extensible]);
+  }, [schemaJson, schemaType, extensible, saveCount]);
 
   // Live assist (draft only): when the value introduces a brand-new own key,
   // splice a best-guess property into the schema once. Keys the author removed,
@@ -513,6 +516,7 @@ export default function ConfigJsonEditor({
       } else {
         await onSave(obj, reconciled);
       }
+      setSaveCount((n) => n + 1);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Failed to save");
     } finally {

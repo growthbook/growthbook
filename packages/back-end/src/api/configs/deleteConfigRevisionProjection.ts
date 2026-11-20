@@ -7,8 +7,8 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { configDraftState } from "back-end/src/services/configValidation";
 import {
-  applyRevisionToSnapshot,
   discardIfJustCreated,
   isDraftStatus,
   resolveOrCreateRevision,
@@ -51,7 +51,7 @@ export const deleteConfigRevisionProjection = createApiRequestHandler(
       );
     }
 
-    const draft = applyRevisionToSnapshot(revision);
+    const draft = configDraftState(config, revision);
     const current = draft.renderProjections ?? {};
     if (!(req.query.source in current)) {
       throw new NotFoundError(

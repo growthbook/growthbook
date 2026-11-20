@@ -8,10 +8,13 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { assertNoReferenceCycle } from "back-end/src/services/constants";
-import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import {
+  assertConfigValueValid,
+  configDraftState,
+  configValidationLeaf,
+} from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
-  applyRevisionToSnapshot,
   assertValidConfigValueEdit,
   discardIfJustCreated,
   isDraftStatus,
@@ -65,7 +68,7 @@ export const putConfigRevisionProperty = createApiRequestHandler(
       "config",
       config as unknown as Record<string, unknown> & { id: string },
       async (row) => {
-        const draft = applyRevisionToSnapshot(row ?? revision);
+        const draft = configDraftState(config, row ?? revision);
         const nextValue = setOwnValueProperty(
           draft.value,
           req.body.property,
@@ -85,14 +88,7 @@ export const putConfigRevisionProperty = createApiRequestHandler(
 
         await assertConfigValueValid(
           req.context,
-          {
-            key: config.key,
-            name: config.name,
-            value: strippedValue,
-            schema: draft.schema,
-            parent: draft.parent,
-            extends: draft.extends,
-          },
+          configValidationLeaf({ ...draft, value: strippedValue }),
           { value: strippedValue },
         );
 

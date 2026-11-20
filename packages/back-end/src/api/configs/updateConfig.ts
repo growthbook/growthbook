@@ -38,6 +38,7 @@ import {
 } from "back-end/src/services/configReconcile";
 import {
   assertConfigValueValidForPublish,
+  configValidationLeaf,
   getEffectiveConfigSchema,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
@@ -519,6 +520,14 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // update short-circuits above and is unaffected). Unlock to publish changes.
     assertConfigNotLocked(config);
 
+    // The state this update lands, as validation reads it.
+    const landing = configValidationLeaf({
+      ...config,
+      ...fieldsToUpdate,
+      parent: effectiveParent || undefined,
+      extends: effectiveExtends,
+    } as ConfigInterface);
+
     // Deferred-publish guards (direct publish → armed:false). Gated on the
     // served-value classification, not the conformance one below — a
     // project-only move scrubs the ref for cross-project consumers, so it must
@@ -529,13 +538,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         config,
         { armAcknowledgments: undefined },
         { armed: false },
-        {
-          value: fieldsToUpdate.value ?? config.value,
-          schema: fieldsToUpdate.schema ?? config.schema,
-          parent: effectiveParent || undefined,
-          extends: effectiveExtends,
-          extensible: fieldsToUpdate.extensible ?? config.extensible,
-        },
+        landing,
       );
     }
 
@@ -548,7 +551,6 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       parentChanged ||
       extendsChanged
     ) {
-      const postValue = fieldsToUpdate.value ?? config.value;
       // Direct REST update publishes live, so run the full publish gate (schema +
       // required fields + cross-field invariants), matching every other config
       // publish path. No `revision` arg: this is a bypass/direct write with no
@@ -559,16 +561,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       // before the move-destination and approval-bypass checks.
       await assertConfigValueValidForPublish(
         req.context,
-        {
-          key: config.key,
-          name: config.name,
-          value: postValue,
-          schema: fieldsToUpdate.schema ?? config.schema,
-          parent: effectiveParent || undefined,
-          extends: effectiveExtends,
-          extensible: fieldsToUpdate.extensible ?? config.extensible,
-        },
-        { value: postValue },
+        landing,
+        { value: landing.value },
         undefined,
         { skipHooks: true },
       );
