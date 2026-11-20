@@ -768,13 +768,18 @@ function orderedMetricIdsForDensify(
   return null;
 }
 
+/**
+ * Values for a bucket with no data. The denominator is 0, not null, so ratios
+ * and per-unit values read 0 / 0 (no data) rather than falling back to the
+ * numerator, while counts read 0.
+ */
 function buildZeroValueRow(
   metricIds: string[],
 ): ProductAnalyticsResultRow["values"] {
   return metricIds.map((metricId) => ({
     metricId,
     numerator: 0,
-    denominator: null,
+    denominator: 0,
   }));
 }
 

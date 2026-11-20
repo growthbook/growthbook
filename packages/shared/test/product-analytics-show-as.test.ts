@@ -438,12 +438,34 @@ describe("getEffectiveMetricValue", () => {
       getFactMetricById,
     );
     // What a bucket with no data is filled with.
-    const filled = { numerator: 0, denominator: null };
+    const filled = { numerator: 0, denominator: 0 };
     expect(
       [0, 1, 2].map((i) =>
         getEffectiveMetricValue(filled, opts.values[i], undefined),
       ),
     ).toEqual([0, null, null]);
+  });
+
+  it("keeps a real per-unit value that has no denominator", () => {
+    // With no unit selected, the query returns no denominator at all.
+    const [opts] = getExplorationRenderOpts(
+      metricConfig([metricValue("revenue", "per_unit")]),
+      getFactMetricById,
+    ).values;
+    expect(
+      getEffectiveMetricValue(
+        { numerator: 42, denominator: null },
+        opts,
+        undefined,
+      ),
+    ).toBe(42);
+    expect(
+      getEffectiveMetricValue(
+        { numerator: 0, denominator: null },
+        opts,
+        undefined,
+      ),
+    ).toBe(0);
   });
 });
 
