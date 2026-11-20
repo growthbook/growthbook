@@ -1,6 +1,6 @@
-// The key input's edge: the key cell's padding, less the input's in-place
-// offset. The drawer's toggle and contents line up on it.
-$key-inset: calc(var(--key-gutter) - var(--space-2) - 1px);
+// The key input's edge, at the key cell's padding. The drawer's toggle and
+// contents line up on it.
+$key-inset: var(--key-gutter);
 
 // A small button's height, and the room above and below it.
 $toggle-height: 24px;

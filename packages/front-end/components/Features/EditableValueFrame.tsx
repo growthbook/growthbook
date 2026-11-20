@@ -28,7 +28,7 @@ const ONE_LINE_CODE_ACTIONS: ActionsOverlay = {
   style: { ...ONE_LINE_ACTIONS.style, top: "calc(50% + 2px)" },
 };
 
-// Put on an input that replaces the value while it's edited.
+// Put on an input that replaces a flush-framed value while it's edited.
 export const inPlaceEditor = styles.inPlace;
 
 // A value shown in a table cell, framed when it can be edited, with its copy,
@@ -41,6 +41,7 @@ export default function EditableValueFrame({
   tall = false,
   empty = false,
   framed,
+  flush = false,
   edit = null,
   children,
 }: {
@@ -51,6 +52,9 @@ export default function EditableValueFrame({
   tall?: boolean;
   empty?: boolean;
   framed: boolean;
+  // The frame keeps to the value's column, with the value inset inside it,
+  // rather than overhanging the column so the text lines up with it.
+  flush?: boolean;
   edit?: {
     label: string;
     tooltip: string;
@@ -86,6 +90,7 @@ export default function EditableValueFrame({
         code ? styles.code : styles.centered,
         text && styles.text,
         framed && styles.frame,
+        framed && flush && styles.flush,
         cornerStyles.hoverActions,
       )}
     >

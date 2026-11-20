@@ -34,8 +34,7 @@
 // Drawn beside the value's box, so rows keep their size when values become
 // editable. Its top and bottom are the box's, lining up with the row's inputs.
 // The frame sits outside the value's box by an input's border and padding.
-.frame,
-.inPlace {
+.frame {
   --frame-start: calc(var(--space-2) + 1px);
   --frame-end: calc(var(--space-1) + 1px);
 }
@@ -60,12 +59,20 @@
   right: 10px;
 }
 
-// An input shown in place of a value: its border lands on the frame's, so its
-// text stays where the value's was.
-.inPlace {
-  margin-left: calc(-1 * var(--frame-start));
-  margin-right: calc(-1 * var(--frame-end));
+// A flush frame keeps to the value's column, and the value sits inside it
+// where an input's text would.
+.frame.flush {
+  padding-left: var(--frame-start);
+  padding-right: var(--frame-end);
 
+  &::before {
+    inset: 0;
+  }
+}
+
+// An input shown in place of a flush-framed value: its border lands on the
+// frame's, so its text stays where the value's was.
+.inPlace {
   // The cell spaces what follows; a form's bottom margin would add to it.
   > :last-child {
     margin-bottom: 0;

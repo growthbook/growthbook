@@ -372,6 +372,7 @@ export default function ConfigFieldRow({
                     tall={tallValue}
                     empty={f.value === undefined}
                     framed={!!valueEdit}
+                    flush
                     edit={
                       valueEdit
                         ? {
