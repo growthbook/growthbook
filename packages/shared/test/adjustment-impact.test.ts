@@ -1,10 +1,10 @@
 import {
   AdjustmentImpactArgs,
-  AdjustmentImpactRow,
   DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
   ExperimentMetricInterface,
   getAdjustmentImpactSummaries,
   getSupplementalVariations,
+  MetricResults,
   parseAdjustmentImpactSettings,
   SupplementalField,
 } from "shared/experiments";
@@ -65,10 +65,10 @@ function makeVariation(
   } as SnapshotMetric;
 }
 
-function makeRow(
+function makeMetricResults(
   variations: SnapshotMetric[],
   metricId = "m",
-): AdjustmentImpactRow {
+): MetricResults {
   return {
     metric: {
       id: metricId,
@@ -79,7 +79,7 @@ function makeRow(
 }
 
 const commonArgs = {
-  baselineRow: 0,
+  baselineIndex: 0,
   metricDefaults: { minimumSampleSize: 150 } as MetricDefaults,
   statsEngine: "frequentist" as const,
   differenceType: "relative" as const,
@@ -88,16 +88,19 @@ const commonArgs = {
   pValueThreshold: 0.05,
 };
 
-// One adjustment's impact on one row, or null when it cannot be compared.
+// One adjustment's impact on one metric, or null when it cannot be compared.
 function impactFor({
-  row,
+  metricResults,
   field,
   ...args
 }: AdjustmentImpactArgs & {
-  row: AdjustmentImpactRow;
+  metricResults: MetricResults;
   field: SupplementalField;
 }) {
-  const [summary] = getAdjustmentImpactSummaries({ ...args, rows: [row] });
+  const [summary] = getAdjustmentImpactSummaries({
+    ...args,
+    metrics: [metricResults],
+  });
   return summary.find((impact) => impact.field === field) ?? null;
 }
 
@@ -108,7 +111,9 @@ function classify(
 ) {
   return impactFor({
     ...commonArgs,
-    row: makeRow([makeVariation(primary, { [field]: alternative })]),
+    metricResults: makeMetricResults([
+      makeVariation(primary, { [field]: alternative }),
+    ]),
     field,
   });
 }
@@ -340,22 +345,24 @@ describe("one adjustment's impact", () => {
     const uncapped = { lift: 0.035, standardError: 0.025, pValue: 0.03 };
     const other = { lift: 0.01, standardError: 0.02, pValue: 0.5 };
 
-    const row = makeRow([makeVariation(primary, { uncapped })]);
+    const metricResults = makeMetricResults([
+      makeVariation(primary, { uncapped }),
+    ]);
     const args = {
       ...commonArgs,
-      row,
+      metricResults,
       field: "uncapped" as const,
       pValueCorrection: "holm-bonferroni" as const,
     };
 
     it("compares corrected with corrected across the goal metrics", () => {
-      const otherRow = makeRow(
+      const otherMetricResults = makeMetricResults(
         [makeVariation({ ...other, pValueAdjusted: 0.5 }, { uncapped: other })],
         "other",
       );
       const result = impactFor({
         ...args,
-        goalRows: [row, otherRow],
+        goalMetrics: [metricResults, otherMetricResults],
       });
       expect(result?.effectSize).toBe("large");
       expect(result?.significanceChanged).toBe(true);
@@ -363,13 +370,13 @@ describe("one adjustment's impact", () => {
 
     it("keeps a goal metric's own p-value when the adjustment does not apply to it", () => {
       // The other metric is not capped, so it has no uncapped result.
-      const otherRow = makeRow(
+      const otherMetricResults = makeMetricResults(
         [makeVariation({ ...other, pValueAdjusted: 0.5 }, {})],
         "other",
       );
       const result = impactFor({
         ...args,
-        goalRows: [row, otherRow],
+        goalMetrics: [metricResults, otherMetricResults],
       });
       expect(result?.effectSize).toBe("large");
       expect(result?.significanceChanged).toBe(true);
@@ -393,7 +400,7 @@ describe("one adjustment's impact", () => {
     );
     const result = impactFor({
       ...commonArgs,
-      row: makeRow([steady, moved]),
+      metricResults: makeMetricResults([steady, moved]),
       field: "uncapped",
     });
     expect(result?.effectSize).toBe("large");
@@ -403,7 +410,7 @@ describe("one adjustment's impact", () => {
   it("returns null without the supplemental result", () => {
     const result = impactFor({
       ...commonArgs,
-      row: makeRow([
+      metricResults: makeMetricResults([
         makeVariation(
           { lift: 0.05, standardError: 0.018, pValue: SIGNIFICANT },
           {},
@@ -426,7 +433,7 @@ describe("one adjustment's impact", () => {
       };
       const result = impactFor({
         ...commonArgs,
-        row: makeRow([
+        metricResults: makeMetricResults([
           {
             ...variation,
             supplementalResults: { uncapped: errored },
@@ -441,7 +448,7 @@ describe("one adjustment's impact", () => {
       const result = impactFor({
         ...commonArgs,
         metricDefaults: { minimumSampleSize: 5000 } as MetricDefaults,
-        row: makeRow([
+        metricResults: makeMetricResults([
           makeVariation(primary, {
             uncapped: { lift: 0.1, standardError: 0.02, pValue: SIGNIFICANT },
           }),
@@ -485,7 +492,9 @@ describe("settings from the feature flag", () => {
     for (const [field, primary, alternative] of [shift, significance]) {
       const args = {
         ...commonArgs,
-        row: makeRow([makeVariation(primary, { [field]: alternative })]),
+        metricResults: makeMetricResults([
+          makeVariation(primary, { [field]: alternative }),
+        ]),
         field,
       };
       expect(impactFor(args)?.effectSize).toBe("small");
@@ -521,13 +530,15 @@ describe("getSupplementalVariations", () => {
   };
   const other = { lift: 0.01, standardError: 0.02, pValue: 0.5 };
 
-  const row = makeRow([makeVariation(primary, { uncapped })]);
-  const otherRow = makeRow(
+  const metricResults = makeMetricResults([
+    makeVariation(primary, { uncapped }),
+  ]);
+  const otherMetricResults = makeMetricResults(
     [makeVariation({ ...other, pValueAdjusted: 0.5 }, {})],
     "other",
   );
   const args = {
-    row,
+    metricResults,
     field: "uncapped" as const,
     statsEngine: "frequentist" as const,
     pValueThreshold: 0.05,
@@ -536,7 +547,7 @@ describe("getSupplementalVariations", () => {
   it("recomputes the corrected p-value and interval for the result without the adjustment", () => {
     const [, variation] = getSupplementalVariations({
       ...args,
-      goalRows: [row, otherRow],
+      goalMetrics: [metricResults, otherMetricResults],
       pValueCorrection: "holm-bonferroni",
     });
     expect(variation.expected).toBe(0.035);
@@ -561,19 +572,19 @@ describe("getSupplementalVariations", () => {
 
   it("leaves a variation without the supplemental result as it is", () => {
     const [baseline] = getSupplementalVariations(args);
-    expect(baseline).toBe(row.variations[0]);
+    expect(baseline).toBe(metricResults.variations[0]);
   });
 });
 
 describe("getAdjustmentImpactSummaries", () => {
-  it("lists each row's available adjustments, most severe first", () => {
-    const unadjusted = makeRow([
+  it("lists each metric's available adjustments, most severe first", () => {
+    const unadjusted = makeMetricResults([
       makeVariation(
         { lift: 0.05, standardError: 0.02, pValue: SIGNIFICANT },
         {},
       ),
     ]);
-    const row = makeRow([
+    const adjusted = makeMetricResults([
       makeVariation(
         { lift: 0.05, standardError: 0.02, pValue: SIGNIFICANT },
         {
@@ -594,7 +605,7 @@ describe("getAdjustmentImpactSummaries", () => {
     ]);
     const summaries = getAdjustmentImpactSummaries({
       ...commonArgs,
-      rows: [unadjusted, row],
+      metrics: [unadjusted, adjusted],
     });
     expect(
       summaries.map((summary) =>

@@ -62,9 +62,9 @@ import {
   needsPercentileCapSubquery,
   expandMetricGroups,
   ExperimentMetricInterface,
-  AdjustmentImpactRow,
   DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
   getAdjustmentImpactSummaries,
+  MetricResults,
   parseAdjustmentImpactSettings,
   SupplementalField,
   getAllMetricIdsFromExperiment,
@@ -6616,22 +6616,21 @@ function trackAdjustmentImpact({
     );
 
     // Slice and funnel-step ids are not in the metric map, so they are skipped.
-    const toRow = (metricId: string): AdjustmentImpactRow | null => {
+    const toMetricResults = (metricId: string): MetricResults | null => {
       const metric = metricMap.get(metricId);
       if (!metric) return null;
       const stats = variations.map((variation) => variation.metrics[metricId]);
       if (!stats.every(isDefined)) return null;
       return { metric, variations: stats };
     };
-    const goalRows = goalMetricIds.map(toRow).filter(isDefined);
 
     const summaries = getAdjustmentImpactSummaries({
       ...analysisSettings,
-      rows: Object.keys(variations[0]?.metrics ?? {})
-        .map(toRow)
+      metrics: Object.keys(variations[0]?.metrics ?? {})
+        .map(toMetricResults)
         .filter(isDefined),
-      baselineRow: 0,
-      goalRows,
+      baselineIndex: 0,
+      goalMetrics: goalMetricIds.map(toMetricResults).filter(isDefined),
       settings,
     });
     const numFlagged = (field: SupplementalField) =>
@@ -6704,21 +6703,24 @@ export async function computeResultsStatus({
       : "relative";
 
   // Safe rollouts share this function but are not experiment updates.
+  // Telemetry only, so it runs after the results status has been returned.
   if ("goalMetrics" in experiment) {
-    trackAdjustmentImpact({
-      context,
-      experimentId: experiment.id,
-      variations,
-      metricMap,
-      goalMetricIds: expandedGoalMetrics,
-      metricDefaults,
-      statsEngine,
-      differenceType,
-      ciUpper,
-      ciLower,
-      pValueThreshold,
-      pValueCorrection,
-    });
+    setImmediate(() =>
+      trackAdjustmentImpact({
+        context,
+        experimentId: experiment.id,
+        variations,
+        metricMap,
+        goalMetricIds: expandedGoalMetrics,
+        metricDefaults,
+        statsEngine,
+        differenceType,
+        ciUpper,
+        ciLower,
+        pValueThreshold,
+        pValueCorrection,
+      }),
+    );
   }
 
   const variationStatuses: ExperimentAnalysisSummaryVariationStatus[] = [];

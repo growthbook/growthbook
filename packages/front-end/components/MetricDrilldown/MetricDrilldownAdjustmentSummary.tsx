@@ -89,8 +89,8 @@ const MetricDrilldownAdjustmentSummary: FC<
   const summary = useMemo(
     () =>
       getAdjustmentImpactSummaries({
-        rows: [row],
-        baselineRow,
+        metrics: [row],
+        baselineIndex: baselineRow,
         variationFilter,
         metricDefaults,
         statsEngine,
@@ -98,7 +98,7 @@ const MetricDrilldownAdjustmentSummary: FC<
         ciUpper,
         ciLower,
         pValueThreshold,
-        goalRows,
+        goalMetrics: goalRows,
         pValueCorrection,
       })[0],
     [

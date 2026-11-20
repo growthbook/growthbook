@@ -18,8 +18,9 @@ import {
 
 export type AdjustmentEffectSize = "small" | "moderate" | "large";
 
-// Structural, so front-end table rows and back-end snapshot results both fit.
-export interface AdjustmentImpactRow {
+// One metric's result for each variation. Structural, so a front-end table
+// row fits as it is.
+export interface MetricResults {
   metric: ExperimentMetricDefinition;
   variations: SnapshotMetric[];
 }
@@ -48,13 +49,13 @@ export interface AdjustmentImpact extends AdjustmentClassification {
 interface CorrectionArgs {
   statsEngine: StatsEngine;
   pValueThreshold: number;
-  /** All non-slice goal rows, the family for adjusted p-values. */
-  goalRows?: AdjustmentImpactRow[];
+  /** All non-slice goal metrics, the family for adjusted p-values. */
+  goalMetrics?: MetricResults[];
   pValueCorrection?: PValueCorrection;
 }
 
 export interface AdjustmentImpactArgs extends CorrectionArgs {
-  baselineRow: number;
+  baselineIndex: number;
   variationFilter?: number[];
   metricDefaults: MetricDefaults;
   differenceType: DifferenceType;
@@ -253,17 +254,17 @@ const P_VALUE_ADJUSTERS: Record<
 function getSupplementalAdjustedPValues({
   field,
   statsEngine,
-  goalRows,
+  goalMetrics,
   pValueCorrection,
 }: CorrectionArgs & { field: SupplementalField }): Map<string, number> | null {
-  if (statsEngine !== "frequentist" || !pValueCorrection || !goalRows) {
+  if (statsEngine !== "frequentist" || !pValueCorrection || !goalMetrics) {
     return null;
   }
 
   // A metric the adjustment does not apply to (e.g. an uncapped metric, for
   // capping) has no supplemental result and keeps its own p-value, since it is
   // the same either way.
-  const pValues = goalRows.flatMap(({ metric, variations }) =>
+  const pValues = goalMetrics.flatMap(({ metric, variations }) =>
     variations.flatMap((stats, index): IndexedPValue[] => {
       if (stats.pValue === undefined) return []; // not part of the family
       const supplemental = stats.supplementalResults?.[field] as
@@ -288,12 +289,12 @@ function getSupplementalAdjustedPValues({
 }
 
 function applySupplemental(
-  row: AdjustmentImpactRow,
+  { metric, variations }: MetricResults,
   field: SupplementalField,
   pValueThreshold: number,
   adjustedPValues: Map<string, number> | null,
 ): SnapshotMetric[] {
-  return row.variations.map((stats, index) => {
+  return variations.map((stats, index) => {
     const supplemental = stats.supplementalResults?.[field];
     if (!supplemental) return stats;
 
@@ -304,7 +305,7 @@ function applySupplemental(
       ciAdjusted: undefined,
     };
 
-    const pValueAdjusted = adjustedPValues?.get(`${row.metric.id}:${index}`);
+    const pValueAdjusted = adjustedPValues?.get(`${metric.id}:${index}`);
     if (pValueAdjusted !== undefined) {
       result.pValueAdjusted = pValueAdjusted;
       // Mirrors setAdjustedCIs.
@@ -323,20 +324,20 @@ function applySupplemental(
 }
 
 /**
- * A row's results as they would be without one adjustment. The displayed
+ * A metric's results as they would be without one adjustment. The displayed
  * result's multiple-testing-corrected p-value and interval do not carry over:
  * they are recomputed, or cleared when they cannot be.
  */
 export function getSupplementalVariations({
-  row,
+  metricResults,
   field,
   ...correction
 }: CorrectionArgs & {
-  row: AdjustmentImpactRow;
+  metricResults: MetricResults;
   field: SupplementalField;
 }): SnapshotMetric[] {
   return applySupplemental(
-    row,
+    metricResults,
     field,
     correction.pValueThreshold,
     getSupplementalAdjustedPValues({ ...correction, field }),
@@ -348,8 +349,8 @@ export function getSupplementalVariations({
  * variation can be compared: no supplemental result, an errored result, or a
  * metric short of its minimum sample size.
  */
-function classifyRow(
-  row: AdjustmentImpactRow,
+function classifyMetric(
+  metricResults: MetricResults,
   {
     field,
     rule,
@@ -361,27 +362,28 @@ function classifyRow(
   },
   args: AdjustmentImpactArgs,
 ): AdjustmentClassification | null {
-  const { baselineRow, variationFilter, metricDefaults } = args;
-  const baseline = row.variations[baselineRow];
+  const { metric, variations } = metricResults;
+  const { baselineIndex, variationFilter, metricDefaults } = args;
+  const baseline = variations[baselineIndex];
   if (!baseline) return null;
 
   const altVariations = applySupplemental(
-    row,
+    metricResults,
     field,
     args.pValueThreshold,
     adjustedPValues,
   );
-  const statusArgs = { ...args, metric: row.metric };
+  const statusArgs = { ...args, metric };
 
   let worst: AdjustmentClassification | null = null;
-  row.variations.forEach((primary, index) => {
-    if (index === baselineRow || variationFilter?.includes(index)) return;
+  variations.forEach((primary, index) => {
+    if (index === baselineIndex || variationFilter?.includes(index)) return;
     if (!primary.supplementalResults?.[field]) return;
 
     const alt = altVariations[index];
     // An errored result reports a lift of zero, which would read as a shift.
     if (primary.errorMessage || alt.errorMessage) return;
-    if (!hasEnoughData(baseline, primary, row.metric, metricDefaults)) return;
+    if (!hasEnoughData(baseline, primary, metric, metricDefaults)) return;
 
     const classification = classifyPair({
       primary,
@@ -393,7 +395,7 @@ function classifyRow(
       }).significant,
       altSignificant: getMetricResultStatus({
         ...statusArgs,
-        baseline: altVariations[baselineRow],
+        baseline: altVariations[baselineIndex],
         stats: alt,
       }).significant,
       rule,
@@ -404,15 +406,15 @@ function classifyRow(
   return worst;
 }
 
-/** For each row, the adjustments that apply to it, most severe first. */
+/** For each metric, the adjustments that apply to it, most severe first. */
 export function getAdjustmentImpactSummaries({
-  rows,
+  metrics,
   ...args
 }: AdjustmentImpactArgs & {
-  rows: AdjustmentImpactRow[];
+  metrics: MetricResults[];
 }): AdjustmentImpact[][] {
   const settings = args.settings ?? DEFAULT_ADJUSTMENT_IMPACT_SETTINGS;
-  // The correction spans the goal metrics, so it is done once for all rows.
+  // The correction spans the goal metrics, so it is done once for all metrics.
   const adjustments = ADJUSTMENTS.map(({ field, label }) => ({
     field,
     label,
@@ -420,10 +422,10 @@ export function getAdjustmentImpactSummaries({
     adjustedPValues: getSupplementalAdjustedPValues({ ...args, field }),
   }));
 
-  return rows.map((row) =>
+  return metrics.map((metricResults) =>
     adjustments
       .flatMap((adjustment): AdjustmentImpact[] => {
-        const classification = classifyRow(row, adjustment, args);
+        const classification = classifyMetric(metricResults, adjustment, args);
         const { field, label } = adjustment;
         return classification ? [{ field, label, ...classification }] : [];
       })

@@ -86,7 +86,7 @@ function getSupplementalMetricSnapshotSettings(
 
 type SupplementalRowSettings = Pick<
   Parameters<typeof getSupplementalVariations>[0],
-  "statsEngine" | "pValueThreshold" | "goalRows" | "pValueCorrection"
+  "statsEngine" | "pValueThreshold" | "goalMetrics" | "pValueCorrection"
 >;
 
 /**
@@ -103,7 +103,7 @@ function createSupplementalRow(
     label: createRowLabel(description),
     variations: getSupplementalVariations({
       ...settings,
-      row: baseRow,
+      metricResults: baseRow,
       field: supplementalField,
     }),
     metricSnapshotSettings: getSupplementalMetricSnapshotSettings(
@@ -189,7 +189,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
     () => ({
       statsEngine: resolvedStatsEngine,
       pValueThreshold,
-      goalRows,
+      goalMetrics: goalRows,
       pValueCorrection,
     }),
     [resolvedStatsEngine, pValueThreshold, goalRows, pValueCorrection],
