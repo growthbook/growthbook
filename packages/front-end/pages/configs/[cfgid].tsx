@@ -1127,8 +1127,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     </div>
   );
   if (!data || !config || !displayedConfig || !selectionSettled) {
-    // Only a first load shows a loading screen; another Config's keeps the
-    // last page up instead of flashing one.
+    // A first load has no page to keep, so it shows a loading screen.
     return lastPage.current ? (
       pageShell(lastPage.current, true)
     ) : (
