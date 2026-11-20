@@ -271,7 +271,16 @@ export default function FactTableEventsTab({
                                 </Link>
                               ) : null}
                               {factMetricFlow.createButton(
-                                { factTable: factTable.id },
+                                {
+                                  factTable: factTable.id,
+                                  rowFilters: [
+                                    {
+                                      column: column.column,
+                                      operator: "=",
+                                      values: [r.value],
+                                    },
+                                  ],
+                                },
                                 { size: "sm" },
                               )}
                             </Flex>
