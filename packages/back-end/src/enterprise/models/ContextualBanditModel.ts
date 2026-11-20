@@ -42,7 +42,7 @@ import {
 import { someConnectionSupportsCapabilities } from "shared/sdk-versioning";
 import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   createVisualChangeset,
@@ -314,9 +314,7 @@ const BaseClass = MakeModelClass({
             req.context.permissions.throwPermissionError();
           }
           owner.assertCanCreateChangeset();
-          const connections = await findSDKConnectionsByOrganization(
-            req.context,
-          );
+          const connections = await findServingSDKConnections(req.context);
           if (
             !someConnectionSupportsCapabilities({
               connections,

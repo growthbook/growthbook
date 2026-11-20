@@ -234,6 +234,19 @@ export async function landDirectChange<T>({
       baselineDateUpdated,
     });
 
+    const adapter = getAdapter(entityType);
+    if (adapter.validateRevisionWrite) {
+      const live = adapter.buildSnapshot(entity);
+      await adapter.validateRevisionWrite(context, {
+        live,
+        revision: null,
+        direct: true,
+        title,
+        proposed: applyPatchToSnapshot(live, patchOps),
+        before: live,
+      });
+    }
+
     const merged = await context.models.revisions.createMerged({
       type: entityType,
       id: entity.id,

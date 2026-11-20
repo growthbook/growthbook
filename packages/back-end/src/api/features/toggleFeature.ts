@@ -39,6 +39,7 @@ import {
 } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { holdFeatureUpdate } from "back-end/src/services/confirmations";
+import { NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function toggleFeatureCore(
@@ -56,7 +57,7 @@ export async function toggleFeatureCore(
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) {
-    throw new Error("Could not find a feature with that key");
+    throw new NotFoundError("Could not find a feature with that key");
   }
 
   const environmentIds = getEnvironmentIdsFromOrg(organization);

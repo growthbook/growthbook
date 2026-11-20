@@ -1,5 +1,6 @@
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import type { DataRegion } from "shared/util";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export type { DataRegion };
 
@@ -31,4 +32,48 @@ const EVENT_INGESTOR_HOSTS: Record<DataRegion, string> = {
 // callers only need to pass this along explicitly for non-default regions.
 export function getEventIngestorHost(region: DataRegion): string {
   return EVENT_INGESTOR_HOSTS[region];
+}
+
+// Data regions with an Event Forwarder that receives the environment
+// ("" in a claim is all environments)
+export function eventForwarderRegionsFor(
+  claims: { environment: string; region: DataRegion }[],
+  environment?: string,
+): DataRegion[] {
+  return [
+    ...new Set(
+      claims
+        .filter((e) => !e.environment || e.environment === environment)
+        .map((e) => e.region),
+    ),
+  ];
+}
+
+// Ingestor region for an SDK Connection's setup snippets
+// - Follows the Event Forwarder that receives the connection's environment
+// - Forwarders in both regions receive it: undefined, so the SDK default host
+// - No forwarder for the environment: the org's region
+export function eventIngestorRegionFor(
+  regions: DataRegion[],
+  orgRegion: DataRegion | undefined,
+): DataRegion | undefined {
+  if (regions.length > 1) return undefined;
+  return regions[0] ?? orgRegion;
+}
+
+// Empty with a Managed Warehouse, which uses the org's region instead
+export function useEventForwarderRegions(environment?: string): DataRegion[] {
+  const { hasManagedWarehouse, eventForwarderEnvironments } = useDefinitions();
+  if (hasManagedWarehouse) return [];
+  return eventForwarderRegionsFor(eventForwarderEnvironments, environment);
+}
+
+export function useEventIngestorRegion(
+  environment?: string,
+): DataRegion | undefined {
+  const { eventIngestorRegion } = useDefinitions();
+  return eventIngestorRegionFor(
+    useEventForwarderRegions(environment),
+    eventIngestorRegion,
+  );
 }

@@ -21,6 +21,16 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import AddPaymentMethodModal from "./AddPaymentMethodModal";
 
+export function useCanShowPaymentInfo(): boolean {
+  const { subscription, organization } = useUser();
+  return (
+    isCloud() &&
+    !!organization.licenseKey &&
+    !!subscription?.stripeCustomerId &&
+    growthbook.getFeatureValue("ff_payment-info", false)
+  );
+}
+
 export default function PaymentInfo() {
   const [paymentMethodModal, setPaymentMethodModal] = useState(false);
   const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<
@@ -29,13 +39,9 @@ export default function PaymentInfo() {
   const [error, setError] = useState<string | undefined>(undefined);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(false);
-  const { subscription, organization } = useUser();
+  const { subscription } = useUser();
   const { apiCall } = useAuth();
-  const canShowPaymentInfo =
-    isCloud() &&
-    !!organization.licenseKey &&
-    !!subscription?.stripeCustomerId &&
-    growthbook.getFeatureValue("ff_payment-info", false);
+  const canShowPaymentInfo = useCanShowPaymentInfo();
 
   const fetchPaymentMethods = useCallback(async () => {
     setLoading(true);

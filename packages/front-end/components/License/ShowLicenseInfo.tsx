@@ -74,7 +74,7 @@ const ShowLicenseInfo: FC<{
           {
             label: "License key",
             value: (
-              <Flex align="center" gap="2">
+              <Flex align="center" gap="2" wrap="wrap">
                 <Text color="text-mid">
                   {license ? "***************" : "(none)"}
                 </Text>

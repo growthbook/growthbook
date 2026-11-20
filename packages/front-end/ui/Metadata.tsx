@@ -13,10 +13,21 @@ type Props = {
   stacked?: boolean;
   /** A stacked row's own button (e.g. its pencil), clicked by the whole row. */
   action?: React.ReactNode;
+  /** Inline: keeps the label on one line, so a long value gives way instead. */
+  noWrapLabel?: boolean;
 };
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
-  { label, value, style, size = "md", stacked, action, ...props },
+  {
+    label,
+    value,
+    style,
+    size = "md",
+    stacked,
+    action,
+    noWrapLabel = false,
+    ...props
+  },
   ref,
 ) {
   if (stacked) {
@@ -70,7 +81,12 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
 
   return (
     <Flex gap="1" align="center" style={style} {...props} ref={ref}>
-      <Text weight="medium" color="text-high" size={size}>
+      <Text
+        weight="medium"
+        color="text-high"
+        size={size}
+        whiteSpace={noWrapLabel ? "nowrap" : undefined}
+      >
         {label}:
       </Text>
       {typeof value === "string" ? (

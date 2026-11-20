@@ -95,19 +95,27 @@ export class WebhookSecretDataModel extends BaseClass {
     await this._deleteOne(existing);
   }
 
-  public async getBackEndSecretsReplacer(origin: string) {
-    const secrets = await this.getAll();
-    const replacements: Record<string, string> = {};
-    for (const secret of secrets) {
-      if (
-        !secret.allowedOrigins ||
-        !secret.allowedOrigins.length ||
-        secret.allowedOrigins.includes(origin)
-      ) {
-        replacements[secret.key] = secret.value;
-      }
-    }
+  // The secrets a webhook sent to `origin` may use.
+  private async usableAt(origin: string) {
+    return (await this.getAll()).filter(
+      (secret) =>
+        !secret.allowedOrigins?.length ||
+        secret.allowedOrigins.includes(origin),
+    );
+  }
 
-    return secretsReplacer(replacements);
+  public async getUsableKeys(origin: string): Promise<Set<string>> {
+    return new Set((await this.usableAt(origin)).map((secret) => secret.key));
+  }
+
+  public async getBackEndSecretsReplacer(origin: string) {
+    return secretsReplacer(
+      Object.fromEntries(
+        (await this.usableAt(origin)).map((secret) => [
+          secret.key,
+          secret.value,
+        ]),
+      ),
+    );
   }
 }

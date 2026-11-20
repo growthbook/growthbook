@@ -72,6 +72,7 @@ import {
   loadSavedGroupReferences,
 } from "back-end/src/services/savedGroups";
 import { assertSavedGroupArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
+import { NotFoundError } from "back-end/src/util/errors";
 
 // region POST /saved-groups
 
@@ -250,7 +251,7 @@ export const getSavedGroup = async (
   const savedGroup = await context.models.savedGroups.getById(id);
 
   if (!savedGroup) {
-    throw new Error("Could not find Saved Group");
+    throw new NotFoundError("Could not find Saved Group");
   }
 
   return res.status(200).json({
@@ -301,7 +302,7 @@ const mutateSavedGroupItems =
     const savedGroup = await context.models.savedGroups.getById(id);
 
     if (!savedGroup) {
-      throw new Error("Could not find Saved Group");
+      throw new NotFoundError("Could not find Saved Group");
     }
 
     if (
@@ -579,7 +580,7 @@ export const putSavedGroup = async (
   const savedGroup = await context.models.savedGroups.getById(id);
 
   if (!savedGroup) {
-    throw new Error("Could not find Saved Group");
+    throw new NotFoundError("Could not find Saved Group");
   }
 
   // A request that touches nothing but `archived` is a pure archive/unarchive

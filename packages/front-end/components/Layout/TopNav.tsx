@@ -527,13 +527,14 @@ const TopNav: FC<{
               setDropdownOpen(!!o);
             }}
             trigger={
-              <div className="nav-link d-flex align-items-center">
+              <div
+                className={`nav-link d-flex align-items-center ${styles.account}`}
+              >
                 <UserAvatar
                   email={email || ""}
                   name={name || ""}
                   size="md"
                   variant="soft"
-                  mr="2"
                 />{" "}
                 <span className="d-none d-lg-inline">
                   <OverflowText maxWidth={200}>

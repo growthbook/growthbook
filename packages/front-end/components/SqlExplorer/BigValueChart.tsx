@@ -1,11 +1,13 @@
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import React, { type ReactNode } from "react";
 import { BigValueFormat } from "shared/validators";
 import { useCurrency } from "@/hooks/useCurrency";
+import Text from "@/ui/Text";
 import { formatCurrency } from "@/services/metrics";
 
 type Props = {
-  value: number;
+  /** Null shows "No data". */
+  value: number | null;
   format?: BigValueFormat;
   formatter?: (value: number) => string;
   label?: string;
@@ -66,13 +68,14 @@ export default function BigValueChart({
   fillContainer = false,
 }: Props) {
   const currency = useCurrency();
-  if (value === undefined || value === null) {
-    return <div style={{ textAlign: "center", color: "#888" }}>No data</div>;
-  }
-
-  const displayValue = formatter
-    ? formatter(value)
-    : formatValue(value, format ?? "longNumber", currency);
+  // No data keeps the card's layout, label and comparison; only the number
+  // is replaced.
+  const displayValue =
+    value === null
+      ? null
+      : formatter
+        ? formatter(value)
+        : formatValue(value, format ?? "longNumber", currency);
 
   const content = (
     <Flex
@@ -84,7 +87,11 @@ export default function BigValueChart({
       pt="2"
       pb="2"
     >
-      {fillContainer ? (
+      {displayValue === null ? (
+        <Text size="lg" color="text-low">
+          No data
+        </Text>
+      ) : fillContainer ? (
         <Heading
           as="h1"
           style={{
@@ -103,21 +110,25 @@ export default function BigValueChart({
       )}
       {label &&
         (fillContainer ? (
-          <Text
-            as="div"
-            color="gray"
-            truncate
-            align="center"
+          <Box
             style={{
               fontSize: FILL_FONT_SIZE.label,
               lineHeight: 1.2,
               width: "100%",
             }}
           >
-            {label}
-          </Text>
+            <Text
+              as="div"
+              size="inherit"
+              color="text-mid"
+              truncate
+              align="center"
+            >
+              {label}
+            </Text>
+          </Box>
         ) : (
-          <Text as="div" size="3" color="gray">
+          <Text as="div" size="lg" color="text-mid">
             {label}
           </Text>
         ))}

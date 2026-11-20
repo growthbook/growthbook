@@ -8,6 +8,7 @@ import uniqBy from "lodash/uniqBy";
 import uniqWith from "lodash/uniqWith";
 import type { Request } from "express";
 import {
+  Attributes,
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
   GrowthBook,
@@ -208,6 +209,7 @@ import {
   getVisualExperimentPrerequisiteDependents,
   getVisualExperimentPrerequisiteIds,
   getReferenceIdsInFeatures,
+  filterRefreshableSDKConnections,
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
@@ -1218,11 +1220,18 @@ export function queueSDKPayloadRefresh(data: QueueSDKPayloadRefreshData) {
   // collect the affected keys instead of refreshing per write — the publisher
   // flushes one deduped refresh (at most one rebuild per SDK connection) after
   // the whole commit lands, or none if it compensated. Buffered calls drop the
-  // narrowing options (skipRefreshForProject, explicit sdkConnections) but
-  // carry treatEmptyProjectAsGlobal so global-entity keys keep their reach.
+  // narrowing skipRefreshForProject but keep explicit sdkConnections (a
+  // connection's own settings change has no keys) and carry
+  // treatEmptyProjectAsGlobal so global-entity keys keep their reach.
   const buffer = data.context.sdkPayloadRefreshBuffer;
   if (buffer && !buffer.closed) {
     buffer.keys.push(...data.payloadKeys);
+    if (data.sdkConnections?.length) {
+      buffer.sdkConnections = [
+        ...(buffer.sdkConnections ?? []),
+        ...data.sdkConnections,
+      ];
+    }
     buffer.treatEmptyProjectAsGlobal ||= !!data.treatEmptyProjectAsGlobal;
     return;
   }
@@ -1552,9 +1561,11 @@ export async function refreshSDKPayloadCache({
 
   // Everything that decides which connections are affected (the widening above
   // and this match) must stay above the early returns below.
-  const sdkConnections = payloadKeys.length
-    ? await findSDKConnectionsByOrganization(context)
-    : sdkConnectionsToUpdate;
+  const sdkConnections = filterRefreshableSDKConnections(
+    payloadKeys.length
+      ? await findSDKConnectionsByOrganization(context)
+      : sdkConnectionsToUpdate,
+  );
 
   const connectionsUpdated = sdkConnections.filter(
     (connection) =>
@@ -2675,7 +2686,8 @@ export function evaluateFeature({
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const log: [string, any][] = [];
-        const gb = new GrowthBook({
+        // Evaluates a customer's feature, so opt out of our own registered types
+        const gb = new GrowthBook<Record<string, unknown>, Attributes>({
           features: {
             [feature.id]: definition,
           },
@@ -2779,8 +2791,9 @@ export async function evaluateAllFeatures({
       organization: context.org,
     });
 
-    // now we have all the definitions, lets evaluate them
-    const gb = new GrowthBook({
+    // now we have all the definitions, lets evaluate them. These are a
+    // customer's features, so opt out of our own registered types
+    const gb = new GrowthBook<Record<string, unknown>, Attributes>({
       features: featureDefinitions,
       savedGroups: savedGroups,
       attributes: attributeValues,

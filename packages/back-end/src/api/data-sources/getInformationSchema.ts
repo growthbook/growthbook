@@ -7,6 +7,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
 import { getInformationSchemaWithPaths } from "back-end/src/services/informationSchema";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 function toApiInformationSchema(
   schema: InformationSchemaInterfaceWithPaths,
@@ -49,7 +50,7 @@ export const getInformationSchema = createApiRequestHandler(
     req.params.dataSourceId,
   );
   if (!dataSource) {
-    throw new Error("Could not find data source with that id");
+    throw new NotFoundError("Could not find data source with that id");
   }
 
   const informationSchema = await getInformationSchemaByDatasourceId(

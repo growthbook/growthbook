@@ -99,7 +99,7 @@ const unitEligibility = {
 };
 
 describe("unit eligibility execution (SQL math)", () => {
-  it("trims each opted-in metric to the units exposed long enough ago", () => {
+  it("trims each opted-in metric to the units exposed long enough ago", async () => {
     const sql = `WITH __userMetricAgg AS (
       ${fixture}
     )
@@ -122,7 +122,7 @@ describe("unit eligibility execution (SQL math)", () => {
 
     // The two one-day metrics share one count of eligible units, and no metric
     // adds a column of its own to find it
-    expect(processExperimentFactMetricsQueryRows(rows)).toEqual([
+    expect(await processExperimentFactMetricsQueryRows(rows)).toEqual([
       {
         variation: "0",
         users: 3,
@@ -149,7 +149,7 @@ describe("unit eligibility execution (SQL math)", () => {
     ).toEqual([null, "users_cw1440m", "users_cw1440m", "users_cw2880m"]);
   });
 
-  it("counts a trimmed compound metric's component units over the units it analyzes", () => {
+  it("counts a trimmed compound metric's component units over the units it analyzes", async () => {
     const compound: CompoundFactMetricInterface = {
       ...buildMetric("compound", 1),
       metricType: "compound",
@@ -212,7 +212,7 @@ describe("unit eligibility execution (SQL math)", () => {
     db.close();
 
     // The unit exposed 6 hours ago matched both components but is left out
-    expect(processExperimentFactMetricsQueryRows(rows)).toEqual([
+    expect(await processExperimentFactMetricsQueryRows(rows)).toEqual([
       expect.objectContaining({
         users: 3,
         users_cw1440m: 2,
