@@ -64,24 +64,32 @@ export interface AdjustmentImpactArgs extends CorrectionArgs {
   settings?: AdjustmentImpactSettings;
 }
 
-const shiftThresholdsSchema = z.object({
-  moderate: z.number(),
-  // Null when a shift alone is never "large".
-  large: z.number().nullable(),
-  largeWithTrigger: z.number(),
-});
+// A bar for how far a result moves without an adjustment. Every part that is
+// given must be met. Strict, so that a misspelt part fails to parse rather
+// than being dropped, which would lower the bar.
+const shiftConditionSchema = z
+  .strictObject({
+    // The shift in standard errors of the lift. Variance reduction and capping
+    // move the estimate by noise that scales with the standard error, so
+    // measuring them against the lift alone would flag noise near zero.
+    standardErrors: z.number().optional(),
+    // The shift as a fraction of the lift.
+    relativeChange: z.number().optional(),
+    // Status is significant-positive, significant-negative or not
+    // significant; a significant sign flip needs only one of the two results
+    // to be significant.
+    requires: z.enum(["statusChange", "significantSignFlip"]).optional(),
+  })
+  // An empty condition would always be met.
+  .refine((condition) => Object.keys(condition).length > 0);
 
-// "large" is the bar for alerting on a result.
+// Meeting any one condition in a list is enough. Lists rather than single
+// conditions because a Config override replaces a list whole but merges an
+// object key by key, which would blend an override with the default.
 const adjustmentRuleSchema = z.object({
-  // Variance reduction and capping move the estimate by noise that scales with
-  // the standard error, not the lift, so measuring them against the lift would
-  // flag ordinary noise near zero. A prior shrinks the lift by a fraction.
-  scale: z.enum(["standardError", "relative"]),
-  thresholds: shiftThresholdsSchema,
-  // What must accompany a `largeWithTrigger` shift. Status is
-  // significant-positive, significant-negative or not significant; a
-  // significant sign flip needs only one of the two results to be significant.
-  largeTrigger: z.enum(["statusChange", "significantSignFlip"]),
+  moderate: z.array(shiftConditionSchema),
+  // The bar for alerting on a result.
+  large: z.array(shiftConditionSchema),
 });
 
 // Keyed by the supplemental result each adjustment is compared against.
@@ -92,38 +100,51 @@ const adjustmentImpactSettingsSchema = z.object({
   uncapped: adjustmentRuleSchema,
 });
 
-type ShiftThresholds = z.infer<typeof shiftThresholdsSchema>;
+type ShiftCondition = z.infer<typeof shiftConditionSchema>;
 type AdjustmentRule = z.infer<typeof adjustmentRuleSchema>;
 export type AdjustmentImpactSettings = z.infer<
   typeof adjustmentImpactSettingsSchema
 >;
 
-const RELATIVE_THRESHOLDS: ShiftThresholds = {
-  moderate: 0.01,
-  large: null,
-  largeWithTrigger: 0.5,
-};
+const RELATIVE_MODERATE = 0.1;
+const RELATIVE_LARGE = 0.5;
 
 // Same estimand with less noise, so a change in significance alone is the
-// adjustment working.
+// adjustment working: only a sign flip counts.
 const VARIANCE_REDUCTION_RULE: AdjustmentRule = {
-  scale: "standardError",
-  thresholds: { moderate: 0.5, large: 2, largeWithTrigger: 1 },
-  largeTrigger: "significantSignFlip",
+  moderate: [{ standardErrors: 0.5 }],
+  large: [
+    // Also half the lift, so that a strongly significant result is not
+    // flagged for a move that leaves it strongly significant.
+    { standardErrors: 2, relativeChange: RELATIVE_LARGE },
+    { standardErrors: 1, requires: "significantSignFlip" },
+  ],
 };
 
 const CAPPING_RULE: AdjustmentRule = {
-  scale: "standardError",
-  thresholds: { moderate: 0.5, large: 2, largeWithTrigger: 0.5 },
-  largeTrigger: "statusChange",
+  moderate: [{ standardErrors: 0.5 }],
+  large: [
+    { standardErrors: 2, relativeChange: RELATIVE_LARGE },
+    { standardErrors: 0.5, requires: "statusChange" },
+  ],
 };
 
 // Shrinks the estimate by design, so shrinkage alone is never large.
 const PRIOR_RULE: AdjustmentRule = {
-  scale: "relative",
-  thresholds: RELATIVE_THRESHOLDS,
-  largeTrigger: "statusChange",
+  moderate: [{ relativeChange: RELATIVE_MODERATE }],
+  large: [{ relativeChange: RELATIVE_LARGE, requires: "statusChange" }],
 };
+
+// A rule in standard errors cannot be applied to a result that has none, so
+// the shift is judged against the lift, where a shift alone is never large.
+function withoutStandardErrors(rule: AdjustmentRule): AdjustmentRule {
+  return {
+    moderate: [{ relativeChange: RELATIVE_MODERATE }],
+    large: rule.large.flatMap(({ requires }) =>
+      requires ? [{ relativeChange: RELATIVE_LARGE, requires }] : [],
+    ),
+  };
+}
 
 export const DEFAULT_ADJUSTMENT_IMPACT_SETTINGS: AdjustmentImpactSettings = {
   unstratified: VARIANCE_REDUCTION_RULE,
@@ -201,17 +222,15 @@ function classifyPair({
     getLiftStandardError(primary),
     getLiftStandardError(alt),
   );
+  const usesStandardErrors = [...rule.moderate, ...rule.large].some(
+    (condition) => condition.standardErrors !== undefined,
+  );
   const standardErrorShift =
-    rule.scale === "standardError" && standardError > 0
-      ? shift / standardError
-      : null;
-  // A standard-error rule with no standard error falls back to the relative
-  // scale, where its own thresholds do not apply.
-  const thresholds =
-    rule.scale === "standardError" && standardErrorShift === null
-      ? RELATIVE_THRESHOLDS
-      : rule.thresholds;
-  const shiftSize = standardErrorShift ?? relativeChange;
+    usesStandardErrors && standardError > 0 ? shift / standardError : null;
+  const { moderate, large } =
+    usesStandardErrors && standardErrorShift === null
+      ? withoutStandardErrors(rule)
+      : rule;
 
   // A corrected result is not comparable with one whose correction could not
   // be recomputed.
@@ -223,17 +242,27 @@ function classifyPair({
     (primarySignificant || (comparable && altSignificant));
   const significanceDiffers =
     comparable && primarySignificant !== altSignificant;
-  const triggered =
-    shiftSize >= thresholds.largeWithTrigger &&
-    (significantSignFlip ||
-      (rule.largeTrigger === "statusChange" && significanceDiffers));
 
-  const large =
-    triggered || (thresholds.large !== null && shiftSize >= thresholds.large);
-  const moderate = shiftSize >= thresholds.moderate;
+  const isMet = (condition: ShiftCondition): boolean =>
+    (condition.standardErrors === undefined ||
+      (standardErrorShift !== null &&
+        standardErrorShift >= condition.standardErrors)) &&
+    (condition.relativeChange === undefined ||
+      relativeChange >= condition.relativeChange) &&
+    (condition.requires === undefined ||
+      significantSignFlip ||
+      (condition.requires === "statusChange" && significanceDiffers));
+
+  const largeMet = large.filter(isMet);
+  const triggered = largeMet.some(({ requires }) => requires !== undefined);
 
   return {
-    effectSize: large ? "large" : moderate ? "moderate" : "small",
+    effectSize:
+      largeMet.length > 0
+        ? "large"
+        : moderate.some(isMet)
+          ? "moderate"
+          : "small",
     relativeChange,
     standardErrorShift,
     significanceChanged: triggered && significanceDiffers,

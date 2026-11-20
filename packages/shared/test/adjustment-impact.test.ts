@@ -152,16 +152,28 @@ describe("one adjustment's impact", () => {
       expect(result?.standardErrorShift).toBeCloseTo(1.5);
     });
 
-    it("is large from two standard errors", () => {
+    it("is large from two standard errors that move the lift by half", () => {
       const result = classify(
         "uncapped",
         { lift: 0.05, standardError: 0.018, pValue: SIGNIFICANT },
-        { lift: 0.1, standardError: 0.02, pValue: SIGNIFICANT },
+        { lift: 0.12, standardError: 0.02, pValue: SIGNIFICANT },
       );
       expect(result?.effectSize).toBe("large");
-      expect(result?.standardErrorShift).toBeCloseTo(2.5);
+      expect(result?.standardErrorShift).toBeCloseTo(3.5);
       expect(result?.significanceChanged).toBe(false);
       expect(result?.signFlipped).toBe(false);
+    });
+
+    it("is not large when a strongly significant lift moves by less than half", () => {
+      // Ten standard errors from zero against seven: three apart, but 30%.
+      const result = classify(
+        "uncapped",
+        { lift: 0.1, standardError: 0.01, pValue: SIGNIFICANT },
+        { lift: 0.07, standardError: 0.01, pValue: SIGNIFICANT },
+      );
+      expect(result?.effectSize).toBe("moderate");
+      expect(result?.standardErrorShift).toBeCloseTo(3);
+      expect(result?.relativeChange).toBeCloseTo(0.3);
     });
 
     it("is large when significance changes with half a standard error", () => {
@@ -396,7 +408,7 @@ describe("one adjustment's impact", () => {
     );
     const moved = makeVariation(
       { lift: 0.05, standardError: 0.018, pValue: SIGNIFICANT },
-      { uncapped: { lift: 0.1, standardError: 0.02, pValue: SIGNIFICANT } },
+      { uncapped: { lift: 0.12, standardError: 0.02, pValue: SIGNIFICANT } },
     );
     const result = impactFor({
       ...commonArgs,
@@ -404,7 +416,7 @@ describe("one adjustment's impact", () => {
       field: "uncapped",
     });
     expect(result?.effectSize).toBe("large");
-    expect(result?.standardErrorShift).toBeCloseTo(2.5);
+    expect(result?.standardErrorShift).toBeCloseTo(3.5);
   });
 
   it("returns null without the supplemental result", () => {
@@ -464,16 +476,16 @@ describe("settings from the feature flag", () => {
   // The rules before they were tightened: large at 10% of the lift, or on any
   // change in status.
   const oldRule = {
-    scale: "relative",
-    thresholds: { moderate: 0.01, large: 0.1, largeWithTrigger: 0 },
-    largeTrigger: "statusChange",
+    moderate: [{ relativeChange: 0.01 }],
+    large: [{ relativeChange: 0.1 }, { requires: "statusChange" }],
   };
-  const oldSettings = parseAdjustmentImpactSettings({
-    unstratified: oldRule,
-    cupedUnadjusted: oldRule,
-    flatPrior: oldRule,
-    uncapped: oldRule,
+  const withRule = (rule: unknown) => ({
+    unstratified: rule,
+    cupedUnadjusted: rule,
+    flatPrior: rule,
+    uncapped: rule,
   });
+  const oldSettings = parseAdjustmentImpactSettings(withRule(oldRule));
 
   it("classifies with the given rules in place of the defaults", () => {
     // Half the lift, but a tenth of a standard error.
@@ -505,9 +517,17 @@ describe("settings from the feature flag", () => {
   });
 
   it("falls back to the defaults when malformed", () => {
-    expect(parseAdjustmentImpactSettings({ uncapped: oldRule })).toBe(
-      DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
-    );
+    expect(oldSettings).not.toBe(DEFAULT_ADJUSTMENT_IMPACT_SETTINGS);
+    for (const malformed of [
+      { uncapped: oldRule },
+      // A misspelt part or an empty condition would otherwise always be met.
+      withRule({ ...oldRule, large: [{ relativChange: 0.1 }] }),
+      withRule({ ...oldRule, large: [{}] }),
+    ]) {
+      expect(parseAdjustmentImpactSettings(malformed)).toBe(
+        DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
+      );
+    }
   });
 });
 
