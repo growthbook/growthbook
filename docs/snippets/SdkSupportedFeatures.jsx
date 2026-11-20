@@ -506,7 +506,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     go: {
       name: "Go SDK",
-      version: "0.7.0",
+      version: "0.8.0",
       github: "https://github.com/growthbook/growthbook-golang",
       examples: [
         {
@@ -526,6 +526,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v0.8.0",
         },
         {
           savedGroupReferencesV2: "≥ v0.6.0",

@@ -507,7 +507,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.7.0",
+    version: "0.8.0",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -527,6 +527,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v0.8.0",
       },
       {
         savedGroupReferencesV2: "≥ v0.6.0",
