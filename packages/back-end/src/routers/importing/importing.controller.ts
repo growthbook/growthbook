@@ -137,10 +137,7 @@ const optimizelyProxyBody = z.object({
 });
 
 export const proxyOptimizelyRequest = async (
-  req: AuthRequest<{
-    endpoint: string;
-    apiToken: string;
-  }>,
+  req: AuthRequest<z.infer<typeof optimizelyProxyBody>>,
   res: Response,
 ) => {
   getContextFromReq(req);

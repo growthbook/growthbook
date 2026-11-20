@@ -1,5 +1,6 @@
 import { escapeRegExp, pick } from "lodash";
 import md5 from "md5";
+import { z } from "zod";
 import { FeatureRule, FeatureValueType } from "shared/types/feature";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
@@ -32,117 +33,160 @@ import {
 
 // Shapes from Optimizely's REST API v2 (projects, environments, audiences,
 // events) and Flags API v1 (flags, variations, rulesets). Only the fields the
-// importer reads.
+// importer reads are checked; the rest pass through for the JSON preview.
 
-export type OptimizelyProject = {
-  id: number;
-  name: string;
-  is_flags_enabled?: boolean;
-};
+const projectSchema = z.looseObject({
+  id: z.number(),
+  name: z.string(),
+  is_flags_enabled: z.boolean().nullish(),
+});
 
-export type OptimizelyEnvironment = {
-  id: number;
-  key: string;
-  name: string;
-  archived?: boolean;
-  is_primary?: boolean;
-  priority?: number;
-};
+const environmentSchema = z.looseObject({
+  id: z.number(),
+  key: z.string(),
+  name: z.string(),
+  archived: z.boolean().nullish(),
+  is_primary: z.boolean().nullish(),
+  priority: z.number().nullish(),
+});
 
-export type OptimizelyAudience = {
-  id: number;
-  name: string;
-  description?: string;
-  archived?: boolean;
+const audienceSchema = z.looseObject({
+  id: z.number(),
+  name: z.string(),
+  description: z.string().nullish(),
+  archived: z.boolean().nullish(),
   // JSON-encoded condition tree
-  conditions: string;
-};
+  conditions: z.string(),
+});
 
-export type OptimizelyEvent = {
-  id: number;
-  key: string;
-  name?: string;
-  archived?: boolean;
-};
+const eventSchema = z.looseObject({
+  id: z.number(),
+  key: z.string(),
+  name: z.string().nullish(),
+  archived: z.boolean().nullish(),
+});
 
-type OptimizelyPropertyFilter = {
-  combine_operator?: "and" | "or";
-  conditions?: { name: string; operator: string; value: unknown }[];
-};
+const subMetricSchema = z.looseObject({
+  aggregator: z.string(),
+  event_id: z.number().nullish(),
+  field: z.string().nullish(),
+  scope: z.string().nullish(),
+  role: z.string().nullish(),
+  event_properties: z
+    .looseObject({
+      filter: z
+        .looseObject({
+          combine_operator: z.string().nullish(),
+          conditions: z
+            .array(
+              z.looseObject({
+                name: z.string(),
+                operator: z.string(),
+                value: z.unknown(),
+              }),
+            )
+            .nullish(),
+        })
+        .nullish(),
+    })
+    .nullish(),
+});
 
-type OptimizelySubMetric = {
-  aggregator: string;
-  event_id?: number | null;
-  field?: string | null;
-  scope?: string;
-  role?: "numerator" | "denominator";
-  event_properties?: { filter?: OptimizelyPropertyFilter } | null;
-};
-
-export type OptimizelyMetric = OptimizelySubMetric & {
-  winning_direction?: "increasing" | "decreasing";
-  display_title?: string;
+const metricSchema = subMetricSchema.extend({
+  winning_direction: z.string().nullish(),
+  display_title: z.string().nullish(),
   // Ratio metrics only
-  metrics?: OptimizelySubMetric[];
-};
+  metrics: z.array(subMetricSchema).nullish(),
+});
 
-export type OptimizelyRule = {
-  id?: number;
-  key: string;
-  name?: string;
-  type: string;
-  enabled?: boolean;
-  archived?: boolean;
-  status?: "draft" | "running" | "paused" | "concluded";
-  hypothesis?: string;
+const ruleSchema = z.looseObject({
+  id: z.number().nullish(),
+  key: z.string(),
+  name: z.string().nullish(),
+  // a/b, targeted_delivery, feature_rollout or multi_armed_bandit
+  type: z.string(),
+  enabled: z.boolean().nullish(),
+  archived: z.boolean().nullish(),
+  // draft, running, paused or concluded
+  status: z.string().nullish(),
   // Basis points (0-10000) of the audience
-  percentage_included?: number;
+  percentage_included: z.number().nullish(),
   // [] or "everyone", else ["or", { audience_id }, ...]
-  audience_conditions?: unknown[] | string;
-  variations?: Record<
-    string,
-    {
-      key: string;
-      name?: string;
-      percentage_included?: number;
-      variation_id?: number;
-      id?: number;
-    }
-  >;
-  baseline_variation_id?: number | null;
-  metrics?: OptimizelyMetric[];
-  allow_list?: Record<
-    string,
-    { user_id?: string; variation?: { key?: string } }
-  >;
-};
+  audience_conditions: z.union([z.array(z.unknown()), z.string()]).nullish(),
+  variations: z
+    .record(
+      z.string(),
+      z.looseObject({
+        key: z.string(),
+        name: z.string().nullish(),
+        percentage_included: z.number().nullish(),
+      }),
+    )
+    .nullish(),
+  metrics: z.array(metricSchema).nullish(),
+  allow_list: z
+    .record(
+      z.string(),
+      z.looseObject({
+        user_id: z.string().nullish(),
+        variation: z.looseObject({ key: z.string().nullish() }).nullish(),
+      }),
+    )
+    .nullish(),
+});
 
-export type OptimizelyRuleset = {
-  enabled?: boolean;
-  rule_priorities?: string[];
-  rules?: Record<string, OptimizelyRule>;
-  default_variation_key?: string;
-};
+const rulesetSchema = z.looseObject({
+  enabled: z.boolean().nullish(),
+  rule_priorities: z.array(z.string()).nullish(),
+  rules: z.record(z.string(), ruleSchema).nullish(),
+  default_variation_key: z.string().nullish(),
+});
 
-export type OptimizelyVariation = {
-  id?: number;
-  key: string;
-  name?: string;
-  archived?: boolean;
-  enabled?: boolean;
-  variables?: Record<string, { value?: string }>;
-};
+const variationSchema = z.looseObject({
+  key: z.string(),
+  name: z.string().nullish(),
+  archived: z.boolean().nullish(),
+  enabled: z.boolean().nullish(),
+  variables: z
+    .record(z.string(), z.looseObject({ value: z.string().nullish() }))
+    .nullish(),
+});
 
-export type OptimizelyFlag = {
-  id: number;
-  key: string;
-  name: string;
-  description?: string;
-  archived?: boolean;
-  variable_definitions?: Record<
-    string,
-    { key: string; type: string; default_value?: string }
-  >;
+const flagSchema = z.looseObject({
+  id: z.number(),
+  key: z.string(),
+  name: z.string(),
+  description: z.string().nullish(),
+  archived: z.boolean().nullish(),
+  variable_definitions: z
+    .record(
+      z.string(),
+      z.looseObject({
+        key: z.string(),
+        type: z.string(),
+        default_value: z.string().nullish(),
+      }),
+    )
+    .nullish(),
+});
+
+// The Flags API wraps every list
+const flagsPage = <T extends z.ZodType>(item: T) =>
+  z.looseObject({
+    items: z.array(item).nullish(),
+    next_url: z.array(z.string()).nullish(),
+  });
+
+export type OptimizelyProject = z.infer<typeof projectSchema>;
+export type OptimizelyEnvironment = z.infer<typeof environmentSchema>;
+export type OptimizelyAudience = z.infer<typeof audienceSchema>;
+export type OptimizelyEvent = z.infer<typeof eventSchema>;
+type OptimizelySubMetric = z.infer<typeof subMetricSchema>;
+export type OptimizelyMetric = z.infer<typeof metricSchema>;
+export type OptimizelyRule = z.infer<typeof ruleSchema>;
+export type OptimizelyRuleset = z.infer<typeof rulesetSchema>;
+export type OptimizelyVariation = z.infer<typeof variationSchema>;
+export type OptimizelyFlag = z.infer<typeof flagSchema> & {
   // Fetched per flag and attached here
   variations: OptimizelyVariation[];
   // By environment key
@@ -160,14 +204,16 @@ export type OptimizelyData = {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function getFromOptimizely<T>(
+async function getFromOptimizely<T extends z.ZodType>(
   endpoint: string,
+  schema: T,
   apiToken: string,
   apiCall: ApiCall,
-): Promise<T> {
+): Promise<z.infer<T>> {
   for (let attempt = 0; ; attempt++) {
+    let response: unknown;
     try {
-      return await apiCall<T>("/importing/optimizely", {
+      response = await apiCall<unknown>("/importing/optimizely", {
         method: "POST",
         body: JSON.stringify({ endpoint, apiToken }),
       });
@@ -178,6 +224,14 @@ async function getFromOptimizely<T>(
       }
       throw new Error(`Optimizely /${endpoint}: ${e.message}`);
     }
+    const parsed = schema.safeParse(response);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      throw new Error(
+        `Unexpected response from Optimizely /${endpoint}: ${issue.path.join(".")} ${issue.message}`,
+      );
+    }
+    return parsed.data;
   }
 }
 
@@ -199,25 +253,26 @@ export async function fetchOptimizelyData(
   if (!/^\d+$/.test(projectId)) {
     throw new Error("The Optimizely project ID is a number");
   }
-  const get = <T>(endpoint: string) =>
-    getFromOptimizely<T>(endpoint, apiToken, apiCall);
+  const get = <T extends z.ZodType>(endpoint: string, schema: T) =>
+    getFromOptimizely(endpoint, schema, apiToken, apiCall);
 
-  const project = await get<OptimizelyProject>(`v2/projects/${projectId}`);
+  const project = await get(`v2/projects/${projectId}`, projectSchema);
   if (!project.is_flags_enabled) {
     throw new Error(
       "Only Feature Experimentation projects can be imported. This project doesn't use flags.",
     );
   }
 
-  const getAllV2 = async <T>(resource: string): Promise<T[]> => {
-    const all: T[] = [];
+  const getAllV2 = async <T extends z.ZodType>(
+    resource: string,
+    schema: T,
+  ): Promise<z.infer<T>[]> => {
+    const all: z.infer<T>[] = [];
     for (let page = 1; page <= 200; page++) {
-      const items = await get<T[]>(
+      const items = await get(
         `v2/${resource}?project_id=${projectId}&per_page=${V2_PAGE_SIZE}&page=${page}`,
+        z.array(schema),
       );
-      if (!Array.isArray(items)) {
-        throw new Error(`Unexpected response from Optimizely /v2/${resource}`);
-      }
       all.push(...items);
       if (items.length < V2_PAGE_SIZE) break;
     }
@@ -234,13 +289,16 @@ export async function fetchOptimizelyData(
     interval: 1100,
     intervalCap: 2,
   });
-  const getFlagsApi = <T>(path: string) =>
-    flagsQueue.add(() => get<T>(`flags/v1${path}`)) as Promise<T>;
-  const getAllFlagsApi = async <T>(path: string): Promise<T[]> => {
-    const all: T[] = [];
+  const getFlagsApi = <T extends z.ZodType>(path: string, schema: T) =>
+    flagsQueue.add(() => get(`flags/v1${path}`, schema)) as Promise<z.infer<T>>;
+  const getAllFlagsApi = async <T extends z.ZodType>(
+    path: string,
+    schema: T,
+  ): Promise<z.infer<T>[]> => {
+    const all: z.infer<T>[] = [];
     let next: string | undefined = path;
     for (let page = 0; next && page < 200; page++) {
-      const res: { items?: T[]; next_url?: string[] } = await getFlagsApi(next);
+      const res = await getFlagsApi(next, flagsPage(schema));
       all.push(...(res.items ?? []));
       next = res.next_url?.[0];
     }
@@ -248,12 +306,10 @@ export async function fetchOptimizelyData(
   };
 
   const [environments, audiences, events, flags] = await Promise.all([
-    getAllV2<OptimizelyEnvironment>("environments"),
-    getAllV2<OptimizelyAudience>("audiences"),
-    getAllV2<OptimizelyEvent>("events"),
-    getAllFlagsApi<Omit<OptimizelyFlag, "variations" | "rulesets">>(
-      `/projects/${projectId}/flags?archived=false`,
-    ),
+    getAllV2("environments", environmentSchema),
+    getAllV2("audiences", audienceSchema),
+    getAllV2("events", eventSchema),
+    getAllFlagsApi(`/projects/${projectId}/flags?archived=false`, flagSchema),
   ]);
 
   const liveEnvironments = environments
@@ -274,11 +330,12 @@ export async function fetchOptimizelyData(
     flags.map(async (flag) => {
       const base = `/projects/${projectId}/flags/${encodeURIComponent(flag.key)}`;
       const [variations, rulesets] = await Promise.all([
-        getAllFlagsApi<OptimizelyVariation>(`${base}/variations`).then(tick),
+        getAllFlagsApi(`${base}/variations`, variationSchema).then(tick),
         Promise.all(
           liveEnvironments.map((env) =>
-            getFlagsApi<OptimizelyRuleset>(
+            getFlagsApi(
               `${base}/environments/${encodeURIComponent(env.key)}/ruleset`,
+              rulesetSchema,
             )
               .then(tick)
               .then((ruleset) => [env.key, ruleset] as const),

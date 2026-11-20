@@ -1,9 +1,11 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ApiAutoRun } from "shared/validators";
+import { ApiCall } from "@/services/importing/eppo/eppo-importing";
 import {
   audienceToCondition,
   buildImportData,
   ExistingIds,
+  fetchOptimizelyData,
   getImportedIds,
   getMetrics,
   getRuleTargeting,
@@ -171,6 +173,15 @@ const NOTHING_EXISTS: ExistingIds = {
   factMetrics: new Map(),
   features: new Set(),
 };
+
+describe("fetchOptimizelyData", () => {
+  it("rejects a response that isn't shaped like Optimizely's", async () => {
+    const apiCall = (async () => ({ id: "1", name: "Shop" })) as ApiCall;
+    await expect(fetchOptimizelyData("token", "1", apiCall)).rejects.toThrow(
+      "Unexpected response from Optimizely /v2/projects/1: id",
+    );
+  });
+});
 
 describe("audienceToCondition", () => {
   it("collapses the UI's nesting around a single condition", () => {
