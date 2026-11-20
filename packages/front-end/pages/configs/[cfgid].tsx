@@ -1100,7 +1100,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     });
   }, [panelRevision, config, environments]);
 
-  const loadError = error ?? revisionsError;
+  // A failed refresh keeps the revisions already shown.
+  const loadError = error ?? (selectionSettled ? undefined : revisionsError);
   if (loadError) {
     return (
       <Callout status="error" mt="4">
@@ -2290,7 +2291,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                                     }
                                     initialValue={seed.text}
                                     initialNull={seed.kind === "null"}
-                                    valueMissing={f.value === undefined}
                                     existingKeys={resolved.fields.map(
                                       (rf) => rf.key,
                                     )}
@@ -2466,6 +2466,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                   </Callout>
                 )}
                 <ConfigInvariantsEditor
+                  // A rule open in its dialog belongs to one revision.
+                  key={`${configKey}:${selectedRevisionId}`}
                   invariants={ownSchema().invariants ?? []}
                   inherited={inheritedInvariants}
                   fieldKeys={resolved.fields.map((f) => f.key)}

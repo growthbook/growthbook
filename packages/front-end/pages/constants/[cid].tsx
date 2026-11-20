@@ -325,7 +325,8 @@ export default function ConstantDetailPage(): React.ReactElement {
     ) as ConstantInterface;
   }, [selectedRevision, constant]);
 
-  const loadError = error ?? revisionsError;
+  // A failed refresh keeps the revisions already shown.
+  const loadError = error ?? (selectionSettled ? undefined : revisionsError);
   if (loadError) {
     return (
       <Callout status="error" mt="4">
