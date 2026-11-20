@@ -1323,6 +1323,76 @@ describe("ExperimentSnapshotModel", () => {
         stored?.analyses[1].results[0].variations[0].metrics.met_1.value,
       ).toBe(20);
     });
+
+    describe("a new-metrics update finishing", () => {
+      const at = (hour: number) => new Date(Date.UTC(2026, 10, 10, hour));
+
+      async function insertOverall(
+        id: string,
+        dateCreated: Date,
+        overrides: Partial<ExperimentSnapshotInterface> = {},
+      ) {
+        const snapshot = makeSnapshotWithMetric(id);
+        Object.assign(snapshot, {
+          experiment: "exp_refresh",
+          type: "standard",
+          status: "success",
+          dateCreated,
+          ...overrides,
+        });
+        await createExperimentSnapshotModel({
+          data: snapshot,
+          context: getSnapshotUpdateContext(),
+        });
+      }
+
+      async function finishRefreshOf(
+        parentSnapshotId: string,
+        overrides: Partial<ExperimentSnapshotInterface> = {},
+      ) {
+        await insertOverall("snp_refresh", at(3), {
+          ...overrides,
+          status: "running",
+          newMetricsUpdate: {
+            baseDateCreated: at(0),
+            baseRunStarted: null,
+            baseCutoffDate: at(0),
+            parentSnapshotId,
+            metricIds: ["met_1"],
+          },
+        });
+        await updateSnapshot({
+          context: getSnapshotUpdateContext(),
+          id: "snp_refresh",
+          updates: {
+            status: "success",
+            analyses: [
+              makeAnalysis({ settings: makeAnalysisSettings(), value: 1 }),
+            ],
+          },
+        });
+      }
+
+      it("updates the summary while its parent is still the latest Overall results", async () => {
+        mockSuccessfulExperimentLoad("exp_refresh");
+        await insertOverall("snp_parent", at(0));
+
+        await finishRefreshOf("snp_parent");
+
+        expect(updateExperimentAnalysisSummary).toHaveBeenCalledTimes(1);
+      });
+
+      it("yields to a full update planned before it that finished first", async () => {
+        mockSuccessfulExperimentLoad("exp_refresh");
+        await insertOverall("snp_parent", at(0));
+        await insertOverall("snp_full", at(2));
+
+        await finishRefreshOf("snp_parent");
+
+        expect(updateExperimentAnalysisSummary).not.toHaveBeenCalled();
+        expect(notifyExperimentChange).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe("chunked snapshot analysis updates", () => {

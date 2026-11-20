@@ -1,0 +1,523 @@
+import isEqual from "lodash/isEqual";
+import omitBy from "lodash/omitBy";
+import pick from "lodash/pick";
+import {
+  getDefinitionMetricId,
+  getMetricIdsMissingFromSnapshot,
+  getNewMetricsUpdateParentRefusal,
+  getNewMetricsUpdatePlanRefusal,
+  getNewMetricsUpdateSetupBlocker,
+  getResultsOutdatedReasons,
+  isFactMetric,
+  type ExperimentMetricInterface,
+  type NewMetricsUpdateRefusal,
+} from "shared/experiments";
+import { getSnapshotCutoffDate } from "shared/util";
+import type { IncrementalRefreshInterface } from "shared/validators";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+  SnapshotNewMetricsUpdate,
+} from "shared/types/experiment-snapshot";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { StatsEngine } from "shared/types/stats";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { PlannedExperimentSnapshot } from "back-end/src/services/experiments";
+import {
+  findLatestSuccessfulOverallSnapshot,
+  getLatestSnapshotStatus,
+} from "back-end/src/models/ExperimentSnapshotModel";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
+import { getQueriesByIds } from "back-end/src/models/QueryModel";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
+import { getMetricSettingsHashesForIncrementalRefresh } from "back-end/src/enterprise/services/data-pipeline";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { isCarriedNewMetricsUpdateQuery } from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
+import {
+  assertCarriedQuerySqlUnchanged,
+  type GenerateResultQuerySql,
+} from "back-end/src/services/newMetricsUpdateSqlIdentity";
+import {
+  BadRequestError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  NewMetricsUpdateUnavailableError,
+  MetricsAlreadyUpToDateError,
+  SnapshotInProgressError,
+} from "back-end/src/util/errors";
+
+/**
+ * Plans a snapshot that queries only the experiment's metrics missing from
+ * the latest successful Overall snapshot (its parent) and copies the
+ * parent's query results for every other metric, pinned to the parent's end
+ * date. Throws a typed error before anything is written.
+ */
+export async function planNewMetricsUpdate({
+  context,
+  experiment,
+  datasource,
+  phase,
+  dimension,
+  useCache,
+  metricGroups,
+  statsEngine,
+  pValueThreshold,
+  metricMap,
+  factTableMap,
+  planSnapshotAt,
+  generateResultQuerySql,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  phase: number;
+  dimension: string | undefined;
+  useCache: boolean;
+  metricGroups: MetricGroupInterface[];
+  statsEngine: StatsEngine;
+  pValueThreshold: number;
+  // Today's definitions, including the derived metrics planning expands.
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  planSnapshotAt: (cutoff: Date) => Promise<PlannedExperimentSnapshot>;
+  generateResultQuerySql: GenerateResultQuerySql;
+}): Promise<PlannedExperimentSnapshot> {
+  if (dimension) {
+    throw new BadRequestError(
+      "Updating newly added metrics can't be combined with a dimension.",
+    );
+  }
+  if (!useCache) {
+    throw new BadRequestError(
+      "Updating newly added metrics can't be combined with a forced rerun.",
+    );
+  }
+  const blockerArgs = {
+    experiment,
+    phase,
+    separateExperimentResultQueries: !!getSourceIntegrationObject(
+      context,
+      datasource,
+      true,
+    ).getSourceProperties().separateExperimentResultQueries,
+  };
+  const setupBlocker = getNewMetricsUpdateSetupBlocker(blockerArgs);
+  if (setupBlocker) {
+    throw new NewMetricsUpdateUnavailableError(setupBlocker);
+  }
+
+  const latest = await getLatestSnapshotStatus({
+    context,
+    experiment: experiment.id,
+    phase,
+    type: "standard",
+  });
+  if (latest?.status === "running") {
+    throw new SnapshotInProgressError(latest.id);
+  }
+
+  const parent = await findLatestSuccessfulOverallSnapshot(context, {
+    experiment: experiment.id,
+    phase,
+  });
+  if (!parent) {
+    throw new NewMetricsUpdateUnavailableError("no_base_snapshot");
+  }
+
+  const missingMetricIds = getMetricIdsMissingFromSnapshot({
+    experiment,
+    snapshotSettings: parent.settings,
+    metricGroups,
+  });
+  if (!missingMetricIds.length) {
+    throw new MetricsAlreadyUpToDateError(parent.id);
+  }
+  // The app offers a new-metrics update only when "Metrics changed" is the one
+  // Outdated reason, so the back end refuses on the same reasons.
+  const outdatedReasons = getResultsOutdatedReasons({
+    experiment,
+    snapshot: parent,
+    metricGroups,
+    orgSettings: context.org.settings ?? {},
+    pValueThreshold,
+    statsEngine,
+    features: {
+      regressionAdjustment: orgHasPremiumFeature(
+        context.org,
+        "regression-adjustment",
+      ),
+      postStratification: orgHasPremiumFeature(
+        context.org,
+        "post-stratification",
+      ),
+      sequentialTesting: orgHasPremiumFeature(
+        context.org,
+        "sequential-testing",
+      ),
+    },
+    phase,
+    exposureQueries: datasource.settings.queries?.exposure ?? [],
+    // Only "Metrics changed" reads these, and it never refuses.
+    unjoinableMetricIds: new Set(),
+    conversionWindowMetricIds: new Set(),
+    // The parent is the latest Overall Results.
+    newerOverallResultsAvailable: false,
+    // Callers refuse frozen results before planning.
+    resultsUpdateDisabled: false,
+  });
+  const parentRefusal = getNewMetricsUpdateParentRefusal({
+    ...blockerArgs,
+    outdatedReasons,
+  });
+  if (parentRefusal) {
+    throw new NewMetricsUpdateUnavailableError(parentRefusal);
+  }
+  // A new-metrics update extends the parent's default analysis.
+  if (parent.analyses[0]?.status !== "success") {
+    throw new NewMetricsUpdateUnavailableError("base_incomplete");
+  }
+
+  // Planning reports tables past the cutoff as changed settings, so check the
+  // tables a later run may have left first.
+  const onIncrementalPipeline = (parent.runnerKind ?? "results") !== "results";
+  const incrementalState = onIncrementalPipeline
+    ? await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+        experiment.id,
+        phase,
+      )
+    : null;
+  if (onIncrementalPipeline) {
+    assertIncrementalTablesMatchParent({
+      state: incrementalState,
+      parentSnapshotId: parent.id,
+      scanEnd: parent.settings.endDate,
+    });
+  }
+  const plan = await planSnapshotAt(parent.settings.endDate).catch(
+    (error: unknown) => {
+      if (
+        error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+      ) {
+        throw new NewMetricsUpdateUnavailableError("settings_changed");
+      }
+      throw error;
+    },
+  );
+  const planRefusal = getNewMetricsUpdatePlanRefusal({
+    parent,
+    outdatedReasons,
+    planned: {
+      runnerKind: plan.snapshot.runnerKind ?? "results",
+      settings: plan.snapshot.settings,
+    },
+  });
+  if (planRefusal) {
+    throw getPlanRefusalError(planRefusal, plan);
+  }
+  if (changesUnreasonedSetting(parent, plan.snapshot.settings)) {
+    throw new NewMetricsUpdateUnavailableError("settings_changed");
+  }
+
+  const { settings, queriedMetricIds } = mergeNewMetricsUpdateSettings({
+    parent: parent.settings,
+    planned: plan.snapshot.settings,
+    targetMetricIds: missingMetricIds,
+  });
+  if (!queriedMetricIds.length) {
+    throw new MetricsAlreadyUpToDateError(parent.id);
+  }
+  const queried = new Set(queriedMetricIds);
+  const snapshot = {
+    ...plan.snapshot,
+    settings,
+    newMetricsUpdate: getNewMetricsUpdateLineage(parent, queriedMetricIds),
+  };
+  const carriedQueries = parent.queries.filter((q) =>
+    isCarriedNewMetricsUpdateQuery(q.name, snapshot, snapshot.newMetricsUpdate),
+  );
+  if (carriedQueries.some((q) => q.status !== "succeeded")) {
+    throw new NewMetricsUpdateUnavailableError("base_incomplete");
+  }
+  // The Incremental Pipeline's carried SQL only reads its cache tables, so
+  // identical text there would prove nothing about the metrics behind them;
+  // the settings hash stored for each cached metric does.
+  if (onIncrementalPipeline) {
+    // The runner copies each carried query from its document, which can be
+    // gone while the parent still points at it. The Results pipeline loads the
+    // same documents to compare their SQL.
+    const carriedDocs = new Map(
+      (
+        await getQueriesByIds(
+          context,
+          carriedQueries.map((q) => q.query),
+          false,
+        )
+      ).map((doc) => [doc.id, doc.status]),
+    );
+    if (carriedQueries.some((q) => carriedDocs.get(q.query) !== "succeeded")) {
+      throw new NewMetricsUpdateUnavailableError("base_incomplete");
+    }
+    assertCopiedMetricCachesUnchanged({
+      metricSources: incrementalState?.metricSources ?? [],
+      copiedMetricIds: new Set(
+        settings.metricSettings
+          .map((m) => m.id)
+          .filter((id) => !queried.has(id)),
+      ),
+      todaysSettingsHashes: getMetricSettingsHashesForIncrementalRefresh({
+        factMetrics: getQueryableMetricsFromSnapshotSettings(
+          plan.snapshot.settings,
+          metricMap,
+        ).filter(isFactMetric),
+        factTableMap,
+        snapshotSettings: plan.snapshot.settings,
+      }),
+    });
+  } else {
+    await assertCarriedQuerySqlUnchanged({
+      context,
+      parent,
+      planned: plan.snapshot.settings,
+      carriedQueries,
+      generateResultQuerySql,
+    });
+  }
+
+  return { ...plan, snapshot };
+}
+
+// What the back end knows beyond the shared rules: why the planned run is on
+// another pipeline.
+function getPlanRefusalError(
+  refusal: Exclude<NewMetricsUpdateRefusal, "outside_window">,
+  plan: Pick<PlannedExperimentSnapshot, "incrementalFallbackReason">,
+): NewMetricsUpdateUnavailableError {
+  if (refusal === "incremental_pipeline") {
+    return new NewMetricsUpdateUnavailableError(
+      "incremental_pipeline",
+      'The Incremental Pipeline has no tables for this experiment\'s current settings yet, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" to build them.',
+    );
+  }
+  if (refusal === "metric_not_supported" && plan.incrementalFallbackReason) {
+    return new NewMetricsUpdateUnavailableError(
+      "metric_not_supported",
+      `The latest results ran on the Incremental Pipeline, which can't run this experiment now. ${plan.incrementalFallbackReason} Send "updateScope": "all_metrics" instead.`,
+    );
+  }
+  return new NewMetricsUpdateUnavailableError(refusal);
+}
+
+// Settings no Outdated reason covers whose change would make a copied result
+// differ from a normal update's. Copied metrics keep the parent's analysis, so
+// settings the stats engine reads count as well as those in the queries.
+const UNREASONED_SETTINGS = [
+  // The same SQL can run against another Data Source.
+  "datasourceId",
+  // Copied metrics keep the priors the parent analyzed them with.
+  "defaultMetricPriorSettings",
+  // The badge compares variation keys; the SRM check reads their weights.
+  "variations",
+  "coverage",
+  // The tracking key the queries filter on.
+  "experimentId",
+  // The badge tolerates a day of drift; the queries start at this exact time.
+  "startDate",
+] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
+// Settings that only shape result query SQL. A results parent's update
+// regenerates and compares that SQL; on the Incremental Pipeline the carried
+// SQL only reads its tables, so they are compared here.
+const UNREASONED_QUERY_SETTINGS = [
+  "customFields",
+  "dimensions",
+  "lookbackOverride",
+  "precomputedUnitDimensionIds",
+] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
+
+const isEmptySetting = (value: unknown): boolean =>
+  value === null ||
+  value === false ||
+  value === "" ||
+  (typeof value === "object" && !Object.keys(value).length);
+
+// A setting one side lacks counts as that setting left empty.
+function changesUnreasonedSetting(
+  parent: Pick<ExperimentSnapshotInterface, "settings" | "runnerKind">,
+  planned: ExperimentSnapshotSettings,
+): boolean {
+  const keys: string[] = [
+    ...UNREASONED_SETTINGS,
+    ...((parent.runnerKind ?? "results") === "results"
+      ? []
+      : UNREASONED_QUERY_SETTINGS),
+  ];
+  const comparable = (settings: ExperimentSnapshotSettings) =>
+    omitBy(JSON.parse(JSON.stringify(pick(settings, keys))), isEmptySetting);
+  const before = comparable(parent.settings);
+  const after = comparable(planned);
+  return keys.some((key) => !isEqual(before[key], after[key]));
+}
+
+/**
+ * Settings for the new-metrics update: planned entries for the target metrics
+ * and their slices and funnel steps, the parent's stored entries verbatim for
+ * every other metric. Any other planned entry the parent lacks is dropped.
+ */
+export function mergeNewMetricsUpdateSettings({
+  parent,
+  planned,
+  targetMetricIds,
+}: {
+  parent: ExperimentSnapshotSettings;
+  planned: ExperimentSnapshotSettings;
+  targetMetricIds: readonly string[];
+}): { settings: ExperimentSnapshotSettings; queriedMetricIds: string[] } {
+  const targets = new Set(targetMetricIds);
+  const isTarget = (id: string) => targets.has(getDefinitionMetricId(id));
+  const parentEntries = new Map(parent.metricSettings.map((m) => [m.id, m]));
+
+  const metricSettings = planned.metricSettings.flatMap((entry) => {
+    if (isTarget(entry.id)) return [entry];
+    const carried = parentEntries.get(entry.id);
+    return carried ? [carried] : [];
+  });
+  const kept = new Set(metricSettings.map((m) => m.id));
+  const queried = new Set(
+    metricSettings
+      .map((m) => getDefinitionMetricId(m.id))
+      .filter((id) => targets.has(id)),
+  );
+
+  const settings: ExperimentSnapshotSettings = { ...planned, metricSettings };
+  if (planned.metricStatsEngineInputs || parent.metricStatsEngineInputs) {
+    settings.metricStatsEngineInputs = [
+      ...(parent.metricStatsEngineInputs ?? []).filter(
+        ({ id }) => kept.has(id) && !isTarget(id),
+      ),
+      ...(planned.metricStatsEngineInputs ?? []).filter(({ id }) =>
+        isTarget(id),
+      ),
+    ];
+  }
+  if (planned.clusterLevelMetricIds || parent.clusterLevelMetricIds) {
+    settings.clusterLevelMetricIds = [
+      ...(parent.clusterLevelMetricIds ?? []).filter(
+        (id) => kept.has(id) && !isTarget(id),
+      ),
+      ...(planned.clusterLevelMetricIds ?? []).filter(isTarget),
+    ];
+  }
+
+  return {
+    settings,
+    queriedMetricIds: targetMetricIds.filter((id) => queried.has(id)),
+  };
+}
+
+export function getNewMetricsUpdateLineage(
+  parent: Pick<
+    ExperimentSnapshotInterface,
+    "id" | "dateCreated" | "runStarted" | "settings" | "newMetricsUpdate"
+  >,
+  metricIds: string[],
+): SnapshotNewMetricsUpdate {
+  const root = parent.newMetricsUpdate
+    ? {
+        baseDateCreated: parent.newMetricsUpdate.baseDateCreated,
+        baseRunStarted: parent.newMetricsUpdate.baseRunStarted,
+        baseCutoffDate: parent.newMetricsUpdate.baseCutoffDate,
+      }
+    : {
+        baseDateCreated: parent.dateCreated,
+        baseRunStarted: parent.runStarted,
+        baseCutoffDate: getSnapshotCutoffDate(parent.settings),
+      };
+  return { ...root, parentSnapshotId: parent.id, metricIds };
+}
+
+/**
+ * Accepts the pipeline state only when every stored table still holds no data
+ * past the parent's end and the parent is the last run that succeeded on it.
+ * A failed run since then may have rebuilt some caches; those hold data only
+ * up to the parent's end as well, so the new-metrics update reads them like
+ * the others.
+ */
+export function assertIncrementalTablesMatchParent({
+  state,
+  parentSnapshotId,
+  scanEnd,
+}: {
+  state: Pick<
+    IncrementalRefreshInterface,
+    | "unitsTableFullName"
+    | "unitsMaxTimestamp"
+    | "materializedBySnapshotId"
+    | "metricSources"
+  > | null;
+  parentSnapshotId: string;
+  scanEnd: Date;
+}): void {
+  const pastScanEnd = (timestamp: Date | null) =>
+    !!timestamp && timestamp > scanEnd;
+  const tablesMatchParent =
+    !!state?.unitsTableFullName &&
+    state.materializedBySnapshotId === parentSnapshotId &&
+    ![
+      state.unitsMaxTimestamp,
+      ...state.metricSources.map((s) => s.maxTimestamp),
+    ].some(pastScanEnd);
+  if (!tablesMatchParent) {
+    throw new NewMetricsUpdateUnavailableError("incremental_pipeline");
+  }
+}
+
+/**
+ * Refuses when a copied metric's cache was built with settings other than
+ * today's, such as before its definition was edited. Its copied results came
+ * from that cache, which a normal update would rebuild.
+ */
+function assertCopiedMetricCachesUnchanged({
+  metricSources,
+  copiedMetricIds,
+  todaysSettingsHashes,
+}: {
+  metricSources: IncrementalRefreshInterface["metricSources"];
+  copiedMetricIds: ReadonlySet<string>;
+  todaysSettingsHashes: ReadonlyMap<string, string>;
+}): void {
+  const changed = metricSources.some((source) =>
+    source.metrics.some((m) => {
+      const todaysHash = todaysSettingsHashes.get(m.id);
+      return (
+        copiedMetricIds.has(m.id) &&
+        todaysHash !== undefined &&
+        todaysHash !== m.settingsHash
+      );
+    }),
+  );
+  if (changed) {
+    throw new NewMetricsUpdateUnavailableError("settings_changed");
+  }
+}
+
+/** Checks, under the run's lock, the tables an incremental refresh reads. */
+export async function assertIncrementalNewMetricsUpdateBase({
+  context,
+  snapshot,
+  newMetricsUpdate,
+}: {
+  context: ReqContext | ApiReqContext;
+  snapshot: PlannedExperimentSnapshot["snapshot"];
+  newMetricsUpdate: SnapshotNewMetricsUpdate;
+}): Promise<void> {
+  assertIncrementalTablesMatchParent({
+    state: await context.models.incrementalRefresh.getLockedBySnapshotId(
+      snapshot.experiment,
+      snapshot.id,
+    ),
+    parentSnapshotId: newMetricsUpdate.parentSnapshotId,
+    scanEnd: snapshot.settings.endDate,
+  });
+}

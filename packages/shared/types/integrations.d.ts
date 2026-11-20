@@ -368,6 +368,7 @@ export interface ExperimentUnitsQuerySettings {
   startDate: Date;
   endDate: Date;
   endDateIsCutoff?: boolean;
+  analysisAsOf?: Date;
   skipPartialData: boolean;
   attributionModel: AttributionModel;
   queryFilter: string;
@@ -477,6 +478,10 @@ export interface InsertMetricSourceDataQueryParams {
   // for an ended phase, the analysis end date for a running one. A row past it
   // can't become the cache watermark.
   incrementalRefreshStartTime: Date;
+}
+
+export interface DropMetricSourceTableQueryParams {
+  metricSourceTableFullName: string;
 }
 
 export interface DropMetricSourceCovariateTableQueryParams {

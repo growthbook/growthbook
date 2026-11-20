@@ -6,6 +6,7 @@ import {
   AnalysisMetaEntry,
 } from "shared/snapshot-analysis-chunks";
 import {
+  BusinessMetricTypeForStatsEngine,
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
   DifferenceType,
@@ -120,6 +121,19 @@ export interface MetricForSnapshot {
     targetMDE?: number;
   };
 }
+
+/**
+ * What the stats engine reads for a metric that neither its result query SQL
+ * nor the Incremental Pipeline's settings hash covers.
+ */
+export interface MetricStatsEngineInputs {
+  inverse: boolean;
+  properPrior: boolean;
+  properPriorMean: number;
+  properPriorStdDev: number;
+  targetMDE: number;
+  businessMetricTypes: BusinessMetricTypeForStatsEngine[];
+}
 export interface DimensionForSnapshot {
   /** Encodes type and id (e.g. `exp:country`, `pre:date`). */
   id: string;
@@ -198,6 +212,9 @@ export interface ExperimentSnapshotSettings {
   /** Always-computed unit dimensions gathered in 1 pass and split into per-dimension analyses. */
   precomputedUnitDimensionIds?: string[];
   metricSettings: MetricForSnapshot[];
+  // Kept apart from metricSettings, whose entries the time series hash whole.
+  // Absent on snapshots planned before they were stored.
+  metricStatsEngineInputs?: ({ id: string } & MetricStatsEngineInputs)[];
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
@@ -228,8 +245,32 @@ export interface ExperimentSnapshotSettings {
   // endDate is read, conversions included. Otherwise conversion windows extend
   // past endDate.
   endDateIsCutoff?: boolean;
+  // When the update was planned. Without a cutoff, skipPartialData counts
+  // conversion windows back from it, so the SQL can be generated again exactly.
+  // Absent on snapshots planned before it was stored.
+  analysisAsOf?: Date;
   /** @deprecated */
   manual?: boolean;
+}
+
+/**
+ * Lineage of a new-metrics update: a complete Overall snapshot that copied a
+ * previous snapshot's finished queries and queried only `metricIds`, pinned
+ * to that snapshot's end date. Absent on every other snapshot.
+ */
+export interface SnapshotNewMetricsUpdate {
+  // The base* fields describe the full snapshot (not itself a new-metrics
+  // update) that the chain of new-metrics updates started from.
+  baseDateCreated: Date;
+  // The base's runStarted, which the results endpoint reports as its dateEnd.
+  baseRunStarted: Date | null;
+  // The base's analysis cutoff, or null when it analyzed through its run time.
+  baseCutoffDate: Date | null;
+  // The snapshot whose queries were copied and whose metric settings were kept.
+  parentSnapshotId: string;
+  // Experiment metric ids this run queried. Their slices and funnel steps
+  // were queried with them and are not listed.
+  metricIds: string[];
 }
 
 export interface ExperimentSnapshotInterface {
@@ -256,6 +297,7 @@ export interface ExperimentSnapshotInterface {
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
   runnerKind?: SnapshotQueryRunnerKind;
+  newMetricsUpdate?: SnapshotNewMetricsUpdate;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;
@@ -298,6 +340,7 @@ export type SnapshotStatusSummary = Pick<
   | "banditResult"
   | "type"
   | "triggeredBy"
+  | "newMetricsUpdate"
 >;
 
 export interface ExperimentSnapshotHealth {

@@ -18530,6 +18530,19 @@ paths:
                   description: >-
                     Zero-based phase index to snapshot, where 0 is the first
                     experiment phase. Defaults to the latest phase.
+                updateScope:
+                  type: string
+                  enum:
+                    - auto
+                    - new_metrics
+                    - all_metrics
+                  description: >-
+                    Which metrics the update computes. "auto" (default) computes
+                    only the metrics added since the latest results when nothing
+                    else changed and those results are recent, otherwise all
+                    metrics. "new_metrics" computes only the added metrics and
+                    returns a 409 when it cannot. "all_metrics" computes every
+                    metric.
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -18597,6 +18610,57 @@ paths:
                       details:
                         $ref: >-
                           #/components/schemas/ApiErrorDimensionAlreadyUpToDateDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: >-
+                      Every metric of the experiment that an update can compute
+                      already has results in the latest Overall Results
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - metrics_already_up_to_date
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorMetricsAlreadyUpToDateDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: An update of the experiment's results is running
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - snapshot_in_progress
+                      details:
+                        $ref: '#/components/schemas/ApiErrorSnapshotInProgressDetails'
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: >-
+                      Newly added metrics can't be updated on their own; send
+                      "updateScope": "all_metrics" instead
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - new_metrics_update_unavailable
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorNewMetricsUpdateUnavailableDetails
                     required:
                       - message
                       - code
@@ -93173,10 +93237,27 @@ components:
           type: string
         status:
           type: string
+          enum:
+            - running
+            - success
+            - error
+          description: '"running" while the update is in progress, then "success" or "error"'
+        error:
+          type: string
+          description: Why the update failed. Present only when "status" is "error"
+        updateScope:
+          type: string
+          enum:
+            - all_metrics
+            - new_metrics
+          description: >-
+            "new_metrics" when the update computed only the metrics added since
+            the latest results, otherwise "all_metrics".
       required:
         - id
         - experiment
         - status
+        - updateScope
       additionalProperties: false
     VisualChange:
       type: object
@@ -93387,6 +93468,43 @@ components:
           type: string
       required:
         - overallResultsAsOf
+      additionalProperties: false
+    ApiErrorMetricsAlreadyUpToDateDetails:
+      type: object
+      properties:
+        latestSnapshotId:
+          type: string
+          description: The snapshot of the latest Overall Results
+      required:
+        - latestSnapshotId
+      additionalProperties: false
+    ApiErrorSnapshotInProgressDetails:
+      type: object
+      properties:
+        snapshotId:
+          type: string
+          description: >-
+            The running update's snapshot. Poll it until it finishes. Absent
+            when it isn't known
+      additionalProperties: false
+    ApiErrorNewMetricsUpdateUnavailableDetails:
+      type: object
+      properties:
+        reason:
+          type: string
+          enum:
+            - no_base_snapshot
+            - not_latest_phase
+            - phase_ended
+            - unsupported_experiment_type
+            - unsupported_data_source
+            - incremental_pipeline
+            - metric_not_supported
+            - settings_changed
+            - analysis_dates_changed
+            - base_incomplete
+      required:
+        - reason
       additionalProperties: false
     ApiErrorInvalidTrackingKeyDetails:
       type: object
@@ -94590,10 +94708,27 @@ components:
           type: string
         status:
           type: string
+          enum:
+            - running
+            - success
+            - error
+          description: '"running" while the update is in progress, then "success" or "error"'
+        error:
+          type: string
+          description: Why the update failed. Present only when "status" is "error"
+        updateScope:
+          type: string
+          enum:
+            - all_metrics
+            - new_metrics
+          description: >-
+            "new_metrics" when the update computed only the metrics added since
+            the latest results, otherwise "all_metrics".
       required:
         - id
         - experiment
         - status
+        - updateScope
       additionalProperties: false
     screenshot:
       type: object

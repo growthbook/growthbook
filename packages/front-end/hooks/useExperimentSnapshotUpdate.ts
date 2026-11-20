@@ -14,15 +14,32 @@ export type SnapshotRefreshBlocker = {
   reason: string;
 };
 
+// "new_metrics" computes only the metrics added since the last update, up to
+// its end date.
+type UpdateScope = "new_metrics" | "all_metrics";
+
 type SubmitUpdateOptions = {
   force?: boolean;
   fullRefreshReasons?: string[];
+  updateScope?: UpdateScope;
+};
+
+type PostSnapshotOptions = {
+  force?: boolean;
+  trackingSource?: string;
+  updateScope?: UpdateScope;
 };
 
 type PostSnapshotResult =
   | { status: "success" }
   | { status: "needs-full-refresh"; reason: string }
   | { status: "failed" };
+
+// Shown while the update it names runs.
+export type SnapshotUpdateNotice = { snapshotId: string; message: string };
+
+const NEW_METRICS_FALLBACK_NOTICE =
+  "New metrics can't be updated on their own right now, so all metrics are being updated.";
 
 function apiErrorToSnapshotRefreshBlocker(
   err: unknown,
@@ -105,6 +122,8 @@ export function useExperimentSnapshotUpdate({
   const { hasCommercialFeature } = useUser();
 
   const [loading, setLoading] = useState(false);
+  // Set when the back end ran a normal update in place of the new-metrics one.
+  const [notice, setNotice] = useState<SnapshotUpdateNotice | null>(null);
   const [longResult, setLongResult] = useState(false);
 
   const [fullRefreshReasons, setFullRefreshReasons] = useState<string[] | null>(
@@ -135,13 +154,17 @@ export function useExperimentSnapshotUpdate({
   const postSnapshot = useCallback(
     async (
       dimensionToRun: string,
-      force: boolean,
-      trackingSourceOverride?: string,
+      {
+        force = false,
+        trackingSource: trackingSourceOverride,
+        updateScope,
+      }: PostSnapshotOptions = {},
     ): Promise<PostSnapshotResult> => {
       if (!experiment) return { status: "failed" };
       setLoading(true);
       setLongResult(false);
       setRefreshError("");
+      setNotice(null);
       const timer = setTimeout(() => setLongResult(true), 5000);
       let apiError: unknown = null;
       try {
@@ -151,11 +174,16 @@ export function useExperimentSnapshotUpdate({
         const res = await apiCall<{
           status: 200;
           snapshot: ExperimentSnapshotInterface;
+          updateScope: UpdateScope;
         }>(
           `/experiment/${experiment.id}/snapshot${force ? "?force=true" : ""}`,
           {
             method: "POST",
-            body: JSON.stringify({ phase, dimension: dimensionToRun }),
+            body: JSON.stringify({
+              phase,
+              dimension: dimensionToRun,
+              ...(updateScope ? { updateScope } : {}),
+            }),
           },
           (errBody) => {
             apiError = errBody;
@@ -173,6 +201,15 @@ export function useExperimentSnapshotUpdate({
               null,
             res.snapshot,
           );
+        }
+        if (
+          updateScope === "new_metrics" &&
+          res.updateScope === "all_metrics"
+        ) {
+          setNotice({
+            snapshotId: res.snapshot.id,
+            message: NEW_METRICS_FALLBACK_NOTICE,
+          });
         }
         onSuccess?.();
         return { status: "success" };
@@ -216,22 +253,18 @@ export function useExperimentSnapshotUpdate({
   const runSnapshot = useCallback(
     async (
       dimensionToRun: string,
-      opts?: { force?: boolean; trackingSource?: string },
+      opts?: PostSnapshotOptions,
     ): Promise<boolean> => {
-      const result = await postSnapshot(
-        dimensionToRun,
-        opts?.force ?? false,
-        opts?.trackingSource,
-      );
+      const result = await postSnapshot(dimensionToRun, opts);
       if (result.status !== "needs-full-refresh") {
         return result.status === "success";
       }
       if (!(await promptFullRefresh([result.reason]))) return false;
-      const retry = await postSnapshot(
-        dimensionToRun,
-        true,
-        opts?.trackingSource,
-      );
+      // A confirmed Full Refresh recomputes every metric.
+      const retry = await postSnapshot(dimensionToRun, {
+        force: true,
+        trackingSource: opts?.trackingSource,
+      });
       return retry.status === "success";
     },
     [postSnapshot, promptFullRefresh],
@@ -260,7 +293,13 @@ export function useExperimentSnapshotUpdate({
       ) {
         return;
       }
-      await runSnapshot(resolvedDimension, { force });
+      await runSnapshot(resolvedDimension, {
+        force,
+        updateScope: options.updateScope,
+        ...(options.updateScope === "new_metrics"
+          ? { trackingSource: "UpdateNewMetrics" }
+          : {}),
+      });
     },
     [
       customValidation,
@@ -278,6 +317,7 @@ export function useExperimentSnapshotUpdate({
     runSnapshot,
     loading,
     longResult,
+    notice,
     fullRefreshConfirm: {
       open: fullRefreshReasons !== null,
       reasons: fullRefreshReasons ?? [],

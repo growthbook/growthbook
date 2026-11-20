@@ -5,8 +5,10 @@ import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getDefinitionMetricId,
   getFactTableIdsForMetrics,
   getIsolatedDimensionIds,
+  getNewMetricsUpdate,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
@@ -28,7 +30,6 @@ import {
   ExperimentResults,
   ExperimentUnitsQueryParams,
 } from "shared/types/integrations";
-import { ExperimentReportResults } from "shared/types/report";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
@@ -61,7 +62,6 @@ import {
 import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentClusterHealth,
-  analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -69,6 +69,12 @@ import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
+import {
+  analyzeSnapshotResults,
+  getNewMetricsUpdateQueryStatus,
+  isCopiedGoalMetricPowerMissing,
+  startNewMetricsUpdateResultQueries,
+} from "back-end/src/services/newMetricsUpdateExecution";
 import {
   QueryRunner,
   QueryMap,
@@ -78,6 +84,13 @@ import {
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
+import {
+  CLUSTER_HEALTH_QUERY_NAME,
+  CLUSTER_TRAFFIC_QUERY_NAME,
+  getGroupQueryName,
+  type ResultQueryScope,
+  TRAFFIC_QUERY_NAME,
+} from "./newMetricsUpdateQueryNaming";
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
@@ -96,12 +109,6 @@ export type ExperimentResultsQueryParams = {
   experimentQueryMetadata: ExperimentQueryMetadata | null;
 };
 
-export const TRAFFIC_QUERY_NAME = "traffic";
-
-export const CLUSTER_TRAFFIC_QUERY_NAME = "clusterTraffic";
-
-export const CLUSTER_HEALTH_QUERY_NAME = "clusterHealth";
-
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
 export const startExperimentResultQueries = async (
@@ -111,6 +118,7 @@ export const startExperimentResultQueries = async (
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
+  scope?: ResultQueryScope,
 ): Promise<Queries> => {
   const snapshotType = params.snapshotType;
   const snapshotSettings = params.snapshotSettings;
@@ -128,7 +136,9 @@ export const startExperimentResultQueries = async (
   const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
     snapshotSettings,
     metricMap,
-  );
+  ).filter((m) => !scope || scope.metricIds.has(getDefinitionMetricId(m.id)));
+  const groupQueryName = (i: number) =>
+    getGroupQueryName(i + (scope?.firstGroupIndex ?? 0));
   if (!selectedMetrics.length) {
     throw new UnrecoverableSnapshotError(
       "Experiment must have at least 1 metric selected.",
@@ -219,11 +229,13 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  const runTrafficQuery = shouldRunHealthTrafficQuery({
-    snapshotType,
-    snapshotDimensions: snapshotSettings.dimensions,
-    runHealthTrafficQuery: org.settings?.runHealthTrafficQuery,
-  });
+  const runTrafficQuery =
+    !scope &&
+    shouldRunHealthTrafficQuery({
+      snapshotType,
+      snapshotDimensions: snapshotSettings.dimensions,
+      runHealthTrafficQuery: org.settings?.runHealthTrafficQuery,
+    });
 
   const { eligibleDimensionsWithSlices: dimensionsForTraffic } = exposureQuery
     ? getExposureQueryEligibleDimensions({
@@ -362,7 +374,7 @@ export const startExperimentResultQueries = async (
 
     queries.push(
       await startQuery({
-        name: `group_${i}`,
+        name: groupQueryName(i),
         query: integration.getExperimentFactMetricsQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
@@ -408,7 +420,7 @@ export const startExperimentResultQueries = async (
       };
       queries.push(
         await startQuery({
-          name: getUnitDimQueryName(dimensionId, `group_${i}`),
+          name: getUnitDimQueryName(dimensionId, groupQueryName(i)),
           query: integration.getExperimentFactMetricsQuery(queryParams),
           dependencies,
           run: (query, setExternalId, queryMetadata) =>
@@ -628,48 +640,45 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       );
     }
     if (
-      this.integration.getSourceProperties().separateExperimentResultQueries
+      !this.integration.getSourceProperties().separateExperimentResultQueries
     ) {
-      return startExperimentResultQueries(
+      return this.startLegacyQueries(params);
+    }
+    const startQueries = (scope?: ResultQueryScope) =>
+      startExperimentResultQueries(
         this.context,
         params,
         this.integration,
         this.startQuery.bind(this),
+        scope,
       );
-    } else {
-      return this.startLegacyQueries(params);
-    }
+    const newMetricsUpdate = getNewMetricsUpdate(this.model);
+    return newMetricsUpdate
+      ? startNewMetricsUpdateResultQueries(
+          this.context,
+          this.model,
+          newMetricsUpdate,
+          startQueries,
+        )
+      : startQueries();
+  }
+
+  protected override getOverallQueryStatus(): QueryStatus {
+    return getNewMetricsUpdateQueryStatus(
+      this.model,
+      super.getOverallQueryStatus(),
+    );
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const { results: analysesResults, banditResult } =
-      await analyzeExperimentResults({
-        queryData: queryMap,
-        snapshotSettings: this.model.settings,
-        analysisSettings: this.model.analyses.map((a) => a.settings),
-        variationNames: this.variationNames,
-        metricMap: this.metricMap,
-      });
-
-    const result: SnapshotResult = {
-      analyses: this.model.analyses,
-      multipleExposures: 0,
-      unknownVariations: [],
-      banditResult,
-    };
-
-    analysesResults.forEach((results: ExperimentReportResults, i: number) => {
-      const analysis = this.model.analyses[i];
-      if (!analysis) return;
-
-      analysis.results = results.dimensions || [];
-      analysis.status = "success";
-      analysis.error = "";
-
-      // TODO: do this once, not per analysis
-      result.unknownVariations = results.unknownVariations || [];
-      result.multipleExposures = results.multipleExposures ?? 0;
+    const result: SnapshotResult = await analyzeSnapshotResults({
+      context: this.context,
+      snapshot: this.model,
+      queryMap,
+      metricMap: this.metricMap,
+      variationNames: this.variationNames,
     });
+    const { analyses } = result;
 
     // Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
@@ -718,15 +727,24 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         }
       }
 
-      const relativeAnalysis = this.model.analyses.find(
+      const relativeAnalysis = analyses.find(
         (a) => a.settings.differenceType === "relative",
       );
 
+      const newMetricsUpdate = getNewMetricsUpdate(this.model);
       const isEligibleForMidExperimentPowerAnalysis =
         relativeAnalysis &&
         this.model.settings.banditSettings === undefined &&
         rows &&
-        rows.length;
+        rows.length &&
+        !(
+          newMetricsUpdate &&
+          isCopiedGoalMetricPowerMissing({
+            analysis: relativeAnalysis,
+            goalMetrics: this.model.settings.goalMetrics,
+            newMetricsUpdate,
+          })
+        );
 
       if (isEligibleForMidExperimentPowerAnalysis) {
         const today = new Date();
@@ -750,7 +768,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           variationsSettings: this.model.settings.variations,
         });
       }
-      const analysisForCovariateImbalance = this.model.analyses.find(
+      const analysisForCovariateImbalance = analyses.find(
         (a) => a.settings.useCovariateAsResponse === true,
       );
       const isEligibleForCovariateImbalanceAnalysis =

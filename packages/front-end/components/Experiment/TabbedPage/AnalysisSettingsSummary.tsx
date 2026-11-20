@@ -7,28 +7,27 @@ import React, {
   useEffect,
   useRef,
 } from "react";
-import { OrganizationSettings } from "shared/types/organization";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
-  isFactMetric,
-  isFactMetricJoinable,
-  isMetricJoinable,
   expandDerivedMetricsInMap,
   ExperimentMetricDefinition,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
-  getExperimentOutdatedReasonLabel,
-  isAnalysisDateRangeOutdated,
   isAutoSnapshotScheduled,
   isExperimentResultsUpdateDisabled,
   EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
-  getClusterSubUnit,
+  getNewMetricsUpdate,
+  getSnapshotDataAsOfDate,
+  getResultsOutdatedReasons,
+  getResultsOutdatedReasonLabel,
+  getNewMetricsUpdateRefusal,
+  getPlannedCopiedMetricSettings,
 } from "shared/experiments";
+import type { SnapshotQueryRunnerKind } from "shared/types/experiment-snapshot";
 import {
   isNewerOverallResultsDataAvailable,
   getIncrementalFullRefreshReasons,
@@ -38,15 +37,11 @@ import {
 } from "shared/enterprise";
 import {
   resolveAnalysisIdentifierType,
-  getSnapshotAnalysis,
   getSnapshotCutoffDate,
 } from "shared/util";
-import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
 import {
-  DEFAULT_P_VALUE_THRESHOLD,
-  DEFAULT_POST_STRATIFICATION_ENABLED,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -78,6 +73,7 @@ import {
   getHonoredPrecomputedUnitDimensionIds,
   getResultsSubUnitTotal,
   getUnitDisplayName,
+  getUnjoinableMetricIds,
 } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
 import Tooltip from "@/ui/Tooltip";
@@ -90,6 +86,8 @@ import UpdateDimensionBreakdownModal from "@/components/Experiment/UpdateDimensi
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  // Added metrics a new-metrics update would compute.
+  newMetricIds: readonly string[];
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
@@ -123,6 +121,7 @@ const numberFormatter = Intl.NumberFormat();
 
 export default function AnalysisSettingsSummary({
   experiment,
+  newMetricIds,
   mutate: mutateExperiment,
   statsEngine,
   editMetrics,
@@ -498,38 +497,23 @@ export default function AnalysisSettingsSummary({
     ),
   );
 
-  const unjoinableMetrics = useMemo(() => {
-    const unjoinables = new Set<string>();
-    allExpandedMetrics.forEach((m) => {
-      const metric = getExperimentMetricById(m);
-      if (!metric) return;
-      const isJoinable =
-        userIdType && datasourceSettings
-          ? isFactMetric(metric)
-            ? isFactMetricJoinable(
-                metric,
-                userIdType,
-                getFactTableById,
-                datasourceSettings,
-              )
-            : isMetricJoinable(
-                metric.userIdTypes || [],
-                userIdType,
-                datasourceSettings,
-              )
-          : true;
-      if (!isJoinable) {
-        unjoinables.add(m);
-      }
-    });
-    return unjoinables;
-  }, [
-    allExpandedMetrics,
-    getFactTableById,
-    userIdType,
-    datasourceSettings,
-    getExperimentMetricById,
-  ]);
+  const unjoinableMetrics = useMemo(
+    () =>
+      getUnjoinableMetricIds({
+        metricIds: allExpandedMetrics,
+        getExperimentMetricById,
+        getFactTableById,
+        userIdType,
+        datasourceSettings,
+      }),
+    [
+      allExpandedMetrics,
+      getFactTableById,
+      userIdType,
+      datasourceSettings,
+      getExperimentMetricById,
+    ],
+  );
 
   const conversionWindowMetrics = useMemo(() => {
     const conversionWindowMetrics = new Set<string>();
@@ -543,23 +527,88 @@ export default function AnalysisSettingsSummary({
     return conversionWindowMetrics;
   }, [allExpandedMetrics, getExperimentMetricById]);
 
-  const { outdated, reasons } = isOutdated({
-    experiment,
-    snapshot,
-    metricGroups,
-    orgSettings,
-    pValueThreshold,
-    statsEngine,
-    hasRegressionAdjustmentFeature,
-    hasPostStratificationFeature,
-    hasSequentialFeature,
-    phase,
-    unjoinableMetrics,
-    conversionWindowMetrics,
-    newerOverallResultsAvailable:
-      newerOverallResultsAvailable && !incrementalUpdatesUnavailable,
-    resultsUpdateDisabled,
-  });
+  const outdatedReasons = snapshot
+    ? getResultsOutdatedReasons({
+        experiment,
+        snapshot,
+        metricGroups,
+        orgSettings,
+        pValueThreshold,
+        statsEngine,
+        features: {
+          regressionAdjustment: hasRegressionAdjustmentFeature,
+          postStratification: hasPostStratificationFeature,
+          sequentialTesting: hasSequentialFeature,
+        },
+        phase,
+        exposureQueries: datasourceSettings?.queries?.exposure ?? [],
+        unjoinableMetricIds: unjoinableMetrics,
+        conversionWindowMetricIds: conversionWindowMetrics,
+        newerOverallResultsAvailable:
+          newerOverallResultsAvailable && !incrementalUpdatesUnavailable,
+        resultsUpdateDisabled,
+      })
+    : [];
+  const plannedCopiedMetricSettings = useMemo(
+    () =>
+      snapshot
+        ? getPlannedCopiedMetricSettings({
+            parentSettings: snapshot.settings,
+            experiment,
+            metricGroups,
+            organizationSettings: orgSettings,
+            getMetricById: getExperimentMetricById,
+          })
+        : null,
+    [snapshot, experiment, metricGroups, orgSettings, getExperimentMetricById],
+  );
+  const fullRefreshRequired =
+    !viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
+  // The run the back end would plan next. It rebuilds the Incremental
+  // Pipeline's tables when their settings changed or there are none.
+  const plannedRunnerKind: SnapshotQueryRunnerKind = !isIncremental
+    ? "results"
+    : overallNeedsFullRefresh || !incrementalRefresh?.unitsTableFullName
+      ? "incremental-full"
+      : "incremental-update";
+  // When this holds, the split Update button stands in for the Outdated badge.
+  // The back end builds on the latest successful standard Overall snapshot,
+  // which this is when it's a standard one.
+  const offerNewMetricsUpdate =
+    !!snapshot &&
+    !!plannedCopiedMetricSettings &&
+    snapshot.type === "standard" &&
+    newMetricIds.length > 0 &&
+    hasData &&
+    !dimension &&
+    outdatedReasons.includes("metrics_changed") &&
+    getNewMetricsUpdateRefusal({
+      experiment,
+      phase,
+      separateExperimentResultQueries:
+        !!datasource?.properties?.separateExperimentResultQueries,
+      parent: snapshot,
+      outdatedReasons,
+      window: {
+        windowHours:
+          orgSettings.newMetricsUpdateWindowHours ??
+          DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
+        now: new Date(),
+      },
+      planned: {
+        runnerKind: plannedRunnerKind,
+        settings: plannedCopiedMetricSettings,
+      },
+    }) === null;
+  const snapshotNewMetricsUpdate = snapshot
+    ? getNewMetricsUpdate(snapshot)
+    : null;
+  // A new-metrics update keeps its base's cutoff, where null means none.
+  const snapshotCutoffDate = !snapshot
+    ? null
+    : snapshotNewMetricsUpdate
+      ? snapshotNewMetricsUpdate.baseCutoffDate
+      : getSnapshotCutoffDate(snapshot.settings);
 
   // If a dimension breakdown already covers the latest Overall Results, another
   // dimension update would read the same caches. Point the user to Overall
@@ -674,253 +723,6 @@ export default function AnalysisSettingsSummary({
     getExperimentMetricById,
   ]);
 
-  function isDifferent(
-    val1?: string | boolean | number | null,
-    val2?: string | boolean | number | null,
-  ) {
-    if (!val1 && !val2) return false;
-    return val1 !== val2;
-  }
-
-  function isDifferentStringArray(
-    val1?: string[] | null,
-    val2?: string[] | null,
-  ) {
-    if (!val1 && !val2) return false;
-    if (!val1 || !val2) return true;
-    if (val1.length !== val2.length) return true;
-    // Order matters: snapshot results are indexed by variation position.
-    return val1.some((v, i) => v !== val2[i]);
-  }
-
-  function isStringArrayMissingElements(
-    strings: string[] = [],
-    elements: string[] = [],
-  ) {
-    if (!elements.length) return false;
-    if (elements.length > strings.length) return true;
-    return elements.some((v) => !strings.includes(v));
-  }
-
-  function isOutdated({
-    experiment: exp,
-    snapshot: snap,
-    metricGroups: mg = [],
-    orgSettings: org,
-    pValueThreshold: projectScopedPValueThreshold,
-    statsEngine: engine,
-    hasRegressionAdjustmentFeature,
-    hasPostStratificationFeature,
-    hasSequentialFeature,
-    phase: currentPhase,
-    unjoinableMetrics: unjoinable,
-    conversionWindowMetrics: conversion,
-    newerOverallResultsAvailable,
-    resultsUpdateDisabled: updateDisabled,
-  }: {
-    experiment?: ExperimentInterfaceStringDates;
-    snapshot?: ExperimentSnapshotInterface;
-    metricGroups?: MetricGroupInterface[];
-    orgSettings: OrganizationSettings;
-    pValueThreshold: number;
-    statsEngine: StatsEngine;
-    hasRegressionAdjustmentFeature: boolean;
-    hasPostStratificationFeature: boolean;
-    hasSequentialFeature: boolean;
-    phase?: number;
-    unjoinableMetrics?: Set<string>;
-    conversionWindowMetrics?: Set<string>;
-    newerOverallResultsAvailable?: boolean;
-    resultsUpdateDisabled?: boolean;
-  }): { outdated: boolean; reasons: string[] } {
-    const snapshotSettings = snap?.settings;
-    const analysisSettings = snap ? getSnapshotAnalysis(snap)?.settings : null;
-    if (!exp || !snapshotSettings || !analysisSettings) {
-      return { outdated: false, reasons: [] };
-    }
-
-    const reasons: string[] = [];
-
-    if (
-      isDifferent(
-        analysisSettings.statsEngine || DEFAULT_STATS_ENGINE,
-        engine || DEFAULT_STATS_ENGINE,
-      )
-    ) {
-      reasons.push("Stats engine changed");
-    }
-    if (isDifferent(exp.activationMetric, snapshotSettings.activationMetric)) {
-      reasons.push(getExperimentOutdatedReasonLabel("activationMetric"));
-    }
-    if (isDifferent(exp.segment, snapshotSettings.segment)) {
-      reasons.push(getExperimentOutdatedReasonLabel("segment"));
-    }
-    if (isDifferent(exp.queryFilter, snapshotSettings.queryFilter)) {
-      reasons.push(getExperimentOutdatedReasonLabel("queryFilter"));
-    }
-    if (isDifferent(exp.skipPartialData, snapshotSettings.skipPartialData)) {
-      reasons.push(getExperimentOutdatedReasonLabel("skipPartialData"));
-    }
-    if (isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)) {
-      reasons.push(getExperimentOutdatedReasonLabel("exposureQueryId"));
-    }
-    // Resolve both sides so a snapshot saved before identifiers were stored
-    // matches an experiment that analyzes on the same identifier.
-    if (
-      isDifferent(
-        resolveAnalysisIdentifierType(
-          datasourceSettings?.queries?.exposure?.find(
-            (e) => e.id === exp.exposureQueryId,
-          ),
-          exp.exposureQueryIdentifierType,
-        ),
-        resolveAnalysisIdentifierType(
-          datasourceSettings?.queries?.exposure?.find(
-            (e) => e.id === snapshotSettings.exposureQueryId,
-          ),
-          snapshotSettings.exposureQueryIdentifierType,
-        ),
-      )
-    ) {
-      reasons.push(
-        getExperimentOutdatedReasonLabel("exposureQueryIdentifierType"),
-      );
-    }
-    // A missing flag means off, and a subunit only counts in cluster mode.
-    const expSubUnit = exp.isClusterExperiment
-      ? (exp.clusterSubUnitIdentifier ?? null)
-      : null;
-    const snapshotSubUnit = snapshotSettings.isClusterExperiment
-      ? (snapshotSettings.clusterSubUnitIdentifier ?? null)
-      : null;
-    if (!!exp.isClusterExperiment !== !!snapshotSettings.isClusterExperiment) {
-      reasons.push(getExperimentOutdatedReasonLabel("isClusterExperiment"));
-    } else if (expSubUnit !== snapshotSubUnit) {
-      reasons.push(
-        getExperimentOutdatedReasonLabel("clusterSubUnitIdentifier"),
-      );
-    }
-    if (
-      isDifferent(
-        exp.attributionModel || "firstExposure",
-        snapshotSettings.attributionModel || "firstExposure",
-      )
-    ) {
-      reasons.push(getExperimentOutdatedReasonLabel("attributionModel"));
-    }
-
-    const snapshotMetrics = Array.from(
-      new Set(
-        expandMetricGroups(
-          getAllMetricIdsFromExperiment(snapshotSettings, false, mg),
-          mg,
-        ),
-      ),
-    ).filter((m) => (unjoinable ? !unjoinable.has(m) : true));
-
-    let experimentMetrics = Array.from(
-      new Set(
-        expandMetricGroups(getAllMetricIdsFromExperiment(exp, false, mg), mg),
-      ),
-    ).filter((m) => (unjoinable ? !unjoinable.has(m) : true));
-
-    if (exp.type === "holdout" && conversion?.size) {
-      experimentMetrics = experimentMetrics.filter((m) => !conversion.has(m));
-    }
-    if (isStringArrayMissingElements(snapshotMetrics, experimentMetrics)) {
-      reasons.push("Metrics changed");
-    }
-
-    if (
-      isDifferentStringArray(
-        getLatestPhaseVariations(exp).map((v) => v.key),
-        snapshotSettings.variations.map((v) => v.id),
-      )
-    ) {
-      reasons.push("Variations changed");
-    }
-    if (
-      isAnalysisDateRangeOutdated({
-        phase: exp.phases?.[currentPhase ?? 0],
-        snapshotSettings,
-        snapshotDateCreated: snap?.dateCreated,
-        resultsUpdateDisabled: updateDisabled,
-      })
-    ) {
-      reasons.push("Analysis dates changed");
-    }
-    if (
-      isDifferent(
-        analysisSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
-        projectScopedPValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
-      )
-    ) {
-      reasons.push("P-value threshold changed");
-    }
-
-    const experimentRegressionAdjustmentEnabled =
-      !hasRegressionAdjustmentFeature
-        ? false
-        : !!exp.regressionAdjustmentEnabled;
-    if (
-      isDifferent(
-        experimentRegressionAdjustmentEnabled,
-        !!analysisSettings?.regressionAdjusted,
-      )
-    ) {
-      reasons.push(
-        getExperimentOutdatedReasonLabel("regressionAdjustmentEnabled"),
-      );
-    }
-
-    // Mirrors the back-end, which stores it as off for cluster experiments.
-    const experimentPostStratificationEnabled =
-      !hasPostStratificationFeature ||
-      org.disablePrecomputedDimensions ||
-      getClusterSubUnit(exp)
-        ? false
-        : (exp.postStratificationEnabled ??
-          org.postStratificationEnabled ??
-          DEFAULT_POST_STRATIFICATION_ENABLED);
-    if (
-      isDifferent(
-        experimentPostStratificationEnabled,
-        !!analysisSettings?.postStratificationEnabled,
-      )
-    ) {
-      reasons.push("Post-stratification settings changed");
-    }
-
-    const experimentSequentialEnabled =
-      engine !== "frequentist" || !hasSequentialFeature
-        ? false
-        : (exp.sequentialTestingEnabled ?? !!org.sequentialTestingEnabled);
-    const experimentSequentialTuningParameter: number =
-      exp.sequentialTestingTuningParameter ??
-      org.sequentialTestingTuningParameter ??
-      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
-    if (
-      (isDifferent(
-        experimentSequentialEnabled,
-        !!analysisSettings?.sequentialTesting,
-      ) ||
-        (experimentSequentialEnabled &&
-          experimentSequentialTuningParameter !==
-            analysisSettings?.sequentialTestingTuningParameter)) &&
-      engine === "frequentist"
-    ) {
-      reasons.push("Sequential testing settings changed");
-    }
-
-    // For incremental-refresh dimension breakdowns: the breakdown reads from
-    // the overall results, so newer overall data makes it outdated too.
-    if (newerOverallResultsAvailable) {
-      reasons.push("Newer Overall Results are available");
-    }
-
-    return { outdated: reasons.length > 0, reasons };
-  }
-
   // Determine if any filters are currently set
   const hasActiveFilters =
     (metricTagFilter?.length || 0) > 0 ||
@@ -988,10 +790,10 @@ export default function AnalysisSettingsSummary({
             <Flex align="center" gap="2">
               <QueriesLastRun
                 status={status}
-                dateCreated={snapshot?.dateCreated}
-                cutoffDate={
-                  snapshot ? getSnapshotCutoffDate(snapshot.settings) : null
+                dateCreated={
+                  snapshot ? getSnapshotDataAsOfDate(snapshot) : undefined
                 }
+                cutoffDate={snapshotCutoffDate}
                 sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
@@ -1015,13 +817,13 @@ export default function AnalysisSettingsSummary({
                     : undefined
                 }
               />
-              {hasData &&
-              outdated &&
-              status !== "running" &&
-              !hideOutdatedBadge ? (
+              {!hasData ||
+              status === "running" ||
+              hideOutdatedBadge ||
+              offerNewMetricsUpdate ? null : outdatedReasons.length > 0 ? (
                 <OutdatedBadge
                   label={`These results are outdated. Click "Update" to re-run the analysis.`}
-                  reasons={reasons}
+                  reasons={outdatedReasons.map(getResultsOutdatedReasonLabel)}
                   hasData={hasData && hasValidStatsEngine}
                 />
               ) : null}
@@ -1071,11 +873,9 @@ export default function AnalysisSettingsSummary({
                       (viewingDimensionThatRequiresOverallFirst &&
                         overallResultsRequiredBeforeDimensionRefresh)
                     }
-                    fullRefreshRequired={
-                      !viewingDimensionThatRequiresOverallFirst &&
-                      overallNeedsFullRefresh
-                    }
+                    fullRefreshRequired={fullRefreshRequired}
                     fullRefreshReasons={fullRefreshReasons}
+                    offerNewMetricsUpdate={offerNewMetricsUpdate}
                   />
                 </Flex>
               </Tooltip>

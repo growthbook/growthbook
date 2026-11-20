@@ -1241,8 +1241,22 @@ export const apiExperimentWithEnhancedStatus = namedSchema(
 const apiExperimentSnapshotShape = z.object({
   id: z.string(),
   experiment: z.string(),
-  status: z.string(),
+  status: z
+    .enum(["running", "success", "error"])
+    .describe(
+      '"running" while the update is in progress, then "success" or "error"',
+    ),
+  error: z
+    .string()
+    .describe('Why the update failed. Present only when "status" is "error"')
+    .optional(),
+  updateScope: z
+    .enum(["all_metrics", "new_metrics"])
+    .describe(
+      '"new_metrics" when the update computed only the metrics added since the latest results, otherwise "all_metrics".',
+    ),
 });
+
 export const apiExperimentSnapshotValidator = namedSchema(
   "ExperimentSnapshot",
   apiExperimentSnapshotShape.strict(),
@@ -2939,6 +2953,13 @@ export const putExperimentScheduleValidator = {
   possibleErrors: ["invalid_status"] as const,
 };
 
+export const snapshotUpdateScopes = [
+  "auto",
+  "new_metrics",
+  "all_metrics",
+] as const;
+export type SnapshotUpdateScope = (typeof snapshotUpdateScopes)[number];
+
 export const postExperimentSnapshotValidator = {
   bodySchema: z
     .object({
@@ -2960,6 +2981,12 @@ export const postExperimentSnapshotValidator = {
         .nonnegative()
         .describe(
           "Zero-based phase index to snapshot, where 0 is the first experiment phase. Defaults to the latest phase.",
+        )
+        .optional(),
+      updateScope: z
+        .enum(snapshotUpdateScopes)
+        .describe(
+          'Which metrics the update computes. "auto" (default) computes only the metrics added since the latest results when nothing else changed and those results are recent, otherwise all metrics. "new_metrics" computes only the added metrics and returns a 409 when it cannot. "all_metrics" computes every metric.',
         )
         .optional(),
       ignoreWarnings: ignoreWarningsBodyField,
@@ -2987,6 +3014,9 @@ export const postExperimentSnapshotValidator = {
   possibleErrors: [
     "requires_full_refresh",
     "dimension_already_up_to_date",
+    "metrics_already_up_to_date",
+    "snapshot_in_progress",
+    "new_metrics_update_unavailable",
   ] as const,
 };
 

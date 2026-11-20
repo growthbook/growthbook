@@ -246,6 +246,7 @@ describe("isNewerOverallResultsDataAvailable", () => {
   it("returns false when there is no source snapshot", () => {
     expect(
       isNewerOverallResultsDataAvailable(undefined, {
+        type: "standard",
         dateCreated: new Date("2024-06-02T12:00:00Z"),
       }),
     ).toBe(false);
@@ -258,6 +259,7 @@ describe("isNewerOverallResultsDataAvailable", () => {
   it("returns false when the latest main snapshot is the same age", () => {
     expect(
       isNewerOverallResultsDataAvailable(source, {
+        type: "standard",
         dateCreated: source.dateCreated,
       }),
     ).toBe(false);
@@ -266,6 +268,7 @@ describe("isNewerOverallResultsDataAvailable", () => {
   it("returns false when the latest main snapshot is older", () => {
     expect(
       isNewerOverallResultsDataAvailable(source, {
+        type: "standard",
         dateCreated: new Date("2024-05-01T12:00:00Z"),
       }),
     ).toBe(false);
@@ -274,6 +277,7 @@ describe("isNewerOverallResultsDataAvailable", () => {
   it("returns true when a newer main snapshot exists", () => {
     expect(
       isNewerOverallResultsDataAvailable(source, {
+        type: "standard",
         dateCreated: new Date("2024-06-02T12:00:00Z"),
       }),
     ).toBe(true);
@@ -282,9 +286,60 @@ describe("isNewerOverallResultsDataAvailable", () => {
   it("handles string dates from the API", () => {
     expect(
       isNewerOverallResultsDataAvailable(source, {
+        type: "standard",
         dateCreated: "2024-06-02T12:00:00Z" as unknown as Date,
       }),
     ).toBe(true);
+  });
+
+  describe("when the latest Overall snapshot is a new-metrics update", () => {
+    const rootDate = new Date("2024-06-01T12:00:00Z");
+    const makeRefresh = (dateCreated: Date, baseDateCreated: Date) => ({
+      type: "standard" as const,
+      dateCreated,
+      newMetricsUpdate: {
+        baseDateCreated,
+        baseRunStarted: null,
+        baseCutoffDate: null,
+        parentSnapshotId: "root",
+        metricIds: ["met_new"],
+      },
+    });
+    const refresh = makeRefresh(new Date("2024-06-01T13:00:00Z"), rootDate);
+    const breakdownOnRefresh = {
+      id: "refresh",
+      dateCreated: rootDate,
+      analysisEndDate: rootDate,
+    };
+
+    it.each([
+      ["false for that same new-metrics update", refresh, false],
+      [
+        "false after a later new-metrics update of the same root",
+        makeRefresh(new Date("2024-06-01T14:00:00Z"), rootDate),
+        false,
+      ],
+      [
+        "true after a later full update",
+        {
+          type: "standard" as const,
+          dateCreated: new Date("2024-06-01T15:00:00Z"),
+        },
+        true,
+      ],
+      [
+        "true for a new-metrics update whose root is a later full update",
+        makeRefresh(
+          new Date("2024-06-01T16:00:00Z"),
+          new Date("2024-06-01T15:00:00Z"),
+        ),
+        true,
+      ],
+    ])("returns %s", (name, latest, expected) => {
+      expect(
+        isNewerOverallResultsDataAvailable(breakdownOnRefresh, latest),
+      ).toBe(expected);
+    });
   });
 });
 

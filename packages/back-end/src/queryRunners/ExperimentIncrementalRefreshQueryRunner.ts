@@ -5,12 +5,14 @@ import {
   getClusterSubUnit,
   getFactMetricFactTableIds,
   getIsolatedDimensionIds,
+  getNewMetricsUpdate,
   isFactMetric,
   isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
 import { PRECOMPUTED_DIMENSION_PREFIX } from "shared/constants";
 import cloneDeep from "lodash/cloneDeep";
+import isEqual from "lodash/isEqual";
 import { SegmentInterface } from "shared/types/segment";
 import {
   IncrementalRefreshInterface,
@@ -53,20 +55,21 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import {
   analyzeExperimentClusterHealth,
-  analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
+  getMetricSettingsHashesForIncrementalRefresh,
   getFactTablesNeedingRebuild,
   assertIncrementalRefreshPrerequisites,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import {
-  chunkMetrics,
   getQueryableMetricsFromSnapshotSettings,
+  maxColumnsNeededForMetric,
 } from "back-end/src/services/experimentQueries/experimentQueries";
+import { planIncrementalCaches } from "back-end/src/services/experimentQueries/incrementalCachePlacement";
 import {
   filterRegressionAdjustedMetrics,
   planMetricFanOut,
@@ -88,11 +91,11 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
-  CLUSTER_HEALTH_QUERY_NAME,
-  CLUSTER_TRAFFIC_QUERY_NAME,
-  SnapshotResult,
-  TRAFFIC_QUERY_NAME,
-} from "./ExperimentResultsQueryRunner";
+  analyzeSnapshotResults,
+  getNewMetricsUpdateQueryStatus,
+  getNewMetricsUpdateStartQuery,
+} from "back-end/src/services/newMetricsUpdateExecution";
+import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 import {
   QueryRunner,
   QueryMap,
@@ -102,6 +105,13 @@ import {
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
+import {
+  CLUSTER_HEALTH_QUERY_NAME,
+  CLUSTER_TRAFFIC_QUERY_NAME,
+  REPLACED_TABLE_DROP_QUERY_PREFIX,
+  STATISTICS_QUERY_PREFIX,
+  TRAFFIC_QUERY_NAME,
+} from "./newMetricsUpdateQueryNaming";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
@@ -151,6 +161,8 @@ export function getStatisticsQueryVariants({
   ];
 }
 
+export type IncrementalRunMode = { kind: "full" } | { kind: "update" };
+
 export type ExperimentIncrementalRefreshQueryParams = {
   snapshotType: SnapshotType;
   snapshotSettings: ExperimentSnapshotSettings;
@@ -161,7 +173,7 @@ export type ExperimentIncrementalRefreshQueryParams = {
   experimentId: string;
   experimentQueryMetadata: ExperimentQueryMetadata | null;
   // Incremental Refresh specific
-  fullRefresh: boolean;
+  mode: IncrementalRunMode;
   incrementalRefreshStartTime: Date;
 };
 
@@ -176,16 +188,22 @@ export interface MetricSourceGroups {
   // cache materializes by comparing the metric's column refs to
   // `factTableId`.
   metrics: FactMetricInterface[];
+  // The stored source this group rebuilds with more metrics, under a new id.
+  replacesGroupId: string | null;
 }
 
 export function getIncrementalRefreshMetricSources({
   metrics,
   existingMetricSources,
+  extendExistingSources,
   integration,
   snapshotSettings,
 }: {
   metrics: FactMetricInterface[];
   existingMetricSources: IncrementalRefreshInterface["metricSources"];
+  // Place a metric without a cache in the smallest stored source of its kind
+  // that has room, instead of only in new sources.
+  extendExistingSources: boolean;
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
 }): MetricSourceGroups[] {
@@ -198,7 +216,7 @@ export function getIncrementalRefreshMetricSources({
     return clone;
   });
 
-  // Fan-out determines each metric's fact tables; this only chunks their caches.
+  // Fan-out determines each metric's fact tables; this only places their caches.
   const fanOut = planMetricFanOut(overriddenMetrics);
 
   // Cluster-level metrics can't share a cache with user-level metrics even on
@@ -220,6 +238,20 @@ export function getIncrementalRefreshMetricSources({
       clusterLevelMetricIds.has(metric.id) ? "cluster_" : ""
     }${factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
 
+  const sourceProps = integration.getSourceProperties();
+  const toCacheMetric = (factTableId: string, metric: FactMetricInterface) => ({
+    metricId: metric.id,
+    cacheKind: getMetricGroupKey(factTableId, metric),
+    columns: maxColumnsNeededForMetric({
+      metric,
+      regressionAdjusted:
+        isRegressionAdjusted(metric) &&
+        snapshotSettings.regressionAdjustmentEnabled,
+      isBandit: !!snapshotSettings.banditSettings,
+      efficientQuantileGrid: !!sourceProps.hasArrayQuantileGrid,
+    }),
+  });
+
   // Metrics that map to a pre-existing cache table — keyed by that source's
   // groupId. Matching is done by (factTableId, metric id): a cross-FT ratio
   // metric appears in two groups (one per FT), and each FT's existing source
@@ -228,13 +260,7 @@ export function getIncrementalRefreshMetricSources({
     string,
     { factTableId: string; metrics: FactMetricInterface[] }
   >();
-
-  // Metrics that need a new cache table — keyed by the canonical group key
-  // (factTableId [+ "_qtile"]) so all compatible metrics land in one chunk list.
-  const newBuckets = new Map<
-    string,
-    { factTableId: string; metrics: FactMetricInterface[] }
-  >();
+  const unplaced: { factTableId: string; metric: FactMetricInterface }[] = [];
 
   fanOut.perFt.forEach(({ factTableId, metrics: ftMetrics }) => {
     ftMetrics.forEach((metric) => {
@@ -253,44 +279,85 @@ export function getIncrementalRefreshMetricSources({
         existingBuckets.set(existingGroup.groupId, bucket);
         return;
       }
-
-      const key = getMetricGroupKey(factTableId, metric);
-      const bucket = newBuckets.get(key) ?? { factTableId, metrics: [] };
-      bucket.metrics.push(metric);
-      newBuckets.set(key, bucket);
+      unplaced.push({ factTableId, metric });
     });
   });
 
+  // A source whose metrics span several kinds predates this rule; it takes
+  // no new metrics.
+  const storedCaches = extendExistingSources
+    ? [...existingBuckets].flatMap(([groupId, bucket]) => {
+        const cacheMetrics = bucket.metrics.map((m) =>
+          toCacheMetric(bucket.factTableId, m),
+        );
+        const kinds = new Set(cacheMetrics.map((m) => m.cacheKind));
+        return kinds.size === 1
+          ? [{ groupId, cacheKind: [...kinds][0], metrics: cacheMetrics }]
+          : [];
+      })
+    : [];
+  const plannedCaches = planIncrementalCaches({
+    metrics: unplaced.map(({ factTableId, metric }) =>
+      toCacheMetric(factTableId, metric),
+    ),
+    storedCaches,
+    maxColumns: sourceProps.maxColumns,
+  });
+
+  const placedMetrics = new Map<
+    string,
+    { factTableId: string; metric: FactMetricInterface }
+  >();
+  const placeKey = (cacheKind: string, metricId: string) =>
+    `${cacheKind}|${metricId}`;
+  [
+    ...unplaced,
+    ...[...existingBuckets.values()].flatMap(({ factTableId, metrics }) =>
+      metrics.map((metric) => ({ factTableId, metric })),
+    ),
+  ].forEach((entry) =>
+    placedMetrics.set(
+      placeKey(
+        getMetricGroupKey(entry.factTableId, entry.metric),
+        entry.metric.id,
+      ),
+      entry,
+    ),
+  );
+
+  const rebuiltGroupIds = new Set(
+    plannedCaches.flatMap((cache) =>
+      cache.replacesGroupId ? [cache.replacesGroupId] : [],
+    ),
+  );
   const finalGroups: MetricSourceGroups[] = [];
 
   existingBuckets.forEach((bucket, groupId) => {
+    if (rebuiltGroupIds.has(groupId)) return;
     finalGroups.push({
       groupId,
       factTableId: bucket.factTableId,
       metrics: bucket.metrics,
+      replacesGroupId: null,
     });
   });
 
-  const sourceProps = integration.getSourceProperties();
-  newBuckets.forEach((bucket, baseGroupId) => {
-    const chunks = chunkMetrics({
-      metrics: bucket.metrics.map((metric) => ({
-        metric,
-        regressionAdjusted:
-          isRegressionAdjusted(metric) &&
-          snapshotSettings.regressionAdjustmentEnabled,
-      })),
-      maxColumnsPerQuery: sourceProps.maxColumns,
-      isBandit: !!snapshotSettings.banditSettings,
-      efficientQuantileGrid: !!sourceProps.hasArrayQuantileGrid,
+  plannedCaches.forEach((cache, i) => {
+    const entries = cache.metricIds.map((metricId) => {
+      const entry = placedMetrics.get(placeKey(cache.cacheKind, metricId));
+      if (!entry) {
+        throw new Error(
+          `Metric ${metricId} was placed in a ${cache.cacheKind} cache it doesn't map to`,
+        );
+      }
+      return entry;
     });
-    chunks.forEach((chunk, i) => {
-      const randomId = Math.random().toString(36).substring(2, 15);
-      finalGroups.push({
-        groupId: `${baseGroupId}_${randomId}${i}`,
-        factTableId: bucket.factTableId,
-        metrics: chunk,
-      });
+    const randomId = Math.random().toString(36).substring(2, 15);
+    finalGroups.push({
+      groupId: `${cache.cacheKind}_${randomId}${i}`,
+      factTableId: entries[0].factTableId,
+      metrics: entries.map((e) => e.metric),
+      replacesGroupId: cache.replacesGroupId,
     });
   });
 
@@ -313,16 +380,28 @@ function parseMaxTimestampRow(row: Record<string, unknown> | undefined): {
   };
 }
 
-const startExperimentIncrementalRefreshQueries = async (
+export const startExperimentIncrementalRefreshQueries = async (
   context: ApiReqContext,
-  params: ExperimentIncrementalRefreshQueryParams,
+  params: ExperimentIncrementalRefreshQueryParams & {
+    isNewMetricsUpdate: boolean;
+  },
   integration: SourceIntegrationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
   experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null,
 ): Promise<Queries> => {
-  const { snapshotSettings, queryParentId, experimentId, metricMap } = params;
+  const {
+    snapshotSettings,
+    queryParentId,
+    experimentId,
+    metricMap,
+    mode,
+    isNewMetricsUpdate,
+  } = params;
+  // A new-metrics update reads every stored table as its parent left it and
+  // writes only the caches it builds or rebuilds.
+  const appendsToStoredTables = !isNewMetricsUpdate;
 
   const { org } = context;
 
@@ -396,7 +475,7 @@ const startExperimentIncrementalRefreshQueries = async (
     );
   }
 
-  const incrementalRefreshModel = params.fullRefresh ? null : existingModel;
+  const incrementalRefreshModel = mode.kind === "full" ? null : existingModel;
 
   const executionId = params.queryParentId;
 
@@ -442,20 +521,12 @@ const startExperimentIncrementalRefreshQueries = async (
   // Current per-metric settings hash for every selected fact metric, keyed by
   // metric id. Compared against the hash persisted in each metric source to
   // detect metrics whose configuration changed since their cache was built.
-  const currentMetricSettingsHashes = new Map<string, string>();
-  factMetrics.forEach((m) => {
-    currentMetricSettingsHashes.set(
-      m.id,
-      getMetricSettingsHashForIncrementalRefresh({
-        factMetric: m,
-        factTableMap: params.factTableMap,
-        metricSettings: snapshotSettings.metricSettings.find(
-          (ms) => ms.id === m.id,
-        ),
-        clusterMetricLevel: getClusterMetricCacheLevel(snapshotSettings, m.id),
-      }),
-    );
-  });
+  const currentMetricSettingsHashes =
+    getMetricSettingsHashesForIncrementalRefresh({
+      factMetrics,
+      factTableMap: params.factTableMap,
+      snapshotSettings,
+    });
 
   // Fact tables whose persisted cache no longer matches the desired metric
   // layout — a metric was added to or removed from the FT, a cross-FT ratio
@@ -463,12 +534,15 @@ const startExperimentIncrementalRefreshQueries = async (
   // cache, so we rebuild it end-to-end (CREATE + full INSERT) instead of
   // incrementally appending to an out-of-shape table. The per-FT loop below
   // sees no `existingSource` for these tables and rebuilds from scratch.
+  // A new-metrics update instead rebuilds only the caches that take its
+  // metrics (see getIncrementalRefreshMetricSources).
   // Experiment-level setting changes are handled upstream by
   // assertIncrementalRefreshPrerequisites (they force a full refresh).
   const factTablesToRebuild = getFactTablesNeedingRebuild({
     existingMetricSources: incrementalRefreshModel?.metricSources ?? [],
     desiredFanOut,
     currentMetricSettingsHashes,
+    restateOnAddedMetric: !isNewMetricsUpdate,
   });
 
   // Begin Queries
@@ -535,27 +609,86 @@ const startExperimentIncrementalRefreshQueries = async (
     lastMaxTimestampRaw: incrementalRefreshModel?.unitsMaxTimestampRaw ?? null,
   };
 
-  let createUnitsTableQuery: QueryPointer | null = null;
-  if (params.fullRefresh) {
-    const dropOldUnitsTableQuery = await startQuery({
-      name: `drop_${queryParentId}_old`,
+  const afterUnits: Record<"update" | "alter" | "maxTimestamp", string[]> = {
+    update: [],
+    alter: [],
+    maxTimestamp: [],
+  };
+  if (appendsToStoredTables) {
+    let createUnitsTableQuery: QueryPointer | null = null;
+    if (mode.kind === "full") {
+      const dropOldUnitsTableQuery = await startQuery({
+        name: `drop_${queryParentId}_old`,
+        query: integration.getDropOldIncrementalUnitsQuery({
+          unitsTableFullName: unitQueryParams.unitsTableFullName,
+        }),
+        dependencies: [],
+        run: fenced((query, setExternalId, queryMetadata) =>
+          integration.runDropTableQuery(query, setExternalId, queryMetadata),
+        ),
+        queryType: "experimentIncrementalRefreshDropUnitsTable",
+      });
+      queries.push(dropOldUnitsTableQuery);
+
+      createUnitsTableQuery = await startQuery({
+        name: `create_${queryParentId}`,
+        displayTitle: "Create Experiment Units Table",
+        query:
+          integration.getCreateExperimentIncrementalUnitsQuery(unitQueryParams),
+        dependencies: [dropOldUnitsTableQuery.query],
+        run: fenced((query, setExternalId, queryMetadata) =>
+          integration.runIncrementalWithNoOutputQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        ),
+        queryType: "experimentIncrementalRefreshCreateUnitsTable",
+      });
+      queries.push(createUnitsTableQuery);
+    }
+
+    const updateUnitsTableQuery = await startQuery({
+      name: `update_${queryParentId}`,
+      displayTitle: "Update Experiment Units Table",
+      query:
+        integration.getUpdateExperimentIncrementalUnitsQuery(unitQueryParams),
+      dependencies: [
+        ...(createUnitsTableQuery ? [createUnitsTableQuery.query] : []),
+      ],
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runIncrementalWithNoOutputQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
+      queryType: "experimentIncrementalRefreshUpdateUnitsTable",
+    });
+    queries.push(updateUnitsTableQuery);
+
+    const dropUnitsTableQuery = await startQuery({
+      name: `drop_${queryParentId}`,
+      displayTitle: "Drop Old Experiment Units Table",
       query: integration.getDropOldIncrementalUnitsQuery({
-        unitsTableFullName: unitQueryParams.unitsTableFullName,
+        unitsTableFullName: unitsTableFullName,
       }),
-      dependencies: [],
       run: fenced((query, setExternalId, queryMetadata) =>
         integration.runDropTableQuery(query, setExternalId, queryMetadata),
       ),
+      dependencies: [updateUnitsTableQuery.query],
       queryType: "experimentIncrementalRefreshDropUnitsTable",
     });
-    queries.push(dropOldUnitsTableQuery);
+    queries.push(dropUnitsTableQuery);
 
-    createUnitsTableQuery = await startQuery({
-      name: `create_${queryParentId}`,
-      displayTitle: "Create Experiment Units Table",
-      query:
-        integration.getCreateExperimentIncrementalUnitsQuery(unitQueryParams),
-      dependencies: [dropOldUnitsTableQuery.query],
+    const alterUnitsTableQuery = await startQuery({
+      name: `alter_${queryParentId}`,
+      displayTitle: "Rename Experiment Units Table",
+      query: integration.getAlterNewIncrementalUnitsQuery({
+        unitsTableName: unitsTableName,
+        unitsTableFullName: unitsTableFullName,
+        unitsTempTableFullName: unitsTempTableFullName,
+      }),
+      dependencies: [dropUnitsTableQuery.query],
       run: fenced((query, setExternalId, queryMetadata) =>
         integration.runIncrementalWithNoOutputQuery(
           query,
@@ -563,156 +696,144 @@ const startExperimentIncrementalRefreshQueries = async (
           queryMetadata,
         ),
       ),
-      queryType: "experimentIncrementalRefreshCreateUnitsTable",
+      queryType: "experimentIncrementalRefreshAlterUnitsTable",
     });
-    queries.push(createUnitsTableQuery);
-  }
+    queries.push(alterUnitsTableQuery);
 
-  const updateUnitsTableQuery = await startQuery({
-    name: `update_${queryParentId}`,
-    displayTitle: "Update Experiment Units Table",
-    query:
-      integration.getUpdateExperimentIncrementalUnitsQuery(unitQueryParams),
-    dependencies: [
-      ...(createUnitsTableQuery ? [createUnitsTableQuery.query] : []),
-    ],
-    run: (query, setExternalId, queryMetadata) =>
-      integration.runIncrementalWithNoOutputQuery(
-        query,
-        setExternalId,
-        queryMetadata,
-      ),
-    queryType: "experimentIncrementalRefreshUpdateUnitsTable",
-  });
-  queries.push(updateUnitsTableQuery);
+    const maxTimestampUnitsTableQuery = await startQuery({
+      name: `max_timestamp_${queryParentId}`,
+      displayTitle: "Find Latest Experiment Source Timestamp",
+      query: integration.getMaxTimestampIncrementalUnitsQuery({
+        unitsTableFullName,
+        lastMaxTimestamp: lastMaxTimestamp || null,
+      }),
+      dependencies: [alterUnitsTableQuery.query],
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runIncrementalWithNoOutputQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
+      onSuccess: async (rows) => {
+        // MAX() is NULL on an empty units table; persist null so a prior
+        // watermark cannot survive a full refresh that matched no one.
+        const watermark = parseMaxTimestampRow(rows[0]);
 
-  const dropUnitsTableQuery = await startQuery({
-    name: `drop_${queryParentId}`,
-    displayTitle: "Drop Old Experiment Units Table",
-    query: integration.getDropOldIncrementalUnitsQuery({
-      unitsTableFullName: unitsTableFullName,
-    }),
-    run: fenced((query, setExternalId, queryMetadata) =>
-      integration.runDropTableQuery(query, setExternalId, queryMetadata),
-    ),
-    dependencies: [updateUnitsTableQuery.query],
-    queryType: "experimentIncrementalRefreshDropUnitsTable",
-  });
-  queries.push(dropUnitsTableQuery);
-
-  const alterUnitsTableQuery = await startQuery({
-    name: `alter_${queryParentId}`,
-    displayTitle: "Rename Experiment Units Table",
-    query: integration.getAlterNewIncrementalUnitsQuery({
-      unitsTableName: unitsTableName,
-      unitsTableFullName: unitsTableFullName,
-      unitsTempTableFullName: unitsTempTableFullName,
-    }),
-    dependencies: [dropUnitsTableQuery.query],
-    run: fenced((query, setExternalId, queryMetadata) =>
-      integration.runIncrementalWithNoOutputQuery(
-        query,
-        setExternalId,
-        queryMetadata,
-      ),
-    ),
-    queryType: "experimentIncrementalRefreshAlterUnitsTable",
-  });
-  queries.push(alterUnitsTableQuery);
-
-  const maxTimestampUnitsTableQuery = await startQuery({
-    name: `max_timestamp_${queryParentId}`,
-    displayTitle: "Find Latest Experiment Source Timestamp",
-    query: integration.getMaxTimestampIncrementalUnitsQuery({
-      unitsTableFullName,
-      lastMaxTimestamp: lastMaxTimestamp || null,
-    }),
-    dependencies: [alterUnitsTableQuery.query],
-    run: (query, setExternalId, queryMetadata) =>
-      integration.runIncrementalWithNoOutputQuery(
-        query,
-        setExternalId,
-        queryMetadata,
-      ),
-    onSuccess: async (rows) => {
-      // MAX() is NULL on an empty units table; persist null so a prior
-      // watermark cannot survive a full refresh that matched no one.
-      const watermark = parseMaxTimestampRow(rows[0]);
-
-      const lockHeld =
-        await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-          experimentId,
-          executionId,
-          {
-            unitsTableFullName: unitsTableFullName,
-            unitsMaxTimestamp: watermark.maxTimestamp,
-            unitsMaxTimestampRaw: watermark.maxTimestampRaw,
-            experimentSettingsHash:
-              getExperimentSettingsHashForIncrementalRefresh(
-                snapshotSettings,
-                integration.datasource.settings.queries?.exposure ?? [],
-              ),
-            unitsDimensions: eligibleDimensions.map((d) => d.id),
-          },
-        );
-      if (lockHeld !== true) {
-        context.logger.warn(
-          "Incremental refresh execution lock lost for experiment: " +
+        const lockHeld =
+          await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
             experimentId,
-        );
-      }
-    },
-    queryType: "experimentIncrementalRefreshMaxTimestampUnitsTable",
-  });
-  queries.push(maxTimestampUnitsTableQuery);
+            executionId,
+            {
+              unitsTableFullName: unitsTableFullName,
+              unitsMaxTimestamp: watermark.maxTimestamp,
+              unitsMaxTimestampRaw: watermark.maxTimestampRaw,
+              experimentSettingsHash:
+                getExperimentSettingsHashForIncrementalRefresh(
+                  snapshotSettings,
+                  integration.datasource.settings.queries?.exposure ?? [],
+                ),
+              unitsDimensions: eligibleDimensions.map((d) => d.id),
+            },
+          );
+        if (lockHeld !== true) {
+          context.logger.warn(
+            "Incremental refresh execution lock lost for experiment: " +
+              experimentId,
+          );
+        }
+      },
+      queryType: "experimentIncrementalRefreshMaxTimestampUnitsTable",
+    });
+    queries.push(maxTimestampUnitsTableQuery);
+    afterUnits.update = [updateUnitsTableQuery.query];
+    afterUnits.alter = [alterUnitsTableQuery.query];
+    afterUnits.maxTimestamp = [maxTimestampUnitsTableQuery.query];
+  }
 
   // Metric Queries
 
   // Full refresh will have a null incremental refresh model
   // Will recreate sources with new random id for metric sources
-  let existingSources = incrementalRefreshModel?.metricSources ?? [];
-  let existingCovariateSources =
+  const storedSources = incrementalRefreshModel?.metricSources ?? [];
+  const storedCovariateSources =
     incrementalRefreshModel?.metricCovariateSources ?? [];
 
-  // Drop existing source records for FTs flagged for rebuild above (added /
-  // removed metric, moved cross-FT side, or changed metric settings). The
-  // per-FT loop below will see no `existingSource` and rebuild the cache from
-  // scratch (CREATE + full INSERT) instead of incrementally appending — the
-  // cache's schema/values may be out of shape with the desired metric set. The
-  // matching covariate sources are dropped at the same time so CUPED state
-  // stays consistent.
-  if (factTablesToRebuild.size > 0) {
-    const sourcesGroupIdsToDelete = new Set<string>();
-    existingSources.forEach((source) => {
-      if (factTablesToRebuild.has(source.factTableId)) {
-        sourcesGroupIdsToDelete.add(source.groupId);
-      }
-    });
-    existingSources = existingSources.filter(
-      (source) => !sourcesGroupIdsToDelete.has(source.groupId),
-    );
-    existingCovariateSources = existingCovariateSources.filter(
-      (source) => !sourcesGroupIdsToDelete.has(source.groupId),
-    );
-  }
-
+  // Caches of FTs flagged for rebuild above (added / removed metric, moved
+  // cross-FT side, or changed metric settings) are replaced: the per-FT loop
+  // below sees no `existingSource` and rebuilds them from scratch (CREATE +
+  // full INSERT) instead of appending, since their schema/values may be out of
+  // shape with the desired metric set. So is a source that takes new metrics,
+  // under a new id. Their covariate caches are replaced with them so CUPED
+  // state stays consistent, and the replaced tables are dropped once the
+  // replacements are recorded.
   const metricSourceGroups = getIncrementalRefreshMetricSources({
     metrics: factMetrics,
-    existingMetricSources: existingSources ?? [],
+    existingMetricSources: storedSources.filter(
+      (source) => !factTablesToRebuild.has(source.factTableId),
+    ),
+    extendExistingSources: isNewMetricsUpdate,
     integration,
     snapshotSettings,
   });
-  let runningSourceData = existingSources ?? [];
-  let runningCovariateSourceData = existingCovariateSources ?? [];
+  const extendedGroupIds = new Set(
+    metricSourceGroups.flatMap((g) =>
+      g.replacesGroupId ? [g.replacesGroupId] : [],
+    ),
+  );
+  const replacedSources = storedSources.filter(
+    (source) =>
+      factTablesToRebuild.has(source.factTableId) ||
+      extendedGroupIds.has(source.groupId),
+  );
+  const replacedGroupIds = new Set(replacedSources.map((s) => s.groupId));
+  const existingSources = storedSources.filter(
+    (source) => !replacedGroupIds.has(source.groupId),
+  );
+  const existingCovariateSources = storedCovariateSources.filter(
+    (source) => !replacedGroupIds.has(source.groupId),
+  );
+  // A new-metrics update copies the parent's queries of every source it
+  // keeps, by name, so a kept source must hold the metrics it held then.
+  if (isNewMetricsUpdate) {
+    for (const group of metricSourceGroups) {
+      const stored = existingSources.find((s) => s.groupId === group.groupId);
+      if (
+        stored &&
+        !isEqual(
+          group.metrics.map((m) => m.id).sort(),
+          stored.metrics.map((m) => m.id).sort(),
+        )
+      ) {
+        throw new Error(
+          `Metrics source ${group.groupId} would change its metrics without a new id`,
+        );
+      }
+    }
+  }
+  // State writes of the caches replacing each replaced source, by its group id.
+  const replacementWritesByGroupId = new Map<string, string[]>();
+  const getReplacedGroupIds = (group: MetricSourceGroups) =>
+    group.replacesGroupId
+      ? [group.replacesGroupId]
+      : replacedSources
+          .filter(
+            (source) =>
+              factTablesToRebuild.has(source.factTableId) &&
+              source.factTableId === group.factTableId,
+          )
+          .map((source) => source.groupId);
+
+  let runningSourceData = existingSources;
+  let runningCovariateSourceData = existingCovariateSources;
 
   // Track per-group state we need from the per-FT pass for the cross-FT
   // pair pass below: each pipeline's cache table name (so the stats query
-  // can build its `metricSources` array) and the insert query (so the
-  // stats query can declare it as a dependency).
+  // can build its `metricSources` array) and the insert query, when this run
+  // writes the cache (so the stats query can declare it as a dependency).
   interface SourcePipeline {
     group: MetricSourceGroups;
     tableFullName: string;
-    insertQuery: QueryPointer;
+    insertQuery?: QueryPointer;
     // Optional covariate cache + insert query for this group, populated
     // only when at least one metric in the group is regression-adjusted.
     // The cross-FT pair pass below pairs both pipelines' covariate caches
@@ -775,7 +896,7 @@ const startExperimentIncrementalRefreshQueries = async (
           factTableMap: params.factTableMap,
           metricSourceTableFullName,
         }),
-        dependencies: [updateUnitsTableQuery.query],
+        dependencies: [...afterUnits.update],
         run: fenced((query, setExternalId, queryMetadata) =>
           integration.runIncrementalWithNoOutputQuery(
             query,
@@ -789,38 +910,41 @@ const startExperimentIncrementalRefreshQueries = async (
       queries.push(createMetricsSourceQuery);
     }
 
-    const insertParams: InsertMetricSourceDataQueryParams = {
-      settings: snapshotSettings,
-      exposureQuery: resolvedExposureQuery,
-      activationMetric: activationMetric,
-      factTableMap: params.factTableMap,
-      factTableId: group.factTableId,
-      metricSourceTableFullName,
-      unitsSourceTableFullName: unitsTableFullName,
-      metrics: group.metrics,
-      lastMaxTimestamp: existingSource?.maxTimestamp || null,
-      lastMaxTimestampRaw: existingSource?.maxTimestampRaw ?? null,
-      incrementalRefreshStartTime: params.incrementalRefreshStartTime,
-    };
+    let insertMetricsSourceDataQuery: QueryPointer | null = null;
+    if (!existingSource || appendsToStoredTables) {
+      const insertParams: InsertMetricSourceDataQueryParams = {
+        settings: snapshotSettings,
+        exposureQuery: resolvedExposureQuery,
+        activationMetric: activationMetric,
+        factTableMap: params.factTableMap,
+        factTableId: group.factTableId,
+        metricSourceTableFullName,
+        unitsSourceTableFullName: unitsTableFullName,
+        metrics: group.metrics,
+        lastMaxTimestamp: existingSource?.maxTimestamp || null,
+        lastMaxTimestampRaw: existingSource?.maxTimestampRaw ?? null,
+        incrementalRefreshStartTime: params.incrementalRefreshStartTime,
+      };
 
-    const insertMetricsSourceDataQuery = await startQuery({
-      name: `insert_metrics_source_data_${group.groupId}`,
-      displayTitle: `Update Metrics Source ${sourceName}`,
-      query: integration.getInsertMetricSourceDataQuery(insertParams),
-      dependencies: [
-        ...(createMetricsSourceQuery ? [createMetricsSourceQuery.query] : []),
-        alterUnitsTableQuery.query,
-      ],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runIncrementalWithNoOutputQuery(
-          query,
-          setExternalId,
-          queryMetadata,
-        ),
-      metadata: { factTableIds: [group.factTableId] },
-      queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
-    });
-    queries.push(insertMetricsSourceDataQuery);
+      insertMetricsSourceDataQuery = await startQuery({
+        name: `insert_metrics_source_data_${group.groupId}`,
+        displayTitle: `Update Metrics Source ${sourceName}`,
+        query: integration.getInsertMetricSourceDataQuery(insertParams),
+        dependencies: [
+          ...(createMetricsSourceQuery ? [createMetricsSourceQuery.query] : []),
+          ...afterUnits.alter,
+        ],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalWithNoOutputQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        metadata: { factTableIds: [group.factTableId] },
+        queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
+      });
+      queries.push(insertMetricsSourceDataQuery);
+    }
 
     // CUPED tables — one covariate cache per group, holding only the
     // side(s) this FT actually materializes for each metric. Same-FT
@@ -855,7 +979,10 @@ const startExperimentIncrementalRefreshQueries = async (
     const anyMetricHasCuped = regressionAdjustedMetrics.length > 0;
     let createMetricCovariateTableQuery: QueryPointer | null = null;
     let insertMetricCovariateDataQuery: QueryPointer | null = null;
-    if (anyMetricHasCuped) {
+    if (
+      anyMetricHasCuped &&
+      (!existingCovariateSource || appendsToStoredTables)
+    ) {
       if (!existingCovariateSource) {
         // Safety net in case our data model is out of sync with the database
         const dropMetricCovariateTableQuery = await startQuery({
@@ -864,7 +991,7 @@ const startExperimentIncrementalRefreshQueries = async (
           query: integration.getDropMetricSourceCovariateTableQuery({
             metricSourceCovariateTableFullName,
           }),
-          dependencies: [updateUnitsTableQuery.query],
+          dependencies: [...afterUnits.update],
           run: fenced((query, setExternalId, queryMetadata) =>
             integration.runDropTableQuery(query, setExternalId, queryMetadata),
           ),
@@ -929,7 +1056,7 @@ const startExperimentIncrementalRefreshQueries = async (
         name: `insert_metrics_covariate_data_${group.groupId}`,
         displayTitle: `Update Metric Covariate Data ${sourceName}`,
         dependencies: [
-          maxTimestampUnitsTableQuery.query,
+          ...afterUnits.maxTimestamp,
           ...(createMetricCovariateTableQuery
             ? [createMetricCovariateTableQuery.query]
             : []),
@@ -1041,98 +1168,115 @@ const startExperimentIncrementalRefreshQueries = async (
       queries.push(insertMetricCovariateDataQuery);
     }
 
-    const maxTimestampMetricsSourceQuery = await startQuery({
-      name: `max_timestamp_metrics_source_${group.groupId}`,
-      displayTitle: `Find Latest Metrics Source Timestamp ${sourceName}`,
-      query: integration.getMaxTimestampMetricSourceQuery({
-        metricSourceTableFullName,
-        lastMaxTimestamp: existingSource?.maxTimestamp || null,
-      }),
-      dependencies: [insertMetricsSourceDataQuery.query],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runMaxTimestampQuery(query, setExternalId, queryMetadata),
-      onFailure: async () => {
-        // Remove the source from the running data if max timestamp fails
-        runningSourceData = runningSourceData.filter(
-          (s) => s.groupId !== group.groupId,
-        );
-        // Note: onFailure is not awaited by QueryRunner, so we must catch
-        // errors here to avoid unhandled promise rejections.
-        context.models.incrementalRefresh
-          .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
-            metricSources: runningSourceData,
-          })
-          .catch((e) =>
-            context.logger.error(
-              e,
-              "Failed to update metric sources on query failure",
-            ),
+    if (insertMetricsSourceDataQuery) {
+      const maxTimestampMetricsSourceQuery = await startQuery({
+        name: `max_timestamp_metrics_source_${group.groupId}`,
+        displayTitle: `Find Latest Metrics Source Timestamp ${sourceName}`,
+        query: integration.getMaxTimestampMetricSourceQuery({
+          metricSourceTableFullName,
+          lastMaxTimestamp: existingSource?.maxTimestamp || null,
+        }),
+        dependencies: [insertMetricsSourceDataQuery.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runMaxTimestampQuery(query, setExternalId, queryMetadata),
+        onFailure: async () => {
+          // Remove the source from the running data if max timestamp fails
+          runningSourceData = runningSourceData.filter(
+            (s) => s.groupId !== group.groupId,
           );
-      },
-      onSuccess: async (rows) => {
-        // MAX() is NULL on an empty cache; persist null rather than skip
-        // the source so the table isn't rebuilt on the next refresh.
-        const { maxTimestamp, maxTimestampRaw } = parseMaxTimestampRow(rows[0]);
-        // TODO(incremental-refresh): Clean up metadata handling in query runner
-        const updatedSource: IncrementalRefreshMetricSourceInterface =
-          existingSource
-            ? { ...existingSource, maxTimestamp, maxTimestampRaw }
-            : {
-                groupId: group.groupId,
-                factTableId: group.factTableId,
-                maxTimestamp,
-                maxTimestampRaw,
-                // (factTableId, metricId) is the persisted key. Which side
-                // of the metric this cache materializes is derived at read
-                // time by comparing the metric's column refs to
-                // `factTableId` (see metric-source-table-schema.ts).
-                metrics: group.metrics.map((m) => ({
-                  id: m.id,
-                  settingsHash: getMetricSettingsHashForIncrementalRefresh({
-                    factMetric: m,
-                    factTableMap: params.factTableMap,
-                    metricSettings: insertParams.settings.metricSettings.find(
-                      (ms) => ms.id === m.id,
-                    ),
-                    clusterMetricLevel: getClusterMetricCacheLevel(
-                      insertParams.settings,
-                      m.id,
-                    ),
-                  }),
-                })),
-                tableFullName: metricSourceTableFullName,
-              };
-        if (!existingSource) {
-          runningSourceData = runningSourceData.concat(updatedSource);
-        } else {
-          runningSourceData = runningSourceData.map((s) =>
-            s.groupId === group.groupId ? updatedSource : s,
-          );
-        }
-        const lockHeld =
-          await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-            experimentId,
-            executionId,
-            {
+          // Note: onFailure is not awaited by QueryRunner, so we must catch
+          // errors here to avoid unhandled promise rejections.
+          context.models.incrementalRefresh
+            .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
               metricSources: runningSourceData,
-            },
+            })
+            .catch((e) =>
+              context.logger.error(
+                e,
+                "Failed to update metric sources on query failure",
+              ),
+            );
+        },
+        onSuccess: async (rows) => {
+          // MAX() is NULL on an empty cache; persist null rather than skip
+          // the source so the table isn't rebuilt on the next refresh.
+          const { maxTimestamp, maxTimestampRaw } = parseMaxTimestampRow(
+            rows[0],
           );
-        if (lockHeld !== true) {
-          context.logger.warn(
-            "Incremental refresh execution lock lost for experiment: " +
+          // TODO(incremental-refresh): Clean up metadata handling in query runner
+          const updatedSource: IncrementalRefreshMetricSourceInterface =
+            existingSource
+              ? { ...existingSource, maxTimestamp, maxTimestampRaw }
+              : {
+                  groupId: group.groupId,
+                  factTableId: group.factTableId,
+                  maxTimestamp,
+                  maxTimestampRaw,
+                  // (factTableId, metricId) is the persisted key. Which side
+                  // of the metric this cache materializes is derived at read
+                  // time by comparing the metric's column refs to
+                  // `factTableId` (see metric-source-table-schema.ts).
+                  metrics: group.metrics.map((m) => ({
+                    id: m.id,
+                    settingsHash: getMetricSettingsHashForIncrementalRefresh({
+                      factMetric: m,
+                      factTableMap: params.factTableMap,
+                      metricSettings: snapshotSettings.metricSettings.find(
+                        (ms) => ms.id === m.id,
+                      ),
+                      clusterMetricLevel: getClusterMetricCacheLevel(
+                        snapshotSettings,
+                        m.id,
+                      ),
+                    }),
+                  })),
+                  tableFullName: metricSourceTableFullName,
+                };
+          if (!existingSource) {
+            runningSourceData = runningSourceData.concat(updatedSource);
+          } else {
+            runningSourceData = runningSourceData.map((s) =>
+              s.groupId === group.groupId ? updatedSource : s,
+            );
+          }
+          const lockHeld =
+            await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
               experimentId,
-          );
-        }
-      },
-      metadata: { factTableIds: [group.factTableId] },
-      queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
-    });
-    queries.push(maxTimestampMetricsSourceQuery);
+              executionId,
+              {
+                metricSources: runningSourceData,
+              },
+            );
+          if (lockHeld !== true) {
+            context.logger.warn(
+              "Incremental refresh execution lock lost for experiment: " +
+                experimentId,
+            );
+          }
+        },
+        metadata: { factTableIds: [group.factTableId] },
+        queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
+      });
+      queries.push(maxTimestampMetricsSourceQuery);
+      for (const replacedGroupId of getReplacedGroupIds(group)) {
+        replacementWritesByGroupId.set(replacedGroupId, [
+          ...(replacementWritesByGroupId.get(replacedGroupId) ?? []),
+          maxTimestampMetricsSourceQuery.query,
+          ...(insertMetricCovariateDataQuery
+            ? [insertMetricCovariateDataQuery.query]
+            : []),
+        ]);
+      }
+    }
 
+    const writeQueryIds = [
+      insertMetricsSourceDataQuery,
+      insertMetricCovariateDataQuery,
+    ].flatMap((q) => (q ? [q.query] : []));
     pipelineByGroupId.set(group.groupId, {
       group,
       tableFullName: metricSourceTableFullName,
-      insertQuery: insertMetricsSourceDataQuery,
+      insertQuery: insertMetricsSourceDataQuery ?? undefined,
       covariateTableFullName: anyMetricHasCuped
         ? metricSourceCovariateTableFullName
         : undefined,
@@ -1167,13 +1311,7 @@ const startExperimentIncrementalRefreshQueries = async (
               : {}),
           },
         ];
-        const statisticsDependencies = [
-          insertMetricsSourceDataQuery.query,
-          ...(insertMetricCovariateDataQuery
-            ? [insertMetricCovariateDataQuery.query]
-            : []),
-        ];
-        const baseStatisticsName = `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`;
+        const baseStatisticsName = `${STATISTICS_QUERY_PREFIX}${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`;
 
         for (const variant of getStatisticsQueryVariants({
           baseName: baseStatisticsName,
@@ -1198,7 +1336,7 @@ const startExperimentIncrementalRefreshQueries = async (
               dimensionsForAnalysis: [],
               metricSources,
             }),
-            dependencies: statisticsDependencies,
+            dependencies: writeQueryIds,
             run: (query, setExternalId, queryMetadata) =>
               integration.runIncrementalRefreshStatisticsQuery(
                 query,
@@ -1249,7 +1387,7 @@ const startExperimentIncrementalRefreshQueries = async (
       .map((p) => p.group.groupId)
       .join("__");
 
-    const baseStatisticsName = `statistics_multi_${queryNameParts}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`;
+    const baseStatisticsName = `${STATISTICS_QUERY_PREFIX}multi_${queryNameParts}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`;
     const metricSources = subGroup.pipelines.map((p) => ({
       factTableId: p.group.factTableId,
       tableFullName: p.tableFullName,
@@ -1258,7 +1396,9 @@ const startExperimentIncrementalRefreshQueries = async (
         : {}),
     }));
     const statisticsDependencies = [
-      ...subGroup.pipelines.map((p) => p.insertQuery.query),
+      ...subGroup.pipelines.flatMap((p) =>
+        p.insertQuery ? [p.insertQuery.query] : [],
+      ),
       ...subGroup.pipelines.flatMap((p) =>
         p.covariateInsertQuery ? [p.covariateInsertQuery.query] : [],
       ),
@@ -1319,7 +1459,7 @@ const startExperimentIncrementalRefreshQueries = async (
         dimensions: eligibleDimensionsWithSlices,
         useUnitsTable: true,
       }),
-      dependencies: [alterUnitsTableQuery.query],
+      dependencies: [...afterUnits.alter],
       run: (query, setExternalId, queryMetadata) =>
         integration.runExperimentAggregateUnitsQuery(
           query,
@@ -1340,7 +1480,7 @@ const startExperimentIncrementalRefreshQueries = async (
           useUnitsTable: true,
           clusterGrain: true,
         }),
-        dependencies: [alterUnitsTableQuery.query],
+        dependencies: [...afterUnits.alter],
         run: (query, setExternalId, queryMetadata) =>
           integration.runExperimentAggregateUnitsQuery(
             query,
@@ -1359,7 +1499,7 @@ const startExperimentIncrementalRefreshQueries = async (
           dimensions: eligibleDimensionsWithSlices,
           useUnitsTable: true,
         }),
-        dependencies: [alterUnitsTableQuery.query],
+        dependencies: [...afterUnits.alter],
         run: (query, setExternalId, queryMetadata) =>
           integration.runExperimentClusterHealthQuery(
             query,
@@ -1369,6 +1509,77 @@ const startExperimentIncrementalRefreshQueries = async (
         queryType: "experimentTraffic",
       });
       queries.push(clusterHealthQuery);
+    }
+  }
+
+  // A rebuilt cache lives in a new table. Drop each table it replaces once
+  // the replacement is recorded, so replaced tables don't pile up.
+  for (const source of replacedSources) {
+    const dependencies = replacementWritesByGroupId.get(source.groupId) ?? [];
+    if (!dependencies.length) continue;
+    const covariateSource = storedCovariateSources.find(
+      (s) => s.groupId === source.groupId,
+    );
+    const replacedTables = [
+      {
+        name: `${REPLACED_TABLE_DROP_QUERY_PREFIX}metrics_source_${source.groupId}`,
+        tableFullName: source.tableFullName,
+      },
+      ...(covariateSource
+        ? [
+            {
+              name: `${REPLACED_TABLE_DROP_QUERY_PREFIX}metrics_covariate_table_${source.groupId}`,
+              tableFullName: covariateSource.tableFullName,
+            },
+          ]
+        : []),
+    ];
+    for (const { name, tableFullName } of replacedTables) {
+      const dropQuery = await startQuery({
+        name,
+        displayTitle: `Drop Replaced Metrics Table (${params.factTableMap.get(source.factTableId)?.name ?? source.factTableId})`,
+        query: integration.getDropMetricSourceTableQuery({
+          metricSourceTableFullName: tableFullName,
+        }),
+        dependencies,
+        run: fenced(async (query, setExternalId, queryMetadata) => {
+          // A dependency counts as succeeded before its state write lands.
+          const state =
+            await context.models.incrementalRefresh.getLockedBySnapshotId(
+              experimentId,
+              executionId,
+            );
+          if (!state) {
+            context.logger.warn(
+              `Kept replaced metrics table ${tableFullName}: the pipeline state could not be read`,
+            );
+            return { rows: [] };
+          }
+          const stillStored = [
+            ...state.metricSources,
+            ...state.metricCovariateSources,
+          ].some((s) => s.tableFullName === tableFullName);
+          if (stillStored) {
+            context.logger.warn(
+              `Kept replaced metrics table ${tableFullName}: the pipeline state still lists it`,
+            );
+            return { rows: [] };
+          }
+          return integration
+            .runDropTableQuery(query, setExternalId, queryMetadata)
+            .catch((error: unknown) => {
+              // The state no longer lists the table, so no later run drops it.
+              context.logger.error(
+                error,
+                `Failed to drop replaced metrics table ${tableFullName}`,
+              );
+              throw error;
+            });
+        }),
+        metadata: { factTableIds: [source.factTableId] },
+        queryType: "experimentIncrementalRefreshDropMetricsSourceTable",
+      });
+      queries.push(dropQuery);
     }
   }
   return queries;
@@ -1419,12 +1630,13 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       );
     }
 
-    const incrementalRefreshModel = params.fullRefresh
-      ? null
-      : await this.context.models.incrementalRefresh.getLockedBySnapshotId(
-          params.experimentId,
-          this.model.id,
-        );
+    const incrementalRefreshModel =
+      params.mode.kind === "full"
+        ? null
+        : await this.context.models.incrementalRefresh.getLockedBySnapshotId(
+            params.experimentId,
+            this.model.id,
+          );
 
     const experiment = await getExperimentById(
       this.context,
@@ -1442,56 +1654,53 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       metricMap: params.metricMap,
       experiment,
       incrementalRefreshModel,
-      analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
+      analysisType:
+        params.mode.kind === "full" ? "main-fullRefresh" : "main-update",
     });
 
     if (this.experimentUpdateExecutionLogger) {
       this.experimentUpdateExecutionLogger.execution.incrementalRefreshMode =
-        params.fullRefresh ? "full" : "incremental";
+        params.mode.kind === "full" ? "full" : "incremental";
       // Empty array distinguishes an incremental run with no RA covariate
       // groups from a non-incremental run (which leaves this null).
       this.experimentUpdateExecutionLogger.execution.covariateSources = [];
     }
 
-    return await startExperimentIncrementalRefreshQueries(
+    const newMetricsUpdate = getNewMetricsUpdate(this.model);
+    const startQuery = this.startQuery.bind(this);
+    return startExperimentIncrementalRefreshQueries(
       this.context,
-      params,
+      { ...params, isNewMetricsUpdate: !!newMetricsUpdate },
       this.integration,
-      this.startQuery.bind(this),
+      newMetricsUpdate
+        ? await getNewMetricsUpdateStartQuery(
+            this.context,
+            this.model,
+            newMetricsUpdate,
+            startQuery,
+          )
+        : startQuery,
       this.experimentUpdateExecutionLogger,
+    );
+  }
+
+  protected override getOverallQueryStatus(): QueryStatus {
+    return getNewMetricsUpdateQueryStatus(
+      this.model,
+      super.getOverallQueryStatus(),
     );
   }
 
   // largely copied from ExperimentResultsQueryRunner
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const { results: analysesResults, banditResult } =
-      await analyzeExperimentResults({
-        queryData: queryMap,
-        snapshotSettings: this.model.settings,
-        analysisSettings: this.model.analyses.map((a) => a.settings),
-        variationNames: this.variationNames,
-        metricMap: this.metricMap,
-      });
-
-    const result: SnapshotResult = {
-      analyses: this.model.analyses,
-      multipleExposures: 0,
-      unknownVariations: [],
-      banditResult,
-    };
-
-    analysesResults.forEach((results, i) => {
-      const analysis = this.model.analyses[i];
-      if (!analysis) return;
-
-      analysis.results = results.dimensions || [];
-      analysis.status = "success";
-      analysis.error = "";
-
-      // TODO: do this once, not per analysis
-      result.unknownVariations = results.unknownVariations || [];
-      result.multipleExposures = results.multipleExposures ?? 0;
+    const result: SnapshotResult = await analyzeSnapshotResults({
+      context: this.context,
+      snapshot: this.model,
+      queryMap,
+      metricMap: this.metricMap,
+      variationNames: this.variationNames,
     });
+    const { analyses } = result;
 
     //Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
@@ -1573,7 +1782,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       //     variationsSettings: this.model.settings.variations,
       //   });
       // }
-      const analysisForCovariateImbalance = this.model.analyses.find(
+      const analysisForCovariateImbalance = analyses.find(
         (a) => a.settings.useCovariateAsResponse === true,
       );
       const isEligibleForCovariateImbalanceAnalysis =

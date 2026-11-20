@@ -362,6 +362,7 @@ describe("getFactTablesNeedingRebuild", () => {
 
   it("returns an empty set on a first run (no existing sources)", () => {
     const rebuild = getFactTablesNeedingRebuild({
+      restateOnAddedMetric: true,
       existingMetricSources: [],
       desiredFanOut: planMetricFanOut([sameFtMetric]),
       currentMetricSettingsHashes: new Map([["m_same_ft", "h1"]]),
@@ -371,6 +372,7 @@ describe("getFactTablesNeedingRebuild", () => {
 
   it("does not flag a metric whose settings hash is unchanged", () => {
     const rebuild = getFactTablesNeedingRebuild({
+      restateOnAddedMetric: true,
       existingMetricSources: [
         makeMetricSource("grp_a", "ft_a", [
           { id: "m_same_ft", settingsHash: "h1" },
@@ -384,6 +386,7 @@ describe("getFactTablesNeedingRebuild", () => {
 
   it("flags rebuild when a desired metric is missing from currentMetricSettingsHashes", () => {
     const rebuild = getFactTablesNeedingRebuild({
+      restateOnAddedMetric: true,
       existingMetricSources: [
         makeMetricSource("grp_a", "ft_a", [
           { id: "m_same_ft", settingsHash: "h1" },
@@ -397,6 +400,7 @@ describe("getFactTablesNeedingRebuild", () => {
 
   it("flags the fact table of a metric whose settings hash changed", () => {
     const rebuild = getFactTablesNeedingRebuild({
+      restateOnAddedMetric: true,
       existingMetricSources: [
         makeMetricSource("grp_a", "ft_a", [
           { id: "m_same_ft", settingsHash: "old" },
@@ -410,6 +414,7 @@ describe("getFactTablesNeedingRebuild", () => {
 
   it("only flags the changed metric's fact table, leaving others incremental", () => {
     const rebuild = getFactTablesNeedingRebuild({
+      restateOnAddedMetric: true,
       existingMetricSources: [
         makeMetricSource("grp_a", "ft_a", [
           { id: "m_same_ft", settingsHash: "h1" },
@@ -429,6 +434,7 @@ describe("getFactTablesNeedingRebuild", () => {
 
   it("flags a fact table that gained a new metric", () => {
     const rebuild = getFactTablesNeedingRebuild({
+      restateOnAddedMetric: true,
       existingMetricSources: [
         makeMetricSource("grp_a", "ft_a", [
           { id: "m_same_ft", settingsHash: "h1" },
@@ -452,6 +458,7 @@ describe("getFactTablesNeedingRebuild", () => {
 
   it("flags a fact table that lost a metric", () => {
     const rebuild = getFactTablesNeedingRebuild({
+      restateOnAddedMetric: true,
       existingMetricSources: [
         makeMetricSource("grp_a", "ft_a", [
           { id: "m_same_ft", settingsHash: "h1" },
@@ -466,6 +473,7 @@ describe("getFactTablesNeedingRebuild", () => {
 
   it("flags both sides when a cross-FT ratio metric's settings changed", () => {
     const rebuild = getFactTablesNeedingRebuild({
+      restateOnAddedMetric: true,
       existingMetricSources: [
         makeMetricSource("grp_num", "ft_num", [
           { id: "m_cross_ft", settingsHash: "old" },
@@ -482,6 +490,7 @@ describe("getFactTablesNeedingRebuild", () => {
 
   it("flags only the missing denominator side when cross-FT numerator cache already exists", () => {
     const rebuild = getFactTablesNeedingRebuild({
+      restateOnAddedMetric: true,
       existingMetricSources: [
         makeMetricSource("grp_num", "ft_num", [
           { id: "m_cross_ft", settingsHash: "h1" },
@@ -507,6 +516,7 @@ describe("getFactTablesNeedingRebuild", () => {
     });
 
     const rebuild = getFactTablesNeedingRebuild({
+      restateOnAddedMetric: true,
       existingMetricSources: [
         makeMetricSource("grp_num", "ft_num", [
           { id: "m_same_on_num", settingsHash: "h_same" },

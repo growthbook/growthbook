@@ -29,6 +29,8 @@ const QUERY_TYPE_LABELS: Record<QueryType, string> = {
     "Incremental refresh: insert metrics",
   experimentIncrementalRefreshMaxTimestampMetricsSource:
     "Incremental refresh: find latest metrics",
+  experimentIncrementalRefreshDropMetricsSourceTable:
+    "Incremental refresh: drop replaced metrics",
   experimentIncrementalRefreshDropMetricsCovariateTable:
     "Incremental refresh: drop CUPED",
   experimentIncrementalRefreshCreateMetricsCovariateTable:

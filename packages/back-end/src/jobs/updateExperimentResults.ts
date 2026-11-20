@@ -19,7 +19,7 @@ import {
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import { findLatestSuccessfulSnapshotEndDate } from "back-end/src/models/ExperimentSnapshotModel";
 import {
-  ConcurrentIncrementalRefreshError,
+  SnapshotInProgressError,
   UnrecoverableSnapshotError,
 } from "back-end/src/util/errors";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
@@ -268,7 +268,7 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     }
   } catch (e) {
     // Lock contention is transient so we don't disable auto-updates
-    if (e instanceof ConcurrentIncrementalRefreshError) {
+    if (e instanceof SnapshotInProgressError) {
       logger.info(
         "Skipping auto-update for experiment " +
           experimentId +

@@ -19,8 +19,8 @@ import { QueryRunner, QueryMap } from "./QueryRunner";
 import {
   ExperimentResultsQueryParams,
   startExperimentResultQueries,
-  TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";
+import { TRAFFIC_QUERY_NAME } from "./newMetricsUpdateQueryNaming";
 
 export type SafeRolloutSnapshotResult = {
   unknownVariations: string[];

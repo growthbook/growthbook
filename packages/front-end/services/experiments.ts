@@ -1,6 +1,7 @@
 import {
   ExperimentSnapshotSettings,
   SnapshotMetric,
+  SnapshotStatusSummary,
   SnapshotVariation,
 } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
@@ -20,6 +21,7 @@ import {
 import {
   DataSourceInterfaceWithParams,
   DataSourcePipelineSettings,
+  DataSourceSettings,
   ExposureQuery,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
@@ -38,6 +40,7 @@ import {
 import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
+  getNewMetricsUpdate,
   getClusterExperimentMetricEligibility,
   getEqualWeights,
   getFunnelStepMetric,
@@ -47,6 +50,8 @@ import {
   hasEnoughData,
   isFactFunnelMetric,
   isFactMetric,
+  isFactMetricJoinable,
+  isMetricJoinable,
   isMetricGroupId,
   isRatioMetric,
   isScalableClusterSubUnitMetric,
@@ -248,7 +253,80 @@ export type ExperimentTableRow = {
   dimensionValue?: string;
   isHiddenByFilter?: boolean;
   labelOnly?: boolean;
+  newMetricState?: NewMetricRowState;
 };
+
+export type NewMetricRowState =
+  | { status: "notComputed" }
+  | { status: "running" }
+  | { status: "failed"; error: string | null };
+
+export function getUnjoinableMetricIds({
+  metricIds,
+  getExperimentMetricById,
+  getFactTableById,
+  userIdType,
+  datasourceSettings,
+}: {
+  metricIds: string[];
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  getFactTableById: Parameters<typeof isFactMetricJoinable>[2];
+  userIdType: string | undefined;
+  datasourceSettings: DataSourceSettings | undefined;
+}): Set<string> {
+  if (!userIdType || !datasourceSettings) return new Set();
+  return new Set(
+    metricIds.filter((id) => {
+      const metric = getExperimentMetricById(id);
+      if (!metric) return false;
+      return !(isFactMetric(metric)
+        ? isFactMetricJoinable(
+            metric,
+            userIdType,
+            getFactTableById,
+            datasourceSettings,
+          )
+        : isMetricJoinable(
+            metric.userIdTypes || [],
+            userIdType,
+            datasourceSettings,
+          ));
+    }),
+  );
+}
+
+/**
+ * Rows for the metrics added after the current results: being computed while
+ * an update that includes them runs, failed when the new-metrics update that
+ * included them failed, otherwise not computed yet.
+ */
+export function getNewMetricRowStates({
+  newMetricIds,
+  latest,
+}: {
+  newMetricIds: readonly string[];
+  latest: Pick<
+    SnapshotStatusSummary,
+    "type" | "status" | "error" | "newMetricsUpdate"
+  > | null;
+}): Map<string, NewMetricRowState> {
+  const newMetricsUpdate = latest ? getNewMetricsUpdate(latest) : null;
+  const getState = (metricId: string): NewMetricRowState => {
+    if (latest?.status === "running") {
+      return !newMetricsUpdate || newMetricsUpdate.metricIds.includes(metricId)
+        ? { status: "running" }
+        : { status: "notComputed" };
+    }
+    if (
+      latest?.status === "error" &&
+      newMetricsUpdate?.metricIds.includes(metricId)
+    ) {
+      return { status: "failed", error: latest.error ?? null };
+    }
+    return { status: "notComputed" };
+  };
+  return new Map(newMetricIds.map((id) => [id, getState(id)]));
+}
 
 /**
  * A funnel expands into its steps in a results table; its slices are per-step

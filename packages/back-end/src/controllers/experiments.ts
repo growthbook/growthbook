@@ -4,6 +4,7 @@ import { z } from "zod";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
+import { DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS } from "shared/constants";
 import {
   getSnapshotAnalysis,
   isDefined,
@@ -141,6 +142,10 @@ import {
 } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
+import {
+  createScopedExperimentSnapshot,
+  type RanUpdateScope,
+} from "back-end/src/services/snapshotUpdateScope";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import {
   cancelExperimentSnapshot,
@@ -2543,6 +2548,7 @@ export async function postSnapshot(
       dimension?: string;
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
+      updateScope?: RanUpdateScope;
     },
     { id: string },
     { force?: string }
@@ -2606,15 +2612,42 @@ export async function postSnapshot(
   }
 
   const useCache = !force;
+  if (req.body.updateScope === "new_metrics" && (dimension || force)) {
+    throw new BadRequestError(
+      "Updating newly added metrics can't be combined with a dimension or a forced rerun.",
+    );
+  }
 
-  const { snapshot } = await createExperimentSnapshot({
+  // A refused new-metrics update falls back to a normal one.
+  const { snapshot, updateScope } = await createScopedExperimentSnapshot({
+    scope:
+      req.body.updateScope === "new_metrics"
+        ? {
+            kind: "new_metrics",
+            window: {
+              windowHours:
+                context.org.settings?.newMetricsUpdateWindowHours ??
+                DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
+              now: new Date(),
+            },
+            onRefusal: "fallback",
+          }
+        : { kind: "all_metrics" },
     context,
     experiment,
     datasource,
-    dimension,
     phase: phaseIndex,
-    useCache,
-    type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+    updateAllMetrics: () =>
+      createExperimentSnapshot({
+        context,
+        experiment,
+        datasource,
+        dimension,
+        phase: phaseIndex,
+        useCache,
+        type:
+          experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+      }),
   });
 
   await req.audit({
@@ -2628,11 +2661,13 @@ export async function postSnapshot(
       dimension,
       useCache,
       manual: false,
+      updateScope,
     }),
   });
   res.status(200).json({
     status: 200,
     snapshot,
+    updateScope,
   });
 }
 export async function postSnapshotAnalysis(
