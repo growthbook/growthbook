@@ -398,6 +398,7 @@ export async function provisionEventForwarderThroughLicenseServer(
       await ensureEventForwarderFeatureUsageQuery(
         context,
         currentEventForwarderConfig,
+        context.org.settings?.attributeSchema ?? [],
         datasourceParams,
       );
     } catch (error) {

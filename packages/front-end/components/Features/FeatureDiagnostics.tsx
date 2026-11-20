@@ -80,6 +80,8 @@ function getDatasourceInitialFormValue(
   };
 }
 
+const columnField = (column: string) => `col:${column}`;
+
 export default function FeatureDiagnostics({
   feature,
   results,
@@ -87,11 +89,11 @@ export default function FeatureDiagnostics({
 }: {
   feature: FeatureInterface;
   results: Array<
-    FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
+    FeatureEvalDiagnosticsQueryResponseRows[number] & { __rowKey: string }
   > | null;
   setResults: (
     results: Array<
-      FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
+      FeatureEvalDiagnosticsQueryResponseRows[number] & { __rowKey: string }
     > | null,
   ) => void;
 }) {
@@ -142,7 +144,7 @@ export default function FeatureDiagnostics({
     const keysSet = new Set<string>();
     // Only iterate over the first row since all rows have the same structure
     Object.keys(results[0]).forEach((key) => {
-      if (key !== "id" && key !== "timestamp" && key !== "feature_key") {
+      if (key !== "__rowKey" && key !== "timestamp" && key !== "feature_key") {
         keysSet.add(key);
       }
     });
@@ -155,16 +157,19 @@ export default function FeatureDiagnostics({
     (row) => {
       const timestampDate = getValidDate(row.timestamp);
       // Compute display values for all columns
+      // Prefixed so a result column named "id" doesn't clash with the row key
       const displayValues: Record<string, string> = {};
       columns.forEach((key) => {
-        displayValues[key] = formatDisplayValue(row[key]);
+        displayValues[columnField(key)] = formatDisplayValue(row[key]);
       });
 
       return {
+        id: row.__rowKey,
         timestamp: format(timestampDate, "PPpp"),
         timestampSort: timestampDate.getTime(),
         ...displayValues,
       } as {
+        id: string;
         timestamp: string;
         timestampSort: number;
       } & Record<string, string | number>;
@@ -176,8 +181,8 @@ export default function FeatureDiagnostics({
     items: evalItems,
     defaultSortField: "timestampSort",
     defaultSortDir: -1,
-    localStorageKey: "feature-diagnostics-v2",
-    searchFields: ["timestamp", ...columns],
+    localStorageKey: "feature-diagnostics-v3",
+    searchFields: ["timestamp", ...columns.map(columnField)],
     pageSize: 25,
   });
 
@@ -204,7 +209,7 @@ export default function FeatureDiagnostics({
       if (results.rows) {
         const rowsWithId = results.rows.map((row, index) => ({
           ...row,
-          id: index.toString(),
+          __rowKey: index.toString(),
         }));
         setResults(rowsWithId);
       } else {
@@ -344,7 +349,7 @@ export default function FeatureDiagnostics({
                   <TableRow>
                     <SortableTH field="timestampSort">Timestamp</SortableTH>
                     {columns.map((key) => (
-                      <SortableTH key={key} field={key}>
+                      <SortableTH key={key} field={columnField(key)}>
                         {key
                           .split("_")
                           .map(
@@ -362,7 +367,7 @@ export default function FeatureDiagnostics({
                     <TableRow key={row.id}>
                       <TableCell>{row.timestamp}</TableCell>
                       {columns.map((key) => (
-                        <TableCell key={key}>{row[key]}</TableCell>
+                        <TableCell key={key}>{row[columnField(key)]}</TableCell>
                       ))}
                     </TableRow>
                   ))}

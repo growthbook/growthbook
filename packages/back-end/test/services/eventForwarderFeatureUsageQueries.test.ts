@@ -95,6 +95,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     const ids = await ensureEventForwarderFeatureUsageQuery(
       context() as never,
       efConfig("bigquery"),
+      [],
       { defaultProject: "my-project" } as never,
     );
 
@@ -124,6 +125,28 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     expect(ids).toEqual([featureUsage[0].id]);
   });
 
+  it("adds a column for each hashed identifier attribute", async () => {
+    const raw = ds({ queries: { featureUsage: [] } });
+    mockedGetById.mockResolvedValue(raw);
+    mockedDecrypt.mockReturnValue({
+      dataset: "analytics_123",
+      tablePrefix: "gb",
+      serviceAccountKey: "{}",
+    });
+
+    await ensureEventForwarderFeatureUsageQuery(
+      context() as never,
+      efConfig("bigquery"),
+      [{ property: "user_id", datatype: "string", hashAttribute: true }],
+      { defaultProject: "my-project" } as never,
+    );
+
+    const [featureUsage] =
+      mockedUpdate.mock.calls[0][2].settings?.queries?.featureUsage ?? [];
+    expect(featureUsage.userIdTypes).toEqual(["user_id"]);
+    expect(featureUsage.query).toContain("AS `user_id`");
+  });
+
   it("does not add a managed twin beside the user's own query", async () => {
     const raw = ds({
       queries: {
@@ -140,6 +163,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     const ids = await ensureEventForwarderFeatureUsageQuery(
       context() as never,
       efConfig("bigquery"),
+      [],
       { defaultProject: "my-project" } as never,
     );
 
@@ -160,6 +184,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     const ids = await ensureEventForwarderFeatureUsageQuery(
       context() as never,
       efConfig("bigquery"),
+      [],
     );
 
     expect(mockedUpdate).not.toHaveBeenCalled();
@@ -182,6 +207,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     await ensureEventForwarderFeatureUsageQuery(
       context() as never,
       efConfig("snowflake"),
+      [],
     );
 
     const featureUsage =
