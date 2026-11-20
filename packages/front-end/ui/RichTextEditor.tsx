@@ -15,6 +15,9 @@ import { ListItemNode, ListNode } from "@lexical/list";
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
+  $generateNodesFromMarkdownString,
+  TEXT_FORMAT_TRANSFORMERS,
+  TEXT_MATCH_TRANSFORMERS,
   TRANSFORMERS,
 } from "@lexical/markdown";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
@@ -27,8 +30,10 @@ import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
+import { TablePlugin } from "@lexical/react/LexicalTablePlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import { TableCellNode, TableNode, TableRowNode } from "@lexical/table";
 import {
   $isLinkNode,
   $toggleLink,
@@ -68,7 +73,8 @@ import {
 import RichTextEditorToolbar from "./RichTextEditorToolbar";
 import { $insertTextSelected } from "./RichTextEditorLinkEditor";
 import { AUTO_LINK_TRANSFORMER, URL_MATCHERS } from "./RichTextEditorAutoLink";
-import { hasMarkdownFormatting } from "./richTextFormatting";
+import { createTableTransformer } from "./RichTextEditorTable";
+import { hasMarkdownFormatting, htmlHasFormatting } from "./richTextFormatting";
 import styles from "./RichTextEditor.module.scss";
 
 export interface RichTextEditorHandle {
@@ -129,13 +135,29 @@ const NODES = [
   CodeNode,
   CodeHighlightNode,
   ImageNode,
+  TableNode,
+  TableRowNode,
+  TableCellNode,
 ];
 
 // Images first: their `![...]` would otherwise match as a link.
-const MARKDOWN_TRANSFORMERS = [
+const INLINE_TRANSFORMERS = [
+  IMAGE_TRANSFORMER,
+  AUTO_LINK_TRANSFORMER,
+  ...TEXT_FORMAT_TRANSFORMERS,
+  ...TEXT_MATCH_TRANSFORMERS,
+];
+
+const SHORTCUT_TRANSFORMERS = [
   IMAGE_TRANSFORMER,
   AUTO_LINK_TRANSFORMER,
   ...TRANSFORMERS,
+];
+
+// Tables load, save and paste, but typing pipes doesn't build one.
+const MARKDOWN_TRANSFORMERS = [
+  createTableTransformer(INLINE_TRANSFORMERS),
+  ...SHORTCUT_TRANSFORMERS,
 ];
 
 const THEME = {
@@ -163,6 +185,12 @@ const THEME = {
     code: styles.inlineCode,
   },
   code: styles.codeBlock,
+  table: styles.table,
+  tableScrollableWrapper: styles.tableWrapper,
+  tableCell: styles.tableCell,
+  tableCellHeader: styles.tableCellHeader,
+  tableSelection: styles.tableSelection,
+  tableCellSelected: styles.tableCellSelected,
 };
 
 function EditorBridge({
@@ -265,11 +293,27 @@ function PasteAndDrop({
             return true;
           }
 
-          const text = data.getData("text/plain").trim();
-          if (!/^https?:\/\/\S+$/i.test(text)) return false;
-
           const selection = $getSelection();
           if (!$isRangeSelection(selection)) return false;
+
+          // Markdown copied as text (e.g. from an AI chat) keeps its tables and
+          // formatting; clipboard HTML that has its own formatting wins.
+          const plain = data.getData("text/plain");
+          if (
+            !data.types.includes("application/x-lexical-editor") &&
+            !$findMatchingParent(selection.anchor.getNode(), $isCodeNode) &&
+            !htmlHasFormatting(data.getData("text/html")) &&
+            hasMarkdownFormatting(plain)
+          ) {
+            event.preventDefault();
+            selection.insertNodes(
+              $generateNodesFromMarkdownString(plain, MARKDOWN_TRANSFORMERS),
+            );
+            return true;
+          }
+
+          const text = plain.trim();
+          if (!/^https?:\/\/\S+$/i.test(text)) return false;
           event.preventDefault();
 
           // With nothing selected, a label from the URL becomes the link text.
@@ -506,7 +550,12 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         <ListPlugin />
         <LinkPlugin />
         <AutoLinkPlugin matchers={URL_MATCHERS} />
-        <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
+        <MarkdownShortcutPlugin transformers={SHORTCUT_TRANSFORMERS} />
+        <TablePlugin
+          hasCellMerge={false}
+          hasCellBackgroundColor={false}
+          hasHorizontalScroll
+        />
         <OnChangePlugin ignoreSelectionChange onChange={handleChange} />
         <PasteAndDrop
           allowImages={allowImages}
