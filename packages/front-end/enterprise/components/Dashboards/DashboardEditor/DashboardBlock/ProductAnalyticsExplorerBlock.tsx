@@ -26,6 +26,7 @@ import {
   buildComparisonExplorationConfig,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
+import { createPortal } from "react-dom";
 import { isEqual } from "lodash";
 import {
   ComparisonMode,
@@ -68,6 +69,12 @@ function pollDelayForExploration(
 // True when blocks render without the dashboard header and its Update button,
 // so each tile offers its own.
 export const DashboardHeaderlessContext = createContext(false);
+
+// The block's title row, where a tile can put an action without taking
+// height from its chart.
+export const BlockHeaderActionSlotContext = createContext<HTMLElement | null>(
+  null,
+);
 
 type TileComparison = {
   previousTimeFrame: ExplorationDateRange;
@@ -235,6 +242,7 @@ export function ProductAnalyticsExplorerVisualization({
   const { getFactMetricById, getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const headerless = useContext(DashboardHeaderlessContext);
+  const headerActionSlot = useContext(BlockHeaderActionSlotContext);
   const dateControlledBlock = blockUsesDashboardDateControl(block)
     ? block
     : null;
@@ -512,7 +520,10 @@ export function ProductAnalyticsExplorerVisualization({
   return (
     <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>
       {/* Keep Update reachable after a success: no header may be there to refresh it */}
-      {tileUpdates && updateButton && <Flex justify="end">{updateButton}</Flex>}
+      {tileUpdates &&
+        updateButton &&
+        headerActionSlot &&
+        createPortal(<Flex mr="2">{updateButton}</Flex>, headerActionSlot)}
       {compareEnabled && tileRun.comparisonError && (
         <ComparisonErrorCallout error={tileRun.comparisonError} />
       )}

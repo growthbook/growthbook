@@ -72,7 +72,9 @@ import {
   BlockRenderError,
 } from "./BlockErrorStates";
 import MetricExplorerBlock from "./MetricExplorerBlock";
-import ProductAnalyticsExplorerBlock from "./ProductAnalyticsExplorerBlock";
+import ProductAnalyticsExplorerBlock, {
+  BlockHeaderActionSlotContext,
+} from "./ProductAnalyticsExplorerBlock";
 
 // Typescript helpers for passing objects to the block components based on id fields
 interface BlockIdFieldToObjectMap {
@@ -208,6 +210,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   );
 
   const [editTitle, setEditTitle] = useState(false);
+  const [headerActionSlot, setHeaderActionSlot] =
+    useState<HTMLDivElement | null>(null);
   const shouldShowGlobalControlOptOutBadge =
     Boolean(dashboardGlobalControls?.dateRange) &&
     isDashboardGlobalControlSupportedBlock(block) &&
@@ -499,28 +503,30 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           <BlockObjectMissing block={block} />
         ) : (
           <ErrorBoundary fallback={<BlockRenderError block={block} />}>
-            <BlockComponent
-              isTabActive={isTabActive}
-              block={block}
-              dashboardGlobalControls={dashboardGlobalControls}
-              dashboardComparison={dashboardComparison}
-              blockIndex={blockIndex}
-              setBlock={setBlock}
-              isEditing={isEditing}
-              snapshot={
-                requiresSnapshot
-                  ? (snapshot as ExperimentSnapshotInterface)
-                  : ({} as ExperimentSnapshotInterface)
-              }
-              analysis={
-                requiresSnapshot
-                  ? (analysis as ExperimentSnapshotAnalysis)
-                  : ({} as ExperimentSnapshotAnalysis)
-              }
-              mutate={mutate}
-              // objectProps should be validated above to actually contain all the keys and not be Partial
-              {...(objectProps as unknown as ObjectProps<T>)}
-            />
+            <BlockHeaderActionSlotContext.Provider value={headerActionSlot}>
+              <BlockComponent
+                isTabActive={isTabActive}
+                block={block}
+                dashboardGlobalControls={dashboardGlobalControls}
+                dashboardComparison={dashboardComparison}
+                blockIndex={blockIndex}
+                setBlock={setBlock}
+                isEditing={isEditing}
+                snapshot={
+                  requiresSnapshot
+                    ? (snapshot as ExperimentSnapshotInterface)
+                    : ({} as ExperimentSnapshotInterface)
+                }
+                analysis={
+                  requiresSnapshot
+                    ? (analysis as ExperimentSnapshotAnalysis)
+                    : ({} as ExperimentSnapshotAnalysis)
+                }
+                mutate={mutate}
+                // objectProps should be validated above to actually contain all the keys and not be Partial
+                {...(objectProps as unknown as ObjectProps<T>)}
+              />
+            </BlockHeaderActionSlotContext.Provider>
           </ErrorBoundary>
         )}
       </Flex>
@@ -636,6 +642,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </>
         )}
 
+        <Flex ref={setHeaderActionSlot} align="center" />
         {isEditing ? (
           <div>
             {!editingBlock && (

@@ -289,7 +289,7 @@ export default function DashboardEditorSidebar({
           <div style={{ width: "440px" }}>
             <Box px="4" pt="4">
               <Text size="lg" weight="semibold">
-                Add a Block
+                Add a block
               </Text>
             </Box>
             {addBlocksContent}
@@ -298,7 +298,7 @@ export default function DashboardEditorSidebar({
           <Tabs defaultValue="add-block" style={{ width: "440px" }}>
             <TabsList>
               <TabsTrigger value="add-block">Add block</TabsTrigger>
-              <TabsTrigger value="block-navigator">Block Navigator</TabsTrigger>
+              <TabsTrigger value="block-navigator">Block navigator</TabsTrigger>
             </TabsList>
             <TabsContent value="add-block">{addBlocksContent}</TabsContent>
             <TabsContent value="block-navigator">
