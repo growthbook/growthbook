@@ -1,13 +1,14 @@
 import { FC, useMemo, useRef, useState } from "react";
-import { ExperimentMetricDefinition } from "shared/experiments";
+import {
+  ExperimentMetricDefinition,
+  getSupplementalVariations,
+  SupplementalField,
+} from "shared/experiments";
 import {
   DifferenceType,
   StatsEngine,
   PValueCorrection,
   SignificanceThresholds,
-  BayesianVariationResponseIndividual,
-  FrequentistVariationResponseIndividual,
-  BaselineResponse,
 } from "shared/types/stats";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
@@ -20,7 +21,6 @@ import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import Heading from "@/ui/Heading";
 import MetricDrilldownAdjustmentSummary from "./MetricDrilldownAdjustmentSummary";
-import { SupplementalField } from "./helpers";
 
 type ComparisonSection = "variance" | "prior" | "capping";
 
@@ -84,6 +84,11 @@ function getSupplementalMetricSnapshotSettings(
   }
 }
 
+type SupplementalRowSettings = Pick<
+  Parameters<typeof getSupplementalVariations>[0],
+  "statsEngine" | "pValueThreshold" | "goalRows" | "pValueCorrection"
+>;
+
 /**
  * Create a ExperimentTableRow with data overridden by supplemental results
  */
@@ -91,28 +96,16 @@ function createSupplementalRow(
   baseRow: ExperimentTableRow,
   description: string,
   supplementalField: keyof NonNullable<SnapshotMetric["supplementalResults"]>,
+  settings: SupplementalRowSettings,
 ): ExperimentTableRow {
-  const newVariations = baseRow.variations.map((variation) => {
-    const supplemental = variation.supplementalResults?.[supplementalField] as
-      | BayesianVariationResponseIndividual
-      | FrequentistVariationResponseIndividual
-      | BaselineResponse
-      | undefined;
-
-    if (!supplemental) {
-      return variation;
-    }
-
-    return {
-      ...variation,
-      ...supplemental,
-    };
-  });
-
   return {
     ...baseRow,
     label: createRowLabel(description),
-    variations: newVariations,
+    variations: getSupplementalVariations({
+      ...settings,
+      row: baseRow,
+      field: supplementalField,
+    }),
     metricSnapshotSettings: getSupplementalMetricSnapshotSettings(
       baseRow.metricSnapshotSettings,
       supplementalField,
@@ -190,6 +183,18 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
         : "0 0 0 0 transparent",
   });
 
+  const resolvedStatsEngine = statsEngine || DEFAULT_STATS_ENGINE;
+  const pValueThreshold = significanceThresholds.pValueThreshold;
+  const supplementalRowSettings = useMemo(
+    () => ({
+      statsEngine: resolvedStatsEngine,
+      pValueThreshold,
+      goalRows,
+      pValueCorrection,
+    }),
+    [resolvedStatsEngine, pValueThreshold, goalRows, pValueCorrection],
+  );
+
   const varianceReductionRows = useMemo(() => {
     if (!row) return [];
 
@@ -237,6 +242,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             row,
             "CUPED Off, Post-stratification On",
             "cupedUnadjusted",
+            supplementalRowSettings,
           ),
         );
       }
@@ -247,6 +253,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             row,
             "CUPED On, Post-stratification Off",
             "unstratified",
+            supplementalRowSettings,
           ),
         );
       }
@@ -257,23 +264,36 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             row,
             "CUPED Off, Post-stratification Off",
             "noVarianceReduction",
+            supplementalRowSettings,
           ),
         );
       }
     } else if (cupedEnabled) {
       if (hasCupedUnadjusted) {
-        rows.push(createSupplementalRow(row, "CUPED Off", "cupedUnadjusted"));
+        rows.push(
+          createSupplementalRow(
+            row,
+            "CUPED Off",
+            "cupedUnadjusted",
+            supplementalRowSettings,
+          ),
+        );
       }
     } else if (postStratEnabled) {
       if (hasUnstratified) {
         rows.push(
-          createSupplementalRow(row, "Post-stratification Off", "unstratified"),
+          createSupplementalRow(
+            row,
+            "Post-stratification Off",
+            "unstratified",
+            supplementalRowSettings,
+          ),
         );
       }
     }
 
     return rows;
-  }, [row]);
+  }, [row, supplementalRowSettings]);
 
   const priorRows = useMemo(() => {
     if (!row) return [];
@@ -291,10 +311,17 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       label: createRowLabel("Proper Prior"),
     });
 
-    rows.push(createSupplementalRow(row, "Flat Prior", "flatPrior"));
+    rows.push(
+      createSupplementalRow(
+        row,
+        "Flat Prior",
+        "flatPrior",
+        supplementalRowSettings,
+      ),
+    );
 
     return rows;
-  }, [row]);
+  }, [row, supplementalRowSettings]);
 
   const cappingRows = useMemo(() => {
     if (!row) return [];
@@ -312,10 +339,17 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       label: createRowLabel("Capped"),
     });
 
-    rows.push(createSupplementalRow(row, "Uncapped", "uncapped"));
+    rows.push(
+      createSupplementalRow(
+        row,
+        "Uncapped",
+        "uncapped",
+        supplementalRowSettings,
+      ),
+    );
 
     return rows;
-  }, [row]);
+  }, [row, supplementalRowSettings]);
 
   const hasAnySupplementalData =
     varianceReductionRows.length > 0 ||
@@ -344,7 +378,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       <Box mt="4" style={{ paddingBottom: 6 }}>
         <MetricDrilldownAdjustmentSummary
           row={row}
-          statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
+          statsEngine={resolvedStatsEngine}
           differenceType={differenceType}
           baselineRow={baselineRow}
           variationFilter={variationFilter}

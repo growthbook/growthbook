@@ -461,13 +461,15 @@ export function trackEventForOrganization<K extends AppEventName>(
   org: OrganizationInterface,
   eventName: K,
   properties: AppEvents[K],
+  // Server-derived only, like the org attributes these are added to.
+  extraAttributes: Record<string, unknown> = {},
 ): void {
   try {
     const client = getGrowthBookClient();
     if (!client) return;
 
     client.logEvent(eventName, properties, {
-      attributes: getTrustedOrgAttributes(org),
+      attributes: { ...getTrustedOrgAttributes(org), ...extraAttributes },
     });
   } catch (e) {
     logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");

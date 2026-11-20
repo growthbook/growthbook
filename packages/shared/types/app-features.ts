@@ -35,6 +35,7 @@ export type AppFeatures = {
   "experiment-dashboards-enabled": boolean;
   "experiment-decision-framework-status": boolean;
   "experiment-ideas": boolean;
+  "experiment-impact-setting": Record<string, unknown>;
   "experiment-implementation": boolean;
   "experiment-results-timeseries": boolean;
   "experimentation-focused-onboarding": boolean;
