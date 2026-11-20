@@ -15,13 +15,16 @@ import styles from "./QaOverrides.module.scss";
 const percent = (n: number) => `${+(n * 100).toFixed(1)}%`;
 
 // SummaryRow wraps its value in a span, so rows with block content use this.
+// Baseline-aligned so the label lines up with the first line of chips.
 function BlockRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
-      <Text size="sm" color="text-mid">
-        {label}
-      </Text>
-      <Box>{children}</Box>
+      <Box style={{ alignSelf: "baseline" }}>
+        <Text size="sm" color="text-mid">
+          {label}
+        </Text>
+      </Box>
+      <Box style={{ alignSelf: "baseline" }}>{children}</Box>
     </>
   );
 }

@@ -38,8 +38,12 @@ export function useQaOverrideNameLookups(
   );
 }
 
-export function QaOverrideAnd() {
-  return <span className={styles.and}>AND</span>;
+function QaOverrideAnd() {
+  return (
+    <Text size="sm" weight="semibold" color="text-mid">
+      AND
+    </Text>
+  );
 }
 
 export default function QaOverrideAudience({
@@ -58,7 +62,7 @@ export default function QaOverrideAudience({
   variant: "sentence" | "inline";
 }) {
   const sentence = variant === "sentence";
-  const size = sentence ? "sm" : "inherit";
+  const size = sentence ? "md" : "inherit";
   const parts = qaOverrideAudienceParts({
     segments: summarizeQaOverrideAudience(filters, lookups, order),
     environment,

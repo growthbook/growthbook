@@ -1,6 +1,6 @@
-import { Fragment, useMemo, useState } from "react";
-import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiCaretDownBold, PiPlusBold } from "react-icons/pi";
+import { useMemo, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiPlus } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -21,48 +21,41 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import { Select, SelectItem } from "@/ui/Select";
 import RadioGroup from "@/ui/RadioGroup";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import Button from "@/ui/Button";
+import Collapse from "@/ui/Collapse";
+import Link from "@/ui/Link";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Badge from "@/ui/Badge";
-import Callout from "@/ui/Callout";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
 import VariationLabel from "@/ui/VariationLabel";
+import ConditionInput from "@/components/Features/ConditionInput";
+import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import QaOverrideAudience, {
-  QaOverrideAnd,
   useQaOverrideNameLookups,
 } from "./QaOverrideAudience";
 import QaOverrideExperimentCard from "./QaOverrideExperimentCard";
-import QaOverrideFilterCard from "./QaOverrideFilterCard";
-import { QaOverrideWaitingNote } from "./QaOverrideWaitingMessages";
+import { QaOverrideWaitingBanner } from "./QaOverrideWaitingMessages";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 import useQaOverrideForm, {
   QA_OVERRIDE_FILTER_META,
 } from "./useQaOverrideForm";
-import styles from "./QaOverrides.module.scss";
+
+const WHERE_FILTERS: QaOverrideFilterKind[] = ["sdkConnections", "projects"];
+const WHO_FILTERS = ["condition", "savedGroups"] as const;
+const WHO_LINK_LABELS: Record<(typeof WHO_FILTERS)[number], string> = {
+  condition: "Attribute targeting",
+  savedGroups: "Saved Group targeting",
+};
 
 export type QaOverrideModalExperiment = Pick<
   ExperimentInterfaceStringDates,
   "id" | "name" | "project" | "hashAttribute" | "variations" | "phases"
 >;
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <Heading as="h3" size="sm" mb="0">
+    <Text as="div" size="lg" weight="semibold">
       {children}
-    </Heading>
-  );
-}
-
-function AndDivider() {
-  const line = <Box className={styles.andLine} />;
-  return (
-    <Flex align="center" gap="2" aria-hidden>
-      {line}
-      <QaOverrideAnd />
-      {line}
-    </Flex>
+    </Text>
   );
 }
 
@@ -128,54 +121,63 @@ export default function QaOverrideModal({
     [projects],
   );
 
-  const addFilterMenu = (
-    <DropdownMenu
-      trigger={
-        <Button
-          variant="outline"
-          size="sm"
-          icon={<PiPlusBold size={12} />}
-          style={{ height: 28, fontSize: 13, paddingInline: 10, gap: 6 }}
-        >
-          <Flex as="span" align="center" style={{ gap: 6 }}>
-            Add Filter <PiCaretDownBold size={12} />
-          </Flex>
-        </Button>
-      }
-      menuPlacement="end"
-      menuWidth={280}
-      variant="soft"
-      disabled={availableFilters.length === 0}
-    >
-      {availableFilters.map((kind) => {
-        const needsEnvironment =
-          kind === "sdkConnections" && !values.environment;
-        return (
-          <DropdownMenuItem
-            key={kind}
-            className="multiline-item"
-            onClick={() => {
-              addFilter(kind);
-              setJustAdded(kind);
-            }}
-            disabled={needsEnvironment}
-            tooltip={
-              needsEnvironment ? "Select an environment first" : undefined
-            }
-          >
-            <Flex direction="column" style={{ gap: 2 }}>
-              <Text>{QA_OVERRIDE_FILTER_META[kind].label}</Text>
-              <Text size="sm" color="text-mid">
-                {QA_OVERRIDE_FILTER_META[kind].description}
-              </Text>
-            </Flex>
-          </DropdownMenuItem>
-        );
-      })}
-    </DropdownMenu>
-  );
-
+  const forced = values.assignmentType === "forced";
   const testing = values.assignmentType === "random";
+
+  // Targeting is on when its field has a value; empty means no filter.
+  const setFilterActive = (kind: QaOverrideFilterKind, active: boolean) => {
+    const current = form.getValues("filters");
+    if (active === current.includes(kind)) return;
+    form.setValue(
+      "filters",
+      active ? [...current, kind] : current.filter((k) => k !== kind),
+    );
+  };
+
+  const whereFields = values.filters
+    .filter((k) => WHERE_FILTERS.includes(k))
+    .map((kind) => {
+      const field = kind as "sdkConnections" | "projects";
+      const { label } = QA_OVERRIDE_FILTER_META[kind];
+      return (
+        // Clearing the field, or leaving it empty, removes it.
+        <Box
+          key={kind}
+          onBlur={(e) => {
+            if (e.currentTarget.contains(e.relatedTarget as Node | null))
+              return;
+            if (form.getValues(field).length === 0) removeFilter(kind);
+          }}
+        >
+          <MultiSelectField
+            legacyLabelFormatting={false}
+            label={label}
+            containerClassName="mb-0"
+            value={values[field]}
+            onChange={(v, action) => {
+              if (action === "clear") removeFilter(kind);
+              else form.setValue(field, v);
+            }}
+            options={
+              field === "sdkConnections" ? connectionOptions : projectOptions
+            }
+            placeholder={
+              field === "sdkConnections"
+                ? "Select SDK connections…"
+                : "Select projects…"
+            }
+            autoFocus={justAdded === kind}
+          />
+        </Box>
+      );
+    });
+  const whereAvailable = availableFilters.filter((k) =>
+    WHERE_FILTERS.includes(k),
+  );
+  const whoAvailable = WHO_FILTERS.filter((k) => !values.filters.includes(k));
+
+  const showEnvironment = testing || (forced && !!values.forcedVariationId);
+  const showAudience = showEnvironment && !!values.environment;
 
   return (
     <ModalStandard
@@ -192,7 +194,15 @@ export default function QaOverrideModal({
       }
       cta={existing ? "Apply" : "Add Override"}
       ctaEnabled={canSave}
-      size="lg"
+      size="md"
+      aboveFooterContent={
+        waitingFeatures.length > 0 ? (
+          <QaOverrideWaitingBanner
+            waitingOn={waitingFeatures}
+            environment={values.environment}
+          />
+        ) : undefined
+      }
       trackingEventModalType="experiment-qa-override"
       submit={validatedSubmit(form, async () => {
         if (!body) return;
@@ -210,11 +220,12 @@ export default function QaOverrideModal({
         await onSaved();
       })}
     >
-      <Flex direction="column" gap="5">
-        <Flex direction="column" gap="2">
-          <SectionHeading>What do you want to do?</SectionHeading>
+      {/* Collapse always renders a wrapper, so spacing sits inside each one. */}
+      <Flex direction="column">
+        <Flex direction="column" gap="4">
+          <SectionLabel>What do you want to QA?</SectionLabel>
           <RadioGroup
-            gap="3"
+            gap="2"
             value={values.assignmentType}
             setValue={(v) =>
               form.setValue("assignmentType", v as "random" | "forced")
@@ -222,117 +233,159 @@ export default function QaOverrideModal({
             options={[
               {
                 value: "forced",
-                label: "Force a variation",
-                description:
-                  "Show one variation to people you choose. Ignores the experiment\u2019s targeting.",
-                // A dropdown can't sit inside the radio's label.
-                renderOutsideItem: true,
-                renderOnSelect: (
-                  <Box ml="5">
-                    <Select
-                      aria-label="Variation"
-                      style={{ width: 280 }}
-                      value={values.forcedVariationId || undefined}
-                      setValue={(v) => form.setValue("forcedVariationId", v)}
-                      placeholder="Select a variation…"
-                    >
-                      {variations.map((v, i) => (
-                        <SelectItem key={v.id} value={v.id} textValue={v.name}>
-                          <VariationLabel number={i} name={v.name} />
-                        </SelectItem>
-                      ))}
-                    </Select>
-                  </Box>
-                ),
+                label: "A specific variation",
+                description: "Overrides experiment targeting and traffic",
               },
               {
                 value: "random",
-                label: "Test the experiment as configured",
-                description:
-                  "Run it in this environment with its own targeting and split.",
+                label: "Experiment configuration",
+                description: "Uses its own targeting and split",
               },
             ]}
           />
         </Flex>
 
-        <Separator size="4" />
-
-        <Flex direction="column" gap="2" align="start">
-          <SectionHeading>Environment</SectionHeading>
-          {existing ? (
-            <Badge label={existing.environment} color="gray" variant="soft" />
-          ) : (
-            <>
-              <Select
-                aria-label="Environment"
-                style={{ width: 280 }}
-                value={values.environment}
-                setValue={setEnvironment}
-                placeholder="Select an environment…"
-              >
-                {environmentOptions.map((e) => (
-                  <SelectItem key={e.id} value={e.id} disabled={e.isProduction}>
-                    {e.id}
-                  </SelectItem>
-                ))}
-              </Select>
-              <Text size="sm" color="text-low">
-                Only non-production environments are selectable.
-              </Text>
-            </>
-          )}
-          {waitingFeatures.length > 0 && (
-            <Callout status="warning" size="sm" mt="1">
-              <QaOverrideWaitingNote
-                waitingOn={waitingFeatures}
-                environment={values.environment}
-              />
-            </Callout>
-          )}
-        </Flex>
-
-        <Separator size="4" />
-
-        <Flex direction="column" gap="2">
-          <Flex align="center" gap="2">
-            <SectionHeading>Who sees it</SectionHeading>
-            <Box flexGrow="1" />
-            {availableFilters.length === 0 ? (
-              <Tooltip content="Every filter type has been added.">
-                <span>{addFilterMenu}</span>
-              </Tooltip>
-            ) : (
-              addFilterMenu
-            )}
-          </Flex>
-          <QaOverrideAudience
-            variant="sentence"
-            filters={qaOverrideFiltersFromForm(values)}
-            order={values.filters}
-            environment={values.environment}
-            usesExperimentTargeting={testing}
-            lookups={lookups}
-          />
-          {(testing || values.filters.length > 0) && (
-            <Flex direction="column" gap="2" mt="1">
-              {testing && <QaOverrideExperimentCard experiment={experiment} />}
-              {values.filters.map((kind, i) => (
-                <Fragment key={kind}>
-                  {(testing || i > 0) && <AndDivider />}
-                  <QaOverrideFilterCard
-                    kind={kind}
-                    form={form}
-                    project={experiment.project || ""}
-                    connectionOptions={connectionOptions}
-                    projectOptions={projectOptions}
-                    autoFocus={justAdded === kind}
-                    onRemove={() => removeFilter(kind)}
-                  />
-                </Fragment>
+        <Collapse open={forced}>
+          <Box pt="4">
+            <Select
+              label="Variation"
+              value={values.forcedVariationId || undefined}
+              setValue={(v) => form.setValue("forcedVariationId", v)}
+              placeholder="Select a variation…"
+            >
+              {variations.map((v, i) => (
+                <SelectItem key={v.id} value={v.id} textValue={v.name}>
+                  <VariationLabel number={i} name={v.name} />
+                </SelectItem>
               ))}
+            </Select>
+          </Box>
+        </Collapse>
+
+        <Collapse open={showEnvironment}>
+          <Box pt="6">
+            <Flex direction="column" gap="2">
+              <SectionLabel>Where should the override apply?</SectionLabel>
+              {existing ? (
+                <>
+                  <Text as="div" size="md" weight="semibold">
+                    Environment
+                  </Text>
+                  <Box>
+                    <Badge
+                      label={existing.environment}
+                      color="gray"
+                      variant="soft"
+                    />
+                  </Box>
+                </>
+              ) : (
+                <>
+                  <Select
+                    aria-label="Environment"
+                    label={
+                      <Text as="label" size="md" weight="semibold">
+                        Environment{" "}
+                        <Text weight="regular" color="text-low">
+                          (non-production only)
+                        </Text>
+                      </Text>
+                    }
+                    value={values.environment}
+                    setValue={setEnvironment}
+                    placeholder="Select an environment…"
+                  >
+                    {environmentOptions.map((e) => (
+                      <SelectItem
+                        key={e.id}
+                        value={e.id}
+                        disabled={e.isProduction}
+                      >
+                        {e.id}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </>
+              )}
+              {whereFields}
+              {!!values.environment && whereAvailable.length > 0 && (
+                <Flex gap="4" mt="1">
+                  {whereAvailable.map((kind) => (
+                    <Link
+                      key={kind}
+                      onClick={() => {
+                        addFilter(kind);
+                        setJustAdded(kind);
+                      }}
+                    >
+                      <Flex align="center" gap="1">
+                        <PiPlus />
+                        {QA_OVERRIDE_FILTER_META[kind].label}
+                      </Flex>
+                    </Link>
+                  ))}
+                </Flex>
+              )}
             </Flex>
-          )}
-        </Flex>
+          </Box>
+        </Collapse>
+
+        <Collapse open={showAudience}>
+          <Box pt="6">
+            <Flex direction="column" gap="2">
+              <SectionLabel>Who sees it?</SectionLabel>
+              <QaOverrideAudience
+                variant="sentence"
+                filters={qaOverrideFiltersFromForm(values)}
+                order={values.filters}
+                environment={values.environment}
+                usesExperimentTargeting={testing}
+                lookups={lookups}
+              />
+              <Flex direction="column" gap="5" mt="2">
+                {testing && (
+                  <QaOverrideExperimentCard experiment={experiment} />
+                )}
+                {values.filters.includes("condition") && (
+                  <ConditionInput
+                    slimMode
+                    label="Attributes"
+                    defaultValue={values.condition}
+                    onChange={(v) => {
+                      form.setValue("condition", v);
+                      setFilterActive("condition", !!v && v !== "{}");
+                    }}
+                    project={experiment.project || ""}
+                  />
+                )}
+                {values.filters.includes("savedGroups") && (
+                  <SavedGroupTargetingField
+                    slimMode
+                    label="Saved Groups"
+                    value={values.savedGroups}
+                    setValue={(v) => {
+                      form.setValue("savedGroups", v);
+                      setFilterActive("savedGroups", v.length > 0);
+                    }}
+                    project={experiment.project || ""}
+                  />
+                )}
+                {whoAvailable.length > 0 && (
+                  <Flex gap="4">
+                    {whoAvailable.map((kind) => (
+                      <Link key={kind} onClick={() => addFilter(kind)}>
+                        <Flex align="center" gap="1">
+                          <PiPlus />
+                          {WHO_LINK_LABELS[kind]}
+                        </Flex>
+                      </Link>
+                    ))}
+                  </Flex>
+                )}
+              </Flex>
+            </Flex>
+          </Box>
+        </Collapse>
       </Flex>
     </ModalStandard>
   );
