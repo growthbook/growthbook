@@ -1,4 +1,5 @@
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import { DEFAULT_SESSION_LIST_LOOKBACK_DAYS } from "shared/validators";
 import {
   buildManagedWarehouseEventsFactTableSql,
   buildManagedWarehouseExposureQueries,
@@ -83,6 +84,85 @@ export type SessionReplayRow = {
 
 export const MAX_SESSION_PAGE_SIZE = 100;
 
+export type SessionReplayListRow = Pick<
+  SessionReplayRow,
+  | "session_replay_id"
+  | "organization"
+  | "client_key"
+  | "user_id"
+  | "device_id"
+  | "started_at"
+  | "ended_at"
+  | "last_event_at"
+  | "ingested_at"
+  | "created_at"
+  | "duration_ms"
+  | "event_count"
+  | "key_event_count"
+  | "error_count"
+  | "url_first"
+  | "page_title"
+  | "viewport_width"
+  | "viewport_height"
+  | "country"
+  | "device"
+  | "browser"
+  | "feature_keys"
+  | "experiment_keys"
+>;
+
+const LIST_SELECT: Record<keyof SessionReplayListRow, string> = {
+  session_replay_id: "m.session_replay_id",
+  organization: "any(m.organization)",
+  client_key: "any(m.client_key)",
+  user_id: "argMaxIf(m.user_id, m.chunk_index, m.user_id != '')",
+  device_id: "any(m.device_id)",
+  started_at: "min(m.started_at)",
+  ended_at: "max(m.ended_at)",
+  last_event_at: "max(m.last_event_at)",
+  ingested_at: "max(m.ingested_at)",
+  created_at: "max(m.ingested_at)",
+  duration_ms: "max(m.duration_ms)",
+  event_count: "sum(m.event_count)",
+  key_event_count: "sum(m.key_event_count)",
+  error_count: "sum(m.error_count)",
+  url_first: "argMin(m.url_first, m.chunk_index)",
+  page_title: "argMin(m.page_title, m.chunk_index)",
+  viewport_width: "any(m.viewport_width)",
+  viewport_height: "any(m.viewport_height)",
+  country: "any(m.country)",
+  device: "any(m.device)",
+  browser: "any(m.browser)",
+  // Unions with dedup as it goes, rather than materialising every chunk's
+  // array first the way arrayDistinct(arrayFlatten(groupArray(...))) does.
+  feature_keys: "groupUniqArrayArray(m.feature_keys)",
+  experiment_keys: "groupUniqArrayArray(m.experiment_keys)",
+};
+
+const WINDOW_MARGIN_MS = 24 * 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+function formatClickHouseDateTime(date: Date): string {
+  return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
+export function resolveIngestWindow(
+  options: { dateAfter?: string; dateBefore?: string } = {},
+  now: Date = new Date(),
+): { start: string; end: string } {
+  const endBase = options.dateBefore
+    ? Date.parse(`${options.dateBefore}T00:00:00Z`) + ONE_DAY_MS
+    : now.getTime();
+  const startBase = options.dateAfter
+    ? Date.parse(`${options.dateAfter}T00:00:00Z`)
+    : endBase - DEFAULT_SESSION_LIST_LOOKBACK_DAYS * ONE_DAY_MS;
+
+  return {
+    start: formatClickHouseDateTime(new Date(startBase - WINDOW_MARGIN_MS)),
+    end: formatClickHouseDateTime(new Date(endBase + WINDOW_MARGIN_MS)),
+  };
+}
+
 export async function listSessionReplays(
   context: ReqContext,
   options?: {
@@ -110,7 +190,9 @@ export async function listSessionReplays(
     limit?: number;
     offset?: number;
   },
-): Promise<SessionReplayRow[]> {
+  /** Injectable so the generated window is assertable against a frozen clock. */
+  now: Date = new Date(),
+): Promise<SessionReplayListRow[]> {
   const datasource = await getGrowthbookDatasource(context);
   if (!datasource) return [];
 
@@ -120,80 +202,100 @@ export async function listSessionReplays(
   ) as SqlIntegration;
   const dialect = integration.getSqlDialect();
   const esc = (v: string) => `'${dialect.escapeStringLiteral(v)}'`;
-  const conditions: string[] = [];
 
   if (options?.userId) {
     conditions.push(`user_id = ${esc(options.userId)}`);
   }
+  const pre: string[] = [];
+  const having: string[] = [];
+
+  having.push("max(m.deleted_at) IS NULL");
+
+  const window = resolveIngestWindow(
+    { dateAfter: options?.dateAfter, dateBefore: options?.dateBefore },
+    now,
+  );
+  pre.push(`m.ingested_at >= toDateTime(${esc(window.start)})`);
+  pre.push(`m.ingested_at < toDateTime(${esc(window.end)})`);
+
   if (options?.clientKeys?.length) {
-    conditions.push(
-      `client_key IN (${options.clientKeys.map(esc).join(", ")})`,
-    );
+    pre.push(`m.client_key IN (${options.clientKeys.map(esc).join(", ")})`);
   }
   if (options?.clientKey) {
     conditions.push(`client_key = ${esc(options.clientKey)}`);
+    pre.push(`m.client_key = ${esc(options.clientKey)}`);
+  }
+
+  if (options?.dateAfter) {
+    pre.push(`m.started_at >= ${esc(options.dateAfter)}`);
+  }
+  if (options?.dateBefore) {
+    const d = new Date(options.dateBefore + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + 1);
+    pre.push(`m.started_at < ${esc(d.toISOString().slice(0, 10))}`);
+  }
+
+  if (options?.userId) {
+    having.push(`max(m.user_id = ${esc(options.userId)}) = 1`);
   }
   if (options?.url) {
-    conditions.push(
-      `positionCaseInsensitive(url_first, ${esc(options.url)}) > 0`,
+    having.push(
+      `positionCaseInsensitive(${LIST_SELECT.url_first}, ${esc(options.url)}) > 0`,
     );
   }
   if (options?.country) {
     const vals = options.country.split(",").filter(Boolean);
     if (vals.length === 1) {
-      conditions.push(`country = ${esc(vals[0])}`);
+      having.push(`${LIST_SELECT.country} = ${esc(vals[0])}`);
     } else if (vals.length > 1) {
-      conditions.push(`country IN (${vals.map(esc).join(", ")})`);
+      having.push(`${LIST_SELECT.country} IN (${vals.map(esc).join(", ")})`);
     }
   }
   if (options?.device) {
     const vals = options.device.split(",").filter(Boolean);
     if (vals.length === 1) {
-      conditions.push(`device = ${esc(vals[0])}`);
+      having.push(`${LIST_SELECT.device} = ${esc(vals[0])}`);
     } else if (vals.length > 1) {
-      conditions.push(`device IN (${vals.map(esc).join(", ")})`);
+      having.push(`${LIST_SELECT.device} IN (${vals.map(esc).join(", ")})`);
     }
   }
   if (options?.minDurationSecs !== undefined) {
-    conditions.push(
-      `duration_ms >= ${Math.round(options.minDurationSecs * 1000)}`,
+    having.push(
+      `max(m.duration_ms) >= ${Math.round(options.minDurationSecs * 1000)}`,
     );
   }
   if (options?.maxDurationSecs !== undefined) {
-    conditions.push(
-      `duration_ms <= ${Math.round(options.maxDurationSecs * 1000)}`,
+    having.push(
+      `max(m.duration_ms) <= ${Math.round(options.maxDurationSecs * 1000)}`,
     );
   }
   if (options?.minEventCount !== undefined) {
-    conditions.push(`event_count >= ${Math.round(options.minEventCount)}`);
+    having.push(`sum(m.event_count) >= ${Math.round(options.minEventCount)}`);
   }
   if (options?.maxEventCount !== undefined) {
-    conditions.push(`event_count <= ${Math.round(options.maxEventCount)}`);
+    having.push(`sum(m.event_count) <= ${Math.round(options.maxEventCount)}`);
   }
+  // has() per chunk then max() over the group is exactly has() over the union
+  // of the chunks' arrays, and needs no array state to evaluate.
   if (options?.featureKey) {
     const vals = options.featureKey.split(",").filter(Boolean);
     if (vals.length === 1) {
-      conditions.push(`has(feature_keys, ${esc(vals[0])})`);
+      having.push(`max(has(m.feature_keys, ${esc(vals[0])})) = 1`);
     } else if (vals.length > 1) {
-      conditions.push(`hasAny(feature_keys, [${vals.map(esc).join(", ")}])`);
+      having.push(
+        `max(hasAny(m.feature_keys, [${vals.map(esc).join(", ")}])) = 1`,
+      );
     }
   }
   if (options?.experimentKey) {
     const vals = options.experimentKey.split(",").filter(Boolean);
     if (vals.length === 1) {
-      conditions.push(`has(experiment_keys, ${esc(vals[0])})`);
+      having.push(`max(has(m.experiment_keys, ${esc(vals[0])})) = 1`);
     } else if (vals.length > 1) {
-      conditions.push(`hasAny(experiment_keys, [${vals.map(esc).join(", ")}])`);
+      having.push(
+        `max(hasAny(m.experiment_keys, [${vals.map(esc).join(", ")}])) = 1`,
+      );
     }
-  }
-  if (options?.dateAfter) {
-    conditions.push(`started_at >= ${esc(options.dateAfter)}`);
-  }
-  if (options?.dateBefore) {
-    const d = new Date(options.dateBefore + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() + 1);
-    const nextDay = d.toISOString().slice(0, 10);
-    conditions.push(`started_at < ${esc(nextDay)}`);
   }
 
   const limit = Math.max(
@@ -201,19 +303,19 @@ export async function listSessionReplays(
     Math.min(MAX_SESSION_PAGE_SIZE + 1, Math.floor(options?.limit ?? 100)),
   );
   const offset = Math.max(0, Math.floor(options?.offset ?? 0));
-  // Always exclude soft-deleted from the list; callers that explicitly want
-  // them must use a future bulk-list-by-id endpoint that doesn't go through
-  // this function. Add this BEFORE the user-supplied conditions so it can't
-  // be overridden by an empty filter.
-  const allConditions = ["deleted_at IS NULL", ...conditions];
-  const where = `WHERE ${allConditions.join(" AND ")}`;
 
+  const selectList = Object.entries(LIST_SELECT)
+    .map(([alias, expr]) => (expr === alias ? alias : `${expr} AS ${alias}`))
+    .join(",\n      ");
   const { rows } = await integration.runQuery(
     `
-    SELECT *, ingested_at AS created_at
-    FROM session_replay_sessions
-    ${where}
-    ORDER BY started_at DESC
+    SELECT
+      ${selectList}
+    FROM session_replay_metadata AS m
+    WHERE ${pre.join(" AND ")}
+    GROUP BY m.session_replay_id
+    HAVING ${having.join(" AND ")}
+    ORDER BY ${LIST_SELECT.started_at} DESC
     LIMIT ${limit}
     OFFSET ${offset}
   `,
@@ -221,7 +323,7 @@ export async function listSessionReplays(
     { queryType: "sessionReplayList" },
   );
 
-  return rows as unknown as SessionReplayRow[];
+  return rows as unknown as SessionReplayListRow[];
 }
 
 export async function getSessionReplayChunksBySessionId(

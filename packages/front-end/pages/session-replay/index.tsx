@@ -27,6 +27,7 @@ import {
   PiX,
 } from "react-icons/pi";
 import { AppFeatures } from "shared/types/app-features";
+import { DEFAULT_SESSION_LIST_LOOKBACK_DAYS } from "shared/validators";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import VariationNumber from "@/ui/VariationNumber";
@@ -304,6 +305,20 @@ export default function SessionReplayPage() {
     queryParams,
     droppedFilters,
   } = useSessionReplayFilters(router, project);
+
+  const activeRangeLabel = useMemo(() => {
+    const { dateAfter, dateBefore } = queryParams;
+    if (dateAfter && dateBefore) return `${dateAfter} to ${dateBefore}`;
+    if (dateAfter) return `since ${dateAfter}`;
+    // The lookback anchors to the end of the range, so an upper bound alone
+    // still covers only that window — saying "up to" would imply everything
+    // before it.
+    if (dateBefore)
+      return `${DEFAULT_SESSION_LIST_LOOKBACK_DAYS} days before ${dateBefore}`;
+    return `last ${DEFAULT_SESSION_LIST_LOOKBACK_DAYS} days`;
+  }, [queryParams]);
+
+  const isDefaultRange = !queryParams.dateAfter && !queryParams.dateBefore;
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -612,7 +627,7 @@ export default function SessionReplayPage() {
                 Recorded Sessions
               </Text>
               <Text color="text-mid" size="sm" as="div">
-                Select a session to begin playback
+                Showing {activeRangeLabel}
               </Text>
             </Box>
             <Button
@@ -678,7 +693,9 @@ export default function SessionReplayPage() {
             )}
             {sessionsData && sessions.length === 0 && (
               <Text color="text-mid">
-                No matching sessions for the current filters.
+                {isDefaultRange
+                  ? `No sessions in the last ${DEFAULT_SESSION_LIST_LOOKBACK_DAYS} days. Add a date filter to look further back.`
+                  : "No matching sessions for the current filters."}
               </Text>
             )}
             {sessionsData &&

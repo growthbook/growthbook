@@ -338,22 +338,30 @@ describe("SessionReplayModel — list()", () => {
     expect(session.clientKey).toBe(row.client_key);
     expect(session.userId).toBe(row.user_id);
     expect(session.deviceId).toBe(row.device_id);
-    expect(session.s3Key).toBe(row.s3_key);
     expect(session.durationMs).toBe(row.duration_ms);
     expect(session.eventCount).toBe(row.event_count);
     expect(session.errorCount).toBe(row.error_count);
     expect(session.urlFirst).toBe(row.url_first);
-    expect(session.urlsVisited).toEqual(row.urls_visited);
     expect(session.pageTitle).toBe(row.page_title);
     expect(session.viewportWidth).toBe(row.viewport_width);
     expect(session.viewportHeight).toBe(row.viewport_height);
-    expect(session.attributes).toEqual(row.attributes);
     expect(session.featureKeys).toEqual(row.feature_keys);
     expect(session.experimentKeys).toEqual(row.experiment_keys);
-    expect(session.userAgent).toBe(row.user_agent);
     expect(session.country).toBe(row.country);
     expect(session.device).toBe(row.device);
     expect(session.browser).toBe(row.browser);
+  });
+
+  it("returns empty values for fields the list projection omits", async () => {
+    mockListSessionReplays.mockResolvedValue([makeRow()]);
+
+    const model = new SessionReplayModel(makeContext());
+    const [session] = await model.list();
+
+    expect(session.s3Key).toBe("");
+    expect(session.urlsVisited).toEqual([]);
+    expect(session.attributes).toEqual({});
+    expect(session.userAgent).toBe("");
   });
 
   it("defaults null optional fields to empty strings, arrays, and zero", async () => {

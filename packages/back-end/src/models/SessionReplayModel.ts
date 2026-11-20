@@ -7,6 +7,7 @@ import { logger } from "back-end/src/util/logger";
 import {
   getSessionReplayChunksBySessionId,
   listSessionReplays,
+  SessionReplayListRow,
   SessionReplayRow,
 } from "back-end/src/services/clickhouse";
 import {
@@ -109,7 +110,7 @@ export class SessionReplayModel {
       clientKeys,
     });
     return rows
-      .map((row) => this.toInterface(row))
+      .map((row) => this.toListInterface(row))
       .filter((doc) => {
         const projects = permittedKeys.get(doc.clientKey) ?? [];
         return this.canRead(doc, projects);
@@ -218,6 +219,18 @@ export class SessionReplayModel {
     }
 
     return base;
+  }
+
+  private toListInterface(row: SessionReplayListRow): SessionReplayInterface {
+    return {
+      ...this.toInterface({
+        ...row,
+        s3_key: "",
+        urls_visited: [],
+        attributes: {},
+        user_agent: "",
+      }),
+    };
   }
 
   /**
