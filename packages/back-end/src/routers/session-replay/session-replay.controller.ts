@@ -6,9 +6,14 @@ import {
 import { parseIntWithDefaultCapped } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { MAX_SESSION_PAGE_SIZE } from "back-end/src/services/clickhouse";
 
 type SessionResponse =
-  | { events: SessionReplayRrwebEvent[]; metadata: SessionReplayInterface }
+  | {
+      events: SessionReplayRrwebEvent[];
+      metadata: SessionReplayInterface;
+      chunkCount: number;
+    }
   | { status: number; message: string };
 
 type SessionReplayListItem = Pick<
@@ -38,7 +43,10 @@ type SessionReplayListItem = Pick<
   | "device"
   | "browser"
 >;
-type SessionsResponse = { sessions: SessionReplayListItem[] };
+type SessionsResponse = {
+  sessions: SessionReplayListItem[];
+  hasMore: boolean;
+};
 
 export async function listSessions(
   req: AuthRequest<
@@ -66,7 +74,7 @@ export async function listSessions(
 ) {
   const context = getContextFromReq(req);
   const page = parseIntWithDefaultCapped(req.query.page, 1, 1_000);
-  const pageSize = 100;
+  const pageSize = MAX_SESSION_PAGE_SIZE;
   const offset = (page - 1) * pageSize;
 
   const parsePositiveFloat = (s: string | undefined): number | undefined => {
@@ -90,10 +98,15 @@ export async function listSessions(
     dateAfter: req.query.dateAfter,
     dateBefore: req.query.dateBefore,
     project: req.query.project,
-    limit: pageSize,
+    // One extra row tells us a next page exists without a second count query
+    limit: pageSize + 1,
     offset,
   });
-  res.status(200).json({ sessions: sessions.map(toListItem) });
+  const hasMore = sessions.length > pageSize;
+  res.status(200).json({
+    sessions: sessions.slice(0, pageSize).map(toListItem),
+    hasMore,
+  });
 }
 
 function toListItem(session: SessionReplayInterface): SessionReplayListItem {
@@ -126,26 +139,44 @@ function toListItem(session: SessionReplayInterface): SessionReplayListItem {
 }
 
 export async function getSession(
-  req: AuthRequest<unknown, { sessionId: string }>,
+  req: AuthRequest<
+    unknown,
+    { sessionId: string },
+    { fromChunk?: string; maxChunks?: string }
+  >,
   res: Response<SessionResponse>,
 ) {
   const context = getContextFromReq(req);
   const { sessionId } = req.params;
 
-  const metadata =
-    await context.models.sessionReplays.getBySessionId(sessionId);
-  if (!metadata) {
+  const result =
+    await context.models.sessionReplays.getSessionWithChunkKeys(sessionId);
+  if (!result) {
     res.status(404).json({ status: 404, message: "Session not found" });
     return;
   }
 
-  const events = await context.models.sessionReplays.getEventsForS3Key(
-    metadata.s3Key,
+  const chunkCount = result.chunkKeys.length;
+
+  const fromChunk = Math.max(
+    0,
+    parseIntWithDefaultCapped(req.query.fromChunk, 0, chunkCount),
   );
-  if (!events.length) {
+  const maxChunks = Math.max(
+    0,
+    parseIntWithDefaultCapped(req.query.maxChunks, chunkCount, chunkCount),
+  );
+  const requestedKeys = result.chunkKeys.slice(
+    fromChunk,
+    fromChunk + maxChunks,
+  );
+
+  const events =
+    await context.models.sessionReplays.getEventsForChunkKeys(requestedKeys);
+  if (!events.length && fromChunk === 0) {
     res.status(404).json({ status: 404, message: "Session data not found" });
     return;
   }
 
-  res.status(200).json({ events, metadata });
+  res.status(200).json({ events, metadata: result.session, chunkCount });
 }

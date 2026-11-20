@@ -7,11 +7,13 @@ import { logger } from "back-end/src/util/logger";
 import {
   getSessionReplayChunksBySessionId,
   listSessionReplays,
+  SessionReplayListRow,
   SessionReplayRow,
 } from "back-end/src/services/clickhouse";
 import {
   filterClientKeysByProject,
-  getSessionReplayEventsByStoragePrefix,
+  getSessionReplayEventsByChunkKeys,
+  sortReplayChunkKeysByChunkIndex,
 } from "back-end/src/services/session-replay";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
@@ -108,46 +110,61 @@ export class SessionReplayModel {
       clientKeys,
     });
     return rows
-      .map((row) => this.toInterface(row))
+      .map((row) => this.toListInterface(row))
       .filter((doc) => {
         const projects = permittedKeys.get(doc.clientKey) ?? [];
         return this.canRead(doc, projects);
       });
   }
 
-  public async getBySessionId(
-    sessionId: string,
-  ): Promise<SessionReplayInterface | null> {
+  /**
+   * Merged session metadata plus the S3 key of every chunk backing it, in
+   * chunk-index order.
+   *
+   * The keys come from the metadata rows the ClickHouse query already
+   * returned, so the caller does not need a separate S3 listing to find them.
+   */
+  public async getSessionWithChunkKeys(sessionId: string): Promise<{
+    session: SessionReplayInterface;
+    chunkKeys: string[];
+  } | null> {
     const chunks = await getSessionReplayChunksBySessionId(
       this.context,
       sessionId,
     );
     if (!chunks.length) return null;
-    const doc = this.mergeChunks(chunks);
+    const session = this.mergeChunks(chunks);
 
     const permittedKeys = await this.getPermittedClientKeys();
-    const projects = permittedKeys.get(doc.clientKey);
+    const projects = permittedKeys.get(session.clientKey);
     // clientKey not in permitted set — orphaned or no access
     if (projects === undefined) return null;
-    if (!this.canRead(doc, projects)) return null;
+    if (!this.canRead(session, projects)) return null;
 
-    return doc;
+    const chunkKeys = sortReplayChunkKeysByChunkIndex(
+      chunks.map((c) => c.s3_key).filter(Boolean),
+    );
+    return { session, chunkKeys };
   }
 
-  public async getEventsForS3Key(
-    s3Key: string,
+  public async getBySessionId(
+    sessionId: string,
+  ): Promise<SessionReplayInterface | null> {
+    const result = await this.getSessionWithChunkKeys(sessionId);
+    return result ? result.session : null;
+  }
+
+  public async getEventsForChunkKeys(
+    chunkKeys: string[],
   ): Promise<SessionReplayRrwebEvent[]> {
-    // s3Key is the full object key (e.g. .../uuid/0.json.gz); strip the
-    // chunk filename so the S3 listing finds all chunks for the session.
-    const prefix = s3Key.substring(0, s3Key.lastIndexOf("/") + 1);
     const datasource = await getGrowthbookDatasource(this.context);
     const region =
       datasource?.type === "growthbook_clickhouse" &&
       datasource.settings.region === "eu-west-1"
         ? "eu-west-1"
         : "us-east-1";
-    const events = (await getSessionReplayEventsByStoragePrefix(
-      prefix,
+    const events = (await getSessionReplayEventsByChunkKeys(
+      chunkKeys,
       region,
     )) as unknown as SessionReplayRrwebEvent[];
     return events;
@@ -177,10 +194,10 @@ export class SessionReplayModel {
       const ingestedAt = parseClickHouseDate(row.ingested_at);
       if (ingestedAt > base.ingestedAt) base.ingestedAt = ingestedAt;
 
-      const durationMs = Number(row.duration_ms);
-      const eventCount = Number(row.event_count);
-      const keyEventCount = Number(row.key_event_count);
-      const errorCount = Number(row.error_count);
+      const durationMs = Number(row.duration_ms) || 0;
+      const eventCount = Number(row.event_count) || 0;
+      const keyEventCount = Number(row.key_event_count) || 0;
+      const errorCount = Number(row.error_count) || 0;
       if (durationMs > base.durationMs) base.durationMs = durationMs;
       base.eventCount += eventCount;
       base.keyEventCount += keyEventCount;
@@ -202,6 +219,20 @@ export class SessionReplayModel {
     }
 
     return base;
+  }
+
+  private toListInterface(row: SessionReplayListRow): SessionReplayInterface {
+    return {
+      ...this.toInterface({
+        ...row,
+        s3_key: "",
+        urls_visited: [],
+        attributes: {},
+        user_agent: "",
+        feature_keys: [],
+        experiment_keys: [],
+      }),
+    };
   }
 
   /**
@@ -230,10 +261,10 @@ export class SessionReplayModel {
       endedAt,
       lastEventAt,
       ingestedAt,
-      durationMs: Number(row.duration_ms),
-      eventCount: Number(row.event_count),
+      durationMs: Number(row.duration_ms) || 0,
+      eventCount: Number(row.event_count) || 0,
       keyEventCount: Number(row.key_event_count) || 0,
-      errorCount: Number(row.error_count),
+      errorCount: Number(row.error_count) || 0,
       urlFirst: row.url_first,
       urlsVisited: row.urls_visited ?? [],
       pageTitle: row.page_title ?? "",

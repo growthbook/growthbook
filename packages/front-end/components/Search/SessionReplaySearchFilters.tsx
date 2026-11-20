@@ -1,5 +1,6 @@
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { countries } from "country-codes-flags-phone-codes";
 import TextField from "@/ui/TextField";
 import {
   DropdownMenu,
@@ -16,13 +17,23 @@ import {
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
 import type { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
+import { useFeaturesList } from "@/services/features";
+import { useExperiments } from "@/hooks/useExperiments";
 
-interface SessionForFilters {
-  featureKeys: string[];
-  experimentKeys: string[];
-  country: string;
-  device: string;
-}
+/**
+ * device is UAParser's device.type, which the ingestor defaults to "desktop"
+ * when the parser reports none. A closed set, so it is listed rather than
+ * discovered.
+ */
+const DEVICE_TYPES = [
+  "desktop",
+  "mobile",
+  "tablet",
+  "console",
+  "smarttv",
+  "wearable",
+  "embedded",
+];
 
 /**
  * Inline text input row for the "More" dropdown.
@@ -161,11 +172,11 @@ const TextInputRow: FC<{
   );
 };
 
-const SessionReplaySearchFilters: FC<
-  BaseSearchFiltersProps & {
-    sessions: SessionForFilters[];
-  }
-> = ({ searchInputProps, syntaxFilters, setSearchValue, sessions }) => {
+const SessionReplaySearchFilters: FC<BaseSearchFiltersProps> = ({
+  searchInputProps,
+  syntaxFilters,
+  setSearchValue,
+}) => {
   const { dropdownFilterOpen, setDropdownFilterOpen, updateQuery } =
     useSearchFiltersBase({
       searchInputProps,
@@ -173,100 +184,84 @@ const SessionReplaySearchFilters: FC<
       setSearchValue,
     });
 
-  const countries = useMemo(() => {
-    const set = new Set<string>();
-    sessions.forEach((s) => {
-      if (s.country) set.add(s.country);
-    });
-    return Array.from(set).sort();
-  }, [sessions]);
+  const { features } = useFeaturesList({ includeArchived: true });
+  const { experiments } = useExperiments(undefined, true);
 
-  const devices = useMemo(() => {
-    const set = new Set<string>();
-    sessions.forEach((s) => {
-      if (s.device) set.add(s.device);
-    });
-    return Array.from(set).sort();
-  }, [sessions]);
+  const featureKeys = useMemo(
+    () => Array.from(new Set(features.map((f) => f.id))).sort(),
+    [features],
+  );
 
-  const featureKeys = useMemo(() => {
-    const set = new Set<string>();
-    sessions.forEach((s) => {
-      s.featureKeys?.forEach((k) => set.add(k));
-    });
-    return Array.from(set).sort();
-  }, [sessions]);
+  const experimentKeys = useMemo(
+    () =>
+      Array.from(
+        new Set(experiments.map((e) => e.trackingKey).filter(Boolean)),
+      ).sort(),
+    [experiments],
+  );
 
-  const experimentKeys = useMemo(() => {
-    const set = new Set<string>();
-    sessions.forEach((s) => {
-      s.experimentKeys?.forEach((k) => set.add(k));
-    });
-    return Array.from(set).sort();
-  }, [sessions]);
+  const countryItems = useMemo(
+    () =>
+      countries
+        .map((c) => ({
+          name: `${c.flag} ${c.name}`,
+          id: `country-${c.code}`,
+          searchValue: c.code,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [],
+  );
 
   return (
     <Flex gap="3" align="center" wrap="wrap">
-      {devices.length > 0 && (
-        <FilterDropdown
-          filter="device"
-          heading="Device"
-          syntaxFilters={syntaxFilters}
-          open={dropdownFilterOpen}
-          setOpen={setDropdownFilterOpen}
-          items={devices.map((d) => ({
-            name: d,
-            id: `device-${d}`,
-            searchValue: d,
-          }))}
-          updateQuery={updateQuery}
-        />
-      )}
-      {countries.length > 0 && (
-        <FilterDropdown
-          filter="country"
-          heading="Country"
-          syntaxFilters={syntaxFilters}
-          open={dropdownFilterOpen}
-          setOpen={setDropdownFilterOpen}
-          items={countries.map((c) => ({
-            name: c,
-            id: `country-${c}`,
-            searchValue: c,
-          }))}
-          updateQuery={updateQuery}
-        />
-      )}
-      {featureKeys.length > 0 && (
-        <FilterDropdown
-          filter="flag"
-          heading="Feature Flag"
-          syntaxFilters={syntaxFilters}
-          open={dropdownFilterOpen}
-          setOpen={setDropdownFilterOpen}
-          items={featureKeys.map((k) => ({
-            name: k,
-            id: `flag-${k}`,
-            searchValue: k,
-          }))}
-          updateQuery={updateQuery}
-        />
-      )}
-      {experimentKeys.length > 0 && (
-        <FilterDropdown
-          filter="experiment"
-          heading="Experiment"
-          syntaxFilters={syntaxFilters}
-          open={dropdownFilterOpen}
-          setOpen={setDropdownFilterOpen}
-          items={experimentKeys.map((k) => ({
-            name: k,
-            id: `exp-${k}`,
-            searchValue: k,
-          }))}
-          updateQuery={updateQuery}
-        />
-      )}
+      <FilterDropdown
+        filter="device"
+        heading="Device"
+        syntaxFilters={syntaxFilters}
+        open={dropdownFilterOpen}
+        setOpen={setDropdownFilterOpen}
+        items={DEVICE_TYPES.map((d) => ({
+          name: d,
+          id: `device-${d}`,
+          searchValue: d,
+        }))}
+        updateQuery={updateQuery}
+      />
+      <FilterDropdown
+        filter="country"
+        heading="Country"
+        syntaxFilters={syntaxFilters}
+        open={dropdownFilterOpen}
+        setOpen={setDropdownFilterOpen}
+        items={countryItems}
+        updateQuery={updateQuery}
+      />
+      <FilterDropdown
+        filter="flag"
+        heading="Feature Flag"
+        syntaxFilters={syntaxFilters}
+        open={dropdownFilterOpen}
+        setOpen={setDropdownFilterOpen}
+        items={featureKeys.map((k) => ({
+          name: k,
+          id: `flag-${k}`,
+          searchValue: k,
+        }))}
+        updateQuery={updateQuery}
+      />
+      <FilterDropdown
+        filter="experiment"
+        heading="Experiment"
+        syntaxFilters={syntaxFilters}
+        open={dropdownFilterOpen}
+        setOpen={setDropdownFilterOpen}
+        items={experimentKeys.map((k) => ({
+          name: k,
+          id: `exp-${k}`,
+          searchValue: k,
+        }))}
+        updateQuery={updateQuery}
+      />
 
       {/* "More" dropdown for typed-input filters */}
       <DropdownMenu
@@ -347,7 +342,7 @@ const SessionReplaySearchFilters: FC<
           setSearchValue={setSearchValue}
         />
         <TextInputRow
-          label="Date after"
+          label="Date on or after"
           field="date"
           operator=">"
           placeholder="YYYY-MM-DD"
@@ -357,7 +352,7 @@ const SessionReplaySearchFilters: FC<
           setSearchValue={setSearchValue}
         />
         <TextInputRow
-          label="Date before"
+          label="Date on or before"
           field="date"
           operator="<"
           placeholder="YYYY-MM-DD"

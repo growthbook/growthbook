@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 
+export const DEFAULT_SESSION_LIST_LOOKBACK_DAYS = 30;
+
 /**
  * Single rrweb event. We intentionally don't validate the inner shape — rrweb
  * has many event variants and they evolve with the library. We just gate on

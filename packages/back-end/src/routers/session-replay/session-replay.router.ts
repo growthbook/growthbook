@@ -23,7 +23,15 @@ const nonNegativeIntegerString = z
   .string()
   .regex(/^\d+$/)
   .refine((value) => Number(value) <= MAX_EVENT_COUNT);
-const isoDateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const isoDateString = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00Z`);
+    return (
+      !isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+    );
+  });
 
 router.get(
   "/",
@@ -50,6 +58,22 @@ router.get(
   }),
   sessionReplayController.listSessions,
 );
-router.get("/:sessionId", sessionReplayController.getSession);
+// Mirrors the ingestor's own `session_replay_id: z.guid()`, so every id that
+// could have been stored still validates. Without this the id was silently
+// stripped of non-alphanumerics downstream, turning a malformed id into a
+// lookup for a different one rather than a 400.
+router.get(
+  "/:sessionId",
+  validateRequestMiddleware({
+    params: z.object({ sessionId: z.guid() }).strict(),
+    query: z
+      .object({
+        fromChunk: nonNegativeIntegerString.optional(),
+        maxChunks: nonNegativeIntegerString.optional(),
+      })
+      .strict(),
+  }),
+  sessionReplayController.getSession,
+);
 
 export { router as sessionReplayRouter };
