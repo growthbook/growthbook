@@ -1955,6 +1955,48 @@ describe("computeExplorationComparisonPayload", () => {
     expect(out.tableTrendsByRow[1]["__metric_0____trend"]).toBeNull();
   });
 
+  it("ranks table trends against every current bucket without a Population", () => {
+    const base = metricConfig("m1", { showAs: "total" });
+    const config: ExplorationConfig = {
+      ...base,
+      dateRange: {
+        predefined: "customDateRange",
+        startDate: "2024-01-01",
+        endDate: "2024-01-03",
+      },
+    };
+    // Only Jan 2 has data, so it's the 2nd bucket and pairs with Dec 30.
+    const primary = explorationOneRow(20, null, "2024-01-02", config);
+    const comparison: ProductAnalyticsExploration = {
+      ...explorationOneRow(0, null, "2023-12-29", config),
+      result: {
+        rows: [
+          ["2023-12-29", 10],
+          ["2023-12-30", 40],
+          ["2023-12-31", 80],
+        ].map(([d, n]) => ({
+          dimensions: [String(d)],
+          values: [{ metricId: "m1", numerator: Number(n), denominator: null }],
+        })),
+      },
+    };
+
+    const out = computeExplorationComparisonPayload(
+      primary,
+      comparison,
+      config,
+      {
+        predefined: "customDateRange",
+        startDate: "2023-12-29",
+        endDate: "2023-12-31",
+      },
+      getFactMetricById,
+      "chronological",
+    );
+
+    expect(out.tableTrendsByRow[0]["__metric_0____trend"]).toBe(-50);
+  });
+
   it("returns empty table trends when ratio metric", () => {
     const getRatioMetricById = (id: string) =>
       id === "m1" ? ratioMetric : null;

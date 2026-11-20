@@ -1138,7 +1138,9 @@ export function computeExplorationComparisonPayload(
     cmpSorted,
     isTimeseries,
     alignment,
-    densifyPopulationTimeseriesRows(primary, submittedConfig).map((r) =>
+    // Rank against every bucket, as the table and chart do, so a missing day
+    // doesn't shift the pairing.
+    densifyTimeseriesRows(primary, submittedConfig).map((r) =>
       String(r.dimensions[0] ?? ""),
     ),
   );
