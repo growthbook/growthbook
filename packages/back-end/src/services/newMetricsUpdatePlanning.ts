@@ -7,6 +7,7 @@ import {
   getNewMetricsUpdateBlocker,
   getNewMetricsUpdateSetupBlocker,
   getResultsOutdatedReasons,
+  haveStatsEngineInputsChanged,
   isFactMetric,
   type ExperimentMetricInterface,
   type NewMetricsUpdateBlocker,
@@ -237,6 +238,25 @@ export async function planNewMetricsUpdate({
   if (!queriedMetricIds.length) {
     throw new MetricsAlreadyUpToDateError(parent.id);
   }
+  // Copied metrics keep the parent's analysis, so inputs only the stats engine
+  // reads, such as a prior or `inverse`, must be what the parent analyzed with.
+  const queried = new Set(queriedMetricIds);
+  const plannedInputs = new Map(
+    (plan.snapshot.settings.metricStatsEngineInputs ?? []).map(
+      ({ id, ...inputs }) => [id, inputs],
+    ),
+  );
+  if (
+    haveStatsEngineInputsChanged({
+      snapshotSettings: parent.settings,
+      metricIds: settings.metricSettings
+        .map((m) => m.id)
+        .filter((id) => !queried.has(getDefinitionMetricId(id))),
+      getInputs: (id) => plannedInputs.get(id) ?? null,
+    })
+  ) {
+    throw new NewMetricsUpdateUnavailableError("settings_changed");
+  }
   const snapshot = {
     ...plan.snapshot,
     settings,
@@ -252,7 +272,6 @@ export async function planNewMetricsUpdate({
   // identical text there would prove nothing about the metrics behind them;
   // the settings hash stored for each cached metric does.
   if (onIncrementalPipeline) {
-    const queried = new Set(queriedMetricIds);
     assertCopiedMetricCachesUnchanged({
       metricSources: incrementalState?.metricSources ?? [],
       copiedMetricIds: new Set(
@@ -403,6 +422,16 @@ export function mergeNewMetricsUpdateSettings({
   );
 
   const settings: ExperimentSnapshotSettings = { ...planned, metricSettings };
+  if (planned.metricStatsEngineInputs || parent.metricStatsEngineInputs) {
+    settings.metricStatsEngineInputs = [
+      ...(parent.metricStatsEngineInputs ?? []).filter(
+        ({ id }) => kept.has(id) && !isTarget(id),
+      ),
+      ...(planned.metricStatsEngineInputs ?? []).filter(({ id }) =>
+        isTarget(id),
+      ),
+    ];
+  }
   if (planned.clusterLevelMetricIds || parent.clusterLevelMetricIds) {
     settings.clusterLevelMetricIds = [
       ...(parent.clusterLevelMetricIds ?? []).filter(

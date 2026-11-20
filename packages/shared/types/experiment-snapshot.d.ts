@@ -6,6 +6,7 @@ import {
   AnalysisMetaEntry,
 } from "shared/snapshot-analysis-chunks";
 import {
+  BusinessMetricTypeForStatsEngine,
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
   DifferenceType,
@@ -120,6 +121,19 @@ export interface MetricForSnapshot {
     targetMDE?: number;
   };
 }
+
+/**
+ * What the stats engine reads for a metric that neither its result query SQL
+ * nor the Incremental Pipeline's settings hash covers.
+ */
+export interface MetricStatsEngineInputs {
+  inverse: boolean;
+  properPrior: boolean;
+  properPriorMean: number;
+  properPriorStdDev: number;
+  targetMDE: number;
+  businessMetricTypes: BusinessMetricTypeForStatsEngine[];
+}
 export interface DimensionForSnapshot {
   /** Encodes type and id (e.g. `exp:country`, `pre:date`). */
   id: string;
@@ -198,6 +212,9 @@ export interface ExperimentSnapshotSettings {
   /** Always-computed unit dimensions gathered in 1 pass and split into per-dimension analyses. */
   precomputedUnitDimensionIds?: string[];
   metricSettings: MetricForSnapshot[];
+  // Kept apart from metricSettings, whose entries the time series hash whole.
+  // Absent on snapshots planned before they were stored.
+  metricStatsEngineInputs?: ({ id: string } & MetricStatsEngineInputs)[];
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];

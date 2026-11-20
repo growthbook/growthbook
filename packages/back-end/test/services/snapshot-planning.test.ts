@@ -1,9 +1,12 @@
 import {
   ExperimentMetricInterface,
   expandDerivedMetricsInMap,
+  getDefinitionMetricId,
   getLatestPhaseVariations,
   getMetricSnapshotSettings,
+  getPlannedMetricStatsEngineInputs,
   getResultsOutdatedReasons,
+  haveStatsEngineInputsChanged,
   shouldOfferNewMetricsUpdate,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
@@ -2618,9 +2621,14 @@ describe("planExperimentSnapshot", () => {
         fixture: ReturnType<typeof makeFixture>,
         {
           base: baseChanges = {},
+          refresh: refreshChanges = {},
+          editMetric,
           pipeline,
         }: {
           base?: Partial<ExperimentInterface>;
+          refresh?: Partial<ExperimentInterface>;
+          // A definition edited after the base update.
+          editMetric?: { id: string; changes: object };
           pipeline: "standard" | "incremental";
         },
       ) {
@@ -2723,11 +2731,24 @@ describe("planExperimentSnapshot", () => {
           })) as Awaited<ReturnType<typeof getQueriesByIds>>,
         );
 
+        if (editMetric) {
+          const edited = new Map(
+            [...(await getMetricMapMock(context))].map(([id, m]) => [
+              id,
+              id === editMetric.id
+                ? ({ ...m, ...editMetric.changes } as ExperimentMetricInterface)
+                : m,
+            ]),
+          );
+          getMetricMapMock.mockImplementation(async () => new Map(edited));
+        }
+
         jest.setSystemTime(refreshTime);
         const experiment = {
           ...fixture.experiment,
           variations,
           ...baseChanges,
+          ...refreshChanges,
         };
         const { settings: scoped } = getScopedSettings({
           organization: context.org,
@@ -2752,12 +2773,32 @@ describe("planExperimentSnapshot", () => {
           newerOverallResultsAvailable: false,
           resultsUpdateDisabled: false,
         });
+        // What the app reads: today's definitions, not the planner's settings.
+        const todaysMetrics = await getMetricMapMock(context);
+        const metricGroups = await context.models.metricGroups.getAll();
+        const statsEngineInputsChanged = haveStatsEngineInputsChanged({
+          snapshotSettings: parent.settings,
+          metricIds: parent.settings.metricSettings.map((m) => m.id),
+          getInputs: (metricId) => {
+            const metric = todaysMetrics.get(getDefinitionMetricId(metricId));
+            return metric
+              ? getPlannedMetricStatsEngineInputs({
+                  metricId,
+                  metric,
+                  experiment,
+                  metricGroups,
+                  organizationSettings: context.org.settings ?? {},
+                })
+              : null;
+          },
+        });
         const offered = shouldOfferNewMetricsUpdate({
           reasons,
           resultsEndDate: parent.settings.endDate,
           windowHours: 4,
           now: refreshTime,
           newMetricsUpdateBlocker: null,
+          statsEngineInputsChanged,
         });
         const plan = planExperimentSnapshot({
           context: context as never,
@@ -2809,6 +2850,75 @@ describe("planExperimentSnapshot", () => {
               },
             });
           });
+
+          // None of these edits reaches the SQL or the settings hash.
+          it.each<{
+            name: string;
+            refresh?: Partial<ExperimentInterface>;
+            editMetric?: { id: string; changes: object };
+          }>([
+            {
+              name: "a copied metric's direction",
+              editMetric: { id: "fact__revenue", changes: { inverse: true } },
+            },
+            {
+              name: "a copied metric's prior",
+              editMetric: {
+                id: "fact__revenue",
+                changes: {
+                  priorSettings: {
+                    override: true,
+                    proper: true,
+                    mean: 0.1,
+                    stddev: 0.2,
+                  },
+                },
+              },
+            },
+            {
+              name: "a copied metric's prior override in the experiment",
+              refresh: {
+                metricOverrides: [
+                  {
+                    id: "fact__revenue",
+                    properPriorOverride: true,
+                    properPriorEnabled: true,
+                    properPriorMean: 0.1,
+                    properPriorStdDev: 0.2,
+                  },
+                ],
+              },
+            },
+            {
+              name: "a copied metric's target MDE",
+              refresh: {
+                decisionFrameworkSettings: {
+                  decisionFrameworkMetricOverrides: [
+                    { id: "fact__revenue", targetMDE: 0.3 },
+                  ],
+                },
+              },
+            },
+          ])(
+            "refuses, and the app doesn't offer it, after an edit to $name",
+            async ({ refresh, editMetric }) => {
+              const { reasons, offered, plan } = await outdatedRefresh(
+                makeFixture(),
+                {
+                  base: pipelineBase,
+                  refresh: { ...pipelineBase, ...refresh },
+                  editMetric,
+                  pipeline,
+                },
+              );
+
+              expect(reasons).toEqual(["metrics_changed"]);
+              expect(offered).toBe(false);
+              await expect(plan).rejects.toMatchObject({
+                details: { reason: "settings_changed" },
+              });
+            },
+          );
         },
       );
     });

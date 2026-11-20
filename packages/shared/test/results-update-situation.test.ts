@@ -12,6 +12,7 @@ function offered({
   resultsEndDate = hoursAgo(1),
   windowHours = 4,
   newMetricsUpdateBlocker = null,
+  statsEngineInputsChanged = false,
 }: Partial<Parameters<typeof shouldOfferNewMetricsUpdate>[0]> = {}) {
   return shouldOfferNewMetricsUpdate({
     reasons,
@@ -19,6 +20,7 @@ function offered({
     windowHours,
     now: NOW,
     newMetricsUpdateBlocker,
+    statsEngineInputsChanged,
   });
 }
 
@@ -45,6 +47,11 @@ describe("shouldOfferNewMetricsUpdate", () => {
     [
       "no update can compute only new metrics",
       { newMetricsUpdateBlocker: "metric_not_supported" },
+      false,
+    ],
+    [
+      "a computed metric's stats engine inputs changed",
+      { statsEngineInputsChanged: true },
       false,
     ],
     [

@@ -5,7 +5,10 @@ import type { ExperimentMetricDefinition } from "../src/experiments/experiments"
 import {
   getComputableNewMetricIds,
   getMetricIdsMissingFromSnapshot,
+  getMetricStatsEngineInputs,
+  getPlannedMetricStatsEngineInputs,
   getSnapshotSideEffects,
+  haveStatsEngineInputsChanged,
 } from "../src/experiments/new-metrics-update";
 
 function snapshotSettingsFor(metricIds: string[]) {
@@ -306,5 +309,157 @@ describe("getComputableNewMetricIds", () => {
         { identifierType: "region_id" },
       ),
     ).toEqual([]);
+  });
+});
+
+describe("stats engine inputs", () => {
+  const metric = {
+    id: "met_a",
+    inverse: false,
+    priorSettings: { override: false, proper: false, mean: 0, stddev: 0.3 },
+    targetMDE: 0.2,
+  } as unknown as ExperimentMetricDefinition;
+  const lists = {
+    goalMetrics: ["met_a"],
+    secondaryMetrics: [],
+    guardrailMetrics: ["met_a"],
+  };
+
+  it("reads the snapshot's computed priors and target MDE over the definition's", () => {
+    expect(
+      getMetricStatsEngineInputs({ ...metric, inverse: true }, {
+        ...lists,
+        metricSettings: [
+          {
+            id: "met_a",
+            computedSettings: {
+              properPrior: true,
+              properPriorMean: 0.1,
+              properPriorStdDev: 0.5,
+            },
+          },
+        ],
+      } as unknown as Parameters<typeof getMetricStatsEngineInputs>[1]),
+    ).toEqual({
+      inverse: true,
+      properPrior: true,
+      properPriorMean: 0.1,
+      properPriorStdDev: 0.5,
+      targetMDE: 0.1,
+      businessMetricTypes: ["goal", "guardrail"],
+    });
+  });
+
+  it("falls back to the definition without computed settings", () => {
+    expect(
+      getMetricStatsEngineInputs(metric, { ...lists, metricSettings: [] }),
+    ).toMatchObject({
+      properPrior: false,
+      properPriorStdDev: 0.3,
+      targetMDE: 0.2,
+    });
+  });
+
+  describe("getPlannedMetricStatsEngineInputs", () => {
+    const experiment = {
+      goalMetrics: ["mg_core"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      regressionAdjustmentEnabled: false,
+    };
+    const planned = (
+      overrides: Partial<
+        Parameters<typeof getPlannedMetricStatsEngineInputs>[0]
+      > = {},
+    ) =>
+      getPlannedMetricStatsEngineInputs({
+        metricId: "met_a",
+        metric,
+        experiment,
+        metricGroups: [metricGroup("mg_core", ["met_a"])],
+        organizationSettings: {},
+        ...overrides,
+      });
+
+    it("expands metric groups and gives a slice its metric's priors but no type", () => {
+      expect(planned()).toMatchObject({ businessMetricTypes: ["goal"] });
+      expect(planned({ metricId: "met_a?dim:country=US" })).toMatchObject({
+        businessMetricTypes: [],
+        properPriorStdDev: 0.3,
+      });
+    });
+
+    it("applies the organization's default prior, then the experiment's overrides", () => {
+      const organizationSettings = {
+        metricDefaults: {
+          priorSettings: { override: false, proper: true, mean: 0, stddev: 1 },
+        },
+      } as Parameters<typeof planned>[0]["organizationSettings"];
+      expect(planned({ organizationSettings })).toMatchObject({
+        properPrior: true,
+        properPriorStdDev: 1,
+      });
+      expect(
+        planned({
+          organizationSettings,
+          experiment: {
+            ...experiment,
+            metricOverrides: [
+              {
+                id: "met_a",
+                properPriorOverride: true,
+                properPriorEnabled: false,
+              },
+            ],
+            decisionFrameworkSettings: {
+              decisionFrameworkMetricOverrides: [
+                { id: "met_a", targetMDE: 0.05 },
+              ],
+            },
+          },
+        }),
+      ).toMatchObject({ properPrior: false, targetMDE: 0.05 });
+    });
+  });
+
+  describe("haveStatsEngineInputsChanged", () => {
+    const inputs = getMetricStatsEngineInputs(metric, {
+      ...lists,
+      metricSettings: [],
+    });
+    const changed = (getInputs: (id: string) => typeof inputs | null) =>
+      haveStatsEngineInputsChanged({
+        snapshotSettings: {
+          metricStatsEngineInputs: [{ id: "met_a", ...inputs }],
+        },
+        metricIds: ["met_a"],
+        getInputs,
+      });
+
+    it("compares each metric's inputs with the stored ones", () => {
+      expect(changed(() => ({ ...inputs }))).toBe(false);
+      expect(changed(() => ({ ...inputs, inverse: true }))).toBe(true);
+      expect(
+        changed(() => ({ ...inputs, businessMetricTypes: ["goal"] })),
+      ).toBe(true);
+    });
+
+    it("counts a metric without stored or resolvable inputs as changed", () => {
+      expect(changed(() => null)).toBe(true);
+      expect(
+        haveStatsEngineInputsChanged({
+          snapshotSettings: {},
+          metricIds: ["met_a"],
+          getInputs: () => inputs,
+        }),
+      ).toBe(true);
+      expect(
+        haveStatsEngineInputsChanged({
+          snapshotSettings: {},
+          metricIds: [],
+          getInputs: () => inputs,
+        }),
+      ).toBe(false);
+    });
   });
 });

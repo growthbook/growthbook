@@ -25,6 +25,9 @@ import {
   getResultsOutdatedReasons,
   getResultsOutdatedReasonLabel,
   getNewMetricsUpdateBlocker,
+  getDefinitionMetricId,
+  getPlannedMetricStatsEngineInputs,
+  haveStatsEngineInputsChanged,
   shouldOfferNewMetricsUpdate,
 } from "shared/experiments";
 import {
@@ -548,6 +551,39 @@ export default function AnalysisSettingsSummary({
         resultsUpdateDisabled,
       })
     : [];
+  // The back end refuses the same way, comparing what it would plan now.
+  const statsEngineInputsChanged = useMemo(() => {
+    if (!snapshot) return false;
+    const experimentMetricIds = new Set([
+      ...allExpandedMetrics,
+      ...(experiment.activationMetric ? [experiment.activationMetric] : []),
+    ]);
+    return haveStatsEngineInputsChanged({
+      snapshotSettings: snapshot.settings,
+      metricIds: snapshot.settings.metricSettings
+        .map((m) => m.id)
+        .filter((id) => experimentMetricIds.has(getDefinitionMetricId(id))),
+      getInputs: (metricId) => {
+        const metric = getExperimentMetricById(getDefinitionMetricId(metricId));
+        return metric
+          ? getPlannedMetricStatsEngineInputs({
+              metricId,
+              metric,
+              experiment,
+              metricGroups,
+              organizationSettings: orgSettings,
+            })
+          : null;
+      },
+    });
+  }, [
+    snapshot,
+    allExpandedMetrics,
+    experiment,
+    getExperimentMetricById,
+    metricGroups,
+    orgSettings,
+  ]);
   const fullRefreshRequired =
     !viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
   // When this holds, the split Update button stands in for the Outdated badge.
@@ -572,6 +608,7 @@ export default function AnalysisSettingsSummary({
         pipelineChanged:
           ((snapshot.runnerKind ?? "results") !== "results") !== isIncremental,
       }),
+      statsEngineInputsChanged,
     });
   const snapshotNewMetricsUpdate = snapshot
     ? getNewMetricsUpdate(snapshot)

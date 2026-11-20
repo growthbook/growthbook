@@ -1,12 +1,19 @@
+import isEqual from "lodash/isEqual";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_TARGET_MDE,
+} from "shared/constants";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  MetricStatsEngineInputs,
   SnapshotNewMetricsUpdate,
 } from "shared/types/experiment-snapshot";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
 import type { DataSourceSettings } from "shared/types/datasource";
 import type { FactTableInterface } from "shared/types/fact-table";
+import type { OrganizationSettings } from "shared/types/organization";
 import type { newMetricsUpdateUnavailableReasons } from "../validators/api-errors";
 import {
   type ExperimentMetricDefinition,
@@ -14,6 +21,7 @@ import {
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
   getDefinitionMetricId,
+  getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricJoinable,
   isMetricJoinable,
@@ -277,17 +285,168 @@ export function shouldOfferNewMetricsUpdate({
   windowHours,
   now,
   newMetricsUpdateBlocker,
+  statsEngineInputsChanged,
 }: {
   reasons: readonly ResultsOutdatedReason[];
   resultsEndDate: Date;
   windowHours: number;
   now: Date;
   newMetricsUpdateBlocker: NewMetricsUpdateBlocker | null;
+  // See haveStatsEngineInputsChanged.
+  statsEngineInputsChanged: boolean;
 }): boolean {
   return (
     reasons.length > 0 &&
     reasons.every((r) => r === "metrics_changed") &&
     !newMetricsUpdateBlocker &&
+    !statsEngineInputsChanged &&
     isWithinNewMetricsUpdateWindow({ resultsEndDate, windowHours, now })
   );
+}
+
+type StatsEngineInputsSettings = Pick<
+  ExperimentSnapshotSettings,
+  "metricSettings" | "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
+>;
+
+function toStatsEngineInputs(
+  metricId: string,
+  inverse: boolean | undefined,
+  priors: {
+    properPrior: boolean;
+    properPriorMean: number;
+    properPriorStdDev: number;
+    targetMDE?: number;
+  },
+  settings: Omit<StatsEngineInputsSettings, "metricSettings">,
+): MetricStatsEngineInputs {
+  return {
+    inverse: !!inverse,
+    properPrior: priors.properPrior,
+    properPriorMean: priors.properPriorMean,
+    properPriorStdDev: priors.properPriorStdDev,
+    targetMDE: priors.targetMDE ?? DEFAULT_TARGET_MDE,
+    businessMetricTypes: [
+      settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
+      settings.secondaryMetrics.includes(metricId)
+        ? ("secondary" as const)
+        : null,
+      settings.guardrailMetrics.includes(metricId)
+        ? ("guardrail" as const)
+        : null,
+    ].filter((type) => type !== null),
+  };
+}
+
+/**
+ * The inputs the stats engine reads for a metric of a snapshot with these
+ * settings. Its computed settings override the definition's priors and target
+ * MDE, as they do before the stats engine runs.
+ */
+export function getMetricStatsEngineInputs(
+  metric: Pick<
+    ExperimentMetricDefinition,
+    "id" | "inverse" | "priorSettings" | "targetMDE"
+  >,
+  settings: StatsEngineInputsSettings,
+): MetricStatsEngineInputs {
+  const computed = settings.metricSettings.find(
+    (m) => m.id === metric.id,
+  )?.computedSettings;
+  return toStatsEngineInputs(
+    metric.id,
+    metric.inverse,
+    computed ?? {
+      properPrior: metric.priorSettings.proper,
+      properPriorMean: metric.priorSettings.mean,
+      properPriorStdDev: metric.priorSettings.stddev,
+      targetMDE: metric.targetMDE,
+    },
+    settings,
+  );
+}
+
+/**
+ * The inputs a full update planned now would store for a metric, from today's
+ * definitions. `metric` is the definition of the metric, or of the metric a
+ * slice belongs to.
+ */
+export function getPlannedMetricStatsEngineInputs({
+  metricId,
+  metric,
+  experiment,
+  metricGroups,
+  organizationSettings,
+}: {
+  metricId: string;
+  metric: ExperimentMetricDefinition;
+  experiment: Pick<
+    ExperimentInterface,
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
+    | "metricOverrides"
+    | "decisionFrameworkSettings"
+    | "regressionAdjustmentEnabled"
+  >;
+  metricGroups: MetricGroupInterface[];
+  organizationSettings: Partial<OrganizationSettings>;
+}): MetricStatsEngineInputs {
+  const { metricSnapshotSettings } = getMetricSnapshotSettings({
+    metric,
+    denominatorMetrics: [],
+    experimentRegressionAdjustmentEnabled:
+      experiment.regressionAdjustmentEnabled ??
+      DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+    organizationSettings,
+    metricOverrides: experiment.metricOverrides,
+  });
+  const definitionMetricId = getDefinitionMetricId(metricId);
+  const targetMDE =
+    experiment.decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
+      (o) => o.id === definitionMetricId,
+    )?.targetMDE ?? metric.targetMDE;
+  return toStatsEngineInputs(
+    metricId,
+    metric.inverse,
+    { ...metricSnapshotSettings, targetMDE },
+    {
+      goalMetrics: expandMetricGroups(experiment.goalMetrics, metricGroups),
+      secondaryMetrics: expandMetricGroups(
+        experiment.secondaryMetrics,
+        metricGroups,
+      ),
+      guardrailMetrics: expandMetricGroups(
+        experiment.guardrailMetrics,
+        metricGroups,
+      ),
+    },
+  );
+}
+
+/**
+ * Whether the stats engine would read any of these metrics differently than it
+ * did for the snapshot, so their copied results would be stale. A metric the
+ * snapshot stored no inputs for, or one `getInputs` can't resolve, counts as
+ * changed.
+ */
+export function haveStatsEngineInputsChanged({
+  snapshotSettings,
+  metricIds,
+  getInputs,
+}: {
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "metricStatsEngineInputs">;
+  metricIds: Iterable<string>;
+  getInputs: (metricId: string) => MetricStatsEngineInputs | null;
+}): boolean {
+  const stored = new Map(
+    (snapshotSettings.metricStatsEngineInputs ?? []).map(
+      ({ id, ...inputs }) => [id, inputs],
+    ),
+  );
+  return [...metricIds].some((id) => {
+    const before = stored.get(id);
+    const now = getInputs(id);
+    return !before || !now || !isEqual(before, now);
+  });
 }
