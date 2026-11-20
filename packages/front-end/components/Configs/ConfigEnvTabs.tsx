@@ -173,7 +173,7 @@ export default function ConfigEnvTabs({
             {tabs.map((t) => (
               <TabsTrigger key={t.key} value={t.key}>
                 <Flex align="center" style={{ gap: 6 }}>
-                  {t.key !== baseKey && draftByKey?.[t.key] && (
+                  {draftByKey?.[t.key] && (
                     <Tooltip content="Unpublished draft">
                       <StatusDot color={draftStatusDotColor("draft")} />
                     </Tooltip>
