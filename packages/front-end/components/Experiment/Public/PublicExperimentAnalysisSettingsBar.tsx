@@ -1,6 +1,9 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import { getSnapshotDataAsOfDate } from "shared/experiments";
+import {
+  getNewMetricsUpdate,
+  getSnapshotDataAsOfDate,
+} from "shared/experiments";
 import { ago, date, datetime } from "shared/dates";
 import { PiEye } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -70,7 +73,16 @@ export default function PublicExperimentAnalysisSettingsBar({
                 />
               )}
               <div className="text-right mt-3">
+                {/* Added metrics are queried through the run's end date, so
+                    every number is as of the run; the later update only
+                    added metrics. */}
                 <Metadata label="Run date" value={datetime(lastUpdated)} />
+                {getNewMetricsUpdate(snapshot) ? (
+                  <Metadata
+                    label="Metrics added"
+                    value={datetime(snapshot.dateCreated)}
+                  />
+                ) : null}
               </div>
             </div>
           }
