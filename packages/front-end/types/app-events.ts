@@ -506,6 +506,9 @@ export type AppEvents = {
   "Import from LaunchDarkly clicked": {
     service: string;
   };
+  "Import from Optimizely clicked": {
+    service: string;
+  };
   "Import from Statsig clicked": {
     service: string;
   };
@@ -585,6 +588,18 @@ export type AppEvents = {
   "Open visual editor modal": {
     action: string;
     source: string;
+  };
+  "Optimizely import fetch started": {
+    source: string;
+  };
+  "Optimizely import finished": {
+    completed: number;
+    source: string;
+    failed: number;
+  };
+  "Optimizely import started": {
+    source: string;
+    items: number;
   };
   "Page View": {
     pathName: string;

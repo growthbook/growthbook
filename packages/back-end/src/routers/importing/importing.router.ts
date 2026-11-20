@@ -8,5 +8,6 @@ const importingController = wrapController(rawImportingController);
 router.post("/statsig", importingController.proxyStatsigRequest);
 router.post("/launchdarkly", importingController.proxyLaunchDarklyRequest);
 router.post("/eppo", importingController.proxyEppoRequest);
+router.post("/optimizely", importingController.proxyOptimizelyRequest);
 
 export { router as importingRouter };

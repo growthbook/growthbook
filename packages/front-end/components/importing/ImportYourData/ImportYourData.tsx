@@ -42,6 +42,15 @@ const eppoService = {
   text: "Connect with an Eppo API key. Metrics stay warehouse-native.",
 };
 
+export const OPTIMIZELY_IMPORTER_FLAG = "optimizely-importer";
+const optimizelyService = {
+  service: "Optimizely",
+  icon: "optimizely",
+  hasDarkIcon: false,
+  path: "optimizely",
+  text: "Connect with an Optimizely personal access token. Metrics map onto your Events Fact Table.",
+};
+
 // Services we don't have a self-serve importer for yet. Each opens a modal
 // pointing at support so we can help with the migration (and gauge demand).
 const upcomingServices = [
@@ -140,12 +149,17 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
     slug: string;
   }>(null);
   const eppoImporter = useFeatureIsOn(EPPO_IMPORTER_FLAG);
-  const supported = eppoImporter
-    ? [...supportedServices, eppoService]
-    : supportedServices;
-  const upcoming = eppoImporter
-    ? upcomingServices.filter((s) => s.slug !== "eppo")
-    : upcomingServices;
+  const optimizelyImporter = useFeatureIsOn(OPTIMIZELY_IMPORTER_FLAG);
+  const supported = [
+    ...supportedServices,
+    ...(optimizelyImporter ? [optimizelyService] : []),
+    ...(eppoImporter ? [eppoService] : []),
+  ];
+  const upcoming = upcomingServices.filter(
+    (s) =>
+      !(s.slug === "eppo" && eppoImporter) &&
+      !(s.slug === "optimizely" && optimizelyImporter),
+  );
 
   return (
     <Flex direction="column" gap="6">

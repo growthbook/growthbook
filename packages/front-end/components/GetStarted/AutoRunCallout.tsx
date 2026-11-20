@@ -12,7 +12,7 @@ export default function AutoRunCallout() {
   const { data } = useApi<{ autoRuns: ApiAutoRun[] }>("/auto-runs");
 
   const mine = (data?.autoRuns || [])
-    .filter((r) => r.createdBy === userId && r.source !== "eppo-import")
+    .filter((r) => r.createdBy === userId && !r.source.endsWith("-import"))
     .sort((a, b) => (a.dateCreated < b.dateCreated ? 1 : -1));
 
   const run = mine[0];

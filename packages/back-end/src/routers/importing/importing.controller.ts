@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { z } from "zod";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -126,6 +127,57 @@ export const proxyEppoRequest = async (
     res.status(500).json({
       status: 500,
       message: error.message || "Failed to fetch from Eppo API",
+    });
+  }
+};
+
+const optimizelyProxyBody = z.object({
+  endpoint: z.string().min(1),
+  apiToken: z.string().min(1),
+});
+
+export const proxyOptimizelyRequest = async (
+  req: AuthRequest<z.infer<typeof optimizelyProxyBody>>,
+  res: Response,
+) => {
+  getContextFromReq(req);
+  const body = optimizelyProxyBody.safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({
+      status: 400,
+      message: "Missing required fields: endpoint and apiToken",
+    });
+  }
+  const { endpoint, apiToken } = body.data;
+
+  // Covers both the REST API (v2/) and the Flags API (flags/v1/)
+  const url = resolveProxyUrl(endpoint, "https://api.optimizely.com/");
+
+  try {
+    const { responseWithoutBody: response, stringBody } =
+      await cancellableFetch(
+        url,
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+          },
+          redirect: "error",
+        },
+        { maxTimeMs: 30000, maxContentSize: 50 * 1024 * 1024 },
+      );
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        status: response.status,
+        message: `Optimizely API error: ${response.statusText} - ${stringBody}`,
+      });
+    }
+
+    res.status(200).json(JSON.parse(stringBody));
+  } catch (error) {
+    res.status(500).json({
+      status: 500,
+      message: error.message || "Failed to fetch from Optimizely API",
     });
   }
 };

@@ -68357,6 +68357,7 @@ paths:
                     - cli-wizard
                     - skill
                     - eppo-import
+                    - optimizely-import
                 agent:
                   type: string
                   maxLength: 50
@@ -92789,6 +92790,7 @@ components:
             - cli-wizard
             - skill
             - eppo-import
+            - optimizely-import
         agent:
           type:
             - string
