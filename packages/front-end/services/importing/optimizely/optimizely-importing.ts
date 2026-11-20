@@ -1,4 +1,5 @@
 import { escapeRegExp, pick } from "lodash";
+import md5 from "md5";
 import { FeatureRule, FeatureValueType } from "shared/types/feature";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
@@ -514,8 +515,8 @@ export function getRuleTargeting(
     return { condition: "", savedGroups: [] };
   }
 
-  // Saved Group targeting is a list of all/any/none checks that all must
-  // pass, which covers the trees Optimizely's UI builds
+  // Saved Group targeting is a list of all/any checks that all must pass,
+  // which covers the trees Optimizely's UI builds
   const groups = walkTree<SavedGroupTargeting | null>(
     conditions,
     (leaf) => {
@@ -526,6 +527,9 @@ export function getRuleTargeting(
       const known = children.flatMap((c) => (c ? [c] : []));
       if (known.length < children.length) return null;
       if (operator === "and") return known.flat();
+      // Excluding a Saved Group would also match users missing its
+      // attributes, which Optimizely doesn't. The copied conditions guard that.
+      if (operator === "not") return null;
       const single = known.every(
         (c) =>
           c.length === 1 &&
@@ -535,7 +539,7 @@ export function getRuleTargeting(
       if (!single) return null;
       return [
         {
-          match: operator === "or" ? "any" : "none",
+          match: "any",
           ids: known.flatMap((c) => c[0].ids),
         },
       ];
@@ -606,6 +610,10 @@ export const metricKey = (m: OptimizelyMetric) =>
     m.winning_direction ?? "",
     ...(m.metrics ?? []).map(subMetricKey),
   ].join("~");
+
+// Run artifacts cap external ids at 200 characters, and a key with property
+// filters can be longer
+export const metricExternalId = (m: OptimizelyMetric) => md5(metricKey(m));
 
 export function getMetrics(opt: OptimizelyData): OptimizelyMetric[] {
   const metrics = new Map<string, OptimizelyMetric>();
@@ -1131,7 +1139,7 @@ export function matchItems(
         metricKey(m),
         match(
           "metrics",
-          metricKey(m),
+          metricExternalId(m),
           existing.factMetrics.get(metricName(m, opt)),
         ),
       ]),
@@ -1270,7 +1278,7 @@ export function buildImportData(
         metricKey(m),
         metricName(m, opt),
         m,
-        metricKey(m),
+        metricExternalId(m),
         matches.metrics.get(metricKey(m)),
         () => transformMetric(m, ctx),
       ),

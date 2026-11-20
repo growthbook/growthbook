@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { z } from "zod";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -130,6 +131,11 @@ export const proxyEppoRequest = async (
   }
 };
 
+const optimizelyProxyBody = z.object({
+  endpoint: z.string().min(1),
+  apiToken: z.string().min(1),
+});
+
 export const proxyOptimizelyRequest = async (
   req: AuthRequest<{
     endpoint: string;
@@ -138,14 +144,14 @@ export const proxyOptimizelyRequest = async (
   res: Response,
 ) => {
   getContextFromReq(req);
-  const { endpoint, apiToken } = req.body;
-
-  if (!endpoint || !apiToken) {
+  const body = optimizelyProxyBody.safeParse(req.body);
+  if (!body.success) {
     return res.status(400).json({
       status: 400,
       message: "Missing required fields: endpoint and apiToken",
     });
   }
+  const { endpoint, apiToken } = body.data;
 
   // Covers both the REST API (v2/) and the Flags API (flags/v1/)
   const url = resolveProxyUrl(endpoint, "https://api.optimizely.com/");

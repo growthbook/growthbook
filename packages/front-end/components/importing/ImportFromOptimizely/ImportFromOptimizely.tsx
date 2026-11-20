@@ -98,16 +98,18 @@ export default function ImportFromOptimizely() {
     (ft) => ft.datasource === datasourceId,
   );
   const [pickedFactTableId, setFactTableId] = useState<string | null>(null);
+  // Only suggest a table until one is picked; "None" is a choice too
   const factTable =
-    datasourceFactTables.find((ft) => ft.id === pickedFactTableId) ??
-    datasourceFactTables.find(
-      (ft) =>
-        ft.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID ||
-        ft.id === getEventForwarderEventsFactTableId(datasourceId),
-    ) ??
-    datasourceFactTables.find((ft) =>
-      getColumnNames(ft.columns).includes("event_name"),
-    );
+    pickedFactTableId !== null
+      ? datasourceFactTables.find((ft) => ft.id === pickedFactTableId)
+      : (datasourceFactTables.find(
+          (ft) =>
+            ft.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID ||
+            ft.id === getEventForwarderEventsFactTableId(datasourceId),
+        ) ??
+        datasourceFactTables.find((ft) =>
+          getColumnNames(ft.columns).includes("event_name"),
+        ));
 
   const [opt, setOpt] = useState<OptimizelyData | null>(null);
   const [busy, setBusy] = useState<"fetching" | "importing" | null>(null);
@@ -387,11 +389,14 @@ export default function ImportFromOptimizely() {
             type="password"
             value={apiToken}
             onChange={(e) => setApiToken(e.target.value)}
+            // A fetch in flight belongs to these values
+            disabled={!!busy}
             helpText="Personal access token from Optimizely Profile > API Access"
           />
           <TextField
             label="Optimizely project ID"
             value={optimizelyProjectId}
+            disabled={!!busy}
             onChange={(e) => {
               setOptimizelyProjectId(e.target.value);
               // What was fetched belongs to the old project
@@ -407,6 +412,8 @@ export default function ImportFromOptimizely() {
             initialOption="All Projects"
             // Typing a new name creates that Project when the import starts
             createable
+            // With no Projects yet, still offer "All Projects"
+            keepCreatableWhenEmpty
             options={projects.map((p) => ({ label: p.name, value: p.name }))}
             onChange={setProjectName}
             helpText={

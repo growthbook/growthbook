@@ -52,7 +52,6 @@ function StatusBadge({
   }
 }
 
-// One selectable table per category of things an importer found
 export default function ImportReviewTables<C extends string>({
   categories,
   sourceName,

@@ -8,6 +8,7 @@ import {
   getMetrics,
   getRuleTargeting,
   matchItems,
+  metricExternalId,
   metricKey,
   OptimizelyData,
   OptimizelyMetric,
@@ -219,6 +220,17 @@ describe("audienceToCondition", () => {
   });
 });
 
+// Pro plan, and not (adult with a country): excluding a Saved Group would also
+// match users with no age or country
+const NOT_AUDIENCE_2 = {
+  plan: "pro",
+  $and: [
+    { age: { $exists: true } },
+    { country: { $exists: true } },
+    { $not: { age: { $gte: 18 }, country: { $exists: true } } },
+  ],
+};
+
 describe("getRuleTargeting", () => {
   const rule = (audience_conditions: OptimizelyRule["audience_conditions"]) =>
     ({ ...AB_RULE, audience_conditions }) as OptimizelyRule;
@@ -229,7 +241,7 @@ describe("getRuleTargeting", () => {
     expect(getRuleTargeting(rule("everyone"), mkCtx())).toEqual(everyone);
   });
 
-  it("uses Saved Groups for and, or and not of audiences", () => {
+  it("uses Saved Groups for and and or of audiences", () => {
     expect(
       getRuleTargeting(
         rule(["or", { audience_id: 1 }, { audience_id: 2 }]),
@@ -238,13 +250,22 @@ describe("getRuleTargeting", () => {
     ).toEqual([{ match: "any", ids: ["grp_1", "grp_2"] }]);
     expect(
       getRuleTargeting(
-        rule(["and", { audience_id: 1 }, ["not", { audience_id: 2 }]]),
+        rule(["and", { audience_id: 1 }, { audience_id: 2 }]),
         mkCtx(),
       ).savedGroups,
     ).toEqual([
       { match: "any", ids: ["grp_1"] },
-      { match: "none", ids: ["grp_2"] },
+      { match: "any", ids: ["grp_2"] },
     ]);
+  });
+
+  it("copies conditions for a negated audience, keeping the attribute guard", () => {
+    expect(
+      getRuleTargeting(
+        rule(["and", { audience_id: 1 }, ["not", { audience_id: 2 }]]),
+        mkCtx(),
+      ),
+    ).toEqual({ condition: JSON.stringify(NOT_AUDIENCE_2), savedGroups: [] });
   });
 
   it("copies the audience's conditions when it has no Saved Group", () => {
@@ -451,10 +472,8 @@ describe("transformFlag", () => {
     expect(rules[1]).toMatchObject({
       coverage: 0.2,
       value: on,
-      savedGroups: [
-        { match: "any", ids: ["grp_1"] },
-        { match: "none", ids: ["grp_2"] },
-      ],
+      condition: JSON.stringify(NOT_AUDIENCE_2),
+      savedGroups: [],
     });
     expect(rules[2]).toMatchObject({ value: off });
     expect(rules[4]).toMatchObject({ value: on });
@@ -507,7 +526,7 @@ describe("buildImportData", () => {
           kind: "metric",
           id: "fact__gone",
           action: "created",
-          externalId: `metrics:${metricKey(REVENUE)}`,
+          externalId: `metrics:${metricExternalId(REVENUE)}`,
         },
       ],
     } as unknown as ApiAutoRun;
@@ -526,5 +545,21 @@ describe("buildImportData", () => {
     });
     // Deleted in GrowthBook since, so it is created again
     expect(data.metrics[1].existingId).toBeUndefined();
+  });
+
+  it("keeps metric ids within the run artifact limit", () => {
+    const filtered = {
+      ...PURCHASES,
+      event_properties: {
+        filter: {
+          conditions: [
+            { name: "category", operator: "equal_to", value: "x".repeat(300) },
+          ],
+        },
+      },
+    };
+    expect(metricKey(filtered).length).toBeGreaterThan(200);
+    expect(`metrics:${metricExternalId(filtered)}`.length).toBeLessThan(200);
+    expect(metricExternalId(filtered)).not.toBe(metricExternalId(PURCHASES));
   });
 });
