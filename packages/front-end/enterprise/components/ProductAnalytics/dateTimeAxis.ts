@@ -30,9 +30,10 @@ export type DateTimeAxisOption = {
  * Left alone, ECharts picks time-axis ticks without knowing the bucket size: a
  * single yearly bucket gets padded to a two-day window labelled in hours, and
  * coarse buckets get ticks between them. Instead:
- * - Ticks sit only on bucket starts. When they don't fit, every Nth bucket is
- *   kept, counted back from the latest so the most recent period always has
- *   one.
+ * - Ticks sit only on bucket starts, including buckets with no data, so a
+ *   gap in the data still has ticks under it. When they don't fit, every Nth
+ *   bucket is kept, counted back from the latest so the most recent period
+ *   always has one.
  * - Every label uses one compact format. The year is left off only when every
  *   bucket is in the current year.
  * - A lone bucket gets an extent of half a bucket either side, so it sits
@@ -51,9 +52,10 @@ export function buildDateTimeAxisOption({
   plotWidth: number | null;
   now?: number;
 }): DateTimeAxisOption {
-  const times = bucketIsos
+  const dataTimes = bucketIsos
     .map((iso) => parseWarehouseDate(iso).getTime())
     .filter((t) => Number.isFinite(t));
+  const times = everyBucketBetween(dataTimes, granularity);
 
   const maxTicks =
     plotWidth === null
@@ -94,4 +96,27 @@ export function buildDateTimeAxisOption({
   }
 
   return option;
+}
+
+/**
+ * Every bucket start from the first data bucket to the last, stepping from the
+ * first so the warehouse's own alignment (e.g. Sunday weeks) carries through.
+ * The last data bucket is always included, even if a step would miss it.
+ */
+function everyBucketBetween(
+  dataTimes: number[],
+  granularity: ResolvedGranularity,
+): number[] {
+  if (!dataTimes.length) return [];
+  const end = dataTimes[dataTimes.length - 1];
+  const out: number[] = [];
+  for (
+    const d = new Date(dataTimes[0]);
+    d.getTime() <= end;
+    stepBucketUtc(d, granularity)
+  ) {
+    out.push(d.getTime());
+  }
+  if (out[out.length - 1] !== end) out.push(end);
+  return out;
 }

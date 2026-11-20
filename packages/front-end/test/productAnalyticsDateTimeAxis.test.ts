@@ -70,6 +70,29 @@ describe("buildDateTimeAxisOption", () => {
     expect(ticks).toEqual([Date.UTC(2026, 0, 1), Date.UTC(2026, 1, 1)]);
   });
 
+  it("puts ticks under gaps in the data", () => {
+    // Hourly data on Jul 25 08:00–10:00, then nothing until Jul 26 08:00.
+    const { ticks } = build(
+      [
+        "2022-07-25 08:00:00",
+        "2022-07-25 09:00:00",
+        "2022-07-25 10:00:00",
+        "2022-07-26 08:00:00",
+      ],
+      "hour",
+    );
+    const HOUR_MS = 60 * 60 * 1000;
+    // 25 hourly buckets thinned to 12 ticks → every 3rd hour, back from the
+    // last, so ticks land inside the overnight gap.
+    const gapStart = Date.UTC(2022, 6, 25, 10);
+    const gapEnd = Date.UTC(2022, 6, 26, 8);
+    expect(ticks.filter((t) => t > gapStart && t < gapEnd)).toHaveLength(7);
+    expect(ticks[ticks.length - 1]).toBe(gapEnd);
+    for (let i = 1; i < ticks.length; i++) {
+      expect(ticks[i] - ticks[i - 1]).toBe(3 * HOUR_MS);
+    }
+  });
+
   it("thins ticks to fit the plot width, keeping the latest bucket", () => {
     const bucketIsos = Array.from({ length: 30 }, (_, i) =>
       new Date(Date.UTC(2025, 0, 1 + i)).toISOString(),
