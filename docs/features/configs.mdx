@@ -35,7 +35,7 @@ A config's value applies across all environments by default. When you need it to
 
 ## Type safety and validation
 
-A config's **schema** is the source of truth for its shape. The editor builds it for you as you define fields, and validates the value against it on every save — a missing required field, a wrong type, an out-of-range number, or a value outside an allowed enum is rejected before it can be saved.
+A config's **schema** is the source of truth for its shape. The editor builds it for you as you define fields, and validates the value against it on every save: a wrong type, an out-of-range number, or a value outside an allowed enum is rejected before it can be saved, and a missing required field is rejected when the config publishes. A draft is checked against what it would publish, using its own schema, parent, mixins, and **Allow extra fields** setting, in the app and over the REST API alike.
 
 By default a config allows **extra fields**: keys its schema doesn't declare are accepted, and the typed fields are still validated. Turn off **Allow extra fields** on a base config to accept only declared keys, in its own value, its child configs, and the feature flag rules that use it. Your organization sets the default for new base configs.
 
@@ -50,17 +50,19 @@ Precedence, lowest to highest:
 
 When fields collide, the **closest base wins**: a child cannot redefine a field that a published ancestor already owns. This keeps a family's shape coherent — the base config governs the fields it declares, and children may only _add_ fields. Changing a base cascades down to its descendants automatically.
 
+Publishing a change that removes, retypes, or takes over a field a descendant still uses raises a warning that names each affected config and key. So does turning off **Allow extra fields** on a base config while a descendant sets keys no schema declares. Confirm the warning in the app, or send `"ignoreWarnings": true` through the REST API. A scheduled publish fails instead.
+
 Values layer as a **deep (targeted) patch**: when a child and its inherited value are both objects, they merge **recursively, key by key**, so a child restates only the leaves it changes and inherits the rest of a nested object. **Arrays and scalars replace wholesale** (arrays are never merged element-by-element), and **`null` is a value** (it sets the field to `null`, it does not delete it). A value composed from a [constant](/features/constants) via `$extends` is applied **whole** — the patch never reaches inside a referenced chunk. [Constants](/features/constants) compose the opposite way: a constant's own keys **replace** what its `$extends` bases provide, wholesale — configs and feature values patch; constants are atomic building blocks.
 
 A config's value can also interpolate [string constants](/features/constants) with `{{ @const:key }}` inside any string field, exactly as in feature values — including constants with per-environment overrides, another way to vary a config's value by environment alongside [environment overrides](#environment-overrides).
 
-You can view the full family tree (ancestors and descendants) for any config, both in the app and over the [REST API](#rest-api) via the lineage endpoint.
+On a config's page, the left rail shows its family tree (ancestors and descendants), the configs that use it as a mixin, and the Feature Flags that reference any config in the family. A dot marks each config with an unpublished draft. The same family tree is available over the [REST API](#rest-api) from the lineage endpoint.
 
 ## Environment overrides
 
 By default a config resolves to a single **base value** used in every environment. When a value needs to differ by environment, add an **environment override** — a patch, scoped to one or more environments (and optionally projects), that layers on top of the base for those environments only.
 
-Manage overrides from the environment tabs on the config's page: **All Environments** shows the base value, and each environment that has an override gets its own tab for editing just that environment's patch. A [config-backed feature flag](#using-a-config-as-a-feature-flags-value) then serves the base value where no override applies and the overridden value where one does.
+Manage overrides from the environment tabs on the config's page: **All Environments** shows the base value, and each environment that has an override gets its own tab for editing just that environment's patch. A dot on a tab marks an override with an unpublished draft. A [config-backed feature flag](#using-a-config-as-a-feature-flags-value) then serves the base value where no override applies and the overridden value where one does.
 
 An override resolves as the **last layer**: the matching environment's patch is deep-merged onto the fully-resolved base — the same targeted, key-by-key merge as [inheritance](#composability-and-inheritance) — so it wins over inherited and composed values while the base still cascades for every key it doesn't touch. When more than one override could match a given environment and project, the **first match wins**.
 
@@ -152,9 +154,10 @@ Every config tracks where its keys are consumed. On the config's page — and ov
 
 Changing a config value that a **running experiment** depends on can distort that experiment's results. You can opt a config into a guard — an organization-wide default, overridable per config — that **blocks publishing** a change to any key currently used by a running experiment or contextual bandit. The guard is computed live, so it clears on its own once the experiment stops; there's nothing to unlock.
 
-To publish anyway, confirm the warning in the app or send
-`"ignoreWarnings": true` in the REST API request. Disabling the guard for a
-Config requires **Bypass draft approvals** access.
+Turn the guard on or off for a Config from the ⋮ menu on its page. To publish
+anyway, confirm the warning in the app or send `"ignoreWarnings": true` in the
+REST API request. Disabling the guard for a Config requires **Bypass draft
+approvals** access.
 
 ## Import and export
 
@@ -194,13 +197,20 @@ Projections are rendered against the config's **current** schema, so the capture
 
 ## Editing and approvals
 
-Config changes go through the same draft → review → publish flow as features, governed by your organization's [require-reviews settings](/features/publishing-and-approval-flows) matched on the config's project. You can view past versions, compare revisions, and revert from the config's page.
+Config changes go through the same draft → review → publish flow as features, governed by your organization's [require-reviews settings](/features/publishing-and-approval-flows) matched on the config's project. A config's page has **Overview**, **Review & Publish**, and **Validation** tabs, a revision dropdown, and a right rail with the config's details and the selected revision. Compare revisions from the ⋮ menu, and revert from the **Review & Publish** tab.
+
+- **Fields, mixins, JSON, and validation rules are edited only in a draft.** Start an edit while viewing the live config and GrowthBook opens your draft, or creates one, and carries on with the edit there. A note under **Fields** says which draft your edits will go to.
+- **Name, owner, description, and Project**, and a base config's **Allow extra fields**, are edited from **Edit Information**. The change is saved to a draft by default. The button reads **Save to draft**, **Save** when the change goes live at once, or **Bypass approval & publish** when it skips a required approval.
+- In the **JSON** view of a draft, a new key you type that no schema declares is added to the JSON Schema beside it as an optional field.
+- A new base config created in the app opens in a draft, ready for its first fields. A child config is created live.
+- An archived config shows a callout at the top of its page, a draft that would archive it shows a warning, and a draft that would unarchive it says so.
 
 Some guardrails:
 
+- **Locking** pins a config at its live revision. Drafts can still be edited, but nothing publishes, and the config can't be archived or deleted, until it's unlocked. Lock and unlock from the ⋮ menu or with `POST /configs/{key}/lock` and `POST /configs/{key}/unlock`. Locking needs publish access, and unlocking needs **Bypass draft approvals**.
 - **Archiving** is blocked while a config is still referenced or while it has live child configs — resolve those first.
 - **Deleting** is blocked while other configs still inherit from it (it would dangle their parent link); delete or re-parent the children first.
-- **Cycles** in lineage or value references are rejected at save time.
+- **Cycles** in lineage or value references are rejected when a draft is saved, and so is a change that makes a config inherit the same field from two separate bases.
 
 ## REST API
 
@@ -208,6 +218,14 @@ Configs and their revisions are fully manageable over the [REST API](/api/#tag/c
 
 To get the override values behind a key's usage, follow each reference back to its feature (`GET /features/:id`) — the key-usage endpoint reports _where_ a key is used, and the feature is the source of truth for _what_ it's set to.
 
+### Editing a draft over REST
+
+Draft edits go through `/configs-revisions/{key}/{version}/...`. Pass `new` as the version to open a draft and apply the edit in one call.
+
+- `PUT .../value` stages the config's own value. Send `"inferUndeclaredFields": true` to also add an optional field, inferred from its value, for each top-level key that the config's effective schema (its own and inherited fields) doesn't declare. Existing fields are never changed, keys holding a `@const:` or `@config:` reference are skipped, and each added field is listed in `warnings` with the code `inferred-field`. `"inferSchemaIfMissing": true` instead infers a whole schema when the config has none, and takes precedence.
+- `PUT .../schema` stages the schema. Send `value` with it to stage both together, validated against each other. Use this to retype or remove a field the value already sets, which a schema write or a value write can't do on its own.
+- `PUT .../property` and `DELETE .../property` change one key of the value, leaving the others as they are.
+
 ## Permissions
 
-Creating, editing, and deleting configs requires the **Manage Configs** permission (the `ConfigsFullAccess` policy), which is included in the Engineer, Experimenter, and Admin roles by default. Configs can be scoped to specific projects.
+Configs share their policies with Feature Flags and Constants. **Full access** (`FlagsFullAccess`) covers creating configs, editing drafts, reviewing, publishing, reverting, archiving, and deleting, and a [custom role](/account/user-permissions#custom-roles) can grant any of those actions on its own. Full access is included in the Engineer, Experimenter, Project Admin, and Admin roles by default. Configs can be scoped to specific projects.
