@@ -309,14 +309,31 @@ export default function ConfigJsonEditor({
     [ancestorOwnedSig],
   );
 
-  // Reseed when the saved value/schema changes (post-save mutate, revision switch).
+  // Each buffer as of its last seed or save. A reseed (after a save, or a
+  // change saved elsewhere) replaces only a buffer still at its base, so text
+  // typed since, such as during a save, survives it.
+  const valueBase = useRef<string | null>(null);
+  const schemaBase = useRef<string | null>(null);
+  const valueTextRef = useRef(valueText);
+  valueTextRef.current = valueText;
+  const schemaTextRef = useRef(schemaText);
+  schemaTextRef.current = schemaText;
   useEffect(() => {
-    setValueText(prettyValue(valueJson));
+    const base = valueBase.current;
+    if (base !== null && valueTextRef.current !== base) return;
+    valueBase.current = prettyValue(valueJson);
+    setValueText(valueBase.current);
   }, [valueJson, saveCount]);
   useEffect(() => {
-    setSchemaText(
-      seedSchemaText(schemaJson, schemaType, extensible, schemaLangRef.current),
+    const base = schemaBase.current;
+    if (base !== null && schemaTextRef.current !== base) return;
+    schemaBase.current = seedSchemaText(
+      schemaJson,
+      schemaType,
+      extensible,
+      schemaLangRef.current,
     );
+    setSchemaText(schemaBase.current);
     seededKeys.current = new Set();
   }, [schemaJson, schemaType, extensible, saveCount]);
 
@@ -500,6 +517,8 @@ export default function ConfigJsonEditor({
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   const handleCancel = () => {
+    valueBase.current = pristineValue;
+    schemaBase.current = pristineSchema;
     setValueText(pristineValue);
     setSchemaText(pristineSchema);
     setProjectionText(projectionSeed);
@@ -509,6 +528,8 @@ export default function ConfigJsonEditor({
   };
 
   const handleSave = async () => {
+    valueBase.current = valueText;
+    schemaBase.current = schemaText;
     setSaving(true);
     setSaveError(null);
     try {

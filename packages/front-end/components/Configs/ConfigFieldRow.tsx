@@ -38,7 +38,7 @@ import {
   ResolvedField,
   pinnedCellBackground,
   fieldTypeLabel,
-  fieldRowTransitionStyle,
+  fieldRowTransitionProps,
   fieldValueType,
   fieldIsNullable,
   fieldSchemaPreview,
@@ -193,11 +193,9 @@ export default function ConfigFieldRow({
   return (
     <>
       <TableRow
+        {...fieldRowTransitionProps(f.key)}
         align="start"
-        style={{
-          ...fieldRowTransitionStyle(f.key),
-          ...(tint ? { background: tint } : {}),
-        }}
+        style={tint ? { background: tint } : undefined}
       >
         <TableCell
           style={{
@@ -462,62 +460,63 @@ export default function ConfigFieldRow({
               </OverflowText>
             </code>
             {schemaPreview && (
-              <Popover
-                side="left"
-                align="start"
-                showCloseButton
-                triggerAsChild
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    size="1"
-                    radius="full"
-                    highContrast
-                    aria-label="View JSON Schema"
-                    style={{ flexShrink: 0 }}
-                  >
-                    <Tooltip content="View JSON Schema">
-                      <span style={{ display: "inline-flex" }}>
+              // Around the button, so its padding and keyboard focus open it.
+              <Tooltip content="View JSON Schema">
+                <span style={{ display: "inline-flex", flexShrink: 0 }}>
+                  <Popover
+                    side="left"
+                    align="start"
+                    showCloseButton
+                    triggerAsChild
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        size="1"
+                        radius="full"
+                        highContrast
+                        aria-label="View JSON Schema"
+                        style={{ flexShrink: 0 }}
+                      >
                         <PiMagnifyingGlass />
-                      </span>
-                    </Tooltip>
-                  </IconButton>
-                }
-                content={
-                  <Box style={{ maxWidth: 440 }}>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        letterSpacing: 0.3,
-                        textTransform: "uppercase",
-                        color: "var(--slate-11)",
-                        marginBottom: 6,
-                      }}
-                    >
-                      JSON Schema
-                    </div>
-                    <ScrollArea
-                      direction="both"
-                      edgeCue="fade"
-                      style={{
-                        maxHeight: 360,
-                        background: "var(--slate-a2)",
-                        borderRadius: 6,
-                      }}
-                    >
-                      <Box style={{ padding: "8px 10px" }}>
-                        <InlineCode
-                          language="json"
-                          code={schemaPreview}
-                          fontSize="12px"
-                        />
+                      </IconButton>
+                    }
+                    content={
+                      <Box style={{ maxWidth: 440 }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: 0.3,
+                            textTransform: "uppercase",
+                            color: "var(--slate-11)",
+                            marginBottom: 6,
+                          }}
+                        >
+                          JSON Schema
+                        </div>
+                        <ScrollArea
+                          direction="both"
+                          edgeCue="fade"
+                          style={{
+                            maxHeight: 360,
+                            background: "var(--slate-a2)",
+                            borderRadius: 6,
+                          }}
+                        >
+                          <Box style={{ padding: "8px 10px" }}>
+                            <InlineCode
+                              language="json"
+                              code={schemaPreview}
+                              fontSize="12px"
+                            />
+                          </Box>
+                        </ScrollArea>
                       </Box>
-                    </ScrollArea>
-                  </Box>
-                }
-              />
+                    }
+                  />
+                </span>
+              </Tooltip>
             )}
           </Flex>
         </TableCell>

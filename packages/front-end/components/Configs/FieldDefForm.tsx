@@ -37,7 +37,7 @@ import {
   JSON_SCHEMA_PRESETS,
   OTHER_TYPE_VALUE,
   PresetKey,
-  fieldRowTransitionStyle,
+  fieldRowTransitionProps,
   fieldTypeSelectValue,
   fieldValueType,
   fieldIsNullable,
@@ -533,12 +533,10 @@ export default function FieldDefForm({
   return (
     <>
       <TableRow
+        {...(isNew ? {} : fieldRowTransitionProps(initial.key))}
         align="start"
         className={styles.editRow}
-        style={{
-          background: tint,
-          ...fieldRowTransitionStyle(isNew ? "" : initial.key),
-        }}
+        style={{ background: tint }}
       >
         <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>

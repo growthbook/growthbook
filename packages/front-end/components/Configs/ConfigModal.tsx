@@ -247,12 +247,13 @@ export default function ConfigModal({
             },
           );
           // A new base Config opens in a draft, ready for its first fields.
+          // The Config exists either way, so without one it opens live.
           let href = `/configs/${values.key}`;
           if (!values.parent && created?.config) {
             const draft = await apiCall<{ revision?: Revision }>(
               `/configs/${created.config.id}?forceCreateRevision=1`,
               { method: "PUT", body: JSON.stringify({}) },
-            );
+            ).catch(() => null);
             if (draft?.revision) href += `?v=${draft.revision.version}`;
           }
           await mutateDefinitions();

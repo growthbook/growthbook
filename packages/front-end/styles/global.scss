@@ -4249,18 +4249,6 @@ input:disabled {
   margin-bottom: var(--bottom-bar-clearance, 0px) !important;
 }
 
-// A row's --view-transition-name applies only during a transition: a named
-// element is always a stacking context, which would trap a row's full-screen
-// editor. Not inherited, so a nested row never repeats its name.
-@property --view-transition-name {
-  syntax: "*";
-  inherits: false;
-}
-
-:root.view-transitioning tr {
-  view-transition-name: var(--view-transition-name, none);
-}
-
 // View transitions (services/viewTransition) run briskly.
 ::view-transition-group(*),
 ::view-transition-old(*),

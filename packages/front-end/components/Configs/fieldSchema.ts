@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import { FeatureValueType, SchemaField } from "shared/types/feature";
 import {
   JSON_SCHEMA_PRESETS,
@@ -9,6 +8,7 @@ import {
   presetSchemaString,
   simpleSchemaFieldToJSONSchema,
 } from "shared/util";
+import { viewTransitionProps } from "@/services/viewTransition";
 
 // The schema/value conversion core lives in `shared/util/config-schema` so the
 // REST API can reuse it. Re-exported here so existing editor imports of
@@ -354,12 +354,10 @@ export function valueToDisplayString(
 
 // A field row's view-transition name, the same whether it's shown or edited, so
 // the row morphs between them. Characters a CSS name can't hold are encoded.
-export function fieldRowTransitionStyle(key: string): CSSProperties {
-  const name = `config-field-${key.replace(
-    /[^a-zA-Z0-9-]/g,
-    (c) => `_${c.charCodeAt(0)}`,
-  )}`;
-  return { ["--view-transition-name" as string]: name };
+export function fieldRowTransitionProps(key: string) {
+  return viewTransitionProps(
+    `config-field-${key.replace(/[^a-zA-Z0-9-]/g, (c) => `_${c.charCodeAt(0)}`)}`,
+  );
 }
 
 export type ValueEditSeed = { text: string; kind: "value" | "null" };
