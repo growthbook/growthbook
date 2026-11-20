@@ -188,6 +188,7 @@ import {
   blankField,
   valueEditSeed,
   ValueEditSeed,
+  configRelation,
 } from "@/components/Configs/fieldSchema";
 
 type ResolvedResponse = {
@@ -941,18 +942,23 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   // Other family members whose effective rules fail against the displayed
   // (draft-aware) state. Above the loading guard for stable hook order.
-  const familyInvariantViolations = useMemo(() => {
-    if (!data || !displayedConfig) return [] as LineageNode[];
+  const familyRuleFailures = useMemo(() => {
+    if (!data || !displayedConfig) return [];
     const nodes = [
       ...data.lineage,
       ...(data.composerFamilies ?? []).flatMap((f) => f.lineage),
     ];
     const seen = new Set<string>([displayedConfig.key]);
-    return nodes.filter((n) => {
-      if (seen.has(n.key) || !n.invariantViolations?.length) return false;
-      seen.add(n.key);
-      return true;
-    });
+    return nodes
+      .filter((n) => {
+        if (seen.has(n.key) || !n.invariantViolations?.length) return false;
+        seen.add(n.key);
+        return true;
+      })
+      .map((node) => ({
+        node,
+        relation: configRelation(node.key, displayedConfig.key, nodes),
+      }));
   }, [data, displayedConfig]);
 
   // Derived from the displayed revision (drafts export their proposed state).
@@ -2187,7 +2193,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                           />
                         )}
                         <FamilyRuleFailuresCallout
-                          nodes={familyInvariantViolations}
+                          failures={familyRuleFailures}
                         />
                         <Table
                           variant="ghost"

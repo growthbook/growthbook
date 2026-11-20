@@ -425,3 +425,39 @@ export function parseFieldValueInput(
     }
   }
 }
+
+export type ConfigRelation =
+  | "child"
+  | "descendant"
+  | "parent"
+  | "ancestor"
+  | "sibling"
+  | "related";
+
+// How a Config in the family relates to the one in view, by parent links.
+export function configRelation(
+  key: string,
+  currentKey: string,
+  lineage: Pick<LineageNode, "key" | "parentKey">[],
+): ConfigRelation {
+  const parentOf = (k: string) =>
+    lineage.find((n) => n.key === k)?.parentKey ?? null;
+  // Every Config above `from`, nearest first; a staged parent cycle ends it.
+  const above = (from: string) => {
+    const keys: string[] = [];
+    const seen = new Set([from]);
+    for (let k = parentOf(from); k && !seen.has(k); k = parentOf(k)) {
+      keys.push(k);
+      seen.add(k);
+    }
+    return keys;
+  };
+  const aboveKey = above(key);
+  const aboveCurrent = above(currentKey);
+  if (aboveKey[0] === currentKey) return "child";
+  if (aboveKey.includes(currentKey)) return "descendant";
+  if (aboveCurrent[0] === key) return "parent";
+  if (aboveCurrent.includes(key)) return "ancestor";
+  if (aboveKey.length > 0 && aboveKey[0] === aboveCurrent[0]) return "sibling";
+  return "related";
+}

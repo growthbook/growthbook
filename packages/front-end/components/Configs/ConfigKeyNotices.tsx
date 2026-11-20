@@ -5,10 +5,11 @@ import {
   PiWarningOctagonFill,
 } from "react-icons/pi";
 import { ConfigValueIssue } from "shared/util";
-import { LineageNode } from "@/components/Configs/fieldSchema";
+import { ConfigRelation, LineageNode } from "@/components/Configs/fieldSchema";
 import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import { RadixStatusIcon } from "@/ui/HelperText";
 
 function ConfigName({ name }: { name: string }) {
@@ -229,28 +230,39 @@ export function DescendantImpactCallout({ nodes }: { nodes: LineageNode[] }) {
   );
 }
 
-// Other Configs in the family that fail their validation rules.
-export function FamilyRuleFailuresCallout({ nodes }: { nodes: LineageNode[] }) {
-  if (!nodes.length) return null;
+// Other Configs in the family that fail their validation rules, each named by
+// how it relates to this one and linked to where it's fixed.
+export function FamilyRuleFailuresCallout({
+  failures,
+}: {
+  failures: { node: LineageNode; relation: ConfigRelation }[];
+}) {
+  if (!failures.length) return null;
   const rules = (n: LineageNode) =>
     (n.invariantViolations ?? []).map((v) => `"${v.name}"`).join(", ");
-  if (nodes.length === 1) {
-    const [n] = nodes;
-    const one = (n.invariantViolations?.length ?? 0) === 1;
+  const configLink = (n: LineageNode) => (
+    <Link href={`/configs/${n.key}`}>
+      <ConfigName name={n.name} />
+    </Link>
+  );
+  if (failures.length === 1) {
+    const [{ node, relation }] = failures;
+    const one = (node.invariantViolations?.length ?? 0) === 1;
     return (
       <Callout status="warning" mt="3">
-        <ConfigName name={n.name} /> fails validation {one ? "rule" : "rules"}{" "}
-        {rules(n)}.
+        {relation.charAt(0).toUpperCase() + relation.slice(1)} Config{" "}
+        {configLink(node)} fails validation {one ? "rule" : "rules"}{" "}
+        {rules(node)}.
       </Callout>
     );
   }
   return (
     <Callout status="warning" mt="3">
       Other Configs in this family fail validation rules:{" "}
-      {nodes.map((n, i) => (
-        <React.Fragment key={n.key}>
+      {failures.map(({ node, relation }, i) => (
+        <React.Fragment key={node.key}>
           {i > 0 && "; "}
-          <ConfigName name={n.name} /> ({rules(n)})
+          {relation} {configLink(node)} ({rules(node)})
         </React.Fragment>
       ))}
       .

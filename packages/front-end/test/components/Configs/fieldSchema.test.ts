@@ -1,5 +1,6 @@
 import { SchemaField } from "shared/types/feature";
 import {
+  configRelation,
   fieldValueType,
   parseFieldValueInput,
   pinnedCellBackground,
@@ -89,5 +90,35 @@ describe("parseFieldValueInput", () => {
       kind: "value",
       value: null,
     });
+  });
+});
+
+describe("configRelation", () => {
+  // base → mid → leaf, base → sib; other stands alone.
+  const lineage = [
+    { key: "base", parentKey: null },
+    { key: "mid", parentKey: "base" },
+    { key: "leaf", parentKey: "mid" },
+    { key: "sib", parentKey: "base" },
+    { key: "other", parentKey: null },
+  ];
+
+  it.each([
+    ["leaf", "mid", "child"],
+    ["leaf", "base", "descendant"],
+    ["base", "mid", "parent"],
+    ["base", "leaf", "ancestor"],
+    ["sib", "mid", "sibling"],
+    ["other", "mid", "related"],
+  ] as const)("%s from %s is a %s", (key, current, relation) => {
+    expect(configRelation(key, current, lineage)).toBe(relation);
+  });
+
+  it("stops at a parent cycle", () => {
+    const cycle = [
+      { key: "a", parentKey: "b" },
+      { key: "b", parentKey: "a" },
+    ];
+    expect(configRelation("a", "b", cycle)).toBe("child");
   });
 });
