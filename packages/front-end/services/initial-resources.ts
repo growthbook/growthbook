@@ -1163,6 +1163,7 @@ export function getDatasourceTemplateSettings({
     template,
     datasource.params,
     resolvedOptions,
+    datasource.type,
   );
   const settings = datasource.settings;
   const existingTypes = new Set(
