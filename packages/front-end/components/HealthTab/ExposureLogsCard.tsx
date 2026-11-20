@@ -350,8 +350,8 @@ export default function ExposureLogsCard({
         {
           id: MULTIPLE_EXPOSURES_ROW_FILTER_ID,
           name: subUnitIdColumn
-            ? "Subunit multiple exposures"
-            : "Multiple exposures",
+            ? "Subunit multiple exposures in timeframe"
+            : "Multiple exposures in timeframe",
         },
       ],
       savedFiltersLabel: "Health checks",
