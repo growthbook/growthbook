@@ -64,6 +64,7 @@ import {
 import StatsAdjustmentBadge from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import TruncatedText from "@/ui/TruncatedText";
 import UsersTable from "./UsersTable";
 
 export const includeVariation = (
@@ -490,14 +491,11 @@ const BreakDownResults: FC<{
                     ? formatDimensionValueForDisplay(label)
                     : "unknown";
                 return (
-                  <div
+                  <Flex
+                    align="center"
+                    gap="1"
                     className="pl-3 font-weight-bold"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      color: "var(--color-text-mid)",
-                    }}
+                    style={{ color: "var(--color-text-mid)" }}
                   >
                     {hasSteps ? (
                       <span
@@ -540,17 +538,13 @@ const BreakDownResults: FC<{
                     ) : null}
                     <span
                       className={hasSteps ? "ml-2" : undefined}
-                      style={{
-                        display: "-webkit-box",
-                        WebkitLineClamp: 1,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                        minWidth: 0,
-                      }}
+                      style={{ minWidth: 0 }}
                     >
                       {label ? (
                         label === NULL_DIMENSION_VALUE ? (
                           <em>{formatDimensionValueForDisplay(label)}</em>
+                        ) : typeof label === "string" ? (
+                          <TruncatedText text={label} weight="semibold" />
                         ) : (
                           label
                         )
@@ -571,7 +565,7 @@ const BreakDownResults: FC<{
                         }
                       />
                     ) : null}
-                  </div>
+                  </Flex>
                 );
               }}
               isTabActive={true}

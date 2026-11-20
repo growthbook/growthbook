@@ -1,5 +1,4 @@
 import { FC, ReactNode } from "react";
-import { Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
@@ -51,10 +50,10 @@ const StatsAdjustmentBadge: FC<{
       variant="soft"
       size="sm"
       label={
-        <Flex align="center" gap="1">
+        <>
           <PiWarningFill size={12} />
           {label}
-        </Flex>
+        </>
       }
     />
   );
