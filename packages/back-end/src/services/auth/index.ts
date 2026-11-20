@@ -63,6 +63,7 @@ import {
 } from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
+import { isOidcMfaSession } from "back-end/src/models/OidcMfaSessionModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -96,6 +97,8 @@ type IdToken = {
   sub?: string;
   iat?: number;
   amr?: unknown;
+  iss?: string;
+  sid?: string;
 };
 
 export function getAuthConnection(): AuthConnection {
@@ -155,7 +158,8 @@ export async function processJWT(
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
-  req.mfa = parsedJWT.mfa;
+  // A refreshed IdP token can lack `amr`, so fall back to its session's MFA login
+  req.mfa = parsedJWT.mfa || (await isOidcMfaSession(req.user));
   req.teams = [];
   req.currentUser = {
     id: "",
