@@ -401,7 +401,9 @@ export function getMetricSettingsHashesForIncrementalRefresh({
  * full INSERT) instead of incrementally appended.
  *
  * A fact table needs a rebuild when any of these drift from the persisted cache:
- *   - A metric now maps to it that the cache doesn't hold yet (added metric).
+ *   - A metric now maps to it that the cache doesn't hold yet (added metric),
+ *     when `restateOnAddedMetric` is set. Otherwise the caller places the
+ *     metric in one of the fact table's caches.
  *   - The cache holds a (factTableId, metricId) tuple that's no longer desired
  *     (removed metric, or a cross-FT ratio side that moved to the other FT).
  *   - A metric still maps to it but its `settingsHash` changed — the cache's
@@ -420,10 +422,12 @@ export function getFactTablesNeedingRebuild({
   existingMetricSources,
   desiredFanOut,
   currentMetricSettingsHashes,
+  restateOnAddedMetric,
 }: {
   existingMetricSources: IncrementalRefreshInterface["metricSources"];
   desiredFanOut: MetricFanOut;
   currentMetricSettingsHashes: Map<string, string>;
+  restateOnAddedMetric: boolean;
 }): Set<string> {
   const factTablesToRebuild = new Set<string>();
   if (!existingMetricSources.length) return factTablesToRebuild;
@@ -443,7 +447,7 @@ export function getFactTablesNeedingRebuild({
     metrics.forEach((metric) => {
       const tuple = `${factTableId}|${metric.id}`;
       desiredTuples.add(tuple);
-      if (!storedTuples.has(tuple)) {
+      if (restateOnAddedMetric && !storedTuples.has(tuple)) {
         factTablesToRebuild.add(factTableId);
       }
     });

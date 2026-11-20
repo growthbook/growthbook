@@ -633,45 +633,136 @@ describe("new-metrics update (new-metrics runs)", () => {
     });
   });
 
-  it("rebuilds every cache of a fact table split across several, so no stored entry is lost", async () => {
-    const maxColumns = 112;
-    const split = baseState();
-    split.metricSources = [
-      { ...split.metricSources[0], metrics: ["a1", "a2"].map(storedMetric) },
+  describe("a fact table split across two caches", () => {
+    // a1 and a3 take 6 columns each (CUPED), a2 takes 3 and r1 6.
+    const splitState = () => {
+      const split = baseState();
+      split.metricSources = [
+        { ...split.metricSources[0], metrics: ["a1", "a2"].map(storedMetric) },
+        {
+          ...split.metricSources[0],
+          groupId: "ft_a_stored1",
+          metrics: [storedMetric("r1")],
+          tableFullName: "proj.ds.gb_metrics_exp_1_ft_a_stored1",
+        },
+        split.metricSources[1],
+      ];
+      return split;
+    };
+
+    it("rebuilds only the smallest cache with room, so the other keeps its tables and queries", async () => {
+      const maxColumns = 115;
+      const split = splitState();
+      expect(
+        createdCaches(await updateDag(BASE_METRICS, { state: split })),
+      ).toEqual([]);
+
+      const refresh = await refreshDag(["a3"], { state: split, maxColumns });
+      expect(createdCaches(refresh)).toEqual(["ft_a:a3,r1"]);
+      expect(
+        namesOf(refresh).filter((n) => n.includes("ft_a_stored0")),
+      ).toEqual(["statistics_ft_a_stored0"]);
+      const [builtA] = argsOf(refresh, "create_metrics_source_").map((a) =>
+        a.name.replace("create_metrics_source_", ""),
+      );
+      expect(
+        refresh.recorded
+          .filter((r) => r.name.startsWith("drop_replaced_"))
+          .map((r) => [r.name, r.dependencyNames]),
+      ).toEqual([
+        [
+          "drop_replaced_metrics_source_ft_a_stored1",
+          [
+            `max_timestamp_metrics_source_${builtA}`,
+            `insert_metrics_covariate_data_${builtA}`,
+          ],
+        ],
+      ]);
+      expect(
+        argsOf(refresh, "statistics_multi_").map((a) => [
+          a.name,
+          metricIdsOf(a),
+        ]),
+      ).toEqual([[`statistics_multi_${builtA}__ft_b_stored0`, ["r1"]]]);
+
+      const state = await finishWrites(refresh, split);
+      expect(state.metricSources.map((s) => s.groupId).sort()).toEqual(
+        [builtA, "ft_a_stored0", "ft_b_stored0"].sort(),
+      );
+      expect(
+        createdCaches(
+          await updateDag([...BASE_METRICS, "a3"], { state, maxColumns }),
+        ),
+      ).toEqual([]);
+
+      // A normal update that adds the metric still restates the fact table.
+      expect(
+        createdCaches(
+          await updateDag([...BASE_METRICS, "a3"], {
+            state: split,
+            maxColumns,
+          }),
+        ),
+      ).toEqual(["ft_a:a1,a3", "ft_a:a2,r1"]);
+    });
+
+    it("opens a new cache alongside when no cache has room, and rebuilds none", async () => {
+      const maxColumns = 112;
+      const split = splitState();
+      const refresh = await refreshDag(["a3"], { state: split, maxColumns });
+
+      expect(createdCaches(refresh)).toEqual(["ft_a:a3"]);
+      expect(namesOf(refresh).filter((n) => n.includes("_stored"))).toEqual([
+        "statistics_ft_a_stored0",
+        "statistics_ft_b_stored0",
+        "statistics_multi_ft_a_stored1__ft_b_stored0",
+      ]);
+
+      const state = await finishWrites(refresh, split);
+      expect(
+        state.metricSources.filter((s) => s.factTableId === "ft_a"),
+      ).toHaveLength(3);
+      expect(
+        createdCaches(
+          await updateDag([...BASE_METRICS, "a3"], { state, maxColumns }),
+        ),
+      ).toEqual([]);
+    });
+  });
+
+  it("rebuilds nothing after a chain of new-metrics updates and a normal update", async () => {
+    const first = await refreshDag(["a3"]);
+    const afterFirst = await finishWrites(first, baseState());
+
+    const second = await refreshDag(["a3", "c1"], { state: afterFirst });
+    expect(createdCaches(second)).toEqual(["ft_c:c1"]);
+    expect(namesOf(second).filter((n) => n.startsWith("drop_"))).toEqual([]);
+    const afterSecond = await finishWrites(second, afterFirst);
+
+    const update = await updateDag([...BASE_METRICS, "a3", "c1"], {
+      state: afterSecond,
+    });
+    expect(createdCaches(update)).toEqual([]);
+    expect(
+      namesOf(update).filter((n) => n.startsWith("drop_replaced_")),
+    ).toEqual([]);
+  });
+
+  it("refuses to keep a source under its id when its metrics would change", async () => {
+    const state = baseState();
+    state.metricSources = [
+      { ...state.metricSources[0], metrics: ["a1", "a2"].map(storedMetric) },
       {
-        ...split.metricSources[0],
+        ...state.metricSources[0],
         groupId: "ft_a_stored1",
-        metrics: [storedMetric("r1")],
+        metrics: ["a2", "r1"].map(storedMetric),
         tableFullName: "proj.ds.gb_metrics_exp_1_ft_a_stored1",
       },
-      split.metricSources[1],
+      state.metricSources[1],
     ];
-    expect(
-      createdCaches(await updateDag(BASE_METRICS, { state: split })),
-    ).toEqual([]);
-
-    const refresh = await refreshDag(["a3"], { state: split, maxColumns });
-    const builtA = argsOf(refresh, "create_metrics_source_").filter(
-      (a) => a.factTableId === "ft_a",
+    await expect(refreshDag(["c1"], { state })).rejects.toThrow(
+      "Metrics source ft_a_stored1 would change its metrics without a new id",
     );
-    expect(builtA.length).toBeGreaterThan(1);
-    expect(builtA.flatMap(metricIdsOf).sort()).toEqual([
-      "a1",
-      "a2",
-      "a3",
-      "r1",
-    ]);
-
-    const state = await finishWrites(refresh, split);
-    const storedA = state.metricSources.filter((s) => s.factTableId === "ft_a");
-    expect(storedA.map((s) => s.groupId).sort()).toEqual(
-      builtA.map((a) => a.name.replace("create_metrics_source_", "")).sort(),
-    );
-    expect(
-      createdCaches(
-        await updateDag([...BASE_METRICS, "a3"], { state, maxColumns }),
-      ),
-    ).toEqual([]);
   });
 
   it("leaves state that the next update and the next new-metrics update rebuild from when a rebuild fails", async () => {

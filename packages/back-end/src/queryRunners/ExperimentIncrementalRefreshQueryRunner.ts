@@ -12,6 +12,7 @@ import {
 } from "shared/experiments";
 import { PRECOMPUTED_DIMENSION_PREFIX } from "shared/constants";
 import cloneDeep from "lodash/cloneDeep";
+import isEqual from "lodash/isEqual";
 import { SegmentInterface } from "shared/types/segment";
 import {
   IncrementalRefreshInterface,
@@ -533,12 +534,15 @@ export const startExperimentIncrementalRefreshQueries = async (
   // cache, so we rebuild it end-to-end (CREATE + full INSERT) instead of
   // incrementally appending to an out-of-shape table. The per-FT loop below
   // sees no `existingSource` for these tables and rebuilds from scratch.
+  // A new-metrics update instead rebuilds only the caches that take its
+  // metrics (see getIncrementalRefreshMetricSources).
   // Experiment-level setting changes are handled upstream by
   // assertIncrementalRefreshPrerequisites (they force a full refresh).
   const factTablesToRebuild = getFactTablesNeedingRebuild({
     existingMetricSources: incrementalRefreshModel?.metricSources ?? [],
     desiredFanOut,
     currentMetricSettingsHashes,
+    restateOnAddedMetric: !isNewMetricsUpdate,
   });
 
   // Begin Queries
@@ -758,12 +762,29 @@ export const startExperimentIncrementalRefreshQueries = async (
   // cross-FT side, or changed metric settings) are replaced: the per-FT loop
   // below sees no `existingSource` and rebuilds them from scratch (CREATE +
   // full INSERT) instead of appending, since their schema/values may be out of
-  // shape with the desired metric set. Their covariate caches are replaced
-  // with them so CUPED state stays consistent, and the replaced tables are
-  // dropped once the replacements are recorded.
-  const isReplaced = (source: { factTableId: string }) =>
-    factTablesToRebuild.has(source.factTableId);
-  const replacedSources = storedSources.filter(isReplaced);
+  // shape with the desired metric set. So is a source that takes new metrics,
+  // under a new id. Their covariate caches are replaced with them so CUPED
+  // state stays consistent, and the replaced tables are dropped once the
+  // replacements are recorded.
+  const metricSourceGroups = getIncrementalRefreshMetricSources({
+    metrics: factMetrics,
+    existingMetricSources: storedSources.filter(
+      (source) => !factTablesToRebuild.has(source.factTableId),
+    ),
+    extendExistingSources: isNewMetricsUpdate,
+    integration,
+    snapshotSettings,
+  });
+  const extendedGroupIds = new Set(
+    metricSourceGroups.flatMap((g) =>
+      g.replacesGroupId ? [g.replacesGroupId] : [],
+    ),
+  );
+  const replacedSources = storedSources.filter(
+    (source) =>
+      factTablesToRebuild.has(source.factTableId) ||
+      extendedGroupIds.has(source.groupId),
+  );
   const replacedGroupIds = new Set(replacedSources.map((s) => s.groupId));
   const existingSources = storedSources.filter(
     (source) => !replacedGroupIds.has(source.groupId),
@@ -771,16 +792,37 @@ export const startExperimentIncrementalRefreshQueries = async (
   const existingCovariateSources = storedCovariateSources.filter(
     (source) => !replacedGroupIds.has(source.groupId),
   );
-  // State writes of the caches replacing each rebuilt fact table's caches.
-  const replacementWritesByFactTable = new Map<string, string[]>();
+  // A new-metrics update copies the parent's queries of every source it
+  // keeps, by name, so a kept source must hold the metrics it held then.
+  if (isNewMetricsUpdate) {
+    for (const group of metricSourceGroups) {
+      const stored = existingSources.find((s) => s.groupId === group.groupId);
+      if (
+        stored &&
+        !isEqual(
+          group.metrics.map((m) => m.id).sort(),
+          stored.metrics.map((m) => m.id).sort(),
+        )
+      ) {
+        throw new Error(
+          `Metrics source ${group.groupId} would change its metrics without a new id`,
+        );
+      }
+    }
+  }
+  // State writes of the caches replacing each replaced source, by its group id.
+  const replacementWritesByGroupId = new Map<string, string[]>();
+  const getReplacedGroupIds = (group: MetricSourceGroups) =>
+    group.replacesGroupId
+      ? [group.replacesGroupId]
+      : replacedSources
+          .filter(
+            (source) =>
+              factTablesToRebuild.has(source.factTableId) &&
+              source.factTableId === group.factTableId,
+          )
+          .map((source) => source.groupId);
 
-  const metricSourceGroups = getIncrementalRefreshMetricSources({
-    metrics: factMetrics,
-    existingMetricSources: existingSources,
-    extendExistingSources: false,
-    integration,
-    snapshotSettings,
-  });
   let runningSourceData = existingSources;
   let runningCovariateSourceData = existingCovariateSources;
 
@@ -1216,9 +1258,9 @@ export const startExperimentIncrementalRefreshQueries = async (
         queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
       });
       queries.push(maxTimestampMetricsSourceQuery);
-      if (isReplaced(group)) {
-        replacementWritesByFactTable.set(group.factTableId, [
-          ...(replacementWritesByFactTable.get(group.factTableId) ?? []),
+      for (const replacedGroupId of getReplacedGroupIds(group)) {
+        replacementWritesByGroupId.set(replacedGroupId, [
+          ...(replacementWritesByGroupId.get(replacedGroupId) ?? []),
           maxTimestampMetricsSourceQuery.query,
           ...(insertMetricCovariateDataQuery
             ? [insertMetricCovariateDataQuery.query]
@@ -1473,8 +1515,7 @@ export const startExperimentIncrementalRefreshQueries = async (
   // A rebuilt cache lives in a new table. Drop each table it replaces once
   // the replacement is recorded, so replaced tables don't pile up.
   for (const source of replacedSources) {
-    const dependencies =
-      replacementWritesByFactTable.get(source.factTableId) ?? [];
+    const dependencies = replacementWritesByGroupId.get(source.groupId) ?? [];
     if (!dependencies.length) continue;
     const covariateSource = storedCovariateSources.find(
       (s) => s.groupId === source.groupId,

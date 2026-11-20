@@ -1482,6 +1482,7 @@ describe("snapshot planning", () => {
     expect(plannedCurrentHash).toEqual(currentMetricHash);
     expect(
       getFactTablesNeedingRebuild({
+        restateOnAddedMetric: true,
         existingMetricSources: [
           {
             ...persistedMetricSources[0],
