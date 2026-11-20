@@ -73,6 +73,7 @@ export interface AuthContextValue {
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
   initialPlanSelection?: InitialPlanOptions;
   setInitialPlanSelection?: (value: InitialPlanOptions) => void;
+  initialPlanFromUrl?: InitialPlanOptions;
 }
 
 export const AuthContext = React.createContext<AuthContextValue>({
@@ -179,6 +180,9 @@ const addCloudRegisterParam = (uri: string) => {
 };
 
 export const INITIAL_PLAN_SELECTION_SESSION_KEY = "gb-initial-plan-selection";
+// The ?plan= value from the URL. Kept apart from the selection, which changes
+// when the user picks a different plan, so events can be grouped by it.
+export const INITIAL_PLAN_FROM_URL_SESSION_KEY = "gb-initial-plan-from-url";
 
 function getDetailedError(error: string): string | ReactElement {
   const curUrl = window.location.origin;
@@ -290,6 +294,11 @@ export const AuthProvider: React.FC<{
       INITIAL_PLAN_SELECTION_SESSION_KEY,
       "",
     );
+  const [initialPlanFromUrl, setInitialPlanFromUrl] =
+    useSessionStorage<InitialPlanOptions>(
+      INITIAL_PLAN_FROM_URL_SESSION_KEY,
+      "",
+    );
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
@@ -306,6 +315,7 @@ export const AuthProvider: React.FC<{
       const plan = new URLSearchParams(window.location.search).get("plan");
       if ((plan === "pro" || plan === "starter") && isCloud()) {
         setInitialPlanSelection(plan);
+        setInitialPlanFromUrl(plan);
       }
     }
     const resp = await refreshToken();
@@ -688,6 +698,7 @@ export const AuthProvider: React.FC<{
           setToken("");
           setSsoConnectionId("");
           setInitialPlanSelection("");
+          setInitialPlanFromUrl("");
           if (isSentryEnabled()) {
             sentrySetUser(null);
           }
@@ -717,6 +728,7 @@ export const AuthProvider: React.FC<{
         setSpecialOrg,
         initialPlanSelection,
         setInitialPlanSelection,
+        initialPlanFromUrl,
       }}
     >
       <>

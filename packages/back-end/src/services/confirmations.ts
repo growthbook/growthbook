@@ -1,4 +1,5 @@
-import { createHash } from "crypto";
+import { createHash, createHmac } from "crypto";
+import { AES, enc } from "crypto-js";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import type { FilterQuery } from "mongoose";
@@ -24,10 +25,12 @@ import {
   hasPendingScheduledStart,
   matchConfirmRules,
   proposedArchivedValue,
+  redactSecretParams,
   routeConfirmation,
   scheduleActions,
   stringToBoolean,
 } from "shared/util";
+import type { DataSourceType } from "shared/types/datasource";
 import {
   CONFIRM_OVERRIDE_FLAGS,
   BYPASS_OVERRIDE_ACTIONS,
@@ -43,7 +46,11 @@ import {
   BadRequestError,
   ConfirmationRequiredError,
 } from "back-end/src/util/errors";
-import { APP_ORIGIN, IS_MULTI_ORG } from "back-end/src/util/secrets";
+import {
+  APP_ORIGIN,
+  ENCRYPTION_KEY,
+  IS_MULTI_ORG,
+} from "back-end/src/util/secrets";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 
 const TTL_MS = 60 * 60 * 1000;
@@ -53,6 +60,78 @@ const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const asRecord = (v: unknown) =>
   (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+// Keyed, since stored request hashes can cover secret body fields.
+const requestDigest = (value: unknown) =>
+  createHmac("sha256", ENCRYPTION_KEY)
+    .update(JSON.stringify(value))
+    .digest("hex");
+
+function mapSecretFields(
+  body: unknown,
+  fields: readonly string[] | undefined,
+  fn: (value: unknown) => unknown,
+) {
+  if (!fields?.length) return body;
+  const record = { ...asRecord(body) };
+  fields.forEach((f) => {
+    if (f in record) record[f] = fn(record[f]);
+  });
+  return record;
+}
+export const encryptSecretFields = (
+  body: unknown,
+  fields: readonly string[] | undefined,
+) =>
+  mapSecretFields(body, fields, (v) =>
+    AES.encrypt(JSON.stringify(v), ENCRYPTION_KEY).toString(),
+  );
+export const decryptSecretFields = (
+  body: unknown,
+  fields: readonly string[] | undefined,
+) =>
+  mapSecretFields(body, fields, (v) =>
+    JSON.parse(AES.decrypt(String(v), ENCRYPTION_KEY).toString(enc.Utf8)),
+  );
+// A public param can still be a URL with a password in it, e.g. ClickHouse's url.
+function withoutUrlPassword(value: unknown) {
+  if (typeof value !== "string" || !URL.canParse(value)) return value;
+  const url = new URL(value);
+  if (!url.password) return value;
+  url.password = "***";
+  return url.toString();
+}
+// A data source connection keeps its public params, so the confirmer sees where it points.
+function redactSecretValue(value: unknown) {
+  const conn = asRecord(value);
+  if (typeof conn.type !== "string") return "[redacted]";
+  // An unknown type has no public params, so everything but its type stays hidden.
+  const shown = asRecord(redactSecretParams(conn.type as DataSourceType, conn));
+  const hidden = (k: string) =>
+    shown[k] === undefined || (shown[k] === "" && conn[k] !== "");
+  return Object.fromEntries(
+    Object.keys(conn).map((k) => [
+      k,
+      k === "type"
+        ? conn.type
+        : hidden(k)
+          ? "[redacted]"
+          : withoutUrlPassword(shown[k]),
+    ]),
+  );
+}
+export const redactSecretFields = (
+  body: unknown,
+  fields: readonly string[] | undefined,
+) => mapSecretFields(body, fields, redactSecretValue);
+// What the confirm page shows of a held request's stored body.
+export const heldBodyForDisplay = (c: {
+  body?: unknown;
+  secretBodyFields?: string[];
+}) =>
+  redactSecretFields(
+    decryptSecretFields(c.body, c.secretBodyFields),
+    c.secretBodyFields,
+  );
 
 // Every key answers only to its own rules, so scripts and CI keep working.
 // App sessions are never held.
@@ -201,7 +280,7 @@ function heldRequest(req: IncomingRequest): HeldRequest {
 // refusal it is skipping past.
 function attemptHash(request: HeldRequest) {
   const flags = Object.keys(CONFIRM_OVERRIDE_FLAGS);
-  return hash([
+  return requestDigest([
     request.method,
     request.path,
     omit(asRecord(request.query), flags),
@@ -254,6 +333,7 @@ export async function requireConfirmation(
     pin: unknown;
     // What the checks this request skips said.
     notices?: ConfirmationNotice[];
+    secretBodyFields?: readonly string[];
   },
 ): Promise<void> {
   const environments = opts.environments ?? [];
@@ -301,7 +381,7 @@ export async function requireConfirmation(
   const requestedBy =
     auditUser?.type === "api_key" ? (auditUser.requestedBy ?? null) : null;
   const assumedRole = auditUser?.type === "api_key" && !!auditUser.assumedRole;
-  const requestHash = hash([
+  const requestHash = requestDigest([
     request,
     fingerprint,
     requestedBy?.id,
@@ -328,6 +408,10 @@ export async function requireConfirmation(
       oauthClientId: context.apiKeyData?.oauthClientId,
       project: opts.project || "",
       ...request,
+      body: encryptSecretFields(request.body, opts.secretBodyFields),
+      ...(opts.secretBodyFields?.length
+        ? { secretBodyFields: [...opts.secretBodyFields] }
+        : {}),
       requestHash,
       actions: held,
       summary: opts.summary,
@@ -719,6 +803,7 @@ export async function holdAtRoute(
   path: string,
   req: { params?: unknown; body?: unknown; query?: unknown },
   summary?: string,
+  secretBodyFields?: readonly string[],
 ): Promise<void> {
   // Nothing below can hold without rules, and it costs lookups.
   if (!rulesFor(context).length) return;
@@ -744,6 +829,7 @@ export async function holdAtRoute(
       `${method.toUpperCase()} ${path.replace(/:(\w+)/g, (_, k) => params[k] ?? k)}`,
     links: route.links,
     pin: null,
+    secretBodyFields,
   });
 }
 

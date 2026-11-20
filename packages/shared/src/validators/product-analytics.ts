@@ -89,7 +89,7 @@ const metricDatasetValidator = z
     population: explorationPopulationValidator
       .optional()
       .describe(
-        "**Beta** — this field is new and may change in backwards-incompatible ways. A saved Population applied to every metric in the request. Only proportion metrics on the Population's Fact Table are supported; the request is rejected if any metric is incompatible.",
+        "**Beta** — this field is new and may change in backwards-incompatible ways. A saved Population applied to every metric in the request. Only proportion and mean metrics on the Population's Fact Table are supported, and mean metrics can't use percentile capping; the request is rejected if any metric is incompatible.",
       ),
   })
   .strict();
