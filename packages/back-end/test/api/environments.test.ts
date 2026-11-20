@@ -123,7 +123,9 @@ describe("environments API", () => {
   });
 
   it("can delete environments", async () => {
+    const deleteByEnvironment = jest.fn().mockResolvedValue([]);
     setReqContext({
+      models: { experimentQaOverrides: { deleteByEnvironment } },
       org: {
         id: "org1",
         settings: {
@@ -154,6 +156,9 @@ describe("environments API", () => {
     expect(response.body).toEqual({ deletedId: "env1" });
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
       settings: { environments: [{ id: "env2" }] },
+    });
+    expect(deleteByEnvironment).toHaveBeenCalledWith("env1", {
+      skipSDKRefresh: true,
     });
     expect(removeEnvironmentFromSlackIntegration).toHaveBeenCalledWith({
       organizationId: "org1",
@@ -305,6 +310,38 @@ describe("environments API", () => {
       },
       event: "environment.update",
     });
+  });
+
+  it("deletes QA overrides only when an environment becomes production", async () => {
+    const deleteByEnvironment = jest.fn().mockResolvedValue([]);
+    const org = {
+      id: "org1",
+      settings: {
+        environments: [{ id: "dev", isProduction: false }],
+      },
+    };
+    jest.mocked(findOrganizationById).mockResolvedValue(org as never);
+    setReqContext({
+      models: { experimentQaOverrides: { deleteByEnvironment } },
+      org,
+      permissions: {
+        canUpdateEnvironment: () => true,
+      },
+    });
+
+    const stillNotProduction = await request(app)
+      .put("/api/v1/environments/dev")
+      .send({ description: "still for testing" })
+      .set("Authorization", "Bearer foo");
+    expect(stillNotProduction.status).toBe(200);
+    expect(deleteByEnvironment).not.toHaveBeenCalled();
+
+    const nowProduction = await request(app)
+      .put("/api/v1/environments/dev")
+      .send({ isProduction: true })
+      .set("Authorization", "Bearer foo");
+    expect(nowProduction.status).toBe(200);
+    expect(deleteByEnvironment).toHaveBeenCalledWith("dev");
   });
 
   it("refuses to update projects when they do not exist", async () => {
