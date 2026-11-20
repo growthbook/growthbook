@@ -174,10 +174,8 @@ async function syncsIdentifiersAutomatically(
   context: ReqContext,
   datasource: DataSourceInterface,
 ) {
-  // Managed Warehouses without JSON columns keep the types they were created with.
   return (
-    (datasource.type === "growthbook_clickhouse" &&
-      !!datasource.settings?.useJsonColumns) ||
+    datasource.type === "growthbook_clickhouse" ||
     !!(await getEventForwarderForDatasource(context, datasource.id))
   );
 }

@@ -130,9 +130,9 @@ export default function AttributeModal({
     .map((v) => v.trim())
     .filter(Boolean);
 
-  // Attribute changes only affect warehouse analyses for JSON-column managed warehouses.
+  // Attribute changes only affect warehouse analyses for managed warehouses.
   const hasJsonManagedWarehouse = datasources.some(
-    (d) => d.type === "growthbook_clickhouse" && d.settings.useJsonColumns,
+    (d) => d.type === "growthbook_clickhouse",
   );
   const propertyChanged = !!attribute && property !== attribute;
   const datatypeChanged = !!attribute && datatype !== current?.datatype;

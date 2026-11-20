@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
-import { isManagedWarehouseUnavailable } from "shared/util";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { AceCompletion } from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -78,7 +78,7 @@ export default function useSqlAutocomplete({
       if (
         skipManagedWarehouseUnavailable &&
         datasource &&
-        isManagedWarehouseUnavailable(datasource)
+        isManagedWarehouseAwaitingProvisioning(datasource)
       ) {
         setInformationSchema(undefined);
         return;

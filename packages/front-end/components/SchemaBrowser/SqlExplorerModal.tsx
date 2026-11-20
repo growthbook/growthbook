@@ -19,7 +19,7 @@ import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isManagedWarehouseUnavailable } from "shared/util";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -214,7 +214,7 @@ export default function SqlExplorerModal({
     datasource?.properties?.supportsInformationSchema;
 
   const managedWarehousePendingEvents =
-    !!datasource && isManagedWarehouseUnavailable(datasource);
+    !!datasource && isManagedWarehouseAwaitingProvisioning(datasource);
 
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
 

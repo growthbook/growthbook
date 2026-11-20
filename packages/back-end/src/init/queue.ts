@@ -30,7 +30,6 @@ import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
 import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFactTables";
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
-import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
 import addRecreateManagedWarehouseTablesJob from "back-end/src/jobs/recreateManagedWarehouseTables";
 import addApiKeyExpirationJob from "back-end/src/jobs/apiKeyExpiration";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
@@ -69,7 +68,6 @@ export async function queueInit() {
   addRampScheduleJob(agenda);
   addScheduledPublishJob(agenda);
   addSlackAssistantJobs(agenda);
-  await addSyncManagedWarehouseJsonErgonomicsJob(agenda);
   await addRecreateManagedWarehouseTablesJob(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently

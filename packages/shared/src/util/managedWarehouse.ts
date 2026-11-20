@@ -37,9 +37,6 @@ export const MANAGED_WAREHOUSE_SENDING_EVENTS_DOC_URL =
 export const MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE =
   "No events have been sent to your data warehouse yet.";
 
-export const MANAGED_WAREHOUSE_MIGRATING_MESSAGE =
-  "Your managed warehouse is being upgraded to a new storage format. This usually takes a few minutes — querying will be available again shortly.";
-
 /** Returned in API `error` fields so the front-end can show the managed-warehouse docs callout. */
 export const MANAGED_WAREHOUSE_PENDING_ERROR_CODE =
   "managed_warehouse_pending" as const;
@@ -140,33 +137,6 @@ export function isManagedWarehouseAwaitingProvisioning(
     hasBeenProvisioned?: boolean;
   };
   return settings?.hasBeenProvisioned === false;
-}
-
-/**
- * A provisioned managed warehouse whose per-org tables are mid-recreate for the
- * JSON-columns migration. Transient and distinct from never-provisioned — the UI
- * shows an "upgrading" state rather than the "no events sent" onboarding copy.
- */
-export function isManagedWarehouseMigrating(
-  datasource: Pick<DataSourceInterface, "type" | "settings">,
-): boolean {
-  if (!isManagedWarehouse(datasource)) {
-    return false;
-  }
-  return (datasource.settings as { migrating?: boolean })?.migrating === true;
-}
-
-/**
- * A managed warehouse that can't currently serve queries — either never provisioned
- * or mid-migration. Use to gate query UIs; superset of `isManagedWarehouseAwaitingProvisioning`.
- */
-export function isManagedWarehouseUnavailable(
-  datasource: Pick<DataSourceInterface, "type" | "settings">,
-): boolean {
-  return (
-    isManagedWarehouseAwaitingProvisioning(datasource) ||
-    isManagedWarehouseMigrating(datasource)
-  );
 }
 
 // Managed Warehouse JSON-columns model (replaces materialized columns). Per-org
@@ -386,18 +356,6 @@ export function getManagedWarehouseAttributesJsonFields(
 }
 
 /**
- * Version of the JSON-ergonomics setup (per-org user settings + typed attribute
- * ALIAS columns + the generated fact-table/exposure SQL the sweep's sync
- * persists). Persisted per warehouse as `settings.jsonErgonomicsVersion` once
- * applied; bump to make the backfill sweep re-apply everywhere.
- *
- * v2: built-in identifier columns fall back to their folded `attributes` JSON
- * paths in generated SQL (pre-plugin integrations never populate the columns).
- * v3: `session_id` / `page_id` hashAttributes become identifiers on their columns.
- */
-export const MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION = 3;
-
-/**
  * Attributes to expose as typed `attributes.<property>` ALIAS columns on the
  * per-org JSON tables: everything the SDK actually stores inside the
  * `attributes` JSON column — i.e. all non-archived attributes except the keys
@@ -508,24 +466,16 @@ function getIdAttributeIdentifier(
 }
 
 // Resolve the managed-warehouse identifier column (which doubles as the exposure
-// query's userIdType) that a hash attribute maps to. Legacy materialized-column
-// warehouses return the stored SQL column, or null when the attribute isn't an
-// identifier. JSON-column warehouses fold built-ins per BUILTIN_ATTRIBUTE_TO_IDENTIFIER
-// and treat any other attribute as a custom identifier named after the property.
+// query's userIdType) that a hash attribute maps to: built-ins fold per
+// BUILTIN_ATTRIBUTE_TO_IDENTIFIER and any other attribute is a custom identifier
+// named after the property.
 export function getManagedWarehouseIdentifierForAttribute({
   settings,
   attribute,
 }: {
   settings: GrowthbookClickhouseSettings;
   attribute: string;
-}): string | null {
-  const materializedColumns = settings.materializedColumns || [];
-  if (materializedColumns.length) {
-    const column = materializedColumns.find(
-      (c) => c.type === "identifier" && c.sourceField === attribute,
-    )?.columnName;
-    return column ?? null;
-  }
+}): string {
   if (attribute === "id") return getIdAttributeIdentifier(settings);
   return BUILTIN_ATTRIBUTE_TO_IDENTIFIER[attribute] ?? attribute;
 }
@@ -538,7 +488,6 @@ export function getManagedWarehouseAttributeIdentifierMap(
 ): Map<string, string> {
   const attributes = new Set([
     ...Object.keys(BUILTIN_ATTRIBUTE_TO_IDENTIFIER),
-    ...(settings.materializedColumns || []).map((c) => c.sourceField),
     ...(settings.userIdTypes || []).map((u) => u.userIdType),
   ]);
   const map = new Map<string, string>();
@@ -711,16 +660,14 @@ function attributeAliasClause(
  * re-expose former columns the same way the `ch_events` fact table does, so bare
  * references keep resolving.
  *
- * Returns "" unless `useJsonColumns` is set: on a pre-migration warehouse these columns
- * are still physical, so `SELECT *, attributes.x AS x` would duplicate a column. Only
- * apply it to per-org tables that carry the `attributes` JSON column (events /
- * experiment_views) — the caller is responsible for that check.
+ * Only apply it to a managed warehouse's per-org tables that carry the `attributes`
+ * JSON column (events / experiment_views) — the caller is responsible for that check.
  */
 export function buildManagedWarehouseAttributeAliasClause(
   settings: DataSourceSettings | null | undefined,
 ): string {
   const s = settings as GrowthbookClickhouseSettings | null | undefined;
-  if (!s?.useJsonColumns) return "";
+  if (!s) return "";
 
   // Mirror getManagedWarehouseCustomIdentifiers: drop builtins (folded into the
   // identity columns) and any name colliding with a real `SELECT *` column, so an

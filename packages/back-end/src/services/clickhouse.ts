@@ -7,7 +7,6 @@ import {
   getManagedWarehouseUserIdTypes,
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouseAwaitingProvisioning,
-  isManagedWarehouseMigrating,
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
   ManagedWarehouseIdAttributeIdentifier,
@@ -238,11 +237,7 @@ export async function syncManagedWarehouseIdentifiers(
   const datasource =
     providedDatasource ??
     (await dangerouslyGetGrowthbookDatasourceBypassPermission(context));
-  if (
-    !datasource ||
-    datasource.type !== "growthbook_clickhouse" ||
-    !datasource.settings.useJsonColumns
-  ) {
+  if (!datasource || datasource.type !== "growthbook_clickhouse") {
     return;
   }
 
@@ -419,8 +414,8 @@ export async function syncManagedWarehouseIdentifiers(
  * metadata-only, so safe to call on every attribute change. Skips warehouses
  * with no physical JSON tables to alter (unprovisioned, legacy, or
  * mid-recreate); those get the columns at provision/recreate time instead.
- * Throws on failure — callers decide whether that's fatal (the backfill job)
- * or logged (attribute changes). Returns whether the DDL was actually applied.
+ * Throws on failure; callers log it rather than fail the attribute change.
+ * Returns whether the DDL was actually applied.
  */
 export async function applyManagedWarehouseJsonErgonomics(
   context: ReqContext | ApiReqContext,
@@ -430,9 +425,7 @@ export async function applyManagedWarehouseJsonErgonomics(
   if (
     !datasource ||
     datasource.type !== "growthbook_clickhouse" ||
-    !datasource.settings.useJsonColumns ||
-    isManagedWarehouseAwaitingProvisioning(datasource) ||
-    isManagedWarehouseMigrating(datasource)
+    isManagedWarehouseAwaitingProvisioning(datasource)
   ) {
     return false;
   }

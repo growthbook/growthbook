@@ -8,6 +8,7 @@ import {
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
+  getManagedWarehouseTypedAttributeColumns,
   getSavedQueriesSharingId,
   MANAGED_WAREHOUSE_RECREATABLE_TABLES,
 } from "shared/util";
@@ -1971,7 +1972,9 @@ function getManagedWarehouseJsonSettings(
   return {
     ...existing,
     useJsonColumns: true,
-    materializedColumns: undefined,
+    // The license server reads these when it provisions the tables
+    typedAttributeColumns:
+      getManagedWarehouseTypedAttributeColumns(attributeSchema),
     userIdTypes: getManagedWarehouseUserIdTypeSettings(attributeSchema),
     queries: {
       ...existing.queries,

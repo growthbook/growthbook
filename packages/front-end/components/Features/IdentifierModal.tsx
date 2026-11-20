@@ -60,8 +60,7 @@ export function syncsIdentifiersAutomatically(
   datasource: DataSourceInterfaceWithParams,
 ) {
   return (
-    (datasource.type === "growthbook_clickhouse" &&
-      !!datasource.settings.useJsonColumns) ||
+    datasource.type === "growthbook_clickhouse" ||
     !!datasource.eventForwarderConfig
   );
 }
@@ -392,9 +391,7 @@ export default function IdentifierModal({
           <RenameWarning
             references={refs}
             hasJsonManagedWarehouse={datasources.some(
-              (d) =>
-                d.type === "growthbook_clickhouse" &&
-                !!d.settings.useJsonColumns,
+              (d) => d.type === "growthbook_clickhouse",
             )}
             secure={isSecureDatatype(existing.datatype)}
             identifier
