@@ -65,9 +65,10 @@ import {
 } from "back-end/src/enterprise/services/data-pipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import {
-  chunkMetrics,
   getQueryableMetricsFromSnapshotSettings,
+  maxColumnsNeededForMetric,
 } from "back-end/src/services/experimentQueries/experimentQueries";
+import { planIncrementalCaches } from "back-end/src/services/experimentQueries/incrementalCachePlacement";
 import {
   filterRegressionAdjustedMetrics,
   planMetricFanOut,
@@ -186,16 +187,22 @@ export interface MetricSourceGroups {
   // cache materializes by comparing the metric's column refs to
   // `factTableId`.
   metrics: FactMetricInterface[];
+  // The stored source this group rebuilds with more metrics, under a new id.
+  replacesGroupId: string | null;
 }
 
 export function getIncrementalRefreshMetricSources({
   metrics,
   existingMetricSources,
+  extendExistingSources,
   integration,
   snapshotSettings,
 }: {
   metrics: FactMetricInterface[];
   existingMetricSources: IncrementalRefreshInterface["metricSources"];
+  // Place a metric without a cache in the smallest stored source of its kind
+  // that has room, instead of only in new sources.
+  extendExistingSources: boolean;
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
 }): MetricSourceGroups[] {
@@ -208,7 +215,7 @@ export function getIncrementalRefreshMetricSources({
     return clone;
   });
 
-  // Fan-out determines each metric's fact tables; this only chunks their caches.
+  // Fan-out determines each metric's fact tables; this only places their caches.
   const fanOut = planMetricFanOut(overriddenMetrics);
 
   // Cluster-level metrics can't share a cache with user-level metrics even on
@@ -230,6 +237,20 @@ export function getIncrementalRefreshMetricSources({
       clusterLevelMetricIds.has(metric.id) ? "cluster_" : ""
     }${factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
 
+  const sourceProps = integration.getSourceProperties();
+  const toCacheMetric = (factTableId: string, metric: FactMetricInterface) => ({
+    metricId: metric.id,
+    cacheKind: getMetricGroupKey(factTableId, metric),
+    columns: maxColumnsNeededForMetric({
+      metric,
+      regressionAdjusted:
+        isRegressionAdjusted(metric) &&
+        snapshotSettings.regressionAdjustmentEnabled,
+      isBandit: !!snapshotSettings.banditSettings,
+      efficientQuantileGrid: !!sourceProps.hasArrayQuantileGrid,
+    }),
+  });
+
   // Metrics that map to a pre-existing cache table — keyed by that source's
   // groupId. Matching is done by (factTableId, metric id): a cross-FT ratio
   // metric appears in two groups (one per FT), and each FT's existing source
@@ -238,13 +259,7 @@ export function getIncrementalRefreshMetricSources({
     string,
     { factTableId: string; metrics: FactMetricInterface[] }
   >();
-
-  // Metrics that need a new cache table — keyed by the canonical group key
-  // (factTableId [+ "_qtile"]) so all compatible metrics land in one chunk list.
-  const newBuckets = new Map<
-    string,
-    { factTableId: string; metrics: FactMetricInterface[] }
-  >();
+  const unplaced: { factTableId: string; metric: FactMetricInterface }[] = [];
 
   fanOut.perFt.forEach(({ factTableId, metrics: ftMetrics }) => {
     ftMetrics.forEach((metric) => {
@@ -263,44 +278,85 @@ export function getIncrementalRefreshMetricSources({
         existingBuckets.set(existingGroup.groupId, bucket);
         return;
       }
-
-      const key = getMetricGroupKey(factTableId, metric);
-      const bucket = newBuckets.get(key) ?? { factTableId, metrics: [] };
-      bucket.metrics.push(metric);
-      newBuckets.set(key, bucket);
+      unplaced.push({ factTableId, metric });
     });
   });
 
+  // A source whose metrics span several kinds predates this rule; it takes
+  // no new metrics.
+  const storedCaches = extendExistingSources
+    ? [...existingBuckets].flatMap(([groupId, bucket]) => {
+        const cacheMetrics = bucket.metrics.map((m) =>
+          toCacheMetric(bucket.factTableId, m),
+        );
+        const kinds = new Set(cacheMetrics.map((m) => m.cacheKind));
+        return kinds.size === 1
+          ? [{ groupId, cacheKind: [...kinds][0], metrics: cacheMetrics }]
+          : [];
+      })
+    : [];
+  const plannedCaches = planIncrementalCaches({
+    metrics: unplaced.map(({ factTableId, metric }) =>
+      toCacheMetric(factTableId, metric),
+    ),
+    storedCaches,
+    maxColumns: sourceProps.maxColumns,
+  });
+
+  const placedMetrics = new Map<
+    string,
+    { factTableId: string; metric: FactMetricInterface }
+  >();
+  const placeKey = (cacheKind: string, metricId: string) =>
+    `${cacheKind}|${metricId}`;
+  [
+    ...unplaced,
+    ...[...existingBuckets.values()].flatMap(({ factTableId, metrics }) =>
+      metrics.map((metric) => ({ factTableId, metric })),
+    ),
+  ].forEach((entry) =>
+    placedMetrics.set(
+      placeKey(
+        getMetricGroupKey(entry.factTableId, entry.metric),
+        entry.metric.id,
+      ),
+      entry,
+    ),
+  );
+
+  const rebuiltGroupIds = new Set(
+    plannedCaches.flatMap((cache) =>
+      cache.replacesGroupId ? [cache.replacesGroupId] : [],
+    ),
+  );
   const finalGroups: MetricSourceGroups[] = [];
 
   existingBuckets.forEach((bucket, groupId) => {
+    if (rebuiltGroupIds.has(groupId)) return;
     finalGroups.push({
       groupId,
       factTableId: bucket.factTableId,
       metrics: bucket.metrics,
+      replacesGroupId: null,
     });
   });
 
-  const sourceProps = integration.getSourceProperties();
-  newBuckets.forEach((bucket, baseGroupId) => {
-    const chunks = chunkMetrics({
-      metrics: bucket.metrics.map((metric) => ({
-        metric,
-        regressionAdjusted:
-          isRegressionAdjusted(metric) &&
-          snapshotSettings.regressionAdjustmentEnabled,
-      })),
-      maxColumnsPerQuery: sourceProps.maxColumns,
-      isBandit: !!snapshotSettings.banditSettings,
-      efficientQuantileGrid: !!sourceProps.hasArrayQuantileGrid,
+  plannedCaches.forEach((cache, i) => {
+    const entries = cache.metricIds.map((metricId) => {
+      const entry = placedMetrics.get(placeKey(cache.cacheKind, metricId));
+      if (!entry) {
+        throw new Error(
+          `Metric ${metricId} was placed in a ${cache.cacheKind} cache it doesn't map to`,
+        );
+      }
+      return entry;
     });
-    chunks.forEach((chunk, i) => {
-      const randomId = Math.random().toString(36).substring(2, 15);
-      finalGroups.push({
-        groupId: `${baseGroupId}_${randomId}${i}`,
-        factTableId: bucket.factTableId,
-        metrics: chunk,
-      });
+    const randomId = Math.random().toString(36).substring(2, 15);
+    finalGroups.push({
+      groupId: `${cache.cacheKind}_${randomId}${i}`,
+      factTableId: entries[0].factTableId,
+      metrics: entries.map((e) => e.metric),
+      replacesGroupId: cache.replacesGroupId,
     });
   });
 
@@ -721,6 +777,7 @@ export const startExperimentIncrementalRefreshQueries = async (
   const metricSourceGroups = getIncrementalRefreshMetricSources({
     metrics: factMetrics,
     existingMetricSources: existingSources,
+    extendExistingSources: false,
     integration,
     snapshotSettings,
   });

@@ -438,7 +438,7 @@ const namesOf = (dag: Dag) => dag.recorded.map((r) => r.name);
 // The caches a run creates, as "factTableId:metricIds".
 const createdCaches = (dag: Dag) =>
   argsOf(dag, "create_metrics_source_")
-    .map((a) => `${a.factTableId}:${metricIdsOf(a).join(",")}`)
+    .map((a) => `${a.factTableId}:${metricIdsOf(a).sort().join(",")}`)
     .sort();
 
 // Settles every state write of the run and returns the state it leaves.
@@ -468,7 +468,7 @@ describe("new-metrics update (new-metrics runs)", () => {
     const refresh = await refreshDag(["a3", "c1"]);
     const update = await updateDag([...BASE_METRICS, "a3", "c1"]);
 
-    expect(createdCaches(refresh)).toEqual(["ft_a:a1,a2,r1,a3", "ft_c:c1"]);
+    expect(createdCaches(refresh)).toEqual(["ft_a:a1,a2,a3,r1", "ft_c:c1"]);
     expect(createdCaches(refresh)).toEqual(createdCaches(update));
 
     expect(namesOf(refresh).filter((n) => UNITS.test(n))).toEqual([]);
@@ -686,9 +686,9 @@ describe("new-metrics update (new-metrics runs)", () => {
 
     expect(
       createdCaches(await updateDag([...BASE_METRICS, "a3"], { state })),
-    ).toEqual(["ft_a:a1,a2,r1,a3"]);
+    ).toEqual(["ft_a:a1,a2,a3,r1"]);
     expect(createdCaches(await refreshDag(["a3"], { state }))).toEqual([
-      "ft_a:a1,a2,r1,a3",
+      "ft_a:a1,a2,a3,r1",
     ]);
   });
 

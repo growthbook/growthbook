@@ -1,0 +1,263 @@
+import {
+  compareCacheMetrics,
+  planIncrementalCaches,
+  type CacheMetric,
+  type StoredCache,
+} from "back-end/src/services/experimentQueries/incrementalCachePlacement";
+import {
+  BASE_COLUMNS_PER_QUERY,
+  MAX_METRICS_PER_QUERY,
+} from "back-end/src/services/experimentQueries/constants";
+
+// Room for this many metric columns in each cache.
+const budget = (columns: number) => BASE_COLUMNS_PER_QUERY + columns;
+
+const m = (metricId: string, columns: number, cacheKind = "ft_a") =>
+  ({ metricId, cacheKind, columns }) satisfies CacheMetric;
+
+const stored = (
+  groupId: string,
+  metrics: CacheMetric[],
+  cacheKind = "ft_a",
+): StoredCache => ({ groupId, cacheKind, metrics });
+
+const layout = (caches: ReturnType<typeof planIncrementalCaches>) =>
+  caches.map(
+    (c) =>
+      `${c.cacheKind}${c.replacesGroupId ? `<${c.replacesGroupId}` : ""}:${c.metricIds.join(",")}`,
+  );
+
+describe("compareCacheMetrics", () => {
+  it("orders by kind, then larger metrics first, then by definition next to its slices", () => {
+    const metrics = [
+      m("b", 3),
+      m("a?dim:country=US", 3),
+      m("c", 6),
+      m("a", 3),
+      m("z", 9, "ft_0"),
+    ];
+    expect(metrics.sort(compareCacheMetrics).map((x) => x.metricId)).toEqual([
+      "z",
+      "c",
+      "a",
+      "a?dim:country=US",
+      "b",
+    ]);
+  });
+});
+
+describe("planIncrementalCaches", () => {
+  it("packs from scratch smallest-first in canonical order", () => {
+    // Budget 9: A (6) opens a cache, B (3) fills it, C (3) needs another.
+    expect(
+      layout(
+        planIncrementalCaches({
+          metrics: [m("C", 3), m("A", 6), m("B", 3)],
+          storedCaches: [],
+          maxColumns: budget(9),
+        }),
+      ),
+    ).toEqual(["ft_a:A,B", "ft_a:C"]);
+  });
+
+  it("does not depend on the order metrics are listed in", () => {
+    const metrics = [
+      m("m1", 6),
+      m("m2", 3),
+      m("m3", 9),
+      m("m4", 3),
+      m("m5", 6),
+      m("q1", 48, "ft_a_qtile"),
+      m("b1", 3, "ft_b"),
+    ];
+    const plan = (list: CacheMetric[]) =>
+      layout(
+        planIncrementalCaches({
+          metrics: list,
+          storedCaches: [],
+          maxColumns: budget(12),
+        }),
+      );
+    const expected = plan(metrics);
+    expect(plan([...metrics].reverse())).toEqual(expected);
+    expect(
+      plan([metrics[3], ...metrics.slice(4), ...metrics.slice(0, 3)]),
+    ).toEqual(expected);
+  });
+
+  it("depends on the order metrics were added over time", () => {
+    // Added as A, then C, then B: {A, C} and {B}. From scratch: {A, B} and {C}.
+    const first = planIncrementalCaches({
+      metrics: [m("A", 6)],
+      storedCaches: [],
+      maxColumns: budget(9),
+    });
+    expect(layout(first)).toEqual(["ft_a:A"]);
+    const second = planIncrementalCaches({
+      metrics: [m("C", 3)],
+      storedCaches: [stored("g1", [m("A", 6)])],
+      maxColumns: budget(9),
+    });
+    expect(layout(second)).toEqual(["ft_a<g1:A,C"]);
+    expect(
+      layout(
+        planIncrementalCaches({
+          metrics: [m("B", 3)],
+          storedCaches: [stored("g2", [m("A", 6), m("C", 3)])],
+          maxColumns: budget(9),
+        }),
+      ),
+    ).toEqual(["ft_a:B"]);
+  });
+
+  it("puts a new metric in the stored cache with the fewest columns, leaving the others out", () => {
+    expect(
+      layout(
+        planIncrementalCaches({
+          metrics: [m("new", 3)],
+          storedCaches: [
+            stored("big", [m("x", 6), m("y", 6)]),
+            stored("small", [m("z", 9)]),
+            stored("other_kind", [m("q", 1)], "ft_a_qtile"),
+          ],
+          maxColumns: budget(100),
+        }),
+      ),
+    ).toEqual(["ft_a<small:z,new"]);
+  });
+
+  it("counts a cache as full at the column budget, not before", () => {
+    const storedCaches = [stored("g", [m("x", 6)])];
+    expect(
+      layout(
+        planIncrementalCaches({
+          metrics: [m("fits", 3)],
+          storedCaches,
+          maxColumns: budget(9),
+        }),
+      ),
+    ).toEqual(["ft_a<g:x,fits"]);
+    expect(
+      layout(
+        planIncrementalCaches({
+          metrics: [m("too_big", 4)],
+          storedCaches,
+          maxColumns: budget(9),
+        }),
+      ),
+    ).toEqual(["ft_a:too_big"]);
+  });
+
+  it("opens a new cache once a cache holds the most metrics a query takes", () => {
+    const full = stored(
+      "full",
+      Array.from({ length: MAX_METRICS_PER_QUERY }, (_, i) => m(`x${i}`, 1)),
+    );
+    expect(
+      layout(
+        planIncrementalCaches({
+          metrics: [m("new", 1)],
+          storedCaches: [full],
+          maxColumns: budget(10_000),
+        }),
+      ),
+    ).toEqual(["ft_a:new"]);
+  });
+
+  it("never mixes kinds of cache", () => {
+    expect(
+      layout(
+        planIncrementalCaches({
+          metrics: [m("q", 9, "ft_a_qtile"), m("c", 3, "cluster_ft_a")],
+          storedCaches: [stored("plain", [m("x", 3)])],
+          maxColumns: budget(100),
+        }),
+      ),
+    ).toEqual(["cluster_ft_a:c", "ft_a_qtile:q"]);
+  });
+
+  it("lets new metrics follow each other into the cache they open before rebuilding a stored one", () => {
+    // n3 ties g and the new cache on columns; it joins the new cache, which
+    // this run builds anyway.
+    expect(
+      layout(
+        planIncrementalCaches({
+          metrics: [m("n1", 6), m("n2", 3), m("n3", 3)],
+          storedCaches: [stored("g", [m("x", 9)])],
+          maxColumns: budget(12),
+        }),
+      ),
+    ).toEqual(["ft_a:n1,n2,n3"]);
+  });
+
+  describe("ties", () => {
+    it("go to the cache with fewer metrics", () => {
+      expect(
+        layout(
+          planIncrementalCaches({
+            metrics: [m("new", 1)],
+            storedCaches: [
+              stored("a_many", [m("x", 3), m("y", 3)]),
+              stored("b_few", [m("z", 6)]),
+            ],
+            maxColumns: budget(100),
+          }),
+        ),
+      ).toEqual(["ft_a<b_few:z,new"]);
+    });
+
+    it("go to a cache this run already builds, before one with fewer metrics", () => {
+      // n1 joins a (3 < 6), which then ties b; n2 follows n1 instead of
+      // rebuilding b as well.
+      expect(
+        layout(
+          planIncrementalCaches({
+            metrics: [m("n1", 3), m("n2", 3)],
+            storedCaches: [stored("a", [m("x", 3)]), stored("b", [m("y", 6)])],
+            maxColumns: budget(100),
+          }),
+        ),
+      ).toEqual(["ft_a<a:n1,n2,x"]);
+    });
+
+    it("go to the cache already joined with another side of the metric", () => {
+      // r1 is stored in a1 (ft_a) and b2 (ft_b). The new ratio's ft_a side
+      // lands in a1, so its ft_b side prefers b2 over the tied b1.
+      const plan = planIncrementalCaches({
+        metrics: [m("r_new", 6, "ft_a"), m("r_new", 6, "ft_b")],
+        storedCaches: [
+          stored("a1", [m("r1", 6, "ft_a")], "ft_a"),
+          stored("b1", [m("y", 6, "ft_b")], "ft_b"),
+          stored("b2", [m("r1", 6, "ft_b")], "ft_b"),
+        ],
+        maxColumns: budget(100),
+      });
+      expect(layout(plan)).toEqual(["ft_a<a1:r1,r_new", "ft_b<b2:r1,r_new"]);
+    });
+
+    it("go to the earliest stored group id last", () => {
+      expect(
+        layout(
+          planIncrementalCaches({
+            metrics: [m("new", 1)],
+            storedCaches: [
+              stored("g2", [m("y", 3)]),
+              stored("g1", [m("x", 3)]),
+            ],
+            maxColumns: budget(100),
+          }),
+        ),
+      ).toEqual(["ft_a<g1:x,new"]);
+    });
+  });
+
+  it("returns nothing when there is nothing to place", () => {
+    expect(
+      planIncrementalCaches({
+        metrics: [],
+        storedCaches: [stored("g", [m("x", 3)])],
+        maxColumns: budget(100),
+      }),
+    ).toEqual([]);
+  });
+});
