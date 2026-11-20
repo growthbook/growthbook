@@ -6,6 +6,7 @@ import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import {
   claimMfaStep,
   consumeMfaRecoveryCode,
+  resetMinTokenDate,
 } from "back-end/src/models/UserModel";
 import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 import { RefreshTokenCookie, setIdTokenCookie } from "back-end/src/util/cookie";
@@ -50,7 +51,8 @@ async function verifyUserMfaCode(
   code: unknown,
 ): Promise<boolean> {
   if (!user.mfaSecret || typeof code !== "string") return false;
-  const trimmed = code.trim();
+  // Apps display codes as "123 456"
+  const trimmed = code.replace(/\s/g, "");
   if (!/^\d{6}$/.test(trimmed)) {
     return consumeMfaRecoveryCode(user.id, hashRecoveryCode(trimmed));
   }
@@ -71,6 +73,9 @@ export async function assertMfaCode(
   code: unknown,
 ) {
   const now = Date.now();
+  for (const [id, e] of mfaFailures) {
+    if (e.resetAt <= now) mfaFailures.delete(id);
+  }
   let entry = mfaFailures.get(user.id);
   if (!entry || entry.resetAt <= now) {
     entry = { count: 0, resetAt: now + MFA_WINDOW_MS };
@@ -102,6 +107,8 @@ export async function replaceLocalSessions(
   user: UserInterface,
   mfa: boolean,
 ) {
+  // Also kills other sessions' unexpired JWTs; this one's new token shares the second
+  await resetMinTokenDate(user.id);
   await AuthRefreshModel.deleteMany({ userId: user.id });
   const { idToken, refreshToken } = await getAuthConnection().processCallback(
     req,
@@ -111,4 +118,5 @@ export async function replaceLocalSessions(
   );
   setIdTokenCookie(idToken, req, res);
   RefreshTokenCookie.setValue(refreshToken, req, res);
+  return idToken;
 }

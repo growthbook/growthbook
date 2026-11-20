@@ -17,12 +17,13 @@ export default function MfaEnrollment({
 }: {
   onEnabled?: (recoveryCodes: string[]) => void;
 }) {
-  const { apiCall } = useAuth();
+  const { apiCall, setToken } = useAuth();
   const [setup, setSetup] = useState<{
     secret: string;
     otpauthUrl: string;
   } | null>(null);
   const [code, setCode] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -79,13 +80,15 @@ export default function MfaEnrollment({
       onSubmit={(e) => {
         e.preventDefault();
         run(async () => {
-          const res = await apiCall<{ recoveryCodes: string[] }>(
+          const res = await apiCall<{ recoveryCodes: string[]; token: string }>(
             "/user/mfa/enable",
             {
               method: "POST",
-              body: JSON.stringify({ mfaCode: code }),
+              body: JSON.stringify({ mfaCode: code, currentPassword }),
             },
           );
+          // The old token was revoked; keep this tab working while it shows the codes
+          setToken?.(res.token);
           if (onEnabled) onEnabled(res.recoveryCodes);
           else setRecoveryCodes(res.recoveryCodes);
         });
@@ -114,11 +117,19 @@ export default function MfaEnrollment({
           autoFocus
           inputMode="numeric"
           autoComplete="one-time-code"
-          pattern="[0-9]{6}"
+          pattern="[0-9]{3} ?[0-9]{3}"
           title="The 6-digit code from your authenticator app"
           helpText="Enter the 6-digit code from your authenticator app."
           value={code}
           onChange={(e) => setCode(e.target.value)}
+        />
+        <TextField
+          label="Current password"
+          type="password"
+          required
+          autoComplete="current-password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
         />
         {error && <Callout status="error">{error}</Callout>}
         <Button type="submit" loading={loading}>

@@ -89,6 +89,7 @@ export class OAuthGrantModel extends BaseClass {
     scope?: string;
     resource?: string;
     permissions?: OAuthTokenPermissions | null;
+    mfa?: boolean;
     revoked: boolean;
     revokedAt?: Date;
     expiresAt: Date;
@@ -112,6 +113,7 @@ export class OAuthGrantModel extends BaseClass {
     scope?: string;
     resource?: string;
     permissions: OAuthTokenPermissions | null;
+    mfa: boolean;
   }): Promise<OAuthGrantInterface> {
     const { grant, created } = await this.getOrCreateGrant({
       clientId: params.clientId,
@@ -119,6 +121,7 @@ export class OAuthGrantModel extends BaseClass {
       scope: params.scope,
       resource: params.resource,
       permissions: params.permissions,
+      mfa: params.mfa,
       revoked: false,
       expiresAt: grantExpiry(),
     });
@@ -128,6 +131,7 @@ export class OAuthGrantModel extends BaseClass {
       scope: params.scope,
       resource: params.resource,
       permissions: params.permissions,
+      mfa: params.mfa,
       expiresAt: grantExpiry(),
     });
   }

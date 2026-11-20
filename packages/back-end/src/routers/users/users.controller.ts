@@ -52,6 +52,7 @@ import {
   generateTotpSecret,
   getOtpauthUrl,
 } from "back-end/src/util/totp";
+import { verifyPassword } from "back-end/src/services/users";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findRecentAuditByUserIdAndOrganization } from "back-end/src/models/AuditModel";
@@ -205,7 +206,7 @@ export async function postMfaSetup(req: AuthRequest, res: Response) {
 }
 
 export async function postMfaEnable(
-  req: AuthRequest<{ mfaCode: unknown }>,
+  req: AuthRequest<{ mfaCode: unknown; currentPassword: unknown }>,
   res: Response,
 ) {
   const user = await getMfaUser(req);
@@ -213,13 +214,21 @@ export async function postMfaEnable(
     throw new Error("MFA is already turned on for your account.");
   }
   if (!user.mfaSecret) throw new Error("Start MFA setup first.");
+  // Otherwise a stolen session could enroll its own authenticator and lock the owner out
+  const { currentPassword } = req.body;
+  if (
+    typeof currentPassword !== "string" ||
+    !(await verifyPassword(user, currentPassword))
+  ) {
+    throw new Error("Current password is incorrect");
+  }
   await assertMfaCode(user, req.body.mfaCode);
   const { codes, hashes } = generateRecoveryCodes();
   if (!(await enableMfa(user.id, user.mfaSecret, hashes))) {
     throw new Error("MFA setup was restarted elsewhere. Start again.");
   }
-  await replaceLocalSessions(req as Request, res, user, true);
-  res.status(200).json({ status: 200, recoveryCodes: codes });
+  const token = await replaceLocalSessions(req as Request, res, user, true);
+  res.status(200).json({ status: 200, recoveryCodes: codes, token });
 }
 
 export async function postMfaRecoveryCodes(
@@ -252,8 +261,8 @@ export async function postMfaDisable(
   }
   await assertMfaCode(user, req.body.mfaCode);
   await disableMfa(user.id);
-  await replaceLocalSessions(req as Request, res, user, false);
-  res.status(200).json({ status: 200 });
+  const token = await replaceLocalSessions(req as Request, res, user, false);
+  res.status(200).json({ status: 200, token });
 }
 
 export async function putUserName(

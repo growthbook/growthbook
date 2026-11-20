@@ -242,6 +242,7 @@ export async function postAuthorize(
       resource: body.resource ? String(body.resource) : undefined,
       state: body.state ? String(body.state) : undefined,
       permissions: permissions.data ?? null,
+      mfa: !!req.mfa,
     });
 
     return res.status(200).json({ status: 200, redirectTo });

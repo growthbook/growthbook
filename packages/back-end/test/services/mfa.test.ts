@@ -55,6 +55,13 @@ describe("assertMfaCode", () => {
     expect(mockClaim).toHaveBeenCalledWith(user.id, undefined, 1);
   });
 
+  it("accepts an authenticator code pasted with a space", async () => {
+    await expect(
+      assertMfaCode(newUser(), " 287 082 "),
+    ).resolves.toBeUndefined();
+    expect(mockConsume).not.toHaveBeenCalled();
+  });
+
   it("rejects a valid code whose step was already claimed", async () => {
     mockClaim.mockResolvedValue(false);
     await expect(assertMfaCode(newUser(), "287082")).rejects.toThrow(

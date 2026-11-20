@@ -61,6 +61,8 @@ export interface AuthContextValue {
     errorHandler?: ErrorHandler,
   ) => Promise<T>;
   fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
+  // Swap in an id token the server just issued after revoking the old one
+  setToken?: (token: string) => void;
   // Show the global "Save anyway?" dialog; resolves true if the user proceeds.
   confirmIgnoreWarnings: (warnings: string[]) => Promise<boolean>;
   ssoConnectionId: string;
@@ -695,6 +697,7 @@ export const AuthProvider: React.FC<{
         },
         apiCall,
         fetchRaw,
+        setToken,
         confirmIgnoreWarnings,
         ssoConnectionId,
         orgId,
