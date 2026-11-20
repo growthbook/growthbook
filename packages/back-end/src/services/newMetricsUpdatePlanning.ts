@@ -31,6 +31,7 @@ import {
   getLatestSnapshotStatus,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
+import { getQueriesByIds } from "back-end/src/models/QueryModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import { getMetricSettingsHashesForIncrementalRefresh } from "back-end/src/enterprise/services/data-pipeline";
@@ -272,6 +273,21 @@ export async function planNewMetricsUpdate({
   // identical text there would prove nothing about the metrics behind them;
   // the settings hash stored for each cached metric does.
   if (onIncrementalPipeline) {
+    // The runner copies each carried query from its document, which can be
+    // gone while the parent still points at it. The Results pipeline loads the
+    // same documents to compare their SQL.
+    const carriedDocs = new Map(
+      (
+        await getQueriesByIds(
+          context,
+          carriedQueries.map((q) => q.query),
+          false,
+        )
+      ).map((doc) => [doc.id, doc.status]),
+    );
+    if (carriedQueries.some((q) => carriedDocs.get(q.query) !== "succeeded")) {
+      throw new NewMetricsUpdateUnavailableError("base_incomplete");
+    }
     assertCopiedMetricCachesUnchanged({
       metricSources: incrementalState?.metricSources ?? [],
       copiedMetricIds: new Set(

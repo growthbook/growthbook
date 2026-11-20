@@ -683,6 +683,67 @@ describe("planNewMetricsUpdate", () => {
     expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["met_c"]);
   });
 
+  describe("on the Incremental Pipeline, the documents of the queries it would copy", () => {
+    const planIncremental = (
+      docs: Record<string, QueryInterface["status"]>,
+    ) => {
+      findParentMock.mockResolvedValue(
+        makeParent({
+          runnerKind: "incremental-update",
+          queries: [
+            {
+              name: "statistics_ft_a_g0",
+              query: "qry_stats",
+              status: "succeeded",
+            },
+            { name: "traffic", query: "qry_traffic", status: "succeeded" },
+          ],
+        }),
+      );
+      getQueriesByIdsMock.mockImplementation(async (ctx, ids) =>
+        ids
+          .filter((id) => id in docs)
+          .map((id) => ({ id, status: docs[id] }) as QueryInterface),
+      );
+      return planNewMetricsUpdate(
+        refreshArgs({
+          planSnapshotAt: async () =>
+            makePlan({ runnerKind: "incremental-update" }),
+        }),
+      );
+    };
+
+    it.each<[string, Record<string, QueryInterface["status"]>]>([
+      ["is gone", { qry_traffic: "succeeded" }],
+      [
+        "no longer succeeded",
+        { qry_stats: "failed", qry_traffic: "succeeded" },
+      ],
+    ])(
+      "refuse as an incomplete base when one %s, instead of failing at runner start",
+      async (name, docs) => {
+        await expect(planIncremental(docs)).rejects.toMatchObject({
+          details: { reason: "base_incomplete" },
+        });
+        expect(getQueriesByIdsMock).toHaveBeenCalledWith(
+          context,
+          ["qry_stats", "qry_traffic"],
+          false,
+        );
+      },
+    );
+
+    it("plan when every one is there", async () => {
+      const plan = await planIncremental({
+        qry_stats: "succeeded",
+        qry_traffic: "succeeded",
+      });
+
+      expect(plan.snapshot.runnerKind).toBe("incremental-update");
+      expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["met_c"]);
+    });
+  });
+
   describe("a copied metric edited since the parent", () => {
     const orders = factTableFactory.build({
       id: "ft_orders",
