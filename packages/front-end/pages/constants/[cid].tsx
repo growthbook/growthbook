@@ -185,6 +185,7 @@ export default function ConstantDetailPage(): React.ReactElement {
     handleDiscard,
     handleReopen,
     mutateRevisions,
+    selectionSettled,
   } = useConstantRevision(constant?.id, mutate, constant);
 
   // ── Page-level tabs: Overview | Review & Publish, driven by the URL hash.
@@ -330,7 +331,7 @@ export default function ConstantDetailPage(): React.ReactElement {
       </Callout>
     );
   }
-  if (!constant || !displayedConstant) {
+  if (!constant || !displayedConstant || !selectionSettled) {
     return <LoadingOverlay />;
   }
 

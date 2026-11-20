@@ -559,6 +559,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   const {
     selectedRevision,
     selectedRevisionId,
+    selectionSettled,
     openRevisions,
     allRevisions,
     selectRevision,
@@ -1103,7 +1104,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       </Callout>
     );
   }
-  if (!data || !config || !displayedConfig) {
+  if (!data || !config || !displayedConfig || !selectionSettled) {
     return <LoadingOverlay />;
   }
 
