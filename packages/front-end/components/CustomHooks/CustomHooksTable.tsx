@@ -63,6 +63,7 @@ export default function CustomHooksTable({
   canToggle = canManage,
   onEdit,
   mutate,
+  emptyMessage = "No custom hooks yet.",
 }: {
   hooks: CustomHookInterface[];
   /** Context column between Type and the actions menu: scope, projects, or owning entity. */
@@ -75,6 +76,7 @@ export default function CustomHooksTable({
   canToggle?: (hook: CustomHookInterface) => boolean;
   onEdit?: (hook: CustomHookInterface) => void;
   mutate: () => void;
+  emptyMessage?: string;
 }) {
   const { apiCall } = useAuth();
   const [viewCodeHook, setViewCodeHook] = useState<CustomHookInterface | null>(
@@ -88,7 +90,7 @@ export default function CustomHooksTable({
   if (!hooks.length) {
     return (
       <Text color="text-low">
-        <em>No custom hooks yet.</em>
+        <em>{emptyMessage}</em>
       </Text>
     );
   }

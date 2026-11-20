@@ -498,6 +498,17 @@ tags:
   - name: sdk-connections
     x-displayName: SDK Connections
     description: Client keys and settings for connecting SDKs to a GrowthBook instance
+  - name: sdk-connection-revisions
+    x-displayName: SDK Connection Revisions
+    description: >-
+      Draft revisions for SDK Connections: staged changes to a connection's
+      settings and webhooks, their review, and their lifecycle (publish,
+      discard, rebase).
+
+
+      Pass `version: "new"` on the edit endpoints to create the draft. Use these
+      when the organization requires approvals for a connection, or to group
+      several changes into one publish.
   - name: visual-changesets
     x-displayName: Visual Changesets
     description: Groups of visual changes made by the visual editor to a single page
@@ -707,6 +718,12 @@ tags:
     description: >-
       Webhooks that fire when an SDK Connection's payload changes. Signing keys
       and headers are only returned by GET.
+  - name: AdobeExperiencePlatformQueryServiceConnection_model
+    x-displayName: Adobe Experience Platform Query Service Connection
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/AdobeExperiencePlatformQueryServiceConnection"
+      />
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -716,6 +733,9 @@ tags:
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
+  - name: AthenaConnection_model
+    x-displayName: Athena Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/AthenaConnection" />
   - name: Attribute_model
     x-displayName: Attribute
     description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
@@ -725,6 +745,12 @@ tags:
   - name: AutoRun_model
     x-displayName: Auto Run
     description: <SchemaDefinition schemaRef="#/components/schemas/AutoRun" />
+  - name: BigQueryConnection_model
+    x-displayName: Big Query Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/BigQueryConnection" />
+  - name: ClickHouseConnection_model
+    x-displayName: Click House Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/ClickHouseConnection" />
   - name: CodeRef_model
     x-displayName: Code Ref
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
@@ -814,6 +840,9 @@ tags:
   - name: DataSource_model
     x-displayName: Data Source
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
+  - name: DatabricksConnection_model
+    x-displayName: Databricks Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/DatabricksConnection" />
   - name: Dimension_model
     x-displayName: Dimension
     description: <SchemaDefinition schemaRef="#/components/schemas/Dimension" />
@@ -1004,6 +1033,15 @@ tags:
   - name: MetricUsage_model
     x-displayName: Metric Usage
     description: <SchemaDefinition schemaRef="#/components/schemas/MetricUsage" />
+  - name: MixpanelConnection_model
+    x-displayName: Mixpanel Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/MixpanelConnection" />
+  - name: MssqlConnection_model
+    x-displayName: Mssql Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/MssqlConnection" />
+  - name: MysqlConnection_model
+    x-displayName: Mysql Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/MysqlConnection" />
   - name: Namespace_model
     x-displayName: Namespace
     description: <SchemaDefinition schemaRef="#/components/schemas/Namespace" />
@@ -1021,6 +1059,12 @@ tags:
   - name: Population_model
     x-displayName: Population
     description: <SchemaDefinition schemaRef="#/components/schemas/Population" />
+  - name: PostgresConnection_model
+    x-displayName: Postgres Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/PostgresConnection" />
+  - name: PrestoConnection_model
+    x-displayName: Presto Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/PrestoConnection" />
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
@@ -1033,6 +1077,9 @@ tags:
   - name: RampScheduleTemplate_model
     x-displayName: Ramp Schedule Template
     description: <SchemaDefinition schemaRef="#/components/schemas/RampScheduleTemplate" />
+  - name: RedshiftConnection_model
+    x-displayName: Redshift Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/RedshiftConnection" />
   - name: Report_model
     x-displayName: Report
     description: <SchemaDefinition schemaRef="#/components/schemas/Report" />
@@ -1101,6 +1148,36 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/SdkConnectionApprovalRule" />
+  - name: SdkConnectionRevision_model
+    x-displayName: Sdk Connection Revision
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/SdkConnectionRevision"
+      />
+  - name: SdkConnectionRevisionActivityLogEntry_model
+    x-displayName: Sdk Connection Revision Activity Log Entry
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SdkConnectionRevisionActivityLogEntry" />
+  - name: SdkConnectionRevisionRef_model
+    x-displayName: Sdk Connection Revision Ref
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SdkConnectionRevisionRef" />
+  - name: SdkConnectionRevisionReview_model
+    x-displayName: Sdk Connection Revision Review
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SdkConnectionRevisionReview" />
+  - name: SdkConnectionRevisionSettings_model
+    x-displayName: Sdk Connection Revision Settings
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SdkConnectionRevisionSettings" />
+  - name: SdkConnectionRevisionWebhook_model
+    x-displayName: Sdk Connection Revision Webhook
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SdkConnectionRevisionWebhook" />
   - name: SdkWebhook_model
     x-displayName: Sdk Webhook
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkWebhook" />
@@ -1110,6 +1187,9 @@ tags:
   - name: Settings_model
     x-displayName: Settings
     description: <SchemaDefinition schemaRef="#/components/schemas/Settings" />
+  - name: SnowflakeConnection_model
+    x-displayName: Snowflake Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/SnowflakeConnection" />
   - name: Targeting Rule_model
     x-displayName: Targeting Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/Targeting Rule" />
@@ -1119,6 +1199,9 @@ tags:
   - name: Team_model
     x-displayName: Team
     description: <SchemaDefinition schemaRef="#/components/schemas/Team" />
+  - name: VerticaConnection_model
+    x-displayName: Vertica Connection
+    description: <SchemaDefinition schemaRef="#/components/schemas/VerticaConnection" />
   - name: VisualChange_model
     x-displayName: Visual Change
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChange" />
@@ -22492,6 +22575,26 @@ paths:
                     they target other Projects. Defaults to true for new
                     connections.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
               required:
                 - name
                 - language
@@ -22550,9 +22653,10 @@ paths:
       description: >-
         Applies the change immediately and records it as a published revision,
         so it appears in the connection's history. When the organization
-        requires approvals for this connection's Projects and environment, open
-        a draft from the SDK Connection page instead, or pass `bypassApproval`.
-        Set `archived` to archive or restore the connection.
+        requires approvals for this connection's Projects and environment, stage
+        the change in a draft revision instead (`PUT
+        /sdk-connections-revisions/{id}/new/settings`), or pass
+        `bypassApproval`. Set `archived` to archive or restore the connection.
       tags:
         - sdk-connections
       parameters:
@@ -22650,6 +22754,26 @@ paths:
                     the organization enables the REST API approval bypass. This
                     field has no effect when approval is not required.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -22684,30 +22808,15 @@ paths:
       operationId: deleteSdkConnection
       summary: Deletes a single SDK connection
       description: >-
-        When the organization requires approvals for this connection's Projects
-        and environment, archive it first (`PUT /sdk-connections/{id}` with
-        `archived: true`), then delete it. To delete a live connection in one
-        step, pass `bypassApproval`.
+        Deletes an archived SDK Connection. Archive a live one first (`PUT
+        /sdk-connections/{id}` with `archived: true`, or in a draft revision
+        when the organization requires approvals for it), then delete it. A live
+        connection deletes in one step only when the organization enables 'REST
+        API always bypasses approval requirements'.
       tags:
         - sdk-connections
       parameters:
         - $ref: '#/components/parameters/id'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                bypassApproval:
-                  description: >-
-                    Set to true to write directly to the live SDK Connection
-                    without approval. The caller must have Bypass draft
-                    approvals access in the SDK Connection's Projects, unless
-                    the organization enables the REST API approval bypass. This
-                    field has no effect when approval is not required.
-                  type: boolean
-              additionalProperties: false
       responses:
         '200':
           description: Resource deleted
@@ -22718,14 +22827,6 @@ paths:
                 properties:
                   deletedId:
                     type: string
-                  bypassedGates:
-                    description: >-
-                      Gates that would have blocked this publish but were
-                      bypassed by the caller's authority. Present only when at
-                      least one gate was bypassed.
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - deletedId
                 additionalProperties: false
@@ -22764,6 +22865,1621 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/sdk-connections/lookup/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions:
+    get:
+      operationId: listSdkConnectionRevisions
+      summary: List SDK Connection revisions across the organization
+      description: >-
+        Returns revisions across every SDK Connection the caller can read,
+        newest first. Use `status=open` to find the drafts waiting on a review
+        or a publish.
+      tags: &ref_0
+        - sdk-connection-revisions
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/skipPagination'
+        - name: status
+          in: query
+          description: >-
+            Filter by revision status. Accepts a comma-separated list, or the
+            literal `open` for non-merged/non-discarded revisions.
+          schema:
+            description: >-
+              Filter by revision status. Accepts a comma-separated list, or the
+              literal `open` for non-merged/non-discarded revisions.
+            type: string
+        - $ref: '#/components/parameters/author'
+        - name: mine
+          in: query
+          description: >-
+            If true, return only revisions authored by the calling user. Needs a
+            personal access token, or an organization API key that assumes a
+            named member's role. Mutually exclusive with `author`.
+          schema:
+            description: >-
+              If true, return only revisions authored by the calling user. Needs
+              a personal access token, or an organization API key that assumes a
+              named member's role. Mutually exclusive with `author`.
+            type: boolean
+        - $ref: '#/components/parameters/sdkConnectionId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revisions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SdkConnectionRevision'
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    type:
+                      - integer
+                      - 'null'
+                required:
+                  - revisions
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions/{id}:
+    get:
+      operationId: getSdkConnectionRevisions
+      summary: List revisions for an SDK Connection
+      description: >-
+        Returns this SDK Connection's revisions, newest first: its drafts and
+        its published history.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/skipPagination'
+        - name: status
+          in: query
+          description: >-
+            Filter by revision status. Accepts a comma-separated list, or the
+            literal `open` for non-merged/non-discarded revisions.
+          schema:
+            description: >-
+              Filter by revision status. Accepts a comma-separated list, or the
+              literal `open` for non-merged/non-discarded revisions.
+            type: string
+        - $ref: '#/components/parameters/author'
+        - name: mine
+          in: query
+          description: >-
+            If true, return only revisions authored by the calling user. Needs a
+            personal access token, or an organization API key that assumes a
+            named member's role. Mutually exclusive with `author`.
+          schema:
+            description: >-
+              If true, return only revisions authored by the calling user. Needs
+              a personal access token, or an organization API key that assumes a
+              named member's role. Mutually exclusive with `author`.
+            type: boolean
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revisions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SdkConnectionRevision'
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    type:
+                      - integer
+                      - 'null'
+                required:
+                  - revisions
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postSdkConnectionRevision
+      summary: Create a draft revision
+      description: >-
+        Creates an empty draft from the live SDK Connection. The edit endpoints
+        also create one when called with `version: "new"`.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: Short draft title (e.g. `Enable for beta testers`).
+                comment:
+                  type: string
+                  description: Markdown. What changed and why, for reviewers.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{}'
+  /v1/sdk-connections-revisions/{id}/latest:
+    get:
+      operationId: getSdkConnectionRevisionLatest
+      summary: Get the most recent active draft revision
+      description: >-
+        Returns the most recently updated open (non-merged, non-discarded)
+        revision. Returns 404 if there is none. Pass `mine=true` to restrict to
+        drafts authored by the calling user.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - name: mine
+          in: query
+          description: >-
+            If true, return only the most recent active draft authored by the
+            calling user. Needs a personal access token, or an organization API
+            key that assumes a named member's role.
+          schema:
+            description: >-
+              If true, return only the most recent active draft authored by the
+              calling user. Needs a personal access token, or an organization
+              API key that assumes a named member's role.
+            type: boolean
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/latest'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions/{id}/{version}:
+    get:
+      operationId: getSdkConnectionRevision
+      summary: Get a single SDK Connection revision
+      description: >-
+        Returns one revision: the settings and webhooks it started from, the
+        ones it proposes, its reviews, and its activity.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions/{id}/{version}/merge-status:
+    get:
+      operationId: getSdkConnectionRevisionMergeStatus
+      summary: Get merge status for a draft revision
+      description: >-
+        Dry-runs a merge of the draft into the live SDK Connection and returns
+        any conflicts. A draft whose base is out of date can be brought up to
+        date with `rebase`.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  hasConflicts:
+                    type: boolean
+                  conflicts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        baseValue: {}
+                        liveValue: {}
+                        proposedValue: {}
+                      required:
+                        - field
+                      additionalProperties: false
+                  canAutoMerge:
+                    type: boolean
+                required:
+                  - success
+                  - hasConflicts
+                  - conflicts
+                  - canAutoMerge
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/merge-status'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions/{id}/{version}/settings:
+    put:
+      operationId: putSdkConnectionRevisionSettings
+      summary: Update SDK Connection settings in a draft revision
+      description: >-
+        Stages settings changes on the draft. Takes the same fields as `PUT
+        /sdk-connections/{id}`, and only the fields sent are changed. Pass
+        `version: "new"` to create the draft. Nothing changes on the live SDK
+        Connection until the revision is published.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: >-
+                    Short display name, usually app and platform (e.g. `Web
+                    app`).
+                language:
+                  type: string
+                sdkVersion:
+                  type: string
+                environment:
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                encryptPayload:
+                  type: boolean
+                includeVisualExperiments:
+                  type: boolean
+                includeDraftExperiments:
+                  type: boolean
+                includeDraftExperimentRefs:
+                  description: >-
+                    When true, experiment-ref rules linked to draft experiments
+                    are included in feature definitions. Off by default.
+                  type: boolean
+                includeExperimentNames:
+                  type: boolean
+                includeRedirectExperiments:
+                  type: boolean
+                includeRuleIds:
+                  type: boolean
+                includeProjectIdInMetadata:
+                  type: boolean
+                includeCustomFieldsInMetadata:
+                  type: boolean
+                allowedCustomFieldsInMetadata:
+                  type: array
+                  items:
+                    type: string
+                includeTagsInMetadata:
+                  type: boolean
+                includeExperimentScheduleInMetadata:
+                  type: boolean
+                tracesEnabled:
+                  description: >-
+                    Send SDK evaluation traces to GrowthBook. Only available to
+                    organizations with tracing enabled.
+                  type: boolean
+                proxyEnabled:
+                  type: boolean
+                proxyHost:
+                  type: string
+                hashSecureAttributes:
+                  type: boolean
+                remoteEvalEnabled:
+                  type: boolean
+                savedGroupReferencesEnabled:
+                  description: Deprecated. Use `savedGroupFormat`.
+                  type: boolean
+                savedGroupFormat:
+                  type: string
+                  enum:
+                    - inline
+                    - referencesV1
+                    - referencesV2
+                includeReferencedPrerequisites:
+                  description: >-
+                    Carry prerequisite Feature Flags into this payload even when
+                    they target other Projects. Defaults to true for new
+                    connections.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
+                revisionTitle:
+                  type: string
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
+                revisionComment:
+                  type: string
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/new/settings'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"includeRuleIds":true}'
+  /v1/sdk-connections-revisions/{id}/{version}/archive:
+    put:
+      operationId: putSdkConnectionRevisionArchive
+      summary: Stage an archive or restore in a draft revision
+      description: >-
+        Stages archiving (`true`) or restoring (`false`) the SDK Connection.
+        Pass `version: "new"` to create the draft. An archived connection serves
+        no payload, and can be deleted once the archive is published.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
+                revisionComment:
+                  type: string
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
+                archived:
+                  type: boolean
+              required:
+                - archived
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/new/archive'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"archived":true}'
+  /v1/sdk-connections-revisions/{id}/{version}/webhooks:
+    post:
+      operationId: postSdkConnectionRevisionWebhook
+      summary: Add a webhook in a draft revision
+      description: >-
+        Stages a new webhook on the draft. Its id is in the returned revision's
+        `proposedSdkWebhooks`. Pass `version: "new"` to create the draft.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
+                revisionComment:
+                  type: string
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
+                name:
+                  type: string
+                endpoint:
+                  type: string
+                  format: uri
+                httpMethod:
+                  type: string
+                  enum:
+                    - GET
+                    - POST
+                    - PUT
+                    - DELETE
+                    - PATCH
+                    - PURGE
+                payloadFormat:
+                  type: string
+                  enum:
+                    - standard
+                    - standard-no-payload
+                    - sdkPayload
+                    - edgeConfig
+                    - edgeConfigUnescaped
+                    - none
+                payloadKey:
+                  type: string
+                headers:
+                  description: 'JSON-encoded object, e.g. "{\"X-Token\": \"abc\"}"'
+                  type: string
+                timeoutSeconds:
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                    - type: 'null'
+                  description: >-
+                    Request timeout in seconds, up to the server maximum (120
+                    unless configured). Null uses the default.
+              required:
+                - name
+                - endpoint
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/new/webhooks'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"name":"Purge CDN","endpoint":"https://example.com/purge"}'
+  /v1/sdk-connections-revisions/{id}/{version}/webhooks/{webhookId}:
+    put:
+      operationId: putSdkConnectionRevisionWebhook
+      summary: Update a webhook in a draft revision
+      description: >-
+        Stages changes to one of the draft's webhooks. Only the fields sent are
+        changed. Pass `version: "new"` to create the draft.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+        - $ref: '#/components/parameters/webhookId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
+                revisionComment:
+                  type: string
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
+                name:
+                  type: string
+                endpoint:
+                  type: string
+                  format: uri
+                httpMethod:
+                  type: string
+                  enum:
+                    - GET
+                    - POST
+                    - PUT
+                    - DELETE
+                    - PATCH
+                    - PURGE
+                payloadFormat:
+                  type: string
+                  enum:
+                    - standard
+                    - standard-no-payload
+                    - sdkPayload
+                    - edgeConfig
+                    - edgeConfigUnescaped
+                    - none
+                payloadKey:
+                  type: string
+                headers:
+                  description: 'JSON-encoded object, e.g. "{\"X-Token\": \"abc\"}"'
+                  type: string
+                timeoutSeconds:
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                    - type: 'null'
+                  description: >-
+                    Request timeout in seconds, up to the server maximum (120
+                    unless configured). Null uses the default.
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/webhooks/wh_abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"endpoint":"https://example.com/purge-v2"}'
+    delete:
+      operationId: deleteSdkConnectionRevisionWebhook
+      summary: Remove a webhook in a draft revision
+      description: >-
+        Stages removing one of the SDK Connection's webhooks. Pass `version:
+        "new"` to create the draft.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+        - $ref: '#/components/parameters/webhookId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
+                revisionComment:
+                  type: string
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/webhooks/wh_abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions/{id}/{version}/request-review:
+    post:
+      operationId: postSdkConnectionRevisionRequestReview
+      summary: Request review for a draft revision
+      description: >-
+        Moves the draft into `pending-review`. Set `autoPublishOnApproval` to
+        publish it the moment it is approved; that needs the organization to
+        allow it and the caller to be able to publish the change.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                autoPublishOnApproval:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/request-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{}'
+  /v1/sdk-connections-revisions/{id}/{version}/submit-review:
+    post:
+      operationId: postSdkConnectionRevisionSubmitReview
+      summary: Submit a review on a draft revision
+      description: >-
+        Submits an `approve`, `request-changes`, or `comment` review. The
+        verdict belongs to whoever the request acts as; see [Naming who
+        asked](/api/introduction#naming-who-asked). No one can rule on a draft
+        they created. When the approval publishes a revision set to publish on
+        approval, the response has `autoPublished: true`; pass `skipAutoPublish:
+        true` to approve without publishing.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision:
+                  type: string
+                  enum:
+                    - approve
+                    - request-changes
+                    - comment
+                comment:
+                  type: string
+                  description: Markdown. Why you approved, requested changes or commented.
+                skipAutoPublish:
+                  type: boolean
+              required:
+                - decision
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                  autoPublished:
+                    type: boolean
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/submit-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"decision":"approve"}'
+  /v1/sdk-connections-revisions/{id}/{version}/recall-review:
+    post:
+      operationId: postSdkConnectionRevisionRecallReview
+      summary: Recall a review request
+      description: >-
+        Returns a revision in review to `draft`, clearing its reviews and any
+        publish-on-approval.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/recall-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions/{id}/{version}/undo-review:
+    post:
+      operationId: postSdkConnectionRevisionUndoReview
+      summary: Retract your own review verdict
+      description: >-
+        Retracts the calling user's own `approve` or `request-changes` verdict.
+        The verdict belongs to whoever the request acts as; see [Naming who
+        asked](/api/introduction#naming-who-asked). No one can rule on a draft
+        they created.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/undo-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions/{id}/{version}/reopen:
+    post:
+      operationId: postSdkConnectionRevisionReopen
+      summary: Reopen a discarded revision
+      description: Returns a discarded revision to `draft`.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/reopen'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions/{id}/{version}/schedule-publish:
+    post:
+      operationId: postSdkConnectionRevisionSchedulePublish
+      summary: Schedule (or cancel) a deferred publish
+      description: >-
+        Sets a revision to publish at a future time, or cancels that with
+        `null`. Requires the `scheduled-revisions` commercial feature. A draft
+        that still requires approval must request review first, unless the
+        caller can bypass approval and passes `bypassApproval`.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduledPublishAt:
+                  anyOf:
+                    - type: string
+                      format: date-time
+                    - type: 'null'
+                  description: >-
+                    When to publish, as an RFC3339 timestamp, or `null` to
+                    cancel a pending schedule.
+                lockEdits:
+                  type: boolean
+                lockOthers:
+                  type: boolean
+                bypassApproval:
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge a warning the publish would
+                    raise, such as a webhook that references a secret that
+                    doesn't exist, and schedule it anyway. The scheduled publish
+                    goes ahead with what was acknowledged. Only set this when a
+                    person has explicitly asked you to. If a check blocks you,
+                    stop and ask a person instead of working around it.
+                  type: boolean
+              required:
+                - scheduledPublishAt
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/schedule-publish'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"scheduledPublishAt":"2027-01-31T09:00:00Z"}'
+  /v1/sdk-connections-revisions/{id}/{version}/rebase:
+    post:
+      operationId: postSdkConnectionRevisionRebase
+      summary: Rebase a draft revision onto the live SDK Connection
+      description: >-
+        Moves the draft's base to the live state, keeping its changes on top.
+        For each conflicting field (`sdkConnection` or `sdkWebhooks`),
+        `conflictResolutions` picks `overwrite` (the draft's value) or `discard`
+        (the live value).
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conflictResolutions:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                    enum:
+                      - overwrite
+                      - discard
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/rebase'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions/{id}/{version}/publish:
+    post:
+      operationId: postSdkConnectionRevisionPublish
+      summary: Publish a draft revision
+      description: >-
+        Applies the draft's changes to the live SDK Connection and its webhooks.
+        When approval is required, the draft must be approved unless the caller
+        has Bypass draft approvals access. A 422 response lists every blocking
+        gate and how to resolve it.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/publish'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions/{id}/{version}/discard:
+    post:
+      operationId: postSdkConnectionRevisionDiscard
+      summary: Discard a draft revision
+      description: >-
+        Abandons an open draft. A published or already discarded revision is
+        refused.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/discard'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections-revisions/{id}/{version}/revert:
+    post:
+      operationId: postSdkConnectionRevisionRevert
+      summary: Revert the SDK Connection to a prior revision
+      description: >-
+        Restores the settings and webhooks a published revision left the SDK
+        Connection with. Creates a draft by default, or applies it now with
+        `strategy: "publish"`. Whether the connection is archived is not
+        restored. A webhook the revert brings back is recreated with a new
+        signing key. When the revert is applied at once, its id is listed in
+        `recreatedWebhookIds`.
+      tags: *ref_0
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            type: string
+            description: The SDK Connection id
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                strategy:
+                  description: >-
+                    Whether to stage the revert as a draft or publish it
+                    immediately. Defaults to `draft`, or to `publish` when the
+                    org enables 'reverts bypass approval'. Without that setting,
+                    publishing a revert that requires approval needs Bypass
+                    draft approvals access.
+                  type: string
+                  enum:
+                    - draft
+                    - publish
+                title:
+                  type: string
+                  description: Short draft title (e.g. `Enable for beta testers`).
+                comment:
+                  type: string
+                  description: Markdown. What changed and why, for reviewers.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SdkConnectionRevision'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
+                  recreatedWebhookIds:
+                    description: >-
+                      Webhooks this revert brought back, when it was applied at
+                      once. Each is created again with a new signing key, so a
+                      receiver that verifies signatures needs the new key from
+                      `GET /sdk-connections/{id}/webhooks`. A revert staged as a
+                      draft recreates them when the draft is published.
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections-revisions/sdk_abc123/3/revert'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources:
     get:
       operationId: listDataSources
@@ -22795,6 +24511,282 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/data-sources' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postDataSource
+      summary: Create a data source
+      description: >-
+        Tests the connection and validates each assignment query against the
+        warehouse before saving. The Managed Warehouse, Google Analytics and
+        Event Forwarders are set up in the app.
+      tags:
+        - data-sources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                  maxLength: 10000
+                projectIds:
+                  type: array
+                  items:
+                    type: string
+                connection:
+                  oneOf:
+                    - title: Postgres Connection
+                      $ref: '#/components/schemas/PostgresConnection'
+                    - title: Redshift Connection
+                      $ref: '#/components/schemas/RedshiftConnection'
+                    - title: Vertica Connection
+                      $ref: '#/components/schemas/VerticaConnection'
+                    - title: Mysql Connection
+                      $ref: '#/components/schemas/MysqlConnection'
+                    - title: Mssql Connection
+                      $ref: '#/components/schemas/MssqlConnection'
+                    - title: Snowflake Connection
+                      $ref: '#/components/schemas/SnowflakeConnection'
+                    - title: Big Query Connection
+                      $ref: '#/components/schemas/BigQueryConnection'
+                    - title: Athena Connection
+                      $ref: '#/components/schemas/AthenaConnection'
+                    - title: Presto Connection
+                      $ref: '#/components/schemas/PrestoConnection'
+                    - title: Databricks Connection
+                      $ref: '#/components/schemas/DatabricksConnection'
+                    - title: Click House Connection
+                      $ref: '#/components/schemas/ClickHouseConnection'
+                    - title: Mixpanel Connection
+                      $ref: '#/components/schemas/MixpanelConnection'
+                    - title: Adobe Experience Platform Query Service Connection
+                      $ref: >-
+                        #/components/schemas/AdobeExperiencePlatformQueryServiceConnection
+                  description: Credentials are stored encrypted and never returned
+                eventTracker:
+                  description: '`eventForwarder` is only accepted unchanged'
+                  type: string
+                  enum:
+                    - segment
+                    - snowplow
+                    - jitsu
+                    - freshpaint
+                    - ga4
+                    - fullstory
+                    - matomo
+                    - heap
+                    - rudderstack
+                    - amplitude
+                    - mparticle
+                    - mixpanel
+                    - firebase
+                    - keen
+                    - clevertap
+                    - langfuse
+                    - phoenix
+                    - eventForwarder
+                    - custom
+                identifierTypes:
+                  description: >-
+                    Replaces the list. An entry matching an existing id keeps
+                    its description if left out; send `""` to clear it.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                    required:
+                      - id
+                    additionalProperties: false
+                assignmentQueries:
+                  description: >-
+                    Replaces the list. An entry with an existing `id` keeps
+                    `description`, `identifierTypes`, `includesNameColumns`,
+                    `dimensionColumns`, `projects` and `columnMapping` if left
+                    out; clear the others with `""`, `false` or `[]`. Each query
+                    is validated against the warehouse.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        description: Omit to create a new query
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                      identifierTypes:
+                        description: Required for a new query unless identifierType is set
+                        minItems: 1
+                        type: array
+                        items:
+                          type: string
+                      identifierType:
+                        description: >-
+                          Deprecated: use identifierTypes, which wins if both
+                          are set
+                        deprecated: true
+                        type: string
+                      sql:
+                        type: string
+                      includesNameColumns:
+                        type: boolean
+                      dimensionColumns:
+                        type: array
+                        items:
+                          type: string
+                      projects:
+                        description: >-
+                          Project IDs that can use this. An empty list means all
+                          Projects. Projects control access and availability, so
+                          don't use them as labels.
+                        type: array
+                        items:
+                          type: string
+                      columnMapping:
+                        description: >-
+                          Columns `sql` returns under a non-canonical name, by
+                          role. Replaces the stored mapping; send `{}` to clear
+                          it.
+                        type: object
+                        properties:
+                          experimentIdColumn:
+                            type: string
+                          variationIdColumn:
+                            type: string
+                          timestampColumn:
+                            type: string
+                          userIdColumns:
+                            description: Column for each identifier type, keyed by type
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                          experimentNameColumn:
+                            type: string
+                          variationNameColumn:
+                            type: string
+                        additionalProperties: false
+                    required:
+                      - name
+                      - sql
+                    additionalProperties: false
+                identifierJoinQueries:
+                  description: Replaces the list
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      identifierTypes:
+                        type: array
+                        items:
+                          type: string
+                      sql:
+                        type: string
+                    required:
+                      - identifierTypes
+                      - sql
+                    additionalProperties: false
+                mixpanelSettings:
+                  type: object
+                  properties:
+                    viewedExperimentEventName:
+                      type: string
+                    experimentIdProperty:
+                      type: string
+                    variationIdProperty:
+                      type: string
+                    extraUserIdProperty:
+                      type: string
+                  additionalProperties: false
+                pipelineSettings:
+                  description: >-
+                    Merged into the stored settings: fields left out keep their
+                    values, but any change must leave `allowWriting`, `mode`,
+                    `writeDataset` and `unitsTableRetentionHours` set, with a
+                    non-empty `writeDataset` when `allowWriting` is true. Send
+                    `[]` to clear `excludedExperimentIds` or
+                    `incrementalOptInExperimentIds`, and `includedExperimentIds:
+                    null` to apply the mode to every experiment again (`[]`
+                    applies it to none).
+                  type: object
+                  properties:
+                    allowWriting:
+                      type: boolean
+                      description: >-
+                        Let GrowthBook write temporary tables to speed up
+                        analysis
+                    mode:
+                      type: string
+                      enum:
+                        - ephemeral
+                        - incremental
+                    writeDatabase:
+                      type: string
+                    writeDataset:
+                      type: string
+                      description: Schema (or dataset) to write tables to
+                    unitsTableRetentionHours:
+                      type: number
+                      exclusiveMinimum: 0
+                    unitsTableDeletion:
+                      type: boolean
+                    includedExperimentIds:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: 'null'
+                    excludedExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                    incrementalOptInExperimentIds:
+                      type: array
+                      items:
+                        type: string
+                  additionalProperties: false
+                maxConcurrentQueries:
+                  type: integer
+                  minimum: 0
+                queryCacheTTLMins:
+                  type: integer
+                  minimum: 0
+              required:
+                - name
+                - connection
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dataSource:
+                    $ref: '#/components/schemas/DataSource'
+                required:
+                  - dataSource
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/data-sources' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/data-sources/{id}:
     get:
@@ -31162,8 +33154,8 @@ paths:
       summary: Atomically publish revisions across multiple entities
       description: >-
         Publishes a set of revisions — at most one per entity — across Feature
-        Flags, Saved Groups, configs, and constants as a single all-or-nothing
-        operation.
+        Flags, Saved Groups, Configs, Constants, and SDK Connections as a single
+        all-or-nothing operation.
 
 
         Validation, guards, and custom hooks run against the combined end-state
@@ -31175,8 +33167,10 @@ paths:
         A blocked publish returns one 422 listing every gate across every item
         and the flag that clears each. A concurrent change to any target aborts
         with a 409 and nothing publishes. A failure after the commit starts
-        rolls everything back and emits `revision.publishFailed` for each
-        revision in the set. SDK payloads refresh once per request. Pass
+        rolls everything back, including an SDK Connection's webhooks, and emits
+        `revision.publishFailed` for each revision in the set that has revision
+        events. SDK payloads refresh once per request, and a webhook an SDK
+        Connection revision edits is sent only once the release has landed. Pass
         `dryRun: true` for the full gate report with zero writes.
 
 
@@ -31204,6 +33198,8 @@ paths:
                         $ref: '#/components/schemas/ConfigRevisionRef'
                       - title: Constant Revision Ref
                         $ref: '#/components/schemas/ConstantRevisionRef'
+                      - title: Sdk Connection Revision Ref
+                        $ref: '#/components/schemas/SdkConnectionRevisionRef'
                       - title: Revision Id Ref
                         $ref: '#/components/schemas/RevisionIdRef'
                   description: The revisions to publish, at most one per entity.
@@ -31233,10 +33229,11 @@ paths:
                   description: >-
                     Set to true to publish despite Custom Hook rejections. The
                     caller must have Bypass draft approvals access for Feature
-                    Flags, Configs, and Constants in every Project. Only set
-                    this when a person has explicitly asked you to. If a check
-                    blocks you, stop and ask a person instead of working around
-                    it.
+                    Flags, Configs, and Constants in every Project. A Custom
+                    Hook on an SDK Connection takes that access for SDK
+                    Connections. Only set this when a person has explicitly
+                    asked you to. If a check blocks you, stop and ask a person
+                    instead of working around it.
                   type: boolean
                 comment:
                   description: >-
@@ -31279,6 +33276,7 @@ paths:
                             - saved-group
                             - config
                             - constant
+                            - sdk-connection
                         id:
                           type: string
                           description: The identifier used in the request.
@@ -31351,6 +33349,7 @@ paths:
                             - saved-group
                             - config
                             - constant
+                            - sdk-connection
                         id:
                           type: string
                         version:
@@ -31446,6 +33445,8 @@ paths:
                     - validateConfig
                     - validateConfigRevision
                     - validateExperiment
+                    - validateSdkConnection
+                    - validateSdkConnectionRevision
                 code:
                   type: string
                 enabled:
@@ -31462,6 +33463,7 @@ paths:
                     - feature
                     - config
                     - experiment
+                    - sdkConnection
                 entityId:
                   type: string
                 incrementalChangesOnly:
@@ -31516,7 +33518,8 @@ paths:
                   additionalProperties: {}
                   description: >-
                     Arguments exposed to the function as named globals (e.g.
-                    `feature`, `config`, `revision`)
+                    `feature`, `config`, `revision`, `sdkConnection`,
+                    `sdkWebhooks`)
                 originalFunctionArgs:
                   type: object
                   propertyNames:
@@ -31532,6 +33535,7 @@ paths:
                     - feature
                     - config
                     - experiment
+                    - sdkConnection
                 entityId:
                   type: string
               required:
@@ -31634,6 +33638,8 @@ paths:
                     - validateConfig
                     - validateConfigRevision
                     - validateExperiment
+                    - validateSdkConnection
+                    - validateSdkConnectionRevision
                 code:
                   type: string
                 enabled:
@@ -31649,6 +33655,7 @@ paths:
                         - feature
                         - config
                         - experiment
+                        - sdkConnection
                     - type: 'null'
                   description: >-
                     Retarget the hook's scope (set with entityId). Pass null
@@ -31656,9 +33663,9 @@ paths:
                     global/project-scoped; omit to leave unchanged.
                 entityId:
                   description: >-
-                    The scoped resource: a feature id, or a config key. Pass
-                    null (with entityType: null) to clear the scope; omit to
-                    leave unchanged.
+                    The scoped resource: a feature id, an experiment id, an SDK
+                    Connection id, or a config key. Pass null (with entityType:
+                    null) to clear the scope; omit to leave unchanged.
                   type:
                     - string
                     - 'null'
@@ -38376,7 +40383,7 @@ paths:
         body
 
         fields are ignored, so a tool can send its own payload.
-      tags: &ref_0
+      tags: &ref_1
         - ramp-schedules
       parameters:
         - name: environment
@@ -38475,7 +40482,7 @@ paths:
         body
 
         fields are ignored, so a tool can send its own payload.
-      tags: *ref_0
+      tags: *ref_1
       parameters:
         - name: environment
           in: query
@@ -41990,6 +43997,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -42073,17 +44081,24 @@ paths:
                                                 - 'null'
                                             showAs:
                                               description: >-
-                                                How a mean metric renders: `total` sums
-                                                the numerator, `per_unit` divides it by
-                                                the unit count. Ignored for other metric
-                                                types. Omit to use the default
-                                                (`per_unit` for `max` and `count
-                                                distinct` aggregations, otherwise
+                                                How a metric renders: `total` sums the
+                                                numerator, `per_unit` divides it by the
+                                                unit count (mean metrics only), and
+                                                `percent_of_population` divides it by
+                                                the population's member count as a
+                                                percentage (proportion metrics with a
+                                                population only). Ignored for other
+                                                metric types. Omit to use the default
+                                                (`per_unit` for mean metrics with `max`
+                                                and `count distinct` aggregations,
+                                                `percent_of_population` for proportion
+                                                metrics with a population, otherwise
                                                 `total`).
                                               type: string
                                               enum:
                                                 - total
                                                 - per_unit
+                                                - percent_of_population
                                           required:
                                             - name
                                             - rowFilters
@@ -42096,11 +44111,12 @@ paths:
                                         description: >-
                                           **Beta** — this field is new and may
                                           change in backwards-incompatible ways. A
-                                          population applied to every metric in
-                                          the request. Only proportion metrics on
-                                          the population's Fact Table are
-                                          supported; the request is rejected if
-                                          any metric is incompatible.
+                                          saved Population applied to every metric
+                                          in the request. Only proportion and mean
+                                          metrics on the Population's Fact Table
+                                          are supported, and mean metrics can't
+                                          use percentile capping; the request is
+                                          rejected if any metric is incompatible.
                                         $ref: >-
                                           #/components/schemas/ExplorationPopulation
                                     required:
@@ -42419,6 +44435,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -42833,6 +44850,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -43264,6 +45282,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -43695,6 +45714,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -45431,6 +47451,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -45514,17 +47535,24 @@ paths:
                                                 - 'null'
                                             showAs:
                                               description: >-
-                                                How a mean metric renders: `total` sums
-                                                the numerator, `per_unit` divides it by
-                                                the unit count. Ignored for other metric
-                                                types. Omit to use the default
-                                                (`per_unit` for `max` and `count
-                                                distinct` aggregations, otherwise
+                                                How a metric renders: `total` sums the
+                                                numerator, `per_unit` divides it by the
+                                                unit count (mean metrics only), and
+                                                `percent_of_population` divides it by
+                                                the population's member count as a
+                                                percentage (proportion metrics with a
+                                                population only). Ignored for other
+                                                metric types. Omit to use the default
+                                                (`per_unit` for mean metrics with `max`
+                                                and `count distinct` aggregations,
+                                                `percent_of_population` for proportion
+                                                metrics with a population, otherwise
                                                 `total`).
                                               type: string
                                               enum:
                                                 - total
                                                 - per_unit
+                                                - percent_of_population
                                           required:
                                             - name
                                             - rowFilters
@@ -45537,11 +47565,12 @@ paths:
                                         description: >-
                                           **Beta** — this field is new and may
                                           change in backwards-incompatible ways. A
-                                          population applied to every metric in
-                                          the request. Only proportion metrics on
-                                          the population's Fact Table are
-                                          supported; the request is rejected if
-                                          any metric is incompatible.
+                                          saved Population applied to every metric
+                                          in the request. Only proportion and mean
+                                          metrics on the Population's Fact Table
+                                          are supported, and mean metrics can't
+                                          use percentile capping; the request is
+                                          rejected if any metric is incompatible.
                                         $ref: >-
                                           #/components/schemas/ExplorationPopulation
                                     required:
@@ -45852,6 +47881,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -46258,6 +48288,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -46681,6 +48712,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -47104,6 +49136,7 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                      - percent_of_population
                                   chartSettings:
                                     type: object
                                     properties:
@@ -49067,6 +51100,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -49150,17 +51184,24 @@ paths:
                                             - 'null'
                                         showAs:
                                           description: >-
-                                            How a mean metric renders: `total` sums
-                                            the numerator, `per_unit` divides it by
-                                            the unit count. Ignored for other metric
-                                            types. Omit to use the default
-                                            (`per_unit` for `max` and `count
-                                            distinct` aggregations, otherwise
+                                            How a metric renders: `total` sums the
+                                            numerator, `per_unit` divides it by the
+                                            unit count (mean metrics only), and
+                                            `percent_of_population` divides it by
+                                            the population's member count as a
+                                            percentage (proportion metrics with a
+                                            population only). Ignored for other
+                                            metric types. Omit to use the default
+                                            (`per_unit` for mean metrics with `max`
+                                            and `count distinct` aggregations,
+                                            `percent_of_population` for proportion
+                                            metrics with a population, otherwise
                                             `total`).
                                           type: string
                                           enum:
                                             - total
                                             - per_unit
+                                            - percent_of_population
                                       required:
                                         - name
                                         - rowFilters
@@ -49173,11 +51214,12 @@ paths:
                                     description: >-
                                       **Beta** — this field is new and may
                                       change in backwards-incompatible ways. A
-                                      population applied to every metric in the
-                                      request. Only proportion metrics on the
-                                      population's Fact Table are supported; the
-                                      request is rejected if any metric is
-                                      incompatible.
+                                      saved Population applied to every metric
+                                      in the request. Only proportion and mean
+                                      metrics on the Population's Fact Table are
+                                      supported, and mean metrics can't use
+                                      percentile capping; the request is
+                                      rejected if any metric is incompatible.
                                     $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
                                   - type
@@ -49485,6 +51527,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -49889,6 +51932,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -50310,6 +52354,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -50731,6 +52776,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -52705,6 +54751,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -52788,17 +54835,24 @@ paths:
                                             - 'null'
                                         showAs:
                                           description: >-
-                                            How a mean metric renders: `total` sums
-                                            the numerator, `per_unit` divides it by
-                                            the unit count. Ignored for other metric
-                                            types. Omit to use the default
-                                            (`per_unit` for `max` and `count
-                                            distinct` aggregations, otherwise
+                                            How a metric renders: `total` sums the
+                                            numerator, `per_unit` divides it by the
+                                            unit count (mean metrics only), and
+                                            `percent_of_population` divides it by
+                                            the population's member count as a
+                                            percentage (proportion metrics with a
+                                            population only). Ignored for other
+                                            metric types. Omit to use the default
+                                            (`per_unit` for mean metrics with `max`
+                                            and `count distinct` aggregations,
+                                            `percent_of_population` for proportion
+                                            metrics with a population, otherwise
                                             `total`).
                                           type: string
                                           enum:
                                             - total
                                             - per_unit
+                                            - percent_of_population
                                       required:
                                         - name
                                         - rowFilters
@@ -52811,11 +54865,12 @@ paths:
                                     description: >-
                                       **Beta** — this field is new and may
                                       change in backwards-incompatible ways. A
-                                      population applied to every metric in the
-                                      request. Only proportion metrics on the
-                                      population's Fact Table are supported; the
-                                      request is rejected if any metric is
-                                      incompatible.
+                                      saved Population applied to every metric
+                                      in the request. Only proportion and mean
+                                      metrics on the Population's Fact Table are
+                                      supported, and mean metrics can't use
+                                      percentile capping; the request is
+                                      rejected if any metric is incompatible.
                                     $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
                                   - type
@@ -53123,6 +55178,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -53527,6 +55583,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -53948,6 +56005,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -54369,6 +56427,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -58817,6 +60876,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -58900,15 +60960,21 @@ paths:
                               - 'null'
                           showAs:
                             description: >-
-                              How a mean metric renders: `total` sums the
-                              numerator, `per_unit` divides it by the unit
-                              count. Ignored for other metric types. Omit to use
-                              the default (`per_unit` for `max` and `count
-                              distinct` aggregations, otherwise `total`).
+                              How a metric renders: `total` sums the numerator,
+                              `per_unit` divides it by the unit count (mean
+                              metrics only), and `percent_of_population` divides
+                              it by the population's member count as a
+                              percentage (proportion metrics with a population
+                              only). Ignored for other metric types. Omit to use
+                              the default (`per_unit` for mean metrics with
+                              `max` and `count distinct` aggregations,
+                              `percent_of_population` for proportion metrics
+                              with a population, otherwise `total`).
                             type: string
                             enum:
                               - total
                               - per_unit
+                              - percent_of_population
                         required:
                           - name
                           - rowFilters
@@ -58920,10 +60986,11 @@ paths:
                     population:
                       description: >-
                         **Beta** — this field is new and may change in
-                        backwards-incompatible ways. A population applied to
-                        every metric in the request. Only proportion metrics on
-                        the population's Fact Table are supported; the request
-                        is rejected if any metric is incompatible.
+                        backwards-incompatible ways. A saved Population applied
+                        to every metric in the request. Only proportion and mean
+                        metrics on the Population's Fact Table are supported,
+                        and mean metrics can't use percentile capping; the
+                        request is rejected if any metric is incompatible.
                       $ref: '#/components/schemas/ExplorationPopulation'
                   required:
                     - type
@@ -59283,6 +61350,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -59366,17 +61434,24 @@ paths:
                                             - 'null'
                                         showAs:
                                           description: >-
-                                            How a mean metric renders: `total` sums
-                                            the numerator, `per_unit` divides it by
-                                            the unit count. Ignored for other metric
-                                            types. Omit to use the default
-                                            (`per_unit` for `max` and `count
-                                            distinct` aggregations, otherwise
+                                            How a metric renders: `total` sums the
+                                            numerator, `per_unit` divides it by the
+                                            unit count (mean metrics only), and
+                                            `percent_of_population` divides it by
+                                            the population's member count as a
+                                            percentage (proportion metrics with a
+                                            population only). Ignored for other
+                                            metric types. Omit to use the default
+                                            (`per_unit` for mean metrics with `max`
+                                            and `count distinct` aggregations,
+                                            `percent_of_population` for proportion
+                                            metrics with a population, otherwise
                                             `total`).
                                           type: string
                                           enum:
                                             - total
                                             - per_unit
+                                            - percent_of_population
                                       required:
                                         - name
                                         - rowFilters
@@ -59389,11 +61464,12 @@ paths:
                                     description: >-
                                       **Beta** — this field is new and may
                                       change in backwards-incompatible ways. A
-                                      population applied to every metric in the
-                                      request. Only proportion metrics on the
-                                      population's Fact Table are supported; the
-                                      request is rejected if any metric is
-                                      incompatible.
+                                      saved Population applied to every metric
+                                      in the request. Only proportion and mean
+                                      metrics on the Population's Fact Table are
+                                      supported, and mean metrics can't use
+                                      percentile capping; the request is
+                                      rejected if any metric is incompatible.
                                     $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
                                   - type
@@ -59640,6 +61716,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -60096,6 +62173,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -60439,6 +62517,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -60912,6 +62991,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -61272,6 +63352,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -61748,6 +63829,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -62111,6 +64193,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -62580,6 +64663,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -62936,6 +65020,7 @@ paths:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -63427,6 +65512,7 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                                  - percent_of_population
                               chartSettings:
                                 type: object
                                 properties:
@@ -67084,8 +69170,10 @@ paths:
       description: >-
         Called whenever the connection's payload changes. `httpMethod` defaults
         to POST. More than one webhook per organization requires a paid plan.
-        When the organization requires approvals for the connection, change its
-        webhooks in a draft from the SDK Connection page instead, or pass
+        The change is recorded as a published revision of the connection. When
+        the organization requires approvals for the connection, add it in a
+        draft revision instead (`POST
+        /sdk-connections-revisions/{id}/new/webhooks`), or pass
         `bypassApproval`.
       tags:
         - SdkWebhooks
@@ -67148,6 +69236,26 @@ paths:
                     the organization enables the REST API approval bypass. This
                     field has no effect when approval is not required.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
               required:
                 - name
                 - endpoint
@@ -67186,10 +69294,13 @@ paths:
       operationId: putSdkWebhook
       summary: Update an SDK webhook
       description: >-
-        The webhook fires once after an update. Webhooks managed by the Vercel
-        integration can't be changed. When the organization requires approvals
-        for a connection the webhook fires for, change it in a draft from the
-        SDK Connection page instead, or pass `bypassApproval`.
+        The webhook fires once after an update, and the change is recorded as a
+        published revision of each connection it fires for. Webhooks managed by
+        the Vercel integration can't be changed. When the organization requires
+        approvals for a connection the webhook fires for, change it in a draft
+        revision instead (`PUT
+        /sdk-connections-revisions/{id}/new/webhooks/{webhookId}`), or pass
+        `bypassApproval`.
       tags:
         - SdkWebhooks
       parameters:
@@ -67254,6 +69365,26 @@ paths:
                     the organization enables the REST API approval bypass. This
                     field has no effect when approval is not required.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
+                  type: boolean
                 sdkConnections:
                   minItems: 1
                   type: array
@@ -67293,9 +69424,11 @@ paths:
       operationId: deleteSdkWebhook
       summary: Delete an SDK webhook
       description: >-
-        Webhooks managed by the Vercel integration can't be deleted here. When
-        the organization requires approvals for a connection the webhook fires
-        for, remove it in a draft from the SDK Connection page instead, or pass
+        The removal is recorded as a published revision of each connection the
+        webhook fired for. Webhooks managed by the Vercel integration can't be
+        deleted here. When the organization requires approvals for a connection
+        the webhook fires for, remove it in a draft revision instead (`DELETE
+        /sdk-connections-revisions/{id}/new/webhooks/{webhookId}`), or pass
         `bypassApproval`.
       tags:
         - SdkWebhooks
@@ -67320,6 +69453,26 @@ paths:
                     approvals access in the SDK Connection's Projects, unless
                     the organization enables the REST API approval bypass. This
                     field has no effect when approval is not required.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to continue past a warning: one raised by a
+                    Custom Hook, or a webhook that references a secret that
+                    doesn't exist. On publish, it also force-publishes an
+                    out-of-date draft when the caller has Bypass draft approvals
+                    access. It never clears a Custom Hook rejection. Only set
+                    this when a person has explicitly asked you to. If a check
+                    blocks you, stop and ask a person instead of working around
+                    it.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to continue despite a Custom Hook rejection. The
+                    caller must have Bypass draft approvals access for SDK
+                    Connections in every Project. Otherwise, this field is
+                    ignored. Only set this when a person has explicitly asked
+                    you to. If a check blocks you, stop and ask a person instead
+                    of working around it.
                   type: boolean
               additionalProperties: false
       responses:
@@ -67916,6 +70069,21 @@ components:
       schema:
         type: string
         description: The key of the requested sdkConnection
+    sdkConnectionId:
+      name: sdkConnectionId
+      in: query
+      description: Restrict results to revisions of a single SDK Connection.
+      schema:
+        description: Restrict results to revisions of a single SDK Connection.
+        type: string
+    webhookId:
+      name: webhookId
+      in: path
+      required: true
+      description: The webhook's id in this revision
+      schema:
+        type: string
+        description: The webhook's id in this revision
     dataSourceId:
       name: dataSourceId
       in: path
@@ -75111,9 +77279,8 @@ components:
           type: boolean
         archived:
           description: >-
-            An archived connection serves no payload. When the organization
-            requires approvals for the connection, it must be archived before it
-            can be deleted.
+            An archived connection serves no payload. A connection must be
+            archived before it can be deleted.
           type: boolean
       required:
         - id
@@ -75130,6 +77297,537 @@ components:
         - proxyEnabled
         - proxyHost
         - proxySigningKey
+      additionalProperties: false
+    SdkConnectionRevision:
+      type: object
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+          enum:
+            - draft
+            - pending-review
+            - approved
+            - changes-requested
+            - merged
+            - discarded
+        authorId:
+          type: string
+          description: >-
+            Who acted: a member's user ID, or an API key's ID when it acted as
+            itself
+        author:
+          description: Who created the revision, with an API key's name
+          $ref: '#/components/schemas/EventUser'
+        contributors:
+          type: array
+          items:
+            type: string
+        revertedFrom:
+          type: string
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/SdkConnectionRevisionReview'
+        activityLog:
+          type: array
+          items:
+            $ref: '#/components/schemas/SdkConnectionRevisionActivityLogEntry'
+        autoPublishOnApproval:
+          description: Publish automatically the moment this revision is approved.
+          type: boolean
+        autoPublishEnabledBy:
+          description: >-
+            User or API key the deferred publish runs as, re-checked when it
+            fires. A key that assumed a member's role is recorded as
+            `<keyId>:<memberId>`.
+          type: string
+        autoPublishEnabledByUser:
+          description: Who armed the deferred publish, with an API key's name
+          $ref: '#/components/schemas/EventUser'
+        scheduledPublishAt:
+          description: >-
+            When the deferred publish fires. Absent when the revision publishes
+            on approval instead, or is not armed at all.
+          type: string
+          format: date-time
+        scheduledPublishLockEdits:
+          description: Content edits to this revision are frozen until it fires.
+          type: boolean
+        scheduledPublishLockOthers:
+          description: >-
+            Other revisions of the same resource cannot publish until this one
+            fires or is cancelled.
+          type: boolean
+        scheduledPublishBypassApproval:
+          description: >-
+            Armed by a caller who bypassed the approval requirement. Such a
+            schedule must be cancelled and re-armed rather than edited.
+          type: boolean
+        scheduledPublishAttempts:
+          description: How many times the poller has tried to publish this revision.
+          type: integer
+        scheduledPublishLastError:
+          description: Why the most recent deferred-publish attempt failed.
+          type: string
+        scheduledPublishGaveUpAt:
+          description: >-
+            When the poller stopped retrying. Giving up CLEARS the schedule and
+            disarms auto-publish, so nothing fires again until the revision is
+            re-armed. The draft is left open, with `scheduledPublishLastError`
+            preserved for context.
+          type: string
+          format: date-time
+        resolution:
+          type: object
+          properties:
+            action:
+              type: string
+              enum:
+                - merged
+                - discarded
+            userId:
+              type: string
+              description: >-
+                Who acted: a member's user ID, or an API key's ID when it acted
+                as itself
+            user:
+              $ref: '#/components/schemas/EventUser'
+            dateCreated:
+              type: string
+              format: date-time
+          required:
+            - action
+            - userId
+            - dateCreated
+          additionalProperties: false
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        baseSdkConnection:
+          description: The settings when the revision was created
+          $ref: '#/components/schemas/SdkConnectionRevisionSettings'
+        proposedSdkConnection:
+          description: The settings with this revision's changes applied
+          $ref: '#/components/schemas/SdkConnectionRevisionSettings'
+        baseSdkWebhooks:
+          type: array
+          items:
+            $ref: '#/components/schemas/SdkConnectionRevisionWebhook'
+          description: The webhooks when the revision was created
+        proposedSdkWebhooks:
+          type: array
+          items:
+            $ref: '#/components/schemas/SdkConnectionRevisionWebhook'
+          description: The webhooks with this revision's changes applied
+        proposedChanges:
+          type: array
+          items:
+            oneOf:
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: add
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: remove
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                required:
+                  - op
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: replace
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: move
+                  from:
+                    type: string
+                    pattern: ^\/[^/]+$
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                required:
+                  - op
+                  - from
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: copy
+                  from:
+                    type: string
+                    pattern: ^\/[^/]+$
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                required:
+                  - op
+                  - from
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: test
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+          description: >-
+            The raw JSON Patch ops. Most callers can read the `proposed*` fields
+            instead.
+      required:
+        - id
+        - status
+        - authorId
+        - reviews
+        - activityLog
+        - dateCreated
+        - dateUpdated
+        - baseSdkConnection
+        - proposedSdkConnection
+        - baseSdkWebhooks
+        - proposedSdkWebhooks
+        - proposedChanges
+      additionalProperties: false
+    SdkConnectionRevisionReview:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+          description: >-
+            Who acted: a member's user ID, or an API key's ID when it acted as
+            itself
+        decision:
+          type: string
+          enum:
+            - approve
+            - request-changes
+            - comment
+        comment:
+          type: string
+        stale:
+          description: >-
+            True if a later review cycle (re-submit, approval reset, recall, or
+            reopen) superseded this verdict. Stale verdicts are kept for
+            attribution but no longer count as an active approval or
+            change-request.
+          type: boolean
+        dateCreated:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/EventUser'
+      required:
+        - id
+        - userId
+        - decision
+        - dateCreated
+      additionalProperties: false
+    SdkConnectionRevisionActivityLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+          description: >-
+            Who acted: a member's user ID, or an API key's ID when it acted as
+            itself
+        action:
+          type: string
+          enum:
+            - created
+            - updated
+            - reviewed
+            - approved
+            - requested-changes
+            - commented
+            - review-requested
+            - review-retracted
+            - merged
+            - discarded
+            - reopened
+            - recalled
+            - scheduled-publish
+            - scheduled-publish-updated
+            - scheduled-publish-canceled
+            - merge-recovered
+        description:
+          type:
+            - string
+            - 'null'
+        proposedChangesSnapshot:
+          type: array
+          items:
+            oneOf:
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: add
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: remove
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                required:
+                  - op
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: replace
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: move
+                  from:
+                    type: string
+                    pattern: ^\/[^/]+$
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                required:
+                  - op
+                  - from
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: copy
+                  from:
+                    type: string
+                    pattern: ^\/[^/]+$
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                required:
+                  - op
+                  - from
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: test
+                  path:
+                    type: string
+                    pattern: ^\/[^/]+$
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+        targetSnapshot: {}
+        dateCreated:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/EventUser'
+      required:
+        - id
+        - userId
+        - action
+        - dateCreated
+      additionalProperties: false
+    SdkConnectionRevisionSettings:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        eventTracker:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        sdkVersion:
+          type: string
+        environment:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
+        encryptPayload:
+          type: boolean
+        hashSecureAttributes:
+          type: boolean
+        includeVisualExperiments:
+          type: boolean
+        includeDraftExperiments:
+          type: boolean
+        includeDraftExperimentRefs:
+          type: boolean
+        includeExperimentNames:
+          type: boolean
+        includeRedirectExperiments:
+          type: boolean
+        includeRuleIds:
+          type: boolean
+        includeProjectIdInMetadata:
+          type: boolean
+        includeCustomFieldsInMetadata:
+          type: boolean
+        allowedCustomFieldsInMetadata:
+          type: array
+          items:
+            type: string
+        includeTagsInMetadata:
+          type: boolean
+        includeExperimentScheduleInMetadata:
+          type: boolean
+        remoteEvalEnabled:
+          type: boolean
+        tracesEnabled:
+          type: boolean
+        savedGroupReferencesEnabled:
+          type: boolean
+        savedGroupFormat:
+          type: string
+          enum:
+            - inline
+            - referencesV1
+            - referencesV2
+        includeReferencedPrerequisites:
+          type: boolean
+        proxyEnabled:
+          type: boolean
+        proxyHost:
+          type: string
+        archived:
+          type: boolean
+      required:
+        - id
+        - name
+        - languages
+        - environment
+        - projects
+        - encryptPayload
+      additionalProperties: false
+    SdkConnectionRevisionWebhook:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        endpoint:
+          type: string
+        httpMethod:
+          type: string
+          enum:
+            - GET
+            - PUT
+            - POST
+            - DELETE
+            - PURGE
+            - PATCH
+        headers:
+          description: >-
+            JSON-encoded object of extra headers. Only returned by the read
+            endpoints, to callers who can edit the webhook.
+          type: string
+        payloadFormat:
+          type: string
+          enum:
+            - standard
+            - standard-no-payload
+            - sdkPayload
+            - edgeConfig
+            - edgeConfigUnescaped
+            - vercelNativeIntegration
+            - none
+        payloadKey:
+          type: string
+        timeoutSeconds:
+          anyOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+      required:
+        - id
+        - name
+        - endpoint
+        - httpMethod
       additionalProperties: false
     DataSource:
       type: object
@@ -75329,6 +78027,491 @@ components:
         - identifierTypes
         - assignmentQueries
         - identifierJoinQueries
+      additionalProperties: false
+    PostgresConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: postgres
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        user:
+          type: string
+        password:
+          type: string
+        defaultSchema:
+          type: string
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+      required:
+        - type
+        - host
+        - port
+        - database
+        - user
+        - password
+      additionalProperties: false
+    RedshiftConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: redshift
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        user:
+          type: string
+        password:
+          type: string
+        defaultSchema:
+          type: string
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+      required:
+        - type
+        - host
+        - port
+        - database
+        - user
+        - password
+      additionalProperties: false
+    VerticaConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: vertica
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        user:
+          type: string
+        password:
+          type: string
+        defaultSchema:
+          type: string
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+      required:
+        - type
+        - host
+        - port
+        - database
+        - user
+        - password
+      additionalProperties: false
+    MysqlConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: mysql
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        user:
+          type: string
+        password:
+          type: string
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+      required:
+        - type
+        - host
+        - port
+        - database
+        - user
+        - password
+      additionalProperties: false
+    MssqlConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: mssql
+        server:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        user:
+          type: string
+        password:
+          type: string
+        defaultSchema:
+          type: string
+        requestTimeout:
+          type: integer
+        options:
+          type: object
+          properties:
+            encrypt:
+              type: boolean
+            trustServerCertificate:
+              type: boolean
+          additionalProperties: false
+      required:
+        - type
+        - server
+        - port
+        - database
+        - user
+        - password
+      additionalProperties: false
+    SnowflakeConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: snowflake
+        account:
+          type: string
+        accessUrl:
+          type: string
+        username:
+          type: string
+        password:
+          description: For `password` auth
+          type: string
+        database:
+          type: string
+        schema:
+          type: string
+        role:
+          type: string
+        warehouse:
+          type: string
+        authMethod:
+          type: string
+          enum:
+            - password
+            - key-pair
+            - workload-identity
+        privateKey:
+          type: string
+        privateKeyPassword:
+          type: string
+        workloadIdentityProvider:
+          type: string
+          enum:
+            - AWS
+            - AZURE
+            - GCP
+      required:
+        - type
+        - account
+        - username
+        - database
+        - schema
+      additionalProperties: false
+    BigQueryConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: bigquery
+        authType:
+          description: '`auto` uses the server''s own credentials: self-hosted only'
+          type: string
+          enum:
+            - auto
+            - json
+        projectId:
+          type: string
+        clientEmail:
+          type: string
+        privateKey:
+          type: string
+        apiEndpoint:
+          type: string
+        reservation:
+          type: string
+        defaultProject:
+          type: string
+        defaultDataset:
+          type: string
+      required:
+        - type
+        - defaultProject
+        - defaultDataset
+      additionalProperties: false
+    AthenaConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: athena
+        authType:
+          description: '`auto` uses the server''s own credentials: self-hosted only'
+          type: string
+          enum:
+            - auto
+            - accessKey
+            - assumeRole
+        accessKeyId:
+          type: string
+        secretAccessKey:
+          type: string
+        assumeRoleARN:
+          type: string
+        roleSessionName:
+          type: string
+        durationSeconds:
+          type: integer
+        externalId:
+          type: string
+        region:
+          type: string
+        database:
+          type: string
+        bucketUri:
+          type: string
+        workGroup:
+          type: string
+        catalog:
+          type: string
+        resultReuseMaxAgeInMinutes:
+          type: string
+      required:
+        - type
+        - region
+        - bucketUri
+      additionalProperties: false
+    PrestoConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: presto
+        engine:
+          type: string
+          enum:
+            - presto
+            - trino
+        authType:
+          type: string
+          enum:
+            - basicAuth
+            - none
+            - customAuth
+            - kerberos
+        host:
+          type: string
+        port:
+          type: integer
+        user:
+          description: Presto only
+          type: string
+        trinoUser:
+          description: Trino only
+          type: string
+        username:
+          description: For basicAuth
+          type: string
+        password:
+          description: For basicAuth
+          type: string
+        customAuth:
+          type: string
+        kerberosServicePrincipal:
+          type: string
+        kerberosClientPrincipal:
+          type: string
+        kerberosUser:
+          type: string
+        source:
+          type: string
+        catalog:
+          type: string
+        schema:
+          type: string
+        requestTimeout:
+          type: integer
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+      required:
+        - type
+        - engine
+        - host
+        - port
+        - catalog
+        - schema
+      additionalProperties: false
+    DatabricksConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: databricks
+        authType:
+          type: string
+          enum:
+            - pat
+            - oauth-m2m
+        token:
+          description: For pat
+          type: string
+        oauthClientId:
+          description: For oauth-m2m
+          type: string
+        oauthClientSecret:
+          description: For oauth-m2m
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+        path:
+          type: string
+        catalog:
+          type: string
+      required:
+        - type
+        - authType
+        - host
+        - port
+        - path
+        - catalog
+      additionalProperties: false
+    ClickHouseConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: clickhouse
+        url:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        password:
+          type: string
+        database:
+          type: string
+        maxExecutionTime:
+          type: integer
+        ssl:
+          type: boolean
+        caCert:
+          type: string
+        clientCert:
+          type: string
+        clientKey:
+          type: string
+        caCertPath:
+          type: string
+        clientCertPath:
+          type: string
+        clientKeyPath:
+          type: string
+        clientCertChainPath:
+          description: >-
+            The `*Path` fields read PEM files on the GrowthBook server:
+            self-hosted with a single organization only
+          type: string
+      required:
+        - type
+        - url
+        - port
+        - password
+        - database
+      additionalProperties: false
+    MixpanelConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: mixpanel
+        username:
+          type: string
+        secret:
+          type: string
+        projectId:
+          type: string
+        server:
+          type: string
+          enum:
+            - standard
+            - eu
+      required:
+        - type
+        - username
+        - secret
+        - projectId
+      additionalProperties: false
+    AdobeExperiencePlatformQueryServiceConnection:
+      type: object
+      properties:
+        type:
+          type: string
+          const: adobe_experience_platform_query_service
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        username:
+          type: string
+        technicalAccountId:
+          type: string
+        credential:
+          type: string
+      required:
+        - type
+        - host
+        - port
+        - database
+        - username
+        - technicalAccountId
+        - credential
       additionalProperties: false
     InformationSchema:
       type: object
@@ -77819,6 +81002,23 @@ components:
         - key
         - version
       additionalProperties: false
+    SdkConnectionRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: sdk-connection
+        id:
+          type: string
+          description: SDK Connection id.
+        version:
+          type: integer
+          description: Revision version to publish.
+      required:
+        - entityType
+        - id
+        - version
+      additionalProperties: false
     RevisionIdRef:
       type: object
       properties:
@@ -77829,6 +81029,7 @@ components:
             - saved-group
             - config
             - constant
+            - sdk-connection
         revisionId:
           type: string
           description: >-
@@ -77853,6 +81054,8 @@ components:
             - validateConfig
             - validateConfigRevision
             - validateExperiment
+            - validateSdkConnection
+            - validateSdkConnectionRevision
           description: >-
             Which save/publish event runs the hook (and which entity type it
             validates)
@@ -77876,13 +81079,15 @@ components:
             - feature
             - config
             - experiment
+            - sdkConnection
           description: Set (with entityId) to scope the hook to a single resource.
         entityId:
           type: string
           description: >-
-            The scoped resource: a feature id, or a config key. A config-scoped
-            hook always runs for that config and every config that inherits from
-            it (via parent/extends, transitively).
+            The scoped resource: a feature id, an experiment id, an SDK
+            Connection id, or a config key. A config-scoped hook always runs for
+            that config and every config that inherits from it (via
+            parent/extends, transitively).
         incrementalChangesOnly:
           type: boolean
           description: >-
@@ -80066,6 +83271,8 @@ components:
                   - customField.edit
                   - customField.delete
                   - sdkConnection.create
+                  - sdkConnection.draft
+                  - sdkConnection.review
                   - sdkConnection.edit
                   - sdkConnection.delete
                   - metric.create
@@ -83545,6 +86752,7 @@ components:
                         enum:
                           - total
                           - per_unit
+                          - percent_of_population
                       chartSettings:
                         type: object
                         properties:
@@ -83628,16 +86836,23 @@ components:
                                     - 'null'
                                 showAs:
                                   description: >-
-                                    How a mean metric renders: `total` sums the
+                                    How a metric renders: `total` sums the
                                     numerator, `per_unit` divides it by the unit
-                                    count. Ignored for other metric types. Omit
-                                    to use the default (`per_unit` for `max` and
-                                    `count distinct` aggregations, otherwise
-                                    `total`).
+                                    count (mean metrics only), and
+                                    `percent_of_population` divides it by the
+                                    population's member count as a percentage
+                                    (proportion metrics with a population only).
+                                    Ignored for other metric types. Omit to use
+                                    the default (`per_unit` for mean metrics
+                                    with `max` and `count distinct`
+                                    aggregations, `percent_of_population` for
+                                    proportion metrics with a population,
+                                    otherwise `total`).
                                   type: string
                                   enum:
                                     - total
                                     - per_unit
+                                    - percent_of_population
                               required:
                                 - name
                                 - rowFilters
@@ -83649,11 +86864,12 @@ components:
                           population:
                             description: >-
                               **Beta** — this field is new and may change in
-                              backwards-incompatible ways. A population applied
-                              to every metric in the request. Only proportion
-                              metrics on the population's Fact Table are
-                              supported; the request is rejected if any metric
-                              is incompatible.
+                              backwards-incompatible ways. A saved Population
+                              applied to every metric in the request. Only
+                              proportion and mean metrics on the Population's
+                              Fact Table are supported, and mean metrics can't
+                              use percentile capping; the request is rejected if
+                              any metric is incompatible.
                             $ref: '#/components/schemas/ExplorationPopulation'
                         required:
                           - type
@@ -83967,6 +87183,7 @@ components:
                         enum:
                           - total
                           - per_unit
+                          - percent_of_population
                       chartSettings:
                         type: object
                         properties:
@@ -84377,6 +87594,7 @@ components:
                         enum:
                           - total
                           - per_unit
+                          - percent_of_population
                       chartSettings:
                         type: object
                         properties:
@@ -84804,6 +88022,7 @@ components:
                         enum:
                           - total
                           - per_unit
+                          - percent_of_population
                       chartSettings:
                         type: object
                         properties:
@@ -85234,6 +88453,7 @@ components:
                         enum:
                           - total
                           - per_unit
+                          - percent_of_population
                       chartSettings:
                         type: object
                         properties:
@@ -85401,77 +88621,16 @@ components:
     ExplorationPopulation:
       type: object
       properties:
-        source:
-          oneOf:
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: factTable
-                factTableId:
-                  type: string
-              required:
-                - type
-                - factTableId
-              additionalProperties: false
-        rowFilters:
-          default: []
-          type: array
-          items:
-            type: object
-            properties:
-              operator:
-                type: string
-                enum:
-                  - '='
-                  - '!='
-                  - <
-                  - <=
-                  - '>'
-                  - '>='
-                  - between
-                  - not_between
-                  - in
-                  - not_in
-                  - contains
-                  - not_contains
-                  - matches_pattern
-                  - not_matches_pattern
-                  - starts_with
-                  - ends_with
-                  - is_null
-                  - not_null
-                  - is_true
-                  - is_false
-                  - sql_expr
-                  - saved_filter
-              column:
-                type: string
-              values:
-                type: array
-                items:
-                  type: string
-            required:
-              - operator
-            additionalProperties: false
-        aggregateFilter:
-          description: >-
-            Conditions on each unit's total within the queried date range, such
-            as ">=3" or ">=3,<10". Requires aggregateFilterColumn
+        populationId:
           type: string
-        aggregateFilterColumn:
-          description: >-
-            Numeric column to total, or "$$count" to count rows. Requires
-            aggregateFilter
-          type: string
+          description: ID of the saved Population
         unit:
           type: string
           description: >-
             Identifier type that defines population membership. Every metric's
-            unit must match it.
+            unit must match it, and the Population must support it.
       required:
-        - source
-        - rowFilters
+        - populationId
         - unit
       additionalProperties: false
     ContextualBandit:
@@ -87265,6 +90424,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -87348,15 +90508,21 @@ components:
                               - 'null'
                           showAs:
                             description: >-
-                              How a mean metric renders: `total` sums the
-                              numerator, `per_unit` divides it by the unit
-                              count. Ignored for other metric types. Omit to use
-                              the default (`per_unit` for `max` and `count
-                              distinct` aggregations, otherwise `total`).
+                              How a metric renders: `total` sums the numerator,
+                              `per_unit` divides it by the unit count (mean
+                              metrics only), and `percent_of_population` divides
+                              it by the population's member count as a
+                              percentage (proportion metrics with a population
+                              only). Ignored for other metric types. Omit to use
+                              the default (`per_unit` for mean metrics with
+                              `max` and `count distinct` aggregations,
+                              `percent_of_population` for proportion metrics
+                              with a population, otherwise `total`).
                             type: string
                             enum:
                               - total
                               - per_unit
+                              - percent_of_population
                         required:
                           - name
                           - rowFilters
@@ -87368,10 +90534,11 @@ components:
                     population:
                       description: >-
                         **Beta** — this field is new and may change in
-                        backwards-incompatible ways. A population applied to
-                        every metric in the request. Only proportion metrics on
-                        the population's Fact Table are supported; the request
-                        is rejected if any metric is incompatible.
+                        backwards-incompatible ways. A saved Population applied
+                        to every metric in the request. Only proportion and mean
+                        metrics on the Population's Fact Table are supported,
+                        and mean metrics can't use percentile capping; the
+                        request is rejected if any metric is incompatible.
                       $ref: '#/components/schemas/ExplorationPopulation'
                   required:
                     - type
@@ -87567,6 +90734,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -87859,6 +91027,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -88168,6 +91337,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -88480,6 +91650,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -88785,6 +91956,7 @@ components:
                   enum:
                     - total
                     - per_unit
+                    - percent_of_population
                 chartSettings:
                   type: object
                   properties:
@@ -91640,6 +94812,7 @@ components:
             - saved-group
             - config
             - constant
+            - sdk-connection
         id:
           type: string
           description: The identifier used in the request.
@@ -92170,6 +95343,7 @@ x-tagGroups:
       - segments
       - reports
       - sdk-connections
+      - sdk-connection-revisions
       - visual-changesets
       - saved-groups
       - saved-group-revisions
@@ -92210,12 +95384,16 @@ x-tagGroups:
       - SdkWebhooks
   - name: Models
     tags:
+      - AdobeExperiencePlatformQueryServiceConnection_model
       - AggregatedFactTable_model
       - AnalyticsExploration_model
       - Archetype_model
+      - AthenaConnection_model
       - Attribute_model
       - Audit_model
       - AutoRun_model
+      - BigQueryConnection_model
+      - ClickHouseConnection_model
       - CodeRef_model
       - Config_model
       - ConfigKeyUsage_model
@@ -92243,6 +95421,7 @@ x-tagGroups:
       - CustomHook_model
       - Dashboard_model
       - DataSource_model
+      - DatabricksConnection_model
       - Dimension_model
       - Environment_model
       - Event_model
@@ -92297,15 +95476,21 @@ x-tagGroups:
       - MetricAnalysis_model
       - MetricGroup_model
       - MetricUsage_model
+      - MixpanelConnection_model
+      - MssqlConnection_model
+      - MysqlConnection_model
       - Namespace_model
       - NamespaceExperimentMember_model
       - Organization_model
       - PaginationFields_model
       - Population_model
+      - PostgresConnection_model
+      - PrestoConnection_model
       - Project_model
       - Query_model
       - RampSchedule_model
       - RampScheduleTemplate_model
+      - RedshiftConnection_model
       - Report_model
       - RequireReviewRule_model
       - RequireReviewRuleInput_model
@@ -92324,12 +95509,20 @@ x-tagGroups:
       - ScheduledStopPlan_model
       - SdkConnection_model
       - SdkConnectionApprovalRule_model
+      - SdkConnectionRevision_model
+      - SdkConnectionRevisionActivityLogEntry_model
+      - SdkConnectionRevisionRef_model
+      - SdkConnectionRevisionReview_model
+      - SdkConnectionRevisionSettings_model
+      - SdkConnectionRevisionWebhook_model
       - SdkWebhook_model
       - Segment_model
       - Settings_model
+      - SnowflakeConnection_model
       - Targeting Rule_model
       - TargetingReviewRule_model
       - Team_model
+      - VerticaConnection_model
       - VisualChange_model
       - VisualChangeset_model
       - VisualEditorCbExperimentStub_model

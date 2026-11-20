@@ -17,6 +17,8 @@ import {
   sdkWebhookStableId,
   SDKConnectionRevisionSnapshot,
   SDKWebhookRevisionSnapshot,
+  pickSdkConnectionSettings,
+  withNewSdkConnectionDefaults,
 } from "shared/validators";
 import {
   Revision,
@@ -48,8 +50,6 @@ import {
 } from "back-end/src/util/errors";
 import {
   assertCanChangeSdkWebhooks,
-  ARCHIVE_BEFORE_DELETE,
-  assertDirectWriteAllowed,
   assertNoLockingScheduledDraft,
   sdkConnectionReviewRules,
   isSdkConnectionGated,
@@ -60,10 +60,13 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
+import { runValidateSdkConnectionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { publishRevision } from "back-end/src/revisions/revisionActions";
+import { revertTargetState } from "back-end/src/revisions/revertActions";
+import { dispatchSdkConnectionRevisionEvent } from "back-end/src/services/sdkConnectionRevisionEvents";
 import {
   CONNECTION_UPDATABLE_FIELDS,
-  pickSettingsSnapshot,
+  isSdkConnectionRevert,
   restoreWebhookHeaders,
   SDKConnectionLiveSnapshot,
 } from "back-end/src/revisions/adapters/sdk-connection.adapter";
@@ -116,11 +119,19 @@ export const postSDKConnection = async (
     ]),
   );
 
-  const doc = await createSDKConnection(context, {
-    ...params,
-    ...withoutPlan,
-    organization: org.id,
+  const createParams = { ...params, ...withoutPlan, organization: org.id };
+  await runValidateSdkConnectionHooks({
+    context,
+    original: null,
+    sdkConnection: {
+      sdkConnection: pickSdkConnectionSettings(
+        withNewSdkConnectionDefaults(createParams),
+      ),
+      sdkWebhooks: [],
+    },
   });
+
+  const doc = await createSDKConnection(context, createParams);
 
   // Baseline for history and later edits; a new connection has no webhooks.
   await ensureLiveRevisionExists(context, "sdk-connection", {
@@ -226,8 +237,8 @@ export const putSDKConnection = async (
       ...currentState,
       ...patchedSnapshot.sdkConnection,
     };
-    draftWebhookSnapshots = (patchedSnapshot.sdkWebhooks ?? []).map((wh) =>
-      parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
+    draftWebhookSnapshots = (patchedSnapshot.sdkWebhooks ?? []).map(
+      parseSdkWebhookSnapshot,
     );
   }
 
@@ -288,13 +299,7 @@ export const putSDKConnection = async (
   // request is refused. It never becomes a draft the caller didn't ask for.
   const wantsMerge = explicitPublish || !wantsDraft;
 
-  // Rows predating `httpMethod` lack it, but the snapshot schema requires it.
-  const liveWebhookSnapshots = liveWebhooks.map((wh) =>
-    parseSdkWebhookSnapshot({
-      ...wh,
-      httpMethod: wh.httpMethod ?? "POST",
-    }),
-  );
+  const liveWebhookSnapshots = liveWebhooks.map(parseSdkWebhookSnapshot);
 
   const parseIncomingWebhooks = (
     value: unknown,
@@ -356,10 +361,10 @@ export const putSDKConnection = async (
   // Editing a draft replaces its op even when the result matches live, or a
   // setting reset back to live would keep the draft's old value.
   const editsExistingDraft = !!revisionId && !explicitPublish;
-  const currentSettingsSnapshot = pickSettingsSnapshot(currentState);
+  const currentSettingsSnapshot = pickSdkConnectionSettings(currentState);
   // A draft's object is its own: live fills in nothing it doesn't hold.
   const draftSettingsAfterSave = (row: Revision) =>
-    pickSettingsSnapshot(
+    pickSdkConnectionSettings(
       sdkConnectionDraftSettingsAfterSave(
         (row.target.snapshot as SDKConnectionRevisionSnapshot).sdkConnection,
         applyPatchToSnapshot(
@@ -376,7 +381,10 @@ export const putSDKConnection = async (
   const proposedSettingsSnapshot =
     editsExistingDraft && targetRevision
       ? draftSettingsAfterSave(targetRevision)
-      : pickSettingsSnapshot({ ...settingsComparisonBase, ...fieldsToUpdate });
+      : pickSdkConnectionSettings({
+          ...settingsComparisonBase,
+          ...fieldsToUpdate,
+        });
 
   const patchOps: JsonPatchOperation[] = [];
   // What landing this request writes, keyed like the composite snapshot.
@@ -407,8 +415,27 @@ export const putSDKConnection = async (
   };
   const adapter = getAdapter("sdk-connection");
   // Answers before a revision exists, so a refused publish leaves no draft behind.
-  const needsApproval =
+  const underReview =
     sdkConnectionReviewRules(context, baselineSnapshot, patchOps).length > 0;
+  // A revert restores a state that was already reviewed, so the org can let
+  // one land without approval. The change comes from the caller's body, so it
+  // counts only when it is exactly what reverting to that revision does.
+  const revertTarget =
+    underReview && revertedFrom && context.org.settings?.revertsBypassApproval
+      ? await context.models.revisions.getById(revertedFrom)
+      : null;
+  const revertsWithoutApproval =
+    revertTarget?.status === "merged" &&
+    revertTarget.target.type === "sdk-connection" &&
+    revertTarget.target.id === connection.id &&
+    isSdkConnectionRevert(
+      baselineSnapshot,
+      adapter.buildSnapshot(
+        revertTargetState(revertTarget),
+      ) as SDKConnectionRevisionSnapshot,
+      desiredChanges,
+    );
+  const needsApproval = underReview && !revertsWithoutApproval;
   // A move needs bypass authority in the destination scope too.
   const canBypass = adapter.canBypassApproval(
     context,
@@ -495,6 +522,7 @@ export const putSDKConnection = async (
     editsExistingDraft ? opsFor : patchOps,
     {
       forceCreate: wantsMerge || forceCreateRevision,
+      direct: wantsMerge,
       title,
       comment,
       revertedFrom,
@@ -503,6 +531,9 @@ export const putSDKConnection = async (
   );
 
   if (!wantsMerge) {
+    await dispatchSdkConnectionRevisionEvent(context, revision, {
+      type: revision.id === revisionId ? "updated" : "created",
+    });
     return res.status(202).json({
       status: 202,
       requiresApproval: needsApproval,
@@ -520,7 +551,9 @@ export const putSDKConnection = async (
     dateUpdated: connection.dateUpdated,
   };
   revision = await publishRevision(context, revision, landingEntity, {
-    bypass: needsApproval,
+    bypass: underReview,
+    // They ran in `assertPublishable` above.
+    skipHooks: true,
   });
 
   return res.status(200).json({ status: 200, revision });
@@ -542,14 +575,9 @@ export const deleteSDKConnection = async (
     context.permissions.throwPermissionError();
   }
 
-  // Under an approval rule, archiving is the reviewable step, so the hard
-  // delete requires it first.
   if (!connection.archived) {
-    assertDirectWriteAllowed(
-      context,
-      [connection],
-      undefined,
-      ARCHIVE_BEFORE_DELETE,
+    throw new BadRequestError(
+      "SDK Connection must be archived before it can be deleted",
     );
   }
 

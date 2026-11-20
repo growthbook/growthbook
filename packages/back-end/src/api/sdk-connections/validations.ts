@@ -15,7 +15,9 @@ import { OrganizationInterface } from "shared/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { assertCanEnableTraces } from "back-end/src/models/SdkConnectionModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { BadRequestError } from "back-end/src/util/errors";
 
 const capabilityParams = [
   ["encryption", "encryptPayload"],
@@ -93,7 +95,7 @@ export function validateEnvironment(
       .map(({ id }) => id)
       .includes(environment)
   )
-    throw new Error(`Environment ${environment} does not exist!`);
+    throw new BadRequestError(`Environment ${environment} does not exist!`);
 }
 
 export async function validateProjects(
@@ -105,7 +107,7 @@ export async function validateProjects(
     (p) => !allProjects.some(({ id }) => p === id),
   );
   if (nonexistentProjects.length)
-    throw new Error(
+    throw new BadRequestError(
       `The following projects do not exist: ${nonexistentProjects.join(", ")}`,
     );
 }
@@ -122,19 +124,20 @@ export function validateRequireProjectForSdkConnections(
 
   if (!existingProjects) {
     if (!projects?.length) {
-      throw new Error(message);
+      throw new BadRequestError(message);
     }
     return;
   }
 
   if (existingProjects.length > 0 && projects?.length === 0) {
-    throw new Error(message);
+    throw new BadRequestError(message);
   }
 }
 
 export function validateLanguage(reqLanguage: string): SDKLanguage {
   const language = sdkLanguages.find((l) => l === reqLanguage);
-  if (!language) throw new Error(`Language ${reqLanguage} is not supported!`);
+  if (!language)
+    throw new BadRequestError(`Language ${reqLanguage} is not supported!`);
   return language;
 }
 
@@ -150,11 +153,11 @@ export function validateSdkCapabilities(
   capabilityParams.forEach(([capability, param]) => {
     if (payload[param] && !capabilities.includes(capability))
       if (latestCapabilities.includes(capability))
-        throw new Error(
+        throw new BadRequestError(
           `You need to upgrade to version ${latestSdkVersion} to support ${capability}`,
         );
       else
-        throw new Error(
+        throw new BadRequestError(
           `SDK version ${sdkVersion} does not support ${capability}`,
         );
   });
@@ -190,7 +193,9 @@ export function validatePremiumFeatures(
     { proxy: true },
   );
   if (blocked) {
-    throw new Error(`Feature ${blocked[0]} requires premium subscription!`);
+    throw new BadRequestError(
+      `Feature ${blocked[0]} requires premium subscription!`,
+    );
   }
 }
 
@@ -198,6 +203,7 @@ type SettingsScope = {
   environment?: string;
   projects?: string[];
   languages?: string[];
+  tracesEnabled?: boolean;
 };
 
 // What every write path checks about the settings it changes: the app, a
@@ -225,6 +231,9 @@ export async function validateSdkConnectionChanges(
   const addedProjects = added(changes.projects, current?.projects);
   if (addedProjects.length) await validateProjects(context, addedProjects);
   added(changes.languages, current?.languages).forEach(validateLanguage);
+  if (changes.tracesEnabled && !current?.tracesEnabled) {
+    assertCanEnableTraces(context);
+  }
 }
 
 export function validateSdkVersion(sdkVersion: string, language: SDKLanguage) {
@@ -261,7 +270,8 @@ export async function validatePostPayload(
   validateName(name);
   await validateSdkConnectionChanges(context, { environment, projects });
 
-  if (!reqLanguage) throw new Error("SDK connection requires a language!");
+  if (!reqLanguage)
+    throw new BadRequestError("SDK connection requires a language!");
 
   const language = validateLanguage(reqLanguage);
   const latestSdkVersion = getLatestSDKVersion(language);

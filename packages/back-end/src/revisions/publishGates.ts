@@ -6,6 +6,7 @@ import {
   type ReviewBypassRequest,
 } from "back-end/src/api/features/reviewBypass";
 import { getErrorMessage } from "back-end/src/util/errors";
+import type { SkipFamily } from "back-end/src/services/context";
 
 // Publish-gate reporting for the REST revision-publish endpoints. A blocked
 // publish returns one 422 naming every gate with its override flag, required
@@ -262,7 +263,7 @@ export type PublishGateClearance = {
   canForceMergeStaleBase: boolean;
 };
 
-const REVIEW_GATE_TYPES = new Set([
+export const REVIEW_GATE_TYPES = new Set([
   "approval-required",
   "required-approvers-missing",
   "required-project-approvers-missing",
@@ -440,7 +441,7 @@ export function resolveEntityPublishGates({
   gates: PublishGate[];
   bypassApprovalPermission: boolean;
   canForceMergeStaleBase: boolean;
-  entityType: "feature" | "config" | "constant" | "saved-group";
+  entityType: SkipFamily;
 }): { bypassed: BypassedGate[]; skipped: SkippedGate[] } {
   const { blocking, bypassed, skipped } = evaluatePublishGates(gates, {
     ignoreWarnings: req.context.ignoreWarnings,

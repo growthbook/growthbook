@@ -1,12 +1,10 @@
-import { Revision } from "shared/enterprise";
+import { Revision, withAbsentSdkSettings } from "shared/enterprise";
 import { SDKConnectionRevisionSnapshot } from "shared/validators";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 import RevertModal from "@/components/Revision/RevertModal";
-import {
-  snapshotWithAbsentSettings,
-  withAbsentSettings,
-} from "@/components/Features/SDKConnections/sdkConnectionRules";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { snapshotWithAbsentSettings } from "@/components/Features/SDKConnections/sdkConnectionRules";
 
 type LiveSnapshot = SDKConnectionRevisionSnapshot & { id: string };
 
@@ -22,7 +20,7 @@ function toRequestBody(
 ): Record<string, unknown> {
   const { sdkConnection, sdkWebhooks } = changes as Partial<LiveSnapshot>;
   const settings: Record<string, unknown> = sdkConnection
-    ? withAbsentSettings(sdkConnection)
+    ? withAbsentSdkSettings(sdkConnection)
     : {};
   delete settings.archived;
   return {
@@ -52,6 +50,7 @@ export default function SDKConnectionRevertModal({
   close: () => void;
   onRevisionCreated: (revision: Revision) => void;
 }) {
+  const { revertsBypassApproval } = useOrgSettings();
   return (
     <RevertModal<LiveSnapshot>
       liveEntity={liveSnapshot}
@@ -63,8 +62,7 @@ export default function SDKConnectionRevertModal({
       allRevisions={allRevisions}
       // The diff reads only the snapshot; `id` is there for the endpoint path.
       diffConfig={diffConfig as unknown as RevisionDiffConfig<LiveSnapshot>}
-      // The SDK connection endpoint has no revert-specific approval exemption.
-      revertsBypassApproval={false}
+      revertsBypassApproval={!!revertsBypassApproval}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
       canRevert={canRevert}

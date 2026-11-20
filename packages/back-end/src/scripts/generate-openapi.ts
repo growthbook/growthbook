@@ -65,6 +65,7 @@ const openApiTags = [
   "segments",
   "reports",
   "sdk-connections",
+  "sdk-connection-revisions",
   "visual-changesets",
   "saved-groups",
   "saved-group-revisions",
@@ -174,6 +175,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "SDK Connections",
     description:
       "Client keys and settings for connecting SDKs to a GrowthBook instance",
+  },
+  "sdk-connection-revisions": {
+    display: "SDK Connection Revisions",
+    description:
+      'Draft revisions for SDK Connections: staged changes to a connection\'s settings and webhooks, their review, and their lifecycle (publish, discard, rebase).\n\nPass `version: "new"` on the edit endpoints to create the draft. Use these when the organization requires approvals for a connection, or to group several changes into one publish.',
   },
   "visual-changesets": {
     display: "Visual Changesets",

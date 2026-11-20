@@ -285,6 +285,22 @@ export const sdkConnectionBypassApprovalBodyField = z
     "Set to true to write directly to the live SDK Connection without approval. The caller must have Bypass draft approvals access in the SDK Connection's Projects, unless the organization enables the REST API approval bypass. This field has no effect when approval is not required.",
   );
 
+// The ways past a Custom Hook, on every SDK Connection write that runs one.
+export const sdkConnectionHookOverrideFields = {
+  ignoreWarnings: z
+    .boolean()
+    .optional()
+    .describe(
+      `Set to true to continue past a warning: one raised by a Custom Hook, or a webhook that references a secret that doesn't exist. On publish, it also force-publishes an out-of-date draft when the caller has Bypass draft approvals access. It never clears a Custom Hook rejection. ${HUMAN_OVERRIDE_NOTE}`,
+    ),
+  skipHooks: z
+    .boolean()
+    .optional()
+    .describe(
+      `Set to true to continue despite a Custom Hook rejection. The caller must have Bypass draft approvals access for SDK Connections in every Project. Otherwise, this field is ignored. ${HUMAN_OVERRIDE_NOTE}`,
+    ),
+};
+
 /**
  * The closed set of bypass sources a response may report: a request field
  * (`ignoreWarnings`, the privileged `skipSchemaValidation`, `skipHooks`, or an

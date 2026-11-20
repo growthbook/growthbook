@@ -1005,6 +1005,41 @@ export const sdkConnectionSettingsEqual = (
     sdkSettingsFieldEqual(a[key], b[key]),
   );
 
+// How the payload reads a setting a snapshot leaves out. A revert sends these
+// for what the older snapshot lacked, so options added since are turned back
+// off rather than kept. The legacy saved-group boolean is left out: sent on its
+// own it would switch the format to inline.
+const ABSENT_SDK_SETTING_VALUES: Record<string, unknown> = {
+  hashSecureAttributes: false,
+  includeVisualExperiments: false,
+  includeDraftExperiments: false,
+  includeDraftExperimentRefs: false,
+  includeExperimentNames: false,
+  includeRedirectExperiments: false,
+  includeRuleIds: false,
+  includeProjectIdInMetadata: false,
+  includeCustomFieldsInMetadata: false,
+  allowedCustomFieldsInMetadata: [],
+  includeTagsInMetadata: false,
+  includeExperimentScheduleInMetadata: false,
+  remoteEvalEnabled: false,
+  tracesEnabled: false,
+  includeReferencedPrerequisites: false,
+  proxyEnabled: false,
+};
+
+export const ABSENT_SDK_SETTING_KEYS = Object.keys(ABSENT_SDK_SETTING_VALUES);
+
+export function withAbsentSdkSettings(
+  settings: Record<string, unknown>,
+): Record<string, unknown> {
+  const filled = { ...settings };
+  for (const [key, value] of Object.entries(ABSENT_SDK_SETTING_VALUES)) {
+    if (filled[key] === undefined) filled[key] = value;
+  }
+  return filled;
+}
+
 // A draft's settings after a save into it: its own with the saved fields on
 // top, never live's. A saved field equal to the base's (absent counts as
 // empty) takes the base's form, so on-then-off leaves no change, unless live

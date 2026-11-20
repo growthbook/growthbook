@@ -1,5 +1,6 @@
 import type { AIUsageData } from "shared/ai";
 import type { StatsEngine } from "shared/types/stats";
+import type { InitialPlanOptions } from "@/components/Auth/SelectInitialPlan";
 
 // An event that has no properties
 type NoProps = Record<string, never>;
@@ -30,6 +31,12 @@ type ModalEventProps = {
   source?: string;
   eventGroupUuid: string;
   [key: string]: unknown;
+};
+
+// urlPlan is the ?plan= value the user arrived with ("pro" or "starter"), or
+// "" when it was not recorded.
+type InitialSignupEventProps = {
+  urlPlan: InitialPlanOptions;
 };
 
 type AIFeedbackProps = {
@@ -508,16 +515,17 @@ export type AppEvents = {
   "Import request submitted": {
     service: string;
   };
-  "Initial signup: dismissed plan selection": {
+  "Initial signup: dismissed plan selection": InitialSignupEventProps & {
     plan: string;
   };
-  "Initial signup: flow completed": {
+  "Initial signup: flow completed": InitialSignupEventProps & {
     plan: string;
   };
-  "Initial signup: selected Pro plan": NoProps;
-  "Initial signup: selected Starter plan": NoProps;
-  "Initial signup: submitted payment method": NoProps;
-  "Initial signup: submitted tax details": NoProps;
+  "Initial signup: selected Pro plan": InitialSignupEventProps;
+  "Initial signup: selected Starter plan": InitialSignupEventProps;
+  "Initial signup: submitted payment method": InitialSignupEventProps;
+  "Initial signup: submitted tax details": InitialSignupEventProps;
+  "Initial signup: viewed plan selection": InitialSignupEventProps;
   "Join Organization": NoProps;
   "LaunchDarkly import fetch started": {
     step: number;
@@ -589,6 +597,20 @@ export type AppEvents = {
   };
   "Presentation created": NoProps;
   "Presentation edited": NoProps;
+  // Sent once the license server has created the Pro subscription.
+  // seats is the org's members, excluding pending invites, matching the seats
+  // Pro bills. Each flow sends its own extra field.
+  "Pro subscription started":
+    | (InitialSignupEventProps & {
+        flow: "initial-signup";
+        seats: number;
+      })
+    | {
+        flow: "upgrade-modal";
+        seats: number;
+        // The upgrade modal's CTA source
+        source: string;
+      };
   "Product Analytics Explorer: Chart Type Changed": {
     from_chart_type: string;
     type: string;

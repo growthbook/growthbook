@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "2.1.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -95,7 +95,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "2.1.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -307,7 +307,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "2.1.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -887,7 +887,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "2.0.0",
+    version: "2.1.0",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -902,6 +902,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v2.1.0",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v2.1.0",
       },
       {
         savedGroupReferences: "≥ v2.0.0",
@@ -949,7 +955,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "2.1.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -1363,7 +1369,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "5.0.0",
+    version: "5.0.1",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [

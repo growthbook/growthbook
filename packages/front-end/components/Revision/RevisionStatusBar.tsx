@@ -7,6 +7,7 @@ import {
   PiLockSimple,
   PiPencil,
   PiProhibit,
+  PiWarningFill,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import {
@@ -20,6 +21,7 @@ import {
 import { isActiveDraftStatus } from "shared/validators";
 import DiscardDraftModal from "@/components/Reviews/DiscardDraftModal";
 import RevisionStatusBarView from "@/components/Reviews/RevisionStatusBarView";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -32,8 +34,10 @@ import {
 } from "@/components/Revision/revisionUtils";
 import {
   RevisionDiffConfig,
+  useRevisionBehindLive,
   useRevisionDiff,
 } from "@/components/Revision/useRevisionDiff";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 /**
  * The generic revision model's bar under the page's tabs, as the feature page
@@ -97,13 +101,21 @@ export default function RevisionStatusBar<T>({
     diffConfig,
   );
   const changeCount = diffs.length;
+  const behindLive = useRevisionBehindLive(
+    isDraft ? selectedRevision : null,
+    liveSnapshot,
+    diffConfig,
+  );
+  const { requireRebaseBeforePublish } = useOrgSettings();
+  const mustRebase = behindLive && !!requireRebaseBeforePublish;
   // Straight from the bar only when publishing needs no review: no approval,
-  // something to publish, no conflicts. The server still checks the rest, such
-  // as rebasing first, and the bar says why it refused.
+  // something to publish, no rebase to do first, no conflicts. The server
+  // still checks the rest, and the bar says why it refused.
   const publishable =
     isDraft &&
     !requiresApproval &&
     changeCount > 0 &&
+    !mustRebase &&
     !isScheduledPublishPending(selectedRevision) &&
     checkMergeConflicts(
       selectedRevision.target.snapshot as Record<string, unknown>,
@@ -113,6 +125,10 @@ export default function RevisionStatusBar<T>({
     ).success;
 
   const drafts = allRevisions.filter((r) => isActiveDraftStatus(r.status));
+  const gaveUp = isDraft && !!selectedRevision.scheduledPublishGaveUpAt;
+  const barError =
+    publishError ??
+    (gaveUp ? selectedRevision.scheduledPublishLastError : null);
   const switchToLive = (
     <Link onClick={() => onSelectRevision(null)}>Switch to live</Link>
   );
@@ -147,7 +163,7 @@ export default function RevisionStatusBar<T>({
           </Tooltip>
         ) : null}
         {/* Once publishing fails, the review tab is where to see why. */}
-        {publishable && onPublish && !publishError ? (
+        {publishable && onPublish && !publishError && !gaveUp ? (
           <Tooltip content={blockedReason} enabled={!!blockedReason}>
             <Button
               disabled={!!blockedReason}
@@ -193,6 +209,15 @@ export default function RevisionStatusBar<T>({
           {lockClauses.length ? `; ${lockClauses.join(" and ")}` : ""}.
         </>
       );
+    } else if (gaveUp) {
+      icon = <PiWarningFill />;
+      label = "Draft · publish failed";
+      message = (
+        <>
+          Its scheduled publish failed and won&apos;t be retried. SDKs keep
+          serving {liveRevisionLink} until you publish.
+        </>
+      );
     } else {
       icon = <PiPencil />;
       label = "Draft · not live";
@@ -216,11 +241,13 @@ export default function RevisionStatusBar<T>({
     message = <>SDKs serve {liveRevisionLink}.</>;
     actions = switchToLive;
   } else if (drafts.length) {
-    icon = <PiPencil />;
+    const failed = drafts.some((d) => d.scheduledPublishGaveUpAt);
+    icon = failed ? <PiWarningFill /> : <PiPencil />;
     message =
-      drafts.length === 1
+      (drafts.length === 1
         ? `This ${entityNoun} has a draft.`
-        : `This ${entityNoun} has ${drafts.length} drafts.`;
+        : `This ${entityNoun} has ${drafts.length} drafts.`) +
+      (failed ? " A scheduled publish failed." : "");
     actions =
       drafts.length === 1 ? (
         <Link onClick={() => onSelectRevision(drafts[0])}>Switch to draft</Link>
@@ -244,7 +271,17 @@ export default function RevisionStatusBar<T>({
                   Revision {numberOf(d)}
                   {d.title ? ` · ${d.title}` : ""}
                 </Text>
-                {getStatusBadge(d.status, requiresApproval)}
+                <Flex align="center" gap="2">
+                  {d.scheduledPublishGaveUpAt ? (
+                    <Badge
+                      label="Publish failed"
+                      color="red"
+                      variant="soft"
+                      radius="full"
+                    />
+                  ) : null}
+                  {getStatusBadge(d.status, requiresApproval)}
+                </Flex>
               </Flex>
             </DropdownMenuItem>
           ))}
@@ -267,9 +304,9 @@ export default function RevisionStatusBar<T>({
         }
         message={message}
         error={
-          publishError ? (
+          barError ? (
             <HelperText status="error" size="sm">
-              {publishError}
+              {barError}
             </HelperText>
           ) : null
         }

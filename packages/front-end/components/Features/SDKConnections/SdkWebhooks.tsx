@@ -79,10 +79,7 @@ export const PAYLOAD_FORMAT_LABELS: Record<string, string> = {
 function toSnapshot(
   wh: WebhookInterface | SDKWebhookRevisionSnapshot,
 ): SDKWebhookRevisionSnapshot {
-  return parseSdkWebhookSnapshot({
-    ...wh,
-    httpMethod: wh.httpMethod ?? "POST",
-  });
+  return parseSdkWebhookSnapshot(wh);
 }
 
 type HeldWebhooks = { sdkWebhooks?: SDKWebhookRevisionSnapshot[] };

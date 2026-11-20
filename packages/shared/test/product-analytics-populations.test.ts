@@ -4,19 +4,21 @@ import {
   transformProductAnalyticsRowsToResult,
   encodeExplorationConfig,
   decodeExplorationConfigJson,
-  getMetricPopulationViolations,
+  getPopulationCacheKey,
+  parseMetricExplorationPopulation,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
   ExplorationDateRange,
   MetricExplorationConfig,
-  ExplorationPopulation,
   ProductAnalyticsDimension,
+  ResolvedExplorationPopulation,
   explorationPopulationValidator,
   metricTypeValidator,
   explorationConfigValidator,
   productAnalyticsExplorationValidator,
   populationExplorationConfigValidator,
+  populationStepValidator,
 } from "shared/validators";
 import {
   FactMetricInterface,
@@ -151,8 +153,8 @@ const ALL_METRICS = [
 ];
 
 const mobileUsers = (
-  extra: Partial<ExplorationPopulation> = {},
-): ExplorationPopulation => ({
+  extra: Partial<ResolvedExplorationPopulation> = {},
+): ResolvedExplorationPopulation => ({
   source: { type: "factTable", factTableId: "events" },
   rowFilters: [{ column: "device_type", operator: "=", values: ["mobile"] }],
   unit: "user_id",
@@ -172,6 +174,14 @@ const SEPT_1_TO_3: ExplorationDateRange = {
   endDate: "2026-09-03",
 };
 
+// Configs only reference a saved Population by id. Each test's resolved
+// definition is kept here, as the server would load it.
+const resolvedPopulations = new WeakMap<
+  MetricExplorationConfig,
+  ResolvedExplorationPopulation
+>();
+const POPULATION_ID = "pop_mobile";
+
 function explore({
   metrics,
   population,
@@ -181,13 +191,13 @@ function explore({
   unit = "user_id",
 }: {
   metrics: FactMetricInterface[];
-  population?: ExplorationPopulation;
+  population?: ResolvedExplorationPopulation;
   overall?: boolean;
   dimensions?: ProductAnalyticsDimension[];
   dateRange?: ExplorationDateRange;
   unit?: string | null;
 }): MetricExplorationConfig {
-  return {
+  const config: MetricExplorationConfig = {
     type: "metric",
     datasource: "ds",
     chartType: overall ? "bigNumber" : "line",
@@ -204,8 +214,23 @@ function explore({
         denominatorUnit: m.metricType === "ratio" ? unit : null,
         rowFilters: [],
       })),
-      population,
+      ...(population
+        ? { population: { populationId: POPULATION_ID, unit: population.unit } }
+        : {}),
     },
+  };
+  if (population) resolvedPopulations.set(config, population);
+  return config;
+}
+
+// The saved Population a resolved definition came from.
+function savedPopulationFor(population: ResolvedExplorationPopulation) {
+  const { unit, ...step } = population;
+  return {
+    id: POPULATION_ID,
+    datasource: "ds",
+    userIdTypes: [unit],
+    steps: [step],
   };
 }
 
@@ -245,15 +270,18 @@ function violations(
   metrics: FactMetricInterface[] = ALL_METRICS,
 ) {
   const { population, values } = config.dataset;
-  if (!population) throw new Error("Expected a population");
-  return getMetricPopulationViolations({
+  const resolved = resolvedPopulations.get(config);
+  if (!population || !resolved) throw new Error("Expected a population");
+  const parsed = parseMetricExplorationPopulation({
     population,
+    savedPopulation: savedPopulationFor(resolved),
     values,
     dimensions: config.dimensions,
     datasource: config.datasource,
     metricMap: new Map(metrics.map((m) => [m.id, m])),
     factTableMap: new Map([[table.id, table]]),
-  }).join(" ");
+  });
+  return parsed.ok ? "" : parsed.violations.join(" ");
 }
 
 function generate(config: MetricExplorationConfig) {
@@ -263,6 +291,7 @@ function generate(config: MetricExplorationConfig) {
     new Map(ALL_METRICS.map((m) => [m.id, m])),
     dialect,
     {},
+    resolvedPopulations.get(config) ?? null,
   );
 }
 
@@ -411,6 +440,44 @@ describe("metric explorations with a population", () => {
       },
     ],
     [
+      "limits mean metrics to members, mixed with a proportion",
+      explore({
+        metrics: [revenue, purchaseDevices, purchasers],
+        population: mobileUsers(),
+      }),
+      {
+        // Members: Alice, Bob, NULL user. Revenue is $12 + $99 from the two
+        // purchasers; Dylan's desktop $21 is left out. Bob has no purchases,
+        // so he isn't in any metric's denominator.
+        "2026-09-01": {
+          populationCount: 3,
+          values: [
+            [111, 2],
+            [2, 2],
+            [2, 2],
+          ],
+        },
+        // Members: Alice, Bob, Erin, Gina. Bob ($5) and Erin ($20) purchased.
+        "2026-09-02": {
+          populationCount: 4,
+          values: [
+            [25, 2],
+            [2, 2],
+            [2, 2],
+          ],
+        },
+        // Member: Frank, who didn't purchase.
+        "2026-09-03": {
+          populationCount: 1,
+          values: [
+            [null, 0],
+            [null, 0],
+            [null, 0],
+          ],
+        },
+      },
+    ],
+    [
       "returns an empty overall row when nothing happened in the date range",
       explore({
         metrics: [purchasers],
@@ -431,25 +498,9 @@ describe("metric explorations with a population", () => {
   describe("rejected requests", () => {
     it.each<[string, MetricExplorationConfig, string]>([
       [
-        "a mean metric alongside a proportion",
-        explore({
-          metrics: [purchasers, revenue],
-          population: mobileRevenueOver10,
-        }),
-        'Metric "Revenue" can\'t be combined with a Population.',
-      ],
-      [
         "an unsupported metric listed first",
         explore({
-          metrics: [purchaseDevices, purchasers],
-          population: mobileRevenueOver10,
-        }),
-        'Metric "Purchase devices" can\'t be combined with a Population.',
-      ],
-      [
-        "a ratio metric",
-        explore({
-          metrics: [revenuePerPurchase],
+          metrics: [revenuePerPurchase, purchasers],
           population: mobileRevenueOver10,
         }),
         'Metric "Revenue per purchase" can\'t be combined with a Population.',
@@ -491,7 +542,19 @@ describe("metric explorations with a population", () => {
             { dimensionType: "dynamic", column: "device_type", maxValues: 5 },
           ],
         }),
-        "Metrics with populations can only be grouped by date.",
+        "Metrics with populations can only be grouped by one date dimension.",
+      ],
+      [
+        "grouping by two dates",
+        explore({
+          metrics: [purchasers],
+          population: mobileRevenueOver10,
+          dimensions: [
+            ...DAILY,
+            { dimensionType: "date", column: null, dateGranularity: "month" },
+          ],
+        }),
+        "Metrics with populations can only be grouped by one date dimension.",
       ],
       [
         "an invalid aggregate condition",
@@ -534,14 +597,135 @@ describe("metric explorations with a population", () => {
       ).toBe("Metric purchasers not found.");
     });
 
+    it("skips the identifier type of a metric no Population can use", () => {
+      expect(
+        violations(
+          explore({
+            metrics: [revenuePerPurchase],
+            population: mobileRevenueOver10,
+            unit: null,
+          }),
+        ),
+      ).toBe(
+        'Metric "Revenue per purchase" can\'t be combined with a Population. Populations currently support only proportion and mean metrics, and the Population applies to every metric in the request.',
+      );
+    });
+
+    it("still checks the identifier type of a metric on another Fact Table", () => {
+      expect(
+        violations(
+          explore({
+            metrics: [purchasers],
+            population: mobileUsers({
+              source: { type: "factTable", factTableId: "other" },
+            }),
+            unit: null,
+          }),
+        ),
+      ).toBe(
+        'Metric "Purchasers" must use the same Fact Table as the Population. Metric "Purchasers" must use the population\'s identifier type "user_id".',
+      );
+    });
+
+    describe("the saved Population", () => {
+      const config = explore({
+        metrics: [purchasers],
+        population: mobileUsers(),
+      });
+      const saved = savedPopulationFor(mobileUsers());
+      const check = (savedPopulation: typeof saved) =>
+        parseMetricExplorationPopulation({
+          population: { populationId: POPULATION_ID, unit: "user_id" },
+          savedPopulation,
+          values: config.dataset.values,
+          dimensions: config.dimensions,
+          datasource: config.datasource,
+          metricMap: new Map(ALL_METRICS.map((m) => [m.id, m])),
+          factTableMap: new Map([[table.id, table]]),
+        });
+
+      it("returns the definition to run when it fits the request", () => {
+        expect(check(saved)).toEqual({ ok: true, population: mobileUsers() });
+      });
+
+      it.each<[string, typeof saved, string]>([
+        [
+          "one on another Data Source",
+          { ...saved, datasource: "other" },
+          "The Population must use the same Data Source as the metrics.",
+        ],
+        [
+          "one with several steps",
+          { ...saved, steps: [...saved.steps, ...saved.steps] },
+          "Only Populations with a single step can be combined with metrics.",
+        ],
+        [
+          "one without the chart's identifier type",
+          { ...saved, userIdTypes: ["anonymous_id"] },
+          'The Population doesn\'t support the identifier type "user_id".',
+        ],
+      ])("rejects %s", (_, savedPopulation, message) => {
+        expect(check(savedPopulation)).toEqual({
+          ok: false,
+          violations: [message],
+        });
+      });
+    });
+
     it("rejects a population with no metrics", () => {
       expect(
         violations(explore({ metrics: [], population: mobileUsers() })),
       ).toBe("Populations require at least one metric.");
     });
 
+    it("rejects a mean metric with percentile capping", () => {
+      const cappedRevenue = {
+        ...revenue,
+        cappingSettings: { type: "percentile", value: 0.99 },
+      } as FactMetricInterface;
+      expect(
+        violations(
+          explore({ metrics: [cappedRevenue], population: mobileUsers() }),
+          [cappedRevenue],
+        ),
+      ).toBe(
+        "Metric \"Revenue\" can't be combined with a Population because it uses percentile capping, which is computed across all units rather than the Population's members.",
+      );
+    });
+
+    it("rejects a mean metric with percentile capping on the lower tail alone", () => {
+      const cappedRevenue = {
+        ...revenue,
+        cappingSettings: { type: "absolute", value: 50 },
+        lowerCappingSettings: { type: "percentile", value: 0.05 },
+      } as FactMetricInterface;
+      expect(
+        violations(
+          explore({ metrics: [cappedRevenue], population: mobileUsers() }),
+          [cappedRevenue],
+        ),
+      ).toBe(
+        "Metric \"Revenue\" can't be combined with a Population because it uses percentile capping, which is computed across all units rather than the Population's members.",
+      );
+    });
+
+    it("accepts a mean metric with an absolute cap", () => {
+      const cappedRevenue = {
+        ...revenue,
+        cappingSettings: { type: "absolute", value: 50 },
+      } as FactMetricInterface;
+      expect(
+        violations(
+          explore({ metrics: [cappedRevenue], population: mobileUsers() }),
+          [cappedRevenue],
+        ),
+      ).toBe("");
+    });
+
     it.each(
-      metricTypeValidator.options.filter((type) => type !== "proportion"),
+      metricTypeValidator.options.filter(
+        (type) => type !== "proportion" && type !== "mean",
+      ),
     )("rejects a %s metric", (metricType) => {
       const config = explore({
         metrics: [purchasers],
@@ -553,7 +737,7 @@ describe("metric explorations with a population", () => {
         numerator: metricType === "funnel" ? null : purchasers.numerator,
       } as FactMetricInterface;
       expect(violations(config, [metric])).toContain(
-        "Populations currently support only proportion metrics",
+        "Populations currently support only proportion and mean metrics",
       );
     });
   });
@@ -575,28 +759,25 @@ describe("metric explorations with a population", () => {
       ).toEqual(config);
     });
 
-    it("defaults omitted row filters to an empty list", () => {
+    it("accepts a saved Population id and identifier type", () => {
       expect(
         explorationPopulationValidator.parse({
-          source: mobileRevenueOver10.source,
+          populationId: POPULATION_ID,
           unit: "user_id",
         }),
-      ).toEqual({
-        source: mobileRevenueOver10.source,
-        rowFilters: [],
-        unit: "user_id",
-      });
+      ).toEqual({ populationId: POPULATION_ID, unit: "user_id" });
     });
 
     it.each<[string, Record<string, unknown>]>([
       ["a missing unit", { unit: undefined }],
-      ["a name", { name: "Mobile users" }],
-      ["window settings", { windowSettings: { type: "lookback" } }],
-      ["steps", { steps: [] }],
+      ["a missing Population id", { populationId: undefined }],
+      ["an inline definition", { source: mobileRevenueOver10.source }],
+      ["row filters", { rowFilters: [] }],
     ])("rejects %s", (_, change) => {
       expect(
         explorationPopulationValidator.safeParse({
-          ...mobileRevenueOver10,
+          populationId: POPULATION_ID,
+          unit: "user_id",
           ...change,
         }).success,
       ).toBe(false);
@@ -723,5 +904,57 @@ describe("metric explorations without a population", () => {
     // Login-only users (Carol, Gina, Frank) must not count as zero-device
     // purchasers once login rows are in the same scan.
     expect(together["2026-09-01"].values[3]).toEqual([3, 3]);
+  });
+});
+
+describe("getPopulationCacheKey", () => {
+  // Every step field changes the query, so the key takes the whole step.
+  // Adding a field here means deciding whether it does; a render-only field
+  // must be omitted in getPopulationCacheKey.
+  it("is reconsidered when a field is added to the step", () => {
+    expect(Object.keys(populationStepValidator.shape).sort()).toEqual([
+      "aggregateFilter",
+      "aggregateFilterColumn",
+      "rowFilters",
+      "source",
+    ]);
+  });
+
+  // Explorations once sent the Population inline, in this shape; results
+  // cached then are still served when a saved Population's key reads the same.
+  it("reads the same as the inline definition it replaced", () => {
+    const step = populationStepValidator.parse({
+      aggregateFilterColumn: "revenue",
+      aggregateFilter: ">10",
+      rowFilters: [{ column: "device", operator: "=", values: ["mobile"] }],
+      source: { factTableId: "ft_1", type: "factTable" },
+    });
+    // Row filters were passed through then too, so only their presence counts.
+    const inline = {
+      source: { type: "factTable", factTableId: "ft_1" },
+      rowFilters: step.rowFilters,
+      aggregateFilter: ">10",
+      aggregateFilterColumn: "revenue",
+      unit: "user_id",
+    };
+    expect(
+      JSON.stringify(getPopulationCacheKey({ steps: [step] }, "user_id")),
+    ).toBe(JSON.stringify(inline));
+  });
+
+  it("leaves absent aggregate fields out, as the inline definition did", () => {
+    const step = populationStepValidator.parse({
+      source: { type: "factTable", factTableId: "ft_1" },
+      rowFilters: [],
+    });
+    expect(
+      JSON.stringify(getPopulationCacheKey({ steps: [step] }, "user_id")),
+    ).toBe(
+      JSON.stringify({
+        source: { type: "factTable", factTableId: "ft_1" },
+        rowFilters: [],
+        unit: "user_id",
+      }),
+    );
   });
 });

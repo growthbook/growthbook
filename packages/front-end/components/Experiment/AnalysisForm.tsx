@@ -87,7 +87,7 @@ export type AnalysisFormFocus = "datasource" | "exposureQuery" | "goalMetrics";
 export const DATASOURCE_CHANGE_NOTE =
   "Metrics and segments that aren't from the new Data Source are removed.";
 
-const getIneligibleGroupsMessage = (groupNames: string[]) =>
+export const getIneligibleGroupsMessage = (groupNames: string[]) =>
   `Remove these metric groups before saving. They include metrics that cluster experiments can't analyze: ${groupNames.join(", ")}.`;
 
 export function IneligibleClusterMetricsCallouts({
