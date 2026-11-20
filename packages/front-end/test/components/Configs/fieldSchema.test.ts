@@ -46,8 +46,9 @@ describe("parseFieldValueInput", () => {
     [{ type: "integer" }, " 12 ", 12],
     [{ type: "float" }, "1.5", 1.5],
     [{ type: "boolean" }, "true", true],
-    // A string keeps its text as typed.
+    // A string keeps its text as typed, whitespace included.
     [{}, " a b ", " a b "],
+    [{}, " ", " "],
     [object, '{"a":1}', { a: 1 }],
   ] as const)("reads %j %j", (overrides, text, value) => {
     expect(parseFieldValueInput(text, field(overrides))).toEqual({

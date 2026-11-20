@@ -426,14 +426,6 @@ export default function EditSavedGroupPage() {
     (attr) => attr.property === savedGroup?.attributeKey,
   );
 
-  const listAboveSizeLimit = useMemo(
-    () =>
-      savedGroupSizeLimit
-        ? [...new Set(itemsToAdd.concat(displayedValues))].length >
-          savedGroupSizeLimit
-        : false,
-    [savedGroupSizeLimit, itemsToAdd, displayedValues],
-  );
   const liveRevision = useMemo(
     () => getLiveRevision(allRevisions) ?? null,
     [allRevisions],
@@ -480,6 +472,15 @@ export default function EditSavedGroupPage() {
     addItemsDraftMode,
     addItemsDraftSelectedId,
   ).length;
+  // Counted on the list the add writes to: an append keeps the target's items.
+  const listAboveSizeLimit =
+    !!savedGroupSizeLimit &&
+    new Set([
+      ...(importOperation === "append"
+        ? itemsBase(addItemsDraftMode, addItemsDraftSelectedId)
+        : []),
+      ...itemsToAdd,
+    ]).size > savedGroupSizeLimit;
   const addCta = draftModeCta(addItemsDraftMode, {
     bypassesApproval: approvalRequired && canAdminPublish,
   });
@@ -1001,7 +1002,8 @@ export default function EditSavedGroupPage() {
           onRevisionCreated={onRevisionCreated}
           openRevisions={openRevisions}
           allRevisions={allRevisions}
-          selectedRevision={selectedRevision}
+          // Seeds from the draft it writes to, which the page may not be viewing.
+          selectedRevision={editTarget}
           onSelectRevision={selectFlow}
           liveVersion={savedGroup}
           editConditionOnly={true}

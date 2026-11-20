@@ -927,6 +927,14 @@ describe("validateConfigValue", () => {
     });
   });
 
+  it("groups issues under keys holding / or ~", () => {
+    const issues = collectConfigValueIssuesByKey({
+      value: { "a/b": 1 },
+      fields: [field({ key: "a/b" }), field({ key: "c~d" })],
+    });
+    expect([...issues.keys()].sort()).toEqual(["a/b", "c~d"]);
+  });
+
   it.each([
     {
       name: "keys with no schema",

@@ -6,26 +6,39 @@ import {
   runConfirmedNavigation,
 } from "@/components/FactTables/MetricEditor/navigationCancellation";
 
-function pathnameOf(url: string) {
-  return new URL(url, window.location.origin).pathname;
+// The same page, and the same value for each watched query parameter.
+function sameView(a: string, b: string, watchQuery: string[]) {
+  const ua = new URL(a, window.location.origin);
+  const ub = new URL(b, window.location.origin);
+  return (
+    ua.pathname === ub.pathname &&
+    watchQuery.every((k) => ua.searchParams.get(k) === ub.searchParams.get(k))
+  );
 }
 
 /**
  * While there are unsaved changes, leaving the page asks first and closing the
- * tab warns; same-page changes pass through unless sent through `confirmThen`.
- * `onLeave` runs on confirm.
+ * tab warns; same-page changes pass through unless they change a `watchQuery`
+ * parameter or go through `confirmThen`. `onLeave` runs on confirm.
  */
 export default function useUnsavedChangesGuard(
   hasUnsavedChanges: boolean,
   onLeave?: () => void,
+  watchQuery: string[] = [],
 ) {
   const router = useRouter();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const navigationConfirmed = useRef(false);
 
+  const watchKey = watchQuery.join(",");
   useEffect(() => {
-    if (!hasUnsavedChanges) return;
+    if (!hasUnsavedChanges) {
+      // A confirmed in-page action is through once nothing is unsaved.
+      navigationConfirmed.current = false;
+      return;
+    }
+    const watched = watchKey ? watchKey.split(",") : [];
 
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (navigationConfirmed.current || isNavigationConfirmed()) return;
@@ -57,7 +70,7 @@ export default function useUnsavedChangesGuard(
         return;
       if (
         destination.origin === window.location.origin &&
-        destination.pathname === window.location.pathname
+        sameView(destination.href, window.location.href, watched)
       )
         return;
 
@@ -74,7 +87,7 @@ export default function useUnsavedChangesGuard(
     const onRouteChangeStart = (url: string, options: { shallow: boolean }) => {
       // Another guard's confirmed navigation passes too, so one dialog is enough.
       if (navigationConfirmed.current || isNavigationConfirmed()) return;
-      if (pathnameOf(url) === pathnameOf(router.asPath)) return;
+      if (sameView(url, router.asPath, watched)) return;
       setPendingAction(null);
       setPendingHref(url);
       router.events.emit("routeChangeError", cancellation.error, url, options);
@@ -91,7 +104,7 @@ export default function useUnsavedChangesGuard(
       router.events.off("routeChangeStart", onRouteChangeStart);
       cancellation.dispose();
     };
-  }, [hasUnsavedChanges, router.asPath, router.events]);
+  }, [hasUnsavedChanges, router.asPath, router.events, watchKey]);
 
   const allowUnload = useCallback(() => {
     navigationConfirmed.current = true;
@@ -109,6 +122,8 @@ export default function useUnsavedChangesGuard(
 
   const confirmNavigation = async () => {
     if (pendingAction) {
+      // Lets a navigation the action starts through, until nothing is unsaved.
+      navigationConfirmed.current = true;
       setPendingAction(null);
       onLeave?.();
       pendingAction();

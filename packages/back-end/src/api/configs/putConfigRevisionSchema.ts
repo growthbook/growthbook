@@ -69,12 +69,13 @@ export const putConfigRevisionSchema = createApiRequestHandler(
     const draft = configDraftState(config, revision);
 
     // A value sent with the schema is staged with it, as the app's editor does.
+    // Checked as sent, so an unsupported reference is rejected, not dropped.
+    const rawValue =
+      req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
+    if (rawValue !== undefined) assertValidConfigValueEdit(rawValue);
     const sentValue =
-      req.body.value !== undefined
-        ? stripConfigExtends(JSON.stringify(req.body.value))
-        : undefined;
+      rawValue !== undefined ? stripConfigExtends(rawValue) : undefined;
     if (sentValue !== undefined) {
-      assertValidConfigValueEdit(sentValue);
       await assertNoReferenceCycle(
         req.context,
         config.key,

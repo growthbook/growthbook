@@ -172,7 +172,10 @@ import ConfigFieldRow, {
   FieldRowMenu,
   menuColumnHiddenClassName,
 } from "@/components/Configs/ConfigFieldRow";
-import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
+import ConfigInvariantsEditor, {
+  InheritedInvariant,
+} from "@/components/Configs/ConfigInvariantsEditor";
+import LinkButton from "@/ui/LinkButton";
 import ConfigCustomHooksSection from "@/components/Configs/ConfigCustomHooksSection";
 import ConfigUsageSection from "@/components/Configs/ConfigUsageSection";
 import {
@@ -208,6 +211,7 @@ type ResolvedResponse = {
 };
 
 const LINEAGE_PANEL_WIDTH_PX = 280;
+const REVISION_QUERY = ["v"];
 const FIELDS_TABLE_MIN_WIDTH_PX = 850;
 // The Fields card and page padding around the table. The details rail floats
 // before the table would have to scroll beside it.
@@ -308,7 +312,7 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
     >
       {item("Copy Config", null, payloads.ownValue, VALUE_ITEM_HEIGHT_PX)}
       {item(
-        "Copy Resolved Config",
+        "Copy resolved Config",
         "Inheritance + Constants resolved",
         payloads.resolvedValue,
         VALUE_ITEM_HEIGHT_PX,
@@ -431,7 +435,12 @@ export default function ConfigDetailPage(): React.ReactElement {
     setAddingField(false);
   };
   const closeEdits = () => withViewTransition(cancelEdits);
-  const navigationGuard = useUnsavedChangesGuard(unsavedChanges, cancelEdits);
+  // A revision switch (`?v=`) drops edits too, so Back and Forward ask first.
+  const navigationGuard = useUnsavedChangesGuard(
+    unsavedChanges,
+    cancelEdits,
+    REVISION_QUERY,
+  );
   // Tabs, views and revisions don't keep an open edit; one with changes asks
   // first, and one being saved waits for it.
   const discardThen = (next: () => void) => {
@@ -748,6 +757,33 @@ export default function ConfigDetailPage(): React.ReactElement {
     const self = data?.lineage.find((n) => n.key === config?.key);
     return self?.parentKey ?? null;
   }, [data?.lineage, config?.key]);
+
+  // The root of this Config's parent chain, where family-wide rules and hooks go.
+  const baseNode = useMemo(() => {
+    const lineage = data?.lineage ?? [];
+    let node = lineage.find((n) => n.key === config?.key);
+    while (node?.parentKey) {
+      const parent = node.parentKey;
+      node = lineage.find((n) => n.key === parent);
+    }
+    return node ?? null;
+  }, [data?.lineage, config?.key]);
+
+  // Rules from the Configs this one builds on, the nearest winning a shared name.
+  const inheritedInvariants = useMemo(() => {
+    const byName = new Map<string, InheritedInvariant>();
+    for (const node of data?.chain ?? []) {
+      if (node.key === config?.key) continue;
+      for (const invariant of node.schema?.invariants ?? []) {
+        byName.set(invariant.name, {
+          invariant,
+          sourceKey: node.key,
+          sourceName: node.name ?? node.key,
+        });
+      }
+    }
+    return [...byName.values()];
+  }, [data?.chain, config?.key]);
 
   // The flag lives on the root: a root reads it draft-aware off the displayed revision,
   // a child uses the server-computed family value. Drives schema `additionalProperties`.
@@ -2262,8 +2298,30 @@ export default function ConfigDetailPage(): React.ReactElement {
 
             {tab === "validation" && (
               <>
+                {parentKey && baseNode && (
+                  <Callout
+                    status="info"
+                    mb="4"
+                    contentAlign="center"
+                    action={
+                      <LinkButton
+                        href={`/configs/${baseNode.key}#validation`}
+                        variant="outline"
+                        size="sm"
+                        color="inherit"
+                      >
+                        Open base Config
+                      </LinkButton>
+                    }
+                  >
+                    Rules and hooks set here apply to {displayedConfig.name} and
+                    its descendants. Ones for the whole family belong on its
+                    base Config, {baseNode.name}.
+                  </Callout>
+                )}
                 <ConfigInvariantsEditor
                   invariants={ownSchema().invariants ?? []}
+                  inherited={inheritedInvariants}
                   fieldKeys={resolved.fields.map((f) => f.key)}
                   declaredKeys={resolved.effectiveSchema.map((f) => f.key)}
                   resolvedValue={invariantValue}

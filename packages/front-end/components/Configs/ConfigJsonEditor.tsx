@@ -402,7 +402,10 @@ export default function ConfigJsonEditor({
     // A buffer with a parse error yields empty fields — switching now would
     // wipe the draft. Keep the current language until the error is fixed.
     if (schemaError) return;
-    setSchemaText(compileFieldsToText(fields, schemaType, extensible, next));
+    const text = compileFieldsToText(fields, schemaType, extensible, next);
+    // A clean buffer stays clean in the new language, so reseeds still reach it.
+    if (schemaText === schemaBase.current) schemaBase.current = text;
+    setSchemaText(text);
     setSchemaLang(next);
     seededKeys.current = new Set();
   };

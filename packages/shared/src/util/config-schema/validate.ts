@@ -210,6 +210,18 @@ export type ConfigValueIssue = { path: string; message: string };
 
 // Ajv's wording names the parent object and hides the offending key or the
 // allowed values, so these keywords say what to fix instead.
+// The top-level key an error is about: the first pointer segment, unescaped,
+// or for an error on the object itself, the property it names.
+function topLevelKey(err: ErrorObject): string {
+  const first = (err.instancePath ?? "").split("/")[1];
+  if (first !== undefined) return first.replace(/~1/g, "/").replace(/~0/g, "~");
+  const params = err.params as {
+    missingProperty?: string;
+    additionalProperty?: string;
+  };
+  return params.missingProperty ?? params.additionalProperty ?? "";
+}
+
 function configValueIssue(err: ErrorObject): ConfigValueIssue {
   const path = err.instancePath?.replace(/^\//, "") ?? "";
   const at = (key: string) => (path ? `${path}/${key}` : key);
@@ -329,7 +341,7 @@ export function collectConfigValueIssuesByKey({
   if (validate(data)) return byKey;
   for (const err of validate.errors ?? []) {
     const issue = configValueIssue(err);
-    const key = issue.path.split("/")[0];
+    const key = topLevelKey(err);
     if (!key) continue;
     const list = byKey.get(key) ?? [];
     if (

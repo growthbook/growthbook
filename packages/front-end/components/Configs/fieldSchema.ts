@@ -392,8 +392,10 @@ export function parseFieldValueInput(
   | { kind: "error"; error: string } {
   if (isNull) return { kind: "value", value: null };
   const t = text.trim();
-  if (t === "") return { kind: "unset" };
-  switch (fieldValueType(field)) {
+  const valueType = fieldValueType(field);
+  // A string keeps whitespace it was given; only no text at all is "not set".
+  if (valueType === "string" ? text === "" : t === "") return { kind: "unset" };
+  switch (valueType) {
     case "json":
       try {
         return { kind: "value", value: JSON.parse(t) };

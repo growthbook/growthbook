@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
 import {
@@ -31,6 +31,7 @@ import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import HelperText from "@/ui/HelperText";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -41,8 +42,17 @@ import SelectField, {
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import FormatJsonAction from "@/components/Features/FormatJsonAction";
 
+// A rule from a Config this one builds on, which applies here too.
+export type InheritedInvariant = {
+  invariant: ConfigInvariant;
+  sourceKey: string;
+  sourceName: string;
+};
+
 type Props = {
   invariants: ConfigInvariant[];
+  // A rule here with the same name replaces the inherited one.
+  inherited?: InheritedInvariant[];
   // Field keys available to reference in rules (effective schema fields plus
   // stray value keys, so existing rules stay representable).
   fieldKeys: string[];
@@ -228,6 +238,7 @@ function safeParse(text: string): Record<string, unknown> | null {
 // mongo-condition editor for anything the builder can't represent.
 export default function ConfigInvariantsEditor({
   invariants,
+  inherited = [],
   fieldKeys,
   declaredKeys,
   resolvedValue,
@@ -374,15 +385,6 @@ export default function ConfigInvariantsEditor({
     }
   };
 
-  // Live pass/fail per rule against the current resolved value.
-  const failing = useMemo(() => {
-    const set = new Set<number>();
-    invariants.forEach((iv, i) => {
-      if (evaluateInvariants(resolvedValue, [iv]).length) set.add(i);
-    });
-    return set;
-  }, [invariants, resolvedValue]);
-
   const previewFails = currentRule
     ? evaluateInvariants(resolvedValue, [
         { name, rule: JSON.stringify(currentRule), message },
@@ -398,16 +400,70 @@ export default function ConfigInvariantsEditor({
     ? undeclaredIn(JSON.stringify(currentRule))
     : [];
 
-  // Precompute each existing invariant's undeclared fields once — the list
-  // render reads this three times per row.
-  const undeclaredByIndex = useMemo(() => {
-    const declared = declaredKeys ? new Set(declaredKeys) : null;
-    return invariants.map((iv) =>
-      declared
-        ? invariantRuleFields(iv.rule).filter((k) => !declared.has(k))
-        : [],
+  const inheritedByName = useMemo(
+    () => new Map(inherited.map((r) => [r.invariant.name, r])),
+    [inherited],
+  );
+  const ownNames = new Set(invariants.map((iv) => iv.name));
+  const shownInherited = inherited.filter(
+    (r) => !ownNames.has(r.invariant.name),
+  );
+  const replaces = (ruleName: string) => {
+    const r = inheritedByName.get(ruleName.trim());
+    return r
+      ? `Replaces the "${r.invariant.name}" rule from ${r.sourceName} for this Config and its descendants.`
+      : null;
+  };
+
+  // A rule with its live pass/fail against the resolved value.
+  const ruleCard = (
+    iv: ConfigInvariant,
+    key: string,
+    { actions, note }: { actions?: ReactNode; note?: ReactNode },
+  ) => {
+    const fails = evaluateInvariants(resolvedValue, [iv]).length > 0;
+    const undeclared = undeclaredIn(iv.rule);
+    return (
+      <Frame mb="2" key={key}>
+        <Flex align="center" gap="2">
+          <Text weight="semibold">{iv.name}</Text>
+          <Badge
+            color={fails ? "red" : "green"}
+            variant="soft"
+            label={fails ? "fails" : "ok"}
+          />
+          {actions ? (
+            <Flex gap="2" ml="auto" align="center">
+              {actions}
+            </Flex>
+          ) : null}
+        </Flex>
+        <Box
+          mt="1"
+          style={{
+            fontFamily: "var(--code-font-family)",
+            fontSize: 12,
+            color: "var(--gray-11)",
+            wordBreak: "break-all",
+          }}
+        >
+          {describeInvariantRule(iv.rule)}
+        </Box>
+        {undeclared.length > 0 && (
+          <Text as="div" size="sm" color="text-low" mt="1">
+            References undeclared field
+            {undeclared.length === 1 ? "" : "s"}{" "}
+            {undeclared.map((k) => `"${k}"`).join(", ")}, which
+            {undeclared.length === 1 ? " reads" : " read"} as null.
+          </Text>
+        )}
+        <Text as="div" size="sm" color="text-low" mt="1">
+          {iv.message}
+        </Text>
+        {note}
+      </Frame>
     );
-  }, [invariants, declaredKeys]);
+  };
 
   const fieldOptions = fieldKeys.map((k) => ({ label: k, value: k }));
 
@@ -553,6 +609,8 @@ export default function ConfigInvariantsEditor({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="e.g. start_before_end"
+        error={replaces(name)}
+        errorLevel="warning"
       />
 
       <Flex justify="between" align="center" mt="4" mb="2">
@@ -569,7 +627,7 @@ export default function ConfigInvariantsEditor({
 
       {advanced && advancedLocked && (
         <HelperText status="warning" size="sm" mb="2">
-          This rule can&apos;t be shown in the builder — edit it as raw JSON.
+          This rule can&apos;t be shown in the builder. Edit it as raw JSON.
         </HelperText>
       )}
       {advanced ? (
@@ -587,7 +645,7 @@ export default function ConfigInvariantsEditor({
           showCopyButton
           showFullscreenButton
           actions={<FormatJsonAction value={ruleText} setValue={setRuleText} />}
-          helpText="Raw rule — a boolean expression over the fields."
+          helpText="A boolean expression over the fields."
         />
       ) : (
         builder
@@ -636,10 +694,9 @@ export default function ConfigInvariantsEditor({
             <Text as="div" size="sm" color="text-low" mt="1">
               References undeclared field
               {previewUndeclared.length === 1 ? "" : "s"}{" "}
-              {previewUndeclared.map((k) => `"${k}"`).join(", ")} — the schema
-              doesn&apos;t declare{" "}
-              {previewUndeclared.length === 1 ? "it" : "them"}, so the rule
-              reads null there (check for a typo).
+              {previewUndeclared.map((k) => `"${k}"`).join(", ")}, which
+              {previewUndeclared.length === 1 ? " reads" : " read"} as null.
+              Check for a typo.
             </Text>
           )}
         </Box>
@@ -655,22 +712,16 @@ export default function ConfigInvariantsEditor({
         </Heading>
         {(canEdit || blockedReason) && (
           <Tooltip content={blockedReason} enabled={!!blockedReason}>
-            <Button
-              variant="ghost"
-              disabled={!!blockedReason}
-              onClick={() => open(-1)}
-            >
-              + Add rule
+            <Button disabled={!!blockedReason} onClick={() => open(-1)}>
+              Add rule
             </Button>
           </Tooltip>
         )}
       </Flex>
       <Box mb="3">
-        <Text as="div" size="sm" color="text-low">
-          <em>
-            Relational checks JSON Schema can&apos;t express — evaluated against
-            the resolved value at publish.
-          </em>
+        <Text as="p" size="sm" color="text-low" fontStyle="italic">
+          Cross-field checks on the resolved value before this Config is
+          published.
         </Text>
       </Box>
 
@@ -681,62 +732,61 @@ export default function ConfigInvariantsEditor({
       )}
 
       {invariants.length === 0 && (
-        <Text as="div" size="sm" color="text-low">
-          No cross-field rules yet — add relational checks JSON Schema
-          can&apos;t express (implications, both-or-neither, or comparing two
-          fields).
+        <Text color="text-low">
+          <em>
+            {inherited.length
+              ? "None defined here yet."
+              : "No validation rules yet."}
+          </em>
         </Text>
       )}
 
-      {invariants.map((iv, i) => (
-        <Frame mb="2" key={i}>
-          <Flex align="center" gap="2">
-            <Text weight="semibold">{iv.name}</Text>
-            <Badge
-              color={failing.has(i) ? "red" : "green"}
-              variant="soft"
-              label={failing.has(i) ? "fails" : "ok"}
-            />
-            {canEdit && (
-              <Flex gap="2" ml="auto">
-                <Button variant="ghost" size="sm" onClick={() => open(i)}>
-                  Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  color="red"
-                  onClick={() => remove(i)}
-                >
-                  Delete
-                </Button>
-              </Flex>
-            )}
-          </Flex>
-          <Box
-            mt="1"
-            style={{
-              fontFamily: "var(--code-font-family)",
-              fontSize: 12,
-              color: "var(--gray-11)",
-              wordBreak: "break-all",
-            }}
-          >
-            {describeInvariantRule(iv.rule)}
-          </Box>
-          {undeclaredByIndex[i].length > 0 && (
-            <Text as="div" size="sm" color="text-low" mt="1">
-              References undeclared field
-              {undeclaredByIndex[i].length === 1 ? "" : "s"}{" "}
-              {undeclaredByIndex[i].map((k) => `"${k}"`).join(", ")} —
-              undeclared fields evaluate as null.
-            </Text>
-          )}
-          <Text as="div" size="sm" color="text-low" mt="1">
-            {iv.message}
+      {invariants.map((iv, i) =>
+        ruleCard(iv, `own-${i}`, {
+          actions: canEdit && (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => open(i)}>
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                color="red"
+                onClick={() => remove(i)}
+              >
+                Delete
+              </Button>
+            </>
+          ),
+          note: replaces(iv.name) && (
+            <HelperText status="warning" size="sm" mt="1">
+              {replaces(iv.name)}
+            </HelperText>
+          ),
+        }),
+      )}
+
+      {shownInherited.length > 0 && (
+        <>
+          <Heading as="h4" size="sm" mt="4" mb="1">
+            Inherited Rules
+          </Heading>
+          <Text as="p" size="sm" color="text-low" mb="3">
+            From the Configs this one builds on. They&apos;re checked here too,
+            and edited where they&apos;re defined.
           </Text>
-        </Frame>
-      ))}
+          {shownInherited.map((r) =>
+            ruleCard(r.invariant, `inherited-${r.invariant.name}`, {
+              actions: (
+                <Text size="sm" color="text-low">
+                  From{" "}
+                  <Link href={`/configs/${r.sourceKey}`}>{r.sourceName}</Link>
+                </Text>
+              ),
+            }),
+          )}
+        </>
+      )}
 
       {editingIndex !== null && (
         <ModalStandard
