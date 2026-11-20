@@ -1046,16 +1046,25 @@ export type ConfigSchemaChangeImpact = {
   disallowedKeys: string[];
 };
 
-// A Config change that can break its descendants: it changes their effective
-// schema, or whether they may set keys no schema declares.
-export function configChangeReachesDescendants(
+// A Config change to its own schema or its bases, which descendants must be
+// re-reconciled against.
+export function configChangeReshapesFamily(
   changes: Record<string, unknown>,
 ): boolean {
   return (
     changes.schema !== undefined ||
     changes.parent !== undefined ||
-    "extends" in changes ||
-    changes.extensible !== undefined
+    "extends" in changes
+  );
+}
+
+// A Config change that can break its descendants: it reshapes the family, or
+// changes whether they may set keys no schema declares.
+export function configChangeReachesDescendants(
+  changes: Record<string, unknown>,
+): boolean {
+  return (
+    configChangeReshapesFamily(changes) || changes.extensible !== undefined
   );
 }
 
@@ -1156,17 +1165,18 @@ export function computeConfigSchemaChangeImpact({
       .conflicting.map((c) => c.key)
       .filter((k) => !conflictingBefore.has(k));
 
-    // Keys a removal orphans are reported above; references stay exempt, as in
-    // validation.
-    const disallowedKeys =
-      allowsExtra(key, beforeByKey) && !allowsExtra(key, afterByKey)
-        ? ownKeys.filter(
-            (k) =>
-              !declaredBefore.has(k) &&
-              !declaredAfter.has(k) &&
-              !valueHasReferenceToken(ownValue[k]),
-          )
-        : [];
+    // Keys allowed before and not after, not repeated from orphanedKeys.
+    // References stay exempt, as in validation.
+    const extraBefore = allowsExtra(key, beforeByKey);
+    const extraAfter = allowsExtra(key, afterByKey);
+    const disallowedKeys = ownKeys.filter(
+      (k) =>
+        (extraBefore || declaredBefore.has(k)) &&
+        !extraAfter &&
+        !declaredAfter.has(k) &&
+        !orphanedKeys.includes(k) &&
+        !valueHasReferenceToken(ownValue[k]),
+    );
 
     const removed = new Set(removedKeys);
     const invariantRefs = (member.schema?.invariants ?? [])

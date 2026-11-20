@@ -22,6 +22,7 @@ import {
   reconcileSchemaFields,
   tsTypesToFields,
   validateConfigValue,
+  UNDECLARED_FIELDS_FIX,
 } from "../src/util/config-schema";
 import { simpleSchemaFieldToJSONSchema } from "../src/util/features";
 import { splitGoFieldStatements } from "../src/util/config-schema/go-fields";
@@ -894,15 +895,17 @@ describe("validateConfigValue", () => {
       name: "keys with no schema",
       value: { a: 1, b: 2 },
       fields: [],
-      error:
-        '"a", "b" aren\'t in the schema: add them, or turn on "Allow extra fields" on the base Config',
+      errors: [
+        '"a" isn\'t in the schema',
+        '"b" isn\'t in the schema',
+        UNDECLARED_FIELDS_FIX,
+      ],
     },
     {
       name: "an undeclared top-level key",
       value: { timeout: 1, other: 1 },
       fields,
-      error:
-        '"other" isn\'t in the schema: add it, or turn on "Allow extra fields" on the base Config',
+      errors: ['"other" isn\'t in the schema', UNDECLARED_FIELDS_FIX],
     },
     {
       name: "an undeclared nested key",
@@ -917,18 +920,24 @@ describe("validateConfigValue", () => {
           }),
         }),
       ],
-      error: '"conn/extra" isn\'t in the schema',
+      errors: ['"conn/extra" isn\'t in the schema'],
     },
     {
       name: "a value outside an enum",
       value: { mode: "x" },
       fields: [field({ key: "mode", type: "string", enum: ["a", "b"] })],
-      error: '"mode" must be one of "a", "b"',
+      errors: ['"mode" must be one of "a", "b"'],
     },
-  ])("names what to fix for $name", ({ value, fields, error }) => {
+    {
+      name: "a fractional integer",
+      value: { timeout: 1.5 },
+      fields,
+      errors: ['"timeout" must be an integer'],
+    },
+  ])("names what to fix for $name", ({ value, fields, errors }) => {
     expect(
       validateConfigValue({ value, fields, additionalProperties: false }),
-    ).toEqual({ valid: false, errors: [error] });
+    ).toEqual({ valid: false, errors });
   });
 
   it("does not enforce NESTED required for a sparse patch", () => {

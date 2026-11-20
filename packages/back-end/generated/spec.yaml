@@ -29677,16 +29677,16 @@ paths:
                     When the config has no schema yet, infer one from the
                     supplied `value` and stage it on the same draft.
                   type: boolean
-                declareNewFields:
+                inferUndeclaredFields:
                   description: >-
-                    Declare a schema field, inferred from its value, for each
-                    key in `value` that the Config's effective schema doesn't
-                    declare, and stage it on the same draft. Existing fields are
-                    never changed, and keys holding a `@const:`/`@config:`
-                    reference are skipped. Each added field is listed in
-                    `warnings` with code `declared-field`. Without it, an
-                    undeclared key is rejected unless the Config allows extra
-                    fields.
+                    Add an optional schema field, inferred from its value, for
+                    each top-level key in `value` that the Config's effective
+                    schema doesn't declare, staged on the same draft. Existing
+                    fields are never changed, and keys holding a
+                    `@const:`/`@config:` reference are skipped. Each added field
+                    is listed in `warnings` with code `inferred-field`. When
+                    `inferSchemaIfMissing` infers a whole schema, that takes
+                    precedence.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -29996,6 +29996,16 @@ paths:
                 infer:
                   description: Derive the schema from the draft's value instead.
                   type: boolean
+                value:
+                  description: >-
+                    This config's own value, staged together with the schema and
+                    validated against it. Use it to retype or remove a field the
+                    value sets, which a schema write or a value write can't do
+                    on its own.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
                 additionalProperties:
                   description: >-
                     Whether the resulting object schema permits extra keys
@@ -77024,7 +77034,7 @@ components:
             - unsupported-member
             - redundant-declaration
             - undeclared-rule-field
-            - declared-field
+            - inferred-field
         message:
           type: string
         path:

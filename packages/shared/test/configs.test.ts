@@ -41,6 +41,8 @@ import {
   ancestorCollisionWarnings,
   findOrphanedConfigValueKeys,
   computeConfigSchemaChangeImpact,
+  configChangeReachesDescendants,
+  configChangeReshapesFamily,
   ConfigFamilyMember,
   ConfigSchemaChangeImpact,
   findUndeclaredInvariantRuleFields,
@@ -1858,6 +1860,22 @@ describe("findOrphanedConfigValueKeys", () => {
   });
 });
 
+describe("Config change predicates", () => {
+  it.each([
+    [{ schema: null }, true, true],
+    [{ parent: "" }, true, true],
+    [{ extends: [] }, true, true],
+    [{ extensible: false }, false, true],
+    [{ value: "{}", name: "x" }, false, false],
+  ])(
+    "%j reshapes: %s, reaches descendants: %s",
+    (changes, reshapes, reaches) => {
+      expect(configChangeReshapesFamily(changes)).toBe(reshapes);
+      expect(configChangeReachesDescendants(changes)).toBe(reaches);
+    },
+  );
+});
+
 describe("computeConfigSchemaChangeImpact", () => {
   const optInt = (key: string): SchemaField => ({
     key,
@@ -2108,6 +2126,22 @@ describe("computeConfigSchemaChangeImpact", () => {
       ["child", ["extra"]],
       ["grandchild", ["other"]],
     ]);
+    // Removing the whole schema orphans nothing, so its keys are reported here.
+    expect(
+      disallowed(impact("base", before, { ...closed, schema: undefined })),
+    ).toEqual([
+      ["child", ["a", "extra"]],
+      ["grandchild", ["other"]],
+    ]);
+    // A closed family losing its whole schema leaves declared keys disallowed.
+    const closedBefore = before.map((c) =>
+      c.key === "base" ? { ...c, extensible: false } : c,
+    );
+    expect(
+      disallowed(
+        impact("base", closedBefore, { ...closed, schema: undefined }),
+      ),
+    ).toEqual([["child", ["a"]]]);
     // Already closed by the org default: nothing changes, so nothing to report.
     expect(
       computeConfigSchemaChangeImpact({

@@ -9,6 +9,7 @@ import {
 } from "back-end/src/revisions/util";
 import {
   assertConfigValueValid,
+  configDraftContent,
   configDraftState,
   configValidationLeaf,
 } from "back-end/src/services/configValidation";
@@ -63,9 +64,9 @@ export const deleteConfigRevisionProperty = createApiRequestHandler(
       "config",
       config as unknown as Record<string, unknown> & { id: string },
       async (row) => {
-        const draft = configDraftState(config, row ?? revision);
+        const target = row ?? revision;
         const { value: nextValue, existed } = removeOwnValueProperty(
-          draft.value,
+          configDraftContent(config, target).value,
           req.query.property,
         );
         if (!existed) {
@@ -78,7 +79,9 @@ export const deleteConfigRevisionProperty = createApiRequestHandler(
 
         await assertConfigValueValid(
           req.context,
-          configValidationLeaf({ ...draft, value: strippedValue }),
+          configValidationLeaf(configDraftState(config, target), {
+            value: strippedValue,
+          }),
           { value: strippedValue },
         );
 

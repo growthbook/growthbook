@@ -37,7 +37,7 @@ A config's value applies across all environments by default. When you need it to
 
 A config's **schema** is the source of truth for its shape. The editor builds it for you as you define fields, and validates the value against it on every save — a missing required field, a wrong type, an out-of-range number, or a value outside an allowed enum is rejected before it can be saved.
 
-By default a config is **closed** (extra keys not in the schema are rejected). A config can opt in to being **extensible** (allow extra keys), and your organization has a default for new configs. Even when extensible, the typed fields are still validated.
+By default a config allows **extra fields**: keys its schema doesn't declare are accepted, and the typed fields are still validated. Turn off **Allow extra fields** on a base config to accept only declared keys, in its own value, its child configs, and the feature flag rules that use it. Your organization sets the default for new base configs.
 
 ## Composability and inheritance
 

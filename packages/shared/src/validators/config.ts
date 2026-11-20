@@ -336,7 +336,7 @@ export const apiSchemaWarningValidator = namedSchema(
         "unsupported-member",
         "redundant-declaration",
         "undeclared-rule-field",
-        "declared-field",
+        "inferred-field",
       ]),
       message: z.string(),
       path: z.string().optional(),

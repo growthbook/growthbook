@@ -35,6 +35,8 @@ import {
   setOwnValueProperty,
   removeOwnValueProperty,
   configChangeReachesDescendants,
+  configChangeReshapesFamily,
+  getConfigBaseKeys,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { ReqContext } from "back-end/types/request";
@@ -92,6 +94,7 @@ import {
   assertConfigValueValid,
   assertConfigValueValidForCreate,
   assertConfigValueValidForPublish,
+  configDraftContent,
   configDraftState,
   configValidationLeaf,
 } from "back-end/src/services/configValidation";
@@ -688,7 +691,7 @@ const resolveConfigOwnValue = async (
   query: PutConfigRequest["query"],
 ): Promise<string | undefined> => {
   const draft = await loadTargetDraft(context, existing, query);
-  return draft ? configDraftState(existing, draft).value : existing.value;
+  return draft ? configDraftContent(existing, draft).value : existing.value;
 };
 
 // buildPatchOps drops null, but a null schema is a clear the draft must carry.
@@ -823,14 +826,8 @@ const writeConfig = async (
   // would publish, the same state the publish checks see.
   const revisionId = req.query.revisionId;
   const targetRevision = await loadTargetDraft(context, existing, req.query);
-  const comparisonBase: ConfigInterface = targetRevision
-    ? {
-        ...existing,
-        ...applyPatchToSnapshot(
-          targetRevision.target.snapshot as ConfigInterface,
-          normalizeProposedChanges(targetRevision.target.proposedChanges),
-        ),
-      }
+  const comparisonBase = targetRevision
+    ? configDraftContent(existing, targetRevision)
     : existing;
   const draftState = targetRevision
     ? configDraftState(existing, targetRevision)
@@ -859,7 +856,7 @@ const writeConfig = async (
   // destination, so resolve from the draft's patched state rather than this
   // request alone — otherwise a draft moving A→B checks A on both sides.
   const destinationProject =
-    project ?? comparisonBase.project ?? existing.project ?? "";
+    project ?? draftState.project ?? existing.project ?? "";
 
   // Both sides: authoring rights where it lives now, and where it would land.
   const canDraftEntity =
@@ -1014,6 +1011,12 @@ const writeConfig = async (
   // doing it here keeps drafts honest too.
   const lineageChanged =
     fieldsToUpdate.parent !== undefined || "extends" in fieldsToUpdate;
+  if (lineageChanged) {
+    await context.models.configs.assertValidLineage(
+      { ...draftState, ...fieldsToUpdate } as ConfigInterface,
+      getConfigBaseKeys(existing),
+    );
+  }
   // `in`, not `??`: an explicit null is a CLEAR and must not fall through to
   // the stored schema — otherwise a revert that clears the schema AND changes
   // lineage in one request would normalize `existing.schema` against the new
@@ -1071,10 +1074,7 @@ const writeConfig = async (
   };
   const valueAffectingChange =
     fieldsToUpdate.value !== undefined ||
-    fieldsToUpdate.schema !== undefined ||
-    fieldsToUpdate.parent !== undefined ||
-    fieldsToUpdate.extensible !== undefined ||
-    "extends" in fieldsToUpdate;
+    configChangeReachesDescendants(fieldsToUpdate);
   if (valueAffectingChange) {
     await assertConfigValueValid(context, proposedLeaf, proposedValues);
   }
@@ -1227,12 +1227,11 @@ const writeConfig = async (
     valuePropertyOp
       ? async (row) => {
           if (!row) return patchOps;
-          const draft = configDraftState(existing, row);
+          const shown = configDraftContent(existing, row).value;
           const nextValue = valuePropertyOp.remove
-            ? removeOwnValueProperty(draft.value, valuePropertyOp.property)
-                .value
+            ? removeOwnValueProperty(shown, valuePropertyOp.property).value
             : setOwnValueProperty(
-                draft.value,
+                shown,
                 valuePropertyOp.property,
                 valuePropertyOp.value,
               );
@@ -1242,7 +1241,9 @@ const writeConfig = async (
           // has to hold for the aggregate that actually lands.
           await assertConfigValueValid(
             context,
-            configValidationLeaf({ ...draft, value: strippedValue }),
+            configValidationLeaf(configDraftState(existing, row), {
+              value: strippedValue,
+            }),
             { value: strippedValue },
           );
           return configPatchOps({
@@ -1256,8 +1257,7 @@ const writeConfig = async (
       title,
       comment,
       revertedFrom,
-      revisionId:
-        wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+      revisionId: targetRevision?.id,
     },
   );
 
@@ -1323,7 +1323,9 @@ const writeConfig = async (
           ...existing,
           ...fieldsToUpdate,
         } as ConfigInterface;
-        await assertConfigDescendantsReconcilable(context, proposedRoot);
+        if (configChangeReshapesFamily(fieldsToUpdate)) {
+          await assertConfigDescendantsReconcilable(context, proposedRoot);
+        }
         await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
       }
 
@@ -1395,11 +1397,7 @@ const writeConfig = async (
         // writes). Kept inside the try so a cascade failure reopens the revision
         // too — otherwise the revision stays "merged", the webhook never fires,
         // and the caller sees a 500 for a publish that half-happened.
-        if (
-          fieldsToUpdate.schema !== undefined ||
-          fieldsToUpdate.parent !== undefined ||
-          "extends" in fieldsToUpdate
-        ) {
+        if (configChangeReshapesFamily(fieldsToUpdate)) {
           await reconcileConfigDescendants(context, existing.key, (w) =>
             cascadeWrites.push({
               before: w.before as unknown as Record<string, unknown> & {
@@ -1454,8 +1452,7 @@ const writeConfig = async (
 
   // Draft path (approval required, no immediate merge). Fire created/updated so
   // the draft lifecycle is observable via webhooks even from the internal UI.
-  const updatedExisting =
-    wantsDraft && !bypassApproval && !autoPublish && !!revisionId;
+  const updatedExisting = !!targetRevision;
   await dispatchConfigRevisionEvent(
     context,
     revision,

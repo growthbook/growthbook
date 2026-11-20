@@ -14,6 +14,7 @@ import {
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
   configChangeReachesDescendants,
+  configChangeReshapesFamily,
 } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -522,12 +523,11 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     assertConfigNotLocked(config);
 
     // The state this update lands, as validation reads it.
-    const landing = configValidationLeaf({
-      ...config,
+    const landing = configValidationLeaf(config, {
       ...fieldsToUpdate,
       parent: effectiveParent || undefined,
       extends: effectiveExtends,
-    } as ConfigInterface);
+    });
 
     // Deferred-publish guards (direct publish → armed:false). Gated on the
     // served-value classification, not the conformance one below — a
@@ -547,10 +547,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // conformance changed.
     if (
       fieldsToUpdate.value !== undefined ||
-      fieldsToUpdate.schema !== undefined ||
-      fieldsToUpdate.extensible !== undefined ||
-      parentChanged ||
-      extendsChanged
+      configChangeReachesDescendants(fieldsToUpdate)
     ) {
       // Direct REST update publishes live, so run the full publish gate (schema +
       // required fields + cross-field invariants), matching every other config
@@ -571,8 +568,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
 
     // A schema/parent/mixin change shifts the subtree's ancestry, so descendants
     // must be re-reconciled.
-    const needsDescendantReconcile =
-      fieldsToUpdate.schema !== undefined || parentChanged || extendsChanged;
+    const needsDescendantReconcile = configChangeReshapesFamily(fieldsToUpdate);
 
     // Dry run BEFORE any write so an unresolvable descendant conflict rejects
     // without committing the root (see assertConfigDescendantsReconcilable for
@@ -583,7 +579,9 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         ...config,
         ...fieldsToUpdate,
       } as ConfigInterface;
-      await assertConfigDescendantsReconcilable(req.context, proposedRoot);
+      if (needsDescendantReconcile) {
+        await assertConfigDescendantsReconcilable(req.context, proposedRoot);
+      }
       await assertConfigSchemaChangeSafeForDescendants(
         req.context,
         proposedRoot,

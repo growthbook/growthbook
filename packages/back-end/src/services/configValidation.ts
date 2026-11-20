@@ -25,11 +25,18 @@ import {
   buildConstantValueMap,
   resolveConstantRefs,
 } from "shared/sdk-versioning";
-import { Revision, getRevisionUpdatableFields } from "shared/enterprise";
+import {
+  Revision,
+  getRevisionUpdatableFields,
+  normalizeProposedChanges,
+} from "shared/enterprise";
 import type { FeatureValues } from "back-end/src/util/featureValues";
 import { Context } from "back-end/src/models/BaseModel";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  applyPatchToSnapshot,
+  buildMergeDesiredState,
+} from "back-end/src/revisions/util";
 import {
   collectValidateConfigRevisionHookResults,
   runValidateConfigRevisionHooks,
@@ -57,8 +64,13 @@ type ConfigLeaf = Pick<ConfigInterface, "key" | "name" | "value"> & {
 };
 
 // Every field validation reads, picked in one place so no app or REST write,
-// nor publish, can judge a value with one of them left at live's.
-export function configValidationLeaf(config: ConfigLeaf): ConfigLeaf {
+// nor publish, can judge a value with one of them left at live's. `changes` are
+// spread over `base`, so a cleared schema, parent or mixin list stays cleared.
+export function configValidationLeaf(
+  base: ConfigLeaf,
+  changes: Record<string, unknown> = {},
+): ConfigLeaf {
+  const config = { ...base, ...changes } as ConfigLeaf;
   return {
     key: config.key,
     name: config.name,
@@ -70,8 +82,24 @@ export function configValidationLeaf(config: ConfigLeaf): ConfigLeaf {
   };
 }
 
+// What a draft shows: its snapshot and changes over live. A write that patches a
+// field builds on it, so live drift since surfaces as a merge conflict at
+// publish rather than a change that silently lands as nothing.
+export function configDraftContent(
+  live: ConfigInterface,
+  revision: Pick<Revision, "target">,
+): ConfigInterface {
+  return {
+    ...live,
+    ...applyPatchToSnapshot(
+      revision.target.snapshot as ConfigInterface,
+      normalizeProposedChanges(revision.target.proposedChanges),
+    ),
+  };
+}
+
 // What a draft would publish: live with the draft's own changes landed. App and
-// REST draft writes start from it, so they judge what publish will judge.
+// REST draft writes are judged against it, as publish judges them.
 export function configDraftState(
   live: ConfigInterface,
   revision: Pick<Revision, "target">,
@@ -138,7 +166,7 @@ async function collectConfigValueErrors(
       fields,
       additionalProperties,
     });
-    if (!res.valid) errors.push(`${label}: ${res.errors.join(", ")}`);
+    if (!res.valid) errors.push(`${label}: ${res.errors.join("; ")}`);
   };
   check(values.value, "value");
   return errors;
@@ -664,7 +692,7 @@ async function collectConfigBackedSchemaInvariantErrors(
       fields: effectiveSchema,
       additionalProperties,
     });
-    if (!res.valid) errors.push(`${label}: ${res.errors.join(", ")}`);
+    if (!res.valid) errors.push(`${label}: ${res.errors.join("; ")}`);
 
     // Feature-own reference resolution: re-check the concrete resolved patch
     // per environment when this value carries a `@const:`/`@config:` ref.

@@ -169,14 +169,10 @@ function stripRequiredDeep(schema: unknown): void {
   }
 }
 
-// One message for every top-level key no schema declares, naming both fixes.
-function extraFieldsError(keys: string[]): string {
-  const list = keys.map((k) => `"${k}"`).join(", ");
-  const fix = `turn on "Allow extra fields" on the base Config`;
-  return keys.length === 1
-    ? `${list} isn't in the schema: add it, or ${fix}`
-    : `${list} aren't in the schema: add them, or ${fix}`;
-}
+// Follows the per-key lines when a top-level key isn't declared. Each key keeps
+// its own line, since the schema-break guard matches lines exactly.
+export const UNDECLARED_FIELDS_FIX =
+  "Add these fields to the schema, or allow extra fields on the base Config.";
 
 // Ajv's wording names the parent object and hides the offending key or the
 // allowed values, so these keywords say what to fix instead.
@@ -187,12 +183,16 @@ function describeConfigValueError(err: ErrorObject): string {
     missingProperty?: string;
     additionalProperty?: string;
     allowedValues?: unknown[];
+    multipleOf?: number;
   };
   if (err.keyword === "required" && params.missingProperty) {
     return `"${at(params.missingProperty)}" is required`;
   }
   if (err.keyword === "additionalProperties" && params.additionalProperty) {
     return `"${at(params.additionalProperty)}" isn't in the schema`;
+  }
+  if (err.keyword === "multipleOf" && path && params.multipleOf === 1) {
+    return `"${path}" must be an integer`;
   }
   if (err.keyword === "enum" && path && params.allowedValues) {
     const allowed = params.allowedValues.map((v) => JSON.stringify(v));
@@ -227,7 +227,13 @@ export function validateConfigValue({
   // config with no schema may not carry any keys).
   if (!fields.length) {
     if (!additionalProperties && Object.keys(data).length > 0) {
-      return { valid: false, errors: [extraFieldsError(Object.keys(data))] };
+      return {
+        valid: false,
+        errors: [
+          ...Object.keys(data).map((k) => `"${k}" isn't in the schema`),
+          UNDECLARED_FIELDS_FIX,
+        ],
+      };
     }
     return { valid: true, errors: [] };
   }
@@ -256,21 +262,15 @@ export function validateConfigValue({
     const validate = ajv.compile(schemaObj);
     const valid = validate(data);
     const errors = validate.errors ?? [];
-    const extras = errors.flatMap((e) =>
-      e.keyword === "additionalProperties" && !e.instancePath
-        ? [(e.params as { additionalProperty: string }).additionalProperty]
-        : [],
+    const undeclaredAtTop = errors.some(
+      (e) => e.keyword === "additionalProperties" && !e.instancePath,
     );
     return {
       valid: !!valid,
       errors: [
         ...new Set([
-          ...(extras.length ? [extraFieldsError(extras)] : []),
-          ...errors
-            .filter(
-              (e) => !(e.keyword === "additionalProperties" && !e.instancePath),
-            )
-            .map(describeConfigValueError),
+          ...errors.map(describeConfigValueError),
+          ...(undeclaredAtTop ? [UNDECLARED_FIELDS_FIX] : []),
         ]),
       ],
     };

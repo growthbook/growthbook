@@ -44,7 +44,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const { inferSchemaIfMissing, declareNewFields } = req.body;
+  const { inferSchemaIfMissing, inferUndeclaredFields } = req.body;
   // Value arrives as a native JSON object; handled as a JSON string internally.
   const value =
     req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
@@ -129,7 +129,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
       warnings.push(
         ...ancestorCollisionWarnings([...identical, ...conflicting]),
       );
-    } else if (declareNewFields && strippedValue !== undefined) {
+    } else if (inferUndeclaredFields && strippedValue !== undefined) {
       // Only keys no field in the family declares, so an existing field is
       // never widened; references stay undeclared, as validation skips them.
       const { fields: declared } = await getEffectiveConfigSchema(
@@ -142,7 +142,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
           Object.entries(obj).filter(([, v]) => !valueHasReferenceToken(v)),
         ),
         new Set(declared.map((f) => f.key)),
-      );
+      ).map((f) => ({ ...f, required: false }));
       if (added.length) {
         fieldsToUpdate.schema = {
           type: "object",
@@ -151,9 +151,9 @@ export const putConfigRevisionValue = createApiRequestHandler(
         };
         warnings.push(
           ...added.map((f) => ({
-            code: "declared-field" as const,
+            code: "inferred-field" as const,
             path: f.key,
-            message: `Declared field "${f.key}" (${f.type}) from the value.`,
+            message: `Added optional field "${f.key}" to this draft's schema, inferred from its value.`,
           })),
         );
       }
@@ -163,11 +163,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
     // so a value-first import validates against the schema it derives.
     await assertConfigValueValid(
       req.context,
-      configValidationLeaf({
-        ...draft,
-        value: strippedValue ?? draft.value,
-        schema: (fieldsToUpdate.schema as typeof config.schema) ?? draft.schema,
-      }),
+      configValidationLeaf(draft, fieldsToUpdate),
       { value: strippedValue },
     );
 

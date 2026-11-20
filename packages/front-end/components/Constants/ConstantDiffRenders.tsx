@@ -470,7 +470,9 @@ function configLineageRows(pre: Pre, post: Post) {
       key: "extensible",
       label: "Allow extra fields",
       badge: "Edit extra fields",
-      changed: (pre?.extensible ?? null) !== (post.extensible ?? null),
+      // Only a base Config's setting applies.
+      changed:
+        !post.parent && (pre?.extensible ?? null) !== (post.extensible ?? null),
       oldNode: allows(pre?.extensible),
       newNode: allows(post.extensible),
     },

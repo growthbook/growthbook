@@ -8,7 +8,6 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { postConfigRevisionPublishValidator } from "shared/validators";
-import { ConfigInterface } from "shared/types/config";
 import {
   publishRevision,
   assertCanPublishRevision,
@@ -247,10 +246,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   // Publish-time safety net: the post-publish value must still conform to its
   // effective schema (catches ancestor-schema changes and skip-flag stages).
-  const published = configValidationLeaf({
-    ...config,
-    ...desiredState,
-  } as ConfigInterface);
+  const published = configValidationLeaf(config, desiredState);
   await assertConfigValueValidForPublish(
     req.context,
     published,

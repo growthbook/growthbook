@@ -130,11 +130,7 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 
   // A historical value may predate the current schema; ensure the post-revert
   // state still conforms (against current ancestors).
-  // Presence-aware, so a cleared schema (null) validates as "no schema".
-  const revertLeaf = configValidationLeaf({
-    ...config,
-    ...fieldsToUpdate,
-  } as ConfigInterface);
+  const revertLeaf = configValidationLeaf(config, fieldsToUpdate);
   const revertValues = { value: revertLeaf.value };
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),

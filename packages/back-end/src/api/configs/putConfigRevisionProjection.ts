@@ -12,6 +12,7 @@ import {
 } from "back-end/src/revisions/util";
 import {
   assertConfigValueValid,
+  configDraftContent,
   configDraftState,
   configValidationLeaf,
 } from "back-end/src/services/configValidation";
@@ -102,7 +103,7 @@ export const putConfigRevisionProjection = createApiRequestHandler(
     // The derived schema must still admit the draft's value(s).
     await assertConfigValueValid(
       req.context,
-      configValidationLeaf({ ...draft, schema: normalizedSchema }),
+      configValidationLeaf(draft, { schema: normalizedSchema }),
       { value: draft.value },
     );
 
@@ -113,7 +114,7 @@ export const putConfigRevisionProjection = createApiRequestHandler(
       typeNames: {},
     };
     const renderProjections = {
-      ...(draft.renderProjections ?? {}),
+      ...(configDraftContent(config, revision).renderProjections ?? {}),
       [req.body.source]: captured,
     };
 

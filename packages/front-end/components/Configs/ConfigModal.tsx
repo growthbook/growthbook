@@ -210,14 +210,14 @@ export default function ConfigModal({
                 name: values.name,
                 owner: values.owner,
                 description: values.description || undefined,
-                // Only real changes: an unset project or extensibility would
-                // otherwise stage its default as a change on every edit.
-                ...(values.project !== (existing.project ?? "")
+                // A setting never stored and still at its default would
+                // otherwise be staged as a change on every edit.
+                ...(existing.project !== undefined || values.project !== ""
                   ? { project: values.project }
                   : {}),
                 ...(isBaseConfig &&
-                values.extensible !==
-                  (existing.extensible ?? orgExtensibleDefault)
+                (existing.extensible !== undefined ||
+                  values.extensible !== orgExtensibleDefault)
                   ? { extensible: values.extensible }
                   : {}),
               }),

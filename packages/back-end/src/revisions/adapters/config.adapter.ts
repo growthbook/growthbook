@@ -18,6 +18,7 @@ import {
   formatAncestorFieldConflictMessage,
   orgRequiresAnyReview,
   configChangeReachesDescendants,
+  configChangeReshapesFamily,
 } from "shared/util";
 import {
   configValidator,
@@ -343,9 +344,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     }
 
     const touchesLineageOrSchema =
-      normalizedChanges.schema !== undefined ||
-      normalizedChanges.parent !== undefined ||
-      "extends" in normalizedChanges;
+      configChangeReshapesFamily(normalizedChanges);
 
     if (configChangeReachesDescendants(normalizedChanges)) {
       const proposedRoot = {
@@ -358,7 +357,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       // bulk commit, where the plan gate validates the combined end-state and
       // compensation undoes a throw; NEVER on a revert (isRevert), which has
       // no compensation to roll the root write back.
-      if (!context.bulkPublishApplying) {
+      if (touchesLineageOrSchema && !context.bulkPublishApplying) {
         await assertConfigDescendantsReconcilable(context, proposedRoot);
       }
       // Soft governance warning (removes/retypes fields descendants use) — a
@@ -636,13 +635,8 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       });
     }
 
-    // A spread is presence-aware, so a cleared schema/parent/extends stays
-    // cleared rather than falling back to live's.
     const schemaBreaks = await evaluateConfigOwnSchemaBreakConflicts(context, {
-      ...configValidationLeaf({
-        ...entity,
-        ...filteredChanges,
-      } as ConfigInterface),
+      ...configValidationLeaf(entity, filteredChanges),
       project: entity.project,
     });
     if (schemaBreaks.length) {
@@ -700,7 +694,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         );
       }
       try {
-        await assertConfigDescendantsReconcilable(context, proposedRoot);
+        if (configChangeReshapesFamily(filteredChanges)) {
+          await assertConfigDescendantsReconcilable(context, proposedRoot);
+        }
       } catch (e) {
         // Only a 4xx-class reconcilability rejection is a real blocking gate;
         // an infra/5xx failure of the descendant scan must surface as itself,
@@ -882,12 +878,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         entity,
         revision,
         { armed: !!options?.deferred },
-        // Presence-aware: `?? entity` would resurrect a cleared schema/parent/
-        // extends and desync this fire from the arm-time capture.
-        configValidationLeaf({
-          ...entity,
-          ...filteredChanges,
-        } as ConfigInterface),
+        configValidationLeaf(entity, filteredChanges),
         // Model an archive/unarchive transition only when this revision flips
         // `archived` (mirrors the arm-time capture). assertConfigPublishGuards
         // then runs assertConfigArchiveSchemaBreakGuard against dependents, and —
@@ -922,7 +913,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         ...entity,
         ...normalizedChanges,
       } as ConfigInterface;
-      await assertConfigDescendantsReconcilable(context, proposedRoot);
+      if (configChangeReshapesFamily(normalizedChanges)) {
+        await assertConfigDescendantsReconcilable(context, proposedRoot);
+      }
       // On a deferred merge a tripped descendant warning is terminal (parks the
       // revision + fires publishFailed) instead of silently skipped — the
       // request-less context's forced ignoreWarnings isn't user intent.
@@ -931,11 +924,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       });
     }
 
-    // Presence-aware, so a schema-less revert publishes against no schema.
-    const published = configValidationLeaf({
-      ...entity,
-      ...normalizedChanges,
-    } as ConfigInterface);
+    const published = configValidationLeaf(entity, normalizedChanges);
     await assertConfigValueValidForPublish(
       context,
       published,

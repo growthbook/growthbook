@@ -10,6 +10,7 @@ import {
 import { assertNoReferenceCycle } from "back-end/src/services/constants";
 import {
   assertConfigValueValid,
+  configDraftContent,
   configDraftState,
   configValidationLeaf,
 } from "back-end/src/services/configValidation";
@@ -68,9 +69,9 @@ export const putConfigRevisionProperty = createApiRequestHandler(
       "config",
       config as unknown as Record<string, unknown> & { id: string },
       async (row) => {
-        const draft = configDraftState(config, row ?? revision);
+        const target = row ?? revision;
         const nextValue = setOwnValueProperty(
-          draft.value,
+          configDraftContent(config, target).value,
           req.body.property,
           req.body.value,
         );
@@ -88,7 +89,9 @@ export const putConfigRevisionProperty = createApiRequestHandler(
 
         await assertConfigValueValid(
           req.context,
-          configValidationLeaf({ ...draft, value: strippedValue }),
+          configValidationLeaf(configDraftState(config, target), {
+            value: strippedValue,
+          }),
           { value: strippedValue },
         );
 

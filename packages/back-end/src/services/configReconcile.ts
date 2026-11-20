@@ -77,11 +77,20 @@ export async function assertConfigDescendantsReconcilable(
   assertNoSiblingConflictsInSubtree(byKey, proposedRoot.key);
 }
 
-function impactHeadline(count: number): string {
-  return (
-    `This change removes, retypes, takes over or disallows fields that ` +
-    `${count} descendant Config(s) still use:`
-  );
+function impactHeadline(impacts: ConfigSchemaChangeImpact[]): string {
+  const has = (pick: (i: ConfigSchemaChangeImpact) => unknown[]) =>
+    impacts.some((i) => pick(i).length > 0);
+  const verbs = [
+    has((i) => [...i.orphanedKeys, ...i.invariantRefs]) && "removes",
+    has((i) => i.newlyIncompatibleKeys) && "retypes",
+    has((i) => i.conflictingStripKeys) && "takes over",
+    has((i) => i.disallowedKeys) && "disallows",
+  ].filter((v): v is string => !!v);
+  const list =
+    verbs.length > 1
+      ? `${verbs.slice(0, -1).join(", ")} or ${verbs[verbs.length - 1]}`
+      : verbs[0];
+  return `This change ${list} fields that ${impacts.length} descendant Config(s) still use:`;
 }
 
 function formatImpactLine(impact: ConfigSchemaChangeImpact): string {
@@ -152,7 +161,7 @@ export async function assertConfigSchemaChangeSafeForDescendants(
   });
   if (!impacts.length) return;
   const lines = impacts.map(formatImpactLine);
-  const message = `${impactHeadline(impacts.length)}\n${lines.join("\n")}`;
+  const message = `${impactHeadline(impacts)}\n${lines.join("\n")}`;
   if (opts?.deferred) {
     throw new TerminalPublishError(message);
   }
@@ -182,10 +191,7 @@ export async function collectConfigSchemaChangeImpactGates(
     {
       type: "schema-change-impact",
       severity: "warning",
-      messages: [
-        impactHeadline(impacts.length),
-        ...impacts.map(formatImpactLine),
-      ],
+      messages: [impactHeadline(impacts), ...impacts.map(formatImpactLine)],
       override: "ignoreWarnings",
       requiresPermission: null,
       resolution: null,
