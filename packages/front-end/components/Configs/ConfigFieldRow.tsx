@@ -194,7 +194,7 @@ export default function ConfigFieldRow({
   const tint = isEditing
     ? "var(--violet-a2)"
     : hasValidationError
-      ? "var(--red-a2)"
+      ? "var(--amber-a2)"
       : null;
 
   return (
@@ -207,7 +207,11 @@ export default function ConfigFieldRow({
         <TableCell
           style={{
             ...(hasValidationError &&
-              !isEditing && { boxShadow: "inset 3px 0 0 var(--red-9)" }),
+              !isEditing && {
+                // Kept with the row's bottom line, which is a shadow too.
+                boxShadow:
+                  "inset 3px 0 0 var(--amber-9), inset 0 -1px 0 var(--gray-a5)",
+              }),
           }}
         >
           <Flex
@@ -233,7 +237,7 @@ export default function ConfigFieldRow({
               <code
                 style={{
                   color: hasValidationError
-                    ? "var(--red-11)"
+                    ? "var(--amber-11)"
                     : "var(--slate-12)",
                 }}
               >

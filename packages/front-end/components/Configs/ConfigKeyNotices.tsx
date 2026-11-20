@@ -100,7 +100,7 @@ export function KeyNoticesIcon({ notices }: { notices: KeyNotice[] }) {
 export function validationRuleNotice(message: string): KeyNotice {
   return {
     severity: 3,
-    color: "var(--red-9)",
+    color: "var(--amber-11)",
     icon: <PiWarningOctagonFill />,
     message,
   };
