@@ -61,6 +61,16 @@ With all the SSO providers listed below, replace the all caps values with values
 
 </Info>
 
+## Requiring MFA with SSO
+
+When an organization [requires multi-factor authentication (MFA)](/account/user-permissions#requiring-multi-factor-authentication-mfa), GrowthBook checks the `amr` claim in your identity provider's ID token. A login counts as MFA when `amr` includes `"mfa"`.
+
+Some providers leave `amr` out of the ID tokens they issue when they refresh a session. GrowthBook then recognizes the session by the ID token's `sid` (session ID) claim, so your provider must include `sid` as well:
+
+- **Auth0**: includes both once MFA is turned on for your tenant.
+- **Okta**: in your app's settings, turn on Front-Channel Single Logout and select **Include user session details**. This adds `sid` to ID tokens.
+- **Azure AD (Microsoft Entra ID)** and **Google**: their ID tokens may not include `amr`. In that case, Require MFA can't be turned on.
+
 ## SSO Providers
 
 ### Okta
