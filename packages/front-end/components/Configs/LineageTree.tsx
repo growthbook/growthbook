@@ -4,6 +4,8 @@ import { Box, Flex } from "@radix-ui/themes";
 import {
   PiCaretDown,
   PiCaretRight,
+  PiFolder,
+  PiFolderOpen,
   PiDotOutline,
   PiWarningFill,
   PiPlus,
@@ -350,7 +352,8 @@ export default function LineageTree({
             justify="center"
             style={{ width: 14, flexShrink: 0, color: "var(--slate-11)" }}
           >
-            {isOpen ? <PiCaretDown size={10} /> : <PiCaretRight size={10} />}
+            {/* A folder, not a caret: the group opens, it isn't a page. */}
+            {isOpen ? <PiFolderOpen size={13} /> : <PiFolder size={13} />}
           </Flex>
           <span
             style={{
