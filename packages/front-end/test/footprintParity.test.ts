@@ -6,6 +6,7 @@ import {
   canManageApiKeySecret,
   canSetApiKeyDisabled,
   featurePublishFootprint,
+  holdsSdkConnectionDraftDestination,
   interleavingEnvsForChange,
   revertFootprint,
   serveFootprint,
@@ -349,6 +350,47 @@ describe("the cancel footprint is the entity's own scope, unwidened", () => {
 
   it("a Constant answers unbound when no environment override changes", () => {
     expect(constantPublishEnvironments()).toEqual(NO_ENVIRONMENT_BINDING);
+  });
+});
+
+describe("an SDK connection draft's footprint includes where it lands", () => {
+  // Manages SDK connections everywhere, but only in staging.
+  const stagingOnly = new Permissions({
+    global: {
+      permissions: { manageSDKConnections: true },
+      limitAccessByEnvironment: true,
+      environments: ["staging"],
+    },
+    projects: {},
+  });
+  const live = { projects: [] as string[], environment: "staging" };
+  const draftTo = (environment: string) => ({
+    target: {
+      snapshot: { sdkConnection: live },
+      proposedChanges: [
+        {
+          op: "replace" as const,
+          path: "/sdkConnection",
+          value: { ...live, environment },
+        },
+      ],
+    },
+  });
+
+  it("refuses a move into an environment the user can't manage", () => {
+    expect(
+      holdsSdkConnectionDraftDestination(
+        stagingOnly,
+        live,
+        draftTo("production"),
+      ),
+    ).toBe(false);
+  });
+
+  it("holds a draft that stays in the user's environment", () => {
+    expect(
+      holdsSdkConnectionDraftDestination(stagingOnly, live, draftTo("staging")),
+    ).toBe(true);
   });
 });
 

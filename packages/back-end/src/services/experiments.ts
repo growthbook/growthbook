@@ -230,7 +230,7 @@ import { logger } from "back-end/src/util/logger";
 import {
   getBackendFeatureValue,
   getTrustedOrgAttributes,
-  trackEventForOrganization,
+  trackEventForContext,
 } from "back-end/src/services/growthbook";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { assessRevisionApprovalForAutoPublish } from "back-end/src/services/experiment-feature";
@@ -250,7 +250,7 @@ import {
   getFeature,
   getFeaturesByIds,
 } from "back-end/src/models/FeatureModel";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
 import {
   getRevision,
   getActiveDraftMetadataByFeatureIds,
@@ -296,6 +296,7 @@ import {
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
+import { interruptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getMetricForSnapshot } from "./reports";
 import {
@@ -2246,6 +2247,30 @@ export async function planSnapshot({
   };
 }
 
+// Incremental full/update mutates the per-experiment pipeline tables
+// (DROP/CREATE/RENAME on units + metric-source tables), so they take the
+// lock as the one writer and concurrent triggers (scheduled auto-refresh +
+// manual Update) cannot race. Exploratory only _reads_ those tables, so
+// breakdowns share the lock as readers; a writer never waits for them and
+// interrupts them instead. The results runner only writes per-snapshot
+// ephemeral tables, so it does not need this lock.
+function getIncrementalRefreshLockRole(
+  runnerKind: SnapshotQueryRunnerKind,
+): "writer" | "reader" | null {
+  switch (runnerKind) {
+    case "incremental-full":
+    case "incremental-update":
+      return "writer";
+    case "incremental-exploratory":
+      return "reader";
+    case "results":
+      return null;
+    default:
+      runnerKind satisfies never;
+      throw new Error(`Unknown snapshot runner kind: ${runnerKind}`);
+  }
+}
+
 export async function createSnapshotFromPlan({
   plan,
   context,
@@ -2265,31 +2290,33 @@ export async function createSnapshotFromPlan({
   }
   const integration = getSourceIntegrationObject(context, datasource, true);
   const { runnerKind } = plan.snapshot;
-
-  // Incremental full/update mutate the per-experiment pipeline tables
-  // (DROP/CREATE/RENAME on units + metric-source tables). Exploratory reads
-  // those tables. Lock all three so concurrent triggers (scheduled
-  // auto-refresh + manual Update) cannot race and produce empty or malformed
-  // results. The results runner only writes per-snapshot ephemeral tables, so
-  // it does not need this lock.
-  const needsIncrementalRefreshLock =
-    runnerKind === "incremental-full" ||
-    runnerKind === "incremental-update" ||
-    runnerKind === "incremental-exploratory";
+  const lockRole = getIncrementalRefreshLockRole(runnerKind);
 
   let hasIncrementalRefreshLock = false;
-  if (needsIncrementalRefreshLock) {
+  if (lockRole !== null) {
+    const lockParams = {
+      experimentId: experiment.id,
+      phase: plan.snapshot.phase,
+      snapshotId: plan.snapshot.id,
+      legacyExperimentSettingsHash:
+        getExperimentSettingsHashForIncrementalRefresh(
+          plan.snapshot.settings,
+          datasource.settings.queries?.exposure ?? [],
+        ),
+    };
     hasIncrementalRefreshLock =
-      await context.models.incrementalRefresh.acquireLock({
-        experimentId: experiment.id,
-        phase: plan.snapshot.phase,
-        snapshotId: plan.snapshot.id,
-        legacyExperimentSettingsHash:
-          getExperimentSettingsHashForIncrementalRefresh(
-            plan.snapshot.settings,
-            datasource.settings.queries?.exposure ?? [],
-          ),
-      });
+      lockRole === "reader"
+        ? await context.models.incrementalRefresh.acquireReaderLock({
+            ...lockParams,
+            request: {
+              type: "dimension",
+              // Planning only picks this runner for a single-dimension breakdown.
+              dimension:
+                plan.snapshot.dimension ??
+                plan.snapshot.settings.dimensions.map((d) => d.id).join(","),
+            },
+          })
+        : await context.models.incrementalRefresh.acquireLock(lockParams);
     if (!hasIncrementalRefreshLock) {
       throw new ConcurrentIncrementalRefreshError(
         "There is already an update in progress for this experiment.",
@@ -2302,6 +2329,14 @@ export async function createSnapshotFromPlan({
     null;
 
   try {
+    if (lockRole === "writer") {
+      await interruptIncrementalReaders(
+        context,
+        experiment.id,
+        plan.snapshot.id,
+      );
+    }
+
     let scheduleNextSnapshot = true;
     if (
       experiment.type === "multi-armed-bandit" &&
@@ -6279,7 +6314,7 @@ export async function getLinkedChangeEnvironmentStates(
   urlRedirectEnvStates: LinkedChangeEnvStates;
 }> {
   const environments = getEnvironmentIdsFromOrg(context.org);
-  const connections = await findSDKConnectionsByOrganization(context);
+  const connections = await findServingSDKConnections(context);
 
   const visualChangesetEnvStates: Record<string, LinkedChangeEnvState> = {};
   const urlRedirectEnvStates: Record<string, LinkedChangeEnvState> = {};
@@ -6609,8 +6644,8 @@ function trackAdjustmentImpact({
         ),
       ).length;
 
-    trackEventForOrganization(
-      context.org,
+    trackEventForContext(
+      context,
       "Experiment Adjustment Impact",
       {
         numMetrics: summaries.length,

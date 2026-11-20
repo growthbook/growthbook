@@ -79,7 +79,6 @@ export type AppFeatures = {
   "interleave-exp": boolean;
   "kiosk-greeting": string;
   "login-page-content": Record<string, unknown>;
-  "managed-warehouse-cluster-experiments": boolean;
   "managed-warehouse-diagnostics": boolean;
   "managed-warehouse-json-ergonomics-sweep": boolean;
   "managed-warehouse-json-migration": boolean;
@@ -189,7 +188,14 @@ export type AppAttributes = {
     | null;
   organizationId?: string | null;
   page_id?: string | null;
-  requestSource?: "backend" | "frontend" | null;
+  requestSource?:
+    | "app"
+    | "api"
+    | "mcp"
+    | "assistant"
+    | "system"
+    | "unknown"
+    | null;
   request_path?: string | null;
   role?: string | null;
   session_id?: string | null;

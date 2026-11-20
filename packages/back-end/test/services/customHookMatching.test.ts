@@ -22,6 +22,11 @@ describe("customHookMatchesScope", () => {
     expect(customHookMatchesScope(h, { project: "prj_c" })).toBe(false);
     // No project on the target (global default project)
     expect(customHookMatchesScope(h, {})).toBe(false);
+    // An entity in several projects matches on any of them.
+    expect(customHookMatchesScope(h, { project: ["prj_c", "prj_b"] })).toBe(
+      true,
+    );
+    expect(customHookMatchesScope(h, { project: [] })).toBe(false);
   });
 
   it("matches a feature-scoped hook only for its exact entityId", () => {

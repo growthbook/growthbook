@@ -6,13 +6,14 @@ import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTable } from "back-end/src/models/FactTableModel";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
   async (req) => {
     const existing = await req.context.models.segments.getById(req.params.id);
 
     if (!existing) {
-      throw new Error("Could not find segment with that id");
+      throw new NotFoundError("Could not find segment with that id");
     }
 
     const datasourceDoc = await getDataSourceById(

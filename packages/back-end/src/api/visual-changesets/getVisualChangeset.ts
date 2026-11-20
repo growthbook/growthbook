@@ -5,6 +5,7 @@ import {
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { resolveChangesetOwner } from "back-end/src/services/changesetOwner";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const getVisualChangeset = createApiRequestHandler(
   getVisualChangesetValidator,
@@ -18,7 +19,7 @@ export const getVisualChangeset = createApiRequestHandler(
   );
 
   if (!visualChangeset) {
-    throw new Error("Could not find visualChangeset with given ID");
+    throw new NotFoundError("Could not find visualChangeset with given ID");
   }
 
   const owner =

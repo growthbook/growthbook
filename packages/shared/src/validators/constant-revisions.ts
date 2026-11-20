@@ -587,7 +587,7 @@ export const postConstantRevisionReopenValidator = {
     "Returns a previously discarded revision to `draft` status so it can be edited and published again. Only discarded revisions can be reopened.",
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -602,7 +602,7 @@ export const postConstantRevisionRecallReviewValidator = {
     "Pulls a revision in review (`pending-review`, `changes-requested`, or `approved`) back to `draft`, clearing existing reviews and disarming any auto-publish-on-approval.",
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -616,7 +616,7 @@ export const postConstantRevisionUndoReviewValidator = {
   description: `Retracts the calling user's own active \`approve\` or \`request-changes\` verdict, returning the revision to \`pending-review\`. Review comments stay in the log. Retracting a \`request-changes\` can leave the revision approved by someone else, in which case an armed auto-publish fires. ${REVIEW_VERDICT_NOTE}`,
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };

@@ -67,7 +67,7 @@ export async function revertFeatureCore(
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) {
-    throw new Error("Could not find a feature with that key");
+    throw new NotFoundError("Could not find a feature with that key");
   }
 
   const allEnvironments = getEnvironments(context.org);

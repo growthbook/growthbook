@@ -11,6 +11,7 @@ import {
   appendAutoRunArtifactEndpoint,
 } from "back-end/src/api/specs/auto-run.spec";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { NotFoundError } from "back-end/src/util/errors";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -166,7 +167,7 @@ export class AutoRunModel extends BaseClass {
       // and the append is idempotent, so a generous budget costs little.
       { maxAttempts: 25 },
     );
-    if (!run) throw new Error(`Auto Run ${id} not found`);
+    if (!run) throw new NotFoundError(`Auto Run ${id} not found`);
     return run;
   }
 }

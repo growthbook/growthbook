@@ -97,6 +97,7 @@ export * from "./oauth";
 export * from "./team";
 export * from "./visual-changesets";
 export * from "./sdk-connections";
+export * from "./sdk-connection-revisions";
 export * from "./sdk-payload-size";
 export * from "./sdk-connection-notifications";
 export * from "./exposure-query-targeting-attribute-columns";

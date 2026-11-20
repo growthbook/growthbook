@@ -1,10 +1,23 @@
-import Agenda, { AgendaConfig, DefineOptions, Processor } from "agenda";
+import Agenda, {
+  AgendaConfig,
+  DefineOptions,
+  Job,
+  JobAttributesData,
+  Processor,
+} from "agenda";
 import mongoose from "mongoose";
 import { parseEnvInt } from "shared/util";
 import { trackJob } from "./tracing";
 import { addJobLifecycleChecks } from "./jobLifecycle";
+import { runAsRequestSource } from "./growthbook";
 
 let agendaInstance: Agenda;
+
+// What a job logs, the system did.
+const runAsSystem =
+  <T extends JobAttributesData>(fn: (job: Job<T>) => Promise<void>) =>
+  (job: Job<T>) =>
+    runAsRequestSource("system", () => fn(job));
 
 export const getAgendaInstance = (): Agenda => {
   if (!agendaInstance) {
@@ -37,7 +50,7 @@ export const getAgendaInstance = (): Agenda => {
         name,
         options as DefineOptions | Processor<unknown>,
         // @ts-expect-error Agenda's Processor<T> is incompatible with Processor<JobAttributesData> - T may not extend JobAttributesData
-        trackJob(name, addJobLifecycleChecks(processor)),
+        runAsSystem(trackJob(name, addJobLifecycleChecks(processor))),
       );
     };
   }

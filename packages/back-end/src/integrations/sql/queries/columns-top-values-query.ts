@@ -3,7 +3,10 @@ import {
   getFactTableTimestampColumn,
 } from "shared/experiments";
 import { format } from "shared/sql";
-import type { ColumnTopValuesParams } from "shared/types/integrations";
+import type {
+  ColumnTopValuesParams,
+  ColumnTopValuesResponseRow,
+} from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { ColumnInterface } from "shared/types/fact-table";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -61,7 +64,7 @@ __topValues AS (
     timestampColumn,
   })}
 )
-SELECT column_name, value FROM __topValues
+SELECT column_name, value, count FROM __topValues
 ORDER BY column_name, count DESC
   `,
     dialect.formatDialect,
@@ -162,4 +165,20 @@ function getTopValuesCTEBody(
     ) __topValuesAgg
   ) __topValuesRanked
   WHERE row_num <= ${limit}`;
+}
+
+// A count is kept only when the warehouse returned a real number: an
+// approximate query without frequencies leaves it NULL, and Number(null) is 0
+export function parseColumnTopValuesRows(
+  rows: Record<string, unknown>[],
+): ColumnTopValuesResponseRow[] {
+  return rows.map((r) => {
+    const count =
+      r.count === null || r.count === undefined ? NaN : Number(r.count);
+    return {
+      column: r.column_name + "",
+      value: r.value + "",
+      ...(Number.isFinite(count) && { count }),
+    };
+  });
 }

@@ -18,6 +18,7 @@ import {
 } from "back-end/src/agent/ask-data-tools";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
+import { NotFoundError } from "back-end/src/util/errors";
 
 const DEFAULT_THRESHOLD_BYTES = 1073741824; // 1 GiB
 
@@ -26,7 +27,7 @@ export const runSqlQuery = createApiRequestHandler(runSqlQueryValidator)(async (
 ) => {
   const datasource = await getDataSourceById(req.context, req.params.id);
   if (!datasource) {
-    throw new Error("Could not find data source with that id");
+    throw new NotFoundError("Could not find data source with that id");
   }
   if (!req.context.org.settings?.aiAskDataEnabled) {
     throw new Error("Ask data is not enabled for this organization");
