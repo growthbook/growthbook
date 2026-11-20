@@ -286,13 +286,13 @@ export default function DashboardCanvas({
                     icon={<PiCaretDownFill />}
                     iconPosition="right"
                   >
-                    Add Block
+                    Add block
                   </Button>
                 }
               />
             ) : canEdit && setIsEditing ? (
               <Button size="lg" onClick={() => setIsEditing(true)}>
-                Add Block
+                Add block
               </Button>
             ) : null}
           </Flex>
@@ -335,7 +335,7 @@ export default function DashboardCanvas({
                   icon={<PiCaretDownFill />}
                   iconPosition="right"
                 >
-                  Add Block
+                  Add block
                 </Button>
               }
             />

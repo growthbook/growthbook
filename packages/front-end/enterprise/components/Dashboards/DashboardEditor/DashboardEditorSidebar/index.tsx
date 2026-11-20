@@ -297,7 +297,7 @@ export default function DashboardEditorSidebar({
         ) : (
           <Tabs defaultValue="add-block" style={{ width: "440px" }}>
             <TabsList>
-              <TabsTrigger value="add-block">Add Block</TabsTrigger>
+              <TabsTrigger value="add-block">Add block</TabsTrigger>
               <TabsTrigger value="block-navigator">Block Navigator</TabsTrigger>
             </TabsList>
             <TabsContent value="add-block">{addBlocksContent}</TabsContent>

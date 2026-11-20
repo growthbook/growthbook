@@ -511,6 +511,8 @@ export function ProductAnalyticsExplorerVisualization({
 
   return (
     <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>
+      {/* Keep Update reachable after a success: no header may be there to refresh it */}
+      {tileUpdates && updateButton && <Flex justify="end">{updateButton}</Flex>}
       {compareEnabled && tileRun.comparisonError && (
         <ComparisonErrorCallout error={tileRun.comparisonError} />
       )}
