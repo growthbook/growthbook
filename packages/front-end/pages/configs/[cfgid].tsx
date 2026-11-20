@@ -775,10 +775,14 @@ export default function ConfigDetailPage(): React.ReactElement {
   );
 
   // What the chain's `$extends` Constant layers supply, under its own keys as
-  // when served. Checks that skipped them would miss the fields they fill.
+  // when served. Checks that skipped them would miss the fields they fill. An
+  // archived base isn't served, so neither are its layers.
   const layerValues = useMemo(() => {
     const out: Record<string, unknown> = {};
     for (const node of displayChain) {
+      if (node.key !== config?.key && data?.archivedByKey?.[node.key]) {
+        continue;
+      }
       const refs = parsePlainJSONObject(node.value ?? "")?.[
         CONSTANT_EXTENDS_KEY
       ];
@@ -789,7 +793,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       }
     }
     return out;
-  }, [displayChain, squashConstants]);
+  }, [displayChain, squashConstants, config?.key, data?.archivedByKey]);
 
   // For the read-only Resolved tab (inheritance *and* constants); the Form tab squashes per-row.
   const resolvedFieldsResolved = useMemo(
