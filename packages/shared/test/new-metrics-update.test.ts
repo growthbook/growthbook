@@ -10,7 +10,7 @@ import {
   getCopiedMetricCounts,
   getMetricIdsMissingFromSnapshot,
   getMetricStatsEngineInputs,
-  getPlannedMetricStatsEngineInputs,
+  getPlannedCopiedMetricSettings,
   getSnapshotSideEffects,
   getStatsEngineAnalysisSettings,
   haveStatsEngineInputsChanged,
@@ -365,30 +365,38 @@ describe("stats engine inputs", () => {
     });
   });
 
-  describe("getPlannedMetricStatsEngineInputs", () => {
+  describe("getPlannedCopiedMetricSettings", () => {
     const experiment = {
       goalMetrics: ["mg_core"],
       secondaryMetrics: [],
       guardrailMetrics: [],
       regressionAdjustmentEnabled: false,
     };
+    const definitions: Record<string, ExperimentMetricDefinition> = {
+      met_a: metric,
+    };
     const planned = (
-      overrides: Partial<
-        Parameters<typeof getPlannedMetricStatsEngineInputs>[0]
-      > = {},
+      overrides: Partial<Parameters<typeof getPlannedCopiedMetricSettings>[0]>,
     ) =>
-      getPlannedMetricStatsEngineInputs({
-        metricId: "met_a",
-        metric,
+      getPlannedCopiedMetricSettings({
+        parentSettings: snapshotSettingsFor(["met_a"]),
         experiment,
         metricGroups: [metricGroup("mg_core", ["met_a"])],
         organizationSettings: {},
+        getMetricById: (id) => definitions[id],
         ...overrides,
       });
+    const inputsOf = (settings: ReturnType<typeof planned>, id = "met_a") =>
+      settings.metricStatsEngineInputs?.find((m) => m.id === id);
 
     it("expands metric groups and gives a slice its metric's priors but no type", () => {
-      expect(planned()).toMatchObject({ businessMetricTypes: ["goal"] });
-      expect(planned({ metricId: "met_a?dim:country=US" })).toMatchObject({
+      const settings = planned({
+        parentSettings: snapshotSettingsFor(["met_a", "met_a?dim:country=US"]),
+      });
+      expect(inputsOf(settings)).toMatchObject({
+        businessMetricTypes: ["goal"],
+      });
+      expect(inputsOf(settings, "met_a?dim:country=US")).toMatchObject({
         businessMetricTypes: [],
         properPriorStdDev: 0.3,
       });
@@ -400,30 +408,123 @@ describe("stats engine inputs", () => {
           priorSettings: { override: false, proper: true, mean: 0, stddev: 1 },
         },
       } as Parameters<typeof planned>[0]["organizationSettings"];
-      expect(planned({ organizationSettings })).toMatchObject({
+      expect(inputsOf(planned({ organizationSettings }))).toMatchObject({
         properPrior: true,
         properPriorStdDev: 1,
       });
       expect(
-        planned({
-          organizationSettings,
-          experiment: {
-            ...experiment,
-            metricOverrides: [
-              {
-                id: "met_a",
-                properPriorOverride: true,
-                properPriorEnabled: false,
+        inputsOf(
+          planned({
+            organizationSettings,
+            experiment: {
+              ...experiment,
+              metricOverrides: [
+                {
+                  id: "met_a",
+                  properPriorOverride: true,
+                  properPriorEnabled: false,
+                },
+              ],
+              decisionFrameworkSettings: {
+                decisionFrameworkMetricOverrides: [
+                  { id: "met_a", targetMDE: 0.05 },
+                ],
               },
-            ],
-            decisionFrameworkSettings: {
-              decisionFrameworkMetricOverrides: [
-                { id: "met_a", targetMDE: 0.05 },
+            },
+          }),
+        ),
+      ).toMatchObject({ properPrior: false, targetMDE: 0.05 });
+    });
+
+    it("plans each metric's CUPED flag as the planner computes it", () => {
+      const cupedOf = (settings: ReturnType<typeof planned>) =>
+        settings.metricSettings[0]?.computedSettings
+          ?.regressionAdjustmentEnabled;
+      expect(cupedOf(planned({}))).toBe(false);
+      const adjusted = { ...experiment, regressionAdjustmentEnabled: true };
+      expect(cupedOf(planned({ experiment: adjusted }))).toBe(true);
+      expect(
+        cupedOf(
+          planned({
+            experiment: {
+              ...adjusted,
+              metricOverrides: [
+                {
+                  id: "met_a",
+                  regressionAdjustmentOverride: true,
+                  regressionAdjustmentEnabled: false,
+                },
               ],
             },
+          }),
+        ),
+      ).toBe(false);
+      // A legacy ratio metric over a count denominator can't be adjusted.
+      const ratio = {
+        ...metric,
+        denominator: "met_count",
+      } as unknown as ExperimentMetricDefinition;
+      const count = {
+        ...metric,
+        id: "met_count",
+        type: "count",
+      } as unknown as ExperimentMetricDefinition;
+      expect(
+        cupedOf(
+          planned({
+            experiment: adjusted,
+            getMetricById: (id) => ({ met_a: ratio, met_count: count })[id],
+          }),
+        ),
+      ).toBe(false);
+    });
+
+    it("gives an activation metric that is nothing else the planner's defaults", () => {
+      const settings = planned({
+        parentSettings: snapshotSettingsFor(["met_act"]),
+        experiment: {
+          ...experiment,
+          activationMetric: "met_act",
+          regressionAdjustmentEnabled: true,
+        },
+        organizationSettings: {
+          metricDefaults: {
+            priorSettings: {
+              override: false,
+              proper: true,
+              mean: 0,
+              stddev: 1,
+            },
           },
-        }),
-      ).toMatchObject({ properPrior: false, targetMDE: 0.05 });
+        } as Parameters<typeof planned>[0]["organizationSettings"],
+        getMetricById: (id) =>
+          id === "met_act"
+            ? ({ ...metric, id } as ExperimentMetricDefinition)
+            : undefined,
+      });
+      expect(settings.metricSettings).toEqual([
+        {
+          id: "met_act",
+          computedSettings: { regressionAdjustmentEnabled: false },
+        },
+      ]);
+      expect(inputsOf(settings, "met_act")).toMatchObject({
+        properPrior: false,
+        properPriorStdDev: 0.3,
+        businessMetricTypes: [],
+      });
+    });
+
+    it("leaves out metrics no longer on the experiment, and gives an unresolved one no inputs", () => {
+      expect(
+        planned({
+          parentSettings: snapshotSettingsFor(["met_a", "met_gone"]),
+        }).metricSettings.map((m) => m.id),
+      ).toEqual(["met_a"]);
+      expect(planned({ getMetricById: () => null })).toEqual({
+        metricSettings: [{ id: "met_a" }],
+        metricStatsEngineInputs: [],
+      });
     });
   });
 

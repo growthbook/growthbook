@@ -4,6 +4,7 @@ import { z } from "zod";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
+import { DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS } from "shared/constants";
 import {
   getSnapshotAnalysis,
   isDefined,
@@ -2617,12 +2618,20 @@ export async function postSnapshot(
     );
   }
 
-  // The app offers new metrics only inside the org's window, so it isn't
-  // checked again; a refused new-metrics update falls back to a normal one.
+  // A refused new-metrics update falls back to a normal one.
   const { snapshot, updateScope } = await createScopedExperimentSnapshot({
     scope:
       req.body.updateScope === "new_metrics"
-        ? { kind: "new_metrics", window: null, onRefusal: "fallback" }
+        ? {
+            kind: "new_metrics",
+            window: {
+              windowHours:
+                context.org.settings?.newMetricsUpdateWindowHours ??
+                DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
+              now: new Date(),
+            },
+            onRefusal: "fallback",
+          }
         : { kind: "all_metrics" },
     context,
     experiment,

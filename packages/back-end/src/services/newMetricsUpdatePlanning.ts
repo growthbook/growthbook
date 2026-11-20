@@ -4,13 +4,13 @@ import pick from "lodash/pick";
 import {
   getDefinitionMetricId,
   getMetricIdsMissingFromSnapshot,
-  getNewMetricsUpdateBlocker,
+  getNewMetricsUpdateParentRefusal,
+  getNewMetricsUpdatePlanRefusal,
   getNewMetricsUpdateSetupBlocker,
   getResultsOutdatedReasons,
-  haveStatsEngineInputsChanged,
   isFactMetric,
   type ExperimentMetricInterface,
-  type NewMetricsUpdateBlocker,
+  type NewMetricsUpdateRefusal,
 } from "shared/experiments";
 import { getSnapshotCutoffDate } from "shared/util";
 import type { IncrementalRefreshInterface } from "shared/validators";
@@ -168,8 +168,12 @@ export async function planNewMetricsUpdate({
     // Callers refuse frozen results before planning.
     resultsUpdateDisabled: false,
   });
-  if (outdatedReasons.includes("analysis_dates_changed")) {
-    throw new NewMetricsUpdateUnavailableError("analysis_dates_changed");
+  const parentRefusal = getNewMetricsUpdateParentRefusal({
+    ...blockerArgs,
+    outdatedReasons,
+  });
+  if (parentRefusal) {
+    throw new NewMetricsUpdateUnavailableError(parentRefusal);
   }
   // A new-metrics update extends the parent's default analysis.
   if (parent.analyses[0]?.status !== "success") {
@@ -202,32 +206,18 @@ export async function planNewMetricsUpdate({
       throw error;
     },
   );
-  // A new-metrics update appends to its parent's pipeline, on the Incremental
-  // Pipeline to the tables the parent left, which an "incremental-full" run
-  // would rebuild.
-  const blocker = getNewMetricsUpdateBlocker({
-    ...blockerArgs,
-    pipelineChanged:
-      plan.snapshot.runnerKind !==
-      ((parent.runnerKind ?? "results") === "results"
-        ? "results"
-        : "incremental-update"),
+  const planRefusal = getNewMetricsUpdatePlanRefusal({
+    parent,
+    outdatedReasons,
+    planned: {
+      runnerKind: plan.snapshot.runnerKind ?? "results",
+      settings: plan.snapshot.settings,
+    },
   });
-  if (blocker) {
-    throw getBlockerRefusal(blocker, plan);
+  if (planRefusal) {
+    throw getPlanRefusalError(planRefusal, plan);
   }
-  // The scheduled job stores CUPED as off when the experiment adjusts but every
-  // metric opts out, and the badge then reports a CUPED change. A metric is
-  // only adjusted when its own flag is on, so that reason changes no copied
-  // number while every copied metric opts out.
-  const allowedReasons = new Set<string>(["metrics_changed"]);
-  if (noCopiedMetricIsAdjusted(parent.settings, plan.snapshot.settings)) {
-    allowedReasons.add("cuped");
-  }
-  if (
-    outdatedReasons.some((reason) => !allowedReasons.has(reason)) ||
-    changesUnreasonedSetting(parent, plan.snapshot.settings)
-  ) {
+  if (changesUnreasonedSetting(parent, plan.snapshot.settings)) {
     throw new NewMetricsUpdateUnavailableError("settings_changed");
   }
 
@@ -239,25 +229,7 @@ export async function planNewMetricsUpdate({
   if (!queriedMetricIds.length) {
     throw new MetricsAlreadyUpToDateError(parent.id);
   }
-  // Copied metrics keep the parent's analysis, so inputs only the stats engine
-  // reads, such as a prior or `inverse`, must be what the parent analyzed with.
   const queried = new Set(queriedMetricIds);
-  const plannedInputs = new Map(
-    (plan.snapshot.settings.metricStatsEngineInputs ?? []).map(
-      ({ id, ...inputs }) => [id, inputs],
-    ),
-  );
-  if (
-    haveStatsEngineInputsChanged({
-      snapshotSettings: parent.settings,
-      metricIds: settings.metricSettings
-        .map((m) => m.id)
-        .filter((id) => !queried.has(getDefinitionMetricId(id))),
-      getInputs: (id) => plannedInputs.get(id) ?? null,
-    })
-  ) {
-    throw new NewMetricsUpdateUnavailableError("settings_changed");
-  }
   const snapshot = {
     ...plan.snapshot,
     settings,
@@ -319,27 +291,23 @@ export async function planNewMetricsUpdate({
 
 // What the back end knows beyond the shared rules: why the planned run is on
 // another pipeline.
-function getBlockerRefusal(
-  blocker: NewMetricsUpdateBlocker,
-  plan: Pick<PlannedExperimentSnapshot, "incrementalFallbackReason"> & {
-    snapshot: Pick<PlannedExperimentSnapshot["snapshot"], "runnerKind">;
-  },
+function getPlanRefusalError(
+  refusal: Exclude<NewMetricsUpdateRefusal, "outside_window">,
+  plan: Pick<PlannedExperimentSnapshot, "incrementalFallbackReason">,
 ): NewMetricsUpdateUnavailableError {
-  if (blocker !== "metric_not_supported") {
-    return new NewMetricsUpdateUnavailableError(blocker);
-  }
-  if (plan.snapshot.runnerKind === "incremental-full") {
+  if (refusal === "incremental_pipeline") {
     return new NewMetricsUpdateUnavailableError(
       "incremental_pipeline",
       'The Incremental Pipeline has no tables for this experiment\'s current settings yet, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" to build them.',
     );
   }
-  return plan.incrementalFallbackReason
-    ? new NewMetricsUpdateUnavailableError(
-        "metric_not_supported",
-        `The latest results ran on the Incremental Pipeline, which can't run this experiment now. ${plan.incrementalFallbackReason} Send "updateScope": "all_metrics" instead.`,
-      )
-    : new NewMetricsUpdateUnavailableError("metric_not_supported");
+  if (refusal === "metric_not_supported" && plan.incrementalFallbackReason) {
+    return new NewMetricsUpdateUnavailableError(
+      "metric_not_supported",
+      `The latest results ran on the Incremental Pipeline, which can't run this experiment now. ${plan.incrementalFallbackReason} Send "updateScope": "all_metrics" instead.`,
+    );
+  }
+  return new NewMetricsUpdateUnavailableError(refusal);
 }
 
 // Settings no Outdated reason covers whose change would make a copied result
@@ -373,21 +341,6 @@ const isEmptySetting = (value: unknown): boolean =>
   value === false ||
   value === "" ||
   (typeof value === "object" && !Object.keys(value).length);
-
-function noCopiedMetricIsAdjusted(
-  parent: ExperimentSnapshotSettings,
-  planned: ExperimentSnapshotSettings,
-): boolean {
-  const copiedMetricIds = new Set(parent.metricSettings.map((m) => m.id));
-  const optsOut = (m: ExperimentSnapshotSettings["metricSettings"][number]) =>
-    m.computedSettings?.regressionAdjustmentEnabled === false;
-  return (
-    parent.metricSettings.every(optsOut) &&
-    planned.metricSettings
-      .filter((m) => copiedMetricIds.has(m.id))
-      .every(optsOut)
-  );
-}
 
 // A setting one side lacks counts as that setting left empty.
 function changesUnreasonedSetting(

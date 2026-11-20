@@ -1,13 +1,11 @@
 import {
   ExperimentMetricInterface,
   expandDerivedMetricsInMap,
-  getDefinitionMetricId,
   getLatestPhaseVariations,
   getMetricSnapshotSettings,
-  getPlannedMetricStatsEngineInputs,
+  getNewMetricsUpdateRefusal,
+  getPlannedCopiedMetricSettings,
   getResultsOutdatedReasons,
-  haveStatsEngineInputsChanged,
-  shouldOfferNewMetricsUpdate,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -17,6 +15,7 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
+  SnapshotQueryRunnerKind,
 } from "shared/types/experiment-snapshot";
 import {
   ExperimentSnapshotReportInterface,
@@ -2553,9 +2552,68 @@ describe("planExperimentSnapshot", () => {
       });
     }
 
+    // What the app decides: its Outdated reasons against the parent, and the
+    // shared rule with the plan predicted from today's definitions.
+    async function appRefusal({
+      context,
+      datasource,
+      experiment,
+      parent,
+      plannedRunnerKind,
+    }: Pick<ReturnType<typeof makeFixture>, "context" | "datasource"> & {
+      experiment: ExperimentInterface;
+      parent: ExperimentSnapshotInterface;
+      plannedRunnerKind: SnapshotQueryRunnerKind;
+    }) {
+      const { settings: scoped } = getScopedSettings({
+        organization: context.org,
+        experiment,
+      });
+      const metricGroups = await context.models.metricGroups.getAll();
+      const outdatedReasons = getResultsOutdatedReasons({
+        experiment,
+        snapshot: parent,
+        metricGroups,
+        orgSettings: context.org.settings ?? {},
+        pValueThreshold: scoped.pValueThreshold.value,
+        statsEngine: scoped.statsEngine.value,
+        features: {
+          regressionAdjustment: true,
+          postStratification: true,
+          sequentialTesting: true,
+        },
+        phase: 0,
+        exposureQueries: datasource.settings.queries?.exposure ?? [],
+        unjoinableMetricIds: new Set(),
+        conversionWindowMetricIds: new Set(),
+        newerOverallResultsAvailable: false,
+        resultsUpdateDisabled: false,
+      });
+      const todaysMetrics = await getMetricMapMock(context);
+      const refusal = getNewMetricsUpdateRefusal({
+        experiment,
+        phase: 0,
+        separateExperimentResultQueries: true,
+        parent,
+        outdatedReasons,
+        window: { windowHours: 4, now: refreshTime },
+        planned: {
+          runnerKind: plannedRunnerKind,
+          settings: getPlannedCopiedMetricSettings({
+            parentSettings: parent.settings,
+            experiment,
+            metricGroups,
+            organizationSettings: context.org.settings ?? {},
+            getMetricById: (id) => todaysMetrics.get(id),
+          }),
+        },
+      });
+      return { outdatedReasons, refusal };
+    }
+
     // The experiment adjusts with CUPED but its one metric opts out, where the
     // scheduled job once stored CUPED as off.
-    it("accepts a parent the scheduled update planned", async () => {
+    it("accepts a parent the scheduled update planned, and the app offers it", async () => {
       const fixture = makeFixture();
       const { context } = fixture;
       const base: ExperimentInterface = {
@@ -2600,13 +2658,22 @@ describe("planExperimentSnapshot", () => {
         cutoff: null,
       });
 
-      const plan = await planRefresh(
-        fixture,
-        { ...base, secondaryMetrics: ["fact__aov"] },
-        asParent(scheduled.snapshot),
-      );
+      const refresh = { ...base, secondaryMetrics: ["fact__aov"] };
+      const parent = asParent(scheduled.snapshot);
+      const plan = await planRefresh(fixture, refresh, parent);
 
       expect(plan.snapshot.newMetricsUpdate?.metricIds).toEqual(["fact__aov"]);
+      await expect(
+        appRefusal({
+          ...fixture,
+          experiment: refresh,
+          parent,
+          plannedRunnerKind: "results",
+        }),
+      ).resolves.toEqual({
+        outdatedReasons: expect.arrayContaining(["cuped", "metrics_changed"]),
+        refusal: null,
+      });
     });
 
     // The planner refuses on the app's Outdated reasons, so only the settings
@@ -2750,56 +2817,16 @@ describe("planExperimentSnapshot", () => {
           ...baseChanges,
           ...refreshChanges,
         };
-        const { settings: scoped } = getScopedSettings({
-          organization: context.org,
+        // The app reads today's definitions, not the planner's settings.
+        const { outdatedReasons: reasons, refusal } = await appRefusal({
+          context,
+          datasource,
           experiment,
+          parent,
+          plannedRunnerKind:
+            pipeline === "incremental" ? "incremental-update" : "results",
         });
-        const reasons = getResultsOutdatedReasons({
-          experiment,
-          snapshot: parent,
-          metricGroups: await context.models.metricGroups.getAll(),
-          orgSettings: context.org.settings ?? {},
-          pValueThreshold: scoped.pValueThreshold.value,
-          statsEngine: scoped.statsEngine.value,
-          features: {
-            regressionAdjustment: true,
-            postStratification: true,
-            sequentialTesting: true,
-          },
-          phase: 0,
-          exposureQueries: exposure,
-          unjoinableMetricIds: new Set(),
-          conversionWindowMetricIds: new Set(),
-          newerOverallResultsAvailable: false,
-          resultsUpdateDisabled: false,
-        });
-        // What the app reads: today's definitions, not the planner's settings.
-        const todaysMetrics = await getMetricMapMock(context);
-        const metricGroups = await context.models.metricGroups.getAll();
-        const statsEngineInputsChanged = haveStatsEngineInputsChanged({
-          snapshotSettings: parent.settings,
-          metricIds: parent.settings.metricSettings.map((m) => m.id),
-          getInputs: (metricId) => {
-            const metric = todaysMetrics.get(getDefinitionMetricId(metricId));
-            return metric
-              ? getPlannedMetricStatsEngineInputs({
-                  metricId,
-                  metric,
-                  experiment,
-                  metricGroups,
-                  organizationSettings: context.org.settings ?? {},
-                })
-              : null;
-          },
-        });
-        const offered = shouldOfferNewMetricsUpdate({
-          reasons,
-          resultsEndDate: parent.settings.endDate,
-          windowHours: 4,
-          now: refreshTime,
-          newMetricsUpdateBlocker: null,
-          statsEngineInputsChanged,
-        });
+        const offered = refusal === null;
         const plan = planExperimentSnapshot({
           context: context as never,
           experiment,
@@ -2848,6 +2875,25 @@ describe("planExperimentSnapshot", () => {
                 runnerKind,
                 newMetricsUpdate: { metricIds: ["fact__guard"] },
               },
+            });
+          });
+
+          it("refuses, and the app doesn't offer it, when CUPED is turned on for adjustable copied metrics", async () => {
+            const { reasons, offered, plan } = await outdatedRefresh(
+              makeFixture(),
+              {
+                base: { ...pipelineBase, regressionAdjustmentEnabled: false },
+                refresh: { ...pipelineBase, regressionAdjustmentEnabled: true },
+                pipeline,
+              },
+            );
+
+            expect(reasons).toEqual(
+              expect.arrayContaining(["metrics_changed", "cuped"]),
+            );
+            expect(offered).toBe(false);
+            await expect(plan).rejects.toMatchObject({
+              details: { reason: "settings_changed" },
             });
           });
 

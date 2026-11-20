@@ -24,12 +24,10 @@ import {
   getSnapshotDataAsOfDate,
   getResultsOutdatedReasons,
   getResultsOutdatedReasonLabel,
-  getNewMetricsUpdateBlocker,
-  getDefinitionMetricId,
-  getPlannedMetricStatsEngineInputs,
-  haveStatsEngineInputsChanged,
-  shouldOfferNewMetricsUpdate,
+  getNewMetricsUpdateRefusal,
+  getPlannedCopiedMetricSettings,
 } from "shared/experiments";
+import type { SnapshotQueryRunnerKind } from "shared/types/experiment-snapshot";
 import {
   isNewerOverallResultsDataAvailable,
   getIncrementalFullRefreshReasons,
@@ -551,65 +549,57 @@ export default function AnalysisSettingsSummary({
         resultsUpdateDisabled,
       })
     : [];
-  // The back end refuses the same way, comparing what it would plan now.
-  const statsEngineInputsChanged = useMemo(() => {
-    if (!snapshot) return false;
-    const experimentMetricIds = new Set([
-      ...allExpandedMetrics,
-      ...(experiment.activationMetric ? [experiment.activationMetric] : []),
-    ]);
-    return haveStatsEngineInputsChanged({
-      snapshotSettings: snapshot.settings,
-      metricIds: snapshot.settings.metricSettings
-        .map((m) => m.id)
-        .filter((id) => experimentMetricIds.has(getDefinitionMetricId(id))),
-      getInputs: (metricId) => {
-        const metric = getExperimentMetricById(getDefinitionMetricId(metricId));
-        return metric
-          ? getPlannedMetricStatsEngineInputs({
-              metricId,
-              metric,
-              experiment,
-              metricGroups,
-              organizationSettings: orgSettings,
-            })
-          : null;
-      },
-    });
-  }, [
-    snapshot,
-    allExpandedMetrics,
-    experiment,
-    getExperimentMetricById,
-    metricGroups,
-    orgSettings,
-  ]);
+  const plannedCopiedMetricSettings = useMemo(
+    () =>
+      snapshot
+        ? getPlannedCopiedMetricSettings({
+            parentSettings: snapshot.settings,
+            experiment,
+            metricGroups,
+            organizationSettings: orgSettings,
+            getMetricById: getExperimentMetricById,
+          })
+        : null,
+    [snapshot, experiment, metricGroups, orgSettings, getExperimentMetricById],
+  );
   const fullRefreshRequired =
     !viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
+  // The run the back end would plan next. It rebuilds the Incremental
+  // Pipeline's tables when their settings changed or there are none.
+  const plannedRunnerKind: SnapshotQueryRunnerKind = !isIncremental
+    ? "results"
+    : overallNeedsFullRefresh || !incrementalRefresh?.unitsTableFullName
+      ? "incremental-full"
+      : "incremental-update";
   // When this holds, the split Update button stands in for the Outdated badge.
+  // The back end builds on the latest successful standard Overall snapshot,
+  // which this is when it's a standard one.
   const offerNewMetricsUpdate =
     !!snapshot &&
+    !!plannedCopiedMetricSettings &&
+    snapshot.type === "standard" &&
     newMetricIds.length > 0 &&
     hasData &&
     !dimension &&
-    !fullRefreshRequired &&
-    shouldOfferNewMetricsUpdate({
-      reasons: outdatedReasons,
-      resultsEndDate: getValidDate(snapshot.settings.endDate),
-      windowHours:
-        orgSettings.newMetricsUpdateWindowHours ??
-        DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
-      now: new Date(),
-      newMetricsUpdateBlocker: getNewMetricsUpdateBlocker({
-        experiment,
-        phase,
-        separateExperimentResultQueries:
-          !!datasource?.properties?.separateExperimentResultQueries,
-        pipelineChanged:
-          ((snapshot.runnerKind ?? "results") !== "results") !== isIncremental,
-      }),
-      statsEngineInputsChanged,
-    });
+    outdatedReasons.includes("metrics_changed") &&
+    getNewMetricsUpdateRefusal({
+      experiment,
+      phase,
+      separateExperimentResultQueries:
+        !!datasource?.properties?.separateExperimentResultQueries,
+      parent: snapshot,
+      outdatedReasons,
+      window: {
+        windowHours:
+          orgSettings.newMetricsUpdateWindowHours ??
+          DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
+        now: new Date(),
+      },
+      planned: {
+        runnerKind: plannedRunnerKind,
+        settings: plannedCopiedMetricSettings,
+      },
+    }) === null;
   const snapshotNewMetricsUpdate = snapshot
     ? getNewMetricsUpdate(snapshot)
     : null;

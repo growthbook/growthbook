@@ -1,4 +1,7 @@
-import { isWithinNewMetricsUpdateWindow } from "shared/experiments";
+import {
+  isWithinNewMetricsUpdateWindow,
+  type NewMetricsUpdateWindow,
+} from "shared/experiments";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { SnapshotUpdateScope } from "shared/validators";
@@ -11,8 +14,6 @@ import {
   MetricsAlreadyUpToDateError,
   SnapshotInProgressError,
 } from "back-end/src/util/errors";
-
-type NewMetricsUpdateWindow = { windowHours: number; now: Date };
 
 // Which metrics an update computes, once the request has been read.
 export type ResolvedUpdateScope =
@@ -81,8 +82,9 @@ function isFallbackRefusal(error: unknown): boolean {
   );
 }
 
-// The window is counted from the end date the latest Overall Results cover.
-// Without results the new-metrics update would be refused anyway.
+// The window is counted from the end date of the latest Overall Results, the
+// parent the planner loads, before anything is planned. Without results the
+// new-metrics update would be refused anyway.
 async function latestResultsAreInWindow({
   context,
   experiment,

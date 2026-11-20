@@ -1,15 +1,19 @@
 import isEqual from "lodash/isEqual";
 import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
+import { getValidDate } from "shared/dates";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  MetricForSnapshot,
   MetricStatsEngineInputs,
   SnapshotNewMetricsUpdate,
+  SnapshotQueryRunnerKind,
 } from "shared/types/experiment-snapshot";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
 import type { DataSourceSettings } from "shared/types/datasource";
@@ -270,16 +274,27 @@ export function getSnapshotSideEffects(snapshot: SnapshotLineage) {
   };
 }
 
-export type NewMetricsUpdateBlocker = Extract<
-  (typeof newMetricsUpdateUnavailableReasons)[number],
-  | "unsupported_experiment_type"
-  | "not_latest_phase"
-  | "phase_ended"
-  | "unsupported_data_source"
-  | "metric_not_supported"
->;
+/**
+ * Why an update can't compute only the newly added metrics. The rule is split
+ * in the stages the back end can check them in: the window before it loads
+ * anything, the parent before it plans, and the plan. The app checks all three
+ * at once with getNewMetricsUpdateRefusal.
+ */
+export type NewMetricsUpdateRefusal =
+  | Extract<
+      (typeof newMetricsUpdateUnavailableReasons)[number],
+      | "unsupported_experiment_type"
+      | "not_latest_phase"
+      | "phase_ended"
+      | "unsupported_data_source"
+      | "analysis_dates_changed"
+      | "incremental_pipeline"
+      | "metric_not_supported"
+      | "settings_changed"
+    >
+  | "outside_window";
 
-type NewMetricsUpdateBlockerArgs = {
+type NewMetricsUpdateSetupFacts = {
   experiment: Pick<ExperimentInterface, "type"> & {
     phases: { dateEnded?: string | Date }[];
   };
@@ -295,7 +310,10 @@ export function getNewMetricsUpdateSetupBlocker({
   experiment,
   phase,
   separateExperimentResultQueries,
-}: NewMetricsUpdateBlockerArgs): NewMetricsUpdateBlocker | null {
+}: NewMetricsUpdateSetupFacts): Exclude<
+  NewMetricsUpdateRefusal,
+  "outside_window"
+> | null {
   if ((experiment.type ?? "standard") !== "standard") {
     return "unsupported_experiment_type";
   }
@@ -304,69 +322,178 @@ export function getNewMetricsUpdateSetupBlocker({
   return null;
 }
 
-/**
- * Why no update can compute only new metrics for this phase, if anything.
- * `pipelineChanged`: the next update would run on a different pipeline than
- * the results did, for example because a new metric makes the Incremental
- * Pipeline fall back.
- */
-export function getNewMetricsUpdateBlocker({
-  pipelineChanged,
-  ...args
-}: NewMetricsUpdateBlockerArgs & {
-  pipelineChanged: boolean;
-}): NewMetricsUpdateBlocker | null {
-  const setupBlocker = getNewMetricsUpdateSetupBlocker(args);
-  if (setupBlocker) return setupBlocker;
-  if (args.experiment.phases[args.phase]?.dateEnded) return "phase_ended";
-  if (pipelineChanged) return "metric_not_supported";
-  return null;
-}
-
 const HOUR_MS = 60 * 60 * 1000;
 
-/** A window of 0 hours turns the new-metrics update off. */
+export type NewMetricsUpdateWindow = { windowHours: number; now: Date };
+
+/**
+ * Whether results ending at `resultsEndDate`, the parent's end date, are
+ * recent enough. A window of 0 hours turns the new-metrics update off.
+ */
 export function isWithinNewMetricsUpdateWindow({
   resultsEndDate,
   windowHours,
   now,
-}: {
-  resultsEndDate: Date;
-  windowHours: number;
-  now: Date;
-}): boolean {
+}: NewMetricsUpdateWindow & { resultsEndDate: Date }): boolean {
   return (
     windowHours > 0 &&
     now.getTime() - resultsEndDate.getTime() < windowHours * HOUR_MS
   );
 }
 
+type NewMetricsUpdateParentFacts = NewMetricsUpdateSetupFacts & {
+  // getResultsOutdatedReasons against the parent.
+  outdatedReasons: readonly ResultsOutdatedReason[];
+};
+
+/** What the parent rules out before an update is planned against it. */
+export function getNewMetricsUpdateParentRefusal({
+  outdatedReasons,
+  ...setup
+}: NewMetricsUpdateParentFacts): Exclude<
+  NewMetricsUpdateRefusal,
+  "outside_window"
+> | null {
+  const setupBlocker = getNewMetricsUpdateSetupBlocker(setup);
+  if (setupBlocker) return setupBlocker;
+  if (setup.experiment.phases[setup.phase]?.dateEnded) return "phase_ended";
+  if (outdatedReasons.includes("analysis_dates_changed")) {
+    return "analysis_dates_changed";
+  }
+  return null;
+}
+
+type ParentMetricSettings = Pick<
+  ExperimentSnapshotSettings,
+  "metricSettings" | "metricStatsEngineInputs"
+>;
+
+type PlannedMetricSettings = {
+  id: string;
+  computedSettings?: Pick<
+    NonNullable<MetricForSnapshot["computedSettings"]>,
+    "regressionAdjustmentEnabled"
+  >;
+};
+
 /**
- * Whether Update computes only the newly added metrics: they are the only
- * change, the results are recent, and nothing blocks such an update.
+ * What a full update planned now would run and store for the metrics the
+ * parent computed. The back end passes its plan; the app predicts it with
+ * getPlannedCopiedMetricSettings.
  */
-export function shouldOfferNewMetricsUpdate({
-  reasons,
-  resultsEndDate,
-  windowHours,
-  now,
-  newMetricsUpdateBlocker,
-  statsEngineInputsChanged,
+export type PlannedNewMetricsUpdate = {
+  runnerKind: SnapshotQueryRunnerKind;
+  settings: {
+    metricSettings: readonly PlannedMetricSettings[];
+    metricStatsEngineInputs?: ExperimentSnapshotSettings["metricStatsEngineInputs"];
+  };
+};
+
+const optsOutOfCuped = (m: PlannedMetricSettings) =>
+  m.computedSettings?.regressionAdjustmentEnabled === false;
+
+/**
+ * What the plan rules out. A new-metrics update appends to its parent's
+ * pipeline, on the Incremental Pipeline to the tables the parent left, which
+ * an "incremental-full" run would rebuild. Copied metrics keep the parent's
+ * results and analysis, so only "Metrics changed" may be outdated, and the
+ * inputs only the stats engine reads must be unchanged.
+ */
+export function getNewMetricsUpdatePlanRefusal({
+  parent,
+  outdatedReasons,
+  planned,
 }: {
-  reasons: readonly ResultsOutdatedReason[];
-  resultsEndDate: Date;
-  windowHours: number;
-  now: Date;
-  newMetricsUpdateBlocker: NewMetricsUpdateBlocker | null;
-  // See haveStatsEngineInputsChanged.
-  statsEngineInputsChanged: boolean;
-}): boolean {
+  parent: Pick<ExperimentSnapshotInterface, "runnerKind"> & {
+    settings: ParentMetricSettings;
+  };
+  outdatedReasons: readonly ResultsOutdatedReason[];
+  planned: PlannedNewMetricsUpdate;
+}): Exclude<NewMetricsUpdateRefusal, "outside_window"> | null {
+  const parentPipeline =
+    (parent.runnerKind ?? "results") === "results"
+      ? "results"
+      : "incremental-update";
+  if (planned.runnerKind !== parentPipeline) {
+    return planned.runnerKind === "incremental-full"
+      ? "incremental_pipeline"
+      : "metric_not_supported";
+  }
+
+  const parentMetricIds = new Set(
+    parent.settings.metricSettings.map((m) => m.id),
+  );
+  const copied = planned.settings.metricSettings.filter((m) =>
+    parentMetricIds.has(m.id),
+  );
+  // The scheduled job stores CUPED as off when the experiment adjusts but
+  // every metric opts out, and the badge then reports a CUPED change. A metric
+  // is only adjusted when its own flag is on, so that reason changes no copied
+  // number while every copied metric opts out.
+  const cupedChangesNoCopiedMetric =
+    parent.settings.metricSettings.every(optsOutOfCuped) &&
+    copied.every(optsOutOfCuped);
+  if (
+    outdatedReasons.some(
+      (reason) =>
+        reason !== "metrics_changed" &&
+        !(reason === "cuped" && cupedChangesNoCopiedMetric),
+    )
+  ) {
+    return "settings_changed";
+  }
+
+  const plannedInputs = new Map(
+    (planned.settings.metricStatsEngineInputs ?? []).map(
+      ({ id, ...inputs }) => [id, inputs],
+    ),
+  );
+  if (
+    haveStatsEngineInputsChanged({
+      snapshotSettings: parent.settings,
+      metricIds: copied.map((m) => m.id),
+      getInputs: (id) => plannedInputs.get(id) ?? null,
+    })
+  ) {
+    return "settings_changed";
+  }
+  return null;
+}
+
+/**
+ * Why Update can't compute only the newly added metrics on top of `parent`,
+ * the phase's latest successful Overall Results, or null when it can. `window`
+ * is null when the caller applies none.
+ */
+export function getNewMetricsUpdateRefusal({
+  parent,
+  window,
+  planned,
+  ...facts
+}: NewMetricsUpdateParentFacts & {
+  parent: Pick<ExperimentSnapshotInterface, "runnerKind"> & {
+    settings: ParentMetricSettings &
+      Pick<ExperimentSnapshotSettings, "endDate">;
+  };
+  window: NewMetricsUpdateWindow | null;
+  planned: PlannedNewMetricsUpdate;
+}): NewMetricsUpdateRefusal | null {
+  if (
+    window &&
+    !isWithinNewMetricsUpdateWindow({
+      ...window,
+      resultsEndDate: getValidDate(parent.settings.endDate),
+    })
+  ) {
+    return "outside_window";
+  }
   return (
-    reasons.length > 0 &&
-    reasons.every((r) => r === "metrics_changed") &&
-    !newMetricsUpdateBlocker &&
-    !statsEngineInputsChanged &&
-    isWithinNewMetricsUpdateWindow({ resultsEndDate, windowHours, now })
+    getNewMetricsUpdateParentRefusal(facts) ??
+    getNewMetricsUpdatePlanRefusal({
+      parent,
+      outdatedReasons: facts.outdatedReasons,
+      planned,
+    })
   );
 }
 
@@ -433,61 +560,110 @@ export function getMetricStatsEngineInputs(
 }
 
 /**
- * The inputs a full update planned now would store for a metric, from today's
- * definitions. `metric` is the definition of the metric, or of the metric a
- * slice belongs to.
+ * What a full update planned now would store for the parent's metrics still on
+ * the experiment, from today's definitions, for the app to pass as
+ * getNewMetricsUpdateRefusal's `planned` settings. A metric whose definition
+ * `getMetricById` can't resolve gets no stats engine inputs, so it counts as
+ * changed.
  */
-export function getPlannedMetricStatsEngineInputs({
-  metricId,
-  metric,
+export function getPlannedCopiedMetricSettings({
+  parentSettings,
   experiment,
   metricGroups,
   organizationSettings,
+  getMetricById,
 }: {
-  metricId: string;
-  metric: ExperimentMetricDefinition;
+  parentSettings: Pick<ExperimentSnapshotSettings, "metricSettings">;
   experiment: Pick<
     ExperimentInterface,
     | "goalMetrics"
     | "secondaryMetrics"
     | "guardrailMetrics"
+    | "activationMetric"
     | "metricOverrides"
     | "decisionFrameworkSettings"
     | "regressionAdjustmentEnabled"
   >;
   metricGroups: MetricGroupInterface[];
   organizationSettings: Partial<OrganizationSettings>;
-}): MetricStatsEngineInputs {
-  const { metricSnapshotSettings } = getMetricSnapshotSettings({
-    metric,
-    denominatorMetrics: [],
-    experimentRegressionAdjustmentEnabled:
-      experiment.regressionAdjustmentEnabled ??
-      DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-    organizationSettings,
-    metricOverrides: experiment.metricOverrides,
-  });
-  const definitionMetricId = getDefinitionMetricId(metricId);
-  const targetMDE =
-    experiment.decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
-      (o) => o.id === definitionMetricId,
-    )?.targetMDE ?? metric.targetMDE;
-  return toStatsEngineInputs(
-    metricId,
-    metric.inverse,
-    { ...metricSnapshotSettings, targetMDE },
-    {
-      goalMetrics: expandMetricGroups(experiment.goalMetrics, metricGroups),
-      secondaryMetrics: expandMetricGroups(
-        experiment.secondaryMetrics,
-        metricGroups,
-      ),
-      guardrailMetrics: expandMetricGroups(
-        experiment.guardrailMetrics,
-        metricGroups,
-      ),
-    },
+  getMetricById: (id: string) => ExperimentMetricDefinition | null | undefined;
+}): PlannedNewMetricsUpdate["settings"] {
+  const businessMetrics = {
+    goalMetrics: expandMetricGroups(experiment.goalMetrics, metricGroups),
+    secondaryMetrics: expandMetricGroups(
+      experiment.secondaryMetrics,
+      metricGroups,
+    ),
+    guardrailMetrics: expandMetricGroups(
+      experiment.guardrailMetrics,
+      metricGroups,
+    ),
+  };
+  const experimentMetricIds = new Set(
+    getAllMetricIdsFromExperiment(experiment, true, metricGroups),
   );
+  // The planner computes settings only for these; the activation metric gets
+  // its defaults.
+  const settingsMetricIds = new Set(
+    getAllMetricIdsFromExperiment(experiment, false, metricGroups),
+  );
+  const metricSettings: PlannedMetricSettings[] = [];
+  const metricStatsEngineInputs: NonNullable<
+    PlannedNewMetricsUpdate["settings"]["metricStatsEngineInputs"]
+  > = [];
+  for (const { id } of parentSettings.metricSettings) {
+    const definitionMetricId = getDefinitionMetricId(id);
+    if (!experimentMetricIds.has(definitionMetricId)) continue;
+    const metric = getMetricById(definitionMetricId);
+    if (!metric) {
+      metricSettings.push({ id });
+      continue;
+    }
+    // The planner passes every loaded denominator; only a legacy ratio
+    // metric's own denominator changes its result.
+    const denominator =
+      !isFactMetric(metric) && metric.denominator
+        ? getMetricById(metric.denominator)
+        : null;
+    const metricSnapshotSettings = settingsMetricIds.has(definitionMetricId)
+      ? getMetricSnapshotSettings({
+          metric,
+          denominatorMetrics:
+            denominator && !isFactMetric(denominator) ? [denominator] : [],
+          experimentRegressionAdjustmentEnabled:
+            experiment.regressionAdjustmentEnabled ??
+            DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+          organizationSettings,
+          metricOverrides: experiment.metricOverrides,
+        }).metricSnapshotSettings
+      : {
+          regressionAdjustmentEnabled: false,
+          properPrior: false,
+          properPriorMean: 0,
+          properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+        };
+    metricSettings.push({
+      id,
+      computedSettings: {
+        regressionAdjustmentEnabled:
+          metricSnapshotSettings.regressionAdjustmentEnabled,
+      },
+    });
+    const targetMDE =
+      experiment.decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
+        (o) => o.id === definitionMetricId,
+      )?.targetMDE ?? metric.targetMDE;
+    metricStatsEngineInputs.push({
+      id,
+      ...toStatsEngineInputs(
+        id,
+        metric.inverse,
+        { ...metricSnapshotSettings, targetMDE },
+        businessMetrics,
+      ),
+    });
+  }
+  return { metricSettings, metricStatsEngineInputs };
 }
 
 /**
