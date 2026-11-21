@@ -28,6 +28,34 @@ export default function DropdownMenuStories() {
         <DropdownMenuItem color="red">Item 5</DropdownMenuItem>
       </DropdownMenu>
 
+      {/* keepOpenWhileLoading: the menu stays open during an async onClick,
+          closes when it succeeds, and shows the error on the item when it
+          fails. */}
+      <DropdownMenu trigger="Async items">
+        <DropdownMenuItem
+          keepOpenWhileLoading
+          onClick={() => new Promise((resolve) => setTimeout(resolve, 1500))}
+        >
+          Succeeds after 1.5s
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          keepOpenWhileLoading
+          onClick={() =>
+            new Promise((_, reject) =>
+              setTimeout(
+                () =>
+                  reject(
+                    new Error("Dashboard is not available for this Project."),
+                  ),
+                1500,
+              ),
+            )
+          }
+        >
+          Fails after 1.5s
+        </DropdownMenuItem>
+      </DropdownMenu>
+
       <DropdownMenu trigger="Add Experiment" menuPlacement="end">
         <DropdownMenuItem>Create New Experiment</DropdownMenuItem>
         <DropdownMenuItem>Import Existing Experiment</DropdownMenuItem>

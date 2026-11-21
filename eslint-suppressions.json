@@ -1498,11 +1498,6 @@
       "count": 3
     }
   },
-  "packages/front-end/enterprise/components/Dashboards/DashboardSelector.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/enterprise/components/Dashboards/DashboardShareModal.tsx": {
     "no-restricted-imports": {
       "count": 1

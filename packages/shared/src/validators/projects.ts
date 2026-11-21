@@ -35,6 +35,9 @@ export const projectValidator = baseSchema
     allowTargeting: z.boolean().optional(),
     // Absent on projects that predate it.
     owner: ownerField.optional(),
+    // Shown on Home to the Project's members. Written only by the
+    // default-dashboard route, which checks the plan and eligibility.
+    defaultDashboardId: z.string().min(1).optional(),
   })
   .strict();
 
