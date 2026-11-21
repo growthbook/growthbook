@@ -5,6 +5,7 @@ import { useAuth } from "@/services/auth";
 const POLL_INTERVAL_MS = 5000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 const BACKLOG_POLL_INTERVAL_MS = 15000;
+const ERROR_POLL_INTERVAL_MS = 60000;
 
 export const PROVISIONING_TIMEOUT_MESSAGE =
   "Provisioning timed out. Try editing the Event Forwarder to retry.";
@@ -108,21 +109,29 @@ export function useEventForwarderProvisioningPoll({
     });
   }, [datasourceId, fetchConnectorStatus, status]);
 
-  // A replay shrinks the backlog while the forwarder is ready; keep the count current.
+  // Keeps the parked count current:
+  // - errored: the backlog grows
+  // - ready: a replay shrinks it
   const hasBacklog = backlogCount > 0;
+  const backlogPollMs =
+    status === "error"
+      ? ERROR_POLL_INTERVAL_MS
+      : status === "ready" && hasBacklog
+        ? BACKLOG_POLL_INTERVAL_MS
+        : null;
   useEffect(() => {
-    if (status !== "ready" || !hasBacklog) {
+    if (backlogPollMs === null) {
       return;
     }
     const intervalId = window.setInterval(() => {
       void fetchConnectorStatus().catch(() => {
         // The next tick retries.
       });
-    }, BACKLOG_POLL_INTERVAL_MS);
+    }, backlogPollMs);
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [fetchConnectorStatus, hasBacklog, status]);
+  }, [fetchConnectorStatus, backlogPollMs]);
 
   useEffect(() => {
     if (status === "pending") {

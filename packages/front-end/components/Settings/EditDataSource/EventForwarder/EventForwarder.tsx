@@ -809,27 +809,6 @@ function EventForwarderLastError({
   );
 }
 
-function EventForwarderSetupIndicator({ label }: { label: string }) {
-  return (
-    <Box
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "var(--space-2)",
-        width: "fit-content",
-        padding: "2px 6px",
-        borderRadius: "var(--radius-2)",
-        backgroundColor: "var(--violet-a3)",
-        color: "var(--violet-11)",
-      }}
-    >
-      <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-      <Text size="sm">{label}</Text>
-    </Box>
-  );
-}
-
 export default function EventForwarder({
   dataSource,
   canEdit = true,
@@ -972,8 +951,15 @@ export default function EventForwarder({
               <Text weight="semibold">Status</Text>
             )}
             {!eventForwarderConfig ? null : isProvisioning ? (
-              <EventForwarderSetupIndicator
-                label={replaying ? "Writing backlog" : "Setting up"}
+              <Badge
+                color="violet"
+                variant="soft"
+                label={
+                  <Flex align="center" gap="2">
+                    <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+                    {replaying ? "Writing backlog" : "Setting up"}
+                  </Flex>
+                }
               />
             ) : (
               <>
@@ -1101,6 +1087,7 @@ export default function EventForwarder({
             ).toLocaleString()}`,
             "violet",
           )}
+          <br />
           New events wait until this is done, then forwarding resumes.
         </Callout>
       ) : null}
