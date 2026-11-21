@@ -38,6 +38,7 @@ export function RowFilterFields({
   const firstSelectOptions = getRowFilterSelectOptions({
     columnOptions,
     savedFilters: columnSource.savedFilters,
+    savedFiltersLabel: columnSource.savedFiltersLabel,
     selectedSavedFilterId:
       filter.operator === "saved_filter" ? filter.values?.[0] : undefined,
   });

@@ -126,6 +126,8 @@ export const USAGE_INTENTS = {
 // Health
 export const DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD = 10;
 export const DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD = 0.01;
+// Built-in saved filter on the exposure logs: units that saw several variations
+export const MULTIPLE_EXPOSURES_ROW_FILTER_ID = "multiple_exposures";
 export const DEFAULT_CLUSTER_ISSUE_THRESHOLD = 0.01;
 export const DEFAULT_MIN_CLUSTERS_PER_VARIATION = 20;
 export const DEFAULT_MAX_CLUSTER_SHARE = 0.2;
