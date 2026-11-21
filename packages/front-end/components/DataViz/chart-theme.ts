@@ -29,7 +29,7 @@ export const SQL_EXPLORER_COLORS = [
 ];
 
 // Semantic colors for experiment results, as Radix tokens so they follow the
-// theme. ECharts draws on canvas, so resolve them with cssColorToHex first.
+// theme. ECharts draws on canvas, so resolve them with useResolvedChartColors.
 export const EXPERIMENT_RESULT_COLORS = {
   won: "var(--green-9)",
   lost: "var(--red-9)",
