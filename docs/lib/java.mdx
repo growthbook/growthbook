@@ -243,7 +243,15 @@ boolean showFeatureForUser2 = gb.isOn("new-homepage", user2Context);
 String colorForUser2 = gb.getFeatureValue("button-color", "blue", String.class, user2Context);
 ```
 
-#### Async evaluation
+#### Thread Safety Note
+
+While the enhanced client is designed for concurrent use, full concurrency support is still being refined. For high-concurrency applications, consider:
+
+- Using connection pooling for database-backed sticky bucket services
+- Implementing proper synchronization for custom tracking callbacks
+- Testing thoroughly under expected load conditions
+
+### Async evaluation
 
 **Available starting in version 0.13.0**
 
@@ -292,7 +300,7 @@ enabled.thenCombine(color, (isOn, value) -> isOn ? value : "blue")
         .thenAccept(value -> render(value));
 ```
 
-##### Rules for every async method
+#### Rules for every async method
 
 - **Nothing is thrown on the calling thread.** Every failure arrives through the returned future, including a `null` `FeatureKey`.
 - **A sticky bucket read that fails or times out does not fail the future.** The evaluation buckets the user by hash and saves nothing. See [When the store fails](#when-the-store-fails).
@@ -301,7 +309,7 @@ enabled.thenCombine(color, (isOn, value) -> isOn ? value : "blue")
 - **Your continuations and tracking callbacks run on the client's executor or on the calling thread**, not on the store's I/O thread such as a Lettuce event loop. One exception: if the executor rejects the hand-off, the future fails on the thread that completed the read.
 - **Do not modify the `UserContext` or its attributes until the future completes.**
 
-##### What holds a thread
+#### What holds a thread
 
 Only an [`AsyncStickyBucketService`](#implementing-a-custom-asyncstickybucketservice) keeps the wait free of threads. The other cases move the blocking call onto the client's executor.
 
@@ -312,7 +320,7 @@ Only an [`AsyncStickyBucketService`](#implementing-a-custom-asyncstickybucketser
 | `initializeAsync()`                     | One executor thread for the features fetch |
 | [Remote Evaluation](#remote-evaluation) | One executor thread per evaluation         |
 
-##### The executor
+#### The executor
 
 The client creates its own pool of daemon threads (the larger of 8 and twice the CPU count, with a queue of 1,024 tasks) and shuts it down in `shutdown()`. When the pool and its queue are full, the future fails with `RejectedExecutionException`.
 
@@ -325,14 +333,6 @@ Options options = Options.builder()
         .asyncExecutor(Executors.newFixedThreadPool(16))
         .build();
 ```
-
-#### Thread Safety Note
-
-While the enhanced client is designed for concurrent use, full concurrency support is still being refined. For high-concurrency applications, consider:
-
-- Using connection pooling for database-backed sticky bucket services
-- Implementing proper synchronization for custom tracking callbacks
-- Testing thoroughly under expected load conditions
 
 ### Traditional Usage
 
