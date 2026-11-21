@@ -54,12 +54,14 @@ export const AI_PROVIDER_META: Record<
 
 // Only ids the provider still serves. Retired ones come out; a stored setting
 // naming one reads as unset (getAllowedAIModel) and falls back to the default.
-// Audited 2026-10-12.
+// Ids with a shutdown date before the next audit come out early for the same
+// reason: a fallback beats a hard error. Audited 2026-11-02.
 // Newest generation first, larger tier first within it. The model pickers
 // keep this order, so it is also what admins see.
 export const AI_PROVIDER_MODEL_MAP = {
   openai: [
     "gpt-6.1-sol",
+    "gpt-6.1-terra",
     "gpt-6-astra",
     "gpt-6-sol",
     "gpt-6-luna",
@@ -73,25 +75,16 @@ export const AI_PROVIDER_MODEL_MAP = {
     "gpt-5.4-nano",
     "gpt-5.2-pro",
     "gpt-5.2",
-    "gpt-5-pro",
-    "gpt-5",
-    "gpt-5-mini",
-    "gpt-5-nano",
     // GPT-4 series
     "gpt-4.1",
     "gpt-4.1-mini",
-    "gpt-4.1-nano",
     "gpt-4o",
     "gpt-4o-mini",
-    // O series (reasoning models)
-    "o4-mini",
-    "o3",
-    "o3-mini",
-    "o1",
   ],
   anthropic: [
     // Current generation. These ids are complete as published — Anthropic
     // stopped issuing dated snapshots for them, so there is nothing to pin.
+    "claude-fable-5-1",
     "claude-opus-5-5",
     "claude-sonnet-5-5",
     "claude-haiku-5-5",
@@ -103,10 +96,7 @@ export const AI_PROVIDER_MODEL_MAP = {
     // (claude-sonnet-4-6-YYYYMMDD) here once one exists if you need stable
     // behaviour. The older Claude entries are dated for exactly that reason.
     "claude-sonnet-4-6",
-    "claude-sonnet-4-5-20250929",
     "claude-haiku-4-5-20251001",
-    "claude-opus-4-20250514",
-    "claude-sonnet-4-20250514",
   ],
   // The grok-4-fast / grok-4-0709 / grok-3 / grok-2 families were retired on
   // 2026-05-15 — xAI redirects them to grok-4.3 and bills at 4.3 rates, so
@@ -125,11 +115,10 @@ export const AI_PROVIDER_MODEL_MAP = {
   ],
   // gemini-3-pro-preview was shut down on 2026-03-09 (superseded by
   // gemini-3.1-pro-preview), and the gemini-2.0 pair is likewise retired.
+  // gemini-3.5-flash and gemini-3.7-flash now silently route to 3.6 and 3.8.
   google: [
     "gemini-3.8-flash",
-    "gemini-3.7-flash",
     "gemini-3.6-flash",
-    "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
     "gemini-3.1-pro-preview",
     "gemini-3-flash-preview",
@@ -160,7 +149,7 @@ export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
 > = [
   ["openai", "gpt-5.4-mini"],
   ["anthropic", "claude-sonnet-5-5"],
-  ["google", "gemini-3.5-flash"],
+  ["google", "gemini-3.6-flash"],
   ["xai", "grok-4.3"],
   ["mistral", "mistral-medium-latest"],
 ];
@@ -196,6 +185,7 @@ export function isReasoningModel(model: AIModel): boolean {
 // returns a 400 rather than being ignored. Claude 4.6 and older still accept
 // it, so this can't be a version-range check — add new ids here as they ship.
 const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS: ReadonlySet<string> = new Set([
+  "claude-fable-5-1",
   "claude-opus-5-5",
   "claude-opus-5",
   "claude-sonnet-5-5",
@@ -224,8 +214,6 @@ const CLAUDE_MODELS_WITHOUT_STRUCTURED_OUTPUT: ReadonlySet<string> = new Set([
   "claude-opus-4-8",
   "claude-sonnet-4-6",
   "claude-haiku-4-5-20251001",
-  "claude-opus-4-20250514",
-  "claude-sonnet-4-20250514",
 ]);
 
 // How the AI SDK's Anthropic provider should produce schema-shaped output for
@@ -244,6 +232,7 @@ export const DEFAULT_MAX_OUTPUT_TOKENS = 8000;
 
 // Documented ceilings only: over-asking is a 400, not a clamp.
 const MODEL_MAX_OUTPUT_TOKENS: Partial<Record<AIModel, number>> = {
+  "claude-fable-5-1": 128000,
   "claude-opus-5-5": 128000,
   "claude-opus-5": 128000,
   "claude-haiku-5-5": 128000,
@@ -379,61 +368,15 @@ export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
     supportedAspectRatios: GEMINI_ASPECT_RATIOS,
     honorsAspectRatio: true,
   },
-  // Google Imagen (dedicated endpoint)
-  {
-    id: "imagen-4.0-fast-generate-001",
-    provider: "google",
-    kind: "image-endpoint",
-    label: "Imagen 4 Fast",
-    supportsReferenceImage: false,
-    supportedAspectRatios: ["1:1", "3:4", "4:3", "9:16", "16:9"],
-    honorsAspectRatio: true,
-  },
-  {
-    id: "imagen-4.0-generate-001",
-    provider: "google",
-    kind: "image-endpoint",
-    label: "Imagen 4",
-    supportsReferenceImage: false,
-    supportedAspectRatios: ["1:1", "3:4", "4:3", "9:16", "16:9"],
-    honorsAspectRatio: true,
-  },
-  {
-    id: "imagen-4.0-ultra-generate-001",
-    provider: "google",
-    kind: "image-endpoint",
-    label: "Imagen 4 Ultra",
-    supportsReferenceImage: false,
-    supportedAspectRatios: ["1:1", "3:4", "4:3", "9:16", "16:9"],
-    honorsAspectRatio: true,
-  },
-  // OpenAI
-  {
-    id: "dall-e-3",
-    provider: "openai",
-    kind: "image-endpoint",
-    label: "DALL-E 3",
-    supportsReferenceImage: false,
-    // 1024², 1792×1024, 1024×1792.
-    supportedAspectRatios: ["1:1", "16:9", "9:16"],
-    honorsAspectRatio: true,
-  },
-  {
-    id: "gpt-image-1",
-    provider: "openai",
-    kind: "image-endpoint",
-    label: "GPT Image 1",
-    supportsReferenceImage: false,
-    // 1024², 1536×1024, 1024×1536.
-    supportedAspectRatios: ["1:1", "3:2", "2:3"],
-    honorsAspectRatio: true,
-  },
+  // OpenAI. Shuts down 2026-12-01; kept until @ai-sdk/openai can call its
+  // gpt-image-2.5 successors without sending a response_format they reject.
   {
     id: "gpt-image-1-mini",
     provider: "openai",
     kind: "image-endpoint",
     label: "GPT Image 1 Mini",
     supportsReferenceImage: false,
+    // 1024², 1536×1024, 1024×1536.
     supportedAspectRatios: ["1:1", "3:2", "2:3"],
     honorsAspectRatio: true,
   },
@@ -456,6 +399,9 @@ const IMAGE_MODEL_ALIASES: Record<string, string> = {
   "gemini-2.5-flash-image-preview": "gemini-2.5-flash-image",
   // Retired 2026-06-25; the GA id took over.
   "gemini-3-pro-image-preview": "gemini-3-pro-image",
+  // Shut down; staying on OpenAI keeps an OpenAI-only org generating images.
+  "dall-e-3": "gpt-image-1-mini",
+  "gpt-image-1": "gpt-image-1-mini",
 };
 
 export function resolveImageModelIdForSdk(model: string): string {
