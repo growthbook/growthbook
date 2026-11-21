@@ -217,9 +217,11 @@ export function calculateMidExperimentPowerSingle(
   ) {
     /*bayesian power*/
     totalPower = calculateMidExperimentPowerBayes(
-      params.alpha,
-      params.numVariations,
-      params.numGoalMetrics,
+      calculateMultiplier(
+        params.alpha,
+        params.numVariations,
+        params.numGoalMetrics,
+      ),
       targetMDE,
       adjustedVariance,
       response.priorLiftMean,
@@ -288,15 +290,12 @@ export function calculateMidExperimentPowerSingle(
 }
 
 function calculateMidExperimentPowerBayes(
-  alpha: number,
-  numVariations: number,
-  numGoalMetrics: number,
+  multiplier: number,
   targetMDE: number,
   variance: number,
   priorLiftMean: number,
   priorLiftVariance: number,
 ): number {
-  const multiplier = calculateMultiplier(alpha, numVariations, numGoalMetrics);
   const posterior_precision = 1 / priorLiftVariance + 1 / variance;
   const num1 = variance * Math.sqrt(posterior_precision) * multiplier;
   const num2 = (variance * priorLiftMean) / priorLiftVariance;
@@ -329,6 +328,133 @@ function calculateMultiplier(
 ): number {
   const numTests = (numVariations - 1) * numGoalMetrics;
   return normal.quantile(1 - alpha / (2 * numTests), 0, 1);
+}
+
+// The experiment as a whole is powered when every goal metric is, so each
+// metric aims higher than this.
+const TARGET_POWER = 0.8;
+const MAX_SCALING_FACTOR_DOUBLINGS = 27;
+const MAX_SCALING_FACTOR_BISECTIONS = 100;
+const SCALING_FACTOR_POWER_TOLERANCE = 1e-5;
+
+export interface PowerScalingFactorSettings {
+  alpha: number;
+  numGoalMetrics: number;
+  sequential: boolean;
+  sequentialTuningParameter: number;
+}
+
+type PowerScalingFactorOutcome = Pick<
+  MetricPowerResponseFromStatsEngine,
+  "status" | "errorMessage" | "scalingFactor" | "upperBoundAchieved"
+>;
+
+/**
+ * How much more sample a test needs to reach its target power, as a multiple
+ * of the sample it has: the search half of mid-experiment power, run once the
+ * stats engine has returned the per-test inputs. Null when there is nothing to
+ * compute from, so the caller leaves the response as it is.
+ */
+export function calculatePowerScalingFactor(
+  response: MetricPowerResponseFromStatsEngine,
+  settings: PowerScalingFactorSettings,
+): PowerScalingFactorOutcome | null {
+  // The stats engine sends null, not undefined, for what it could not compute.
+  const sampleSize = response.firstPeriodPairwiseSampleSize ?? null;
+  const variance = response.sigmahat2Delta ?? null;
+  if (response.errorMessage || sampleSize === null || variance === null) {
+    return null;
+  }
+  const targetMDE = Math.abs(response.targetMDE);
+  const priorMean = response.priorLiftMean ?? null;
+  const priorVariance = response.priorLiftVariance ?? null;
+  const multiplier = normal.quantile(1 - settings.alpha / 2, 0, 1);
+
+  // Power once the sample is (1 + scalingFactor) times its current size.
+  const powerAt = (scalingFactor: number): number => {
+    const adjustedVariance = variance / (1 + scalingFactor);
+    if (response.priorProper && priorMean !== null && priorVariance !== null) {
+      return calculateMidExperimentPowerBayes(
+        multiplier,
+        targetMDE,
+        adjustedVariance,
+        priorMean,
+        priorVariance,
+      );
+    }
+    const halfwidth = settings.sequential
+      ? sequentialIntervalHalfwidth(
+          sampleSize * variance,
+          sampleSize * (1 + scalingFactor),
+          settings.sequentialTuningParameter,
+          settings.alpha,
+        )
+      : multiplier * Math.sqrt(adjustedVariance);
+    return calculateMidExperimentPowerFreq(
+      targetMDE,
+      halfwidth,
+      adjustedVariance,
+    );
+  };
+
+  const targetPower =
+    TARGET_POWER ** (1 / Math.max(1, settings.numGoalMetrics));
+  const failure = (errorMessage: string): PowerScalingFactorOutcome => ({
+    status: "unsuccessful",
+    errorMessage,
+    scalingFactor: undefined,
+    upperBoundAchieved: true,
+  });
+
+  if (powerAt(0) > targetPower) {
+    return {
+      status: "successful",
+      errorMessage: undefined,
+      scalingFactor: 0,
+      upperBoundAchieved: false,
+    };
+  }
+
+  let scalingFactor = 1;
+  let power = powerAt(scalingFactor);
+  for (let i = 0; i < MAX_SCALING_FACTOR_DOUBLINGS; i++) {
+    if (power >= targetPower) break;
+    scalingFactor *= 2;
+    power = powerAt(scalingFactor);
+  }
+  if (power < targetPower) {
+    return failure("could not find upper bound for scaling factor");
+  }
+
+  let lower = 0;
+  let upper = scalingFactor;
+  let diff = power - targetPower;
+  let converged = false;
+  // Matches gbstats, which does not count a search that only gets within
+  // tolerance on its last step.
+  for (let i = 0; i < MAX_SCALING_FACTOR_BISECTIONS - 1; i++) {
+    if (diff > 0) {
+      upper = scalingFactor;
+    } else {
+      lower = scalingFactor;
+    }
+    scalingFactor = 0.5 * (lower + upper);
+    diff = powerAt(scalingFactor) - targetPower;
+    if (Math.abs(diff) < SCALING_FACTOR_POWER_TOLERANCE) {
+      converged = true;
+      break;
+    }
+  }
+  if (!converged) {
+    return failure("bisection search did not converge");
+  }
+
+  return {
+    status: "successful",
+    errorMessage: undefined,
+    scalingFactor,
+    upperBoundAchieved: false,
+  };
 }
 
 export function calculateMidExperimentPower(

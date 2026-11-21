@@ -247,6 +247,34 @@ describe("enrichAnalysisResults", () => {
       expect(upper - lower).toBeGreaterThan(0.02);
     });
   });
+  describe("power", () => {
+    // What the stats engine returns for a goal metric: the inputs only.
+    const powerInputs = {
+      status: "successful",
+      firstPeriodPairwiseSampleSize: 1000,
+      sigmahat2Delta: 0.0009,
+      targetMDE: 0.05,
+    };
+    const scalingFactor = (numGoalMetrics: number) =>
+      enrich(
+        [level("", { g1: { ...stat(0.01), power: powerInputs } })],
+        ["g1"],
+        { numGoalMetrics },
+      )[0].variations[1].metrics.g1.power?.scalingFactor;
+
+    it("works out how much more sample a test needs", () => {
+      expect(scalingFactor(1)).toBeCloseTo(1.8255615234375, 8);
+    });
+
+    it("asks more of each test when more goal metrics share the experiment's power", () => {
+      expect(scalingFactor(3)).toBeCloseTo(3.218994140625, 8);
+    });
+
+    it("leaves a test without power inputs alone", () => {
+      const results = enrich([level("", { g1: stat(0.01) })], ["g1"]);
+      expect(results[0].variations[1].metrics.g1.power).toBeUndefined();
+    });
+  });
 });
 
 describe("fillLegacyPValueCorrection", () => {
@@ -318,6 +346,19 @@ describe("fillLegacyPValueCorrection", () => {
       hydratedMetricIds: ["g1"],
     });
     expect(adjusted(snapshot.analyses[0].results, "g1")).toBeUndefined();
+  });
+
+  it("leaves stored power alone", () => {
+    const snapshot = makeSnapshot({});
+    const power = { status: "successful", targetMDE: 0.05, scalingFactor: 9 };
+    snapshot.analyses[0].results[0].variations[1].metrics.g1.power = power;
+    fillLegacyPValueCorrection({
+      snapshot,
+      pValueCorrection: "holm-bonferroni",
+    });
+    expect(snapshot.analyses[0].results[0].variations[1].metrics.g1.power).toBe(
+      power,
+    );
   });
 
   it("fills a partial read that has every goal metric", () => {

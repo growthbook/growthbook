@@ -1,4 +1,8 @@
-import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
+import {
+  BAYESIAN_CREDIBLE_INTERVAL_ALPHA,
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared/constants";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -7,6 +11,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { ExperimentReportResultDimension } from "shared/types/report";
 import { IndexedPValue, PValueCorrection } from "shared/types/stats";
+import { calculatePowerScalingFactor } from "../../enterprise/power";
 import type { SupplementalField } from "../adjustment-impact";
 import { parseDimensionId } from "../dimension-ids";
 import {
@@ -159,14 +164,66 @@ export function setCorrectedPValues({
   });
 }
 
+type AnalysisSettingsForPower = Pick<
+  ExperimentSnapshotAnalysisSettings,
+  | "statsEngine"
+  | "pValueThreshold"
+  | "numGoalMetrics"
+  | "sequentialTesting"
+  | "sequentialTestingTuningParameter"
+>;
+
+/** The alpha the stats engine runs an analysis at. */
+export function getAnalysisAlpha(
+  settings: Pick<AnalysisSettingsForPower, "statsEngine" | "pValueThreshold">,
+): number {
+  // The threshold is a frequentist setting; Bayesian intervals stay at 95%.
+  return settings.statsEngine === "bayesian"
+    ? BAYESIAN_CREDIBLE_INTERVAL_ALPHA
+    : Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
+}
+
+// The stats engine returns the power inputs for each test it decides needs
+// them. How much more sample a test needs also depends on how many goal
+// metrics share the experiment's power, so it is worked out here.
+function setPowerScalingFactors(
+  results: ExperimentReportResultDimension[],
+  analysisSettings: AnalysisSettingsForPower,
+): void {
+  const settings = {
+    alpha: getAnalysisAlpha(analysisSettings),
+    numGoalMetrics: analysisSettings.numGoalMetrics,
+    sequential: analysisSettings.sequentialTesting ?? false,
+    sequentialTuningParameter:
+      Number(analysisSettings.sequentialTestingTuningParameter) ||
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  };
+  results.forEach((result) =>
+    result.variations.forEach((variation) =>
+      Object.values(variation.metrics).forEach((metric) => {
+        if (!metric.power) return;
+        const outcome = calculatePowerScalingFactor(metric.power, settings);
+        if (outcome) metric.power = { ...metric.power, ...outcome };
+      }),
+    ),
+  );
+}
+
 /**
  * Adds every value that depends on more than one test to the results of one
  * analysis, in place. Runs once, right after the stats engine returns.
  */
-export function enrichAnalysisResults(
-  args: Parameters<typeof setCorrectedPValues>[0],
-): void {
-  setCorrectedPValues(args);
+export function enrichAnalysisResults({
+  results,
+  analysisSettings,
+  snapshotSettings,
+}: {
+  results: ExperimentReportResultDimension[];
+  analysisSettings: AnalysisSettingsForCorrection & AnalysisSettingsForPower;
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "goalMetrics">;
+}): void {
+  setCorrectedPValues({ results, analysisSettings, snapshotSettings });
+  setPowerScalingFactors(results, analysisSettings);
 }
 
 /**

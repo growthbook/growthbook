@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
 import { MetricPowerResponseFromStatsEngine } from "shared/types/stats";
 import {
@@ -15,6 +17,7 @@ import {
 } from "../src/power";
 import {
   calculateMidExperimentPowerSingle,
+  calculatePowerScalingFactor,
   getAverageExposureOverLastNDays,
   MidExperimentPowerParamsSingle,
 } from "../src/enterprise/power";
@@ -607,4 +610,92 @@ it("midExperimentPower", () => {
       parseFloat(powerTrue.toFixed(5)),
     );
   }
+});
+
+describe("calculatePowerScalingFactor", () => {
+  // Outputs of gbstats' MidExperimentPower, which a test in packages/stats
+  // checks this same file against.
+  const cases: {
+    name: string;
+    inputs: {
+      firstPeriodPairwiseSampleSize: number;
+      sigmahat2Delta: number;
+      targetMDE: number;
+      priorProper: boolean | null;
+      priorLiftMean: number | null;
+      priorLiftVariance: number | null;
+      alpha: number;
+      numGoalMetrics: number;
+      sequential: boolean;
+      sequentialTuningParameter: number;
+    };
+    expected: {
+      status: string;
+      errorMessage: string | null;
+      scalingFactor: number | null;
+      upperBoundAchieved: boolean;
+    };
+  }[] = JSON.parse(
+    fs.readFileSync(
+      path.join(
+        __dirname,
+        "../../stats/tests/fixtures/mid_experiment_power_scaling_factor.json",
+      ),
+      "utf8",
+    ),
+  );
+
+  it.each(cases)("matches gbstats: $name", ({ inputs, expected }) => {
+    const outcome = calculatePowerScalingFactor(
+      {
+        status: "successful",
+        firstPeriodPairwiseSampleSize: inputs.firstPeriodPairwiseSampleSize,
+        sigmahat2Delta: inputs.sigmahat2Delta,
+        targetMDE: inputs.targetMDE,
+        priorProper: inputs.priorProper ?? undefined,
+        priorLiftMean: inputs.priorLiftMean ?? undefined,
+        priorLiftVariance: inputs.priorLiftVariance ?? undefined,
+      },
+      inputs,
+    );
+    expect(outcome?.status).toBe(expected.status);
+    expect(outcome?.errorMessage ?? null).toBe(expected.errorMessage);
+    expect(outcome?.upperBoundAchieved).toBe(expected.upperBoundAchieved);
+    if (expected.scalingFactor === null) {
+      expect(outcome?.scalingFactor).toBeUndefined();
+    } else {
+      expect(outcome?.scalingFactor).toBeCloseTo(expected.scalingFactor, 8);
+    }
+  });
+
+  const settings = {
+    alpha: 0.05,
+    numGoalMetrics: 1,
+    sequential: false,
+    sequentialTuningParameter: 5000,
+  };
+
+  it("leaves a test the stats engine could not compute alone", () => {
+    expect(
+      calculatePowerScalingFactor(
+        {
+          status: "unsuccessful",
+          errorMessage: "ZERO_VARIANCE",
+          firstPeriodPairwiseSampleSize: 0,
+          sigmahat2Delta: 0,
+          targetMDE: 0.05,
+        },
+        settings,
+      ),
+    ).toBeNull();
+  });
+
+  it("leaves a response without the inputs alone", () => {
+    expect(
+      calculatePowerScalingFactor(
+        { status: "successful", targetMDE: 0.05 },
+        settings,
+      ),
+    ).toBeNull();
+  });
 });

@@ -1,0 +1,233 @@
+[
+  {
+    "name": "frequentist, one goal metric",
+    "inputs": {
+      "firstPeriodPairwiseSampleSize": 1000,
+      "sigmahat2Delta": 0.0009,
+      "targetMDE": 0.05,
+      "priorProper": null,
+      "priorLiftMean": null,
+      "priorLiftVariance": null,
+      "alpha": 0.05,
+      "numGoalMetrics": 1,
+      "sequential": false,
+      "sequentialTuningParameter": 5000
+    },
+    "expected": {
+      "status": "successful",
+      "errorMessage": null,
+      "scalingFactor": 1.8255615234375,
+      "upperBoundAchieved": false
+    }
+  },
+  {
+    "name": "frequentist, three goal metrics",
+    "inputs": {
+      "firstPeriodPairwiseSampleSize": 1000,
+      "sigmahat2Delta": 0.0009,
+      "targetMDE": 0.05,
+      "priorProper": null,
+      "priorLiftMean": null,
+      "priorLiftVariance": null,
+      "alpha": 0.05,
+      "numGoalMetrics": 3,
+      "sequential": false,
+      "sequentialTuningParameter": 5000
+    },
+    "expected": {
+      "status": "successful",
+      "errorMessage": null,
+      "scalingFactor": 3.218994140625,
+      "upperBoundAchieved": false
+    }
+  },
+  {
+    "name": "frequentist, alpha 0.01, five goal metrics",
+    "inputs": {
+      "firstPeriodPairwiseSampleSize": 4000,
+      "sigmahat2Delta": 0.0004,
+      "targetMDE": 0.02,
+      "priorProper": null,
+      "priorLiftMean": null,
+      "priorLiftVariance": null,
+      "alpha": 0.01,
+      "numGoalMetrics": 5,
+      "sequential": false,
+      "sequentialTuningParameter": 5000
+    },
+    "expected": {
+      "status": "successful",
+      "errorMessage": null,
+      "scalingFactor": 17.3671875,
+      "upperBoundAchieved": false
+    }
+  },
+  {
+    "name": "frequentist, negative target MDE",
+    "inputs": {
+      "firstPeriodPairwiseSampleSize": 1000,
+      "sigmahat2Delta": 0.0009,
+      "targetMDE": -0.05,
+      "priorProper": null,
+      "priorLiftMean": null,
+      "priorLiftVariance": null,
+      "alpha": 0.05,
+      "numGoalMetrics": 1,
+      "sequential": false,
+      "sequentialTuningParameter": 5000
+    },
+    "expected": {
+      "status": "successful",
+      "errorMessage": null,
+      "scalingFactor": 1.8255615234375,
+      "upperBoundAchieved": false
+    }
+  },
+  {
+    "name": "sequential",
+    "inputs": {
+      "firstPeriodPairwiseSampleSize": 1000,
+      "sigmahat2Delta": 0.0009,
+      "targetMDE": 0.05,
+      "priorProper": null,
+      "priorLiftMean": null,
+      "priorLiftVariance": null,
+      "alpha": 0.05,
+      "numGoalMetrics": 1,
+      "sequential": true,
+      "sequentialTuningParameter": 5000
+    },
+    "expected": {
+      "status": "successful",
+      "errorMessage": null,
+      "scalingFactor": 4.410888671875,
+      "upperBoundAchieved": false
+    }
+  },
+  {
+    "name": "sequential, tuning parameter 1000, two goal metrics",
+    "inputs": {
+      "firstPeriodPairwiseSampleSize": 20000,
+      "sigmahat2Delta": 0.0004,
+      "targetMDE": 0.03,
+      "priorProper": null,
+      "priorLiftMean": null,
+      "priorLiftVariance": null,
+      "alpha": 0.05,
+      "numGoalMetrics": 2,
+      "sequential": true,
+      "sequentialTuningParameter": 1000
+    },
+    "expected": {
+      "status": "successful",
+      "errorMessage": null,
+      "scalingFactor": 9.74365234375,
+      "upperBoundAchieved": false
+    }
+  },
+  {
+    "name": "Bayesian, proper prior",
+    "inputs": {
+      "firstPeriodPairwiseSampleSize": 1000,
+      "sigmahat2Delta": 0.0009,
+      "targetMDE": 0.05,
+      "priorProper": true,
+      "priorLiftMean": 0.05,
+      "priorLiftVariance": 0.001,
+      "alpha": 0.05,
+      "numGoalMetrics": 1,
+      "sequential": false,
+      "sequentialTuningParameter": 5000
+    },
+    "expected": {
+      "status": "successful",
+      "errorMessage": null,
+      "scalingFactor": 0.5955810546875,
+      "upperBoundAchieved": false
+    }
+  },
+  {
+    "name": "Bayesian, proper prior centred on zero, two goal metrics",
+    "inputs": {
+      "firstPeriodPairwiseSampleSize": 2500,
+      "sigmahat2Delta": 0.0016,
+      "targetMDE": 0.04,
+      "priorProper": true,
+      "priorLiftMean": 0,
+      "priorLiftVariance": 0.09,
+      "alpha": 0.05,
+      "numGoalMetrics": 2,
+      "sequential": false,
+      "sequentialTuningParameter": 5000
+    },
+    "expected": {
+      "status": "successful",
+      "errorMessage": null,
+      "scalingFactor": 9.3173828125,
+      "upperBoundAchieved": false
+    }
+  },
+  {
+    "name": "Bayesian, improper prior",
+    "inputs": {
+      "firstPeriodPairwiseSampleSize": 1000,
+      "sigmahat2Delta": 0.0009,
+      "targetMDE": 0.05,
+      "priorProper": false,
+      "priorLiftMean": 0,
+      "priorLiftVariance": 1,
+      "alpha": 0.05,
+      "numGoalMetrics": 1,
+      "sequential": false,
+      "sequentialTuningParameter": 5000
+    },
+    "expected": {
+      "status": "successful",
+      "errorMessage": null,
+      "scalingFactor": 1.8255615234375,
+      "upperBoundAchieved": false
+    }
+  },
+  {
+    "name": "already powered",
+    "inputs": {
+      "firstPeriodPairwiseSampleSize": 50000,
+      "sigmahat2Delta": 2.5e-5,
+      "targetMDE": 0.05,
+      "priorProper": null,
+      "priorLiftMean": null,
+      "priorLiftVariance": null,
+      "alpha": 0.05,
+      "numGoalMetrics": 1,
+      "sequential": false,
+      "sequentialTuningParameter": 5000
+    },
+    "expected": {
+      "status": "successful",
+      "errorMessage": null,
+      "scalingFactor": 0.0,
+      "upperBoundAchieved": false
+    }
+  },
+  {
+    "name": "no sample size is enough",
+    "inputs": {
+      "firstPeriodPairwiseSampleSize": 1000,
+      "sigmahat2Delta": 0.25,
+      "targetMDE": 1e-7,
+      "priorProper": null,
+      "priorLiftMean": null,
+      "priorLiftVariance": null,
+      "alpha": 0.05,
+      "numGoalMetrics": 1,
+      "sequential": false,
+      "sequentialTuningParameter": 5000
+    },
+    "expected": {
+      "status": "unsuccessful",
+      "errorMessage": "could not find upper bound for scaling factor",
+      "scalingFactor": null,
+      "upperBoundAchieved": true
+    }
+  }
+]
