@@ -6,6 +6,7 @@ import type {
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import Text from "@/ui/Text";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import { formatExplorationTableCell } from "@/enterprise/components/ProductAnalytics/util";
 import useExplorationTableData from "./useExplorationTableData";
 import styles from "./SimpleExplorationTable.module.scss";
 
@@ -24,6 +25,7 @@ export default function SimpleExplorationTable({
     columnLabels,
     headerStructure,
     explorationReturnedNoData,
+    columnFormats,
   } = useExplorationTableData(exploration, config);
 
   if (exploration?.error) {
@@ -104,7 +106,9 @@ export default function SimpleExplorationTable({
           {rowData.map((row, i) => (
             <tr key={i}>
               {orderedColumnKeys.map((key, j) => (
-                <td key={j}>{row[key] != null ? String(row[key]) : ""}</td>
+                <td key={j}>
+                  {formatExplorationTableCell(row[key], columnFormats[key])}
+                </td>
               ))}
             </tr>
           ))}
