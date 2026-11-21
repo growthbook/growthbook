@@ -352,26 +352,40 @@ export function DropdownMenuItem({
       color={color}
       shortcut={shortcut}
       {...props}
+      // The error renders as a second line, past the item's fixed height.
+      style={
+        error
+          ? { height: "auto", paddingBlock: 4, ...props.style }
+          : props.style
+      }
     >
       {loading || error ? (
-        <Flex as="div" justify="between" align="center">
-          <Box as="span" className={loading ? "font-italic" : ""}>
-            {children}
-          </Box>
-          <Box width="14px" className="ml-3">
-            {loading ? <LoadingSpinner /> : null}
-            {error ? (
-              // Server messages already end with a period.
-              <Tooltip
-                content={`Error: ${error.replace(/\.+$/, "")}. Exit menu and try again.`}
-              >
-                {/* An icon can't hold the tooltip's ref. */}
-                <span>
-                  <PiWarningFill color={amber.amber11} />
-                </span>
-              </Tooltip>
-            ) : null}
-          </Box>
+        <Flex as="div" direction="column">
+          <Flex as="div" justify="between" align="center">
+            <Box as="span" className={loading ? "font-italic" : ""}>
+              {children}
+            </Box>
+            <Box width="14px" className="ml-3">
+              {loading ? <LoadingSpinner /> : null}
+              {error ? (
+                <PiWarningFill color={amber.amber11} aria-hidden />
+              ) : null}
+            </Box>
+          </Flex>
+          {error ? (
+            // Visible text, not a hover tooltip, so keyboard, touch, and
+            // screen-reader users get the reason too. Server messages
+            // already end with a period.
+            <Text
+              as="div"
+              size="1"
+              color="red"
+              role="alert"
+              style={{ whiteSpace: "normal", maxWidth: 280 }}
+            >
+              {`${error.replace(/\.+$/, "")}. Exit the menu and try again.`}
+            </Text>
+          ) : null}
         </Flex>
       ) : (
         children

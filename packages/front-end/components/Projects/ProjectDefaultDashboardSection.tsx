@@ -127,7 +127,8 @@ export default function ProjectDefaultDashboardSection({
             ) : projectDashboards.length === 0 ? (
               <Callout status="info">
                 No dashboards are available for this Project yet.{" "}
-                <Link href="/product-analytics/dashboards/new">
+                {/* A new tab keeps unsaved edits to the form above. */}
+                <Link href="/product-analytics/dashboards/new" external>
                   Create a dashboard
                 </Link>{" "}
                 scoped to this Project (or with no Project restriction) to set a

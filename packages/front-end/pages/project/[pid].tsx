@@ -102,19 +102,23 @@ const ProjectPage: FC = () => {
 
   const checklist = data?.checklist;
 
+  // Keyed on the stored values, not the settings object: any definitions
+  // refresh, like a default dashboard change, makes a new object, and
+  // resetting then would drop unsaved edits.
+  const statsEngine = settings?.statsEngine;
+  const confidenceLevel = settings?.confidenceLevel;
+  const pValueThreshold = settings?.pValueThreshold;
   useEffect(() => {
-    if (settings) {
-      const newVal = { ...form.getValues() };
-      Object.keys(settings).forEach((k) => {
-        newVal[k] = settings?.[k] || newVal[k];
-      });
-      if (typeof newVal.confidenceLevel === "number") {
-        newVal.confidenceLevel = newVal.confidenceLevel * 100;
-      }
-      form.reset(newVal);
-      setOriginalValue(newVal);
-    }
-  }, [form, settings]);
+    const newVal: ProjectSettings = {
+      statsEngine,
+      // The form shows confidence as a percentage.
+      confidenceLevel:
+        typeof confidenceLevel === "number" ? confidenceLevel * 100 : undefined,
+      pValueThreshold,
+    };
+    form.reset(newVal);
+    setOriginalValue(newVal);
+  }, [form, statsEngine, confidenceLevel, pValueThreshold]);
 
   const isValid = form.formState.isValid;
   const ctaEnabled = hasChanges(form.getValues(), originalValue) && isValid;
