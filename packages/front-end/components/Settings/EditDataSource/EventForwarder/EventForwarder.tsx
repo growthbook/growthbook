@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   databricksParamsSupportEventForwarder,
   getDatabricksEventForwarderAuthMessage,
@@ -22,13 +22,17 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { ago } from "shared/dates";
 import { Box, Card, Flex, Grid } from "@radix-ui/themes";
 import {
   PiArrowClockwise,
   PiCaretRight,
+  PiCheck,
+  PiCopy,
   PiPause,
   PiTrash,
   PiPencilSimple,
+  PiWarning,
   PiPlay,
 } from "react-icons/pi";
 import { DailyUsage, UsageLimits } from "shared/types/organization";
@@ -36,6 +40,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { isCloud } from "@/services/env";
 import UsageMeter from "@/components/Settings/EditDataSource/EventForwarder/UsageMeter";
 import EventForwarderActivity from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderActivity";
@@ -141,17 +146,14 @@ function getTaskErrorMessage(
 }
 
 function getPrimaryConnectorErrorMessage({
-  actionError,
   lastProvisioningError,
   pollTimedOut,
   taskErrors,
 }: {
-  actionError?: string | null;
   lastProvisioningError: string | undefined;
   pollTimedOut: boolean;
   taskErrors: EventForwarderStatusResponse["taskErrors"];
 }): string | undefined {
-  if (actionError?.trim()) return actionError.trim();
   const taskErrorMessage = getTaskErrorMessage(taskErrors);
   if (taskErrorMessage) return taskErrorMessage;
   if (lastProvisioningError?.trim()) return lastProvisioningError.trim();
@@ -752,79 +754,60 @@ function EventForwarderModal({
   );
 }
 
-// First line only until expanded; error traces can run many lines.
-// - Toggle shows for extra lines, or a first line the clamp actually cut.
-function EventForwarderErrorMessage({ message }: { message: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const [clipped, setClipped] = useState(false);
-  const textRef = useRef<HTMLDivElement>(null);
-  const textId = useId();
-  const firstLine = message.split("\n")[0];
-  const isLong = firstLine !== message || clipped;
+const sinkLabels = {
+  bigquery: "BigQuery",
+  snowflake: "Snowflake",
+  databricks: "Databricks",
+} as const;
 
-  // Measured only while clamped; expanding keeps the last answer.
-  useEffect(() => {
-    const el = textRef.current;
-    if (!el || expanded) return;
-    const check = () => setClipped(el.scrollHeight > el.clientHeight + 1);
-    check();
-    const observer = new ResizeObserver(check);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [expanded]);
-
+// The full message, never clipped; traces keep their line breaks.
+function EventForwarderLastError({
+  source,
+  message,
+}: {
+  source: string;
+  message: string;
+}) {
+  const { copySupported, copySuccess, performCopy } = useCopyToClipboard({
+    timeout: 1500,
+  });
   return (
-    <Box>
-      <Box
-        ref={textRef}
-        id={textId}
-        style={{
-          // Long URLs/IDs have no spaces to wrap on.
-          overflowWrap: "anywhere",
-          ...(expanded
-            ? { whiteSpace: "pre-wrap" }
-            : {
-                display: "-webkit-box",
-                WebkitLineClamp: 1,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-              }),
-        }}
-      >
-        {expanded ? message : firstLine}
-      </Box>
-      {isLong ? (
-        <Link
-          size="sm"
-          aria-expanded={expanded}
-          aria-controls={textId}
-          onClick={() => setExpanded((open) => !open)}
+    <Card mb="3">
+      <Flex direction="column" gap="3" p="2">
+        <Flex align="center" justify="between" gap="3">
+          <Heading as="h4" size="sm" mb="0">
+            Last Error from {source}
+          </Heading>
+          {copySupported ? (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={copySuccess ? <PiCheck /> : <PiCopy />}
+              iconPosition="left"
+              onClick={() => performCopy(message)}
+            >
+              <span aria-live="polite">
+                {copySuccess ? "Copied" : "Copy error"}
+              </span>
+            </Button>
+          ) : null}
+        </Flex>
+        <Box
+          style={{
+            fontFamily: "var(--code-font-family)",
+            fontSize: "var(--font-size-2)",
+            whiteSpace: "pre-wrap",
+            // Long URLs/IDs have no spaces to wrap on.
+            overflowWrap: "anywhere",
+            padding: "var(--space-3)",
+            borderRadius: "var(--radius-2)",
+            backgroundColor: "var(--gray-a2)",
+          }}
         >
-          {expanded ? "Show less" : "Show more"}
-        </Link>
-      ) : null}
-    </Box>
-  );
-}
-
-function EventForwarderSetupIndicator() {
-  return (
-    <Box
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "var(--space-2)",
-        width: "fit-content",
-        padding: "2px 6px",
-        borderRadius: "var(--radius-2)",
-        backgroundColor: "var(--violet-a3)",
-        color: "var(--violet-11)",
-      }}
-    >
-      <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-      <Text size="sm">Setting up</Text>
-    </Box>
+          {message}
+        </Box>
+      </Flex>
+    </Card>
   );
 }
 
@@ -871,12 +854,30 @@ export default function EventForwarder({
     await onRefresh();
   }, [onRefresh]);
 
-  const { isProvisioning, isError, pollTimedOut, taskErrors } =
-    useEventForwarderProvisioningPoll({
-      datasourceId: dataSource.id,
-      status: eventForwarderConfig?.status,
-      onRefresh: handleRefresh,
-    });
+  const {
+    isProvisioning,
+    isError,
+    pollTimedOut,
+    taskErrors,
+    backlogCount,
+    replaying,
+    replayedCount,
+    erroredAt,
+    backlogCountedAt,
+  } = useEventForwarderProvisioningPoll({
+    datasourceId: dataSource.id,
+    status: eventForwarderConfig?.status,
+    onRefresh: handleRefresh,
+  });
+
+  // Re-renders the "… ago" times while errored; no refetch.
+  const [, setTick] = useState(0);
+  const isErrored = eventForwarderConfig?.status === "error";
+  useEffect(() => {
+    if (!isErrored) return;
+    const intervalId = window.setInterval(() => setTick((t) => t + 1), 10000);
+    return () => window.clearInterval(intervalId);
+  }, [isErrored]);
 
   if (!isCloud() || !supportsEventForwarder(dataSource)) {
     return null;
@@ -884,29 +885,33 @@ export default function EventForwarder({
 
   const isReady = eventForwarderConfig?.status === "ready";
   const isPaused = eventForwarderConfig?.status === "paused";
-  const primaryConnectorErrorMessage = getPrimaryConnectorErrorMessage({
-    actionError: error,
+  // The destination's own error; action failures show on their own.
+  const destinationErrorMessage = getPrimaryConnectorErrorMessage({
     lastProvisioningError: eventForwarderConfig?.lastProvisioningError,
     pollTimedOut,
     taskErrors,
   });
-  const showProvisioningError =
+  const showDestinationError =
+    !isProvisioning && isError && !!destinationErrorMessage;
+  // Errored after it was forwarding; a failed setup has no connector.
+  const forwardingStopped =
     !isProvisioning &&
-    (!!error ||
-      (isError &&
-        (eventForwarderConfig?.status === "error" ||
-          eventForwarderConfig?.status === "schema_update_error" ||
-          pollTimedOut ||
-          !!primaryConnectorErrorMessage)));
+    eventForwarderConfig?.status === "error" &&
+    !!eventForwarderConfig.connectorName;
   // Pause/Resume stay available while usage-blocked; a resume takes effect on the 1st
   const canToggle = canEdit && (isReady || isPaused);
   // Restart replaces Pause once the destination errored; without a connector
   // there is nothing to restart, so Edit is the retry path.
-  const canRestart =
-    canEdit &&
-    !isProvisioning &&
-    eventForwarderConfig?.status === "error" &&
-    !!eventForwarderConfig.connectorName;
+  const canRestart = canEdit && forwardingStopped;
+  const hasBacklog = backlogCount > 0;
+  const stoppedDetails = [
+    erroredAt ? `Stopped ${ago(erroredAt)}` : null,
+    hasBacklog ? "Kept for 90 days" : null,
+    backlogCountedAt ? `Updated ${ago(backlogCountedAt)}` : null,
+  ].filter((d) => d !== null);
+  const countPill = (label: string, color: "red" | "violet") => (
+    <Badge label={label} color={color} variant="solid" radius="full" mr="1" />
+  );
   const action = canRestart ? "restart" : isReady ? "pause" : "resume";
   const actionButton = {
     restart: { label: "Restart", icon: <PiArrowClockwise /> },
@@ -920,6 +925,20 @@ export default function EventForwarder({
     !databricksParamsSupportEventForwarder(databricksParams);
   const databricksAuthMessage =
     getDatabricksEventForwarderAuthMessage(databricksParams);
+  const runAction = async () => {
+    setError(null);
+    setPauseResumeLoading(true);
+    try {
+      await apiCall(`/datasource/${dataSource.id}/event-forwarder/${action}`, {
+        method: "POST",
+      });
+      await onRefresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setPauseResumeLoading(false);
+    }
+  };
 
   return (
     <Box>
@@ -934,7 +953,16 @@ export default function EventForwarder({
               <Text weight="semibold">Status</Text>
             )}
             {!eventForwarderConfig ? null : isProvisioning ? (
-              <EventForwarderSetupIndicator />
+              <Badge
+                color="violet"
+                variant="soft"
+                label={
+                  <Flex align="center" gap="2">
+                    <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+                    {replaying ? "Writing backlog" : "Setting up"}
+                  </Flex>
+                }
+              />
             ) : (
               <>
                 <Badge
@@ -951,28 +979,15 @@ export default function EventForwarder({
 
           {/* One group, so the header's space-between keeps them together */}
           <Flex align="center" gap="2">
-            {canToggle || canRestart ? (
+            {/* Restart sits in the stopped banner instead */}
+            {canToggle ? (
               <Button
                 variant="outline"
                 color={"color" in actionButton ? actionButton.color : undefined}
                 icon={actionButton.icon}
                 iconPosition="left"
                 loading={pauseResumeLoading}
-                onClick={async () => {
-                  setError(null);
-                  setPauseResumeLoading(true);
-                  try {
-                    await apiCall(
-                      `/datasource/${dataSource.id}/event-forwarder/${action}`,
-                      { method: "POST" },
-                    );
-                    await onRefresh();
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : "Action failed");
-                  } finally {
-                    setPauseResumeLoading(false);
-                  }
-                }}
+                onClick={runAction}
               >
                 {actionButton.label}
               </Button>
@@ -999,25 +1014,6 @@ export default function EventForwarder({
           </Flex>
         </Flex>
       ) : null}
-      {showDelete ? (
-        <DeleteEventForwarderModal
-          datasourceId={dataSource.id}
-          onClose={() => setShowDelete(false)}
-          onRefresh={onRefresh}
-        />
-      ) : null}
-
-      {eventForwarderConfig &&
-      showProvisioningError &&
-      primaryConnectorErrorMessage ? (
-        <Callout status="error" mb="3">
-          <EventForwarderErrorMessage
-            key={primaryConnectorErrorMessage}
-            message={primaryConnectorErrorMessage}
-          />
-        </Callout>
-      ) : null}
-
       <p>
         GrowthBook&apos;s Event Forwarder streams SDK event data from GrowthBook
         directly into this data source so you can query and analyze it alongside
@@ -1028,9 +1024,81 @@ export default function EventForwarder({
         </DocLink>
       </p>
 
-      {error && !eventForwarderConfig ? (
+      {showDelete ? (
+        <DeleteEventForwarderModal
+          datasourceId={dataSource.id}
+          onClose={() => setShowDelete(false)}
+          onRefresh={onRefresh}
+        />
+      ) : null}
+
+      {error ? (
         <Callout status="error" mb="3">
           {error}
+        </Callout>
+      ) : null}
+
+      {forwardingStopped ? (
+        <Callout
+          status="error"
+          mb="3"
+          icon={<PiWarning />}
+          action={
+            canRestart ? (
+              <Button
+                color="inherit"
+                icon={<PiArrowClockwise />}
+                iconPosition="left"
+                loading={pauseResumeLoading}
+                onClick={runAction}
+              >
+                Restart
+              </Button>
+            ) : undefined
+          }
+        >
+          <Text as="div" weight="semibold" color="text-high">
+            Forwarding stopped.
+            {hasBacklog
+              ? ` ${backlogCount.toLocaleString()} ${
+                  backlogCount === 1 ? "event" : "events"
+                } queued.`
+              : null}
+          </Text>
+          {stoppedDetails.length ? (
+            <Text as="div" size="sm" color="text-mid">
+              {stoppedDetails.join(" · ")}
+            </Text>
+          ) : null}
+        </Callout>
+      ) : null}
+
+      {eventForwarderConfig && showDestinationError ? (
+        <EventForwarderLastError
+          source={sinkLabels[eventForwarderConfig.sinkType]}
+          message={destinationErrorMessage}
+        />
+      ) : null}
+
+      {isProvisioning && replaying ? (
+        <Callout status="info" mb="3">
+          {/* The total grows while new events are parked behind the replay. */}
+          Writing backed-up events to your warehouse:{" "}
+          {countPill(
+            `${replayedCount.toLocaleString()}/${(
+              replayedCount + backlogCount
+            ).toLocaleString()}`,
+            "violet",
+          )}
+          <br />
+          New events wait until this is done, then forwarding resumes.
+        </Callout>
+      ) : null}
+
+      {hasBacklog && isReady && !isProvisioning ? (
+        <Callout status="info" mb="3">
+          Writing backed-up events to your warehouse:{" "}
+          {countPill(`${backlogCount.toLocaleString()} left`, "violet")}
         </Callout>
       ) : null}
 

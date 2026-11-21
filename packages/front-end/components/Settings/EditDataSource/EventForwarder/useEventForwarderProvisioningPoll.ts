@@ -4,6 +4,8 @@ import { useAuth } from "@/services/auth";
 
 const POLL_INTERVAL_MS = 5000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
+const BACKLOG_POLL_INTERVAL_MS = 15000;
+const ERROR_POLL_INTERVAL_MS = 60000;
 
 export const PROVISIONING_TIMEOUT_MESSAGE =
   "Provisioning timed out. Try editing the Event Forwarder to retry.";
@@ -27,6 +29,13 @@ export function useEventForwarderProvisioningPoll({
   const [pollTimedOut, setPollTimedOut] = useState(false);
   const [taskErrors, setTaskErrors] =
     useState<EventForwarderStatusResponse["taskErrors"]>();
+  const [backlogCount, setBacklogCount] = useState(0);
+  const [replaying, setReplaying] = useState(false);
+  const [replayedCount, setReplayedCount] = useState(0);
+  const [erroredAt, setErroredAt] = useState<string | null>(null);
+  const [backlogCountedAt, setBacklogCountedAt] = useState<string | null>(null);
+  // A restart's replay can outlast the timeout; it counts from the last report.
+  const lastReplayingAtRef = useRef(0);
   const refreshedStatusRef = useRef<string | null>(null);
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
@@ -40,6 +49,12 @@ export function useEventForwarderProvisioningPoll({
     if (result.taskErrors?.length) {
       setTaskErrors(result.taskErrors);
     }
+    setBacklogCount(result.backlogCount ?? 0);
+    setReplaying(!!result.replaying);
+    setReplayedCount(result.replayedCount ?? 0);
+    setErroredAt(result.erroredAt ?? null);
+    setBacklogCountedAt(result.backlogCountedAt ?? null);
+    if (result.replaying) lastReplayingAtRef.current = Date.now();
     await onRefreshRef.current();
   }, [apiCall, datasourceId]);
 
@@ -62,7 +77,8 @@ export function useEventForwarderProvisioningPoll({
 
     void poll();
     const intervalId = window.setInterval(() => {
-      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+      const since = Math.max(startTime, lastReplayingAtRef.current);
+      if (Date.now() - since > POLL_TIMEOUT_MS) {
         setPollTimedOut(true);
         window.clearInterval(intervalId);
         return;
@@ -93,6 +109,30 @@ export function useEventForwarderProvisioningPoll({
     });
   }, [datasourceId, fetchConnectorStatus, status]);
 
+  // Keeps the parked count current:
+  // - errored: the backlog grows
+  // - ready: a replay shrinks it
+  const hasBacklog = backlogCount > 0;
+  const backlogPollMs =
+    status === "error"
+      ? ERROR_POLL_INTERVAL_MS
+      : status === "ready" && hasBacklog
+        ? BACKLOG_POLL_INTERVAL_MS
+        : null;
+  useEffect(() => {
+    if (backlogPollMs === null) {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      void fetchConnectorStatus().catch(() => {
+        // The next tick retries.
+      });
+    }, backlogPollMs);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [fetchConnectorStatus, backlogPollMs]);
+
   useEffect(() => {
     if (status === "pending") {
       setPollTimedOut(false);
@@ -106,5 +146,10 @@ export function useEventForwarderProvisioningPoll({
     isError,
     pollTimedOut,
     taskErrors,
+    backlogCount,
+    replaying: isPending && replaying,
+    replayedCount,
+    erroredAt,
+    backlogCountedAt,
   };
 }

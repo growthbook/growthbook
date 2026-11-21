@@ -85,6 +85,20 @@ describe("buildEventForwarderStatusResponse", () => {
     expect(response.confluentState).toBe("FAILED");
     expect(response.taskErrors).toHaveLength(1);
   });
+
+  it("passes the consumer's backlog and stop times through", () => {
+    const response = buildEventForwarderStatusResponse({
+      phase: "error",
+      backlogCount: 1240,
+      erroredAt: "2026-11-20T10:00:00.000Z",
+      backlogCountedAt: "2026-11-20T12:00:00.000Z",
+    });
+    expect(response).toMatchObject({
+      backlogCount: 1240,
+      erroredAt: "2026-11-20T10:00:00.000Z",
+      backlogCountedAt: "2026-11-20T12:00:00.000Z",
+    });
+  });
 });
 
 describe("syncEventForwarderStatusFromLicenseServer", () => {
