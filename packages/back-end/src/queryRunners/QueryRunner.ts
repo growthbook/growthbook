@@ -101,6 +101,11 @@ const MAX_CONCURRENCY_TIMEOUT = 4000;
  */
 const REFRESH_WATCHDOG_INTERVAL_MS = 5 * 60 * 1000;
 /**
+ * Minimum time between refresh pass starts. A finish after a quiet period
+ * refreshes at once; finishes inside the window coalesce into one pass.
+ */
+const REFRESH_MIN_INTERVAL_MS = 100;
+/**
  * Stop retrying after this many consecutive failed refresh passes.
  * Missing snapshots (cancel deleted the doc) stand down instead of erroring.
  */
@@ -256,7 +261,11 @@ export abstract class QueryRunner<
   private refreshWatchdogTimer: null | NodeJS.Timeout = null;
   /** Non-null while a refresh pass is in flight; watchdog skips re-arm then. */
   private refreshStartedAt: number | null = null;
+  private lastRefreshStartedAt = 0;
+  /** A pass is on refreshChain but has not started; it covers any new finish. */
+  private refreshPassQueued = false;
   private consecutiveRefreshFailures = 0;
+  private emptyQueryListSeen = false;
   /** Serializes refresh passes so two cannot analyze or mutate model at once. */
   private refreshChain: Promise<void> = Promise.resolve();
   private finishedQueryMapCache: QueryMap = new Map();
@@ -408,22 +417,31 @@ export abstract class QueryRunner<
       );
       return;
     }
-    if (!this.timer) {
+    if (this.timer || this.refreshPassQueued) {
       logger.debug(
         "Query finished for " +
           this.model.id +
-          " runner, refreshing in 1 second",
+          " runner, refresh already pending",
       );
-      this.timer = setTimeout(() => {
-        this.timer = null;
-        this.queueRefreshPass();
-      }, 1000);
-    } else {
-      logger.debug(
-        "Query finished for " +
-          this.model.id +
-          " runner, timer already started",
-      );
+      return;
+    }
+    const delay = Math.max(
+      0,
+      this.lastRefreshStartedAt + REFRESH_MIN_INTERVAL_MS - Date.now(),
+    );
+    logger.debug(
+      `Query finished for ${this.model.id} runner, refreshing in ${delay} ms`,
+    );
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      this.queueRefreshPass();
+    }, delay);
+  }
+
+  private clearRefreshTimer(): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
     }
   }
 
@@ -443,10 +461,7 @@ export abstract class QueryRunner<
   private async shutDownWithError(error: string): Promise<void> {
     this.setStatus("finishing");
     this.stopRefreshWatchdog();
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
+    this.clearRefreshTimer();
     this.clearAllTimers();
     const fullError = "Error finalizing query results: " + error;
     try {
@@ -462,6 +477,7 @@ export abstract class QueryRunner<
 
   /** Enqueue one refresh pass on the serialized chain. */
   private queueRefreshPass(): void {
+    this.refreshPassQueued = true;
     this.refreshChain = this.refreshChain
       .then(() => this.runRefreshPass())
       .catch(async (e) => {
@@ -487,10 +503,7 @@ export abstract class QueryRunner<
    */
   private standDown(reason: string): void {
     logger.warn(`Runner of ${this.model.id} standing down: ${reason}`);
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
+    this.clearRefreshTimer();
     this.clearAllTimers();
     this.setStatus("finished", "");
   }
@@ -520,8 +533,11 @@ export abstract class QueryRunner<
    * budget is exhausted.
    */
   private async runRefreshPass(): Promise<void> {
+    // Cleared before the first read, so a finish from here on arms a new pass.
+    this.refreshPassQueued = false;
     if (this.isFinished()) return;
     this.refreshStartedAt = Date.now();
+    this.lastRefreshStartedAt = this.refreshStartedAt;
     try {
       let latest: Model;
       try {
@@ -552,17 +568,27 @@ export abstract class QueryRunner<
         return;
       }
       if (this.isFinished()) return;
-      this.model = latest;
       if (this.isModelTerminal(latest)) {
+        this.model = latest;
         this.standDown("model is already terminal in the database");
         return;
       }
       // startAnalysis never runs with an empty DAG, so empty queries here
-      // means cancelQueries() on another instance wrote queries: [].
+      // means cancelQueries() on another instance wrote queries: []. A read
+      // from a replica that lags the DAG write looks the same, so confirm
+      // with a second pass before standing down.
       if (this.status === "running" && latest.queries.length === 0) {
+        if (!this.emptyQueryListSeen && this.model.queries.length > 0) {
+          this.emptyQueryListSeen = true;
+          this.onQueryFinish();
+          return;
+        }
+        this.model = latest;
         this.standDown("query list was emptied by a cancel");
         return;
       }
+      this.emptyQueryListSeen = false;
+      this.model = latest;
       try {
         const queryMap = await this.refreshQueryStatuses();
         if (this.isFinished()) return;
@@ -673,18 +699,29 @@ export abstract class QueryRunner<
       failureCause,
     });
     this.model = newModel;
-    this.dagPersisted = true;
 
     if (error || result) {
+      this.dagPersisted = true;
       this.setStatus("finished", error, result);
     } else {
       this.setStatus("running");
-      // Pick up any query completions that happened before the DAG write.
-      this.onQueryFinish();
+      try {
+        await this.beforeFirstRefresh();
+      } finally {
+        this.dagPersisted = true;
+        // Pick up any query completions that happened before this point.
+        this.onQueryFinish();
+      }
     }
 
     return newModel;
   }
+
+  /**
+   * Runs once the query DAG is persisted, before any refresh pass can read
+   * it; query finishes meanwhile are deferred. Default is a no-op.
+   */
+  protected async beforeFirstRefresh(): Promise<void> {}
 
   /**
    * Recovers a snapshot so it goes to a terminal state.
@@ -992,6 +1029,7 @@ export abstract class QueryRunner<
       );
     }
 
+    this.clearRefreshTimer();
     this.clearAllTimers();
     const newModel = await this.updateModel({
       queries: [],

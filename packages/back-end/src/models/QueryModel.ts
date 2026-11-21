@@ -74,10 +74,11 @@ export async function getQueriesByIds(
   includeChunkedResults: boolean = true,
 ) {
   if (!ids.length) return [];
+  // Runners refresh right after a status write; a secondary could miss it.
   const docs = await QueryModel.find({
     organization: context.org.id,
     id: { $in: ids },
-  });
+  }).read("primary");
   const queries = docs.map((doc) => toInterface(doc));
 
   if (includeChunkedResults) {
