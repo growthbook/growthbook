@@ -95,10 +95,16 @@ export function useTileResult(request: TileRequest) {
   );
 
   const settle = useCallback(
-    async (load: () => Promise<TileResult>) => {
+    async (load: () => Promise<TileResult>, keepResult = false) => {
       const gen = ++generation.current;
       const isCurrent = () => gen === generation.current;
-      setState({ status: "loading" });
+      // An Update keeps the current chart up while it runs; the button shows
+      // it's busy. A new config clears it, since it no longer matches.
+      setState((current) =>
+        keepResult && current.status === "ready"
+          ? current
+          : { status: "loading" },
+      );
       try {
         const result = await load();
         if (!isCurrent()) return;
@@ -106,8 +112,11 @@ export function useTileResult(request: TileRequest) {
           setState({ status: "miss" });
           return;
         }
-        setState({ status: "ready", result });
-        // A run that outlasts the server's wait comes back "running"
+        // A run that outlasts the server's wait comes back "running". An
+        // Update leaves the current chart up until it finishes.
+        if (!keepResult || result.exploration.status !== "running") {
+          setState({ status: "ready", result });
+        }
         const [primary, comparison] = await Promise.all([
           pollUntilDone(result, read, isCurrent),
           pollUntilDone(
@@ -198,7 +207,7 @@ export function useTileResult(request: TileRequest) {
         comparison: result.comparison?.exploration ?? null,
         comparisonError: result.comparison?.error ?? null,
       };
-    });
+    }, true);
   }, [key, settle]);
 
   return { state, run };
