@@ -6,7 +6,10 @@ import type { ExplorationConfig } from "shared/validators";
 import { getInitialConfigByBlockType } from "shared/enterprise";
 import { ago } from "shared/dates";
 import useExploration from "@/enterprise/components/ProductAnalytics/useExploration";
-import { getRowsPerDay } from "@/components/QueryPreview/activityChart";
+import {
+  getRowsPerDay,
+  isRowCountStale,
+} from "@/components/QueryPreview/activityChart";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -91,13 +94,7 @@ export default function FactTableRowsPerDay({
 
   const chart = exploration ? getRowsPerDay(exploration) : null;
   // The exploration cache key has no SQL in it, so a SQL edit still hits it.
-  // Compare to when the run started, since that's when it read the SQL.
-  // Dates arrive as JSON strings.
-  const sqlChangedSince =
-    !!exploration &&
-    !!factTable.sqlUpdated &&
-    new Date(factTable.sqlUpdated) >
-      new Date(exploration.runStarted ?? exploration.dateUpdated);
+  const sqlChangedSince = isRowCountStale(factTable.sqlUpdated, exploration);
   const max = chart ? Math.max(...chart.counts, 1) : 1;
 
   return (
