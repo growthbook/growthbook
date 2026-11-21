@@ -109,9 +109,10 @@
   padding: 0;
 }
 
+// The ring sets the current alignment apart from the menu's hover tint.
 .alignItemOn:global(.rt-BaseMenuItem) {
-  background-color: var(--accent-a4);
   color: var(--accent-11);
+  box-shadow: inset 0 0 0 1px var(--accent-a8);
 }
 
 // Over the text, holding a hovered table's grips; clicks pass through it.
