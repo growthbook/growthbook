@@ -135,7 +135,7 @@ export default function FactTableRowsPerDay({
             {checkedCache ? (
               <Button
                 size="sm"
-                variant={exploration ? "ghost" : "outline"}
+                variant={exploration && !sqlChangedSince ? "ghost" : "outline"}
                 loading={running}
                 icon={exploration ? <PiArrowClockwise /> : undefined}
                 onClick={() => run(exploration ? "never" : "preferred")}
