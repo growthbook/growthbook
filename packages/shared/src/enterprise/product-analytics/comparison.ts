@@ -626,7 +626,8 @@ function truncateUtc(d: Date, granularity: ResolvedGranularity): Date {
   return x;
 }
 
-function stepBucketUtc(d: Date, granularity: ResolvedGranularity): void {
+/** Moves `d` (in place) to the start of the next bucket, in UTC. */
+export function stepBucketUtc(d: Date, granularity: ResolvedGranularity): void {
   switch (granularity) {
     case "hour":
       d.setUTCHours(d.getUTCHours() + 1);

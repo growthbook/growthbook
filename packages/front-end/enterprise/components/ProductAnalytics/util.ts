@@ -1456,13 +1456,35 @@ export function compareConfig(
 
 export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
 
-// "utc" shows warehouse dates (see parseWarehouseDate) unshifted; "local" is for buckets built in the browser.
+let cachedUsesHour12: boolean | null = null;
+/** Whether the browser's locale writes times on a 12-hour clock. */
+function usesHour12(): boolean {
+  cachedUsesHour12 ??=
+    new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions()
+      .hour12 ?? false;
+  return cachedUsesHour12;
+}
+
+/**
+ * A date bucket's label. `timeZone`: "utc" shows warehouse dates (see
+ * parseWarehouseDate) unshifted; "local" is for buckets built in the browser.
+ *
+ * The default style is for tooltips and tables ("November 2026", "Week of Nov
+ * 2, 2026"). `compact` is for axis ticks: short months, no "Week of", and the
+ * year only when `showYear` is set.
+ */
 export function formatDateByGranularity(
   date: Date,
   granularity: ResolvedGranularity,
   timeZone: "utc" | "local" = "utc",
+  {
+    compact = false,
+    showYear = true,
+  }: { compact?: boolean; showYear?: boolean } = {},
 ): string {
   const tz = timeZone === "utc" ? "UTC" : undefined;
+  const year = !compact || showYear ? { year: "numeric" as const } : {};
+  const month = compact ? ("short" as const) : ("long" as const);
   switch (granularity) {
     case "year":
       return date.toLocaleDateString(undefined, {
@@ -1471,21 +1493,36 @@ export function formatDateByGranularity(
       });
     case "month":
       return date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
+        ...year,
+        month,
         timeZone: tz,
       });
-    case "week":
-      return `Week of ${date.toLocaleDateString(undefined, {
-        year: "numeric",
+    case "week": {
+      const start = date.toLocaleDateString(undefined, {
+        ...year,
         month: "short",
         day: "numeric",
         timeZone: tz,
-      })}`;
+      });
+      return compact ? start : `Week of ${start}`;
+    }
     case "hour":
+      if (compact) {
+        // Hourly buckets always start on the hour, so 12-hour locales drop the
+        // minutes ("Jul 25, 9 AM"); 24-hour ones keep them ("25 Jul, 09:00"),
+        // where a bare "09" would read oddly.
+        return date.toLocaleString(undefined, {
+          ...year,
+          month,
+          day: "numeric",
+          hour: "numeric",
+          ...(usesHour12() ? {} : { minute: "2-digit" as const }),
+          timeZone: tz,
+        });
+      }
       return `${date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
+        ...year,
+        month,
         day: "numeric",
         timeZone: tz,
       })} ${date.toLocaleTimeString(undefined, {
@@ -1496,8 +1533,8 @@ export function formatDateByGranularity(
     case "day":
     default:
       return date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
+        ...year,
+        month,
         day: "numeric",
         timeZone: tz,
       });
