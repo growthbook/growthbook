@@ -10,5 +10,9 @@ This directory is the canonical home for detailed repository guidance shared by 
 - `custom-hooks.md` — the contract an entity's validation hook follows, and the checklist for adding one
 - `docs.md` — Mintlify MDX frontmatter (quote YAML values that contain a colon)
 - `backport-releases.md` — patch releases: choosing, cherry-picking and landing `main` commits on a `release/X.Y` branch, then tagging
-- `frontend/` — React and data-fetching patterns
+- `frontend/` — React and UI component patterns, data fetching, icons, accessibility, and UI states
 - `backend/` — API, model, and legacy-model migration patterns
+
+The sibling `.agents/prompts/` directory holds version-controlled prompts for automation that reviews this repo, so they stay in sync with the guides above.
+
+- `../prompts/design-review.md` — the automated design-review prompt (review mechanics; rules live in the guides)
