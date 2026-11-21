@@ -6,6 +6,11 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import {
+  EXPERIMENT_RESULT_COLORS,
+  cssColorToHex,
+  getChartThemeColors,
+} from "@/components/DataViz/chart-theme";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Table, {
@@ -27,11 +32,12 @@ import { useCompletedExperimentsComparison } from "./completedExperiments";
 
 const GOOD_PERCENT_LOW = 15;
 const GOOD_PERCENT_HIGH = 38;
-const DIAL_GRAY = "rgb(217,217,217)";
-const DIAL_GREEN = "rgba(125,243,200,0.9)";
 const GAUGE_HEIGHT = 200;
 
 function gaugeOption(winRate: number, textColor: string) {
+  // The good range uses the same green as Velocity's "Won".
+  const good = cssColorToHex(EXPERIMENT_RESULT_COLORS.won);
+  const track = cssColorToHex("var(--gray-6)");
   return {
     series: [
       {
@@ -47,9 +53,9 @@ function gaugeOption(winRate: number, textColor: string) {
           lineStyle: {
             width: 14,
             color: [
-              [GOOD_PERCENT_LOW / 100, DIAL_GRAY],
-              [GOOD_PERCENT_HIGH / 100, DIAL_GREEN],
-              [1, DIAL_GRAY],
+              [GOOD_PERCENT_LOW / 100, track],
+              [GOOD_PERCENT_HIGH / 100, good],
+              [1, track],
             ],
           },
         },
@@ -134,7 +140,7 @@ export default function WinRateBlockChart({
   block: DashboardBlockInterfaceOrData<ExperimentsWinRateBlockInterface>;
 }) {
   const { theme } = useAppearanceUITheme();
-  const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const { textColor } = getChartThemeColors(theme);
   const { projects } = useDefinitions();
 
   const {
