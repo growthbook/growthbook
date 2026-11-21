@@ -361,7 +361,10 @@ export function DropdownMenuItem({
           <Box width="14px" className="ml-3">
             {loading ? <LoadingSpinner /> : null}
             {error ? (
-              <Tooltip content={`Error: ${error}. Exit menu and try again.`}>
+              // Server messages already end with a period.
+              <Tooltip
+                content={`Error: ${error.replace(/\.+$/, "")}. Exit menu and try again.`}
+              >
                 {/* An icon can't hold the tooltip's ref. */}
                 <span>
                   <PiWarningFill color={amber.amber11} />
