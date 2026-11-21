@@ -25,9 +25,8 @@ const FORMATTING: RegExp[] = [
   /(?<!\\)~~(?=\S)[\s\S]*?\S~~/,
 ];
 
-// Whether clipboard HTML carries structure or formatting of its own, rather
-// than being a styled copy of plain text (as a code editor or terminal puts
-// on the clipboard). Code counts, so its literal text isn't read as markdown.
+// Whether clipboard HTML has formatting of its own, not a styled copy of plain
+// text (as a terminal gives). Code counts, so it isn't read as markdown.
 export function htmlHasFormatting(html: string): boolean {
   return /<(?:table|ul|ol|h[1-6]|blockquote|a|strong|b|em|i|img|pre|code)[\s>]/i.test(
     html,

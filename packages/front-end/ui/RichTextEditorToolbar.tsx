@@ -86,6 +86,11 @@ const TEXT_FORMATS: {
   { format: "code", label: "Inline code", Icon: PiCodeBold },
 ];
 
+// A grid, stretched wide so it reads as a table.
+function TableIcon({ size }: { size?: number }) {
+  return <PiGridFourBold size={size} className={styles.tableIcon} />;
+}
+
 const HEADINGS: {
   tag: HeadingTagType;
   label: string;
@@ -396,7 +401,7 @@ export default function RichTextEditorToolbar({
         : null}
 
       {simple ? null : active.inTable ? (
-        button("table", "Insert table", false, () => {}, PiGridFourBold, true)
+        button("table", "Insert table", false, () => {}, TableIcon, true)
       ) : (
         <Popover
           open={tablePickerOpen}
@@ -417,7 +422,7 @@ export default function RichTextEditorToolbar({
             >
               <Tooltip content="Insert table">
                 <span style={{ display: "inline-flex" }}>
-                  <PiGridFourBold size={15} />
+                  <TableIcon size={15} />
                 </span>
               </Tooltip>
             </IconButton>

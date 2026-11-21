@@ -167,6 +167,9 @@ const ADD_GAP = 1;
 // How far out from a table the pointer still finds its rows and columns.
 const GRIP_BUFFER = 16;
 
+const clamp = (n: number, min: number, max: number) =>
+  Math.min(Math.max(n, min), max);
+
 // The cell nearest the pointer when it's in the empty gutter around a table.
 function cellBeside(
   root: HTMLElement,
@@ -186,8 +189,6 @@ function cellBeside(
     ) {
       continue;
     }
-    const clamp = (n: number, min: number, max: number) =>
-      Math.min(Math.max(n, min), max);
     const cell = document
       .elementFromPoint(
         clamp(x, left + 1, right - 1),
@@ -262,6 +263,17 @@ function placeGrips(
   };
 }
 
+// Where a control sits; faded out, it keeps its place but can't be reached.
+function placement(placed: NonNullable<Placed>) {
+  return {
+    style: placed.at,
+    "data-table-grip": true,
+    "data-hidden": placed.on ? undefined : "",
+    "aria-hidden": !placed.on,
+    tabIndex: placed.on ? undefined : -1,
+  };
+}
+
 function Grip({
   label,
   kind,
@@ -285,15 +297,11 @@ function Grip({
         <button
           type="button"
           aria-label={label}
-          data-table-grip
           className={clsx(
             styles.tableGrip,
             kind === "row" ? styles.rowGrip : styles.columnGrip,
           )}
-          style={placed.at}
-          data-hidden={placed.on ? undefined : ""}
-          aria-hidden={!placed.on}
-          tabIndex={placed.on ? undefined : -1}
+          {...placement(placed)}
         />
       }
     >
@@ -325,20 +333,15 @@ function AddLine({
   onAdd: () => void;
 }) {
   return (
-    // Beside the line, off the table.
     <Tooltip content={label} side={kind === "row" ? "bottom" : "right"}>
       <button
         type="button"
         aria-label={label}
-        data-table-grip
         className={clsx(
           styles.tableAdd,
           kind === "row" ? styles.tableAddRow : styles.tableAddColumn,
         )}
-        style={placed.at}
-        data-hidden={placed.on ? undefined : ""}
-        aria-hidden={!placed.on}
-        tabIndex={placed.on ? undefined : -1}
+        {...placement(placed)}
         // Keeps the caret in the text, to land in the new cells.
         onMouseDown={(e) => e.preventDefault()}
         onClick={onAdd}

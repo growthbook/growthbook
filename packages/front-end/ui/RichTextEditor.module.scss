@@ -83,8 +83,7 @@
   background-color: var(--accent-a4);
 }
 
-// An arrow nudged toward the top left, with a small plus in the corner it
-// leaves free.
+// An arrow with a small plus in the corner it leaves free.
 .insertIcon {
   position: relative;
   display: inline-flex;
@@ -106,7 +105,6 @@
   height: 0.55em;
 }
 
-// An alignment icon in the column menu's top row, the size of a toolbar button.
 .alignItem:global(.rt-BaseMenuItem) {
   justify-content: center;
   width: var(--space-5);
@@ -120,7 +118,6 @@
   box-shadow: inset 0 0 0 1px var(--accent-a8);
 }
 
-// Over the text, holding a hovered table's grips; clicks pass through it.
 .tableControls {
   position: absolute;
   inset: 0;
@@ -129,9 +126,8 @@
   overflow: clip;
 }
 
-// A muted line just outside the table, beside the hovered row or above the
-// hovered column, that thickens to a bar when the pointer comes near. The
-// button spans the gutter out to the table, so near is a hover on it.
+// The button spans the gutter out to the table, so the pointer coming near is
+// a hover on it.
 .tableGrip {
   position: absolute;
   pointer-events: auto;
@@ -157,8 +153,7 @@
   }
 }
 
-// The table's controls rest at half strength, fade in and out, and ease their
-// colors and size, but not their place.
+// Opacity, color and size animate; position doesn't.
 .tableGrip,
 .tableAdd {
   opacity: 0.5;
@@ -202,7 +197,6 @@
   }
 }
 
-// A muted line past the table's last row or column, with a plus at its middle.
 .tableAdd {
   position: absolute;
   pointer-events: auto;
@@ -543,6 +537,10 @@
   // The wrapper's, set rather than inherited: a collapsible ribbon sits in a Collapse.
   border-top-left-radius: var(--radius-2);
   border-top-right-radius: var(--radius-2);
+}
+
+.tableIcon {
+  transform: scaleX(1.25);
 }
 
 .toolbarButton {

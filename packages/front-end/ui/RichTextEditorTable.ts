@@ -342,9 +342,8 @@ function $atBlockEdge(point: PointType, block: ElementNode, start: boolean) {
   );
 }
 
-// The table the caret is up against: from the edge of a paragraph beside it
-// (other blocks keep their own Backspace), or from between blocks, where
-// Lexical leaves the caret at a table's edge.
+// The table the caret is against, from the edge of a paragraph beside it or
+// from between blocks (where Lexical leaves it at a table's edge).
 function $tableBeside(
   point: PointType,
   backward: boolean,
@@ -401,9 +400,8 @@ function $onDeleteKey(event: KeyboardEvent | null, backward: boolean) {
   return true;
 }
 
-// Selected cells spanning whole rows, or whole columns, delete them. Anything
-// less, or the whole table, is left to Lexical, which empties the cells or
-// removes the table.
+// Whole rows or columns selected are deleted. Lexical empties anything less,
+// and removes a whole table.
 function $onDeleteCells(event: KeyboardEvent | null) {
   const selection = $getSelection();
   if (!$isTableSelection(selection)) return false;
