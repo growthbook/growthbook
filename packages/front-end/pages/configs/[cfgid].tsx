@@ -128,8 +128,7 @@ import {
   REVISION_SELECTOR_WIDTH_PX,
   ReviewTabCount,
 } from "@/components/Layout/DetailsPageHeader";
-import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
-import { useTabsTop } from "@/components/Layout/pageTopOffset";
+import { useTabsBottom } from "@/components/Layout/pageTopOffset";
 import ConfigDetailsPanel from "@/components/Configs/ConfigDetailsPanel";
 import Tooltip from "@/ui/Tooltip";
 import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
@@ -530,7 +529,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     homeTab: "overview",
     defaultWidth: LINEAGE_PANEL_WIDTH_PX,
   });
-  const tabsTop = useTabsTop();
+  const tabsBottom = useTabsBottom();
   // Where the JSON tab's Save and Discard render: the bar along the bottom.
   const [ribbonEl, setRibbonEl] = useState<HTMLDivElement | null>(null);
   const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
@@ -1752,8 +1751,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   const showsStatusBar =
     tab === "overview" &&
     hasRevisionStatus(selectedRevision, liveRevision, allRevisions);
-  const stickyTop =
-    tabsTop + TABS_BAR_HEIGHT_PX + (showsStatusBar ? statusBarHeight : 0);
+  const stickyTop = tabsBottom + (showsStatusBar ? statusBarHeight : 0);
 
   const newDraft = canDraft ? (
     <NewDraftButton

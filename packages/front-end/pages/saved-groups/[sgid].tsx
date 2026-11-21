@@ -116,8 +116,7 @@ import {
   ReviewTabCount,
   TabCount,
 } from "@/components/Layout/DetailsPageHeader";
-import { TABS_BAR_HEIGHT_PX } from "@/components/Layout/constants";
-import { useTabsTop } from "@/components/Layout/pageTopOffset";
+import { useTabsBottom } from "@/components/Layout/pageTopOffset";
 import { draftModeCta } from "@/components/DraftSelector";
 
 const NUM_PER_PAGE = 10;
@@ -242,7 +241,7 @@ export default function EditSavedGroupPage() {
     tab,
     homeTab: "overview",
   });
-  const tabsTop = useTabsTop();
+  const tabsBottom = useTabsBottom();
   const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
 
   // Revision state variables for UI logic
@@ -543,8 +542,7 @@ export default function EditSavedGroupPage() {
   const showsStatusBar =
     tab === "overview" &&
     hasRevisionStatus(selectedRevision, liveRevision, allRevisions);
-  const stickyTop =
-    tabsTop + TABS_BAR_HEIGHT_PX + (showsStatusBar ? statusBarHeight : 0);
+  const stickyTop = tabsBottom + (showsStatusBar ? statusBarHeight : 0);
 
   const revisionNumbers = getRevisionNumberById(allRevisions);
   const newDraft = canDraft ? (

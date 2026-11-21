@@ -742,26 +742,6 @@ pre {
     }
   }
 }
-.feature-tabs {
-  background-color: var(--color-background);
-  top: var(--tabs-top);
-  // The original feature page's row; the redesign's is --tabs-bar-height.
-  height: 40px;
-  transition: box-shadow 150ms;
-
-  &.pinned {
-    position: sticky;
-    z-index: 930;
-    // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.1),
-      0 4px 4px rgba(0, 0, 0, 0.025);
-    .rt-BaseTabList {
-      box-shadow: none !important;
-    }
-  }
-}
-
 // The tab row of a page built on the details panel, which a revision status bar
 // may follow.
 .details-tabs {
