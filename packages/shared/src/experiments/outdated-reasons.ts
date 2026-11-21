@@ -125,7 +125,7 @@ export function getPValueCorrectionOutdatedReasons({
     (snapshotGoals.size !== currentGoals.size ||
       [...snapshotGoals].some((id) => !currentGoals.has(id)))
   ) {
-    reasons.push("Goal metrics changed");
+    reasons.push("Goal metrics changed (p-value correction affected)");
   }
 
   return reasons;
