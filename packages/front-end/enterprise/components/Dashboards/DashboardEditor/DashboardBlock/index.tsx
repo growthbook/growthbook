@@ -72,9 +72,7 @@ import {
   BlockRenderError,
 } from "./BlockErrorStates";
 import MetricExplorerBlock from "./MetricExplorerBlock";
-import ProductAnalyticsExplorerBlock, {
-  BlockHeaderActionSlotContext,
-} from "./ProductAnalyticsExplorerBlock";
+import ProductAnalyticsExplorerBlock from "./ProductAnalyticsExplorerBlock";
 
 // Typescript helpers for passing objects to the block components based on id fields
 interface BlockIdFieldToObjectMap {
@@ -107,6 +105,10 @@ export type BlockProps<T extends DashboardBlockInterface> = {
   mutate: () => void;
   isEditing: boolean;
   ssrPolyfills?: SSRPolyfills;
+  // Set where no dashboard header runs the blocks, so a block runs itself
+  selfUpdate?: boolean;
+  // A spot in the block's title row for the block's own action
+  headerActionSlot?: HTMLElement | null;
 } & ObjectProps<T>;
 
 interface Props<DashboardBlock extends DashboardBlockInterface> {
@@ -134,6 +136,7 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   canEdit?: boolean;
   setIsEditing?: (value: boolean) => void;
   enterEditModeForBlock?: (blockIndex: number) => void;
+  selfUpdate?: boolean;
 }
 
 const BLOCK_COMPONENTS: {
@@ -184,6 +187,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   canEdit,
   setIsEditing,
   enterEditModeForBlock,
+  selfUpdate = false,
 }: Props<T>) {
   const { experimentsMap, loading: experimentsLoading } = useExperiments();
   const {
@@ -503,30 +507,30 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           <BlockObjectMissing block={block} />
         ) : (
           <ErrorBoundary fallback={<BlockRenderError block={block} />}>
-            <BlockHeaderActionSlotContext.Provider value={headerActionSlot}>
-              <BlockComponent
-                isTabActive={isTabActive}
-                block={block}
-                dashboardGlobalControls={dashboardGlobalControls}
-                dashboardComparison={dashboardComparison}
-                blockIndex={blockIndex}
-                setBlock={setBlock}
-                isEditing={isEditing}
-                snapshot={
-                  requiresSnapshot
-                    ? (snapshot as ExperimentSnapshotInterface)
-                    : ({} as ExperimentSnapshotInterface)
-                }
-                analysis={
-                  requiresSnapshot
-                    ? (analysis as ExperimentSnapshotAnalysis)
-                    : ({} as ExperimentSnapshotAnalysis)
-                }
-                mutate={mutate}
-                // objectProps should be validated above to actually contain all the keys and not be Partial
-                {...(objectProps as unknown as ObjectProps<T>)}
-              />
-            </BlockHeaderActionSlotContext.Provider>
+            <BlockComponent
+              isTabActive={isTabActive}
+              block={block}
+              dashboardGlobalControls={dashboardGlobalControls}
+              dashboardComparison={dashboardComparison}
+              blockIndex={blockIndex}
+              setBlock={setBlock}
+              isEditing={isEditing}
+              snapshot={
+                requiresSnapshot
+                  ? (snapshot as ExperimentSnapshotInterface)
+                  : ({} as ExperimentSnapshotInterface)
+              }
+              analysis={
+                requiresSnapshot
+                  ? (analysis as ExperimentSnapshotAnalysis)
+                  : ({} as ExperimentSnapshotAnalysis)
+              }
+              mutate={mutate}
+              selfUpdate={selfUpdate}
+              headerActionSlot={headerActionSlot}
+              // objectProps should be validated above to actually contain all the keys and not be Partial
+              {...(objectProps as unknown as ObjectProps<T>)}
+            />
           </ErrorBoundary>
         )}
       </Flex>
@@ -642,7 +646,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </>
         )}
 
-        <Flex ref={setHeaderActionSlot} align="center" />
+        {selfUpdate && <Flex ref={setHeaderActionSlot} align="center" />}
         {isEditing ? (
           <div>
             {!editingBlock && (

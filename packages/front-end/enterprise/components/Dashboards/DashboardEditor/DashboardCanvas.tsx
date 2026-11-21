@@ -155,6 +155,8 @@ interface Props {
   ) => void;
   mutate?: () => void;
   edit?: DashboardCanvasEdit;
+  // Blocks run themselves, for hosts with no dashboard header
+  selfUpdate?: boolean;
 }
 
 const noop = () => undefined;
@@ -168,6 +170,7 @@ export default function DashboardCanvas({
   setBlock,
   mutate = noop,
   edit,
+  selfUpdate = false,
 }: Props) {
   const isEditing = edit?.isEditing ?? false;
   const canEdit = edit?.canEdit ?? false;
@@ -246,6 +249,7 @@ export default function DashboardCanvas({
         canEdit={canEdit}
         setIsEditing={setIsEditing}
         enterEditModeForBlock={enterEditModeForBlock}
+        selfUpdate={selfUpdate}
       />
     );
   };

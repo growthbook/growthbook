@@ -1,13 +1,6 @@
 import { Flex } from "@radix-ui/themes";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { ReactNode, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
@@ -22,28 +15,18 @@ import {
   getComparisonAlignmentStrategy,
   computeExplorationComparisonPayload,
   DashboardBlockInterfaceOrData,
-  withRequestedDisplayConfig,
-  buildComparisonExplorationConfig,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
-import { createPortal } from "react-dom";
 import { isEqual } from "lodash";
 import {
   ComparisonMode,
   ExplorationConfig,
   ExplorationDateRange,
-  ProductAnalyticsExploration,
 } from "shared/validators";
-import { QueryInterface } from "shared/types/query";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import useApi from "@/hooks/useApi";
-import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useExploreData } from "@/enterprise/components/ProductAnalytics/useExploreData";
-import {
-  explorationPollDelayMs,
-  isTableChartType,
-} from "@/enterprise/components/ProductAnalytics/util";
+import { isTableChartType } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
@@ -53,343 +36,283 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
+import {
+  Loaded,
+  TileResult,
+  pollDelayForExploration,
+  useTileResult,
+} from "./useTileResult";
 import { BlockProps } from ".";
 
-// Poll interval for a tile's exploration: back off while it's still running,
-// stop (0) once it's terminal (success/error) or absent.
-function pollDelayForExploration(
-  exploration: ProductAnalyticsExploration | undefined | null,
-): number {
-  if (exploration?.status !== "running") return 0;
-  const started = exploration.runStarted
-    ? new Date(exploration.runStarted).getTime()
-    : Date.now();
-  return explorationPollDelayMs(Math.floor((Date.now() - started) / 1000));
-}
+type ExplorationBlockInterface =
+  | MetricExplorationBlockInterface
+  | FactTableExplorationBlockInterface
+  | DataSourceExplorationBlockInterface
+  | SqlExplorationBlockInterface
+  | FunnelExplorationBlockInterface;
 
-// True when blocks render without the dashboard header and its Update button,
-// so each tile offers its own.
-export const DashboardHeaderlessContext = createContext(false);
-
-// The block's title row, where a tile can put an action without taking
-// height from its chart.
-export const BlockHeaderActionSlotContext = createContext<HTMLElement | null>(
-  null,
-);
-
-type TileComparison = {
-  previousTimeFrame: ExplorationDateRange;
+type TileSettings = {
+  block: DashboardBlockInterfaceOrData<ExplorationBlockInterface>;
+  // The block's config, with the dashboard's dates when it follows them
+  config: ExplorationConfig | null;
+  compareEnabled: boolean;
   comparisonMode: ComparisonMode;
+  usesDashboardDateRange: boolean;
 };
-
-// Runs a tile from its own config, with its comparison period when it has one.
-// With checkCache, the first load reads cached results, which only needs read
-// access. run() queries the warehouse. Either one stores the exploration ids,
-// and the tile's useApi requests poll them like saved ones.
-function useTileRun(
-  config: ExplorationConfig | null,
-  comparison: TileComparison | null,
-  checkCache: boolean,
-) {
-  const { apiCall } = useAuth();
-  const { fetchData } = useExploreData();
-  // Both change whenever the sign-in token refreshes, and that shouldn't
-  // reset the tile, so requests read them through refs.
-  const apiCallRef = useRef(apiCall);
-  const fetchDataRef = useRef(fetchData);
-  useEffect(() => {
-    apiCallRef.current = apiCall;
-    fetchDataRef.current = fetchData;
-  }, [apiCall, fetchData]);
-  const [ids, setIds] = useState<{
-    exploration: string;
-    comparison: string | null;
-    // Set when the comparison failed but the primary result came back
-    comparisonError: string | null;
-  } | null>(null);
-  // Starts true so the empty state doesn't flash before the cache check
-  const [loading, setLoading] = useState(config !== null && checkCache);
-  const [error, setError] = useState<string | null>(null);
-  // Callers may rebuild an equal config every render
-  const key = config ? JSON.stringify({ config, comparison }) : null;
-
-  // The key the latest request belongs to; null once unmounted.
-  const latestKey = useRef<string | null>(null);
-
-  const readCache = useCallback(async () => {
-    if (!key) return;
-    const request: {
-      config: ExplorationConfig;
-      comparison: TileComparison | null;
-    } = JSON.parse(key);
-    setLoading(true);
-    // Stays silent: a block that isn't set up yet fails the check, and that
-    // should read as no results, not an error.
-    const readId = (config: ExplorationConfig) =>
-      apiCallRef
-        .current<{ exploration: ProductAnalyticsExploration | null }>(
-          "/product-analytics/cached",
-          { method: "POST", body: JSON.stringify({ config }) },
-        )
-        .then((res) => res.exploration?.id ?? null)
-        .catch(() => null);
-    const [id, comparisonId] = await Promise.all([
-      readId(request.config),
-      request.comparison
-        ? readId(
-            buildComparisonExplorationConfig(
-              request.config,
-              request.comparison.previousTimeFrame,
-            ),
-          )
-        : null,
-    ]);
-    // The config changed while this ran, so the result is for an old config.
-    if (latestKey.current !== key) return;
-    if (id) {
-      setIds({
-        exploration: id,
-        comparison: comparisonId,
-        comparisonError: null,
-      });
-    }
-    setLoading(false);
-  }, [key]);
-
-  const run = useCallback(async () => {
-    if (!key) return;
-    const request: {
-      config: ExplorationConfig;
-      comparison: TileComparison | null;
-    } = JSON.parse(key);
-    setError(null);
-    setLoading(true);
-    const result = await fetchDataRef.current(request.config, {
-      cache: "preferred",
-      previousTimeFrame: request.comparison?.previousTimeFrame ?? null,
-      comparisonMode: request.comparison?.comparisonMode ?? null,
-    });
-    if (latestKey.current !== key) return;
-    if (result.data?.id) {
-      setIds({
-        exploration: result.data.id,
-        comparison: result.comparison?.exploration?.id ?? null,
-        comparisonError: result.comparison?.error ?? null,
-      });
-    } else if (result.error) setError(result.error);
-    setLoading(false);
-  }, [key]);
-
-  useEffect(() => {
-    latestKey.current = key;
-    setIds(null);
-    setError(null);
-    if (checkCache) readCache();
-    else setLoading(false);
-    return () => {
-      latestKey.current = null;
-    };
-  }, [key, checkCache, readCache]);
-
-  return {
-    explorationId: ids?.exploration ?? null,
-    comparisonExplorationId: ids?.comparison ?? null,
-    comparisonError: ids?.comparisonError ?? null,
-    loading,
-    error,
-    run,
-  };
-}
 
 export default function ProductAnalyticsExplorerBlock({
   block,
   dashboardGlobalControls,
   dashboardComparison,
-  isEditing,
-}: BlockProps<
-  | MetricExplorationBlockInterface
-  | FactTableExplorationBlockInterface
-  | DataSourceExplorationBlockInterface
-  | SqlExplorationBlockInterface
-  | FunnelExplorationBlockInterface
->) {
-  return (
-    <ProductAnalyticsExplorerVisualization
-      block={block}
-      dashboardGlobalControls={dashboardGlobalControls}
-      dashboardComparison={dashboardComparison}
-      isEditing={isEditing}
-    />
-  );
-}
-
-export function ProductAnalyticsExplorerVisualization({
-  block,
-  dashboardGlobalControls,
-  dashboardComparison,
-  isEditing = false,
-}: {
-  block: DashboardBlockInterfaceOrData<
-    | MetricExplorationBlockInterface
-    | FactTableExplorationBlockInterface
-    | DataSourceExplorationBlockInterface
-    | SqlExplorationBlockInterface
-    | FunnelExplorationBlockInterface
-  >;
-  dashboardGlobalControls?: BlockProps<SqlExplorationBlockInterface>["dashboardGlobalControls"];
-  dashboardComparison?: BlockProps<SqlExplorationBlockInterface>["dashboardComparison"];
-  isEditing?: boolean;
-}) {
-  const { getFactMetricById, getDatasourceById } = useDefinitions();
-  const permissionsUtil = usePermissionsUtil();
-  const headerless = useContext(DashboardHeaderlessContext);
-  const headerActionSlot = useContext(BlockHeaderActionSlotContext);
+  selfUpdate = false,
+  headerActionSlot = null,
+}: BlockProps<ExplorationBlockInterface>) {
   const dateControlledBlock = blockUsesDashboardDateControl(block)
     ? block
     : null;
-  // The tile runs itself when nothing else will: a block with no stored
-  // result, or any block shown without the dashboard header. While editing,
-  // the sidebar runs the block. A block that follows the dashboard date
-  // control runs with the dashboard's dates, or its result would read as stale.
-  const runConfig = useMemo(
-    () =>
-      isEditing || !block.config || (block.explorerAnalysisId && !headerless)
-        ? null
-        : dashboardGlobalControls && dateControlledBlock
-          ? getEffectiveExplorationConfig(dateControlledBlock, {
-              globalControls: dashboardGlobalControls,
-            })
-          : block.config,
-    [
-      isEditing,
-      block.config,
-      block.explorerAnalysisId,
-      headerless,
-      dashboardGlobalControls,
-      dateControlledBlock,
-    ],
-  );
-  const runDatasource = runConfig
-    ? getDatasourceById(runConfig.datasource)
-    : null;
-  const canRun =
-    !!runConfig &&
-    !!runDatasource &&
-    permissionsUtil.canRunProductAnalyticsExplorationQueries(
-      runDatasource,
-      runConfig.type,
-    );
-  // Pass the dashboard, or a dashboard-wide comparison renders as primary-only.
-  // The previous-period exploration is a separate entity produced on refresh.
-  const comparison = resolveBlockComparison(block, {
-    comparison: dashboardComparison,
-  });
-  const compareEnabled = !!comparison?.enabled;
-  const comparisonMode = comparison
-    ? resolveComparisonMode(comparison)
-    : "previousPeriod";
-  // The tile runs the comparison period too, so its trends match the dates
-  // it ran with.
-  const tileComparison = useMemo(
-    () =>
-      runConfig && comparison?.enabled
-        ? {
-            previousTimeFrame: resolveComparisonPreviousTimeFrame(
-              runConfig.dateRange,
-              comparison,
-            ),
-            comparisonMode,
-          }
-        : null,
-    [runConfig, comparison, comparisonMode],
-  );
-  const tileRun = useTileRun(
-    runConfig,
-    tileComparison,
-    !block.explorerAnalysisId,
-  );
-  // A result the tile ran replaces the stored one, comparison included.
-  const explorationId = tileRun.explorationId || block.explorerAnalysisId;
-  const comparisonExplorationId = tileRun.explorationId
-    ? tileRun.comparisonExplorationId
-    : block.comparisonExplorerAnalysisId;
-  const { data, error, isLoading } = useApi<{
-    status: number;
-    exploration: ProductAnalyticsExploration;
-    query: QueryInterface | null;
-  }>(`/product-analytics/exploration/${explorationId}`, {
-    shouldRun: () => !!explorationId,
-    // A tile's exploration can be returned still "running" (a refresh query
-    // that exceeded the ~5s sync budget keeps executing server-side). Poll on
-    // a backoff until it reaches a terminal state; 0 stops the interval.
-    refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
-  });
-  // A cache hit can have dates that only overlap the ones the tile asked for,
-  // and reading it by id returns the stored dates. Show it with the requested
-  // dates, as /product-analytics/run does, so it doesn't read as stale.
-  const fetchedExploration = data?.exploration;
-  const exploration = useMemo(
-    () =>
-      fetchedExploration && tileRun.explorationId && runConfig
-        ? withRequestedDisplayConfig(fetchedExploration, runConfig)
-        : fetchedExploration,
-    [fetchedExploration, tileRun.explorationId, runConfig],
-  );
-
-  const { data: comparisonData } = useApi<{
-    status: number;
-    exploration: ProductAnalyticsExploration;
-    query: QueryInterface | null;
-  }>(`/product-analytics/exploration/${comparisonExplorationId}`, {
-    shouldRun: () => compareEnabled && !!comparisonExplorationId,
-    refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
-  });
-  const rawComparisonExploration = comparisonData?.exploration ?? null;
-  // The resolved previous window lives on the comparison exploration's config.
-  // A cache hit keeps its stored dates, so a tile run uses the window it asked
-  // for.
-  const submittedPreviousTimeFrame =
-    tileRun.explorationId && tileComparison
-      ? tileComparison.previousTimeFrame
-      : (rawComparisonExploration?.config?.dateRange ?? null);
-
-  // Dashboard blocks fetch the saved primary + previous explorations directly,
-  // bypassing POST /product-analytics/run — where the live Explorer builds its
-  // comparison payload via computeExplorationComparisonPayload (densified rows +
-  // trends). Recreate that payload here with the same shared helper so the
-  // dashboard matches the Explorer: empty previous periods densify to zeros
-  // instead of triggering the "no data, nothing to compare" message, and
-  // big-number / table trends are computed identically.
-  const submittedConfig = useMemo(
+  const config = useMemo(
     () =>
       block.config && dashboardGlobalControls && dateControlledBlock
         ? getEffectiveExplorationConfig(dateControlledBlock, {
             globalControls: dashboardGlobalControls,
           })
-        : (block.config ?? exploration?.config ?? null),
-    [
-      block.config,
-      dashboardGlobalControls,
-      exploration?.config,
-      dateControlledBlock,
-    ],
+        : (block.config ?? null),
+    [block.config, dashboardGlobalControls, dateControlledBlock],
   );
+  // Pass the dashboard, or a dashboard-wide comparison renders as primary-only.
+  // The previous-period exploration is a separate entity produced on refresh.
+  const comparison = resolveBlockComparison(block, {
+    comparison: dashboardComparison,
+  });
+  const settings: TileSettings = {
+    block,
+    config,
+    compareEnabled: !!comparison?.enabled,
+    comparisonMode: comparison
+      ? resolveComparisonMode(comparison)
+      : "previousPeriod",
+    // A block only tracks the dashboard date control when it hasn't opted out.
+    usesDashboardDateRange:
+      !!dateControlledBlock && Boolean(dashboardGlobalControls?.dateRange),
+  };
+
+  if (selfUpdate && config) {
+    return (
+      <SelfUpdatingTile
+        settings={settings}
+        config={config}
+        previousTimeFrame={
+          comparison?.enabled
+            ? resolveComparisonPreviousTimeFrame(config.dateRange, comparison)
+            : null
+        }
+        headerActionSlot={headerActionSlot}
+      />
+    );
+  }
+  return <StoredTile settings={settings} />;
+}
+
+function TilePrompt({
+  status = "info",
+  children,
+}: {
+  status?: "info" | "warning" | "error";
+  children: ReactNode;
+}) {
+  return (
+    <Flex direction="column" align="center" p="4">
+      <Callout status={status} contentAlign="center">
+        {children}
+      </Callout>
+    </Flex>
+  );
+}
+
+// Shows the result stored on the block, which the dashboard header's Update
+// writes.
+function StoredTile({ settings }: { settings: TileSettings }) {
+  const { block, compareEnabled } = settings;
+  const { data, error, isLoading } = useApi<{ status: number } & Loaded>(
+    `/product-analytics/exploration/${block.explorerAnalysisId}`,
+    {
+      shouldRun: () => !!block.explorerAnalysisId,
+      // A tile's exploration can be returned still "running" (a refresh query
+      // that exceeded the ~5s sync budget keeps executing server-side). Poll on
+      // a backoff until it reaches a terminal state; 0 stops the interval.
+      refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
+    },
+  );
+  const { data: comparisonData } = useApi<{ status: number } & Loaded>(
+    `/product-analytics/exploration/${block.comparisonExplorerAnalysisId}`,
+    {
+      shouldRun: () => compareEnabled && !!block.comparisonExplorerAnalysisId,
+      refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
+    },
+  );
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+  return (
+    <TileBody
+      settings={settings}
+      result={{
+        exploration: data?.exploration ?? null,
+        query: data?.query ?? null,
+        comparison: comparisonData?.exploration ?? null,
+        comparisonError: null,
+      }}
+      loadError={error?.message ?? null}
+      emptyState={
+        <TilePrompt>
+          Click <strong>Update</strong> to generate the necessary data.
+        </TilePrompt>
+      }
+      staleState={
+        <TilePrompt>
+          Global controls changed. Click <strong>Update</strong> to refresh this
+          block.
+        </TilePrompt>
+      }
+    />
+  );
+}
+
+// Starts from the stored result, or from the cache for a block that was never
+// saved, and offers its own Update in the block's title row.
+function SelfUpdatingTile({
+  settings,
+  config,
+  previousTimeFrame,
+  headerActionSlot,
+}: {
+  settings: TileSettings;
+  config: ExplorationConfig;
+  previousTimeFrame: ExplorationDateRange | null;
+  headerActionSlot: HTMLElement | null;
+}) {
+  const { block, comparisonMode } = settings;
+  const { getDatasourceById } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
+  const datasource = getDatasourceById(config.datasource);
+  const canRun =
+    !!datasource &&
+    permissionsUtil.canRunProductAnalyticsExplorationQueries(
+      datasource,
+      config.type,
+    );
+  const { state, run } = useTileResult({
+    config,
+    previousTimeFrame,
+    comparisonMode,
+    stored: block.explorerAnalysisId || null,
+    storedComparison: block.comparisonExplorerAnalysisId || null,
+  });
+
+  const needsRun = (message: string) => (
+    <TilePrompt status={datasource ? "info" : "warning"}>
+      {message}{" "}
+      {!datasource ? (
+        "The Data Source for this block can't be found."
+      ) : canRun ? (
+        <>
+          Click <strong>Update</strong> to run this block.
+        </>
+      ) : (
+        "Ask someone who can run queries on this Data Source to update it."
+      )}
+    </TilePrompt>
+  );
+
+  return (
+    <>
+      {canRun &&
+        headerActionSlot &&
+        createPortal(
+          <Flex mr="2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={run}
+              // Each tile has its own Update; name the block for screen
+              // readers, with the visible label first so voice control matches
+              aria-label={`Update: ${block.title || BLOCK_TYPE_INFO[block.type].name}`}
+            >
+              Update
+            </Button>
+          </Flex>,
+          headerActionSlot,
+        )}
+      {state.status === "loading" ? (
+        <LoadingSpinner />
+      ) : state.status === "error" ? (
+        isManagedWarehousePendingQueryError(state.error) ? (
+          <Flex justify="center" p="4">
+            <ManagedWarehouseNoEventsCallout size="sm" />
+          </Flex>
+        ) : (
+          <TilePrompt status="error">{state.error}</TilePrompt>
+        )
+      ) : (
+        <TileBody
+          settings={settings}
+          result={state.status === "ready" ? state.result : null}
+          loadError={null}
+          emptyState={needsRun("No results yet.")}
+          staleState={needsRun(
+            "The dashboard dates changed since this block last ran.",
+          )}
+        />
+      )}
+    </>
+  );
+}
+
+// Draws one exploration, with its comparison when the block compares periods.
+function TileBody({
+  settings,
+  result,
+  loadError,
+  emptyState,
+  staleState,
+}: {
+  settings: TileSettings;
+  result: TileResult | null;
+  loadError: string | null;
+  emptyState: ReactNode;
+  staleState: ReactNode;
+}) {
+  const { block, config, compareEnabled, comparisonMode } = settings;
+  const { getFactMetricById } = useDefinitions();
+  const exploration = result?.exploration ?? null;
+  const rawComparison = result?.comparison ?? null;
+  const submittedConfig = config ?? exploration?.config ?? null;
+  // The resolved previous window lives on the comparison exploration's config.
+  const submittedPreviousTimeFrame = rawComparison?.config?.dateRange ?? null;
   const submittedExplorationConfig = exploration?.config;
-  // A block only tracks the dashboard date control when it hasn't opted out.
-  const usesDashboardDateRange =
-    blockUsesDashboardDateControl(block) &&
-    Boolean(dashboardGlobalControls?.dateRange);
   const hasStaleDashboardDateResults = useMemo(
     () =>
-      usesDashboardDateRange &&
+      settings.usesDashboardDateRange &&
       submittedConfig !== null &&
       submittedExplorationConfig !== undefined &&
       !isEqual(
         getExplorationDateControlFingerprint(submittedConfig),
         getExplorationDateControlFingerprint(submittedExplorationConfig),
       ),
-    [usesDashboardDateRange, submittedConfig, submittedExplorationConfig],
+    [
+      settings.usesDashboardDateRange,
+      submittedConfig,
+      submittedExplorationConfig,
+    ],
   );
+  // Dashboard blocks fetch the primary + previous explorations directly,
+  // bypassing the Explorer, which builds its comparison payload via
+  // computeExplorationComparisonPayload (densified rows + trends). Recreate
+  // that payload here with the same shared helper so the dashboard matches the
+  // Explorer: empty previous periods densify to zeros instead of triggering the
+  // "no data, nothing to compare" message, and big-number / table trends are
+  // computed identically.
   const comparisonPayload = useMemo(() => {
     if (
       !compareEnabled ||
@@ -401,7 +324,7 @@ export function ProductAnalyticsExplorerVisualization({
     }
     return computeExplorationComparisonPayload(
       exploration,
-      rawComparisonExploration,
+      rawComparison,
       submittedConfig,
       submittedPreviousTimeFrame,
       (id) => getFactMetricById(id) ?? null,
@@ -410,144 +333,38 @@ export function ProductAnalyticsExplorerVisualization({
   }, [
     compareEnabled,
     exploration,
-    rawComparisonExploration,
+    rawComparison,
     submittedConfig,
     submittedPreviousTimeFrame,
     comparisonMode,
     getFactMetricById,
   ]);
-
   // Use the densified comparison exploration from the payload (matching the
   // Explorer) rather than the raw fetched one.
   const comparisonExploration = comparisonPayload?.exploration ?? null;
 
-  if (isLoading || tileRun.loading) {
-    return <LoadingSpinner />;
-  }
+  if (!exploration) return <>{emptyState}</>;
+  if (exploration.status === "running") return <LoadingSpinner />;
+  if (hasStaleDashboardDateResults) return <>{staleState}</>;
 
-  // Without the dashboard header, the tile offers its own Update button. With
-  // the header, its Update covers every block that has run, so the tile adds
-  // one only for a block with no stored result: the header can't run that
-  // block's first result, and its button is disabled when nothing has run.
-  const tileUpdates = !!runConfig && (headerless || !block.explorerAnalysisId);
-  // Name the scope when the header's Update is also shown
-  const updateLabel = headerless ? "Update" : "Update block";
-  const updateButton = canRun ? (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={tileRun.run}
-      // Several tiles each have an Update; name the block for screen readers,
-      // keeping the visible label first so voice control still matches it
-      aria-label={`${updateLabel}: ${block.title || BLOCK_TYPE_INFO[block.type].name}`}
-    >
-      {updateLabel}
-    </Button>
-  ) : undefined;
-  const updatePrompt = (message: string, status: "info" | "error" = "info") => {
-    // A managed warehouse with no events yet gets the Explorer's onboarding
-    // message, with Update kept so the tile can retry once events arrive.
-    const failure = tileRun.error ?? (status === "error" ? message : null);
-    if (failure && isManagedWarehousePendingQueryError(failure)) {
-      return (
-        <Flex direction="column" align="center" gap="3" p="4">
-          <ManagedWarehouseNoEventsCallout size="sm" action={updateButton} />
-        </Flex>
-      );
-    }
-    const [calloutStatus, text] = tileRun.error
-      ? (["error", tileRun.error] as const)
-      : !runDatasource
-        ? ([
-            "warning",
-            `${message} The Data Source for this block can't be found.`,
-          ] as const)
-        : canRun
-          ? ([status, message] as const)
-          : ([
-              status,
-              `${message} Ask someone who can run queries on this Data Source to update it.`,
-            ] as const);
-    return (
-      <Flex direction="column" align="center" gap="3" p="4">
-        <Callout
-          status={calloutStatus}
-          contentAlign="center"
-          action={updateButton}
-        >
-          {text}
-        </Callout>
-      </Flex>
-    );
-  };
-
-  if (tileUpdates && !explorationId) {
-    return updatePrompt("No results yet.");
-  }
-
-  if (!exploration) {
-    if (tileUpdates) return updatePrompt("No results yet.");
-    return (
-      <Flex direction="column" align="center" gap="3" p="4">
-        <Callout status="info">
-          Click <strong>Update</strong> to generate the necessary data.
-        </Callout>
-      </Flex>
-    );
-  }
-
-  if (exploration.status === "running") {
-    return <LoadingSpinner />;
-  }
-
-  // Keep Update available so a failed run can be retried in place.
-  if (tileUpdates && exploration.status === "error") {
-    return updatePrompt(
-      exploration.error || "This block's query failed.",
-      "error",
-    );
-  }
-
-  if (hasStaleDashboardDateResults) {
-    if (tileUpdates) {
-      return updatePrompt(
-        "The dashboard dates changed since this block last ran.",
-      );
-    }
-    return (
-      <Flex direction="column" align="center" gap="3" p="4">
-        <Callout status="info">
-          Global controls changed. Click <strong>Update</strong> to refresh this
-          block.
-        </Callout>
-      </Flex>
-    );
-  }
-
-  const shouldShowTable = isTableChartType(block.config?.chartType);
-
+  const error = exploration.error || loadError || null;
   return (
     <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>
-      {/* Keep Update reachable after a success: no header may be there to refresh it */}
-      {tileUpdates &&
-        updateButton &&
-        headerActionSlot &&
-        createPortal(<Flex mr="2">{updateButton}</Flex>, headerActionSlot)}
-      {compareEnabled && tileRun.comparisonError && (
-        <ComparisonErrorCallout error={tileRun.comparisonError} />
+      {compareEnabled && result?.comparisonError && (
+        <ComparisonErrorCallout error={result.comparisonError} />
       )}
-      {shouldShowTable ? (
+      {isTableChartType(block.config?.chartType) ? (
         <ExplorerDataTable
           exploration={exploration}
           comparisonExploration={comparisonExploration}
           compareEnabled={compareEnabled}
           comparisonMode={compareEnabled ? comparisonMode : null}
           serverTableTrendsByRow={comparisonPayload?.tableTrendsByRow ?? null}
-          error={exploration.error ?? error?.message ?? null}
+          error={error}
           submittedExploreState={submittedConfig ?? exploration.config}
-          loading={isLoading}
+          loading={false}
           hasChart={false}
-          query={data?.query ?? null}
+          query={result?.query ?? null}
         />
       ) : (
         <ExplorerChart
@@ -557,8 +374,8 @@ export function ProductAnalyticsExplorerVisualization({
           submittedPreviousTimeFrame={submittedPreviousTimeFrame}
           submittedComparisonMode={compareEnabled ? comparisonMode : null}
           serverBigNumberTrends={comparisonPayload?.bigNumberTrends ?? null}
-          error={exploration.error || error?.message || null}
-          loading={isLoading}
+          error={error}
+          loading={false}
           submittedExploreState={submittedConfig ?? exploration.config}
         />
       )}

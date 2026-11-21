@@ -10,7 +10,6 @@ import {
 } from "shared/enterprise";
 import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardCanvas from "@/enterprise/components/Dashboards/DashboardEditor/DashboardCanvas";
-import { DashboardHeaderlessContext } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ProductAnalyticsExplorerBlock";
 
 // Blocks that load their own data. Every other type reads stored results
 // that only a saved dashboard can look up.
@@ -37,15 +36,15 @@ export default function DashboardView(
       dashboard={dashboard}
       mutateDefinitions={() => undefined}
     >
-      <DashboardHeaderlessContext.Provider value>
-        <DashboardCanvas
-          isTabActive
-          isGeneralDashboard
-          blocks={blocks}
-          globalControls={dashboard?.globalControls}
-          dashboardComparison={dashboard?.comparison}
-        />
-      </DashboardHeaderlessContext.Provider>
+      <DashboardCanvas
+        isTabActive
+        // An empty experimentId marks a general dashboard
+        isGeneralDashboard={!dashboard?.experimentId}
+        blocks={blocks}
+        globalControls={dashboard?.globalControls}
+        dashboardComparison={dashboard?.comparison}
+        selfUpdate
+      />
     </DashboardSnapshotProvider>
   );
 }

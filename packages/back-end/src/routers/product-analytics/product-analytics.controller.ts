@@ -314,6 +314,7 @@ export const postProductAnalyticsCached = async (
   res: Response<{
     status: 200;
     exploration: ProductAnalyticsExploration | null;
+    query: QueryInterface | null;
   }>,
 ) => {
   const context = getContextFromReq(req);
@@ -324,7 +325,10 @@ export const postProductAnalyticsCached = async (
     config,
     savedPopulation,
   );
-  return res.status(200).json({ status: 200, exploration });
+  // The tile renders this result as is; its table shows the query's SQL
+  const queryId = exploration?.queries?.[0]?.query;
+  const query = queryId ? await getQueryById(context, queryId) : null;
+  return res.status(200).json({ status: 200, exploration, query });
 };
 
 export const getExplorationById = async (
