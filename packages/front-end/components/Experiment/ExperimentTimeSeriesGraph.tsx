@@ -36,6 +36,7 @@ export interface DataPointVariation {
   subUnits?: number;
   up?: number; // uplift
   p?: number; // p-value
+  pIsAdjusted?: boolean; // points saved before corrections were stored are not
   ctw?: number; // chance to win
   ci?: [number, number]; // confidence interval
   className?: string; // won/lost/draw class
@@ -159,7 +160,8 @@ const getTooltipContents = (
   const showAdjustmentNote =
     usesPValueAdjustment &&
     statsEngine === "frequentist" &&
-    usedStatsEngine === "frequentist";
+    usedStatsEngine === "frequentist" &&
+    !d.variations?.some((v) => v?.pIsAdjusted);
 
   const hasOneSidedCiInTooltip = d.variations?.some(
     (v, i) =>

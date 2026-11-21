@@ -345,8 +345,6 @@ describe("one adjustment's impact", () => {
   });
 
   describe("with a multiple-testing correction", () => {
-    // Two goal metrics, one variation, Holm-Bonferroni. For the metric under
-    // test the corrected p-value is twice the raw one.
     const primary = {
       lift: 0.05,
       standardError: 0.02,
@@ -355,47 +353,23 @@ describe("one adjustment's impact", () => {
     };
     // Raw 0.03 is significant, but corrected to 0.06 it is not.
     const uncapped = { lift: 0.035, standardError: 0.025, pValue: 0.03 };
-    const other = { lift: 0.01, standardError: 0.02, pValue: 0.5 };
-
-    const metricResults = makeMetricResults([
-      makeVariation(primary, { uncapped }),
-    ]);
-    const args = {
-      ...commonArgs,
-      metricResults,
-      field: "uncapped" as const,
-      pValueCorrection: "holm-bonferroni" as const,
-    };
-
-    it("compares corrected with corrected across the goal metrics", () => {
-      const otherMetricResults = makeMetricResults(
-        [makeVariation({ ...other, pValueAdjusted: 0.5 }, { uncapped: other })],
-        "other",
-      );
-      const result = impactFor({
-        ...args,
-        goalMetrics: [metricResults, otherMetricResults],
+    const classifyUncapped = (alternative: Result) =>
+      impactFor({
+        ...commonArgs,
+        metricResults: makeMetricResults([
+          makeVariation(primary, { uncapped: alternative }),
+        ]),
+        field: "uncapped",
       });
+
+    it("compares corrected with corrected", () => {
+      const result = classifyUncapped({ ...uncapped, pValueAdjusted: 0.06 });
       expect(result?.effectSize).toBe("large");
       expect(result?.significanceChanged).toBe(true);
     });
 
-    it("keeps a goal metric's own p-value when the adjustment does not apply to it", () => {
-      // The other metric is not capped, so it has no uncapped result.
-      const otherMetricResults = makeMetricResults(
-        [makeVariation({ ...other, pValueAdjusted: 0.5 }, {})],
-        "other",
-      );
-      const result = impactFor({
-        ...args,
-        goalMetrics: [metricResults, otherMetricResults],
-      });
-      expect(result?.effectSize).toBe("large");
-      expect(result?.significanceChanged).toBe(true);
-    });
-
-    it("skips the significance comparison without the goal metrics", () => {
-      const result = impactFor(args);
+    it("skips the significance comparison when the other result has no corrected p-value", () => {
+      const result = classifyUncapped(uncapped);
       expect(result?.effectSize).toBe("moderate");
       expect(result?.significanceChanged).toBe(false);
     });
@@ -532,8 +506,6 @@ describe("settings from the feature flag", () => {
 });
 
 describe("getSupplementalVariations", () => {
-  // The displayed (capped) result carries Holm-Bonferroni-corrected values
-  // over two goal metrics; the uncapped result comes straight from the engine.
   const primary = {
     lift: 0.05,
     standardError: 0.02,
@@ -548,40 +520,31 @@ describe("getSupplementalVariations", () => {
     pValue: 0.03,
     ci: [0.003, 0.067] as [number, number],
   };
-  const other = { lift: 0.01, standardError: 0.02, pValue: 0.5 };
+
+  it("uses the corrected p-value and interval stored on the result without the adjustment", () => {
+    const [, variation] = getSupplementalVariations({
+      metricResults: makeMetricResults([
+        makeVariation(primary, {
+          uncapped: {
+            ...uncapped,
+            pValueAdjusted: 0.06,
+            ciAdjusted: [-0.002, 0.072],
+          },
+        }),
+      ]),
+      field: "uncapped",
+    });
+    expect(variation.expected).toBe(0.035);
+    expect(variation.pValueAdjusted).toBe(0.06);
+    expect(variation.ciAdjusted).toEqual([-0.002, 0.072]);
+  });
 
   const metricResults = makeMetricResults([
     makeVariation(primary, { uncapped }),
   ]);
-  const otherMetricResults = makeMetricResults(
-    [makeVariation({ ...other, pValueAdjusted: 0.5 }, {})],
-    "other",
-  );
-  const args = {
-    metricResults,
-    field: "uncapped" as const,
-    statsEngine: "frequentist" as const,
-    pValueThreshold: 0.05,
-  };
+  const args = { metricResults, field: "uncapped" as const };
 
-  it("recomputes the corrected p-value and interval for the result without the adjustment", () => {
-    const [, variation] = getSupplementalVariations({
-      ...args,
-      goalMetrics: [metricResults, otherMetricResults],
-      pValueCorrection: "holm-bonferroni",
-    });
-    expect(variation.expected).toBe(0.035);
-    // Twice the uncapped raw p-value, not the capped result's 0.04.
-    expect(variation.pValueAdjusted).toBeCloseTo(0.06);
-    // Centred on the uncapped lift, wider than its raw interval, and now
-    // crossing zero to match the corrected p-value.
-    const [lower, upper] = variation.ciAdjusted ?? [NaN, NaN];
-    expect((lower + upper) / 2).toBeCloseTo(0.035);
-    expect(lower).toBeLessThan(0);
-    expect(upper).toBeGreaterThan(0.067);
-  });
-
-  it("drops the displayed result's corrected values when they cannot be recomputed", () => {
+  it("drops the displayed result's corrected values when the other result has none", () => {
     const [, variation] = getSupplementalVariations(args);
     expect(variation.expected).toBe(0.035);
     expect(variation.pValue).toBe(0.03);

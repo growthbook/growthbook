@@ -12,6 +12,7 @@ import {
   expandMetricGroups,
   getAllVariations,
   getLatestPhaseVariations,
+  getAnalysisPValueCorrection,
 } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -502,7 +503,10 @@ const Presentation = ({
                 metricOverrides={experiment.metricOverrides ?? []}
                 id={experiment.id}
                 statsEngine={snapshot?.analyses?.[0]?.settings?.statsEngine}
-                pValueCorrection={orgSettings?.pValueCorrection}
+                pValueCorrection={getAnalysisPValueCorrection(
+                  snapshot?.analyses?.[0],
+                  orgSettings?.pValueCorrection,
+                )}
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={
                   snapshot?.analyses?.[0]?.settings?.sequentialTesting

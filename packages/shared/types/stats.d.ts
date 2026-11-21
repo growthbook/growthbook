@@ -92,10 +92,15 @@ export interface FrequentistVariationResponseIndividual
   power?: MetricPowerResponseFromStatsEngine;
 }
 
-type SupplementalResult =
+type SupplementalResult = (
   | BaselineResponse
   | BayesianVariationResponseIndividual
-  | FrequentistVariationResponseIndividual;
+  | FrequentistVariationResponseIndividual
+) & {
+  // Not from gbstats: set by the back-end once the stats engine returns.
+  pValueAdjusted?: number;
+  ciAdjusted?: [number, number];
+};
 
 export interface SupplementalResults {
   cupedUnadjusted?: SupplementalResult;

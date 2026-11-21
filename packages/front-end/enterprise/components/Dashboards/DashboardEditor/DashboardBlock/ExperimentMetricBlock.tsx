@@ -11,6 +11,7 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getAnalysisPValueCorrection,
 } from "shared/experiments";
 import { SignificanceThresholds } from "shared/types/stats";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -56,8 +57,10 @@ export default function ExperimentMetricBlock({
   const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
   const statsEngine = analysis.settings.statsEngine;
-  const pValueCorrection =
-    ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
+  const pValueCorrection = getAnalysisPValueCorrection(
+    analysis,
+    ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection,
+  );
   const sequentialTestingEnabled = analysis?.settings?.sequentialTesting;
 
   const _confidenceLevels = useConfidenceLevels(experiment.project);
@@ -133,8 +136,6 @@ export default function ExperimentMetricBlock({
     metricTagFilter: blockMetricTagFilter,
     metricsFilter: blockMetricIds,
     sliceTagsFilter: blockSliceTagsFilter,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
@@ -145,7 +146,6 @@ export default function ExperimentMetricBlock({
       blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds
         : undefined,
-    pValueThreshold,
   });
 
   // Filter rows based on expansion state when there's no slice filter

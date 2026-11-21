@@ -9,6 +9,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getAnalysisPValueCorrection,
 } from "shared/experiments";
 import { SignificanceThresholds } from "shared/types/stats";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -76,9 +77,11 @@ export default function PublicExperimentResults({
     })) || [];
 
   const _orgSettings = useOrgSettings();
-  const pValueCorrection =
+  const pValueCorrection = getAnalysisPValueCorrection(
+    analysis,
     ssrPolyfills?.useOrgSettings?.()?.pValueCorrection ||
-    _orgSettings?.pValueCorrection;
+      _orgSettings?.pValueCorrection,
+  );
 
   const _confidenceLevels = useConfidenceLevels(experiment.project);
   const _pValueThreshold = usePValueThreshold(experiment.project);

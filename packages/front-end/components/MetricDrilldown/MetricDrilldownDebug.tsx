@@ -43,8 +43,6 @@ interface MetricDrilldownDebugProps {
   reportDate: Date;
   isLatestPhase: boolean;
   pValueCorrection?: PValueCorrection;
-  /** All non-slice goal rows, used to recompute family-wide adjusted p-values. */
-  goalRows?: ExperimentTableRow[];
   sequentialTestingEnabled?: boolean;
   experimentStatus?: ExperimentStatus;
 }
@@ -84,11 +82,6 @@ function getSupplementalMetricSnapshotSettings(
   }
 }
 
-type SupplementalRowSettings = Pick<
-  Parameters<typeof getSupplementalVariations>[0],
-  "statsEngine" | "pValueThreshold" | "goalMetrics" | "pValueCorrection"
->;
-
 /**
  * Create a ExperimentTableRow with data overridden by supplemental results
  */
@@ -96,13 +89,11 @@ function createSupplementalRow(
   baseRow: ExperimentTableRow,
   description: string,
   supplementalField: keyof NonNullable<SnapshotMetric["supplementalResults"]>,
-  settings: SupplementalRowSettings,
 ): ExperimentTableRow {
   return {
     ...baseRow,
     label: createRowLabel(description),
     variations: getSupplementalVariations({
-      ...settings,
       metricResults: baseRow,
       field: supplementalField,
     }),
@@ -132,7 +123,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   reportDate,
   isLatestPhase,
   pValueCorrection,
-  goalRows,
   sequentialTestingEnabled,
   experimentStatus,
 }) => {
@@ -184,16 +174,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   });
 
   const resolvedStatsEngine = statsEngine || DEFAULT_STATS_ENGINE;
-  const pValueThreshold = significanceThresholds.pValueThreshold;
-  const supplementalRowSettings = useMemo(
-    () => ({
-      statsEngine: resolvedStatsEngine,
-      pValueThreshold,
-      goalMetrics: goalRows,
-      pValueCorrection,
-    }),
-    [resolvedStatsEngine, pValueThreshold, goalRows, pValueCorrection],
-  );
 
   const varianceReductionRows = useMemo(() => {
     if (!row) return [];
@@ -242,7 +222,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             row,
             "CUPED Off, Post-stratification On",
             "cupedUnadjusted",
-            supplementalRowSettings,
           ),
         );
       }
@@ -253,7 +232,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             row,
             "CUPED On, Post-stratification Off",
             "unstratified",
-            supplementalRowSettings,
           ),
         );
       }
@@ -264,36 +242,23 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             row,
             "CUPED Off, Post-stratification Off",
             "noVarianceReduction",
-            supplementalRowSettings,
           ),
         );
       }
     } else if (cupedEnabled) {
       if (hasCupedUnadjusted) {
-        rows.push(
-          createSupplementalRow(
-            row,
-            "CUPED Off",
-            "cupedUnadjusted",
-            supplementalRowSettings,
-          ),
-        );
+        rows.push(createSupplementalRow(row, "CUPED Off", "cupedUnadjusted"));
       }
     } else if (postStratEnabled) {
       if (hasUnstratified) {
         rows.push(
-          createSupplementalRow(
-            row,
-            "Post-stratification Off",
-            "unstratified",
-            supplementalRowSettings,
-          ),
+          createSupplementalRow(row, "Post-stratification Off", "unstratified"),
         );
       }
     }
 
     return rows;
-  }, [row, supplementalRowSettings]);
+  }, [row]);
 
   const priorRows = useMemo(() => {
     if (!row) return [];
@@ -311,17 +276,10 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       label: createRowLabel("Proper Prior"),
     });
 
-    rows.push(
-      createSupplementalRow(
-        row,
-        "Flat Prior",
-        "flatPrior",
-        supplementalRowSettings,
-      ),
-    );
+    rows.push(createSupplementalRow(row, "Flat Prior", "flatPrior"));
 
     return rows;
-  }, [row, supplementalRowSettings]);
+  }, [row]);
 
   const cappingRows = useMemo(() => {
     if (!row) return [];
@@ -339,17 +297,10 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       label: createRowLabel("Capped"),
     });
 
-    rows.push(
-      createSupplementalRow(
-        row,
-        "Uncapped",
-        "uncapped",
-        supplementalRowSettings,
-      ),
-    );
+    rows.push(createSupplementalRow(row, "Uncapped", "uncapped"));
 
     return rows;
-  }, [row, supplementalRowSettings]);
+  }, [row]);
 
   const hasAnySupplementalData =
     varianceReductionRows.length > 0 ||
@@ -383,8 +334,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
           baselineRow={baselineRow}
           variationFilter={variationFilter}
           significanceThresholds={significanceThresholds}
-          goalRows={goalRows}
-          pValueCorrection={pValueCorrection}
           onAdjustmentClick={handleAdjustmentClick}
         />
       </Box>

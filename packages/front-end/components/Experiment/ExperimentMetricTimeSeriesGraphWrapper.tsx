@@ -101,6 +101,7 @@ function mapTimeSeriesPointToVariationCells({
       ctw: liftSlice?.chanceToWin ?? undefined,
       ci: adjustedCI ?? liftSlice?.ci ?? undefined,
       p: liftSlice?.pValueAdjusted ?? liftSlice?.pValue,
+      pIsAdjusted: pValueAdjusted !== undefined,
     };
   });
 }

@@ -425,7 +425,9 @@ function getExperimentSettingsHash(
     sequentialTestingTuningParameter:
       snapshotAnalysisSettings.sequentialTestingTuningParameter,
     baselineVariationIndex: snapshotAnalysisSettings.baselineVariationIndex,
-    pValueCorrection: snapshotAnalysisSettings.pValueCorrection,
+    // Absent when there is no correction, as it was before analyses recorded
+    // it, so that those experiments keep their hash.
+    pValueCorrection: snapshotAnalysisSettings.pValueCorrection ?? undefined,
   });
 }
 

@@ -12,6 +12,7 @@ import { parseEnvInt, putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
   eligibleForUncappedMetric,
+  enrichAnalysisResults,
   getFunnelStepMetrics,
   isBinomialMetric,
   isFactMetric,
@@ -127,7 +128,9 @@ export function getAnalysisSettingsForStatsEngine(
     baseline_index: settings.baselineVariationIndex ?? 0,
     dimension: settings.dimensions[0] || "",
     stats_engine: settings.statsEngine,
-    p_value_corrected: !!settings.pValueCorrection,
+    // Only mid-experiment power reads this, and it has never been set for an
+    // analysis that computes power.
+    p_value_corrected: false,
     sequential_testing_enabled: settings.sequentialTesting ?? false,
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
     difference_type: settings.differenceType,
@@ -584,7 +587,10 @@ export function parseStatsEngineResult({
   result: metricResults,
 }: {
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
-  snapshotSettings: Pick<ExperimentSnapshotSettings, "variations">;
+  snapshotSettings: Pick<
+    ExperimentSnapshotSettings,
+    "variations" | "goalMetrics"
+  >;
   queryResults: QueryResultsForStatsEngine[];
   unknownVariations: string[];
   result: ExperimentMetricAnalysis;
@@ -748,6 +754,11 @@ export function parseStatsEngineResult({
         }
       });
     }
+    enrichAnalysisResults({
+      results: dimensions,
+      analysisSettings: analysisSettings[analysisIndex],
+      snapshotSettings,
+    });
     experimentReportResults.push({
       multipleExposures,
       unknownVariations: Array.from(new Set(unknownVariationsCopy)),

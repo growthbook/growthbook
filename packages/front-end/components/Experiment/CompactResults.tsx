@@ -223,13 +223,10 @@ const CompactResults: FC<{
     sortBy,
     sortDirection,
     analysisBarSettings,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
-    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const expandedGoals = useMemo(

@@ -3,7 +3,10 @@ import {
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { getEffectiveLookbackOverride } from "shared/experiments";
+import {
+  getEffectiveLookbackOverride,
+  getAnalysisPValueCorrection,
+} from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -101,9 +104,11 @@ export default function ReportResults({
     })) || [];
 
   const _orgSettings = useOrgSettings();
-  const pValueCorrection =
+  const pValueCorrection = getAnalysisPValueCorrection(
+    analysis,
     ssrPolyfills?.useOrgSettings?.()?.pValueCorrection ||
-    _orgSettings?.pValueCorrection;
+      _orgSettings?.pValueCorrection,
+  );
 
   const _confidenceLevels = useConfidenceLevels(experiment?.project);
   const _pValueThreshold = usePValueThreshold(experiment?.project);
@@ -306,7 +311,7 @@ export default function ReportResults({
                 }
                 id={report.id}
                 statsEngine={analysis.settings.statsEngine}
-                pValueCorrection={pValueCorrection} // todo: bake this into snapshot or report
+                pValueCorrection={pValueCorrection}
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis.settings?.sequentialTesting}
                 differenceType={analysis.settings.differenceType}

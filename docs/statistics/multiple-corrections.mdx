@@ -45,7 +45,7 @@ You can set this for your organization in the Organization → Settings page, as
   <img src="/static/images/statistics/pvals-adjustment-org.png" alt="Org-level Multiple Testing Correction Settings" width="500" />
 </Frame>
 
-Once you make a selection, adjustments will happen on-the-fly in experiment results and reports. For now, these adjusted p-values are only available in the UI or in downloadable CSVs and not exportable via the API.
+Once you make a selection, adjustments are computed each time an experiment's results update and are saved with them, so a change to this setting applies the next time results update. For now, these adjusted p-values are only available in the UI or in downloadable CSVs and not exportable via the API.
 
 <Tip>
 **Adjusted p-values do not have directly analogous confidence intervals**
@@ -72,7 +72,7 @@ Therefore, in order to provide a reasonably powered approach that controls the F
 
 ### Defining a family of tests
 
-Controlling for multiple comparisons across all of the tests one can run in GrowthBook, even within the context of one experiment, is impractical and can be prohibitively costly in terms of statistical power. Instead, GrowthBook corrects across all Goal metrics, variations, (and dimension values, if available) in a particular result view.
+Controlling for multiple comparisons across all of the tests one can run in GrowthBook, even within the context of one experiment, is impractical and can be prohibitively costly in terms of statistical power. Instead, GrowthBook corrects across all Goal metrics, variations, (and dimension values, if available) in a particular result view. Filtering or hiding metrics in the results table does not change which tests are corrected together.
 
 <Tip>
 **Adjusted p-values are corrected using all Goal metrics**
@@ -91,6 +91,6 @@ On the _experiment results overall page_, we collect all tests across Goal metri
 
 #### Within dimensional slices
 
-If you look within dimensional slices, to account for the additional increase in tests from dimensional splits, we define the family of tests as all tests across all dimension groups, Goal metrics, and variations. This means for a 2-armed test, with 4 goal metrics, and a dimension with 3 levels, we correct across a total of 24 tests.
+If you look within dimensional slices, to account for the additional increase in tests from dimensional splits, we define the family of tests as all tests across all dimension groups, Goal metrics, and variations. This means for a 2-armed test (one comparison against the baseline), with 4 goal metrics, and a dimension with 3 levels, we correct across a total of 12 tests.
 
-These dimension results are corrected independently from the overall results.
+These dimension results are corrected independently from the overall results. Results broken down by date are not corrected.

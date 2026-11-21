@@ -6,11 +6,8 @@ import {
   isMetricGroupId,
   resolveSnapshotMetricIds,
   resolveSnapshotVariation,
-  setAdjustedCIs,
-  setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { getExperimentTotalUnitsFromHealth } from "shared/health";
-import cloneDeep from "lodash/cloneDeep";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import type { ExperimentStoppedGoalMetric } from "shared/validators";
@@ -101,18 +98,9 @@ export async function getStoppedGoalMetricResults(
     const [resultId] = resolvedGoalIds;
     const metric = getMetric(goalId);
 
-    // Judge significance the way the results table does: correct the
-    // p-values across the goal metrics and widen the CIs before comparing.
-    const results = cloneDeep(analysis.results);
     const pValueThreshold =
       analysis.settings.pValueThreshold ?? significance.pValueThreshold;
-    setAdjustedPValuesOnResults(
-      results,
-      resolvedGoalIds,
-      significance.pValueCorrection,
-    );
-    setAdjustedCIs(results, pValueThreshold);
-    const dim = results[0];
+    const dim = analysis.results[0];
 
     // Result columns follow the snapshot's variation keys, not the
     // experiment's current order.
