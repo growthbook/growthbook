@@ -14,7 +14,7 @@ export const getDataSource = createApiRequestHandler(getDataSourceValidator)(
     }
 
     return {
-      dataSource: toDataSourceApiInterface(dataSource),
+      dataSource: toDataSourceApiInterface(req.context, dataSource),
     };
   },
 );

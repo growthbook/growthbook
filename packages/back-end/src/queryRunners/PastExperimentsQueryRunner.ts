@@ -1,9 +1,10 @@
 import { getValidDate } from "shared/dates";
 import {
   getExposureQueryIdentifierTypes,
+  getExposureQueryProjects,
   getPastExperimentQueryName,
 } from "shared/util";
-import { ExposureQuery } from "shared/types/datasource";
+import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import {
   PastExperimentParams,
   PastExperimentResponseRows,
@@ -171,6 +172,25 @@ export function withCountedIdentifierTypes(
       ? { ...e, identifierType: query.userIdType }
       : e;
   });
+}
+
+/**
+ * A record holds every assignment query's rows, so only rows from queries
+ * still on the data source whose projects the user can read are shown.
+ */
+export function getReadablePastExperiments(
+  experiments: PastExperiment[],
+  datasource: Pick<DataSourceInterface, "projects" | "settings">,
+  canReadProjects: (projects: string[]) => boolean,
+): PastExperiment[] {
+  const readable = new Set(
+    (datasource.settings?.queries?.exposure ?? [])
+      .filter((q) =>
+        canReadProjects(getExposureQueryProjects(q, datasource.projects)),
+      )
+      .map((q) => q.id),
+  );
+  return experiments.filter((e) => readable.has(e.exposureQueryId));
 }
 
 function getMergeReadyWeights(exp: PastExperiment): number[] {
