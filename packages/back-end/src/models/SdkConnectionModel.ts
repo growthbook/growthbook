@@ -116,6 +116,8 @@ const sdkConnectionSchema = new mongoose.Schema({
     error: String,
     lastError: Date,
     consecutiveFailures: Number,
+    failingSince: Date,
+    failureAlertedAt: Date,
   },
   payloadSize: {
     bytes: Number,
@@ -722,12 +724,29 @@ export async function claimSDKConnectionNotifiedPayloadSizeLevel(
   return result.modifiedCount === 1;
 }
 
+export interface ProxyErrorResult {
+  /** This failure disabled the proxy. */
+  disabled: boolean;
+  consecutiveFailures: number;
+  failingSince: Date;
+}
+
+/**
+ * @param countFailure - When false, the error is saved but doesn't count toward disabling the proxy.
+ */
 export async function setProxyError(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   error: string,
-) {
-  const consecutiveFailures = (connection.proxy.consecutiveFailures || 0) + 1;
+  { countFailure = true }: { countFailure?: boolean } = {},
+): Promise<ProxyErrorResult> {
+  const now = new Date();
+  const consecutiveFailures =
+    (connection.proxy.consecutiveFailures || 0) + (countFailure ? 1 : 0);
+  const disabled =
+    connection.proxy.enabled &&
+    consecutiveFailures >= WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD;
+  const failingSince = connection.proxy.failingSince ?? now;
   await SDKConnectionModel.updateOne(
     {
       organization: context.org.id,
@@ -737,19 +756,24 @@ export async function setProxyError(
       $set: {
         "proxy.error": error,
         "proxy.connected": false,
-        "proxy.lastError": new Date(),
+        "proxy.lastError": now,
         "proxy.consecutiveFailures": consecutiveFailures,
-        ...(consecutiveFailures >= WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD
-          ? { "proxy.enabled": false }
-          : {}),
+        "proxy.failingSince": failingSince,
+        ...(disabled ? { "proxy.enabled": false } : {}),
       },
     },
   );
+  return { disabled, consecutiveFailures, failingSince };
 }
 
+/**
+ * @param clearFailureAlert - When false, keeps `failureAlertedAt` so a
+ * `proxy.recovered` alert that couldn't be sent is tried again.
+ */
 export async function clearProxyError(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
+  { clearFailureAlert = true }: { clearFailureAlert?: boolean } = {},
 ) {
   await SDKConnectionModel.updateOne(
     {
@@ -761,8 +785,24 @@ export async function clearProxyError(
         "proxy.error": "",
         "proxy.connected": true,
         "proxy.consecutiveFailures": 0,
+        "proxy.failingSince": null,
+        ...(clearFailureAlert ? { "proxy.failureAlertedAt": null } : {}),
       },
     },
+  );
+}
+
+export async function setProxyFailureAlertedAt(
+  context: ReqContext | ApiReqContext,
+  connection: SDKConnectionInterface,
+  failureAlertedAt: Date,
+) {
+  await SDKConnectionModel.updateOne(
+    {
+      organization: context.org.id,
+      id: connection.id,
+    },
+    { $set: { "proxy.failureAlertedAt": failureAlertedAt } },
   );
 }
 

@@ -8,19 +8,34 @@ import {
   clearProxyError,
   findSDKConnectionById,
   setProxyError,
+  setProxyFailureAlertedAt,
 } from "back-end/src/models/SdkConnectionModel";
-import { cancellableFetch } from "back-end/src/util/http.util";
+import {
+  describeProxyError,
+  describeProxyRequestError,
+  getNextProxyCheck,
+  isProxyFailureAlertDue,
+  sendSdkProxyAlert,
+} from "back-end/src/services/sdkProxyErrors";
+import {
+  cancellableFetch,
+  getWebhookTimeoutMs,
+} from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
+const MAX_RETRIES = 1;
 type ProxyUpdateJob = Job<{
   orgId: string;
   connectionId: string;
   useCloudProxy: boolean;
   retryCount: number;
+  // Set when a push fails for good: when to push again so an alert can fire
+  // even if nothing else changes in the meantime
+  nextCheckAt?: number;
 }>;
 
 const proxyUpdate = async (job: ProxyUpdateJob) => {
@@ -65,9 +80,13 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
   // Queued before it was archived: an archived connection serves nothing.
   if (connection.archived) return;
 
+  // The failure count belongs to the connection's own proxy, not ours.
+  // A scheduled check can run hours later, after the proxy was turned off.
   if (
-    (connection.proxy.consecutiveFailures || 0) >=
-    WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD
+    !useCloudProxy &&
+    (!connection.proxy.enabled ||
+      (connection.proxy.consecutiveFailures || 0) >=
+        WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD)
   ) {
     return;
   }
@@ -99,21 +118,110 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     ? `https://proxy.growthbook.io/proxy/features`
     : `${connection.proxy.host.replace(/\/$/, "")}/proxy/features`;
 
-  const res = await fireProxyWebhook({
-    url,
-    signature,
-    key: connection.key,
-    payload,
-  });
+  const payloadBytes = Buffer.byteLength(payload);
+  const logContext = {
+    orgId,
+    connectionId,
+    useCloudProxy,
+    host: new URL(url).host,
+    payloadBytes,
+  };
 
-  if (!res.ok) {
-    const e = "POST returned an invalid status code: " + res.status;
-    await setProxyError(context, connection, e);
-    throw new Error(e);
+  const recordFailure = async (
+    status: number | null,
+    error: string,
+    countFailure: boolean,
+  ) => {
+    // Customers can't fix our proxy, so its failures stay off their connection
+    if (useCloudProxy) return;
+    const result = await setProxyError(context, connection, error, {
+      countFailure,
+    });
+    if (result.disabled || !isLastAttempt(job)) {
+      if (result.disabled) {
+        const sent = await sendSdkProxyAlert(context, connection, {
+          state: "disabled",
+          status,
+          error,
+          failingSince: result.failingSince,
+        });
+        if (sent)
+          await setProxyFailureAlertedAt(context, connection, new Date());
+      }
+      return;
+    }
+    const now = new Date();
+    let failureAlertedAt = connection.proxy.failureAlertedAt ?? null;
+    if (isProxyFailureAlertDue(result.failingSince, failureAlertedAt, now)) {
+      const sent = await sendSdkProxyAlert(context, connection, {
+        state: "failing",
+        status,
+        error,
+        failingSince: result.failingSince,
+      });
+      if (sent) {
+        failureAlertedAt = now;
+        await setProxyFailureAlertedAt(context, connection, now);
+      }
+    }
+    if (job.attrs.data) {
+      job.attrs.data.nextCheckAt = getNextProxyCheck(
+        result.failingSince,
+        failureAlertedAt,
+        now,
+      ).getTime();
+    }
+  };
+
+  let res: Awaited<ReturnType<typeof fireProxyWebhook>>;
+  try {
+    res = await fireProxyWebhook({
+      url,
+      signature,
+      key: connection.key,
+      payload,
+    });
+  } catch (e) {
+    const error = describeProxyRequestError(e);
+    logger.warn({ ...logContext, error }, "proxyUpdate: Push failed");
+    // No response, so a slow proxy can't be told apart from a dead one:
+    // shown and alerted on, but not counted toward disabling
+    await recordFailure(null, error, false);
+    throw new Error(error);
   }
 
-  await clearProxyError(context, connection);
+  if (!res.ok) {
+    const error = describeProxyError(res.status, payloadBytes);
+    logger.warn(
+      { ...logContext, status: res.status },
+      "proxyUpdate: Push returned an error status",
+    );
+    // A 413 means the proxy is up but its size limit is too low, so
+    // disabling it would only stop updates
+    await recordFailure(res.status, error, res.status !== 413);
+    throw new Error(error);
+  }
+
+  if (!useCloudProxy) {
+    // Sent first, so a failed send keeps the alert time and the next
+    // successful push tries again
+    const recoveredSent = connection.proxy.failureAlertedAt
+      ? await sendSdkProxyAlert(context, connection, {
+          state: "recovered",
+          status: null,
+          error: "",
+          failingSince: connection.proxy.failingSince,
+        })
+      : true;
+    await clearProxyError(context, connection, {
+      clearFailureAlert: recoveredSent,
+    });
+  }
 };
+
+function isLastAttempt(job: ProxyUpdateJob) {
+  return (job.attrs.data?.retryCount ?? 0) >= MAX_RETRIES;
+}
 
 let agenda: Agenda;
 export default function addProxyUpdateJob(ag: Agenda) {
@@ -126,20 +234,16 @@ export default function addProxyUpdateJob(ag: Agenda) {
     async (error: Error, job: ProxyUpdateJob) => {
       if (!job.attrs.data) return;
 
-      // retry:
-      const retryCount = job.attrs.data.retryCount;
-      let nextRunAt = Date.now();
-      // Try again after 5 seconds
-      if (retryCount === 0) {
-        nextRunAt += 5000;
-      }
-      // If it failed twice, give up
-      else {
+      if (!isLastAttempt(job)) {
+        job.attrs.data.retryCount++;
+        job.attrs.nextRunAt = new Date(Date.now() + 5000);
+      } else if (job.attrs.data.nextCheckAt) {
+        // A new push replaces this, since the job is unique per connection
+        job.attrs.nextRunAt = new Date(job.attrs.data.nextCheckAt);
+        job.attrs.data.nextCheckAt = undefined;
+      } else {
         return;
       }
-
-      job.attrs.data.retryCount++;
-      job.attrs.nextRunAt = new Date(nextRunAt);
       await job.save();
     },
   );
@@ -218,7 +322,9 @@ async function fireProxyWebhook({
     },
     {
       maxContentSize: 500,
-      maxTimeMs: 5000,
+      // Same as SDK webhooks: the proxy replies only after storing and
+      // broadcasting the payload, which takes longer as it grows
+      maxTimeMs: getWebhookTimeoutMs(),
     },
   );
 

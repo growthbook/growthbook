@@ -20,7 +20,7 @@ import {
   setSDKConnectionPayloadSize,
 } from "back-end/src/models/SdkConnectionModel";
 import { createEvent } from "back-end/src/models/EventModel";
-import { getUsersByIds } from "back-end/src/models/UserModel";
+import { getAdminEmails } from "back-end/src/services/adminEmails";
 import { getFeatureMetaInfoByIds } from "back-end/src/models/FeatureModel";
 import {
   isEmailEnabled,
@@ -156,18 +156,6 @@ async function notifySdkPayloadSize(
     )
     .catch((e) => logger.error(e, "Failed to send SDK payload size email"));
   return true;
-}
-
-async function getAdminEmails(context: ReqContext): Promise<string[]> {
-  const adminIds = context.org.members
-    .filter((m) => m.role === "admin")
-    .map((m) => m.id);
-  const admins = adminIds.length ? await getUsersByIds(adminIds) : [];
-  return [
-    ...new Set(
-      [context.org.ownerEmail, ...admins.map((u) => u.email)].filter(Boolean),
-    ),
-  ];
 }
 
 // Shown org-wide to the people who can change the connection
