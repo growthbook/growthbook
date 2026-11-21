@@ -1,4 +1,5 @@
 import React, { useState, ReactNode, useContext, useCallback } from "react";
+import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SnapshotType,
@@ -14,6 +15,10 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import {
+  getPhaseFromUrl,
+  urlWithPhase,
+} from "@/components/Experiment/phaseUrl";
 import {
   useCoherentLatest,
   useRefetchHeavyOnStatusSuccess,
@@ -158,7 +163,25 @@ export default function SnapshotProvider({
   experiment: ExperimentInterfaceStringDates;
   children: ReactNode;
 }) {
-  const [phase, setPhase] = useState(experiment.phases?.length - 1 || 0);
+  const [phase, setPhaseState] = useState(
+    () =>
+      getPhaseFromUrl(window.location.search, experiment.phases?.length ?? 0) ??
+      (experiment.phases?.length - 1 || 0),
+  );
+  const router = useRouter();
+  const phaseCount = experiment.phases?.length ?? 0;
+  // Mirrors the phase into the URL so a results link opens on the same phase.
+  const setPhase = useCallback(
+    (newPhase: number) => {
+      setPhaseState(newPhase);
+      const url = urlWithPhase(window.location.href, newPhase, phaseCount);
+      if (url === window.location.href) return;
+      router.replace(url, undefined, { shallow: true }).catch((e) => {
+        if (!e.cancelled) throw e;
+      });
+    },
+    [router, phaseCount],
+  );
   const [dimension, setDimension] = useState("");
   const [snapshotType, setSnapshotType] = useState<SnapshotType | undefined>(
     undefined,
