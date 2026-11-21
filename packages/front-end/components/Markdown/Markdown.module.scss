@@ -79,16 +79,16 @@
       border-top-width: 1px;
     }
     thead th:first-child {
-      border-top-left-radius: var(--radius-3);
+      border-top-left-radius: var(--radius-2);
     }
     thead th:last-child {
-      border-top-right-radius: var(--radius-3);
+      border-top-right-radius: var(--radius-2);
     }
     > :last-child > tr:last-child > :first-child {
-      border-bottom-left-radius: var(--radius-3);
+      border-bottom-left-radius: var(--radius-2);
     }
     > :last-child > tr:last-child > :last-child {
-      border-bottom-right-radius: var(--radius-3);
+      border-bottom-right-radius: var(--radius-2);
     }
     th {
       background-color: var(--gray-a2);
