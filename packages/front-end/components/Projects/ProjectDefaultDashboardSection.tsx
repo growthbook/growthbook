@@ -10,8 +10,7 @@ import Button from "@/ui/Button";
 import TempMessage from "@/components/TempMessage";
 import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 import { useDashboards } from "@/hooks/useDashboards";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useSetProjectDefaultDashboard } from "@/hooks/useSetProjectDefaultDashboard";
 
 // Picks a project's home page dashboard. Saves on change, separately from the
 // project's stats settings form.
@@ -22,8 +21,7 @@ export default function ProjectDefaultDashboardSection({
   projectId: string;
   defaultDashboardId: string | undefined;
 }) {
-  const { apiCall } = useAuth();
-  const { mutateDefinitions } = useDefinitions();
+  const setProjectDefaultDashboard = useSetProjectDefaultDashboard();
   const {
     dashboards,
     loading: dashboardsLoading,
@@ -61,11 +59,7 @@ export default function ProjectDefaultDashboardSection({
     setDashboardError(null);
     setDashboardSavedMsg(null);
     try {
-      await apiCall(`/projects/${pid}/default-dashboard`, {
-        method: "PUT",
-        body: JSON.stringify({ defaultDashboardId: dashboardId || null }),
-      });
-      await mutateDefinitions();
+      await setProjectDefaultDashboard(pid, dashboardId || null);
       setDashboardSavedMsg(
         dashboardId ? "Default dashboard saved" : "Default dashboard cleared",
       );

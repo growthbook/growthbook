@@ -11,17 +11,10 @@ export const putProject = createApiRequestHandler(putProjectValidator)(async (
     throw new NotFoundError("Could not find project with that id");
   }
 
-  const { settings, ...updates } =
-    req.context.models.projects.updateValidator.parse(req.body);
-  // A plain update replaces the whole settings object, which would delete
-  // fields this endpoint doesn't accept, like the default dashboard.
-  const newProject = settings
-    ? await req.context.models.projects.updateStatsSettings(
-        project.id,
-        settings,
-        updates,
-      )
-    : await req.context.models.projects.update(project, updates);
+  const newProject = await req.context.models.projects.update(
+    project,
+    req.context.models.projects.updateValidator.parse(req.body),
+  );
 
   return {
     project: await resolveOwnerEmail(

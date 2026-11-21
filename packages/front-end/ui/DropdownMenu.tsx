@@ -247,6 +247,9 @@ type DropdownItemProps = {
   className?: string;
   disabled?: boolean;
   onClick?: (event: Event) => Promise<void> | void;
+  // Keeps the menu open while an async onClick runs, so a failure shows on
+  // this item, and closes it on success.
+  keepOpenWhileLoading?: boolean;
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
   tooltip?: string;
@@ -275,6 +278,7 @@ export function DropdownMenuItem({
   confirmation,
   tooltip,
   tooltipSide = "bottom",
+  keepOpenWhileLoading = false,
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -332,10 +336,12 @@ export function DropdownMenuItem({
           return;
         }
         if (onClick) {
+          if (keepOpenWhileLoading) event.preventDefault();
           setError(null);
           setLoading(true);
           try {
             await onClick(event);
+            if (keepOpenWhileLoading) closeDropdown?.();
           } catch (e) {
             setError(e.message);
             console.error(e);

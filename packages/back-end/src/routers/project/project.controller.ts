@@ -344,12 +344,7 @@ export const deleteProject = async (
 // endregion DELETE /projects/:id
 
 type PutProjectSettingsRequest = AuthRequest<
-  {
-    settings: Pick<
-      ProjectSettings,
-      "statsEngine" | "confidenceLevel" | "pValueThreshold"
-    >;
-  },
+  { settings: ProjectSettings },
   { id: string }
 >;
 type PutProjectSettingsResponse = {
@@ -379,14 +374,11 @@ export const putProjectSettings = async (
 
   const { settings } = req.body;
 
-  const updated = await context.models.projects.updateStatsSettings(
-    id,
-    settings,
-  );
+  await context.models.projects.update(project, { settings });
 
   res.status(200).json({
     status: 200,
-    settings: updated.settings ?? {},
+    settings,
   });
 };
 
@@ -394,13 +386,9 @@ type PutProjectDefaultDashboardRequest = AuthRequest<
   { defaultDashboardId: string | null },
   { id: string }
 >;
-type PutProjectDefaultDashboardResponse = {
-  status: 200;
-  settings: ProjectSettings;
-};
 export const putProjectDefaultDashboard = async (
   req: PutProjectDefaultDashboardRequest,
-  res: Response<PutProjectDefaultDashboardResponse | ApiErrorResponse>,
+  res: Response<{ status: 200 } | ApiErrorResponse>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -417,9 +405,9 @@ export const putProjectDefaultDashboard = async (
     return;
   }
 
-  const updated = await context.models.projects.setDefaultDashboard(
+  await context.models.projects.setDefaultDashboard(
     project,
     req.body.defaultDashboardId,
   );
-  res.status(200).json({ status: 200, settings: updated.settings ?? {} });
+  res.status(200).json({ status: 200 });
 };

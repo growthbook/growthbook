@@ -1,11 +1,10 @@
 import { ago } from "shared/dates";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   DashboardInterface,
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   getBlockData,
-  isDashboardEligibleAsProjectDefault,
 } from "shared/enterprise";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaArrowRight } from "react-icons/fa";
@@ -44,14 +43,13 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import LinkButton from "@/ui/LinkButton";
-import Badge from "@/ui/Badge";
-import RadixTooltip from "@/ui/Tooltip";
 import DefaultDashboardMenuItems from "@/enterprise/components/Dashboards/DefaultDashboardMenuItems";
+import DefaultDashboardBadge from "@/enterprise/components/Dashboards/DefaultDashboardBadge";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature, userId } = useUser();
-  const { project, projects, mutateDefinitions } = useDefinitions();
+  const { project } = useDefinitions();
   const { apiCall } = useAuth();
   const [saving, setSaving] = useState(false);
   const router = useRouter();
@@ -69,20 +67,6 @@ export default function DashboardsPage() {
     DashboardInterface | undefined
   >(undefined);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const [defaultDashboardError, setDefaultDashboardError] = useState<
-    string | null
-  >(null);
-  // The error shows above the table, so a failure from a row lower down
-  // would be off-screen.
-  const defaultDashboardErrorRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (defaultDashboardError) {
-      defaultDashboardErrorRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
-    }
-  }, [defaultDashboardError]);
   const [_blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
@@ -168,41 +152,6 @@ export default function DashboardsPage() {
     },
     [apiCall, mutateDashboards],
   );
-
-  // A dashboard scoped to specific projects can only be set as the default
-  // for one of those; a global dashboard (no projects) is eligible for any
-  // project. Either way, setting a project's default requires permission on
-  // that project specifically, not on the dashboard. With a Project selected,
-  // only that one is offered, which keeps the menu short.
-  const getEligibleProjectsForDefault = (d: DashboardInterface) =>
-    projects.filter(
-      (p) =>
-        (!project || p.id === project) &&
-        isDashboardEligibleAsProjectDefault(d, p.id) &&
-        permissionsUtil.canUpdateProject(p.id),
-    );
-
-  const setDefaultDashboard = async (
-    projectId: string,
-    dashId: string | null,
-  ) => {
-    setDefaultDashboardError(null);
-    try {
-      await apiCall(`/projects/${projectId}/default-dashboard`, {
-        method: "PUT",
-        body: JSON.stringify({
-          defaultDashboardId: dashId,
-        }),
-      });
-      mutateDefinitions();
-    } catch (e) {
-      setDefaultDashboardError(
-        e instanceof Error
-          ? e.message
-          : "Failed to update the default dashboard.",
-      );
-    }
-  };
 
   if (loading || saving) return <LoadingOverlay />;
 
@@ -352,26 +301,6 @@ export default function DashboardsPage() {
               </DocLink>
             </p>
 
-            {defaultDashboardError && (
-              <Callout
-                ref={defaultDashboardErrorRef}
-                status="error"
-                mb="3"
-                action={
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    color="inherit"
-                    onClick={() => setDefaultDashboardError(null)}
-                  >
-                    Dismiss
-                  </Button>
-                }
-              >
-                {defaultDashboardError}
-              </Callout>
-            )}
-
             {error ? (
               <Callout status="error">
                 There was an error loading the list of dashboards.
@@ -425,13 +354,6 @@ export default function DashboardsPage() {
                             permissionsUtil.canCreateGeneralDashboards(d);
                           const canManageSharingAndEditLevels =
                             canEdit && (isOwner || isAdmin);
-                          const eligibleProjectsForDefault =
-                            getEligibleProjectsForDefault(d);
-                          const defaultForProjects = projects.filter(
-                            (p) =>
-                              p.settings?.defaultDashboardId === d.id &&
-                              isDashboardEligibleAsProjectDefault(d, p.id),
-                          );
 
                           // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
                           if (
@@ -478,27 +400,7 @@ export default function DashboardsPage() {
                                   }
                                   isOwner={d.userId === userId}
                                 />
-                                {defaultForProjects.length > 0 && (
-                                  // One Project is already named in the label.
-                                  <RadixTooltip
-                                    enabled={defaultForProjects.length > 1}
-                                    content={`Home page default for ${defaultForProjects
-                                      .map((p) => p.name)
-                                      .join(", ")}`}
-                                  >
-                                    <Badge
-                                      ml="2"
-                                      radius="full"
-                                      color="violet"
-                                      variant="soft"
-                                      label={
-                                        defaultForProjects.length === 1
-                                          ? `Default for ${defaultForProjects[0].name}`
-                                          : `Default for ${defaultForProjects.length} Projects`
-                                      }
-                                    />
-                                  </RadixTooltip>
-                                )}
+                                <DefaultDashboardBadge dashboard={d} />
                               </td>
                               <td>
                                 {d && (d.projects || []).length > 0 ? (
@@ -566,10 +468,6 @@ export default function DashboardsPage() {
 
                                       <DefaultDashboardMenuItems
                                         dashboard={d}
-                                        eligibleProjects={
-                                          eligibleProjectsForDefault
-                                        }
-                                        onSetDefault={setDefaultDashboard}
                                       />
 
                                       {canDelete && (

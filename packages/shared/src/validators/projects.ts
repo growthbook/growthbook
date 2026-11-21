@@ -22,7 +22,6 @@ export const projectSettingsValidator = z.object({
   statsEngine: statsEnginesValidator.optional(),
   confidenceLevel: z.number().min(0.5).max(1).optional(),
   pValueThreshold: z.number().gt(0).max(0.5).optional(),
-  defaultDashboardId: z.string().min(1).optional(),
 });
 
 export const projectValidator = baseSchema
@@ -36,6 +35,9 @@ export const projectValidator = baseSchema
     allowTargeting: z.boolean().optional(),
     // Absent on projects that predate it.
     owner: ownerField.optional(),
+    // Shown on Home to the Project's members. Written only by the
+    // default-dashboard route, which checks the plan and eligibility.
+    defaultDashboardId: z.string().min(1).optional(),
   })
   .strict();
 

@@ -64,11 +64,6 @@ function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   return !isEqual(value, existing);
 }
 
-type ProjectStatsSettings = Pick<
-  ProjectSettings,
-  "statsEngine" | "confidenceLevel" | "pValueThreshold"
->;
-
 const ProjectPage: FC = () => {
   const [editChecklistOpen, setEditChecklistOpen] = useState(false);
   const { hasCommercialFeature } = useUser();
@@ -99,9 +94,7 @@ const ProjectPage: FC = () => {
   const canDelete =
     permissionsUtil.canDeleteProject(pid) && !p?.managedBy?.type;
 
-  const form = useForm<ProjectStatsSettings>({
-    mode: "onChange",
-  });
+  const form = useForm<ProjectSettings>({ mode: "onChange" });
 
   const { data, mutate } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
@@ -109,25 +102,19 @@ const ProjectPage: FC = () => {
 
   const checklist = data?.checklist;
 
-  const canViewDashboards = hasCommercialFeature(
-    "product-analytics-dashboards",
-  );
-  const statsEngine = settings?.statsEngine;
-  const confidenceLevel = settings?.confidenceLevel;
-  const pValueThreshold = settings?.pValueThreshold;
-  // Only the stored values, so a field this project hasn't set doesn't keep
-  // the previous project's value when the page stays mounted.
   useEffect(() => {
-    const newVal: ProjectStatsSettings = {
-      statsEngine,
-      // The form shows confidence as a percentage.
-      confidenceLevel:
-        typeof confidenceLevel === "number" ? confidenceLevel * 100 : undefined,
-      pValueThreshold,
-    };
-    form.reset(newVal);
-    setOriginalValue(newVal);
-  }, [form, statsEngine, confidenceLevel, pValueThreshold, pid]);
+    if (settings) {
+      const newVal = { ...form.getValues() };
+      Object.keys(settings).forEach((k) => {
+        newVal[k] = settings?.[k] || newVal[k];
+      });
+      if (typeof newVal.confidenceLevel === "number") {
+        newVal.confidenceLevel = newVal.confidenceLevel * 100;
+      }
+      form.reset(newVal);
+      setOriginalValue(newVal);
+    }
+  }, [form, settings]);
 
   const isValid = form.formState.isValid;
   const ctaEnabled = hasChanges(form.getValues(), originalValue) && isValid;
@@ -504,11 +491,11 @@ const ProjectPage: FC = () => {
                   </RadixButton>
                 </Flex>
                 {/* Below the Save row because it saves on change, not on Save. */}
-                {canViewDashboards && (
+                {hasCommercialFeature("product-analytics-dashboards") && (
                   <Box mt="5">
                     <ProjectDefaultDashboardSection
                       projectId={pid}
-                      defaultDashboardId={settings?.defaultDashboardId}
+                      defaultDashboardId={p?.defaultDashboardId}
                     />
                   </Box>
                 )}

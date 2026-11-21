@@ -2,12 +2,10 @@ import { isEqual } from "lodash";
 import { pruneApprovalRuleReferences } from "shared/util";
 import { isDashboardEligibleAsProjectDefault } from "shared/enterprise";
 import { TeamInterface } from "shared/types/team";
-import { UpdateProps } from "shared/types/base-model";
 import {
   OAuthGrantInterface,
   ManagedBy,
   ProjectInterface,
-  ProjectSettings,
   projectValidator,
   ApiProject,
 } from "shared/validators";
@@ -16,7 +14,6 @@ import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { logger } from "back-end/src/util/logger";
-import { NotFoundError } from "back-end/src/util/errors";
 import {
   pruneDefinitionsVersionProject,
   touchDefinitionsVersion,
@@ -130,43 +127,10 @@ export class ProjectModel extends BaseClass {
         );
       }
     }
-    // CAS on settings preserves a concurrent save of other Project settings.
-    const updated = await this.updateWithCas(
-      project.id,
-      ["settings"],
-      (current) => ({
-        settings: {
-          ...current.settings,
-          defaultDashboardId: dashboardId ?? undefined,
-        },
-      }),
-    );
-    if (!updated) throw new NotFoundError("Could not find project");
-    return updated;
-  }
-
-  // The caller owns the stats fields, so one left out is cleared. Every other
-  // setting, like the default dashboard, keeps its stored value. CAS on
-  // settings preserves a concurrent save of those.
-  public async updateStatsSettings(
-    id: string,
-    stats: Pick<
-      ProjectSettings,
-      "statsEngine" | "confidenceLevel" | "pValueThreshold"
-    >,
-    otherUpdates: Omit<UpdateProps<ProjectInterface>, "settings"> = {},
-  ) {
-    const updated = await this.updateWithCas(id, ["settings"], (current) => ({
-      ...otherUpdates,
-      settings: {
-        ...current.settings,
-        statsEngine: stats.statsEngine,
-        confidenceLevel: stats.confidenceLevel,
-        pValueThreshold: stats.pValueThreshold,
-      },
-    }));
-    if (!updated) throw new NotFoundError("Could not find project");
-    return updated;
+    // undefined unsets the field.
+    await this.update(project, {
+      defaultDashboardId: dashboardId ?? undefined,
+    });
   }
 
   protected canDelete(doc: ProjectInterface) {

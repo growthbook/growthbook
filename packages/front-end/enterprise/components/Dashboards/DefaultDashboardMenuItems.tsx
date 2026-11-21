@@ -1,52 +1,63 @@
-import { DashboardInterface } from "shared/enterprise";
-import { ProjectInterface } from "shared/types/project";
+import {
+  DashboardInterface,
+  isDashboardEligibleAsProjectDefault,
+} from "shared/enterprise";
 import { DropdownMenuItem, DropdownSubMenu } from "@/ui/DropdownMenu";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useSetProjectDefaultDashboard } from "@/hooks/useSetProjectDefaultDashboard";
 
 export default function DefaultDashboardMenuItems({
   dashboard,
-  eligibleProjects,
-  onSetDefault,
 }: {
   dashboard: DashboardInterface;
-  eligibleProjects: ProjectInterface[];
-  onSetDefault: (projectId: string, dashboardId: string | null) => void;
 }) {
+  const { project, projects } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
+  const setProjectDefaultDashboard = useSetProjectDefaultDashboard();
+
+  // Setting a Project's default needs permission on that Project, not on the
+  // dashboard. With a Project selected, only that one is offered, which keeps
+  // the menu short.
+  const eligibleProjects = projects.filter(
+    (p) =>
+      (!project || p.id === project) &&
+      isDashboardEligibleAsProjectDefault(dashboard, p.id) &&
+      permissionsUtil.canUpdateProject(p.id),
+  );
   if (eligibleProjects.length === 0) return null;
 
-  const items = eligibleProjects.map((project) => {
-    const isCurrentDefault =
-      project.settings?.defaultDashboardId === dashboard.id;
+  const items = eligibleProjects.map((p) => {
+    const isCurrentDefault = p.defaultDashboardId === dashboard.id;
     return (
       <DropdownMenuItem
-        key={project.id}
+        key={p.id}
+        keepOpenWhileLoading
         tooltip={
           isCurrentDefault
-            ? `Members of the ${project.name} Project no longer see this dashboard on their home page by default.`
-            : `Members of the ${project.name} Project see this dashboard on their home page by default.`
+            ? `Members of the ${p.name} Project no longer see this dashboard on their home page by default.`
+            : `Members of the ${p.name} Project see this dashboard on their home page by default.`
         }
         onClick={() =>
-          onSetDefault(project.id, isCurrentDefault ? null : dashboard.id)
+          setProjectDefaultDashboard(
+            p.id,
+            isCurrentDefault ? null : dashboard.id,
+          )
         }
       >
         {isCurrentDefault
-          ? `Remove as default for ${project.name}`
-          : `Set as default for ${project.name}`}
+          ? `Remove as default for ${p.name}`
+          : `Set as default for ${p.name}`}
       </DropdownMenuItem>
     );
   });
 
-  if (eligibleProjects.length === 1) {
-    return items[0] ?? null;
-  }
-
-  const isDefaultForAny = eligibleProjects.some(
-    (project) => project.settings?.defaultDashboardId === dashboard.id,
-  );
+  if (items.length === 1) return items[0];
 
   return (
     <DropdownSubMenu
       trigger={
-        isDefaultForAny
+        eligibleProjects.some((p) => p.defaultDashboardId === dashboard.id)
           ? "Manage default dashboard"
           : "Set as default dashboard"
       }
