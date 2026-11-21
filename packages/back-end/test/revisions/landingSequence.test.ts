@@ -16,6 +16,7 @@ import {
   assertLandingBaseline,
   liveMatchesDesiredState,
   restoreEntityPreImage,
+  runGuardedWrite,
   tryRestoreEntityPreImage,
 } from "back-end/src/revisions/landingSequence";
 import { CasConflictError, Context } from "back-end/src/models/BaseModel";
@@ -342,5 +343,16 @@ describe("liveMatchesDesiredState", () => {
         updatableFields,
       }),
     ).toBe(false);
+  });
+});
+
+describe("runGuardedWrite", () => {
+  // The ramp engine retries on this exact shape without importing the class.
+  it("turns a lost CAS into a ConflictError named LandingConflictError", async () => {
+    const thrown = await runGuardedWrite("feature", "feat_1", async () => {
+      throw new CasConflictError();
+    }).catch((e) => e);
+    expect(thrown).toBeInstanceOf(ConflictError);
+    expect(thrown.name).toBe("LandingConflictError");
   });
 });
