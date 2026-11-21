@@ -143,7 +143,13 @@ type AnalysisSettingsForCorrection = Pick<
   | "useCovariateAsResponse"
 >;
 
-function isPValueCorrected(settings: AnalysisSettingsForCorrection): boolean {
+/** Whether an analysis's goal metrics get a multiple-testing correction at all. */
+export function isPValueCorrected(
+  settings: Pick<
+    AnalysisSettingsForCorrection,
+    "statsEngine" | "dimensions" | "useCovariateAsResponse"
+  >,
+): boolean {
   if (settings.statsEngine !== "frequentist") return false;
   if (settings.useCovariateAsResponse) return false;
   // Each day is another look at the same test, not a separate subgroup.
