@@ -15,7 +15,7 @@ jest.mock("back-end/src/services/organizations", () => ({
     ciUpper: 0.95,
     ciLower: 0.05,
     pValueThreshold: 0.05,
-    pValueCorrection: null,
+    pValueCorrection: "holm-bonferroni",
   }),
   getMetricDefaultsForOrg: jest.fn(),
 }));
@@ -90,6 +90,7 @@ describe("goal metrics removed since the snapshot", () => {
         {
           settings: {
             statsEngine: "frequentist",
+            dimensions: [],
             differenceType: "relative",
             ...(pValueCorrection === null ? { pValueCorrection } : {}),
           },

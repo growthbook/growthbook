@@ -195,28 +195,14 @@ describe("enrichAnalysisResults", () => {
       name: "the covariate analysis",
       settings: { useCovariateAsResponse: true },
     },
-  ])("clears earlier values and adds none for $name", ({ settings }) => {
-    const stale: SnapshotMetric = {
-      ...stat(0.01, 0.05),
-      pValueAdjusted: 0.9,
-      ciAdjusted: [-1, 1],
-    };
-    const results = enrich([level("", { g1: stale })], ["g1"], settings);
+  ])("adds no corrected values for $name", ({ settings }) => {
+    const results = enrich(
+      [level("", { g1: stat(0.01, 0.05) })],
+      ["g1"],
+      settings,
+    );
     expect(results[0].variations[1].metrics.g1.pValueAdjusted).toBeUndefined();
     expect(results[0].variations[1].metrics.g1.ciAdjusted).toBeUndefined();
-  });
-
-  it("clears an earlier value on a metric that is no longer a goal", () => {
-    const results = enrich(
-      [
-        level("", {
-          g1: stat(0.01),
-          old: { ...stat(0.01), pValueAdjusted: 0.5 },
-        }),
-      ],
-      ["g1"],
-    );
-    expect(adjusted(results, "old")).toBeUndefined();
   });
 
   describe("results without one adjustment", () => {
@@ -300,6 +286,27 @@ describe("fillLegacyPValueCorrection", () => {
         pValueCorrection: "holm-bonferroni",
       });
       expect(adjusted(snapshot.analyses[0].results, "g1")).toBeUndefined();
+    },
+  );
+
+  it.each([
+    {
+      when: "there is no correction to apply",
+      pValueCorrection: null,
+      settings: {},
+    },
+    {
+      when: "the analysis is never corrected",
+      pValueCorrection: "holm-bonferroni" as const,
+      settings: { statsEngine: "bayesian" as const },
+    },
+  ])(
+    "leaves the results alone when $when",
+    ({ pValueCorrection, settings }) => {
+      const snapshot = makeSnapshot(settings);
+      const resultsBefore = structuredClone(snapshot.analyses[0].results);
+      fillLegacyPValueCorrection({ snapshot, pValueCorrection });
+      expect(snapshot.analyses[0].results).toEqual(resultsBefore);
     },
   );
 

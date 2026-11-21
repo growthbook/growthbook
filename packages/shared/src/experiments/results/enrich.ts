@@ -16,25 +16,6 @@ import {
   setAdjustedPValuesOnResults,
 } from "../experiments";
 
-function clearAdjustedValues(results: ExperimentReportResultDimension[]): void {
-  results.forEach((result) =>
-    result.variations.forEach((variation) =>
-      Object.values(variation.metrics).forEach((metric) => {
-        delete metric.pValueAdjusted;
-        delete metric.ciAdjusted;
-        // gbstats sends null for a supplemental result that does not apply.
-        Object.values(metric.supplementalResults ?? {}).forEach(
-          (supplemental) => {
-            if (!supplemental) return;
-            delete supplemental.pValueAdjusted;
-            delete supplemental.ciAdjusted;
-          },
-        );
-      }),
-    ),
-  );
-}
-
 function getSupplementalFields(
   results: ExperimentReportResultDimension[],
   goalMetricIds: string[],
@@ -103,8 +84,7 @@ function setSupplementalAdjustedValues({
 /**
  * Sets the multiple-testing-corrected p-value and CI on each goal metric, in
  * place. One family: goal metrics x variations x every element of `results`
- * (the dimension levels of one analysis). Values from an earlier call are
- * cleared first.
+ * (the dimension levels of one analysis).
  */
 function applyPValueCorrection({
   results,
@@ -117,7 +97,6 @@ function applyPValueCorrection({
   pValueCorrection: PValueCorrection;
   pValueThreshold: number;
 }): void {
-  clearAdjustedValues(results);
   if (!pValueCorrection) return;
 
   const goalIds = Array.from(new Set(goalMetricIds));
@@ -203,6 +182,7 @@ export function fillLegacyPValueCorrection({
   // Set when only some metrics' results were loaded.
   hydratedMetricIds?: string[];
 }): void {
+  if (!pValueCorrection) return;
   const goalMetrics = snapshot.settings.goalMetrics ?? [];
   // The correction needs every goal metric's p-value.
   if (
@@ -214,6 +194,7 @@ export function fillLegacyPValueCorrection({
 
   snapshot.analyses.forEach((analysis) => {
     if (analysis.settings.pValueCorrection !== undefined) return;
+    if (!isPValueCorrected(analysis.settings)) return;
     if (!analysis.results?.length) return;
     setCorrectedPValues({
       results: analysis.results,

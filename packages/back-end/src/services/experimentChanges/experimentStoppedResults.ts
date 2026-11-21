@@ -4,6 +4,7 @@ import {
   getMetricResultStatus,
   isFactMetric,
   isMetricGroupId,
+  isPValueCorrected,
   resolveSnapshotMetricIds,
   resolveSnapshotVariation,
 } from "shared/experiments";
@@ -94,12 +95,16 @@ export async function getStoppedGoalMetricResults(
     const removedGoalIds = (snapshot?.settings.goalMetrics ?? []).filter(
       (id) => !loadedIds.includes(id),
     );
-    if (
-      snapshot &&
-      removedGoalIds.length > 0 &&
-      getSnapshotAnalysis(snapshot)?.settings.pValueCorrection === undefined
-    ) {
-      snapshot = await loadSnapshot([...loadedIds, ...removedGoalIds]);
+    if (snapshot && removedGoalIds.length > 0) {
+      const snapshotAnalysis = getSnapshotAnalysis(snapshot);
+      if (
+        snapshotAnalysis &&
+        snapshotAnalysis.settings.pValueCorrection === undefined &&
+        isPValueCorrected(snapshotAnalysis.settings) &&
+        significance.pValueCorrection
+      ) {
+        snapshot = await loadSnapshot([...loadedIds, ...removedGoalIds]);
+      }
     }
     const analysis = snapshot ? getSnapshotAnalysis(snapshot) : null;
     if (!snapshot || !analysis?.results?.length) return undefined;

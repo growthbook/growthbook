@@ -128,8 +128,8 @@ export function getAnalysisSettingsForStatsEngine(
     baseline_index: settings.baselineVariationIndex ?? 0,
     dimension: settings.dimensions[0] || "",
     stats_engine: settings.statsEngine,
-    // Only mid-experiment power reads this, and it has never been set for an
-    // analysis that computes power.
+    // Pinned so that storing the correction does not change power. Removed in
+    // the next PR.
     p_value_corrected: false,
     sequential_testing_enabled: settings.sequentialTesting ?? false,
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
