@@ -299,7 +299,8 @@ export class RedisStickyBucketService extends StickyBucketService {
       ([attributeName, attributeValue]) =>
         getStickyBucketAttributeKey(attributeName, attributeValue),
     );
-    if (!this.redis) return docs;
+    // Redis rejects MGET without keys, as when a payload has no experiments
+    if (!this.redis || !keys.length) return docs;
     await this.redis.mget(...keys).then((values) => {
       values.forEach((raw) => {
         try {
