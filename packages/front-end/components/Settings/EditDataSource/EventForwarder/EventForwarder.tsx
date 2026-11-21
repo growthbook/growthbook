@@ -776,7 +776,7 @@ function EventForwarderLastError({
       <Flex direction="column" gap="3" p="2">
         <Flex align="center" justify="between" gap="3">
           <Heading as="h4" size="sm" mb="0">
-            Last error from {source}
+            Last Error from {source}
           </Heading>
           {copySupported ? (
             <Button
@@ -786,7 +786,9 @@ function EventForwarderLastError({
               iconPosition="left"
               onClick={() => performCopy(message)}
             >
-              {copySuccess ? "Copied" : "Copy error"}
+              <span aria-live="polite">
+                {copySuccess ? "Copied" : "Copy error"}
+              </span>
             </Button>
           ) : null}
         </Flex>
@@ -1044,6 +1046,7 @@ export default function EventForwarder({
           action={
             canRestart ? (
               <Button
+                color="inherit"
                 icon={<PiArrowClockwise />}
                 iconPosition="left"
                 loading={pauseResumeLoading}
