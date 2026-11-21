@@ -310,7 +310,7 @@ function PasteAndDrop({
 
           // Markdown copied as text (e.g. from an AI chat) keeps its tables and
           // formatting, outside code and cells; clipboard HTML's own wins.
-          const plain = data.getData("text/plain");
+          const plain = data.getData("text/plain").replace(/\r\n?/g, "\n");
           if (
             !data.types.includes("application/x-lexical-editor") &&
             !$findMatchingParent(

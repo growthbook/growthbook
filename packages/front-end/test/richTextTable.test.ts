@@ -21,7 +21,12 @@ import {
   ListNode,
 } from "@lexical/list";
 import { CodeNode } from "@lexical/code";
-import { $createHeadingNode, HeadingNode, QuoteNode } from "@lexical/rich-text";
+import {
+  $createHeadingNode,
+  $createQuoteNode,
+  HeadingNode,
+  QuoteNode,
+} from "@lexical/rich-text";
 import {
   $createTableCellNode,
   $createTableNode,
@@ -365,13 +370,14 @@ describe("table rules", () => {
       editor: LexicalEditor,
       key: "Backspace" | "Delete",
       place: () => void,
+      repeat = false,
     ) {
       editor.update(
         () => {
           place();
           editor.dispatchCommand(
             key === "Backspace" ? KEY_BACKSPACE_COMMAND : KEY_DELETE_COMMAND,
-            new KeyboardEvent("keydown", { key }),
+            new KeyboardEvent("keydown", { key, repeat }),
           );
         },
         { discrete: true },
@@ -384,6 +390,32 @@ describe("table rules", () => {
         return cell ? `cell ${cell.getTextContent()}` : node.getTextContent();
       });
     }
+
+    it("doesn't carry a held key out of a cell or into the table", () => {
+      const editor = editorWithRules(TABLE_AND_LINE);
+      expect(
+        press(editor, "Backspace", () => $cell(1).selectStart(), true),
+      ).toBe("cell ");
+      expect(
+        press(
+          editor,
+          "Backspace",
+          () => $getRoot().getLastChildOrThrow().selectStart(),
+          true,
+        ),
+      ).toBe("after");
+    });
+
+    it("leaves a quote's Backspace to the quote, beside a table", () => {
+      const editor = editorWithRules(TABLE_AND_LINE);
+      expect(
+        press(editor, "Backspace", () => {
+          const quote = $createQuoteNode().append($createTextNode("q"));
+          $getRoot().getLastChildOrThrow().replace(quote);
+          quote.selectStart();
+        }),
+      ).not.toBe("table");
+    });
 
     it("steps from a cleared cell to the end of the one before", () => {
       const editor = editorWithRules(TABLE_AND_LINE);
@@ -426,6 +458,12 @@ describe("table rules", () => {
         const editor = editorWithRules(GRID);
         press(editor, "Backspace", () => $select([2, 0], [2, 1]));
         expect(save(editor)).toBe("| a | b |\n| --- | --- |\n| 1 | 2 |");
+      });
+
+      it("doesn't delete on a held key", () => {
+        const editor = editorWithRules(GRID);
+        press(editor, "Backspace", () => $select([2, 0], [2, 1]), true);
+        expect(save(editor)).toBe(GRID);
       });
 
       it("deletes a whole column", () => {

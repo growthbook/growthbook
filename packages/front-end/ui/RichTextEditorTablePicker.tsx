@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
+import Text from "@/ui/Text";
 import styles from "./RichTextEditor.module.scss";
 
 const MAX = 4;
@@ -38,7 +39,7 @@ export default function RichTextEditorTablePicker({
           );
         })}
       </div>
-      <Text size="1" color="gray">
+      <Text size="sm" color="text-mid">
         {count(size.rows, "row")} × {count(size.columns, "column")}
       </Text>
     </Flex>

@@ -101,11 +101,26 @@
   height: 0.55em;
 }
 
+// An alignment icon in the column menu's top row, the size of a toolbar button.
+.alignItem:global(.rt-BaseMenuItem) {
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
+}
+
+.alignItemOn:global(.rt-BaseMenuItem) {
+  background-color: var(--accent-a4);
+  color: var(--accent-11);
+}
+
 // Over the text, holding a hovered table's grips; clicks pass through it.
 .tableControls {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  // Faded-out controls keep their last place, which mustn't add scroll room.
+  overflow: clip;
 }
 
 // A muted line just outside the table, beside the hovered row or above the
@@ -453,11 +468,6 @@
 
 .table {
   border-collapse: collapse;
-  margin: 0 0 var(--space-2);
-
-  .tableWrapper > & {
-    margin: 0;
-  }
 }
 
 .tableCell,

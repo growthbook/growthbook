@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Flex, VisuallyHidden } from "@radix-ui/themes";
 import clsx from "clsx";
 import {
   PiArrowDown,
@@ -23,7 +23,9 @@ import {
   $deleteTableColumnAtSelection,
   $deleteTableRowAtSelection,
   $findTableNode,
+  $insertTableColumnAtNode,
   $insertTableColumnAtSelection,
+  $insertTableRowAtNode,
   $insertTableRowAtSelection,
   $isTableCellNode,
   $isTableRowNode,
@@ -42,54 +44,44 @@ import {
   $clearRow,
   $moveColumn,
   $moveRow,
+  type ColumnAlign,
 } from "./RichTextEditorTable";
 import styles from "./RichTextEditor.module.scss";
 
-type Align = "left" | "center" | "right";
-
+// Left is markdown's default, so choosing it clears the column's alignment.
 const ALIGNMENTS: {
-  align: Align;
+  align: ColumnAlign;
   label: string;
-  Icon: React.ComponentType<{ size?: number }>;
+  Icon: IconType;
 }[] = [
-  { align: "left", label: "Align left", Icon: PiTextAlignLeftBold },
+  { align: "", label: "Align left", Icon: PiTextAlignLeftBold },
   { align: "center", label: "Align center", Icon: PiTextAlignCenterBold },
   { align: "right", label: "Align right", Icon: PiTextAlignRightBold },
 ];
 
-// The toolbar's buttons, one per alignment. Holds its own choice while the
-// menu is open, since the grips (and what they read) stay frozen until then.
+// The column menu's top row: one item per alignment, icons side by side.
 function ColumnAlignControl({
-  initial,
+  current,
   onChange,
 }: {
-  initial: Align;
-  onChange: (align: Align) => void;
+  current: ColumnAlign;
+  onChange: (align: ColumnAlign) => void;
 }) {
-  const [current, setCurrent] = useState(initial);
   return (
     <Flex gap="1" px="2" py="1" role="group" aria-label="Align column">
-      {ALIGNMENTS.map(({ align, label, Icon }) => {
-        const on = current === align;
-        return (
-          <IconButton
-            key={align}
-            type="button"
-            size="1"
-            variant={on ? "soft" : "ghost"}
-            color={on ? undefined : "gray"}
-            aria-label={label}
-            aria-pressed={on}
-            className={styles.toolbarButton}
-            onClick={() => {
-              setCurrent(align);
-              onChange(align);
-            }}
-          >
-            <Icon size={18} />
-          </IconButton>
-        );
-      })}
+      {ALIGNMENTS.map(({ align, label, Icon }) => (
+        <DropdownMenuItem
+          key={align}
+          className={clsx(
+            styles.alignItem,
+            current === align && styles.alignItemOn,
+          )}
+          onClick={() => onChange(align)}
+        >
+          <Icon size={18} />
+          <VisuallyHidden>{label}</VisuallyHidden>
+        </DropdownMenuItem>
+      ))}
     </Flex>
   );
 }
@@ -101,8 +93,17 @@ interface Rect {
   height: number;
 }
 
+// Where the hovered cell sits, for the moves an edge rules out.
+interface Edges {
+  firstRow: boolean;
+  lastRow: boolean;
+  firstColumn: boolean;
+  lastColumn: boolean;
+}
+
 interface Grips {
   cell: HTMLTableCellElement;
+  edges: Edges;
   row: Rect;
   // Null while the column is scrolled out of view.
   column: Rect | null;
@@ -115,8 +116,9 @@ interface Grips {
 // A control keeps its last place while it fades out.
 type Placed = { at: Rect; on: boolean } | null;
 
-interface Controls {
+interface Controls extends Edges {
   cell: HTMLTableCellElement | null;
+  align: ColumnAlign;
   row: Placed;
   column: Placed;
   addRow: Placed;
@@ -125,27 +127,34 @@ interface Controls {
 
 const NO_CONTROLS: Controls = {
   cell: null,
+  align: "",
+  firstRow: true,
+  lastRow: true,
+  firstColumn: true,
+  lastColumn: true,
   row: null,
   column: null,
   addRow: null,
   addColumn: null,
 };
 
+const sameRect = (a: Rect, b: Rect) =>
+  a.left === b.left &&
+  a.top === b.top &&
+  a.width === b.width &&
+  a.height === b.height;
+
 function place(prev: Placed, at: Rect | null): Placed {
-  if (at) return { at, on: true };
-  return prev && { at: prev.at, on: false };
+  if (at) return prev?.on && sameRect(prev.at, at) ? prev : { at, on: true };
+  return prev?.on ? { at: prev.at, on: false } : prev;
 }
 
-// How far a grip reaches out from the table: the gutter it thickens across.
+// The gutter a grip thickens across.
 const GRIP_REACH = 12;
-
-// The add-row and add-column lines past the table's bottom and right edges,
-// and their gap to it.
+// The add-row and add-column lines, and their gap to the table.
 const ADD_REACH = 14;
 const ADD_GAP = 1;
-
-// How far out from a table's edges the pointer still finds its rows and
-// columns, so its controls show before the pointer crosses into it.
+// How far out from a table the pointer still finds its rows and columns.
 const GRIP_BUFFER = 16;
 
 // The cell nearest the pointer when it's in the empty gutter around a table.
@@ -163,7 +172,7 @@ function cellBeside(
       x < left - GRIP_BUFFER ||
       x >= right + GRIP_BUFFER ||
       y < box.top - GRIP_BUFFER ||
-      y >= box.bottom + GRIP_BUFFER
+      y >= view.bottom + GRIP_BUFFER
     ) {
       continue;
     }
@@ -198,20 +207,26 @@ function placeGrips(
   const columnRight = Math.min(cellBox.right, view.right);
   const tableLeft = Math.max(tableBox.left, view.left);
   const tableRight = Math.min(tableBox.right, view.right);
-  const lastRow = row === table.rows[table.rows.length - 1];
-  const lastColumn = cell === row.lastElementChild;
+  const edges = {
+    firstRow: row === table.rows[0],
+    lastRow: row === table.rows[table.rows.length - 1],
+    firstColumn: cell === row.firstElementChild,
+    lastColumn: cell === row.lastElementChild,
+  };
   return {
     cell,
-    addRow: lastRow
+    edges,
+    addRow: edges.lastRow
       ? {
           left: tableLeft - box.left,
-          top: tableBox.bottom + ADD_GAP - box.top,
+          // Under the wrapper, past the scrollbar a wide table may have.
+          top: view.bottom + ADD_GAP - box.top,
           width: tableRight - tableLeft,
           height: ADD_REACH,
         }
       : null,
     addColumn:
-      lastColumn && tableBox.right + ADD_GAP + ADD_REACH <= view.right
+      edges.lastColumn && tableBox.right + ADD_GAP + ADD_REACH <= view.right
         ? {
             left: tableBox.right + ADD_GAP - box.left,
             top: tableBox.top - box.top,
@@ -239,13 +254,13 @@ function placeGrips(
 
 function Grip({
   label,
-  vertical,
+  kind,
   placed,
   onOpenChange,
   children,
 }: {
   label: string;
-  vertical: boolean;
+  kind: "row" | "column";
   placed: NonNullable<Placed>;
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
@@ -266,7 +281,7 @@ function Grip({
           data-table-grip
           className={clsx(
             styles.tableGrip,
-            vertical ? styles.rowGrip : styles.columnGrip,
+            kind === "row" ? styles.rowGrip : styles.columnGrip,
           )}
           style={placed.at}
           data-hidden={placed.on ? undefined : ""}
@@ -293,25 +308,25 @@ function InsertIcon({ Arrow }: { Arrow: IconType }) {
 // A line past the table's last row or column, with a plus, that adds one.
 function AddLine({
   label,
-  vertical,
+  kind,
   placed,
   onAdd,
 }: {
   label: string;
-  vertical: boolean;
+  kind: "row" | "column";
   placed: NonNullable<Placed>;
   onAdd: () => void;
 }) {
   return (
     // Beside the line, off the table.
-    <Tooltip content={label} side={vertical ? "right" : "bottom"}>
+    <Tooltip content={label} side={kind === "row" ? "bottom" : "right"}>
       <button
         type="button"
         aria-label={label}
         data-table-grip
         className={clsx(
           styles.tableAdd,
-          vertical ? styles.tableAddColumn : styles.tableAddRow,
+          kind === "row" ? styles.tableAddRow : styles.tableAddColumn,
         )}
         style={placed.at}
         data-hidden={placed.on ? undefined : ""}
@@ -344,17 +359,29 @@ export default function RichTextEditorTableControls() {
       if (menuOpen.current) return;
       const cell = hovered.current;
       const next = cell ? placeGrips(cell, area) : null;
-      setControls((prev) =>
-        !next && !prev.cell
-          ? prev
-          : {
-              cell: next?.cell ?? null,
-              row: place(prev.row, next?.row ?? null),
-              column: place(prev.column, next?.column ?? null),
-              addRow: place(prev.addRow, next?.addRow ?? null),
-              addColumn: place(prev.addColumn, next?.addColumn ?? null),
+      const align: ColumnAlign = next
+        ? editor.getEditorState().read(
+            () => {
+              const node = $getNearestNodeFromDOMNode(next.cell);
+              const format = $isTableCellNode(node) ? node.getFormatType() : "";
+              return format === "center" || format === "right" ? format : "";
             },
-      );
+            { editor },
+          )
+        : "";
+      setControls((prev) => {
+        const merged: Controls = {
+          ...(next?.edges ?? prev),
+          cell: next?.cell ?? null,
+          align,
+          row: place(prev.row, next?.row ?? null),
+          column: place(prev.column, next?.column ?? null),
+          addRow: place(prev.addRow, next?.addRow ?? null),
+          addColumn: place(prev.addColumn, next?.addColumn ?? null),
+        };
+        const keys = Object.keys(merged) as (keyof Controls)[];
+        return keys.every((key) => merged[key] === prev[key]) ? prev : merged;
+      });
     };
     const onMove = (e: MouseEvent) => {
       const target = e.target instanceof Element ? e.target : null;
@@ -399,15 +426,6 @@ export default function RichTextEditorTableControls() {
       action(cell);
     });
 
-  const hoveredCell = controls.cell;
-  const columnAlign: Align = hoveredCell
-    ? editor.read(() => {
-        const cell = $getNearestNodeFromDOMNode(hoveredCell);
-        const align = $isTableCellNode(cell) ? cell.getFormatType() : "";
-        return align === "center" || align === "right" ? align : "left";
-      })
-    : "left";
-
   // A row under the last, or a column after the last, with the caret in its
   // first new cell.
   const addRow = () =>
@@ -415,8 +433,7 @@ export default function RichTextEditorTableControls() {
       const last = $findTableNode(cell)?.getLastChild();
       const first = $isTableRowNode(last) ? last.getFirstChild() : null;
       if (!$isTableCellNode(first)) return;
-      first.selectStart();
-      const added = $insertTableRowAtSelection(true)?.getFirstChild();
+      const added = $insertTableRowAtNode(first)?.getFirstChild();
       if ($isTableCellNode(added)) added.selectStart();
     });
 
@@ -424,36 +441,19 @@ export default function RichTextEditorTableControls() {
     run((cell) => {
       const header = $findTableNode(cell)?.getFirstChild();
       const last = $isTableRowNode(header) ? header.getLastChild() : null;
-      if (!$isTableCellNode(last)) return;
-      last.selectStart();
-      $insertTableColumnAtSelection(true);
-      const added = last.getNextSibling();
-      if ($isTableCellNode(added)) added.selectStart();
+      if ($isTableCellNode(last)) $insertTableColumnAtNode(last);
     });
 
   const onOpenChange = (open: boolean) => {
     menuOpen.current = open;
   };
 
-  // Where the hovered cell sits, so a move past an edge is disabled.
-  const rowEl = controls.cell?.parentElement;
-  const tableEl = controls.cell?.closest("table");
-  const at =
-    controls.cell && rowEl instanceof HTMLTableRowElement && tableEl
-      ? {
-          firstRow: rowEl.rowIndex === 0,
-          lastRow: rowEl.rowIndex === tableEl.rows.length - 1,
-          firstColumn: controls.cell.cellIndex === 0,
-          lastColumn: controls.cell.cellIndex === rowEl.cells.length - 1,
-        }
-      : null;
-
   return (
     <div ref={overlay} className={styles.tableControls}>
       {controls.addRow ? (
         <AddLine
           label="Add a row"
-          vertical={false}
+          kind="row"
           placed={controls.addRow}
           onAdd={addRow}
         />
@@ -461,7 +461,7 @@ export default function RichTextEditorTableControls() {
       {controls.addColumn ? (
         <AddLine
           label="Add a column"
-          vertical
+          kind="column"
           placed={controls.addColumn}
           onAdd={addColumn}
         />
@@ -469,7 +469,7 @@ export default function RichTextEditorTableControls() {
       {controls.row ? (
         <Grip
           label="Row options"
-          vertical
+          kind="row"
           placed={controls.row}
           onOpenChange={onOpenChange}
         >
@@ -485,13 +485,13 @@ export default function RichTextEditorTableControls() {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            disabled={at?.firstRow ?? true}
+            disabled={controls.firstRow}
             onClick={() => run((cell) => $moveRow(cell, -1))}
           >
             <PiCaretUp /> Move up
           </DropdownMenuItem>
           <DropdownMenuItem
-            disabled={at?.lastRow ?? true}
+            disabled={controls.lastRow}
             onClick={() => run((cell) => $moveRow(cell, 1))}
           >
             <PiCaretDown /> Move down
@@ -518,16 +518,13 @@ export default function RichTextEditorTableControls() {
       {controls.column ? (
         <Grip
           label="Column options"
-          vertical={false}
+          kind="column"
           placed={controls.column}
           onOpenChange={onOpenChange}
         >
-          {/* Left is markdown's default, so it clears the column's alignment. */}
           <ColumnAlignControl
-            initial={columnAlign}
-            onChange={(align) =>
-              run((cell) => $alignColumn(cell, align === "left" ? "" : align))
-            }
+            current={controls.align}
+            onChange={(align) => run((cell) => $alignColumn(cell, align))}
           />
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -542,13 +539,13 @@ export default function RichTextEditorTableControls() {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            disabled={at?.firstColumn ?? true}
+            disabled={controls.firstColumn}
             onClick={() => run((cell) => $moveColumn(cell, -1))}
           >
             <PiCaretLeft /> Move left
           </DropdownMenuItem>
           <DropdownMenuItem
-            disabled={at?.lastColumn ?? true}
+            disabled={controls.lastColumn}
             onClick={() => run((cell) => $moveColumn(cell, 1))}
           >
             <PiCaretRight /> Move right

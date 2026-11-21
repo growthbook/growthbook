@@ -213,17 +213,14 @@ function $clearCell(cell: TableCellNode) {
   cell.clear().append($createParagraphNode());
 }
 
-/** Aligns every cell in `cell`'s column. */
 export function $alignColumn(cell: TableCellNode, align: ColumnAlign) {
   $columnCells(cell).forEach((other) => other.setFormat(align));
 }
 
-/** Empties every cell in `cell`'s row. */
 export function $clearRow(cell: TableCellNode) {
   $rowCells(cell).forEach($clearCell);
 }
 
-/** Empties every cell in `cell`'s column. */
 export function $clearColumn(cell: TableCellNode) {
   $columnCells(cell).forEach($clearCell);
 }
@@ -325,8 +322,9 @@ function $atBlockEdge(point: PointType, block: ElementNode, start: boolean) {
   );
 }
 
-// The table the caret is up against: from the edge of the block beside it, or
-// from between blocks, where Lexical leaves the caret at a table's edge.
+// The table the caret is up against: from the edge of a paragraph beside it
+// (other blocks keep their own Backspace), or from between blocks, where
+// Lexical leaves the caret at a table's edge.
 function $tableBeside(
   point: PointType,
   backward: boolean,
@@ -338,7 +336,9 @@ function $tableBeside(
     return $isTableNode(table) ? { table, block: null } : null;
   }
   const block = node.getTopLevelElement();
-  if (!block || !$atBlockEdge(point, block, backward)) return null;
+  if (!$isParagraphNode(block) || !$atBlockEdge(point, block, backward)) {
+    return null;
+  }
   const table = backward ? block.getPreviousSibling() : block.getNextSibling();
   return $isTableNode(table) ? { table, block } : null;
 }
@@ -357,6 +357,8 @@ function $onDeleteKey(event: KeyboardEvent | null, backward: boolean) {
     const next = cleared ? $adjacentCell(cell, backward) : null;
     if (!next) return false;
     event?.preventDefault();
+    // A held key stops here; it takes a fresh press to step over.
+    if (event?.repeat) return true;
     if (backward) next.selectEnd();
     else next.selectStart();
     return true;
@@ -373,7 +375,8 @@ function $onDeleteKey(event: KeyboardEvent | null, backward: boolean) {
   const last = $isTableRowNode(lastRow) ? lastRow.getLastChild() : null;
   if (!$isTableCellNode(first) || !$isTableCellNode(last)) return false;
   event?.preventDefault();
-  if ($isParagraphNode(block) && block.isEmpty()) block.remove();
+  if (event?.repeat) return true;
+  if (block?.isEmpty()) block.remove();
   $setSelection($createTableSelectionFrom(table, first, last));
   return true;
 }
@@ -384,6 +387,11 @@ function $onDeleteKey(event: KeyboardEvent | null, backward: boolean) {
 function $onDeleteCells(event: KeyboardEvent | null) {
   const selection = $getSelection();
   if (!$isTableSelection(selection)) return false;
+  // A held key doesn't carry on into selected cells, or a selected table.
+  if (event?.repeat) {
+    event.preventDefault();
+    return true;
+  }
   const table = $findTableNode(selection.anchor.getNode());
   const header = table?.getFirstChild();
   if (!table || !$isTableRowNode(header)) return false;

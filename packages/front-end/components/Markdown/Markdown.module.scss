@@ -53,6 +53,10 @@
     display: grid;
     grid-template-columns: minmax(0, max-content);
     margin-bottom: 1em;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
   }
   table {
     display: block;
