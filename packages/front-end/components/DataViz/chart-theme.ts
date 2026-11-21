@@ -1,6 +1,3 @@
-import { useEffect, useState } from "react";
-import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-
 export const CHART_COLORS = [
   "#8b5cf6",
   "#3b82f6",
@@ -29,7 +26,7 @@ export const SQL_EXPLORER_COLORS = [
 ];
 
 // Semantic colors for experiment results, as Radix tokens so they follow the
-// theme. ECharts draws on canvas, so resolve them with useResolvedChartColors.
+// theme. ECharts draws on canvas, so resolve them with cssColorToHex first.
 export const EXPERIMENT_RESULT_COLORS = {
   won: "var(--green-9)",
   lost: "var(--red-9)",
@@ -66,32 +63,6 @@ export function cssColorToHex(color: string): string {
   ctx.fillRect(0, 0, 1, 1);
   const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
   return `#${[r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
-}
-
-function resolveChartColors<T extends Record<string, string>>(
-  tokens: T,
-): Record<keyof T, string> {
-  return Object.fromEntries(
-    Object.entries(tokens).map(([key, color]) => [key, cssColorToHex(color)]),
-  ) as Record<keyof T, string>;
-}
-
-/**
- * Resolve a map of CSS colors (usually Radix tokens) to hex for ECharts, and
- * re-resolve when the theme changes. Pass a module-level constant: a new
- * object on every render would re-run the effect on every render.
- *
- * This resolves in an effect, not during render, because the theme provider
- * swaps the <html> theme class in a layout effect that runs after its
- * children render. A render-time read gets the previous theme's colors.
- */
-export function useResolvedChartColors<T extends Record<string, string>>(
-  tokens: T,
-): Record<keyof T, string> {
-  const { theme } = useAppearanceUITheme();
-  const [colors, setColors] = useState(() => resolveChartColors(tokens));
-  useEffect(() => setColors(resolveChartColors(tokens)), [theme, tokens]);
-  return colors;
 }
 
 export function getChartThemeColors(theme: "light" | "dark") {

@@ -8,8 +8,8 @@ import EChartsReact from "echarts-for-react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import {
   EXPERIMENT_RESULT_COLORS,
+  cssColorToHex,
   getChartThemeColors,
-  useResolvedChartColors,
 } from "@/components/DataViz/chart-theme";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
@@ -34,18 +34,10 @@ const GOOD_PERCENT_LOW = 15;
 const GOOD_PERCENT_HIGH = 38;
 const GAUGE_HEIGHT = 200;
 
-// The good range uses the same green as Velocity's "Won".
-const DIAL_COLORS = {
-  good: EXPERIMENT_RESULT_COLORS.won,
-  track: "var(--gray-6)",
-};
-type DialColors = Record<keyof typeof DIAL_COLORS, string>;
-
-function gaugeOption(
-  winRate: number,
-  textColor: string,
-  dialColors: DialColors,
-) {
+function gaugeOption(winRate: number, textColor: string) {
+  // The good range uses the same green as Velocity's "Won".
+  const good = cssColorToHex(EXPERIMENT_RESULT_COLORS.won);
+  const track = cssColorToHex("var(--gray-6)");
   return {
     series: [
       {
@@ -61,9 +53,9 @@ function gaugeOption(
           lineStyle: {
             width: 14,
             color: [
-              [GOOD_PERCENT_LOW / 100, dialColors.track],
-              [GOOD_PERCENT_HIGH / 100, dialColors.good],
-              [1, dialColors.track],
+              [GOOD_PERCENT_LOW / 100, track],
+              [GOOD_PERCENT_HIGH / 100, good],
+              [1, track],
             ],
           },
         },
@@ -115,8 +107,6 @@ function GaugePanel({
   periodLabel?: string;
   periodRange?: string;
 }) {
-  const dialColors = useResolvedChartColors(DIAL_COLORS);
-
   return (
     <Flex direction="column" align="center" style={{ flex: 1, minWidth: 0 }}>
       {periodLabel && (
@@ -130,7 +120,7 @@ function GaugePanel({
         </Box>
       )}
       <EChartsReact
-        option={gaugeOption(summary.winRate, textColor, dialColors)}
+        option={gaugeOption(summary.winRate, textColor)}
         style={{ width: "100%", height: GAUGE_HEIGHT }}
       />
       <Text as="div" size="sm" align="center" color="text-mid">

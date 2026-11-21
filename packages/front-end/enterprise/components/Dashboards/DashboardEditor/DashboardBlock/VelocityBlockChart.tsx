@@ -15,8 +15,8 @@ import { CompareChartLegendItem } from "@/enterprise/components/ProductAnalytics
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import {
   EXPERIMENT_RESULT_COLORS,
+  cssColorToHex,
   getChartThemeColors,
-  useResolvedChartColors,
 } from "@/components/DataViz/chart-theme";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -193,9 +193,6 @@ export default function VelocityBlockChart({
   const { textColor } = getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
 
-  const resultColors: Record<VelocityResultKey, string> =
-    useResolvedChartColors(EXPERIMENT_RESULT_COLORS);
-
   // Which ECharts series are toggled off via the legend.
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
   const toggleSeries = (names: string[]) =>
@@ -212,7 +209,14 @@ export default function VelocityBlockChart({
   // single-period view, even if an older block still has comparison persisted.
   const comparisonEnabled = false;
 
-  const option = useMemo(() => {
+  const { option, resultColors } = useMemo(() => {
+    // textColor changes with the theme, so a theme switch re-resolves these.
+    const resultColors: Record<VelocityResultKey, string> = {
+      won: cssColorToHex(EXPERIMENT_RESULT_COLORS.won),
+      lost: cssColorToHex(EXPERIMENT_RESULT_COLORS.lost),
+      inconclusive: cssColorToHex(EXPERIMENT_RESULT_COLORS.inconclusive),
+      dnf: cssColorToHex(EXPERIMENT_RESULT_COLORS.dnf),
+    };
     const resolvedGranularity: ResolvedGranularity = getDateGranularity(
       block.dateGranularity || "auto",
       { startDate: window.startDate, endDate: window.endDate },
@@ -290,7 +294,7 @@ export default function VelocityBlockChart({
       },
     };
 
-    return {
+    const option = {
       tooltip: {
         appendTo: "body",
         trigger: "axis",
@@ -332,6 +336,7 @@ export default function VelocityBlockChart({
         : {}),
       series: [...currentSeries, ...previousSeries],
     };
+    return { option, resultColors };
   }, [
     block.dateGranularity,
     current,
@@ -341,7 +346,6 @@ export default function VelocityBlockChart({
     comparisonEnabled,
     hiddenSeries,
     textColor,
-    resultColors,
   ]);
 
   const legendItems: CompareChartLegendItem[] = VELOCITY_RESULT_KEYS.map(
