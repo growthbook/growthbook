@@ -31,7 +31,7 @@ import {
   $isTableRowNode,
   type TableCellNode,
 } from "@lexical/table";
-import { $getNearestNodeFromDOMNode } from "lexical";
+import { $getNearestNodeFromDOMNode, type LexicalEditor } from "lexical";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -84,6 +84,16 @@ function ColumnAlignControl({
       ))}
     </Flex>
   );
+}
+
+// Back to the text on close, unless the click that closed it focused
+// something else.
+export function focusEditorOnClose(editor: LexicalEditor) {
+  return (e: Event) => {
+    e.preventDefault();
+    const active = document.activeElement;
+    if (!active || active === document.body) editor.focus();
+  };
 }
 
 interface Rect {
@@ -270,10 +280,7 @@ function Grip({
     <DropdownMenu
       variant="soft"
       onOpenChange={onOpenChange}
-      onCloseAutoFocus={(e) => {
-        e.preventDefault();
-        editor.focus();
-      }}
+      onCloseAutoFocus={focusEditorOnClose(editor)}
       trigger={
         <button
           type="button"

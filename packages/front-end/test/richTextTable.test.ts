@@ -32,6 +32,7 @@ import {
   $createTableNode,
   $createTableRowNode,
   $createTableSelectionFrom,
+  $insertTableRowAtNode,
   $isTableCellNode,
   $isTableNode,
   TableCellHeaderStates,
@@ -156,6 +157,11 @@ describe("rich text tables", () => {
     );
   });
 
+  it("keeps a backslash typed before a pipe in a cell", () => {
+    const markdown = "| a |\n| --- |\n| x\\\\\\|y |";
+    expect(roundTrip(markdown)).toBe(markdown);
+  });
+
   it("keeps escaped pipes inside a cell", () => {
     expect(roundTrip("| a |\n|---|\n| x \\| y |")).toBe(
       "| a |\n| --- |\n| x \\| y |",
@@ -165,6 +171,15 @@ describe("rich text tables", () => {
   it("loads a table without outer pipes, ending at a blank line", () => {
     expect(roundTrip("a | b\n--- | :-:\n1 | 2\n\nafter")).toBe(
       "| a | b |\n| --- | :---: |\n| 1 | 2 |\n\nafter",
+    );
+  });
+
+  it("ends a table at a heading or list item, even one with a pipe", () => {
+    expect(roundTrip("| a |\n| --- |\n| x |\n## Control | Variant")).toBe(
+      "| a |\n| --- |\n| x |\n\n## Control | Variant",
+    );
+    expect(roundTrip("| a |\n| --- |\n| x |\n- one | two")).toBe(
+      "| a |\n| --- |\n| x |\n\n- one | two",
     );
   });
 
@@ -312,6 +327,14 @@ describe("table rules", () => {
       .getEditorState()
       .read(() => [$table().getColWidths(), $cell(1).getWidth()]);
     expect(widths).toEqual([undefined, undefined]);
+  });
+
+  it("keeps a column's alignment when a row goes above the header", () => {
+    const editor = editorWithRules("| a |\n| ---: |\n| x |");
+    editor.update(() => $insertTableRowAtNode($cell(0), false), {
+      discrete: true,
+    });
+    expect(save(editor)).toBe("|  |\n| ---: |\n| a |\n| x |");
   });
 
   it("keeps the first row as the header when a row goes above it", () => {

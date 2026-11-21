@@ -311,7 +311,10 @@ function PasteAndDrop({
           // Markdown copied as text (e.g. from an AI chat) keeps its tables and
           // formatting, outside code and cells; clipboard HTML's own wins.
           const plain = data.getData("text/plain").replace(/\r\n?/g, "\n");
+          const text = plain.trim();
+          const isUrl = /^https?:\/\/\S+$/i.test(text);
           if (
+            !isUrl &&
             !data.types.includes("application/x-lexical-editor") &&
             !$findMatchingParent(
               selection.anchor.getNode(),
@@ -327,8 +330,7 @@ function PasteAndDrop({
             return true;
           }
 
-          const text = plain.trim();
-          if (!/^https?:\/\/\S+$/i.test(text)) return false;
+          if (!isUrl) return false;
           event.preventDefault();
 
           // With nothing selected, a label from the URL becomes the link text.

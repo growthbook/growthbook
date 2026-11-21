@@ -56,6 +56,7 @@ import {
 import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
 import RichTextEditorTablePicker from "./RichTextEditorTablePicker";
+import { focusEditorOnClose } from "./RichTextEditorTableControls";
 import RichTextEditorLinkEditor, {
   LinkTarget,
   useLinkTarget,
@@ -403,10 +404,7 @@ export default function RichTextEditorToolbar({
           side="bottom"
           align="start"
           showArrow={false}
-          onCloseAutoFocus={(e) => {
-            e.preventDefault();
-            editor.focus();
-          }}
+          onCloseAutoFocus={focusEditorOnClose(editor)}
           trigger={
             <IconButton
               type="button"

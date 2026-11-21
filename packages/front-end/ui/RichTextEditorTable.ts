@@ -49,6 +49,9 @@ import {
 // A row has a pipe that isn't escaped; as in GFM, outer pipes are optional.
 const TABLE_ROW = /(?<!\\)\|/;
 
+// A heading, quote, list item or code fence, which ends a table in GFM.
+const BLOCK_START = /^ {0,3}(?:#{1,6}\s|>|[-*+]\s|\d+[.)]\s|```|~~~)/;
+
 // `| --- | :-: |`, or `--- | :-:`.
 const DELIMITER_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
 
@@ -94,12 +97,13 @@ function $createCell(
   return cell;
 }
 
-// One line of markdown per cell, since a table row can't span lines.
+// One line of markdown per cell, since a table row can't span lines. Lexical
+// escapes backslashes but never pipes, so every pipe here is a literal one.
 function $cellToMarkdown(cell: TableCellNode, inline: Transformer[]): string {
   return $convertToMarkdownString(inline, cell)
     .replace(/\s*\n+\s*/g, " ")
     .trim()
-    .replace(/(?<!\\)\|/g, "\\|");
+    .replace(/\|/g, "\\|");
 }
 
 /**
@@ -159,7 +163,8 @@ export function createTableTransformer(
       while (
         last + 1 < lines.length &&
         lines[last + 1].trim() &&
-        TABLE_ROW.test(lines[last + 1])
+        TABLE_ROW.test(lines[last + 1]) &&
+        !BLOCK_START.test(lines[last + 1])
       ) {
         last++;
         appendRow(splitTableRow(lines[last]), false);
@@ -240,21 +245,24 @@ export function $moveColumn(cell: TableCellNode, by: -1 | 1) {
 }
 
 // The first row is the header and sets each column's alignment, as it saves.
+// A new header row, still unaligned, takes the alignment from the row below.
 function $matchHeaderRow(row: TableRowNode) {
   const isHeader = row.getIndexWithinParent() === 0;
   const state = isHeader
     ? TableCellHeaderStates.ROW
     : TableCellHeaderStates.NO_STATUS;
-  const header = isHeader ? null : row.getParent()?.getFirstChild();
+  const source = isHeader
+    ? row.getNextSibling()
+    : row.getParent()?.getFirstChild();
   row.getChildren().forEach((cell, i) => {
     if (!$isTableCellNode(cell)) return;
     if (cell.getHeaderStyles() !== state) cell.setHeaderStyles(state);
-    const above = $isTableRowNode(header) ? header.getChildAtIndex(i) : null;
-    if (
-      $isTableCellNode(above) &&
-      cell.getFormatType() !== above.getFormatType()
-    ) {
-      cell.setFormat(above.getFormatType());
+    const other = $isTableRowNode(source) ? source.getChildAtIndex(i) : null;
+    if (!$isTableCellNode(other)) return;
+    const align = other.getFormatType();
+    const current = cell.getFormatType();
+    if ((!isHeader || current === "") && current !== align) {
+      cell.setFormat(align);
     }
   });
 }
