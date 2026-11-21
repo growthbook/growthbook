@@ -8,7 +8,7 @@ import {
   PiListBulletsBold,
   PiListNumbersBold,
   PiQuotesBold,
-  PiTableBold,
+  PiGridFourBold,
   PiTextBBold,
   PiTextHOneBold,
   PiTextHThreeBold,
@@ -396,7 +396,7 @@ export default function RichTextEditorToolbar({
         : null}
 
       {simple ? null : active.inTable ? (
-        button("table", "Insert table", false, () => {}, PiTableBold, true)
+        button("table", "Insert table", false, () => {}, PiGridFourBold, true)
       ) : (
         <Popover
           open={tablePickerOpen}
@@ -417,7 +417,7 @@ export default function RichTextEditorToolbar({
             >
               <Tooltip content="Insert table">
                 <span style={{ display: "inline-flex" }}>
-                  <PiTableBold size={15} />
+                  <PiGridFourBold size={15} />
                 </span>
               </Tooltip>
             </IconButton>
