@@ -1283,6 +1283,8 @@ export type EventForwarderLicenseConnectorStatus = {
   backlogCount?: number;
   replaying?: boolean;
   replayedCount?: number;
+  erroredAt?: string;
+  backlogCountedAt?: string;
 };
 
 export async function postRestartEventForwarderToLicenseServer(params: {

@@ -84,6 +84,8 @@ export function buildEventForwarderStatusResponse(
     backlogCount: connectorStatus.backlogCount,
     replaying: connectorStatus.replaying,
     replayedCount: connectorStatus.replayedCount,
+    erroredAt: connectorStatus.erroredAt,
+    backlogCountedAt: connectorStatus.backlogCountedAt,
   };
 }
 

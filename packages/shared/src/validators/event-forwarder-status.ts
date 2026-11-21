@@ -35,6 +35,10 @@ export const eventForwarderStatusResponseSchema = z.object({
   replaying: z.boolean().optional(),
   // Parked events that restart has written so far.
   replayedCount: z.number().optional(),
+  // When the destination stopped forwarding (ISO), while errored.
+  erroredAt: z.string().optional(),
+  // When backlogCount was last counted (ISO).
+  backlogCountedAt: z.string().optional(),
 });
 
 export type EventForwarderStatusResponse = z.infer<

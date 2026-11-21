@@ -31,6 +31,8 @@ export function useEventForwarderProvisioningPoll({
   const [backlogCount, setBacklogCount] = useState(0);
   const [replaying, setReplaying] = useState(false);
   const [replayedCount, setReplayedCount] = useState(0);
+  const [erroredAt, setErroredAt] = useState<string | null>(null);
+  const [backlogCountedAt, setBacklogCountedAt] = useState<string | null>(null);
   // A restart's replay can outlast the timeout; it counts from the last report.
   const lastReplayingAtRef = useRef(0);
   const refreshedStatusRef = useRef<string | null>(null);
@@ -49,6 +51,8 @@ export function useEventForwarderProvisioningPoll({
     setBacklogCount(result.backlogCount ?? 0);
     setReplaying(!!result.replaying);
     setReplayedCount(result.replayedCount ?? 0);
+    setErroredAt(result.erroredAt ?? null);
+    setBacklogCountedAt(result.backlogCountedAt ?? null);
     if (result.replaying) lastReplayingAtRef.current = Date.now();
     await onRefreshRef.current();
   }, [apiCall, datasourceId]);
@@ -104,12 +108,10 @@ export function useEventForwarderProvisioningPoll({
     });
   }, [datasourceId, fetchConnectorStatus, status]);
 
-  // Keep the backlog count current:
-  // - errored: it grows as events are parked
-  // - ready: a replay shrinks it
+  // A replay shrinks the backlog while the forwarder is ready; keep the count current.
   const hasBacklog = backlogCount > 0;
   useEffect(() => {
-    if (status !== "error" && (status !== "ready" || !hasBacklog)) {
+    if (status !== "ready" || !hasBacklog) {
       return;
     }
     const intervalId = window.setInterval(() => {
@@ -138,5 +140,7 @@ export function useEventForwarderProvisioningPoll({
     backlogCount,
     replaying: isPending && replaying,
     replayedCount,
+    erroredAt,
+    backlogCountedAt,
   };
 }
