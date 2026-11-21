@@ -6,6 +6,7 @@ import {
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
+  RowFilter,
 } from "shared/types/fact-table";
 import {
   getColumnTopValues,
@@ -168,6 +169,11 @@ export default function FactTableEventsTab({
                 column.column,
                 r.value,
               );
+              const eventFilter: RowFilter = {
+                column: column.column,
+                operator: "=",
+                values: [r.value],
+              };
               return (
                 <Fragment key={r.value}>
                   <TableRow
@@ -219,13 +225,7 @@ export default function FactTableEventsTab({
                               key={`${column.column}:${r.value}`}
                               factTable={factTable}
                               compact
-                              rowFilters={[
-                                {
-                                  column: column.column,
-                                  operator: "=",
-                                  values: [r.value],
-                                },
-                              ]}
+                              rowFilters={[eventFilter]}
                             />
                           </Box>
                           <Box flexShrink="0" width="33%">
@@ -271,7 +271,10 @@ export default function FactTableEventsTab({
                                 </Link>
                               ) : null}
                               {factMetricFlow.createButton(
-                                { factTable: factTable.id },
+                                {
+                                  factTable: factTable.id,
+                                  rowFilters: [eventFilter],
+                                },
                                 { size: "sm" },
                               )}
                             </Flex>

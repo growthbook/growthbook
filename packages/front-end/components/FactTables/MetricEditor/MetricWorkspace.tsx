@@ -12,6 +12,7 @@ import {
   FactTableDefinition,
   CompoundSettings,
   FunnelSettings,
+  RowFilter,
   UpdateFactMetricProps,
 } from "shared/types/fact-table";
 import Text from "@/ui/Text";
@@ -45,6 +46,7 @@ type DefaultsContext = Pick<
   | "metricDefaults"
   | "settings"
   | "initialFactTable"
+  | "initialRowFilters"
   | "initialDatasource"
 >;
 
@@ -111,6 +113,7 @@ export default function MetricWorkspace({
   existing,
   duplicateFrom,
   initialFactTable,
+  initialRowFilters,
   initialDatasource,
   isEditing,
   setIsEditing = () => {},
@@ -133,6 +136,9 @@ export default function MetricWorkspace({
   // fact table's own page) - existing/duplicateFrom's own fact table always
   // wins when either is set.
   initialFactTable?: FactTableDefinition | null;
+  // Seeds initialFactTable's row filters (e.g. the event a metric was
+  // started from).
+  initialRowFilters?: RowFilter[];
   // Pre-selects a data source for a brand-new metric (e.g. "Add" from a data
   // source's own page). initialFactTable's data source wins when both are set.
   initialDatasource?: string;
@@ -158,6 +164,7 @@ export default function MetricWorkspace({
     metricDefaults,
     settings,
     initialFactTable: initialFactTable ?? undefined,
+    initialRowFilters,
     initialDatasource,
   };
   const seedSource = existing ?? duplicateFrom ?? null;

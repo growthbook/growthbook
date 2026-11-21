@@ -1,7 +1,9 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { FactMetricInterface } from "shared/types/fact-table";
+import { z } from "zod";
+import { FactMetricInterface, RowFilter } from "shared/types/fact-table";
+import { rowFilterValidator } from "shared/validators";
 import { isProjectListValidForProject } from "shared/util";
 import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
@@ -69,6 +71,20 @@ export default function NewFactMetricPage() {
         <Link href={returnUrl}>{backLabel}</Link>
       </Callout>
     );
+  }
+
+  // ?rowFilters=<json> seeds the fact table's row filters (useFactMetricFlow
+  // sets it, e.g. "New metric" from an event). Ignore it if it doesn't parse.
+  let initialRowFilters: RowFilter[] | undefined;
+  if (initialFactTable && typeof router.query.rowFilters === "string") {
+    try {
+      const parsed = z
+        .array(rowFilterValidator)
+        .safeParse(JSON.parse(router.query.rowFilters));
+      if (parsed.success) initialRowFilters = parsed.data;
+    } catch {
+      // Malformed JSON: start from blank filters.
+    }
   }
 
   // ?addMetric=<json> (crafted externally - docs, support, onboarding,
@@ -215,6 +231,7 @@ export default function NewFactMetricPage() {
             existing={null}
             duplicateFrom={duplicateFrom}
             initialFactTable={initialFactTable}
+            initialRowFilters={initialRowFilters}
             initialDatasource={
               typeof router.query.datasource === "string"
                 ? router.query.datasource

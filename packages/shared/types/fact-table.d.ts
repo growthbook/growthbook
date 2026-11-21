@@ -112,6 +112,10 @@ export interface FactTableInterface {
   managedBy?: FactManagedBy;
   dateCreated: Date | null;
   dateUpdated: Date | null;
+  // Last time `sql` changed. dateUpdated also moves on column and filter
+  // writes, so cached query results compare against this instead. Absent on
+  // fact tables whose SQL hasn't changed since this field was added.
+  sqlUpdated?: Date;
   name: string;
   description: string;
   owner: string;

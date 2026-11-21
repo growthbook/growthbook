@@ -6,7 +6,10 @@ import type { ExplorationConfig } from "shared/validators";
 import { getInitialConfigByBlockType } from "shared/enterprise";
 import { ago } from "shared/dates";
 import useExploration from "@/enterprise/components/ProductAnalytics/useExploration";
-import { getRowsPerDay } from "@/components/QueryPreview/activityChart";
+import {
+  getRowsPerDay,
+  isRowCountStale,
+} from "@/components/QueryPreview/activityChart";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -42,7 +45,7 @@ function dayLabel(day: string) {
 export default function FactTableRowsPerDay({
   factTable,
 }: {
-  factTable: Pick<FactTableInterface, "id" | "datasource">;
+  factTable: Pick<FactTableInterface, "id" | "datasource" | "sqlUpdated">;
 }) {
   const config = useMemo((): ExplorationConfig => {
     const base = getInitialConfigByBlockType(
@@ -90,6 +93,8 @@ export default function FactTableRowsPerDay({
   } = useExploration(config);
 
   const chart = exploration ? getRowsPerDay(exploration) : null;
+  // The exploration cache key has no SQL in it, so a SQL edit still hits it.
+  const sqlChangedSince = isRowCountStale(factTable.sqlUpdated, exploration);
   const max = chart ? Math.max(...chart.counts, 1) : 1;
 
   return (
@@ -130,7 +135,7 @@ export default function FactTableRowsPerDay({
             {checkedCache ? (
               <Button
                 size="sm"
-                variant={exploration ? "ghost" : "outline"}
+                variant={exploration && !sqlChangedSince ? "ghost" : "outline"}
                 loading={running}
                 icon={exploration ? <PiArrowClockwise /> : undefined}
                 onClick={() => run(exploration ? "never" : "preferred")}
@@ -142,6 +147,11 @@ export default function FactTableRowsPerDay({
           {error ? (
             <HelperText status="error" size="sm">
               {error}
+            </HelperText>
+          ) : sqlChangedSince ? (
+            <HelperText status="warning" size="sm">
+              The Fact Table SQL changed after these counts were loaded. Refresh
+              to update them.
             </HelperText>
           ) : null}
         </Flex>
