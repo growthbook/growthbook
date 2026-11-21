@@ -304,6 +304,7 @@ export class MetricTimeSeriesModel extends BaseClass {
               $set: {
                 lastExperimentSettingsHash: u.lastExperimentSettingsHash,
                 lastMetricSettingsHash: u.lastMetricSettingsHash,
+                lastPValueCorrectionHash: u.lastPValueCorrectionHash,
                 dataPoints: u.dataPoints,
                 dateUpdated: new Date(),
               },
@@ -338,6 +339,18 @@ export class MetricTimeSeriesModel extends BaseClass {
       newTimeSeries.singleDataPoint.tags.push("metric-settings-changed");
     }
 
+    // A series from before this hash was recorded has nothing to compare with.
+    if (
+      (existing.lastPValueCorrectionHash ?? null) !== null &&
+      newTimeSeries.lastPValueCorrectionHash !==
+        existing.lastPValueCorrectionHash
+    ) {
+      if (!newTimeSeries.singleDataPoint.tags) {
+        newTimeSeries.singleDataPoint.tags = [];
+      }
+      newTimeSeries.singleDataPoint.tags.push("p-value-correction-changed");
+    }
+
     const dataPoints = this.dropInvalidAndLimitDataPoints([
       ...existing.dataPoints,
       newTimeSeries.singleDataPoint,
@@ -358,6 +371,7 @@ export class MetricTimeSeriesModel extends BaseClass {
       ...existing,
       lastMetricSettingsHash: newTimeSeries.lastMetricSettingsHash,
       lastExperimentSettingsHash: newTimeSeries.lastExperimentSettingsHash,
+      lastPValueCorrectionHash: newTimeSeries.lastPValueCorrectionHash,
       dataPoints,
       dateUpdated: new Date(),
     });

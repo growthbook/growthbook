@@ -11,7 +11,6 @@ import {
 } from "shared/experiments";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { excludeFunnelSliceRows } from "@/services/experiments";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
@@ -42,10 +41,6 @@ export default function ExperimentTimeSeriesBlock({
     analysis,
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection,
   );
-
-  const _pValueThreshold = usePValueThreshold(experiment.project);
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
 
   const result = analysis.results[0];
 
@@ -206,7 +201,6 @@ export default function ExperimentTimeSeriesBlock({
                       <ExperimentMetricTimeSeriesGraphWrapper
                         key={metric.id}
                         experimentId={experiment.id}
-                        pValueThreshold={pValueThreshold}
                         phase={snapshot.phase}
                         snapshotSettings={snapshot.settings}
                         metric={metric}
@@ -259,7 +253,6 @@ export default function ExperimentTimeSeriesBlock({
                           </div>
                           <ExperimentMetricTimeSeriesGraphWrapper
                             experimentId={experiment.id}
-                            pValueThreshold={pValueThreshold}
                             phase={snapshot.phase}
                             snapshotSettings={snapshot.settings}
                             metric={sliceRow.metric}

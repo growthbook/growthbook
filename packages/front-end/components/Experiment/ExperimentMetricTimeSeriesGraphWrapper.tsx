@@ -11,7 +11,7 @@ import {
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
-import { ExperimentMetricDefinition, getAdjustedCI } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -62,32 +62,18 @@ function mapTimeSeriesPointToVariationCells({
   differenceType,
   metricValueFormatter,
   formatterOptions,
-  pValueThreshold,
 }: {
   point: MetricTimeSeries["dataPoints"][number];
   variations: GraphVariation[];
   differenceType: DifferenceType;
   metricValueFormatter: ReturnType<typeof getExperimentMetricFormatter>;
   formatterOptions: { currency: string };
-  pValueThreshold: number;
 }): (DataPointVariation | null)[] {
   return variations.map((gv) => {
     const variation = findTimeSeriesVariation(point.variations, gv);
     if (!variation) return null;
 
     const liftSlice = getLiftSlice(variation, differenceType);
-
-    let adjustedCI: [number, number] | undefined;
-    const pValueAdjusted = liftSlice?.pValueAdjusted;
-    const lift = liftSlice?.expected;
-    const ci = liftSlice?.ci;
-    if (
-      pValueAdjusted !== undefined &&
-      lift !== undefined &&
-      ci !== undefined
-    ) {
-      adjustedCI = getAdjustedCI(pValueAdjusted, lift, pValueThreshold, ci);
-    }
 
     return {
       v: variation.stats?.mean ?? 0,
@@ -99,9 +85,10 @@ function mapTimeSeriesPointToVariationCells({
       subUnits: variation.stats?.sub_count,
       up: liftSlice?.expected ?? 0,
       ctw: liftSlice?.chanceToWin ?? undefined,
-      ci: adjustedCI ?? liftSlice?.ci ?? undefined,
-      p: liftSlice?.pValueAdjusted ?? liftSlice?.pValue,
-      pIsAdjusted: pValueAdjusted !== undefined,
+      // The series is plotted unadjusted; the corrected values are stored
+      // alongside but not shown.
+      ci: liftSlice?.ci ?? undefined,
+      p: liftSlice?.pValue,
     };
   });
 }
@@ -129,7 +116,6 @@ function buildZeroEffectPadPoint(
 
 interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
-  pValueThreshold: number;
   phase: number;
   metric: ExperimentMetricDefinition;
   differenceType: DifferenceType;
@@ -169,7 +155,6 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
 
 function ExperimentMetricTimeSeriesGraphWrapper({
   experimentId,
-  pValueThreshold,
   phase,
   metric,
   differenceType,
@@ -289,7 +274,6 @@ function ExperimentMetricTimeSeriesGraphWrapper({
     differenceType,
     metricValueFormatter,
     formatterOptions,
-    pValueThreshold,
   });
 
   const preRolloutPadPoints: ExperimentTimeSeriesGraphDataPoint[] = [];
@@ -331,7 +315,6 @@ function ExperimentMetricTimeSeriesGraphWrapper({
         differenceType,
         metricValueFormatter,
         formatterOptions,
-        pValueThreshold,
       });
 
       const parsedPoint: ExperimentTimeSeriesGraphDataPoint = {
