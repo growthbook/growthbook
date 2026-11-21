@@ -269,7 +269,6 @@ function SelfUpdatingTile({
   );
 }
 
-// Draws one exploration, with its comparison when the block compares periods.
 function TileBody({
   settings,
   result,
@@ -286,7 +285,12 @@ function TileBody({
   const { block, config, compareEnabled, comparisonMode } = settings;
   const { getFactMetricById } = useDefinitions();
   const exploration = result?.exploration ?? null;
-  const rawComparison = result?.comparison ?? null;
+  // A comparison still running has no rows yet, and the payload would fill
+  // them with zeros, so it waits until it finishes.
+  const rawComparison =
+    result?.comparison?.status === "running"
+      ? null
+      : (result?.comparison ?? null);
   const submittedConfig = config ?? exploration?.config ?? null;
   // The resolved previous window lives on the comparison exploration's config.
   const submittedPreviousTimeFrame = rawComparison?.config?.dateRange ?? null;

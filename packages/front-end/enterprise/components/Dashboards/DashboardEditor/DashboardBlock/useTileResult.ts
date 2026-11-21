@@ -39,9 +39,14 @@ async function pollUntilDone(
   let latest = loaded;
   while (latest.exploration?.status === "running" && isCurrent()) {
     const running = latest.exploration;
-    await new Promise((resolve) =>
-      setTimeout(resolve, pollDelayForExploration(running)),
-    );
+    const delay = pollDelayForExploration(running);
+    // The backoff ends after ten minutes; stop instead of re-reading nonstop
+    if (delay <= 0) {
+      throw new Error(
+        "This block's query is still running. Check back in a few minutes.",
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay));
     if (!isCurrent()) break;
     latest = await read(running.id);
   }
@@ -119,16 +124,23 @@ export function useTileResult(request: TileRequest) {
         }
         const [primary, comparison] = await Promise.all([
           pollUntilDone(result, read, isCurrent),
+          // A comparison that fails or times out leaves the primary up
           pollUntilDone(
             { exploration: result.comparison, query: null },
             read,
             isCurrent,
+          ).then(
+            (loaded) => ({
+              comparison: loaded.exploration,
+              comparisonError: result.comparisonError,
+            }),
+            (e: Error) => ({ comparison: null, comparisonError: e.message }),
           ),
         ]);
         if (!isCurrent()) return;
         setState({
           status: "ready",
-          result: { ...result, ...primary, comparison: comparison.exploration },
+          result: { ...result, ...primary, ...comparison },
         });
       } catch (e) {
         if (!isCurrent()) return;

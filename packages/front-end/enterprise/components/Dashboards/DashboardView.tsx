@@ -8,6 +8,9 @@ import {
   MetricExplorationBlockInterface,
   SqlExplorationBlockInterface,
 } from "shared/enterprise";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import useApi from "@/hooks/useApi";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardCanvas from "@/enterprise/components/Dashboards/DashboardEditor/DashboardCanvas";
 
@@ -30,16 +33,27 @@ export default function DashboardView(
 ) {
   const dashboard = "dashboard" in props ? props.dashboard : undefined;
   const blocks = "dashboard" in props ? props.dashboard.blocks : props.blocks;
+  // Experiment blocks without a snapshot id read the experiment's latest one
+  const experimentId = dashboard?.experimentId;
+  const { data: experimentData, error: experimentError } = useApi<{
+    experiment: ExperimentInterfaceStringDates;
+  }>(`/experiment/${experimentId}`, { shouldRun: () => !!experimentId });
+
+  // On an error, the blocks render without it and show their own states
+  if (experimentId && !experimentData && !experimentError) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <DashboardSnapshotProvider
       dashboard={dashboard}
+      experiment={experimentData?.experiment}
       mutateDefinitions={() => undefined}
     >
       <DashboardCanvas
         isTabActive
         // An empty experimentId marks a general dashboard
-        isGeneralDashboard={!dashboard?.experimentId}
+        isGeneralDashboard={!experimentId}
         blocks={blocks}
         globalControls={dashboard?.globalControls}
         dashboardComparison={dashboard?.comparison}
