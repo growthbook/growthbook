@@ -325,9 +325,11 @@ export default function ExperimentSettings() {
               <>
                 Once an experiment is stopped, this setting disables updates
                 (overall and dimension breakdowns) to preserve the results at
-                the time the experiment was stopped. Custom reports remain
-                available for ad-hoc analysis. When on, you can set a grace
-                period to allow updates for a period of time after stopping.
+                the time the experiment was stopped. Earlier phases of an
+                experiment that is still running are also covered once they end.
+                Custom reports remain available for ad-hoc analysis. When on,
+                you can set a grace period to allow updates for a period of time
+                after stopping.
               </>
             }
             value={!!form.watch("disableResultsUpdateForStoppedExperiments")}
