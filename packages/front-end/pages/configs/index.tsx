@@ -39,6 +39,7 @@ import ConfigModal from "@/components/Configs/ConfigModal";
 import ConfigReviews from "@/components/Configs/ConfigReviews";
 import SearchFilterRow from "@/components/Search/SearchFilterRow";
 import ConfigSearchFilters from "@/components/Search/ConfigSearchFilters";
+import { docUrl } from "@/components/DocLink";
 
 const VALID_TABS = ["all", "drafts"] as const;
 type ConfigsTab = (typeof VALID_TABS)[number];
@@ -244,7 +245,7 @@ export default function ConfigsPage(): React.ReactElement {
             description="Define a base Config with a field schema, then create override Configs that inherit and override specific fields."
             leftButton={
               <LinkButton
-                href="https://docs.growthbook.io/features/configs"
+                href={docUrl("configs")}
                 variant="outline"
                 external={true}
               >

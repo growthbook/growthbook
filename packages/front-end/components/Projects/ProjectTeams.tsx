@@ -46,6 +46,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import { docUrl } from "@/components/DocLink";
 
 // Narrower, the Members header breaks mid-word, so the table scrolls sideways.
 const TEAMS_TABLE_MIN_WIDTH = 598;
@@ -227,7 +228,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
           title="Teams"
           description="Give a group of users a role on this Project in one step, and manage the group here."
           commercialFeature="teams"
-          learnMoreLink="https://docs.growthbook.io/account/user-permissions#project-scoped-teams"
+          learnMoreLink={docUrl("projectScopedTeams")}
         />
       </Box>
     );

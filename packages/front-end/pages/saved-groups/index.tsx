@@ -20,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
+import { docUrl } from "@/components/DocLink";
 
 function isTab(hash: string) {
   return (
@@ -154,12 +155,7 @@ export default function SavedGroupsPage() {
         {remoteGroupsEnabled
           ? "Learn more about using Condition Groups, ID Lists and Remote Groups."
           : "Learn more about using Condition Groups and ID Lists."}
-        <Link
-          href="https://docs.growthbook.io/features/targeting#saved-groups"
-          target="_blank"
-          rel="noreferrer"
-          ml="1"
-        >
+        <Link href={docUrl("savedGroups")} external ml="1">
           Docs <PiArrowSquareOut />
         </Link>
       </HelperText>

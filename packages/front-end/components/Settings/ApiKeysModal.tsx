@@ -17,6 +17,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
+import { docUrl } from "@/components/DocLink";
 import RadioCards from "@/ui/RadioCards";
 import Text from "@/ui/Text";
 import ApiKeyExpirationField from "./ApiKeyExpirationField";
@@ -268,11 +269,7 @@ const ApiKeysModal: FC<{
               <Callout status="info">
                 GrowthBook supports OAuth 2.0, which might be a better fit than
                 a shared API key.{" "}
-                <Link
-                  href="https://docs.growthbook.io/integrations/mcp"
-                  external
-                  weight="medium"
-                >
+                <Link href={docUrl("mcp")} external weight="medium">
                   Learn more <PiArrowSquareOut />
                 </Link>
               </Callout>
