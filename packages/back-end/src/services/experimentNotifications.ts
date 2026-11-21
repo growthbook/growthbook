@@ -912,7 +912,9 @@ export const computeExperimentChanges = async ({
         stats: curMetric,
         ciLower,
         ciUpper,
-        pValueThreshold,
+        // Each snapshot is judged at the threshold its analysis ran at.
+        pValueThreshold:
+          currentAnalysis.settings.pValueThreshold ?? pValueThreshold,
         statsEngine: statsEngine,
         differenceType: currentAnalysis.settings.differenceType,
       });
@@ -926,7 +928,8 @@ export const computeExperimentChanges = async ({
               stats: lastMetric,
               ciLower,
               ciUpper,
-              pValueThreshold,
+              pValueThreshold:
+                lastAnalysis.settings.pValueThreshold ?? pValueThreshold,
               statsEngine: lastAnalysis.settings.statsEngine,
               differenceType: lastAnalysis.settings.differenceType,
             })

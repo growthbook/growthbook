@@ -234,3 +234,27 @@ export function getAnalysisPValueCorrection(
   const recorded = analysis?.settings.pValueCorrection;
   return recorded !== undefined ? recorded : (fallback ?? null);
 }
+
+/** The p-value threshold an analysis was computed with, if it recorded one. */
+export function getAnalysisPValueThreshold(
+  analysis:
+    | { settings: Pick<ExperimentSnapshotAnalysisSettings, "pValueThreshold"> }
+    | null
+    | undefined,
+  fallback: number,
+): number {
+  return analysis?.settings.pValueThreshold ?? fallback;
+}
+
+/**
+ * JSON has no Infinity, so the open corrected interval of an adjusted p-value
+ * of 1 reaches the browser with null bounds. Returns the result with them
+ * restored, or the same object when there is nothing to restore.
+ */
+export function restoreOpenAdjustedCI<
+  T extends Pick<SnapshotMetric, "ciAdjusted">,
+>(stats: T): T {
+  const ci: readonly (number | null)[] | undefined = stats.ciAdjusted;
+  if (!ci || (ci[0] !== null && ci[1] !== null)) return stats;
+  return { ...stats, ciAdjusted: [ci[0] ?? -Infinity, ci[1] ?? Infinity] };
+}

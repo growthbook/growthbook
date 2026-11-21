@@ -77,3 +77,48 @@ it("leaves out bounds the payload schema cannot carry", async () => {
   expect(b.ci).toBeUndefined();
   expect(a.ci).toEqual([-0.2, 0]);
 });
+
+describe("goal metrics removed since the snapshot", () => {
+  const snapshotWith = (pValueCorrection?: null) =>
+    ({
+      id: "snp",
+      settings: {
+        variations: [{ id: "0" }, { id: "b" }, { id: "a" }],
+        goalMetrics: ["met", "removed"],
+      },
+      analyses: [
+        {
+          settings: {
+            statsEngine: "frequentist",
+            differenceType: "relative",
+            ...(pValueCorrection === null ? { pValueCorrection } : {}),
+          },
+          results: [
+            { variations: [{ users: 100, metrics: metric(0, [0, 0]) }] },
+          ],
+        },
+      ],
+    }) as unknown as ExperimentSnapshotInterface;
+  const loadedMetricIds = () =>
+    jest
+      .mocked(getLatestSuccessfulSnapshot)
+      .mock.calls.map(([params]) => params.metricIds);
+
+  beforeEach(() => {
+    jest.mocked(getLatestSuccessfulSnapshot).mockClear();
+  });
+
+  it("are loaded for a snapshot from before corrections were stored, whose correction needs them", async () => {
+    jest.mocked(getLatestSuccessfulSnapshot).mockResolvedValue(snapshotWith());
+    await getStoppedGoalMetricResults(context, experiment);
+    expect(loadedMetricIds()).toEqual([["met"], ["met", "removed"]]);
+  });
+
+  it("are not loaded for a snapshot that stores its correction", async () => {
+    jest
+      .mocked(getLatestSuccessfulSnapshot)
+      .mockResolvedValue(snapshotWith(null));
+    await getStoppedGoalMetricResults(context, experiment);
+    expect(loadedMetricIds()).toEqual([["met"]]);
+  });
+});

@@ -16,6 +16,7 @@ import {
   resolveMetricsForSnapshot,
   getSliceDataForMetric,
   SliceDataForMetric,
+  restoreOpenAdjustedCI,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -536,9 +537,10 @@ export function generateDimensionRowsForMetric({
       metric: newMetric,
       metricOverrideFields: overrideFields,
       rowClass: newMetric?.inverse ? "inverse" : "",
-      variations: dimensionResult.variations.map(
-        (v) => v.metrics?.[metricId] || noData(),
-      ),
+      variations: dimensionResult.variations.map((v) => {
+        const stats = v.metrics?.[metricId];
+        return stats ? restoreOpenAdjustedCI(stats) : noData();
+      }),
       metricSnapshotSettings,
       resultGroup,
       replacedByMetricName,

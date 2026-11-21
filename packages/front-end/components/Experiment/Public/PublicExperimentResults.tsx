@@ -10,6 +10,7 @@ import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
   getAnalysisPValueCorrection,
+  getAnalysisPValueThreshold,
 } from "shared/experiments";
 import { SignificanceThresholds } from "shared/types/stats";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -92,7 +93,7 @@ export default function PublicExperimentResults({
     ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
   const significanceThresholds: SignificanceThresholds = {
     bayesianConfidenceLevels,
-    pValueThreshold,
+    pValueThreshold: getAnalysisPValueThreshold(analysis, pValueThreshold),
   };
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;

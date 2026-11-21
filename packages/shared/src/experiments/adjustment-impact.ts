@@ -7,6 +7,7 @@ import {
   getMetricResultStatus,
   hasEnoughData,
 } from "./experiments";
+import { restoreOpenAdjustedCI } from "./results/enrich";
 
 export type AdjustmentEffectSize = "small" | "moderate" | "large";
 
@@ -264,12 +265,12 @@ function applySupplemental(
     const supplemental = stats.supplementalResults?.[field];
     if (!supplemental) return stats;
 
-    return {
+    return restoreOpenAdjustedCI({
       ...stats,
       ...(supplemental as Partial<SnapshotMetric>),
       pValueAdjusted: supplemental.pValueAdjusted,
       ciAdjusted: supplemental.ciAdjusted,
-    };
+    });
   });
 }
 

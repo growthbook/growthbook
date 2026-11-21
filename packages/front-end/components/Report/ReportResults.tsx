@@ -6,6 +6,7 @@ import {
 import {
   getEffectiveLookbackOverride,
   getAnalysisPValueCorrection,
+  getAnalysisPValueThreshold,
 } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
 import {
@@ -119,7 +120,7 @@ export default function ReportResults({
     ssrPolyfills?.usePValueThreshold?.(experiment?.project) || _pValueThreshold;
   const significanceThresholds: SignificanceThresholds = {
     bayesianConfidenceLevels,
-    pValueThreshold,
+    pValueThreshold: getAnalysisPValueThreshold(analysis, pValueThreshold),
   };
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;

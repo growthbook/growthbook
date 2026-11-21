@@ -76,15 +76,31 @@ export async function getStoppedGoalMetricResults(
     const replacedIds = goalMetrics.flatMap((m) =>
       isFactMetric(m) ? (m.replaces ?? []) : [],
     );
-    const snapshot = await getLatestSuccessfulSnapshot({
-      context,
-      experiment: experiment.id,
-      phase: experiment.phases.length - 1,
-      type: "standard",
-      // The p-value correction spans every goal metric, so load them all
-      // (but not secondaries or guardrails).
-      metricIds: [...goalIds, ...replacedIds],
-    });
+    const loadSnapshot = (metricIds: string[]) =>
+      getLatestSuccessfulSnapshot({
+        context,
+        experiment: experiment.id,
+        phase: experiment.phases.length - 1,
+        type: "standard",
+        metricIds,
+      });
+    // The p-value correction spans every goal metric, so load them all (but
+    // not secondaries or guardrails).
+    const loadedIds = [...goalIds, ...replacedIds];
+    let snapshot = await loadSnapshot(loadedIds);
+    // An analysis from before corrections were stored is corrected as it is
+    // read, which needs every goal metric it ran with: also the ones removed
+    // from the experiment since.
+    const removedGoalIds = (snapshot?.settings.goalMetrics ?? []).filter(
+      (id) => !loadedIds.includes(id),
+    );
+    if (
+      snapshot &&
+      removedGoalIds.length > 0 &&
+      getSnapshotAnalysis(snapshot)?.settings.pValueCorrection === undefined
+    ) {
+      snapshot = await loadSnapshot([...loadedIds, ...removedGoalIds]);
+    }
     const analysis = snapshot ? getSnapshotAnalysis(snapshot) : null;
     if (!snapshot || !analysis?.results?.length) return undefined;
 

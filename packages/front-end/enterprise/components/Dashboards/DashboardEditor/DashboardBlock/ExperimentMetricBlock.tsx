@@ -12,6 +12,7 @@ import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
   getAnalysisPValueCorrection,
+  getAnalysisPValueThreshold,
 } from "shared/experiments";
 import { SignificanceThresholds } from "shared/types/stats";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -72,7 +73,7 @@ export default function ExperimentMetricBlock({
     ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
   const significanceThresholds: SignificanceThresholds = {
     bayesianConfidenceLevels,
-    pValueThreshold,
+    pValueThreshold: getAnalysisPValueThreshold(analysis, pValueThreshold),
   };
 
   const queryStatusData = getQueryStatus(

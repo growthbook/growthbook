@@ -6690,8 +6690,15 @@ export async function computeResultsStatus({
     "project" in experiment && typeof experiment.project === "string"
       ? experiment.project
       : undefined;
-  const { ciUpper, ciLower, pValueThreshold } =
-    await getSignificanceSettingsForProject(context, projectId);
+  const significance = await getSignificanceSettingsForProject(
+    context,
+    projectId,
+  );
+  const { ciUpper, ciLower } = significance;
+  // The threshold the analysis ran at, so that the status only changes when
+  // the results do.
+  const pValueThreshold =
+    analysis.settings.pValueThreshold ?? significance.pValueThreshold;
   const metricDefaults = getMetricDefaultsForOrg(context);
   const metricMap = await getMetricMap(context);
   const metricGroups = await context.models.metricGroups.getAll();

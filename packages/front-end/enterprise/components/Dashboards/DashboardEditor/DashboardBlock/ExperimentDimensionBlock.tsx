@@ -10,6 +10,7 @@ import {
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getAnalysisPValueCorrection,
+  getAnalysisPValueThreshold,
 } from "shared/experiments";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -69,7 +70,7 @@ export default function ExperimentDimensionBlock({
     ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
   const significanceThresholds: SignificanceThresholds = {
     bayesianConfidenceLevels,
-    pValueThreshold,
+    pValueThreshold: getAnalysisPValueThreshold(analysis, pValueThreshold),
   };
 
   const variations = getLatestPhaseVariations(experiment).map((v, i) => ({

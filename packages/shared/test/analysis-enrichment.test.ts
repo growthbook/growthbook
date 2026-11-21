@@ -2,6 +2,8 @@ import {
   enrichAnalysisResults,
   fillLegacyPValueCorrection,
   getAnalysisPValueCorrection,
+  getAnalysisPValueThreshold,
+  restoreOpenAdjustedCI,
 } from "shared/experiments";
 import {
   ExperimentSnapshotAnalysis,
@@ -343,5 +345,40 @@ describe("getAnalysisPValueCorrection", () => {
       getAnalysisPValueCorrection({ settings: {} }, "holm-bonferroni"),
     ).toBe("holm-bonferroni");
     expect(getAnalysisPValueCorrection(undefined, undefined)).toBeNull();
+  });
+});
+
+describe("getAnalysisPValueThreshold", () => {
+  it("prefers the threshold the analysis ran at", () => {
+    expect(
+      getAnalysisPValueThreshold({ settings: { pValueThreshold: 0.01 } }, 0.05),
+    ).toBe(0.01);
+  });
+
+  it("falls back when the analysis recorded none", () => {
+    expect(getAnalysisPValueThreshold({ settings: {} }, 0.05)).toBe(0.05);
+    expect(getAnalysisPValueThreshold(undefined, 0.05)).toBe(0.05);
+  });
+});
+
+describe("restoreOpenAdjustedCI", () => {
+  // What JSON makes of [-Infinity, Infinity].
+  const fromJson = (ciAdjusted: [number, number]) =>
+    JSON.parse(JSON.stringify({ ...stat(1), ciAdjusted })) as SnapshotMetric;
+
+  it("restores the bounds JSON turned into null", () => {
+    expect(
+      restoreOpenAdjustedCI(fromJson([-Infinity, Infinity])).ciAdjusted,
+    ).toEqual([-Infinity, Infinity]);
+    expect(
+      restoreOpenAdjustedCI(fromJson([-Infinity, 0.2])).ciAdjusted,
+    ).toEqual([-Infinity, 0.2]);
+  });
+
+  it("returns the same object when there is nothing to restore", () => {
+    const closed = fromJson([-0.1, 0.2]);
+    expect(restoreOpenAdjustedCI(closed)).toBe(closed);
+    const uncorrected = stat(0.5);
+    expect(restoreOpenAdjustedCI(uncorrected)).toBe(uncorrected);
   });
 });

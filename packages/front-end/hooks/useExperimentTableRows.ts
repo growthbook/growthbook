@@ -17,6 +17,7 @@ import {
   generateSelectAllSliceString,
   isMetricGroupId,
   resolveMetricsForSnapshot,
+  restoreOpenAdjustedCI,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
@@ -590,14 +591,15 @@ export function generateRowsForMetric({
           errorMessage: NO_DATA_ERROR_MESSAGE,
         }))
       : resultsArray[0].variations.map((v) => {
-          return (
-            v.metrics?.[metricId] || {
-              users: 0,
-              value: 0,
-              cr: 0,
-              errorMessage: NO_DATA_ERROR_MESSAGE,
-            }
-          );
+          const stats = v.metrics?.[metricId];
+          return stats
+            ? restoreOpenAdjustedCI(stats)
+            : {
+                users: 0,
+                value: 0,
+                cr: 0,
+                errorMessage: NO_DATA_ERROR_MESSAGE,
+              };
         }),
     metricSnapshotSettings,
     resultGroup,
