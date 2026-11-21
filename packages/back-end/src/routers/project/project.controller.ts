@@ -379,26 +379,10 @@ export const putProjectSettings = async (
 
   const { settings } = req.body;
 
-  // This endpoint owns the stats fields, so one the form leaves out is
-  // cleared. Every other setting keeps its stored value.
-  const updated = await context.models.projects.updateWithCas(
+  const updated = await context.models.projects.updateStatsSettings(
     id,
-    ["settings"],
-    (current) => ({
-      settings: {
-        ...current.settings,
-        statsEngine: settings.statsEngine,
-        confidenceLevel: settings.confidenceLevel,
-        pValueThreshold: settings.pValueThreshold,
-      },
-    }),
+    settings,
   );
-  if (!updated) {
-    res.status(404).json({
-      message: "Could not find project",
-    });
-    return;
-  }
 
   res.status(200).json({
     status: 200,

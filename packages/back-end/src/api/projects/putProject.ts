@@ -14,26 +14,14 @@ export const putProject = createApiRequestHandler(putProjectValidator)(async (
   const { settings, ...updates } =
     req.context.models.projects.updateValidator.parse(req.body);
   // A plain update replaces the whole settings object, which would delete
-  // fields this endpoint doesn't accept, like the default dashboard. This
-  // endpoint owns the stats fields, so one left out of the request is cleared.
+  // fields this endpoint doesn't accept, like the default dashboard.
   const newProject = settings
-    ? await req.context.models.projects.updateWithCas(
+    ? await req.context.models.projects.updateStatsSettings(
         project.id,
-        ["settings"],
-        (current) => ({
-          ...updates,
-          settings: {
-            ...current.settings,
-            statsEngine: settings.statsEngine,
-            confidenceLevel: settings.confidenceLevel,
-            pValueThreshold: settings.pValueThreshold,
-          },
-        }),
+        settings,
+        updates,
       )
     : await req.context.models.projects.update(project, updates);
-  if (!newProject) {
-    throw new Error("Could not find project with that id");
-  }
 
   return {
     project: await resolveOwnerEmail(
