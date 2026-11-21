@@ -216,7 +216,7 @@ final sdk = await GBSDKBuilderApp(
   growthBookTrackingCallBack: (exp, result) {
     exposures.add({
       "experimentKey": exp.key,
-      "variationId": result.variationId,
+      "variationId": result.key,
       "featureId": result.featureId,
     });
   },
