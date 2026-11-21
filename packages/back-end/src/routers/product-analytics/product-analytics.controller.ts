@@ -22,7 +22,11 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
-import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
+import {
+  findCachedProductAnalyticsExploration,
+  loadSavedPopulation,
+  runProductAnalyticsExploration,
+} from "back-end/src/enterprise/services/product-analytics";
 import { getQueryById } from "back-end/src/models/QueryModel";
 import {
   getConversationStatus,
@@ -301,6 +305,30 @@ export const postChatFeedback = async (
   });
 
   return res.status(200).json({ status: 200, feedback: updatedFeedback });
+};
+
+// Reads a cached result without running anything, so viewers who can't run
+// queries still see results someone else ran.
+export const postProductAnalyticsCached = async (
+  req: AuthRequest<{ config: ExplorationConfig }>,
+  res: Response<{
+    status: 200;
+    exploration: ProductAnalyticsExploration | null;
+    query: QueryInterface | null;
+  }>,
+) => {
+  const context = getContextFromReq(req);
+  const { config } = req.body;
+  const savedPopulation = await loadSavedPopulation(context, config);
+  const exploration = await findCachedProductAnalyticsExploration(
+    context,
+    config,
+    savedPopulation,
+  );
+  // The tile renders this result as is; its table shows the query's SQL
+  const queryId = exploration?.queries?.[0]?.query;
+  const query = queryId ? await getQueryById(context, queryId) : null;
+  return res.status(200).json({ status: 200, exploration, query });
 };
 
 export const getExplorationById = async (

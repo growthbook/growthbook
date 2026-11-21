@@ -105,6 +105,10 @@ export type BlockProps<T extends DashboardBlockInterface> = {
   mutate: () => void;
   isEditing: boolean;
   ssrPolyfills?: SSRPolyfills;
+  // Set where no dashboard header runs the blocks, so a block runs itself
+  selfUpdate?: boolean;
+  // A spot in the block's title row for the block's own action
+  headerActionSlot?: HTMLElement | null;
 } & ObjectProps<T>;
 
 interface Props<DashboardBlock extends DashboardBlockInterface> {
@@ -132,6 +136,7 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   canEdit?: boolean;
   setIsEditing?: (value: boolean) => void;
   enterEditModeForBlock?: (blockIndex: number) => void;
+  selfUpdate?: boolean;
 }
 
 const BLOCK_COMPONENTS: {
@@ -182,6 +187,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   canEdit,
   setIsEditing,
   enterEditModeForBlock,
+  selfUpdate = false,
 }: Props<T>) {
   const { experimentsMap, loading: experimentsLoading } = useExperiments();
   const {
@@ -208,6 +214,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   );
 
   const [editTitle, setEditTitle] = useState(false);
+  const [headerActionSlot, setHeaderActionSlot] =
+    useState<HTMLDivElement | null>(null);
   const shouldShowGlobalControlOptOutBadge =
     Boolean(dashboardGlobalControls?.dateRange) &&
     isDashboardGlobalControlSupportedBlock(block) &&
@@ -518,6 +526,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                   : ({} as ExperimentSnapshotAnalysis)
               }
               mutate={mutate}
+              selfUpdate={selfUpdate}
+              headerActionSlot={headerActionSlot}
               // objectProps should be validated above to actually contain all the keys and not be Partial
               {...(objectProps as unknown as ObjectProps<T>)}
             />
@@ -636,6 +646,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </>
         )}
 
+        {selfUpdate && <Flex ref={setHeaderActionSlot} align="center" />}
         {isEditing ? (
           <div>
             {!editingBlock && (

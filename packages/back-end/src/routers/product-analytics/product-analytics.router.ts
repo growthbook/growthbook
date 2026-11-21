@@ -2,6 +2,7 @@ import express from "express";
 import { z } from "zod";
 import {
   productAnalyticsRunRequestBodyValidator,
+  internalExplorationConfigValidator,
   aiChatFeedbackRatingValidator,
   aiChatMentionValidator,
 } from "shared/validators";
@@ -31,6 +32,14 @@ router.post(
       .optional(),
   }),
   productAnalyticsController.postProductAnalyticsRun,
+);
+
+router.post(
+  "/cached",
+  validateRequestMiddleware({
+    body: z.object({ config: internalExplorationConfigValidator }).strict(),
+  }),
+  productAnalyticsController.postProductAnalyticsCached,
 );
 
 router.post(
