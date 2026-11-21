@@ -1,6 +1,7 @@
 import { metricTimeSeriesSchema } from "../src/validators/metric-time-series";
 import type { MetricTimeSeries } from "../src/validators/metric-time-series";
 import {
+  getSettingsChangedTags,
   isValidDataPoint,
   filterInvalidMetricTimeSeries,
 } from "../src/util/metric-time-series";
@@ -163,5 +164,46 @@ describe("filterInvalidMetricTimeSeries", () => {
   it("removes a series whose data points are all invalid", () => {
     const series = makeSeries([makeDataPoint([control, degenerateVariation])]);
     expect(filterInvalidMetricTimeSeries([series])).toHaveLength(0);
+  });
+});
+
+describe("getSettingsChangedTags", () => {
+  const hashes = {
+    lastExperimentSettingsHash: "experiment",
+    lastMetricSettingsHash: "metric",
+    lastPValueCorrectionHash: "holm",
+  };
+
+  it("has none when nothing changed", () => {
+    expect(getSettingsChangedTags(hashes, { ...hashes })).toEqual([]);
+  });
+
+  it("tags each kind of settings that changed", () => {
+    expect(
+      getSettingsChangedTags(hashes, {
+        lastExperimentSettingsHash: "experiment2",
+        lastMetricSettingsHash: "metric2",
+        lastPValueCorrectionHash: "none",
+      }),
+    ).toEqual([
+      "experiment-settings-changed",
+      "metric-settings-changed",
+      "p-value-correction-changed",
+    ]);
+    expect(
+      getSettingsChangedTags(hashes, {
+        ...hashes,
+        lastPValueCorrectionHash: "none",
+      }),
+    ).toEqual(["p-value-correction-changed"]);
+  });
+
+  it("does not tag a series that first gets a p-value correction hash", () => {
+    expect(
+      getSettingsChangedTags(
+        { ...hashes, lastPValueCorrectionHash: undefined },
+        hashes,
+      ),
+    ).toEqual([]);
   });
 });

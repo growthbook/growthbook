@@ -1,7 +1,7 @@
 import uniqid from "uniqid";
 import { formatISO } from "date-fns";
 import { FilterQuery } from "mongoose";
-import { isValidDataPoint } from "shared/util";
+import { getSettingsChangedTags, isValidDataPoint } from "shared/util";
 import { getValidDate } from "shared/dates";
 import {
   metricTimeSeriesSchema,
@@ -320,35 +320,12 @@ export class MetricTimeSeriesModel extends BaseClass {
     existing: MetricTimeSeries,
     newTimeSeries: CreateMetricTimeSeriesSingleDataPoint,
   ): MetricTimeSeries {
-    if (
-      newTimeSeries.lastExperimentSettingsHash !==
-      existing.lastExperimentSettingsHash
-    ) {
-      if (!newTimeSeries.singleDataPoint.tags) {
-        newTimeSeries.singleDataPoint.tags = [];
-      }
-      newTimeSeries.singleDataPoint.tags.push("experiment-settings-changed");
-    }
-
-    if (
-      newTimeSeries.lastMetricSettingsHash !== existing.lastMetricSettingsHash
-    ) {
-      if (!newTimeSeries.singleDataPoint.tags) {
-        newTimeSeries.singleDataPoint.tags = [];
-      }
-      newTimeSeries.singleDataPoint.tags.push("metric-settings-changed");
-    }
-
-    // A series from before this hash was recorded has nothing to compare with.
-    if (
-      (existing.lastPValueCorrectionHash ?? null) !== null &&
-      newTimeSeries.lastPValueCorrectionHash !==
-        existing.lastPValueCorrectionHash
-    ) {
-      if (!newTimeSeries.singleDataPoint.tags) {
-        newTimeSeries.singleDataPoint.tags = [];
-      }
-      newTimeSeries.singleDataPoint.tags.push("p-value-correction-changed");
+    const changedTags = getSettingsChangedTags(existing, newTimeSeries);
+    if (changedTags.length > 0) {
+      newTimeSeries.singleDataPoint.tags = [
+        ...(newTimeSeries.singleDataPoint.tags ?? []),
+        ...changedTags,
+      ];
     }
 
     const dataPoints = this.dropInvalidAndLimitDataPoints([

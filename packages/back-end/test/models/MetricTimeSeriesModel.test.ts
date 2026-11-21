@@ -262,36 +262,4 @@ describe("MetricTimeSeriesModel", () => {
     expect(us?.dataPoints).toHaveLength(2);
     expect(ca?.dataPoints).toHaveLength(1);
   });
-
-  it("tags a point when the p-value correction hash changes, but not when a series first gets one", async () => {
-    const pointOn = (day: number, lastPValueCorrectionHash?: string) =>
-      makeSingleDataPoint({
-        lastPValueCorrectionHash,
-        singleDataPoint: {
-          ...makeSingleDataPoint().singleDataPoint,
-          date: new Date(`2025-01-0${day}T00:00:00Z`),
-        },
-      });
-
-    // Written before the hash was recorded.
-    await model.upsertMultipleSingleDataPoint([pointOn(1)]);
-    await model.upsertMultipleSingleDataPoint([pointOn(2, "holm")]);
-    await model.upsertMultipleSingleDataPoint([pointOn(3, "holm")]);
-    await model.upsertMultipleSingleDataPoint([pointOn(4, "none")]);
-
-    const [series] = await model.getBySourceAndMetricIds({
-      source: "experiment",
-      sourceId: "exp_1",
-      sourcePhase: 0,
-      metricIds: ["met_1"],
-    });
-
-    expect(series.dataPoints.map((point) => point.tags)).toEqual([
-      undefined,
-      undefined,
-      undefined,
-      ["p-value-correction-changed"],
-    ]);
-    expect(series.lastPValueCorrectionHash).toBe("none");
-  });
 });
