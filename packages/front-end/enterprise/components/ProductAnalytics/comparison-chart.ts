@@ -6,6 +6,7 @@ import {
   calculateProductAnalyticsDateRange,
   computeBigNumberTrend,
   createComparisonAlignmentResolver,
+  dividesByPopulationCount,
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy, ValueAxis } from "shared/enterprise";
 import type {
@@ -282,13 +283,14 @@ export function getAlignedComparisonDimensionKeyForTooltip(
   )(currentKey);
 }
 
-/** Members who converted over the Population's member count. */
+/** The numerator over the Population's member count. */
 export type PopulationFraction = { numerator: number; populationCount: number };
 
 /**
  * A chart point. A null value is a gap (no data, e.g. "% of Population" on a
  * day with no members), unlike a bucket with no rows, which reads as 0. A
- * "% of Population" point also carries its fraction, which the tooltip shows.
+ * point divided by the Population count also carries its fraction, which the
+ * tooltip shows.
  */
 export type ChartPoint = {
   value: number | null;
@@ -303,23 +305,23 @@ export function sortDateXValues(xValues: Iterable<string>): string[] {
   );
 }
 
-// "% of Population" series keys. With no members there's no percentage, so a
-// date these series have no bucket for is a gap, not 0.
+// Keys of series divided by the Population count. With no members there's no
+// value, so a date these series have no bucket for is a gap, not 0.
 export function getPopulationSeriesKeys(
   seriesMeta: Record<string, { valueIndex: number }>,
   renderOpts: RenderOpts,
 ): Set<string> {
   return new Set(
-    Object.keys(seriesMeta).filter(
-      (seriesKey) =>
-        renderOpts.values[seriesMeta[seriesKey].valueIndex]?.showAs ===
-        "percent_of_population",
+    Object.keys(seriesMeta).filter((seriesKey) =>
+      dividesByPopulationCount(
+        renderOpts.values[seriesMeta[seriesKey].valueIndex]?.showAs,
+      ),
     ),
   );
 }
 
-// Marks each date in `xValues` that a "% of Population" series has no bucket
-// for as a gap, e.g. dates past the end of the current window that the axis
+// Marks each date in `xValues` that a series divided by the Population count
+// has no bucket for as a gap, e.g. dates past the end of the current window that the axis
 // reaches for a longer comparison window.
 export function fillPopulationSeriesGaps(
   dataMap: Record<string, Record<string, ChartPoint>>,
@@ -347,8 +349,8 @@ export function fillPopulationSeriesGaps(
  *   string equality on the category label.
  *
  * A bucket the comparison has no value for reads as 0, except in
- * `gapSeriesKeys` ("% of Population" series), where it's a gap: with no
- * members there's no percentage.
+ * `gapSeriesKeys` (series divided by the Population count), where it's a gap:
+ * with no members there's no value.
  */
 export function alignComparisonOverlayToCategories(
   sortedXValues: string[],
@@ -464,9 +466,9 @@ export function buildComparisonOverlaySeriesMaps(
     if (!cell) return null;
     const opts = renderOpts.values[valueIndex];
     const value = getEffectiveMetricValue(cell, opts, row.populationCount);
-    // A "% of Population" point has a fraction whenever it has a value;
-    // getEffectiveMetricValue decides when it has one.
-    if (opts?.showAs === "percent_of_population" && value !== null) {
+    // A point divided by the Population count has a fraction whenever it has
+    // a value; getEffectiveMetricValue decides when it has one.
+    if (dividesByPopulationCount(opts?.showAs) && value !== null) {
       const numerator = cell.numerator ?? 0;
       const populationCount = row.populationCount ?? 0;
       return { value, fraction: { numerator, populationCount } };
@@ -687,7 +689,8 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
 
 /**
  * An ECharts data item: the point's value (paired with its time on a time
- * axis) and, for a "% of Population" point, the fraction the tooltip shows.
+ * axis) and, for a point divided by the Population count, the fraction the
+ * tooltip shows.
  */
 type EChartsDataItem = {
   value: number | null | [number, number | null];
@@ -1208,7 +1211,7 @@ const fractionNumberFormatter = Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
-// A "% of Population" value's fraction, muted like the fraction in experiment
+// The fraction of a value divided by the Population count, muted like the fraction in experiment
 // results.
 function populationFractionHtml({
   numerator,
@@ -1362,16 +1365,16 @@ export function buildExplorerChartTooltipFormatter({
     Boolean(resolvedGranularity) && !compositeCategoryAxisTooltip;
 
   // Most empty points are the blank slots sparse bars are laid out with, which
-  // have no data item. A "% of Population" bucket with no members is a data
-  // item with no value, shown as "No data".
+  // have no data item. A bucket divided by the Population count with no
+  // members is a data item with no value, shown as "No data".
   const isShownItem = (item: Omit<TooltipAxisItem, "dataIndex">) => {
     if (tooltipItemNumericValue(item) !== null) return true;
     const data = item.data ?? null;
     return data !== null && tooltipItemNumericValue(data) === null;
   };
 
-  // The value cell's HTML. A "% of Population" value is preceded by its
-  // fraction.
+  // The value cell's HTML. A value divided by the Population count is preceded
+  // by its fraction.
   const formatItemValueHtml = (item: Omit<TooltipAxisItem, "dataIndex">) => {
     const numValue = tooltipItemNumericValue(item);
     const formatted = numValue !== null ? formatNumber(numValue) : "No data";

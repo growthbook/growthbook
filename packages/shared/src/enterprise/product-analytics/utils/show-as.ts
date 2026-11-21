@@ -39,11 +39,13 @@ const SHOW_AS_OPTIONS_BY_METRIC_TYPE: Partial<
 /**
  * The Show as options a metric type offers when the dataset has a population.
  * A proportion's converting units can then be shown as a share of the
- * population's members.
+ * population's members, and a mean's total as an average over every member,
+ * counting members without events as 0.
  */
 const SHOW_AS_OPTIONS_WITH_POPULATION: Partial<
   Record<FactMetricType, readonly ShowAs[]>
 > = {
+  mean: ["total", "per_unit", "per_population_member"],
   proportion: ["total", "percent_of_population"],
 };
 
@@ -88,11 +90,12 @@ export function getDraftOrSavedMetric(
 
 /**
  * The default `showAs` for a value without an explicit choice:
- * - `per_unit` for mean metrics whose total is incoherent — numerator
+ * - `percent_of_population` for proportions and `per_population_member` for
+ *   means when the dataset has a population, since measuring its members is
+ *   what a population is for.
+ * - `per_unit` for other mean metrics whose total is incoherent — numerator
  *   aggregation `max` (a sum of per-unit maxes has no interpretation) or
  *   `count distinct` (double-counts values shared across units).
- * - `percent_of_population` for proportions when the dataset has a
- *   population, since a share of its members is what a population is for.
  * - Otherwise `total`.
  */
 export function inferShowAs(
@@ -101,6 +104,9 @@ export function inferShowAs(
 ): ShowAs {
   if (metric?.metricType === "proportion" && hasPopulation) {
     return "percent_of_population";
+  }
+  if (metric?.metricType === "mean" && hasPopulation) {
+    return "per_population_member";
   }
   if (metric?.metricType === "mean") {
     const agg = metric.numerator?.aggregation ?? "sum";
@@ -161,7 +167,7 @@ export function normalizeShowAs<T extends ExplorationConfig>(
 
   const legacyShowAs = config.showAs;
   const hasLegacyShowAs = legacyShowAs !== undefined;
-  // Removing the population strips `percent_of_population` from its values.
+  // Removing the population strips its modes from its values.
   const hasPopulation = configHasPopulation(config);
   let valuesChanged = false;
 
