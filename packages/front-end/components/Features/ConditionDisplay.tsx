@@ -26,7 +26,7 @@ import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
-function operatorToText({
+export function operatorToText({
   operator,
   isPrerequisite,
   hasMultipleSavedGroups,

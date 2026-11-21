@@ -1,4 +1,5 @@
 import { putEnvironmentValidator } from "shared/validators";
+import { isProductionEnvironment } from "shared/util";
 import { OrganizationInterface } from "shared/types/organization";
 import { isEqual } from "lodash";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -43,6 +44,14 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
     };
 
     await updateOrganization(org.id, updates);
+
+    // QA overrides only serve non-production environments.
+    if (
+      !isProductionEnvironment(environment) &&
+      isProductionEnvironment(updatedEnvironment)
+    ) {
+      await req.context.models.experimentQaOverrides.deleteByEnvironment(id);
+    }
 
     await req.audit({
       event: "environment.update",
