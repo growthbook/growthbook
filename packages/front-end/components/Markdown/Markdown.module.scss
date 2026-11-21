@@ -61,14 +61,34 @@
   table {
     display: block;
     overflow: auto;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     // As the editor draws them, so a table reads the same edited and saved.
     td,
     th {
-      border: 1px solid var(--gray-6);
+      border: 0 solid var(--gray-6);
+      border-width: 0 1px 1px 0;
       padding: var(--space-1) var(--space-2);
       text-align: left;
       vertical-align: top;
+    }
+    tr > :first-child {
+      border-left-width: 1px;
+    }
+    thead th {
+      border-top-width: 1px;
+    }
+    thead th:first-child {
+      border-top-left-radius: var(--radius-3);
+    }
+    thead th:last-child {
+      border-top-right-radius: var(--radius-3);
+    }
+    > :last-child > tr:last-child > :first-child {
+      border-bottom-left-radius: var(--radius-3);
+    }
+    > :last-child > tr:last-child > :last-child {
+      border-bottom-right-radius: var(--radius-3);
     }
     th {
       background-color: var(--gray-a2);

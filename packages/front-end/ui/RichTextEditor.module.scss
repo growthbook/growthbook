@@ -466,16 +466,38 @@
   overflow-x: auto;
 }
 
+// Rounded like a GB table: each cell draws its right and bottom edges, the
+// outer cells the table's top and left, and the corner cells its corners.
 .table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+
+  tr:first-of-type > * {
+    border-top-width: 1px;
+  }
+  tr > :first-child {
+    border-left-width: 1px;
+  }
+  tr:first-of-type > :first-child {
+    border-top-left-radius: var(--radius-3);
+  }
+  tr:first-of-type > :last-child {
+    border-top-right-radius: var(--radius-3);
+  }
+  tr:last-child > :first-child {
+    border-bottom-left-radius: var(--radius-3);
+  }
+  tr:last-child > :last-child {
+    border-bottom-right-radius: var(--radius-3);
+  }
 }
 
 .tableCell,
 .tableCellHeader {
   min-width: 60px;
   padding: var(--space-1) var(--space-2);
-  // Solid: a translucent border darkens where the collapsed borders cross.
-  border: 1px solid var(--gray-6);
+  border: 0 solid var(--gray-6);
+  border-width: 0 1px 1px 0;
   text-align: left;
   vertical-align: top;
   // Wraps between words as the saved table does, rather than squeezing every
