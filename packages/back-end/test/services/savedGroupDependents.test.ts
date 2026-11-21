@@ -143,6 +143,47 @@ describe("findSavedGroupDependents", () => {
     expect(result.holdoutAffected).toBe(false);
   });
 
+  it("flags a group named only by a QA override's filters, directly or through another group", () => {
+    const qaAffected = (args: Partial<Args>) =>
+      findSavedGroupDependents({
+        groupId: "g",
+        savedGroups: [],
+        features: [],
+        experiments: [],
+        holdoutExperiments: [],
+        bandits: [],
+        interleavings: [],
+        ...args,
+      }).qaAffected;
+
+    expect(
+      qaAffected({
+        qaOverrides: [
+          { filters: { savedGroups: [{ match: "any", ids: ["g"] }] } },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      qaAffected({
+        savedGroups: [
+          { id: "parent", condition: '{"id":{"$inGroup":"g"}}' },
+        ] as Args["savedGroups"],
+        qaOverrides: [
+          { filters: { condition: '{"id":{"$inGroup":"parent"}}' } },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      qaAffected({
+        qaOverrides: [
+          { filters: { savedGroups: [{ match: "any", ids: ["other"] }] } },
+          { filters: {} },
+        ],
+      }),
+    ).toBe(false);
+    expect(qaAffected({})).toBe(false);
+  });
+
   it("finds nothing for a group no targeting reaches", () => {
     expect(
       dependents({

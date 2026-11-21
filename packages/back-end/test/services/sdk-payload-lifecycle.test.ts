@@ -313,6 +313,9 @@ describe("SDK payload lifecycle (comprehensive)", () => {
             .mockResolvedValue(new Map()),
         },
         projects: { getAll: jest.fn().mockResolvedValue([]) },
+        experimentQaOverrides: {
+          getAllForPayload: jest.fn().mockResolvedValue([]),
+        },
       };
     }
     function expectNoPayloadBuildLoads(

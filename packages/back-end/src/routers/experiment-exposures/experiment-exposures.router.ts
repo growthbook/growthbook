@@ -19,6 +19,7 @@ router.post(
         rowFilters: z.array(stringRowFilterValidator).optional(),
         phase: z.number().int().min(0).optional(),
         cache: z.enum(["preferred", "required", "never"]).optional(),
+        exposureSource: z.enum(["live", "qa"]).optional(),
       })
       .strict(),
   }),
