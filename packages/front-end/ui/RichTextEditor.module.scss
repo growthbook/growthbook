@@ -474,7 +474,8 @@
 .tableCellHeader {
   min-width: 60px;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--gray-a6);
+  // Solid: a translucent border darkens where the collapsed borders cross.
+  border: 1px solid var(--gray-6);
   text-align: left;
   vertical-align: top;
   // Wraps between words as the saved table does, rather than squeezing every
