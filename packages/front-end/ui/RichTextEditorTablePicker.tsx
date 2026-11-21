@@ -16,7 +16,12 @@ export default function RichTextEditorTablePicker({
 }) {
   const [size, setSize] = useState({ rows: 1, columns: 1 });
   return (
-    <Flex direction="column" align="center" gap="2">
+    <Flex
+      direction="column"
+      align="center"
+      gap="2"
+      className={styles.tablePickerBody}
+    >
       <div className={styles.tablePicker}>
         {Array.from({ length: MAX * MAX }, (_, i) => {
           const rows = Math.floor(i / MAX) + 1;

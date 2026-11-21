@@ -60,7 +60,6 @@ import {
   outsideTableCells,
   registerTableKeys,
   registerTableRules,
-  splitTableRow,
 } from "@/ui/RichTextEditorTable";
 
 const transformers = [
@@ -209,16 +208,6 @@ describe("rich text tables", () => {
         .getEditorState()
         .read(() => $convertToMarkdownString(transformers)),
     ).toBe(`### Summary\n\n${TABLE}`);
-  });
-});
-
-describe("splitTableRow", () => {
-  it("splits on unescaped pipes and trims each cell", () => {
-    expect(splitTableRow("| a |  b | c \\| d |")).toEqual([
-      "a",
-      "b",
-      "c \\| d",
-    ]);
   });
 });
 

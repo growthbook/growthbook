@@ -1,8 +1,13 @@
+import { hasMarkdownTable } from "./RichTextEditorTable";
+
 // Whether markdown uses anything beyond plain paragraphs. Escaped characters
 // (`\*`) are text, not formatting.
 export function hasMarkdownFormatting(markdown: string): boolean {
   if (!markdown.trim()) return false;
-  return FORMATTING.some((pattern) => pattern.test(markdown));
+  return (
+    FORMATTING.some((pattern) => pattern.test(markdown)) ||
+    hasMarkdownTable(markdown)
+  );
 }
 
 const FORMATTING: RegExp[] = [
@@ -11,9 +16,6 @@ const FORMATTING: RegExp[] = [
   /^>\s?/m,
   /^\s*(?:[-*+]|\d+\.)\s/m,
   /^```/m,
-  // A table: a row with a pipe, then a `--- | ---` delimiter row, outer pipes
-  // optional.
-  /^.*(?<!\\)\|.*\n[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/m,
   // Inline, unless escaped.
   /(?<!\\)!?\[[^\]\n]*\]\([^)\n]+\)/,
   /(?<!\\)`[^`\n]+`/,

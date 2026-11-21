@@ -52,6 +52,11 @@
   background-color: var(--color-panel-solid);
 }
 
+// Wide enough for the longest caption, so the popover doesn't resize.
+.tablePickerBody {
+  width: 120px;
+}
+
 .tablePicker {
   display: grid;
   grid-template-columns: repeat(4, 18px);

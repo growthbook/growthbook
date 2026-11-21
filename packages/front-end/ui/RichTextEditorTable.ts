@@ -28,6 +28,9 @@ import {
   TableRowNode,
 } from "@lexical/table";
 import { $findMatchingParent, mergeRegister } from "@lexical/utils";
+import remarkGfm from "remark-gfm";
+import remarkParse from "remark-parse";
+import { unified } from "unified";
 import {
   $createParagraphNode,
   $getSelection,
@@ -46,33 +49,50 @@ import {
   type PointType,
 } from "lexical";
 
-// A row has a pipe that isn't escaped; as in GFM, outer pipes are optional.
-const TABLE_ROW = /(?<!\\)\|/;
+// The parser the read-only view renders with, so both read a table alike.
+const gfm = unified().use(remarkParse).use(remarkGfm);
 
-// A heading, quote, list item or code fence, which ends a table in GFM.
-const BLOCK_START = /^ {0,3}(?:#{1,6}\s|>|[-*+]\s|\d+[.)]\s|```|~~~)/;
+type GfmRoot = ReturnType<typeof gfm.parse>;
+type GfmTable = Extract<GfmRoot["children"][number], { type: "table" }>;
+type GfmCell = GfmTable["children"][number]["children"][number];
 
-// `| --- | :-: |`, or `--- | :-:`.
-const DELIMITER_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
+// A table row has a pipe that isn't escaped: the lines worth parsing.
+const MAYBE_ROW = /(?<!\\)\|/;
 
-// The cells of a `| a | b |` row, split on pipes that aren't escaped.
-export function splitTableRow(line: string): string[] {
-  const inner = line
-    .trim()
-    .replace(/^\|/, "")
-    .replace(/(?<!\\)\|$/, "");
-  return inner.split(/(?<!\\)\|/).map((cell) => cell.trim());
+// The table `markdown` opens with, if it opens with one.
+function leadingTable(markdown: string): GfmTable | null {
+  const first = gfm.parse(markdown).children[0];
+  return first?.type === "table" && first.position?.start.line === 1
+    ? first
+    : null;
+}
+
+function containsTable(nodes: ReadonlyArray<{ type: string }>): boolean {
+  return nodes.some(
+    (node) =>
+      node.type === "table" ||
+      ("children" in node &&
+        Array.isArray(node.children) &&
+        containsTable(node.children)),
+  );
+}
+
+export function hasMarkdownTable(markdown: string): boolean {
+  return (
+    MAYBE_ROW.test(markdown) && containsTable(gfm.parse(markdown).children)
+  );
+}
+
+// A cell's markdown as written, escapes and all.
+function cellSource(markdown: string, cell: GfmCell): string {
+  const first = cell.children[0]?.position?.start.offset;
+  const last = cell.children[cell.children.length - 1]?.position?.end.offset;
+  return first === undefined || last === undefined
+    ? ""
+    : markdown.slice(first, last);
 }
 
 export type ColumnAlign = "" | "left" | "center" | "right";
-
-// `:---` left, `:---:` center, `---:` right, `---` unset.
-function alignFromDivider(cell: string): ColumnAlign {
-  const left = cell.startsWith(":");
-  const right = cell.endsWith(":");
-  if (left && right) return "center";
-  return right ? "right" : left ? "left" : "";
-}
 
 function dividerFromAlign(align: ElementFormatType): string {
   if (align === "center") return ":---:";
@@ -134,43 +154,35 @@ export function createTableTransformer(
       );
       return [line(header), line(divider), ...body.map(line)].join("\n");
     },
-    regExpStart: TABLE_ROW,
+    regExpStart: MAYBE_ROW,
     handleImportAfterStartMatch: ({ lines, rootNode, startLineIndex }) => {
-      // A header row, then a delimiter row with as many cells.
-      const header = splitTableRow(lines[startLineIndex]);
-      const divider = lines[startLineIndex + 1]?.trim() ?? "";
-      const aligns = splitTableRow(divider).map(alignFromDivider);
-      if (
-        !DELIMITER_ROW.test(divider) ||
-        !TABLE_ROW.test(divider) ||
-        aligns.length !== header.length
-      ) {
-        return null;
-      }
+      // A table ends at a blank line, if not sooner.
+      let end = startLineIndex;
+      while (end < lines.length && lines[end].trim()) end++;
+      const markdown = lines.slice(startLineIndex, end).join("\n");
+      const parsed = leadingTable(markdown);
+      if (!parsed) return null;
 
+      const width = parsed.children[0]?.children.length ?? 0;
       const table = $createTableNode();
-      const appendRow = (cells: string[], isHeader: boolean) => {
-        const row = $createTableRowNode();
+      parsed.children.forEach((row, r) => {
+        const rowNode = $createTableRowNode();
         // As in GFM: short rows are padded, extra cells dropped.
-        for (let i = 0; i < header.length; i++) {
-          row.append($createCell(cells[i] ?? "", isHeader, aligns[i], inline));
+        for (let i = 0; i < width; i++) {
+          const cell = row.children[i];
+          rowNode.append(
+            $createCell(
+              cell ? cellSource(markdown, cell) : "",
+              r === 0,
+              parsed.align?.[i] ?? "",
+              inline,
+            ),
+          );
         }
-        table.append(row);
-      };
-      appendRow(header, true);
-
-      let last = startLineIndex + 1;
-      while (
-        last + 1 < lines.length &&
-        lines[last + 1].trim() &&
-        TABLE_ROW.test(lines[last + 1]) &&
-        !BLOCK_START.test(lines[last + 1])
-      ) {
-        last++;
-        appendRow(splitTableRow(lines[last]), false);
-      }
+        table.append(rowNode);
+      });
       rootNode.append(table);
-      return [true, last];
+      return [true, startLineIndex + (parsed.position?.end.line ?? 1) - 1];
     },
     // Only ever imported; typing pipes doesn't build a table.
     replace: () => false,
