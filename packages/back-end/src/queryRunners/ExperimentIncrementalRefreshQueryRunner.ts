@@ -1495,8 +1495,6 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       analyses: this.model.analyses,
       experimentMaxLengthDays:
         this.context.org.settings?.experimentMaxLengthDays,
-      // TODO(incremental-refresh): ensure power calculations work
-      includePower: false,
     });
     if (healthSummary) {
       result.health = healthSummary.health;

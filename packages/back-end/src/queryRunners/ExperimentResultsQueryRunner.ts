@@ -669,7 +669,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       analyses: this.model.analyses,
       experimentMaxLengthDays:
         this.context.org.settings?.experimentMaxLengthDays,
-      includePower: true,
     });
     if (healthSummary) {
       result.health = healthSummary.health;

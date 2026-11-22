@@ -29,7 +29,6 @@ export function summarizeHealth({
   settings,
   analyses,
   experimentMaxLengthDays,
-  includePower,
 }: {
   trafficQuery: QueryInterface | undefined;
   clusterTrafficQuery: QueryInterface | undefined;
@@ -37,7 +36,6 @@ export function summarizeHealth({
   settings: ExperimentSnapshotSettings;
   analyses: ExperimentSnapshotAnalysis[];
   experimentMaxLengthDays: number | undefined;
-  includePower: boolean;
 }):
   | { health: ExperimentSnapshotHealth; multipleExposures: number | undefined }
   | undefined {
@@ -82,7 +80,6 @@ export function summarizeHealth({
     (a) => a.settings.differenceType === "relative",
   );
   if (
-    includePower &&
     relativeAnalysis &&
     settings.banditSettings === undefined &&
     rows &&

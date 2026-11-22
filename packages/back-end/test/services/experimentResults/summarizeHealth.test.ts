@@ -73,7 +73,6 @@ const summarize = (args: Partial<Parameters<typeof summarizeHealth>[0]>) =>
     settings,
     analyses: [relativeAnalysis],
     experimentMaxLengthDays: undefined,
-    includePower: true,
     ...args,
   });
 
@@ -124,7 +123,6 @@ describe("summarizeHealth", () => {
       name: string;
       args: Partial<Parameters<typeof summarizeHealth>[0]>;
     }>([
-      { name: "it is not included", args: { includePower: false } },
       {
         name: "there is no relative analysis",
         args: { analyses: [analysis({ differenceType: "absolute" })] },
