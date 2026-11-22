@@ -1,6 +1,10 @@
 import fs from "fs";
 import path from "path";
-import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotTraffic,
+} from "shared/types/experiment-snapshot";
 import { MetricPowerResponseFromStatsEngine } from "shared/types/stats";
 import {
   frequentistVariance,
@@ -16,6 +20,7 @@ import {
   PowerCalculationParams,
 } from "../src/power";
 import {
+  analyzeExperimentPower,
   calculateMidExperimentPowerSingle,
   calculatePowerScalingFactor,
   getAverageExposureOverLastNDays,
@@ -613,8 +618,8 @@ it("midExperimentPower", () => {
 });
 
 describe("calculatePowerScalingFactor", () => {
-  // Outputs of gbstats' MidExperimentPower, which a test in packages/stats
-  // checks this same file against.
+  // Recorded from gbstats' MidExperimentPower, which ran this search before
+  // it moved here.
   const cases: {
     name: string;
     inputs: {
@@ -637,10 +642,7 @@ describe("calculatePowerScalingFactor", () => {
     };
   }[] = JSON.parse(
     fs.readFileSync(
-      path.join(
-        __dirname,
-        "../../stats/tests/fixtures/mid_experiment_power_scaling_factor.json",
-      ),
+      path.join(__dirname, "fixtures/mid_experiment_power_scaling_factor.json"),
       "utf8",
     ),
   );
@@ -697,5 +699,82 @@ describe("calculatePowerScalingFactor", () => {
         settings,
       ),
     ).toBeNull();
+  });
+
+  it("does not report a search that fails to converge as missing an upper bound", () => {
+    expect(
+      calculatePowerScalingFactor(
+        {
+          status: "successful",
+          firstPeriodPairwiseSampleSize: 1000,
+          sigmahat2Delta: 0,
+          targetMDE: 0,
+        },
+        settings,
+      ),
+    ).toEqual({
+      status: "unsuccessful",
+      errorMessage: "bisection search did not converge",
+      scalingFactor: undefined,
+      upperBoundAchieved: false,
+    });
+  });
+});
+
+describe("analyzeExperimentPower", () => {
+  const power = (settings: Partial<ExperimentSnapshotAnalysisSettings>) => {
+    const result = analyzeExperimentPower({
+      trafficHealth: {
+        overall: { name: "All", srm: 1, variationUnits: [500, 500] },
+        dimension: {},
+      },
+      targetDaysRemaining: 7,
+      analysis: {
+        settings,
+        results: [
+          {
+            name: "",
+            srm: 1,
+            variations: [
+              { users: 500, metrics: {} },
+              {
+                users: 500,
+                metrics: {
+                  met: {
+                    power: {
+                      status: "successful",
+                      firstPeriodPairwiseSampleSize: 1000,
+                      targetMDE: 0.05,
+                      sigmahat2Delta: 0.0009,
+                      priorProper: settings.statsEngine === "bayesian",
+                      priorLiftMean: 0.05,
+                      priorLiftVariance: 0.001,
+                      scalingFactor: 0,
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      } as unknown as ExperimentSnapshotAnalysis,
+      goalMetrics: ["met"],
+      variationsSettings: [
+        { id: "0", weight: 0.5 },
+        { id: "1", weight: 0.5 },
+      ],
+    });
+    return result?.type === "success" ? result.power : undefined;
+  };
+
+  it("uses the alpha the analysis ran at", () => {
+    const bayesian = power({ statsEngine: "bayesian" });
+    expect(bayesian).toBeDefined();
+    expect(power({ statsEngine: "bayesian", pValueThreshold: 0.01 })).toBe(
+      bayesian,
+    );
+    expect(
+      power({ statsEngine: "frequentist", pValueThreshold: 0.01 }),
+    ).toBeLessThan(power({ statsEngine: "frequentist" }) ?? 0);
   });
 });

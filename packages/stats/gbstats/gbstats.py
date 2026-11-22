@@ -444,7 +444,7 @@ def get_mid_experiment_power_inputs(
         priorProper=metric.prior_proper if is_bayesian else None,
         priorLiftMean=metric.prior_mean if is_bayesian else None,
         priorLiftVariance=pow(metric.prior_stddev, 2) if is_bayesian else None,
-        upperBoundAchieved=None,
+        upperBoundAchieved=False,
         scalingFactor=None,
     )
 

@@ -1,10 +1,7 @@
 import { z } from "zod";
 import normal from "@stdlib/stats/base/dists/normal";
 import { eachDayOfInterval, formatISO, subDays } from "date-fns";
-import {
-  DEFAULT_P_VALUE_THRESHOLD,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-} from "shared/constants";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { sequentialDiscriminant, sequentialRho } from "shared/power";
 import { MetricPowerResponseFromStatsEngine } from "shared/types/stats";
 import {
@@ -12,6 +9,7 @@ import {
   ExperimentSnapshotTraffic,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
+import { getAnalysisAlpha } from "../experiments/analysis-alpha";
 
 export interface MidExperimentPowerParams {
   alpha: number;
@@ -399,11 +397,14 @@ export function calculatePowerScalingFactor(
 
   const targetPower =
     TARGET_POWER ** (1 / Math.max(1, settings.numGoalMetrics));
-  const failure = (errorMessage: string): PowerScalingFactorOutcome => ({
+  const failure = (
+    errorMessage: string,
+    upperBoundAchieved: boolean,
+  ): PowerScalingFactorOutcome => ({
     status: "unsuccessful",
     errorMessage,
     scalingFactor: undefined,
-    upperBoundAchieved: true,
+    upperBoundAchieved,
   });
 
   if (powerAt(0) > targetPower) {
@@ -423,15 +424,15 @@ export function calculatePowerScalingFactor(
     power = powerAt(scalingFactor);
   }
   if (power < targetPower) {
-    return failure("could not find upper bound for scaling factor");
+    return failure("could not find upper bound for scaling factor", true);
   }
 
   let lower = 0;
   let upper = scalingFactor;
   let diff = power - targetPower;
   let converged = false;
-  // Matches gbstats, which does not count a search that only gets within
-  // tolerance on its last step.
+  // A search that only gets within tolerance on its last step does not count,
+  // as in the gbstats search this replaced.
   for (let i = 0; i < MAX_SCALING_FACTOR_BISECTIONS - 1; i++) {
     if (diff > 0) {
       upper = scalingFactor;
@@ -446,7 +447,7 @@ export function calculatePowerScalingFactor(
     }
   }
   if (!converged) {
-    return failure("bisection search did not converge");
+    return failure("bisection search did not converge", false);
   }
 
   return {
@@ -625,7 +626,7 @@ export function analyzeExperimentPower({
       analysis.settings.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     sequential: analysis.settings.sequentialTesting ?? false,
-    alpha: analysis.settings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    alpha: getAnalysisAlpha(analysis.settings),
     daysRemaining: targetDaysRemaining,
     firstPeriodSampleSize: firstPeriodSampleSize,
     newDailyUsers: newDailyUsers,

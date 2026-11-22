@@ -2,6 +2,7 @@ export * from "./dimension-ids";
 export * from "./dimension-timing";
 export * from "./experiments";
 export * from "./adjustment-impact";
+export * from "./analysis-alpha";
 export * from "./results/enrich";
 export * from "./metric-replacement";
 export * from "./outdated-reasons";

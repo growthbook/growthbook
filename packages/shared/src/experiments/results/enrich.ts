@@ -1,5 +1,4 @@
 import {
-  BAYESIAN_CREDIBLE_INTERVAL_ALPHA,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
@@ -13,6 +12,7 @@ import { ExperimentReportResultDimension } from "shared/types/report";
 import { IndexedPValue, PValueCorrection } from "shared/types/stats";
 import { calculatePowerScalingFactor } from "../../enterprise/power";
 import type { SupplementalField } from "../adjustment-impact";
+import { getAnalysisAlpha } from "../analysis-alpha";
 import { parseDimensionId } from "../dimension-ids";
 import {
   adjustPValues,
@@ -172,16 +172,6 @@ type AnalysisSettingsForPower = Pick<
   | "sequentialTesting"
   | "sequentialTestingTuningParameter"
 >;
-
-/** The alpha the stats engine runs an analysis at. */
-export function getAnalysisAlpha(
-  settings: Pick<AnalysisSettingsForPower, "statsEngine" | "pValueThreshold">,
-): number {
-  // The threshold is a frequentist setting; Bayesian intervals stay at 95%.
-  return settings.statsEngine === "bayesian"
-    ? BAYESIAN_CREDIBLE_INTERVAL_ALPHA
-    : Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
-}
 
 // The stats engine returns the power inputs for each test it decides needs
 // them. How much more sample a test needs also depends on how many goal
