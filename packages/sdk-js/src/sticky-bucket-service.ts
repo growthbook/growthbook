@@ -300,6 +300,7 @@ export class RedisStickyBucketService extends StickyBucketService {
         getStickyBucketAttributeKey(attributeName, attributeValue),
     );
     if (!this.redis) return docs;
+    if (keys.length === 0) return docs;
     await this.redis.mget(...keys).then((values) => {
       values.forEach((raw) => {
         try {
