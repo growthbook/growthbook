@@ -928,6 +928,7 @@ app.use("/experiment/:id/changes", experimentChangesRouter);
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);
 app.delete("/report/:id", reportsController.deleteReport);
+app.post("/report/:id/duplicate", reportsController.postDuplicateReport);
 app.post("/report/:id/refresh", reportsController.refreshReport);
 app.post("/report/:id/cancel", reportsController.cancelReport);
 app.post("/report/:id/notebook", reportsController.postNotebook);

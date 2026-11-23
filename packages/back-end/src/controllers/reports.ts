@@ -362,6 +362,76 @@ export async function deleteReport(
   });
 }
 
+export async function postDuplicateReport(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const report = await getReportById(org.id, req.params.id);
+  if (!report || report.type !== "experiment-snapshot") {
+    throw new NotFoundError("Could not find report");
+  }
+  if (report.shareLevel === "private" && report.userId !== req.userId) {
+    context.permissions.throwPermissionError();
+  }
+
+  const experiment = await getExperimentById(
+    context,
+    report.experimentId || "",
+  );
+  if (!experiment) {
+    throw new NotFoundError("Could not find experiment");
+  }
+  if (!context.permissions.canCreateReport(experiment)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const reportSnapshot = await findSnapshotById(context, report.snapshot);
+  if (!reportSnapshot) {
+    throw new NotFoundError("Could not find the report's results");
+  }
+  if (reportSnapshot.status === "running") {
+    throw new BadRequestError(
+      "This report is still updating. Try again when it finishes.",
+    );
+  }
+  // Copy the results too, so the duplicate opens without running queries.
+  const snapshot = copySnapshotForReport(reportSnapshot);
+
+  const doc = await createReport(org.id, {
+    experimentId: report.experimentId,
+    userId: req.userId,
+    title: `Copy of ${report.title}`,
+    description: report.description,
+    type: "experiment-snapshot",
+    snapshot: snapshot.id,
+    experimentMetadata: report.experimentMetadata,
+    experimentAnalysisSettings: report.experimentAnalysisSettings,
+  });
+
+  snapshot.report = doc.id;
+  await createExperimentSnapshotModel({ context, data: snapshot });
+
+  await req.audit({
+    event: "experiment.analysis",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: JSON.stringify({
+      report: doc.id,
+      duplicatedFrom: report.id,
+    }),
+  });
+
+  res.status(200).json({
+    status: 200,
+    report: doc,
+  });
+}
+
 export async function refreshReport(
   req: AuthRequest<null, { id: string }, { force?: string }>,
   res: Response,
