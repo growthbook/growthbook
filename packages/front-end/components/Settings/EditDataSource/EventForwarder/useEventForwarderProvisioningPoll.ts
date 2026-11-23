@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EventForwarderStatusResponse } from "shared/validators";
 import { useAuth } from "@/services/auth";
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 const BACKLOG_POLL_INTERVAL_MS = 15000;
 const ERROR_POLL_INTERVAL_MS = 60000;
@@ -33,7 +33,8 @@ export function useEventForwarderProvisioningPoll({
   const [replaying, setReplaying] = useState(false);
   const [replayedCount, setReplayedCount] = useState(0);
   const [erroredAt, setErroredAt] = useState<string | null>(null);
-  const [backlogCountedAt, setBacklogCountedAt] = useState<string | null>(null);
+  // When this client last got a status response (ms).
+  const [lastPolledAt, setLastPolledAt] = useState<number | null>(null);
   // A restart's replay can outlast the timeout; it counts from the last report.
   const lastReplayingAtRef = useRef(0);
   const refreshedStatusRef = useRef<string | null>(null);
@@ -53,7 +54,7 @@ export function useEventForwarderProvisioningPoll({
     setReplaying(!!result.replaying);
     setReplayedCount(result.replayedCount ?? 0);
     setErroredAt(result.erroredAt ?? null);
-    setBacklogCountedAt(result.backlogCountedAt ?? null);
+    setLastPolledAt(Date.now());
     if (result.replaying) lastReplayingAtRef.current = Date.now();
     await onRefreshRef.current();
   }, [apiCall, datasourceId]);
@@ -150,6 +151,6 @@ export function useEventForwarderProvisioningPoll({
     replaying: isPending && replaying,
     replayedCount,
     erroredAt,
-    backlogCountedAt,
+    lastPolledAt,
   };
 }

@@ -1,0 +1,54 @@
+.queueStats {
+  overflow: hidden;
+  background-color: var(--color-panel-solid);
+  border-radius: var(--radius-3);
+  box-shadow: inset 0 0 0 1px var(--stopped-border);
+  font-variant-numeric: tabular-nums;
+}
+
+.dot {
+  flex-shrink: 0;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background-color: var(--red-9);
+}
+
+.dotLive {
+  animation: queuePulse 1.6s ease-out infinite;
+}
+
+.count {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-2);
+  transition: background-color 500ms ease;
+}
+
+.countFlash {
+  background-color: var(--red-6);
+}
+
+.deletionNotice {
+  background-color: var(--red-4);
+  color: var(--red-12);
+}
+
+@keyframes queuePulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--red-a8);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dotLive {
+    animation: none;
+  }
+
+  .count {
+    transition: none;
+  }
+}

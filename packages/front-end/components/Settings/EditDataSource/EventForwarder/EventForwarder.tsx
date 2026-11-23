@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  CSSProperties,
+  Fragment,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   databricksParamsSupportEventForwarder,
   getDatabricksEventForwarderAuthMessage,
@@ -22,19 +29,22 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { ago } from "shared/dates";
-import { Box, Card, Flex, Grid } from "@radix-ui/themes";
+import { dateNoYear, daysLeft, formatShortAgo } from "shared/dates";
+import { Box, Card, Flex, Grid, Progress } from "@radix-ui/themes";
 import {
   PiArrowClockwise,
+  PiArrowUp,
   PiCaretRight,
   PiCheck,
   PiCopy,
   PiPause,
+  PiTimer,
   PiTrash,
   PiPencilSimple,
-  PiWarning,
+  PiWarningOctagonFill,
   PiPlay,
 } from "react-icons/pi";
+import clsx from "clsx";
 import { DailyUsage, UsageLimits } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -62,6 +72,7 @@ import TextField from "@/ui/TextField";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import ExpandableBlock from "@/ui/ExpandableBlock";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
@@ -85,6 +96,7 @@ import {
   getDataRegionLabel,
   useDataRegionOptions,
 } from "@/services/dataRegions";
+import styles from "./EventForwarder.module.scss";
 
 type Props = {
   dataSource: DataSourceInterfaceWithParams;
@@ -355,15 +367,17 @@ function EventForwarderConfigField({
   label,
   value,
   optional = false,
+  wide = false,
 }: {
   label: string;
   value: string | undefined;
   optional?: boolean;
+  wide?: boolean;
 }) {
   const trimmed = value?.trim();
 
   return (
-    <Box>
+    <Box gridColumn={wide ? "1 / -1" : undefined}>
       <Text size="sm" weight="medium" color="text-mid" mb="1">
         {optional ? `${label} (optional)` : label}
       </Text>
@@ -393,11 +407,13 @@ function SyncSubmittingRef({
 function EventForwarderConfirmButton({
   usEventForwarderFlowConsent,
   editing,
+  restartsOnSave,
   region,
   datasourceId,
 }: {
   usEventForwarderFlowConsent: boolean;
   editing: boolean;
+  restartsOnSave: boolean;
   region: DataRegion;
   datasourceId: string;
 }) {
@@ -407,7 +423,7 @@ function EventForwarderConfirmButton({
   if (editing) {
     return (
       <Button type="submit" loading={loading}>
-        Save changes
+        {restartsOnSave ? "Save & restart" : "Save changes"}
       </Button>
     );
   }
@@ -731,6 +747,10 @@ function EventForwarderModal({
             <EventForwarderConfirmButton
               usEventForwarderFlowConsent={usEventForwarderFlowConsent}
               editing={isEditingEventForwarder}
+              // Saving a stopped forwarder restarts it server-side.
+              restartsOnSave={
+                saved?.status === "error" && !!saved.connectorName
+              }
               region={eventForwarderConfig?.region ?? DEFAULT_DATA_REGION}
               datasourceId={dataSource.id}
             />
@@ -760,7 +780,10 @@ const sinkLabels = {
   databricks: "Databricks",
 } as const;
 
-// The full message, never clipped; traces keep their line breaks.
+const ERROR_COLLAPSED_LINES = 3;
+const ERROR_LINE_HEIGHT_PX = 20;
+
+// Collapsed past three lines; traces keep their line breaks.
 function EventForwarderLastError({
   source,
   message,
@@ -794,20 +817,205 @@ function EventForwarderLastError({
         </Flex>
         <Box
           style={{
-            fontFamily: "var(--code-font-family)",
-            fontSize: "var(--font-size-2)",
-            whiteSpace: "pre-wrap",
-            // Long URLs/IDs have no spaces to wrap on.
-            overflowWrap: "anywhere",
             padding: "var(--space-3)",
             borderRadius: "var(--radius-2)",
             backgroundColor: "var(--gray-a2)",
           }}
         >
-          {message}
+          <ExpandableBlock
+            maxHeight={ERROR_COLLAPSED_LINES * ERROR_LINE_HEIGHT_PX}
+          >
+            <Box
+              style={{
+                fontFamily: "var(--code-font-family)",
+                fontSize: "var(--font-size-2)",
+                lineHeight: `${ERROR_LINE_HEIGHT_PX}px`,
+                whiteSpace: "pre-wrap",
+                // Long URLs/IDs have no spaces to wrap on.
+                overflowWrap: "anywhere",
+              }}
+            >
+              {message}
+            </Box>
+          </ExpandableBlock>
         </Box>
       </Flex>
     </Card>
+  );
+}
+
+const BACKLOG_RETENTION_DAYS = 90;
+const DELETION_WARNING_DAYS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function EventForwarderStoppedBanner({
+  backlogCount,
+  erroredAt,
+  lastPolledAt,
+  canEdit,
+  restarting,
+  onEdit,
+  onRestart,
+}: {
+  backlogCount: number;
+  erroredAt: string | null;
+  lastPolledAt: number | null;
+  canEdit: boolean;
+  restarting: boolean;
+  onEdit: () => void;
+  onRestart: () => void;
+}) {
+  // Counts the "… ago" times up each second; no refetch.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+  // Highlights the count when it changes; the first count loading in is not a change.
+  const [flash, setFlash] = useState(false);
+  const prevCount = useRef(backlogCount);
+  useEffect(() => {
+    const changed = prevCount.current > 0 && backlogCount !== prevCount.current;
+    prevCount.current = backlogCount;
+    if (!changed) return;
+    setFlash(true);
+    const timeoutId = window.setTimeout(() => setFlash(false), 700);
+    return () => window.clearTimeout(timeoutId);
+  }, [backlogCount]);
+  const hasBacklog = backlogCount > 0;
+  // S3 expires an object at the first UTC midnight after it turns 90 days old.
+  const deletionStartsAt = erroredAt
+    ? new Date(
+        (Math.floor(new Date(erroredAt).getTime() / DAY_MS) +
+          BACKLOG_RETENTION_DAYS +
+          1) *
+          DAY_MS,
+      )
+    : null;
+  const daysToDeletion = deletionStartsAt ? daysLeft(deletionStartsAt) : null;
+  const deleting =
+    hasBacklog &&
+    deletionStartsAt !== null &&
+    deletionStartsAt.getTime() <= Date.now();
+  const approaching =
+    hasBacklog &&
+    !deleting &&
+    daysToDeletion !== null &&
+    daysToDeletion <= DELETION_WARNING_DAYS;
+  const deletionDate = deletionStartsAt ? dateNoYear(deletionStartsAt) : "";
+
+  const headline = deleting
+    ? "The oldest queued events are being deleted."
+    : approaching
+      ? `Queued events start being deleted in ${
+          !daysToDeletion
+            ? "less than a day"
+            : `${daysToDeletion} ${daysToDeletion === 1 ? "day" : "days"}`
+        }.`
+      : "Events are queuing.";
+  const guidance = deleting
+    ? `Each day, events older than ${BACKLOG_RETENTION_DAYS} days are deleted and can't be recovered. Fix the destination, then restart to send what's left.`
+    : approaching
+      ? `Fix the destination and restart before ${deletionDate} to keep every queued event.`
+      : `Nothing is lost yet. Fix the destination, then restart to send queued events. Queued events are kept for ${BACKLOG_RETENTION_DAYS} days.`;
+  const details = [
+    !deleting && erroredAt
+      ? `Oldest from ${formatShortAgo(new Date(erroredAt))}`
+      : null,
+    lastPolledAt ? `Updated ${formatShortAgo(lastPolledAt)}` : null,
+  ].filter((d) => d !== null);
+
+  return (
+    <Callout
+      status="error"
+      mb="3"
+      icon={<PiWarningOctagonFill />}
+      style={
+        {
+          "--stopped-border": `var(--red-${deleting || approaching ? 7 : 6})`,
+          boxShadow: "inset 0 0 0 1px var(--stopped-border)",
+        } as CSSProperties
+      }
+    >
+      <Flex direction="column" gap="3">
+        <Box style={{ color: "var(--red-12)" }}>
+          <Text as="div" weight="semibold">
+            Forwarding stopped. {headline}
+          </Text>
+        </Box>
+        {hasBacklog ? (
+          <Box className={styles.queueStats}>
+            <Flex align="center" gap="3" wrap="wrap" px="3" py="2">
+              <span
+                aria-hidden
+                className={clsx(
+                  styles.dot,
+                  !deleting && !approaching && styles.dotLive,
+                )}
+              />
+              <Text weight="semibold" color="text-high">
+                <span aria-live="polite">
+                  <span
+                    className={clsx(styles.count, flash && styles.countFlash)}
+                  >
+                    {backlogCount.toLocaleString()}{" "}
+                    {backlogCount === 1 ? "event" : "events"} queued
+                  </span>
+                </span>
+              </Text>
+              {details.map((detail) => (
+                <Fragment key={detail.split(" ")[0]}>
+                  <Text color="text-mid">·</Text>
+                  {/* Ticks every second; keep it out of the alert's announcements. */}
+                  <span aria-live="off">
+                    <Text color="text-mid">{detail}</Text>
+                  </span>
+                </Fragment>
+              ))}
+            </Flex>
+            {approaching ? (
+              <Flex
+                align="center"
+                gap="2"
+                px="3"
+                py="2"
+                className={styles.deletionNotice}
+              >
+                <PiTimer style={{ flexShrink: 0 }} />
+                <span>
+                  <strong>From {deletionDate},</strong> events older than{" "}
+                  {BACKLOG_RETENTION_DAYS} days are deleted each day.
+                </span>
+              </Flex>
+            ) : null}
+          </Box>
+        ) : null}
+        <Text as="div" color="text-high">
+          {guidance}
+        </Text>
+        {canEdit ? (
+          <Flex align="center" gap="2" wrap="wrap">
+            <Button
+              variant="outline"
+              icon={<PiPencilSimple />}
+              iconPosition="left"
+              style={{ backgroundColor: "var(--color-panel-solid)" }}
+              onClick={onEdit}
+            >
+              Edit destination
+            </Button>
+            <Button
+              icon={<PiArrowClockwise />}
+              iconPosition="left"
+              loading={restarting}
+              onClick={onRestart}
+            >
+              Restart forwarding
+            </Button>
+          </Flex>
+        ) : null}
+      </Flex>
+    </Callout>
   );
 }
 
@@ -863,21 +1071,12 @@ export default function EventForwarder({
     replaying,
     replayedCount,
     erroredAt,
-    backlogCountedAt,
+    lastPolledAt,
   } = useEventForwarderProvisioningPoll({
     datasourceId: dataSource.id,
     status: eventForwarderConfig?.status,
     onRefresh: handleRefresh,
   });
-
-  // Re-renders the "… ago" times while errored; no refetch.
-  const [, setTick] = useState(0);
-  const isErrored = eventForwarderConfig?.status === "error";
-  useEffect(() => {
-    if (!isErrored) return;
-    const intervalId = window.setInterval(() => setTick((t) => t + 1), 10000);
-    return () => window.clearInterval(intervalId);
-  }, [isErrored]);
 
   if (!isCloud() || !supportsEventForwarder(dataSource)) {
     return null;
@@ -904,11 +1103,13 @@ export default function EventForwarder({
   // there is nothing to restart, so Edit is the retry path.
   const canRestart = canEdit && forwardingStopped;
   const hasBacklog = backlogCount > 0;
-  const stoppedDetails = [
-    erroredAt ? `Stopped ${ago(erroredAt)}` : null,
-    hasBacklog ? "Kept for 90 days" : null,
-    backlogCountedAt ? `Updated ${ago(backlogCountedAt)}` : null,
-  ].filter((d) => d !== null);
+  const replayTotal = replayedCount + backlogCount;
+  const replayPct = replayTotal
+    ? Math.floor((replayedCount / replayTotal) * 100)
+    : 0;
+  const replayLabel = `${replayedCount.toLocaleString()} of ${replayTotal.toLocaleString()} events`;
+  // A restart with nothing queued has no progress to show.
+  const showReplay = isProvisioning && replaying && replayTotal > 0;
   const countPill = (label: string, color: "red" | "violet") => (
     <Badge label={label} color={color} variant="solid" radius="full" mr="1" />
   );
@@ -959,7 +1160,7 @@ export default function EventForwarder({
                 label={
                   <Flex align="center" gap="2">
                     <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-                    {replaying ? "Writing backlog" : "Setting up"}
+                    {showReplay ? "Writing backlog" : "Setting up"}
                   </Flex>
                 }
               />
@@ -1038,39 +1239,16 @@ export default function EventForwarder({
         </Callout>
       ) : null}
 
-      {forwardingStopped ? (
-        <Callout
-          status="error"
-          mb="3"
-          icon={<PiWarning />}
-          action={
-            canRestart ? (
-              <Button
-                color="inherit"
-                icon={<PiArrowClockwise />}
-                iconPosition="left"
-                loading={pauseResumeLoading}
-                onClick={runAction}
-              >
-                Restart
-              </Button>
-            ) : undefined
-          }
-        >
-          <Text as="div" weight="semibold" color="text-high">
-            Forwarding stopped.
-            {hasBacklog
-              ? ` ${backlogCount.toLocaleString()} ${
-                  backlogCount === 1 ? "event" : "events"
-                } queued.`
-              : null}
-          </Text>
-          {stoppedDetails.length ? (
-            <Text as="div" size="sm" color="text-mid">
-              {stoppedDetails.join(" · ")}
-            </Text>
-          ) : null}
-        </Callout>
+      {eventForwarderConfig && forwardingStopped ? (
+        <EventForwarderStoppedBanner
+          backlogCount={backlogCount}
+          erroredAt={erroredAt}
+          lastPolledAt={lastPolledAt}
+          canEdit={canEdit}
+          restarting={pauseResumeLoading}
+          onEdit={() => setShowEditModal(true)}
+          onRestart={runAction}
+        />
       ) : null}
 
       {eventForwarderConfig && showDestinationError ? (
@@ -1080,19 +1258,50 @@ export default function EventForwarder({
         />
       ) : null}
 
-      {isProvisioning && replaying ? (
-        <Callout status="info" mb="3">
+      {showReplay ? (
+        <Flex
+          role="status"
+          direction="column"
+          gap="2"
+          px="4"
+          py="3"
+          mb="3"
+          style={{
+            backgroundColor: "var(--violet-a3)",
+            borderRadius: "var(--radius-3)",
+          }}
+        >
+          <Flex align="center" gap="2">
+            <PiArrowUp
+              size={16}
+              color="var(--violet-11)"
+              style={{ flexShrink: 0 }}
+            />
+            <Text weight="semibold">
+              Writing backed-up events to your warehouse.
+            </Text>
+          </Flex>
           {/* The total grows while new events are parked behind the replay. */}
-          Writing backed-up events to your warehouse:{" "}
-          {countPill(
-            `${replayedCount.toLocaleString()}/${(
-              replayedCount + backlogCount
-            ).toLocaleString()}`,
-            "violet",
-          )}
-          <br />
-          New events wait until this is done, then forwarding resumes.
-        </Callout>
+          <Flex
+            align="baseline"
+            justify="between"
+            gap="3"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            <Text>{replayLabel}</Text>
+            <Text weight="medium">{replayPct}%</Text>
+          </Flex>
+          <Progress
+            value={replayPct}
+            color="violet"
+            size="1"
+            aria-label="Backed-up events written"
+            getValueLabel={() => replayLabel}
+          />
+          <Text size="sm" color="text-mid">
+            New events wait until this is done, then forwarding resumes.
+          </Text>
+        </Flex>
       ) : null}
 
       {hasBacklog && isReady && !isProvisioning ? (
@@ -1170,7 +1379,7 @@ export default function EventForwarder({
         </Callout>
       ) : null}
 
-      {eventForwarderConfig && isProvisioning ? (
+      {eventForwarderConfig && isProvisioning && !showReplay ? (
         <Callout status="info" mb="3">
           <Text color="text-mid" size="md">
             This page will update automatically once provisioning completes.
@@ -1213,7 +1422,8 @@ export default function EventForwarder({
                 </Button>
               ) : null}
             </Flex>
-            <Flex direction="column" gap="4">
+            {/* Same grid as the edit form */}
+            <Grid columns="2" gap="4" align="start">
               {eventForwarderConfig.sinkType === "bigquery" ? (
                 <>
                   <EventForwarderConfigField
@@ -1225,17 +1435,19 @@ export default function EventForwarder({
                     value={eventForwarderConfig.config.dataset}
                   />
                   <EventForwarderConfigField
-                    label="Table Prefix"
+                    label="Table prefix"
                     value={eventForwarderConfig.config.tablePrefix}
                     optional
+                    wide
                   />
                 </>
               ) : null}
               {eventForwarderConfig.sinkType === "snowflake" ? (
                 <>
                   <EventForwarderConfigField
-                    label="Snowflake URL"
+                    label="Snowflake access URL"
                     value={eventForwarderConfig.config.accessUrl}
+                    wide
                   />
                   <EventForwarderConfigField
                     label="Database"
@@ -1246,18 +1458,19 @@ export default function EventForwarder({
                     value={eventForwarderConfig.config.schema}
                   />
                   <EventForwarderConfigField
-                    label="Table Prefix"
+                    label="Table prefix"
                     value={eventForwarderConfig.config.tablePrefix}
                     optional
-                  />
-                  <EventForwarderConfigField
-                    label="Role"
-                    value={eventForwarderConfig.config.role}
                   />
                   <EventForwarderConfigField
                     label="Warehouse"
                     value={eventForwarderConfig.config.warehouse}
                     optional
+                  />
+                  <EventForwarderConfigField
+                    label="Role"
+                    value={eventForwarderConfig.config.role}
+                    wide
                   />
                 </>
               ) : null}
@@ -1266,19 +1479,21 @@ export default function EventForwarder({
                   <EventForwarderConfigField
                     label="Catalog"
                     value={eventForwarderConfig.config.catalog}
+                    wide
                   />
                   <EventForwarderConfigField
                     label="Schema"
                     value={eventForwarderConfig.config.schema}
                   />
                   <EventForwarderConfigField
-                    label="Table Prefix"
+                    label="Table prefix"
                     value={eventForwarderConfig.config.tablePrefix}
                     optional
                   />
                   <EventForwarderConfigField
                     label="Zerobus endpoint"
                     value={eventForwarderConfig.config.zerobusEndpoint}
+                    wide
                   />
                 </>
               ) : null}
@@ -1299,7 +1514,7 @@ export default function EventForwarder({
                   eventForwarderConfig.region ?? DEFAULT_DATA_REGION,
                 )}
               />
-            </Flex>
+            </Grid>
           </Flex>
         </Card>
       ) : null}
