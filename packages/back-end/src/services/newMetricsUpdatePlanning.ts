@@ -338,8 +338,10 @@ export const COPIED_RESULTS_SETTING_RULES: Record<
 > = {
   // The same SQL can run against another Data Source.
   datasourceId: "refuses",
-  // Copied metrics keep the priors the parent analyzed them with.
-  defaultMetricPriorSettings: "refuses",
+  defaultMetricPriorSettings: {
+    ignoredBecause:
+      "the stats engine reads only each metric's prior resolved from it, its definition and the experiment, and a copied metric's resolved prior is a stats engine input that is compared",
+  },
   // The badge compares variation keys; the SRM check reads their weights.
   variations: "refuses",
   coverage: "refuses",

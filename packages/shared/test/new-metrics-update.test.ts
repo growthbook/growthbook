@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -11,6 +12,7 @@ import {
   getCopiedMetricCounts,
   getMetricIdsMissingFromSnapshot,
   getMetricStatsEngineInputs,
+  getNewMetricsUpdatePlanRefusal,
   getPlannedCopiedMetricSettings,
   getSnapshotSideEffects,
   getStatsEngineAnalysisSettings,
@@ -527,6 +529,57 @@ describe("stats engine inputs", () => {
       ]);
     });
 
+    // The stats engine reads each metric's resolved prior, never the default
+    // itself, so only a metric that follows the default is stale.
+    describe("after a change to the organization's default prior", () => {
+      const orgPrior = (stddev: number) =>
+        ({
+          metricDefaults: {
+            priorSettings: { override: false, proper: true, mean: 0, stddev },
+          },
+        }) as Parameters<typeof planned>[0]["organizationSettings"];
+      const twoMetrics = {
+        ...experiment,
+        goalMetrics: ["met_a", "met_b"],
+      };
+      const refusal = (
+        metricOverrides: NonNullable<(typeof experiment)["metricOverrides"]>,
+      ) => {
+        const withOverrides = { ...twoMetrics, metricOverrides };
+        const plan = (stddev: number) =>
+          getPlannedCopiedMetricSettings({
+            parentSettings: snapshotSettingsFor(["met_a", "met_b"]),
+            experiment: withOverrides,
+            metricGroups: [],
+            organizationSettings: orgPrior(stddev),
+            getMetricById: (id) =>
+              ({ ...metric, id }) as ExperimentMetricDefinition,
+          });
+        return getNewMetricsUpdatePlanRefusal({
+          parent: { runnerKind: "results", settings: plan(0.444) },
+          outdatedReasons: ["metrics_changed"],
+          planned: { runnerKind: "results", settings: plan(0.3) },
+        });
+      };
+      const overridesPrior = (id: string) => ({
+        id,
+        properPriorOverride: true,
+        properPriorEnabled: true,
+        properPriorMean: 0,
+        properPriorStdDev: 0.5,
+      });
+
+      it("accepts when every copied metric overrides its prior", () => {
+        expect(
+          refusal([overridesPrior("met_a"), overridesPrior("met_b")]),
+        ).toBeNull();
+      });
+
+      it("refuses when a copied metric follows the default", () => {
+        expect(refusal([overridesPrior("met_a")])).toBe("settings_changed");
+      });
+    });
+
     it("leaves out metrics no longer on the experiment, and gives an unresolved one no computed settings", () => {
       expect(
         planned({
@@ -579,6 +632,22 @@ describe("stats engine inputs", () => {
       expect(changed(withComputed({ regressionAdjustmentEnabled: true }))).toBe(
         false,
       );
+    });
+
+    // Snapshots planned before priors were stored load without them; what
+    // their stats engine read can't be recovered.
+    it("counts a parent's computed settings without priors as changed", () => {
+      const noPriors = omit(computedSettings, [
+        "properPrior",
+        "properPriorMean",
+        "properPriorStdDev",
+      ]);
+      expect(
+        changed(
+          {},
+          { metricSettings: [{ id: "met_a", computedSettings: noPriors }] },
+        ),
+      ).toBe(true);
     });
 
     it("counts a metric either side has no computed settings for as changed", () => {

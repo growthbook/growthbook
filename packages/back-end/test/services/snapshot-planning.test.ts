@@ -23,6 +23,7 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { MetricGroupInterface } from "shared/types/metric-groups";
+import type { MetricPriorSettings } from "shared/types/fact-table";
 import { ApiReqContext } from "back-end/types/api";
 import {
   assertIncrementalRefreshPrerequisites,
@@ -2692,16 +2693,31 @@ describe("planExperimentSnapshot", () => {
           base: baseChanges = {},
           refresh: refreshChanges = {},
           editMetric,
+          orgPrior,
           pipeline,
         }: {
           base?: Partial<ExperimentInterface>;
           refresh?: Partial<ExperimentInterface>;
           // A definition edited after the base update.
           editMetric?: { id: string; changes: object };
+          // The organization's default prior at the base update, then today.
+          orgPrior?: {
+            base: MetricPriorSettings;
+            refresh: MetricPriorSettings;
+          };
           pipeline: "standard" | "incremental";
         },
       ) {
         const { context, datasource } = fixture;
+        const setOrgPrior = (
+          priorSettings: MetricPriorSettings | undefined,
+        ) => {
+          context.org.settings = {
+            ...context.org.settings,
+            metricDefaults: priorSettings ? { priorSettings } : undefined,
+          };
+        };
+        setOrgPrior(orgPrior?.base);
         const exposure = datasource.settings.queries?.exposure ?? [];
         if (pipeline === "incremental") {
           datasource.settings.pipelineSettings = {
@@ -2811,6 +2827,7 @@ describe("planExperimentSnapshot", () => {
           );
           getMetricMapMock.mockImplementation(async () => new Map(edited));
         }
+        setOrgPrior(orgPrior?.refresh);
 
         jest.setSystemTime(refreshTime);
         const experiment = {
@@ -2982,6 +2999,81 @@ describe("planExperimentSnapshot", () => {
               });
             },
           );
+
+          // The stats engine reads each metric's prior resolved from the
+          // organization's default, its definition and the experiment, which
+          // both sides compare. The default reaches no other number.
+          describe("after a change to the organization's default prior", () => {
+            const orgPrior = {
+              base: { override: false, proper: true, mean: 0, stddev: 0.444 },
+              refresh: { override: false, proper: true, mean: 0, stddev: 0.3 },
+            };
+            const copiedMetricIds =
+              pipeline === "standard"
+                ? ["fact__revenue", "fact__clicks", "met_signup", "fact__aov"]
+                : ["fact__revenue", "fact__aov"];
+            const overridingPriors = (ids: string[]) => ({
+              metricOverrides: ids.map((id) => ({
+                id,
+                // The fixture's own override of this metric's window.
+                ...(id === "fact__aov"
+                  ? { windowType: "conversion" as const, windowHours: 48 }
+                  : {}),
+                properPriorOverride: true,
+                properPriorEnabled: true,
+                properPriorMean: 0,
+                properPriorStdDev: 0.5,
+              })),
+            });
+
+            it("plans it, and the app offers it, when every copied metric overrides its prior in the experiment", async () => {
+              const changes = {
+                ...pipelineBase,
+                ...overridingPriors(copiedMetricIds),
+              };
+              const { reasons, offered, plan } = await outdatedRefresh(
+                makeFixture(),
+                { base: changes, refresh: changes, orgPrior, pipeline },
+              );
+
+              expect(reasons).toEqual(["metrics_changed"]);
+              expect(offered).toBe(true);
+              await expect(plan).resolves.toMatchObject({
+                snapshot: {
+                  runnerKind,
+                  updateScope: { queriedMetricIds: ["fact__guard"] },
+                },
+              });
+            });
+
+            // A fact metric on either pipeline, and a legacy one on the
+            // standard pipeline, which can't run them incrementally.
+            it.each(
+              pipeline === "standard"
+                ? ["fact__revenue", "met_signup"]
+                : ["fact__revenue"],
+            )(
+              "refuses, and the app doesn't offer it, when %s follows the default",
+              async (followerId) => {
+                const changes = {
+                  ...pipelineBase,
+                  ...overridingPriors(
+                    copiedMetricIds.filter((id) => id !== followerId),
+                  ),
+                };
+                const { reasons, offered, plan } = await outdatedRefresh(
+                  makeFixture(),
+                  { base: changes, refresh: changes, orgPrior, pipeline },
+                );
+
+                expect(reasons).toEqual(["metrics_changed"]);
+                expect(offered).toBe(false);
+                await expect(plan).rejects.toMatchObject({
+                  details: { reason: "settings_changed" },
+                });
+              },
+            );
+          });
         },
       );
     });

@@ -946,6 +946,62 @@ describe("planNewMetricsUpdate", () => {
       },
     );
 
+    // Its per-metric priors are compared instead; the default reaches the
+    // stats engine through nothing else.
+    it("plans it after a change to the organization's default prior alone, on either pipeline", async () => {
+      for (const runnerKind of ["results", "incremental-update"] as const) {
+        findParentMock.mockResolvedValue(
+          makeParent({
+            runnerKind,
+            settings: makeSettings(["met_a", "met_b"], {
+              defaultMetricPriorSettings: {
+                override: false,
+                proper: true,
+                mean: 0,
+                stddev: 0.444,
+              },
+            }),
+          }),
+        );
+        const planned = makePlan({
+          runnerKind,
+          settings: {
+            defaultMetricPriorSettings: {
+              override: false,
+              proper: true,
+              mean: 0,
+              stddev: 0.3,
+            },
+          },
+        });
+
+        await expect(
+          planNewMetricsUpdate(
+            refreshArgs({ planSnapshotAt: async () => planned }),
+          ),
+        ).resolves.toMatchObject({
+          snapshot: { updateScope: { queriedMetricIds: ["met_c"] } },
+        });
+      }
+    });
+
+    // A snapshot planned before priors were stored loads with computed
+    // settings that lack them, so what its stats engine read is unknown.
+    it("refuses as changed settings when the parent's computed settings lack priors", async () => {
+      const settings = makeSettings(["met_a", "met_b"], {
+        metricSettings: metricSettingsFor(["met_a", "met_b"], {
+          properPrior: undefined,
+          properPriorMean: undefined,
+          properPriorStdDev: undefined,
+        }),
+      });
+      findParentMock.mockResolvedValue(makeParent({ settings }));
+
+      await expect(planNewMetricsUpdate(refreshArgs())).rejects.toMatchObject({
+        details: { reason: "settings_changed" },
+      });
+    });
+
     it("refuses as changed settings when the parent stored no computed settings for a copied metric", async () => {
       const settings = makeSettings(["met_a", "met_b"], {
         metricSettings: [{ id: "met_a" }, { id: "met_b" }],
