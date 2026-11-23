@@ -2380,7 +2380,11 @@ describe("getComputableNewMetricIds matches the snapshot planner", () => {
         metricType: "quantile",
         numerator: { factTableId: "ft_user" },
       }),
-      quantileSettings: { type: "unit", quantile: 0.5, ignoreZeros: false },
+      quantileSettings: {
+        type: "unit" as const,
+        quantile: 0.5,
+        ignoreZeros: false,
+      },
     },
   ];
   const allMetricIds = [...metrics.map((m) => m.id), "fact__deleted"];

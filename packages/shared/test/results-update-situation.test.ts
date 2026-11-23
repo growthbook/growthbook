@@ -25,7 +25,11 @@ const lists = {
 type Args = Parameters<typeof getNewMetricsUpdateRefusal>[0];
 type Parent = Args["parent"];
 
-function makeParent(overrides: Partial<Parent> = {}): Parent {
+function makeParent(
+  overrides: Omit<Partial<Parent>, "settings"> & {
+    settings?: Partial<Parent["settings"]>;
+  } = {},
+): Parent {
   return {
     runnerKind: "results",
     ...overrides,
@@ -34,12 +38,12 @@ function makeParent(overrides: Partial<Parent> = {}): Parent {
       metricSettings: [{ id: "met_a", ...cuped(true) }],
       ...lists,
       ...overrides.settings,
-    } as Parent["settings"],
+    },
   };
 }
 
 function makePlanned(
-  overrides: Partial<PlannedNewMetricsUpdate> & {
+  overrides: Omit<Partial<PlannedNewMetricsUpdate>, "settings"> & {
     settings?: Partial<PlannedNewMetricsUpdate["settings"]>;
   } = {},
 ): PlannedNewMetricsUpdate {
@@ -94,7 +98,7 @@ describe("getNewMetricsUpdateRefusal", () => {
       expect(
         refusal({
           parent: makeParent({
-            settings: { endDate } as Parent["settings"],
+            settings: { endDate },
           }),
           window: { windowHours, now: NOW },
         }),
@@ -105,7 +109,7 @@ describe("getNewMetricsUpdateRefusal", () => {
       expect(
         refusal({
           parent: makeParent({
-            settings: { endDate: hoursAgo(500) } as Parent["settings"],
+            settings: { endDate: hoursAgo(500) },
           }),
           window: null,
         }),
@@ -117,8 +121,8 @@ describe("getNewMetricsUpdateRefusal", () => {
         refusal({
           parent: makeParent({
             settings: {
-              endDate: hoursAgo(5).toISOString(),
-            } as unknown as Parent["settings"],
+              endDate: hoursAgo(5).toISOString() as unknown as Date,
+            },
           }),
         }),
       ).toBe("outside_window");
@@ -200,7 +204,7 @@ describe("getNewMetricsUpdateRefusal", () => {
         parent: makeParent({
           settings: {
             metricSettings: [{ id: "met_a", ...cuped(parentFlag) }],
-          } as Parent["settings"],
+          },
         }),
         planned: makePlanned({
           settings: {
@@ -233,7 +237,7 @@ describe("getNewMetricsUpdateRefusal", () => {
                 { id: "met_a", ...cuped(false) },
                 { id: "met_gone", ...cuped(false) },
               ],
-            } as Parent["settings"],
+            },
           }),
           planned: makePlanned({
             settings: { metricSettings: [{ id: "met_a", ...cuped(false) }] },
@@ -285,7 +289,7 @@ describe("getNewMetricsUpdateRefusal", () => {
           parent: makeParent({
             settings: {
               metricSettings: [{ id: "met_a" }],
-            } as Parent["settings"],
+            },
           }),
         }),
       ).toBe("settings_changed");
@@ -307,7 +311,7 @@ describe("getNewMetricsUpdateRefusal", () => {
                 { id: "met_a", ...cuped(true) },
                 { id: "met_gone", ...cuped(true) },
               ],
-            } as Parent["settings"],
+            },
           }),
         }),
       ).toBeNull();

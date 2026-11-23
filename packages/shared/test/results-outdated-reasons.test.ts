@@ -141,8 +141,8 @@ describe("getResultsOutdatedReasons", () => {
       {
         experiment: experiment({
           variations: [
-            { id: "v0", key: "0", name: "Control" },
-            { id: "v2", key: "2", name: "Other" },
+            { id: "v0", key: "0", name: "Control", screenshots: [] },
+            { id: "v2", key: "2", name: "Other", screenshots: [] },
           ],
         }),
       },

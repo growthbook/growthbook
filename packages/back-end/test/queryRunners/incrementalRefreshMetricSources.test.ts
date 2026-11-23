@@ -1,5 +1,8 @@
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import type { FactMetricInterface } from "shared/types/fact-table";
+import type {
+  FactMetricInterface,
+  StandardFactMetricInterface,
+} from "shared/types/fact-table";
 import {
   getIncrementalRefreshMetricSources,
   MetricSourceGroups,
@@ -309,7 +312,7 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
 });
 
 describe("getIncrementalRefreshMetricSources placement", () => {
-  const mean = (id: string, over: Partial<FactMetricInterface> = {}) =>
+  const mean = (id: string, over: Partial<StandardFactMetricInterface> = {}) =>
     factMetricFactory.build({
       id,
       metricType: "mean",

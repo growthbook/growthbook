@@ -2,6 +2,7 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { ExperimentMetricDefinition } from "../src/experiments/experiments";
@@ -332,7 +333,10 @@ describe("stats engine inputs", () => {
     priorSettings: { override: false, proper: false, mean: 0, stddev: 0.3 },
     targetMDE: 0.2,
   } as unknown as ExperimentMetricDefinition;
-  const lists = {
+  const lists: Pick<
+    ExperimentSnapshotSettings,
+    "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
+  > = {
     goalMetrics: ["met_a"],
     secondaryMetrics: [],
     guardrailMetrics: ["met_a"],
@@ -374,11 +378,14 @@ describe("stats engine inputs", () => {
   });
 
   describe("getPlannedCopiedMetricSettings", () => {
-    const experiment = {
+    const experiment: Parameters<
+      typeof getPlannedCopiedMetricSettings
+    >[0]["experiment"] = {
       goalMetrics: ["mg_core"],
       secondaryMetrics: [],
       guardrailMetrics: [],
       regressionAdjustmentEnabled: false,
+      decisionFrameworkSettings: {},
     };
     const definitions: Record<string, ExperimentMetricDefinition> = {
       met_a: metric,
@@ -540,10 +547,11 @@ describe("stats engine inputs", () => {
       properPriorStdDev: 0.3,
       targetMDE: 0.1,
     };
-    const stored = {
-      ...lists,
-      metricSettings: [{ id: "met_a", computedSettings }],
-    };
+    const stored: Parameters<typeof haveStatsEngineInputsChanged>[0]["parent"] =
+      {
+        ...lists,
+        metricSettings: [{ id: "met_a", computedSettings }],
+      };
     const changed = (
       planned: Partial<typeof stored>,
       parent: Partial<typeof stored> = {},
