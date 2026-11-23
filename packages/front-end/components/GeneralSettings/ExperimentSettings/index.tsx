@@ -490,7 +490,7 @@ export default function ExperimentSettings() {
 
       <SettingsGroup
         id="exp-auto"
-        title="Visual Editor and URL Redirects"
+        title="AI Visual Editor and URL Redirects"
         description="Experiments that SDKs apply to your pages on their own."
         keywords="visual editor url redirect custom javascript js cross origin auto experiments security"
       >
