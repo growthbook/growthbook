@@ -67,7 +67,11 @@ function ConnectionCount({
           : `All ${total} SDK Connections block ${blocked}.`;
   return (
     <Text as="div">
-      {summary} <Link href="/sdks">View SDK Connections</Link>
+      {summary}{" "}
+      {/* A new tab: the dialog opens over forms with unsaved changes. */}
+      <Link href="/sdks" external>
+        View SDK Connections
+      </Link>
     </Text>
   );
 }
