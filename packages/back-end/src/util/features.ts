@@ -1494,90 +1494,105 @@ export function getFeatureDefinition({
           if (prerequisitesUnsupported && !servedQaOverrides?.length)
             return null;
 
-          const condition = mergeConditionAndSavedGroups({
-            savedGroupStrategy,
-            condition: phase.condition,
-            savedGroups: phase.savedGroups,
-          });
-          if (condition) {
-            rule.condition = condition;
-          }
+          // Everything the rule takes from a phase. QA overrides are served by
+          // building the same rule from an adjusted copy of the phase.
+          const buildRule = (
+            phase: ExperimentPhase,
+          ): FeatureDefinitionRule | null => {
+            const expRule: FeatureDefinitionRule = { ...rule };
 
-          if (phase?.prerequisites?.length) {
-            rule.parentConditions = prerequisiteParentConditions(
-              phase.prerequisites,
+            const condition = mergeConditionAndSavedGroups({
               savedGroupStrategy,
-            );
-          }
-
-          rule.coverage = phase.coverage;
-
-          if (exp.hashAttribute) {
-            rule.hashAttribute = exp.hashAttribute;
-          }
-          if (exp.fallbackAttribute) {
-            rule.fallbackAttribute = exp.fallbackAttribute;
-          }
-          if (exp.disableStickyBucketing) {
-            rule.disableStickyBucketing = exp.disableStickyBucketing;
-          }
-          if (exp.bucketVersion) {
-            rule.bucketVersion = exp.bucketVersion;
-          }
-          if (exp.minBucketVersion) {
-            rule.minBucketVersion = exp.minBucketVersion;
-          }
-          if (
-            phase.namespace &&
-            phase.namespace.enabled &&
-            phase.namespace.name
-          ) {
-            applyNamespaceToPayload(rule, phase.namespace, namespacesMap);
-          }
-
-          if (phase.seed) {
-            rule.seed = phase.seed;
-          }
-          rule.hashVersion = exp.hashVersion;
-
-          // Stopped experiment. Origin/main's Mongoose `[]` seed silently
-          // dropped malformed legacy rules lacking `variations`; we no longer
-          // seed defaults, so guard against missing arrays here and below.
-          if (exp.status === "stopped") {
-            const variation = r.variations?.find(
-              (v) => v.variationId === exp.releasedVariationId,
-            );
-            if (!variation) return null;
-
-            // A config-backed feature composes every arm as a sparse patch on
-            // the base (the invariant above), so force sparse there regardless
-            // of the stored flag — a rule retro-fitted onto config-backing may
-            // still carry sparse=false. Matches the CB-ref / inline-experiment
-            // arms below. Non-config features keep their independent sparse.
-            const armSparse = r.sparse || configBacked;
-
-            // If a variation has been rolled out to 100%
-            rule.force = valueForSDK(variation.value, armSparse);
-          }
-          // Running experiment
-          else {
-            const armSparse = r.sparse || configBacked;
-            rule.variations = getLatestPhaseVariations(exp).map((v) => {
-              const variation = r.variations?.find(
-                (ruleVariation) => v.id === ruleVariation.variationId,
-              );
-              return variation ? valueForSDK(variation.value, armSparse) : null;
+              condition: phase.condition,
+              savedGroups: phase.savedGroups,
             });
-            rule.weights = phase.variationWeights;
+            if (condition) {
+              expRule.condition = condition;
+            }
 
-            rule.key = exp.trackingKey;
-            const phaseVariations = getLatestPhaseVariations(exp);
-            rule.meta = includeExperimentNames
-              ? phaseVariations.map((v) => ({ key: v.key, name: v.name }))
-              : phaseVariations.map((v) => ({ key: v.key }));
-            rule.phase = exp.phases.length - 1 + "";
-            if (includeExperimentNames) rule.name = exp.name;
-          }
+            if (phase?.prerequisites?.length) {
+              expRule.parentConditions = prerequisiteParentConditions(
+                phase.prerequisites,
+                savedGroupStrategy,
+              );
+            }
+
+            expRule.coverage = phase.coverage;
+
+            if (exp.hashAttribute) {
+              expRule.hashAttribute = exp.hashAttribute;
+            }
+            if (exp.fallbackAttribute) {
+              expRule.fallbackAttribute = exp.fallbackAttribute;
+            }
+            if (exp.disableStickyBucketing) {
+              expRule.disableStickyBucketing = exp.disableStickyBucketing;
+            }
+            if (exp.bucketVersion) {
+              expRule.bucketVersion = exp.bucketVersion;
+            }
+            if (exp.minBucketVersion) {
+              expRule.minBucketVersion = exp.minBucketVersion;
+            }
+            if (
+              phase.namespace &&
+              phase.namespace.enabled &&
+              phase.namespace.name
+            ) {
+              applyNamespaceToPayload(expRule, phase.namespace, namespacesMap);
+            }
+
+            if (phase.seed) {
+              expRule.seed = phase.seed;
+            }
+            expRule.hashVersion = exp.hashVersion;
+
+            // Stopped experiment. Origin/main's Mongoose `[]` seed silently
+            // dropped malformed legacy rules lacking `variations`; we no longer
+            // seed defaults, so guard against missing arrays here and below.
+            if (exp.status === "stopped") {
+              const variation = r.variations?.find(
+                (v) => v.variationId === exp.releasedVariationId,
+              );
+              if (!variation) return null;
+
+              // A config-backed feature composes every arm as a sparse patch on
+              // the base (the invariant above), so force sparse there regardless
+              // of the stored flag — a rule retro-fitted onto config-backing may
+              // still carry sparse=false. Matches the CB-ref / inline-experiment
+              // arms below. Non-config features keep their independent sparse.
+              const armSparse = r.sparse || configBacked;
+
+              // If a variation has been rolled out to 100%
+              expRule.force = valueForSDK(variation.value, armSparse);
+            }
+            // Running experiment
+            else {
+              const armSparse = r.sparse || configBacked;
+              expRule.variations = getLatestPhaseVariations(exp).map((v) => {
+                const variation = r.variations?.find(
+                  (ruleVariation) => v.id === ruleVariation.variationId,
+                );
+                return variation
+                  ? valueForSDK(variation.value, armSparse)
+                  : null;
+              });
+              expRule.weights = phase.variationWeights;
+
+              expRule.key = exp.trackingKey;
+              const phaseVariations = getLatestPhaseVariations(exp);
+              expRule.meta = includeExperimentNames
+                ? phaseVariations.map((v) => ({ key: v.key, name: v.name }))
+                : phaseVariations.map((v) => ({ key: v.key }));
+              expRule.phase = exp.phases.length - 1 + "";
+              if (includeExperimentNames) expRule.name = exp.name;
+            }
+
+            return expRule;
+          };
+
+          const expRule = buildRule(phase);
+          if (!expRule) return null;
 
           const finalizeExperimentRule = (rule: FeatureDefinitionRule) => {
             if (rule.condition)
@@ -1623,7 +1638,7 @@ export function getFeatureDefinition({
             return servedQaOverrides.map((override) =>
               finalizeExperimentRule(
                 applyQaOverrideToRule(
-                  cloneDeep(rule),
+                  cloneDeep(expRule),
                   exp,
                   phase,
                   override,
@@ -1632,7 +1647,7 @@ export function getFeatureDefinition({
               ),
             );
           }
-          return finalizeExperimentRule(rule);
+          return finalizeExperimentRule(expRule);
         }
 
         if (r.type === "contextual-bandit-ref") {

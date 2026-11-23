@@ -683,6 +683,7 @@ export function generateAutoExperimentsPayload({
 
   const buildAutoExperiment = (
     data: VisualExperiment | URLRedirectExperiment,
+    phase: ExperimentPhase | null,
     qaOverride: ExperimentQaOverrideInterface | undefined,
     excludeCondition?: ConditionInterface,
   ): AutoExperimentWithMetadata | null => {
@@ -690,8 +691,6 @@ export function generateAutoExperimentsPayload({
     if (e.status === "stopped" && e.excludeFromPayload) return null;
 
     const qaForced = qaOverride?.assignment.type === "forced";
-
-    const phase: ExperimentPhase | null = e.phases?.slice(-1)?.[0] ?? null;
 
     const variations = getLatestPhaseVariations(e);
 
@@ -845,8 +844,10 @@ export function generateAutoExperimentsPayload({
       const { experiment: e } = data;
       const overrides =
         e.status === "draft" ? qaOverrides?.get(e.id) : undefined;
-      if (!overrides?.length) return [buildAutoExperiment(data, undefined)];
-      const phase = e.phases?.slice(-1)?.[0];
+      const phase = e.phases?.slice(-1)?.[0] ?? null;
+      if (!overrides?.length) {
+        return [buildAutoExperiment(data, phase, undefined)];
+      }
       const servesAllMatching = (override: ExperimentQaOverrideInterface) =>
         override.assignment.type === "forced" ||
         ((phase?.coverage ?? 1) >= 1 && !phase?.namespace?.enabled);
@@ -855,7 +856,7 @@ export function generateAutoExperimentsPayload({
       for (const override of overrides) {
         const exclude = qaOverridesExclusionCondition(earlier);
         if (exclude === null) break;
-        const copy = buildAutoExperiment(data, override, exclude);
+        const copy = buildAutoExperiment(data, phase, override, exclude);
         out.push(copy);
         if (copy && servesAllMatching(override)) {
           earlier.push(qaAutoExperimentCondition(e, override));
