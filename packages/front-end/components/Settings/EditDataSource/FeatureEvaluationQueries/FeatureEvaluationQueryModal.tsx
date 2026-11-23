@@ -57,6 +57,7 @@ import Text from "@/ui/Text";
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
 export const IDENTIFIER_TYPES_ANCHOR_ID = "identifier-types";
+export const FEATURE_USAGE_ANCHOR_ID = "feature-usage";
 
 // Text columns with these names usually hold the SDK's attributes as JSON
 const ATTRIBUTE_COLUMN_NAMES = [

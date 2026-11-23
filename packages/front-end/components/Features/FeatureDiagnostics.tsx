@@ -25,6 +25,7 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import EmptyState from "@/components/EmptyState";
+import { FEATURE_USAGE_ANCHOR_ID } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueryModal";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 import Field from "@/components/Forms/Field";
@@ -278,10 +279,13 @@ export default function FeatureDiagnostics({
         !awaitingProvisioning &&
         !datasourceHasFeatureUsageQuery && (
           <Callout status="info" mb="4">
-            Feature Evaluation Diagnostics require setting up a feature usage
-            query in your data source.
-            <Link href={`/datasources/${datasource.id}`} ml="2">
-              Setup a Feature Usage Query
+            Feature Evaluation Diagnostics needs a feature usage query on this
+            Data Source.
+            <Link
+              href={`/datasources/${datasource.id}#${FEATURE_USAGE_ANCHOR_ID}`}
+              ml="2"
+            >
+              Set up a feature usage query
             </Link>
           </Callout>
         )}
