@@ -122,6 +122,7 @@ import {
   SQLExecutionError,
 } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
+import { passkeysRouter } from "./routers/passkeys/passkeys.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
 import { eventsRouter } from "./routers/events/events.router";
@@ -591,6 +592,7 @@ if (SENTRY_DSN) {
 // Logged-in auth requests
 if (!useSSO) {
   app.post("/auth/change-password", authController.postChangePassword);
+  app.use("/user/passkeys", passkeysRouter);
 }
 
 app.use("/user", usersRouter);
