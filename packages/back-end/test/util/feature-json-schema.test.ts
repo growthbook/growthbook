@@ -1,5 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import {
+  getApiJsonSchema,
   getInitialFeatureJsonSchema,
   stampApiJsonSchema,
 } from "back-end/src/util/feature-json-schema";
@@ -98,5 +99,64 @@ describe("stampApiJsonSchema", () => {
     expect(() => stampApiJsonSchema(jsonSchema, "number")).toThrow(
       /must have a top-level type of "number" or "integer"/,
     );
+  });
+});
+
+describe("getApiJsonSchema", () => {
+  const jsonSchema: FeatureInterface["jsonSchema"] = {
+    schemaType: "schema",
+    schema: '{"type":"object","properties":{"color":{"type":"string"}}}',
+    simple: { type: "object", fields: [] },
+    date: new Date("2025-01-01T00:00:00.000Z"),
+    enabled: true,
+  };
+
+  it("returns the schema string when validation is enabled", () => {
+    expect(getApiJsonSchema({ jsonSchema })).toBe(jsonSchema.schema);
+  });
+
+  it("converts a simple schema to a JSON schema string", () => {
+    const result = getApiJsonSchema({
+      jsonSchema: {
+        ...jsonSchema,
+        schemaType: "simple",
+        schema: "",
+        simple: {
+          type: "object",
+          fields: [
+            {
+              key: "color",
+              type: "string",
+              required: true,
+              default: "",
+              description: "",
+              enum: [],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(result).toBeDefined();
+    expect(JSON.parse(result ?? "")).toEqual(
+      expect.objectContaining({
+        type: "object",
+        properties: { color: expect.objectContaining({ type: "string" }) },
+        required: ["color"],
+      }),
+    );
+  });
+
+  it("omits a disabled schema so a round-trip doesn't enable it", () => {
+    expect(
+      getApiJsonSchema({ jsonSchema: { ...jsonSchema, enabled: false } }),
+    ).toBeUndefined();
+  });
+
+  it("omits a missing or unparseable schema", () => {
+    expect(getApiJsonSchema({ jsonSchema: undefined })).toBeUndefined();
+    expect(
+      getApiJsonSchema({ jsonSchema: { ...jsonSchema, schema: "{" } }),
+    ).toBeUndefined();
   });
 });

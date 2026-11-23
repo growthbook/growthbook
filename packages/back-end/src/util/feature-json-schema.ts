@@ -4,7 +4,7 @@ import {
   JSONSchemaDef,
 } from "shared/types/feature";
 import { OrganizationInterface } from "shared/types/organization";
-import { assertSchemaMatchesValueType } from "shared/util";
+import { assertSchemaMatchesValueType, getValidation } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { BadRequestError } from "back-end/src/util/errors";
 
@@ -74,4 +74,13 @@ export function stampApiJsonSchema(
 ): JSONSchemaDef {
   assertSchemaMatchesValueType(jsonSchema, valueType);
   return { ...jsonSchema, date: new Date() };
+}
+
+// Read side of parseApiJsonSchema: the same JSON string the REST API accepts,
+// and only while validation is on, so a GET → POST round-trip can't enable it.
+export function getApiJsonSchema(
+  feature: Pick<FeatureInterface, "jsonSchema">,
+): string | undefined {
+  const { validationEnabled, schemaString } = getValidation(feature);
+  return validationEnabled && schemaString ? schemaString : undefined;
 }
