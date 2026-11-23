@@ -238,8 +238,8 @@ export default function FeatureSettings() {
         <UnsavedMark name="configsExtensibleByDefault">
           <Checkbox
             id="toggle-configsExtensibleByDefault"
-            label="Allow Configs to be extended"
-            description="Child Configs and flag rules can add keys beyond the declared schema."
+            label="Allow extra fields"
+            description="A Config, its child Configs and Feature Flag rules can set keys beyond the schema."
             value={!!form.watch("configsExtensibleByDefault")}
             setValue={(value) =>
               form.setValue("configsExtensibleByDefault", value, {

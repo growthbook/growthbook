@@ -742,26 +742,6 @@ pre {
     }
   }
 }
-.feature-tabs {
-  background-color: var(--color-background);
-  top: var(--tabs-top);
-  // The original feature page's row; the redesign's is --tabs-bar-height.
-  height: 40px;
-  transition: box-shadow 150ms;
-
-  &.pinned {
-    position: sticky;
-    z-index: 930;
-    // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.1),
-      0 4px 4px rgba(0, 0, 0, 0.025);
-    .rt-BaseTabList {
-      box-shadow: none !important;
-    }
-  }
-}
-
 // The tab row of a page built on the details panel, which a revision status bar
 // may follow.
 .details-tabs {
@@ -811,28 +791,6 @@ pre {
   }
   @media (max-width: 900px) {
     overflow-x: auto;
-  }
-}
-
-// Wide config tables (the field editor + the usage tables on the config page).
-// Same trade-off as .experiment-results-wrapper: an `overflow-x` ancestor breaks
-// a document-sticky header AND would clip the inline edit-field dropdowns, so we
-// only enable x-scroll once the viewport is too narrow to show the table without
-// squeezing/truncating, and drop the sticky header at that same breakpoint.
-// Above it there is no scroll container (header sticks, dropdowns aren't
-// clipped); below it we trade the sticky header for horizontal scroll. Viewport
-// (not container) query on purpose — a container-query ancestor would establish a
-// containing block that re-clips the `position: fixed` react-select menus.
-// Keep the breakpoint in the two rules in sync.
-.config-table-scroll {
-  @media (max-width: 1400px) {
-    overflow-x: auto;
-  }
-}
-.config-table-sticky-header {
-  position: sticky;
-  @media (max-width: 1400px) {
-    position: static;
   }
 }
 
@@ -4269,4 +4227,11 @@ input:disabled {
 .PylonChat-bubbleFrameContainer,
 .PylonChat-chatWindowFrameContainer {
   margin-bottom: var(--bottom-bar-clearance, 0px) !important;
+}
+
+// View transitions (services/viewTransition) run briskly.
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 150ms;
 }

@@ -25,7 +25,7 @@ export type ReferenceSection = {
 };
 
 // Renders one collapsible, paginated, project-badged list per non-empty section.
-// Used by the saved-group and constant "references" modals.
+// Used by the archive and delete modals.
 const ReferencesListSection: FC<ReferenceSection> = ({
   title,
   resourceType,

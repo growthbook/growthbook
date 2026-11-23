@@ -335,6 +335,24 @@ export const notificationEventMetadata = {
       "Triggered when an SDK Connection's payload grows past half, 80%, or all of the 16 MB its cache can store. The `level` field is `warning`, `danger`, or `over-limit`, and `recommendations` lists ways to shrink it. Fires once per level reached, not on every publish.",
     subtitle: "Payload nearing or over the 16 MB cache limit.",
   },
+  "sdkConnection.proxy.failing": {
+    label: "Proxy failing",
+    description:
+      "Triggered when an SDK Connection's GrowthBook Proxy has failed to receive its payload for an hour, and again each day it keeps failing; `error` says why. Followed by `proxy.recovered` when a push succeeds.",
+    subtitle: "Proxy failing to receive updates.",
+  },
+  "sdkConnection.proxy.disabled": {
+    label: "Proxy disabled",
+    description:
+      "Triggered when an SDK Connection's GrowthBook Proxy is disabled after too many consecutive failures; `error` says why. Fix the cause, then use Recheck on the SDK Connection, or publish an approved change if the connection needs approval.",
+    subtitle: "Proxy disabled after repeated failures.",
+  },
+  "sdkConnection.proxy.recovered": {
+    label: "Proxy recovered",
+    description:
+      "Triggered when a push to an SDK Connection's GrowthBook Proxy succeeds after `proxy.failing` or `proxy.disabled` was sent.",
+    subtitle: "Proxy receiving updates again.",
+  },
   "sdkConnection.revision.created": {
     label: "New draft revision",
     description:
@@ -838,7 +856,12 @@ export const notificationCategoryGroups: Record<
     },
     {
       label: "Health & warnings",
-      options: ["sdkConnection.payloadSize.warning"],
+      options: [
+        "sdkConnection.payloadSize.warning",
+        "sdkConnection.proxy.failing",
+        "sdkConnection.proxy.disabled",
+        "sdkConnection.proxy.recovered",
+      ],
     },
   ],
   holdout: [
@@ -1083,6 +1106,9 @@ export const notificationCategoryPresets: Record<
     default: [
       "sdkConnection.revision.published",
       "sdkConnection.payloadSize.warning",
+      "sdkConnection.proxy.failing",
+      "sdkConnection.proxy.disabled",
+      "sdkConnection.proxy.recovered",
     ],
     all: eventsInCategory("sdkConnection"),
   },

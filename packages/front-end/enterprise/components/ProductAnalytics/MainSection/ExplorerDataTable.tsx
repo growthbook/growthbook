@@ -11,6 +11,7 @@ import { formatNumericLikeForDisplay } from "shared/util";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Text from "@/ui/Text";
+import { formatExplorationTableCell } from "@/enterprise/components/ProductAnalytics/util";
 import useExplorationTableData from "./useExplorationTableData";
 
 export default function ExplorerDataTable({
@@ -48,6 +49,7 @@ export default function ExplorerDataTable({
     csvColumnLabels,
     tableCompareActive,
     compareColumnMetaByKey,
+    columnFormats,
   } = useExplorationTableData(exploration, submittedExploreState, {
     compareEnabled,
     comparisonExploration,
@@ -67,21 +69,26 @@ export default function ExplorerDataTable({
       )
     : [];
 
+  const isRawTable = rawRows !== null;
+
   const renderCell = useCallback(
     (key: string, value: unknown, row: Record<string, unknown>) => {
-      if (!tableCompareActive) {
+      // Raw SQL rows are arbitrary warehouse output with no column formats,
+      // so number-like values are detected per cell.
+      if (isRawTable) {
         return formatNumericLikeForDisplay(value);
       }
+      const valueString = formatExplorationTableCell(value, columnFormats[key]);
       const colMeta = compareColumnMetaByKey?.[key];
       if (
+        !tableCompareActive ||
         colMeta?.compareCell !== "current" ||
         typeof row[colMeta.trendRowKey] !== "number" ||
         Number.isNaN(row[colMeta.trendRowKey] as number)
       ) {
-        return formatNumericLikeForDisplay(value);
+        return valueString;
       }
       const trendRaw = row[colMeta.trendRowKey] as number;
-      const valueString = formatNumericLikeForDisplay(value);
       const flat = trendRaw === 0;
       const trendColor = flat
         ? undefined
@@ -120,7 +127,7 @@ export default function ExplorerDataTable({
         </Flex>
       );
     },
-    [tableCompareActive, compareColumnMetaByKey],
+    [isRawTable, columnFormats, tableCompareActive, compareColumnMetaByKey],
   );
 
   return (

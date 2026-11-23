@@ -1657,7 +1657,7 @@ export const SdkResources = ({ sdk }) => {
     },
     python: {
       name: "Python SDK",
-      version: "4.0.1",
+      version: "4.1.0",
       github: "https://github.com/growthbook/growthbook-python",
       examples: [],
       packageRepos: [
@@ -1672,6 +1672,9 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v4.1.0",
         },
         {
           savedGroupReferencesV2: "≥ v3.2.0",
@@ -1719,7 +1722,7 @@ export const SdkResources = ({ sdk }) => {
     },
     go: {
       name: "Go SDK",
-      version: "0.7.0",
+      version: "0.8.0",
       github: "https://github.com/growthbook/growthbook-golang",
       examples: [
         {
@@ -1739,6 +1742,9 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v0.8.0",
         },
         {
           savedGroupReferencesV2: "≥ v0.6.0",
@@ -1844,7 +1850,7 @@ export const SdkResources = ({ sdk }) => {
     },
     java: {
       name: "Java SDK",
-      version: "0.12.0",
+      version: "0.13.0",
       github: "https://github.com/growthbook/growthbook-sdk-java",
       examples: [
         {
@@ -1923,7 +1929,7 @@ export const SdkResources = ({ sdk }) => {
     },
     csharp: {
       name: "C# SDK",
-      version: "2.1.0",
+      version: "2.1.1",
       github: "https://github.com/growthbook/growthbook-c-sharp",
       examples: [
         {
@@ -2581,7 +2587,7 @@ export const SdkResources = ({ sdk }) => {
     },
     flutter: {
       name: "Flutter SDK",
-      version: "5.0.1",
+      version: "5.1.0",
       github: "https://github.com/growthbook/growthbook-flutter",
       examples: [],
       packageRepos: [
@@ -2596,6 +2602,12 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v5.1.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v5.1.0",
         },
         {
           caseInsensitiveRegex: "≥ v4.3.0",

@@ -1,4 +1,10 @@
-import { DetailedHTMLProps, FC, HTMLAttributes, useMemo } from "react";
+import {
+  DetailedHTMLProps,
+  FC,
+  HTMLAttributes,
+  ReactNode,
+  useMemo,
+} from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import ReactMarkdown, { Options } from "react-markdown";
@@ -71,6 +77,11 @@ const Markdown: FC<MarkdownProps> = ({
           </a>
         );
       },
+      table: ({ children }: { children?: ReactNode }) => (
+        <div className={styles.tableScroll}>
+          <table>{children}</table>
+        </div>
+      ),
       img: ({ ...props }) => (
         <AuthorizedImage
           imageCache={imageCache}
