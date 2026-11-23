@@ -1,9 +1,12 @@
 import {
+  generateAuthenticationOptions,
   generateRegistrationOptions,
+  verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
 import { isoBase64URL, isoUint8Array } from "@simplewebauthn/server/helpers";
 import {
+  PasskeyAuthenticationResponse,
   PasskeyInterface,
   PasskeyRegistrationResponse,
   PasskeySummary,
@@ -21,8 +24,11 @@ import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import {
   createPasskey,
+  getPasskeyByCredentialId,
   getPasskeysByUserId,
+  recordPasskeyUse,
 } from "back-end/src/models/PasskeyModel";
+import { getUserById } from "back-end/src/models/UserModel";
 import {
   consumePasskeyChallenge,
   savePasskeyChallenge,
@@ -154,4 +160,67 @@ export async function finishPasskeyRegistration(
     }
     throw e;
   }
+}
+
+export async function startPasskeySignIn() {
+  const rp = getRelyingParty();
+  // No allowCredentials: the user hasn't said who they are yet, so the
+  // browser offers every passkey it has for this site
+  const options = await generateAuthenticationOptions({
+    rpID: rp.id,
+    userVerification: "required",
+  });
+  await savePasskeyChallenge(options.challenge, "authentication", null);
+  return options;
+}
+
+export async function finishPasskeySignIn(
+  response: PasskeyAuthenticationResponse,
+): Promise<UserInterface> {
+  const rp = getRelyingParty();
+  const signInFailed = new BadRequestError(
+    "We couldn't sign you in with that passkey.",
+  );
+
+  const passkey = await getPasskeyByCredentialId(response.id);
+  if (!passkey) throw signInFailed;
+
+  const { userHandle } = response.response;
+  if (
+    userHandle &&
+    userHandle !== isoBase64URL.fromUTF8String(passkey.userId)
+  ) {
+    throw signInFailed;
+  }
+
+  let verification: Awaited<ReturnType<typeof verifyAuthenticationResponse>>;
+  try {
+    verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge: (challenge) =>
+        consumePasskeyChallenge(challenge, "authentication", null),
+      expectedOrigin: rp.origin,
+      expectedRPID: rp.id,
+      credential: {
+        id: passkey.credentialId,
+        publicKey: isoBase64URL.toBuffer(passkey.publicKey),
+        counter: passkey.counter,
+        transports: passkey.transports,
+      },
+      requireUserVerification: true,
+    });
+  } catch (e) {
+    logger.warn(e, "Passkey sign-in could not be verified");
+    throw signInFailed;
+  }
+  if (!verification.verified) throw signInFailed;
+
+  await recordPasskeyUse(
+    passkey.id,
+    verification.authenticationInfo.newCounter,
+  );
+
+  const user = await getUserById(passkey.userId);
+  if (!user) throw signInFailed;
+  return user;
 }
