@@ -121,6 +121,10 @@ export async function getSignedImageToken(
   req: AuthRequest<{ path: string }>,
   res: Response<SignedImageUrlResponse>,
 ) {
+  // The path ends in an image extension, so CDNs would otherwise cache this
+  // JSON and keep serving the signed URL after it expires.
+  res.setHeader("Cache-Control", "no-store");
+
   const context = getContextFromReq(req);
   const org = context.org;
 
@@ -206,6 +210,9 @@ export async function getSignedPublicImageToken(
   req: Request<{ path: string }>,
   res: Response<SignedImageUrlResponse | { status: number; message: string }>,
 ) {
+  // Same CDN caching risk as getSignedImageToken.
+  res.setHeader("Cache-Control", "no-store");
+
   // Get the shareUid and shareType from query parameters
   const { shareUid } = req.query;
   const shareType = req.query.shareType as "experiment" | "report" | undefined;
