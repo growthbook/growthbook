@@ -4,7 +4,11 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
-import { isoBase64URL, isoUint8Array } from "@simplewebauthn/server/helpers";
+import {
+  decodeClientDataJSON,
+  isoBase64URL,
+  isoUint8Array,
+} from "@simplewebauthn/server/helpers";
 import {
   PasskeyAuthenticationResponse,
   PasskeyInterface,
@@ -31,6 +35,7 @@ import {
 import { getUserById } from "back-end/src/models/UserModel";
 import {
   consumePasskeyChallenge,
+  PasskeyChallengeType,
   savePasskeyChallenge,
 } from "back-end/src/models/PasskeyChallengeModel";
 
@@ -85,6 +90,26 @@ export function toPasskeySummary(passkey: PasskeyInterface): PasskeySummary {
   };
 }
 
+// Deletes the challenge the browser signed before anything else is checked,
+// so a failed attempt can't be retried with it. Returns null if it isn't one
+// of ours or has expired.
+async function takeChallenge(
+  clientDataJSON: string,
+  type: PasskeyChallengeType,
+  userId: string | null,
+): Promise<string | null> {
+  let challenge: unknown;
+  try {
+    challenge = decodeClientDataJSON(clientDataJSON).challenge;
+  } catch {
+    return null;
+  }
+  if (typeof challenge !== "string") return null;
+  return (await consumePasskeyChallenge(challenge, type, userId))
+    ? challenge
+    : null;
+}
+
 export async function startPasskeyRegistration(user: UserInterface) {
   const rp = getRelyingParty();
   const existing = await getPasskeysByUserId(user.id);
@@ -118,28 +143,31 @@ export async function finishPasskeyRegistration(
   response: PasskeyRegistrationResponse,
 ): Promise<PasskeyInterface> {
   const rp = getRelyingParty();
+  const couldNotVerify = new BadRequestError(
+    "We couldn't verify this passkey. Please try adding it again.",
+  );
+
+  const challenge = await takeChallenge(
+    response.response.clientDataJSON,
+    "registration",
+    user.id,
+  );
+  if (!challenge) throw couldNotVerify;
 
   let verification: Awaited<ReturnType<typeof verifyRegistrationResponse>>;
   try {
     verification = await verifyRegistrationResponse({
       response,
-      expectedChallenge: (challenge) =>
-        consumePasskeyChallenge(challenge, "registration", user.id),
+      expectedChallenge: challenge,
       expectedOrigin: rp.origin,
       expectedRPID: rp.id,
       requireUserVerification: true,
     });
   } catch (e) {
     logger.warn(e, "Passkey registration could not be verified");
-    throw new BadRequestError(
-      "We couldn't verify this passkey. Please try adding it again.",
-    );
+    throw couldNotVerify;
   }
-  if (!verification.verified) {
-    throw new BadRequestError(
-      "We couldn't verify this passkey. Please try adding it again.",
-    );
-  }
+  if (!verification.verified) throw couldNotVerify;
 
   const { credential, credentialDeviceType, credentialBackedUp } =
     verification.registrationInfo;
@@ -182,6 +210,13 @@ export async function finishPasskeySignIn(
     "We couldn't sign you in with that passkey.",
   );
 
+  const challenge = await takeChallenge(
+    response.response.clientDataJSON,
+    "authentication",
+    null,
+  );
+  if (!challenge) throw signInFailed;
+
   const passkey = await getPasskeyByCredentialId(response.id);
   if (!passkey) {
     // Usually a passkey the browser saved for this domain elsewhere, e.g.
@@ -203,8 +238,7 @@ export async function finishPasskeySignIn(
   try {
     verification = await verifyAuthenticationResponse({
       response,
-      expectedChallenge: (challenge) =>
-        consumePasskeyChallenge(challenge, "authentication", null),
+      expectedChallenge: challenge,
       expectedOrigin: rp.origin,
       expectedRPID: rp.id,
       credential: {
