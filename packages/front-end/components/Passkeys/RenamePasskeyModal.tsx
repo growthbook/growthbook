@@ -1,5 +1,8 @@
 import { useForm } from "react-hook-form";
-import type { PasskeySummary } from "shared/validators";
+import {
+  PASSKEY_NAME_MAX_LENGTH,
+  type PasskeySummary,
+} from "shared/validators";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
@@ -34,7 +37,7 @@ export default function RenamePasskeyModal({
       <TextField
         label="Name"
         required
-        maxLength={64}
+        maxLength={PASSKEY_NAME_MAX_LENGTH}
         {...form.register("name", { required: true })}
       />
     </ModalStandard>

@@ -43,7 +43,12 @@ export const passkeySummaryValidator = passkeyValidator.pick({
 });
 export type PasskeySummary = z.infer<typeof passkeySummaryValidator>;
 
-export const passkeyNameValidator = z.string().trim().min(1).max(64);
+export const PASSKEY_NAME_MAX_LENGTH = 64;
+export const passkeyNameValidator = z
+  .string()
+  .trim()
+  .min(1)
+  .max(PASSKEY_NAME_MAX_LENGTH);
 
 // The shape @simplewebauthn/browser sends back, minus the part that differs
 // between adding a passkey and signing in. The server library does the actual

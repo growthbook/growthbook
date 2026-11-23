@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { Flex } from "@radix-ui/themes";
+import { PASSKEY_NAME_MAX_LENGTH } from "shared/validators";
 import {
   PublicKeyCredentialCreationOptionsJSON,
   RegistrationResponseJSON,
@@ -72,7 +73,7 @@ export default function AddPasskeyModal({
           placeholder="Work laptop"
           helpText="So you can tell your passkeys apart"
           required
-          maxLength={64}
+          maxLength={PASSKEY_NAME_MAX_LENGTH}
           {...form.register("name", { required: true })}
         />
         <TextField
