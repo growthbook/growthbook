@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { ago, date, datetime } from "shared/dates";
 import type { PasskeySummary } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { usingSSO } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import AddPasskeyModal from "@/components/Passkeys/AddPasskeyModal";
 import RenamePasskeyModal from "@/components/Passkeys/RenamePasskeyModal";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -42,18 +44,30 @@ function Passkeys() {
   const { data, error, mutate } = useApi<{ passkeys: PasskeySummary[] }>(
     "/user/passkeys",
   );
+  const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState<PasskeySummary | null>(null);
   const [removing, setRemoving] = useState<PasskeySummary | null>(null);
+  const supported = browserSupportsWebAuthn();
 
   return (
     <Flex direction="column" gap="4">
-      <Heading as="h1" size="lg">
-        Passkeys
-      </Heading>
+      <Flex justify="between" align="center">
+        <Heading as="h1" size="lg">
+          Passkeys
+        </Heading>
+        {supported && (
+          <Button onClick={() => setAdding(true)}>Add passkey</Button>
+        )}
+      </Flex>
       <Text as="p">
         Sign in with your fingerprint, face, device PIN or security key instead
         of typing your password. Your password keeps working too.
       </Text>
+      {!supported && (
+        <Callout status="warning">
+          This browser doesn&apos;t support passkeys.
+        </Callout>
+      )}
 
       {error ? (
         <Callout status="error">{error.message}</Callout>
@@ -117,6 +131,9 @@ function Passkeys() {
         </Table>
       )}
 
+      {adding && (
+        <AddPasskeyModal close={() => setAdding(false)} onAdded={mutate} />
+      )}
       {renaming && (
         <RenamePasskeyModal
           passkey={renaming}
