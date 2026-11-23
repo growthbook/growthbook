@@ -1,8 +1,32 @@
 import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+} from "@simplewebauthn/server";
+import { isoBase64URL, isoUint8Array } from "@simplewebauthn/server/helpers";
+import {
+  PasskeyInterface,
+  PasskeyRegistrationResponse,
+  PasskeySummary,
+  PasskeyTransport,
+  passkeyTransportValidator,
+} from "shared/validators";
+import { UserInterface } from "shared/types/user";
+import {
   APP_ORIGIN,
   WEBAUTHN_RP_ID,
   WEBAUTHN_RP_NAME,
 } from "back-end/src/util/secrets";
+import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
+import { BadRequestError } from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
+import {
+  createPasskey,
+  getPasskeysByUserId,
+} from "back-end/src/models/PasskeyModel";
+import {
+  consumePasskeyChallenge,
+  savePasskeyChallenge,
+} from "back-end/src/models/PasskeyChallengeModel";
 
 export function resolveRelyingPartyId(
   configured: string,
@@ -34,4 +58,100 @@ export function getRelyingParty() {
     name: WEBAUTHN_RP_NAME,
     origin: APP_ORIGIN,
   };
+}
+
+// Browsers may report transports newer than the spec we know about
+export function toKnownTransports(transports: string[]): PasskeyTransport[] {
+  return transports.flatMap((transport) => {
+    const parsed = passkeyTransportValidator.safeParse(transport);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
+export function toPasskeySummary(passkey: PasskeyInterface): PasskeySummary {
+  return {
+    id: passkey.id,
+    name: passkey.name,
+    deviceType: passkey.deviceType,
+    backedUp: passkey.backedUp,
+    dateCreated: passkey.dateCreated,
+    lastUsed: passkey.lastUsed,
+  };
+}
+
+export async function startPasskeyRegistration(user: UserInterface) {
+  const rp = getRelyingParty();
+  const existing = await getPasskeysByUserId(user.id);
+
+  const options = await generateRegistrationOptions({
+    rpName: rp.name,
+    rpID: rp.id,
+    userName: user.email,
+    userDisplayName: user.name || user.email,
+    // A stable handle lets a password manager replace this user's passkey
+    // instead of saving a second one
+    userID: isoUint8Array.fromUTF8String(user.id),
+    attestationType: "none",
+    excludeCredentials: existing.map((passkey) => ({
+      id: passkey.credentialId,
+      transports: passkey.transports,
+    })),
+    authenticatorSelection: {
+      residentKey: "required",
+      userVerification: "required",
+    },
+  });
+
+  await savePasskeyChallenge(options.challenge, "registration", user.id);
+  return options;
+}
+
+export async function finishPasskeyRegistration(
+  user: UserInterface,
+  name: string,
+  response: PasskeyRegistrationResponse,
+): Promise<PasskeyInterface> {
+  const rp = getRelyingParty();
+
+  let verification: Awaited<ReturnType<typeof verifyRegistrationResponse>>;
+  try {
+    verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge: (challenge) =>
+        consumePasskeyChallenge(challenge, "registration", user.id),
+      expectedOrigin: rp.origin,
+      expectedRPID: rp.id,
+      requireUserVerification: true,
+    });
+  } catch (e) {
+    logger.warn(e, "Passkey registration could not be verified");
+    throw new BadRequestError(
+      "We couldn't verify this passkey. Please try adding it again.",
+    );
+  }
+  if (!verification.verified) {
+    throw new BadRequestError(
+      "We couldn't verify this passkey. Please try adding it again.",
+    );
+  }
+
+  const { credential, credentialDeviceType, credentialBackedUp } =
+    verification.registrationInfo;
+  try {
+    return await createPasskey({
+      userId: user.id,
+      name,
+      credentialId: credential.id,
+      publicKey: isoBase64URL.fromBuffer(credential.publicKey),
+      counter: credential.counter,
+      transports: toKnownTransports(credential.transports ?? []),
+      deviceType: credentialDeviceType,
+      backedUp: credentialBackedUp,
+    });
+  } catch (e) {
+    if (isDuplicateKeyError(e)) {
+      throw new BadRequestError("This passkey has already been added.");
+    }
+    throw e;
+  }
 }

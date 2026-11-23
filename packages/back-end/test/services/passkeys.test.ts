@@ -1,4 +1,7 @@
-import { resolveRelyingPartyId } from "back-end/src/services/passkeys";
+import {
+  resolveRelyingPartyId,
+  toKnownTransports,
+} from "back-end/src/services/passkeys";
 
 describe("resolveRelyingPartyId", () => {
   it("defaults to the APP_ORIGIN hostname", () => {
@@ -33,5 +36,20 @@ describe("resolveRelyingPartyId", () => {
     expect(() => resolveRelyingPartyId("", "gb.example.com")).toThrow(
       "APP_ORIGIN must be a full URL",
     );
+  });
+});
+
+describe("toKnownTransports", () => {
+  it("keeps the transports the WebAuthn spec defines", () => {
+    expect(toKnownTransports(["internal", "hybrid", "usb"])).toEqual([
+      "internal",
+      "hybrid",
+      "usb",
+    ]);
+  });
+
+  it("drops ones it doesn't know", () => {
+    expect(toKnownTransports(["usb", "carrier-pigeon"])).toEqual(["usb"]);
+    expect(toKnownTransports([])).toEqual([]);
   });
 });
