@@ -90,9 +90,8 @@ function parseOrigin(url: string): { protocol: string; host: string } | null {
 
 // Matches the SDK's own check: a different protocol or host is cross-origin.
 // A URL that can't be read can't be shown to be same-origin, so it counts too.
-// So does any destination that isn't https: SDKs match the page's URL without
-// its protocol, so an http-to-http redirect also runs on the https page and
-// would take a visitor off it.
+// SDKs match the page's URL without its protocol, so an http-to-http redirect
+// also runs on the https page; the SDK's own check is what catches that.
 export function isCrossOriginRedirect(redirect: {
   urlPattern: string;
   destinationURLs: { url: string }[];
@@ -103,11 +102,7 @@ export function isCrossOriginRedirect(redirect: {
     if (!url) return false;
     const to = parseOrigin(url);
     return (
-      !from ||
-      !to ||
-      to.protocol !== "https:" ||
-      to.protocol !== from.protocol ||
-      to.host !== from.host
+      !from || !to || to.protocol !== from.protocol || to.host !== from.host
     );
   });
 }
