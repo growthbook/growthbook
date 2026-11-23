@@ -45,6 +45,30 @@ export function qaOverrideHasCondition(filters: QaOverrideFilters): boolean {
   return !!filters.condition && filters.condition !== "{}";
 }
 
+// An override with attribute or Saved Group targeting of its own is served
+// with that targeting in place of the experiment's.
+export function qaOverrideHasOwnTargeting(filters: QaOverrideFilters): boolean {
+  return (
+    qaOverrideHasCondition(filters) ||
+    !!filters.savedGroups?.some((g) => g.ids.length > 0)
+  );
+}
+
+// A forced override whose variation has since been removed. It is kept, but
+// not served.
+export function qaOverrideVariationMissing(
+  override: { assignment: ExperimentQaOverrideAssignment },
+  experiment: Pick<ExperimentInterface, "variations" | "phases">,
+): boolean {
+  const { assignment } = override;
+  return (
+    assignment.type === "forced" &&
+    !getLatestPhaseVariations(experiment).some(
+      (v) => v.id === assignment.variationId,
+    )
+  );
+}
+
 export function qaOverrideAppliesToConnection(
   override: { environment: string; filters: QaOverrideFilters },
   connection: { id: string; environment: string; projects?: string[] },
@@ -171,13 +195,7 @@ export function getQaOverrideStatus(
 ): QaOverrideStatus {
   const invalidReasons: QaOverrideInvalidReason[] = [];
 
-  const { assignment } = override;
-  if (
-    assignment.type === "forced" &&
-    !getLatestPhaseVariations(experiment).some(
-      (v) => v.id === assignment.variationId,
-    )
-  ) {
+  if (qaOverrideVariationMissing(override, experiment)) {
     invalidReasons.push("variation-removed");
   }
 

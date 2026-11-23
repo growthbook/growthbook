@@ -9,6 +9,8 @@ import {
   reorderQaOverridesInEnvironment,
   qaOverrideAppliesToConnection,
   qaOverrideHasCondition,
+  qaOverrideHasOwnTargeting,
+  qaOverrideVariationMissing,
   sortQaOverrides,
 } from "../src/util/qa-overrides";
 
@@ -78,6 +80,48 @@ describe("filter helpers", () => {
     expect(qaOverrideHasCondition({})).toBe(false);
     expect(qaOverrideHasCondition({ condition: "{}" })).toBe(false);
     expect(qaOverrideHasCondition({ condition: '{"id":"x"}' })).toBe(true);
+  });
+
+  it("has its own targeting with a condition or a Saved Group, not with connection or project filters", () => {
+    expect(qaOverrideHasOwnTargeting({})).toBe(false);
+    expect(qaOverrideHasOwnTargeting({ condition: "{}" })).toBe(false);
+    expect(
+      qaOverrideHasOwnTargeting({ sdkConnections: ["sdk"], projects: ["p"] }),
+    ).toBe(false);
+    expect(
+      qaOverrideHasOwnTargeting({ savedGroups: [{ match: "all", ids: [] }] }),
+    ).toBe(false);
+    expect(qaOverrideHasOwnTargeting({ condition: '{"id":"x"}' })).toBe(true);
+    expect(
+      qaOverrideHasOwnTargeting({
+        savedGroups: [{ match: "any", ids: ["grp_1"] }],
+      }),
+    ).toBe(true);
+  });
+
+  it("reports a forced variation that is no longer in the latest phase", () => {
+    const experiment = {
+      variations: [{ id: "v0" }, { id: "v1" }],
+      phases: [],
+    } as unknown as Parameters<typeof qaOverrideVariationMissing>[1];
+    expect(
+      qaOverrideVariationMissing(
+        { assignment: { type: "forced", variationId: "v1" } },
+        experiment,
+      ),
+    ).toBe(false);
+    expect(
+      qaOverrideVariationMissing(
+        { assignment: { type: "forced", variationId: "gone" } },
+        experiment,
+      ),
+    ).toBe(true);
+    expect(
+      qaOverrideVariationMissing(
+        { assignment: { type: "random" } },
+        experiment,
+      ),
+    ).toBe(false);
   });
 
   it("matches a connection by environment, connection filter and project filter", () => {
