@@ -148,6 +148,21 @@ export default function Auth() {
 }
 ```
 
+## Typed features (optional)
+
+The hooks accept an optional `AppFeatures` type parameter for type-checked feature keys and values. The generic intentionally defaults to your registered feature types — falling back to `Record<string, any>` when nothing is registered — so projects that don't use typed features need no generic arguments or any other boilerplate:
+
+```tsx
+// Works as-is, no generic argument required
+const newLogin = useFeatureIsOn("new-login-form");
+
+// Opt in to type checking by passing the type parameter,
+// for example through a small wrapper hook in your own code
+const typedLogin = useFeatureIsOn<AppFeatures>("new-login-form");
+```
+
+To enforce typed feature usage across your project, register your types once or pass them explicitly via wrapper hooks, and restrict direct imports of the SDK to that wrapper module. See [TypeScript support in the React SDK docs](https://docs.growthbook.io/lib/react#typescript-support) and [Strict typing in the JavaScript SDK docs](https://docs.growthbook.io/lib/js#strict-typing) for details, including generating the types automatically with `growthbook generate-types`.
+
 ## Loading Features
 
 In order for the GrowthBook SDK to work, it needs to have feature definitions from the GrowthBook API. There are 2 ways to get this data into the SDK.
