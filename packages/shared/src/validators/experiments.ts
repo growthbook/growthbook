@@ -2960,6 +2960,17 @@ export const snapshotUpdateScopes = [
 ] as const;
 export type SnapshotUpdateScope = (typeof snapshotUpdateScopes)[number];
 
+// The app's POST /experiment/:id/snapshot body. The app asks for a scope
+// itself, so "auto" isn't one; the update that runs can differ.
+export const postExperimentSnapshotBody = z.object({
+  phase: z.number(),
+  dimension: z.string().optional(),
+  updateScope: z.enum(["all_metrics", "new_metrics"]).optional(),
+});
+export type PostExperimentSnapshotBody = z.infer<
+  typeof postExperimentSnapshotBody
+>;
+
 export const postExperimentSnapshotValidator = {
   bodySchema: z
     .object({

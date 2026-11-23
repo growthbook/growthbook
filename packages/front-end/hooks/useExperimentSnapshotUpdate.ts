@@ -5,6 +5,7 @@ import {
   SnapshotUpdateScopeKind,
 } from "shared/types/experiment-snapshot";
 import { isDimensionPrecomputed } from "shared/experiments";
+import type { PostExperimentSnapshotBody } from "shared/validators";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -187,7 +188,7 @@ export function useExperimentSnapshotUpdate({
               phase,
               dimension: dimensionToRun,
               ...(updateScope ? { updateScope } : {}),
-            }),
+            } satisfies PostExperimentSnapshotBody),
           },
           (errBody) => {
             apiError = errBody;

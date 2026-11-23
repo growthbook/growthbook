@@ -21,6 +21,7 @@ import {
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
+import type { PostExperimentSnapshotBody } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -352,7 +353,7 @@ const Results: FC<{
               body: JSON.stringify({
                 phase,
                 dimension,
-              }),
+              } satisfies PostExperimentSnapshotBody),
             });
             trackSnapshot(
               "create",

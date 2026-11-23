@@ -22,13 +22,13 @@ import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
   experimentChangesBody,
   isUnsupportedClusterBanditCombination,
+  postExperimentSnapshotBody,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { DataSourceInterface } from "shared/types/datasource";
-import { MetricStats } from "shared/types/metric";
 import {
   Changeset,
   ExperimentInterface,
@@ -142,10 +142,7 @@ import {
 } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
-import {
-  createScopedExperimentSnapshot,
-  type RanUpdateScope,
-} from "back-end/src/services/snapshotUpdateScope";
+import { createScopedExperimentSnapshot } from "back-end/src/services/snapshotUpdateScope";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import {
   cancelExperimentSnapshot,
@@ -2542,22 +2539,16 @@ export async function cancelSnapshot(
 }
 
 export async function postSnapshot(
-  req: AuthRequest<
-    {
-      phase: number;
-      dimension?: string;
-      users?: number[];
-      metrics?: { [key: string]: MetricStats[] };
-      updateScope?: RanUpdateScope;
-    },
-    { id: string },
-    { force?: string }
-  >,
+  req: AuthRequest<unknown, { id: string }, { force?: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { phase, dimension } = req.body;
+  const parsed = postExperimentSnapshotBody.safeParse(req.body);
+  if (!parsed.success) {
+    throw new BadRequestError(errorStringFromZodResult(parsed));
+  }
+  const { phase, dimension, updateScope: requestedScope } = parsed.data;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -2612,7 +2603,7 @@ export async function postSnapshot(
   }
 
   const useCache = !force;
-  if (req.body.updateScope === "new_metrics" && (dimension || force)) {
+  if (requestedScope === "new_metrics" && (dimension || force)) {
     throw new BadRequestError(
       "Updating newly added metrics can't be combined with a dimension or a forced rerun.",
     );
@@ -2621,7 +2612,7 @@ export async function postSnapshot(
   // A refused new-metrics update falls back to a normal one.
   const { snapshot, updateScope } = await createScopedExperimentSnapshot({
     scope:
-      req.body.updateScope === "new_metrics"
+      requestedScope === "new_metrics"
         ? {
             kind: "new_metrics",
             window: {
