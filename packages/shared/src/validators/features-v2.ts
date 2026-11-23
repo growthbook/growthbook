@@ -423,6 +423,12 @@ export const apiFeatureV2Validator = namedSchema(
         .array(z.string())
         .describe("Feature IDs. Each feature must evaluate to `true`")
         .optional(),
+      jsonSchema: z
+        .string()
+        .describe(
+          "JSON schema that validates the feature's value, in the same format create and update accept. Only present while validation is enabled.",
+        )
+        .optional(),
       revision: apiFeatureRevisionSummaryValidator,
       customFields: z.record(z.string(), z.any()).optional(),
       holdout: apiFeatureHoldout,

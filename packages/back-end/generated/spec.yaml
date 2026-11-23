@@ -70565,6 +70565,11 @@ components:
           items:
             type: string
           description: Feature IDs. Each feature must evaluate to `true`
+        jsonSchema:
+          type: string
+          description: >-
+            JSON schema that validates the feature's value, in the same format
+            create and update accept. Only present while validation is enabled.
         revision:
           type: object
           properties:
@@ -72757,6 +72762,11 @@ components:
           items:
             type: string
           description: Feature IDs. Each feature must evaluate to `true`
+        jsonSchema:
+          type: string
+          description: >-
+            JSON schema that validates the feature's value, in the same format
+            create and update accept. Only present while validation is enabled.
         revision:
           $ref: '#/components/schemas/FeatureRevisionSummary'
         customFields:
