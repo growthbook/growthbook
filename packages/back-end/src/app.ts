@@ -112,6 +112,7 @@ const uploadController = wrapController(uploadControllerRaw);
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
+import { checkPasskeySettings } from "./services/passkeys";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
@@ -535,6 +536,7 @@ if (!useSSO) {
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
   app.use("/auth/passkey", passkeySignInRouter);
+  checkPasskeySettings();
 }
 // Pre-auth requests when using SSO
 else {

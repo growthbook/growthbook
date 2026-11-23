@@ -63,12 +63,28 @@ export function resolveRelyingPartyId(
   return rpId;
 }
 
-export function getRelyingParty() {
-  return {
+type RelyingParty = { id: string; name: string; origin: string };
+
+// The settings can't change while the server runs, so work this out once
+let relyingParty: RelyingParty | null = null;
+
+export function getRelyingParty(): RelyingParty {
+  relyingParty ??= {
     id: resolveRelyingPartyId(WEBAUTHN_RP_ID, APP_ORIGIN),
     name: WEBAUTHN_RP_NAME,
     origin: APP_ORIGIN,
   };
+  return relyingParty;
+}
+
+// Run at startup so a bad setting shows up in the logs straight away. It
+// doesn't stop the server, since password sign-in still works.
+export function checkPasskeySettings() {
+  try {
+    getRelyingParty();
+  } catch (e) {
+    logger.error(e, "Passkeys won't work until this setting is fixed");
+  }
 }
 
 // Browsers may report transports newer than the spec we know about
