@@ -348,10 +348,8 @@ type PowerScalingFactorOutcome = Pick<
 >;
 
 /**
- * How much more sample a test needs to reach its target power, as a multiple
- * of the sample it has: the search half of mid-experiment power, run once the
- * stats engine has returned the per-test inputs. Null when there is nothing to
- * compute from, so the caller leaves the response as it is.
+ * The extra sample a test needs to reach its target power, as a multiple of
+ * its current sample. Null when the inputs are missing.
  */
 export function calculatePowerScalingFactor(
   response: MetricPowerResponseFromStatsEngine,
