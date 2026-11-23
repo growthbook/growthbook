@@ -72,7 +72,7 @@ export default function ExplorerDataTable({
     (key: string, value: unknown, row: Record<string, unknown>) => {
       // Shown only, so CSV downloads keep empty cells empty. Raw tables show
       // the warehouse's values as they are.
-      if (!isRawTable && (value ?? "") === "") {
+      if (!isRawTable && (value ?? null) === null) {
         return (
           <>
             <span aria-hidden="true">—</span>
