@@ -917,19 +917,35 @@ export function densifyComparisonExplorationTimeseries(params: {
   }
 
   const byMergeKey = new Map<string, ProductAnalyticsResultRow>();
+  // The warehouse's own spelling of each bucket's date. Filled rows reuse it,
+  // since the chart keys points by the raw string: "2024-01-02" and
+  // "2024-01-02T00:00:00.000Z" would otherwise be two different dates.
+  const dateByBucket = new Map<number, string>();
   for (const row of comparisonRows) {
+    const date = row.dimensions[0] ?? null;
     const k = bucketBreakdownMergeKey(
-      row.dimensions[0] ?? null,
+      date,
       String(row.dimensions[1] ?? ""),
       resolved,
     );
     if (!byMergeKey.has(k)) {
       byMergeKey.set(k, row);
     }
+    const bucketKey = productAnalyticsDateDimensionBucketMergeKey(
+      date,
+      resolved,
+    );
+    if (date !== null && !dateByBucket.has(bucketKey)) {
+      dateByBucket.set(bucketKey, date);
+    }
   }
 
   const merged: ProductAnalyticsResultRow[] = [];
   for (const bucketIso of bucketStrings) {
+    const date =
+      dateByBucket.get(
+        productAnalyticsDateDimensionBucketMergeKey(bucketIso, resolved),
+      ) ?? bucketIso;
     for (const breakdown of breakdownValues) {
       const existing = byMergeKey.get(
         bucketBreakdownMergeKey(bucketIso, breakdown, resolved),
@@ -938,7 +954,7 @@ export function densifyComparisonExplorationTimeseries(params: {
         merged.push(existing);
       } else if (fills(bucketIso)) {
         merged.push({
-          dimensions: [bucketIso, breakdown],
+          dimensions: [date, breakdown],
           values: emptyValues.map((v) => ({ ...v })),
         });
       }

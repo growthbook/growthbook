@@ -1886,6 +1886,40 @@ describe("densifyComparisonExplorationTimeseries", () => {
       expect(zeros).toHaveLength(5);
     });
 
+    it("spells a bucket's date the same way for every breakdown", () => {
+      const out = densifyComparisonExplorationTimeseries({
+        comparison: shellExploration([
+          {
+            dimensions: ["2023-01-02", "Chrome"],
+            values: [{ metricId: "m1", numerator: 42, denominator: null }],
+          },
+        ]),
+        submittedConfig: groupedConfig,
+        previousTimeFrame: shortPrev,
+        primaryRows: [
+          {
+            dimensions: ["2024-01-01", "Chrome"],
+            values: [{ metricId: "m1", numerator: 5, denominator: null }],
+          },
+          {
+            dimensions: ["2024-01-01", "Safari"],
+            values: [{ metricId: "m1", numerator: 9, denominator: null }],
+          },
+        ],
+        renderOpts: totals,
+        until: null,
+      });
+      // The chart keys points by the raw string, so a filled Safari row on the
+      // 2nd must match Chrome's warehouse row.
+      const jan2 = out?.result.rows.filter((r) =>
+        String(r.dimensions[0]).startsWith("2023-01-02"),
+      );
+      expect(jan2?.map((r) => r.dimensions)).toEqual([
+        ["2023-01-02", "Chrome"],
+        ["2023-01-02", "Safari"],
+      ]);
+    });
+
     it("includes comparison-only breakdown values not present in the primary", () => {
       const out = densifyComparisonExplorationTimeseries({
         comparison: shellExploration([
