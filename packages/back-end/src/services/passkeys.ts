@@ -191,10 +191,10 @@ export async function finishPasskeySignIn(
     );
   }
 
-  const { userHandle } = response.response;
+  // The user didn't say who they are first, so the passkey has to, and it must
+  // be its owner (WebAuthn §7.2 step 6)
   if (
-    userHandle &&
-    userHandle !== isoBase64URL.fromUTF8String(passkey.userId)
+    response.response.userHandle !== isoBase64URL.fromUTF8String(passkey.userId)
   ) {
     throw signInFailed;
   }
