@@ -31,3 +31,63 @@ export const passkeyValidator = z
   })
   .strict();
 export type PasskeyInterface = z.infer<typeof passkeyValidator>;
+
+// What the account page shows; never the key material
+export const passkeySummaryValidator = passkeyValidator.pick({
+  id: true,
+  name: true,
+  deviceType: true,
+  backedUp: true,
+  dateCreated: true,
+  lastUsed: true,
+});
+export type PasskeySummary = z.infer<typeof passkeySummaryValidator>;
+
+export const passkeyNameValidator = z.string().trim().min(1).max(64);
+
+// The shape @simplewebauthn/browser sends back. The server library does the
+// actual cryptographic checks.
+const clientExtensionResultsValidator = z.object({
+  appid: z.boolean().optional(),
+  credProps: z.object({ rk: z.boolean().optional() }).optional(),
+  hmacCreateSecret: z.boolean().optional(),
+});
+
+export const passkeyRegistrationResponseValidator = z.object({
+  id: z.string(),
+  rawId: z.string(),
+  response: z.object({
+    clientDataJSON: z.string(),
+    attestationObject: z.string(),
+    authenticatorData: z.string().optional(),
+    transports: z.array(z.string()).optional(),
+    publicKeyAlgorithm: z.number().optional(),
+    publicKey: z.string().optional(),
+  }),
+  authenticatorAttachment: z.enum(["cross-platform", "platform"]).optional(),
+  clientExtensionResults: clientExtensionResultsValidator,
+  type: z.literal("public-key"),
+});
+export type PasskeyRegistrationResponse = z.infer<
+  typeof passkeyRegistrationResponseValidator
+>;
+
+export const startPasskeyRegistrationBodyValidator = z.strictObject({
+  password: z.string(),
+});
+export type StartPasskeyRegistrationBody = z.infer<
+  typeof startPasskeyRegistrationBodyValidator
+>;
+
+export const finishPasskeyRegistrationBodyValidator = z.strictObject({
+  name: passkeyNameValidator,
+  response: passkeyRegistrationResponseValidator,
+});
+export type FinishPasskeyRegistrationBody = z.infer<
+  typeof finishPasskeyRegistrationBodyValidator
+>;
+
+export const renamePasskeyBodyValidator = z.strictObject({
+  name: passkeyNameValidator,
+});
+export type RenamePasskeyBody = z.infer<typeof renamePasskeyBodyValidator>;
