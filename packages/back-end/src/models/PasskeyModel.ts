@@ -6,6 +6,12 @@ import {
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 
+// What a successful sign-in tells us about the passkey
+export type PasskeyUse = Pick<
+  PasskeyInterface,
+  "counter" | "backedUp" | "deviceType"
+>;
+
 // Passkeys belong to a user, not an organization, and sign-in reads them
 // before there is an organization, so this isn't a BaseModel.
 const passkeySchema = new mongoose.Schema({
@@ -74,10 +80,18 @@ export async function renamePasskey(
   return res.matchedCount === 1;
 }
 
-export async function recordPasskeyUse(id: string, counter: number) {
+export async function recordPasskeyUse(
+  id: string,
+  { counter, backedUp, deviceType }: PasskeyUse,
+) {
   await PasskeyModel.updateOne(
     { id },
-    { $set: { counter, lastUsed: new Date() } },
+    {
+      // $max so a slower sign-in that finishes last can't move it backwards
+      $max: { counter },
+      // A passkey can start syncing after it was added
+      $set: { backedUp, deviceType, lastUsed: new Date() },
+    },
   );
 }
 

@@ -255,12 +255,15 @@ export async function finishPasskeySignIn(
   }
   if (!verification.verified) throw signInFailed;
 
-  await recordPasskeyUse(
-    passkey.id,
-    verification.authenticationInfo.newCounter,
-  );
-
   const user = await getUserById(passkey.userId);
   if (!user) throw signInFailed;
+
+  const { newCounter, credentialBackedUp, credentialDeviceType } =
+    verification.authenticationInfo;
+  await recordPasskeyUse(passkey.id, {
+    counter: newCounter,
+    backedUp: credentialBackedUp,
+    deviceType: credentialDeviceType,
+  });
   return user;
 }
