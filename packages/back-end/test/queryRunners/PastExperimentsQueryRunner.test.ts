@@ -64,6 +64,25 @@ function queries(...ids: string[]) {
 }
 
 describe("mergePastExperimentResults", () => {
+  it("skips rows tracked under a QA override's key, and only those", () => {
+    const { experiments } = mergePastExperimentResults({
+      previous: {},
+      results: [
+        result("eq_1", "checkout::qa", false),
+        result("eq_1", "legacy::qa", false),
+        result("eq_1", "checkout", false),
+      ],
+      exposureQueries: queries("eq_1"),
+      runStarted,
+      qaTrackingKeys: new Set(["checkout::qa"]),
+    });
+
+    expect(experiments.map((e) => e.trackingKey).sort()).toEqual([
+      "checkout",
+      "legacy::qa",
+    ]);
+  });
+
   it("merges normalized stored weights using user counts", () => {
     const { experiments } = mergePastExperimentResults({
       previous: {

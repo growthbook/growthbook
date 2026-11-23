@@ -2,7 +2,9 @@ import { getValidDate } from "shared/dates";
 import {
   getExposureQueryIdentifierTypes,
   getPastExperimentQueryName,
+  getQaTrackingKey,
   isQaTrackingKey,
+  QA_TRACKING_KEY_SUFFIX,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 import {
@@ -22,6 +24,7 @@ import {
   getPastExperimentsById,
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
+import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export type PastExperimentsAnalysis = Required<
@@ -76,6 +79,7 @@ export function mergePastExperimentResults({
   results,
   exposureQueries,
   runStarted,
+  qaTrackingKeys = new Set(),
 }: {
   previous: Pick<
     PastExperimentsInterface,
@@ -84,6 +88,9 @@ export function mergePastExperimentResults({
   results: PastExperimentResult[];
   exposureQueries: Pick<ExposureQuery, "id" | "userIdType" | "userIdTypes">[];
   runStarted: Date;
+  // Keys that QA overrides of this organization's experiments track under.
+  // Their rows are QA traffic, not experiments to import.
+  qaTrackingKeys?: Set<string>;
 }): PastExperimentsAnalysis {
   const current = new Set(exposureQueries.map((q) => q.id));
   // Labeled so an incremental run merges into rows from before identifiers
@@ -106,6 +113,7 @@ export function mergePastExperimentResults({
           )
         : [],
       result,
+      qaTrackingKeys,
     ),
   );
 
@@ -188,6 +196,7 @@ function getMergeReadyWeights(exp: PastExperiment): number[] {
 function aggregatePastExperiments(
   base: PastExperiment[],
   result: PastExperimentResult,
+  qaTrackingKeys: Set<string>,
 ): PastExperiment[] {
   const experimentMap = new Map<string, PastExperiment>();
   const getKey = (
@@ -204,7 +213,7 @@ function aggregatePastExperiments(
   });
 
   result.experiments.forEach((e) => {
-    if (isQaTrackingKey(e.experiment_id)) return;
+    if (qaTrackingKeys.has(e.experiment_id)) return;
     const key = getKey(e.experiment_id, e.exposureQueryId, e.identifierType);
     let el = experimentMap.get(key);
     if (!el) {
@@ -378,11 +387,30 @@ export class PastExperimentsQueryRunner extends QueryRunner<
       if (query.result) results.push(query.result as PastExperimentResult);
     });
 
+    // A key ending in the QA suffix is only QA traffic when the rest of it is
+    // one of our experiments. Anything else is a customer's own key.
+    const possibleQaKeys = new Set(
+      results
+        .flatMap((r) => r.experiments.map((e) => e.experiment_id))
+        .filter(isQaTrackingKey),
+    );
+    const qaExperiments = possibleQaKeys.size
+      ? await getExperimentsByTrackingKeys(
+          this.context,
+          [...possibleQaKeys].map((key) =>
+            key.slice(0, -QA_TRACKING_KEY_SUFFIX.length),
+          ),
+        )
+      : [];
+
     return mergePastExperimentResults({
       previous: this.model,
       results,
       exposureQueries: this.getExposureQueries(),
       runStarted: this.model.runStarted ?? new Date(),
+      qaTrackingKeys: new Set(
+        qaExperiments.map((e) => getQaTrackingKey(e.trackingKey)),
+      ),
     });
   }
 

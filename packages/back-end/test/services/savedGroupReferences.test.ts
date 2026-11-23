@@ -105,16 +105,14 @@ describe("loadSavedGroupReferences", () => {
   });
 
   it("counts a draft experiment whose QA override filters name the group", async () => {
-    jest
-      .mocked(getAllExperiments)
-      .mockImplementation(async (_context, { type } = {}) =>
-        type === "holdout"
-          ? []
-          : ([
-              { id: "exp_qa", name: "QA draft", project: "p1", phases: [{}] },
-              { id: "exp_other", name: "Other", project: "p1", phases: [{}] },
-            ] as never),
-      );
+    jest.mocked(getAllExperiments).mockImplementation(async (...args) =>
+      args[1]?.type === "holdout"
+        ? []
+        : ([
+            { id: "exp_qa", name: "QA draft", project: "p1", phases: [{}] },
+            { id: "exp_other", name: "Other", project: "p1", phases: [{}] },
+          ] as never),
+    );
 
     const refs = await loadSavedGroupReferences(
       context(

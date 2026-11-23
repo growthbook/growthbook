@@ -86,7 +86,7 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
   const payload = JSON.stringify(
     await getFeatureDefinitionsWithCache({
       context,
-      params: connection,
+      params: { ...connection, sdkConnectionId: connection.id },
     }),
   );
 

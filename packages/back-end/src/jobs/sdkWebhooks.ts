@@ -339,7 +339,7 @@ export async function fireSdkWebhook(
 
         const defs = await getFeatureDefinitionsWithCache({
           context: webhookContext,
-          params: connection,
+          params: { ...connection, sdkConnectionId: connection.id },
         });
 
         return [[connection.key, defs], ...payloads];
@@ -368,7 +368,7 @@ export async function fireGlobalSdkWebhooks(
   for (const connection of connections) {
     const payload = await getFeatureDefinitionsWithCache({
       context,
-      params: connection,
+      params: { ...connection, sdkConnectionId: connection.id },
     });
 
     WEBHOOKS.forEach((webhook) => {

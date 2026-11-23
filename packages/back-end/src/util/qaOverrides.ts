@@ -50,7 +50,7 @@ function qaOverrideWeights(
 // would keep a tester out. So does forcing a variation, which applies to
 // everyone unless narrowed. Random assignment with no targeting serves the
 // experiment as configured.
-export function qaOverridePhase(
+function qaOverridePhase(
   override: ExperimentQaOverrideInterface,
   experiment: ExperimentInterface,
   phase: ExperimentPhase,

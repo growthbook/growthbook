@@ -18,6 +18,7 @@ import {
   applyExperimentHashing,
   applyFeatureHashing,
   generateAutoExperimentsPayload,
+  getFeatureDefinitionsResponse,
   getUsedSavedGroupIds,
   qaOverridesForConnection,
 } from "../../src/services/features";
@@ -892,6 +893,20 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
       })),
     );
     expect(payload.map((e) => e.changeId)).not.toContain(original.changeId);
+  });
+
+  it("is delivered to a connection that leaves draft experiments out", async () => {
+    const [qaCopy] = build([forcedOverride]);
+    const { experiments } = await getFeatureDefinitionsResponse({
+      features: {},
+      experiments: [qaCopy, { ...qaCopy, key: "other::qa", status: "draft" }],
+      dateUpdated: new Date(),
+      projects: [],
+      capabilities: ["looseUnmarshalling"],
+      usedSavedGroups: [],
+      includeDraftExperiments: false,
+    });
+    expect(experiments?.map((e) => e.key)).toEqual(["checkout::qa"]);
   });
 
   it("serves each override to the same testers as the flag rule does", () => {

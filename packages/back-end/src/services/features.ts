@@ -35,7 +35,6 @@ import {
   isProductionEnvironment,
   getTargetingProjectIds,
   isDefined,
-  isQaTrackingKey,
   namespacesToMap,
   qaOverrideAppliesToConnection,
   sortQaOverrides,
@@ -1951,7 +1950,7 @@ export async function getFeatureDefinitionsResponse({
 
   if (experiments !== undefined && !includeDraftExperiments) {
     processedExperiments = processedExperiments.filter(
-      (e) => e.status !== "draft" || isQaTrackingKey(e.key),
+      (e) => e.status !== "draft",
     );
   }
 

@@ -557,6 +557,8 @@ export type SDKPayloadParams = Pick<
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
     languages: SDKLanguage[] | ["legacy"];
+    // Without it the payload is built for no connection in particular, and
+    // QA overrides are left out.
     sdkConnectionId?: string;
   };
 
@@ -736,10 +738,7 @@ export async function getFeatureDefinitionsWithCache({
       // it, so filtering here too would only make the two disagree.
       savedGroupFormat: params.savedGroupFormat,
       includeReferencedPrerequisites: params.includeReferencedPrerequisites,
-      // Callers pass either built params or a full SDK Connection.
-      sdkConnectionId:
-        params.sdkConnectionId ??
-        (params as Partial<SDKConnectionInterface>).id,
+      sdkConnectionId: params.sdkConnectionId,
     });
 
     // Write back to cache to populate it for future reads (fire and forget)
