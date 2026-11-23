@@ -52,14 +52,22 @@ function ConnectionCount({
       (!project || !c.projects.length || c.projects.includes(project)),
   );
   if (!connections.length) return null;
+  const total = connections.length;
   const blocking = connections.filter(
     (c) => !connectionServesAutoExperimentFeature(c, feature),
   ).length;
+  const { blocked } = AUTO_EXPERIMENT_COPY[feature];
+  const summary =
+    blocking === 0
+      ? `No SDK Connections block ${blocked}.`
+      : blocking < total
+        ? `${blocking}/${total} SDK Connections block ${blocked}.`
+        : total === 1
+          ? `Your only SDK Connection blocks ${blocked}.`
+          : `All ${total} SDK Connections block ${blocked}.`;
   return (
     <Text as="div">
-      {blocking}/{connections.length} SDK Connections block{" "}
-      {AUTO_EXPERIMENT_COPY[feature].blocked}.{" "}
-      <Link href="/sdks">View SDK Connections</Link>
+      {summary} <Link href="/sdks">View SDK Connections</Link>
     </Text>
   );
 }
@@ -68,12 +76,15 @@ export default function EnableAutoExperimentDialog({
   feature,
   project,
   onEnabled,
+  onConfirm,
   close,
 }: {
   feature: AutoExperimentFeature;
   // Narrows the SDK Connection count to the ones that serve this Project.
   project?: string;
   onEnabled?: () => void;
+  // Replaces saving the opt-in, for a form that saves it later.
+  onConfirm?: () => void;
   close: () => void;
 }) {
   const { mode, canManage, setEnabled } = useAutoExperiments();
@@ -107,7 +118,8 @@ export default function EnableAutoExperimentDialog({
       }
       yesText="Enable"
       onConfirm={async () => {
-        await setEnabled(feature, true);
+        if (onConfirm) onConfirm();
+        else await setEnabled(feature, true);
         close();
         onEnabled?.();
       }}

@@ -197,6 +197,13 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     defaultValues: {
       pastExperimentsMinLength: 6,
       metricAnalysisDays: 90,
+      // An organization with none saved predates the opt-in and has them all.
+      autoExperiments: {
+        visualEditor: true,
+        urlRedirects: true,
+        customJs: true,
+        crossOriginRedirects: true,
+      },
       northStar: {
         //enabled: false,
         title: "",
@@ -523,6 +530,14 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         clusterIssueMinPercent:
           (value.clusterIssueMinPercent ??
             toPercent(DEFAULT_CLUSTER_ISSUE_THRESHOLD)) / 100,
+        // Only sent when changed, so saving something else never writes the
+        // defaults above onto an organization that has none saved yet.
+        autoExperiments: sameSetting(
+          value.autoExperiments,
+          originalValue.autoExperiments,
+        )
+          ? undefined
+          : value.autoExperiments,
         preferredEnvironment: value.preferredEnvironment || null,
         // A cleared number input yields NaN — normalize to 0 (cap disabled)
         maxConcurrentDrafts: value.maxConcurrentDrafts || 0,

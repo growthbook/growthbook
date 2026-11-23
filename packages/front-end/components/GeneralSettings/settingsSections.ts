@@ -138,6 +138,7 @@ const SECTION_FIELDS: Record<string, string[]> = {
     "decisionFrameworkEnabled",
     "defaultDecisionCriteriaId",
     "disablePublicSharing",
+    "autoExperiments",
   ],
   statistics: [
     "metricDefaults.priorSettings",
