@@ -11,7 +11,11 @@ import {
   holdoutStatusChangedNotificationPayload,
   holdoutNewLinkageNotificationPayload,
 } from "./holdout-notifications";
-import { sdkConnectionPayloadSizeNotificationPayload } from "./sdk-connection-notifications";
+import {
+  sdkConnectionPayloadSizeNotificationPayload,
+  sdkConnectionProxyFailureNotificationPayload,
+  sdkConnectionProxyRecoveredNotificationPayload,
+} from "./sdk-connection-notifications";
 import {
   sdkConnectionRevisionCreatedPayload,
   sdkConnectionRevisionUpdatedPayload,
@@ -374,6 +378,15 @@ export const notificationEvents = {
   sdkConnection: {
     "payloadSize.warning": {
       schema: sdkConnectionPayloadSizeNotificationPayload,
+    },
+    "proxy.failing": {
+      schema: sdkConnectionProxyFailureNotificationPayload,
+    },
+    "proxy.disabled": {
+      schema: sdkConnectionProxyFailureNotificationPayload,
+    },
+    "proxy.recovered": {
+      schema: sdkConnectionProxyRecoveredNotificationPayload,
     },
     "revision.created": {
       schema: sdkConnectionRevisionCreatedPayload,
