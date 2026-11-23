@@ -1,6 +1,5 @@
 import isEqual from "lodash/isEqual";
 import omitBy from "lodash/omitBy";
-import pick from "lodash/pick";
 import {
   getDefinitionMetricId,
   getMetricIdsMissingFromSnapshot,
@@ -219,7 +218,7 @@ export async function planNewMetricsUpdate({
   if (planRefusal) {
     throw getPlanRefusalError(planRefusal, plan);
   }
-  if (changesUnreasonedSetting(parent, plan.snapshot.settings)) {
+  if (getChangedCopiedResultsSettings(parent, plan.snapshot.settings).length) {
     throw new NewMetricsUpdateUnavailableError("settings_changed");
   }
 
@@ -316,31 +315,94 @@ function getPlanRefusalError(
   return new NewMetricsUpdateUnavailableError(refusal);
 }
 
-// Settings no Outdated reason covers whose change would make a copied result
-// differ from a normal update's. Copied metrics keep the parent's analysis, so
-// settings the stats engine reads count as well as those in the queries.
-const UNREASONED_SETTINGS = [
+/**
+ * What a change to each snapshot setting between the parent and the planned
+ * full update does to a new-metrics update, whose copied results keep the
+ * parent's queries and analysis. A setting added without a rule fails to
+ * compile, and one stored without a rule refuses.
+ */
+type CopiedResultsSettingRule =
+  | "refuses"
+  // Only result query SQL reads it. A Results parent's update regenerates and
+  // compares that SQL; the Incremental Pipeline's carried SQL only reads its
+  // tables, so a change refuses there.
+  | "refuses_off_results_pipeline"
+  | { ignoredBecause: string };
+
+const OUTDATED_REASON_REFUSES =
+  "an Outdated reason refuses on a change, reading a value the parent never stored as the default";
+
+export const COPIED_RESULTS_SETTING_RULES: Record<
+  keyof ExperimentSnapshotSettings,
+  CopiedResultsSettingRule
+> = {
   // The same SQL can run against another Data Source.
-  "datasourceId",
+  datasourceId: "refuses",
   // Copied metrics keep the priors the parent analyzed them with.
-  "defaultMetricPriorSettings",
+  defaultMetricPriorSettings: "refuses",
   // The badge compares variation keys; the SRM check reads their weights.
-  "variations",
-  "coverage",
+  variations: "refuses",
+  coverage: "refuses",
   // The tracking key the queries filter on.
-  "experimentId",
+  experimentId: "refuses",
   // The badge tolerates a day of drift; the queries start at this exact time.
-  "startDate",
-] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
-// Settings that only shape result query SQL. A results parent's update
-// regenerates and compares that SQL; on the Incremental Pipeline the carried
-// SQL only reads its tables, so they are compared here.
-const UNREASONED_QUERY_SETTINGS = [
-  "customFields",
-  "dimensions",
-  "lookbackOverride",
-  "precomputedUnitDimensionIds",
-] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
+  startDate: "refuses",
+  // Pinned to the parent's: a change means the pin broke.
+  endDate: "refuses",
+  // The parent is of the same phase.
+  phase: "refuses",
+  // Each also has an Outdated reason that refuses with the same reading of
+  // empty values.
+  activationMetric: "refuses",
+  queryFilter: "refuses",
+  segment: "refuses",
+  skipPartialData: "refuses",
+  exposureQueryId: "refuses",
+  isClusterExperiment: "refuses",
+  clusterSubUnitIdentifier: "refuses",
+  // Only Bandits have it, which the setup blocker refuses.
+  banditSettings: "refuses",
+  // A manual snapshot's results came from no query.
+  manual: "refuses",
+  customFields: "refuses_off_results_pipeline",
+  dimensions: "refuses_off_results_pipeline",
+  lookbackOverride: "refuses_off_results_pipeline",
+  precomputedUnitDimensionIds: "refuses_off_results_pipeline",
+  attributionModel: { ignoredBecause: OUTDATED_REASON_REFUSES },
+  exposureQueryIdentifierType: { ignoredBecause: OUTDATED_REASON_REFUSES },
+  regressionAdjustmentEnabled: {
+    ignoredBecause:
+      "the CUPED Outdated reason refuses unless every copied metric opts out of CUPED, which then changes no copied number",
+  },
+  metricSettings: {
+    ignoredBecause:
+      "copied metrics keep the parent's entries, and their SQL or cache settings hashes and stats engine inputs are compared",
+  },
+  clusterLevelMetricIds: {
+    ignoredBecause:
+      "copied metrics keep the parent's levels, and a level is in its metric's SQL and cache settings hash",
+  },
+  goalMetrics: {
+    ignoredBecause:
+      "added metrics are the point, and a copied metric's role is a stats engine input that is compared",
+  },
+  secondaryMetrics: {
+    ignoredBecause:
+      "added metrics are the point, and a copied metric's role is a stats engine input that is compared",
+  },
+  guardrailMetrics: {
+    ignoredBecause:
+      "added metrics are the point, and a copied metric's role is a stats engine input that is compared",
+  },
+  endDateIsCutoff: {
+    ignoredBecause:
+      "the update is planned with the parent's end date as its cutoff, and the SQL comparison replays each run with its own flag",
+  },
+  plannedAt: {
+    ignoredBecause:
+      "it is the planning clock, and the SQL comparison replays each run with its own",
+  },
+};
 
 const isEmptySetting = (value: unknown): boolean =>
   value === null ||
@@ -348,22 +410,35 @@ const isEmptySetting = (value: unknown): boolean =>
   value === "" ||
   (typeof value === "object" && !Object.keys(value).length);
 
-// A setting one side lacks counts as that setting left empty.
-function changesUnreasonedSetting(
+const hasSettingRule = (
+  key: string,
+): key is keyof typeof COPIED_RESULTS_SETTING_RULES =>
+  Object.prototype.hasOwnProperty.call(COPIED_RESULTS_SETTING_RULES, key);
+
+/**
+ * The settings whose change makes copied results differ from a normal
+ * update's. A setting one side lacks counts as that setting left empty.
+ */
+export function getChangedCopiedResultsSettings(
   parent: Pick<ExperimentSnapshotInterface, "settings" | "runnerKind">,
   planned: ExperimentSnapshotSettings,
-): boolean {
-  const keys: string[] = [
-    ...UNREASONED_SETTINGS,
-    ...((parent.runnerKind ?? "results") === "results"
-      ? []
-      : UNREASONED_QUERY_SETTINGS),
-  ];
+): string[] {
   const comparable = (settings: ExperimentSnapshotSettings) =>
-    omitBy(JSON.parse(JSON.stringify(pick(settings, keys))), isEmptySetting);
+    omitBy(JSON.parse(JSON.stringify(settings)), isEmptySetting);
   const before = comparable(parent.settings);
   const after = comparable(planned);
-  return keys.some((key) => !isEqual(before[key], after[key]));
+  const onResultsPipeline = (parent.runnerKind ?? "results") === "results";
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
+    (key) => {
+      if (isEqual(before[key], after[key])) return false;
+      if (!hasSettingRule(key)) return true;
+      const rule = COPIED_RESULTS_SETTING_RULES[key];
+      return (
+        rule === "refuses" ||
+        (rule === "refuses_off_results_pipeline" && !onResultsPipeline)
+      );
+    },
+  );
 }
 
 /**

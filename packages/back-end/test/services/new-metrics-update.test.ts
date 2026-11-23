@@ -8,6 +8,7 @@ import type {
   MetricForSnapshot,
   SnapshotMetric,
   SnapshotNewMetricsUpdate,
+  SnapshotQueryRunnerKind,
 } from "shared/types/experiment-snapshot";
 import type { ExperimentReportResultDimension } from "shared/types/report";
 import type { QueryInterface } from "shared/types/query";
@@ -32,6 +33,8 @@ import {
   mergeNewMetricsUpdateAnalyses,
 } from "back-end/src/services/newMetricsUpdateExecution";
 import {
+  COPIED_RESULTS_SETTING_RULES,
+  getChangedCopiedResultsSettings,
   getNewMetricsUpdateLineage,
   mergeNewMetricsUpdateSettings,
   assertIncrementalTablesMatchParent,
@@ -586,7 +589,7 @@ describe("planNewMetricsUpdate", () => {
       expected: unavailable("settings_changed"),
     },
     {
-      name: "a setting no Outdated reason covers",
+      name: "a changed setting with a rule that refuses",
       setup: () => ({
         planSnapshotAt: async () =>
           makePlan({ settings: { datasourceId: "ds_2" } }),
@@ -1194,6 +1197,109 @@ describe("mergeNewMetricsUpdateSettings", () => {
     ]);
     expect(settings.clusterLevelMetricIds).toEqual(["met_a", "met_c"]);
     expect(queriedMetricIds).toEqual(["met_c"]);
+  });
+});
+
+describe("getChangedCopiedResultsSettings", () => {
+  const parent = (runnerKind: SnapshotQueryRunnerKind = "results") => ({
+    runnerKind,
+    settings: makeSettings(["met_a"], { plannedAt: PARENT_CREATED }),
+  });
+
+  // The settings type has no runtime schema, so the planner's output stands in
+  // for one.
+  const plannedSettingKeys = (experiment: Partial<ExperimentInterface>) =>
+    Object.keys(
+      getSnapshotSettings({
+        experiment: makeExperiment({
+          variations: [{ key: "0" }, { key: "1" }],
+          phases: [{ dateStarted: PARENT_START, variationWeights: [0.5, 0.5] }],
+          ...experiment,
+        } as Partial<ExperimentInterface>),
+        phaseIndex: 0,
+        snapshotType: "standard",
+        dimension: null,
+        regressionAdjustmentEnabled: false,
+        orgPriorSettings: undefined,
+        orgDisabledPrecomputedDimensions: true,
+        settingsForSnapshotMetrics: [],
+        metricMap: new Map(),
+        factTableMap: new Map(),
+        metricGroups: [],
+        incrementalRefreshModel: null,
+        cutoff: PARENT_END,
+      }),
+    );
+
+  it.each<{ name: string; experiment: Partial<ExperimentInterface> }>([
+    { name: "a standard experiment", experiment: {} },
+    { name: "a Bandit", experiment: { type: "multi-armed-bandit" } },
+    {
+      name: "a cluster experiment with custom fields and a lookback",
+      experiment: {
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "user_id",
+        customFields: { team: "growth" },
+        lookbackOverride: { type: "window", value: 7, valueUnit: "days" },
+      },
+    },
+  ])("has a rule for every setting planned for $name", ({ experiment }) => {
+    const unruled = plannedSettingKeys(experiment).filter(
+      (key) => !(key in COPIED_RESULTS_SETTING_RULES),
+    );
+    expect(unruled).toEqual([]);
+  });
+
+  const NOW_LATER = new Date(PARENT_CREATED.getTime() + 60_000);
+
+  it("refuses a changed setting that has no rule", () => {
+    const planned = {
+      ...makeSettings(["met_a"], { plannedAt: NOW_LATER }),
+      newSetting: "on",
+    } as ExperimentSnapshotSettings;
+
+    expect(getChangedCopiedResultsSettings(parent(), planned)).toEqual([
+      "newSetting",
+    ]);
+  });
+
+  it("refuses a change the Outdated badge also reports", () => {
+    const planned = makeSettings(["met_a"], { segment: "seg_1" });
+
+    expect(getChangedCopiedResultsSettings(parent(), planned)).toEqual([
+      "segment",
+    ]);
+  });
+
+  it("ignores the planning clock, the cutoff flag and the metric lists", () => {
+    const planned = makeSettings(["met_a", "met_c"], {
+      plannedAt: NOW_LATER,
+      endDateIsCutoff: true,
+    });
+
+    expect(
+      getChangedCopiedResultsSettings(
+        {
+          runnerKind: "results",
+          settings: makeSettings(["met_a"], {
+            plannedAt: PARENT_CREATED,
+            endDateIsCutoff: false,
+          }),
+        },
+        planned,
+      ),
+    ).toEqual([]);
+  });
+
+  it("leaves query-only settings to a Results parent's SQL comparison", () => {
+    const planned = makeSettings(["met_a"], {
+      customFields: { team: "growth" },
+    });
+
+    expect(getChangedCopiedResultsSettings(parent(), planned)).toEqual([]);
+    expect(
+      getChangedCopiedResultsSettings(parent("incremental-update"), planned),
+    ).toEqual(["customFields"]);
   });
 });
 
