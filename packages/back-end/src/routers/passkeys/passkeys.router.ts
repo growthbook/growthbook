@@ -10,13 +10,21 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as authControllerRaw from "back-end/src/controllers/auth";
+import {
+  postPasskeySignInOptions,
+  postPasskeySignInVerify,
+} from "back-end/src/controllers/auth";
 import * as passkeysControllerRaw from "./passkeys.controller";
 
 const router = express.Router();
 
 const passkeysController = wrapController(passkeysControllerRaw);
-const authController = wrapController(authControllerRaw);
+// Only the two sign-in handlers; the rest of the auth controller is wrapped in
+// app.ts
+const signInController = wrapController({
+  postPasskeySignInOptions,
+  postPasskeySignInVerify,
+});
 
 // Starting registration checks the password, so limit guesses. Per replica:
 // the default MemoryStore isn't shared.
@@ -72,13 +80,13 @@ const signInRateLimit = rateLimit({
 signInRouter.post(
   "/options",
   signInRateLimit,
-  authController.postPasskeySignInOptions,
+  signInController.postPasskeySignInOptions,
 );
 signInRouter.post(
   "/verify",
   signInRateLimit,
   validateRequestMiddleware({ body: finishPasskeySignInBodyValidator }),
-  authController.postPasskeySignInVerify,
+  signInController.postPasskeySignInVerify,
 );
 
 export { router as passkeysRouter, signInRouter as passkeySignInRouter };
