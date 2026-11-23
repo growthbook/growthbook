@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { PiArrowDown, PiArrowUp } from "react-icons/pi";
-import { Flex, VisuallyHidden } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import type {
   ComparisonMode,
   ExplorationConfig,
@@ -61,7 +61,6 @@ export default function ExplorerDataTable({
       ? submittedExploreState.dataset
       : null;
   const rawRows = rawTableDataset ? (exploration?.result.rawRows ?? []) : null;
-  const isRawTable = rawRows !== null;
   const rawColumnKeys = rawTableDataset
     ? Object.keys(rawTableDataset.columnTypes).filter(
         (column) => !(rawTableDataset.hiddenColumns ?? []).includes(column),
@@ -70,16 +69,6 @@ export default function ExplorerDataTable({
 
   const renderCell = useCallback(
     (key: string, value: unknown, row: Record<string, unknown>) => {
-      // Shown only, so CSV downloads keep empty cells empty. Raw tables show
-      // the warehouse's values as they are.
-      if (!isRawTable && (value ?? null) === null) {
-        return (
-          <>
-            <span aria-hidden="true">—</span>
-            <VisuallyHidden>No data</VisuallyHidden>
-          </>
-        );
-      }
       if (!tableCompareActive) {
         return formatNumericLikeForDisplay(value);
       }
@@ -131,7 +120,7 @@ export default function ExplorerDataTable({
         </Flex>
       );
     },
-    [isRawTable, tableCompareActive, compareColumnMetaByKey],
+    [tableCompareActive, compareColumnMetaByKey],
   );
 
   return (

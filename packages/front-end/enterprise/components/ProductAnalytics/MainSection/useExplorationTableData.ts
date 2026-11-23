@@ -77,8 +77,7 @@ function formatCellForTable(
     }
     return raw;
   }
-  // Stays null (unlike a blank label's "") so the table can mark it as no data.
-  if (raw == null) return null;
+  if (raw == null) return "";
   if (col.kind === "populationCount") return raw;
   if (col.sub === "numerator" || col.sub === "denominator") return raw;
   return typeof raw === "number" ? raw.toFixed(2) : raw;
