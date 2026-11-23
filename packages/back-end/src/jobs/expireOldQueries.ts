@@ -185,19 +185,6 @@ const expireOldQueries = async () => {
     logger.warn("Updating status of snapshot " + snapshot.id);
     updateQueryStatus(snapshot.queries, queryIds);
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
-
-    // Release the incremental refresh lock if this snapshot held it, before
-    // the error is visible, as the runners do. This is safe because
-    // releaseLock filters on currentExecutionSnapshotId, so it only releases
-    // the lock if this specific snapshot still holds it.
-    await context.models.incrementalRefresh
-      .releaseLock(snapshot.experiment, snapshot.id)
-      .catch((e) =>
-        logger.warn(
-          e,
-          "Failed to release incremental lock for expired snapshot",
-        ),
-      );
     await updateSnapshot({
       context,
       id: snapshot.id,
@@ -208,6 +195,18 @@ const expireOldQueries = async () => {
       },
       conclusion: { concludedBy: "reaper", reason: "stale-queries" },
     });
+
+    // Release the incremental refresh lock if this snapshot held it.
+    // This is safe because releaseLock filters on currentExecutionSnapshotId,
+    // so it only releases the lock if this specific snapshot still holds it.
+    await context.models.incrementalRefresh
+      .releaseLock(snapshot.experiment, snapshot.id)
+      .catch((e) =>
+        logger.warn(
+          e,
+          "Failed to release incremental lock for expired snapshot",
+        ),
+      );
   }
 
   // Look for matching reports and update the status
