@@ -880,14 +880,29 @@ async function normalizeConfigForExplorer(
   normalized = normalizeShowAs(normalized, getFactMetricByIdResolver);
   const valuesAfter =
     normalized.dataset.type === "metric" ? normalized.dataset.values : [];
-  const dropped = valuesBefore.filter(
+  // Values the agent set a showAs on that normalizing removed.
+  const droppedShowAs = valuesAfter.filter(
     (v, i) =>
-      (v.showAs ?? legacyShowAs) !== undefined &&
-      valuesAfter[i]?.showAs === undefined,
+      (valuesBefore[i]?.showAs ?? legacyShowAs) !== undefined &&
+      v.showAs === undefined,
   );
-  if (dropped.length) {
+  if (droppedShowAs.length) {
+    const hasPopulation = configHasPopulation(normalized);
+    const described = droppedShowAs.map((v) => {
+      const { options, showAs } = getShowAsChoice(
+        v,
+        undefined,
+        getFactMetricByIdResolver,
+        hasPopulation,
+      );
+      // No options (e.g. ratio, quantile) means the metric renders as computed.
+      const rendersAs = options.length
+        ? `renders as ${showAs}`
+        : "has no showAs options";
+      return `"${v.name}" (${rendersAs})`;
+    });
     warnings.push(
-      `Dropped showAs from ${dropped.map((v) => `"${v.name}"`).join(", ")} — it isn't an option for that metric type (only mean metrics, and proportion metrics with a Population, offer showAs). These values render in their default mode (ratio and quantile metrics as computed, a proportion with a Population as % of Population, a mean with a Population as per Population member, otherwise per unit for a mean with max or count distinct, otherwise total).`,
+      `Dropped showAs from ${described.join(", ")}: it isn't an option for that metric.`,
     );
   }
 
