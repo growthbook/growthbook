@@ -52,12 +52,13 @@ export function useSavedGroupReferences(
 ): {
   references: SavedGroupReferences | null;
   loading: boolean;
+  error: Error | null;
 } {
   const { apiCall, orgId } = useAuth();
   const path = savedGroupId ? `/saved-groups/${savedGroupId}/references` : null;
   const key = path && orgId ? `${orgId}::${path}` : null;
 
-  const { data, isLoading } = useSWR<
+  const { data, isLoading, error } = useSWR<
     SavedGroupReferences & { status: 200 },
     Error
   >(key, () => apiCall(path!, { method: "GET" }), {
@@ -69,5 +70,6 @@ export function useSavedGroupReferences(
   return {
     references: data ?? null,
     loading: isLoading,
+    error: error ?? null,
   };
 }

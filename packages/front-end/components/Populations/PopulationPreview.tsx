@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ApiPopulation, ProductAnalyticsExploration } from "shared/validators";
+import { getSinglePopulationStep } from "shared/populations";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DailyBarChart from "@/components/QueryPreview/DailyBarChart";
@@ -83,7 +84,7 @@ export default function PopulationPreview({
     [isDefinitionComplete, population, unit, dateRange],
   );
   const datasource = getDatasourceById(population.datasource);
-  const step = population.steps[0];
+  const step = getSinglePopulationStep(population);
   const factTable =
     step?.source.type === "factTable"
       ? getFactTableById(step.source.factTableId)

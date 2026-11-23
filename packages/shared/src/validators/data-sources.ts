@@ -323,6 +323,204 @@ export const updateDataSourceValidator = {
   path: "/data-sources/:id",
 };
 
+const tlsFields = {
+  ssl: z.boolean().optional(),
+  caCert: z.string().optional(),
+  clientCert: z.string().optional(),
+  clientKey: z.string().optional(),
+};
+
+const postgresFields = {
+  host: z.string(),
+  port: z.number().int(),
+  database: z.string(),
+  user: z.string(),
+  password: z.string(),
+  defaultSchema: z.string().optional(),
+  ...tlsFields,
+};
+
+const connection = <T extends string, S extends z.ZodRawShape>(
+  type: T,
+  name: string,
+  shape: S,
+) =>
+  namedSchema(
+    `${name}Connection`,
+    z.strictObject({ type: z.literal(type), ...shape }),
+  );
+
+// Every warehouse the app can connect to except the Managed Warehouse and Google Analytics.
+export const apiDataSourceConnectionValidator = z.discriminatedUnion("type", [
+  connection("postgres", "Postgres", postgresFields),
+  connection("redshift", "Redshift", postgresFields),
+  connection("vertica", "Vertica", postgresFields),
+  connection("mysql", "Mysql", {
+    host: z.string(),
+    port: z.number().int(),
+    database: z.string(),
+    user: z.string(),
+    password: z.string(),
+    ...tlsFields,
+  }),
+  connection("mssql", "Mssql", {
+    server: z.string(),
+    port: z.number().int(),
+    database: z.string(),
+    user: z.string(),
+    password: z.string(),
+    defaultSchema: z.string().optional(),
+    requestTimeout: z.number().int().optional(),
+    options: z
+      .strictObject({
+        encrypt: z.boolean().optional(),
+        trustServerCertificate: z.boolean().optional(),
+      })
+      .optional(),
+  }),
+  connection("snowflake", "Snowflake", {
+    account: z.string(),
+    accessUrl: z.string().optional(),
+    username: z.string(),
+    password: z.string().optional().describe("For `password` auth"),
+    database: z.string(),
+    schema: z.string(),
+    role: z.string().optional(),
+    warehouse: z.string().optional(),
+    authMethod: z
+      .enum(["password", "key-pair", "workload-identity"])
+      .optional(),
+    privateKey: z.string().optional(),
+    privateKeyPassword: z.string().optional(),
+    workloadIdentityProvider: z.enum(["AWS", "AZURE", "GCP"]).optional(),
+  }),
+  connection("bigquery", "BigQuery", {
+    authType: z
+      .enum(["auto", "json"])
+      .optional()
+      .describe("`auto` uses the server's own credentials: self-hosted only"),
+    projectId: z.string().optional(),
+    clientEmail: z.string().optional(),
+    privateKey: z.string().optional(),
+    apiEndpoint: z.string().optional(),
+    reservation: z.string().optional(),
+    defaultProject: z.string(),
+    defaultDataset: z.string(),
+  }),
+  connection("athena", "Athena", {
+    authType: z
+      .enum(["auto", "accessKey", "assumeRole"])
+      .optional()
+      .describe("`auto` uses the server's own credentials: self-hosted only"),
+    accessKeyId: z.string().optional(),
+    secretAccessKey: z.string().optional(),
+    assumeRoleARN: z.string().optional(),
+    roleSessionName: z.string().optional(),
+    durationSeconds: z.number().int().optional(),
+    externalId: z.string().optional(),
+    region: z.string(),
+    database: z.string().optional(),
+    bucketUri: z.string(),
+    workGroup: z.string().optional(),
+    catalog: z.string().optional(),
+    resultReuseMaxAgeInMinutes: z.string().optional(),
+  }),
+  connection("presto", "Presto", {
+    engine: z.enum(["presto", "trino"]),
+    authType: z
+      .enum(["basicAuth", "none", "customAuth", "kerberos"])
+      .optional(),
+    host: z.string(),
+    port: z.number().int(),
+    user: z.string().optional().describe("Presto only"),
+    trinoUser: z.string().optional().describe("Trino only"),
+    username: z.string().optional().describe("For basicAuth"),
+    password: z.string().optional().describe("For basicAuth"),
+    customAuth: z.string().optional(),
+    kerberosServicePrincipal: z.string().optional(),
+    kerberosClientPrincipal: z.string().optional(),
+    kerberosUser: z.string().optional(),
+    source: z.string().optional(),
+    catalog: z.string(),
+    schema: z.string(),
+    requestTimeout: z.number().int().optional(),
+    ...tlsFields,
+  }),
+  connection("databricks", "Databricks", {
+    authType: z.enum(["pat", "oauth-m2m"]),
+    token: z.string().optional().describe("For pat"),
+    oauthClientId: z.string().optional().describe("For oauth-m2m"),
+    oauthClientSecret: z.string().optional().describe("For oauth-m2m"),
+    host: z.string(),
+    port: z.number().int(),
+    path: z.string(),
+    catalog: z.string(),
+  }),
+  connection("clickhouse", "ClickHouse", {
+    url: z.string(),
+    port: z.number().int(),
+    username: z.string().optional(),
+    password: z.string(),
+    database: z.string(),
+    maxExecutionTime: z.number().int().optional(),
+    ...tlsFields,
+    caCertPath: z.string().optional(),
+    clientCertPath: z.string().optional(),
+    clientKeyPath: z.string().optional(),
+    clientCertChainPath: z
+      .string()
+      .optional()
+      .describe(
+        "The `*Path` fields read PEM files on the GrowthBook server: self-hosted with a single organization only",
+      ),
+  }),
+  connection("mixpanel", "Mixpanel", {
+    username: z.string(),
+    secret: z.string(),
+    projectId: z.string(),
+    server: z.enum(["standard", "eu"]).optional(),
+  }),
+  connection(
+    "adobe_experience_platform_query_service",
+    "AdobeExperiencePlatformQueryService",
+    {
+      host: z.string(),
+      port: z.number().int(),
+      database: z.string(),
+      username: z.string(),
+      technicalAccountId: z.string(),
+      credential: z.string(),
+    },
+  ),
+]);
+
+export const postDataSourceValidator = {
+  bodySchema: z
+    .object({
+      name: z.string().min(1),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+      projectIds: z.array(z.string()).optional(),
+      connection: apiDataSourceConnectionValidator.describe(
+        "Credentials are stored encrypted and never returned",
+      ),
+      ...dataSourceSettingsInput,
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+  responseSchema: z.object({ dataSource: apiDataSourceValidator }).strict(),
+  summary: "Create a data source",
+  description:
+    "Tests the connection and validates each assignment query against the warehouse before saving. The Managed Warehouse, Google Analytics and Event Forwarders are set up in the app.",
+  confirmation: ["settings.dataSources"] as const,
+  // Kept encrypted, and hidden on the confirm page, while the request is held.
+  secretBodyFields: ["connection"] as const,
+  operationId: "postDataSource",
+  tags: ["data-sources"],
+  method: "post" as const,
+  path: "/data-sources",
+};
+
 export const deleteDataSourceValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

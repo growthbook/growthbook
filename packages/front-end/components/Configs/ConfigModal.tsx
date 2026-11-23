@@ -31,6 +31,7 @@ import {
   useConstantDraftTarget,
   ConstantRevisionContext,
 } from "@/components/Constants/useConstantDraftTarget";
+import { draftModeCta } from "@/components/DraftSelector";
 
 // Empty context used on the create path, where there is no revision flow.
 const EMPTY_REVISION_CTX: ConstantRevisionContext = {
@@ -65,7 +66,9 @@ export default function ConfigModal({
   revisionCtx,
   onSaved,
   close,
+  focusDescription = false,
 }: {
+  focusDescription?: boolean;
   // Present → edit info; absent → create.
   existing?: ConfigWithoutValue | null;
   // Pre-selected parent when creating a child config from a parent's editor.
@@ -93,7 +96,7 @@ export default function ConfigModal({
   // Description is opt-in behind a "+ Add a description" link, expanded by
   // default when one already exists.
   const [showDescription, setShowDescription] = useState(
-    !!existing?.description,
+    !!existing?.description || focusDescription,
   );
 
   const permissionsUtil = usePermissionsUtil();
@@ -134,6 +137,10 @@ export default function ConfigModal({
     true,
     holdsMoveDestination,
   );
+  const cta = draftModeCta(draft.draftMode, {
+    bypassesApproval: draft.selectorApprovalRequired,
+    publishLabel: "Save",
+  });
 
   // For create, the base/child distinction follows the selected parent.
   const isBaseSelection = editing ? isBaseConfig : !form.watch("parent");
@@ -188,10 +195,11 @@ export default function ConfigModal({
     <ModalStandard
       open={true}
       trackingEventModalType="config-modal"
-      header={editing ? "Edit info" : "New Config"}
+      header={editing ? "Edit Information" : "New Config"}
       size="lg"
       close={close}
-      cta={editing ? "Save" : "Create"}
+      cta={editing ? cta.label : "Create"}
+      ctaColor={editing && cta.bypass ? "red" : "violet"}
       submit={validatedSubmit(form, async (values) => {
         if (editing && existing) {
           const res = await apiCall<{ revision?: Revision }>(
@@ -202,8 +210,16 @@ export default function ConfigModal({
                 name: values.name,
                 owner: values.owner,
                 description: values.description || undefined,
-                project: values.project,
-                ...(isBaseConfig ? { extensible: values.extensible } : {}),
+                // A setting never stored and still at its default would
+                // otherwise be staged as a change on every edit.
+                ...(existing.project !== undefined || values.project !== ""
+                  ? { project: values.project }
+                  : {}),
+                ...(isBaseConfig &&
+                (existing.extensible !== undefined ||
+                  values.extensible !== orgExtensibleDefault)
+                  ? { extensible: values.extensible }
+                  : {}),
               }),
             },
           );
@@ -215,20 +231,33 @@ export default function ConfigModal({
           const extendsKeys = [...new Set(values.extends)].filter(
             (key) => key && key !== values.parent,
           );
-          await apiCall(`/configs`, {
-            method: "POST",
-            body: JSON.stringify({
-              key: values.key,
-              name: values.name,
-              parent: values.parent || undefined,
-              extends: extendsKeys.length ? extendsKeys : undefined,
-              description: values.description || undefined,
-              project: values.project || undefined,
-              ...(values.parent ? {} : { extensible: values.extensible }),
-            }),
-          });
+          const created = await apiCall<{ config?: { id: string } }>(
+            `/configs`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                key: values.key,
+                name: values.name,
+                parent: values.parent || undefined,
+                extends: extendsKeys.length ? extendsKeys : undefined,
+                description: values.description || undefined,
+                project: values.project || undefined,
+                ...(values.parent ? {} : { extensible: values.extensible }),
+              }),
+            },
+          );
+          // A new base Config opens in a draft, ready for its first fields.
+          // The Config exists either way, so without one it opens live.
+          let href = `/configs/${values.key}`;
+          if (!values.parent && created?.config) {
+            const draft = await apiCall<{ revision?: Revision }>(
+              `/configs/${created.config.id}?forceCreateRevision=1`,
+              { method: "PUT", body: JSON.stringify({}) },
+            ).catch(() => null);
+            if (draft?.revision) href += `?v=${draft.revision.version}`;
+          }
           await mutateDefinitions();
-          await router.push(`/configs/${values.key}`);
+          await router.push(href);
         }
       })}
     >
@@ -278,6 +307,8 @@ export default function ConfigModal({
             value={form.watch("description")}
             setValue={(v) => form.setValue("description", v)}
             placeholder="Add notes about this Config (markdown supported)"
+            autofocus={focusDescription}
+            autofocusAtEnd
             showButtons={false}
             hidePreview={false}
           />
@@ -356,11 +387,11 @@ export default function ConfigModal({
       {isBaseSelection && (
         <Box mt="3">
           <Checkbox
-            label="Allow extra fields in extensions"
+            label="Allow extra fields"
             description={
               <Text weight="regular" color="text-high">
-                Child Configs and Feature Flag rules can add keys beyond this
-                Config&apos;s schema.
+                This Config, its child Configs and Feature Flag rules can set
+                keys beyond the schema.
               </Text>
             }
             value={form.watch("extensible")}

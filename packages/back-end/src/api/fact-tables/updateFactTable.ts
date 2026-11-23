@@ -1,7 +1,8 @@
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import { getFactTableTimestampColumn } from "shared/experiments";
 import { updateFactTableValidator } from "shared/validators";
 import {
+  ColumnInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
@@ -12,6 +13,7 @@ import {
   mergeUpsertColumns,
   upsertColumns,
   toFactTableApiInterface,
+  toFactTableColumnApiInterface,
   getFactTable,
 } from "back-end/src/models/FactTableModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
@@ -183,16 +185,19 @@ export const updateFactTable = createApiRequestHandler(
         continue;
       }
 
-      touchesVirtualColumn = true;
-
       // A virtual column must be removed via the delete endpoint so the
       // dependency guard runs; a soft delete here would strip its expression
       // out of generated SQL and break dependents silently.
-      if (col.deleted !== undefined) {
+      if (col.deleted) {
         throw new Error(
           "Virtual columns must be deleted using the virtual column endpoint",
         );
       }
+
+      // Resending a virtual column unchanged (a GET -> PUT round-trip) isn't a write.
+      if (existingCol && isUnchangedColumn(existingCol, col)) continue;
+
+      touchesVirtualColumn = true;
 
       if (!existingCol) {
         validateVirtualColumnProps(col);
@@ -264,6 +269,16 @@ export const updateFactTable = createApiRequestHandler(
     ),
   };
 });
+
+export function isUnchangedColumn(
+  existing: ColumnInterface,
+  incoming: NonNullable<UpdateFactTableProps["columns"]>[number],
+): boolean {
+  const [merged] = mergeUpsertColumns([existing], [incoming]).columns;
+  const comparable = (c: ColumnInterface) =>
+    omit(toFactTableColumnApiInterface(c), ["dateUpdated", "topValuesDate"]);
+  return isEqual(comparable(merged), comparable(existing));
+}
 
 export function needsColumnRefresh(
   existing: Pick<

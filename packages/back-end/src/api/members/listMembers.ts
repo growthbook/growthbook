@@ -47,6 +47,7 @@ export const listMembers = createApiRequestHandler(listMembersValidator)(async (
         projectRoles: member.projectRoles,
         lastLoginDate: member.lastLoginDate?.toISOString(),
         dateCreated: member.dateCreated?.toISOString(),
+        managedByIdp: member.managedByIdp || false,
         managedbyIdp: member.managedByIdp || false,
       };
     }),

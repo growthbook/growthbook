@@ -66,6 +66,10 @@ export const docSections = {
   "customHooks#validateconfigrevision":
     "/features/custom-hooks#validateconfigrevision",
   "customHooks#validateexperiment": "/features/custom-hooks#validateexperiment",
+  "customHooks#validatesdkconnection":
+    "/features/custom-hooks#validatesdkconnection",
+  "customHooks#validatesdkconnectionrevision":
+    "/features/custom-hooks#validatesdkconnectionrevision",
   customRoles: "/account/user-permissions#custom-roles",
   //DataSourceType
   warehouses: "/warehouses",

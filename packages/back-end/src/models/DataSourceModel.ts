@@ -60,6 +60,7 @@ import { deleteClickhouseUser } from "back-end/src/services/licenseServerManaged
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
+import { getClaimedEventForwarderEnvironments } from "back-end/src/services/eventForwarder/config";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 import {
   definitionsScope,
@@ -184,6 +185,9 @@ export async function getEventPipelineStatusForOrganization(
   eventIngestorRegion: DataRegion | undefined;
   hasManagedWarehouse: boolean;
   hasEventForwarder: boolean;
+  eventForwarderEnvironments: ReturnType<
+    typeof getClaimedEventForwarderEnvironments
+  >;
 }> {
   const datasources = usingFileConfig()
     ? getConfigDatasources(context.org.id)
@@ -204,6 +208,8 @@ export async function getEventPipelineStatusForOrganization(
       : forwarderConfigs.find((c) => c.region)?.region,
     hasManagedWarehouse: !!managedWarehouse,
     hasEventForwarder: forwarderConfigs.length > 0,
+    eventForwarderEnvironments:
+      getClaimedEventForwarderEnvironments(forwarderConfigs),
   };
 }
 

@@ -12,6 +12,7 @@ import { PiCaretRight } from "react-icons/pi";
 import { useStripeContext } from "@/hooks/useStripeContext";
 import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { useAuth } from "@/services/auth";
+import track from "@/services/track";
 import { useUser } from "@/services/UserContext";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -130,9 +131,14 @@ export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
 interface Props {
   close: () => void;
   closeParent: () => void;
+  source: string;
 }
 
-export default function CloudProUpgradeModal({ close, closeParent }: Props) {
+export default function CloudProUpgradeModal({
+  close,
+  closeParent,
+  source,
+}: Props) {
   const [step, setStep] = useState(0);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -227,6 +233,11 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
                 }
               : undefined,
         }),
+      });
+      track("Pro subscription started", {
+        flow: "upgrade-modal",
+        seats: organization.members?.length ?? 0,
+        source,
       });
     } catch (e) {
       setLoading(false);

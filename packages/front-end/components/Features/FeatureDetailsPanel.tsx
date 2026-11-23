@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Separator } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
@@ -15,22 +15,20 @@ import {
   CustomFieldRows,
   EmptyValue,
   HiddenProject,
+  MarkdownValue,
   OwnerField,
   PanelEditButton,
+  PanelText,
   PersonValue,
   ProjectField,
   TagsField,
 } from "@/components/DetailsPanelFields";
-import ExpandableText, {
-  ExpandableTextBody,
-} from "@/components/ExpandableText";
 import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescriptionModal";
 import EditFeatureInfoModal, {
   FeatureInfoSection,
   SECTION_HEADERS,
-} from "@/components/Features/EditFeatureInfoModalNew";
+} from "@/components/Features/EditFeatureInfoModal";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
-import Markdown from "@/components/Markdown/Markdown";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
@@ -41,6 +39,7 @@ import Metadata from "@/ui/Metadata";
 import { revisionFacts } from "@/components/Features/revisionFacts";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import ReferencesPanelSection from "@/components/References/ReferencesPanelSection";
 
 export default function FeatureDetailsPanel({
   feature,
@@ -264,48 +263,28 @@ export default function FeatureDetailsPanel({
             }
           />
         </PanelSection>
-        {dependentCount > 0 ? (
-          <>
-            <Separator size="4" />
-            <PanelSection title={`Dependents (${dependentCount})`}>
-              <Text as="p" size="sm" color="text-low" mb="0">
-                <em>This feature is a prerequisite for the following:</em>
-              </Text>
-              {dependentFeatures.length > 0 ? (
-                <Metadata
-                  size="sm"
-                  stacked
-                  label="Features"
-                  value={
-                    <Flex direction="column" gap="1">
-                      {dependentFeatures.map((fid) => (
-                        <Text key={fid} size="sm">
-                          <Link href={`/features/${fid}`}>{fid}</Link>
-                        </Text>
-                      ))}
-                    </Flex>
-                  }
-                />
-              ) : null}
-              {dependentExperiments.length > 0 ? (
-                <Metadata
-                  size="sm"
-                  stacked
-                  label="Experiments"
-                  value={
-                    <Flex direction="column" gap="1">
-                      {dependentExperiments.map((exp) => (
-                        <Text key={exp.id} size="sm">
-                          <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
-                        </Text>
-                      ))}
-                    </Flex>
-                  }
-                />
-              ) : null}
-            </PanelSection>
-          </>
-        ) : null}
+        <ReferencesPanelSection
+          title="Dependents"
+          intro="This feature is a prerequisite for the following:"
+          rows={[
+            {
+              title: "Feature Flags",
+              items: dependentFeatures.map((fid) => ({
+                id: fid,
+                label: fid,
+                href: `/features/${fid}`,
+              })),
+            },
+            {
+              title: "Experiments",
+              items: dependentExperiments.map((exp) => ({
+                id: exp.id,
+                label: exp.name,
+                href: `/experiment/${exp.id}`,
+              })),
+            },
+          ]}
+        />
         <Separator size="4" />
         <PanelSection
           title={`Revision ${revision.version}`}
@@ -354,28 +333,17 @@ export default function FeatureDetailsPanel({
               size="sm"
               stacked
               label={label}
-              value={value}
+              value={
+                typeof value === "string" ? (
+                  <PanelText>{value}</PanelText>
+                ) : (
+                  value
+                )
+              }
             />
           ))}
         </PanelSection>
       </DetailsPanel>
     </>
-  );
-}
-
-// Markdown cut off after its first lines. The row edits wherever it's
-// clicked, so only its "… expand" opens the rest.
-function MarkdownValue({ markdown }: { markdown?: string }) {
-  if (!markdown) return <EmptyValue />;
-  return (
-    <Box width="100%">
-      <ExpandableText expandOnClick={false}>
-        <ExpandableTextBody>
-          <Text as="div" size="sm" color="text-mid">
-            <Markdown>{markdown}</Markdown>
-          </Text>
-        </ExpandableTextBody>
-      </ExpandableText>
-    </Box>
   );
 }

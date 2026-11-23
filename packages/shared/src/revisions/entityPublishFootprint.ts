@@ -9,7 +9,10 @@ import {
   configPublishEnvironments,
   constantPublishEnvironments,
 } from "../util/configs";
-import { getConstantRevisionChange } from "./helpers";
+import {
+  getConstantRevisionChange,
+  sdkConnectionSettingsAfter,
+} from "./helpers";
 
 // "unscoped" and "everywhere" both collapse to an empty env list, which would
 // skip the permission check — so they stay distinct.
@@ -71,6 +74,23 @@ export function entityReviewFootprint(
     : { scope: "unbound" };
 }
 
+// A connection serves one environment, plus the destination on a move.
+export function sdkConnectionPublishFootprint(
+  snapshot: { sdkConnection?: { environment?: string } },
+  proposedChanges?: unknown,
+): PublishFootprint {
+  const environments = new Set([snapshot.sdkConnection?.environment]);
+  if (proposedChanges !== undefined) {
+    environments.add(
+      sdkConnectionSettingsAfter(snapshot, proposedChanges).environment,
+    );
+  }
+  return {
+    scope: "environments",
+    environments: [...environments].filter((env): env is string => !!env),
+  };
+}
+
 export function entityPublishFootprint(
   type: string,
   snapshot: unknown,
@@ -84,6 +104,12 @@ export function entityPublishFootprint(
   }
   if (type === "config") {
     return configPublishFootprint(snapshot as ConfigInterface, proposedChanges);
+  }
+  if (type === "sdk-connection") {
+    return sdkConnectionPublishFootprint(
+      snapshot as { sdkConnection?: { environment?: string } },
+      proposedChanges,
+    );
   }
   return undefined;
 }

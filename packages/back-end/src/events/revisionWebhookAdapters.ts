@@ -8,6 +8,7 @@ import type { Context } from "back-end/src/models/BaseModel";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { dispatchSdkConnectionRevisionEvent } from "back-end/src/services/sdkConnectionRevisionEvents";
 
 /**
  * Event routing scope for a revision lifecycle event: every project the change
@@ -120,6 +121,7 @@ const registry: Partial<Record<RevisionTargetType, RevisionWebhookAdapter>> = {
   "saved-group": { dispatch: dispatchSavedGroupRevisionEvent },
   constant: { dispatch: dispatchConstantRevisionEvent },
   config: { dispatch: dispatchConfigRevisionEvent },
+  "sdk-connection": { dispatch: dispatchSdkConnectionRevisionEvent },
 };
 
 export function getRevisionWebhookAdapter(

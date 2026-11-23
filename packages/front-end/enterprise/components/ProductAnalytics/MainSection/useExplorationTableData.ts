@@ -11,6 +11,7 @@ import {
   getComparisonAlignmentStrategy,
   getDateGranularity,
   buildAlignedComparisonRowLookup,
+  densifyPopulationTimeseriesRows,
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import { FactTableDefinition } from "shared/types/fact-table";
@@ -29,16 +30,27 @@ import {
   formatDateByGranularity,
   formatDurationMs,
   getFunnelStepDisplayLabel,
+  buildExplorationTableColumnFormats,
+  type ExplorationTableColumnFormat,
   type ResolvedGranularity,
   type ExplorationColumn,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
+// In compare mode only metric columns split into current and previous. A type
+// predicate so the other branch can read the metric column's `sub`.
+function showsCurrentPeriodOnly(
+  col: ExplorationColumn,
+): col is Exclude<ExplorationColumn, { kind: "metric" }> {
+  return col.kind !== "metric";
+}
+
 /**
- * Format a raw cell value (from the shared column schema) for display in the
- * result table. The shared schema returns unformatted primitives; this adds
- * the UI-only concerns (date localization, rounding, Total fallback).
+ * Turn a raw cell value (from the shared column schema) into the row value
+ * the table shows and the CSV exports: date buckets become labels, metrics
+ * stay unrounded numbers. Rounding and number display formatting are not
+ * done here; see `formatExplorationTableCell`.
  */
 function formatCellForTable(
   raw: string | number | null,
@@ -69,8 +81,7 @@ function formatCellForTable(
     return raw;
   }
   if (raw == null) return "";
-  if (col.sub === "numerator" || col.sub === "denominator") return raw;
-  return typeof raw === "number" ? raw.toFixed(2) : raw;
+  return raw;
 }
 
 /**
@@ -111,6 +122,11 @@ export interface ExplorationTableData {
    * `previous` / `current` (and trend key for current). Dimension keys are omitted.
    */
   compareColumnMetaByKey?: Record<string, ExplorationTableCompareColumnMeta>;
+  /**
+   * How each column's cells are displayed, keyed by column key. Labels
+   * (dimension values, formatted dates) are text; quantities are numbers.
+   */
+  columnFormats: Record<string, ExplorationTableColumnFormat>;
 }
 
 /** Per-step subcolumn metadata for funnel result tables. */
@@ -151,6 +167,7 @@ function buildFunnelTableData(
       headerStructure: null,
       explorationReturnedNoData: true,
       tableCompareActive: false,
+      columnFormats: {},
     };
   }
   const steps = submittedExploreState.dataset.steps;
@@ -252,6 +269,11 @@ function buildFunnelTableData(
       headerStructure: null,
       explorationReturnedNoData: !firstRow || stepResults.length === 0,
       tableCompareActive: compareActive,
+      columnFormats: buildExplorationTableColumnFormats(
+        rowData,
+        ["step", "fromPrev", "fromStart", "avgTime"],
+        [compareActive ? ["count__curr", "count__prev"] : ["count"]],
+      ),
       ...(compareActive ? { compareColumnMetaByKey } : {}),
     };
   }
@@ -271,6 +293,8 @@ function buildFunnelTableData(
   const columnLabels: string[] = [dimensionLabel];
   const row1: HeaderStructure["row1"] = [{ label: dimensionLabel, rowSpan: 2 }];
   const row2Labels: string[] = [];
+  const textKeys: string[] = ["__dim_0__"];
+  const numberKeyGroups: string[][] = [];
   const compareColumnMetaByKey: Record<
     string,
     ExplorationTableCompareColumnMeta
@@ -288,6 +312,7 @@ function buildFunnelTableData(
         const prevKey = `__step_${stepIdx}_count_prev__`;
         const trendKey = `__step_${stepIdx}_count_trend__`;
         orderedColumnKeys.push(currKey, prevKey);
+        numberKeyGroups.push([currKey, prevKey]);
         columnLabels.push(
           `${label} Count — Current`,
           `${label} Count — Previous`,
@@ -301,6 +326,8 @@ function buildFunnelTableData(
       } else {
         const key = `__step_${stepIdx}_${sub.key}__`;
         orderedColumnKeys.push(key);
+        if (sub.key === "count") numberKeyGroups.push([key]);
+        else textKeys.push(key);
         columnLabels.push(`${label} ${sub.label}`);
         row2Labels.push(sub.label);
       }
@@ -374,6 +401,11 @@ function buildFunnelTableData(
     headerStructure,
     explorationReturnedNoData: rowData.length === 0,
     tableCompareActive: compareActive,
+    columnFormats: buildExplorationTableColumnFormats(
+      rowData,
+      textKeys,
+      numberKeyGroups,
+    ),
     ...(compareActive ? { compareColumnMetaByKey } : {}),
   };
 }
@@ -424,6 +456,7 @@ export function buildJourneyTableData(
       headerStructure: null,
       explorationReturnedNoData: true,
       tableCompareActive: false,
+      columnFormats: {},
     };
   }
   const source =
@@ -469,6 +502,11 @@ export function buildJourneyTableData(
     headerStructure: null,
     explorationReturnedNoData: rows.length === 0,
     tableCompareActive: false,
+    columnFormats: buildExplorationTableColumnFormats(
+      rowData,
+      orderedColumnKeys.filter((key) => key !== "journeys"),
+      [["journeys"]],
+    ),
   };
 }
 
@@ -551,7 +589,7 @@ export default function useExplorationTableData(
     if (tableCompareActive) {
       const keys: string[] = [];
       columns.forEach((col, i) => {
-        if (col.kind === "dimension") {
+        if (showsCurrentPeriodOnly(col)) {
           keys.push(col.key);
         } else if (col.sub === "single") {
           keys.push(`${col.key}__curr`, `${col.key}__prev`);
@@ -573,7 +611,7 @@ export default function useExplorationTableData(
     if (!tableCompareActive) return undefined;
     const meta: Record<string, ExplorationTableCompareColumnMeta> = {};
     for (const col of columns) {
-      if (col.kind === "dimension") continue;
+      if (col.kind !== "metric") continue;
       if (col.sub !== "single") continue;
       const prevKey = `${col.key}__prev`;
       const currKey = `${col.key}__curr`;
@@ -597,7 +635,7 @@ export default function useExplorationTableData(
       const { prevHeading, currHeading } = compareHeadings;
       const labels: string[] = [];
       columns.forEach((col, i) => {
-        if (col.kind === "dimension") {
+        if (showsCurrentPeriodOnly(col)) {
           labels.push(col.label);
         } else if (col.sub === "single") {
           labels.push(
@@ -632,7 +670,7 @@ export default function useExplorationTableData(
       const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
       const row2Labels: string[] = [];
       columns.forEach((col, i) => {
-        if (col.kind === "dimension") {
+        if (showsCurrentPeriodOnly(col)) {
           row1.push({ label: col.label, rowSpan: 2 });
         } else if (col.sub === "single") {
           row1.push({ label: col.label, colSpan: 2 });
@@ -650,11 +688,9 @@ export default function useExplorationTableData(
     const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
     const row2Labels: string[] = [];
     for (const col of columns) {
-      if (col.kind === "dimension") {
-        row1.push({ label: col.label, rowSpan: 2 });
-        continue;
-      }
-      if (col.sub === "single") {
+      // Columns with no Numerator / Denominator / Value parts span both
+      // header rows; only ratio metrics have them.
+      if (col.kind !== "metric" || col.sub === "single") {
         row1.push({ label: col.label, rowSpan: 2 });
         continue;
       }
@@ -723,6 +759,14 @@ export default function useExplorationTableData(
         cmpSorted,
         isTimeseries,
         comparisonAlignment,
+        // Rank against every bucket, as the chart does, so a missing day
+        // doesn't shift the pairing.
+        exploration && submittedExploreState
+          ? densifyPopulationTimeseriesRows(
+              exploration,
+              submittedExploreState,
+            ).map((r) => String(r.dimensions[0] ?? ""))
+          : undefined,
       );
       return sortedRows.map((row, idx) => {
         // Pair by dimension key for both timeseries and categorical charts.
@@ -745,7 +789,7 @@ export default function useExplorationTableData(
           ] as const);
         }
         for (const col of columns) {
-          if (col.kind === "dimension") {
+          if (showsCurrentPeriodOnly(col)) {
             const raw = getExplorationCellValue(row, col, renderOpts);
             entries.push([
               col.key,
@@ -796,7 +840,7 @@ export default function useExplorationTableData(
     columns,
     comparisonExploration?.result?.rows,
     comparisonAlignment,
-    exploration?.result?.rows,
+    exploration,
     firstDimensionIsDate,
     renderOpts,
     resolvedGranularity,
@@ -812,6 +856,29 @@ export default function useExplorationTableData(
     );
   }, [exploration?.result?.rows]);
 
+  const columnFormats = useMemo(() => {
+    const textKeys: string[] = [];
+    const numberKeyGroups: string[][] = [];
+    for (const col of columns) {
+      if (col.kind === "dimension") {
+        textKeys.push(col.key);
+      } else if (tableCompareActive && col.kind === "metric") {
+        // Current and previous share decimals so the pair reads consistently.
+        numberKeyGroups.push([`${col.key}__curr`, `${col.key}__prev`]);
+      } else {
+        numberKeyGroups.push([col.key]);
+      }
+    }
+    if (tableCompareActive && firstDimensionIsDate) {
+      textKeys.push(PREV_BUCKET_DATE_KEY);
+    }
+    return buildExplorationTableColumnFormats(
+      rowData,
+      textKeys,
+      numberKeyGroups,
+    );
+  }, [columns, rowData, tableCompareActive, firstDimensionIsDate]);
+
   if (funnelTableData) return funnelTableData;
   if (journeyTableData) return journeyTableData;
 
@@ -822,6 +889,7 @@ export default function useExplorationTableData(
     headerStructure,
     explorationReturnedNoData,
     tableCompareActive,
+    columnFormats,
     ...(tableCompareActive
       ? { csvColumnKeys, csvColumnLabels, compareColumnMetaByKey }
       : {}),

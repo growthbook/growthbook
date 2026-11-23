@@ -7,10 +7,14 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import {
+  assertConfigValueValid,
+  configDraftContent,
+  configDraftState,
+  configValidationLeaf,
+} from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
-  applyRevisionToSnapshot,
   discardIfJustCreated,
   isDraftStatus,
   resolveOrCreateRevision,
@@ -60,9 +64,9 @@ export const deleteConfigRevisionProperty = createApiRequestHandler(
       "config",
       config as unknown as Record<string, unknown> & { id: string },
       async (row) => {
-        const draft = applyRevisionToSnapshot(row ?? revision);
+        const target = row ?? revision;
         const { value: nextValue, existed } = removeOwnValueProperty(
-          draft.value,
+          configDraftContent(config, target).value,
           req.query.property,
         );
         if (!existed) {
@@ -75,14 +79,9 @@ export const deleteConfigRevisionProperty = createApiRequestHandler(
 
         await assertConfigValueValid(
           req.context,
-          {
-            key: config.key,
-            name: config.name,
+          configValidationLeaf(configDraftState(config, target), {
             value: strippedValue,
-            schema: draft.schema,
-            parent: draft.parent,
-            extends: draft.extends,
-          },
+          }),
           { value: strippedValue },
         );
 

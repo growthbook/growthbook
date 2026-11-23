@@ -94,9 +94,15 @@ export default function DivergenceNotice({
     ? `Approved ${approvedAgo} — ${advancedPhrase}.`
     : `Changes were published to the live version (v${liveVersion}) after this draft was approved.`;
 
+  // A draft with no tracked base version is given live's.
+  const branchedFrom =
+    baseVersion === liveVersion ? "" : ` (branched from v${baseVersion})`;
+  const rebaseBody = `Rebase the latest changes from v${liveVersion} into this draft${branchedFrom}.`;
   const body = staleApproval
     ? staleBody
-    : `Rebase the latest changes from v${liveVersion} into this draft (branched from v${baseVersion}).`;
+    : rebaseRequired
+      ? `Your organization requires a rebase before publishing. ${rebaseBody}`
+      : rebaseBody;
 
   return (
     <NoticeBanner

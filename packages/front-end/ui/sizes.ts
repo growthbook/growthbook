@@ -2,7 +2,8 @@
  * The one size vocabulary for @/ui.
  *
  * Every component's size prop uses these names. None takes Radix numbers
- * ("1".."9") or words ("small", "medium") any more.
+ * ("1".."9") or words ("small", "medium") any more, except SegmentedControl's
+ * "normal", which explains itself there.
  */
 export type TshirtSize = "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
 

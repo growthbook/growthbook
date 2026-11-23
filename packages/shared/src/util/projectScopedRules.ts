@@ -121,6 +121,11 @@ export function normalizeApprovalRuleSettings<
         required?: boolean;
         requiredApproverTeams?: string[];
       })[];
+      sdkConnections?: (ProjectScopedRule & {
+        required?: boolean;
+        requiredApproverTeams?: string[];
+        environments?: string[];
+      })[];
     };
   },
 >(settings: T): T {
@@ -130,12 +135,23 @@ export function normalizeApprovalRuleSettings<
       dropDormantTeams(dropUnsetFields(rule), !!rule.requireReviewOn),
     );
   }
-  if (next.approvalFlows?.savedGroups) {
+  if (next.approvalFlows?.savedGroups || next.approvalFlows?.sdkConnections) {
     next.approvalFlows = {
       ...next.approvalFlows,
-      savedGroups: next.approvalFlows.savedGroups.map((rule) =>
-        dropDormantTeams(dropUnsetFields(rule), !!rule.required),
-      ),
+      ...(next.approvalFlows.savedGroups
+        ? {
+            savedGroups: next.approvalFlows.savedGroups.map((rule) =>
+              dropDormantTeams(dropUnsetFields(rule), !!rule.required),
+            ),
+          }
+        : {}),
+      ...(next.approvalFlows.sdkConnections
+        ? {
+            sdkConnections: next.approvalFlows.sdkConnections.map((rule) =>
+              dropDormantTeams(dropUnsetFields(rule), !!rule.required),
+            ),
+          }
+        : {}),
     };
   }
   return next;
@@ -175,6 +191,11 @@ export function pruneApprovalRuleReferences<
         }[];
     approvalFlows?: {
       savedGroups?: { projects?: string[]; requiredApproverTeams?: string[] }[];
+      sdkConnections?: {
+        projects?: string[];
+        requiredApproverTeams?: string[];
+        environments?: string[];
+      }[];
     };
     targetingReviewMode?: { projects?: string[] }[];
   },
@@ -224,10 +245,23 @@ export function pruneApprovalRuleReferences<
       keepTeams(keepEnvironments(rule)),
     );
   }
-  if (next.approvalFlows?.savedGroups) {
+  if (next.approvalFlows?.savedGroups || next.approvalFlows?.sdkConnections) {
     next.approvalFlows = {
       ...next.approvalFlows,
-      savedGroups: keepProjects(next.approvalFlows.savedGroups).map(keepTeams),
+      ...(next.approvalFlows.savedGroups
+        ? {
+            savedGroups: keepProjects(next.approvalFlows.savedGroups).map(
+              keepTeams,
+            ),
+          }
+        : {}),
+      ...(next.approvalFlows.sdkConnections
+        ? {
+            sdkConnections: keepProjects(next.approvalFlows.sdkConnections).map(
+              (rule) => keepTeams(keepEnvironments(rule)),
+            ),
+          }
+        : {}),
     };
   }
   if (next.targetingReviewMode) {

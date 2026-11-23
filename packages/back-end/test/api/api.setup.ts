@@ -62,6 +62,9 @@ export const setupApp = () => {
       authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
         req.audit = auditMock;
         req.context = reqContext;
+        // As the real middleware builds it: override flags are read from the
+        // request that was sent, not from a stand-in.
+        if (reqContext instanceof ReqContextClass) reqContext.req = req;
         req.organization = reqContext?.org;
         // The /api/v1 router rate-limits per req.apiKey (60 req/min). The real
         // auth middleware sets this; under this mock we give each request a

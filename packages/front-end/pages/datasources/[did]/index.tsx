@@ -1076,6 +1076,8 @@ const DataSourcePage: FC = () => {
                     canEdit={canUpdateDataSourceSettings}
                     onRefresh={refreshDataSource}
                     showTitle
+                    // Its own tab appears once it exists, so go there
+                    onCreated={() => setTab("event-forwarder")}
                   />
                 </Frame>
               ) : null}

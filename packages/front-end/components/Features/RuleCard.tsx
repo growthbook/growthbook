@@ -9,7 +9,6 @@ import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 import cornerStyles from "./CornerActions.module.scss";
 import styles from "./RuleCard.module.scss";
-import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 // A header's title or actions row.
 export const ruleHeaderRowClass = styles.headerRow;
@@ -75,51 +74,9 @@ export default function RuleCard({
   ribbon,
   children,
 }: Props) {
-  const redesign = useFeaturePageRedesign();
-  const handle = dragHandleProps ? (
-    <Tooltip content="Drag and drop to re-order rules">
-      <div {...dragHandleProps} className={styles.grab}>
-        <PiDotsSixVertical size={16} />
-      </div>
-    </Tooltip>
-  ) : (
-    <Box aria-hidden className={styles.idleHandle}>
-      <PiDotsSixVertical size={16} />
-    </Box>
-  );
-  const indexBadge = (
-    <Badge
-      label={<>{index}</>}
-      radius="full"
-      color="gray"
-      className={styles.index}
-    />
-  );
-
-  // The page it's tested against: header and details in one column.
-  if (!redesign) {
-    return (
-      <Card className={styles.badges}>
-        <div className={clsx(styles.sideBar, styles[sideColor])} />
-        <Flex align="start" justify="between" gap="2" p="1">
-          <Box className={styles.handle}>{handle}</Box>
-          {/* On a line, as the title beside it is. */}
-          <Box>{indexBadge}</Box>
-          <Box flexGrow="1" pr="2" minWidth="0">
-            <Box mb="3">{header}</Box>
-            {ribbon ? <Box mb="3">{ribbon}</Box> : null}
-            {children}
-          </Box>
-        </Flex>
-      </Card>
-    );
-  }
-
   // Its values' copy and fullscreen buttons show while it's hovered.
   return (
-    <Card
-      className={clsx(cornerStyles.hoverActions, styles.card, styles.badges)}
-    >
+    <Card className={clsx(cornerStyles.hoverActions, styles.card)}>
       <div className={clsx(styles.sideBar, styles[sideColor])} />
       <Box px="2" pt="2" pb="4">
         <Flex align="start" gap="2" mb="2">
@@ -128,9 +85,24 @@ export default function RuleCard({
               align="center"
               className={clsx(cornerStyles.actions, styles.handle)}
             >
-              {handle}
+              {dragHandleProps ? (
+                <Tooltip content="Drag and drop to re-order rules">
+                  <div {...dragHandleProps} className={styles.grab}>
+                    <PiDotsSixVertical size={16} />
+                  </div>
+                </Tooltip>
+              ) : (
+                <Box aria-hidden className={styles.idleHandle}>
+                  <PiDotsSixVertical size={16} />
+                </Box>
+              )}
             </Flex>
-            {indexBadge}
+            <Badge
+              label={<>{index}</>}
+              radius="full"
+              color="gray"
+              className={styles.index}
+            />
           </Flex>
           <Flex
             align="center"

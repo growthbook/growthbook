@@ -58,12 +58,12 @@ import {
   findGoogleAnalytics4Exports,
 } from "back-end/src/services/datasource";
 import {
-  assertNoEventForwarderInOrg,
+  assertNoEventForwarderEnvironmentOverlap,
+  setEventForwarderEnvironments,
   createUnconfiguredEventForwarderConfig,
   recordEventForwarderCreateFailure,
   getEventForwarderForDatasource,
   hasAnyEventForwarderConfig,
-  migrateEventForwarderToInHouseConsumer,
   syncEventForwarderConfigFromDatasource,
   toEventForwarderConfigDraft,
 } from "back-end/src/services/eventForwarder/config";
@@ -110,6 +110,7 @@ import {
   deleteDataSourceWithChecks,
   assertCanUpdateDataSource,
   updateDataSourceWithChecks,
+  withDefaultEventSettings,
 } from "back-end/src/services/datasourceChanges";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -204,19 +205,11 @@ export async function postDataSources(
     eventForwarderConfig,
     eventForwarderRegion,
   } = req.body;
-  const settings = req.body.settings || {};
+  const settings = withDefaultEventSettings(req.body.settings || {});
 
   if (!context.permissions.canCreateDataSource({ projects, type })) {
     context.permissions.throwPermissionError();
   }
-
-  // Set default event properties and queries
-  settings.events = {
-    experimentEvent: "$experiment_started",
-    experimentIdProperty: "Experiment name",
-    variationIdProperty: "Variant name",
-    ...settings?.events,
-  };
 
   let datasource;
   try {
@@ -227,7 +220,16 @@ export async function postDataSources(
       eventForwarderRegion === "us-east-1" ||
       eventForwarderRegion === "eu-west-1"
     ) {
-      await assertNoEventForwarderInOrg(context);
+      await assertNoEventForwarderEnvironmentOverlap(
+        context,
+        eventForwarderConfig?.environments,
+        {
+          allowUnset: !eventForwarderConfig,
+          region:
+            eventForwarderConfig?.region ??
+            (eventForwarderConfig ? "us-east-1" : eventForwarderRegion),
+        },
+      );
     }
     datasource = await createDataSource(
       context,
@@ -778,6 +780,16 @@ export async function deleteEventForwarderForDataSource(
     !context.permissions.canDeleteEventForwarderConfig(eventForwarderConfig)
   ) {
     context.permissions.throwPermissionError();
+  }
+  // Super admins skip this to clean up from the admin page
+  if (
+    eventForwarderConfig.status === "ready" &&
+    !hasSuperAdminPermission(context.superAdmin, "provision")
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: "Pause the Event Forwarder before deleting it.",
+    });
   }
 
   try {
@@ -1972,15 +1984,24 @@ function getManagedWarehouseJsonSettings(
   };
 }
 
-// Super admin only: moves a Confluent-connector forwarder onto the in-house
-// consumer and provisions it. Confluent resources are torn down manually later.
-export async function postMigrateEventForwarder(
-  req: AuthRequest<null, { id: string }>,
+const eventForwarderEnvironmentsBody = z.object({
+  environments: z.array(z.string()),
+});
+
+// Super admin only: sets which environments a forwarder receives, whether or
+// not it was migrated. Same rules as an edit.
+export async function putEventForwarderEnvironments(
+  req: AuthRequest<unknown, { id: string }>,
   res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
 ) {
   const context = getContextFromReq(req);
   if (!hasSuperAdminPermission(context.superAdmin, "provision")) {
     context.permissions.throwPermissionError();
+  }
+  const body = eventForwarderEnvironmentsBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ status: 400, message: "Invalid environments" });
+    return;
   }
   const datasource = await getDataSourceById(context, req.params.id);
   if (!datasource) {
@@ -1994,68 +2015,15 @@ export async function postMigrateEventForwarder(
       .json({ status: 404, message: "Cannot find event forwarder config" });
     return;
   }
-
   try {
-    const datasourceParams = getEventForwarderDatasourceParams(
-      datasource.type,
-      getSourceIntegrationObject(context, datasource).params,
-    );
-    const { migrated, previous } = await migrateEventForwarderToInHouseConsumer(
+    await setEventForwarderEnvironments(
       context,
       existing,
-      datasourceParams,
+      body.data.environments,
     );
-    try {
-      await provisionEventForwarderThroughLicenseServer(
-        context,
-        migrated,
-        datasourceParams,
-      );
-    } catch (e) {
-      // Restore the pre-migrate row so the Confluent connector keeps serving it
-      // and Migrate can be retried; lastProvisioningError keeps the cause.
-      const ids = {
-        topic: previous.topic,
-        status: previous.status,
-        schemaId: previous.schemaId,
-        connectorName: previous.connectorName,
-        connectorId: previous.connectorId,
-      };
-      try {
-        await context.models.eventForwarderConfigs.update(migrated, {
-          ...ids,
-          config: previous.config,
-        });
-      } catch (revertError) {
-        req.log.error(
-          { err: revertError, ...ids },
-          "Failed to revert event forwarder migration",
-        );
-      }
-      throw e;
-    }
-    // Logged only once provisioning succeeded: manual Confluent teardown is
-    // driven from this entry, so a failed migrate must not appear here.
-    try {
-      await context.auditLog({
-        entity: { object: "eventForwarderConfig", id: previous.id, name: "" },
-        event: "eventForwarderConfig.migrate",
-        details: JSON.stringify({
-          datasourceId: previous.datasourceId,
-          topic: previous.topic,
-          connectorName: previous.connectorName,
-          connectorId: previous.connectorId,
-        }),
-      });
-    } catch (auditError) {
-      req.log.error(
-        { err: auditError, datasourceId: existing.datasourceId },
-        "Failed to audit log event forwarder migration",
-      );
-    }
     res.status(200).json({ status: 200 });
   } catch (e) {
-    req.log.error(e, "Failed to migrate event forwarder");
+    req.log.error(e, "Failed to set event forwarder environments");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",

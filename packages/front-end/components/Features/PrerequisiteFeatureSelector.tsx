@@ -17,7 +17,7 @@ import {
   OptionProjectsLabel,
 } from "@/components/Features/OptionTooltipShell";
 import Text from "@/ui/Text";
-import { featureStatusColors } from "@/components/Features/FeaturesOverview";
+import { featureStatusColors } from "@/components/Features/featureStatusColors";
 import StateIcon from "@/components/Features/StateIcon";
 
 export interface FeatureOptionMeta {

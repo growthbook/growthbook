@@ -35,6 +35,7 @@ export type AppFeatures = {
   "experiment-dashboards-enabled": boolean;
   "experiment-decision-framework-status": boolean;
   "experiment-ideas": boolean;
+  "experiment-impact-setting": Record<string, unknown>;
   "experiment-implementation": boolean;
   "experiment-results-timeseries": boolean;
   "experimentation-focused-onboarding": boolean;
@@ -42,7 +43,6 @@ export type AppFeatures = {
   "fact-table-table-mode": boolean;
   "fact-tables": boolean;
   "feature-list-realtime-graphs": boolean;
-  "feature-page-redesign-v1": boolean;
   "feature-usage": boolean;
   "feature-usage-auto-refresh-interval": Record<string, unknown>;
   "feature-usage-code": boolean;
@@ -187,7 +187,14 @@ export type AppAttributes = {
     | null;
   organizationId?: string | null;
   page_id?: string | null;
-  requestSource?: "backend" | "frontend" | null;
+  requestSource?:
+    | "app"
+    | "api"
+    | "mcp"
+    | "assistant"
+    | "system"
+    | "unknown"
+    | null;
   request_path?: string | null;
   role?: string | null;
   session_id?: string | null;

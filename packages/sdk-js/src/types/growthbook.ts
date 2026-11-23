@@ -380,6 +380,12 @@ export type Options<AppAttributes extends Attributes = RegisteredAttributes> = {
   backgroundSync?: boolean;
   /** @deprecated */
   subscribeToChanges?: boolean;
+  /**
+   * The hash version for percentage rollouts and experiments that don't set
+   * their own `hashVersion`. Defaults to 1, which is slightly biased. Changing
+   * it reassigns the users of those rollouts and experiments.
+   */
+  defaultHashVersion?: number;
   enableDevMode?: boolean;
   disableCache?: boolean;
   /** @deprecated */
@@ -429,6 +435,12 @@ export type ClientOptions<
   forcedFeatureValues?: Map<string, any>;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
+  /**
+   * The hash version for percentage rollouts and experiments that don't set
+   * their own `hashVersion`. Defaults to 1, which is slightly biased. Changing
+   * it reassigns the users of those rollouts and experiments.
+   */
+  defaultHashVersion?: number;
   disableCache?: boolean;
   trackingCallback?: TrackingCallbackWithUser;
   onFeatureUsage?: (
@@ -456,6 +468,7 @@ export type GlobalContext = {
   experiments?: AutoExperiment[];
   enabled?: boolean;
   qaMode?: boolean;
+  defaultHashVersion?: number;
   savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   forcedVariations?: Record<string, number>;
@@ -646,6 +659,45 @@ export type Payload<
   AppFeatures extends Record<string, any> = RegisteredFeatures,
   AppAttributes extends Attributes = RegisteredAttributes,
 > = FeatureApiResponse<AppFeatures, AppAttributes>;
+
+/** A rule in `LocalFeatures`. A percentage rollout needs a `hashAttribute`. */
+export type LocalFeatureRule<T = any, A extends Attributes = any> = {
+  force: T;
+  condition?: ConditionInterface<A>;
+} & (
+  | {
+      coverage: number;
+      hashAttribute: AttributeKey<A>;
+      /** Hashed with the user instead of the feature key */
+      seed?: string;
+    }
+  | { coverage?: never; hashAttribute?: never; seed?: never }
+);
+
+/**
+ * Feature flags hard-coded in a local file and passed to `initSync` as the
+ * payload's `features`. Stricter than `Payload`: every feature must be defined
+ * with a `defaultValue`, and rules are limited to `force`, `condition` and
+ * percentage rollouts. A feature that's optional in your features type may be
+ * left out.
+ *
+ *   export const features: LocalFeatures = {...};
+ *   new GrowthBook().initSync({ payload: { features } });
+ *
+ * Uses the registered features and attributes when none are given.
+ */
+export type LocalFeatures<
+  AppFeatures extends Record<string, any> = RegisteredFeatures,
+  AppAttributes extends Attributes = RegisteredAttributes,
+> = {
+  [K in keyof AppFeatures]: {
+    defaultValue: Exclude<AppFeatures[K], undefined>;
+    rules?: LocalFeatureRule<
+      Exclude<AppFeatures[K], undefined>,
+      AppAttributes
+    >[];
+  };
+};
 
 /** Each filter is an array, and any one of its values is enough */
 export type PayloadFilters = {

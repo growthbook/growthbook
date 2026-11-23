@@ -1,10 +1,14 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { omit } from "lodash";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { MetricValue } from "shared/validators";
-import { getMetricIdentifierTypes } from "shared/enterprise";
+import { getSinglePopulationStep } from "shared/populations";
+import {
+  configHasPopulation,
+  getMetricIdentifierTypes,
+} from "shared/enterprise";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -23,15 +27,19 @@ import {
   getLockedMixClass,
   getMetricValuesUnitState,
   getMixClassConflict,
+  getPopulationConflict,
   getReadOnlyUnit,
   getUnitConflict,
   getUnitPicker,
+  orderEnabledOptionsFirst,
   setMetricValuesUnit,
 } from "@/enterprise/components/ProductAnalytics/metricMixing";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
+import { usePopulations } from "@/hooks/usePopulations";
+import PopulationPicker from "./PopulationPicker";
 import ShowAsInput from "./ShowAsInput";
 import ValueCard from "./ValueCard";
 import styles from "./ValueCard.module.scss";
@@ -51,6 +59,31 @@ export default function MetricTabContent() {
     draftExploreState.dataset?.type === "metric"
       ? draftExploreState.dataset.values
       : [];
+  const hasPopulation = configHasPopulation(draftExploreState);
+  // The applied Population's Fact Table, which every metric must read from.
+  // Shares PopulationPicker's request; null until the Population loads.
+  const populationId =
+    draftExploreState.dataset?.type === "metric"
+      ? (draftExploreState.dataset.population?.populationId ?? null)
+      : null;
+  const { populations } = usePopulations(undefined, {
+    enabled: populationId !== null,
+  });
+  const appliedPopulation =
+    populations.find((p) => p.id === populationId) ?? null;
+  const populationFactTableId = appliedPopulation
+    ? (getSinglePopulationStep(appliedPopulation)?.source.factTableId ?? null)
+    : null;
+  const populationFactTable = useMemo(
+    () =>
+      populationFactTableId !== null
+        ? {
+            id: populationFactTableId,
+            name: getFactTableById(populationFactTableId)?.name ?? null,
+          }
+        : null,
+    [getFactTableById, populationFactTableId],
+  );
   const unitState = getMetricValuesUnitState(
     values,
     getFactMetricById,
@@ -114,30 +147,68 @@ export default function MetricTabContent() {
   };
 
   /** Why `metric` can't go in a slot with these locks, or null if it can. */
-  const getDisabledReason = (
-    metric: FactMetricInterface,
-    lockedClass: Exclude<MetricMixClass, "unknown"> | null,
-    lockedUnit: string | null,
-  ): string | null =>
-    getMixClassConflict(metric.metricType, lockedClass) ??
-    getUnitConflict(metric, lockedUnit, getFactTableById);
+  const getDisabledReason = useCallback(
+    (
+      metric: FactMetricInterface,
+      lockedClass: Exclude<MetricMixClass, "unknown"> | null,
+      lockedUnit: string | null,
+    ): string | null => {
+      if (populationFactTable !== null) {
+        const conflict = getPopulationConflict(
+          metric,
+          populationFactTable,
+          getFactTableById,
+        );
+        if (conflict !== null) return conflict;
+      }
+      return (
+        getMixClassConflict(metric.metricType, lockedClass) ??
+        getUnitConflict(metric, lockedUnit, getFactTableById)
+      );
+    },
+    [getFactTableById, populationFactTable],
+  );
+
+  // Each slot lists its enabled metrics first. Slots with the same locks share
+  // one list, and lists are kept between renders so SelectField doesn't
+  // re-clone every metric option on each edit.
+  const getOrderedOptions = useMemo(() => {
+    const orderedByLocks = new Map<string, (SingleValue | GroupedValue)[]>();
+    return (
+      lockedClass: Exclude<MetricMixClass, "unknown"> | null,
+      lockedUnit: string | null,
+    ) => {
+      const key = `${lockedClass}|${lockedUnit}`;
+      let ordered = orderedByLocks.get(key);
+      if (!ordered) {
+        ordered = orderEnabledOptionsFirst(groupedOptions, (metricId) => {
+          const metric = getFactMetricById(metricId);
+          return (
+            !!metric &&
+            getDisabledReason(metric, lockedClass, lockedUnit) !== null
+          );
+        });
+        orderedByLocks.set(key, ordered);
+      }
+      return ordered;
+    };
+  }, [groupedOptions, getFactMetricById, getDisabledReason]);
 
   const handleUnitChange = (unit: string) =>
-    setDraftExploreState((prev) =>
-      prev.type === "metric"
-        ? {
-            ...prev,
-            dataset: {
-              ...prev.dataset,
-              values: setMetricValuesUnit(
-                prev.dataset.values,
-                unit,
-                getFactMetricById,
-              ),
-            },
-          }
-        : prev,
-    );
+    setDraftExploreState((prev) => {
+      if (prev.type !== "metric") return prev;
+      const nextValues = setMetricValuesUnit(
+        prev.dataset.values,
+        unit,
+        getFactMetricById,
+      );
+      // The Population counts members by the chart's identifier type.
+      const nextDataset = { ...prev.dataset, values: nextValues };
+      if (prev.dataset.population) {
+        nextDataset.population = { ...prev.dataset.population, unit };
+      }
+      return { ...prev, dataset: nextDataset };
+    });
 
   return (
     <Flex direction="column" gap="4">
@@ -160,6 +231,7 @@ export default function MetricTabContent() {
           v,
           draftExploreState.showAs,
           getFactMetricById,
+          hasPopulation,
         );
         return (
           <ValueCard
@@ -180,6 +252,7 @@ export default function MetricTabContent() {
                   }
                   unit={v.unit}
                   metricName={v.name.trim() || `Metric ${idx + 1}`}
+                  metricType={getFactMetricById(v.metricId)?.metricType}
                 />
               )
             }
@@ -222,7 +295,7 @@ export default function MetricTabContent() {
 
                   updateValueInDataset(idx, updates as MetricValue);
                 }}
-                options={groupedOptions}
+                options={getOrderedOptions(lockedClass, lockedUnit)}
                 isOptionDisabled={(option) =>
                   "value" in option && disabledReasonFor(option.value) !== null
                 }
@@ -271,7 +344,8 @@ export default function MetricTabContent() {
           </Flex>
         </Button>
       </Tooltip>
-      {unitPicker && (
+      {/* An applied Population stays clearable with no metric selected. */}
+      {(unitPicker || hasPopulation) && (
         <Flex
           direction="column"
           gap="2"
@@ -282,22 +356,25 @@ export default function MetricTabContent() {
             backgroundColor: "var(--color-panel-translucent)",
           }}
         >
-          <Select
-            label="Identifier type"
-            labelWeight="medium"
-            value={unitPicker.value ?? undefined}
-            placeholder={unitPicker.placeholder}
-            disabled={unitPicker.disabledReason !== null}
-            error={unitPicker.disabledReason ?? undefined}
-            errorLevel="warning"
-            setValue={handleUnitChange}
-          >
-            {unitPicker.options.map((unit) => (
-              <SelectItem key={unit} value={unit}>
-                {unit}
-              </SelectItem>
-            ))}
-          </Select>
+          <PopulationPicker unit={unitPicker?.value ?? null} />
+          {unitPicker && (
+            <Select
+              label="Identifier type"
+              labelWeight="medium"
+              value={unitPicker.value ?? undefined}
+              placeholder={unitPicker.placeholder}
+              disabled={unitPicker.disabledReason !== null}
+              error={unitPicker.disabledReason ?? undefined}
+              errorLevel="warning"
+              setValue={handleUnitChange}
+            >
+              {unitPicker.options.map((unit) => (
+                <SelectItem key={unit} value={unit}>
+                  {unit}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
         </Flex>
       )}
     </Flex>

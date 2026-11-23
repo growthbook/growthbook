@@ -43,13 +43,6 @@ export type BulkRevisionRef = {
 
 /** Entity adapter for planning, guarded claims/apply, compensation, and effects. */
 export interface BulkPublishableAdapter {
-  /**
-   * Whether the org REST-bypass setting (in addition to the bypass-approval
-   * permission) grants stale-base force-merge authority — true for the
-   * generic entities, false for features.
-   */
-  staleBaseForceAllowsRestBypass: boolean;
-
   // ---------- Plan phase (read-only) ----------
 
   loadEntity(
@@ -66,8 +59,15 @@ export interface BulkPublishableAdapter {
   /** Update authority — rechecked against the post-merge desired state. */
   canUpdate(context: Context, entity: Record<string, unknown>): boolean;
 
-  /** Whether the caller's authority bypasses the approval requirement. */
-  canBypassApproval(context: Context, entity: Record<string, unknown>): boolean;
+  /**
+   * Whether the caller's authority bypasses the approval requirement, where
+   * the entity is and where the revision moves it.
+   */
+  canBypassApproval(
+    context: Context,
+    entity: Record<string, unknown>,
+    revision: BulkRevisionRef,
+  ): boolean;
 
   /**
    * Compute the post-merge changes, or throw MergeConflictError when the

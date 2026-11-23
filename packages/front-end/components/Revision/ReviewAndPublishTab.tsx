@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   Revision,
   checkMergeConflicts,
@@ -15,6 +15,7 @@ import {
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   entityProjects,
+  reviewCoverageProjects,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
@@ -36,7 +37,6 @@ import {
   proposedArchivedValue,
 } from "shared/util";
 import { datetime } from "shared/dates";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownBold, PiGitMergeBold, PiLockSimple } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
@@ -55,6 +55,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DiscardDraftModal from "@/components/Reviews/DiscardDraftModal";
@@ -88,9 +89,14 @@ import ScheduledPublishControl from "@/components/Reviews/ScheduledPublishContro
 import ReviewHeader from "@/components/Reviews/ReviewHeader";
 import { RevisionDiffContent } from "@/components/Reviews/RevisionDiffContent";
 import RevisionDescription from "@/components/Reviews/RevisionDescription";
-import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
+import {
+  useRevisionBehindLive,
+  useRevisionDiff,
+  RevisionDiffConfig,
+} from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 import { revisionTimelineLogs } from "./revisionTimelineLogs";
+import { draftLandedState } from "./revisionUtils";
 import FixRevisionConflictsModal from "./FixRevisionConflictsModal";
 
 // Sub-views of the review surface: "overview" is the conversation-first view
@@ -119,16 +125,6 @@ function toBadgeStatus(status: Revision["status"]): RevisionStatus {
 // stored snapshot has no key for e.g. an unset `project`, while the live entity
 // still carries it as `null`. Normalizing both sides the same way keeps the
 // divergence comparison symmetric (see the drift diff below).
-function stripNullish<T>(obj: T): T {
-  if (!obj || typeof obj !== "object") return obj;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-    if (v === null || v === undefined) continue;
-    out[k] = v;
-  }
-  return out as T;
-}
-
 // The 40px header band shared by the actions column and the revision-description
 // card — one source of truth for the px/border/min-height styling.
 function CardHeader({
@@ -221,6 +217,9 @@ export interface ReviewAndPublishTabProps<T> {
   // locked/frozen at a published revision). Drafts, edits, review requests, and
   // discarding stay available — only paths that advance the live state are hidden.
   publishBlockedReason?: string;
+  // When set, requesting review and giving one are held and this reason is
+  // shown (e.g. the page has unsaved edits the reviewer wouldn't be seeing).
+  reviewBlockedReason?: string;
   // When set, Roll back and Revert are disabled and this reason is shown (e.g.
   // the entity can't be changed on the org's plan).
   revertBlockedReason?: string;
@@ -277,6 +276,7 @@ function ReviewAndPublishRevision<T>({
   canBypassApproval,
   holdsLandingDestination,
   publishBlockedReason,
+  reviewBlockedReason,
   revertBlockedReason,
   selectRevision,
   onPublish,
@@ -421,9 +421,14 @@ function ReviewAndPublishRevision<T>({
   const baseSnapshot = isActiveDraft
     ? currentState
     : (revision.target.snapshot as T);
-  const proposedSnapshot = applyTopLevelPatchOps(
-    baseSnapshot as Record<string, unknown>,
-    revision.target.proposedChanges,
+  // A draft behind live lands only what it changed, as the server merges it.
+  const proposedSnapshot = (
+    isActiveDraft
+      ? draftLandedState(revision, currentState as Record<string, unknown>)
+      : applyTopLevelPatchOps(
+          baseSnapshot as Record<string, unknown>,
+          revision.target.proposedChanges,
+        )
   ) as T;
   const { diffs, badges, customRenderGroups } = useRevisionDiff<T>(
     baseSnapshot,
@@ -433,24 +438,11 @@ function ReviewAndPublishRevision<T>({
   const hasChanges = diffs.length > 0;
 
   // ── Divergence: has the live entity moved since this draft's base snapshot?
-  // (distinct from a hard merge conflict). Diff the original base snapshot vs
-  // live; a non-empty result means the draft is based on an older version. With
-  // `requireRebaseBeforePublish` (or a now-stale approval) this gates publishing
-  // and surfaces a "Rebase with live" affordance — mirrors the feature flow.
-  // Both sides are nullish-stripped so the comparison matches how the backend
-  // stores snapshots; otherwise an unset optional field (snapshot omits it, live
-  // carries it as `null`) reads as drift the rebase can never clear. ──
-  const driftSnapshot = useMemo(
-    () => stripNullish(revision.target.snapshot as T),
-    [revision.target.snapshot],
-  );
-  const driftLive = useMemo(() => stripNullish(currentState), [currentState]);
-  const { diffs: driftDiffs } = useRevisionDiff<T>(
-    driftSnapshot,
-    driftLive,
-    diffConfig,
-  );
-  const diverged = isActiveDraft && driftDiffs.length > 0;
+  // (distinct from a hard merge conflict). With `requireRebaseBeforePublish` (or
+  // a now-stale approval) this gates publishing and surfaces a "Rebase with
+  // live" affordance — mirrors the feature flow. ──
+  const behindLive = useRevisionBehindLive(revision, currentState, diffConfig);
+  const diverged = isActiveDraft && behindLive;
   const requireRebase = !!organization?.settings?.requireRebaseBeforePublish;
   const staleApproval = revision.status === "approved" && diverged;
   const mustRebase =
@@ -555,7 +547,11 @@ function ReviewAndPublishRevision<T>({
     footprint: reviewFootprint,
     envIds,
     model: revision.target.type,
-    projects,
+    projects: reviewCoverageProjects(
+      revision.target.type,
+      revision.target.snapshot,
+      revision.target.proposedChanges,
+    ),
     reviewRules,
   });
 
@@ -615,6 +611,7 @@ function ReviewAndPublishRevision<T>({
       organization?.settings,
       revision.target.type,
       projects,
+      revision.target.snapshot,
     ) && hasCommercialFeature("require-approvals");
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
 
@@ -1228,16 +1225,7 @@ function ReviewAndPublishRevision<T>({
           <Box ml="auto" style={{ marginRight: -6 }}>
             <DropdownMenu
               trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                  style={{ margin: 0 }}
-                >
-                  <BsThreeDotsVertical size={16} />
-                </IconButton>
+                <MoreMenuTrigger label="Draft actions" style={{ margin: 0 }} />
               }
               open={actionsDropdownOpen}
               onOpenChange={setActionsDropdownOpen}
@@ -1449,46 +1437,57 @@ function ReviewAndPublishRevision<T>({
           <Box mt={showApprovalBand ? "0" : "6"}>
             {/* Submit review — reviewer action, opens the comment/decision
               popover */}
-            {canReview && requiresApproval && !adminPublish && (
-              <Flex direction="column" gap="3" mb="4">
-                <ReviewCommentPopover
-                  onSubmit={submitReviewDecision}
-                  allowPublishOnApprove={autopublishOnApproval}
-                  autoPublishArmed={revisionAutoPublishArmed}
-                  autoPublishScheduled={scheduledPending}
-                  canReviewerPublish={canPublishOrEdit}
-                  publishBlocked={
-                    !mergeSuccess ||
-                    !hasChanges ||
-                    mustRebase ||
-                    !!publishBlockedReason
-                  }
-                  isBlockedContributor={!!isBlockedContributor}
-                  storageKey={`review-comment:${revision.target.type}:${revision.id}`}
-                  onSuccess={() => {}}
-                  trigger={
-                    <Button
-                      // Outline once publishing is live or armed on a schedule —
-                      // either way review is no longer the primary action.
-                      variant={
-                        state.submitAction === "publish" &&
-                        state.ctaEnabled &&
-                        canPublishOrEdit
-                          ? "outline"
-                          : undefined
-                      }
-                      style={{ width: "100%" }}
-                      icon={<PiCaretDownBold />}
-                      iconPosition="right"
-                    >
-                      Submit review
-                    </Button>
-                  }
-                  side="bottom"
-                  align="center"
-                />
-              </Flex>
-            )}
+            {canReview &&
+              requiresApproval &&
+              !adminPublish &&
+              reviewBlockedReason && (
+                <HelperText status="info" size="sm" mb="4">
+                  {reviewBlockedReason}
+                </HelperText>
+              )}
+            {canReview &&
+              requiresApproval &&
+              !adminPublish &&
+              !reviewBlockedReason && (
+                <Flex direction="column" gap="3" mb="4">
+                  <ReviewCommentPopover
+                    onSubmit={submitReviewDecision}
+                    allowPublishOnApprove={autopublishOnApproval}
+                    autoPublishArmed={revisionAutoPublishArmed}
+                    autoPublishScheduled={scheduledPending}
+                    canReviewerPublish={canPublishOrEdit}
+                    publishBlocked={
+                      !mergeSuccess ||
+                      !hasChanges ||
+                      mustRebase ||
+                      !!publishBlockedReason
+                    }
+                    isBlockedContributor={!!isBlockedContributor}
+                    storageKey={`review-comment:${revision.target.type}:${revision.id}`}
+                    onSuccess={() => {}}
+                    trigger={
+                      <Button
+                        // Outline once publishing is live or armed on a schedule —
+                        // either way review is no longer the primary action.
+                        variant={
+                          state.submitAction === "publish" &&
+                          state.ctaEnabled &&
+                          canPublishOrEdit
+                            ? "outline"
+                            : undefined
+                        }
+                        style={{ width: "100%" }}
+                        icon={<PiCaretDownBold />}
+                        iconPosition="right"
+                      >
+                        Submit review
+                      </Button>
+                    }
+                    side="bottom"
+                    align="center"
+                  />
+                </Flex>
+              )}
 
             {/* Step CTA: Request Review */}
             {state.hasSubmit && state.submitAction === "request-review" && (
@@ -1497,11 +1496,20 @@ function ReviewAndPublishRevision<T>({
                   variant="soft"
                   onClick={doSubmit}
                   loading={submitting}
-                  disabled={!state.ctaEnabled || !canAdvanceDraft}
+                  disabled={
+                    !state.ctaEnabled ||
+                    !canAdvanceDraft ||
+                    !!reviewBlockedReason
+                  }
                   style={{ width: "100%" }}
                 >
                   {state.ctaLabel}
                 </Button>
+                {canAdvanceDraft && reviewBlockedReason && (
+                  <HelperText status="info" size="sm" mt="2">
+                    {reviewBlockedReason}
+                  </HelperText>
+                )}
                 {/* A greyed-out button with no reason reads as a bug — mirrors
                   the Feature flow. */}
                 {!canAdvanceDraft && (
