@@ -220,6 +220,10 @@ const NOT_ENABLED_REASONS: Record<StartNotEnabled, string> = {
     "This experiment contains AI Visual Editor changes, which are not enabled for your organization.",
   urlRedirects:
     "This experiment contains URL redirects, which are not enabled for your organization.",
+  customJs:
+    "This experiment contains custom JavaScript, which is not enabled for your organization.",
+  crossOriginRedirects:
+    "This experiment contains a URL redirect to a different origin, which is not enabled for your organization.",
 };
 
 export function StartNotEnabledCallout({
@@ -246,7 +250,7 @@ export function StartNotEnabledCallout({
         }
       >
         {NOT_ENABLED_REASONS[notEnabled]}
-        {canManage ? null : " Ask an admin to enable them."}
+        {canManage ? null : " Ask an admin to enable this."}
       </Callout>
       {open ? (
         <EnableAutoExperimentDialog

@@ -64,7 +64,12 @@ async function backfillConnections(organization: string, usage: Settings) {
         redirects !== !!doc.includeRedirectExperiments;
       return {
         updateOne: {
-          filter: { organization, id: doc.id },
+          // Skipped if the connection got its own value since it was read.
+          filter: {
+            organization,
+            id: doc.id,
+            allowCustomJs: { $exists: false },
+          },
           update: {
             $set: {
               includeVisualExperiments: visual,

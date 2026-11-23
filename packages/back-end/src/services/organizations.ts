@@ -181,6 +181,7 @@ import {
 } from "./email";
 import { ReqContextClass } from "./context";
 import { queueSDKPayloadRefresh } from "./features";
+import { getAutoExperimentSettingsUpdate } from "./autoExperiments";
 
 export {
   getEnvironments,
@@ -1468,6 +1469,13 @@ export async function importConfig(
     const settings = {
       ...organization.settings,
       ...config.organization.settings,
+      // An import is held to the same rules as the settings page.
+      ...(config.organization.settings.autoExperiments !== undefined && {
+        autoExperiments: getAutoExperimentSettingsUpdate(
+          context,
+          config.organization.settings.autoExperiments,
+        ),
+      }),
     };
     await updateOrganization(organization.id, { settings });
 

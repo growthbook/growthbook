@@ -282,10 +282,14 @@ export async function planLinkedChanges(
         current.visualChanges.map((c) => ({ ...c, ...stagedById.get(c.id) })),
         { stored: current.visualChanges, variations },
       );
-      assertVisualChangesAllowed(context, staged, {
-        stored: current.visualChanges,
-      });
     }
+    assertVisualChangesAllowed(context, staged, {
+      stored: current.visualChanges,
+      // As the write does for a change to where the changeset applies.
+      always:
+        edit.changes.urlPatterns !== undefined ||
+        edit.changes.editorUrl !== undefined,
+    });
     assertListedOnce(
       staged.map((c) => c.id),
       "visual change",

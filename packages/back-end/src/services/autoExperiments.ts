@@ -1,14 +1,18 @@
 import isEqual from "lodash/isEqual";
+import { z } from "zod";
 import {
   AUTO_EXPERIMENT_FEATURES,
   connectionServesAutoExperimentFeature,
+  getAutoExperimentParentFeature,
   hasCustomJs,
   isAutoExperimentFeatureEnabled,
   isCrossOriginRedirect,
+  redirectKeepsStoredUrls,
 } from "shared/util";
 import type {
   AutoExperimentFeature,
   OrganizationInterface,
+  OrganizationSettings,
 } from "shared/types/organization";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import type { URLRedirectInterface } from "shared/types/url-redirect";
@@ -95,11 +99,6 @@ type RedirectTarget = Pick<
   "urlPattern" | "destinationURLs"
 >;
 
-const redirectUrls = ({ urlPattern, destinationURLs }: RedirectTarget) => [
-  urlPattern,
-  destinationURLs.map((d) => d.url),
-];
-
 // As above: a redirect whose URLs are unchanged is skipped, so the destination
 // list can still follow the experiment's variations.
 export function assertUrlRedirectAllowed(
@@ -107,7 +106,7 @@ export function assertUrlRedirectAllowed(
   redirect: RedirectTarget,
   stored?: RedirectTarget,
 ): void {
-  if (stored && isEqual(redirectUrls(redirect), redirectUrls(stored))) return;
+  if (stored && redirectKeepsStoredUrls(redirect, stored)) return;
   assertAutoExperimentFeatureEnabled(context, "urlRedirects");
   if (isCrossOriginRedirect(redirect)) {
     assertAutoExperimentFeatureEnabled(context, "crossOriginRedirects");
@@ -153,4 +152,36 @@ export function assertConnectionAutoExperimentsAllowed(
       assertAutoExperimentFeatureEnabled(context, feature);
     }
   }
+}
+
+// Merged over what is stored, so a caller can send one feature at a time.
+export function getAutoExperimentSettingsUpdate(
+  context: Context,
+  input: unknown,
+): NonNullable<OrganizationSettings["autoExperiments"]> {
+  if (context.isApiRequest || !context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+  const requested = z
+    .object(
+      Object.fromEntries(
+        AUTO_EXPERIMENT_FEATURES.map((f) => [f, z.boolean().optional()]),
+      ),
+    )
+    .strict()
+    .parse(input);
+  const next = { ...context.org.settings?.autoExperiments, ...requested };
+  for (const feature of AUTO_EXPERIMENT_FEATURES) {
+    const parent = getAutoExperimentParentFeature(feature);
+    if (parent && next[parent] === false) next[feature] = false;
+    const turnsOn =
+      next[feature] === true &&
+      context.org.settings?.autoExperiments?.[feature] === false;
+    if (turnsOn && AUTO_EXPERIMENTS_MODE !== "allowed") {
+      context.throwBadRequestError(
+        "This GrowthBook instance does not allow enabling AI Visual Editor or URL redirect experiments. Set the ALLOW_AUTO_EXPERIMENTS environment variable to true to allow it.",
+      );
+    }
+  }
+  return next;
 }

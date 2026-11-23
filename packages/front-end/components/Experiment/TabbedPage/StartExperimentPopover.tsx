@@ -1,3 +1,5 @@
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import {
@@ -39,6 +41,8 @@ import { useEditsBlockedReason } from "./ExperimentEdits";
 type ContentProps = {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
+  visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   start: StartExperiment;
   editSchedule: (() => void) | null;
 };
@@ -108,6 +112,8 @@ export default function StartExperimentPopover({
 function StartContent({
   experiment,
   linkedFeatures,
+  visualChangesets,
+  urlRedirects,
   start,
   editSchedule,
   close,
@@ -118,7 +124,14 @@ function StartContent({
   useEffect(() => {
     if (start.checklistFailures.length) setBypassed(false);
   }, [start.checklistFailures]);
-  const gate = useStartGate({ experiment, linkedFeatures, start, bypassed });
+  const gate = useStartGate({
+    experiment,
+    linkedFeatures,
+    visualChangesets,
+    urlRedirects,
+    start,
+    bypassed,
+  });
   const { bypassLabel, waivesApproval } = gate.actions;
   // A tick agrees to the bypass its label named; a new label needs a new tick.
   const [tickedLabel, setTickedLabel] = useState(bypassLabel);

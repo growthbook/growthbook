@@ -125,7 +125,8 @@ describe("assertUrlRedirectAllowed", () => {
         {
           ...crossOrigin,
           destinationURLs: [
-            { variation: "v1-renamed", url: "https://evil.test/" },
+            { variation: "v2", url: "" },
+            { variation: "v1", url: "https://evil.test/" },
           ],
         },
         crossOrigin,
