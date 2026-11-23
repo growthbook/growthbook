@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureValue } from "@growthbook/growthbook-react";
 import { Flex, Box } from "@radix-ui/themes";
+import { PiEye, PiEyeSlash } from "react-icons/pi";
 import track from "@/services/track";
 import Text from "@/ui/Text";
 import { getApiHost } from "@/services/env";
@@ -10,6 +11,7 @@ import Field from "@/components/Forms/Field";
 import Button, { WhiteButton } from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import WelcomeFrame from "./WelcomeFrame";
 
 type LoginHeroContent = {
@@ -69,6 +71,7 @@ export default function Welcome({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [welcomeMsgIndex] = useState(Math.floor(Math.random() * 4));
   const { pathname } = useRouter();
   const hero = useFeatureValue<LoginHeroContent | null>(
@@ -357,8 +360,17 @@ export default function Welcome({
               size="legacy"
               label="Password"
               required
-              type="password"
+              type={showPassword ? "text" : "password"}
               {...form.register("password")}
+              append={
+                <Link
+                  color="gray"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <PiEyeSlash /> : <PiEye />}
+                </Link>
+              }
               autoComplete={
                 state === "login" ? "current-password" : "new-password"
               }
