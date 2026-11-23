@@ -43,7 +43,7 @@ import DraftChangesPopover, {
   DraftChangeSection,
   mergeDraftChangeSections,
 } from "./DraftChangesPopover";
-import { featureStatusColors } from "./FeaturesOverview";
+import { featureStatusColors } from "./featureStatusColors";
 import styles from "./EnvironmentStatusCards.module.scss";
 
 // A prerequisite's state in an environment, with why on hover; a scroll area's

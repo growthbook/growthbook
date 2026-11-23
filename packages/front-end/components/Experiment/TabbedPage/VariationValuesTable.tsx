@@ -319,7 +319,7 @@ export default function VariationValuesTable({
           direction="horizontal"
           size="md"
           gutter
-          wheelScrollsSideways
+          wheelScrollsSideways="area"
           edgeCue="shadow"
           skipEdges={["left"]}
         >

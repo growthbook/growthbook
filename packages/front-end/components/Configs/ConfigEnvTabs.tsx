@@ -12,6 +12,8 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import { LineageNode } from "@/components/Configs/fieldSchema";
+import StatusDot from "@/components/Experiment/StatusDot";
+import { draftStatusDotColor } from "@/components/Reviews/RevisionStatusBadge";
 
 type Props = {
   // The config currently open (from the URL) — a base or one of its flavors.
@@ -23,6 +25,8 @@ type Props = {
   // An archived override still shows a (struck-through) tab so it can be opened
   // to unarchive, but no longer serves a value.
   archivedByKey?: Record<string, boolean>;
+  // Overrides with an open draft, flagged so it doesn't seem to vanish.
+  draftByKey?: Record<string, boolean>;
   canCreate: boolean;
   mutate: () => Promise<unknown>;
 };
@@ -59,6 +63,7 @@ export default function ConfigEnvTabs({
   lineage,
   configNames,
   archivedByKey,
+  draftByKey,
   canCreate,
   mutate,
 }: Props) {
@@ -154,48 +159,54 @@ export default function ConfigEnvTabs({
 
   return (
     <>
-      <Box mb="5">
+      {/* Outside TabsList so tabs that don't fit can fold into its More menu.
+          Set apart from the header's controls above. */}
+      <Flex align="center" gap="4" mt="1">
         <Tabs
           value={currentKey}
           onValueChange={(v) => {
             if (v !== currentKey) router.push(`/configs/${v}`);
           }}
+          style={{ flex: 1, minWidth: 0 }}
         >
-          <TabsList>
+          <TabsList style={{ width: "100%", boxShadow: "none" }}>
             {tabs.map((t) => (
               <TabsTrigger key={t.key} value={t.key}>
-                {archivedByKey?.[t.key] ? (
-                  <Tooltip content="Archived — this override no longer serves a value">
-                    <span style={{ textDecoration: "line-through" }}>
-                      {t.label}
-                    </span>
-                  </Tooltip>
-                ) : (
-                  t.label
-                )}
+                <Flex align="center" style={{ gap: 6 }}>
+                  {draftByKey?.[t.key] && (
+                    <Tooltip content="Unpublished draft">
+                      <StatusDot color={draftStatusDotColor("draft")} />
+                    </Tooltip>
+                  )}
+                  {archivedByKey?.[t.key] ? (
+                    <Tooltip content="Archived — this override no longer serves a value">
+                      <span style={{ textDecoration: "line-through" }}>
+                        {t.label}
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    t.label
+                  )}
+                </Flex>
               </TabsTrigger>
             ))}
-            {showCreate && (
-              <Flex
-                align="center"
-                ml="auto"
-                pl="4"
-                onKeyDown={(e) => e.stopPropagation()}
-              >
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setCreateEnv("");
-                    setCreateOpen(true);
-                  }}
-                >
-                  <PiPlus /> Environment override
-                </Button>
-              </Flex>
-            )}
           </TabsList>
         </Tabs>
-      </Box>
+        {showCreate && (
+          <Box flexShrink="0">
+            <Button
+              variant="ghost"
+              icon={<PiPlus />}
+              onClick={() => {
+                setCreateEnv("");
+                setCreateOpen(true);
+              }}
+            >
+              Environment override
+            </Button>
+          </Box>
+        )}
+      </Flex>
 
       {createOpen && (
         <ModalStandard

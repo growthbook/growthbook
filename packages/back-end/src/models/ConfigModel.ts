@@ -143,6 +143,19 @@ export class ConfigModel extends BaseClass {
     );
   }
 
+  // The lineage checks a live write runs, for a draft that changes `parent` or
+  // `extends`, so a cycle or clashing bases show when saved, not at publish.
+  public async assertValidLineage(
+    doc: ConfigInterface,
+    priorBaseKeys: string[],
+  ): Promise<void> {
+    await this.assertNoCycle(doc);
+    await this.assertValidComposition(doc, {
+      lineageChanged: true,
+      priorBaseKeys,
+    });
+  }
+
   private async assertNoCycle(doc: ConfigInterface): Promise<void> {
     const cyclic = await this.findReferenceCycle(doc);
     if (cyclic.length) {

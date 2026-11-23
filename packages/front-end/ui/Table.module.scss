@@ -474,7 +474,7 @@ $pinned-hover-tints:
       top: 0;
       bottom: 1px;
       left: 0;
-      width: var(--space-6);
+      width: $scroll-fade-width;
       transform: translateX(-100%);
       pointer-events: none;
       background: linear-gradient(

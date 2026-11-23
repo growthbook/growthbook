@@ -185,6 +185,9 @@
   border-radius: 8px !important;
   overflow: hidden !important;
 }
+.gb-select__menu.gb-select__menu--field-width {
+  width: auto !important;
+}
 .gb-select__menu-list,
 .gb-multi-select__menu-list {
   padding: 8px !important;
@@ -406,6 +409,9 @@
   color: hsl(0, 0%, 80%);
   cursor: pointer;
   transition: color 0.15s ease;
+  // A text glyph like {@} stays on one line in a cell that wraps anywhere.
+  white-space: nowrap;
+  overflow-wrap: normal;
 
   &:hover {
     color: hsl(0, 0%, 60%);

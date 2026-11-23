@@ -9,22 +9,11 @@
 
   &:hover {
     background-color: var(--violet-a3);
-
-    .sparkCaret {
-      opacity: 0.7;
-    }
   }
 
   &:active {
     background-color: var(--violet-a3);
   }
-}
-
-.sparkCaret {
-  font-size: 12px;
-  color: var(--violet-11);
-  transition: opacity 80ms ease;
-  flex-shrink: 0;
 }
 
 @keyframes sparkLivePulse {
@@ -65,9 +54,4 @@
     transparent 4px,
     transparent 8px
   ) !important;
-}
-
-// In the page it's tested against, as there.
-.legacy {
-  margin-bottom: -10px;
 }
