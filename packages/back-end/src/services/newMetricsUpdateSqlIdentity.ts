@@ -99,7 +99,8 @@ export type NewMetricsUpdateReplayLevel = {
   snapshotId: string;
   metricSettings: MetricForSnapshot[];
   newMetricIds: string[] | null;
-  // The level's own cutoff flag and clock, which its SQL was generated with.
+  // The level's own cutoff flag and planning clock, which its SQL was
+  // generated with. Its units query reads the time of the replay instead.
   endDateIsCutoff: boolean;
   plannedAt: Date | null;
 };

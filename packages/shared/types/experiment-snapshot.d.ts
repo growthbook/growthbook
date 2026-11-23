@@ -242,9 +242,11 @@ export interface ExperimentSnapshotSettings {
   // endDate is read, conversions included. Otherwise conversion windows extend
   // past endDate.
   endDateIsCutoff?: boolean;
-  // The instant the update was planned, which every query of the run treats as
-  // "now": without a cutoff, skipPartialData counts conversion windows back
-  // from it. Absent on snapshots planned before it was stored.
+  // The instant the update was planned. Without a cutoff, skipPartialData
+  // counts metric conversion windows back from it. The units query reads the
+  // time its SQL is generated instead and keeps exposures up to the earlier of
+  // that and the end date, so an end date in the future makes it depend on that
+  // time. Absent on snapshots planned before it was stored.
   plannedAt?: Date;
   /** @deprecated */
   manual?: boolean;
