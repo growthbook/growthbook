@@ -20,6 +20,11 @@ import {
 } from "./privacy";
 import { scrubEventUrls } from "./url-scrub";
 import {
+  registerSessionReplay,
+  unregisterSessionReplay,
+  type SessionReplayApi,
+} from "./controls";
+import {
   getOrCreateSessionReplayId,
   SESSION_REPLAY_IDLE_TIMEOUT_MS,
 } from "./id";
@@ -608,7 +613,7 @@ export function createReplayRecorder({
 
   // forceNew skips the resume check — resuming a rotated-out session's
   // sessionStartedAt would re-trip tooLong every interval. force bypasses
-  // sampling (programmatic gb.startSessionReplay()), never the kill switch.
+  // sampling (programmatic getSessionReplay(gb).start()), never the kill switch.
   // interacted marks a restart triggered by an input rrweb didn't see.
   const startRecording = (
     forceNew = false,
@@ -945,7 +950,11 @@ export function createReplayRecorder({
     cancelPendingStart();
     stopRecording();
   };
-  if (!growthbook._registerSessionReplay(forceStart, explicitStop)) {
+  const replayControls: SessionReplayApi = {
+    start: forceStart,
+    stop: explicitStop,
+  };
+  if (!registerSessionReplay(growthbook, replayControls)) {
     offFeature();
     offExperiment();
     offEvent();
@@ -997,7 +1006,7 @@ export function createReplayRecorder({
     stopRecording();
     window.removeEventListener("pagehide", onPageHide);
     document.removeEventListener("visibilitychange", onVisibilityHide);
-    growthbook._unregisterSessionReplay(forceStart, explicitStop);
+    unregisterSessionReplay(growthbook, replayControls);
   };
 
   growthbook.onDestroy(cleanup);

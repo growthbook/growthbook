@@ -122,8 +122,6 @@ export class GrowthBook<
 
   private _autoExperimentsAllowed: boolean;
   private _destroyed?: boolean;
-  private _sessionReplayStart: (() => void) | undefined;
-  private _sessionReplayStop: (() => void) | undefined;
 
   // Bounded buffer for events logged before an eventLogger is registered
   private _pendingEvents: Array<{
@@ -671,46 +669,6 @@ export class GrowthBook<
     this._destroyCallbacks.push(cb);
   }
 
-  /**
-   * @internal — called by sessionReplayPlugin to register its handlers.
-   * Returns false if a recorder is already registered, in which case the
-   * caller must tear itself down. Overwriting instead would strand the first
-   * recorder: its rrweb observers stay attached and keep emitting, while
-   * stopSessionReplay() can only reach the handlers stored here.
-   */
-  public _registerSessionReplay(start: () => void, stop: () => void): boolean {
-    if (this._sessionReplayStart || this._sessionReplayStop) {
-      console.warn(
-        "[GrowthBook] sessionReplayPlugin registered more than once — " +
-          "keeping the first recorder and discarding the duplicate. Check your plugins array for duplicates.",
-      );
-      return false;
-    }
-    this._sessionReplayStart = start;
-    this._sessionReplayStop = stop;
-    return true;
-  }
-
-  /** @internal — called by sessionReplayPlugin cleanup */
-  public _unregisterSessionReplay(start: () => void, stop: () => void) {
-    if (this._sessionReplayStart === start) {
-      this._sessionReplayStart = undefined;
-    }
-    if (this._sessionReplayStop === stop) {
-      this._sessionReplayStop = undefined;
-    }
-  }
-
-  public startSessionReplay() {
-    if (this._destroyed) return;
-    if (this._sessionReplayStart) this._sessionReplayStart();
-  }
-
-  public stopSessionReplay() {
-    if (this._destroyed) return;
-    if (this._sessionReplayStop) this._sessionReplayStop();
-  }
-
   public isDestroyed() {
     return !!this._destroyed;
   }
@@ -730,8 +688,6 @@ export class GrowthBook<
     });
 
     // Release references to save memory
-    this._sessionReplayStart = undefined;
-    this._sessionReplayStop = undefined;
     this._subscriptions.clear();
     this._featureUsageSubs.clear();
     this._customEventSubs.clear();

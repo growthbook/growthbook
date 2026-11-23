@@ -1,6 +1,9 @@
 import { record, type eventWithTime } from "rrweb";
 import { GrowthBook } from "../../src";
-import { sessionReplayPlugin } from "../../src/plugins/session-replay";
+import {
+  getSessionReplay,
+  sessionReplayPlugin,
+} from "../../src/plugins/session-replay";
 import { _resetSampleDecisionsForTests } from "../../src/plugins/utils/sampling";
 
 jest.mock("rrweb", () => ({ record: jest.fn() }));
@@ -36,6 +39,19 @@ const INTERACTION_EVENT = {
 } as unknown as eventWithTime;
 
 const INGESTOR_HOST = "https://ingest.example.com";
+
+// The plugin owns its controls, so reaching them also asserts it registered
+const startReplay = (gb: GrowthBook) => {
+  const replay = getSessionReplay(gb);
+  if (!replay) throw new Error("sessionReplayPlugin is not registered");
+  replay.start();
+};
+
+const stopReplay = (gb: GrowthBook) => {
+  const replay = getSessionReplay(gb);
+  if (!replay) throw new Error("sessionReplayPlugin is not registered");
+  replay.stop();
+};
 
 function buildGrowthBook(ready = true) {
   return new GrowthBook({
@@ -95,7 +111,7 @@ describe("sessionReplayPlugin — chunked flush for oversized buffers", () => {
       autoRecord: false,
     });
     plugin(gb);
-    gb.startSessionReplay();
+    startReplay(gb);
   });
 
   afterEach(() => {
@@ -340,7 +356,7 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     expect(mockRecord).not.toHaveBeenCalled();
   });
 
-  it("unsampled sessions don't record; startSessionReplay() forces one", () => {
+  it("unsampled sessions don't record; an explicit start forces one", () => {
     jest.spyOn(Math, "random").mockReturnValue(0.99);
     sessionReplayPlugin({
       ingestorHost: INGESTOR_HOST,
@@ -349,7 +365,7 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     })(gb);
     expect(mockRecord).not.toHaveBeenCalled();
 
-    gb.startSessionReplay();
+    startReplay(gb);
     expect(mockRecord).toHaveBeenCalledTimes(1);
   });
 
@@ -396,7 +412,7 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     expect(mockRecord).not.toHaveBeenCalled();
 
     await gb.setPayload({ sdkSettings: { sessionReplay: { enabled: true } } });
-    gb.startSessionReplay();
+    startReplay(gb);
     expect(mockRecord).not.toHaveBeenCalled();
   });
 
@@ -472,7 +488,7 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
       startMode: "immediate",
       enabled: false,
     })(gb);
-    gb.startSessionReplay();
+    startReplay(gb);
     expect(mockRecord).not.toHaveBeenCalled();
   });
 });
@@ -496,11 +512,11 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
 
     const plugin = sessionReplayPlugin({
       ingestorHost: INGESTOR_HOST,
-      autoRecord: false, // tests call startSessionReplay() explicitly
+      autoRecord: false, // tests start the recorder explicitly
     });
     plugin(gb);
 
-    gb.startSessionReplay();
+    startReplay(gb);
 
     // Seed the buffer: snapshot satisfies the chunk-0 guard; interaction
     // flips hasUserInteraction so flushBuffer won't exit early.
@@ -545,7 +561,7 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
     // flushInFlight is still true at that point. Once the microtask fires,
     // flushBuffer's finally block detects !isRecording + buffered events and
     // issues the keepalive flush itself.
-    gb.stopSessionReplay();
+    stopReplay(gb);
     await flushMicrotasks();
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -563,7 +579,7 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
     global.fetch = fetchMock;
 
     // No flush in flight — stopRecording fires void flushBuffer() directly.
-    gb.stopSessionReplay();
+    stopReplay(gb);
     await flushMicrotasks();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -587,7 +603,7 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
 
     // Buffer is empty — neither the void flushBuffer() in stopRecording nor
     // the finally-block guard should trigger a fetch.
-    gb.stopSessionReplay();
+    stopReplay(gb);
     await flushMicrotasks();
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -601,7 +617,7 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
     } as Response);
     global.fetch = fetchMock;
 
-    gb.stopSessionReplay();
+    stopReplay(gb);
     await flushMicrotasks();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -667,7 +683,7 @@ describe("sessionReplayPlugin — flush pipeline", () => {
       autoRecord: false,
     });
     plugin(gb);
-    gb.startSessionReplay();
+    startReplay(gb);
   });
 
   afterEach(() => {
@@ -923,7 +939,7 @@ describe("sessionReplayPlugin — session rotation safety", () => {
       autoRecord: false,
     });
     plugin(gb);
-    gb.startSessionReplay();
+    startReplay(gb);
   });
 
   afterEach(() => {
@@ -1175,9 +1191,9 @@ describe("sessionReplayPlugin — deferred start", () => {
     expect(mockRecord).not.toHaveBeenCalled();
   });
 
-  it("startSessionReplay() starts at once and supersedes a pending start", () => {
+  it("an explicit start runs at once and supersedes a pending start", () => {
     sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
-    gb.startSessionReplay();
+    startReplay(gb);
     expect(mockRecord).toHaveBeenCalledTimes(1);
 
     jest.runOnlyPendingTimers();
@@ -1253,7 +1269,7 @@ describe("sessionReplayPlugin — pause until first interaction", () => {
 
     gb = buildGrowthBook();
     sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, autoRecord: false })(gb);
-    gb.startSessionReplay();
+    startReplay(gb);
   });
 
   afterEach(() => {
@@ -1387,7 +1403,7 @@ describe("sessionReplayPlugin — startup and serialization cost", () => {
     const setAttributes = jest.spyOn(gb, "setAttributes");
 
     sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, autoRecord: false })(gb);
-    gb.startSessionReplay();
+    startReplay(gb);
 
     expect(mockRecord).toHaveBeenCalledTimes(1);
     expect(gb.getAttributes().session_replay_id).toBe(
@@ -1401,13 +1417,13 @@ describe("sessionReplayPlugin — startup and serialization cost", () => {
 
   it("slims the snapshot of nodes the player never uses", () => {
     sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, autoRecord: false })(gb);
-    gb.startSessionReplay();
+    startReplay(gb);
     expect(mockRecord.mock.calls[0][0]).toMatchObject({ slimDOMOptions: true });
   });
 
   it("serializes each rrweb event once, from emit through the request body", async () => {
     sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, autoRecord: false })(gb);
-    gb.startSessionReplay();
+    startReplay(gb);
 
     const snapshot = {
       type: 2,
@@ -1492,7 +1508,7 @@ describe("sessionReplayPlugin — duplicate registration", () => {
     expect(mockRecord).toHaveBeenCalledTimes(1);
   });
 
-  it("stopSessionReplay halts capture when registered twice", async () => {
+  it("an explicit stop halts capture when registered twice", async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -1506,7 +1522,7 @@ describe("sessionReplayPlugin — duplicate registration", () => {
     emitters[0](SNAPSHOT_EVENT);
     emitters[0](INTERACTION_EVENT);
 
-    gb.stopSessionReplay();
+    stopReplay(gb);
     await flushMicrotasks();
     fetchMock.mockClear();
 
@@ -1541,7 +1557,7 @@ describe("sessionReplayPlugin — chunk zero failure", () => {
       autoRecord: false,
     });
     plugin(gb);
-    gb.startSessionReplay();
+    startReplay(gb);
   });
 
   afterEach(() => {
@@ -1638,7 +1654,7 @@ describe("sessionReplayPlugin — chunk zero failure", () => {
       samplingRate: 0,
     })(gb);
     // Forced start records despite rate 0; the rotation must not undo that
-    gb.startSessionReplay();
+    startReplay(gb);
     expect(mockRecord).toHaveBeenCalledTimes(1);
 
     emitEvent(SNAPSHOT_EVENT);
@@ -1730,7 +1746,7 @@ describe("sessionReplayPlugin — chunk zero failure", () => {
     await flushMicrotasks();
     expect(mock).toHaveBeenCalledTimes(1);
 
-    gb.stopSessionReplay();
+    stopReplay(gb);
     reject400();
     await flushMicrotasks();
 
@@ -1851,7 +1867,7 @@ describe("sessionReplayPlugin — non-DOM redaction", () => {
     // Redaction has to happen at flush time for this to be scrubbed.
     gb.logEvent("signup", { ssn: "123-45-6789", tier: "gold" });
 
-    gb.startSessionReplay();
+    startReplay(gb);
     emitEvent(SNAPSHOT_EVENT);
     emitEvent(INTERACTION_EVENT);
 
@@ -1909,7 +1925,7 @@ describe("sessionReplayPlugin — non-DOM redaction", () => {
     })(ownGb);
 
     ownGb.logEvent("signup", {});
-    ownGb.startSessionReplay();
+    startReplay(ownGb);
     emitEvent(SNAPSHOT_EVENT);
     emitEvent(INTERACTION_EVENT);
 
@@ -1952,7 +1968,7 @@ describe("sessionReplayPlugin — non-DOM redaction", () => {
       },
     })(ownGb);
 
-    ownGb.startSessionReplay();
+    startReplay(ownGb);
     emitEvent(SNAPSHOT_EVENT);
     emitEvent(INTERACTION_EVENT);
 
