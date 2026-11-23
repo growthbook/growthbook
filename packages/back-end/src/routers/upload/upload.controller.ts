@@ -195,6 +195,7 @@ export async function getSignedUploadToken(
     SIGNED_IMAGE_EXPIRY_MINUTES,
   );
 
+  res.setHeader("Cache-Control", "no-store");
   res.status(200).json({
     signedUrl,
     fileUrl,
