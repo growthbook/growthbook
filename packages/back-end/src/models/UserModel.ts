@@ -154,8 +154,9 @@ export async function getUsersByIds(ids: string[]): Promise<UserInterface[]> {
 }
 
 export async function deleteUser(id: string): Promise<void> {
-  await UserModel.deleteOne({ id });
+  // Passkeys first, so a failure can't leave them behind without a user
   await deletePasskeysByUserId(id);
+  await UserModel.deleteOne({ id });
 }
 
 export async function createUser({
