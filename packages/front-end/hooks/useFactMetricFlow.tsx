@@ -263,9 +263,7 @@ export default function useFactMetricFlow(
     <FactMetricModal
       close={close}
       initialFactTable={modalTarget.factTable}
-      initialRowFilters={
-        modalTarget.factTable ? modalTarget.rowFilters : undefined
-      }
+      initialRowFilters={modalTarget.rowFilters}
       datasource={modalTarget.datasource}
       source={modalTarget.source}
     />
