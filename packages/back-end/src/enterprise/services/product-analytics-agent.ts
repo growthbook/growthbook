@@ -38,6 +38,7 @@ import {
   getValidDateGranularities,
   calculateProductAnalyticsDateRange,
   dividesByPopulationCount,
+  densifyPopulationTimeseriesRows,
 } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
@@ -999,8 +1000,9 @@ async function executeRunExploration(
       config,
       await withMetricsOf(ctx, prevConfig, getFactMetricById),
     );
+    // The same rows the table shows, including days without Population members.
     const resultCsv = buildResultCsv(
-      exploration?.result?.rows ?? [],
+      exploration ? densifyPopulationTimeseriesRows(exploration, config) : [],
       config,
       getFactMetricById,
     );
