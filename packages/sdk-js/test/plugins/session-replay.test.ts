@@ -1454,6 +1454,59 @@ describe("sessionReplayPlugin — startup and serialization cost", () => {
   });
 });
 
+describe("sessionReplayPlugin — controls after teardown", () => {
+  let gb: GrowthBook;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockRecord.mockClear();
+    mockRecord.mockImplementation(() => jest.fn());
+    seedSessionReplayId("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+    gb = buildGrowthBook();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    sessionStorage.clear();
+    _resetSampleDecisionsForTests();
+  });
+
+  // The CDN wrapper caches this object on the instance, so it outlives destroy
+  it("a saved controls object cannot restart a destroyed recorder", () => {
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, autoRecord: false })(gb);
+    const controls = getSessionReplay(gb);
+    expect(controls).toBeDefined();
+
+    controls!.start();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+
+    gb.destroy();
+    expect(getSessionReplay(gb)).toBeUndefined();
+
+    // Nothing would ever stop observers started here: cleanup already ran
+    controls!.start();
+    controls!.stop();
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("the plugin's own cleanup return value also disarms the controls", () => {
+    const cleanup = sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      autoRecord: false,
+    })(gb) as () => void;
+    const controls = getSessionReplay(gb)!;
+
+    cleanup();
+    controls.start();
+    jest.runOnlyPendingTimers();
+    expect(mockRecord).not.toHaveBeenCalled();
+
+    gb.destroy();
+  });
+});
+
 describe("sessionReplayPlugin — duplicate registration", () => {
   let gb: GrowthBook;
   let emitters: Array<(event: eventWithTime) => void>;
@@ -1788,6 +1841,63 @@ describe("sessionReplayPlugin — chunk zero failure", () => {
     await flushMicrotasks();
 
     // B's buffered events survived
+    const body = JSON.parse(mock.mock.calls[0][1].body as string) as {
+      events: unknown[];
+    };
+    expect(body.events.length).toBeGreaterThan(0);
+  });
+
+  // The budget-exhausted branch returns before rotateAfterLostSnapshot, so it
+  // needs its own staleness check or a dead session's 400 stops a live one
+  it("a stale chunk-0 rejection does not stop the current session once the budget is spent", async () => {
+    const reject400 = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+    } as Response);
+    global.fetch = reject400;
+
+    // Burn the budget: 3 rejections, 3 recovery rotations
+    for (let i = 0; i < 3; i++) {
+      emitEvent(SNAPSHOT_EVENT);
+      emitEvent(INTERACTION_EVENT);
+      jest.advanceTimersByTime(60_000);
+      await flushMicrotasks();
+    }
+    expect(mockRecord).toHaveBeenCalledTimes(4);
+
+    // Session D's chunk 0 goes out and stays pending
+    const { mock, reject400: settleStale } = pendingFetch();
+    global.fetch = mock;
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+    expect(mock).toHaveBeenCalledTimes(1);
+
+    // The hard cap rotates D out into E while D's request is still open
+    jest.advanceTimersByTime(31 * 60 * 1000);
+    await flushMicrotasks();
+    expect(mockRecord).toHaveBeenCalledTimes(5);
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+
+    // D finally fails. With the budget spent this would stop E outright.
+    settleStale();
+    await flushMicrotasks();
+
+    mock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    mock.mockClear();
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    // E is still recording and still owns its buffer
+    expect(mock).toHaveBeenCalled();
     const body = JSON.parse(mock.mock.calls[0][1].body as string) as {
       events: unknown[];
     };

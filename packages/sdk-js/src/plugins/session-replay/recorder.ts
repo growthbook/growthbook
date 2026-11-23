@@ -569,6 +569,14 @@ export function createReplayRecorder({
             return;
           }
           if (batchChunkIndex === 0) {
+            if (sessionReplayId !== sessionReplayIdBeingSent) {
+              console.warn(
+                `session-replay: chunk 0 rejected (HTTP ${status}) after ` +
+                  "session rotation; ignoring",
+                e,
+              );
+              return;
+            }
             // Recovering re-snapshots, and a deterministic rejection would
             // make us pay that every flush; give up once the budget is spent
             if (rejectedSnapshots >= MAX_REJECTED_SNAPSHOTS) {
@@ -621,6 +629,7 @@ export function createReplayRecorder({
     interacted = false,
   ) => {
     if (isRecording) return;
+    if (cleanedUp) return;
     const settings = resolveSettings();
     if (!settings.enabled) return;
     if (userOptedOutOfTracking()) return;
@@ -940,12 +949,14 @@ export function createReplayRecorder({
   );
 
   const forceStart = () => {
+    if (cleanedUp || growthbook.isDestroyed()) return;
     autoRestart = true;
     rejectedSnapshots = 0;
     cancelPendingStart();
     startRecording(false, true);
   };
   const explicitStop = () => {
+    if (cleanedUp) return;
     autoRestart = false;
     cancelPendingStart();
     stopRecording();
