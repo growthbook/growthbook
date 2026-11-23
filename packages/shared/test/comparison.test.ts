@@ -1378,17 +1378,6 @@ describe("extendDateBucketsForward", () => {
     expect(extendDateBucketsForward({ ...args, count: 0 })).toEqual([]);
     expect(extendDateBucketsForward({ ...args, count: -3 })).toEqual([]);
   });
-
-  it("keeps a Sunday week start instead of snapping to Monday", () => {
-    // BigQuery and SQL Server truncate weeks to Sunday.
-    expect(
-      extendDateBucketsForward({
-        resolvedGranularity: "week",
-        afterIso: "2026-11-08 00:00:00",
-        count: 2,
-      }),
-    ).toEqual(["2026-11-15T00:00:00.000Z", "2026-11-22T00:00:00.000Z"]);
-  });
 });
 
 describe("enumerateDateBucketsBetween", () => {
@@ -1406,8 +1395,8 @@ describe("enumerateDateBucketsBetween", () => {
     ]);
   });
 
-  it("lines up with a Sunday-week extension", () => {
-    const primary = ["2026-11-01 00:00:00", "2026-11-08 00:00:00"];
+  it("lines up with a weekly extension", () => {
+    const primary = ["2026-11-02 00:00:00", "2026-11-09 00:00:00"];
     const extended = extendDateBucketsForward({
       resolvedGranularity: "week",
       afterIso: primary[1],
@@ -1419,10 +1408,10 @@ describe("enumerateDateBucketsBetween", () => {
         bucketIsos: [...primary, ...extended],
       }),
     ).toEqual([
-      Date.UTC(2026, 10, 1),
-      Date.UTC(2026, 10, 8),
-      Date.UTC(2026, 10, 15),
-      Date.UTC(2026, 10, 22),
+      Date.UTC(2026, 10, 2),
+      Date.UTC(2026, 10, 9),
+      Date.UTC(2026, 10, 16),
+      Date.UTC(2026, 10, 23),
     ]);
   });
 
@@ -1583,7 +1572,7 @@ describe("densifyComparisonExplorationTimeseries", () => {
       ]);
     });
 
-    it("lines filled weeks up with a warehouse's Sunday weeks", () => {
+    it("fills Monday weeks around the warehouse's own", () => {
       const weekly: ExplorationConfig = {
         ...baseConfig,
         dimensions: [
@@ -1595,17 +1584,17 @@ describe("densifyComparisonExplorationTimeseries", () => {
           endDate: "2024-01-31",
         },
       };
-      // 2024-01-14 is a Sunday.
+      // 2024-01-15 is a Monday; every dialect's SQL starts weeks on Monday.
       const out = densifyTimeseriesRows(
-        shellExploration([row("2024-01-14", 3)]),
+        shellExploration([row("2024-01-15", 3)]),
         weekly,
       );
       expect(out.map((r) => r.dimensions[0])).toEqual([
-        "2023-12-31T00:00:00.000Z",
-        "2024-01-07T00:00:00.000Z",
-        "2024-01-14",
-        "2024-01-21T00:00:00.000Z",
-        "2024-01-28T00:00:00.000Z",
+        "2024-01-01T00:00:00.000Z",
+        "2024-01-08T00:00:00.000Z",
+        "2024-01-15",
+        "2024-01-22T00:00:00.000Z",
+        "2024-01-29T00:00:00.000Z",
       ]);
     });
 

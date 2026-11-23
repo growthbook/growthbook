@@ -44,12 +44,11 @@ describe("buildDateTimeAxisOption", () => {
     expect(option.axis.max).toBe(day + DAY_MS / 2);
   });
 
-  it("pads a single Sunday-start week by half a week, without snapping to Monday", () => {
-    // BigQuery and SQL Server truncate weeks to Sunday.
-    const { option } = build(["2026-11-01 00:00:00"], "week");
-    const sunday = Date.UTC(2026, 10, 1);
-    expect(option.axis.min).toBe(sunday - 3.5 * DAY_MS);
-    expect(option.axis.max).toBe(sunday + 3.5 * DAY_MS);
+  it("pads a single week by half a week either side", () => {
+    const { option } = build(["2026-11-02 00:00:00"], "week");
+    const monday = Date.UTC(2026, 10, 2);
+    expect(option.axis.min).toBe(monday - 3.5 * DAY_MS);
+    expect(option.axis.max).toBe(monday + 3.5 * DAY_MS);
   });
 
   it("leaves the extent to ECharts when there are several buckets", () => {
@@ -83,23 +82,23 @@ describe("buildDateTimeAxisOption", () => {
     expect(option.axis).not.toHaveProperty("min");
   });
 
-  it("ticks every point of a Sunday-week series extended for a comparison", () => {
-    // Two BigQuery weeks, plus two more added because the comparison window
+  it("ticks every point of a weekly series extended for a comparison", () => {
+    // Two warehouse weeks, plus two more added because the comparison window
     // is longer (see extendDateBucketsForward).
     const { ticks } = build(
       [
-        "2026-11-01 00:00:00",
-        "2026-11-08 00:00:00",
-        "2026-11-15T00:00:00.000Z",
-        "2026-11-22T00:00:00.000Z",
+        "2026-11-02 00:00:00",
+        "2026-11-09 00:00:00",
+        "2026-11-16T00:00:00.000Z",
+        "2026-11-23T00:00:00.000Z",
       ],
       "week",
     );
     expect(ticks).toEqual([
-      Date.UTC(2026, 10, 1),
-      Date.UTC(2026, 10, 8),
-      Date.UTC(2026, 10, 15),
-      Date.UTC(2026, 10, 22),
+      Date.UTC(2026, 10, 2),
+      Date.UTC(2026, 10, 9),
+      Date.UTC(2026, 10, 16),
+      Date.UTC(2026, 10, 23),
     ]);
   });
 

@@ -665,15 +665,8 @@ export function extendDateBucketsForward(params: {
 }): string[] {
   const { resolvedGranularity, afterIso, count } = params;
   if (count <= 0) return [];
-  // `afterIso` is already a bucket start, so step from it as-is: truncating
-  // would move a Sunday week start (BigQuery, SQL Server) back to Monday.
-  // Months and years are still truncated, since every warehouse starts them
-  // on the 1st and stepping a month from the 31st would overflow.
-  const after = parseWarehouseDate(afterIso);
-  const cur =
-    resolvedGranularity === "month" || resolvedGranularity === "year"
-      ? truncateUtc(after, resolvedGranularity)
-      : after;
+  // `afterIso` is already a bucket start, so step from it as-is.
+  const cur = parseWarehouseDate(afterIso);
   if (Number.isNaN(cur.getTime())) return [];
   const out: string[] = [];
   for (let i = 0; i < count; i++) {
@@ -695,10 +688,9 @@ export function nextDateBucketStart(
 
 /**
  * Every bucket start, in UTC ms, from the earliest of `bucketIsos` to the
- * latest, including buckets with no data. Steps from the earliest bucket
- * rather than re-truncating, so the warehouse's own alignment (e.g. Sunday
- * weeks) carries through. `bucketIsos` can be in any order; unparseable
- * values are skipped.
+ * latest, including buckets with no data. `bucketIsos` are bucket starts, so
+ * this steps from the earliest one as-is. They can be in any order;
+ * unparseable values are skipped.
  */
 export function enumerateDateBucketsBetween(params: {
   resolvedGranularity: ResolvedGranularity;
@@ -723,30 +715,17 @@ export function enumerateDateBucketsBetween(params: {
 
 /**
  * Every bucket start in `[rangeStart, rangeEnd]` inclusive, aligned to Postgres-style
- * `date_trunc` in UTC (week = Monday 00:00 UTC).
- *
- * `anchor` is a bucket start the warehouse actually returned. Hour, day and
- * week buckets are shifted to line up with it, so a warehouse whose weeks
- * start on Sunday (BigQuery, SQL Server) gets Sunday buckets, not Mondays
- * mixed in with its own.
+ * `date_trunc` in UTC (week = Monday 00:00 UTC, as every dialect's SQL
+ * truncates it).
  */
 export function enumerateProductAnalyticsDateBuckets(params: {
   resolvedGranularity: ResolvedGranularity;
   rangeStart: Date;
   rangeEnd: Date;
-  anchor?: Date | null;
 }): string[] {
-  const { resolvedGranularity, rangeStart, rangeEnd, anchor } = params;
-  const offset = bucketOffsetMs(anchor ?? null, resolvedGranularity);
-  const truncate = (d: Date) =>
-    new Date(
-      truncateUtc(
-        new Date(d.getTime() - offset),
-        resolvedGranularity,
-      ).getTime() + offset,
-    );
-  const first = truncate(rangeStart);
-  const last = truncate(rangeEnd);
+  const { resolvedGranularity, rangeStart, rangeEnd } = params;
+  const first = truncateUtc(rangeStart, resolvedGranularity);
+  const last = truncateUtc(rangeEnd, resolvedGranularity);
   const out: string[] = [];
   for (
     let cur = new Date(first.getTime());
@@ -756,35 +735,6 @@ export function enumerateProductAnalyticsDateBuckets(params: {
     out.push(cur.toISOString());
   }
   return out;
-}
-
-/**
- * How far `anchor` sits past the UTC `date_trunc` of itself, e.g. 6 days for
- * a Sunday week start. Only fixed-length buckets can be shifted this way;
- * months and years always start on the 1st.
- */
-function bucketOffsetMs(
-  anchor: Date | null,
-  granularity: ResolvedGranularity,
-): number {
-  if (!anchor || !Number.isFinite(anchor.getTime())) return 0;
-  if (granularity === "month" || granularity === "year") return 0;
-  return anchor.getTime() - truncateUtc(anchor, granularity).getTime();
-}
-
-/** The first row date that parses, as a bucket start to align filled buckets to. */
-function firstBucketAnchor(
-  ...rowSets: (ProductAnalyticsResultRow[] | undefined)[]
-): Date | null {
-  for (const rows of rowSets) {
-    for (const row of rows ?? []) {
-      const dim0 = row.dimensions[0];
-      if (dim0 === null || dim0 === undefined) continue;
-      const d = parseWarehouseDate(String(dim0));
-      if (Number.isFinite(d.getTime())) return d;
-    }
-  }
-  return null;
 }
 
 function orderedMetricIdsForDensify(
@@ -887,9 +837,6 @@ export function densifyComparisonExplorationTimeseries(params: {
     // A custom range can end in the future; zeros there would read as
     // "nothing happened" rather than "not yet".
     rangeEnd: dr.endDate.getTime() > now.getTime() ? now : dr.endDate,
-    // Both periods come from the same warehouse, so either one's buckets
-    // show where its weeks start.
-    anchor: firstBucketAnchor(comparisonRows, primaryRows),
   });
   if (bucketStrings.length === 0) {
     return null;
