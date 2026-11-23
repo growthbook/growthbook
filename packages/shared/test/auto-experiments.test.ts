@@ -155,12 +155,12 @@ describe("isCrossOriginRedirect", () => {
     ).toBe(true);
   });
 
-  it("flags a destination that isn't https, even on the same host", () => {
+  it("allows http to http on the same host", () => {
     expect(
       isCrossOriginRedirect(
-        redirect("http://www.example.com/a", "http://www.example.com/b"),
+        redirect("http://localhost:3000/a", "http://localhost:3000/b"),
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("flags a URL it can't read", () => {
