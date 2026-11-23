@@ -48,6 +48,7 @@ export default function ReportMetaInfo({
   isAdmin,
   canEdit,
   canDelete,
+  canDuplicate,
   showEditControls,
   showPrivateLink,
   isPublic,
@@ -61,6 +62,7 @@ export default function ReportMetaInfo({
   isAdmin?: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
+  canDuplicate?: boolean;
   showEditControls?: boolean;
   showPrivateLink?: boolean;
   isPublic?: boolean;
@@ -397,6 +399,7 @@ export default function ReportMetaInfo({
                   dimension={snapshot?.dimension ?? undefined}
                   setNameModalOpen={canEdit ? setGeneralModalOpen : undefined}
                   canDelete={canDelete}
+                  canDuplicate={canDuplicate}
                 />
               ) : null}
             </Flex>
