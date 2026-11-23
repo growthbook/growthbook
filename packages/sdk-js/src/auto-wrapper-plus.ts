@@ -1,8 +1,11 @@
 // core+sessions: auto.js plus session replay, with the low-risk auto-events
 // on by default. rrweb is inlined so this stays one self-contained script.
 import { buildCore, type WindowContext } from "./auto-wrapper-core";
+import type { GrowthBook } from "./GrowthBook";
 import {
+  getSessionReplay,
   sessionReplayPlugin,
+  type SessionReplayApi,
   type SessionReplayOptions,
 } from "./plugins/session-replay/index";
 
@@ -35,5 +38,7 @@ if (!sessionReplayDisabled) {
   })(gb);
 }
 
-// Default export only: the IIFE assigns it to window._growthbook
-export default gb;
+const gbWithReplay = gb as GrowthBook & { sessionReplay?: SessionReplayApi };
+gbWithReplay.sessionReplay = getSessionReplay(gb);
+
+export default gbWithReplay;

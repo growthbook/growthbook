@@ -1088,6 +1088,9 @@ importers:
       '@rollup/plugin-replace':
         specifier: ^6.0.3
         version: 6.0.3(rollup@4.59.0)
+      '@rrweb/record':
+        specifier: 2.0.1
+        version: 2.0.1
       '@rrweb/types':
         specifier: 2.0.1
         version: 2.0.1
@@ -5690,6 +5693,9 @@ packages:
 
   '@rrweb/packer@2.0.1':
     resolution: {integrity: sha512-2U8RkVe+ZK3gTtmKjJKjoh6QL1Q6wIlt3sBTJeCPERLr9e0JIimNrZ1+bog1L30CTVP3ULuDf5Ba7RZO+QNcHg==}
+
+  '@rrweb/record@2.0.1':
+    resolution: {integrity: sha512-vv1arNDrlWW6tmDnLKPEhnZf14OY3Q6nrl+JTNN+RoGRRoWQHb4sNy/Hlg/xlnAlob/OQyYwLPOMZZOYnwWouQ==}
 
   '@rrweb/replay@2.0.1':
     resolution: {integrity: sha512-UrZONirb8o4t0urg1aJ8aMSWhNHvJ3a2usuVbPJIm/edyFbwTvvY9sg/rrXccyXOntFhhp73R5nCretODRZcCw==}
@@ -19352,6 +19358,12 @@ snapshots:
     dependencies:
       '@rrweb/types': 2.0.1
       fflate: 0.4.9
+
+  '@rrweb/record@2.0.1':
+    dependencies:
+      '@rrweb/types': 2.0.1
+      '@rrweb/utils': 2.0.1
+      rrweb: 2.0.1
 
   '@rrweb/replay@2.0.1':
     dependencies:
