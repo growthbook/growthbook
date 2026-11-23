@@ -502,6 +502,9 @@ describe("getFeatureDefinition with QA overrides", () => {
     const forcedOnly = build([forcedOverride], { exp, capabilities });
     expect(forcedOnly?.rules).toHaveLength(1);
     expect(forcedOnly?.rules?.[0]?.parentConditions).toBeUndefined();
+    expect(
+      forcedOnly?.rules?.[0]?.metadata?.qaOverride?.parentConditions,
+    ).toEqual([{ id: "parent", condition: { value: true } }]);
 
     const ownTargeting = build(
       [withFilters(randomOverride, { condition: '{"id":"123"}' })],
@@ -872,6 +875,33 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
     );
     expect(payload).toHaveLength(1);
     expect(payload[0].parentConditions).toBeUndefined();
+  });
+
+  it("is not removed by a prerequisite the override does not keep", () => {
+    const exp = {
+      ...visualDraft,
+      phases: [
+        {
+          ...visualDraft.phases[0],
+          prerequisites: [{ id: "parent", condition: '{"value":true}' }],
+        },
+      ],
+    } as unknown as ExperimentInterface;
+    // Off in this environment, so the prerequisite can never pass.
+    const parent = {
+      id: "parent",
+      defaultValue: "true",
+      valueType: "boolean",
+      environmentSettings: { dev: { enabled: false, rules: [] } },
+    } as unknown as FeatureInterface;
+
+    expect(build([randomOverride], { exp, features: [parent] })).toEqual([]);
+
+    const [forced] = build([forcedOverride], { exp, features: [parent] });
+    expect(forced).toMatchObject({ key: "checkout::qa", weights: [0, 1] });
+    expect(forced.metadata?.qaOverride?.parentConditions).toEqual([
+      { id: "parent", condition: { value: true } },
+    ]);
   });
 
   it("keeps the experiment's own configuration and change id in metadata on every copy", () => {
