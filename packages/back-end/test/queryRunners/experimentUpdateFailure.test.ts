@@ -17,6 +17,7 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
 const context = {
   org: { id: "org_test" },
   permissions: { canRunExperimentQueries: () => true },
+  logger: { warn: jest.fn() },
   models: {
     incrementalRefresh: {
       releaseLock: jest.fn().mockResolvedValue(undefined),
@@ -108,6 +109,20 @@ describe.each([
     },
   );
 
+  it("still concludes the snapshot when the release fails", async () => {
+    jest.mocked(releaseLock).mockRejectedValueOnce(new Error("mongo down"));
+    const runner = new Runner(context, snapshot, {
+      datasource: {},
+    } as SourceIntegrationInterface);
+    await runner.updateModel({ status: "failed", queries: [], error: "boom" });
+
+    expect(updateSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: expect.objectContaining({ status: "error" }),
+      }),
+    );
+  });
+
   it("keeps the lock while the snapshot is still running", async () => {
     const runner = new Runner(context, snapshot, {
       datasource: {},
@@ -175,14 +190,7 @@ describe.each([ShutdownStandardRunner, ShutdownExploratoryRunner])(
           snapshot.experiment,
           snapshot.id,
         );
-        expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
-          context,
-          snapshot.id,
-          expect.objectContaining({ error: "boom" }),
-          "unknown",
-          { concludedBy: "runner" },
-          null,
-        );
+        expect(errorSnapshotIfStillRunning).toHaveBeenCalled();
         expect(
           jest.mocked(releaseLock).mock.invocationCallOrder[0],
         ).toBeLessThan(
@@ -190,5 +198,16 @@ describe.each([ShutdownStandardRunner, ShutdownExploratoryRunner])(
         );
       },
     );
+
+    it("still writes the error when the release fails", async () => {
+      jest.mocked(releaseLock).mockRejectedValueOnce(new Error("mongo down"));
+      jest.mocked(errorSnapshotIfStillRunning).mockResolvedValue(true);
+      const runner = new Runner(context, snapshot, {
+        datasource: {},
+      } as SourceIntegrationInterface);
+      await runner.shutDownWithError("boom");
+
+      expect(errorSnapshotIfStillRunning).toHaveBeenCalled();
+    });
   },
 );

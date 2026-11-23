@@ -219,6 +219,7 @@ import {
   updateSnapshot,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { releaseSnapshotLock } from "back-end/src/models/IncrementalRefreshModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import { getPastExperimentsModelByDatasource } from "back-end/src/models/PastExperimentsModel";
 import {
@@ -2497,14 +2498,7 @@ export async function createSnapshotFromPlan({
     return queryRunner;
   } catch (e) {
     if (hasIncrementalRefreshLock) {
-      await context.models.incrementalRefresh
-        .releaseLock(experiment.id, plan.snapshot.id)
-        .catch((releaseErr) =>
-          context.logger.warn(
-            releaseErr,
-            "Failed to release incremental refresh lock during error cleanup",
-          ),
-        );
+      await releaseSnapshotLock(context, plan.snapshot, "during error cleanup");
     }
 
     if (createdSnapshotId) {
