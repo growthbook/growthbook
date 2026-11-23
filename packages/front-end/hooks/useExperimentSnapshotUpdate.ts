@@ -103,7 +103,8 @@ export function useExperimentSnapshotUpdate({
   experiment: ExperimentInterfaceStringDates | undefined;
   phase: number;
   dimension?: string;
-  mutate: () => void;
+  // Refetches the latest snapshot; a returned promise settles once it has.
+  mutate: () => Promise<unknown> | void;
   mutateAdditional?: () => void;
   setRefreshError: (error: string) => void;
   onSuccess?: () => void;
@@ -121,6 +122,9 @@ export function useExperimentSnapshotUpdate({
   const { hasCommercialFeature } = useUser();
 
   const [loading, setLoading] = useState(false);
+  // Set from a submit until it fails or the refetch shows its update, so a
+  // second click, even in the same tick, can't start another.
+  const submittingRef = useRef(false);
   // Set when the back end ran a normal update in place of the new-metrics one.
   const [notice, setNotice] = useState<SnapshotUpdateNotice | null>(null);
   const [longResult, setLongResult] = useState(false);
@@ -166,6 +170,7 @@ export function useExperimentSnapshotUpdate({
       setNotice(null);
       const timer = setTimeout(() => setLongResult(true), 5000);
       let apiError: unknown = null;
+      let started = false;
       try {
         const datasource = experiment.datasource
           ? (getDatasourceById(experiment.datasource) ?? undefined)
@@ -211,6 +216,7 @@ export function useExperimentSnapshotUpdate({
           });
         }
         onSuccess?.();
+        started = true;
         return { status: "success" };
       } catch (e) {
         const blocker = apiErrorToSnapshotRefreshBlocker(apiError);
@@ -229,9 +235,12 @@ export function useExperimentSnapshotUpdate({
         return { status: "failed" };
       } finally {
         clearTimeout(timer);
-        setLoading(false);
-        mutate();
+        const refetched = mutate();
         mutateAdditional?.();
+        // Until the refetch shows the update running, the controls would
+        // offer to start another.
+        if (started) await refetched;
+        setLoading(false);
       }
     },
     [
@@ -271,34 +280,39 @@ export function useExperimentSnapshotUpdate({
 
   const submitUpdate = useCallback(
     async (options: SubmitUpdateOptions = {}) => {
-      if (!experiment) return;
-      if (customValidation && !(await customValidation())) {
-        return;
+      if (!experiment || submittingRef.current) return;
+      submittingRef.current = true;
+      try {
+        if (customValidation && !(await customValidation())) {
+          return;
+        }
+        const datasource = experiment.datasource
+          ? (getDatasourceById(experiment.datasource) ?? undefined)
+          : undefined;
+        const resolvedDimension = getSnapshotDimensionForPostRequest({
+          dimension,
+          experiment,
+          datasource,
+          hasPipelineModeFeature: hasCommercialFeature("pipeline-mode"),
+        });
+        const force = options.force ?? false;
+        if (
+          force &&
+          options.fullRefreshReasons !== undefined &&
+          !(await promptFullRefresh(options.fullRefreshReasons))
+        ) {
+          return;
+        }
+        await runSnapshot(resolvedDimension, {
+          force,
+          updateScope: options.updateScope,
+          ...(options.updateScope === "new_metrics"
+            ? { trackingSource: "UpdateNewMetrics" }
+            : {}),
+        });
+      } finally {
+        submittingRef.current = false;
       }
-      const datasource = experiment.datasource
-        ? (getDatasourceById(experiment.datasource) ?? undefined)
-        : undefined;
-      const resolvedDimension = getSnapshotDimensionForPostRequest({
-        dimension,
-        experiment,
-        datasource,
-        hasPipelineModeFeature: hasCommercialFeature("pipeline-mode"),
-      });
-      const force = options.force ?? false;
-      if (
-        force &&
-        options.fullRefreshReasons !== undefined &&
-        !(await promptFullRefresh(options.fullRefreshReasons))
-      ) {
-        return;
-      }
-      await runSnapshot(resolvedDimension, {
-        force,
-        updateScope: options.updateScope,
-        ...(options.updateScope === "new_metrics"
-          ? { trackingSource: "UpdateNewMetrics" }
-          : {}),
-      });
     },
     [
       customValidation,

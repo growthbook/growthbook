@@ -33,7 +33,8 @@ export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
   entityId: string;
   datasourceId?: string | null;
   latest?: T;
-  mutate: () => void;
+  // Refetches the latest snapshot; a returned promise settles once it has.
+  mutate: () => Promise<unknown> | void;
   mutateAdditional?: () => void;
   setRefreshError: (error: string) => void;
   experimentSnapshotTrackingProps?: {

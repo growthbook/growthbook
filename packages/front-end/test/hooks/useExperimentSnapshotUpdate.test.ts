@@ -76,6 +76,68 @@ describe("useExperimentSnapshotUpdate", () => {
     expect(apiCall.mock.calls[0][0]).toBe("/experiment/exp_1/snapshot");
   });
 
+  it("starts one update for two submits in the same tick", async () => {
+    apiCall.mockResolvedValue({ status: 200, snapshot: { id: "snap_1" } });
+    const { result } = render();
+
+    await act(() =>
+      Promise.all([
+        result.current.submitUpdate({ updateScope: "new_metrics" }),
+        result.current.submitUpdate({ updateScope: "all_metrics" }),
+      ]),
+    );
+
+    expect(apiCall).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(apiCall.mock.calls[0][1].body).updateScope).toBe(
+      "new_metrics",
+    );
+  });
+
+  it("holds a started update until the refetch that shows it has settled", async () => {
+    apiCall.mockResolvedValue({ status: 200, snapshot: { id: "snap_1" } });
+    let settleRefetch = () => {};
+    const mutate = vi
+      .fn(async () => {})
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            settleRefetch = resolve;
+          }),
+      );
+    const { result } = render({ mutate });
+
+    let submitted = false;
+    await act(async () => {
+      void result.current.submitUpdate().then(() => {
+        submitted = true;
+      });
+    });
+
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(submitted).toBe(false);
+    expect(result.current.loading).toBe(true);
+    await act(() => result.current.submitUpdate());
+    expect(apiCall).toHaveBeenCalledTimes(1);
+
+    await act(async () => settleRefetch());
+
+    expect(submitted).toBe(true);
+    expect(result.current.loading).toBe(false);
+    await act(() => result.current.submitUpdate());
+    expect(apiCall).toHaveBeenCalledTimes(2);
+  });
+
+  it("releases a failed update without waiting for the refetch", async () => {
+    apiCall.mockRejectedValueOnce(new Error("boom"));
+    const mutate = vi.fn(() => new Promise<void>(() => {}));
+    const { result } = render({ mutate });
+
+    await act(() => result.current.submitUpdate());
+
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(result.current.loading).toBe(false);
+  });
+
   it("posts when customValidation resolves true", async () => {
     apiCall.mockResolvedValue({ status: 200, snapshot: { id: "snap_1" } });
     const customValidation = vi.fn().mockResolvedValue(true);
