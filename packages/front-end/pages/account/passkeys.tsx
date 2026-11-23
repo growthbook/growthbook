@@ -41,8 +41,10 @@ export default function PasskeysPage() {
 
 function Passkeys() {
   const { apiCall } = useAuth();
+  // Passkeys belong to the user, so switching organizations shouldn't refetch
   const { data, error, mutate } = useApi<{ passkeys: PasskeySummary[] }>(
     "/user/passkeys",
+    { orgScoped: false },
   );
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState<PasskeySummary | null>(null);
