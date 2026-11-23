@@ -10,6 +10,7 @@ import {
   onHidden,
   onVisible,
 } from "../src";
+import { initializeCache } from "../src/feature-repository";
 
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");
@@ -1819,6 +1820,228 @@ describe("feature-repo", () => {
     growthbook.destroy();
     cleanup();
     event.clear();
+  });
+
+  it("waits for a slow cache load when instances initialize concurrently", async () => {
+    const cachedPayload = {
+      features: {
+        foo: {
+          defaultValue: "cached",
+        },
+      },
+    };
+
+    // A storage read that stays pending until the test releases it, so the race
+    // outcome doesn't depend on real timing
+    const reads: ((value: string | null) => void)[] = [];
+    const getItem = jest.fn(
+      () => new Promise<string | null>((resolve) => reads.push(resolve)),
+    );
+
+    const [f, cleanup] = mockApi({
+      features: {
+        foo: {
+          defaultValue: "network",
+        },
+      },
+    });
+    setPolyfills({
+      localStorage: {
+        getItem,
+        setItem: () => undefined,
+      },
+    });
+
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "slowcache",
+    });
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "slowcache",
+    });
+
+    // Both inits are issued while the cache load is still pending. Each one must
+    // block on the same in-flight load instead of reading an empty cache.
+    const inits = Promise.all([growthbook1.init(), growthbook2.init()]);
+    expect(getItem).toHaveBeenCalledTimes(1);
+
+    // Yield a macrotask. While the storage read is pending, neither instance may
+    // have fallen back to the network: they both awaited the shared load. (With a
+    // boolean set before the load, the second init races past it and fetches.)
+    await sleep(0);
+    expect(getItem).toHaveBeenCalledTimes(1);
+    expect(f.mock.calls.length).toEqual(0);
+
+    // The slow storage finally delivers the persisted cache
+    reads[0](
+      JSON.stringify([
+        [
+          "https://fakeapi.sample.io||slowcache",
+          {
+            data: cachedPayload,
+            staleAt: new Date(Date.now() + 10000).toISOString(),
+            version: "",
+          },
+        ],
+      ]),
+    );
+
+    await inits;
+
+    // Both instances restored the cached payload instead of an empty object,
+    // and neither had to fall back to the network
+    expect(growthbook1.getFeatures()).toEqual(cachedPayload.features);
+    expect(growthbook2.getFeatures()).toEqual(cachedPayload.features);
+    expect(f.mock.calls.length).toEqual(0);
+
+    growthbook1.destroy();
+    growthbook2.destroy();
+    cleanup();
+
+    // Restore localStorage polyfill
+    setPolyfills({ localStorage: globalThis.localStorage });
+  });
+
+  it("reads the persisted cache once for concurrent initializations", async () => {
+    const cachedPayload = {
+      features: {
+        foo: {
+          defaultValue: "cached",
+        },
+      },
+    };
+    const getItem = jest.fn(() =>
+      Promise.resolve(
+        JSON.stringify([
+          [
+            "https://fakeapi.sample.io||singleflight",
+            {
+              data: cachedPayload,
+              staleAt: new Date(Date.now() + 10000).toISOString(),
+              version: "",
+            },
+          ],
+        ]),
+      ),
+    );
+
+    const [f, cleanup] = mockApi({
+      features: {
+        foo: {
+          defaultValue: "network",
+        },
+      },
+    });
+    setPolyfills({
+      localStorage: {
+        getItem,
+        setItem: () => undefined,
+      },
+    });
+
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "singleflight",
+    });
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "singleflight",
+    });
+
+    await Promise.all([growthbook1.init(), growthbook2.init()]);
+
+    // One in-flight load shared between both callers - not one read per init
+    expect(getItem).toHaveBeenCalledTimes(1);
+    expect(f.mock.calls.length).toEqual(0);
+    expect(growthbook1.getFeatures()).toEqual(cachedPayload.features);
+    expect(growthbook2.getFeatures()).toEqual(cachedPayload.features);
+
+    // A later instance reuses the settled initialization instead of re-reading
+    const growthbook3 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "singleflight",
+    });
+    await growthbook3.init();
+    expect(getItem).toHaveBeenCalledTimes(1);
+    expect(growthbook3.getFeatures()).toEqual(cachedPayload.features);
+
+    growthbook1.destroy();
+    growthbook2.destroy();
+    growthbook3.destroy();
+    cleanup();
+
+    // Restore localStorage polyfill
+    setPolyfills({ localStorage: globalThis.localStorage });
+  });
+
+  it("retries cache initialization after a failed storage read", async () => {
+    const cachedPayload = {
+      features: {
+        foo: {
+          defaultValue: "cached",
+        },
+      },
+    };
+    const seed = JSON.stringify([
+      [
+        "https://fakeapi.sample.io||retrycache",
+        {
+          data: cachedPayload,
+          staleAt: new Date(Date.now() + 10000).toISOString(),
+          version: "",
+        },
+      ],
+    ]);
+    let reads = 0;
+    const getItem = jest.fn(() => {
+      reads++;
+      // First read fails (e.g. async storage briefly unavailable), later ones work
+      return reads === 1
+        ? Promise.reject(new Error("storage offline"))
+        : Promise.resolve(seed);
+    });
+
+    const [f, cleanup] = mockApi({
+      features: {
+        foo: {
+          defaultValue: "network",
+        },
+      },
+    });
+    setPolyfills({
+      localStorage: {
+        getItem,
+        setItem: () => undefined,
+      },
+    });
+
+    // The failed read must reject its caller instead of being memoized forever
+    await expect(initializeCache()).rejects.toThrow("storage offline");
+    expect(reads).toEqual(1);
+
+    // Since the failed load was not cached, the next call retries and succeeds
+    await initializeCache();
+    expect(reads).toEqual(2);
+
+    // The retried load hydrated the cache for plain instances
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "retrycache",
+    });
+    const res = await growthbook.init();
+    expect(res.source).toEqual("cache");
+    expect(growthbook.getFeatures()).toEqual(cachedPayload.features);
+
+    // The settled initialization stays memoized - no third storage read
+    expect(reads).toEqual(2);
+    expect(f.mock.calls.length).toEqual(0);
+
+    growthbook.destroy();
+    cleanup();
+
+    // Restore localStorage polyfill
+    setPolyfills({ localStorage: globalThis.localStorage });
   });
 
   it("handles localStorage errors gracefully", async () => {

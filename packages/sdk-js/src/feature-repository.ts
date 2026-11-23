@@ -112,7 +112,10 @@ const subscribedInstances: Map<
   string,
   Set<GrowthBook | GrowthBookClient>
 > = new Map();
-let cacheInitialized = false;
+// Single-flight cache initialization. Concurrent callers must share one in-flight
+// promise instead of checking a boolean that was set before the load finished -
+// see https://github.com/growthbook/growthbook/issues/1841
+let cacheInitPromise: Promise<void> | null = null;
 const cache: Map<string, CacheEntry> = new Map();
 const activeFetches: Map<string, Promise<FetchResponse>> = new Map();
 const streams: Map<string, ScopedChannel> = new Map();
@@ -135,7 +138,9 @@ export async function clearCache(): Promise<void> {
   cache.clear();
   activeFetches.clear();
   clearAutoRefresh();
-  cacheInitialized = false;
+  // Forget the current initialization so the next refresh re-reads the rewritten
+  // persistent cache
+  cacheInitPromise = null;
   await updatePersistentCache();
 }
 
@@ -258,7 +263,11 @@ async function fetchFeaturesWithCache({
     now.getTime() - cacheSettings.maxAge + cacheSettings.staleTTL,
   );
 
-  await initializeCache();
+  // Cache hydration is best-effort: storage may be transiently unavailable, and
+  // that must never block feature loading. initializeCache() clears its shared
+  // promise when it fails, so a later refresh retries the persisted-cache load
+  // instead of being bypassed.
+  await initializeCache().catch(() => undefined);
   const existing =
     !cacheSettings.disableCache && !skipCache ? cache.get(cacheKey) : undefined;
   if (
@@ -322,15 +331,16 @@ function getCacheKey(instance: GrowthBook | GrowthBookClient): string {
   })}`;
 }
 
-// Populate cache from localStorage (if available)
-async function initializeCache(): Promise<void> {
-  if (cacheInitialized) return;
-  cacheInitialized = true;
-  try {
-    if (polyfills.localStorage) {
-      const value = await polyfills.localStorage.getItem(
-        cacheSettings.cacheKey,
-      );
+// Populate the in-memory cache from localStorage (if available) and start the
+// idle-stream listener. Storage access failures are transient (offline async
+// storage, security restrictions), so they reject - the shared initialization
+// promise resets, letting a later initializeCache() retry the load.
+async function loadPersistedCache(): Promise<void> {
+  if (polyfills.localStorage) {
+    const value = await polyfills.localStorage.getItem(cacheSettings.cacheKey);
+    try {
+      // A corrupted persisted payload is permanent, not transient, so degrade to
+      // an empty in-memory cache instead of failing every initialization
       if (!cacheSettings.disableCache && value) {
         const parsed: [string, CacheEntry][] = JSON.parse(value);
         if (parsed && Array.isArray(parsed)) {
@@ -343,9 +353,9 @@ async function initializeCache(): Promise<void> {
         }
         cleanupCache();
       }
+    } catch (e) {
+      // Ignore localStorage errors
     }
-  } catch (e) {
-    // Ignore localStorage errors
   }
   if (!cacheSettings.disableIdleStreams) {
     const cleanupFn = helpers.startIdleListener();
@@ -353,6 +363,26 @@ async function initializeCache(): Promise<void> {
       helpers.stopIdleListener = cleanupFn;
     }
   }
+}
+
+// Single-flight wrapper around cache initialization. The first caller starts the
+// load and every concurrent caller awaits that same promise, which only settles
+// once initialization has finished (or failed). Not re-exported from index.ts -
+// exposed for tests that exercise the retry path directly.
+export function initializeCache(): Promise<void> {
+  if (!cacheInitPromise) {
+    const promise = loadPersistedCache().catch((e) => {
+      // A failed load must not stay memoized: clear it so the next caller retries
+      // instead of being bypassed. Guarded, so a stale failure can't clear a newer
+      // initialization that replaced it already.
+      if (cacheInitPromise === promise) {
+        cacheInitPromise = null;
+      }
+      throw e;
+    });
+    cacheInitPromise = promise;
+  }
+  return cacheInitPromise;
 }
 
 // Enforce the maxEntries limit
