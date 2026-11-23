@@ -17,7 +17,7 @@ import EnableAutoExperimentDialog, {
 
 // Saved with the rest of the settings form. Turning one on asks first.
 export default function AutoExperimentSettings() {
-  const { mode, canManage } = useAutoExperiments();
+  const { mode, canManage, isEnabled: isSaved } = useAutoExperiments();
   const { watch, setValue } =
     useFormContext<OrganizationSettingsWithMetricDefaults>();
   const autoExperiments = watch("autoExperiments");
@@ -47,14 +47,20 @@ export default function AutoExperimentSettings() {
       {AUTO_EXPERIMENT_FEATURES.map((feature) => {
         const parent = getAutoExperimentParentFeature(feature);
         if (parent && !isEnabled(parent)) return null;
+        // Judged on the saved value, so a queued uncheck can still be undone.
+        const instanceBlocks = mode !== "allowed" && !isSaved(feature);
         return (
           <Box key={feature} pl={parent ? "5" : "0"}>
             <UnsavedMark name={`autoExperiments.${feature}`}>
               <Checkbox
                 id={`toggle-autoExperiments-${feature}`}
                 label={AUTO_EXPERIMENT_COPY[feature].name}
-                disabled={!canManage}
-                disabledMessage="Only admins can change this setting"
+                disabled={!canManage || instanceBlocks}
+                disabledMessage={
+                  canManage
+                    ? "Set the ALLOW_AUTO_EXPERIMENTS environment variable to true to allow enabling this"
+                    : "Only admins can change this setting"
+                }
                 value={isEnabled(feature)}
                 setValue={(v) =>
                   v ? setEnabling(feature) : set(feature, false)
