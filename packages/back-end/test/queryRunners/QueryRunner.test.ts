@@ -1089,10 +1089,10 @@ describe("QueryRunner", () => {
     // queued/running queries, but never actually executes any query (no
     // executeQuery, no per-query timers). Refresh passes find no query docs,
     // so they change nothing and the heartbeat interval is the only timer
-    // with an effect. This isolates
-    // the guarantee in question: the lock heartbeat must keep firing for the
-    // whole time the runner is "running" — including the gaps between
-    // sequentially-dependent queries when no single query is executing.
+    // with an effect. This isolates the guarantee in question: the lock
+    // heartbeat must keep firing for the whole time the runner is "running" —
+    // including the gaps between sequentially-dependent queries when no single
+    // query is executing.
     class HeartbeatTestQueryRunner extends QueryRunner<
       InterfaceWithQueries,
       { pointers: Queries },
@@ -1999,6 +1999,8 @@ describe("QueryRunner", () => {
         expect(runner.status).toBe("finished");
 
         await runner.onQueryFinish();
+        // A concluded runner arms nothing.
+        expect(jest.getTimerCount()).toBe(0);
         await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS);
 
         expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
@@ -2013,6 +2015,7 @@ describe("QueryRunner", () => {
         await runner.cancelQueries();
 
         expect(runner.status).toBe("finished");
+        expect(jest.getTimerCount()).toBe(0);
         await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS);
         expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
       });
@@ -2073,6 +2076,7 @@ describe("QueryRunner", () => {
           jest.mocked(markPendingQueriesAsFailed).mockResolvedValue(1);
 
           await runner.cancelQueries();
+          expect(jest.getTimerCount()).toBe(0);
           await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS);
 
           expect(runner.status).toBe("finished");

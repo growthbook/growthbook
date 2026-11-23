@@ -270,8 +270,7 @@ export abstract class QueryRunner<
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private heartbeatTimer: null | NodeJS.Timeout = null;
   private refreshWatchdogTimer: null | NodeJS.Timeout = null;
-  private refreshInFlight = false;
-  private lastRefreshStartedAt = 0;
+  private lastRefreshStartedAt = Number.NEGATIVE_INFINITY;
   private consecutiveRefreshFailures = 0;
   /** When a pass first read an empty query list; null once one is not. */
   private emptyQueryListSince: number | null = null;
@@ -405,9 +404,7 @@ export abstract class QueryRunner<
 
   /** Re-arm the refresh when nothing else will. */
   private runRefreshWatchdogCheck(): void {
-    if (this.status !== "running") return;
-    if (this.refreshTimer || this.refreshInFlight) return;
-    logger.debug(`Refresh watchdog for ${this.model.id}: re-arming refresh`);
+    logger.debug(`Refresh watchdog tick for ${this.model.id}`);
     this.scheduleRefreshPass();
   }
 
@@ -436,7 +433,7 @@ export abstract class QueryRunner<
       logger.debug(`Refresh of ${this.model.id} already pending`);
       return;
     }
-    const now = Date.now();
+    const now = performance.now();
     const delay = Math.max(
       0,
       this.lastRefreshStartedAt + REFRESH_MIN_INTERVAL_MS - now,
@@ -534,70 +531,61 @@ export abstract class QueryRunner<
     // Cleared before the first read, so a finish from here on arms a new pass.
     this.refreshTimer = null;
     if (this.isFinished()) return;
-    this.refreshInFlight = true;
-    this.lastRefreshStartedAt = Date.now();
+    this.lastRefreshStartedAt = performance.now();
+    let latest: Model;
     try {
-      let latest: Model;
-      try {
-        logger.debug("Getting latest model for " + this.model.id);
-        latest = await this.getLatestModel();
-      } catch (e) {
-        if (this.isFinished()) return;
-        this.consecutiveRefreshFailures++;
-        if (
-          this.consecutiveRefreshFailures >= MAX_CONSECUTIVE_REFRESH_FAILURES
-        ) {
-          if (this.isMissingModelError(e)) {
-            this.standDown(
-              `model is missing after ${this.consecutiveRefreshFailures} attempts (${
-                e instanceof Error ? e.message : String(e)
-              })`,
-            );
-            return;
-          }
-          // Call updateModel so locks (e.g. aggregated fact tables) release.
-          await this.shutDownWithError(getErrorMessage(e));
-          return;
-        }
-        logger.warn(
-          e,
-          `Could not re-fetch model for runner of ${this.model.id} (attempt ${this.consecutiveRefreshFailures} of ${MAX_CONSECUTIVE_REFRESH_FAILURES}); the refresh watchdog will retry`,
-        );
-        return;
-      }
+      logger.debug("Getting latest model for " + this.model.id);
+      latest = await this.getLatestModel();
+    } catch (e) {
       if (this.isFinished()) return;
-      if (this.isModelTerminal(latest)) {
-        this.model = latest;
-        this.standDown("model is already terminal in the database");
-        return;
-      }
-      if (this.stopsForEmptyQueryList(latest)) return;
-      this.model = latest;
-      try {
-        const queryMap = await this.refreshQueryStatuses();
-        if (this.isFinished()) return;
-        await this.startReadyQueries(queryMap);
-        this.consecutiveRefreshFailures = 0;
-      } catch (e) {
-        if (this.isFinished()) return;
-        this.consecutiveRefreshFailures++;
-        if (
-          this.consecutiveRefreshFailures < MAX_CONSECUTIVE_REFRESH_FAILURES
-        ) {
-          logger.warn(
-            e,
-            `Error refreshing query statuses for runner of ${this.model.id} (attempt ${this.consecutiveRefreshFailures} of ${MAX_CONSECUTIVE_REFRESH_FAILURES}); the refresh watchdog will retry`,
+      this.consecutiveRefreshFailures++;
+      if (this.consecutiveRefreshFailures >= MAX_CONSECUTIVE_REFRESH_FAILURES) {
+        if (this.isMissingModelError(e)) {
+          this.standDown(
+            `model is missing after ${this.consecutiveRefreshFailures} attempts (${
+              e instanceof Error ? e.message : String(e)
+            })`,
           );
           return;
         }
-        logger.error(
-          e,
-          "Error refreshing query statuses for runner of " + this.model.id,
-        );
+        // Call updateModel so locks (e.g. aggregated fact tables) release.
         await this.shutDownWithError(getErrorMessage(e));
+        return;
       }
-    } finally {
-      this.refreshInFlight = false;
+      logger.warn(
+        e,
+        `Could not re-fetch model for runner of ${this.model.id} (attempt ${this.consecutiveRefreshFailures} of ${MAX_CONSECUTIVE_REFRESH_FAILURES}); the refresh watchdog will retry`,
+      );
+      return;
+    }
+    if (this.isFinished()) return;
+    if (this.isModelTerminal(latest)) {
+      this.model = latest;
+      this.standDown("model is already terminal in the database");
+      return;
+    }
+    if (this.stopsForEmptyQueryList(latest)) return;
+    this.model = latest;
+    try {
+      const queryMap = await this.refreshQueryStatuses();
+      if (this.isFinished()) return;
+      await this.startReadyQueries(queryMap);
+      this.consecutiveRefreshFailures = 0;
+    } catch (e) {
+      if (this.isFinished()) return;
+      this.consecutiveRefreshFailures++;
+      if (this.consecutiveRefreshFailures < MAX_CONSECUTIVE_REFRESH_FAILURES) {
+        logger.warn(
+          e,
+          `Error refreshing query statuses for runner of ${this.model.id} (attempt ${this.consecutiveRefreshFailures} of ${MAX_CONSECUTIVE_REFRESH_FAILURES}); the refresh watchdog will retry`,
+        );
+        return;
+      }
+      logger.error(
+        e,
+        "Error refreshing query statuses for runner of " + this.model.id,
+      );
+      await this.shutDownWithError(getErrorMessage(e));
     }
   }
 
@@ -611,7 +599,7 @@ export abstract class QueryRunner<
       this.emptyQueryListSince = null;
       return false;
     }
-    const now = Date.now();
+    const now = performance.now();
     this.emptyQueryListSince ??= now;
     const deadline = this.emptyQueryListSince + EMPTY_QUERY_LIST_CONFIRM_MS;
     if (now < deadline) {
