@@ -13,6 +13,7 @@ const makeContext = ({
 }) =>
   ({
     ignoreWarnings,
+    org: { settings: {} },
     models: {
       configs: {
         getAllForReconcile: async () => configs as ConfigInterface[],

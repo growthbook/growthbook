@@ -5,6 +5,7 @@ import {
   inferFieldsFromValue,
   ancestorCollisionWarnings,
   SchemaWarning,
+  valueHasReferenceToken,
 } from "shared/util";
 import { SimpleSchema } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -15,10 +16,14 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { assertNoReferenceCycle } from "back-end/src/services/constants";
-import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import {
+  assertConfigValueValid,
+  configDraftState,
+  configValidationLeaf,
+  getEffectiveConfigSchema,
+} from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
-  applyRevisionToSnapshot,
   assertValidConfigValueEdit,
   discardIfJustCreated,
   isDraftStatus,
@@ -39,7 +44,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const { inferSchemaIfMissing } = req.body;
+  const { inferSchemaIfMissing, inferUndeclaredFields } = req.body;
   // Value arrives as a native JSON object; handled as a JSON string internally.
   const value =
     req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
@@ -89,7 +94,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
 
     // Judge against the draft's OWN staged lineage/schema, not live: a draft may
     // have changed parent/extends/schema, so live values would give false results.
-    const draft = applyRevisionToSnapshot(revision);
+    const draft = configDraftState(config, revision);
 
     const fieldsToUpdate: Record<string, unknown> = {};
     if (strippedValue !== undefined) fieldsToUpdate.value = strippedValue;
@@ -124,20 +129,41 @@ export const putConfigRevisionValue = createApiRequestHandler(
       warnings.push(
         ...ancestorCollisionWarnings([...identical, ...conflicting]),
       );
+    } else if (inferUndeclaredFields && strippedValue !== undefined) {
+      // Only keys no field in the family declares, so an existing field is
+      // never widened; references stay undeclared, as validation skips them.
+      const { fields: declared } = await getEffectiveConfigSchema(
+        req.context,
+        configValidationLeaf(draft),
+      );
+      const obj = parsePlainJSONObject(strippedValue) ?? {};
+      const added = inferFieldsFromValue(
+        Object.fromEntries(
+          Object.entries(obj).filter(([, v]) => !valueHasReferenceToken(v)),
+        ),
+        new Set(declared.map((f) => f.key)),
+      ).map((f) => ({ ...f, required: false }));
+      if (added.length) {
+        fieldsToUpdate.schema = {
+          type: "object",
+          ...draft.schema,
+          fields: [...(draft.schema?.fields ?? []), ...added],
+        };
+        warnings.push(
+          ...added.map((f) => ({
+            code: "inferred-field" as const,
+            path: f.key,
+            message: `Added optional field "${f.key}" to this draft's schema, inferred from its value.`,
+          })),
+        );
+      }
     }
 
     // Validate against the proposed (inferred) schema when this request sets one,
     // so a value-first import validates against the schema it derives.
     await assertConfigValueValid(
       req.context,
-      {
-        key: config.key,
-        name: config.name,
-        value: strippedValue ?? draft.value,
-        schema: (fieldsToUpdate.schema as typeof config.schema) ?? draft.schema,
-        parent: draft.parent,
-        extends: draft.extends,
-      },
+      configValidationLeaf(draft, fieldsToUpdate),
       { value: strippedValue },
     );
 

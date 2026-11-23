@@ -1651,6 +1651,15 @@ describe("landedOps", () => {
     // Without an allowlist, the real change stays.
     expect(landedOps(live, base, ops)).toEqual([ops[2]]);
   });
+
+  it("drops a clear of a field the snapshot never had, keeping live's", () => {
+    const ops: JsonPatchOperation[] = [
+      { op: "replace", path: "/schema", value: null },
+    ];
+    expect(landedOps({ ...live, schema: { fields: [] } }, base, ops)).toEqual(
+      [],
+    );
+  });
 });
 
 describe("reviewCoverageProjects", () => {

@@ -57,6 +57,12 @@ describe("proposedChangesOnlyRestore", () => {
     ).toBe(false);
   });
 
+  it("accepts clearing a field the target doesn't have", () => {
+    expect(proposedChangesOnlyRestore([op("/schema", null)], TARGET)).toBe(
+      true,
+    );
+  });
+
   it("accepts restoring a falsy value", () => {
     expect(proposedChangesOnlyRestore([op("/archived", false)], TARGET)).toBe(
       true,

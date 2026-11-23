@@ -9,6 +9,25 @@ import RadioGroup from "@/ui/RadioGroup";
 
 export type DraftMode = "existing" | "new" | "publish";
 
+export function draftModeCta(
+  mode: DraftMode,
+  {
+    bypassesApproval,
+    publishLabel = "Publish",
+  }: { bypassesApproval: boolean; publishLabel?: string },
+): { label: string; bypass: boolean } {
+  const bypass = mode === "publish" && bypassesApproval;
+  return {
+    label:
+      mode !== "publish"
+        ? "Save to draft"
+        : bypass
+          ? "Bypass approval & publish"
+          : publishLabel,
+    bypass,
+  };
+}
+
 /**
  * Generic collapsible draft-selector shell shared between features and saved
  * groups. Callers supply the revision dropdown (rendered in the "existing

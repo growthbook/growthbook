@@ -458,27 +458,26 @@ describe("metric dataset population validation", () => {
     expect(findLatestByConfig).not.toHaveBeenCalled();
   });
   it("rejects the request when any metric is incompatible with the population", async () => {
-    const mean = {
+    const retention = {
       ...metric,
       id: "fact_2",
-      name: "Revenue",
-      metricType: "mean",
-      numerator: { factTableId: "ft_1", column: "revenue" },
+      name: "Returning users",
+      metricType: "retention",
     };
     const getByIds = context.models.factMetrics.getByIds as jest.Mock;
-    getByIds.mockResolvedValueOnce([metric, mean]);
+    getByIds.mockResolvedValueOnce([metric, retention]);
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric dataset");
     testConfig.dataset.values.push({
       ...testConfig.dataset.values[0],
-      metricId: mean.id,
-      name: "Revenue",
+      metricId: retention.id,
+      name: "Returning users",
     });
     const result = runUncached(testConfig);
     await expect(result).rejects.toThrow(BadRequestError);
     await expect(result).rejects.toThrow(
-      'Metric "Revenue" can\'t be combined with a Population.',
+      'Metric "Returning users" can\'t be combined with a Population.',
     );
     // Metrics and Fact Tables are loaded once, together.
     expect(getByIds).toHaveBeenCalledTimes(1);

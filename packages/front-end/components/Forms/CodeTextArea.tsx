@@ -3,6 +3,7 @@ import {
   type ComponentType,
   type ReactNode,
   useEffect,
+  useLayoutEffect,
   useState,
   useRef,
   createElement,
@@ -294,6 +295,10 @@ export type Props = CodeTextAreaFieldProps & {
   highlightLines?: number[];
   // More `EditorAction`s, shown before copy and fullscreen.
   actions?: ReactNode;
+  // Read-only without looking disabled, e.g. a computed view of an editor's.
+  readOnly?: boolean;
+  // Focuses the editor with its text selected once it loads.
+  autoSelect?: boolean;
 };
 
 // Ace re-wraps a line on every edit, so wrapping one this long (minified JSON)
@@ -362,6 +367,8 @@ export default function CodeTextArea({
   highlightLines,
   actions,
   containerClassName,
+  readOnly = false,
+  autoSelect = false,
   ...otherProps
 }: Props) {
   const fieldProps = otherProps as CodeTextAreaFieldProps;
@@ -369,6 +376,7 @@ export default function CodeTextArea({
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const editorBox = useRef<HTMLDivElement>(null);
   const editorUid = useId();
   const editorScope = `[data-editor-uid="${editorUid}"]`;
   const codeTheme = getCodeTheme(theme);
@@ -458,6 +466,37 @@ export default function CodeTextArea({
     return () => clearTimeout(timer);
   }, [editor, isFullscreen]);
 
+  // Full screen lifts the editor out of what would keep it under the rest of
+  // the page: an isolated box around it (a scroll area's) or a sticky one.
+  useLayoutEffect(() => {
+    if (!isFullscreen) return;
+    const lifted: [HTMLElement, string, string, string][] = [];
+    const lift = (el: HTMLElement, prop: string, value: string) => {
+      lifted.push([
+        el,
+        prop,
+        el.style.getPropertyValue(prop),
+        el.style.getPropertyPriority(prop),
+      ]);
+      el.style.setProperty(prop, value, "important");
+    };
+    for (
+      let el = editorBox.current?.parentElement;
+      el && el !== document.body;
+      el = el.parentElement
+    ) {
+      const { isolation, position } = getComputedStyle(el);
+      if (isolation === "isolate") lift(el, "isolation", "auto");
+      if (position === "sticky") lift(el, "position", "static");
+    }
+    return () => {
+      for (const [el, prop, value, priority] of lifted) {
+        if (value) el.style.setProperty(prop, value, priority);
+        else el.style.removeProperty(prop);
+      }
+    };
+  }, [isFullscreen]);
+
   // Escape key to exit fullscreen
   useEffect(() => {
     if (!isFullscreen) return;
@@ -509,10 +548,12 @@ export default function CodeTextArea({
               ${getAceCodeCss(editorScope, codeTheme, language)}
             `}</style>
             <div
+              ref={editorBox}
               id={editorUid}
               data-editor-uid={editorUid}
-              className={clsx({
+              className={clsx(styles.editor, {
                 [styles.valueEditor]: matchValueDisplay,
+                [styles.readOnly]: readOnly,
                 "ace-editor-disabled": fieldProps.disabled,
                 "h-100": fullHeight && !isFullscreen,
                 "code-editor-fullscreen": isFullscreen,
@@ -581,7 +622,12 @@ export default function CodeTextArea({
                     onEditorLoad?.(e);
                     // Clear auto-selection after editor loads
                     setTimeout(() => {
-                      e.clearSelection();
+                      if (!autoSelect) {
+                        e.clearSelection();
+                        return;
+                      }
+                      e.focus();
+                      e.selectAll();
                     }, 100);
                   }}
                   mode={language}
@@ -604,7 +650,7 @@ export default function CodeTextArea({
                         }
                       : {}),
                   }}
-                  readOnly={fieldProps.disabled}
+                  readOnly={fieldProps.disabled || readOnly}
                   onCursorChange={(e) => {
                     if (!setCursorData) return;
                     // Throttle cursor updates to reduce performance impact on large files
@@ -631,7 +677,9 @@ export default function CodeTextArea({
                         label={
                           isFullscreen
                             ? "Exit full screen (ESC)"
-                            : "Edit in full screen"
+                            : readOnly
+                              ? "View in full screen"
+                              : "Edit in full screen"
                         }
                         icon={<FullscreenIcon exit={isFullscreen} size="sm" />}
                         onClick={() => {

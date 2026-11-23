@@ -4,6 +4,7 @@ import {
   formatAncestorFieldConflictMessage,
   ancestorCollisionWarnings,
   SchemaWarning,
+  getConfigBaseKeys,
 } from "shared/util";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -13,10 +14,13 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import {
+  assertConfigValueValid,
+  configDraftState,
+  configValidationLeaf,
+} from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
-  applyRevisionToSnapshot,
   discardIfJustCreated,
   isDraftStatus,
   pickNewDraftMetadata,
@@ -113,23 +117,20 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
       typeof extendsKeys !== "undefined" ||
       typeof extensible !== "undefined"
     ) {
-      const draft = applyRevisionToSnapshot(revision);
+      const draft = configDraftState(config, revision);
       const effectiveParent =
         typeof parent !== "undefined" ? parent : draft.parent;
       const effectiveExtends =
         typeof extendsKeys !== "undefined" ? extendsKeys : draft.extends;
+      if (typeof parent !== "undefined" || typeof extendsKeys !== "undefined") {
+        await req.context.models.configs.assertValidLineage(
+          { ...draft, parent: effectiveParent, extends: effectiveExtends },
+          getConfigBaseKeys(config),
+        );
+      }
       await assertConfigValueValid(
         req.context,
-        {
-          key: config.key,
-          name: config.name,
-          value: draft.value,
-          schema: draft.schema,
-          parent: effectiveParent,
-          extends: effectiveExtends,
-          extensible:
-            typeof extensible !== "undefined" ? extensible : draft.extensible,
-        },
+        configValidationLeaf(draft, fieldsToUpdate),
         { value: draft.value },
       );
 
