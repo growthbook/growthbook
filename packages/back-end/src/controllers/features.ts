@@ -161,7 +161,7 @@ import {
   evaluateAllFeatures,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
-  getFeatureDefinitionsWithAutoExperimentUse,
+  getFeatureDefinitions,
   getMergeResultPublishEnvs,
   getSavedGroupMap,
   getSavedGroupMapForFeatureRevision,
@@ -176,7 +176,6 @@ import {
   revisionRequiresReview,
   assertCanUndoFeatureReview,
 } from "back-end/src/services/features";
-import { isCachedPayloadStale } from "back-end/src/services/autoExperiments";
 import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
 import { linkFeatureToContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
@@ -684,12 +683,7 @@ export async function getFeatureDefinitionsWithCache({
   // Try cache first
   if (storageLocation !== "none") {
     const cached = await context.models.sdkConnectionCache.getById(params.key);
-    // A kill switch wins over whatever wrote the cache: a payload holding
-    // something that is now off is rebuilt, never served.
-    if (
-      cached &&
-      !isCachedPayloadStale(context.org, params, cached.autoExperimentUse)
-    ) {
+    if (cached) {
       try {
         defs = JSON.parse(cached.contents);
       } catch (e) {
@@ -722,7 +716,7 @@ export async function getFeatureDefinitionsWithCache({
       true,
     );
 
-    const built = await getFeatureDefinitionsWithAutoExperimentUse({
+    defs = await getFeatureDefinitions({
       context,
       capabilities,
       environment: params.environment,
@@ -747,7 +741,6 @@ export async function getFeatureDefinitionsWithCache({
       savedGroupFormat: params.savedGroupFormat,
       includeReferencedPrerequisites: params.includeReferencedPrerequisites,
     });
-    defs = built.payload;
 
     // Write back to cache to populate it for future reads (fire and forget)
     if (storageLocation !== "none") {
@@ -755,7 +748,7 @@ export async function getFeatureDefinitionsWithCache({
       const stackTrace = rawStack.replace(/^Error.*?\n/, "");
 
       context.models.sdkConnectionCache
-        .upsert(params.key, JSON.stringify(defs), built.autoExperimentUse, {
+        .upsert(params.key, JSON.stringify(defs), {
           dateUpdated: new Date(),
           event: "cache-miss",
           model: "sdk-connection",
