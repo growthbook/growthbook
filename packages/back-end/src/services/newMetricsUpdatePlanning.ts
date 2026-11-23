@@ -7,6 +7,7 @@ import {
   getNewMetricsUpdateParentRefusal,
   getNewMetricsUpdatePlanRefusal,
   getNewMetricsUpdateSetupBlocker,
+  getNewMetricsUpdatesInARow,
   getResultsOutdatedReasons,
   isFactMetric,
   type ExperimentMetricInterface,
@@ -40,6 +41,7 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { isCarriedNewMetricsUpdateQuery } from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
 import {
   assertCarriedQuerySqlUnchanged,
+  tooManyNewMetricsUpdatesError,
   type GenerateResultQuerySql,
 } from "back-end/src/services/newMetricsUpdateSqlIdentity";
 import {
@@ -294,8 +296,8 @@ export async function planNewMetricsUpdate({
   return { ...plan, snapshot };
 }
 
-// What the back end knows beyond the shared rules: why the planned run is on
-// another pipeline.
+// What the back end says beyond the shared rules' reasons: why the planned run
+// is on another pipeline, and the cap on updates in a row.
 function getPlanRefusalError(
   refusal: Exclude<NewMetricsUpdateRefusal, "outside_window">,
   plan: Pick<PlannedExperimentSnapshot, "incrementalFallbackReason">,
@@ -306,6 +308,7 @@ function getPlanRefusalError(
       'The Incremental Pipeline has no tables for this experiment\'s current settings yet, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" to build them.',
     );
   }
+  if (refusal === "base_incomplete") return tooManyNewMetricsUpdatesError();
   if (refusal === "metric_not_supported" && plan.incrementalFallbackReason) {
     return new NewMetricsUpdateUnavailableError(
       "metric_not_supported",
@@ -492,7 +495,7 @@ export function mergeNewMetricsUpdateSettings({
 export function getNewMetricsUpdateLineage(
   parent: Pick<
     ExperimentSnapshotInterface,
-    "id" | "dateCreated" | "runStarted" | "settings" | "updateScope"
+    "id" | "type" | "dateCreated" | "runStarted" | "settings" | "updateScope"
   >,
   queriedMetricIds: string[],
   // The default analysis of the full update planned with it.
@@ -502,6 +505,7 @@ export function getNewMetricsUpdateLineage(
     kind: "new_metrics",
     parentSnapshotId: parent.id,
     queriedMetricIds,
+    updatesInARow: getNewMetricsUpdatesInARow(parent) + 1,
     base: getNewMetricsUpdate(parent)?.base ?? {
       dateCreated: parent.dateCreated,
       runStarted: parent.runStarted,

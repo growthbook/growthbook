@@ -91,6 +91,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
       kind: String,
       parentSnapshotId: String,
       queriedMetricIds: [String],
+      updatesInARow: Number,
       base: new mongoose.Schema(
         {
           dateCreated: Date,

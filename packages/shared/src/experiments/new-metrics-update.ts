@@ -156,6 +156,23 @@ export function getNewMetricsUpdate(
     : null;
 }
 
+// On the standard pipeline each new-metrics update dry-runs the queries of
+// every update in its chain. The full update the chain starts from is not
+// counted.
+export const MAX_NEW_METRICS_UPDATES_IN_A_ROW = 10;
+
+/**
+ * How many new-metrics updates in a row end with this snapshot. One stored
+ * before the count was counts as 1, so on a chain started before then the
+ * back end, which also walks the chain, can refuse an update this allows.
+ */
+export function getNewMetricsUpdatesInARow(
+  snapshot: Pick<ExperimentSnapshotInterface, "type" | "updateScope">,
+): number {
+  const newMetricsUpdate = getNewMetricsUpdate(snapshot);
+  return newMetricsUpdate ? (newMetricsUpdate.updatesInARow ?? 1) : 0;
+}
+
 export type StatsEngineMetricCounts = SnapshotNewMetricsUpdate["metricCounts"];
 
 /**
@@ -273,6 +290,7 @@ export type NewMetricsUpdateRefusal =
       | "incremental_pipeline"
       | "metric_not_supported"
       | "settings_changed"
+      | "base_incomplete"
     >
   | "outside_window";
 
@@ -382,16 +400,20 @@ const optsOutOfCuped = (m: PlannedMetricSettings) =>
 /**
  * What the plan rules out. A new-metrics update appends to its parent's
  * pipeline, on the Incremental Pipeline to the tables the parent left, which
- * an "incremental-full" run would rebuild. Copied metrics keep the parent's
- * results and analysis, so only "Metrics changed" may be outdated, and the
- * inputs only the stats engine reads must be unchanged.
+ * an "incremental-full" run would rebuild. On the standard pipeline at most
+ * MAX_NEW_METRICS_UPDATES_IN_A_ROW build on each other. Copied metrics keep
+ * the parent's results and analysis, so only "Metrics changed" may be
+ * outdated, and the inputs only the stats engine reads must be unchanged.
  */
 export function getNewMetricsUpdatePlanRefusal({
   parent,
   outdatedReasons,
   planned,
 }: {
-  parent: Pick<ExperimentSnapshotInterface, "runnerKind"> & {
+  parent: Pick<
+    ExperimentSnapshotInterface,
+    "type" | "updateScope" | "runnerKind"
+  > & {
     settings: ParentMetricSettings;
   };
   outdatedReasons: readonly ResultsOutdatedReason[];
@@ -405,6 +427,12 @@ export function getNewMetricsUpdatePlanRefusal({
     return planned.runnerKind === "incremental-full"
       ? "incremental_pipeline"
       : "metric_not_supported";
+  }
+  if (
+    parentPipeline === "results" &&
+    getNewMetricsUpdatesInARow(parent) >= MAX_NEW_METRICS_UPDATES_IN_A_ROW
+  ) {
+    return "base_incomplete";
   }
 
   const parentMetricIds = new Set(
@@ -453,7 +481,10 @@ export function getNewMetricsUpdateRefusal({
   planned,
   ...facts
 }: NewMetricsUpdateParentFacts & {
-  parent: Pick<ExperimentSnapshotInterface, "runnerKind"> & {
+  parent: Pick<
+    ExperimentSnapshotInterface,
+    "type" | "updateScope" | "runnerKind"
+  > & {
     settings: ParentMetricSettings &
       Pick<ExperimentSnapshotSettings, "endDate">;
   };

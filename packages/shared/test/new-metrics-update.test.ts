@@ -13,6 +13,8 @@ import {
   getMetricIdsMissingFromSnapshot,
   getMetricStatsEngineInputs,
   getNewMetricsUpdatePlanRefusal,
+  getNewMetricsUpdatesInARow,
+  MAX_NEW_METRICS_UPDATES_IN_A_ROW,
   getPlannedCopiedMetricSettings,
   getSnapshotSideEffects,
   getStatsEngineAnalysisSettings,
@@ -662,6 +664,80 @@ describe("stats engine inputs", () => {
         }),
       ).toBe(false);
     });
+  });
+});
+
+describe("new-metrics updates in a row", () => {
+  const newMetricsUpdate = (updatesInARow?: number) =>
+    ({
+      kind: "new_metrics",
+      parentSnapshotId: "snp_before",
+      queriedMetricIds: ["met_b"],
+      ...(updatesInARow === undefined ? {} : { updatesInARow }),
+      base: { dateCreated: new Date(0), runStarted: null, cutoffDate: null },
+      metricCounts: { numGoalMetrics: 1, numGuardrailMetrics: 0 },
+    }) as const;
+  const settings = {
+    goalMetrics: ["met_a"],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    metricSettings: [
+      {
+        id: "met_a",
+        computedSettings: {
+          properPrior: false,
+          properPriorMean: 0,
+          properPriorStdDev: 0.3,
+          targetMDE: 0.1,
+        },
+      },
+    ],
+  };
+  const refusal = (
+    parentUpdatesInARow: number | undefined,
+    runnerKind: "results" | "incremental-update" = "results",
+  ) =>
+    getNewMetricsUpdatePlanRefusal({
+      parent: {
+        type: "standard",
+        runnerKind,
+        updateScope: newMetricsUpdate(parentUpdatesInARow),
+        settings,
+      },
+      outdatedReasons: ["metrics_changed"],
+      planned: { runnerKind, settings },
+    });
+
+  it(`offers the ${MAX_NEW_METRICS_UPDATES_IN_A_ROW}th on the standard pipeline, not one more`, () => {
+    expect(MAX_NEW_METRICS_UPDATES_IN_A_ROW).toBe(10);
+    expect(refusal(9)).toBeNull();
+    expect(refusal(10)).toBe("base_incomplete");
+  });
+
+  it("caps no number on the Incremental Pipeline", () => {
+    expect(refusal(10, "incremental-update")).toBeNull();
+    expect(refusal(25, "incremental-update")).toBeNull();
+  });
+
+  // The back end still walks such a chain and can refuse where this offers.
+  it("counts a new-metrics update stored without its count as 1", () => {
+    expect(
+      getNewMetricsUpdatesInARow({
+        type: "standard",
+        updateScope: newMetricsUpdate(),
+      }),
+    ).toBe(1);
+    expect(refusal(undefined)).toBeNull();
+  });
+
+  it("counts a full update as 0", () => {
+    expect(getNewMetricsUpdatesInARow({ type: "standard" })).toBe(0);
+    expect(
+      getNewMetricsUpdatesInARow({
+        type: "exploratory",
+        updateScope: newMetricsUpdate(5),
+      }),
+    ).toBe(0);
   });
 });
 

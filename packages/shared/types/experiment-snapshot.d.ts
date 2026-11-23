@@ -264,6 +264,9 @@ export interface SnapshotNewMetricsUpdate {
   // Experiment metric ids this run queried. Their slices and funnel steps
   // were queried with them and are not listed.
   queriedMetricIds: string[];
+  // How many new-metrics updates in a row end with this one, itself included.
+  // Missing on those stored before it was.
+  updatesInARow?: number;
   // The full snapshot (not itself a new-metrics update) that the chain of
   // new-metrics updates started from.
   base: {

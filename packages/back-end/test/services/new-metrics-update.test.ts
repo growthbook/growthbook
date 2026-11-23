@@ -17,6 +17,7 @@ import {
   getComputableNewMetricIds,
   getDefinitionMetricId,
   getResultsDateEnd,
+  MAX_NEW_METRICS_UPDATES_IN_A_ROW,
 } from "shared/experiments";
 import type { ReqContext } from "back-end/types/request";
 import {
@@ -42,7 +43,6 @@ import {
 } from "back-end/src/services/newMetricsUpdatePlanning";
 import {
   getQueriesWithChangedSql,
-  MAX_NEW_METRICS_UPDATES_IN_A_ROW,
   type GenerateResultQuerySql,
 } from "back-end/src/services/newMetricsUpdateSqlIdentity";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -355,6 +355,7 @@ describe("planNewMetricsUpdate", () => {
       kind: "new_metrics",
       parentSnapshotId: "snp_parent",
       queriedMetricIds: ["met_c"],
+      updatesInARow: 1,
       base: {
         dateCreated: PARENT_CREATED,
         runStarted: null,
@@ -1076,7 +1077,9 @@ describe("planNewMetricsUpdate", () => {
       ).rejects.toMatchObject({ details: { reason: "settings_changed" } });
     });
 
-    // snp_u0 is a full update of met_0; each snp_uN since added met_N.
+    // snp_u0 is a full update of met_0; each snp_uN since added met_N. None
+    // stores its count, as before it was stored, so the planner walks the
+    // chain.
     const planOnChainOf = (updatesInARow: number) => {
       const metricIds = (through: number) =>
         Array.from({ length: through + 1 }, (_, i) => `met_${i}`);
@@ -1135,6 +1138,75 @@ describe("planNewMetricsUpdate", () => {
         message: expect.stringContaining(
           `from ${MAX_NEW_METRICS_UPDATES_IN_A_ROW} updates of newly added metrics in a row`,
         ),
+      });
+    });
+
+    // A parent's stored count decides it before any ancestor is loaded.
+    describe("a parent that stores its count", () => {
+      const planOnCountedParent = (
+        updatesInARow: number,
+        runnerKind: "results" | "incremental-update" = "results",
+      ) => {
+        findParentMock.mockResolvedValue(
+          refreshOf("snp_parent", "snp_before", ["met_b"], {
+            runnerKind,
+            updateScope: {
+              ...refreshOf("snp_parent", "snp_before", ["met_b"]).updateScope!,
+              updatesInARow,
+            },
+          }),
+        );
+        // Walking would find a short chain.
+        findAncestorMock.mockResolvedValue(makeParent({ id: "snp_before" }));
+        const args = refreshArgs({
+          planSnapshotAt: async () => makePlan({ runnerKind }),
+        });
+        return { args, promise: planNewMetricsUpdate(args) };
+      };
+
+      it(`plans the ${MAX_NEW_METRICS_UPDATES_IN_A_ROW}th and stores its count`, async () => {
+        await expect(
+          planOnCountedParent(MAX_NEW_METRICS_UPDATES_IN_A_ROW - 1).promise,
+        ).resolves.toMatchObject({
+          snapshot: {
+            updateScope: {
+              queriedMetricIds: ["met_c"],
+              updatesInARow: MAX_NEW_METRICS_UPDATES_IN_A_ROW,
+            },
+          },
+        });
+      });
+
+      it(`refuses after ${MAX_NEW_METRICS_UPDATES_IN_A_ROW} with the same message, before comparing the SQL`, async () => {
+        const { args, promise } = planOnCountedParent(
+          MAX_NEW_METRICS_UPDATES_IN_A_ROW,
+        );
+
+        await expect(promise).rejects.toMatchObject({
+          details: { reason: "base_incomplete" },
+          message: expect.stringContaining(
+            `from ${MAX_NEW_METRICS_UPDATES_IN_A_ROW} updates of newly added metrics in a row`,
+          ),
+        });
+        expect(findAncestorMock).not.toHaveBeenCalled();
+        expect(args.generateResultQuerySql).not.toHaveBeenCalled();
+      });
+
+      // Its updates copy cache tables, not a chain of queries to replay.
+      it("plans any number in a row on the Incremental Pipeline", async () => {
+        await expect(
+          planOnCountedParent(
+            MAX_NEW_METRICS_UPDATES_IN_A_ROW + 5,
+            "incremental-update",
+          ).promise,
+        ).resolves.toMatchObject({
+          snapshot: {
+            runnerKind: "incremental-update",
+            updateScope: {
+              updatesInARow: MAX_NEW_METRICS_UPDATES_IN_A_ROW + 6,
+            },
+          },
+        });
       });
     });
 
@@ -1481,7 +1553,36 @@ describe("getNewMetricsUpdateLineage", () => {
         cutoffDate: PARENT_END,
       },
       metricCounts: PLANNED_COUNTS,
+      updatesInARow: 2,
     });
+  });
+
+  it("counts the updates in a row, the first after a full update as 1", () => {
+    const fromFull = getNewMetricsUpdateLineage(
+      makeParent(),
+      ["met_c"],
+      PLANNED_COUNTS,
+    );
+    expect(fromFull.updatesInARow).toBe(1);
+
+    const counted = makeParent({
+      updateScope: { ...fromFull, updatesInARow: 7 },
+    });
+    expect(
+      getNewMetricsUpdateLineage(counted, ["met_d"], PLANNED_COUNTS)
+        .updatesInARow,
+    ).toBe(8);
+
+    // Stored before the count was, so it counts as one.
+    const { updatesInARow, ...uncounted } = fromFull;
+    expect(updatesInARow).toBe(1);
+    expect(
+      getNewMetricsUpdateLineage(
+        makeParent({ updateScope: uncounted }),
+        ["met_d"],
+        PLANNED_COUNTS,
+      ).updatesInARow,
+    ).toBe(2);
   });
 });
 

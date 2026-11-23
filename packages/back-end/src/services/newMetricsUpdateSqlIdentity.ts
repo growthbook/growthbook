@@ -1,4 +1,7 @@
-import { getNewMetricsUpdate } from "shared/experiments";
+import {
+  getNewMetricsUpdate,
+  MAX_NEW_METRICS_UPDATES_IN_A_ROW,
+} from "shared/experiments";
 import type {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
@@ -53,11 +56,16 @@ export type GenerateResultQuerySql = (args: {
   scope?: ResultQueryScope;
 }) => Promise<Map<string, string>>;
 
-// Each new-metrics update adds a level, and each level costs a dry run of its
-// queries. The full update the chain starts from is not counted.
-export const MAX_NEW_METRICS_UPDATES_IN_A_ROW = 10;
+export const tooManyNewMetricsUpdatesError = () =>
+  new NewMetricsUpdateUnavailableError(
+    "base_incomplete",
+    `The latest results come from ${MAX_NEW_METRICS_UPDATES_IN_A_ROW} updates of newly added metrics in a row, the most that can build on each other. Send "updateScope": "all_metrics" instead.`,
+  );
 
-/** Base full update first, parent last. */
+/**
+ * Base full update first, parent last. Counts the chain itself, since a parent
+ * stored before its count was may undercount it.
+ */
 async function loadNewMetricsUpdateLineage(
   context: ReqContext | ApiReqContext,
   parent: NewMetricsUpdateAncestor,
@@ -70,10 +78,7 @@ async function loadNewMetricsUpdateLineage(
   ) {
     // Every level loaded so far is a new-metrics update.
     if (lineage.length >= MAX_NEW_METRICS_UPDATES_IN_A_ROW) {
-      throw new NewMetricsUpdateUnavailableError(
-        "base_incomplete",
-        `The latest results come from ${MAX_NEW_METRICS_UPDATES_IN_A_ROW} updates of newly added metrics in a row, the most that can build on each other. Send "updateScope": "all_metrics" instead.`,
-      );
+      throw tooManyNewMetricsUpdatesError();
     }
     const ancestor = await findNewMetricsUpdateAncestor(
       context,
