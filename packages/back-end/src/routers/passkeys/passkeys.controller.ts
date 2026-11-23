@@ -4,7 +4,6 @@ import {
   RenamePasskeyBody,
   StartPasskeyRegistrationBody,
 } from "shared/validators";
-import { UserInterface } from "shared/types/user";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
@@ -24,19 +23,16 @@ import {
   UnauthorizedError,
 } from "back-end/src/util/errors";
 
-async function getSignedInUser(req: AuthRequest<unknown>) {
-  const user: UserInterface | null = req.userId
-    ? await getUserById(req.userId)
-    : null;
-  if (!user) {
-    throw new UnauthorizedError("You must be signed in to manage passkeys.");
-  }
-  return user;
+const notSignedIn = () =>
+  new UnauthorizedError("You must be signed in to manage passkeys.");
+
+function getSignedInUserId(req: AuthRequest<unknown>): string {
+  if (!req.userId) throw notSignedIn();
+  return req.userId;
 }
 
 export async function getPasskeys(req: AuthRequest, res: Response) {
-  const user = await getSignedInUser(req);
-  const passkeys = await getPasskeysByUserId(user.id);
+  const passkeys = await getPasskeysByUserId(getSignedInUserId(req));
   res.status(200).json({
     status: 200,
     passkeys: passkeys.map(toPasskeySummary),
@@ -47,7 +43,9 @@ export async function postRegistrationOptions(
   req: AuthRequest<StartPasskeyRegistrationBody>,
   res: Response,
 ) {
-  const user = await getSignedInUser(req);
+  // The full user, since req.currentUser has no password hash
+  const user = await getUserById(getSignedInUserId(req));
+  if (!user) throw notSignedIn();
   // Re-check the password so a stolen session can't add its own passkey
   if (!(await verifyPassword(user, req.body.password))) {
     throw new BadRequestError("Your password is incorrect.");
@@ -60,9 +58,8 @@ export async function postRegistrationVerify(
   req: AuthRequest<FinishPasskeyRegistrationBody>,
   res: Response,
 ) {
-  const user = await getSignedInUser(req);
   const passkey = await finishPasskeyRegistration(
-    user,
+    getSignedInUserId(req),
     req.body.name.trim(),
     req.body.response,
   );
@@ -73,8 +70,8 @@ export async function putPasskey(
   req: AuthRequest<RenamePasskeyBody, { id: string }>,
   res: Response,
 ) {
-  const user = await getSignedInUser(req);
-  if (!(await renamePasskey(user.id, req.params.id, req.body.name.trim()))) {
+  const userId = getSignedInUserId(req);
+  if (!(await renamePasskey(userId, req.params.id, req.body.name.trim()))) {
     throw new NotFoundError("Passkey not found.");
   }
   res.status(200).json({ status: 200 });
@@ -84,8 +81,7 @@ export async function deletePasskeyById(
   req: AuthRequest<null, { id: string }>,
   res: Response,
 ) {
-  const user = await getSignedInUser(req);
-  if (!(await deletePasskey(user.id, req.params.id))) {
+  if (!(await deletePasskey(getSignedInUserId(req), req.params.id))) {
     throw new NotFoundError("Passkey not found.");
   }
   res.status(200).json({ status: 200 });

@@ -138,7 +138,7 @@ export async function startPasskeyRegistration(user: UserInterface) {
 }
 
 export async function finishPasskeyRegistration(
-  user: UserInterface,
+  userId: string,
   name: string,
   response: PasskeyRegistrationResponse,
 ): Promise<PasskeyInterface> {
@@ -150,7 +150,7 @@ export async function finishPasskeyRegistration(
   const challenge = await takeChallenge(
     response.response.clientDataJSON,
     "registration",
-    user.id,
+    userId,
   );
   if (!challenge) throw couldNotVerify;
 
@@ -173,7 +173,7 @@ export async function finishPasskeyRegistration(
     verification.registrationInfo;
   try {
     return await createPasskey({
-      userId: user.id,
+      userId,
       name,
       credentialId: credential.id,
       publicKey: isoBase64URL.fromBuffer(credential.publicKey),
