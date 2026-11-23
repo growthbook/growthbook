@@ -2,6 +2,7 @@ import { putConfigRevisionSchemaValidator } from "shared/validators";
 import {
   formatAncestorFieldConflictMessage,
   ancestorCollisionWarnings,
+  stripConfigExtends,
 } from "shared/util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -10,10 +11,15 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import { assertNoReferenceCycle } from "back-end/src/services/constants";
+import {
+  assertConfigValueValid,
+  configDraftState,
+  configValidationLeaf,
+} from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
-  applyRevisionToSnapshot,
+  assertValidConfigValueEdit,
   discardIfJustCreated,
   isDraftStatus,
   pickNewDraftMetadata,
@@ -60,13 +66,31 @@ export const putConfigRevisionSchema = createApiRequestHandler(
 
     // Resolve against the draft's own staged value/parent so `infer` and "base
     // wins" reflect what the revision will publish.
-    const draft = applyRevisionToSnapshot(revision);
+    const draft = configDraftState(config, revision);
+
+    // A value sent with the schema is staged with it, as the app's editor does.
+    // Checked as sent, so an unsupported reference is rejected, not dropped.
+    const rawValue =
+      req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
+    if (rawValue !== undefined) assertValidConfigValueEdit(rawValue);
+    const sentValue =
+      rawValue !== undefined ? stripConfigExtends(rawValue) : undefined;
+    if (sentValue !== undefined) {
+      await assertNoReferenceCycle(
+        req.context,
+        config.key,
+        sentValue,
+        undefined,
+        "config",
+      );
+    }
+    const value = sentValue ?? draft.value;
 
     const { schema, warnings } = resolveConfigSchemaSource({
       source: req.body.schema,
       infer: req.body.infer,
       additionalProperties: req.body.additionalProperties,
-      inferValue: draft.value,
+      inferValue: value,
     });
     if (schema === undefined) {
       throw new BadRequestError(
@@ -86,7 +110,7 @@ export const putConfigRevisionSchema = createApiRequestHandler(
         key: config.key,
         parent: draft.parent,
         extends: draft.extends,
-        value: draft.value,
+        value,
       },
       schema,
     );
@@ -97,25 +121,21 @@ export const putConfigRevisionSchema = createApiRequestHandler(
     }
     warnings.push(...ancestorCollisionWarnings(identical));
 
-    // The new schema must still admit the draft's value(s).
+    // The new schema must admit the value it will publish with.
     await assertConfigValueValid(
       req.context,
-      {
-        key: config.key,
-        name: config.name,
-        value: draft.value,
-        schema: normalizedSchema,
-        parent: draft.parent,
-        extends: draft.extends,
-      },
-      { value: draft.value },
+      configValidationLeaf(draft, { schema: normalizedSchema, value }),
+      { value },
     );
 
     const updated = await createOrUpdateRevision(
       req.context,
       "config",
       config as unknown as Record<string, unknown> & { id: string },
-      buildPatchOps({ schema: normalizedSchema }),
+      buildPatchOps({
+        schema: normalizedSchema,
+        ...(sentValue !== undefined ? { value: sentValue } : {}),
+      }),
       { revisionId: revision.id },
     );
 

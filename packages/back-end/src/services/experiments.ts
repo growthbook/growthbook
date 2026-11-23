@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isEqual } from "lodash";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
+import md5 from "md5";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -25,6 +26,7 @@ import {
   mergeResultHasChanges,
   draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
+  entityTrackingKey,
   findAnalysisComputeFailure,
   generateVariationId,
   getAffectedEnvsForExperiment,
@@ -60,6 +62,12 @@ import {
   needsPercentileCapSubquery,
   expandMetricGroups,
   ExperimentMetricInterface,
+  AdjustmentImpactArgs,
+  DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
+  getAdjustmentImpactSummaries,
+  MetricResults,
+  parseAdjustmentImpactSettings,
+  SupplementalField,
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
   getClusterSubUnit,
@@ -137,6 +145,7 @@ import {
   SnapshotType,
   SnapshotBanditSettings,
   DimensionForSnapshot,
+  SnapshotMetric,
 } from "shared/types/experiment-snapshot";
 import { Condition, MetricInterface, Operator } from "shared/types/metric";
 import {
@@ -219,6 +228,11 @@ import {
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import {
+  getBackendFeatureValue,
+  getTrustedOrgAttributes,
+  trackEventForContext,
+} from "back-end/src/services/growthbook";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { assessRevisionApprovalForAutoPublish } from "back-end/src/services/experiment-feature";
 import {
@@ -6515,6 +6529,15 @@ export async function getExperimentAnalysisSummary({
         context,
         analysis: relativeAnalysis,
         experiment,
+        // Telemetry only, so it runs after the results status has been returned.
+        onComputed: (inputs) =>
+          setImmediate(() =>
+            trackAdjustmentImpact({
+              context,
+              experimentId: experiment.id,
+              ...inputs,
+            }),
+          ),
       });
 
       if (resultsStatus) {
@@ -6560,14 +6583,103 @@ function getLatestPhaseVariationId(
   return i + "";
 }
 
+// The corrected results the status was computed from, and their settings.
+type ResultsStatusInputs = {
+  variations: { metrics: Record<string, SnapshotMetric> }[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+  goalMetricIds: string[];
+} & Pick<
+  AdjustmentImpactArgs,
+  | "metricDefaults"
+  | "statsEngine"
+  | "differenceType"
+  | "ciUpper"
+  | "ciLower"
+  | "pValueThreshold"
+  | "pValueCorrection"
+>;
+
+// One event per results update: how many metrics each adjustment (CUPED,
+// post-stratification, capping, Bayesian prior) would alert on.
+function trackAdjustmentImpact({
+  context,
+  experimentId,
+  variations,
+  metricMap,
+  goalMetricIds,
+  ...analysisSettings
+}: ResultsStatusInputs & { context: ReqContext; experimentId: string }) {
+  try {
+    // The settings are under test, randomized by experiment. The id is hashed
+    // like other entity ids in events, and sent with the event so that it
+    // joins to the exposure.
+    const experimentAttributes = {
+      experiment_id_hashed: md5(
+        entityTrackingKey(context.org.id, experimentId),
+      ),
+    };
+    // The fallback is the new settings, so an install that cannot reach the
+    // CDN still gets them.
+    const settings = parseAdjustmentImpactSettings(
+      getBackendFeatureValue(
+        "experiment-impact-setting",
+        DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
+        { ...getTrustedOrgAttributes(context.org), ...experimentAttributes },
+      ),
+    );
+
+    // Slice and funnel-step ids are not in the metric map, so they are skipped.
+    const toMetricResults = (metricId: string): MetricResults | null => {
+      const metric = metricMap.get(metricId);
+      if (!metric) return null;
+      const stats = variations.map((variation) => variation.metrics[metricId]);
+      if (!stats.every(isDefined)) return null;
+      return { metric, variations: stats };
+    };
+
+    const summaries = getAdjustmentImpactSummaries({
+      ...analysisSettings,
+      metrics: Object.keys(variations[0]?.metrics ?? {})
+        .map(toMetricResults)
+        .filter(isDefined),
+      baselineIndex: 0,
+      goalMetrics: goalMetricIds.map(toMetricResults).filter(isDefined),
+      settings,
+    });
+    const numFlagged = (field: SupplementalField) =>
+      summaries.filter((summary) =>
+        summary.some(
+          (impact) => impact.field === field && impact.effectSize === "large",
+        ),
+      ).length;
+
+    trackEventForContext(
+      context,
+      "Experiment Adjustment Impact",
+      {
+        numMetrics: summaries.length,
+        numPostStratificationFlagged: numFlagged("unstratified"),
+        numCupedFlagged: numFlagged("cupedUnadjusted"),
+        numPriorFlagged: numFlagged("flatPrior"),
+        numCappingFlagged: numFlagged("uncapped"),
+      },
+      experimentAttributes,
+    );
+  } catch (e) {
+    logger.warn(e, "Failed to track adjustment impact");
+  }
+}
+
 export async function computeResultsStatus({
   context,
   analysis,
   experiment,
+  onComputed,
 }: {
   context: ReqContext;
   analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
   experiment: ExperimentInterface | SafeRolloutInterface;
+  onComputed?: (inputs: ResultsStatusInputs) => void;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = analysis.settings.statsEngine;
   const projectId =
@@ -6600,6 +6712,24 @@ export async function computeResultsStatus({
     return;
   }
 
+  const differenceType =
+    "differenceType" in analysis.settings
+      ? analysis.settings.differenceType
+      : "relative";
+
+  onComputed?.({
+    variations,
+    metricMap,
+    goalMetricIds: expandedGoalMetrics,
+    metricDefaults,
+    statsEngine,
+    differenceType,
+    ciUpper,
+    ciLower,
+    pValueThreshold,
+    pValueCorrection,
+  });
+
   const variationStatuses: ExperimentAnalysisSummaryVariationStatus[] = [];
   const baselineVariation = variations[0];
 
@@ -6630,10 +6760,7 @@ export async function computeResultsStatus({
           ciUpper,
           pValueThreshold,
           statsEngine: statsEngine,
-          differenceType:
-            "differenceType" in analysis.settings
-              ? analysis.settings.differenceType
-              : "relative",
+          differenceType,
         });
 
         if (goalMetric) {

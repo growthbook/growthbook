@@ -39,3 +39,6 @@
 :global([data-panel-docked]) .column {
   --column-end: var(--space-5);
 }
+:global([data-left-panel-docked]) .column {
+  --column-start: var(--space-5);
+}

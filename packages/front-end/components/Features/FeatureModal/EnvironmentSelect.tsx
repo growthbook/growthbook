@@ -4,7 +4,7 @@ import { FeatureEnvironment } from "shared/types/feature";
 import { filterProjectsByEnvironment } from "shared/util";
 import { Box, Flex, Grid, Text } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
-import { featureStatusColors } from "@/components/Features/FeaturesOverview";
+import { featureStatusColors } from "@/components/Features/featureStatusColors";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";

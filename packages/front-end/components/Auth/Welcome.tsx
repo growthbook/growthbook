@@ -22,6 +22,33 @@ type LoginHeroContent = {
   link?: string;
 };
 
+type WelcomeState =
+  | "login"
+  | "register"
+  | "forgot"
+  | "forgotSuccess"
+  | "firsttime";
+
+// Returns null for states that have no submit button.
+function getSubmitLabel(state: WelcomeState): string | null {
+  switch (state) {
+    case "login":
+      return "Log in";
+    case "register":
+      return "Create Account";
+    case "forgot":
+      return "Look up";
+    case "firsttime":
+      return "Sign up";
+    case "forgotSuccess":
+      return null;
+    default: {
+      const exhaustive: never = state;
+      return exhaustive;
+    }
+  }
+}
+
 export default function Welcome({
   onSuccess,
   firstTime = false,
@@ -29,9 +56,9 @@ export default function Welcome({
   onSuccess: (token: string, projectId?: string) => void;
   firstTime?: boolean;
 }): ReactElement {
-  const [state, setState] = useState<
-    "login" | "register" | "forgot" | "forgotSuccess" | "firsttime"
-  >(firstTime ? "firsttime" : "login");
+  const [state, setState] = useState<WelcomeState>(
+    firstTime ? "firsttime" : "login",
+  );
   const form = useForm({
     defaultValues: {
       companyname: "",
@@ -61,16 +88,7 @@ export default function Welcome({
     "Hello there, Welcome!",
     "Hey there!",
   ];
-  const cta =
-    state === "login"
-      ? "Log in"
-      : state === "register"
-        ? "Create Account"
-        : state === "forgot"
-          ? "Look up"
-          : state === "firsttime"
-            ? "Sign up"
-            : "Submit";
+  const cta = getSubmitLabel(state);
 
   const submit =
     state === "forgotSuccess"
@@ -365,16 +383,18 @@ export default function Welcome({
               {error}
             </Callout>
           )}
-          <Button
-            type="submit"
-            size="xl"
-            loading={loading}
-            style={{ width: "100%" }}
-            mt="5"
-            mb="5"
-          >
-            {cta}
-          </Button>
+          {cta !== null && (
+            <Button
+              type="submit"
+              size="xl"
+              loading={loading}
+              style={{ width: "100%" }}
+              mt="5"
+              mb="5"
+            >
+              {cta}
+            </Button>
+          )}
           {state === "login" && (
             <Flex justify="center" align="center">
               <Text color="text-mid" weight="regular" align="center">

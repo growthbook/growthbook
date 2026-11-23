@@ -1,4 +1,4 @@
-import Ajv from "ajv";
+import Ajv, { ErrorObject } from "ajv";
 import { SchemaField } from "shared/types/feature";
 import { simpleToJSONSchema } from "../features";
 import { CONSTANT_EXTENDS_KEY } from "../../constants";
@@ -37,6 +37,53 @@ export function valueHasReferenceToken(v: unknown): boolean {
   return false;
 }
 
+// The checkable part of a value: reference-backed keys are exempt (their
+// resolved type is unknown), and `$extends` is a merge directive, not data.
+function checkableValue(value: Record<string, unknown>): {
+  data: Record<string, unknown>;
+  refKeys: string[];
+} {
+  const data: Record<string, unknown> = {};
+  const refKeys: string[] = [];
+  for (const [k, v] of Object.entries(value)) {
+    if (k === CONSTANT_EXTENDS_KEY) continue;
+    if (valueHasReferenceToken(v)) refKeys.push(k);
+    else data[k] = v;
+  }
+  return { data, refKeys };
+}
+
+// Compiles the effective schema for a value; throws when it can't. Sparse values
+// don't carry every required key (inheritance does), so `required` is dropped at
+// every depth unless the value is fully resolved.
+function compileValueSchema({
+  fields,
+  additionalProperties,
+  requireAll,
+  refKeys,
+}: {
+  fields: SchemaField[];
+  additionalProperties: boolean;
+  requireAll: boolean;
+  refKeys: string[];
+}): ReturnType<Ajv["compile"]> {
+  const schemaObj: Record<string, unknown> = JSON.parse(
+    simpleToJSONSchema({ type: "object", fields, additionalProperties }),
+  );
+  if (!requireAll) {
+    stripRequiredDeep(schemaObj);
+  } else if (Array.isArray(schemaObj.required)) {
+    // A reference-backed key is present, just not checkable.
+    schemaObj.required = schemaObj.required.filter(
+      (k: unknown) => !refKeys.includes(k as string),
+    );
+  }
+  // allErrors: report every violation, not just the first — callers surface
+  // the full list (and the schema-break guard fingerprints it, so a masked
+  // second violation would otherwise only appear once the first is fixed).
+  return new Ajv({ strictSchema: false, allErrors: true }).compile(schemaObj);
+}
+
 // Return the top-level value keys that fail validation against the (effective)
 // schema. Equivalent to calling `validateConfigValue` per key, but compiles the
 // schema ONCE for the whole object and attributes errors back to top-level keys
@@ -53,12 +100,7 @@ export function collectInvalidConfigValueKeys({
   fields: SchemaField[];
   additionalProperties: boolean;
 }): string[] {
-  const data: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(value)) {
-    if (k === CONSTANT_EXTENDS_KEY) continue;
-    if (valueHasReferenceToken(v)) continue;
-    data[k] = v;
-  }
+  const { data } = checkableValue(value);
   const keys = Object.keys(data);
   if (!keys.length) return [];
 
@@ -66,27 +108,17 @@ export function collectInvalidConfigValueKeys({
   // config may carry no keys, so every present key is offending.
   if (!fields.length) return additionalProperties ? [] : keys;
 
-  let schemaObj: Record<string, unknown>;
+  let validate: ReturnType<Ajv["compile"]>;
   try {
-    schemaObj = JSON.parse(
-      simpleToJSONSchema({ type: "object", fields, additionalProperties }),
-    );
+    validate = compileValueSchema({
+      fields,
+      additionalProperties,
+      requireAll: false,
+      refKeys: [],
+    });
   } catch {
     // A malformed schema can't attribute a fault to a specific value key; the
     // schema itself is surfaced as invalid elsewhere.
-    return [];
-  }
-  // At every depth, not just top-level — a nested `required` (or conditional
-  // form) would flag sparse deep-merge patches as incompatible here while
-  // `validateConfigValue` accepts them.
-  stripRequiredDeep(schemaObj);
-
-  let validate: ReturnType<Ajv["compile"]>;
-  try {
-    validate = new Ajv({ strictSchema: false, allErrors: true }).compile(
-      schemaObj,
-    );
-  } catch {
     return [];
   }
   if (validate(data)) return [];
@@ -169,6 +201,60 @@ function stripRequiredDeep(schema: unknown): void {
   }
 }
 
+// Follows the per-key lines when a top-level key isn't declared. Each key keeps
+// its own line, since the schema-break guard matches lines exactly.
+export const UNDECLARED_FIELDS_FIX =
+  "Add these fields to the schema, or allow extra fields on the base Config.";
+
+export type ConfigValueIssue = { path: string; message: string };
+
+// The top-level key an error is about: the first pointer segment, unescaped,
+// or for an error on the object itself, the property it names.
+function topLevelKey(err: ErrorObject): string {
+  const first = (err.instancePath ?? "").split("/")[1];
+  if (first !== undefined) return first.replace(/~1/g, "/").replace(/~0/g, "~");
+  const params = err.params as {
+    missingProperty?: string;
+    additionalProperty?: string;
+  };
+  return params.missingProperty ?? params.additionalProperty ?? "";
+}
+
+// Ajv's wording names the parent object and hides the offending key or the
+// allowed values, so these keywords say what to fix instead.
+function configValueIssue(err: ErrorObject): ConfigValueIssue {
+  const path = err.instancePath?.replace(/^\//, "") ?? "";
+  const at = (key: string) => (path ? `${path}/${key}` : key);
+  const params = err.params as {
+    missingProperty?: string;
+    additionalProperty?: string;
+    allowedValues?: unknown[];
+    multipleOf?: number;
+  };
+  if (err.keyword === "required" && params.missingProperty) {
+    return { path: at(params.missingProperty), message: "is required" };
+  }
+  if (err.keyword === "additionalProperties" && params.additionalProperty) {
+    return {
+      path: at(params.additionalProperty),
+      message: "isn't in the schema",
+    };
+  }
+  if (err.keyword === "multipleOf" && path && params.multipleOf === 1) {
+    return { path, message: "must be an integer" };
+  }
+  if (err.keyword === "enum" && path && params.allowedValues) {
+    const allowed = params.allowedValues.map((v) => JSON.stringify(v));
+    return { path, message: `must be one of ${allowed.join(", ")}` };
+  }
+  return { path, message: err.message ?? "is invalid" };
+}
+
+function describeConfigValueError(err: ErrorObject): string {
+  const { path, message } = configValueIssue(err);
+  return `${path ? `"${path}" ` : ""}${message}`;
+}
+
 export function validateConfigValue({
   value,
   fields,
@@ -183,13 +269,7 @@ export function validateConfigValue({
   // Enforce required fields (use for a resolved value, e.g. at publish).
   requireAll?: boolean;
 }): ConfigValueValidationResult {
-  const data: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(value)) {
-    if (k === CONSTANT_EXTENDS_KEY) continue;
-    // Skip reference-backed fields — their resolved type/shape is unknown here.
-    if (valueHasReferenceToken(v)) continue;
-    data[k] = v;
-  }
+  const { data, refKeys } = checkableValue(value);
 
   // No declared fields: the only constraint is extensibility (a non-extensible
   // config with no schema may not carry any keys).
@@ -198,55 +278,33 @@ export function validateConfigValue({
       return {
         valid: false,
         errors: [
-          `Unexpected field(s) ${Object.keys(data)
-            .map((k) => `"${k}"`)
-            .join(
-              ", ",
-            )}: this Config has no schema and does not allow extra fields.`,
+          ...Object.keys(data).map((k) => `"${k}" isn't in the schema`),
+          UNDECLARED_FIELDS_FIX,
         ],
       };
     }
     return { valid: true, errors: [] };
   }
 
-  let schemaObj: Record<string, unknown>;
   try {
-    schemaObj = JSON.parse(
-      simpleToJSONSchema({ type: "object", fields, additionalProperties }),
-    );
-  } catch (e) {
-    return {
-      valid: false,
-      errors: [e instanceof Error ? e.message : String(e)],
-    };
-  }
-
-  // Sparse values don't carry every required key (inheritance does), so drop
-  // `required` — at every depth — unless validating a fully-resolved value.
-  if (!requireAll) stripRequiredDeep(schemaObj);
-
-  try {
-    // allErrors: report every violation, not just the first — callers surface
-    // the full list (and the schema-break guard fingerprints it, so a masked
-    // second violation would otherwise only appear once the first is fixed).
-    const ajv = new Ajv({ strictSchema: false, allErrors: true });
-    const validate = ajv.compile(schemaObj);
+    const validate = compileValueSchema({
+      fields,
+      additionalProperties,
+      requireAll,
+      refKeys,
+    });
     const valid = validate(data);
+    const errors = validate.errors ?? [];
+    const undeclaredAtTop = errors.some(
+      (e) => e.keyword === "additionalProperties" && !e.instancePath,
+    );
     return {
       valid: !!valid,
       errors: [
-        ...new Set(
-          validate.errors?.map((v) => {
-            const field =
-              v.instancePath?.replace(/^\//, "") ||
-              (v.params as { missingProperty?: string })?.missingProperty ||
-              (v.params as { additionalProperty?: string })
-                ?.additionalProperty ||
-              "";
-            const where = field ? `"${field}" ` : "";
-            return `${where}${v.message ?? "is invalid"}`;
-          }) ?? [],
-        ),
+        ...new Set([
+          ...errors.map(describeConfigValueError),
+          ...(undeclaredAtTop ? [UNDECLARED_FIELDS_FIX] : []),
+        ]),
       ],
     };
   } catch (e) {
@@ -255,4 +313,42 @@ export function validateConfigValue({
       errors: [e instanceof Error ? e.message : String(e)],
     };
   }
+}
+
+// A fully-resolved value's schema issues (required enforced, extra keys
+// allowed), grouped by top-level key so each can mark its key's row.
+export function collectConfigValueIssuesByKey({
+  value,
+  fields,
+}: {
+  value: Record<string, unknown>;
+  fields: SchemaField[];
+}): Map<string, ConfigValueIssue[]> {
+  const byKey = new Map<string, ConfigValueIssue[]>();
+  if (!fields.length) return byKey;
+  const { data, refKeys } = checkableValue(value);
+  let validate: ReturnType<Ajv["compile"]>;
+  try {
+    validate = compileValueSchema({
+      fields,
+      additionalProperties: true,
+      requireAll: true,
+      refKeys,
+    });
+  } catch {
+    return byKey;
+  }
+  if (validate(data)) return byKey;
+  for (const err of validate.errors ?? []) {
+    const issue = configValueIssue(err);
+    const key = topLevelKey(err);
+    if (!key) continue;
+    const list = byKey.get(key) ?? [];
+    if (
+      !list.some((i) => i.path === issue.path && i.message === issue.message)
+    ) {
+      byKey.set(key, [...list, issue]);
+    }
+  }
+  return byKey;
 }

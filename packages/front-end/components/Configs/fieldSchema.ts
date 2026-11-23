@@ -8,6 +8,7 @@ import {
   presetSchemaString,
   simpleSchemaFieldToJSONSchema,
 } from "shared/util";
+import { viewTransitionProps } from "@/services/viewTransition";
 
 // The schema/value conversion core lives in `shared/util/config-schema` so the
 // REST API can reuse it. Re-exported here so existing editor imports of
@@ -77,11 +78,13 @@ export const FIELD_TYPE_OPTIONS = [
   { value: "any", label: "Any" },
 ];
 
-// key | value | type | source | usage | actions. Right-hand columns are
-// fixed-width so they line up across rows (each row is its own grid); value
-// (1fr) absorbs slack.
-export const FIELD_GRID_TEMPLATE =
-  "minmax(110px, 200px) minmax(120px, 1fr) 110px 110px 48px 150px";
+// The pinned actions cell is opaque, so what scrolls under it stays hidden; a
+// tinted row's tint is laid over it.
+export function pinnedCellBackground(tint: string | null): string | undefined {
+  return tint
+    ? `linear-gradient(${tint}, ${tint}) var(--color-panel-solid)`
+    : undefined;
+}
 
 const PRESET_LABELS: Record<PresetKey, string> = {
   json: "JSON",
@@ -250,17 +253,24 @@ export function typeDefault(field: SchemaField | null): unknown {
   if (preset === "json") return {};
   if (preset === "array") return [];
   if (preset === "any") return null;
-  if (field.jsonSchema !== undefined) return {};
-  switch (field.type) {
+  // A value starts as what its editor holds.
+  switch (fieldValueType(field)) {
     case "boolean":
       return false;
-    case "integer":
-    case "float":
+    case "number":
       return 0;
+    case "json":
+      return {};
     case "string":
-    default:
       return "";
   }
+}
+
+function enumValueType(v: unknown): string {
+  if (typeof v === "string") return "string";
+  if (typeof v === "number") return "number";
+  if (typeof v === "boolean") return "boolean";
+  return "object";
 }
 
 // Value-editor surface from a schema's top-level type; only structured shapes
@@ -277,8 +287,16 @@ function jsonSchemaValueType(
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return "json";
   }
-  const rawType = (parsed as { type?: unknown }).type;
-  const types = (Array.isArray(rawType) ? rawType : [rawType]).filter(
+  const { type: rawType, enum: enumValues } = parsed as {
+    type?: unknown;
+    enum?: unknown;
+  };
+  // With no type, an allow-list's values say what the field holds.
+  const declared =
+    rawType === undefined && Array.isArray(enumValues)
+      ? [...new Set(enumValues.filter((v) => v !== null).map(enumValueType))]
+      : rawType;
+  const types = (Array.isArray(declared) ? declared : [declared]).filter(
     (t) => t !== "null",
   );
   if (types.length !== 1) return "json";
@@ -333,3 +351,129 @@ export function valueToDisplayString(
       return typeof value === "string" ? value : JSON.stringify(value);
   }
 }
+
+// A field row's view-transition name, the same whether it's shown or edited, so
+// the row morphs between them. Characters a CSS name can't hold are encoded.
+export function fieldRowTransitionProps(key: string) {
+  return viewTransitionProps(
+    `config-field-${key.replace(/[^a-zA-Z0-9-]/g, (c) => `_${c.charCodeAt(0)}`)}`,
+  );
+}
+
+export type ValueEditSeed = { text: string; kind: "value" | "null" };
+
+// What a field's value editor opens with. JSON editors take `null` as literal
+// text, so only other fields use the null kind.
+export function valueEditSeed(
+  field: SchemaField | null,
+  value: unknown,
+): ValueEditSeed {
+  const isJson = isJsonField(field);
+  if (value === null && !isJson) return { text: "", kind: "null" };
+  return {
+    text:
+      value === undefined
+        ? ""
+        : isJson
+          ? JSON.stringify(value, null, 2)
+          : String(value),
+    kind: "value",
+  };
+}
+
+// What a field's edited value saves as. A string keeps its text, empty
+// included; other types need a value, with null set explicitly.
+export function parseFieldValueInput(
+  text: string,
+  field: SchemaField | null,
+  isNull = false,
+): { kind: "value"; value: unknown } | { kind: "error"; error: string } {
+  if (isNull) return { kind: "value", value: null };
+  const valueType = fieldValueType(field);
+  const allowed = field ? normalizeField(field).enum : [];
+  if (valueType === "string") {
+    // An allow-list without "" needs one of its values.
+    return text === "" && allowed.length > 0 && !allowed.includes("")
+      ? { kind: "error", error: "Choose a value" }
+      : { kind: "value", value: text };
+  }
+  const t = text.trim();
+  if (t === "") {
+    // Booleans and allow-lists are picked from a menu.
+    const picked = valueType === "boolean" || allowed.length > 0;
+    return {
+      kind: "error",
+      error: picked ? "Choose a value" : "Enter a value",
+    };
+  }
+  switch (valueType) {
+    case "json":
+      try {
+        return { kind: "value", value: JSON.parse(t) };
+      } catch (e) {
+        return {
+          kind: "error",
+          error: e instanceof Error ? e.message : "Value must be valid JSON",
+        };
+      }
+    case "boolean":
+      return t === "true" || t === "false"
+        ? { kind: "value", value: t === "true" }
+        : { kind: "error", error: "Value must be true or false" };
+    case "number": {
+      const n = Number(t);
+      if (!Number.isFinite(n)) {
+        return { kind: "error", error: "Value must be a number" };
+      }
+      if (field?.type === "integer" && !Number.isInteger(n)) {
+        return { kind: "error", error: "Value must be an integer" };
+      }
+      return { kind: "value", value: n };
+    }
+  }
+}
+
+export type ConfigRelation =
+  | "child"
+  | "descendant"
+  | "parent"
+  | "ancestor"
+  | "sibling"
+  | "related";
+
+// How a Config in the family relates to the one in view, by parent links.
+export function configRelation(
+  key: string,
+  currentKey: string,
+  lineage: Pick<LineageNode, "key" | "parentKey">[],
+): ConfigRelation {
+  const parentOf = (k: string) =>
+    lineage.find((n) => n.key === k)?.parentKey ?? null;
+  // Every Config above `from`, nearest first; a staged parent cycle ends it.
+  const above = (from: string) => {
+    const keys: string[] = [];
+    const seen = new Set([from]);
+    for (let k = parentOf(from); k && !seen.has(k); k = parentOf(k)) {
+      keys.push(k);
+      seen.add(k);
+    }
+    return keys;
+  };
+  const aboveKey = above(key);
+  const aboveCurrent = above(currentKey);
+  if (aboveKey[0] === currentKey) return "child";
+  if (aboveKey.includes(currentKey)) return "descendant";
+  if (aboveCurrent[0] === key) return "parent";
+  if (aboveCurrent.includes(key)) return "ancestor";
+  if (aboveKey.length > 0 && aboveKey[0] === aboveCurrent[0]) return "sibling";
+  return "related";
+}
+
+export const SCHEMA_LANG_LABEL: Record<string, string> = {
+  typescript: "TypeScript",
+  protobuf: "Protobuf",
+  python: "Python",
+  go: "Go",
+  rust: "Rust",
+  "json-schema": "JSON Schema",
+};
