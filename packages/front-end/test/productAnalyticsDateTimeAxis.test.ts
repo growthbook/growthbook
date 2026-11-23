@@ -5,6 +5,14 @@ import { formatDateByGranularity } from "@/enterprise/components/ProductAnalytic
 const NOW = Date.UTC(2026, 10, 19);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Some locales add a suffix to a bare year ("2022年").
+function yearLabel(year: number) {
+  return new Date(Date.UTC(year, 0, 1)).toLocaleDateString(undefined, {
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 function build(
   bucketIsos: string[],
   granularity: Parameters<typeof buildDateTimeAxisOption>[0]["granularity"],
@@ -32,7 +40,7 @@ describe("buildDateTimeAxisOption", () => {
 
     expect(ticks).toEqual([jan1]);
     expect(option.axisLabel.customValues).toEqual([jan1]);
-    expect(labels).toEqual(["2022"]);
+    expect(labels).toEqual([yearLabel(2022)]);
     expect(option.axis.min).toBe(jan1 - halfYear);
     expect(option.axis.max).toBe(jan1 + halfYear);
   });
@@ -58,7 +66,7 @@ describe("buildDateTimeAxisOption", () => {
     );
     expect(option.axis).not.toHaveProperty("min");
     expect(option.axis).not.toHaveProperty("max");
-    expect(labels).toEqual(["2021", "2022", "2023"]);
+    expect(labels).toEqual([2021, 2022, 2023].map(yearLabel));
   });
 
   it("only places ticks on valid bucket starts", () => {
@@ -217,9 +225,18 @@ describe("formatDateByGranularity compact style", () => {
       compact: true,
       showYear: false,
     });
-    expect(label).not.toContain("2022");
-    expect(label.length).toBeLessThan(
-      formatDateByGranularity(nineAm, "hour").length,
+    // Compared with Intl directly: string lengths vary by locale.
+    const hour12 = new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+    }).resolvedOptions().hour12;
+    expect(label).toBe(
+      nineAm.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        ...(hour12 ? {} : { minute: "2-digit" as const }),
+        timeZone: "UTC",
+      }),
     );
     if (Intl.DateTimeFormat().resolvedOptions().locale === "en-US") {
       expect(label).toBe("Jul 25, 9 AM");
@@ -229,11 +246,24 @@ describe("formatDateByGranularity compact style", () => {
     }
   });
 
-  it("uses a shorter month than the default style", () => {
-    const full = formatDateByGranularity(nov2, "month");
-    const compact = formatDateByGranularity(nov2, "month", "utc", {
-      compact: true,
-    });
-    expect(compact.length).toBeLessThan(full.length);
+  it("uses a short month name instead of the long one", () => {
+    // Compared with Intl directly: in some locales (ja-JP, zh-CN) the short
+    // and long month names are the same, so lengths prove nothing.
+    expect(
+      formatDateByGranularity(nov2, "month", "utc", { compact: true }),
+    ).toBe(
+      nov2.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        timeZone: "UTC",
+      }),
+    );
+    expect(formatDateByGranularity(nov2, "month")).toBe(
+      nov2.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        timeZone: "UTC",
+      }),
+    );
   });
 });
