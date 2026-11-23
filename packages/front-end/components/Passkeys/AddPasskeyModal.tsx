@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { Flex } from "@radix-ui/themes";
 import {
   PublicKeyCredentialCreationOptionsJSON,
   RegistrationResponseJSON,
@@ -62,24 +63,26 @@ export default function AddPasskeyModal({
         onAdded();
       })}
     >
-      <Text as="p" mb="3">
-        After you continue, your browser will ask you to create the passkey.
-      </Text>
-      <TextField
-        label="Name"
-        placeholder="Work laptop"
-        helpText="So you can tell your passkeys apart"
-        required
-        maxLength={64}
-        {...form.register("name", { required: true })}
-      />
-      <TextField
-        label="Current password"
-        type="password"
-        autoComplete="current-password"
-        required
-        {...form.register("password", { required: true })}
-      />
+      <Flex direction="column" gap="4">
+        <Text as="p">
+          After you continue, your browser will ask you to create the passkey.
+        </Text>
+        <TextField
+          label="Name"
+          placeholder="Work laptop"
+          helpText="So you can tell your passkeys apart"
+          required
+          maxLength={64}
+          {...form.register("name", { required: true })}
+        />
+        <TextField
+          label="Current password"
+          type="password"
+          autoComplete="current-password"
+          required
+          {...form.register("password", { required: true })}
+        />
+      </Flex>
     </ModalStandard>
   );
 }
