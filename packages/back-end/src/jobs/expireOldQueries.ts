@@ -44,8 +44,8 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
+import { releaseSnapshotLock } from "back-end/src/models/IncrementalRefreshModel";
 import { getCollection } from "back-end/src/util/mongo.util";
-import { ApiReqContext } from "back-end/types/api";
 
 const JOB_NAME = "expireOldQueries";
 
@@ -185,6 +185,10 @@ const expireOldQueries = async () => {
     logger.warn("Updating status of snapshot " + snapshot.id);
     updateQueryStatus(snapshot.queries, queryIds);
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
+
+    // Release before the error write: a client may retrigger as soon as it
+    // reads it.
+    await releaseSnapshotLock(context, snapshot, "for expired snapshot");
     await updateSnapshot({
       context,
       id: snapshot.id,
@@ -195,18 +199,6 @@ const expireOldQueries = async () => {
       },
       conclusion: { concludedBy: "reaper", reason: "stale-queries" },
     });
-
-    // Release the incremental refresh lock if this snapshot held it.
-    // This is safe because releaseLock filters on currentExecutionSnapshotId,
-    // so it only releases the lock if this specific snapshot still holds it.
-    await context.models.incrementalRefresh
-      .releaseLock(snapshot.experiment, snapshot.id)
-      .catch((e) =>
-        logger.warn(
-          e,
-          "Failed to release incremental lock for expired snapshot",
-        ),
-      );
   }
 
   // Look for matching reports and update the status
@@ -570,7 +562,11 @@ async function recoverOrErrorStalledExperimentSnapshots() {
               `Recovered stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}) from persisted results`,
             );
             // Retry in case the runner's own release failed.
-            await releaseStalledSnapshotLock(context, snapshot);
+            await releaseSnapshotLock(
+              context,
+              snapshot,
+              "for stalled snapshot",
+            );
             continue;
           }
           reason =
@@ -662,20 +658,8 @@ async function recoverOrErrorStalledExperimentSnapshots() {
       }
     }
 
-    await releaseStalledSnapshotLock(context, snapshot);
+    await releaseSnapshotLock(context, snapshot, "for stalled snapshot");
   }
-}
-
-// No-op if a newer run has taken the lock (releaseLock filters on snapshot id).
-async function releaseStalledSnapshotLock(
-  context: ApiReqContext,
-  snapshot: { experiment: string; id: string },
-) {
-  await context.models.incrementalRefresh
-    .releaseLock(snapshot.experiment, snapshot.id)
-    .catch((e) =>
-      logger.warn(e, "Failed to release incremental lock for stalled snapshot"),
-    );
 }
 
 export default async function (agenda: Agenda) {

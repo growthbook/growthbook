@@ -43,6 +43,7 @@ import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/e
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
+import { releaseSnapshotLock } from "back-end/src/models/IncrementalRefreshModel";
 import { parseDimension } from "back-end/src/services/experiments";
 import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
@@ -552,15 +553,16 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   }
 
   /**
-   * Persist error only while still running; release the incremental refresh
-   * lock if the write wins.
+   * Persist the error only while still running. The lock is released first,
+   * since a client may retrigger as soon as it reads the error.
    */
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
+    await releaseSnapshotLock(this.context, this.model, "on shutdown error");
     // Reached from the runner's own failure paths, where neither the queries
     // nor the analysis is known to be at fault.
-    const wrote = await errorSnapshotIfStillRunning(
+    await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
       { queries: this.model.queries, error },
@@ -568,16 +570,6 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       { concludedBy: this.concludedBy },
       this.experimentUpdateExecutionLogger,
     );
-    if (wrote) {
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on shutdown error",
-          ),
-        );
-    }
   }
 
   async updateModel({
@@ -607,6 +599,14 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
             ? "error"
             : "success",
     };
+
+    // The lock (taken in createSnapshotFromPlan) keeps refreshes from mutating
+    // the pipeline tables while this runner reads them. Release it before the
+    // terminal status write: a client may retrigger as soon as it reads it.
+    if (updates.status !== "running") {
+      await releaseSnapshotLock(this.context, this.model, "on terminal status");
+    }
+
     await updateSnapshot({
       context: this.context,
       id: this.model.id,
@@ -622,20 +622,6 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       await updateReport(this.model.organization, this.model.report, {
         snapshot: this.model.id,
       });
-    }
-
-    // Release the incremental refresh lock on any terminal status. This runner
-    // acquires the lock (see createSnapshotFromPlan) so that it does not read
-    // the shared pipeline tables while an incremental refresh is mutating them.
-    if (updates.status !== "running") {
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on terminal status",
-          ),
-        );
     }
 
     return {

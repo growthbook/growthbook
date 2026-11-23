@@ -51,6 +51,7 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
+import { releaseSnapshotLock } from "back-end/src/models/IncrementalRefreshModel";
 import {
   analyzeExperimentClusterHealth,
   analyzeExperimentResults,
@@ -1607,15 +1608,16 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   }
 
   /**
-   * Persist error only while still running; release the incremental refresh
-   * lock if the write wins.
+   * Persist the error only while still running. The lock is released first,
+   * since a client may retrigger as soon as it reads the error.
    */
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
+    await releaseSnapshotLock(this.context, this.model, "on shutdown error");
     // Reached from the runner's own failure paths, where neither the queries
     // nor the analysis is known to be at fault.
-    const wrote = await errorSnapshotIfStillRunning(
+    await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
       { queries: this.model.queries, error },
@@ -1623,16 +1625,6 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       { concludedBy: this.concludedBy },
       this.experimentUpdateExecutionLogger,
     );
-    if (wrote) {
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on shutdown error",
-          ),
-        );
-    }
   }
 
   async updateModel({
@@ -1664,24 +1656,10 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       ...result,
       status: snapshotStatus,
     };
-    await updateSnapshot({
-      context: this.context,
-      id: this.model.id,
-      updates,
-      failureCause,
-      conclusion: { concludedBy: this.concludedBy },
-      experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
-    });
-    if (
-      this.model.report &&
-      ["failed", "partially-succeeded", "succeeded"].includes(status)
-    ) {
-      await updateReport(this.model.organization, this.model.report, {
-        snapshot: this.model.id,
-      });
-    }
 
-    // Release the incremental refresh lock on any terminal status
+    // Release before the terminal status write: a client may retrigger as
+    // soon as it reads it. The materialized record only matches while this
+    // snapshot holds the lock, so it must be written before the release.
     // TODO: Properly handle partially-succeeded status that also becomes terminal??
     if (snapshotStatus !== "running") {
       if (snapshotStatus === "success") {
@@ -1699,14 +1677,24 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           );
       }
 
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on terminal status",
-          ),
-        );
+      await releaseSnapshotLock(this.context, this.model, "on terminal status");
+    }
+
+    await updateSnapshot({
+      context: this.context,
+      id: this.model.id,
+      updates,
+      failureCause,
+      conclusion: { concludedBy: this.concludedBy },
+      experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
+    });
+    if (
+      this.model.report &&
+      ["failed", "partially-succeeded", "succeeded"].includes(status)
+    ) {
+      await updateReport(this.model.organization, this.model.report, {
+        snapshot: this.model.id,
+      });
     }
 
     return {
