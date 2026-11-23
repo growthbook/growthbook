@@ -45,29 +45,32 @@ export type PasskeySummary = z.infer<typeof passkeySummaryValidator>;
 
 export const passkeyNameValidator = z.string().trim().min(1).max(64);
 
-// The shape @simplewebauthn/browser sends back. The server library does the
-// actual cryptographic checks.
-const clientExtensionResultsValidator = z.object({
-  appid: z.boolean().optional(),
-  credProps: z.object({ rk: z.boolean().optional() }).optional(),
-  hmacCreateSecret: z.boolean().optional(),
-});
-
-export const passkeyRegistrationResponseValidator = z.object({
+// The shape @simplewebauthn/browser sends back, minus the part that differs
+// between adding a passkey and signing in. The server library does the actual
+// cryptographic checks.
+const passkeyResponseBaseValidator = z.object({
   id: z.string(),
   rawId: z.string(),
-  response: z.object({
-    clientDataJSON: z.string(),
-    attestationObject: z.string(),
-    authenticatorData: z.string().optional(),
-    transports: z.array(z.string()).optional(),
-    publicKeyAlgorithm: z.number().optional(),
-    publicKey: z.string().optional(),
-  }),
   authenticatorAttachment: z.enum(["cross-platform", "platform"]).optional(),
-  clientExtensionResults: clientExtensionResultsValidator,
+  clientExtensionResults: z.object({
+    appid: z.boolean().optional(),
+    credProps: z.object({ rk: z.boolean().optional() }).optional(),
+    hmacCreateSecret: z.boolean().optional(),
+  }),
   type: z.literal("public-key"),
 });
+
+export const passkeyRegistrationResponseValidator =
+  passkeyResponseBaseValidator.extend({
+    response: z.object({
+      clientDataJSON: z.string(),
+      attestationObject: z.string(),
+      authenticatorData: z.string().optional(),
+      transports: z.array(z.string()).optional(),
+      publicKeyAlgorithm: z.number().optional(),
+      publicKey: z.string().optional(),
+    }),
+  });
 export type PasskeyRegistrationResponse = z.infer<
   typeof passkeyRegistrationResponseValidator
 >;
@@ -92,19 +95,15 @@ export const renamePasskeyBodyValidator = z.strictObject({
 });
 export type RenamePasskeyBody = z.infer<typeof renamePasskeyBodyValidator>;
 
-export const passkeyAuthenticationResponseValidator = z.object({
-  id: z.string(),
-  rawId: z.string(),
-  response: z.object({
-    clientDataJSON: z.string(),
-    authenticatorData: z.string(),
-    signature: z.string(),
-    userHandle: z.string().optional(),
-  }),
-  authenticatorAttachment: z.enum(["cross-platform", "platform"]).optional(),
-  clientExtensionResults: clientExtensionResultsValidator,
-  type: z.literal("public-key"),
-});
+export const passkeyAuthenticationResponseValidator =
+  passkeyResponseBaseValidator.extend({
+    response: z.object({
+      clientDataJSON: z.string(),
+      authenticatorData: z.string(),
+      signature: z.string(),
+      userHandle: z.string().optional(),
+    }),
+  });
 export type PasskeyAuthenticationResponse = z.infer<
   typeof passkeyAuthenticationResponseValidator
 >;
