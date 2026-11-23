@@ -31,6 +31,7 @@ export default function AutoExperimentSettings() {
               id={`toggle-autoExperiments-${feature}`}
               label={AUTO_EXPERIMENT_COPY[feature].name}
               disabled={!canManage}
+              disabledMessage="Only admins can change this setting"
               value={isEnabled(feature)}
               setValue={(v) => (v ? setEnabling : setDisabling)(feature)}
             />
