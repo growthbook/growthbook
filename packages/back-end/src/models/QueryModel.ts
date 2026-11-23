@@ -74,7 +74,8 @@ export async function getQueriesByIds(
   includeChunkedResults: boolean = true,
 ) {
   if (!ids.length) return [];
-  // Runners refresh right after a status write; a secondary could miss it.
+  // Runners read right after a status write, and a succeeded doc must come
+  // with all of its result chunks, so docs and chunks both read the primary.
   const docs = await QueryModel.find({
     organization: context.org.id,
     id: { $in: ids },

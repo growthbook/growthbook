@@ -991,6 +991,7 @@ export abstract class BaseModel<
       bypassSanitization,
       projection,
       dangerousCrossOrganization,
+      readPreference,
     }: {
       // Dotted paths sort embedded fields (Mongo supports them natively) — the
       // same shape additionalIndexes accepts, so an indexed path is sortable.
@@ -1005,6 +1006,8 @@ export abstract class BaseModel<
       // Note: exclusion-only, so projection: { field: 1 } is not supported at the moment.
       projection?: Partial<Record<keyof z.infer<T>, 0>>;
       dangerousCrossOrganization?: boolean;
+      // Ignored when using config.yml, which has no replicas.
+      readPreference?: "primary";
     } = {},
   ) {
     const fullQuery = this.applyBaseQuery(query, dangerousCrossOrganization);
@@ -1035,6 +1038,7 @@ export abstract class BaseModel<
       rawDocs = docs;
     } else {
       const cursor = this._dangerousGetCollection().find(fullQuery);
+      if (readPreference) cursor.withReadPreference(readPreference);
       if (projection) {
         cursor.project(projection);
         omittedFields = new Set(Object.keys(projection));

@@ -52,12 +52,15 @@ export class SqlResultChunkModel extends BaseClass {
 
     if (!idsToFetch.length) return;
 
+    // Chunks are written before the query doc reads as succeeded, and only
+    // the primary is guaranteed to be at least as current as the doc read.
     const allChunks = await this._find(
       {
         queryId: { $in: idsToFetch },
       },
       {
         sort: { queryId: 1, chunkNumber: 1 },
+        readPreference: "primary",
       },
     );
     const chunksByQueryId: Record<string, SqlResultChunkInterface[]> = {};

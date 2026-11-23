@@ -450,6 +450,23 @@ describe("BaseModel", () => {
     expect(ret).toEqual([{ id: "aabb", name: "foo" }]);
   });
 
+  it("routes _find to the primary only when asked", async () => {
+    const model = new TestModel(defaultContext);
+    const withReadPreference = jest.fn();
+    const mockFind = jest.fn().mockReturnValue({
+      withReadPreference,
+      toArray: () => [{ _id: "removed", __v: "removed", id: "aabb" }],
+    });
+    model.dangerousGetCollectionMock.mockReturnValue({ find: mockFind });
+
+    await model.find({}, { readPreference: "primary" });
+    expect(withReadPreference).toHaveBeenCalledWith("primary");
+
+    withReadPreference.mockClear();
+    await model.find({});
+    expect(withReadPreference).not.toHaveBeenCalled();
+  });
+
   it("can bypass read permission in _find results", async () => {
     const model = new TestModel(defaultContext);
 
