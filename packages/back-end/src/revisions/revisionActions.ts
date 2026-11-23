@@ -1675,6 +1675,9 @@ export async function rebaseRevision({
           `Unsupported patch op "${op.op}" in ${entityType} revision rebase`,
         );
       }
+      // Equal to the draft's base, it proposes nothing, so live wins, as when
+      // landing. Kept, it would undo what live published since.
+      if (isEqual(op.value ?? null, baseSnapshot[field] ?? null)) continue;
       // A nested branch is re-based onto live, keeping only the draft's edits.
       const nested = mergeNestedBranch(
         field,

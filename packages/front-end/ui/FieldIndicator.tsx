@@ -119,8 +119,9 @@ export function FieldIndicatorCorner({
         right,
         display: "flex",
         alignItems: "center",
-        // Above a code editor's own layers.
-        zIndex: 1000,
+        // Above a code editor's own layers (6 at most), and no further, so
+        // sticky headers it scrolls under still cover it.
+        zIndex: 7,
       }}
     >
       {children}

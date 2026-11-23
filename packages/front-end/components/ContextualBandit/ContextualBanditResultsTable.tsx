@@ -541,7 +541,7 @@ export default function ContextualBanditResultsTable({
               </Text>
             </Box>
             <SegmentedControl
-              size="sm"
+              size="normal"
               aria-label="Comparison value type"
               value={mode}
               setValue={setMode}

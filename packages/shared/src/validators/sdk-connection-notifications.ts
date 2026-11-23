@@ -19,3 +19,33 @@ export const sdkConnectionPayloadSizeNotificationPayload = z
 export type SdkConnectionPayloadSizeNotificationPayload = z.infer<
   typeof sdkConnectionPayloadSizeNotificationPayload
 >;
+
+const sdkConnectionProxyFields = {
+  connectionId: z.string(),
+  connectionName: z.string(),
+  environment: z.string(),
+  projects: z.array(z.string()),
+  /** When the proxy started failing, as an ISO date. */
+  failingSince: z.string().nullable(),
+};
+
+export const sdkConnectionProxyFailureNotificationPayload = z
+  .object({
+    ...sdkConnectionProxyFields,
+    /** Status of the last failed request. Null when it got no response. */
+    status: z.number().nullable(),
+    error: z.string(),
+  })
+  .strict();
+
+export type SdkConnectionProxyFailureNotificationPayload = z.infer<
+  typeof sdkConnectionProxyFailureNotificationPayload
+>;
+
+export const sdkConnectionProxyRecoveredNotificationPayload = z
+  .object(sdkConnectionProxyFields)
+  .strict();
+
+export type SdkConnectionProxyRecoveredNotificationPayload = z.infer<
+  typeof sdkConnectionProxyRecoveredNotificationPayload
+>;

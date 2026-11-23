@@ -1,10 +1,10 @@
 import { ReactNode } from "react";
 import { PiWarning } from "react-icons/pi";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
-import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
+import { renderCustomFieldValue } from "@/components/CustomFields/renderCustomFieldValue";
 import ExpandableText, {
   ExpandableTextBody,
 } from "@/components/ExpandableText";
@@ -235,13 +235,38 @@ export function CustomFieldRows({
     return null;
   }
 
+  const values = target.customFields || {};
   return (
-    <CustomFieldDisplay
-      rows
-      rowAction={action}
-      target={target}
-      canEdit={false}
-      section={section}
-    />
+    <Flex direction="column" gap="3">
+      {customFields.map((field) => {
+        const value = values[field.id] ?? "";
+        return (
+          <Metadata
+            size="sm"
+            stacked
+            key={field.id}
+            label={field.name}
+            action={action(field)}
+            value={
+              value === "" ? (
+                <EmptyValue />
+              ) : (
+                // Long values cut off as a description does; the row edits
+                // wherever it's clicked, so only "… expand" opens the rest.
+                <Box width="100%">
+                  <ExpandableText expandOnClick={false}>
+                    <ExpandableTextBody>
+                      <Box style={{ fontSize: "var(--font-size-1)" }}>
+                        {renderCustomFieldValue(field, value)}
+                      </Box>
+                    </ExpandableTextBody>
+                  </ExpandableText>
+                </Box>
+              )
+            }
+          />
+        );
+      })}
+    </Flex>
   );
 }

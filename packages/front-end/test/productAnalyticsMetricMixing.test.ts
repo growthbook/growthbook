@@ -217,23 +217,30 @@ describe("getPopulationFactTableId", () => {
       makeMetric("purchases", "proportion", "users_only"),
       makeMetric("installs", "proportion", "devices_only"),
       makeMetric("revenue", "mean", "users_only"),
+      makeMetric("p95", "quantile", "users_only"),
     ].map((m) => [m.id, m]),
   );
   const getMetric = (id: string) => populationMetrics.get(id) ?? null;
 
-  it("returns the Fact Table every proportion metric shares", () => {
+  it("returns the Fact Table every metric shares", () => {
     expect(
       getPopulationFactTableId(
         [value("signups", "user_id"), value("purchases", "user_id")],
         getMetric,
       ),
     ).toBe("users_only");
-  });
-
-  it("returns null when a metric isn't a proportion", () => {
     expect(
       getPopulationFactTableId(
         [value("signups", "user_id"), value("revenue", "user_id")],
+        getMetric,
+      ),
+    ).toBe("users_only");
+  });
+
+  it("returns null when a metric's type can't take a Population", () => {
+    expect(
+      getPopulationFactTableId(
+        [value("signups", "user_id"), value("p95", "user_id")],
         getMetric,
       ),
     ).toBeNull();
@@ -416,45 +423,67 @@ describe("getMetricChartPopulationViolations", () => {
 describe("getPopulationConflict", () => {
   const usersOnly = { id: "users_only", name: "Users" };
 
-  it("allows any metric without a loaded Population", () => {
-    expect(getPopulationConflict(metrics.get("revenue")!, null)).toBeNull();
-  });
-
-  it("allows a proportion on the Population's Fact Table", () => {
+  it("allows a proportion or mean on the Population's Fact Table", () => {
     expect(
-      getPopulationConflict(metrics.get("signups")!, usersOnly),
+      getPopulationConflict(
+        metrics.get("signups")!,
+        usersOnly,
+        getFactTableById,
+      ),
     ).toBeNull();
-  });
-
-  it("rejects a metric that isn't a proportion, naming the Fact Table", () => {
     expect(
       getPopulationConflict(
         makeMetric("revenue_users", "mean", "users_only"),
         usersOnly,
+        getFactTableById,
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects another metric type, naming it as the type picker does", () => {
+    expect(
+      getPopulationConflict(
+        makeMetric("p95_users", "quantile", "users_only"),
+        usersOnly,
+        getFactTableById,
+      ),
+    ).toBe("Percentile metrics can't be combined with a Population.");
+  });
+
+  it("rejects a mean with percentile capping, saying what to use instead", () => {
+    expect(
+      getPopulationConflict(
+        {
+          ...makeMetric("revenue_users", "mean", "users_only"),
+          cappingSettings: { type: "percentile", value: 0.99 },
+        },
+        usersOnly,
+        getFactTableById,
       ),
     ).toBe(
-      "Charts with this Population only support proportion metrics on the Users Fact Table.",
+      "Metrics with percentile capping can't be combined with a Population. Use an absolute cap or no cap instead.",
     );
   });
 
   it("rejects a proportion on another Fact Table, naming the right one", () => {
     expect(
-      getPopulationConflict(metrics.get("signups")!, {
-        id: "devices_only",
-        name: "Devices",
-      }),
+      getPopulationConflict(
+        metrics.get("signups")!,
+        { id: "devices_only", name: "Devices" },
+        getFactTableById,
+      ),
     ).toBe(
       "Charts with this Population only support metrics on the Devices Fact Table.",
     );
   });
 
-  it("falls back to generic reasons when the Fact Table's name is unknown", () => {
-    const unnamed = { id: "devices_only", name: null };
-    expect(getPopulationConflict(metrics.get("revenue")!, unnamed)).toBe(
-      "Charts with a Population only support proportion metrics.",
-    );
-    expect(getPopulationConflict(metrics.get("signups")!, unnamed)).toBe(
-      "This metric doesn't use the Population's Fact Table.",
-    );
+  it("falls back to a generic reason when the Fact Table's name is unknown", () => {
+    expect(
+      getPopulationConflict(
+        metrics.get("signups")!,
+        { id: "devices_only", name: null },
+        getFactTableById,
+      ),
+    ).toBe("This metric doesn't use the Population's Fact Table.");
   });
 });

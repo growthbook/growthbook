@@ -114,6 +114,7 @@ export default function ValueDisplay({
   monochrome,
   split = false,
   extraActions,
+  multiline = false,
 }: {
   value: string;
   type: FeatureValueType;
@@ -146,6 +147,8 @@ export default function ValueDisplay({
   split?: boolean;
   // More buttons in the same row as copy and fullscreen, after them.
   extraActions?: ReactNode;
+  // Every object and array on its own lines, however short.
+  multiline?: boolean;
 }) {
   // Link `@const:` references to their constant by default on every surface that
   // renders a value, unless the caller supplies its own linkify config.
@@ -179,13 +182,14 @@ export default function ValueDisplay({
     if (type === "string") return '"' + value + '"';
     try {
       // Sparse rules display the expanded (merged) value, not the raw patch.
-      return formatJsonValue(sparseMerge?.merged ?? JSON.parse(value), {
-        keysOnOwnLines,
-      });
+      const json = sparseMerge?.merged ?? JSON.parse(value);
+      return multiline
+        ? JSON.stringify(json, null, 2)
+        : formatJsonValue(json, { keysOnOwnLines });
     } catch (e) {
       return value;
     }
-  }, [value, type, sparseMerge, keysOnOwnLines]);
+  }, [value, type, sparseMerge, keysOnOwnLines, multiline]);
 
   // Long values highlight only the visible lines, inside a box that scrolls
   // even when the caller set no height limit
@@ -420,6 +424,7 @@ export default function ValueDisplay({
             defaultValue={defaultValue}
             linkify={resolvedLinkify}
             lineHeight={lineHeight}
+            multiline={multiline}
           />
         </Modal>
       )}

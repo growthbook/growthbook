@@ -13,6 +13,8 @@ import {
   ancestorCollisionWarnings,
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
+  configChangeReachesDescendants,
+  configChangeReshapesFamily,
 } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -38,6 +40,7 @@ import {
 } from "back-end/src/services/configReconcile";
 import {
   assertConfigValueValidForPublish,
+  configValidationLeaf,
   getEffectiveConfigSchema,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
@@ -519,6 +522,13 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // update short-circuits above and is unaffected). Unlock to publish changes.
     assertConfigNotLocked(config);
 
+    // The state this update lands, as validation reads it.
+    const landing = configValidationLeaf(config, {
+      ...fieldsToUpdate,
+      parent: effectiveParent || undefined,
+      extends: effectiveExtends,
+    });
+
     // Deferred-publish guards (direct publish → armed:false). Gated on the
     // served-value classification, not the conformance one below — a
     // project-only move scrubs the ref for cross-project consumers, so it must
@@ -529,13 +539,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         config,
         { armAcknowledgments: undefined },
         { armed: false },
-        {
-          value: fieldsToUpdate.value ?? config.value,
-          schema: fieldsToUpdate.schema ?? config.schema,
-          parent: effectiveParent || undefined,
-          extends: effectiveExtends,
-          extensible: fieldsToUpdate.extensible ?? config.extensible,
-        },
+        landing,
       );
     }
 
@@ -543,12 +547,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // conformance changed.
     if (
       fieldsToUpdate.value !== undefined ||
-      fieldsToUpdate.schema !== undefined ||
-      fieldsToUpdate.extensible !== undefined ||
-      parentChanged ||
-      extendsChanged
+      configChangeReachesDescendants(fieldsToUpdate)
     ) {
-      const postValue = fieldsToUpdate.value ?? config.value;
       // Direct REST update publishes live, so run the full publish gate (schema +
       // required fields + cross-field invariants), matching every other config
       // publish path. No `revision` arg: this is a bypass/direct write with no
@@ -559,16 +559,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       // before the move-destination and approval-bypass checks.
       await assertConfigValueValidForPublish(
         req.context,
-        {
-          key: config.key,
-          name: config.name,
-          value: postValue,
-          schema: fieldsToUpdate.schema ?? config.schema,
-          parent: effectiveParent || undefined,
-          extends: effectiveExtends,
-          extensible: fieldsToUpdate.extensible ?? config.extensible,
-        },
-        { value: postValue },
+        landing,
+        { value: landing.value },
         undefined,
         { skipHooks: true },
       );
@@ -576,19 +568,20 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
 
     // A schema/parent/mixin change shifts the subtree's ancestry, so descendants
     // must be re-reconciled.
-    const needsDescendantReconcile =
-      fieldsToUpdate.schema !== undefined || parentChanged || extendsChanged;
+    const needsDescendantReconcile = configChangeReshapesFamily(fieldsToUpdate);
 
     // Dry run BEFORE any write so an unresolvable descendant conflict rejects
     // without committing the root (see assertConfigDescendantsReconcilable for
     // the accepted residual race), then soft-warn when the change removes or
     // retypes fields descendants still use (?ignoreWarnings=true proceeds).
-    if (needsDescendantReconcile) {
+    if (configChangeReachesDescendants(fieldsToUpdate)) {
       const proposedRoot = {
         ...config,
         ...fieldsToUpdate,
       } as ConfigInterface;
-      await assertConfigDescendantsReconcilable(req.context, proposedRoot);
+      if (needsDescendantReconcile) {
+        await assertConfigDescendantsReconcilable(req.context, proposedRoot);
+      }
       await assertConfigSchemaChangeSafeForDescendants(
         req.context,
         proposedRoot,

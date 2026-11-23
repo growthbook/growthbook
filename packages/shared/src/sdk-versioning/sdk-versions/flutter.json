@@ -1,6 +1,10 @@
 {
   "versions": [
     {
+      "version": "5.1.0",
+      "capabilities": ["savedGroupReferencesV2", "savedGroupReferencesRemote"]
+    },
+    {
       "version": "5.0.1"
     },
     {

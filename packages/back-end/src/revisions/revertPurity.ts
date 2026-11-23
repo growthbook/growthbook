@@ -96,7 +96,8 @@ export function proposedChangesOnlyRestore(
     if (op.op !== "replace" && op.op !== "add") return false;
     const field = topLevelField(op.path);
     if (!field) return false;
-    return isEqual(op.value, targetState[field]);
+    // Snapshots drop empty fields, so a clear restores an absent one.
+    return isEqual(op.value ?? null, targetState[field] ?? null);
   });
 }
 

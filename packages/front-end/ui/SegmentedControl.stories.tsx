@@ -21,16 +21,20 @@ export default function SegmentedControlStories() {
     <Flex direction="column" gap="5">
       <Flex direction="column" gap="2">
         &rarr; Sizes
-        <Flex align="center" gap="4">
-          {(["sm", "md", "lg"] as const).map((size) => (
-            <SegmentedControl
-              key={size}
-              size={size}
-              aria-label={`View (${size})`}
-              value={view}
-              setValue={setView}
-              options={viewOptions}
-            />
+        <Flex direction="column" gap="2">
+          {(["sm", "normal", "md", "lg"] as const).map((size) => (
+            <Flex key={size} gap="2" align="center">
+              <Text size="1" style={{ width: 64, color: "var(--gray-9)" }}>
+                {size}
+              </Text>
+              <SegmentedControl
+                size={size}
+                aria-label={`View (${size})`}
+                value={view}
+                setValue={setView}
+                options={viewOptions}
+              />
+            </Flex>
           ))}
         </Flex>
       </Flex>

@@ -25,6 +25,7 @@ import {
   useConstantDraftTarget,
   ConstantRevisionContext,
 } from "@/components/Constants/useConstantDraftTarget";
+import { draftModeCta } from "@/components/DraftSelector";
 
 // Empty context used on the create path, where there is no revision flow.
 const EMPTY_REVISION_CTX: ConstantRevisionContext = {
@@ -54,9 +55,11 @@ export default function ConstantModal({
   close,
   revisionCtx,
   onSaved,
+  focusDescription = false,
 }: {
   existing: ConstantWithoutValue | null;
   close: () => void;
+  focusDescription?: boolean;
   // Required when editing (info changes route through the revision system).
   revisionCtx?: ConstantRevisionContext;
   onSaved?: (revision: Revision) => void | Promise<void>;
@@ -71,7 +74,7 @@ export default function ConstantModal({
   // Description is opt-in behind a "+ Add a description" link, expanded by
   // default when one already exists.
   const [showDescription, setShowDescription] = useState(
-    !!existing?.description,
+    !!existing?.description || focusDescription,
   );
 
   // Called unconditionally (rules of hooks); unused on the create path.
@@ -111,6 +114,10 @@ export default function ConstantModal({
     true,
     holdsMoveDestination,
   );
+  const cta = draftModeCta(draft.draftMode, {
+    bypassesApproval: draft.selectorApprovalRequired,
+    publishLabel: "Save",
+  });
 
   // Auto-derive the slug key from the name until the user edits the key.
   const keyTouched = useRef(editing);
@@ -160,10 +167,11 @@ export default function ConstantModal({
     <ModalStandard
       open={true}
       trackingEventModalType="constant-modal"
-      header={editing ? "Edit info" : "Add Constant"}
+      header={editing ? "Edit Information" : "Add Constant"}
       size="lg"
       close={close}
-      cta={editing ? "Save" : "Create"}
+      cta={editing ? cta.label : "Create"}
+      ctaColor={editing && cta.bypass ? "red" : "violet"}
       submit={validatedSubmit(form, async (values) => {
         if (editing && existing) {
           const res = await apiCall<{ revision?: Revision }>(
@@ -264,6 +272,8 @@ export default function ConstantModal({
             value={form.watch("description")}
             setValue={(v) => form.setValue("description", v)}
             placeholder="Add notes about this Constant (markdown supported)"
+            autofocus={focusDescription}
+            autofocusAtEnd
             showButtons={false}
             hidePreview={false}
           />
