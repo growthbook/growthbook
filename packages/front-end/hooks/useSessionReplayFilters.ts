@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { NextRouter } from "next/router";
+import { safeDecodeURIComponent } from "shared/util";
 import { transformQuery, SyntaxFilter } from "@/services/search";
 
 const FILTER_KEYS = [
@@ -39,7 +40,6 @@ const PARAM_TO_SYNTAX: Record<string, string> = {
   experimentKey: "experiment:",
 };
 
-/** Params whose value is a comma-joined list rather than a single value. */
 const MULTI_VALUE_PARAMS = new Set([
   "country",
   "device",
@@ -66,7 +66,12 @@ function quoteIfNeeded(val: string): string {
 // quoted too and the whole list parses back as one value.
 function formatParamValue(param: string, val: string): string {
   if (!MULTI_VALUE_PARAMS.has(param)) return quoteIfNeeded(val);
-  return val.split(",").filter(Boolean).map(quoteIfNeeded).join(",");
+  return val
+    .split(",")
+    .filter(Boolean)
+    .map((v) => safeDecodeURIComponent(v.trim()))
+    .map(quoteIfNeeded)
+    .join(",");
 }
 
 function queryParamsToSearchString(
@@ -102,17 +107,19 @@ export function syntaxFiltersToQueryParams(
   // `country:US country:CA` doesn't silently drop US
   const addMulti = (param: string, values: string[]) => {
     const max = PARAM_MAX_LENGTH[param];
-    const existing = params[param] ? params[param].split(",") : [];
+    const existing = params[param]
+      ? params[param].split(",").map((v) => safeDecodeURIComponent(v.trim()))
+      : [];
     for (const v of values) {
       if (!v || existing.includes(v)) continue;
-      const next = existing.concat(v).join(",");
+      const next = existing.concat(v).map(encodeURIComponent).join(",");
       if (max !== undefined && next.length > max) {
         dropped.truncated.add(param);
         continue;
       }
       existing.push(v);
     }
-    params[param] = existing.join(",");
+    params[param] = existing.map(encodeURIComponent).join(",");
   };
 
   for (const f of filters) {

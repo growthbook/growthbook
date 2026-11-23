@@ -43,6 +43,32 @@ export async function getSessionReplayEventsByChunkKeys(
   return eventsByChunk.flat();
 }
 
+type ChunkKeyRow = {
+  s3_key: string;
+  chunk_index: number;
+  ingested_at: string;
+};
+
+function resolveChunkKey(row: ChunkKeyRow): string {
+  if (!row.s3_key) return "";
+  return row.s3_key.endsWith(".json.gz")
+    ? row.s3_key
+    : `${row.s3_key}/${row.chunk_index}.json.gz`;
+}
+
+export function extractSortedChunkKeys(rows: ChunkKeyRow[]): string[] {
+  const newestByChunk = new Map<number, ChunkKeyRow>();
+  for (const row of rows) {
+    const existing = newestByChunk.get(row.chunk_index);
+    if (!existing || row.ingested_at > existing.ingested_at) {
+      newestByChunk.set(row.chunk_index, row);
+    }
+  }
+  return sortReplayChunkKeysByChunkIndex(
+    Array.from(newestByChunk.values()).map(resolveChunkKey).filter(Boolean),
+  );
+}
+
 export function sortReplayChunkKeysByChunkIndex(chunkKeys: string[]): string[] {
   return [...chunkKeys].sort((a, b) => {
     const chunkIndexA = parseChunkIndexFromKey(a);

@@ -3,10 +3,11 @@ import {
   SessionReplayInterface,
   SessionReplayRrwebEvent,
 } from "shared/validators";
-import { parseIntWithDefaultCapped } from "shared/util";
+import { parseIntWithDefaultCapped, safeDecodeURIComponent } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { MAX_SESSION_PAGE_SIZE } from "back-end/src/services/clickhouse";
+import { parseIdsQuery } from "back-end/src/util/validation";
 
 type SessionResponse =
   | {
@@ -83,18 +84,21 @@ export async function listSessions(
     return Number.isFinite(n) && n >= 0 ? n : undefined;
   };
 
+  const parseKeyList = (value: unknown): string[] | undefined =>
+    parseIdsQuery(value)?.map(safeDecodeURIComponent);
+
   const sessions = await context.models.sessionReplays.list({
     userId: req.query.userId,
     clientKey: req.query.clientKey,
     url: req.query.url,
-    country: req.query.country,
-    device: req.query.device,
+    country: parseKeyList(req.query.country),
+    device: parseKeyList(req.query.device),
     minDurationSecs: parsePositiveFloat(req.query.durationMinSecs),
     maxDurationSecs: parsePositiveFloat(req.query.durationMaxSecs),
     minEventCount: parsePositiveFloat(req.query.eventCountMin),
     maxEventCount: parsePositiveFloat(req.query.eventCountMax),
-    featureKey: req.query.featureKey,
-    experimentKey: req.query.experimentKey,
+    featureKey: parseKeyList(req.query.featureKey),
+    experimentKey: parseKeyList(req.query.experimentKey),
     dateAfter: req.query.dateAfter,
     dateBefore: req.query.dateBefore,
     project: req.query.project,

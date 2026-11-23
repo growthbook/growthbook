@@ -51,6 +51,7 @@ export type SessionReplayRow = {
   // grouped by browser across anonymous → authenticated transitions.
   device_id: string;
   s3_key: string;
+  chunk_index: number;
   started_at: string;
   ended_at: string;
   last_event_at: string;
@@ -165,8 +166,8 @@ export async function listSessionReplays(
     /** Pre-filter to sessions from these SDK connection keys (permission scoping) */
     clientKeys?: string[];
     url?: string;
-    country?: string;
-    device?: string;
+    country?: string[];
+    device?: string[];
     /** Inclusive lower bound in seconds */
     minDurationSecs?: number;
     /** Inclusive upper bound in seconds */
@@ -174,9 +175,9 @@ export async function listSessionReplays(
     minEventCount?: number;
     maxEventCount?: number;
     /** Filter to sessions where this feature flag was evaluated */
-    featureKey?: string;
+    featureKey?: string[];
     /** Filter to sessions where this experiment was exposed */
-    experimentKey?: string;
+    experimentKey?: string[];
     /** Inclusive lower bound date (YYYY-MM-DD) on started_at */
     dateAfter?: string;
     /** Inclusive upper bound date (YYYY-MM-DD) on started_at */
@@ -206,23 +207,25 @@ export async function listSessionReplays(
     { dateAfter: options?.dateAfter, dateBefore: options?.dateBefore },
     now,
   );
-  pre.push(`m.ingested_at >= toDateTime(${esc(window.start)})`);
-  pre.push(`m.ingested_at < toDateTime(${esc(window.end)})`);
+  pre.push(`ingested_at >= toDateTime(${esc(window.start)})`);
+  pre.push(`ingested_at < toDateTime(${esc(window.end)})`);
 
   if (options?.clientKeys?.length) {
-    pre.push(`m.client_key IN (${options.clientKeys.map(esc).join(", ")})`);
+    pre.push(`client_key IN (${options.clientKeys.map(esc).join(", ")})`);
   }
   if (options?.clientKey) {
-    pre.push(`m.client_key = ${esc(options.clientKey)}`);
+    pre.push(`client_key = ${esc(options.clientKey)}`);
   }
 
   if (options?.dateAfter) {
-    pre.push(`m.started_at >= ${esc(options.dateAfter)}`);
+    having.push(`${LIST_SELECT.started_at} >= ${esc(options.dateAfter)}`);
   }
   if (options?.dateBefore) {
     const d = new Date(options.dateBefore + "T00:00:00Z");
     d.setUTCDate(d.getUTCDate() + 1);
-    pre.push(`m.started_at < ${esc(d.toISOString().slice(0, 10))}`);
+    having.push(
+      `${LIST_SELECT.started_at} < ${esc(d.toISOString().slice(0, 10))}`,
+    );
   }
 
   if (options?.userId) {
@@ -233,19 +236,19 @@ export async function listSessionReplays(
       `positionCaseInsensitive(${LIST_SELECT.url_first}, ${esc(options.url)}) > 0`,
     );
   }
-  if (options?.country) {
-    const vals = options.country.split(",").filter(Boolean);
+  if (options?.country?.length) {
+    const vals = options.country;
     if (vals.length === 1) {
       having.push(`${LIST_SELECT.country} = ${esc(vals[0])}`);
-    } else if (vals.length > 1) {
+    } else {
       having.push(`${LIST_SELECT.country} IN (${vals.map(esc).join(", ")})`);
     }
   }
-  if (options?.device) {
-    const vals = options.device.split(",").filter(Boolean);
+  if (options?.device?.length) {
+    const vals = options.device;
     if (vals.length === 1) {
       having.push(`${LIST_SELECT.device} = ${esc(vals[0])}`);
-    } else if (vals.length > 1) {
+    } else {
       having.push(`${LIST_SELECT.device} IN (${vals.map(esc).join(", ")})`);
     }
   }
@@ -267,21 +270,21 @@ export async function listSessionReplays(
   }
   // has() per chunk then max() over the group is exactly has() over the union
   // of the chunks' arrays, and needs no array state to evaluate.
-  if (options?.featureKey) {
-    const vals = options.featureKey.split(",").filter(Boolean);
+  if (options?.featureKey?.length) {
+    const vals = options.featureKey;
     if (vals.length === 1) {
       having.push(`max(has(m.feature_keys, ${esc(vals[0])})) = 1`);
-    } else if (vals.length > 1) {
+    } else {
       having.push(
         `max(hasAny(m.feature_keys, [${vals.map(esc).join(", ")}])) = 1`,
       );
     }
   }
-  if (options?.experimentKey) {
-    const vals = options.experimentKey.split(",").filter(Boolean);
+  if (options?.experimentKey?.length) {
+    const vals = options.experimentKey;
     if (vals.length === 1) {
       having.push(`max(has(m.experiment_keys, ${esc(vals[0])})) = 1`);
-    } else if (vals.length > 1) {
+    } else {
       having.push(
         `max(hasAny(m.experiment_keys, [${vals.map(esc).join(", ")}])) = 1`,
       );
@@ -301,8 +304,13 @@ export async function listSessionReplays(
     `
     SELECT
       ${selectList}
-    FROM session_replay_metadata AS m
-    WHERE ${pre.join(" AND ")}
+    FROM (
+      SELECT *
+      FROM session_replay_metadata
+      WHERE ${pre.join(" AND ")}
+      ORDER BY ingested_at DESC
+      LIMIT 1 BY session_replay_id, chunk_index
+    ) AS m
     GROUP BY m.session_replay_id
     HAVING ${having.join(" AND ")}
     ORDER BY ${LIST_SELECT.started_at} DESC

@@ -9,7 +9,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
-import { featureHasEnvironment } from "shared/util";
+import { featureHasEnvironment, safeDecodeURIComponent } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
@@ -92,7 +92,7 @@ function extractContentSearchParams(searchStr: string): ContentSearchParams {
     const val = token.slice(4);
     for (const { prefix, paramKey } of CONTENT_SEARCH_PREFIXES) {
       if (val.startsWith(prefix)) {
-        params[paramKey] = decodeURIComponent(val.slice(prefix.length));
+        params[paramKey] = safeDecodeURIComponent(val.slice(prefix.length));
       }
     }
   }

@@ -1,4 +1,4 @@
-import { stringToBoolean } from "../../src/util";
+import { safeDecodeURIComponent, stringToBoolean } from "../../src/util";
 
 describe("stringToBoolean", () => {
   it("should return true for truthy string values", () => {
@@ -32,5 +32,22 @@ describe("stringToBoolean", () => {
 
   it("should have a default value of false if not specified", () => {
     expect(stringToBoolean("foo")).toBe(false);
+  });
+});
+
+describe("safeDecodeURIComponent", () => {
+  it("decodes a well-formed value", () => {
+    expect(safeDecodeURIComponent("checkout%2Cv2")).toBe("checkout,v2");
+  });
+
+  // decodeURIComponent throws a URIError on a stray %, and these values come
+  // from URLs and cookies a person can edit by hand.
+  it("returns the raw value when the encoding is malformed", () => {
+    expect(safeDecodeURIComponent("%")).toBe("%");
+    expect(safeDecodeURIComponent("100% done")).toBe("100% done");
+  });
+
+  it("leaves a value with nothing to decode unchanged", () => {
+    expect(safeDecodeURIComponent("plain-key")).toBe("plain-key");
   });
 });

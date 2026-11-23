@@ -13,7 +13,7 @@ import {
 import {
   filterClientKeysByProject,
   getSessionReplayEventsByChunkKeys,
-  sortReplayChunkKeysByChunkIndex,
+  extractSortedChunkKeys,
 } from "back-end/src/services/session-replay";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
@@ -82,14 +82,14 @@ export class SessionReplayModel {
     userId?: string;
     clientKey?: string;
     url?: string;
-    country?: string;
-    device?: string;
+    country?: string[];
+    device?: string[];
     minDurationSecs?: number;
     maxDurationSecs?: number;
     minEventCount?: number;
     maxEventCount?: number;
-    featureKey?: string;
-    experimentKey?: string;
+    featureKey?: string[];
+    experimentKey?: string[];
     dateAfter?: string;
     dateBefore?: string;
     project?: string;
@@ -141,10 +141,7 @@ export class SessionReplayModel {
     if (projects === undefined) return null;
     if (!this.canRead(session, projects)) return null;
 
-    const chunkKeys = sortReplayChunkKeysByChunkIndex(
-      chunks.map((c) => c.s3_key).filter(Boolean),
-    );
-    return { session, chunkKeys };
+    return { session, chunkKeys: extractSortedChunkKeys(chunks) };
   }
 
   public async getBySessionId(
@@ -177,7 +174,29 @@ export class SessionReplayModel {
    * Scalars use first-row / max / sum as appropriate; arrays are
    * union-deduped; JSON eval items are concatenated across chunks.
    */
-  private mergeChunks(chunks: SessionReplayRow[]): SessionReplayInterface {
+  private dedupeChunks(chunks: SessionReplayRow[]): SessionReplayRow[] {
+    const newestByChunk = new Map<number, SessionReplayRow>();
+    for (const row of chunks) {
+      const existing = newestByChunk.get(row.chunk_index);
+      if (!existing || row.ingested_at > existing.ingested_at) {
+        newestByChunk.set(row.chunk_index, row);
+      }
+    }
+    if (newestByChunk.size < chunks.length) {
+      logger.warn(
+        {
+          sessionReplayId: chunks[0]?.session_replay_id,
+          rows: chunks.length,
+          chunks: newestByChunk.size,
+        },
+        "session-replay: duplicate chunk indexes; earlier uploads were overwritten",
+      );
+    }
+    return Array.from(newestByChunk.values());
+  }
+
+  private mergeChunks(allRows: SessionReplayRow[]): SessionReplayInterface {
+    const chunks = this.dedupeChunks(allRows);
     const base = this.toInterface(chunks[0]);
     if (chunks.length === 1) return base;
 
@@ -226,6 +245,7 @@ export class SessionReplayModel {
       ...this.toInterface({
         ...row,
         s3_key: "",
+        chunk_index: 0,
         urls_visited: [],
         attributes: {},
         user_agent: "",

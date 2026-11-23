@@ -111,14 +111,14 @@ describe("listSessionReplays", () => {
         userId: "user'1",
         clientKey: "ck_1",
         url: "https://example.com/path",
-        country: "US",
-        device: "desktop",
+        country: ["US"],
+        device: ["desktop"],
         minDurationSecs: 1.25,
         maxDurationSecs: 10,
         minEventCount: 5,
         maxEventCount: 25,
-        featureKey: "flag'one",
-        experimentKey: "exp_one",
+        featureKey: ["flag'one"],
+        experimentKey: ["exp_one"],
         dateAfter: "2026-07-01",
         dateBefore: "2026-07-21",
         limit: 50,
@@ -130,15 +130,18 @@ describe("listSessionReplays", () => {
     expect(runQuery).toHaveBeenCalledTimes(1);
     const query = runQuery.mock.calls[0][0] as string;
 
-    expect(query).toContain("FROM session_replay_metadata AS m");
+    expect(query).toContain("FROM session_replay_metadata");
+    // Aggregated over a deduped subquery aliased m, not the table directly.
+    expect(query).toContain(") AS m");
     expect(query).toContain("GROUP BY m.session_replay_id");
+    expect(query).toContain("LIMIT 1 BY session_replay_id, chunk_index");
     expect(query).toContain("HAVING max(m.deleted_at) IS NULL");
     expect(query).toContain("ORDER BY min(m.started_at) DESC");
 
     // Chunk-invariant filters prune before the grouping.
-    expect(query).toContain("m.client_key = 'ck_1'");
-    expect(query).toContain("m.started_at >= '2026-07-01'");
-    expect(query).toContain("m.started_at < '2026-07-22'");
+    expect(query).toContain("client_key = 'ck_1'");
+    expect(query).toContain(`${"min(m.started_at)"} >= '2026-07-01'`);
+    expect(query).toContain(`${"min(m.started_at)"} < '2026-07-22'`);
 
     // Everything computed across chunks is evaluated after it.
     expect(query).toContain("max(m.user_id = 'user''1') = 1");
@@ -169,12 +172,12 @@ describe("listSessionReplays", () => {
       {
         userId: "u1",
         url: "example.com",
-        country: "US",
-        device: "desktop",
+        country: ["US"],
+        device: ["desktop"],
         minDurationSecs: 1,
         minEventCount: 1,
-        featureKey: "f1",
-        experimentKey: "e1",
+        featureKey: ["f1"],
+        experimentKey: ["e1"],
         clientKeys: ["ck_1"],
         dateAfter: "2026-07-01",
       },
@@ -190,7 +193,7 @@ describe("listSessionReplays", () => {
     );
     const havingClause = query.slice(query.indexOf("HAVING"));
 
-    for (const pushedDown of ["m.client_key IN", "m.started_at >="]) {
+    for (const pushedDown of ["client_key IN"]) {
       expect(whereClause).toContain(pushedDown);
     }
     for (const afterGrouping of [
@@ -202,10 +205,27 @@ describe("listSessionReplays", () => {
       "max(m.user_id =",
       "any(m.country)",
       "any(m.device)",
+      "min(m.started_at) >=",
     ]) {
       expect(havingClause).toContain(afterGrouping);
       expect(whereClause).not.toContain(afterGrouping);
     }
+  });
+
+  // Experiment tracking keys have no character validation, so a comma inside
+  // one is a real key. It used to be split into two unrelated keys.
+  it("keeps a comma inside a single key intact", async () => {
+    const runQuery = runQueryMock();
+
+    await listSessionReplays(
+      context,
+      { experimentKey: ["checkout,v2"] },
+      FROZEN_NOW,
+    );
+
+    const query = runQuery.mock.calls[0][0] as string;
+    expect(query).toContain("max(has(m.experiment_keys, 'checkout,v2')) = 1");
+    expect(query).not.toContain("hasAny");
   });
 
   it("bounds the scan by ingested_at, widened past the requested dates", async () => {
@@ -220,12 +240,8 @@ describe("listSessionReplays", () => {
     const query = runQuery.mock.calls[0][0] as string;
     // 24h of slack on each end: started_at is a client clock and chunks are
     // ingested after the events they carry.
-    expect(query).toContain(
-      "m.ingested_at >= toDateTime('2026-06-30 00:00:00')",
-    );
-    expect(query).toContain(
-      "m.ingested_at < toDateTime('2026-07-23 00:00:00')",
-    );
+    expect(query).toContain("ingested_at >= toDateTime('2026-06-30 00:00:00')");
+    expect(query).toContain("ingested_at < toDateTime('2026-07-23 00:00:00')");
   });
 
   it("falls back to a default lookback window when no dates are given", async () => {
@@ -235,12 +251,8 @@ describe("listSessionReplays", () => {
 
     const query = runQuery.mock.calls[0][0] as string;
     // 30 days back, plus the same 24h margin.
-    expect(query).toContain(
-      "m.ingested_at >= toDateTime('2026-10-20 12:00:00')",
-    );
-    expect(query).toContain(
-      "m.ingested_at < toDateTime('2026-11-21 12:00:00')",
-    );
+    expect(query).toContain("ingested_at >= toDateTime('2026-10-20 12:00:00')");
+    expect(query).toContain("ingested_at < toDateTime('2026-11-21 12:00:00')");
   });
 
   it("does not aggregate columns the list neither shows nor filters on", async () => {
@@ -249,7 +261,10 @@ describe("listSessionReplays", () => {
     await listSessionReplays(context, {}, FROZEN_NOW);
 
     const query = runQuery.mock.calls[0][0] as string;
-    expect(query).not.toContain("SELECT *");
+    // The dedup subquery legitimately selects *; the outer projection is what
+    // must stay narrow, so check only the part before it.
+    const projection = query.slice(0, query.indexOf("FROM ("));
+    expect(projection).not.toContain("*");
     expect(query).not.toContain("session_replay_sessions");
     expect(query).not.toContain("attributes");
     expect(query).not.toContain("user_agent");

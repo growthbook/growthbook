@@ -1,5 +1,6 @@
 import zlib from "zlib";
 import {
+  extractSortedChunkKeys,
   filterClientKeysByProject,
   getSessionReplayEventsByChunkKeys,
   parseChunkIndexFromKey,
@@ -102,6 +103,80 @@ describe("sortReplayChunkKeysByChunkIndex", () => {
     expect(sorted.indexOf("s/2.json.gz")).toBe(2);
     expect(sorted.indexOf("s/meta.json.gz")).toBeLessThan(2);
     expect(sorted.indexOf("s/0.json.gz")).toBeLessThan(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractSortedChunkKeys
+// ---------------------------------------------------------------------------
+
+describe("extractSortedChunkKeys", () => {
+  const row = (
+    s3_key: string,
+    chunk_index: number,
+    ingested_at = "2026-01-01 00:00:00",
+  ) => ({
+    s3_key,
+    chunk_index,
+    ingested_at,
+  });
+
+  // The detail query has no ORDER BY, so rows arrive arbitrarily. Callers
+  // slice the result by chunk range to load progressively, which is only
+  // correct if the keys are in chunk-index order.
+  it("sorts rows by chunk index, not lexicographically", () => {
+    const keys = extractSortedChunkKeys([
+      row("p/sess/2.json.gz", 2),
+      row("p/sess/10.json.gz", 10),
+      row("p/sess/0.json.gz", 0),
+    ]);
+    // 10 after 2 proves numeric ordering.
+    expect(keys).toEqual([
+      "p/sess/0.json.gz",
+      "p/sess/2.json.gz",
+      "p/sess/10.json.gz",
+    ]);
+  });
+
+  // A row with no key would otherwise become an empty S3 lookup and fail the
+  // whole session rather than just skipping that chunk.
+  it("drops rows with an empty s3_key", () => {
+    expect(
+      extractSortedChunkKeys([row("p/sess/0.json.gz", 0), row("", 1)]),
+    ).toEqual(["p/sess/0.json.gz"]);
+  });
+
+  it("returns an empty array for no rows", () => {
+    expect(extractSortedChunkKeys([])).toEqual([]);
+  });
+
+  // The recorder can reuse a session id and restart its chunk counter, so the
+  // same chunk arrives more than once. Each later upload overwrote the same S3
+  // object, so the newest row is the one that matches what is stored — and
+  // without collapsing them the player replays the chunk repeatedly.
+  it("keeps only the newest row per chunk index", () => {
+    const keys = extractSortedChunkKeys([
+      row("p/sess/0.json.gz", 0, "2026-05-21 20:46:23"),
+      row("p/sess/0.json.gz", 0, "2026-05-21 22:36:46"),
+      row("p/sess/1.json.gz", 1, "2026-05-21 20:47:26"),
+    ]);
+    expect(keys).toEqual(["p/sess/0.json.gz", "p/sess/1.json.gz"]);
+  });
+
+  // The first ingestor stored the session prefix while still uploading to
+  // {prefix}/{chunkIndex}.json.gz, so older rows point at a directory.
+  it("reconstructs the object key for legacy prefix-only rows", () => {
+    const prefix = "session-replays/org_1/2026/06/02/2b05477c";
+    expect(extractSortedChunkKeys([row(prefix, 1), row(prefix, 0)])).toEqual([
+      `${prefix}/0.json.gz`,
+      `${prefix}/1.json.gz`,
+    ]);
+  });
+
+  it("leaves a full object key untouched", () => {
+    expect(extractSortedChunkKeys([row("p/sess/3.json.gz", 3)])).toEqual([
+      "p/sess/3.json.gz",
+    ]);
   });
 });
 

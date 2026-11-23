@@ -17,8 +17,9 @@ import {
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
 import type { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
-import { useFeaturesList } from "@/services/features";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 /**
  * device is UAParser's device.type, which the ingestor defaults to "desktop"
@@ -184,7 +185,8 @@ const SessionReplaySearchFilters: FC<BaseSearchFiltersProps> = ({
       setSearchValue,
     });
 
-  const { features } = useFeaturesList({ includeArchived: true });
+  const { project } = useDefinitions();
+  const { features } = useFeatureMetaInfo({ project: project || undefined });
   const { experiments } = useExperiments(undefined, true);
 
   const featureKeys = useMemo(

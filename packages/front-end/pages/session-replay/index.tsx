@@ -507,8 +507,13 @@ export default function SessionReplayPage() {
     if (!pendingAppend?.length || !playerReady) return;
     const handle = playerHandle.current;
     if (!handle) return;
-    handle.appendEvents(pendingAppend);
-    setPendingAppend(null);
+    if (handle.appendEvents(pendingAppend)) {
+      setPendingAppend(null);
+    } else {
+      setPartialLoadError(
+        "Couldn't load all of this session. Playback may stop early — reload to try again.",
+      );
+    }
   }, [pendingAppend, playerReady]);
 
   // Derived during render, not in an effect: React flushes child effects

@@ -5,7 +5,9 @@ import Player from "rrweb-player";
 
 export type RrwebPlayerHandle = {
   goto: (timeOffsetMs: number) => void;
-  appendEvents: (events: eventWithTime[]) => void;
+  /** Returns false if the batch could not be appended, so the caller can
+   *  surface it rather than silently dropping the events. */
+  appendEvents: (events: eventWithTime[]) => boolean;
 };
 
 type Props = {
@@ -59,7 +61,8 @@ function RrwebPlayer({ initialEvents, handleRef, onReady }: Props) {
       },
       appendEvents: (events: eventWithTime[]) => {
         const inst = playerInstance.current;
-        if (!inst || !events.length) return;
+        if (!inst) return false;
+        if (!events.length) return true;
         const replayer = inst.getReplayer?.();
         try {
           if (replayer?.addEvent) {
@@ -72,7 +75,9 @@ function RrwebPlayer({ initialEvents, handleRef, onReady }: Props) {
           }
         } catch (error) {
           console.error("Failed to append session replay events", error);
+          return false;
         }
+        return true;
       },
     };
     return () => {
