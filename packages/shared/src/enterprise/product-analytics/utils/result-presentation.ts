@@ -27,11 +27,20 @@ export function getDefaultValueAxisName({
   sharedUnit,
 }: ExplorationRenderOpts): string {
   if (primaryAxisShowAs === null) return "";
-  if (primaryAxisShowAs === "total") return "Total";
-  if (primaryAxisShowAs === "percent_of_population") return "% of Population";
-  if (primaryAxisShowAs === "per_population_member")
-    return "Per Population member";
-  return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+  switch (primaryAxisShowAs) {
+    case "total":
+      return "Total";
+    case "per_unit":
+      return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+    case "percent_of_population":
+      return "% of Population";
+    case "per_population_member":
+      return "Per Population member";
+    default: {
+      const exhaustiveCheck: never = primaryAxisShowAs;
+      return exhaustiveCheck;
+    }
+  }
 }
 
 export function getSecondaryValueAxisName(
@@ -72,15 +81,27 @@ function getAnnotatedName(
   sharedUnit: string | null,
 ): string {
   const name = getValueName(value, index);
-  if (showAs === "total") return `${name} (total)`;
-  if (showAs === "percent_of_population") return `${name} (% of Population)`;
-  if (showAs === "per_population_member")
-    return `${name} (per Population member)`;
-  const unit =
-    ("unit" in value && typeof value.unit === "string" ? value.unit : null) ||
-    sharedUnit ||
-    "unit";
-  return `${name} (per ${unit})`;
+  switch (showAs) {
+    case "total":
+      return `${name} (total)`;
+    case "per_unit": {
+      const unit =
+        ("unit" in value && typeof value.unit === "string"
+          ? value.unit
+          : null) ||
+        sharedUnit ||
+        "unit";
+      return `${name} (per ${unit})`;
+    }
+    case "percent_of_population":
+      return `${name} (% of Population)`;
+    case "per_population_member":
+      return `${name} (per Population member)`;
+    default: {
+      const exhaustiveCheck: never = showAs;
+      return exhaustiveCheck;
+    }
+  }
 }
 
 /**
@@ -100,22 +121,28 @@ export function getEffectiveMetricValue(
   populationCount: number | undefined,
 ): number | null {
   const num = v.numerator ?? 0;
-  if (opts?.isRatio) {
+  if (!opts) return num;
+  if (opts.isRatio) {
     return v.denominator ? num / v.denominator : num;
   }
-  if (opts?.showAs === "per_unit") {
-    return v.denominator ? num / v.denominator : num;
+  switch (opts.showAs) {
+    case "total":
+      return num;
+    case "per_unit":
+      return v.denominator ? num / v.denominator : num;
+    case "percent_of_population": {
+      if (!populationCount) return null;
+      const shareOfPopulation = num / populationCount;
+      return shareOfPopulation * 100;
+    }
+    case "per_population_member":
+      if (!populationCount) return null;
+      return num / populationCount;
+    default: {
+      const exhaustiveCheck: never = opts.showAs;
+      return exhaustiveCheck;
+    }
   }
-  if (opts?.showAs === "percent_of_population") {
-    if (!populationCount) return null;
-    const shareOfPopulation = num / populationCount;
-    return shareOfPopulation * 100;
-  }
-  if (opts?.showAs === "per_population_member") {
-    if (!populationCount) return null;
-    return num / populationCount;
-  }
-  return num;
 }
 
 /** Whether a mode divides by the row's Population member count. */
