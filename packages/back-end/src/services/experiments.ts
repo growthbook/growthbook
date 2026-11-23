@@ -6614,7 +6614,9 @@ function trackAdjustmentImpact({
     // like other entity ids in events, and sent with the event so that it
     // joins to the exposure.
     const experimentAttributes = {
-      experiment_id: md5(entityTrackingKey(context.org.id, experimentId)),
+      experiment_id_hashed: md5(
+        entityTrackingKey(context.org.id, experimentId),
+      ),
     };
     // The fallback is the new settings, so an install that cannot reach the
     // CDN still gets them.
