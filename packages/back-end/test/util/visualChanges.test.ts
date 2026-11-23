@@ -18,6 +18,14 @@ describe("assertNoInjectedJs", () => {
     attr("href", "https://example.com/?a=1"),
     attr("style", "color: red", "append"),
     attr("class", "online"),
+    attr("title", "JavaScript: a primer"),
+    attr("aria-label", ": continued", "append"),
+    html(`<img src="/js.png" alt="JavaScript: a primer">`),
+    // Ways to clear a handler that is already on the page
+    {
+      domMutations: [{ selector: "a", action: "remove", attribute: "onclick" }],
+    },
+    attr("onclick", ""),
     { css: ".a { scroll-behavior: smooth; background: url(/x.png) }" },
     { css: "", domMutations: [] },
     {},
@@ -47,6 +55,7 @@ describe("assertNoInjectedJs", () => {
     attr("onclick", "alert(1)"),
     attr("ONCLICK", "alert(1)"),
     attr("srcdoc", "<p>hi</p>"),
+    attr("ontitle", "alert(1)"),
     attr("href", "javascript:alert(1)"),
     attr("href", "script:alert(1)", "append"),
     attr("href", ":alert(1)", "append"),
@@ -73,6 +82,13 @@ describe("assertNoInjectedJs", () => {
 
   it("skips a change identical to its stored version", () => {
     expect(() => assertNoInjectedJs([{ ...stored }], opts)).not.toThrow();
+  });
+
+  it("checks a stored change that is moved to another element", () => {
+    const moved = stored.domMutations.map((m) => ({ ...m, selector: "body" }));
+    expect(() =>
+      assertNoInjectedJs([{ ...stored, domMutations: moved }], opts),
+    ).toThrow(/onclick/);
   });
 
   it("checks a stored change once it is edited, and says where", () => {

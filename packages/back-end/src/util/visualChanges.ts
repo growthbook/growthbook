@@ -21,9 +21,14 @@ const RAW_TEXT_ELEMENTS = new Set([
 const hasJsUrl = (value: string) =>
   /javascript:/i.test(value.replace(/[^\x20-￿]/g, ""));
 
+// Never read as a URL, so copy such as "JavaScript: a primer" is allowed.
+const isTextAttribute = (name: string) =>
+  /^(alt|title|placeholder|aria-.+)$/i.test(name);
+
 function attributeProblem(name: string, value: string): string | null {
   if (/^on/i.test(name)) return `event handler attribute "${name}"`;
   if (/^srcdoc$/i.test(name)) return `"srcdoc" attribute`;
+  if (isTextAttribute(name)) return null;
   if (hasJsUrl(value)) return `javascript: URL in "${name}"`;
   return null;
 }
@@ -66,6 +71,8 @@ function mutationValueProblem({
   attribute,
   value = "",
 }: VisualChange["domMutations"][number]): string | null {
+  // Removing an attribute, or emptying one, is how a stored handler is cleared.
+  if (action === "remove" || !value) return null;
   if (attribute === "html") return htmlProblem(value);
   // Applied via classList / DOM moves, never as markup.
   if (["class", "className", "position"].includes(attribute)) return null;
@@ -77,6 +84,7 @@ function mutationValueProblem({
   const scheme = value.replace(/[^\x20-￿]/g, "").split(":");
   if (
     action === "append" &&
+    !isTextAttribute(attribute) &&
     scheme.length > 1 &&
     "javascript".endsWith(scheme[0].toLowerCase())
   ) {
@@ -96,12 +104,17 @@ type CheckedChange = Partial<
   Pick<VisualChange, "id" | "variation" | "css" | "domMutations">
 >;
 
-// The fields the checks below read, so a change that round-trips untouched
-// compares equal whatever else differs.
+// What decides whether a mutation runs JavaScript and where, so a change that
+// round-trips untouched compares equal whatever else differs.
 const checkedFields = ({ css, domMutations }: CheckedChange) =>
   JSON.stringify([
     css || "",
-    (domMutations ?? []).map((m) => [m.action, m.attribute, m.value ?? ""]),
+    (domMutations ?? []).map((m) => [
+      m.selector,
+      m.action,
+      m.attribute,
+      m.value ?? "",
+    ]),
   ]);
 
 // JavaScript belongs in a visual change's `js` field, which organizations can
