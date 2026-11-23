@@ -41,7 +41,6 @@ import {
   PiTimer,
   PiTrash,
   PiPencilSimple,
-  PiWarningOctagonFill,
   PiPlay,
 } from "react-icons/pi";
 import clsx from "clsx";
@@ -936,7 +935,6 @@ function EventForwarderStoppedBanner({
       // Not an alert: the times in it tick every second.
       role="group"
       mb="3"
-      icon={<PiWarningOctagonFill />}
       style={
         {
           "--stopped-border": `var(--red-${deleting || approaching ? 7 : 6})`,
@@ -1004,7 +1002,6 @@ function EventForwarderStoppedBanner({
               variant="outline"
               icon={<PiPencilSimple />}
               iconPosition="left"
-              style={{ backgroundColor: "var(--color-panel-solid)" }}
               onClick={onEdit}
             >
               Edit destination
