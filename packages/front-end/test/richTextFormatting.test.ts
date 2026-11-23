@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { hasMarkdownFormatting } from "@/ui/richTextFormatting";
+import {
+  hasMarkdownFormatting,
+  htmlHasFormatting,
+} from "@/ui/richTextFormatting";
 
 describe("hasMarkdownFormatting", () => {
   it.each([
@@ -32,5 +35,46 @@ describe("hasMarkdownFormatting", () => {
     ["#hashtag without a space"],
   ])("finds none in %j", (markdown) => {
     expect(hasMarkdownFormatting(markdown)).toBe(false);
+  });
+});
+
+describe("hasMarkdownFormatting tables", () => {
+  it("finds a table with a delimiter row", () => {
+    expect(
+      hasMarkdownFormatting("| Metric | Lift |\n|:---|---:|\n| CR | +12% |"),
+    ).toBe(true);
+  });
+
+  it("finds a table without outer pipes", () => {
+    expect(hasMarkdownFormatting("Metric | Lift\n--- | ---:\nCR | +12%")).toBe(
+      true,
+    );
+  });
+
+  it("finds none in pipes without a delimiter row", () => {
+    expect(hasMarkdownFormatting("| just | pipes |\n| more | pipes |")).toBe(
+      false,
+    );
+  });
+});
+
+describe("htmlHasFormatting", () => {
+  it.each([
+    ["<table><tr><td>a</td></tr></table>"],
+    ["<p>some <strong>bold</strong></p>"],
+    ['<a href="https://example.com">link</a>'],
+    ["<ul><li>item</li></ul>"],
+    ["<pre><code>**literal**</code></pre>"],
+    ["<p>run <code>**literal**</code></p>"],
+  ])("finds formatting in %j", (html) => {
+    expect(htmlHasFormatting(html)).toBe(true);
+  });
+
+  it.each([
+    [""],
+    ['<meta charset="utf-8"><div><span style="color:#000">| a |</span></div>'],
+    ["<p>plain words</p>"],
+  ])("finds none in %j", (html) => {
+    expect(htmlHasFormatting(html)).toBe(false);
   });
 });

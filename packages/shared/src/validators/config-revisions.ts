@@ -595,6 +595,12 @@ export const putConfigRevisionValueValidator = {
         .describe(
           "When the config has no schema yet, infer one from the supplied `value` and stage it on the same draft.",
         ),
+      inferUndeclaredFields: z
+        .boolean()
+        .optional()
+        .describe(
+          "Add an optional schema field, inferred from its value, for each top-level key in `value` that the Config's effective schema doesn't declare, staged on the same draft. Existing fields are never changed, and keys holding a `@const:`/`@config:` reference are skipped. Each added field is listed in `warnings` with code `inferred-field`. When `inferSchemaIfMissing` infers a whole schema, that takes precedence.",
+        ),
       ...publishOverrideBodyFields,
     })
     .strict(),
@@ -666,6 +672,11 @@ export const putConfigRevisionSchemaValidator = {
         .boolean()
         .optional()
         .describe("Derive the schema from the draft's value instead."),
+      value: configValueObject
+        .optional()
+        .describe(
+          "This config's own value, staged together with the schema and validated against it. Use it to retype or remove a field the value sets, which a schema write or a value write can't do on its own.",
+        ),
       additionalProperties: z
         .boolean()
         .optional()
