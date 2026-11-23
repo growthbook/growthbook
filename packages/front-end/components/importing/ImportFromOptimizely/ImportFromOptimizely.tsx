@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Grid } from "@radix-ui/themes";
 import { ApiAutoRun } from "shared/validators";
+import { FullFactTableColumns } from "shared/types/fact-table";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { getEventForwarderEventsFactTableId } from "shared/util";
 import {
@@ -36,6 +37,9 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import { TextField } from "@/ui/TextField";
+import Table, { TableBody } from "@/ui/Table";
+import Text from "@/ui/Text";
+import ColumnMappingRow from "@/components/SchemaBrowser/ColumnMappingRow";
 import SelectField from "@/components/Forms/SelectField";
 import ImportReviewTables from "@/components/importing/ImportReviewTables/ImportReviewTables";
 
@@ -120,7 +124,7 @@ export default function ImportFromOptimizely() {
   const [results, setResults] = useState<Record<string, ImportResult>>({});
   const [selection, setSelection] = useState<Record<string, boolean>>({});
 
-  // One picker per column the metrics read. Managed events tables keep event
+  // One row per column the metrics read. Managed events tables keep event
   // tags and properties in a `properties` JSON column.
   const columns = getColumnNames(factTable?.columns ?? []);
   const nested = (field: string) =>
@@ -129,6 +133,15 @@ export default function ImportFromOptimizely() {
       : columns.includes(field)
         ? field
         : "";
+  // Definitions leave out the fields inside JSON columns
+  const { data: fullFactTable } = useApi<{
+    factTables: FullFactTableColumns[];
+  }>(`/fact-tables?ids=${factTable?.id}`, { shouldRun: () => !!factTable });
+  const jsonFieldColumns = (fullFactTable?.factTables[0]?.columns ?? [])
+    .filter((c) => !c.deleted)
+    .flatMap((c) =>
+      Object.keys(c.jsonFields ?? {}).map((field) => `${c.column}.${field}`),
+    );
   const [pickedColumns, setPickedColumns] = useState<Record<string, string>>(
     {},
   );
@@ -139,19 +152,32 @@ export default function ImportFromOptimizely() {
   const columnPickers = [
     {
       key: "eventName",
-      label: "Event name column",
+      label: "Event key",
+      kind: "event" as const,
+      tooltip: "Filtered to each metric's Optimizely event key",
       fallback: columns.includes("event_name") ? "event_name" : "",
     },
-    { key: "revenue", label: "Revenue column", fallback: nested("revenue") },
-    { key: "value", label: "Value column", fallback: nested("value") },
+    ...["revenue", "value"].map((tag) => ({
+      key: tag,
+      label: tag === "revenue" ? "Revenue tag" : "Value tag",
+      kind: "columns" as const,
+      tooltip: `Optimizely's "${tag}" event tag`,
+      fallback: nested(tag),
+    })),
     ...properties.map((name) => ({
       key: `property:${name}`,
-      label: `"${name}" property column`,
+      label: `Property: ${name}`,
+      kind: "columns" as const,
+      tooltip: `The "${name}" event property a metric filters on`,
       fallback: nested(name),
     })),
   ].map((picker) => ({
     ...picker,
     column: pickedColumns[picker.key] ?? picker.fallback,
+    options: [...new Set([...columns, ...jsonFieldColumns])].map((column) => ({
+      column,
+      datatype: "" as const,
+    })),
   }));
   // A string, so the import data is only rebuilt when a mapping changes
   const columnMapping = JSON.stringify(
@@ -479,26 +505,41 @@ export default function ImportFromOptimizely() {
                 }}
               />
             ) : null}
-            {factTable
-              ? columnPickers.map(({ key, label, column, fallback }) => (
-                  <SelectField
-                    key={key}
-                    label={label}
-                    value={column}
-                    // Typing reaches a field inside a JSON column
-                    createable
-                    isClearable
-                    initialOption="None"
-                    options={[...new Set([...columns, fallback])]
-                      .filter(Boolean)
-                      .map((c) => ({ label: c, value: c }))}
-                    onChange={(picked) =>
-                      setPickedColumns((prev) => ({ ...prev, [key]: picked }))
-                    }
-                  />
-                ))
-              : null}
           </Grid>
+          {factTable ? (
+            <Box mt="4">
+              <Text as="div" weight="semibold" mb="2">
+                Column mapping
+              </Text>
+              <Table size="sm" variant="surface" layout="fixed">
+                <TableBody>
+                  {columnPickers.map(
+                    ({ key, label, kind, tooltip, column, options }) => {
+                      const setColumn = (picked: string) =>
+                        setPickedColumns((prev) => ({
+                          ...prev,
+                          [key]: picked,
+                        }));
+                      return (
+                        <ColumnMappingRow
+                          key={key}
+                          kind={kind}
+                          label={label}
+                          tooltip={tooltip}
+                          value={column}
+                          options={options}
+                          setValue={setColumn}
+                          onRemove={() => setColumn("")}
+                          // The table's columns may not all exist yet
+                          createable
+                        />
+                      );
+                    },
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
+          ) : null}
         </Frame>
       ) : null}
 

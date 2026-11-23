@@ -12,6 +12,7 @@ import {
   PiX,
 } from "react-icons/pi";
 import { DetectedColumn } from "shared/types/fact-table";
+import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 import { Select, SelectItem } from "@/ui/Select";
@@ -74,6 +75,7 @@ export default function ColumnMappingRow({
   setValue,
   onRemove,
   append,
+  createable = false,
 }: {
   label: string;
   kind: keyof typeof KIND_ICONS;
@@ -85,9 +87,11 @@ export default function ColumnMappingRow({
   onRemove?: () => void;
   // Shown next to the select once a column is picked
   append?: ReactNode;
+  // Lets a column be typed in, for one that hasn't been detected yet
+  createable?: boolean;
 }) {
   const [adding, setAdding] = useState(false);
-  const selected = validColumn(options, value);
+  const selected = createable ? value : validColumn(options, value);
 
   return (
     <TableRow align="center">
@@ -104,21 +108,40 @@ export default function ColumnMappingRow({
           <TableCell>
             <Flex align="center" gap="2">
               <Box flexGrow="1" minWidth="0">
-                <Select
-                  size="sm"
-                  mb="0"
-                  aria-label={label}
-                  autoFocus={adding}
-                  value={selected || undefined}
-                  setValue={setValue}
-                  placeholder="Select a column..."
-                >
-                  {options.map((c) => (
-                    <SelectItem key={c.column} value={c.column}>
-                      {c.column}
-                    </SelectItem>
-                  ))}
-                </Select>
+                {createable ? (
+                  <SelectField
+                    size="sm"
+                    aria-label={label}
+                    autoFocus={adding}
+                    value={selected}
+                    onChange={setValue}
+                    placeholder="Select or type a column..."
+                    createable
+                    keepCreatableWhenEmpty
+                    formatCreateLabel={(column) => `Use "${column}"`}
+                    sort={false}
+                    options={options.map((c) => ({
+                      label: c.column,
+                      value: c.column,
+                    }))}
+                  />
+                ) : (
+                  <Select
+                    size="sm"
+                    mb="0"
+                    aria-label={label}
+                    autoFocus={adding}
+                    value={selected || undefined}
+                    setValue={setValue}
+                    placeholder="Select a column..."
+                  >
+                    {options.map((c) => (
+                      <SelectItem key={c.column} value={c.column}>
+                        {c.column}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                )}
               </Box>
               {selected ? append : null}
             </Flex>
