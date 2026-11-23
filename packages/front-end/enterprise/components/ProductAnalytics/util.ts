@@ -55,7 +55,10 @@ import {
   normalizeShowAs,
   fillMissingUnits,
 } from "shared/enterprise";
-import type { DimensionFactTable } from "shared/enterprise";
+import type {
+  DimensionFactTable,
+  ResolvedGranularity,
+} from "shared/enterprise";
 import {
   operatorLabelMap,
   getColumnInfo,
@@ -1454,7 +1457,7 @@ export function compareConfig(
   return { needsFetch: fetchKeyChanged, needsUpdate: true };
 }
 
-export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
+export type { ResolvedGranularity } from "shared/enterprise";
 
 let cachedUsesHour12: boolean | null = null;
 /** Whether the browser's locale writes times on a 12-hour clock. */
@@ -1470,8 +1473,8 @@ function usesHour12(): boolean {
  * parseWarehouseDate) unshifted; "local" is for buckets built in the browser.
  *
  * The default style is for tooltips and tables ("November 2026", "Week of Nov
- * 2, 2026"). `compact` is for axis ticks: short months, no "Week of", and the
- * year only when `showYear` is set.
+ * 2, 2026"). `compact` is for axis ticks: short months and no "Week of".
+ * `showYear: false` drops the year, except at year granularity.
  */
 export function formatDateByGranularity(
   date: Date,
@@ -1483,7 +1486,7 @@ export function formatDateByGranularity(
   }: { compact?: boolean; showYear?: boolean } = {},
 ): string {
   const tz = timeZone === "utc" ? "UTC" : undefined;
-  const year = !compact || showYear ? { year: "numeric" as const } : {};
+  const year = showYear ? { year: "numeric" as const } : {};
   const month = compact ? ("short" as const) : ("long" as const);
   switch (granularity) {
     case "year":

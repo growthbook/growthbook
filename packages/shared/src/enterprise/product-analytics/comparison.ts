@@ -22,7 +22,7 @@ import {
   type ExplorationRenderOpts,
 } from "./utils";
 
-type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
+export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
 
 // --- Comparison date ranges -------------------------------------------------
 
@@ -627,7 +627,7 @@ function truncateUtc(d: Date, granularity: ResolvedGranularity): Date {
 }
 
 /** Moves `d` (in place) to the start of the next bucket, in UTC. */
-export function stepBucketUtc(d: Date, granularity: ResolvedGranularity): void {
+function stepBucketUtc(d: Date, granularity: ResolvedGranularity): void {
   switch (granularity) {
     case "hour":
       d.setUTCHours(d.getUTCHours() + 1);
@@ -679,6 +679,44 @@ export function extendDateBucketsForward(params: {
   for (let i = 0; i < count; i++) {
     stepBucketUtc(cur, resolvedGranularity);
     out.push(cur.toISOString());
+  }
+  return out;
+}
+
+/** The start of the bucket after the one starting at `time`, in UTC ms. */
+export function nextDateBucketStart(
+  time: number,
+  resolvedGranularity: ResolvedGranularity,
+): number {
+  const d = new Date(time);
+  stepBucketUtc(d, resolvedGranularity);
+  return d.getTime();
+}
+
+/**
+ * Every bucket start, in UTC ms, from the earliest of `bucketIsos` to the
+ * latest, including buckets with no data. Steps from the earliest bucket
+ * rather than re-truncating, so the warehouse's own alignment (e.g. Sunday
+ * weeks) carries through. `bucketIsos` can be in any order; unparseable
+ * values are skipped.
+ */
+export function enumerateDateBucketsBetween(params: {
+  resolvedGranularity: ResolvedGranularity;
+  bucketIsos: string[];
+}): number[] {
+  const { resolvedGranularity, bucketIsos } = params;
+  const times = bucketIsos
+    .map((iso) => parseWarehouseDate(iso).getTime())
+    .filter((t) => Number.isFinite(t));
+  if (!times.length) return [];
+  const end = Math.max(...times);
+  const out: number[] = [];
+  for (
+    let t = Math.min(...times);
+    t <= end;
+    t = nextDateBucketStart(t, resolvedGranularity)
+  ) {
+    out.push(t);
   }
   return out;
 }

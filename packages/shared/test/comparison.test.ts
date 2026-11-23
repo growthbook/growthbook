@@ -22,6 +22,7 @@ import {
   densifyTimeseriesRows,
   enumerateProductAnalyticsDateBuckets,
   explorerDimensionDateToUtcYyyyMmDd,
+  enumerateDateBucketsBetween,
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getComparisonShiftDays,
@@ -1355,17 +1356,6 @@ describe("extendDateBucketsForward", () => {
     ).toEqual(["2026-07-13T00:00:00.000Z", "2026-07-20T00:00:00.000Z"]);
   });
 
-  it("keeps a warehouse's Sunday week start", () => {
-    // 2026-11-08 is a Sunday; BigQuery returns weeks like this.
-    expect(
-      extendDateBucketsForward({
-        resolvedGranularity: "week",
-        afterIso: "2026-11-08",
-        count: 2,
-      }),
-    ).toEqual(["2026-11-15T00:00:00.000Z", "2026-11-22T00:00:00.000Z"]);
-  });
-
   it("continues a monthly cadence across a year boundary", () => {
     expect(
       extendDateBucketsForward({
@@ -1387,6 +1377,62 @@ describe("extendDateBucketsForward", () => {
     };
     expect(extendDateBucketsForward({ ...args, count: 0 })).toEqual([]);
     expect(extendDateBucketsForward({ ...args, count: -3 })).toEqual([]);
+  });
+
+  it("keeps a Sunday week start instead of snapping to Monday", () => {
+    // BigQuery and SQL Server truncate weeks to Sunday.
+    expect(
+      extendDateBucketsForward({
+        resolvedGranularity: "week",
+        afterIso: "2026-11-08 00:00:00",
+        count: 2,
+      }),
+    ).toEqual(["2026-11-15T00:00:00.000Z", "2026-11-22T00:00:00.000Z"]);
+  });
+});
+
+describe("enumerateDateBucketsBetween", () => {
+  it("fills in every bucket between the earliest and latest, in any order", () => {
+    expect(
+      enumerateDateBucketsBetween({
+        resolvedGranularity: "month",
+        bucketIsos: ["2026-04-01", "2026-01-01 00:00:00", "not a date"],
+      }),
+    ).toEqual([
+      Date.UTC(2026, 0, 1),
+      Date.UTC(2026, 1, 1),
+      Date.UTC(2026, 2, 1),
+      Date.UTC(2026, 3, 1),
+    ]);
+  });
+
+  it("lines up with a Sunday-week extension", () => {
+    const primary = ["2026-11-01 00:00:00", "2026-11-08 00:00:00"];
+    const extended = extendDateBucketsForward({
+      resolvedGranularity: "week",
+      afterIso: primary[1],
+      count: 2,
+    });
+    expect(
+      enumerateDateBucketsBetween({
+        resolvedGranularity: "week",
+        bucketIsos: [...primary, ...extended],
+      }),
+    ).toEqual([
+      Date.UTC(2026, 10, 1),
+      Date.UTC(2026, 10, 8),
+      Date.UTC(2026, 10, 15),
+      Date.UTC(2026, 10, 22),
+    ]);
+  });
+
+  it("returns nothing for no valid buckets", () => {
+    expect(
+      enumerateDateBucketsBetween({
+        resolvedGranularity: "day",
+        bucketIsos: ["nope"],
+      }),
+    ).toEqual([]);
   });
 });
 

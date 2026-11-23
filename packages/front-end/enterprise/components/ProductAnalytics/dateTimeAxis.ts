@@ -1,9 +1,9 @@
-import { parseWarehouseDate } from "shared/dates";
-import { stepBucketUtc } from "shared/enterprise";
 import {
-  formatDateByGranularity,
+  enumerateDateBucketsBetween,
+  nextDateBucketStart,
   type ResolvedGranularity,
-} from "@/enterprise/components/ProductAnalytics/util";
+} from "shared/enterprise";
+import { formatDateByGranularity } from "@/enterprise/components/ProductAnalytics/util";
 
 // Roughly the room a rotated tick label needs.
 const TICK_MIN_PX = 60;
@@ -52,10 +52,10 @@ export function buildDateTimeAxisOption({
   plotWidth: number | null;
   now?: number;
 }): DateTimeAxisOption {
-  const dataTimes = bucketIsos
-    .map((iso) => parseWarehouseDate(iso).getTime())
-    .filter((t) => Number.isFinite(t));
-  const times = everyBucketBetween(dataTimes, granularity);
+  const times = enumerateDateBucketsBetween({
+    resolvedGranularity: granularity,
+    bucketIsos,
+  });
 
   const maxTicks =
     plotWidth === null
@@ -86,39 +86,10 @@ export function buildDateTimeAxisOption({
 
   if (times.length === 1) {
     const only = times[0];
-    // Step from the bucket itself rather than re-truncating it, so a
-    // warehouse's own week start (e.g. Sunday) is respected.
-    const next = new Date(only);
-    stepBucketUtc(next, granularity);
-    const half = (next.getTime() - only) / 2;
+    const half = (nextDateBucketStart(only, granularity) - only) / 2;
     option.axis.min = only - half;
     option.axis.max = only + half;
   }
 
   return option;
-}
-
-/**
- * Every bucket start from the earliest data bucket to the latest, stepping
- * from the earliest so the warehouse's own alignment (e.g. Sunday weeks)
- * carries through. The latest data bucket is always included, even if a step
- * would miss it. Doesn't rely on `dataTimes` being sorted.
- */
-function everyBucketBetween(
-  dataTimes: number[],
-  granularity: ResolvedGranularity,
-): number[] {
-  if (!dataTimes.length) return [];
-  const start = Math.min(...dataTimes);
-  const end = Math.max(...dataTimes);
-  const out: number[] = [];
-  for (
-    const d = new Date(start);
-    d.getTime() <= end;
-    stepBucketUtc(d, granularity)
-  ) {
-    out.push(d.getTime());
-  }
-  if (out[out.length - 1] !== end) out.push(end);
-  return out;
 }
