@@ -34,7 +34,7 @@ const registrationRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => (req as Request & AuthRequest).userId ?? req.ip ?? "",
-  message: { message: "Too many attempts, please try again later" },
+  message: { message: "Too many attempts. Please try again later." },
 });
 
 const passkeyIdParams = z.strictObject({ id: z.string() });
@@ -74,7 +74,7 @@ const signInRateLimit = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: "Too many sign-in attempts, please try again later" },
+  message: { message: "Too many sign-in attempts. Please try again later." },
 });
 
 signInRouter.post(
