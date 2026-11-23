@@ -155,7 +155,13 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
       return;
     }
     const now = new Date();
-    let failureAlertedAt = connection.proxy.failureAlertedAt ?? null;
+    // An alert from before this run of failures doesn't count. It's kept
+    // through re-enabling and host changes so a later success sends `recovered`
+    const lastAlertedAt = connection.proxy.failureAlertedAt ?? null;
+    let failureAlertedAt =
+      lastAlertedAt && lastAlertedAt >= result.failingSince
+        ? lastAlertedAt
+        : null;
     if (isProxyFailureAlertDue(result.failingSince, failureAlertedAt, now)) {
       const sent = await sendSdkProxyAlert(context, connection, {
         state: "failing",

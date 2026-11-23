@@ -7,6 +7,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 import addProxyUpdateJob from "back-end/src/jobs/proxyUpdate";
 import {
   createSDKConnection,
+  editSDKConnection,
   findSDKConnectionById,
   setProxyError,
   setProxyFailureAlertedAt,
@@ -447,6 +448,43 @@ describe("alerts", () => {
       failingSince: null,
       failureAlertedAt: null,
     });
+  });
+
+  it("sends recovered after the proxy is re-enabled", async () => {
+    const connection = await createProxiedConnection({ proxyEnabled: false });
+    await setProxyFailureAlertedAt(context, connection, new Date());
+    const alerted = await findSDKConnectionById(context, connection.id);
+    if (!alerted) throw new Error("No connection");
+    await editSDKConnection(context, alerted, { proxyEnabled: true });
+    jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(200));
+
+    await push(connection.id);
+
+    expect(sentEvents()).toEqual(["proxy.recovered"]);
+    expect((await savedProxy(connection.id))?.failureAlertedAt).toBeNull();
+  });
+
+  it("treats an alert from before the current failures as not sent", async () => {
+    const connection = await createProxiedConnection();
+    await setProxyFailureAlertedAt(
+      context,
+      connection,
+      new Date(Date.now() - 3 * DAY),
+    );
+    await failingFor(connection, HOUR / 2);
+    jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(500));
+
+    await expect(push(connection.id, { attempt: RETRY })).rejects.toThrow();
+    expect(createEvent).not.toHaveBeenCalled();
+
+    await failingFor(connection, 2 * HOUR);
+    jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(500));
+
+    await expect(push(connection.id, { attempt: RETRY })).rejects.toThrow();
+    await flushEmails();
+
+    expect(sentEvents()).toEqual(["proxy.failing"]);
+    expect(sendSdkProxyErrorEmail).toHaveBeenCalled();
   });
 
   it("doesn't send recovered when no alert was sent", async () => {

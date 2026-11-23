@@ -505,14 +505,12 @@ export async function editSDKConnection(
     if (proxyEnabled) {
       newProxy.consecutiveFailures = 0;
       newProxy.failingSince = null;
-      newProxy.failureAlertedAt = null;
     }
   }
   if (proxyHost !== undefined && proxyHost !== connection.proxy.host) {
     newProxy.host = proxyHost;
     newProxy.consecutiveFailures = 0;
     newProxy.failingSince = null;
-    newProxy.failureAlertedAt = null;
 
     if (addEnvProxySettings(newProxy).host) {
       const res = await testProxyConnection(
