@@ -12,6 +12,9 @@ import { ReqContext } from "back-end/types/request";
 
 export const PROXY_ALERT_AFTER_MS = 60 * 60 * 1000;
 export const PROXY_ALERT_REMINDER_MS = 24 * 60 * 60 * 1000;
+// After this, a failing proxy is only checked again on the next push, so a
+// retired proxy that's still enabled doesn't get pushed to forever
+export const PROXY_CHECKS_FOR_MS = 7 * 24 * 60 * 60 * 1000;
 // Keeps a scheduled check from running again right away when an alert is
 // overdue, e.g. because the last one couldn't be saved
 const MIN_CHECK_INTERVAL_MS = 5 * 60 * 1000;
@@ -20,7 +23,7 @@ export type ProxyAlertState = "failing" | "disabled" | "recovered";
 
 export function describeProxyError(status: number, payloadBytes: number) {
   if (status === 413) {
-    return `The SDK payload (${formatSdkPayloadBytes(payloadBytes)}) exceeds the proxy's request size limit. Increase MAX_PAYLOAD_SIZE on the proxy, and any request size limit on a load balancer or ingress in front of it.`;
+    return `The SDK payload (${formatSdkPayloadBytes(payloadBytes)}) exceeds the proxy's request size limit. Increase MAX_FEATURES_PAYLOAD_SIZE on the proxy (MAX_PAYLOAD_SIZE on older versions), and any request size limit on a load balancer or ingress in front of it.`;
   }
   return "POST returned an invalid status code: " + status;
 }
@@ -54,7 +57,10 @@ export function getNextProxyCheck(
   failingSince: Date,
   failureAlertedAt: Date | null,
   now: Date,
-): Date {
+): Date | null {
+  if (now.getTime() - failingSince.getTime() >= PROXY_CHECKS_FOR_MS) {
+    return null;
+  }
   return new Date(
     Math.max(
       getProxyAlertDueAt(failingSince, failureAlertedAt),
@@ -73,8 +79,9 @@ function getProxyAlertDueAt(
 }
 
 /**
- * Emails admins too, except for `recovered`. Never throws: an alert failure
- * must not change the push's outcome.
+ * Never throws: an alert failure must not change the push's outcome.
+ * @param email - Also email admins. Emails can't be turned off, so only the
+ * first `failing` alert and `disabled` send one.
  * @returns Whether the event was saved.
  */
 export async function sendSdkProxyAlert(
@@ -85,11 +92,13 @@ export async function sendSdkProxyAlert(
     status,
     error,
     failingSince,
+    email = false,
   }: {
     state: ProxyAlertState;
     status: number | null;
     error: string;
     failingSince: Date | null | undefined;
+    email?: boolean;
   },
 ): Promise<boolean> {
   const fields = {
@@ -122,7 +131,7 @@ export async function sendSdkProxyAlert(
             data: { object: { ...fields, status, error } },
           });
     if (!eventId) return false;
-    if (state !== "recovered" && isEmailEnabled()) {
+    if (email && state !== "recovered" && isEmailEnabled()) {
       // Not awaited, so a slow mail server doesn't hold up the job
       void getAdminEmails(context)
         .then((emails) =>

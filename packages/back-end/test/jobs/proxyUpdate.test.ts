@@ -22,6 +22,7 @@ import {
   describeProxyError,
   PROXY_ALERT_AFTER_MS,
   PROXY_ALERT_REMINDER_MS,
+  PROXY_CHECKS_FOR_MS,
   sendSdkProxyAlert,
 } from "back-end/src/services/sdkProxyErrors";
 import {
@@ -77,6 +78,7 @@ const org: OrganizationInterface = {
 
 const MB = 1024 * 1024;
 const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 
 // Built after connecting, since creating a context sets up the models
 let context: ReqContextClass;
@@ -124,13 +126,14 @@ const RETRY = 1;
 
 const createJob = (
   connectionId: string,
-  { cloud = false, attempt = FIRST_ATTEMPT } = {},
+  { cloud = false, attempt = FIRST_ATTEMPT, scheduledCheck = false } = {},
 ) => {
   const job = agenda.create("proxyUpdate", {
     orgId: org.id,
     connectionId,
     useCloudProxy: cloud,
     retryCount: attempt,
+    scheduledCheck,
   });
   jest.spyOn(job, "save").mockResolvedValue(job);
   return job;
@@ -138,7 +141,7 @@ const createJob = (
 
 const push = (
   connectionId: string,
-  options: { cloud?: boolean; attempt?: number } = {},
+  options: { cloud?: boolean; attempt?: number; scheduledCheck?: boolean } = {},
 ) => runJob(createJob(connectionId, options));
 
 // Runs the job the way Agenda does, including its fail handler
@@ -224,7 +227,7 @@ describe("recording failures", () => {
       connected: false,
       consecutiveFailures: 0,
       failingSince: expect.any(Date),
-      error: expect.stringContaining("Increase MAX_PAYLOAD_SIZE"),
+      error: expect.stringContaining("Increase MAX_FEATURES_PAYLOAD_SIZE"),
     });
   });
 
@@ -375,8 +378,11 @@ describe("alerts", () => {
     jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(500));
 
     await expect(push(connection.id, { attempt: RETRY })).rejects.toThrow();
+    await flushEmails();
 
     expect(sentEvents()).toEqual(["proxy.failing"]);
+    // Reminders go only to event subscribers, who can turn them off
+    expect(sendSdkProxyErrorEmail).not.toHaveBeenCalled();
   });
 
   it("alerts right away when the proxy is disabled", async () => {
@@ -511,6 +517,46 @@ describe("scheduled checks", () => {
     );
   });
 
+  it("marks a rescheduled run as a scheduled check", async () => {
+    const connection = await createProxiedConnection();
+    await failingFor(connection, HOUR / 4);
+    const job = createJob(connection.id, { attempt: RETRY });
+    jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(500));
+
+    await pushAndHandleFailure(job);
+
+    expect(job.attrs.data.scheduledCheck).toBe(true);
+  });
+
+  it("doesn't count a failed scheduled check toward disabling", async () => {
+    const connection = await createProxiedConnection();
+    await failingFor(connection, 2 * HOUR);
+    const before = (await savedProxy(connection.id))?.consecutiveFailures;
+    jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(500));
+
+    await expect(
+      push(connection.id, { attempt: RETRY, scheduledCheck: true }),
+    ).rejects.toThrow();
+
+    expect((await savedProxy(connection.id))?.consecutiveFailures).toBe(before);
+  });
+
+  it("stops checking after the proxy has failed for 7 days", async () => {
+    const connection = await createProxiedConnection();
+    await failingFor(connection, PROXY_CHECKS_FOR_MS + DAY);
+    await setProxyFailureAlertedAt(
+      context,
+      connection,
+      new Date(Date.now() - HOUR),
+    );
+    const job = createJob(connection.id, { attempt: RETRY });
+    jest.mocked(cancellableFetch).mockResolvedValueOnce(respond(500));
+
+    await pushAndHandleFailure(job);
+
+    expect(job.save).not.toHaveBeenCalled();
+  });
+
   it("doesn't check our cloud proxy again", async () => {
     const connection = await createProxiedConnection();
     const job = createJob(connection.id, { cloud: true, attempt: RETRY });
@@ -603,7 +649,7 @@ describe("sendSdkProxyAlert", () => {
 describe("describeProxyError", () => {
   it("names the payload size and the setting to change for a 413", () => {
     expect(describeProxyError(413, 4.1 * MB)).toBe(
-      "The SDK payload (4.1 MB) exceeds the proxy's request size limit. Increase MAX_PAYLOAD_SIZE on the proxy, and any request size limit on a load balancer or ingress in front of it.",
+      "The SDK payload (4.1 MB) exceeds the proxy's request size limit. Increase MAX_FEATURES_PAYLOAD_SIZE on the proxy (MAX_PAYLOAD_SIZE on older versions), and any request size limit on a load balancer or ingress in front of it.",
     );
   });
 });

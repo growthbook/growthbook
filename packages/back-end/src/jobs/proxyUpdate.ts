@@ -36,6 +36,9 @@ type ProxyUpdateJob = Job<{
   // Set when a push fails for good: when to push again so an alert can fire
   // even if nothing else changes in the meantime
   nextCheckAt?: number;
+  // A run scheduled from nextCheckAt. Its failures don't count toward
+  // disabling, so the disabling rules stay the same as before checks existed.
+  scheduledCheck?: boolean;
 }>;
 
 const proxyUpdate = async (job: ProxyUpdateJob) => {
@@ -135,7 +138,7 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     // Customers can't fix our proxy, so its failures stay off their connection
     if (useCloudProxy) return;
     const result = await setProxyError(context, connection, error, {
-      countFailure,
+      countFailure: countFailure && !job.attrs.data?.scheduledCheck,
     });
     if (result.disabled || !isLastAttempt(job)) {
       if (result.disabled) {
@@ -144,6 +147,7 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
           status,
           error,
           failingSince: result.failingSince,
+          email: true,
         });
         if (sent)
           await setProxyFailureAlertedAt(context, connection, new Date());
@@ -158,18 +162,21 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
         status,
         error,
         failingSince: result.failingSince,
+        // Reminders go only to event subscribers, who can turn them off
+        email: !failureAlertedAt,
       });
       if (sent) {
         failureAlertedAt = now;
         await setProxyFailureAlertedAt(context, connection, now);
       }
     }
-    if (job.attrs.data) {
-      job.attrs.data.nextCheckAt = getNextProxyCheck(
-        result.failingSince,
-        failureAlertedAt,
-        now,
-      ).getTime();
+    const nextCheck = getNextProxyCheck(
+      result.failingSince,
+      failureAlertedAt,
+      now,
+    );
+    if (job.attrs.data && nextCheck) {
+      job.attrs.data.nextCheckAt = nextCheck.getTime();
     }
   };
 
@@ -241,6 +248,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
         // A new push replaces this, since the job is unique per connection
         job.attrs.nextRunAt = new Date(job.attrs.data.nextCheckAt);
         job.attrs.data.nextCheckAt = undefined;
+        job.attrs.data.scheduledCheck = true;
       } else {
         return;
       }

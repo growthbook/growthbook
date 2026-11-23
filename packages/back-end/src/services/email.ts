@@ -214,7 +214,7 @@ export async function sendSdkProxyErrorEmail({
   const text = [
     disabled
       ? `GrowthBook disabled the proxy after too many consecutive failures. SDKs using it no longer get updates.`
-      : `GrowthBook couldn't send the latest SDK payload to the proxy.`,
+      : `GrowthBook couldn't send the latest SDK payload to the proxy. If this connection no longer uses a proxy, turn it off on the SDK Connection.`,
     error,
     disabled
       ? `Fix the cause, then use Recheck on the SDK Connection to turn the proxy back on. If changes to the connection need approval, publish an approved change that enables the proxy instead. ${connectionUrl}`

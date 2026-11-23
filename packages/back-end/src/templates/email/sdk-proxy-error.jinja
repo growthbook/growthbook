@@ -21,7 +21,7 @@
   {% if disabled %}
     <p>GrowthBook disabled the proxy after too many consecutive failures. SDKs using it no longer get updates.</p>
   {% else %}
-    <p>GrowthBook couldn't send the latest SDK payload to the proxy.</p>
+    <p>GrowthBook couldn't send the latest SDK payload to the proxy. If this connection no longer uses a proxy, turn it off on the SDK Connection.</p>
   {% endif %}
   <p>{{ error }}</p>
   {% if disabled %}

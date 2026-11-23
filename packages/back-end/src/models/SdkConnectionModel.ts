@@ -504,11 +504,15 @@ export async function editSDKConnection(
     newProxy.enabled = proxyEnabled;
     if (proxyEnabled) {
       newProxy.consecutiveFailures = 0;
+      newProxy.failingSince = null;
+      newProxy.failureAlertedAt = null;
     }
   }
   if (proxyHost !== undefined && proxyHost !== connection.proxy.host) {
     newProxy.host = proxyHost;
     newProxy.consecutiveFailures = 0;
+    newProxy.failingSince = null;
+    newProxy.failureAlertedAt = null;
 
     if (addEnvProxySettings(newProxy).host) {
       const res = await testProxyConnection(
@@ -882,6 +886,9 @@ export async function testProxyConnection(
             "proxy.version": version,
             "proxy.error": "",
             "proxy.consecutiveFailures": 0,
+            // failureAlertedAt stays, so the next successful push still sends
+            // proxy.recovered
+            "proxy.failingSince": null,
             ...(reenable ? { "proxy.enabled": true } : {}),
           },
         },
