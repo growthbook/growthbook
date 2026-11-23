@@ -9,6 +9,7 @@ import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import EnableAutoExperimentDialog from "@/components/AutoExperiments/EnableAutoExperimentDialog";
+import useAutoExperiments from "@/hooks/useAutoExperiments";
 import HoldoutTrafficBreakdown from "@/components/Holdout/HoldoutTrafficBreakdown";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
@@ -229,6 +230,7 @@ export function StartNotEnabledCallout({
   project?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const { canManage } = useAutoExperiments();
   if (!notEnabled) return null;
   return (
     <>
@@ -236,12 +238,15 @@ export function StartNotEnabledCallout({
         status="warning"
         size="sm"
         action={
-          <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
-            Enable
-          </Button>
+          canManage ? (
+            <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+              Enable
+            </Button>
+          ) : undefined
         }
       >
         {NOT_ENABLED_REASONS[notEnabled]}
+        {canManage ? null : " Ask an admin to enable them."}
       </Callout>
       {open ? (
         <EnableAutoExperimentDialog
