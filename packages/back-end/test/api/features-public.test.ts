@@ -3,7 +3,7 @@ import * as featuresController from "back-end/src/controllers/features";
 const { getFeaturesPublic } = featuresController;
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
-import { getFeatureDefinitionsWithAutoExperimentUse } from "back-end/src/services/features";
+import { getFeatureDefinitions } from "back-end/src/services/features";
 
 jest.mock("back-end/src/services/python", () => ({
   createPool: jest.fn(() => ({
@@ -52,7 +52,7 @@ jest.mock("shared/util", () => ({
 }));
 
 jest.mock("back-end/src/services/features", () => ({
-  getFeatureDefinitionsWithAutoExperimentUse: jest.fn(),
+  getFeatureDefinitions: jest.fn(),
   getSavedGroupMap: jest.fn(),
 }));
 
@@ -152,32 +152,27 @@ describe("getFeaturesPublic test holdout", () => {
       connected: true,
     });
 
-    // Mock getFeatureDefinitionsWithAutoExperimentUse (from services/features) to return test data with holdouts
-    (getFeatureDefinitionsWithAutoExperimentUse as jest.Mock).mockResolvedValue(
-      {
-        autoExperimentUse: { served: [], withheld: [] },
-        payload: {
-          features: {
-            "feature-with-holdout": {
-              defaultValue: "default_value",
-              projects: ["project-2"],
-              rules: [
-                {
-                  id: "holdout_abc123",
-                  force: "holdout_value",
-                },
-              ],
+    // Mock getFeatureDefinitions (from services/features) to return test data with holdouts
+    (getFeatureDefinitions as jest.Mock).mockResolvedValue({
+      features: {
+        "feature-with-holdout": {
+          defaultValue: "default_value",
+          projects: ["project-2"],
+          rules: [
+            {
+              id: "holdout_abc123",
+              force: "holdout_value",
             },
-          },
-          experiments: [],
-          dateUpdated: new Date("2023-01-01"),
-          savedGroups: {},
+          ],
         },
       },
-    );
+      experiments: [],
+      dateUpdated: new Date("2023-01-01"),
+      savedGroups: {},
+    });
 
     // Call the actual getFeaturesPublic function
-    // This calls getFeatureDefinitionsWithCache which calls our mocked getFeatureDefinitionsWithAutoExperimentUse
+    // This calls getFeatureDefinitionsWithCache which calls our mocked getFeatureDefinitions
     await getFeaturesPublic(mockRequest as Request, mockResponse as Response);
 
     // Verify that the response was successful
@@ -227,38 +222,33 @@ describe("getFeaturesPublic test holdout", () => {
       connected: true,
     });
 
-    // Mock getFeatureDefinitionsWithAutoExperimentUse to return test data where holdout is not included
-    (getFeatureDefinitionsWithAutoExperimentUse as jest.Mock).mockResolvedValue(
-      {
-        autoExperimentUse: { served: [], withheld: [] },
-        payload: {
-          features: {
-            "feature-with-holdout": {
-              defaultValue: "default_value",
-              rules: [
+    // Mock getFeatureDefinitions to return test data where holdout is not included
+    (getFeatureDefinitions as jest.Mock).mockResolvedValue({
+      features: {
+        "feature-with-holdout": {
+          defaultValue: "default_value",
+          rules: [
+            {
+              id: "holdout_abc123",
+              parentConditions: [
                 {
-                  id: "holdout_abc123",
-                  parentConditions: [
-                    {
-                      id: "$holdout:hld_test_holdout",
-                      condition: { value: "holdoutcontrol" },
-                    },
-                  ],
-                  force: "holdout_value",
+                  id: "$holdout:hld_test_holdout",
+                  condition: { value: "holdoutcontrol" },
                 },
               ],
+              force: "holdout_value",
             },
-            // Note: $holdout:hld_test_holdout is NOT included because it's in a different project
-          },
-          experiments: [],
-          dateUpdated: new Date("2023-01-01"),
-          savedGroups: {},
+          ],
         },
+        // Note: $holdout:hld_test_holdout is NOT included because it's in a different project
       },
-    );
+      experiments: [],
+      dateUpdated: new Date("2023-01-01"),
+      savedGroups: {},
+    });
 
     // Call the actual getFeaturesPublic function
-    // This calls getFeatureDefinitionsWithCache which calls our mocked getFeatureDefinitionsWithAutoExperimentUse
+    // This calls getFeatureDefinitionsWithCache which calls our mocked getFeatureDefinitions
     await getFeaturesPublic(mockRequest as Request, mockResponse as Response);
 
     // Verify that the response was successful

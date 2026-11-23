@@ -116,7 +116,6 @@ import {
   eventUserIdentity,
   RevisionRampAction,
   SdkConnectionCacheAuditContext,
-  SdkConnectionCacheAutoExperimentUse,
   RampScheduleInterface,
 } from "shared/validators";
 import {
@@ -155,10 +154,7 @@ import {
   getEnvsForRampTarget,
 } from "shared/util";
 import { measureSdkPayloadSize } from "shared/health";
-import {
-  getAutoExperimentAccess,
-  getAutoExperimentUse,
-} from "back-end/src/services/autoExperiments";
+import { getAutoExperimentAccess } from "back-end/src/services/autoExperiments";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { armerActor } from "back-end/src/util/armingApiKeyId";
 import {
@@ -1729,42 +1725,41 @@ export async function refreshSDKPayloadCache({
           true,
         );
 
-        const { payload: contents, autoExperimentUse } =
-          await buildSDKPayloadWithAutoExperimentUse({
-            context,
-            connection: {
-              capabilities,
-              environment: env,
-              projects: filteredProjects,
-              includeReferencedPrerequisites:
-                connection.includeReferencedPrerequisites,
-              encryptPayload: connection.encryptPayload,
-              encryptionKey: connection.encryptionKey,
-              includeVisualExperiments: connection.includeVisualExperiments,
-              includeDraftExperiments: connection.includeDraftExperiments,
-              includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
-              includeExperimentNames: connection.includeExperimentNames,
-              includeRedirectExperiments: connection.includeRedirectExperiments,
-              allowCustomJs: connection.allowCustomJs,
-              allowCrossOriginRedirects: connection.allowCrossOriginRedirects,
-              includeRuleIds: connection.includeRuleIds,
-              hashSecureAttributes: connection.hashSecureAttributes,
-              savedGroupFormat: savedGroupFormatFromConnection(connection),
-              includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
-              includeCustomFieldsInMetadata:
-                connection.includeCustomFieldsInMetadata,
-              allowedCustomFieldsInMetadata:
-                connection.allowedCustomFieldsInMetadata,
-              includeTagsInMetadata: connection.includeTagsInMetadata,
-              includeExperimentScheduleInMetadata:
-                connection.includeExperimentScheduleInMetadata,
-            },
-            data: {
-              ...rawData,
-              holdoutsMap,
-              constantMap: constantMapByEnv[env],
-            },
-          });
+        const contents = await buildSDKPayloadForConnection({
+          context,
+          connection: {
+            capabilities,
+            environment: env,
+            projects: filteredProjects,
+            includeReferencedPrerequisites:
+              connection.includeReferencedPrerequisites,
+            encryptPayload: connection.encryptPayload,
+            encryptionKey: connection.encryptionKey,
+            includeVisualExperiments: connection.includeVisualExperiments,
+            includeDraftExperiments: connection.includeDraftExperiments,
+            includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
+            includeExperimentNames: connection.includeExperimentNames,
+            includeRedirectExperiments: connection.includeRedirectExperiments,
+            allowCustomJs: connection.allowCustomJs,
+            allowCrossOriginRedirects: connection.allowCrossOriginRedirects,
+            includeRuleIds: connection.includeRuleIds,
+            hashSecureAttributes: connection.hashSecureAttributes,
+            savedGroupFormat: savedGroupFormatFromConnection(connection),
+            includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
+            includeCustomFieldsInMetadata:
+              connection.includeCustomFieldsInMetadata,
+            allowedCustomFieldsInMetadata:
+              connection.allowedCustomFieldsInMetadata,
+            includeTagsInMetadata: connection.includeTagsInMetadata,
+            includeExperimentScheduleInMetadata:
+              connection.includeExperimentScheduleInMetadata,
+          },
+          data: {
+            ...rawData,
+            holdoutsMap,
+            constantMap: constantMapByEnv[env],
+          },
+        });
 
         const auditContext: SdkConnectionCacheAuditContext | undefined =
           initialAuditContext
@@ -1794,7 +1789,6 @@ export async function refreshSDKPayloadCache({
         await context.models.sdkConnectionCache.upsert(
           connection.key,
           json,
-          autoExperimentUse,
           auditContext,
         );
       } catch (e) {
@@ -2140,16 +2134,6 @@ function pruneUnreferencedHoldouts(
 export async function buildSDKPayloadForConnection(
   input: SDKPayloadBuildInput,
 ): Promise<FeatureDefinitionSDKPayload> {
-  return (await buildSDKPayloadWithAutoExperimentUse(input)).payload;
-}
-
-// The payload, with what the cache records to tell when it has gone stale.
-export async function buildSDKPayloadWithAutoExperimentUse(
-  input: SDKPayloadBuildInput,
-): Promise<{
-  payload: FeatureDefinitionSDKPayload;
-  autoExperimentUse: SdkConnectionCacheAutoExperimentUse;
-}> {
   const { context, connection, data } = input;
   const {
     capabilities,
@@ -2182,13 +2166,10 @@ export async function buildSDKPayloadWithAutoExperimentUse(
 
   if (projects === null) {
     return {
-      payload: {
-        features: {},
-        experiments: [],
-        dateUpdated: new Date(),
-        savedGroups: {},
-      },
-      autoExperimentUse: { served: [], withheld: [] },
+      features: {},
+      experiments: [],
+      dateUpdated: new Date(),
+      savedGroups: {},
     };
   }
 
@@ -2200,16 +2181,11 @@ export async function buildSDKPayloadWithAutoExperimentUse(
         )
       : data.features;
 
-  // Loaded on the connection's own setting, so what the organization
-  // withholds is still counted.
-  const cbVisualCandidates = connection.includeVisualExperiments
+  const allCbVisualExperiments = includeVisualExperiments
     ? filterCbVisualExperimentsByProject(
         data.cbVisualExperiments ?? (await getAllCbVisualExperiments(context)),
         projectList,
-      )
-    : [];
-  const allCbVisualExperiments = includeVisualExperiments
-    ? cbVisualCandidates.filter((e) => servesVisualChangeset(e.visualChangeset))
+      ).filter((e) => servesVisualChangeset(e.visualChangeset))
     : [];
 
   const filteredExperimentMap =
@@ -2263,30 +2239,20 @@ export async function buildSDKPayloadWithAutoExperimentUse(
   // Fresh cache per connection (one env per connection); keyed by prereq id only
   const prereqStateCache: Record<string, PrerequisiteStateResult> = {};
 
-  const visualCandidates =
+  const allVisualExperiments = (
     data.visualExperiments != null
       ? data.visualExperiments.filter((e) =>
           filteredExperimentMap.has(e.experiment.id),
         )
-      : await getAllVisualExperiments(context, filteredExperimentMap);
-  const allVisualExperiments = visualCandidates.filter((e) =>
-    servesVisualChangeset(e.visualChangeset),
-  );
-  const redirectCandidates =
+      : await getAllVisualExperiments(context, filteredExperimentMap)
+  ).filter((e) => servesVisualChangeset(e.visualChangeset));
+  const allURLRedirectExperiments = (
     data.urlRedirectExperiments != null
       ? data.urlRedirectExperiments.filter((e) =>
           filteredExperimentMap.has(e.experiment.id),
         )
-      : await getAllURLRedirectExperiments(context, filteredExperimentMap);
-  const allURLRedirectExperiments = redirectCandidates.filter((e) =>
-    servesRedirect(e.urlRedirect),
-  );
-  const autoExperimentUse = getAutoExperimentUse(context.org, connection, {
-    changesets: [...visualCandidates, ...cbVisualCandidates].map(
-      (e) => e.visualChangeset,
-    ),
-    redirects: redirectCandidates.map((e) => e.urlRedirect),
-  });
+      : await getAllURLRedirectExperiments(context, filteredExperimentMap)
+  ).filter((e) => servesRedirect(e.urlRedirect));
 
   const holdoutsMapForConnection = buildHoldoutsMapForProjects(
     data.holdoutsMap,
@@ -2423,7 +2389,7 @@ export async function buildSDKPayloadWithAutoExperimentUse(
     attributes = context.org.settings?.attributeSchema;
   }
 
-  const payload = await getFeatureDefinitionsResponse({
+  return getFeatureDefinitionsResponse({
     features: featuresWithHoldouts,
     experiments:
       includeVisualExperiments || includeRedirectExperiments
@@ -2442,7 +2408,6 @@ export async function buildSDKPayloadWithAutoExperimentUse(
     interleavings: interleavingsPayload?.interleavings,
     organization: context.org,
   });
-  return { payload, autoExperimentUse };
 }
 
 export type FeatureDefinitionSDKPayload = {
@@ -2509,12 +2474,6 @@ async function loadMissingPrerequisites({
 export async function getFeatureDefinitions(
   args: FeatureDefinitionArgs,
 ): Promise<FeatureDefinitionSDKPayload> {
-  return (await getFeatureDefinitionsWithAutoExperimentUse(args)).payload;
-}
-
-export async function getFeatureDefinitionsWithAutoExperimentUse(
-  args: FeatureDefinitionArgs,
-): ReturnType<typeof buildSDKPayloadWithAutoExperimentUse> {
   const { context, environment = "production", projects } = args;
   const projectFilter = projects && projects.length > 0 ? projects : undefined;
   let allFeatures = await getAllFeatures(context, {
@@ -2602,7 +2561,7 @@ export async function getFeatureDefinitionsWithAutoExperimentUse(
     interleavings,
   });
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
-  return buildSDKPayloadWithAutoExperimentUse({
+  return buildSDKPayloadForConnection({
     context,
     connection: {
       capabilities: args.capabilities,

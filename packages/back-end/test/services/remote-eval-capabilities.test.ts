@@ -1,5 +1,5 @@
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
-import { getFeatureDefinitionsWithAutoExperimentUse } from "back-end/src/services/features";
+import { getFeatureDefinitions } from "back-end/src/services/features";
 
 // Force savedGroupReferencesV2 on so the filter has something to strip,
 // independent of the real SDK version data.
@@ -16,11 +16,11 @@ jest.mock("shared/sdk-versioning", () => ({
 }));
 
 // Replaced wholesale rather than with requireActual, which pulls in a circular
-// module graph. Only getFeatureDefinitionsWithAutoExperimentUse is called on this path.
+// module graph. Only getFeatureDefinitions is called on this path.
 jest.mock("back-end/src/services/features", () => ({
-  getFeatureDefinitionsWithAutoExperimentUse: jest.fn().mockResolvedValue({
-    payload: { features: {}, dateUpdated: new Date() },
-    autoExperimentUse: { served: [], withheld: [] },
+  getFeatureDefinitions: jest.fn().mockResolvedValue({
+    features: {},
+    dateUpdated: new Date(),
   }),
   getSavedGroupMap: jest.fn(),
 }));
@@ -54,11 +54,10 @@ describe("getFeatureDefinitionsWithCache remote-eval capabilities", () => {
   };
 
   const capabilitiesUsed = () =>
-    (getFeatureDefinitionsWithAutoExperimentUse as jest.Mock).mock.calls[0][0]
-      .capabilities;
+    (getFeatureDefinitions as jest.Mock).mock.calls[0][0].capabilities;
 
   beforeEach(() => {
-    (getFeatureDefinitionsWithAutoExperimentUse as jest.Mock).mockClear();
+    (getFeatureDefinitions as jest.Mock).mockClear();
   });
 
   it("keeps savedGroupReferencesV2 for a normal connection", async () => {

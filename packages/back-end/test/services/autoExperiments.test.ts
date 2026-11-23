@@ -6,8 +6,6 @@ import {
   assertUrlRedirectAllowed,
   assertVisualChangesAllowed,
   getAutoExperimentAccess,
-  getAutoExperimentUse,
-  isCachedPayloadStale,
 } from "back-end/src/services/autoExperiments";
 
 const allOff = {
@@ -213,105 +211,5 @@ describe("assertConnectionAutoExperimentsAllowed", () => {
         { includeVisualExperiments: true, includeRedirectExperiments: true },
       ),
     ).not.toThrow();
-  });
-});
-
-describe("getAutoExperimentUse", () => {
-  const connection = {
-    includeVisualExperiments: true,
-    includeRedirectExperiments: true,
-    allowCustomJs: true,
-    allowCrossOriginRedirects: true,
-  };
-  const content = {
-    changesets: [{ visualChanges: [{ js: "alert(1)" }] }],
-    redirects: [
-      {
-        urlPattern: "https://www.example.com/a",
-        destinationURLs: [{ variation: "v1", url: "https://evil.test/" }],
-      },
-    ],
-  };
-
-  it("records nothing for a connection with nothing to serve", () => {
-    expect(
-      getAutoExperimentUse({ settings: {} }, connection, {
-        changesets: [],
-        redirects: [],
-      }),
-    ).toEqual({ served: [], withheld: [] });
-    expect(
-      getAutoExperimentUse(
-        { settings: { autoExperiments: allOff } },
-        {},
-        content,
-      ),
-    ).toEqual({ served: [], withheld: [] });
-  });
-
-  it("splits what is there by what the organization allows", () => {
-    expect(
-      getAutoExperimentUse(
-        {
-          settings: {
-            autoExperiments: {
-              visualEditor: true,
-              customJs: false,
-              urlRedirects: false,
-              crossOriginRedirects: false,
-            },
-          },
-        },
-        connection,
-        content,
-      ),
-    ).toEqual({
-      served: ["visualEditor"],
-      withheld: ["urlRedirects", "customJs", "crossOriginRedirects"],
-    });
-  });
-
-  it("leaves out what the connection itself doesn't serve", () => {
-    expect(
-      getAutoExperimentUse(
-        { settings: { autoExperiments: allOff } },
-        { ...connection, allowCustomJs: false },
-        content,
-      ).withheld,
-    ).toEqual(["visualEditor", "urlRedirects", "crossOriginRedirects"]);
-  });
-});
-
-describe("isCachedPayloadStale", () => {
-  const connection = { includeVisualExperiments: true, allowCustomJs: true };
-  const on = {
-    settings: { autoExperiments: { ...allOff, visualEditor: true } },
-  };
-  const off = { settings: { autoExperiments: allOff } };
-
-  it("is stale when it holds something that is now off", () => {
-    const use = { served: ["visualEditor" as const], withheld: [] };
-    expect(isCachedPayloadStale(on, connection, use)).toBe(false);
-    expect(isCachedPayloadStale(off, connection, use)).toBe(true);
-  });
-
-  it("is stale when something it left out is now on", () => {
-    const use = { served: [], withheld: ["visualEditor" as const] };
-    expect(isCachedPayloadStale(off, connection, use)).toBe(false);
-    expect(isCachedPayloadStale(on, connection, use)).toBe(true);
-  });
-
-  it("is never stale when it holds and withheld nothing", () => {
-    const use = { served: [], withheld: [] };
-    expect(isCachedPayloadStale(off, connection, use)).toBe(false);
-    expect(isCachedPayloadStale(on, connection, use)).toBe(false);
-  });
-
-  it("treats an entry without a record as stale only if it could be wrong", () => {
-    expect(isCachedPayloadStale(off, connection, undefined)).toBe(true);
-    expect(isCachedPayloadStale(off, {}, undefined)).toBe(false);
-    expect(isCachedPayloadStale({ settings: {} }, connection, undefined)).toBe(
-      false,
-    );
   });
 });
