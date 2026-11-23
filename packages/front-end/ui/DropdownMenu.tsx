@@ -4,11 +4,11 @@ import {
   DropdownMenu as RadixDropdownMenu,
   IconButton,
   Text,
+  VisuallyHidden,
 } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { amber } from "@radix-ui/colors";
 import React, {
   forwardRef,
   ReactElement,
@@ -291,6 +291,9 @@ export function DropdownMenuItem({
   >(null);
 
   const [error, setError] = useState<null | string>(null);
+  // Server messages already end with a period.
+  const errorMessage =
+    error && `${error.replace(/\.+$/, "")}. Exit the menu and try again.`;
   const [loading, setLoading] = useState(false);
 
   // Get hideDropdown, showDropdown, and closeDropdown from confirmation prop or context
@@ -368,22 +371,20 @@ export function DropdownMenuItem({
             <Box width="14px" className="ml-3">
               {loading ? <LoadingSpinner /> : null}
               {error ? (
-                <PiWarningFill color={amber.amber11} aria-hidden />
+                <PiWarningFill color="var(--red-11)" aria-hidden />
               ) : null}
             </Box>
           </Flex>
           {error ? (
-            // Visible text, not a hover tooltip, so keyboard, touch, and
-            // screen-reader users get the reason too. Server messages
-            // already end with a period.
+            // Visible text, not a hover tooltip, so keyboard and touch users
+            // get the reason too.
             <Text
               as="div"
               size="1"
               color="red"
-              role="alert"
               style={{ whiteSpace: "normal", maxWidth: 280 }}
             >
-              {`${error.replace(/\.+$/, "")}. Exit the menu and try again.`}
+              {errorMessage}
             </Text>
           ) : null}
         </Flex>
@@ -395,6 +396,14 @@ export function DropdownMenuItem({
 
   return (
     <>
+      {/* A menu item's children are presentational, so a live region inside
+          it may not be announced. This one sits outside the menu. */}
+      {errorMessage
+        ? createPortal(
+            <VisuallyHidden role="alert">{errorMessage}</VisuallyHidden>,
+            document.body,
+          )
+        : null}
       {confirmation && confirming && (
         <ModalStandard
           trackingEventModalType=""

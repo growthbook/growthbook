@@ -4,6 +4,7 @@ import {
 } from "shared/enterprise";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
+import TruncatedText from "@/ui/TruncatedText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 // Names the Projects that show this dashboard on Home. A stored default that
@@ -33,9 +34,15 @@ export default function DefaultDashboardBadge({
         color="violet"
         variant="soft"
         label={
-          defaultFor.length === 1
-            ? `Default for ${defaultFor[0].name}`
-            : `Default for ${defaultFor.length} Projects`
+          defaultFor.length === 1 ? (
+            // Project names are free text; the full name shows on overflow.
+            <TruncatedText
+              text={`Default for ${defaultFor[0].name}`}
+              maxWidth={200}
+            />
+          ) : (
+            `Default for ${defaultFor.length} Projects`
+          )
         }
       />
     </Tooltip>
