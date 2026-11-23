@@ -22,7 +22,6 @@ export function useConstantRevision(
   routerRef.current = router;
 
   const { apiCall } = useAuth();
-  const initializedDefaultSelectionFor = useRef<string | null>(null);
 
   // Selected revision lives in the URL via `?v=<n>`.
   const urlVersion = router.isReady
@@ -34,7 +33,11 @@ export function useConstantRevision(
       })()
     : null;
 
-  const { data, mutate: mutateRevisions } = useApi<{
+  const {
+    data,
+    error: revisionsError,
+    mutate: mutateRevisions,
+  } = useApi<{
     revisions: Revision[];
   }>(`/revision/entity/${entityType}/${constantId}`, {
     shouldRun: () => !!constantId,
@@ -113,28 +116,36 @@ export function useConstantRevision(
     [],
   );
 
-  // On initial load, default authors to their own most-recent open draft.
-  // Respect any revision already in the URL. If no `?v=`, populate it with live.
+  // The viewer's own most recent open draft, shown when the URL names none.
+  const authoredOpenRevision = useMemo(
+    () =>
+      openRevisions
+        .filter((revision) => revision.authorId === userId)
+        .sort(
+          (a, b) =>
+            new Date(b.dateUpdated).getTime() -
+            new Date(a.dateUpdated).getTime(),
+        )[0] ?? null,
+    [openRevisions, userId],
+  );
+
+  // With no `?v=`, default authors to their own most recent open draft, and
+  // everyone else to live. A revision already in the URL stays.
   useEffect(() => {
-    if (!constantId || !userId) return;
-    if (!data) return;
-    if (initializedDefaultSelectionFor.current === constantId) return;
-
-    if (hasSelectionInUrl) {
-      initializedDefaultSelectionFor.current = constantId;
-      return;
-    }
-
-    const authoredOpenRevision = openRevisions
-      .filter((revision) => revision.authorId === userId)
-      .sort(
-        (a, b) =>
-          new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
-      )[0];
-
-    updateUrl(authoredOpenRevision ?? null, { replace: true });
-    initializedDefaultSelectionFor.current = constantId;
-  }, [constantId, userId, data, openRevisions, hasSelectionInUrl, updateUrl]);
+    if (!constantId || !userId || !data || hasSelectionInUrl) return;
+    updateUrl(authoredOpenRevision, { replace: true });
+  }, [
+    constantId,
+    userId,
+    data,
+    authoredOpenRevision,
+    hasSelectionInUrl,
+    updateUrl,
+  ]);
+  // Which revision to show is decided: the URL names one, or there's no draft
+  // to default to. Until then a page would show live, then jump to the draft.
+  const selectionSettled =
+    !!data && (hasSelectionInUrl || !authoredOpenRevision);
 
   // If the URL `?v=` points to a version that doesn't exist, reset to live.
   useEffect(() => {
@@ -274,6 +285,8 @@ export function useConstantRevision(
   return {
     selectedRevision,
     selectedRevisionId,
+    selectionSettled,
+    revisionsError,
     openRevisions,
     allRevisions,
     hasRealRevisions,

@@ -13,7 +13,7 @@ import {
 import type { ConfigInterface } from "shared/types/config";
 import type { SimpleSchema } from "shared/types/feature";
 import { z } from "zod";
-import { Revision, normalizeProposedChanges } from "shared/enterprise";
+import { Revision } from "shared/enterprise";
 import {
   parsePlainJSONObject,
   inferFieldsFromValue,
@@ -28,7 +28,6 @@ import {
 } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import {
-  applyPatchToSnapshot,
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
@@ -118,13 +117,6 @@ export async function discardIfJustCreated(
       "Failed to discard orphaned config draft after downstream failure",
     );
   }
-}
-
-export function applyRevisionToSnapshot(revision: Revision): ConfigInterface {
-  return applyPatchToSnapshot(
-    revision.target.snapshot as ConfigInterface,
-    normalizeProposedChanges(revision.target.proposedChanges),
-  ) as ConfigInterface;
 }
 
 export function pickNewDraftMetadata(body: {

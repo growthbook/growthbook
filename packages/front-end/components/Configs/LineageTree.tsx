@@ -4,15 +4,25 @@ import { Box, Flex } from "@radix-ui/themes";
 import {
   PiCaretDown,
   PiCaretRight,
+  PiFolder,
+  PiFolderOpen,
   PiDotOutline,
-  PiLinkBreak,
   PiWarningFill,
-  PiPlusBold,
+  PiWarningOctagonFill,
+  PiPlus,
 } from "react-icons/pi";
 import { isScopedConfig } from "shared/util";
 import { LineageNode } from "@/components/Configs/fieldSchema";
+import {
+  KeyList,
+  KeyNoticesIcon,
+  undeclaredKeysNotice,
+} from "@/components/Configs/ConfigKeyNotices";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
+import TruncatedText from "@/ui/TruncatedText";
+import StatusDot from "@/components/Experiment/StatusDot";
+import { draftStatusDotColor } from "@/components/Reviews/RevisionStatusBadge";
 import styles from "./LineageTree.module.scss";
 
 // Label for a flavor row: its environment(s), else project(s), else its name.
@@ -45,6 +55,17 @@ function RowConnector(): React.ReactElement {
         background: GUIDE_COLOR,
       }}
     />
+  );
+}
+
+function DraftNodeDot() {
+  return (
+    <Tooltip content="Unpublished draft">
+      <StatusDot
+        color={draftStatusDotColor("draft")}
+        style={{ marginRight: 4 }}
+      />
+    </Tooltip>
   );
 }
 
@@ -190,7 +211,6 @@ export default function LineageTree({
           pl="1"
           pr="3"
           className={styles.row}
-          title={`Composes ${name}${isArchived ? " (archived)" : ""}`}
           onClick={isCurrent ? undefined : openConfig(mk)}
           onAuxClick={isCurrent ? undefined : openConfig(mk)}
           style={{
@@ -207,9 +227,10 @@ export default function LineageTree({
             justify="center"
             style={{ width: 14, flexShrink: 0, color: "var(--slate-10)" }}
           >
-            <PiPlusBold size={10} />
+            <PiPlus size={10} />
           </Flex>
-          <span
+          <TruncatedText
+            maxWidth="100%"
             style={{
               flex: 1,
               minWidth: 0,
@@ -225,27 +246,10 @@ export default function LineageTree({
                   ? "var(--slate-9)"
                   : undefined,
               textDecoration: isArchived ? "line-through" : undefined,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
             }}
-          >
-            {name}
-          </span>
-          {isDraftNode && (
-            <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live Config.">
-              <Box
-                style={{
-                  flexShrink: 0,
-                  width: 8,
-                  height: 8,
-                  marginRight: 4,
-                  borderRadius: "50%",
-                  background: "var(--amber-9)",
-                }}
-              />
-            </Tooltip>
-          )}
+            text={name}
+          />
+          {isDraftNode && <DraftNodeDot />}
           {count !== undefined && countBadge(count)}
         </Flex>
       </Box>
@@ -271,7 +275,6 @@ export default function LineageTree({
           pl="1"
           pr="3"
           className={styles.row}
-          title={`${n.name}${isArchived ? " (archived)" : ""}`}
           onClick={isCurrent ? undefined : openConfig(n.key)}
           onAuxClick={isCurrent ? undefined : openConfig(n.key)}
           style={{
@@ -288,7 +291,8 @@ export default function LineageTree({
           >
             <PiDotOutline size={20} />
           </Flex>
-          <span
+          <TruncatedText
+            maxWidth="100%"
             style={{
               flex: 1,
               minWidth: 0,
@@ -301,27 +305,10 @@ export default function LineageTree({
                   ? "var(--slate-9)"
                   : undefined,
               textDecoration: isArchived ? "line-through" : undefined,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
             }}
-          >
-            {label}
-          </span>
-          {isDraftNode && (
-            <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live Config.">
-              <Box
-                style={{
-                  flexShrink: 0,
-                  width: 8,
-                  height: 8,
-                  marginRight: 4,
-                  borderRadius: "50%",
-                  background: "var(--amber-9)",
-                }}
-              />
-            </Tooltip>
-          )}
+            text={label}
+          />
+          {isDraftNode && <DraftNodeDot />}
           {n.fieldCount !== undefined && countBadge(n.fieldCount)}
         </Flex>
       </Box>
@@ -350,7 +337,15 @@ export default function LineageTree({
           pl="1"
           pr="3"
           className={styles.row}
+          role="button"
+          tabIndex={0}
+          aria-expanded={isOpen}
           onClick={() => toggleEnvGroup(parentKey)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            toggleEnvGroup(parentKey);
+          }}
           style={{
             height: ROW_HEIGHT,
             borderRadius: "var(--radius-2)",
@@ -362,7 +357,8 @@ export default function LineageTree({
             justify="center"
             style={{ width: 14, flexShrink: 0, color: "var(--slate-11)" }}
           >
-            {isOpen ? <PiCaretDown size={10} /> : <PiCaretRight size={10} />}
+            {/* Groups show a folder; Configs, a caret. */}
+            {isOpen ? <PiFolderOpen size={13} /> : <PiFolder size={13} />}
           </Flex>
           <span
             style={{
@@ -495,8 +491,8 @@ export default function LineageTree({
                 <PiDotOutline size={20} />
               )}
             </Flex>
-            <span
-              title={`${n.name}${isArchived ? " (archived)" : ""}`}
+            <TruncatedText
+              maxWidth="100%"
               style={{
                 flex: 1,
                 minWidth: 0,
@@ -509,30 +505,18 @@ export default function LineageTree({
                     ? "var(--slate-9)"
                     : undefined,
                 textDecoration: isArchived ? "line-through" : undefined,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
               }}
-            >
-              {n.name}
-            </span>
-            {isDraftNode && (
-              <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live Config.">
-                <Box
-                  style={{
-                    flexShrink: 0,
-                    width: 8,
-                    height: 8,
-                    marginRight: 4,
-                    borderRadius: "50%",
-                    background: "var(--amber-9)",
-                  }}
-                />
-              </Tooltip>
-            )}
+              text={n.name}
+            />
+            {isDraftNode && <DraftNodeDot />}
             {hasIncompatible && (
               <Tooltip
-                content={`Incompatible value(s): ${n.incompatibleFields?.join(", ")}`}
+                content={
+                  <>
+                    Doesn&apos;t match the schema:{" "}
+                    <KeyList keys={n.incompatibleFields ?? []} inverted />.
+                  </>
+                }
               >
                 <Box
                   style={{
@@ -546,45 +530,30 @@ export default function LineageTree({
               </Tooltip>
             )}
             {hasOrphaned && (
-              <Tooltip
-                content={
-                  `Undeclared value key(s): ${n.orphanedFields?.join(", ")} — ` +
-                  `the effective schema no longer declares them; they still ` +
-                  `resolve, but nothing validates them and validation rules ` +
-                  `read them as null.` +
-                  (extensible === false
-                    ? " This family is not extensible, so the next changing publish of this Config will be rejected until they are removed or re-declared."
-                    : "")
-                }
-              >
-                <Box
-                  style={{
-                    display: "inline-flex",
-                    flexShrink: 0,
-                    color:
-                      extensible === false
-                        ? "var(--amber-11)"
-                        : "var(--slate-9)",
-                  }}
-                >
-                  <PiLinkBreak size={12} />
-                </Box>
-              </Tooltip>
+              <KeyNoticesIcon
+                notices={[
+                  undeclaredKeysNotice(
+                    n.orphanedFields ?? [],
+                    extensible !== false,
+                    12,
+                  ),
+                ]}
+              />
             )}
             {hasViolations && (
               <Tooltip
-                content={`Violates validation rule(s): ${n.invariantViolations
+                content={n.invariantViolations
                   ?.map((v) => v.message)
-                  .join("; ")}`}
+                  .join("; ")}
               >
                 <Box
                   style={{
                     display: "inline-flex",
                     flexShrink: 0,
-                    color: "var(--red-11)",
+                    color: "var(--amber-11)",
                   }}
                 >
-                  <PiWarningFill size={12} />
+                  <PiWarningOctagonFill size={12} />
                 </Box>
               </Tooltip>
             )}
