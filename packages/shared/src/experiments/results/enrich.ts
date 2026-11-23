@@ -59,11 +59,13 @@ function setSupplementalAdjustedValues({
       goalMetricIds.forEach((metricId) => {
         const metric = variation.metrics[metricId];
         if (metric?.pValue === undefined) return;
-        const supplemental = metric.supplementalResults?.[field] as
-          | Partial<SnapshotMetric>
-          | undefined;
+        const supplemental = metric.supplementalResults?.[field];
+        const supplementalPValue =
+          supplemental && "pValue" in supplemental
+            ? supplemental.pValue
+            : undefined;
         pValues.push({
-          pValue: supplemental?.pValue ?? metric.pValue,
+          pValue: supplementalPValue ?? metric.pValue,
           index: [i, j, metricId],
         });
       }),
@@ -77,7 +79,7 @@ function setSupplementalAdjustedValues({
       results[i].variations[j].metrics[metricId].supplementalResults?.[field];
     if (!supplemental) return;
     supplemental.pValueAdjusted = pValue;
-    setAdjustedCI(supplemental as SnapshotMetric, pValueThreshold);
+    setAdjustedCI(supplemental, pValueThreshold);
   });
 }
 
