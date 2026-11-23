@@ -1,7 +1,7 @@
 import { FC, useMemo, useRef, useState } from "react";
 import {
   ExperimentMetricDefinition,
-  getSupplementalVariations,
+  getVariationForSupplementalResult,
   SupplementalField,
 } from "shared/experiments";
 import {
@@ -93,7 +93,7 @@ function createSupplementalRow(
   return {
     ...baseRow,
     label: createRowLabel(description),
-    variations: getSupplementalVariations({
+    variations: getVariationForSupplementalResult({
       metricResults: baseRow,
       field: supplementalField,
     }),

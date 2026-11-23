@@ -3,7 +3,7 @@ import {
   DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
   ExperimentMetricInterface,
   getAdjustmentImpactSummaries,
-  getSupplementalVariations,
+  getVariationForSupplementalResult,
   MetricResults,
   parseAdjustmentImpactSettings,
   SupplementalField,
@@ -505,7 +505,7 @@ describe("settings from the feature flag", () => {
   });
 });
 
-describe("getSupplementalVariations", () => {
+describe("getVariationForSupplementalResult", () => {
   const primary = {
     lift: 0.05,
     standardError: 0.02,
@@ -522,7 +522,7 @@ describe("getSupplementalVariations", () => {
   };
 
   it("uses the corrected p-value and interval stored on the result without the adjustment", () => {
-    const [, variation] = getSupplementalVariations({
+    const [, variation] = getVariationForSupplementalResult({
       metricResults: makeMetricResults([
         makeVariation(primary, {
           uncapped: {
@@ -545,7 +545,7 @@ describe("getSupplementalVariations", () => {
   const args = { metricResults, field: "uncapped" as const };
 
   it("drops the displayed result's corrected values when the other result has none", () => {
-    const [, variation] = getSupplementalVariations(args);
+    const [, variation] = getVariationForSupplementalResult(args);
     expect(variation.expected).toBe(0.035);
     expect(variation.pValue).toBe(0.03);
     expect(variation.ci).toEqual([0.003, 0.067]);
@@ -554,7 +554,7 @@ describe("getSupplementalVariations", () => {
   });
 
   it("leaves a variation without the supplemental result as it is", () => {
-    const [baseline] = getSupplementalVariations(args);
+    const [baseline] = getVariationForSupplementalResult(args);
     expect(baseline).toBe(metricResults.variations[0]);
   });
 });

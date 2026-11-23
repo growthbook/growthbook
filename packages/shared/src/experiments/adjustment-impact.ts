@@ -257,11 +257,22 @@ function classifyPair({
   };
 }
 
-function applySupplemental(
-  { variations }: MetricResults,
-  field: SupplementalField,
-): SnapshotMetric[] {
-  return variations.map((stats) => {
+/**
+ * A metric's variations with each result replaced by its supplemental result:
+ * the same test with one adjustment (e.g. CUPED) turned off.
+ *
+ * The corrected p-value and interval always come from the supplemental result,
+ * even when it has none. The displayed result's correction was computed from
+ * different p-values, so it must not be shown with the supplemental numbers.
+ */
+export function getVariationForSupplementalResult({
+  metricResults,
+  field,
+}: {
+  metricResults: MetricResults;
+  field: SupplementalField;
+}): SnapshotMetric[] {
+  return metricResults.variations.map((stats) => {
     const supplemental = stats.supplementalResults?.[field];
     if (!supplemental) return stats;
 
@@ -272,21 +283,6 @@ function applySupplemental(
       ciAdjusted: supplemental.ciAdjusted,
     });
   });
-}
-
-/**
- * A metric's results as they would be without one adjustment. The displayed
- * result's multiple-testing-corrected p-value and interval do not carry over:
- * the supplemental result has its own, or none.
- */
-export function getSupplementalVariations({
-  metricResults,
-  field,
-}: {
-  metricResults: MetricResults;
-  field: SupplementalField;
-}): SnapshotMetric[] {
-  return applySupplemental(metricResults, field);
 }
 
 /**
@@ -304,7 +300,10 @@ function classifyMetric(
   const baseline = variations[baselineIndex];
   if (!baseline) return null;
 
-  const unadjustedVariations = applySupplemental(metricResults, field);
+  const unadjustedVariations = getVariationForSupplementalResult({
+    metricResults,
+    field,
+  });
   const statusArgs = { ...args, metric };
 
   let worst: AdjustmentClassification | null = null;
