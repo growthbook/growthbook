@@ -275,7 +275,10 @@ export default function FactTableEventsTab({
                                   factTable: factTable.id,
                                   rowFilters: [eventFilter],
                                 },
-                                { size: "sm" },
+                                {
+                                  size: "sm",
+                                  children: "Add Fact Metric for this event",
+                                },
                               )}
                             </Flex>
                           </Box>
