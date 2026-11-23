@@ -83,6 +83,26 @@ describe("buildDateTimeAxisOption", () => {
     expect(option.axis).not.toHaveProperty("min");
   });
 
+  it("ticks every point of a Sunday-week series extended for a comparison", () => {
+    // Two BigQuery weeks, plus two more added because the comparison window
+    // is longer (see extendDateBucketsForward).
+    const { ticks } = build(
+      [
+        "2026-11-01 00:00:00",
+        "2026-11-08 00:00:00",
+        "2026-11-15T00:00:00.000Z",
+        "2026-11-22T00:00:00.000Z",
+      ],
+      "week",
+    );
+    expect(ticks).toEqual([
+      Date.UTC(2026, 10, 1),
+      Date.UTC(2026, 10, 8),
+      Date.UTC(2026, 10, 15),
+      Date.UTC(2026, 10, 22),
+    ]);
+  });
+
   it("puts ticks under gaps in the data", () => {
     // Hourly data on Jul 25 08:00–10:00, then nothing until Jul 26 08:00.
     const { ticks } = build(

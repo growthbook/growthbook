@@ -640,21 +640,33 @@ export default function ExplorerChart({
           })
         : null;
 
-    // At most one source overrides the category axis labels: sparse-flat
-    // compare bars are bar-only, date time axes are line/area-only.
-    const categoryAxisLabelOverrides = sparseFlatCompareBars
-      ? {
-          // Sparse-flat compare bars use "<dimension> — <metric>" categories
-          // internally to position each bar pair. Show just the dimension
-          // value, once per group, so the axis reads the same as compare-off.
-          interval: 0,
-          formatter: (value: string, index: number) => {
-            const k = Math.max(1, sortedSeriesKeys.length);
-            if (index % k !== Math.floor((k - 1) / 2)) return "";
-            return sortedXValues[Math.floor(index / k)] ?? "";
-          },
-        }
-      : dateTimeAxis?.axisLabel;
+    const baseCategoryAxisLabel = {
+      color: textColor,
+      rotate: isHorizontalBar ? 0 : -45,
+      hideOverlap: true,
+    };
+    let categoryAxisLabel;
+    if (dateTimeAxis) {
+      categoryAxisLabel = {
+        ...baseCategoryAxisLabel,
+        ...dateTimeAxis.axisLabel,
+      };
+    } else if (sparseFlatCompareBars) {
+      categoryAxisLabel = {
+        ...baseCategoryAxisLabel,
+        // Sparse-flat compare bars use "<dimension> — <metric>" categories
+        // internally to position each bar pair. Show just the dimension
+        // value, once per group, so the axis reads the same as compare-off.
+        interval: 0,
+        formatter: (value: string, index: number) => {
+          const k = Math.max(1, sortedSeriesKeys.length);
+          if (index % k !== Math.floor((k - 1) / 2)) return "";
+          return sortedXValues[Math.floor(index / k)] ?? "";
+        },
+      };
+    } else {
+      categoryAxisLabel = baseCategoryAxisLabel;
+    }
 
     const categoryAxis = {
       type: isLineOrArea ? "time" : "category",
@@ -663,12 +675,7 @@ export default function ExplorerChart({
       ...axisTitle(customCategoryAxisName, categoryNameMaxWidth),
       nameLocation: "middle" as const,
       nameTextStyle,
-      axisLabel: {
-        color: textColor,
-        rotate: isHorizontalBar ? 0 : -45,
-        hideOverlap: true,
-        ...categoryAxisLabelOverrides,
-      },
+      axisLabel: categoryAxisLabel,
       // Only attach the axisPointer key when we actually have a formatter to
       // apply. Setting `axisPointer: undefined` overwrites ECharts' default
       ...(axisPointerLabelFormatter
