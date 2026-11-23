@@ -461,6 +461,8 @@
 // Wide tables scroll sideways inside the field instead of widening it.
 .tableWrapper {
   max-width: 100%;
+  // Nor does a wide table widen a flex or grid parent the editor sits in.
+  contain: inline-size;
   // Room below for the line that adds a row.
   margin: 0 0 var(--space-4);
   overflow-x: auto;
