@@ -616,10 +616,7 @@ export class GrowthBook<
   }
 
   // Internal — first-party plugin use only.
-  // Merges attributes nothing targets on (ids that tag events, like
-  // session_replay_id) without re-rendering, re-running auto experiments,
-  // refreshing sticky buckets or re-fetching remote evaluation.
-  public _mergeTagAttributes(attributes: Attributes) {
+  public _updateAttributesWithoutRefresh(attributes: Attributes) {
     this._options.attributes = { ...this._options.attributes, ...attributes };
   }
 

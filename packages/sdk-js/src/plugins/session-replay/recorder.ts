@@ -643,7 +643,7 @@ export function createReplayRecorder({
       return;
     }
 
-    growthbook._mergeTagAttributes({
+    growthbook._updateAttributesWithoutRefresh({
       session_replay_id: nextSessionReplayId,
     });
 
