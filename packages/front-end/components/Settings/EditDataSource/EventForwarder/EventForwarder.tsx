@@ -904,23 +904,28 @@ function EventForwarderStoppedBanner({
     daysToDeletion <= DELETION_WARNING_DAYS;
   const deletionDate = deletionStartsAt ? dateNoYear(deletionStartsAt) : "";
 
-  const headline = deleting
-    ? "The oldest queued events are being deleted."
-    : approaching
-      ? `Queued events start being deleted in ${
-          !daysToDeletion
-            ? "less than a day"
-            : `${daysToDeletion} ${daysToDeletion === 1 ? "day" : "days"}`
-        }.`
-      : "Events are queuing.";
-  const guidance = deleting
-    ? `Each day, events older than ${BACKLOG_RETENTION_DAYS} days are deleted and can't be recovered. Fix the destination, then restart to send what's left.`
-    : approaching
-      ? `Fix the destination and restart before ${deletionDate} to keep every queued event.`
-      : `Nothing is lost yet. Fix the destination, then restart to send queued events. Queued events are kept for ${BACKLOG_RETENTION_DAYS} days.`;
+  // No queue claims without a count: Confluent-backed forwarders never report one.
+  const headline = !hasBacklog
+    ? ""
+    : deleting
+      ? " The oldest queued events are being deleted."
+      : approaching
+        ? ` Queued events start being deleted in ${
+            !daysToDeletion
+              ? "less than a day"
+              : `${daysToDeletion} ${daysToDeletion === 1 ? "day" : "days"}`
+          }.`
+        : " Events are queuing.";
+  const guidance = !hasBacklog
+    ? "Fix the destination, then restart forwarding."
+    : deleting
+      ? `Each day, events older than ${BACKLOG_RETENTION_DAYS} days are deleted and can't be recovered. Fix the destination, then restart to send what's left.`
+      : approaching
+        ? `Fix the destination and restart before ${deletionDate} to keep every queued event.`
+        : `Nothing is lost yet. Fix the destination, then restart to send queued events. Queued events are kept for ${BACKLOG_RETENTION_DAYS} days.`;
   const details = [
     !deleting && erroredAt
-      ? `Oldest from ${formatShortAgo(new Date(erroredAt))}`
+      ? `Oldest event ${formatShortAgo(new Date(erroredAt))}`
       : null,
     lastPolledAt ? `Updated ${formatShortAgo(lastPolledAt)}` : null,
   ].filter((d) => d !== null);
@@ -928,6 +933,8 @@ function EventForwarderStoppedBanner({
   return (
     <Callout
       status="error"
+      // Not an alert: the times in it tick every second.
+      role="group"
       mb="3"
       icon={<PiWarningOctagonFill />}
       style={
@@ -940,13 +947,14 @@ function EventForwarderStoppedBanner({
       <Flex direction="column" gap="3">
         <Box style={{ color: "var(--red-12)" }}>
           <Text as="div" weight="semibold">
-            Forwarding stopped. {headline}
+            Forwarding stopped.{headline}
           </Text>
         </Box>
         {hasBacklog ? (
           <Box className={styles.queueStats}>
             <Flex align="center" gap="3" wrap="wrap" px="3" py="2">
               <span
+                key={backlogCount}
                 aria-hidden
                 className={clsx(
                   styles.dot,
@@ -966,10 +974,7 @@ function EventForwarderStoppedBanner({
               {details.map((detail) => (
                 <Fragment key={detail.split(" ")[0]}>
                   <Text color="text-mid">·</Text>
-                  {/* Ticks every second; keep it out of the alert's announcements. */}
-                  <span aria-live="off">
-                    <Text color="text-mid">{detail}</Text>
-                  </span>
+                  <Text color="text-mid">{detail}</Text>
                 </Fragment>
               ))}
             </Flex>
@@ -983,8 +988,8 @@ function EventForwarderStoppedBanner({
               >
                 <PiTimer style={{ flexShrink: 0 }} />
                 <span>
-                  <strong>From {deletionDate},</strong> events older than{" "}
-                  {BACKLOG_RETENTION_DAYS} days are deleted each day.
+                  <Text weight="semibold">From {deletionDate},</Text> events
+                  older than {BACKLOG_RETENTION_DAYS} days are deleted each day.
                 </span>
               </Flex>
             ) : null}
@@ -1259,49 +1264,38 @@ export default function EventForwarder({
       ) : null}
 
       {showReplay ? (
-        <Flex
-          role="status"
-          direction="column"
-          gap="2"
-          px="4"
-          py="3"
-          mb="3"
-          style={{
-            backgroundColor: "var(--violet-a3)",
-            borderRadius: "var(--radius-3)",
-          }}
-        >
-          <Flex align="center" gap="2">
-            <PiArrowUp
-              size={16}
-              color="var(--violet-11)"
-              style={{ flexShrink: 0 }}
+        <Callout status="info" role="status" icon={null} mb="3">
+          <Flex direction="column" gap="2">
+            <Flex align="center" gap="2">
+              <PiArrowUp size={16} style={{ flexShrink: 0 }} />
+              <Text weight="semibold" color="text-high">
+                Writing backed-up events to your warehouse.
+              </Text>
+            </Flex>
+            {/* The total grows while new events are parked behind the replay. */}
+            <Flex
+              align="baseline"
+              justify="between"
+              gap="3"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              <Text color="text-high">{replayLabel}</Text>
+              <Text weight="medium" color="text-high">
+                {replayPct}%
+              </Text>
+            </Flex>
+            <Progress
+              value={replayPct}
+              color="violet"
+              size="1"
+              aria-label="Backed-up events written"
+              getValueLabel={() => replayLabel}
             />
-            <Text weight="semibold">
-              Writing backed-up events to your warehouse.
+            <Text size="sm" color="text-mid">
+              New events wait until this is done, then forwarding resumes.
             </Text>
           </Flex>
-          {/* The total grows while new events are parked behind the replay. */}
-          <Flex
-            align="baseline"
-            justify="between"
-            gap="3"
-            style={{ fontVariantNumeric: "tabular-nums" }}
-          >
-            <Text>{replayLabel}</Text>
-            <Text weight="medium">{replayPct}%</Text>
-          </Flex>
-          <Progress
-            value={replayPct}
-            color="violet"
-            size="1"
-            aria-label="Backed-up events written"
-            getValueLabel={() => replayLabel}
-          />
-          <Text size="sm" color="text-mid">
-            New events wait until this is done, then forwarding resumes.
-          </Text>
-        </Flex>
+        </Callout>
       ) : null}
 
       {hasBacklog && isReady && !isProvisioning ? (
