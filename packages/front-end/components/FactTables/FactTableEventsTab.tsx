@@ -277,6 +277,7 @@ export default function FactTableEventsTab({
                                 },
                                 {
                                   size: "sm",
+                                  wrap: true,
                                   children: "Add Fact Metric for this event",
                                 },
                               )}
