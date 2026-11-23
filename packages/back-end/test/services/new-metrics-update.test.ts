@@ -42,6 +42,7 @@ import {
 } from "back-end/src/services/newMetricsUpdatePlanning";
 import {
   getQueriesWithChangedSql,
+  MAX_NEW_METRICS_UPDATES_IN_A_ROW,
   type GenerateResultQuerySql,
 } from "back-end/src/services/newMetricsUpdateSqlIdentity";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -983,6 +984,68 @@ describe("planNewMetricsUpdate", () => {
       await expect(
         plan(`${groupSql(["met_b"], 1)} WHERE x`),
       ).rejects.toMatchObject({ details: { reason: "settings_changed" } });
+    });
+
+    // snp_u0 is a full update of met_0; each snp_uN since added met_N.
+    const planOnChainOf = (updatesInARow: number) => {
+      const metricIds = (through: number) =>
+        Array.from({ length: through + 1 }, (_, i) => `met_${i}`);
+      findAncestorMock.mockImplementation(async (ctx, id) => {
+        const n = Number(id.replace("snp_u", ""));
+        const settings = makeSettings(metricIds(n));
+        return n === 0
+          ? makeParent({ id, settings })
+          : refreshOf(id, `snp_u${n - 1}`, [`met_${n}`], { settings });
+      });
+      findParentMock.mockResolvedValue(
+        refreshOf(
+          `snp_u${updatesInARow}`,
+          `snp_u${updatesInARow - 1}`,
+          [`met_${updatesInARow}`],
+          {
+            settings: makeSettings(metricIds(updatesInARow)),
+            queries: metricIds(updatesInARow).map((id, i) => ({
+              name: `group_${i}`,
+              query: `qry_group_${i}`,
+              status: "succeeded",
+            })),
+          },
+        ),
+      );
+      storeQueries(
+        Object.fromEntries(
+          metricIds(updatesInARow).map((id, i) => [
+            `qry_group_${i}`,
+            groupSql([id], i),
+          ]),
+        ),
+      );
+      const goalMetrics = [...metricIds(updatesInARow), "met_new"];
+      return planNewMetricsUpdate(
+        refreshArgs({
+          experiment: makeExperiment({ goalMetrics }),
+          planSnapshotAt: async () => makePlan({ metricIds: goalMetrics }),
+        }),
+      );
+    };
+
+    it(`plans the ${MAX_NEW_METRICS_UPDATES_IN_A_ROW}th update of newly added metrics in a row`, async () => {
+      await expect(
+        planOnChainOf(MAX_NEW_METRICS_UPDATES_IN_A_ROW - 1),
+      ).resolves.toMatchObject({
+        snapshot: { updateScope: { queriedMetricIds: ["met_new"] } },
+      });
+    });
+
+    it(`refuses after ${MAX_NEW_METRICS_UPDATES_IN_A_ROW} updates of newly added metrics in a row, and says how many`, async () => {
+      await expect(
+        planOnChainOf(MAX_NEW_METRICS_UPDATES_IN_A_ROW),
+      ).rejects.toMatchObject({
+        details: { reason: "base_incomplete" },
+        message: expect.stringContaining(
+          `from ${MAX_NEW_METRICS_UPDATES_IN_A_ROW} updates of newly added metrics in a row`,
+        ),
+      });
     });
 
     describe("a parent without a cutoff, whose SQL read the clock it was planned at", () => {

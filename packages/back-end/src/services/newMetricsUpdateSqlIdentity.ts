@@ -55,8 +55,8 @@ export type GenerateResultQuerySql = (args: {
 }) => Promise<Map<string, string>>;
 
 // Each new-metrics update adds a level, and each level costs a dry run of its
-// queries.
-const MAX_NEW_METRICS_UPDATE_LINEAGE_LENGTH = 10;
+// queries. The full update the chain starts from is not counted.
+export const MAX_NEW_METRICS_UPDATES_IN_A_ROW = 10;
 
 /** Base full update first, parent last. */
 async function loadNewMetricsUpdateLineage(
@@ -69,10 +69,11 @@ async function loadNewMetricsUpdateLineage(
     newMetricsUpdate;
     newMetricsUpdate = getNewMetricsUpdate(lineage[0])
   ) {
-    if (lineage.length >= MAX_NEW_METRICS_UPDATE_LINEAGE_LENGTH) {
+    // Every level loaded so far is a new-metrics update.
+    if (lineage.length >= MAX_NEW_METRICS_UPDATES_IN_A_ROW) {
       throw new NewMetricsUpdateUnavailableError(
         "base_incomplete",
-        `The latest results come from ${MAX_NEW_METRICS_UPDATE_LINEAGE_LENGTH - 1} updates of newly added metrics in a row, the most that can build on each other. Send "updateScope": "all_metrics" instead.`,
+        `The latest results come from ${MAX_NEW_METRICS_UPDATES_IN_A_ROW} updates of newly added metrics in a row, the most that can build on each other. Send "updateScope": "all_metrics" instead.`,
       );
     }
     const ancestor = await findNewMetricsUpdateAncestor(
