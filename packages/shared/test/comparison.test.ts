@@ -1587,6 +1587,22 @@ describe("densifyComparisonExplorationTimeseries", () => {
       ]);
     });
 
+    it("keeps rows after the cutoff without filling around them", () => {
+      const out = densifyTimeseriesRows(
+        shellExploration([row("2024-01-02", 1), row("2024-01-06", 5)]),
+        baseConfig,
+        totals,
+        new Date(Date.UTC(2024, 0, 4, 12)),
+      );
+      expect(out.map((r) => r.dimensions[0])).toEqual([
+        "2024-01-01T00:00:00.000Z",
+        "2024-01-02",
+        "2024-01-03T00:00:00.000Z",
+        "2024-01-04T00:00:00.000Z",
+        "2024-01-06",
+      ]);
+    });
+
     it("fills the whole range when there's no cutoff", () => {
       expect(
         densifyTimeseriesRows(
@@ -1611,6 +1627,27 @@ describe("densifyComparisonExplorationTimeseries", () => {
           (r) => r.values?.[0]?.numerator,
         ),
       ).toEqual([0, 4, 0, 0, 0, 0, 0]);
+    });
+
+    it("gives a percentile's empty buckets no value", () => {
+      const quantileMetric = {
+        ...meanMetric,
+        name: "P90",
+        metricType: "quantile",
+        quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      } as unknown as FactMetricInterface;
+      const quantile = getExplorationRenderOpts(
+        baseConfig,
+        () => quantileMetric,
+      );
+      expect(
+        densifyTimeseriesRows(
+          shellExploration([row("2024-01-02", 4)]),
+          baseConfig,
+          quantile,
+          null,
+        ).map((r) => r.values?.[0]?.numerator),
+      ).toEqual([null, 4, null, null, null, null, null]);
     });
 
     it("fills Monday weeks around the warehouse's own", () => {

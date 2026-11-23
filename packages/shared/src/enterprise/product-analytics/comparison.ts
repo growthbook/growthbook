@@ -16,7 +16,7 @@ import { configHasPopulation } from "./populations";
 import {
   buildExplorationColumns,
   getEffectiveMetricValue,
-  isAverageValue,
+  hasNoValueWhenEmpty,
   getExplorationCellValue,
   getExplorationRenderOpts,
   sortExplorationRows,
@@ -759,7 +759,7 @@ function orderedMetricIdsForDensify(
 
 /**
  * Values for a bucket with no data: 0 for a count or sum, and no value for an
- * average (a ratio or per-unit value), since an average over nothing isn't 0.
+ * average or percentile, which can't be calculated over nothing.
  */
 function buildEmptyBucketValues(
   metricIds: string[],
@@ -767,7 +767,7 @@ function buildEmptyBucketValues(
 ): NonNullable<ProductAnalyticsResultRow["values"]> {
   return metricIds.map((metricId, i) => ({
     metricId,
-    numerator: isAverageValue(renderOpts.values[i]) ? null : 0,
+    numerator: hasNoValueWhenEmpty(renderOpts.values[i]) ? null : 0,
     denominator: null,
   }));
 }
@@ -784,7 +784,7 @@ function bucketBreakdownMergeKey(
 
 /**
  * Returns a clone of `comparison` whose `result.rows` include every date bucket in the
- * comparison window, up to `until` (see `buildEmptyBucketValues` for gaps). Supports a single date dimension and the
+ * comparison window, filling empty ones up to `until` (see `buildEmptyBucketValues`). Supports a single date dimension and the
  * `date + 1 breakdown` case. For the grouped case the breakdown values come from
  * the union of the primary and comparison periods, so every primary series has a
  * continuous prior line even when the previous period returned no/partial rows.
@@ -798,9 +798,9 @@ export function densifyComparisonExplorationTimeseries(params: {
   /** Decides what an empty bucket holds for each value. */
   renderOpts: ExplorationRenderOpts;
   /**
-   * Buckets that start after this are left out, e.g. the current time, so a
-   * range ending in the future isn't drawn as "nothing happened". Null fills
-   * the whole range.
+   * Empty buckets that start after this aren't filled, e.g. the current time,
+   * so a range ending in the future isn't drawn as "nothing happened". Rows
+   * after it are still kept. Null fills the whole range.
    */
   until: Date | null;
 }): ProductAnalyticsExploration | null {
@@ -842,11 +842,25 @@ export function densifyComparisonExplorationTimeseries(params: {
   const bucketStrings = enumerateProductAnalyticsDateBuckets({
     resolvedGranularity: resolved,
     rangeStart: dr.startDate,
-    rangeEnd: until && until < dr.endDate ? until : dr.endDate,
+    rangeEnd: dr.endDate,
   });
   if (bucketStrings.length === 0) {
     return null;
   }
+  // `until` only limits which empty buckets get filled. Rows the warehouse
+  // returned after it are kept.
+  const fillableBuckets =
+    until && until < dr.endDate
+      ? new Set(
+          enumerateProductAnalyticsDateBuckets({
+            resolvedGranularity: resolved,
+            rangeStart: dr.startDate,
+            rangeEnd: until,
+          }),
+        )
+      : null;
+  const fills = (bucketIso: string) =>
+    fillableBuckets === null || fillableBuckets.has(bucketIso);
 
   const emptyValues = buildEmptyBucketValues(metricIds, renderOpts);
 
@@ -863,20 +877,20 @@ export function densifyComparisonExplorationTimeseries(params: {
       }
     }
 
-    const merged: ProductAnalyticsResultRow[] = bucketStrings.map(
-      (bucketIso) => {
-        const existing = byMergeKey.get(
-          bucketBreakdownMergeKey(bucketIso, null, resolved),
-        );
-        if (existing) {
-          return existing;
-        }
-        return {
+    const merged: ProductAnalyticsResultRow[] = [];
+    for (const bucketIso of bucketStrings) {
+      const existing = byMergeKey.get(
+        bucketBreakdownMergeKey(bucketIso, null, resolved),
+      );
+      if (existing) {
+        merged.push(existing);
+      } else if (fills(bucketIso)) {
+        merged.push({
           dimensions: [bucketIso],
           values: emptyValues.map((v) => ({ ...v })),
-        };
-      },
-    );
+        });
+      }
+    }
 
     return { ...comparison, result: { rows: merged } };
   }
@@ -922,12 +936,12 @@ export function densifyComparisonExplorationTimeseries(params: {
       );
       if (existing) {
         merged.push(existing);
-        continue;
+      } else if (fills(bucketIso)) {
+        merged.push({
+          dimensions: [bucketIso, breakdown],
+          values: emptyValues.map((v) => ({ ...v })),
+        });
       }
-      merged.push({
-        dimensions: [bucketIso, breakdown],
-        values: emptyValues.map((v) => ({ ...v })),
-      });
     }
   }
 
@@ -951,11 +965,11 @@ export function densifyPopulationTimeseriesRows(
 }
 
 /**
- * A result's rows with a row for every date bucket in its date range, up to
- * `until` (null for the whole range). A bucket with no data has no row, so
+ * A result's rows with a row for every date bucket in its date range, filling
+ * empty ones up to `until` (null for the whole range). A bucket with no data has no row, so
  * without these a line chart's axis would only span the dates that have data.
- * A filled bucket is 0 for a count or sum, and has no value for an average
- * (see `buildEmptyBucketValues`).
+ * A filled bucket is 0 for a count or sum, and has no value for an average or
+ * percentile (see `buildEmptyBucketValues`).
  *
  * Unchanged unless the first dimension is a date, with at most one breakdown.
  */

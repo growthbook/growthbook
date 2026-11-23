@@ -90,16 +90,16 @@ function getAnnotatedName(
  * "% of Population" is null (no data) when the row has no members, since a
  * share of nobody isn't 0%.
  *
- * Averages (see `isAverageValue`) are null when there's no numerator: an
- * average over nothing isn't 0. A missing denominator still falls back to the
+ * Averages and percentiles (see `hasNoValueWhenEmpty`) are null when there's no
+ * numerator: neither can be calculated over nothing. A missing denominator still falls back to the
  * numerator, since per-unit results have none when no unit is selected.
  */
 export function getEffectiveMetricValue(
   v: { numerator: number | null; denominator: number | null },
-  opts: Pick<ValueRenderOpts, "showAs" | "isRatio"> | undefined,
+  opts: Pick<ValueRenderOpts, "showAs" | "isRatio" | "isQuantile"> | undefined,
   populationCount: number | undefined,
 ): number | null {
-  if (isAverageValue(opts)) {
+  if (hasNoValueWhenEmpty(opts)) {
     if (v.numerator === null) return null;
     return v.denominator ? v.numerator / v.denominator : v.numerator;
   }
@@ -113,15 +113,30 @@ export function getEffectiveMetricValue(
 }
 
 /**
- * Whether a value is an average: a ratio, or a per-unit value. A date bucket
- * with no data has no value for it, where a count or sum is 0. Filled buckets
- * are written that way (see `densifyTimeseriesRows`), and charts join a line
- * across them.
+ * Whether a value can't be calculated from no data: an average (a ratio or a
+ * per-unit value) or a percentile. A date bucket with no data has no value for
+ * it, where a count or sum is 0. Filled buckets are written that way (see
+ * `densifyTimeseriesRows`), and charts join a line across them.
  */
-export function isAverageValue(
-  opts: Pick<ValueRenderOpts, "showAs" | "isRatio"> | undefined,
+export function hasNoValueWhenEmpty(
+  opts: Pick<ValueRenderOpts, "showAs" | "isRatio" | "isQuantile"> | undefined,
 ): boolean {
-  return Boolean(opts?.isRatio) || opts?.showAs === "per_unit";
+  return (
+    Boolean(opts?.isRatio) ||
+    Boolean(opts?.isQuantile) ||
+    opts?.showAs === "per_unit"
+  );
+}
+
+/** Whether a dataset value is a quantile (percentile) metric. */
+export function isQuantileValue(
+  value: ProductAnalyticsValue,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): boolean {
+  return (
+    value.type === "metric" &&
+    getDraftOrSavedMetric(value, getFactMetricById)?.metricType === "quantile"
+  );
 }
 
 /** Whether a dataset value is a ratio metric. Only metric values can be. */
@@ -152,6 +167,7 @@ export type ValueAxis = "primary" | "secondary";
 export type ValueRenderOpts = {
   showAs: ShowAs;
   isRatio: boolean;
+  isQuantile: boolean;
   /** Chart legend and tooltip name. */
   seriesName: string;
   /**
@@ -248,6 +264,7 @@ export function getExplorationRenderOpts(
     values: values.map((v, i) => ({
       showAs: choices[i].showAs,
       isRatio: isRatioValue(v, getFactMetricById),
+      isQuantile: isQuantileValue(v, getFactMetricById),
       seriesName: annotateNames
         ? getAnnotatedName(v, i, choices[i].showAs, sharedUnit)
         : getValueName(v, i),

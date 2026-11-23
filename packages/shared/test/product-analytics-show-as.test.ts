@@ -7,6 +7,7 @@ import {
   getExplorationRenderOpts,
   getShowAsChoice,
   getShowAsOptions,
+  isQuantileValue,
   isRatioValue,
   normalizeShowAs,
   withRequestedDisplayConfig,
@@ -41,6 +42,7 @@ const metrics = new Map(
     makeMetric("maxOrder", "mean", "max"),
     makeMetric("converted", "proportion"),
     makeMetric("aov", "ratio"),
+    makeMetric("p90", "quantile"),
   ].map((m) => [m.id, m]),
 );
 const getFactMetricById = (id: string) => metrics.get(id) ?? null;
@@ -428,21 +430,22 @@ describe("getEffectiveMetricValue", () => {
     ).toEqual([100, 25, 100]);
   });
 
-  it("has no value for an average without a numerator, but 0 for a total", () => {
+  it("has no value for an average or percentile without a numerator, but 0 for a total", () => {
     const opts = getExplorationRenderOpts(
       metricConfig([
         metricValue("revenue", "total"),
         metricValue("revenue", "per_unit"),
         metricValue("aov", "total"),
+        metricValue("p90"),
       ]),
       getFactMetricById,
     );
     const empty = { numerator: null, denominator: null };
     expect(
-      [0, 1, 2].map((i) =>
+      [0, 1, 2, 3].map((i) =>
         getEffectiveMetricValue(empty, opts.values[i], undefined),
       ),
-    ).toEqual([0, null, null]);
+    ).toEqual([0, null, null, null]);
     // A real 0 / 0 from the warehouse still reads 0.
     expect(
       getEffectiveMetricValue(
@@ -473,6 +476,14 @@ describe("getEffectiveMetricValue", () => {
         undefined,
       ),
     ).toBe(0);
+  });
+});
+
+describe("isQuantileValue", () => {
+  it("is true only for values whose metric is a quantile", () => {
+    expect(isQuantileValue(metricValue("p90"), getFactMetricById)).toBe(true);
+    expect(isQuantileValue(metricValue("aov"), getFactMetricById)).toBe(false);
+    expect(isQuantileValue(metricValue(""), getFactMetricById)).toBe(false);
   });
 });
 
