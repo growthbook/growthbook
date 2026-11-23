@@ -1,37 +1,22 @@
+import { GrowthBook } from "@growthbook/growthbook";
 import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
-import { FeatureDefinitionRule } from "shared/types/sdk";
 import { SavedGroupPayloadStrategy } from "shared/sdk-versioning/saved-groups/types";
 import { FeatureInterface } from "shared/types/feature";
 import { qaOverrideAppliesToConnection } from "shared/util";
 import {
-  applyQaOverrideToRule,
   getFeatureDefinition,
-  qaOverrideCondition,
-  qaOverridesExclusionCondition,
-  qaOverrideWeights,
+  mergeConditionAndSavedGroups,
 } from "../../src/util/features";
+import {
+  excludeQaMatches,
+  planQaOverrides,
+  planQaOverridesByExperiment,
+} from "../../src/util/qaOverrides";
 import {
   generateAutoExperimentsPayload,
   qaOverridesForConnection,
 } from "../../src/services/features";
-
-const experiment = {
-  trackingKey: "checkout",
-  variations: [
-    { id: "v0", key: "0", name: "Control" },
-    { id: "v1", key: "1", name: "One-page" },
-    { id: "v2", key: "2", name: "Apple Pay" },
-  ],
-  phases: [{ variationWeights: [0.34, 0.33, 0.33] }],
-} as unknown as ExperimentInterface;
-
-const phase = {
-  variationWeights: [0.34, 0.33, 0.33],
-  coverage: 0.5,
-  condition: '{"country":"US"}',
-  seed: "phase-seed",
-} as unknown as ExperimentPhase;
 
 const savedGroupStrategy = {
   format: "referencesV1",
@@ -43,6 +28,32 @@ const savedGroupStrategy = {
   createSavedGroupsOperatorHandler: () => () => undefined,
   finalizeCondition: () => undefined,
 } as unknown as SavedGroupPayloadStrategy;
+
+const compileTargeting: Parameters<
+  typeof planQaOverrides
+>[0]["compileTargeting"] = (targeting) =>
+  mergeConditionAndSavedGroups({ savedGroupStrategy, ...targeting });
+
+const usPhase = {
+  condition: '{"country":"US"}',
+  coverage: 0.5,
+  variationWeights: [0.34, 0.33, 0.33],
+  seed: "phase-seed",
+  namespace: { enabled: true, name: "ns", range: [0, 0.5] },
+  prerequisites: [{ id: "parent", condition: '{"value":true}' }],
+} as unknown as ExperimentPhase;
+
+const experiment = {
+  id: "exp_1",
+  status: "draft",
+  trackingKey: "checkout",
+  variations: [
+    { id: "v0", key: "0", name: "Control" },
+    { id: "v1", key: "1", name: "One-page" },
+    { id: "v2", key: "2", name: "Apple Pay" },
+  ],
+  phases: [usPhase],
+} as unknown as ExperimentInterface;
 
 const forcedOverride: ExperimentQaOverrideInterface = {
   id: "eqo_1",
@@ -61,172 +72,182 @@ const randomOverride: ExperimentQaOverrideInterface = {
   id: "eqo_2",
   assignment: { type: "random" },
 };
+const removedVariationOverride: ExperimentQaOverrideInterface = {
+  ...forcedOverride,
+  id: "eqo_3",
+  assignment: { type: "forced", variationId: "gone" },
+};
+const withFilters = (
+  override: ExperimentQaOverrideInterface,
+  filters: ExperimentQaOverrideInterface["filters"],
+  id = override.id,
+): ExperimentQaOverrideInterface => ({ ...override, id, filters });
 
-describe("qaOverrideWeights", () => {
-  it("forces one variation with one-hot weights", () => {
-    expect(qaOverrideWeights(forcedOverride, experiment, phase)).toEqual([
-      0, 1, 0,
-    ]);
+const plansFor = (
+  exp: ExperimentInterface,
+  overrides: ExperimentQaOverrideInterface[],
+) =>
+  planQaOverridesByExperiment({
+    experiments: new Map([[exp.id, exp]]),
+    overrides: new Map([[exp.id, overrides]]),
+    compileTargeting,
   });
 
-  it("keeps the phase weights for random assignment", () => {
-    expect(qaOverrideWeights(randomOverride, experiment, phase)).toEqual([
-      0.34, 0.33, 0.33,
-    ]);
+describe("planQaOverrides", () => {
+  const plan = (overrides: ExperimentQaOverrideInterface[]) =>
+    planQaOverrides({ experiment, overrides, compileTargeting });
+
+  it("serves the experiment as configured for random assignment with no targeting", () => {
+    const [serving] = plan([randomOverride]);
+    expect(serving.phase).toBe(usPhase);
+    expect(serving.match).toEqual({ country: "US" });
+    expect(serving.exclude).toBeUndefined();
   });
 
-  it("falls back to the phase weights when the variation is missing", () => {
-    expect(
-      qaOverrideWeights(
-        {
-          ...forcedOverride,
-          assignment: { type: "forced", variationId: "nope" },
-        },
-        experiment,
-        phase,
-      ),
-    ).toEqual([0.34, 0.33, 0.33]);
-  });
-});
-
-describe("qaOverrideCondition", () => {
-  const experimentCondition = { country: "US" };
-
-  it("ignores the experiment condition when forcing a variation", () => {
-    expect(
-      qaOverrideCondition({
-        override: forcedOverride,
-        experimentCondition,
-        savedGroupStrategy,
-      }),
-    ).toBeUndefined();
+  it("forces one variation for everyone when there is no targeting", () => {
+    const [serving] = plan([forcedOverride]);
+    expect(serving.phase).toMatchObject({
+      condition: "",
+      coverage: 1,
+      variationWeights: [0, 1, 0],
+      seed: "phase-seed",
+    });
+    expect(serving.phase.savedGroups).toBeUndefined();
+    expect(serving.phase.namespace).toBeUndefined();
+    expect(serving.phase.prerequisites).toBeUndefined();
+    expect(serving.match).toBeUndefined();
   });
 
-  it("keeps the experiment condition for random assignment", () => {
-    expect(
-      qaOverrideCondition({
-        override: randomOverride,
-        experimentCondition,
-        savedGroupStrategy,
-      }),
-    ).toEqual(experimentCondition);
-  });
-
-  it("compiles the filters and ANDs them with the experiment condition only for random assignment", () => {
+  it("replaces the experiment's targeting, traffic split, namespace and prerequisites when the override has targeting of its own", () => {
     const filters = {
       condition: '{"email":{"$in":["a@x.com"]}}',
       savedGroups: [{ match: "all" as const, ids: ["grp_qa"] }],
     };
-    const compiled = {
+    const match = {
       $and: [{ email: { $in: ["a@x.com"] } }, { id: { $inGroup: "grp_qa" } }],
     };
-    expect(
-      qaOverrideCondition({
-        override: { ...forcedOverride, filters },
-        experimentCondition,
-        savedGroupStrategy,
+
+    const [random] = plan([withFilters(randomOverride, filters)]);
+    expect(random.phase).toMatchObject({
+      ...filters,
+      coverage: 1,
+      variationWeights: [0.34, 0.33, 0.33],
+    });
+    expect(random.phase.namespace).toBeUndefined();
+    expect(random.phase.prerequisites).toBeUndefined();
+    expect(random.match).toEqual(match);
+
+    const [forced] = plan([withFilters(forcedOverride, filters)]);
+    expect(forced.phase).toMatchObject({
+      ...filters,
+      coverage: 1,
+      variationWeights: [0, 1, 0],
+    });
+    expect(forced.match).toEqual(match);
+  });
+
+  it("counts a Saved Group alone as targeting, but not connection or project filters", () => {
+    const [grouped] = plan([
+      withFilters(randomOverride, {
+        savedGroups: [{ match: "all", ids: ["grp_qa"] }],
       }),
-    ).toEqual(compiled);
+    ]);
+    expect(grouped.phase.condition).toBe("");
+    expect(grouped.match).toEqual({ id: { $inGroup: "grp_qa" } });
+
+    const [scoped] = plan([
+      withFilters(randomOverride, { sdkConnections: ["sdk"], projects: ["p"] }),
+    ]);
+    expect(scoped.phase).toBe(usPhase);
+  });
+
+  it("gives each tester the first override they match", () => {
+    const servings = plan([
+      withFilters(forcedOverride, { condition: '{"id":"123"}' }, "a"),
+      withFilters(randomOverride, { condition: '{"country":"CA"}' }, "b"),
+      withFilters(randomOverride, {}, "c"),
+    ]);
+    expect(servings.map((s) => s.exclude)).toEqual([
+      undefined,
+      { $not: { id: "123" } },
+      { $not: { $or: [{ id: "123" }, { country: "CA" }] } },
+    ]);
+  });
+
+  it("excludes by targeting, whatever the traffic split of the earlier override", () => {
+    const servings = plan([randomOverride, forcedOverride]);
+    expect(servings[0].phase.coverage).toBe(0.5);
+    expect(servings[1].exclude).toEqual({ $not: { country: "US" } });
+  });
+
+  it("stops after an override that matches everyone", () => {
     expect(
-      qaOverrideCondition({
-        override: { ...randomOverride, filters },
-        experimentCondition,
-        savedGroupStrategy,
-      }),
-    ).toEqual({ $and: [experimentCondition, compiled] });
+      plan([forcedOverride, randomOverride]).map((s) => s.override.id),
+    ).toEqual(["eqo_1"]);
+  });
+
+  it("does not serve an override whose variation was removed, or let it block the ones below", () => {
+    const servings = plan([removedVariationOverride, randomOverride]);
+    expect(servings.map((s) => s.override.id)).toEqual(["eqo_2"]);
+    expect(servings[0].exclude).toBeUndefined();
+  });
+
+  it("hands out copies of the earlier conditions", () => {
+    const servings = plan([
+      withFilters(forcedOverride, { condition: '{"id":"123"}' }),
+      randomOverride,
+    ]);
+    expect(servings[1].exclude).toEqual({ $not: { id: "123" } });
+    expect((servings[1].exclude as { $not: unknown }).$not).not.toBe(
+      servings[0].match,
+    );
   });
 });
 
-describe("applyQaOverrideToRule", () => {
-  const buildRule = (): FeatureDefinitionRule => ({
-    key: "checkout",
-    coverage: 0.5,
-    weights: [0.34, 0.33, 0.33],
-    variations: ["a", "b", "c"],
-    condition: { country: "US" },
-    parentConditions: [{ id: "parent", condition: { value: true } }],
-    namespace: ["ns", 0, 0.5],
-    seed: "phase-seed",
+describe("planQaOverridesByExperiment", () => {
+  it("plans drafts only and leaves out experiments with nothing to serve", () => {
+    const running = { ...experiment, id: "exp_2", status: "running" };
+    const removedOnly = { ...experiment, id: "exp_3" };
+    const plans = planQaOverridesByExperiment({
+      experiments: new Map(
+        [experiment, running, removedOnly].map((e) => [
+          e.id,
+          e as ExperimentInterface,
+        ]),
+      ),
+      overrides: new Map([
+        ["exp_1", [forcedOverride]],
+        ["exp_2", [forcedOverride]],
+        ["exp_3", [removedVariationOverride]],
+        ["exp_missing", [forcedOverride]],
+      ]),
+      compileTargeting,
+    });
+    expect([...(plans?.keys() ?? [])]).toEqual(["exp_1"]);
   });
 
-  it("falls back to the tracking key as seed when the phase has none", () => {
-    const rule = applyQaOverrideToRule(
-      buildRule(),
-      experiment,
-      { ...phase, seed: undefined } as ExperimentPhase,
-      forcedOverride,
-      savedGroupStrategy,
-    );
-    expect(rule.seed).toBe("checkout");
+  it("is undefined when nothing is served", () => {
+    expect(
+      planQaOverridesByExperiment({
+        experiments: new Map(),
+        overrides: undefined,
+        compileTargeting,
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe("excludeQaMatches", () => {
+  it("is undefined with nothing to exclude and null once one matches everyone", () => {
+    expect(excludeQaMatches([])).toBeUndefined();
+    expect(excludeQaMatches([{ id: "a" }, undefined])).toBeNull();
   });
 
-  it("keeps the feature rule's id so dev tools can still resolve it", () => {
-    const rule = applyQaOverrideToRule(
-      { ...buildRule(), id: "fr_abc" },
-      experiment,
-      phase,
-      forcedOverride,
-      savedGroupStrategy,
-    );
-    expect(rule.id).toBe("fr_abc");
-  });
-
-  it("forcing a variation also drops multi-range namespace filters", () => {
-    const filters = [
-      { attribute: "id", seed: "ns", hashVersion: 2, ranges: [[0, 0.5]] },
-    ];
-    const forced = applyQaOverrideToRule(
-      { ...buildRule(), filters } as FeatureDefinitionRule,
-      experiment,
-      phase,
-      forcedOverride,
-      savedGroupStrategy,
-    );
-    expect(forced.filters).toBeUndefined();
-    const random = applyQaOverrideToRule(
-      { ...buildRule(), filters } as FeatureDefinitionRule,
-      experiment,
-      phase,
-      randomOverride,
-      savedGroupStrategy,
-    );
-    expect(random.filters).toEqual(filters);
-  });
-
-  it("forcing a variation strips targeting, coverage, prerequisites and namespace", () => {
-    const rule = applyQaOverrideToRule(
-      buildRule(),
-      experiment,
-      phase,
-      forcedOverride,
-      savedGroupStrategy,
-    );
-    expect(rule.key).toBe("checkout::qa");
-    expect(rule.seed).toBe("phase-seed");
-    expect(rule.weights).toEqual([0, 1, 0]);
-    expect(rule.coverage).toBe(1);
-    expect(rule.disableStickyBucketing).toBe(true);
-    expect(rule.condition).toBeUndefined();
-    expect(rule.parentConditions).toBeUndefined();
-    expect(rule.namespace).toBeUndefined();
-    expect(rule.variations).toEqual(["a", "b", "c"]);
-  });
-
-  it("random assignment keeps the experiment as configured", () => {
-    const rule = applyQaOverrideToRule(
-      buildRule(),
-      experiment,
-      phase,
-      randomOverride,
-      savedGroupStrategy,
-    );
-    expect(rule.key).toBe("checkout::qa");
-    expect(rule.seed).toBe("phase-seed");
-    expect(rule.weights).toEqual([0.34, 0.33, 0.33]);
-    expect(rule.coverage).toBe(0.5);
-    expect(rule.condition).toEqual({ country: "US" });
-    expect(rule.parentConditions).toHaveLength(1);
-    expect(rule.namespace).toEqual(["ns", 0, 0.5]);
+  it("negates one condition, or the OR of several", () => {
+    expect(excludeQaMatches([{ id: "a" }])).toEqual({ $not: { id: "a" } });
+    expect(excludeQaMatches([{ id: "a" }, { email: "b" }])).toEqual({
+      $not: { $or: [{ id: "a" }, { email: "b" }] },
+    });
   });
 });
 
@@ -286,23 +307,27 @@ describe("getFeatureDefinition with QA overrides", () => {
     phases: [
       {
         condition: '{"country":"US"}',
-        coverage: 0.5,
+        coverage: 1,
         variationWeights: [0.5, 0.5],
         seed: "phase-seed",
-        namespace: { enabled: true, name: "ns", range: [0, 0.5] },
       },
     ],
     linkedFeatures: ["feature"],
   } as unknown as ExperimentInterface;
+  const withPhase = (phase: Partial<ExperimentPhase>) =>
+    ({
+      ...draftExperiment,
+      phases: [{ ...draftExperiment.phases[0], ...phase }],
+    }) as ExperimentInterface;
 
   const feature = {
     id: "feature",
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    defaultValue: "false",
+    defaultValue: "default",
     organization: "org",
     owner: "",
-    valueType: "boolean",
+    valueType: "string",
     archived: false,
     description: "",
     version: 1,
@@ -317,8 +342,8 @@ describe("getFeatureDefinition with QA overrides", () => {
             id: "fr_abc",
             enabled: true,
             variations: [
-              { variationId: "v0", value: "false" },
-              { variationId: "v1", value: "true" },
+              { variationId: "v0", value: "control" },
+              { variationId: "v1", value: "one-page" },
             ],
           },
         ],
@@ -327,130 +352,173 @@ describe("getFeatureDefinition with QA overrides", () => {
   } as unknown as FeatureInterface;
 
   const build = (
-    qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>,
-    extra: Partial<Parameters<typeof getFeatureDefinition>[0]> = {},
+    overrides: ExperimentQaOverrideInterface[] = [],
+    {
+      exp = draftExperiment,
+      ...extra
+    }: Partial<Parameters<typeof getFeatureDefinition>[0]> & {
+      exp?: ExperimentInterface;
+    } = {},
   ) =>
     getFeatureDefinition({
       feature,
       environment: "dev",
       groupMap: new Map(),
-      experimentMap: new Map([["exp_1", draftExperiment]]),
+      experimentMap: new Map([["exp_1", exp]]),
       safeRolloutMap: new Map(),
       capabilities: ["looseUnmarshalling", "prerequisites"],
       includeRuleIds: true,
-      qaOverrides,
+      qaPlans: plansFor(exp, overrides),
       ...extra,
     });
+
+  const evaluate = (
+    def: ReturnType<typeof build>,
+    attributes: Record<string, string>,
+  ) => {
+    if (!def) throw new Error("Feature is not in the payload");
+    return new GrowthBook({
+      attributes,
+      features: { feature: def },
+    }).evalFeature("feature");
+  };
 
   it("serves nothing for a draft without overrides", () => {
     expect(build()?.rules ?? []).toEqual([]);
   });
 
   it("emits one rule per override, in order, on the QA key with the live seed", () => {
-    const def = build(
-      new Map([
-        [
-          "exp_1",
-          [
-            { ...forcedOverride, filters: { condition: '{"id":"tester"}' } },
-            randomOverride,
-          ],
-        ],
-      ]),
-    );
-    expect(def?.rules).toHaveLength(2);
-    const [forced, random] = def?.rules ?? [];
-
-    expect(forced).toMatchObject({
-      id: "fr_abc",
-      key: "checkout::qa",
-      seed: "phase-seed",
-      weights: [0, 1],
-      coverage: 1,
-      condition: { id: "tester" },
-      variations: [false, true],
-    });
-    expect(forced.namespace).toBeUndefined();
-
-    expect(random).toMatchObject({
-      id: "fr_abc",
-      key: "checkout::qa",
-      seed: "phase-seed",
-      weights: [0.5, 0.5],
-      coverage: 0.5,
-      condition: { country: "US" },
-      namespace: ["ns", 0, 0.5],
-    });
-  });
-
-  it("without the prerequisites capability, forced overrides are served and random ones are not", () => {
-    const gated = {
-      ...draftExperiment,
-      phases: [
-        {
-          ...draftExperiment.phases[0],
-          prerequisites: [{ id: "parent", condition: '{"value":true}' }],
-        },
-      ],
-    } as unknown as ExperimentInterface;
-    const buildGated = (overrides: ExperimentQaOverrideInterface[]) =>
-      getFeatureDefinition({
-        feature,
-        environment: "dev",
-        groupMap: new Map(),
-        experimentMap: new Map([["exp_1", gated]]),
-        safeRolloutMap: new Map(),
-        capabilities: ["looseUnmarshalling"],
-        qaOverrides: new Map([["exp_1", overrides]]),
-      });
-
-    const forcedOnly = buildGated([forcedOverride]);
-    expect(forcedOnly?.rules).toHaveLength(1);
-    expect(forcedOnly?.rules?.[0]).toMatchObject({
-      key: "checkout::qa",
-      weights: [0, 1],
-    });
-    expect(forcedOnly?.rules?.[0]?.parentConditions).toBeUndefined();
-
-    expect(buildGated([forcedOverride, randomOverride])).toBeNull();
-  });
-
-  it("keeps the holdout for requests no override covers", () => {
-    const holdoutFeature = {
-      ...feature,
-      holdout: { id: "hld_1", value: "false" },
-    } as unknown as FeatureInterface;
-    const holdoutsMap = new Map([
-      [
-        "hld_1",
-        {
-          holdout: { environmentSettings: { dev: { enabled: true } } },
-          holdoutExperiment: {},
-        },
-      ],
-    ]) as unknown as Parameters<typeof getFeatureDefinition>[0]["holdoutsMap"];
-
-    const def = build(
-      new Map([
-        [
-          "exp_1",
-          [{ ...forcedOverride, filters: { condition: '{"id":"tester"}' } }],
-        ],
-      ]),
-      { feature: holdoutFeature, holdoutsMap },
-    );
+    const def = build([
+      withFilters(forcedOverride, { condition: '{"id":"tester"}' }),
+      randomOverride,
+    ]);
     expect(def?.rules).toHaveLength(2);
     expect(def?.rules?.[0]).toMatchObject({
-      parentConditions: [{ id: "$holdout:hld_1" }],
-      condition: { $not: { id: "tester" } },
+      id: "fr_abc",
+      key: "checkout::qa",
+      seed: "phase-seed",
+      condition: { id: "tester" },
+      weights: [0, 1],
+      coverage: 1,
+      disableStickyBucketing: true,
     });
-    expect(def?.rules?.[1]?.key).toBe("checkout::qa");
+    expect(def?.rules?.[1]).toMatchObject({
+      id: "fr_abc",
+      key: "checkout::qa",
+      seed: "phase-seed",
+      condition: { $and: [{ country: "US" }, { $not: { id: "tester" } }] },
+      weights: [0.5, 0.5],
+      coverage: 1,
+    });
   });
 
-  it("drops the holdout rule when an override matches everyone", () => {
+  it("falls back to the tracking key as seed when the phase has none", () => {
+    const def = build([forcedOverride], {
+      exp: withPhase({ seed: undefined }),
+    });
+    expect(def?.rules?.[0]?.seed).toBe("checkout");
+  });
+
+  it("serves the experiment's targeting first, then an override for Canada", () => {
+    const def = build([
+      randomOverride,
+      withFilters(forcedOverride, { condition: '{"country":"CA"}' }),
+    ]);
+    expect(evaluate(def, { id: "1", country: "CA" })).toMatchObject({
+      value: "one-page",
+      source: "experiment",
+    });
+    expect(evaluate(def, { id: "1", country: "US" }).source).toBe("experiment");
+    expect(evaluate(def, { id: "1", country: "FR" })).toMatchObject({
+      value: "default",
+      source: "defaultValue",
+    });
+  });
+
+  it("lets a tester who does not match the first override reach the experiment's targeting below it", () => {
+    const def = build([
+      withFilters(forcedOverride, { condition: '{"id":"123"}' }),
+      randomOverride,
+    ]);
+    expect(evaluate(def, { id: "123", country: "FR" }).value).toBe("one-page");
+    expect(evaluate(def, { id: "234", country: "US" }).source).toBe(
+      "experiment",
+    );
+    expect(evaluate(def, { id: "234", country: "FR" }).source).toBe(
+      "defaultValue",
+    );
+  });
+
+  it("gives nothing to a tester who matches an override but is not bucketed", () => {
+    const def = build([randomOverride, forcedOverride], {
+      exp: withPhase({ coverage: 0 }),
+    });
+    expect(evaluate(def, { id: "1", country: "US" }).source).toBe(
+      "defaultValue",
+    );
+    expect(evaluate(def, { id: "1", country: "FR" }).value).toBe("one-page");
+  });
+
+  it("drops the namespace and prerequisites for an override with its own targeting, and keeps them for the experiment as configured", () => {
+    const exp = withPhase({
+      namespace: { enabled: true, name: "ns", range: [0, 0.5] },
+      prerequisites: [{ id: "parent", condition: '{"value":true}' }],
+    });
+    const def = build(
+      [
+        withFilters(randomOverride, { condition: '{"id":"123"}' }),
+        randomOverride,
+      ],
+      { exp },
+    );
+    expect(def?.rules?.[0]?.namespace).toBeUndefined();
+    expect(def?.rules?.[0]?.parentConditions).toBeUndefined();
+    expect(def?.rules?.[1]?.namespace).toEqual(["ns", 0, 0.5]);
+    expect(def?.rules?.[1]?.parentConditions).toEqual([
+      { id: "parent", condition: { value: true } },
+    ]);
+  });
+
+  it("does not serve an override whose variation was removed", () => {
+    expect(build([removedVariationOverride])?.rules ?? []).toEqual([]);
+    expect(
+      build([removedVariationOverride, randomOverride])?.rules,
+    ).toHaveLength(1);
+  });
+
+  it("without the prerequisites capability, serves the flag only when no override keeps the experiment's prerequisites", () => {
+    const exp = withPhase({
+      prerequisites: [{ id: "parent", condition: '{"value":true}' }],
+    });
+    const capabilities: Parameters<
+      typeof getFeatureDefinition
+    >[0]["capabilities"] = ["looseUnmarshalling"];
+
+    const forcedOnly = build([forcedOverride], { exp, capabilities });
+    expect(forcedOnly?.rules).toHaveLength(1);
+    expect(forcedOnly?.rules?.[0]?.parentConditions).toBeUndefined();
+
+    const ownTargeting = build(
+      [withFilters(randomOverride, { condition: '{"id":"123"}' })],
+      { exp, capabilities },
+    );
+    expect(ownTargeting?.rules).toHaveLength(1);
+
+    expect(
+      build(
+        [
+          withFilters(forcedOverride, { condition: '{"id":"123"}' }),
+          randomOverride,
+        ],
+        { exp, capabilities },
+      ),
+    ).toBeNull();
+  });
+
+  describe("holdout", () => {
     const holdoutFeature = {
       ...feature,
-      holdout: { id: "hld_1", value: "false" },
+      holdout: { id: "hld_1", value: "holdout" },
     } as unknown as FeatureInterface;
     const holdoutsMap = new Map([
       [
@@ -461,34 +529,49 @@ describe("getFeatureDefinition with QA overrides", () => {
         },
       ],
     ]) as unknown as Parameters<typeof getFeatureDefinition>[0]["holdoutsMap"];
+    const buildHoldout = (overrides: ExperimentQaOverrideInterface[]) =>
+      build(overrides, { feature: holdoutFeature, holdoutsMap });
 
-    const without = build(undefined, { feature: holdoutFeature, holdoutsMap });
-    expect(without?.rules?.[0]?.parentConditions?.[0]?.id).toBe(
-      "$holdout:hld_1",
-    );
-
-    const withOverride = build(new Map([["exp_1", [forcedOverride]]]), {
-      feature: holdoutFeature,
-      holdoutsMap,
+    it("is untouched without overrides", () => {
+      const def = buildHoldout([]);
+      expect(def?.rules).toHaveLength(1);
+      expect(def?.rules?.[0]?.parentConditions?.[0]?.id).toBe("$holdout:hld_1");
+      expect(def?.rules?.[0]?.condition).toBeUndefined();
     });
-    expect(withOverride?.rules).toHaveLength(1);
-    expect(withOverride?.rules?.[0]?.key).toBe("checkout::qa");
-  });
-});
 
-describe("qaOverridesExclusionCondition", () => {
-  it("is undefined with nothing to exclude and null once a rule matches everyone", () => {
-    expect(qaOverridesExclusionCondition([])).toBeUndefined();
-    expect(qaOverridesExclusionCondition([{ id: "a" }, undefined])).toBeNull();
-  });
-
-  it("negates one condition, or the OR of several", () => {
-    expect(qaOverridesExclusionCondition([{ id: "a" }])).toEqual({
-      $not: { id: "a" },
+    it("is skipped by testers who match an override with its own targeting", () => {
+      const def = buildHoldout([
+        withFilters(forcedOverride, { condition: '{"id":"tester"}' }),
+      ]);
+      expect(def?.rules).toHaveLength(2);
+      expect(def?.rules?.[0]).toMatchObject({
+        parentConditions: [{ id: "$holdout:hld_1" }],
+        condition: { $not: { id: "tester" } },
+      });
+      expect(def?.rules?.[1]?.key).toBe("checkout::qa");
     });
-    expect(
-      qaOverridesExclusionCondition([{ id: "a" }, { email: "b" }]),
-    ).toEqual({ $not: { $or: [{ id: "a" }, { email: "b" }] } });
+
+    it("is skipped by testers who match the experiment's targeting when it is served as configured", () => {
+      const def = buildHoldout([
+        withFilters(forcedOverride, { condition: '{"id":"tester"}' }),
+        randomOverride,
+      ]);
+      expect(def?.rules?.[0]?.condition).toEqual({
+        $not: { $or: [{ id: "tester" }, { country: "US" }] },
+      });
+    });
+
+    it("is dropped when an override matches everyone", () => {
+      const def = buildHoldout([forcedOverride]);
+      expect(def?.rules).toHaveLength(1);
+      expect(def?.rules?.[0]?.key).toBe("checkout::qa");
+    });
+
+    it("is kept when the only override is not served", () => {
+      const def = buildHoldout([removedVariationOverride]);
+      expect(def?.rules).toHaveLength(1);
+      expect(def?.rules?.[0]?.condition).toBeUndefined();
+    });
   });
 });
 
@@ -591,29 +674,35 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
       { id: "c1", variation: "v1", css: ".x{}", js: "", domMutations: [] },
     ],
   };
+  type AutoInput = Parameters<typeof generateAutoExperimentsPayload>[0];
 
-  const build = (qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>) =>
+  const build = (
+    overrides: ExperimentQaOverrideInterface[],
+    {
+      exp = visualDraft,
+      ...extra
+    }: Partial<AutoInput> & { exp?: ExperimentInterface } = {},
+  ) =>
     generateAutoExperimentsPayload({
       visualExperiments: [
         {
           type: "visual",
-          experiment: visualDraft,
+          experiment: exp,
           visualChangeset: changeset,
-        } as unknown as Parameters<
-          typeof generateAutoExperimentsPayload
-        >[0]["visualExperiments"][number],
+        } as unknown as AutoInput["visualExperiments"][number],
       ],
       urlRedirectExperiments: [],
       cbVisualExperiments: [],
       groupMap: new Map(),
       features: [],
       environment: "dev",
-      capabilities: ["looseUnmarshalling"],
-      qaOverrides,
+      capabilities: ["looseUnmarshalling", "prerequisites"],
+      qaPlans: plansFor(exp, overrides),
+      ...extra,
     });
 
   it("runs the QA copy on the QA key while the stored experiment stays a draft", () => {
-    const [exp] = build(new Map([["exp_1", [forcedOverride]]]));
+    const [exp] = build([forcedOverride]);
     expect(exp).toMatchObject({
       key: "checkout::qa",
       status: "running",
@@ -626,8 +715,8 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
     expect(visualDraft.status).toBe("draft");
   });
 
-  it("forcing a variation drops the experiment's namespace", () => {
-    const namespaced = {
+  it("keeps the namespace only when the experiment is served as configured", () => {
+    const exp = {
       ...visualDraft,
       phases: [
         {
@@ -636,38 +725,28 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
         },
       ],
     } as unknown as ExperimentInterface;
-    const buildNamespaced = (override: ExperimentQaOverrideInterface) =>
-      generateAutoExperimentsPayload({
-        visualExperiments: [
-          {
-            type: "visual",
-            experiment: namespaced,
-            visualChangeset: changeset,
-          } as unknown as Parameters<
-            typeof generateAutoExperimentsPayload
-          >[0]["visualExperiments"][number],
-        ],
-        urlRedirectExperiments: [],
-        cbVisualExperiments: [],
-        groupMap: new Map(),
-        features: [],
-        environment: "dev",
-        capabilities: ["looseUnmarshalling"],
-        qaOverrides: new Map([["exp_1", [override]]]),
-      })[0];
 
-    const forced = buildNamespaced(forcedOverride);
+    const [forced] = build([forcedOverride], { exp });
     expect(forced.namespace).toBeUndefined();
     expect(forced.filters).toBeUndefined();
-    expect(buildNamespaced(randomOverride).namespace).toEqual(["ns", 0, 0.5]);
+
+    const [targeted] = build(
+      [withFilters(randomOverride, { condition: '{"id":"123"}' })],
+      { exp },
+    );
+    expect(targeted.namespace).toBeUndefined();
+    expect(targeted).toMatchObject({ coverage: 1, condition: { id: "123" } });
+
+    const [asConfigured] = build([randomOverride], { exp });
+    expect(asConfigured.namespace).toEqual(["ns", 0, 0.5]);
+    expect(asConfigured.coverage).toBe(0.5);
   });
 
-  it("emits one copy per override, each excluding the requests earlier ones cover", () => {
-    const first = {
-      ...forcedOverride,
-      filters: { condition: '{"id":"tester"}' },
-    };
-    const payload = build(new Map([["exp_1", [first, randomOverride]]]));
+  it("emits one copy per override, each leaving out the testers earlier ones match", () => {
+    const payload = build([
+      withFilters(forcedOverride, { condition: '{"id":"tester"}' }),
+      randomOverride,
+    ]);
     expect(payload).toHaveLength(2);
     expect(payload[0].condition).toEqual({ id: "tester" });
     expect(payload[0].changeId).not.toEqual(payload[1].changeId);
@@ -679,47 +758,97 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
   });
 
   it("stops after an override that matches everyone", () => {
-    const payload = build(
-      new Map([["exp_1", [forcedOverride, randomOverride]]]),
-    );
+    const payload = build([forcedOverride, randomOverride]);
     expect(payload).toHaveLength(1);
     expect(payload[0].weights).toEqual([0, 1]);
   });
 
-  it("does not let a partial-coverage random copy block the overrides after it", () => {
-    const payload = build(
-      new Map([["exp_1", [randomOverride, forcedOverride]]]),
-    );
+  it("keeps testers who match the experiment's targeting out of later overrides, bucketed or not", () => {
+    const payload = build([randomOverride, forcedOverride]);
     expect(payload).toHaveLength(2);
     expect(payload[0]).toMatchObject({ weights: [0.5, 0.5], coverage: 0.5 });
-    expect(payload[1]).toMatchObject({ weights: [0, 1], coverage: 1 });
-    expect(payload[1].condition).toBeUndefined();
+    expect(payload[1]).toMatchObject({
+      weights: [0, 1],
+      coverage: 1,
+      condition: { $not: { country: "US" } },
+    });
   });
 
-  it("lets a full-coverage random copy block later overrides", () => {
-    const full = {
+  it("drops prerequisites for an override with its own targeting, so it needs no prerequisites capability", () => {
+    const exp = {
       ...visualDraft,
-      phases: [{ ...visualDraft.phases[0], coverage: 1 }],
-    } as unknown as ExperimentInterface;
-    const payload = generateAutoExperimentsPayload({
-      visualExperiments: [
+      phases: [
         {
-          type: "visual",
-          experiment: full,
-          visualChangeset: changeset,
-        } as unknown as Parameters<
-          typeof generateAutoExperimentsPayload
-        >[0]["visualExperiments"][number],
+          ...visualDraft.phases[0],
+          prerequisites: [{ id: "parent", condition: '{"value":true}' }],
+        },
       ],
-      urlRedirectExperiments: [],
-      cbVisualExperiments: [],
-      groupMap: new Map(),
-      features: [],
+    } as unknown as ExperimentInterface;
+    const payload = build(
+      [
+        withFilters(forcedOverride, { condition: '{"id":"123"}' }),
+        randomOverride,
+      ],
+      { exp, capabilities: ["looseUnmarshalling"] },
+    );
+    expect(payload).toHaveLength(1);
+    expect(payload[0].parentConditions).toBeUndefined();
+  });
+
+  it("serves each override to the same testers as the flag rule does", () => {
+    const overrides = [
+      withFilters(forcedOverride, { condition: '{"id":"tester"}' }),
+      withFilters(randomOverride, {
+        savedGroups: [{ match: "all", ids: ["grp_qa"] }],
+      }),
+      randomOverride,
+    ];
+    const flag = getFeatureDefinition({
+      feature: {
+        id: "feature",
+        defaultValue: "false",
+        valueType: "boolean",
+        environmentSettings: {
+          dev: {
+            enabled: true,
+            rules: [
+              {
+                type: "experiment-ref",
+                experimentId: "exp_1",
+                id: "fr_abc",
+                enabled: true,
+                variations: [
+                  { variationId: "v0", value: "false" },
+                  { variationId: "v1", value: "true" },
+                ],
+              },
+            ],
+          },
+        },
+      } as unknown as FeatureInterface,
       environment: "dev",
-      capabilities: ["looseUnmarshalling"],
-      qaOverrides: new Map([["exp_1", [randomOverride, forcedOverride]]]),
+      groupMap: savedGroupStrategy.groupMap,
+      experimentMap: new Map([["exp_1", visualDraft]]),
+      safeRolloutMap: new Map(),
+      savedGroupStrategy,
+      qaPlans: plansFor(visualDraft, overrides),
     });
-    expect(payload).toHaveLength(2);
-    expect(payload[1].condition).toEqual({ $not: { country: "US" } });
+    const auto = build(overrides, { savedGroupStrategy });
+
+    const served = ({
+      key,
+      seed,
+      condition,
+      weights,
+      coverage,
+    }: {
+      key?: string;
+      seed?: string;
+      condition?: unknown;
+      weights?: number[];
+      coverage?: number;
+    }) => ({ key, seed, condition, weights, coverage });
+    expect(auto).toHaveLength(3);
+    expect(auto.map(served)).toEqual(flag?.rules?.map(served));
   });
 });

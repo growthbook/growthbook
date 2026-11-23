@@ -14,7 +14,6 @@ import {
   getNamespaceHashAttribute,
   getNamespaceRanges,
   getRulesForEnvironment,
-  getQaTrackingKey,
   getTargetingProjectIds,
   includeExperimentInPayload,
   isDefined,
@@ -75,9 +74,13 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhase,
 } from "shared/types/experiment";
-import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import {
+  QaPlans,
+  applyQaServing,
+  excludeQaMatches,
+} from "back-end/src/util/qaOverrides";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
@@ -274,112 +277,6 @@ function warnSavedGroupProblemOnce(problem: string) {
  *
  * The strategy decides how the group itself is written, not this function.
  */
-export function qaOverrideFiltersCondition({
-  override,
-  savedGroupStrategy,
-}: {
-  override: ExperimentQaOverrideInterface;
-  savedGroupStrategy: SavedGroupPayloadStrategy;
-}): ConditionInterface | undefined {
-  return mergeConditionAndSavedGroups({
-    savedGroupStrategy,
-    condition: override.filters.condition,
-    savedGroups: override.filters.savedGroups,
-  });
-}
-
-export function qaOverrideCondition({
-  override,
-  experimentCondition,
-  savedGroupStrategy,
-}: {
-  override: ExperimentQaOverrideInterface;
-  experimentCondition?: ConditionInterface;
-  savedGroupStrategy: SavedGroupPayloadStrategy;
-}): ConditionInterface | undefined {
-  const filters = qaOverrideFiltersCondition({ override, savedGroupStrategy });
-  const base =
-    override.assignment.type === "random" ? experimentCondition : undefined;
-  if (base && filters) return { $and: [base, filters] };
-  return base ?? filters;
-}
-
-export function qaOverrideWeights(
-  override: ExperimentQaOverrideInterface,
-  experiment: Pick<ExperimentInterface, "variations" | "phases">,
-  phase: Pick<ExperimentPhase, "variationWeights">,
-): number[] {
-  if (override.assignment.type === "forced") {
-    const variationId = override.assignment.variationId;
-    const variations = getLatestPhaseVariations(experiment);
-    const index = variations.findIndex((v) => v.id === variationId);
-    if (index >= 0) {
-      return variations.map((_, i) => (i === index ? 1 : 0));
-    }
-  }
-  return phase.variationWeights;
-}
-
-export function applyQaOverrideToRule(
-  rule: FeatureDefinitionRule,
-  experiment: ExperimentInterface,
-  phase: ExperimentPhase,
-  override: ExperimentQaOverrideInterface,
-  savedGroupStrategy: SavedGroupPayloadStrategy,
-): FeatureDefinitionRule {
-  const forced = override.assignment.type === "forced";
-
-  rule.key = getQaTrackingKey(experiment.trackingKey);
-  // Same seed as the live experiment, so users keep their bucket after it
-  // starts.
-  rule.seed = phase.seed || experiment.trackingKey;
-  rule.weights = qaOverrideWeights(override, experiment, phase);
-  rule.coverage = forced ? 1 : phase.coverage;
-  rule.disableStickyBucketing = true;
-
-  const condition = qaOverrideCondition({
-    override,
-    experimentCondition: rule.condition,
-    savedGroupStrategy,
-  });
-  if (condition) {
-    rule.condition = condition;
-  } else {
-    delete rule.condition;
-  }
-  if (forced) {
-    delete rule.parentConditions;
-    // Legacy namespaces live on `namespace`, multi-range ones on `filters`.
-    delete rule.namespace;
-    delete rule.filters;
-  }
-  return rule;
-}
-
-// `undefined`: nothing to exclude. `null`: a rule matches everyone.
-export function qaOverridesExclusionCondition(
-  qaRuleConditions: (ConditionInterface | undefined)[],
-): ConditionInterface | null | undefined {
-  if (!qaRuleConditions.length) return undefined;
-  const conditions: ConditionInterface[] = [];
-  for (const condition of qaRuleConditions) {
-    if (!condition) return null;
-    conditions.push(condition);
-  }
-  return {
-    $not: conditions.length === 1 ? conditions[0] : { $or: conditions },
-  };
-}
-
-export function qaOverridesAllForced(
-  overrides: ExperimentQaOverrideInterface[] | undefined,
-): boolean {
-  return (
-    !!overrides?.length &&
-    overrides.every((o) => o.assignment.type === "forced")
-  );
-}
-
 export function mergeConditionAndSavedGroups({
   savedGroupStrategy,
   condition,
@@ -1192,7 +1089,7 @@ export function getFeatureDefinition({
   includeRuleIds,
   includeExperimentNames,
   includeDraftExperimentRefs,
-  qaOverrides,
+  qaPlans,
   namespaces,
   metadataOptions,
   projectsMap,
@@ -1221,7 +1118,8 @@ export function getFeatureDefinition({
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
   includeDraftExperimentRefs?: boolean;
-  qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>;
+  // How each draft experiment's QA overrides are served on this connection.
+  qaPlans?: QaPlans;
   namespaces?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
@@ -1341,12 +1239,12 @@ export function getFeatureDefinition({
     const hasRuleLevelGates = rules?.some((r) => {
       if (r.type === "experiment-ref") {
         const exp = experimentMap.get(r.experimentId);
-        const phase = exp?.phases?.slice(-1)?.[0];
-        if (!phase?.prerequisites?.length) return false;
-        return !(
-          exp?.status === "draft" &&
-          qaOverridesAllForced(qaOverrides?.get(exp.id))
-        );
+        const servings =
+          exp?.status === "draft" ? qaPlans?.get(exp.id) : undefined;
+        const phases = servings?.length
+          ? servings.map((s) => s.phase)
+          : [exp?.phases?.slice(-1)?.[0]];
+        return phases.some((phase) => !!phase?.prerequisites?.length);
       }
       if (r.type === "contextual-bandit-ref") {
         return !!cbMap?.get(r.contextualBanditId)?.prerequisites?.length;
@@ -1357,62 +1255,6 @@ export function getFeatureDefinition({
       return null;
     }
   }
-
-  const qaRuleConditions: (ConditionInterface | undefined)[] = qaOverrides?.size
-    ? (rules ?? []).flatMap((r) => {
-        if (r.type !== "experiment-ref") return [];
-        const exp = experimentMap.get(r.experimentId);
-        const overrides = qaOverrides.get(r.experimentId);
-        if (exp?.status !== "draft" || !overrides?.length) return [];
-        const phase = exp.phases[exp.phases.length - 1];
-        const experimentCondition = mergeConditionAndSavedGroups({
-          savedGroupStrategy,
-          condition: phase?.condition,
-          savedGroups: phase?.savedGroups,
-        });
-        return overrides.map((override) =>
-          qaOverrideCondition({
-            override,
-            experimentCondition,
-            savedGroupStrategy,
-          }),
-        );
-      })
-    : [];
-  // The holdout's force rule sits above the experiment rule, so requests
-  // matching an override must skip it.
-  const holdoutExclusion = qaOverridesExclusionCondition(qaRuleConditions);
-
-  // If the feature has a holdout and it's enabled for the environment, add holdout as a
-  // pseudo force rule with a prerequisite condition. The environment being enabled is
-  // already checked in the getAllPayloadHoldouts function.
-  const holdoutRule: FeatureDefinitionRule[] =
-    hasPrerequisites &&
-    holdoutExclusion !== null &&
-    feature.holdout &&
-    holdoutsMap &&
-    holdoutsMap.get(feature.holdout.id)?.holdout.environmentSettings?.[
-      environment
-    ]?.enabled
-      ? [
-          {
-            ...(includeRuleIds
-              ? { id: `holdout_${md5(feature.id + feature.holdout.id)}` }
-              : {}),
-            parentConditions: [
-              {
-                id: getHoldoutFeatureDefId(feature.holdout.id),
-                condition: { value: "holdoutcontrol" },
-              },
-            ],
-            ...(holdoutExclusion ? { condition: holdoutExclusion } : {}),
-            force: valueForSDK(feature.holdout.value),
-          },
-        ]
-      : [];
-  holdoutRule.forEach((r) => {
-    if (r.condition) savedGroupStrategy.finalizeCondition(r.condition);
-  });
 
   // convert prerequisites to force rules (only when connection has prerequisites capability)
   const prerequisiteRules = hasPrerequisites
@@ -1443,10 +1285,11 @@ export function getFeatureDefinition({
     rule: FeatureDefinitionRule | null,
   ): rule is FeatureDefinitionRule => !!rule;
 
-  const defRules = [
-    ...holdoutRule,
-    ...prerequisiteRules,
-    ...(rules
+  // Who the QA overrides served below apply to.
+  const qaMatches: (ConditionInterface | undefined)[] = [];
+
+  const featureRules =
+    rules
       ?.filter((r) => {
         return isRuleEnabled(r, date);
       })
@@ -1463,9 +1306,9 @@ export function getFeatureDefinition({
           const exp = experimentMap.get(r.experimentId);
           if (!exp) return null;
 
-          const expQaOverrides =
-            exp.status === "draft" ? qaOverrides?.get(exp.id) : undefined;
-          const hasExpQaOverride = !!expQaOverrides?.length;
+          const qaServings =
+            exp.status === "draft" ? qaPlans?.get(exp.id) : undefined;
+          const hasExpQaOverride = !!qaServings?.length;
 
           if (
             exp.status === "draft" &&
@@ -1484,16 +1327,6 @@ export function getFeatureDefinition({
           // Get current experiment phase and use it to set rule properties
           const phase = exp.phases[exp.phases.length - 1];
           if (!phase) return null;
-          // Forced overrides drop prerequisites, so they can be served without
-          // that capability.
-          const prerequisitesUnsupported =
-            !hasPrerequisites && !!phase.prerequisites?.length;
-          const servedQaOverrides = prerequisitesUnsupported
-            ? expQaOverrides?.filter((o) => o.assignment.type === "forced")
-            : expQaOverrides;
-          if (prerequisitesUnsupported && !servedQaOverrides?.length)
-            return null;
-
           // Everything the rule takes from a phase. QA overrides are served by
           // building the same rule from an adjusted copy of the phase.
           const buildRule = (
@@ -1591,9 +1424,6 @@ export function getFeatureDefinition({
             return expRule;
           };
 
-          const expRule = buildRule(phase);
-          if (!expRule) return null;
-
           const finalizeExperimentRule = (rule: FeatureDefinitionRule) => {
             if (rule.condition)
               savedGroupStrategy.finalizeCondition(rule.condition);
@@ -1634,19 +1464,25 @@ export function getFeatureDefinition({
             return rule;
           };
 
-          if (servedQaOverrides?.length) {
-            return servedQaOverrides.map((override) =>
-              finalizeExperimentRule(
-                applyQaOverrideToRule(
-                  cloneDeep(expRule),
-                  exp,
-                  phase,
-                  override,
-                  savedGroupStrategy,
-                ),
-              ),
-            );
+          const prerequisitesUnsupported = (served: ExperimentPhase) =>
+            !hasPrerequisites && !!served.prerequisites?.length;
+
+          // One rule per QA override, in place of the draft's own rule.
+          if (qaServings?.length) {
+            return qaServings.flatMap((serving) => {
+              if (prerequisitesUnsupported(serving.phase)) return [];
+              const qaRule = buildRule(serving.phase);
+              if (!qaRule) return [];
+              qaMatches.push(serving.match);
+              return [
+                finalizeExperimentRule(applyQaServing(qaRule, exp, serving)),
+              ];
+            });
           }
+
+          if (prerequisitesUnsupported(phase)) return null;
+          const expRule = buildRule(phase);
+          if (!expRule) return null;
           return finalizeExperimentRule(expRule);
         }
 
@@ -2004,8 +1840,44 @@ export function getFeatureDefinition({
         return rule;
       })
       ?.flat()
-      ?.filter(isRule) ?? []),
-  ];
+      ?.filter(isRule) ?? [];
+
+  // The holdout's force rule sits above the experiment rules, so testers a QA
+  // override applies to must skip it.
+  const holdoutExclusion = excludeQaMatches(qaMatches);
+
+  // If the feature has a holdout and it's enabled for the environment, add holdout as a
+  // pseudo force rule with a prerequisite condition. The environment being enabled is
+  // already checked in the getAllPayloadHoldouts function.
+  const holdoutRule: FeatureDefinitionRule[] =
+    hasPrerequisites &&
+    holdoutExclusion !== null &&
+    feature.holdout &&
+    holdoutsMap &&
+    holdoutsMap.get(feature.holdout.id)?.holdout.environmentSettings?.[
+      environment
+    ]?.enabled
+      ? [
+          {
+            ...(includeRuleIds
+              ? { id: `holdout_${md5(feature.id + feature.holdout.id)}` }
+              : {}),
+            parentConditions: [
+              {
+                id: getHoldoutFeatureDefId(feature.holdout.id),
+                condition: { value: "holdoutcontrol" },
+              },
+            ],
+            ...(holdoutExclusion ? { condition: holdoutExclusion } : {}),
+            force: valueForSDK(feature.holdout.value),
+          },
+        ]
+      : [];
+  holdoutRule.forEach((r) => {
+    if (r.condition) savedGroupStrategy.finalizeCondition(r.condition);
+  });
+
+  const defRules = [...holdoutRule, ...prerequisiteRules, ...featureRules];
 
   let def: FeatureDefinition = {
     // Route through valueForSDK (not a bare resolve) so a config-backed feature's

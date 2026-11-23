@@ -11,7 +11,6 @@ import type { Request } from "express";
 import {
   Attributes,
   AutoExperiment,
-  ConditionInterface,
   FeatureRule as FeatureDefinitionRule,
   GrowthBook,
 } from "@growthbook/growthbook";
@@ -208,9 +207,6 @@ import {
   mergeConditionAndSavedGroups,
   pairedWeightsToPositional,
   prerequisiteParentConditions,
-  applyQaOverrideToRule,
-  qaOverrideCondition,
-  qaOverridesExclusionCondition,
   buildPrerequisiteProjectReach,
   expandPayloadKeysForPrerequisites,
   experimentMapForFeatures,
@@ -222,6 +218,12 @@ import {
   filterRefreshableSDKConnections,
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
+import {
+  QaPlans,
+  QaServing,
+  applyQaServing,
+  planQaOverridesByExperiment,
+} from "back-end/src/util/qaOverrides";
 import { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
@@ -278,7 +280,7 @@ export function generateFeaturesPayload({
   includeExperimentNames,
   cbMap,
   includeDraftExperimentRefs,
-  qaOverrides,
+  qaPlans,
   rampMonitoredRuleMap,
   payloadProjects,
   carriedPrerequisiteIds,
@@ -311,7 +313,7 @@ export function generateFeaturesPayload({
   includeExperimentNames?: boolean;
   cbMap?: Map<string, ContextualBanditInterface>;
   includeDraftExperimentRefs?: boolean;
-  qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>;
+  qaPlans?: QaPlans;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
   payloadProjects?: string[];
   // Carried by prerequisite closure: built against their own delivery scope,
@@ -352,7 +354,7 @@ export function generateFeaturesPayload({
       includeRuleIds,
       includeExperimentNames,
       includeDraftExperimentRefs,
-      qaOverrides,
+      qaPlans,
       rampMonitoredRuleMap,
       metadataOptions: {
         includeProjectIdInMetadata,
@@ -609,7 +611,7 @@ export function generateAutoExperimentsPayload({
   organization,
   savedGroupStrategy: providedSavedGroupStrategy,
   includeExperimentNames,
-  qaOverrides,
+  qaPlans,
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
@@ -629,7 +631,7 @@ export function generateAutoExperimentsPayload({
   organization?: OrganizationInterface;
   savedGroupStrategy?: SavedGroupPayloadStrategy;
   includeExperimentNames?: boolean;
-  qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>;
+  qaPlans?: QaPlans;
 }): AutoExperimentWithMetadata[] {
   const savedGroupStrategy =
     providedSavedGroupStrategy ??
@@ -644,8 +646,25 @@ export function generateAutoExperimentsPayload({
     e: AutoExperimentWithMetadata | null,
   ): e is AutoExperimentWithMetadata => !!e;
 
+  // A draft with QA overrides is served as one auto experiment per override,
+  // each on the phase that override serves. Split here so the prerequisite
+  // reduction below sees the phase that is actually served.
+  const withQaServings = <T extends VisualExperiment | URLRedirectExperiment>(
+    experiments: T[],
+  ): (T & { qa?: QaServing })[] =>
+    experiments.flatMap((data) => {
+      const { experiment: e } = data;
+      const servings = e.status === "draft" ? qaPlans?.get(e.id) : undefined;
+      if (!servings?.length) return [data];
+      return servings.map((qa) => ({
+        ...data,
+        experiment: { ...e, phases: [...e.phases.slice(0, -1), qa.phase] },
+        qa,
+      }));
+    });
+
   const newVisualExperiments = reduceExperimentsWithPrerequisites(
-    visualExperiments,
+    withQaServings(visualExperiments),
     features,
     environment,
     savedGroups,
@@ -653,7 +672,7 @@ export function generateAutoExperimentsPayload({
   );
 
   const newURLRedirectExperiments = reduceExperimentsWithPrerequisites(
-    urlRedirectExperiments,
+    withQaServings(urlRedirectExperiments),
     features,
     environment,
     savedGroups,
@@ -665,32 +684,12 @@ export function generateAutoExperimentsPayload({
     ...newVisualExperiments,
   ];
 
-  const qaAutoExperimentCondition = (
-    e: ExperimentInterface,
-    qaOverride: ExperimentQaOverrideInterface,
-  ): ConditionInterface | undefined => {
-    const phase = e.phases?.slice(-1)?.[0];
-    return qaOverrideCondition({
-      override: qaOverride,
-      experimentCondition: mergeConditionAndSavedGroups({
-        savedGroupStrategy,
-        condition: phase?.condition,
-        savedGroups: phase?.savedGroups,
-      }),
-      savedGroupStrategy,
-    });
-  };
-
   const buildAutoExperiment = (
-    data: VisualExperiment | URLRedirectExperiment,
+    data: (VisualExperiment | URLRedirectExperiment) & { qa?: QaServing },
     phase: ExperimentPhase | null,
-    qaOverride: ExperimentQaOverrideInterface | undefined,
-    excludeCondition?: ConditionInterface,
   ): AutoExperimentWithMetadata | null => {
     const { experiment: e } = data;
     if (e.status === "stopped" && e.excludeFromPayload) return null;
-
-    const qaForced = qaOverride?.assignment.type === "forced";
 
     const variations = getLatestPhaseVariations(e);
 
@@ -706,7 +705,7 @@ export function generateAutoExperimentsPayload({
       savedGroups: phase?.savedGroups,
     });
 
-    const prerequisites = (qaForced ? [] : (phase?.prerequisites ?? []))
+    const prerequisites = (phase?.prerequisites ?? [])
       ?.map((p) => {
         const condition = mergeConditionAndSavedGroups({
           savedGroupStrategy,
@@ -802,19 +801,14 @@ export function generateAutoExperimentsPayload({
       exp.persistQueryString = true;
     }
 
-    if (qaOverride) {
-      applyQaOverrideToRule(exp, e, phase, qaOverride, savedGroupStrategy);
+    if (data.qa) {
+      applyQaServing(exp, e, data.qa);
       // Each override is its own auto experiment, and the SDK skips drafts.
       exp.changeId = sha256(
-        `${exp.key}_${data.type}_${implementationId}_${qaOverride.id}`,
+        `${exp.key}_${data.type}_${implementationId}_${data.qa.override.id}`,
         "",
       );
       exp.status = "running";
-      if (excludeCondition) {
-        exp.condition = exp.condition
-          ? { $and: [exp.condition, excludeCondition] }
-          : excludeCondition;
-      }
     }
 
     return finalizeAutoExperiment(exp, {
@@ -837,33 +831,10 @@ export function generateAutoExperimentsPayload({
     });
   };
 
-  // One auto experiment per QA override. To keep "first match wins", each
-  // copy excludes requests that an earlier copy fully serves.
   const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
-    sortedAutoExperiments.flatMap((data) => {
-      const { experiment: e } = data;
-      const overrides =
-        e.status === "draft" ? qaOverrides?.get(e.id) : undefined;
-      const phase = e.phases?.slice(-1)?.[0] ?? null;
-      if (!overrides?.length) {
-        return [buildAutoExperiment(data, phase, undefined)];
-      }
-      const servesAllMatching = (override: ExperimentQaOverrideInterface) =>
-        override.assignment.type === "forced" ||
-        ((phase?.coverage ?? 1) >= 1 && !phase?.namespace?.enabled);
-      const out: Array<AutoExperimentWithMetadata | null> = [];
-      const earlier: (ConditionInterface | undefined)[] = [];
-      for (const override of overrides) {
-        const exclude = qaOverridesExclusionCondition(earlier);
-        if (exclude === null) break;
-        const copy = buildAutoExperiment(data, phase, override, exclude);
-        out.push(copy);
-        if (copy && servesAllMatching(override)) {
-          earlier.push(qaAutoExperimentCondition(e, override));
-        }
-      }
-      return out;
-    });
+    sortedAutoExperiments.map((data) =>
+      buildAutoExperiment(data, data.experiment.phases?.slice(-1)?.[0] ?? null),
+    );
 
   const cbSdkExperiments = generateCbVisualExperimentsPayload({
     cbVisualExperiments,
@@ -2389,6 +2360,15 @@ export async function buildSDKPayloadForConnection(
     organization: context.org,
   });
 
+  // Planned once, so flag rules and auto experiments serve each override to
+  // the same testers.
+  const qaPlans = planQaOverridesByExperiment({
+    experiments: data.experimentMap,
+    overrides: qaOverrides,
+    compileTargeting: (targeting) =>
+      mergeConditionAndSavedGroups({ savedGroupStrategy, ...targeting }),
+  });
+
   const featureDefinitions = generateFeaturesPayload({
     features: filteredFeatures,
     environment,
@@ -2406,7 +2386,7 @@ export async function buildSDKPayloadForConnection(
     includeRuleIds,
     includeExperimentNames: connection.includeExperimentNames,
     includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
-    qaOverrides,
+    qaPlans,
     includeProjectIdInMetadata,
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
@@ -2440,7 +2420,7 @@ export async function buildSDKPayloadForConnection(
     organization: context.org,
     savedGroupStrategy,
     includeExperimentNames,
-    qaOverrides,
+    qaPlans,
     includeProjectIdInMetadata,
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
