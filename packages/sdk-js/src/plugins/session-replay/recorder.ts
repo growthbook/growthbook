@@ -12,12 +12,18 @@ import {
 import { mergeSettings } from "../utils/settings";
 import { DEFAULT_INGESTOR_HOST } from "../utils/ingestor";
 import { resolvePrivacySettings } from "../utils/privacy";
+import { runWhenIdle, runWhenIdleAfterLoad } from "../utils/browser";
 import { createRetry, RetryExhaustedError, RetryCancelledError } from "./retry";
 import {
   buildRrwebPrivacyOptions,
   type SessionReplayPrivacySettings,
 } from "./privacy";
 import { scrubEventUrls } from "./url-scrub";
+import {
+  registerSessionReplay,
+  unregisterSessionReplay,
+  type SessionReplayApi,
+} from "./controls";
 import {
   getOrCreateSessionReplayId,
   SESSION_REPLAY_IDLE_TIMEOUT_MS,
@@ -34,6 +40,7 @@ export type SessionReplayOptions = {
   // What rrweb may capture. Deny by default (every input masked); keys
   // omitted here inherit whatever autoEventsPlugin({ privacy }) was given.
   privacy?: SessionReplayPrivacySettings;
+  startMode?: "idle" | "immediate";
 };
 
 export type ReplayRecorderSettings = SessionReplayOptions & {
@@ -123,21 +130,35 @@ const FLUSH_INTERVAL_MS = 60_000;
 const FLUSH_BYTE_SIZE = 512 * 1024;
 // Backstop when every flush is failing (offline); new events are dropped
 const MAX_BUFFERED_EVENTS = 1000;
+const MAX_PRE_INTERACTION_BYTES = 2 * 1024 * 1024;
+const MAX_REJECTED_SNAPSHOTS = 3;
+const REARM_EVENTS = ["pointerdown", "keydown", "touchstart"] as const;
 
-// Splits events into batches where each batch's cumulative JSON.stringify
-// size stays under maxBytes. A single event larger than maxBytes still goes
-// in its own batch — we never split individual events.
-export function partitionEvents(
-  events: eventWithTime[],
+export type SerializedEvent = { type: number; timestamp: number; json: string };
+
+export function serializeEvent(event: eventWithTime): SerializedEvent {
+  return {
+    type: event.type,
+    timestamp: event.timestamp,
+    json: JSON.stringify(event),
+  };
+}
+
+// Splits events into batches where each batch's cumulative serialized size
+// stays under maxBytes. A single event larger than maxBytes still goes in its
+// own batch — we never split individual events.
+export function partitionEvents<T extends { type: number }>(
+  events: T[],
   maxBytes: number = FLUSH_BYTE_SIZE,
   isolateSnapshot: boolean = false,
-): eventWithTime[][] {
-  const batches: eventWithTime[][] = [];
-  let current: eventWithTime[] = [];
+  sizeOf: (event: T) => number = (event) => JSON.stringify(event).length,
+): T[][] {
+  const batches: T[][] = [];
+  let current: T[] = [];
   let currentSize = 0;
   let snapshotSeen = !isolateSnapshot;
   for (const event of events) {
-    const eventSize = JSON.stringify(event).length;
+    const eventSize = sizeOf(event);
     if (
       snapshotSeen &&
       current.length > 0 &&
@@ -169,10 +190,12 @@ export function createReplayRecorder({
   enabled,
   samplingRate,
   privacy,
+  startMode = "idle",
   growthbook,
 }: ReplayRecorderSettings) {
   // Remote re-enables resume recording only if nothing stopped it explicitly
   let autoRestart = autoRecord;
+  let resolvedPrivacy: SessionReplayPrivacySettings = {};
 
   // defaults ← constructor options ← remote sdkSettings from the payload.
   // Remote overrides local, except a local `enabled: false`, which is
@@ -218,7 +241,20 @@ export function createReplayRecorder({
   let idleCheckInterval: ReturnType<typeof setInterval> | null = null;
   // Upper-bound estimate of the buffer's serialized size
   let bufferedBytes = 0;
-  let replayEvents: eventWithTime[] = [];
+  let replayEvents: SerializedEvent[] = [];
+  // Bytes buffered besides the snapshot, for the pre-interaction cap
+  let preInteractionBytes = 0;
+  // Cancels a deferred start that hasn't run yet
+  let cancelScheduledStart: (() => void) | null = null;
+  // Removes the listeners of a recorder paused until the first interaction
+  let disarmInteractionRestart: (() => void) | null = null;
+  // Set between deciding to pause (inside rrweb's emit) and the pause itself
+  let pausePending = false;
+  // Bumped on every start so a stale pause can't stop a newer recording
+  let recordingGeneration = 0;
+  let rejectedSnapshots = 0;
+  let sawPreStartInteraction = false;
+  let disarmPreStartLatch: (() => void) | null = null;
 
   const featureEvals: Array<{
     featureKey: string;
@@ -315,6 +351,37 @@ export function createReplayRecorder({
     // Don't flush sessions with no real user interaction (filters out hot-reload noise)
     if (!hasUserInteraction) return;
 
+    const attrs = growthbook.getAttributes();
+    let context: { attributes: string; user_id?: string; device_id?: string };
+    let sessionEventsRedacted: typeof sessionEvents;
+    try {
+      const userIdAttr = attrs.user_id;
+      const deviceIdAttr = attrs.device_id || attrs.anonymous_id || attrs.id;
+      const redactAttrs = resolvedPrivacy.redactAttributes;
+      context = {
+        attributes: JSON.stringify(redactAttrs ? redactAttrs(attrs) : attrs),
+        ...(typeof userIdAttr === "string" && { user_id: userIdAttr }),
+        ...(typeof deviceIdAttr === "string" && { device_id: deviceIdAttr }),
+      };
+
+      const redactProps = resolvedPrivacy.redactEventProperties;
+      // Copied, never aliased: the live buffer is spliced just below
+      sessionEventsRedacted = redactProps
+        ? sessionEvents.map((e) =>
+            e.properties
+              ? { ...e, properties: redactProps(e.eventName, e.properties) }
+              : e,
+          )
+        : [...sessionEvents];
+    } catch (e) {
+      console.error(
+        "session-replay: privacy redaction failed; events stay buffered for " +
+          "the next flush",
+        e,
+      );
+      return;
+    }
+
     flushInFlight = true;
 
     const sessionReplayIdBeingSent = sessionReplayId;
@@ -333,38 +400,33 @@ export function createReplayRecorder({
     bufferedBytes = 0;
 
     try {
-      const attrs = growthbook.getAttributes();
-      const userIdAttr = attrs.user_id;
-      const deviceIdAttr = attrs.device_id || attrs.anonymous_id || attrs.id;
-      const context = {
-        attributes: JSON.stringify(attrs),
-        ...(typeof userIdAttr === "string" && { user_id: userIdAttr }),
-        ...(typeof deviceIdAttr === "string" && { device_id: deviceIdAttr }),
-      };
-
       // rrweb custom events (type 5) let the player show feature/experiment
       // panels at the timestamp they occurred — merge before partitioning so
       // they distribute across batches by timestamp
-      const customEvents: eventWithTime[] = [];
+      const customEvents: SerializedEvent[] = [];
       featureEvalsBeingSent.forEach((fe) => {
-        customEvents.push({
-          type: 5,
-          timestamp: fe.timestamp,
-          data: {
-            tag: "feature-flag",
-            payload: { id: fe.featureKey, value: fe.result.value },
-          },
-        });
+        customEvents.push(
+          serializeEvent({
+            type: 5,
+            timestamp: fe.timestamp,
+            data: {
+              tag: "feature-flag",
+              payload: { id: fe.featureKey, value: fe.result.value },
+            },
+          }),
+        );
       });
       experimentEvalsBeingSent.forEach((ee) => {
-        customEvents.push({
-          type: 5,
-          timestamp: ee.timestamp,
-          data: {
-            tag: "experiment",
-            payload: { id: ee.key, variation: ee.result.variationId },
-          },
-        });
+        customEvents.push(
+          serializeEvent({
+            type: 5,
+            timestamp: ee.timestamp,
+            data: {
+              tag: "experiment",
+              payload: { id: ee.key, variation: ee.result.variationId },
+            },
+          }),
+        );
       });
 
       const allEvents = [...eventsBeingSent, ...customEvents].sort(
@@ -381,6 +443,7 @@ export function createReplayRecorder({
         allEvents,
         FLUSH_BYTE_SIZE,
         nextChunkIndex === 0 && totalBufferedBytes > FLUSH_BYTE_SIZE,
+        (event) => event.json.length,
       );
 
       const commitChunk = (index: number) => {
@@ -394,18 +457,37 @@ export function createReplayRecorder({
         });
       };
 
+      // Committing past a lost chunk 0 would upload chunks the player can only
+      // replay against an empty mirror, and persist that so a reload cements
+      // it. Nothing was committed for this id, so rotating leaves no row.
+      const rotateAfterLostSnapshot = (reason: string) => {
+        // A rotation or restart may have moved on while this was in flight;
+        // the buffers are no longer ours to clear.
+        if (sessionReplayId !== sessionReplayIdBeingSent) return;
+        console.error(
+          `session-replay: chunk 0 ${reason}; starting a new session`,
+        );
+        replayEvents.length = 0;
+        bufferedBytes = 0;
+        featureEvals.length = 0;
+        experimentEvals.length = 0;
+        sessionEvents.length = 0;
+        rotateSession("recovery");
+      };
+
       for (let i = 0; i < batches.length; i++) {
         const batchChunkIndex = nextChunkIndex;
         const isFirstBatch = i === 0;
 
-        const payload = JSON.stringify({
+        // Events are spliced in from their stored JSON; only the small
+        // envelope is serialized here
+        const envelope = JSON.stringify({
           clientKey,
           session_replay_id: sessionReplayIdBeingSent,
           ...(sessionId && { gb_session_id: sessionId }),
           chunkIndex: batchChunkIndex,
           sessionStartedAt: sessionStartedAtBeingSent,
           viewport: viewportBeingSent,
-          events: batches[i],
           context,
           featureEvals: {
             items: isFirstBatch ? featureEvalsBeingSent : [],
@@ -414,12 +496,18 @@ export function createReplayRecorder({
             items: isFirstBatch ? experimentEvalsBeingSent : [],
           },
           sessionEvents: {
-            items: isFirstBatch ? sessionEventsBeingSent : [],
+            items: isFirstBatch ? sessionEventsRedacted : [],
           },
         });
+        const payload =
+          '{"events":[' +
+          batches[i].map((event) => event.json).join(",") +
+          "]," +
+          envelope.slice(1);
 
         try {
           await sendWithRetry(payload);
+          rejectedSnapshots = 0;
           nextChunkIndex = batchChunkIndex + 1;
           commitChunk(batchChunkIndex);
         } catch (e) {
@@ -430,7 +518,7 @@ export function createReplayRecorder({
               const remaining = batches.slice(i).flat();
               replayEvents.unshift(...remaining);
               bufferedBytes += remaining.reduce(
-                (sum, ev) => sum + JSON.stringify(ev).length,
+                (sum, ev) => sum + ev.json.length,
                 0,
               );
               if (isFirstBatch) {
@@ -449,6 +537,12 @@ export function createReplayRecorder({
           }
 
           if (e instanceof RetryExhaustedError) {
+            if (batchChunkIndex === 0) {
+              rotateAfterLostSnapshot(
+                `failed after ${RETRY_MAX_ATTEMPTS} retries`,
+              );
+              return;
+            }
             nextChunkIndex = batchChunkIndex + 1;
             commitChunk(batchChunkIndex);
             console.error(
@@ -474,6 +568,34 @@ export function createReplayRecorder({
             stopRecording();
             return;
           }
+          if (batchChunkIndex === 0) {
+            if (sessionReplayId !== sessionReplayIdBeingSent) {
+              console.warn(
+                `session-replay: chunk 0 rejected (HTTP ${status}) after ` +
+                  "session rotation; ignoring",
+                e,
+              );
+              return;
+            }
+            // Recovering re-snapshots, and a deterministic rejection would
+            // make us pay that every flush; give up once the budget is spent
+            if (rejectedSnapshots >= MAX_REJECTED_SNAPSHOTS) {
+              console.error(
+                `session-replay: chunk 0 rejected (HTTP ${status}) after ` +
+                  `${MAX_REJECTED_SNAPSHOTS} recovery attempts; stopping the ` +
+                  "recorder. Check that the ingestor accepts this payload.",
+                e,
+              );
+              replayEvents.length = 0;
+              bufferedBytes = 0;
+              autoRestart = false;
+              stopRecording();
+              return;
+            }
+            rejectedSnapshots++;
+            rotateAfterLostSnapshot(`permanently rejected (HTTP ${status})`);
+            return;
+          }
           // Other 4XX: skip and continue
           nextChunkIndex = batchChunkIndex + 1;
           commitChunk(batchChunkIndex);
@@ -485,6 +607,8 @@ export function createReplayRecorder({
           continue;
         }
       }
+    } catch (e) {
+      console.error("session-replay: flush failed", e);
     } finally {
       flushInFlight = false;
       // stopRecording's own flush call no-ops while a cancelled retry holds
@@ -497,13 +621,19 @@ export function createReplayRecorder({
 
   // forceNew skips the resume check — resuming a rotated-out session's
   // sessionStartedAt would re-trip tooLong every interval. force bypasses
-  // sampling (programmatic gb.startSessionReplay()), never the kill switch.
-  const startRecording = (forceNew = false, force = false) => {
+  // sampling (programmatic getSessionReplay(gb).start()), never the kill switch.
+  // interacted marks a restart triggered by an input rrweb didn't see.
+  const startRecording = (
+    forceNew = false,
+    force = false,
+    interacted = false,
+  ) => {
     if (isRecording) return;
+    if (cleanedUp) return;
     const settings = resolveSettings();
     if (!settings.enabled) return;
     if (userOptedOutOfTracking()) return;
-    const resolvedPrivacy = resolvePrivacySettings({}, privacy);
+    resolvedPrivacy = resolvePrivacySettings({}, privacy);
 
     const persisted = readPersistedReplayState();
     const now = Date.now();
@@ -522,7 +652,7 @@ export function createReplayRecorder({
       return;
     }
 
-    void growthbook.updateAttributes({
+    growthbook._updateAttributesWithoutRefresh({
       session_replay_id: nextSessionReplayId,
     });
 
@@ -555,10 +685,14 @@ export function createReplayRecorder({
     viewportWidth = window.innerWidth || 0;
     viewportHeight = window.innerHeight || 0;
 
-    hasUserInteraction = false;
+    hasUserInteraction = interacted || sawPreStartInteraction;
+    consumePreStartLatch();
     lastInteractionAt = Date.now();
     replayEvents = [];
     bufferedBytes = 0;
+    preInteractionBytes = 0;
+    pausePending = false;
+    const generation = ++recordingGeneration;
 
     const rrwebStop = record({
       emit(event: eventWithTime) {
@@ -579,8 +713,8 @@ export function createReplayRecorder({
           }
         }
 
-        // UTF-16 length, not exact bytes — close enough for cap decisions
-        const eventBytes = JSON.stringify(scrubbedEvent).length;
+        const serialized = serializeEvent(scrubbedEvent);
+        const eventBytes = serialized.json.length;
 
         // Flush before the event that would overflow the cap so chunks
         // never overshoot; pre-interaction flushes would no-op anyway
@@ -592,22 +726,31 @@ export function createReplayRecorder({
           void flushBuffer();
         }
 
-        if (replayEvents.length >= MAX_BUFFERED_EVENTS) {
+        if (hasUserInteraction) {
           // Flushes are failing: drop new events rather than the snapshot
-          if (hasUserInteraction) return;
-          // Nothing has shipped yet, so dropping mutations would desync the
-          // replay; restart the buffer from a fresh snapshot instead
-          replayEvents = [];
-          bufferedBytes = 0;
-          typeof record.takeFullSnapshot === "function" &&
-            record.takeFullSnapshot();
-          return;
+          if (replayEvents.length >= MAX_BUFFERED_EVENTS) return;
+        } else {
+          if (pausePending) return;
+          const countsTowardCap = event.type !== 2;
+          if (
+            replayEvents.length >= MAX_BUFFERED_EVENTS ||
+            (countsTowardCap &&
+              preInteractionBytes + eventBytes > MAX_PRE_INTERACTION_BYTES)
+          ) {
+            pausePending = true;
+            void Promise.resolve().then(() =>
+              pauseUntilInteraction(generation),
+            );
+            return;
+          }
+          if (countsTowardCap) preInteractionBytes += eventBytes;
         }
 
-        replayEvents.push(scrubbedEvent);
+        replayEvents.push(serialized);
         bufferedBytes += eventBytes;
       },
       recordCanvas: false,
+      slimDOMOptions: true,
       sampling: {
         mousemove: true,
         mouseInteraction: true,
@@ -632,6 +775,19 @@ export function createReplayRecorder({
     document.addEventListener("visibilitychange", onVisibilityChange);
   };
 
+  // Recovery is the same visit, so it keeps the sampling decision and
+  // interaction state; lifecycle rotations roll again.
+  const rotateSession = (kind: "lifecycle" | "recovery") => {
+    if (!isRecording) return;
+    const carryState = kind === "recovery";
+    const wasInteracted = carryState && hasUserInteraction;
+    stopRecording();
+    // cancel() only interrupts a back-off sleep, so a stop or destroy can land
+    // mid-request
+    if (cleanedUp || !autoRestart) return;
+    startRecording(true, carryState, wasInteracted);
+  };
+
   const checkAndRotate = () => {
     if (!isRecording) return;
     const now = Date.now();
@@ -642,9 +798,7 @@ export function createReplayRecorder({
       hasUserInteraction && now - lastInteractionAt > IDLE_TIMEOUT_MS;
     if (!tooLong && !idle) return;
 
-    stopRecording();
-    // forceNew prevents resuming the just-stopped session's sessionStartedAt
-    startRecording(true);
+    rotateSession("lifecycle");
   };
 
   const onVisibilityChange = () => {
@@ -674,6 +828,79 @@ export function createReplayRecorder({
       idleCheckInterval = null;
     }
     document.removeEventListener("visibilitychange", onVisibilityChange);
+  };
+
+  const armInteractionListeners = (handler: () => void): (() => void) => {
+    REARM_EVENTS.forEach((type) =>
+      document.addEventListener(type, handler, {
+        capture: true,
+        passive: true,
+      }),
+    );
+    return () =>
+      REARM_EVENTS.forEach((type) =>
+        document.removeEventListener(type, handler, true),
+      );
+  };
+
+  // Consumed by the first recording that actually starts; a later rotation
+  // must not inherit it
+  const consumePreStartLatch = () => {
+    sawPreStartInteraction = false;
+    if (disarmPreStartLatch) {
+      disarmPreStartLatch();
+      disarmPreStartLatch = null;
+    }
+  };
+
+  const cancelPendingStart = () => {
+    if (cancelScheduledStart) {
+      cancelScheduledStart();
+      cancelScheduledStart = null;
+    }
+    if (disarmInteractionRestart) {
+      disarmInteractionRestart();
+      disarmInteractionRestart = null;
+    }
+  };
+
+  // Starts in idle time, so the full snapshot never runs inside setPayload
+  // or during page load. A restart after an interaction skips the load wait.
+  const deferStart = (waitForLoad: boolean, interacted: boolean) => {
+    cancelPendingStart();
+    const run = () => {
+      cancelScheduledStart = null;
+      startRecording(false, false, interacted);
+    };
+    cancelScheduledStart = waitForLoad
+      ? runWhenIdleAfterLoad(run)
+      : runWhenIdle(run);
+  };
+
+  // Automatic starts (initial payload, remote re-enable) come through here
+  const scheduleStart = () => {
+    if (isRecording || cancelScheduledStart || disarmInteractionRestart) {
+      return;
+    }
+    if (startMode === "immediate") {
+      startRecording();
+    } else {
+      deferStart(true, false);
+    }
+  };
+
+  const pauseUntilInteraction = (generation: number) => {
+    if (generation !== recordingGeneration) return;
+    pausePending = false;
+    if (!isRecording || hasUserInteraction) return;
+    // The flush inside is a no-op: nothing ships before an interaction
+    stopRecording();
+    replayEvents = [];
+    bufferedBytes = 0;
+    preInteractionBytes = 0;
+    disarmInteractionRestart = armInteractionListeners(() =>
+      deferStart(false, true),
+    );
   };
 
   let cleanedUp = false;
@@ -711,6 +938,9 @@ export function createReplayRecorder({
     },
   );
 
+  // Buffered raw; redaction happens in flushBuffer, because this fires from
+  // the moment the plugin is applied and privacy isn't resolved until the
+  // recorder starts.
   const offEvent = growthbook._subscribeCustomEvents(
     (eventName, properties) => {
       if (sessionEvents.length >= MAX_BUFFERED_EVENTS) sessionEvents.shift();
@@ -719,29 +949,53 @@ export function createReplayRecorder({
   );
 
   const forceStart = () => {
+    if (cleanedUp || growthbook.isDestroyed()) return;
     autoRestart = true;
+    rejectedSnapshots = 0;
+    cancelPendingStart();
     startRecording(false, true);
   };
   const explicitStop = () => {
+    if (cleanedUp) return;
     autoRestart = false;
+    cancelPendingStart();
     stopRecording();
   };
-  growthbook._registerSessionReplay(forceStart, explicitStop);
+  const replayControls: SessionReplayApi = {
+    start: forceStart,
+    stop: explicitStop,
+  };
+  if (!registerSessionReplay(growthbook, replayControls)) {
+    offFeature();
+    offExperiment();
+    offEvent();
+    cleanedUp = true;
+    return () => {};
+  }
 
   // Remote settings apply mid-recording: the kill switch stops in-flight
   // recordings; re-enabling resumes unless something stopped it explicitly
   const offPayload = growthbook._subscribePayloadUpdates(() => {
     const settings = resolveSettings();
-    if (!settings.enabled && isRecording) {
-      stopRecording();
-    } else if (settings.enabled && autoRestart && !isRecording) {
-      startRecording();
+    if (!settings.enabled) {
+      cancelPendingStart();
+      if (isRecording) stopRecording();
+    } else if (autoRestart && !isRecording) {
+      scheduleStart();
     }
   });
 
+  // Covers both pre-start windows: waiting on the payload, and the load/idle
+  // deferral after it
+  if (autoRecord) {
+    disarmPreStartLatch = armInteractionListeners(() => {
+      sawPreStartInteraction = true;
+    });
+  }
+
   // Before the payload arrives the remote settings are unknown, and the
   // sampling roll would stick; the payload subscription above starts it
-  if (autoRecord && growthbook.ready) startRecording();
+  if (autoRecord && growthbook.ready) scheduleStart();
 
   const onPageHide = () => void flushBuffer();
   const onVisibilityHide = () => {
@@ -758,10 +1012,12 @@ export function createReplayRecorder({
     offExperiment();
     offEvent();
     offPayload();
+    cancelPendingStart();
+    consumePreStartLatch();
     stopRecording();
     window.removeEventListener("pagehide", onPageHide);
     document.removeEventListener("visibilitychange", onVisibilityHide);
-    growthbook._unregisterSessionReplay(forceStart, explicitStop);
+    unregisterSessionReplay(growthbook, replayControls);
   };
 
   growthbook.onDestroy(cleanup);

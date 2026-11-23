@@ -122,8 +122,6 @@ export class GrowthBook<
 
   private _autoExperimentsAllowed: boolean;
   private _destroyed?: boolean;
-  private _sessionReplayStart: (() => void) | undefined;
-  private _sessionReplayStop: (() => void) | undefined;
 
   // Bounded buffer for events logged before an eventLogger is registered
   private _pendingEvents: Array<{
@@ -618,6 +616,11 @@ export class GrowthBook<
   }
 
   // Internal — first-party plugin use only.
+  public _updateAttributesWithoutRefresh(attributes: Attributes) {
+    this._options.attributes = { ...this._options.attributes, ...attributes };
+  }
+
+  // Internal — first-party plugin use only.
   // Fires after every setPayload() so plugins can react to remote settings.
   public _subscribePayloadUpdates(cb: () => void): () => void {
     this._payloadUpdateSubs.add(cb);
@@ -663,38 +666,6 @@ export class GrowthBook<
     this._destroyCallbacks.push(cb);
   }
 
-  /** @internal — called by sessionReplayPlugin to register its handlers */
-  public _registerSessionReplay(start: () => void, stop: () => void) {
-    if (this._sessionReplayStart || this._sessionReplayStop) {
-      console.warn(
-        "[GrowthBook] sessionReplayPlugin registered more than once — " +
-          "only the latest handlers will be used. Check your plugins array for duplicates.",
-      );
-    }
-    this._sessionReplayStart = start;
-    this._sessionReplayStop = stop;
-  }
-
-  /** @internal — called by sessionReplayPlugin cleanup */
-  public _unregisterSessionReplay(start: () => void, stop: () => void) {
-    if (this._sessionReplayStart === start) {
-      this._sessionReplayStart = undefined;
-    }
-    if (this._sessionReplayStop === stop) {
-      this._sessionReplayStop = undefined;
-    }
-  }
-
-  public startSessionReplay() {
-    if (this._destroyed) return;
-    if (this._sessionReplayStart) this._sessionReplayStart();
-  }
-
-  public stopSessionReplay() {
-    if (this._destroyed) return;
-    if (this._sessionReplayStop) this._sessionReplayStop();
-  }
-
   public isDestroyed() {
     return !!this._destroyed;
   }
@@ -714,8 +685,6 @@ export class GrowthBook<
     });
 
     // Release references to save memory
-    this._sessionReplayStart = undefined;
-    this._sessionReplayStop = undefined;
     this._subscriptions.clear();
     this._featureUsageSubs.clear();
     this._customEventSubs.clear();

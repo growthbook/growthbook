@@ -2,6 +2,8 @@ import { sharePrivacySettings } from "../utils/privacy";
 import { isFullGrowthBook, type AnyGrowthBook } from "../utils/instance";
 import { createReplayRecorder, type SessionReplayOptions } from "./recorder";
 
+export { getSessionReplay } from "./controls";
+export type { SessionReplayApi } from "./controls";
 export type {
   SessionReplayPrivacySettings,
   MaskableInputType,
