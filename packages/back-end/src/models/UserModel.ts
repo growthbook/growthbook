@@ -13,6 +13,7 @@ import {
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { deletePasskeysByUserId } from "./PasskeyModel";
 
 const userSchema = new mongoose.Schema({
   id: {
@@ -154,6 +155,7 @@ export async function getUsersByIds(ids: string[]): Promise<UserInterface[]> {
 
 export async function deleteUser(id: string): Promise<void> {
   await UserModel.deleteOne({ id });
+  await deletePasskeysByUserId(id);
 }
 
 export async function createUser({
