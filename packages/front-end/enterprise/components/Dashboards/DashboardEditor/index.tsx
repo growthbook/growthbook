@@ -1,6 +1,5 @@
 import React, { useContext, useMemo, useState } from "react";
-import { PiPencilSimpleFill } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiDotsThreeVertical, PiPencilSimpleFill } from "react-icons/pi";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -315,7 +314,7 @@ function DashboardEditor({
                     // Its hover area stays within the title row.
                     style={{ marginTop: 0, marginBottom: 0 }}
                   >
-                    <BsThreeDotsVertical size={18} />
+                    <PiDotsThreeVertical size={18} />
                   </IconButton>
                 }
                 open={dropdownOpen}

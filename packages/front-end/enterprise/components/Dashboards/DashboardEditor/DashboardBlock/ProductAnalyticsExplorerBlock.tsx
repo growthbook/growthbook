@@ -347,7 +347,14 @@ function TileBody({
   // Explorer) rather than the raw fetched one.
   const comparisonExploration = comparisonPayload?.exploration ?? null;
 
-  if (!exploration) return <>{emptyState}</>;
+  if (!exploration) {
+    // A result that failed to load says why, not "Click Update"
+    return loadError ? (
+      <TilePrompt status="error">{loadError}</TilePrompt>
+    ) : (
+      <>{emptyState}</>
+    );
+  }
   if (exploration.status === "running") return <LoadingSpinner />;
   if (hasStaleDashboardDateResults) return <>{staleState}</>;
 
