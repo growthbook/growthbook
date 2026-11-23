@@ -143,6 +143,10 @@ export const CORS_ORIGIN_REGEX = corsOriginRegex
   ? new RegExp(corsOriginRegex, "i")
   : null;
 
+// Passkeys only work on this domain. Empty means the APP_ORIGIN hostname.
+export const WEBAUTHN_RP_ID = process.env.WEBAUTHN_RP_ID || "";
+export const WEBAUTHN_RP_NAME = process.env.WEBAUTHN_RP_NAME || "GrowthBook";
+
 export const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID || "";
 export const GOOGLE_OAUTH_CLIENT_SECRET =
   process.env.GOOGLE_OAUTH_CLIENT_SECRET || "";
