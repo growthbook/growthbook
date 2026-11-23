@@ -336,6 +336,7 @@ export const apiSchemaWarningValidator = namedSchema(
         "unsupported-member",
         "redundant-declaration",
         "undeclared-rule-field",
+        "inferred-field",
       ]),
       message: z.string(),
       path: z.string().optional(),
@@ -740,7 +741,7 @@ const apiConfigLineageNodeValidator = z
     orphanedFields: z
       .array(z.string())
       .describe(
-        "Own value keys the effective schema no longer declares (e.g. an ancestor removed the field). They still resolve and are served, but nothing validates them and validation rules read them as null; a non-extensible family rejects them on the next changing publish.",
+        "Own value keys the schema doesn't declare, for example because an ancestor removed the field. They're still served, but nothing checks them, and validation rules see them as null. When the base Config doesn't allow extra fields, publishing this Config fails until they're removed or added to a schema.",
       )
       .optional(),
   })

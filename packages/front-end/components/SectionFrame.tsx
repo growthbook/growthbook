@@ -11,6 +11,7 @@ import Text from "@/ui/Text";
 export default function SectionFrame({
   title,
   titleAddon,
+  description,
   actions,
   tabs,
   stickyTop,
@@ -23,6 +24,8 @@ export default function SectionFrame({
   title: ReactNode;
   // Beside the title, before the actions on the right.
   titleAddon?: ReactNode;
+  // One line under the title, in the header, so it stays with it when pinned.
+  description?: ReactNode;
   actions?: ReactNode;
   // Their underline meets the header's rule.
   tabs?: ReactNode;
@@ -71,7 +74,9 @@ export default function SectionFrame({
         <Flex
           align="center"
           justify="between"
-          gap="4"
+          wrap="wrap"
+          gapX="4"
+          gapY="2"
           px="5"
           // Over tabs, roomier on top and tighter below, where the tabs bring
           // their own height.
@@ -80,18 +85,32 @@ export default function SectionFrame({
         >
           {/* As tall as an action button, so headers match whatever they hold
               and don't grow when a late addon (a sparkline) arrives. */}
-          <Flex align="center" gap="4" minWidth="0" minHeight="32px">
+          <Flex align="center" gap="2" minWidth="0" minHeight="32px">
             <Heading as="h4" size="md" mb="0">
               {title}
             </Heading>
             {titleAddon}
           </Flex>
           {actions ? (
-            <Flex align="center" gap="3" flexShrink="0">
+            <Flex
+              align="center"
+              justify="end"
+              gap="3"
+              wrap="wrap"
+              minWidth="0"
+              ml="auto"
+            >
               {actions}
             </Flex>
           ) : null}
         </Flex>
+        {description ? (
+          <Box px="5" pb={tabs ? "1" : "3"}>
+            <Text as="p" color="text-low" mb="0">
+              {description}
+            </Text>
+          </Box>
+        ) : null}
         {tabs ? <Box px="5">{tabs}</Box> : null}
       </Box>
       <Box px="5" pt="4" pb={footnote ? "0" : "4"}>

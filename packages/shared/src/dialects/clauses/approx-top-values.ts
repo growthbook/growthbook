@@ -25,8 +25,8 @@ export function eligibleTopValueExpr(
  * Tracking capacity for the Space-Saving top-k family, sized well above `k` so
  * counts stay accurate for the low-cardinality columns this runs on. Maps to
  * Snowflake `counters`, Databricks `maxItemsTracked`, and Trino/Presto
- * `capacity`; BigQuery's APPROX_TOP_COUNT and ClickHouse's topK take no such
- * argument.
+ * `capacity`. BigQuery's APPROX_TOP_COUNT takes no such argument, and
+ * ClickHouse's topK keeps its default load_factor of 3.
  */
 export function approxTopKCapacity(limit: number): number {
   return Math.min(100000, Math.max(limit * 10, 1000));

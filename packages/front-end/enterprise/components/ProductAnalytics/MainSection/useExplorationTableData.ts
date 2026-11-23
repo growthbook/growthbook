@@ -30,6 +30,8 @@ import {
   formatDateByGranularity,
   formatDurationMs,
   getFunnelStepDisplayLabel,
+  buildExplorationTableColumnFormats,
+  type ExplorationTableColumnFormat,
   type ResolvedGranularity,
   type ExplorationColumn,
   type RenderOpts,
@@ -45,9 +47,10 @@ function showsCurrentPeriodOnly(
 }
 
 /**
- * Format a raw cell value (from the shared column schema) for display in the
- * result table. The shared schema returns unformatted primitives; this adds
- * the UI-only concerns (date localization, rounding, Total fallback).
+ * Turn a raw cell value (from the shared column schema) into the row value
+ * the table shows and the CSV exports: date buckets become labels, metrics
+ * stay unrounded numbers. Rounding and number display formatting are not
+ * done here; see `formatExplorationTableCell`.
  */
 function formatCellForTable(
   raw: string | number | null,
@@ -78,9 +81,7 @@ function formatCellForTable(
     return raw;
   }
   if (raw == null) return "";
-  if (col.kind === "populationCount") return raw;
-  if (col.sub === "numerator" || col.sub === "denominator") return raw;
-  return typeof raw === "number" ? raw.toFixed(2) : raw;
+  return raw;
 }
 
 /**
@@ -121,6 +122,11 @@ export interface ExplorationTableData {
    * `previous` / `current` (and trend key for current). Dimension keys are omitted.
    */
   compareColumnMetaByKey?: Record<string, ExplorationTableCompareColumnMeta>;
+  /**
+   * How each column's cells are displayed, keyed by column key. Labels
+   * (dimension values, formatted dates) are text; quantities are numbers.
+   */
+  columnFormats: Record<string, ExplorationTableColumnFormat>;
 }
 
 /** Per-step subcolumn metadata for funnel result tables. */
@@ -161,6 +167,7 @@ function buildFunnelTableData(
       headerStructure: null,
       explorationReturnedNoData: true,
       tableCompareActive: false,
+      columnFormats: {},
     };
   }
   const steps = submittedExploreState.dataset.steps;
@@ -262,6 +269,11 @@ function buildFunnelTableData(
       headerStructure: null,
       explorationReturnedNoData: !firstRow || stepResults.length === 0,
       tableCompareActive: compareActive,
+      columnFormats: buildExplorationTableColumnFormats(
+        rowData,
+        ["step", "fromPrev", "fromStart", "avgTime"],
+        [compareActive ? ["count__curr", "count__prev"] : ["count"]],
+      ),
       ...(compareActive ? { compareColumnMetaByKey } : {}),
     };
   }
@@ -281,6 +293,8 @@ function buildFunnelTableData(
   const columnLabels: string[] = [dimensionLabel];
   const row1: HeaderStructure["row1"] = [{ label: dimensionLabel, rowSpan: 2 }];
   const row2Labels: string[] = [];
+  const textKeys: string[] = ["__dim_0__"];
+  const numberKeyGroups: string[][] = [];
   const compareColumnMetaByKey: Record<
     string,
     ExplorationTableCompareColumnMeta
@@ -298,6 +312,7 @@ function buildFunnelTableData(
         const prevKey = `__step_${stepIdx}_count_prev__`;
         const trendKey = `__step_${stepIdx}_count_trend__`;
         orderedColumnKeys.push(currKey, prevKey);
+        numberKeyGroups.push([currKey, prevKey]);
         columnLabels.push(
           `${label} Count — Current`,
           `${label} Count — Previous`,
@@ -311,6 +326,8 @@ function buildFunnelTableData(
       } else {
         const key = `__step_${stepIdx}_${sub.key}__`;
         orderedColumnKeys.push(key);
+        if (sub.key === "count") numberKeyGroups.push([key]);
+        else textKeys.push(key);
         columnLabels.push(`${label} ${sub.label}`);
         row2Labels.push(sub.label);
       }
@@ -384,6 +401,11 @@ function buildFunnelTableData(
     headerStructure,
     explorationReturnedNoData: rowData.length === 0,
     tableCompareActive: compareActive,
+    columnFormats: buildExplorationTableColumnFormats(
+      rowData,
+      textKeys,
+      numberKeyGroups,
+    ),
     ...(compareActive ? { compareColumnMetaByKey } : {}),
   };
 }
@@ -434,6 +456,7 @@ export function buildJourneyTableData(
       headerStructure: null,
       explorationReturnedNoData: true,
       tableCompareActive: false,
+      columnFormats: {},
     };
   }
   const source =
@@ -479,6 +502,11 @@ export function buildJourneyTableData(
     headerStructure: null,
     explorationReturnedNoData: rows.length === 0,
     tableCompareActive: false,
+    columnFormats: buildExplorationTableColumnFormats(
+      rowData,
+      orderedColumnKeys.filter((key) => key !== "journeys"),
+      [["journeys"]],
+    ),
   };
 }
 
@@ -825,6 +853,29 @@ export default function useExplorationTableData(
     );
   }, [exploration?.result?.rows]);
 
+  const columnFormats = useMemo(() => {
+    const textKeys: string[] = [];
+    const numberKeyGroups: string[][] = [];
+    for (const col of columns) {
+      if (col.kind === "dimension") {
+        textKeys.push(col.key);
+      } else if (tableCompareActive && col.kind === "metric") {
+        // Current and previous share decimals so the pair reads consistently.
+        numberKeyGroups.push([`${col.key}__curr`, `${col.key}__prev`]);
+      } else {
+        numberKeyGroups.push([col.key]);
+      }
+    }
+    if (tableCompareActive && firstDimensionIsDate) {
+      textKeys.push(PREV_BUCKET_DATE_KEY);
+    }
+    return buildExplorationTableColumnFormats(
+      rowData,
+      textKeys,
+      numberKeyGroups,
+    );
+  }, [columns, rowData, tableCompareActive, firstDimensionIsDate]);
+
   if (funnelTableData) return funnelTableData;
   if (journeyTableData) return journeyTableData;
 
@@ -835,6 +886,7 @@ export default function useExplorationTableData(
     headerStructure,
     explorationReturnedNoData,
     tableCompareActive,
+    columnFormats,
     ...(tableCompareActive
       ? { csvColumnKeys, csvColumnLabels, compareColumnMetaByKey }
       : {}),
