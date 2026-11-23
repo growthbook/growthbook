@@ -91,3 +91,27 @@ export const renamePasskeyBodyValidator = z.strictObject({
   name: passkeyNameValidator,
 });
 export type RenamePasskeyBody = z.infer<typeof renamePasskeyBodyValidator>;
+
+export const passkeyAuthenticationResponseValidator = z.object({
+  id: z.string(),
+  rawId: z.string(),
+  response: z.object({
+    clientDataJSON: z.string(),
+    authenticatorData: z.string(),
+    signature: z.string(),
+    userHandle: z.string().optional(),
+  }),
+  authenticatorAttachment: z.enum(["cross-platform", "platform"]).optional(),
+  clientExtensionResults: clientExtensionResultsValidator,
+  type: z.literal("public-key"),
+});
+export type PasskeyAuthenticationResponse = z.infer<
+  typeof passkeyAuthenticationResponseValidator
+>;
+
+export const finishPasskeySignInBodyValidator = z.strictObject({
+  response: passkeyAuthenticationResponseValidator,
+});
+export type FinishPasskeySignInBody = z.infer<
+  typeof finishPasskeySignInBodyValidator
+>;
