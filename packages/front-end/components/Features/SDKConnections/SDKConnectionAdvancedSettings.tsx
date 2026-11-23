@@ -6,6 +6,8 @@ import {
 } from "shared/types/sdk-connection";
 import type { AppFeatures } from "shared/types/app-features";
 import { Box, Flex } from "@radix-ui/themes";
+import type { AutoExperimentFeature } from "shared/types/organization";
+import { useAutoExperimentGate } from "@/components/AutoExperiments/EnableAutoExperimentDialog";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -76,25 +78,63 @@ export function ExperimentSettings({
     languages,
     sdkVersion,
   );
+  const enableGate = useAutoExperimentGate();
+  // Turning one on needs the organization's opt-in; turning one off never does.
+  const setOptIn = (
+    feature: AutoExperimentFeature,
+    patch: Partial<SDKConnectionAdvancedValue>,
+  ) =>
+    Object.values(patch).some(Boolean)
+      ? enableGate.guard(feature, () => onChange(patch))
+      : onChange(patch);
   return (
     <>
+      {enableGate.dialog}
       {showVisualEditor && (
         <Checkbox
           weight="regular"
           disabled={disabled}
           value={value.includeVisualExperiments}
-          setValue={(v) => onChange({ includeVisualExperiments: v })}
+          setValue={(v) =>
+            setOptIn("visualEditor", { includeVisualExperiments: v })
+          }
           label={<VisualEditorLabel />}
         />
+      )}
+      {showVisualEditor && value.includeVisualExperiments && (
+        <Box pl="5">
+          <Checkbox
+            weight="regular"
+            disabled={disabled}
+            value={value.allowCustomJs}
+            setValue={(v) => setOptIn("customJs", { allowCustomJs: v })}
+            label={SETTING_TITLES.customJs}
+          />
+        </Box>
       )}
       {showRedirects && (
         <Checkbox
           weight="regular"
           disabled={disabled}
           value={value.includeRedirectExperiments}
-          setValue={(v) => onChange({ includeRedirectExperiments: v })}
+          setValue={(v) =>
+            setOptIn("urlRedirects", { includeRedirectExperiments: v })
+          }
           label={<UrlRedirectLabel />}
         />
+      )}
+      {showRedirects && value.includeRedirectExperiments && (
+        <Box pl="5">
+          <Checkbox
+            weight="regular"
+            disabled={disabled}
+            value={value.allowCrossOriginRedirects}
+            setValue={(v) =>
+              setOptIn("crossOriginRedirects", { allowCrossOriginRedirects: v })
+            }
+            label={SETTING_TITLES.crossOriginRedirects}
+          />
+        </Box>
       )}
       <Checkbox
         weight="regular"

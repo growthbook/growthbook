@@ -1,7 +1,12 @@
 import Handlebars from "handlebars";
 import escapeRegExp from "lodash/escapeRegExp";
 import trimEnd from "lodash/trimEnd";
-import { parseEnvInt, parseEnvIntMap, stringToBoolean } from "shared/util";
+import {
+  parseEnvInt,
+  parseEnvIntMap,
+  stringToBoolean,
+  type AutoExperimentsMode,
+} from "shared/util";
 import {
   GB_SDK_ID_DEV,
   GB_SDK_ID_PROD,
@@ -350,6 +355,16 @@ export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(
 export const ALLOW_CREATE_METRICS = stringToBoolean(
   process.env.ALLOW_CREATE_METRICS,
 );
+
+// Unset on self-hosted: organizations already using visual editor or URL
+// redirect experiments keep them, but nothing new can be turned on.
+const allowAutoExperiments = process.env.ALLOW_AUTO_EXPERIMENTS;
+export const AUTO_EXPERIMENTS_MODE: AutoExperimentsMode =
+  IS_CLOUD || stringToBoolean(allowAutoExperiments)
+    ? "allowed"
+    : allowAutoExperiments
+      ? "disabled"
+      : "existing-only";
 
 // If set to false AND using a config file, don't allow creating dimension via the UI
 export const ALLOW_CREATE_DIMENSIONS = stringToBoolean(

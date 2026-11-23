@@ -7,6 +7,7 @@ import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { Box, Flex } from "@radix-ui/themes";
+import { isCrossOriginRedirect } from "shared/util";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -19,6 +20,9 @@ import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import { StopSubmit } from "@/ui/Modal/StopSubmit";
+import useAutoExperiments from "@/hooks/useAutoExperiments";
+import EnableAutoExperimentDialog from "@/components/AutoExperiments/EnableAutoExperimentDialog";
 import { RedirectFields } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
 import { ShownVariation } from "@/components/Experiment/TabbedPage/ImplementationColumn";
 
@@ -96,7 +100,21 @@ const UrlRedirectModal: FC<{
         },
   );
 
+  const { isEnabled } = useAutoExperiments();
+  const [enableCrossOrigin, setEnableCrossOrigin] = useState(false);
   const onSubmit = validatedSubmit(form, async (value) => {
+    if (
+      !isEnabled("crossOriginRedirects") &&
+      isCrossOriginRedirect({
+        urlPattern: value.originUrl,
+        destinationURLs: value.destinationUrls.map((url) => ({
+          url: url ?? "",
+        })),
+      })
+    ) {
+      setEnableCrossOrigin(true);
+      throw new StopSubmit();
+    }
     await stage({
       urlPattern: value.originUrl,
       destinationURLs: [
@@ -332,6 +350,13 @@ const UrlRedirectModal: FC<{
           />
         </Flex>
       </Box>
+      {enableCrossOrigin ? (
+        <EnableAutoExperimentDialog
+          feature="crossOriginRedirects"
+          project={experiment.project}
+          close={() => setEnableCrossOrigin(false)}
+        />
+      ) : null}
     </ModalStandard>
   );
 };

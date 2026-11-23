@@ -62,6 +62,8 @@ export type SDKConnectionAdvancedValue = {
   // Experiments
   includeVisualExperiments: boolean;
   includeRedirectExperiments: boolean;
+  allowCustomJs: boolean;
+  allowCrossOriginRedirects: boolean;
   includeExperimentNames: boolean;
   // Saved Groups
   savedGroupFormat: SavedGroupFormat;
@@ -88,6 +90,11 @@ export function advancedValueFromConnection(
   return {
     includeVisualExperiments: !!c?.includeVisualExperiments,
     includeRedirectExperiments: !!c?.includeRedirectExperiments,
+    // A saved connection without these predates them and still serves both.
+    allowCustomJs: c?.id ? (c.allowCustomJs ?? true) : !!c?.allowCustomJs,
+    allowCrossOriginRedirects: c?.id
+      ? (c.allowCrossOriginRedirects ?? true)
+      : !!c?.allowCrossOriginRedirects,
     // A saved connection without it serves no names; a new one defaults on.
     includeExperimentNames: c?.id
       ? !!c.includeExperimentNames
@@ -151,6 +158,9 @@ export function sanitizeAdvancedForSave(
   return {
     includeVisualExperiments,
     includeRedirectExperiments,
+    allowCustomJs: includeVisualExperiments && v.allowCustomJs,
+    allowCrossOriginRedirects:
+      includeRedirectExperiments && v.allowCrossOriginRedirects,
     includeExperimentNames: v.includeExperimentNames,
     savedGroupFormat: sanitizeSavedGroupFormat(v.savedGroupFormat, {
       currentCapabilities,

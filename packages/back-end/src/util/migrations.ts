@@ -577,12 +577,7 @@ export function upgradeOrganizationDoc(
     org.settings.environments = org.settings.environments.map(withIsProduction);
   }
 
-  // Change old `implementationTypes` field to new `visualEditorEnabled` field
   if (org.settings.implementationTypes) {
-    if (!("visualEditorEnabled" in org.settings)) {
-      org.settings.visualEditorEnabled =
-        org.settings.implementationTypes.includes("visual");
-    }
     delete org.settings.implementationTypes;
   }
 

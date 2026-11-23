@@ -265,8 +265,16 @@ export type ApprovalFlowPolicy = Omit<
   "projects" | "requiredApproverTeams"
 >;
 
+export type AutoExperimentFeature =
+  | "visualEditor"
+  | "urlRedirects"
+  | "customJs"
+  | "crossOriginRedirects";
+
 export interface OrganizationSettings {
-  visualEditorEnabled?: boolean;
+  // Opt-ins for experiments that SDKs apply to pages on their own. A feature
+  // left unset is on: the organization predates the opt-in.
+  autoExperiments?: Partial<Record<AutoExperimentFeature, boolean>>;
   confidenceLevel?: number;
   northStar?: NorthStarMetric;
   namespaces?: Namespaces[];

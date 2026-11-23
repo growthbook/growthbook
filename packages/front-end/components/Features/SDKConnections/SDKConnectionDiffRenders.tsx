@@ -280,6 +280,11 @@ function renderSDKConnectionExperiments(
     [
       { key: "includeVisualExperiments", label: SETTING_TITLES.visualEditor },
       { key: "includeRedirectExperiments", label: SETTING_TITLES.urlRedirect },
+      { key: "allowCustomJs", label: SETTING_TITLES.customJs },
+      {
+        key: "allowCrossOriginRedirects",
+        label: SETTING_TITLES.crossOriginRedirects,
+      },
       {
         key: "includeExperimentNames",
         label: SETTING_TITLES.hideNames,

@@ -28,6 +28,8 @@ const base: Settings = {
   includeDraftExperimentRefs: false,
   includeExperimentNames: false,
   includeRedirectExperiments: false,
+  allowCustomJs: false,
+  allowCrossOriginRedirects: false,
   includeRuleIds: false,
   includeProjectIdInMetadata: false,
   includeCustomFieldsInMetadata: false,
@@ -75,8 +77,8 @@ function without(key: keyof Settings): Settings {
 }
 
 // Optional settings whose absence isn't read as a value: the format follows the
-// legacy boolean, an unset version or host stays unset, and archiving is never
-// restored by a revert.
+// legacy boolean, an unset version or host stays unset, archiving is never
+// restored by a revert, and a revert keeps the two auto experiment opt-ins.
 const ABSENT_KEPT_AS_UNSET = new Set<string>([
   "eventTracker",
   "sdkVersion",
@@ -84,6 +86,8 @@ const ABSENT_KEPT_AS_UNSET = new Set<string>([
   "savedGroupFormat",
   "proxyHost",
   "archived",
+  "allowCustomJs",
+  "allowCrossOriginRedirects",
 ]);
 
 describe("SDK connection review diff", () => {

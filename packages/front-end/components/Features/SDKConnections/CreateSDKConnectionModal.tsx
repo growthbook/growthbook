@@ -85,19 +85,6 @@ export default function CreateSDKConnectionModal({
     getConnectionLanguageFilter(initialValue?.languages ?? []),
   );
 
-  const { latestCaps } = connectionCapabilities(value);
-  const showVisualEditorSettings = latestCaps.includes("visualEditor");
-  const showRedirectSettings = latestCaps.includes("redirects");
-
-  useEffect(() => {
-    setValue((v) => ({
-      ...v,
-      includeVisualExperiments: showVisualEditorSettings,
-      includeRedirectExperiments: showRedirectSettings,
-      includeDraftExperiments: showVisualEditorSettings,
-    }));
-  }, [showVisualEditorSettings, showRedirectSettings]);
-
   useEffect(() => {
     if (savedGroupFormatChosen.current) return;
     const savedGroupFormat = defaultSavedGroupFormat({

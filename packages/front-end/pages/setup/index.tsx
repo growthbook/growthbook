@@ -178,14 +178,9 @@ export default function SetupFlow() {
             }
 
             // Create a new SDK connection within the new project for the selected environment
-            // Default to enabling encryption, Visual Editor, and URL Redirects if the org has the feature and the SDK supports it
+            // Default to enabling encryption if the org has the feature and the SDK supports it
 
             const sdkCapabilities = getSDKCapabilities(value.languages[0]);
-
-            const canUseVisualEditor =
-              sdkCapabilities.includes("visualEditorJS");
-
-            const canUseUrlRedirects = sdkCapabilities.includes("redirects");
 
             const canUseSecureConnection =
               hasCommercialFeature("hash-secure-attributes") &&
@@ -202,9 +197,9 @@ export default function SetupFlow() {
               encryptPayload: canUseSecureConnection,
               hashSecureAttributes: canUseSecureConnection,
               includeExperimentNames: !canUseSecureConnection,
-              includeDraftExperiments: true,
-              includeVisualExperiments: canUseVisualEditor,
-              includeRedirectExperiments: canUseUrlRedirects,
+              includeDraftExperiments: false,
+              includeVisualExperiments: false,
+              includeRedirectExperiments: false,
               includeRuleIds: true,
               includeProjectIdInMetadata: false,
               includeCustomFieldsInMetadata: false,

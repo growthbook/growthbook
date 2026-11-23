@@ -25,6 +25,8 @@ export const DELIVERY_LABELS = {
 export const SETTING_TITLES = {
   visualEditor: "Enable Visual Editor experiments",
   urlRedirect: "Enable URL Redirect experiments",
+  customJs: "Allow custom JavaScript",
+  crossOriginRedirects: "Allow redirects to a different origin",
   hideNames: "Hide names from payload",
   savedGroupReferences: "Pass Saved Groups by reference",
   passByReference: "Pass by reference",
