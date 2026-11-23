@@ -23,7 +23,7 @@ const getLabels = (unit: string | null): Record<LabelKey, string> => ({
 // How each option calculates its value. "Per unit" and "Per Population member"
 // differ only in who counts, which their labels don't say.
 const getDescriptions = (unit: string | null): Record<LabelKey, string> => ({
-  total: "Number of units that converted",
+  total: `Count of every ${unit ?? "unit"} that converted`,
   // Each unit's value is aggregated first (e.g. its max), then summed.
   event_totals: `Sum of every ${unit ?? "unit"}'s value`,
   per_unit: `Average per ${unit ?? "unit"} with at least one event`,
