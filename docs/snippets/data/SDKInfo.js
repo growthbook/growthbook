@@ -445,7 +445,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "4.0.1",
+    version: "4.1.0",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -460,6 +460,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v4.1.0",
       },
       {
         savedGroupReferencesV2: "≥ v3.2.0",
@@ -635,7 +638,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.12.0",
+    version: "0.13.0",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
