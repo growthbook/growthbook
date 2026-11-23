@@ -3,6 +3,7 @@ import {
   hasCustomJs,
   isAutoExperimentFeatureEnabled,
   isCrossOriginRedirect,
+  redirectKeepsStoredUrls,
 } from "../src/util/auto-experiments";
 
 describe("isAutoExperimentFeatureEnabled", () => {
@@ -154,6 +155,14 @@ describe("isCrossOriginRedirect", () => {
     ).toBe(true);
   });
 
+  it("flags a destination that isn't https, even on the same host", () => {
+    expect(
+      isCrossOriginRedirect(
+        redirect("http://www.example.com/a", "http://www.example.com/b"),
+      ),
+    ).toBe(true);
+  });
+
   it("flags a URL it can't read", () => {
     expect(
       isCrossOriginRedirect(redirect("https://www.example.com/a", "/b")),
@@ -167,5 +176,57 @@ describe("isCrossOriginRedirect", () => {
 
   it("ignores variations with no destination", () => {
     expect(isCrossOriginRedirect(redirect("not a url", "", ""))).toBe(false);
+  });
+});
+
+describe("redirectKeepsStoredUrls", () => {
+  const stored = {
+    urlPattern: "https://www.example.com/a",
+    destinationURLs: [
+      { variation: "v0", url: "" },
+      { variation: "v1", url: "https://evil.test/" },
+    ],
+  };
+
+  it("holds when variations are added empty, removed or reordered", () => {
+    expect(
+      redirectKeepsStoredUrls(
+        {
+          ...stored,
+          destinationURLs: [...stored.destinationURLs].reverse().concat({
+            variation: "v2",
+            url: "",
+          }),
+        },
+        stored,
+      ),
+    ).toBe(true);
+    expect(
+      redirectKeepsStoredUrls(
+        { ...stored, destinationURLs: [{ variation: "v0", url: "" }] },
+        stored,
+      ),
+    ).toBe(true);
+  });
+
+  it("fails when a destination is new, changed, or moved to another variation", () => {
+    for (const destinationURLs of [
+      [{ variation: "v2", url: "https://evil.test/" }],
+      [{ variation: "v1", url: "https://evil.test/other" }],
+      [{ variation: "v0", url: "https://evil.test/" }],
+    ]) {
+      expect(
+        redirectKeepsStoredUrls({ ...stored, destinationURLs }, stored),
+      ).toBe(false);
+    }
+  });
+
+  it("fails when the origin URL changes", () => {
+    expect(
+      redirectKeepsStoredUrls(
+        { ...stored, urlPattern: "https://www.example.com/other" },
+        stored,
+      ),
+    ).toBe(false);
   });
 });

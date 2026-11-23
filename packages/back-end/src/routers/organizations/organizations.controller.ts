@@ -3,9 +3,7 @@ import { cloneDeep, isEqual } from "lodash";
 import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
-  AUTO_EXPERIMENT_FEATURES,
   assertTargetingRulesDisjoint,
-  getAutoExperimentParentFeature,
   getNamespaceRanges,
   getRulesForEnvironment,
   normalizeApprovalRuleSettings,
@@ -102,7 +100,6 @@ import {
 import {
   ALLOW_SELF_ORG_CREATION,
   APP_ORIGIN,
-  AUTO_EXPERIMENTS_MODE,
   IS_CLOUD,
   IS_MULTI_ORG,
   PROHIBITED_ORGANIZATION_NAME_REGEX,
@@ -163,8 +160,10 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
-import { getAutoExperimentAccess } from "back-end/src/services/autoExperiments";
-import type { ReqContext } from "back-end/types/request";
+import {
+  getAutoExperimentAccess,
+  getAutoExperimentSettingsUpdate,
+} from "back-end/src/services/autoExperiments";
 import { getAuditHistory } from "back-end/src/models/AuditModel";
 import {
   canReadApiKeyHistory,
@@ -1630,38 +1629,6 @@ export async function signup(
       message: e.message || "An error occurred",
     });
   }
-}
-
-// Merged over what is stored, so a caller can send one feature at a time.
-function getAutoExperimentSettingsUpdate(
-  context: ReqContext,
-  input: unknown,
-): NonNullable<OrganizationSettings["autoExperiments"]> {
-  if (context.isApiRequest || !context.permissions.canManageOrgSettings()) {
-    context.permissions.throwPermissionError();
-  }
-  const requested = z
-    .object(
-      Object.fromEntries(
-        AUTO_EXPERIMENT_FEATURES.map((f) => [f, z.boolean().optional()]),
-      ),
-    )
-    .strict()
-    .parse(input);
-  const next = { ...context.org.settings?.autoExperiments, ...requested };
-  for (const feature of AUTO_EXPERIMENT_FEATURES) {
-    const parent = getAutoExperimentParentFeature(feature);
-    if (parent && next[parent] === false) next[feature] = false;
-    const turnsOn =
-      next[feature] === true &&
-      context.org.settings?.autoExperiments?.[feature] === false;
-    if (turnsOn && AUTO_EXPERIMENTS_MODE !== "allowed") {
-      context.throwBadRequestError(
-        "This GrowthBook instance does not allow enabling visual editor or URL redirect experiments. Set the ALLOW_AUTO_EXPERIMENTS environment variable to true to allow it.",
-      );
-    }
-  }
-  return next;
 }
 
 export async function putOrganization(

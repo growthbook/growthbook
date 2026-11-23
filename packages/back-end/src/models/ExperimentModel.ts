@@ -1079,7 +1079,7 @@ export async function setExperimentNotificationState({
 }
 
 // The payload would drop the experiment, so starting it would reach no one.
-async function assertAutoExperimentsCanStart(
+export async function assertAutoExperimentsCanStart(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ): Promise<void> {

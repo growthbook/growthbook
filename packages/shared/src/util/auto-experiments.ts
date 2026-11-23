@@ -90,6 +90,9 @@ function parseOrigin(url: string): { protocol: string; host: string } | null {
 
 // Matches the SDK's own check: a different protocol or host is cross-origin.
 // A URL that can't be read can't be shown to be same-origin, so it counts too.
+// So does any destination that isn't https: SDKs match the page's URL without
+// its protocol, so an http-to-http redirect also runs on the https page and
+// would take a visitor off it.
 export function isCrossOriginRedirect(redirect: {
   urlPattern: string;
   destinationURLs: { url: string }[];
@@ -100,7 +103,35 @@ export function isCrossOriginRedirect(redirect: {
     if (!url) return false;
     const to = parseOrigin(url);
     return (
-      !from || !to || to.protocol !== from.protocol || to.host !== from.host
+      !from ||
+      !to ||
+      to.protocol !== "https:" ||
+      to.protocol !== from.protocol ||
+      to.host !== from.host
     );
   });
+}
+
+type RedirectUrls = {
+  urlPattern: string;
+  destinationURLs: { variation: string; url: string }[];
+};
+
+// True when `next` sends no variation anywhere `stored` didn't already. Adding
+// a variation with no destination, or removing or reordering variations, keeps
+// it true, so the list can follow the experiment's variations.
+export function redirectKeepsStoredUrls(
+  next: RedirectUrls,
+  stored: RedirectUrls,
+): boolean {
+  return (
+    next.urlPattern === stored.urlPattern &&
+    next.destinationURLs.every(
+      (d) =>
+        !d.url ||
+        stored.destinationURLs.some(
+          (s) => s.variation === d.variation && s.url === d.url,
+        ),
+    )
+  );
 }

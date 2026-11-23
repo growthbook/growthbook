@@ -31,6 +31,7 @@ import {
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
+  assertAutoExperimentsCanStart: jest.fn(),
   getExperimentById: jest.fn(),
   updateExperiment: jest.fn(),
 }));

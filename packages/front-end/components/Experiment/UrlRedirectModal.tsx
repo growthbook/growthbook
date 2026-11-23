@@ -7,7 +7,7 @@ import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { Box, Flex } from "@radix-ui/themes";
-import { isCrossOriginRedirect } from "shared/util";
+import { isCrossOriginRedirect, redirectKeepsStoredUrls } from "shared/util";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -103,14 +103,18 @@ const UrlRedirectModal: FC<{
   const { isEnabled } = useAutoExperiments();
   const [enableCrossOrigin, setEnableCrossOrigin] = useState(false);
   const onSubmit = validatedSubmit(form, async (value) => {
+    const urls = {
+      urlPattern: value.originUrl,
+      destinationURLs: variations.map((v, i) => ({
+        variation: v.id,
+        url: value.destinationUrls[i] ?? "",
+      })),
+    };
+    // As the server does, URLs that were already saved need no opt-in.
     if (
       !isEnabled("crossOriginRedirects") &&
-      isCrossOriginRedirect({
-        urlPattern: value.originUrl,
-        destinationURLs: value.destinationUrls.map((url) => ({
-          url: url ?? "",
-        })),
-      })
+      isCrossOriginRedirect(urls) &&
+      !(urlRedirect && redirectKeepsStoredUrls(urls, urlRedirect))
     ) {
       setEnableCrossOrigin(true);
       throw new StopSubmit();
