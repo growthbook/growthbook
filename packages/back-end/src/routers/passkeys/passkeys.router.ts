@@ -3,17 +3,20 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import {
   finishPasskeyRegistrationBodyValidator,
+  finishPasskeySignInBodyValidator,
   renamePasskeyBodyValidator,
   startPasskeyRegistrationBodyValidator,
 } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import * as authControllerRaw from "back-end/src/controllers/auth";
 import * as passkeysControllerRaw from "./passkeys.controller";
 
 const router = express.Router();
 
 const passkeysController = wrapController(passkeysControllerRaw);
+const authController = wrapController(authControllerRaw);
 
 // Starting registration checks the password, so limit guesses. Per replica:
 // the default MemoryStore isn't shared.
@@ -54,4 +57,28 @@ router.delete(
   passkeysController.deletePasskeyById,
 );
 
-export { router as passkeysRouter };
+// Sign-in runs before login, so this router is mounted without auth
+const signInRouter = express.Router();
+
+// Each options request stores a challenge, so cap anonymous callers per IP
+const signInRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many sign-in attempts, please try again later" },
+});
+
+signInRouter.post(
+  "/options",
+  signInRateLimit,
+  authController.postPasskeySignInOptions,
+);
+signInRouter.post(
+  "/verify",
+  signInRateLimit,
+  validateRequestMiddleware({ body: finishPasskeySignInBodyValidator }),
+  authController.postPasskeySignInVerify,
+);
+
+export { router as passkeysRouter, signInRouter as passkeySignInRouter };

@@ -122,7 +122,10 @@ import {
   SQLExecutionError,
 } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
-import { passkeysRouter } from "./routers/passkeys/passkeys.router";
+import {
+  passkeySignInRouter,
+  passkeysRouter,
+} from "./routers/passkeys/passkeys.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
 import { eventsRouter } from "./routers/events/events.router";
@@ -531,6 +534,7 @@ if (!useSSO) {
   app.post("/auth/forgot", authController.postForgotPassword);
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
+  app.use("/auth/passkey", passkeySignInRouter);
 }
 // Pre-auth requests when using SSO
 else {
