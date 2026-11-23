@@ -20,7 +20,7 @@ import { QUERY_CANCELLED_BY_USER_ERROR } from "back-end/src/queryRunners/QueryRu
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { cancelExternalJobsForQueries } from "back-end/src/services/queryCancellation";
 import { BadRequestError } from "back-end/src/util/errors";
-import { logger } from "back-end/src/util/logger";
+import { releaseSnapshotLock } from "back-end/src/models/IncrementalRefreshModel";
 import { ReqContext } from "back-end/types/request";
 
 export const SNAPSHOT_CANCELLED_ERROR = "Update cancelled by user";
@@ -201,11 +201,7 @@ export async function cancelExperimentSnapshot(
     }
   }
 
-  await context.models.incrementalRefresh
-    .releaseLock(snapshot.experiment, snapshot.id)
-    .catch((e) =>
-      logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
-    );
+  await releaseSnapshotLock(context, snapshot, "on snapshot cancel");
 
   const afterStatusById = new Map(after.map((doc) => [doc.id, doc.status]));
   const cancelledQueryIds = pendingIds.filter(

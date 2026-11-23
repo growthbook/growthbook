@@ -1,5 +1,6 @@
 import uniqid from "uniqid";
 import { UpdateProps } from "shared/types/base-model";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   ExploratoryAnalysisRequest,
   exploratoryAnalysisRequestValidator,
@@ -8,6 +9,7 @@ import {
 } from "shared/validators";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { logger } from "back-end/src/util/logger";
+import type { ReqContext } from "back-end/types/request";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "incrementalrefresh";
@@ -447,4 +449,22 @@ export class IncrementalRefreshModel extends BaseClass {
   protected canDelete(_existing: IncrementalRefreshInterface) {
     return true;
   }
+}
+
+// Never throws, so a failed release cannot block the caller's terminal write.
+// Safe whether or not the snapshot still holds a lock: releaseLock only
+// matches this snapshot's writer or reader entry.
+export async function releaseSnapshotLock(
+  context: ReqContext,
+  snapshot: Pick<ExperimentSnapshotInterface, "experiment" | "id">,
+  reason: string,
+): Promise<void> {
+  await context.models.incrementalRefresh
+    .releaseLock(snapshot.experiment, snapshot.id)
+    .catch((e) =>
+      context.logger.warn(
+        e,
+        `Failed to release incremental refresh lock ${reason}`,
+      ),
+    );
 }

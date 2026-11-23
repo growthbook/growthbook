@@ -51,6 +51,7 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
+import { releaseSnapshotLock } from "back-end/src/models/IncrementalRefreshModel";
 import {
   analyzeExperimentClusterHealth,
   analyzeExperimentResults,
@@ -1607,21 +1608,13 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   }
 
   /**
-   * Release the incremental refresh lock, then persist the error only while
-   * still running. Releasing first matches updateModel; a writer that already
-   * concluded the snapshot would have released it anyway.
+   * Persist the error only while still running. The lock is released first,
+   * since a client may retrigger as soon as it reads the error.
    */
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
-    await this.context.models.incrementalRefresh
-      .releaseLock(this.model.experiment, this.model.id)
-      .catch((e) =>
-        this.context.logger.warn(
-          e,
-          "Failed to release incremental refresh lock on shutdown error",
-        ),
-      );
+    await releaseSnapshotLock(this.context, this.model, "on shutdown error");
     // Reached from the runner's own failure paths, where neither the queries
     // nor the analysis is known to be at fault.
     await errorSnapshotIfStillRunning(
@@ -1664,10 +1657,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       status: snapshotStatus,
     };
 
-    // Release before the terminal status write: a client that sees the
-    // snapshot finish may start the next update at once, and nothing below
-    // touches the pipeline tables. The record is fenced on the lock, so it
-    // goes first.
+    // Release before the terminal status write: a client may retrigger as
+    // soon as it reads it. The materialized record only matches while this
+    // snapshot holds the lock, so it must be written before the release.
     // TODO: Properly handle partially-succeeded status that also becomes terminal??
     if (snapshotStatus !== "running") {
       if (snapshotStatus === "success") {
@@ -1685,14 +1677,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           );
       }
 
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on terminal status",
-          ),
-        );
+      await releaseSnapshotLock(this.context, this.model, "on terminal status");
     }
 
     await updateSnapshot({
