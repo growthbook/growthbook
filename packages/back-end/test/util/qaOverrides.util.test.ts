@@ -12,9 +12,13 @@ import {
   excludeQaMatches,
   planQaOverrides,
   planQaOverridesByExperiment,
+  targetingOf,
 } from "../../src/util/qaOverrides";
 import {
+  applyExperimentHashing,
+  applyFeatureHashing,
   generateAutoExperimentsPayload,
+  getUsedSavedGroupIds,
   qaOverridesForConnection,
 } from "../../src/services/features";
 
@@ -515,6 +519,80 @@ describe("getFeatureDefinition with QA overrides", () => {
     ).toBeNull();
   });
 
+  describe("metadata", () => {
+    const exp = withPhase({
+      coverage: 0.5,
+      namespace: { enabled: true, name: "ns", range: [0, 0.5] },
+      prerequisites: [{ id: "parent", condition: '{"value":true}' }],
+    });
+
+    it("describes the override and the experiment's own configuration, whatever the metadata options", () => {
+      const def = build(
+        [withFilters(forcedOverride, { condition: '{"id":"tester"}' })],
+        { exp },
+      );
+      expect(def?.rules?.[0]).toMatchObject({
+        key: "checkout::qa",
+        condition: { id: "tester" },
+        coverage: 1,
+        weights: [0, 1],
+      });
+      expect(def?.rules?.[0]?.metadata).toEqual({
+        qaOverride: {
+          id: "eqo_1",
+          type: "forced",
+          key: "checkout",
+          status: "draft",
+          weights: [0.5, 0.5],
+          coverage: 0.5,
+          condition: { country: "US" },
+          parentConditions: [{ id: "parent", condition: { value: true } }],
+          namespace: ["ns", 0, 0.5],
+        },
+      });
+    });
+
+    it("is added to the experiment's other metadata", () => {
+      const def = build([forcedOverride], {
+        exp: { ...exp, tags: ["checkout-team"] },
+        metadataOptions: { includeTagsInMetadata: true },
+      });
+      expect(def?.rules?.[0]?.metadata).toMatchObject({
+        tags: ["checkout-team"],
+        qaOverride: { id: "eqo_1" },
+      });
+    });
+
+    it("gives each copy its own conditions", () => {
+      const def = build([randomOverride], { exp });
+      const rule = def?.rules?.[0];
+      expect(rule?.metadata?.qaOverride?.condition).toEqual(rule?.condition);
+      expect(rule?.metadata?.qaOverride?.condition).not.toBe(rule?.condition);
+    });
+
+    it("is not sent to SDKs that reject unknown rule fields", () => {
+      const def = build([forcedOverride], { capabilities: ["prerequisites"] });
+      expect(def?.rules).toHaveLength(1);
+      expect(def?.rules?.[0]?.metadata).toBeUndefined();
+    });
+
+    it("has its Saved Groups resolved with the rule's own", () => {
+      const finalizeCondition = jest.fn();
+      const def = build(
+        [withFilters(forcedOverride, { condition: '{"id":"tester"}' })],
+        {
+          exp,
+          savedGroupStrategy: { ...savedGroupStrategy, finalizeCondition },
+        },
+      );
+      const rule = def?.rules?.[0];
+      const finalized = finalizeCondition.mock.calls.map(([c]) => c);
+      expect(finalized).toContain(rule?.condition);
+      expect(finalized).toContain(rule?.metadata?.qaOverride?.condition);
+      expect(finalized).toContain(rule?.metadata?.qaOverride?.parentConditions);
+    });
+  });
+
   describe("holdout", () => {
     const holdoutFeature = {
       ...feature,
@@ -795,6 +873,27 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
     expect(payload[0].parentConditions).toBeUndefined();
   });
 
+  it("keeps the experiment's own configuration and change id in metadata on every copy", () => {
+    const [original] = build([]);
+    const payload = build([
+      withFilters(forcedOverride, { condition: '{"id":"tester"}' }),
+      randomOverride,
+    ]);
+    expect(payload.map((e) => e.metadata?.qaOverride)).toEqual(
+      ["eqo_1", "eqo_2"].map((id, i) => ({
+        id,
+        type: i === 0 ? "forced" : "random",
+        key: "checkout",
+        status: "draft",
+        weights: [0.5, 0.5],
+        coverage: 0.5,
+        condition: { country: "US" },
+        changeId: original.changeId,
+      })),
+    );
+    expect(payload.map((e) => e.changeId)).not.toContain(original.changeId);
+  });
+
   it("serves each override to the same testers as the flag rule does", () => {
     const overrides = [
       withFilters(forcedOverride, { condition: '{"id":"tester"}' }),
@@ -850,5 +949,75 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
     }) => ({ key, seed, condition, weights, coverage });
     expect(auto).toHaveLength(3);
     expect(auto.map(served)).toEqual(flag?.rules?.map(served));
+  });
+});
+
+describe("the experiment's targeting kept in QA override metadata", () => {
+  const rule = () => ({
+    condition: { email: "tester@x.com" },
+    metadata: {
+      qaOverride: {
+        id: "eqo_1",
+        type: "forced" as const,
+        key: "checkout",
+        status: "draft" as const,
+        condition: { id: "123", vip: { id: { $inGroup: "grp_qa" } } },
+        parentConditions: [{ id: "parent", condition: { value: true } }],
+      },
+    },
+  });
+  const secureId = [
+    { property: "id", datatype: "secureString" as const },
+    { property: "email", datatype: "secureString" as const },
+  ];
+
+  it("is listed alongside the rule's own", () => {
+    const r = rule();
+    expect(targetingOf(r)).toEqual([r, r.metadata.qaOverride]);
+    expect(targetingOf({ condition: { id: "1" } })).toHaveLength(1);
+  });
+
+  it("has secure attribute values hashed on Feature Flag rules, and prerequisite ids left alone", () => {
+    const { feature } = applyFeatureHashing(
+      { feature: { defaultValue: false, rules: [rule()] } },
+      secureId,
+      "salt",
+    );
+    const hashed = feature.rules?.[0];
+    expect(hashed?.condition?.email).not.toBe("tester@x.com");
+    expect(hashed?.metadata?.qaOverride?.condition?.id).not.toBe("123");
+    expect(hashed?.metadata?.qaOverride?.parentConditions).toEqual([
+      { id: "parent", condition: { value: true } },
+    ]);
+  });
+
+  it("has secure attribute values hashed on auto experiments", () => {
+    const [hashed] = applyExperimentHashing(
+      [rule() as unknown as Parameters<typeof applyExperimentHashing>[0][0]],
+      secureId,
+      "salt",
+    );
+    expect(targetingOf(hashed)[1].condition?.id).not.toBe("123");
+    expect(targetingOf(hashed)[1].parentConditions).toEqual([
+      { id: "parent", condition: { value: true } },
+    ]);
+  });
+
+  it("keeps a Saved Group in the payload when only the experiment's targeting uses it", () => {
+    const groupMap = savedGroupStrategy.groupMap;
+    expect(
+      getUsedSavedGroupIds(
+        { feature: { defaultValue: false, rules: [rule()] } },
+        [],
+        groupMap,
+      ),
+    ).toEqual(new Set(["grp_qa"]));
+    expect(
+      getUsedSavedGroupIds(
+        {},
+        [rule() as unknown as Parameters<typeof getUsedSavedGroupIds>[1][0]],
+        groupMap,
+      ),
+    ).toEqual(new Set(["grp_qa"]));
   });
 });

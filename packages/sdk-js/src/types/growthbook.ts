@@ -100,6 +100,27 @@ export type PayloadMetadata = {
   allProjects?: boolean;
   tags?: string[];
   customFields?: Record<string, unknown>;
+  qaOverride?: QaOverrideMetadata;
+};
+
+/**
+ * On a rule or auto experiment that serves a QA override in place of a draft
+ * experiment. `id` and `type` describe the override. The rest is the
+ * experiment's own configuration, which the override may have replaced.
+ */
+export type QaOverrideMetadata = {
+  id: string;
+  type: "forced" | "random";
+  key: string;
+  status: "draft" | "running" | "stopped";
+  weights?: number[];
+  coverage?: number;
+  condition?: ConditionInterface;
+  parentConditions?: ParentConditionInterface[];
+  namespace?: [string, number, number];
+  filters?: Filter[];
+  disableStickyBucketing?: boolean;
+  changeId?: string;
 };
 
 export type FeatureResultSource =

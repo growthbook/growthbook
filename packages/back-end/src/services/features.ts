@@ -98,6 +98,7 @@ import {
   FeatureDefinition,
   FeatureMetadata,
   InterleavingDefinitions,
+  QaOverrideMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
@@ -223,6 +224,8 @@ import {
   QaServing,
   applyQaServing,
   planQaOverridesByExperiment,
+  qaOverrideMetadata,
+  targetingOf,
 } from "back-end/src/util/qaOverrides";
 import { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
@@ -592,6 +595,12 @@ export type URLRedirectExperiment = {
   urlRedirect: URLRedirectInterface;
 };
 
+// An auto experiment split into one entry per QA override. `experiment` carries
+// the phase that override serves, `configuredPhase` the experiment's own.
+type QaExpanded<T> = T & {
+  qa?: { serving: QaServing; configuredPhase: ExperimentPhase };
+};
+
 export function generateAutoExperimentsPayload({
   visualExperiments,
   urlRedirectExperiments,
@@ -651,15 +660,19 @@ export function generateAutoExperimentsPayload({
   // reduction below sees the phase that is actually served.
   const withQaServings = <T extends VisualExperiment | URLRedirectExperiment>(
     experiments: T[],
-  ): (T & { qa?: QaServing })[] =>
+  ): QaExpanded<T>[] =>
     experiments.flatMap((data) => {
       const { experiment: e } = data;
       const servings = e.status === "draft" ? qaPlans?.get(e.id) : undefined;
-      if (!servings?.length) return [data];
-      return servings.map((qa) => ({
+      const configuredPhase = e.phases[e.phases.length - 1];
+      if (!servings?.length || !configuredPhase) return [data];
+      return servings.map((serving) => ({
         ...data,
-        experiment: { ...e, phases: [...e.phases.slice(0, -1), qa.phase] },
-        qa,
+        experiment: {
+          ...e,
+          phases: [...e.phases.slice(0, -1), serving.phase],
+        },
+        qa: { serving, configuredPhase },
       }));
     });
 
@@ -684,12 +697,12 @@ export function generateAutoExperimentsPayload({
     ...newVisualExperiments,
   ];
 
-  const buildAutoExperiment = (
-    data: (VisualExperiment | URLRedirectExperiment) & { qa?: QaServing },
-    phase: ExperimentPhase | null,
-  ): AutoExperimentWithMetadata | null => {
+  // Everything the auto experiment takes from a phase.
+  const autoExperimentForPhase = (
+    data: VisualExperiment | URLRedirectExperiment,
+    phase: ExperimentPhase,
+  ): AutoExperimentWithMetadata => {
     const { experiment: e } = data;
-    if (e.status === "stopped" && e.excludeFromPayload) return null;
 
     const variations = getLatestPhaseVariations(e);
 
@@ -701,12 +714,12 @@ export function generateAutoExperimentsPayload({
 
     const condition = mergeConditionAndSavedGroups({
       savedGroupStrategy,
-      condition: phase?.condition,
-      savedGroups: phase?.savedGroups,
+      condition: phase.condition,
+      savedGroups: phase.savedGroups,
     });
 
-    const prerequisites = (phase?.prerequisites ?? [])
-      ?.map((p) => {
+    const prerequisites = (phase.prerequisites ?? [])
+      .map((p) => {
         const condition = mergeConditionAndSavedGroups({
           savedGroupStrategy,
           condition: p.condition,
@@ -718,15 +731,6 @@ export function generateAutoExperimentsPayload({
         };
       })
       .filter(isDefined);
-
-    if (!phase) return null;
-
-    if (capabilities !== undefined) {
-      if (!capabilities.includes("redirects") && data.type === "redirect")
-        return null;
-      if (!capabilities.includes("prerequisites") && prerequisites.length > 0)
-        return null;
-    }
 
     const implementationId =
       data.type === "redirect" ? data.urlRedirect.id : data.visualChangeset.id;
@@ -785,7 +789,7 @@ export function generateAutoExperimentsPayload({
     };
 
     // Handle namespace
-    if (phase?.namespace?.enabled && phase.namespace.name) {
+    if (phase.namespace?.enabled && phase.namespace.name) {
       applyNamespaceToPayload(
         exp,
         phase.namespace,
@@ -801,11 +805,38 @@ export function generateAutoExperimentsPayload({
       exp.persistQueryString = true;
     }
 
-    if (data.qa) {
-      applyQaServing(exp, e, data.qa);
+    return exp;
+  };
+
+  const buildAutoExperiment = (
+    data: QaExpanded<VisualExperiment | URLRedirectExperiment>,
+  ): AutoExperimentWithMetadata | null => {
+    const { experiment: e, qa } = data;
+    if (e.status === "stopped" && e.excludeFromPayload) return null;
+
+    const phase = e.phases?.slice(-1)?.[0];
+    if (!phase) return null;
+
+    const exp = autoExperimentForPhase(data, phase);
+
+    if (capabilities !== undefined) {
+      if (!capabilities.includes("redirects") && data.type === "redirect")
+        return null;
+      if (
+        !capabilities.includes("prerequisites") &&
+        exp.parentConditions?.length
+      )
+        return null;
+    }
+
+    let qaOverride: QaOverrideMetadata | undefined;
+    if (qa) {
+      const configured = autoExperimentForPhase(data, qa.configuredPhase);
+      qaOverride = qaOverrideMetadata(configured, e, qa.serving);
+      applyQaServing(exp, e, qa.serving);
       // Each override is its own auto experiment, and the SDK skips drafts.
       exp.changeId = sha256(
-        `${exp.key}_${data.type}_${implementationId}_${data.qa.override.id}`,
+        `${configured.changeId}_${qa.serving.override.id}`,
         "",
       );
       exp.status = "running";
@@ -828,13 +859,12 @@ export function generateAutoExperimentsPayload({
       projectsMap,
       savedGroupStrategy,
       capabilities,
+      qaOverride,
     });
   };
 
   const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
-    sortedAutoExperiments.map((data) =>
-      buildAutoExperiment(data, data.experiment.phases?.slice(-1)?.[0] ?? null),
-    );
+    sortedAutoExperiments.map(buildAutoExperiment);
 
   const cbSdkExperiments = generateCbVisualExperimentsPayload({
     cbVisualExperiments,
@@ -948,12 +978,14 @@ function finalizeAutoExperiment(
     projectsMap,
     savedGroupStrategy,
     capabilities,
+    qaOverride,
   }: {
     metadataSource: Parameters<typeof buildPayloadMetadata>[0];
     metadataOptions: Parameters<typeof buildPayloadMetadata>[1];
     projectsMap?: Map<string, ProjectInterface>;
     savedGroupStrategy: SavedGroupPayloadStrategy;
     capabilities?: SDKCapability[];
+    qaOverride?: QaOverrideMetadata;
   },
 ): AutoExperimentWithMetadata {
   const metadata = buildPayloadMetadata<ExperimentMetadata>(
@@ -962,9 +994,13 @@ function finalizeAutoExperiment(
     projectsMap,
   );
   if (metadata) exp.metadata = metadata;
+  // Sent whatever the connection's metadata options are.
+  if (qaOverride) exp.metadata = { ...exp.metadata, qaOverride };
 
-  savedGroupStrategy.finalizeCondition(exp.condition);
-  savedGroupStrategy.finalizeCondition(exp.parentConditions);
+  targetingOf(exp).forEach((targeting) => {
+    savedGroupStrategy.finalizeCondition(targeting.condition);
+    savedGroupStrategy.finalizeCondition(targeting.parentConditions);
+  });
 
   if (capabilities !== undefined) {
     const { removedExperimentKeys } = getPayloadAllowedKeys(capabilities);
@@ -1122,19 +1158,22 @@ export function getUsedSavedGroupIds(
       seedIds.add(id),
     );
   };
+  const addTargetingToUsedGroupIds = ({
+    condition,
+    parentConditions,
+  }: ReturnType<typeof targetingOf>[number]) => {
+    addConditionToUsedGroupIds(condition);
+    addConditionToUsedGroupIds(parentConditions);
+  };
   Object.values(features).forEach((feature) => {
     if (!feature.rules) {
       return;
     }
-    feature.rules.forEach((rule) => {
-      addConditionToUsedGroupIds(rule.condition);
-      addConditionToUsedGroupIds(rule.parentConditions);
-    });
+    feature.rules.flatMap(targetingOf).forEach(addTargetingToUsedGroupIds);
   });
-  experimentsDefinitions.forEach((experimentDefinition) => {
-    addConditionToUsedGroupIds(experimentDefinition.condition);
-    addConditionToUsedGroupIds(experimentDefinition.parentConditions);
-  });
+  experimentsDefinitions
+    .flatMap(targetingOf)
+    .forEach(addTargetingToUsedGroupIds);
 
   const used = findAllReferencedSavedGroupIds(seedIds, groupMap);
   // A derived group, e.g. "grp_vip:parent_id", needs its source group's entry
@@ -1950,11 +1989,13 @@ export async function getFeatureDefinitionsResponse({
     for (const k in features) {
       if (features[k]?.rules) {
         for (const rule of features[k].rules ?? []) {
-          if (rule.condition) {
-            inlineSavedGroups(rule.condition);
-          }
-          if (rule.parentConditions) {
-            inlineSavedGroups(rule.parentConditions);
+          for (const targeting of targetingOf(rule)) {
+            if (targeting.condition) {
+              inlineSavedGroups(targeting.condition);
+            }
+            if (targeting.parentConditions) {
+              inlineSavedGroups(targeting.parentConditions);
+            }
           }
         }
       }
@@ -3952,6 +3993,24 @@ export function getNextScheduledUpdate(
 }
 
 // Specific hashing entrypoint for Feature rules
+// Attribute conditions only. A prerequisite's `id` is a Feature Flag key, and
+// hashing by attribute name would rewrite it when `id` is a secure attribute.
+function hashTargetingConditions(
+  rule: Parameters<typeof targetingOf>[0],
+  attributes: SDKAttributeSchema,
+  salt: string,
+) {
+  targetingOf(rule).forEach((targeting) => {
+    if (targeting.condition) {
+      targeting.condition = hashStrings({
+        obj: targeting.condition,
+        salt,
+        attributes,
+      });
+    }
+  });
+}
+
 export function applyFeatureHashing(
   features: Record<string, FeatureDefinition>,
   attributes: SDKAttributeSchema,
@@ -3962,13 +4021,7 @@ export function applyFeatureHashing(
       const feature = features[key];
       if (feature?.rules) {
         feature.rules = feature.rules.map<FeatureDefinitionRule>((rule) => {
-          if (rule?.condition) {
-            rule.condition = hashStrings({
-              obj: rule.condition,
-              salt,
-              attributes,
-            });
-          }
+          if (rule) hashTargetingConditions(rule, attributes, salt);
           return rule;
         });
       }
@@ -3986,13 +4039,7 @@ export function applyExperimentHashing(
   salt: string,
 ): AutoExperiment[] {
   return experiments.map((experiment) => {
-    if (experiment?.condition) {
-      experiment.condition = hashStrings({
-        obj: experiment.condition,
-        salt,
-        attributes,
-      });
-    }
+    if (experiment) hashTargetingConditions(experiment, attributes, salt);
     return experiment;
   });
 }

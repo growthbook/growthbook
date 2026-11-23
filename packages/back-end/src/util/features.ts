@@ -43,6 +43,7 @@ import {
   FeatureDefinition,
   FeatureDefinitionRule,
   FeatureMetadata,
+  QaOverrideMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
@@ -80,6 +81,8 @@ import {
   QaPlans,
   applyQaServing,
   excludeQaMatches,
+  qaOverrideMetadata,
+  targetingOf,
 } from "back-end/src/util/qaOverrides";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
@@ -1424,11 +1427,10 @@ export function getFeatureDefinition({
             return expRule;
           };
 
-          const finalizeExperimentRule = (rule: FeatureDefinitionRule) => {
-            if (rule.condition)
-              savedGroupStrategy.finalizeCondition(rule.condition);
-            if (rule.parentConditions)
-              savedGroupStrategy.finalizeCondition(rule.parentConditions);
+          const finalizeExperimentRule = (
+            rule: FeatureDefinitionRule,
+            qaOverride?: QaOverrideMetadata,
+          ) => {
             if (metadataOptions) {
               const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
                 {
@@ -1450,6 +1452,16 @@ export function getFeatureDefinition({
                 projectsMap,
               );
             }
+            // Sent whatever the connection's metadata options are.
+            if (qaOverride) rule.metadata = { ...rule.metadata, qaOverride };
+            targetingOf(rule).forEach((targeting) => {
+              if (targeting.condition)
+                savedGroupStrategy.finalizeCondition(targeting.condition);
+              if (targeting.parentConditions)
+                savedGroupStrategy.finalizeCondition(
+                  targeting.parentConditions,
+                );
+            });
 
             if (allowedKeys) {
               const picked = pick(
@@ -1472,10 +1484,14 @@ export function getFeatureDefinition({
             return qaServings.flatMap((serving) => {
               if (prerequisitesUnsupported(serving.phase)) return [];
               const qaRule = buildRule(serving.phase);
-              if (!qaRule) return [];
+              const configured = buildRule(phase);
+              if (!qaRule || !configured) return [];
               qaMatches.push(serving.match);
               return [
-                finalizeExperimentRule(applyQaServing(qaRule, exp, serving)),
+                finalizeExperimentRule(
+                  applyQaServing(qaRule, exp, serving),
+                  qaOverrideMetadata(configured, exp, serving),
+                ),
               ];
             });
           }

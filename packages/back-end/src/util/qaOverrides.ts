@@ -1,5 +1,8 @@
-import { ConditionInterface } from "@growthbook/growthbook";
-import { cloneDeep, omit } from "lodash";
+import {
+  ConditionInterface,
+  ParentConditionInterface,
+} from "@growthbook/growthbook";
+import { cloneDeep, isUndefined, omit, omitBy, pick } from "lodash";
 import {
   getQaTrackingKey,
   qaOverrideHasOwnTargeting,
@@ -9,6 +12,7 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { SavedGroupTargeting } from "shared/types/feature";
+import { QaOverrideMetadata } from "shared/types/sdk";
 
 // How one QA override is served. Flag rules and auto experiments are both
 // built from this, so they always agree on who an override applies to.
@@ -160,4 +164,47 @@ export function applyQaServing<
       : exclude;
   }
   return rule;
+}
+
+// `configured` is the same rule or auto experiment built from the experiment's
+// own phase: what it serves without the override.
+export function qaOverrideMetadata(
+  configured: Omit<QaOverrideMetadata, "id" | "type" | "key" | "status">,
+  experiment: ExperimentInterface,
+  serving: QaServing,
+): QaOverrideMetadata {
+  return {
+    id: serving.override.id,
+    type: serving.override.assignment.type,
+    key: experiment.trackingKey,
+    status: experiment.status,
+    ...omitBy(
+      pick(configured, [
+        "weights",
+        "coverage",
+        "condition",
+        "parentConditions",
+        "namespace",
+        "filters",
+        "disableStickyBucketing",
+        "changeId",
+      ]),
+      isUndefined,
+    ),
+  };
+}
+
+type Targeting = {
+  condition?: ConditionInterface;
+  parentConditions?: ParentConditionInterface[];
+};
+
+// Every place a rule or auto experiment carries targeting: its own, and the
+// experiment's kept under `metadata.qaOverride`. Whatever reads or rewrites
+// payload conditions has to cover both, or the second one ships with Saved
+// Groups unresolved and secure attributes unhashed.
+export function targetingOf(
+  rule: Targeting & { metadata?: { qaOverride?: Targeting } },
+): Targeting[] {
+  return rule.metadata?.qaOverride ? [rule, rule.metadata.qaOverride] : [rule];
 }
