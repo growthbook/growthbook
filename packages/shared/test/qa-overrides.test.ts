@@ -248,6 +248,21 @@ describe("getQaOverrideStaleSdkConnections", () => {
     ]);
   });
 
+  it("reports an archived connection, whatever its environment", () => {
+    expect(
+      getQaOverrideStaleSdkConnections(
+        { environment: "dev", filters: { sdkConnections: ["a", "b"] } },
+        [
+          { id: "a", environment: "dev", archived: true },
+          { id: "b", environment: "staging", archived: true },
+        ],
+      ),
+    ).toEqual([
+      { id: "a", reason: "archived" },
+      { id: "b", reason: "archived" },
+    ]);
+  });
+
   it("is empty when the override lists no connections", () => {
     expect(
       getQaOverrideStaleSdkConnections(
@@ -308,6 +323,21 @@ describe("getQaOverrideStatus", () => {
     expect(status.status).toBe("invalid");
     expect(status.invalidReasons).toEqual(["no-matching-connection"]);
     expect(status.staleSdkConnections).toHaveLength(2);
+  });
+
+  it("is invalid when its only SDK Connection is archived", () => {
+    const status = getQaOverrideStatus(
+      { ...base, filters: { sdkConnections: ["archived"] } },
+      {
+        ...none,
+        connections: [{ id: "archived", environment: "dev", archived: true }],
+      },
+    );
+    expect(status.status).toBe("invalid");
+    expect(status.invalidReasons).toEqual(["no-matching-connection"]);
+    expect(status.staleSdkConnections).toEqual([
+      { id: "archived", reason: "archived" },
+    ]);
   });
 
   it("stays active while one listed SDK Connection is still in the environment", () => {

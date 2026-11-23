@@ -48,7 +48,7 @@ export type QaOverrideInvalidReason =
 
 export type QaOverrideStaleSdkConnection = {
   id: string;
-  reason: "deleted" | "other-environment";
+  reason: "deleted" | "archived" | "other-environment";
 };
 
 export type QaOverrideStatus = {

@@ -260,6 +260,10 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
       if (!result.success) {
         throw new Error(`Invalid targeting condition: ${result.error}`);
       }
+      // validateCondition accepts arrays, and an empty one matches everyone.
+      if (!result.empty && Array.isArray(JSON.parse(condition ?? ""))) {
+        throw new Error("Targeting condition must be a JSON object");
+      }
     }
 
     const groupIds = (filters: QaOverrideFilters["savedGroups"]) =>

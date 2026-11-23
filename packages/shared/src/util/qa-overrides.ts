@@ -125,17 +125,25 @@ export function getQaOverrideWaitingFeatures(
   });
 }
 
+type SdkConnectionForStatus = {
+  id: string;
+  environment: string;
+  archived?: boolean;
+};
+
 // `connections` are the listed SDK Connections that still exist.
 export function getQaOverrideStaleSdkConnections(
   override: { environment: string; filters: QaOverrideFilters },
-  connections: { id: string; environment: string }[],
+  connections: SdkConnectionForStatus[],
 ): QaOverrideStaleSdkConnection[] {
-  const environments = new Map(connections.map((c) => [c.id, c.environment]));
+  const byId = new Map(connections.map((c) => [c.id, c]));
   return (override.filters.sdkConnections ?? []).flatMap(
     (id): QaOverrideStaleSdkConnection[] => {
-      const environment = environments.get(id);
-      if (environment === undefined) return [{ id, reason: "deleted" }];
-      if (environment !== override.environment) {
+      const connection = byId.get(id);
+      if (!connection) return [{ id, reason: "deleted" }];
+      // An archived connection serves no payload in any environment.
+      if (connection.archived) return [{ id, reason: "archived" }];
+      if (connection.environment !== override.environment) {
         return [{ id, reason: "other-environment" }];
       }
       return [];
@@ -158,7 +166,7 @@ export function getQaOverrideStatus(
   }: {
     experiment: Pick<ExperimentInterface, "variations" | "phases">;
     linkedFeatures: LinkedFeatureForStatus[];
-    connections: { id: string; environment: string }[];
+    connections: SdkConnectionForStatus[];
   },
 ): QaOverrideStatus {
   const invalidReasons: QaOverrideInvalidReason[] = [];
