@@ -665,8 +665,7 @@ export function extendDateBucketsForward(params: {
 }): string[] {
   const { resolvedGranularity, afterIso, count } = params;
   if (count <= 0) return [];
-  // Step from the bucket itself rather than re-truncating it, so a
-  // warehouse's own week start (e.g. Sunday) carries through.
+  // `afterIso` is already a bucket start, so step from it as-is.
   const cur = parseWarehouseDate(afterIso);
   if (Number.isNaN(cur.getTime())) return [];
   const out: string[] = [];
@@ -689,10 +688,9 @@ export function nextDateBucketStart(
 
 /**
  * Every bucket start, in UTC ms, from the earliest of `bucketIsos` to the
- * latest, including buckets with no data. Steps from the earliest bucket
- * rather than re-truncating, so the warehouse's own alignment (e.g. Sunday
- * weeks) carries through. `bucketIsos` can be in any order; unparseable
- * values are skipped.
+ * latest, including buckets with no data. `bucketIsos` are bucket starts, so
+ * this steps from the earliest one as-is. They can be in any order;
+ * unparseable values are skipped.
  */
 export function enumerateDateBucketsBetween(params: {
   resolvedGranularity: ResolvedGranularity;

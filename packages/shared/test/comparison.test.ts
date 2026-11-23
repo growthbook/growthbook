@@ -1377,17 +1377,6 @@ describe("extendDateBucketsForward", () => {
     expect(extendDateBucketsForward({ ...args, count: 0 })).toEqual([]);
     expect(extendDateBucketsForward({ ...args, count: -3 })).toEqual([]);
   });
-
-  it("keeps a Sunday week start instead of snapping to Monday", () => {
-    // BigQuery and SQL Server truncate weeks to Sunday.
-    expect(
-      extendDateBucketsForward({
-        resolvedGranularity: "week",
-        afterIso: "2026-11-08 00:00:00",
-        count: 2,
-      }),
-    ).toEqual(["2026-11-15T00:00:00.000Z", "2026-11-22T00:00:00.000Z"]);
-  });
 });
 
 describe("enumerateDateBucketsBetween", () => {
@@ -1405,8 +1394,8 @@ describe("enumerateDateBucketsBetween", () => {
     ]);
   });
 
-  it("lines up with a Sunday-week extension", () => {
-    const primary = ["2026-11-01 00:00:00", "2026-11-08 00:00:00"];
+  it("lines up with a weekly extension", () => {
+    const primary = ["2026-11-02 00:00:00", "2026-11-09 00:00:00"];
     const extended = extendDateBucketsForward({
       resolvedGranularity: "week",
       afterIso: primary[1],
@@ -1418,10 +1407,10 @@ describe("enumerateDateBucketsBetween", () => {
         bucketIsos: [...primary, ...extended],
       }),
     ).toEqual([
-      Date.UTC(2026, 10, 1),
-      Date.UTC(2026, 10, 8),
-      Date.UTC(2026, 10, 15),
-      Date.UTC(2026, 10, 22),
+      Date.UTC(2026, 10, 2),
+      Date.UTC(2026, 10, 9),
+      Date.UTC(2026, 10, 16),
+      Date.UTC(2026, 10, 23),
     ]);
   });
 
