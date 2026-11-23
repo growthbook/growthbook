@@ -4,26 +4,14 @@ import { PASSKEY_NAME_MAX_LENGTH } from "shared/validators";
 import {
   PublicKeyCredentialCreationOptionsJSON,
   RegistrationResponseJSON,
-  WebAuthnError,
   startRegistration,
 } from "@simplewebauthn/browser";
 import { useAuth } from "@/services/auth";
+import { describeWebAuthnError } from "@/services/passkeys";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import TextField from "@/ui/TextField";
 import Text from "@/ui/Text";
-
-function describeRegistrationError(e: unknown): string {
-  if (e instanceof WebAuthnError) {
-    if (e.code === "ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED") {
-      return "This device already has a passkey for your account.";
-    }
-    if (e.code === "ERROR_INVALID_RP_ID" || e.code === "ERROR_INVALID_DOMAIN") {
-      return "Passkeys aren't set up for this domain. Ask your admin to check WEBAUTHN_RP_ID.";
-    }
-  }
-  return "Passkey setup was cancelled or didn't finish. Please try again.";
-}
 
 export default function AddPasskeyModal({
   close,
@@ -54,7 +42,10 @@ export default function AddPasskeyModal({
         try {
           response = await startRegistration({ optionsJSON: options });
         } catch (e) {
-          throw new Error(describeRegistrationError(e));
+          throw new Error(
+            describeWebAuthnError(e) ??
+              "Passkey setup was cancelled or didn't finish. Please try again.",
+          );
         }
 
         await apiCall("/user/passkeys/register/verify", {

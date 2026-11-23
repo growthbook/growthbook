@@ -7,6 +7,7 @@ import {
   startAuthentication,
 } from "@simplewebauthn/browser";
 import { getApiHost } from "@/services/env";
+import { describeWebAuthnError } from "@/services/passkeys";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -47,9 +48,10 @@ export default function PasskeySignInButton({
       let response: AuthenticationResponseJSON;
       try {
         response = await startAuthentication({ optionsJSON: options });
-      } catch {
+      } catch (e) {
         throw new Error(
-          "Passkey sign-in was cancelled or didn't finish. Please try again.",
+          describeWebAuthnError(e) ??
+            "Passkey sign-in was cancelled or didn't finish. Please try again.",
         );
       }
 
