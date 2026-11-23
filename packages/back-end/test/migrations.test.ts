@@ -2387,7 +2387,6 @@ describe("Organization Migration", () => {
     expect(testOrg).toStrictEqual(snapshot);
     expect(result.members[0].role).toBe("collaborator");
     expect(result.members[1]).toBe(testOrg.members[1]);
-    expect(result.settings.visualEditorEnabled).toBe(true);
     expect(result.settings.implementationTypes).toBeUndefined();
     expect(result.settings.postStratificationEnabled).toBe(false);
     expect(result.settings.postStratificationDisabled).toBeUndefined();

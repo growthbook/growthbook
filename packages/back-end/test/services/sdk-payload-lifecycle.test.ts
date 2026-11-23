@@ -278,11 +278,13 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       expect(upsert).toHaveBeenCalledWith(
         "sdk-1",
         expect.any(String),
+        { served: [], withheld: [] },
         undefined,
       );
       expect(upsert).toHaveBeenCalledWith(
         "sdk-2",
         expect.any(String),
+        { served: [], withheld: [] },
         undefined,
       );
       expect(triggerWebhookJobs).toHaveBeenCalled();
@@ -441,11 +443,13 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           expect(upsert).toHaveBeenCalledWith(
             "sdk-global-prod",
             expect.any(String),
+            { served: [], withheld: [] },
             undefined,
           );
           expect(upsert).toHaveBeenCalledWith(
             "sdk-p1-prod",
             expect.any(String),
+            { served: [], withheld: [] },
             undefined,
           );
           // Consumers fetch the payload from the cache, so every upsert must
@@ -771,6 +775,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       expect(upsert).toHaveBeenCalledWith(
         "sdk-single",
         expect.any(String),
+        { served: [], withheld: [] },
         undefined,
       );
     });
@@ -895,6 +900,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       expect(upsert).toHaveBeenCalledWith(
         "sdk-q1",
         expect.any(String),
+        { served: [], withheld: [] },
         undefined,
       );
     });
@@ -963,6 +969,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       expect(upsert).toHaveBeenCalledWith(
         "sdk-q2",
         expect.any(String),
+        { served: [], withheld: [] },
         undefined,
       );
     });

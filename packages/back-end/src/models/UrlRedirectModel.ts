@@ -9,6 +9,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { urlRedirectValidator } from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
+import { assertUrlRedirectAllowed } from "back-end/src/services/autoExperiments";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
@@ -142,6 +143,15 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
       getLatestPhaseVariations(experiment).map((v) => v.id),
       { exact: false },
     );
+    assertUrlRedirectAllowed(this.context, doc);
+  }
+
+  protected async beforeUpdate(
+    existing: URLRedirectInterface,
+    updates: Partial<URLRedirectInterface>,
+    newDoc: URLRedirectInterface,
+  ) {
+    assertUrlRedirectAllowed(this.context, newDoc, existing);
   }
 
   protected async customValidation(doc: URLRedirectInterface) {

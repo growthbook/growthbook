@@ -129,8 +129,9 @@ const VerifyConnectionPage = ({
             encryptPayload: canUseSecureConnection,
             hashSecureAttributes: canUseSecureConnection,
             includeExperimentNames: !canUseSecureConnection,
-            includeVisualExperiments: canUseVisualEditor,
-            includeRedirectExperiments: canUseUrlRedirects,
+            // Only ever turned off here: both are opt-in.
+            ...(!canUseVisualEditor && { includeVisualExperiments: false }),
+            ...(!canUseUrlRedirects && { includeRedirectExperiments: false }),
           }),
         });
         track("SDK Language Changed", { language });

@@ -20,6 +20,7 @@ import {
   SettingsGroup,
   UnsavedMark,
 } from "@/components/GeneralSettings/SettingsGroup";
+import AutoExperimentSettings from "@/components/AutoExperiments/AutoExperimentSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
 
@@ -485,6 +486,15 @@ export default function ExperimentSettings() {
             />
           </Box>
         </SettingsField>
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="exp-auto"
+        title="Visual Editor and URL Redirects"
+        description="Experiments that SDKs apply to your pages on their own."
+        keywords="visual editor url redirect custom javascript js cross origin auto experiments security"
+      >
+        <AutoExperimentSettings />
       </SettingsGroup>
 
       <SettingsGroup

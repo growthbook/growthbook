@@ -234,6 +234,12 @@ export async function createOrganization({
       ],
       killswitchConfirmation: true,
       runHealthTrafficQuery: true,
+      autoExperiments: {
+        visualEditor: false,
+        urlRedirects: false,
+        customJs: false,
+        crossOriginRedirects: false,
+      },
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },

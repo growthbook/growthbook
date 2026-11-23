@@ -5,6 +5,7 @@ import {
 } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { AutoExperimentFeature } from "shared/types/organization";
 import { ReactElement } from "react";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
 import {
@@ -24,6 +25,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import SplitButton from "@/ui/SplitButton";
 import Tooltip from "@/ui/Tooltip";
+import { useAutoExperimentGate } from "@/components/AutoExperiments/EnableAutoExperimentDialog";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
 export const LINKED_CHANGES: Record<
@@ -60,6 +62,13 @@ export const LINKED_CHANGES: Record<
     commercialFeature: "redirects",
     sdkCapabilityKey: "redirects",
   },
+};
+
+const AUTO_EXPERIMENT_FEATURE: Partial<
+  Record<LinkedChange, AutoExperimentFeature>
+> = {
+  "visual-editor": "visualEditor",
+  redirects: "urlRedirects",
 };
 
 export type LinkedChangeTarget = {
@@ -125,9 +134,16 @@ const AddLinkedChangeRow = ({
     target,
     sdkConnectionsData?.connections ?? [],
   );
+  const enableGate = useAutoExperimentGate(target.project);
+  const autoFeature = AUTO_EXPERIMENT_FEATURE[type];
+  const open = () =>
+    autoFeature
+      ? enableGate.guard(autoFeature, () => setModal(true))
+      : setModal(true);
 
   return (
     <Flex align="center" justify="between" gap="3" width="100%">
+      {enableGate.dialog}
       <Flex align="center" direction="row" flexGrow="1" minWidth="0" gap="5">
         <Box minWidth="170px" flexShrink="0">
           <Avatar
@@ -160,22 +176,12 @@ const AddLinkedChangeRow = ({
               body={linkedChangePremiumCopy(target)}
               usePortal={true}
             >
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setModal(true);
-                }}
-              >
+              <Button variant="ghost" onClick={open}>
                 {cta}
               </Button>
             </PremiumTooltip>
           ) : (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setModal(true);
-              }}
-            >
+            <Button variant="ghost" onClick={open}>
               {cta}
             </Button>
           )

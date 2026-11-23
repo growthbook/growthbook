@@ -43,6 +43,8 @@ export type EditSDKConnectionParams = {
   includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  allowCustomJs?: boolean;
+  allowCrossOriginRedirects?: boolean;
   includeRuleIds?: boolean;
   includeProjectIdInMetadata?: boolean;
   includeCustomFieldsInMetadata?: boolean;
@@ -71,6 +73,8 @@ export type CreateSDKConnectionParams = {
   includeDraftExperimentRefs?: boolean;
   includeExperimentNames: boolean;
   includeRedirectExperiments: boolean;
+  allowCustomJs?: boolean;
+  allowCrossOriginRedirects?: boolean;
   includeRuleIds: boolean;
   includeProjectIdInMetadata: boolean;
   includeCustomFieldsInMetadata: boolean;
@@ -112,6 +116,8 @@ export interface SDKConnectionInterface {
   includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  allowCustomJs?: boolean;
+  allowCrossOriginRedirects?: boolean;
   includeRuleIds?: boolean;
   includeProjectIdInMetadata?: boolean;
   includeCustomFieldsInMetadata?: boolean;

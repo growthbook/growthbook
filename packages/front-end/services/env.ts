@@ -20,6 +20,7 @@ const env: EnvironmentInitValue = {
   usingSSO: false,
   storeSegmentsInMongo: false,
   allowCreateMetrics: true,
+  autoExperimentsMode: "existing-only",
   allowCreateDimensions: true,
   superadminDefaultRole: "readonly",
   ingestorOverride: "",
@@ -94,6 +95,9 @@ export function inTelemetryDebugMode(): boolean {
 }
 export function hasFileConfig() {
   return env.config === "file";
+}
+export function getAutoExperimentsMode() {
+  return env.autoExperimentsMode;
 }
 export function envAllowsCreatingMetrics() {
   return env.allowCreateMetrics;

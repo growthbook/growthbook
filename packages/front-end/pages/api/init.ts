@@ -1,7 +1,11 @@
 import path from "path";
 import fs from "fs";
 import { NextApiRequest, NextApiResponse } from "next";
-import { parseEnvInt, stringToBoolean } from "shared/util";
+import {
+  parseEnvInt,
+  stringToBoolean,
+  type AutoExperimentsMode,
+} from "shared/util";
 
 export interface EnvironmentInitValue {
   telemetry: "debug" | "enable" | "disable" | "enable-with-debug";
@@ -26,6 +30,7 @@ export interface EnvironmentInitValue {
   usingSSO: boolean;
   storeSegmentsInMongo: boolean;
   allowCreateMetrics: boolean;
+  autoExperimentsMode: AutoExperimentsMode;
   allowCreateDimensions: boolean;
   superadminDefaultRole: string;
   ingestorOverride: string;
@@ -63,6 +68,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     SSO_CONFIG,
     STORE_SEGMENTS_IN_MONGO,
     ALLOW_CREATE_METRICS,
+    ALLOW_AUTO_EXPERIMENTS,
     ALLOW_CREATE_DIMENSIONS,
     ENABLE_INTERLEAVING,
     SUPERADMIN_DEFAULT_ROLE,
@@ -134,6 +140,12 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     ),
     config: hasConfigFile ? "file" : "db",
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
+    autoExperimentsMode:
+      stringToBoolean(IS_CLOUD) || stringToBoolean(ALLOW_AUTO_EXPERIMENTS)
+        ? "allowed"
+        : ALLOW_AUTO_EXPERIMENTS
+          ? "disabled"
+          : "existing-only",
     allowCreateDimensions:
       !hasConfigFile || stringToBoolean(ALLOW_CREATE_DIMENSIONS),
     interleavingEnabled: stringToBoolean(ENABLE_INTERLEAVING),

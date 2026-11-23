@@ -195,7 +195,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   // Product defaults only; the reload effect lays the saved values over them.
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
-      visualEditorEnabled: false,
       pastExperimentsMinLength: 6,
       metricAnalysisDays: 90,
       northStar: {

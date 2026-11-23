@@ -21,6 +21,8 @@ const form = (
   hashSecureAttributes: true,
   includeVisualExperiments: true,
   includeRedirectExperiments: true,
+  allowCustomJs: true,
+  allowCrossOriginRedirects: true,
   includeExperimentNames: true,
   savedGroupFormat: "referencesV2",
   includeProjectIdInMetadata: true,

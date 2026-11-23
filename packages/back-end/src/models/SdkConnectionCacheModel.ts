@@ -1,5 +1,6 @@
 import {
   SdkConnectionCacheAuditContext,
+  SdkConnectionCacheAutoExperimentUse,
   sdkConnectionCacheValidator,
 } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
@@ -41,6 +42,8 @@ export class SdkConnectionCacheModel extends BaseClass {
   public async upsert(
     id: string,
     contents: string,
+    // Always written, so it never describes an earlier payload.
+    autoExperimentUse: SdkConnectionCacheAutoExperimentUse,
     auditContext?: SdkConnectionCacheAuditContext,
   ) {
     // Find existing doc by id only (ignore version) to support version upgrades.
@@ -53,10 +56,12 @@ export class SdkConnectionCacheModel extends BaseClass {
     const updateData: {
       contents: string;
       schemaVersion: number;
+      autoExperimentUse: SdkConnectionCacheAutoExperimentUse;
       audit?: SdkConnectionCacheAuditContext;
     } = {
       contents,
       schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
+      autoExperimentUse,
     };
     if (auditContext) {
       updateData.audit = auditContext;

@@ -36,6 +36,7 @@ import {
 import VisualChangesetColumn from "@/components/Experiment/VisualChangesetColumn";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
+import { useAutoExperimentGate } from "@/components/AutoExperiments/EnableAutoExperimentDialog";
 import {
   ColumnLayout,
   ImplementationColumn,
@@ -405,16 +406,22 @@ export default function Implementation({
       .map((v) => v.id)
       .join();
   const [saveBeforeVisual, setSaveBeforeVisual] = useState(false);
+  const enableGate = useAutoExperimentGate(experiment.project);
   const addImplementation = canAddAny ? (
     <AddImplementationMenu
       experiment={experiment}
       onAdd={{
         feature: () => setFeatureModal(true),
         visual: () =>
-          variationsUnsaved
-            ? setSaveBeforeVisual(true)
-            : setVisualEditorModal(true),
-        urlredirect: () => setRedirectModal({ target: null }),
+          enableGate.guard("visualEditor", () =>
+            variationsUnsaved
+              ? setSaveBeforeVisual(true)
+              : setVisualEditorModal(true),
+          ),
+        urlredirect: () =>
+          enableGate.guard("urlRedirects", () =>
+            setRedirectModal({ target: null }),
+          ),
       }}
       // In priority order, the first kind it already has.
       primary={shownKinds[0] ?? null}
@@ -492,6 +499,7 @@ export default function Implementation({
           }
         />
       ) : null}
+      {enableGate.dialog}
       {saveBeforeVisual ? (
         <ConfirmDialog
           title="Save changes first?"

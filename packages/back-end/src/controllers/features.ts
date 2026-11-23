@@ -161,7 +161,7 @@ import {
   evaluateAllFeatures,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
-  getFeatureDefinitions,
+  getFeatureDefinitionsWithAutoExperimentUse,
   getMergeResultPublishEnvs,
   getSavedGroupMap,
   getSavedGroupMapForFeatureRevision,
@@ -176,6 +176,7 @@ import {
   revisionRequiresReview,
   assertCanUndoFeatureReview,
 } from "back-end/src/services/features";
+import { isCachedPayloadStale } from "back-end/src/services/autoExperiments";
 import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
 import { linkFeatureToContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
@@ -544,6 +545,8 @@ export type SDKPayloadParams = Pick<
   | "includeDraftExperimentRefs"
   | "includeExperimentNames"
   | "includeRedirectExperiments"
+  | "allowCustomJs"
+  | "allowCrossOriginRedirects"
   | "includeRuleIds"
   | "hashSecureAttributes"
   | "savedGroupFormat"
@@ -599,6 +602,8 @@ export async function getPayloadParamsFromApiKey(
       includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
+      allowCustomJs: connection.allowCustomJs,
+      allowCrossOriginRedirects: connection.allowCrossOriginRedirects,
       includeRuleIds: connection.includeRuleIds,
       includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
       includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
@@ -679,7 +684,12 @@ export async function getFeatureDefinitionsWithCache({
   // Try cache first
   if (storageLocation !== "none") {
     const cached = await context.models.sdkConnectionCache.getById(params.key);
-    if (cached) {
+    // A kill switch wins over whatever wrote the cache: a payload holding
+    // something that is now off is rebuilt, never served.
+    if (
+      cached &&
+      !isCachedPayloadStale(context.org, params, cached.autoExperimentUse)
+    ) {
       try {
         defs = JSON.parse(cached.contents);
       } catch (e) {
@@ -712,7 +722,7 @@ export async function getFeatureDefinitionsWithCache({
       true,
     );
 
-    defs = await getFeatureDefinitions({
+    const built = await getFeatureDefinitionsWithAutoExperimentUse({
       context,
       capabilities,
       environment: params.environment,
@@ -724,6 +734,8 @@ export async function getFeatureDefinitionsWithCache({
       includeDraftExperimentRefs: params.includeDraftExperimentRefs,
       includeExperimentNames: params.includeExperimentNames,
       includeRedirectExperiments: params.includeRedirectExperiments,
+      allowCustomJs: params.allowCustomJs,
+      allowCrossOriginRedirects: params.allowCrossOriginRedirects,
       includeRuleIds: params.includeRuleIds,
       includeProjectIdInMetadata: params.includeProjectIdInMetadata,
       includeCustomFieldsInMetadata: params.includeCustomFieldsInMetadata,
@@ -735,6 +747,7 @@ export async function getFeatureDefinitionsWithCache({
       savedGroupFormat: params.savedGroupFormat,
       includeReferencedPrerequisites: params.includeReferencedPrerequisites,
     });
+    defs = built.payload;
 
     // Write back to cache to populate it for future reads (fire and forget)
     if (storageLocation !== "none") {
@@ -742,7 +755,7 @@ export async function getFeatureDefinitionsWithCache({
       const stackTrace = rawStack.replace(/^Error.*?\n/, "");
 
       context.models.sdkConnectionCache
-        .upsert(params.key, JSON.stringify(defs), {
+        .upsert(params.key, JSON.stringify(defs), built.autoExperimentUse, {
           dateUpdated: new Date(),
           event: "cache-miss",
           model: "sdk-connection",

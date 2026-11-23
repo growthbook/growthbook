@@ -1149,6 +1149,7 @@ export default function ExperimentHeader({
                                 <StartBlockers
                                   items={startGate.blockers}
                                   upgrade={startGate.upgrade}
+                                  notEnabled={startGate.notEnabled}
                                 />
                               }
                               trigger={

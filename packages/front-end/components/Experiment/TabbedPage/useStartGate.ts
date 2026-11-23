@@ -3,8 +3,10 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { canBypassStartApproval } from "shared/permissions";
+import type { AutoExperimentFeature } from "shared/types/organization";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useAutoExperiments from "@/hooks/useAutoExperiments";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import { isBypassableStartItem } from "@/components/PreLaunchChecklist/checklistSummary";
 import {
@@ -15,6 +17,10 @@ import {
 import { StartExperiment } from "./useStartExperiment";
 
 export type StartUpgrade = "visual-editor" | "redirects";
+export type StartNotEnabled = Extract<
+  AutoExperimentFeature,
+  "visualEditor" | "urlRedirects"
+>;
 
 /** What stands between the viewer and starting: checklist, bypass, button. */
 export default function useStartGate({
@@ -39,6 +45,14 @@ export default function useStartGate({
       ? "visual-editor"
       : experiment.hasURLRedirects && !hasCommercialFeature("redirects")
         ? "redirects"
+        : null;
+  const { isEnabled } = useAutoExperiments();
+  // Not a hard block: an admin enables it from the popover.
+  const notEnabled: StartNotEnabled | null =
+    experiment.hasVisualChangesets && !isEnabled("visualEditor")
+      ? "visualEditor"
+      : experiment.hasURLRedirects && !isEnabled("urlRedirects")
+        ? "urlRedirects"
         : null;
 
   const now = new Date();
@@ -93,6 +107,7 @@ export default function useStartGate({
     scheduledStartAt,
     schedule,
     upgrade,
+    notEnabled,
     actions,
     blockers,
     runPrimary,

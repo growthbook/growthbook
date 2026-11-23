@@ -1,9 +1,11 @@
 import { Response } from "express";
-import { cloneDeep } from "lodash";
+import { cloneDeep, isEqual } from "lodash";
 import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
+  AUTO_EXPERIMENT_FEATURES,
   assertTargetingRulesDisjoint,
+  getAutoExperimentParentFeature,
   getNamespaceRanges,
   getRulesForEnvironment,
   normalizeApprovalRuleSettings,
@@ -81,6 +83,7 @@ import {
   revokeInvite,
   setLicenseKey,
   assertProjectRulesReferenceProjects,
+  getContextForAgendaJobByOrgObject,
 } from "back-end/src/services/organizations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { updatePassword } from "back-end/src/services/users";
@@ -99,6 +102,7 @@ import {
 import {
   ALLOW_SELF_ORG_CREATION,
   APP_ORIGIN,
+  AUTO_EXPERIMENTS_MODE,
   IS_CLOUD,
   IS_MULTI_ORG,
   PROHIBITED_ORGANIZATION_NAME_REGEX,
@@ -157,6 +161,10 @@ import {
   getExperimentsForActivityFeed,
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
+import { getAutoExperimentAccess } from "back-end/src/services/autoExperiments";
+import type { ReqContext } from "back-end/types/request";
 import { getAuditHistory } from "back-end/src/models/AuditModel";
 import {
   canReadApiKeyHistory,
@@ -1624,6 +1632,38 @@ export async function signup(
   }
 }
 
+// Merged over what is stored, so a caller can send one feature at a time.
+function getAutoExperimentSettingsUpdate(
+  context: ReqContext,
+  input: unknown,
+): NonNullable<OrganizationSettings["autoExperiments"]> {
+  if (context.isApiRequest || !context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+  const requested = z
+    .object(
+      Object.fromEntries(
+        AUTO_EXPERIMENT_FEATURES.map((f) => [f, z.boolean().optional()]),
+      ),
+    )
+    .strict()
+    .parse(input);
+  const next = { ...context.org.settings?.autoExperiments, ...requested };
+  for (const feature of AUTO_EXPERIMENT_FEATURES) {
+    const parent = getAutoExperimentParentFeature(feature);
+    if (parent && next[parent] === false) next[feature] = false;
+    const turnsOn =
+      next[feature] === true &&
+      context.org.settings?.autoExperiments?.[feature] === false;
+    if (turnsOn && AUTO_EXPERIMENTS_MODE !== "allowed") {
+      context.throwBadRequestError(
+        "This GrowthBook instance does not allow enabling visual editor or URL redirect experiments. Set the ALLOW_AUTO_EXPERIMENTS environment variable to true to allow it.",
+      );
+    }
+  }
+  return next;
+}
+
 export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response,
@@ -1659,7 +1699,12 @@ export async function putOrganization(
         throw new Error(
           "Not supported: Updating organization environments not supported via this route.",
         );
-      } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
+      } else if (k === "autoExperiments") {
+        settings.autoExperiments = getAutoExperimentSettingsUpdate(
+          context,
+          settings.autoExperiments,
+        );
+      } else if (k === "sdkInstructionsViewed") {
         if (
           !context.permissions.canCreateSDKConnection({
             projects: [],
@@ -1844,6 +1889,40 @@ export async function putOrganization(
     }
 
     await updateOrganization(org.id, updates);
+
+    if (
+      updates.settings &&
+      !isEqual(updates.settings.autoExperiments, org.settings?.autoExperiments)
+    ) {
+      const before = { settings: org.settings };
+      // The rebuild reads the opt-ins off the context's organization.
+      org.settings = updates.settings;
+      // Only the SDK Connections whose payload can change: most serve no
+      // visual editor or URL redirect experiments either way.
+      // Read with full access: the admin may not be able to see every Project,
+      // and a connection they can't see must stop serving too.
+      const sdkConnections = (
+        await findServingSDKConnections(getContextForAgendaJobByOrgObject(org))
+      ).filter(
+        (c) =>
+          !isEqual(
+            getAutoExperimentAccess(before, c),
+            getAutoExperimentAccess(org, c),
+          ),
+      );
+      if (sdkConnections.length) {
+        queueSDKPayloadRefresh({
+          context,
+          payloadKeys: [],
+          sdkConnections,
+          auditContext: {
+            event: "updated",
+            model: "organization",
+            id: org.id,
+          },
+        });
+      }
+    }
 
     await req.audit({
       event: "organization.update",

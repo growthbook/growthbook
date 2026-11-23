@@ -25,6 +25,7 @@ import {
   StartChecklistFailures,
   StartFailures,
   StartUpgradeCallout,
+  StartNotEnabledCallout,
   SummaryGrid,
   SummaryRow,
 } from "./StartSections";
@@ -158,7 +159,7 @@ function StartContent({
             {dateLabel}
           </Text>{" "}
           has passed.{" "}
-          {gate.checklistLoading || gate.upgrade ? (
+          {gate.checklistLoading || gate.upgrade || gate.notEnabled ? (
             <>{scheduleLink("Update the schedule")}.</>
           ) : gate.actions.hardBlocked ? (
             <>
@@ -177,6 +178,10 @@ function StartContent({
         </Callout>
       ) : null}
       <StartUpgradeCallout upgrade={gate.upgrade} />
+      <StartNotEnabledCallout
+        notEnabled={gate.notEnabled}
+        project={experiment.project}
+      />
 
       <SummaryGrid>
         <SummaryRow
@@ -273,7 +278,9 @@ function StartContent({
                 close();
               }}
               setError={setError}
-              disabled={gate.actions.disabled || !!blockedReason}
+              disabled={
+                gate.actions.disabled || !!blockedReason || !!gate.notEnabled
+              }
             >
               {gate.actions.label}
             </Button>
