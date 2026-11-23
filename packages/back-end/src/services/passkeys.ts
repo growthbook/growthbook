@@ -183,7 +183,13 @@ export async function finishPasskeySignIn(
   );
 
   const passkey = await getPasskeyByCredentialId(response.id);
-  if (!passkey) throw signInFailed;
+  if (!passkey) {
+    // Usually a passkey the browser saved for this domain elsewhere, e.g.
+    // another app on localhost or one that was removed here
+    throw new BadRequestError(
+      "This passkey isn't set up for this GrowthBook server. Sign in with your password, then add it under Passkeys in the account menu.",
+    );
+  }
 
   const { userHandle } = response.response;
   if (
