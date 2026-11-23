@@ -1,5 +1,4 @@
 import { getNewMetricsUpdate } from "shared/experiments";
-import { isDefined } from "shared/util";
 import type {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
@@ -98,6 +97,7 @@ async function loadNewMetricsUpdateLineage(
 export type NewMetricsUpdateReplayLevel = {
   snapshotId: string;
   metricSettings: MetricForSnapshot[];
+  clusterLevelMetricIds: string[];
   newMetricIds: string[] | null;
   // The level's own cutoff flag and planning clock, which its SQL was
   // generated with. Its units query reads the time of the replay instead.
@@ -131,6 +131,7 @@ export async function replayNewMetricsUpdateLineage({
       settings: {
         ...settings,
         metricSettings: level.metricSettings,
+        clusterLevelMetricIds: level.clusterLevelMetricIds,
         endDateIsCutoff: level.endDateIsCutoff,
         plannedAt: level.plannedAt ?? undefined,
       },
@@ -171,6 +172,50 @@ export function getQueriesWithChangedSql({
 }
 
 /**
+ * Each level of a lineage as it would run today. A metric today's plan has
+ * takes today's entry. One it lacks, such as a metric removed from the
+ * experiment since, keeps the level's own entry and cluster level, so a query
+ * it shared with copied metrics regenerates as it ran if its definition is
+ * unchanged. The new-metrics update leaves its results out.
+ */
+export function getNewMetricsUpdateReplayLevels({
+  lineage,
+  planned,
+}: {
+  lineage: readonly NewMetricsUpdateAncestor[];
+  planned: Pick<
+    ExperimentSnapshotSettings,
+    "metricSettings" | "clusterLevelMetricIds" | "skipPartialData"
+  >;
+}): NewMetricsUpdateReplayLevel[] {
+  const todaysEntries = new Map(planned.metricSettings.map((m) => [m.id, m]));
+  return lineage.map((level) => {
+    const endDateIsCutoff = !!level.settings.endDateIsCutoff;
+    const plannedAt = level.settings.plannedAt ?? null;
+    // Without a cutoff, skipPartialData SQL reads the clock, which snapshots
+    // planned before it was stored don't have.
+    if (!endDateIsCutoff && planned.skipPartialData && !plannedAt) {
+      throw new NewMetricsUpdateUnavailableError("settings_changed");
+    }
+    return {
+      snapshotId: level.id,
+      metricSettings: level.settings.metricSettings.map(
+        (m) => todaysEntries.get(m.id) ?? m,
+      ),
+      clusterLevelMetricIds: [
+        ...(planned.clusterLevelMetricIds ?? []),
+        ...(level.settings.clusterLevelMetricIds ?? []).filter(
+          (id) => !todaysEntries.has(id),
+        ),
+      ],
+      newMetricIds: getNewMetricsUpdate(level)?.queriedMetricIds ?? null,
+      endDateIsCutoff,
+      plannedAt,
+    };
+  });
+}
+
+/**
  * Refuses unless every query the new-metrics update would copy from a results
  * parent, and every units table those queries read, would be generated with
  * the same SQL today. This catches changed metric definitions, exposure and
@@ -192,31 +237,7 @@ export async function assertCarriedQuerySqlUnchanged({
 }): Promise<void> {
   const lineage = await loadNewMetricsUpdateLineage(context, parent);
 
-  const todaysEntries = new Map(planned.metricSettings.map((m) => [m.id, m]));
-  const levels = lineage.map((level): NewMetricsUpdateReplayLevel => {
-    const metricSettings = level.settings.metricSettings.map((m) =>
-      todaysEntries.get(m.id),
-    );
-    // A metric no longer on the experiment has no settings to regenerate its
-    // group from, so the group can't be checked.
-    if (!metricSettings.every(isDefined)) {
-      throw new NewMetricsUpdateUnavailableError("settings_changed");
-    }
-    const endDateIsCutoff = !!level.settings.endDateIsCutoff;
-    const plannedAt = level.settings.plannedAt ?? null;
-    // Without a cutoff, skipPartialData SQL reads the clock, which snapshots
-    // planned before it was stored don't have.
-    if (!endDateIsCutoff && planned.skipPartialData && !plannedAt) {
-      throw new NewMetricsUpdateUnavailableError("settings_changed");
-    }
-    return {
-      snapshotId: level.id,
-      metricSettings,
-      newMetricIds: getNewMetricsUpdate(level)?.queriedMetricIds ?? null,
-      endDateIsCutoff,
-      plannedAt,
-    };
-  });
+  const levels = getNewMetricsUpdateReplayLevels({ lineage, planned });
 
   // In pipeline mode, exposure and segment SQL live in each level's units table query.
   const unitsQueries = lineage.flatMap((level) =>

@@ -1284,6 +1284,7 @@ export type NewMetricsUpdateAncestor = Pick<
   settings: Pick<
     ExperimentSnapshotSettings,
     | "metricSettings"
+    | "clusterLevelMetricIds"
     | "endDateIsCutoff"
     | "plannedAt"
     | "goalMetrics"
@@ -1304,6 +1305,7 @@ export async function findNewMetricsUpdateAncestor(
       updateScope: 1,
       queries: 1,
       "settings.metricSettings": 1,
+      "settings.clusterLevelMetricIds": 1,
       "settings.endDateIsCutoff": 1,
       "settings.plannedAt": 1,
       "settings.goalMetrics": 1,

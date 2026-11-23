@@ -9,6 +9,7 @@ import { getIndexAfterLastGroup } from "back-end/src/queryRunners/newMetricsUpda
 import {
   generateExperimentResultQuerySql,
   type GenerateResultQuerySql,
+  getNewMetricsUpdateReplayLevels,
   getQueriesWithChangedSql,
   replayNewMetricsUpdateLineage,
   type NewMetricsUpdateReplayLevel,
@@ -64,6 +65,12 @@ const clicks = factMetricFactory.build({
   name: "Clicks",
   numerator: { factTableId: "events", column: "value" },
 });
+// On Revenue's fact table, so the two share a query.
+const orderCount = factMetricFactory.build({
+  id: "fact_order_count",
+  name: "Orders",
+  numerator: { factTableId: "orders", column: "$$count" },
+});
 
 const segment = {
   id: "seg_1",
@@ -114,6 +121,7 @@ const levels: NewMetricsUpdateReplayLevel[] = [
   {
     snapshotId: "snp_base",
     metricSettings: [{ id: revenue.id }],
+    clusterLevelMetricIds: [],
     newMetricIds: null,
     endDateIsCutoff: false,
     plannedAt: settings.endDate,
@@ -121,6 +129,7 @@ const levels: NewMetricsUpdateReplayLevel[] = [
   {
     snapshotId: "snp_refresh",
     metricSettings: [{ id: revenue.id }, { id: clicks.id }],
+    clusterLevelMetricIds: [],
     newMetricIds: [clicks.id],
     endDateIsCutoff: true,
     plannedAt: new Date("2026-11-10T15:00:00Z"),
@@ -330,4 +339,162 @@ describe("comparing a pipeline-mode lineage's generated SQL", () => {
       await getChangedQueries(run, { ...run, metrics: [shorter, clicks] }),
     ).toEqual(["group_0"]);
   });
+});
+
+describe("a lineage with a metric removed from the experiment since", () => {
+  // snp_base ran Revenue and Orders in one query; snp_refresh dropped Orders,
+  // which had been removed, and added Clicks. Today's update adds another.
+  const lineage = [
+    {
+      id: "snp_base",
+      metricSettings: [{ id: revenue.id }, { id: orderCount.id }],
+      clusterLevelMetricIds: [],
+      updateScope: undefined,
+    },
+    {
+      id: "snp_refresh",
+      metricSettings: [{ id: revenue.id }, { id: clicks.id }],
+      clusterLevelMetricIds: [],
+      updateScope: {
+        kind: "new_metrics" as const,
+        parentSnapshotId: "snp_base",
+        queriedMetricIds: [clicks.id],
+        base: {
+          dateCreated: settings.endDate,
+          runStarted: null,
+          cutoffDate: settings.endDate,
+        },
+        metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
+      },
+    },
+  ].map(({ id, metricSettings, clusterLevelMetricIds, updateScope }) => ({
+    id,
+    type: "standard" as const,
+    updateScope,
+    queries: [],
+    settings: {
+      metricSettings,
+      clusterLevelMetricIds,
+      endDateIsCutoff: true,
+      goalMetrics: [],
+      guardrailMetrics: [],
+    },
+  }));
+  const todaysPlan = {
+    ...settings,
+    metricSettings: [{ id: revenue.id }, { id: clicks.id }],
+  };
+  const replayLevels = getNewMetricsUpdateReplayLevels({
+    lineage,
+    planned: { ...todaysPlan, clusterLevelMetricIds: undefined },
+  });
+
+  // The SQL each run stored, generated from its own entries.
+  async function storedSql(): Promise<Map<string, string>> {
+    const generate = makeGenerator({ metrics: [revenue, orderCount, clicks] });
+    const base = await generate({
+      settings: {
+        ...settings,
+        metricSettings: lineage[0].settings.metricSettings,
+      },
+      queryParentId: "snp_base",
+    });
+    const refresh = await generate({
+      settings: {
+        ...settings,
+        metricSettings: lineage[1].settings.metricSettings,
+      },
+      queryParentId: "snp_refresh",
+      scope: { metricIds: new Set([clicks.id]), firstGroupIndex: 1 },
+    });
+    return new Map([...base, ...refresh]);
+  }
+
+  async function changedQueries(todaysMetrics: FactMetricInterface[]) {
+    const stored = await storedSql();
+    // Revenue and Orders shared the base's only query.
+    expect([...stored.keys()].filter((n) => n.startsWith("group_"))).toEqual([
+      "group_0",
+      "group_1",
+    ]);
+    return getQueriesWithChangedSql({
+      queryNames: ["group_0", "group_1", "snp_base", "snp_refresh"],
+      storedSql: stored,
+      todaysSql: await replayNewMetricsUpdateLineage({
+        levels: replayLevels,
+        settings: todaysPlan,
+        generateResultQuerySql: makeGenerator({ metrics: todaysMetrics }),
+      }),
+    });
+  }
+
+  it("replays it with the level's own entry and cluster level, and every other metric with today's", () => {
+    const planned = {
+      metricSettings: [
+        { id: revenue.id, computedSettings: { today: true } },
+        { id: clicks.id },
+      ] as unknown as ExperimentSnapshotSettings["metricSettings"],
+      clusterLevelMetricIds: [clicks.id],
+      skipPartialData: false,
+    };
+
+    const [base, refresh] = getNewMetricsUpdateReplayLevels({
+      lineage: [
+        {
+          ...lineage[0],
+          settings: {
+            ...lineage[0].settings,
+            clusterLevelMetricIds: [orderCount.id],
+          },
+        },
+        lineage[1],
+      ],
+      planned,
+    });
+
+    expect(base.metricSettings).toEqual([
+      planned.metricSettings[0],
+      { id: orderCount.id },
+    ]);
+    expect(base.clusterLevelMetricIds).toEqual([clicks.id, orderCount.id]);
+    expect(refresh.metricSettings).toEqual(planned.metricSettings);
+    expect(refresh.clusterLevelMetricIds).toEqual([clicks.id]);
+  });
+
+  it("regenerates the query it shared with a metric still copied", async () => {
+    expect(await changedQueries([revenue, orderCount, clicks])).toEqual([]);
+  });
+
+  it("still catches an edit to the metric still copied", async () => {
+    const filtered = {
+      ...revenue,
+      numerator: {
+        ...revenue.numerator,
+        rowFilters: [{ operator: "sql_expr" as const, values: ["amount > 0"] }],
+      },
+    };
+    expect(await changedQueries([filtered, orderCount, clicks])).toEqual([
+      "group_0",
+    ]);
+  });
+
+  it.each([
+    {
+      name: "edited",
+      metrics: [
+        revenue,
+        {
+          ...orderCount,
+          numerator: { ...orderCount.numerator, column: "amount" },
+        },
+        clicks,
+      ],
+    },
+    { name: "deleted", metrics: [revenue, clicks] },
+  ])(
+    "catches the removed metric $name since, whose shared query can't be regenerated",
+    async ({ metrics }) => {
+      expect(await changedQueries(metrics)).toEqual(["group_0"]);
+    },
+  );
 });

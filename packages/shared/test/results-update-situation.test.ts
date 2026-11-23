@@ -82,6 +82,29 @@ describe("getNewMetricsUpdateRefusal", () => {
     expect(refusal({ experiment: { type: undefined, phases } })).toBeNull();
   });
 
+  // The back end regenerates the query met_b shared with met_a from the
+  // parent's entry for met_b, and leaves met_b's results out.
+  it.each(["results", "incremental-update"] as const)(
+    "accepts a metric removed alongside the added ones on the %s pipeline",
+    (runnerKind) => {
+      expect(
+        refusal({
+          parent: makeParent({
+            runnerKind,
+            settings: {
+              goalMetrics: ["met_a", "met_b"],
+              metricSettings: [
+                { id: "met_a", ...cuped(true) },
+                { id: "met_b", ...cuped(true) },
+              ],
+            },
+          }),
+          planned: makePlanned({ runnerKind }),
+        }),
+      ).toBeNull();
+    },
+  );
+
   describe("the window, from the parent's end date", () => {
     it.each<[string, Date, number, boolean]>([
       ["recent results", hoursAgo(1), 4, true],

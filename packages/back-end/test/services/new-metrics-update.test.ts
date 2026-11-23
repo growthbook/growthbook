@@ -667,14 +667,48 @@ describe("planNewMetricsUpdate", () => {
     expect(plan.snapshot.updateScope?.queriedMetricIds).toEqual(["met_c"]);
   });
 
-  it("refuses as changed settings when a metric the parent copied is no longer on the experiment", async () => {
-    findParentMock.mockResolvedValue(
-      makeParent({ settings: makeSettings(["met_a", "met_b", "met_gone"]) }),
-    );
-    storeQueries({ qry_group: groupSql(["met_a", "met_b", "met_gone"], 0) });
+  describe("a metric the parent computed that is no longer on the experiment", () => {
+    // met_gone shared the parent's query with the metrics still copied.
+    const planWithRemovedMetric = (storedGroupSql: string) => {
+      findParentMock.mockResolvedValue(
+        makeParent({ settings: makeSettings(["met_a", "met_gone", "met_b"]) }),
+      );
+      storeQueries({ qry_group: storedGroupSql });
+      const args = refreshArgs();
+      return { args, promise: planNewMetricsUpdate(args) };
+    };
 
-    await expect(planNewMetricsUpdate(refreshArgs())).rejects.toMatchObject({
-      details: { reason: "settings_changed" },
+    it("queries only the new metric, compares the shared query regenerated with the parent's entry for it, and drops it", async () => {
+      const { args, promise } = planWithRemovedMetric(
+        groupSql(["met_a", "met_gone", "met_b"], 0),
+      );
+      const plan = await promise;
+
+      expect(plan.snapshot.updateScope?.queriedMetricIds).toEqual(["met_c"]);
+      expect(plan.snapshot.settings.metricSettings.map((m) => m.id)).toEqual([
+        "met_a",
+        "met_b",
+        "met_c",
+      ]);
+      expect(args.generateResultQuerySql).toHaveBeenCalledWith(
+        expect.objectContaining({
+          settings: expect.objectContaining({
+            metricSettings: [
+              ...metricSettingsFor(["met_a"], { planned: true }),
+              ...metricSettingsFor(["met_gone"], {}),
+              ...metricSettingsFor(["met_b"], { planned: true }),
+            ],
+          }),
+        }),
+      );
+    });
+
+    it("refuses as changed settings when the shared query no longer matches", async () => {
+      await expect(
+        planWithRemovedMetric(
+          `${groupSql(["met_a", "met_gone", "met_b"], 0)} WHERE x`,
+        ).promise,
+      ).rejects.toMatchObject({ details: { reason: "settings_changed" } });
     });
   });
 
@@ -1902,6 +1936,18 @@ describe("mergeNewMetricsUpdateAnalyses", () => {
       met_b: metricResult(20),
       met_c: metricResult(30),
     });
+  });
+
+  it("leaves out a metric the parent computed that is no longer analyzed", () => {
+    const parent = analysis({}, [
+      resultDimension({ met_a: 1, met_gone: 5, met_b: 2 }),
+    ]);
+
+    const [merged] = merge([parent], [[resultDimension({ met_c: 3 })]]);
+
+    expect(merged.results).toEqual([
+      resultDimension({ met_a: 1, met_b: 2, met_c: 3 }),
+    ]);
   });
 
   it("keeps the parent's numbers for a metric this run returned rows for again", () => {
