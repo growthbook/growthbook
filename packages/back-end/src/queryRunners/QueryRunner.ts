@@ -99,12 +99,19 @@ const MAX_CONCURRENCY_TIMEOUT = 4000;
  * hand-offs that were lost (stale reads, dropped timers). Long on purpose:
  * recovery, not latency.
  */
-const REFRESH_WATCHDOG_INTERVAL_MS = 5 * 60 * 1000;
+export const REFRESH_WATCHDOG_INTERVAL_MS = 5 * 60 * 1000;
 /**
  * Minimum time between refresh pass starts. A finish after a quiet period
  * refreshes at once; finishes inside the window coalesce into one pass.
  */
-const REFRESH_MIN_INTERVAL_MS = 100;
+export const REFRESH_MIN_INTERVAL_MS = 100;
+/**
+ * startAnalysis never leaves a runner running on an empty DAG, so an empty
+ * query list read mid-run is either a cancel from another instance or a read
+ * that lags the DAG write. Treat it as a cancel only once it has stayed
+ * empty this long.
+ */
+export const EMPTY_QUERY_LIST_CONFIRM_MS = 1000;
 /**
  * Stop retrying after this many consecutive failed refresh passes.
  * Missing snapshots (cancel deleted the doc) stand down instead of erroring.
@@ -235,7 +242,8 @@ export abstract class QueryRunner<
   public model: Model;
   public integration: SourceIntegrationInterface;
   public context: ReqContext | ApiReqContext;
-  private timer: null | NodeJS.Timeout = null;
+  /** Set from arming a refresh pass until that pass starts. */
+  private refreshTimer: null | NodeJS.Timeout = null;
   private emitter: EventEmitter;
   public status: RunnerStatus = "pending";
   public result: Result | null = null;
@@ -253,19 +261,20 @@ export abstract class QueryRunner<
       metadata?: InMemoryQueryMetadata;
     };
   } = {};
-  /** Blocks refresh until startAnalysis has persisted the query DAG. */
-  private dagPersisted = false;
+  /**
+   * False until startAnalysis has persisted the query DAG and
+   * beforeFirstRefresh has settled; no refresh pass runs before then.
+   */
+  private refreshEnabled = false;
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private heartbeatTimer: null | NodeJS.Timeout = null;
   private refreshWatchdogTimer: null | NodeJS.Timeout = null;
-  /** Non-null while a refresh pass is in flight; watchdog skips re-arm then. */
-  private refreshStartedAt: number | null = null;
+  private refreshInFlight = false;
   private lastRefreshStartedAt = 0;
-  /** A pass is on refreshChain but has not started; it covers any new finish. */
-  private refreshPassQueued = false;
   private consecutiveRefreshFailures = 0;
-  private emptyQueryListSeen = false;
+  /** When a pass first read an empty query list; null once one is not. */
+  private emptyQueryListSince: number | null = null;
   /** Serializes refresh passes so two cannot analyze or mutate model at once. */
   private refreshChain: Promise<void> = Promise.resolve();
   private finishedQueryMapCache: QueryMap = new Map();
@@ -324,6 +333,10 @@ export abstract class QueryRunner<
   }
 
   private clearAllTimers(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
     for (const id of Object.keys(this.pendingTimers)) {
       clearTimeout(this.pendingTimers[id]);
       delete this.pendingTimers[id];
@@ -390,59 +403,47 @@ export abstract class QueryRunner<
     }
   }
 
-  /** Re-arm the debounced refresh when nothing else will. */
+  /** Re-arm the refresh when nothing else will. */
   private runRefreshWatchdogCheck(): void {
     if (this.status !== "running") return;
-    if (this.timer || this.refreshStartedAt !== null) return;
-    logger.debug(
-      `Refresh watchdog for ${this.model.id}: re-arming the debounced refresh`,
-    );
-    this.onQueryFinish();
+    if (this.refreshTimer || this.refreshInFlight) return;
+    logger.debug(`Refresh watchdog for ${this.model.id}: re-arming refresh`);
+    this.scheduleRefreshPass();
   }
 
   async onQueryFinish() {
+    logger.debug(`Query finished for ${this.model.id} runner`);
+    this.scheduleRefreshPass();
+  }
+
+  /**
+   * Arm one refresh pass, due REFRESH_MIN_INTERVAL_MS after the last pass
+   * started and no earlier than `notBefore`. An armed pass that has not
+   * started yet covers any later request.
+   */
+  private scheduleRefreshPass(notBefore = 0): void {
     if (this.isStopping()) {
-      logger.debug(
-        "Query finished for " + this.model.id + " after the runner concluded",
-      );
+      logger.debug(`Skipping refresh of ${this.model.id}: runner concluded`);
       return;
     }
     // Dependency-free queries can finish while startAnalysis is still
     // persisting the DAG; wait so refresh cannot read an empty query list.
-    if (!this.dagPersisted) {
-      logger.debug(
-        "Query finished for " +
-          this.model.id +
-          " runner before DAG was persisted; deferring refresh",
-      );
+    if (!this.refreshEnabled) {
+      logger.debug(`Deferring refresh of ${this.model.id} until enabled`);
       return;
     }
-    if (this.timer || this.refreshPassQueued) {
-      logger.debug(
-        "Query finished for " +
-          this.model.id +
-          " runner, refresh already pending",
-      );
+    if (this.refreshTimer) {
+      logger.debug(`Refresh of ${this.model.id} already pending`);
       return;
     }
+    const now = Date.now();
     const delay = Math.max(
       0,
-      this.lastRefreshStartedAt + REFRESH_MIN_INTERVAL_MS - Date.now(),
+      this.lastRefreshStartedAt + REFRESH_MIN_INTERVAL_MS - now,
+      notBefore - now,
     );
-    logger.debug(
-      `Query finished for ${this.model.id} runner, refreshing in ${delay} ms`,
-    );
-    this.timer = setTimeout(() => {
-      this.timer = null;
-      this.queueRefreshPass();
-    }, delay);
-  }
-
-  private clearRefreshTimer(): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
+    logger.debug(`Refreshing ${this.model.id} in ${delay} ms`);
+    this.refreshTimer = setTimeout(() => this.queueRefreshPass(), delay);
   }
 
   /**
@@ -461,7 +462,6 @@ export abstract class QueryRunner<
   private async shutDownWithError(error: string): Promise<void> {
     this.setStatus("finishing");
     this.stopRefreshWatchdog();
-    this.clearRefreshTimer();
     this.clearAllTimers();
     const fullError = "Error finalizing query results: " + error;
     try {
@@ -477,7 +477,6 @@ export abstract class QueryRunner<
 
   /** Enqueue one refresh pass on the serialized chain. */
   private queueRefreshPass(): void {
-    this.refreshPassQueued = true;
     this.refreshChain = this.refreshChain
       .then(() => this.runRefreshPass())
       .catch(async (e) => {
@@ -503,7 +502,6 @@ export abstract class QueryRunner<
    */
   private standDown(reason: string): void {
     logger.warn(`Runner of ${this.model.id} standing down: ${reason}`);
-    this.clearRefreshTimer();
     this.clearAllTimers();
     this.setStatus("finished", "");
   }
@@ -534,10 +532,10 @@ export abstract class QueryRunner<
    */
   private async runRefreshPass(): Promise<void> {
     // Cleared before the first read, so a finish from here on arms a new pass.
-    this.refreshPassQueued = false;
+    this.refreshTimer = null;
     if (this.isFinished()) return;
-    this.refreshStartedAt = Date.now();
-    this.lastRefreshStartedAt = this.refreshStartedAt;
+    this.refreshInFlight = true;
+    this.lastRefreshStartedAt = Date.now();
     try {
       let latest: Model;
       try {
@@ -573,21 +571,7 @@ export abstract class QueryRunner<
         this.standDown("model is already terminal in the database");
         return;
       }
-      // startAnalysis never runs with an empty DAG, so empty queries here
-      // means cancelQueries() on another instance wrote queries: []. A read
-      // from a replica that lags the DAG write looks the same, so confirm
-      // with a second pass before standing down.
-      if (this.status === "running" && latest.queries.length === 0) {
-        if (!this.emptyQueryListSeen && this.model.queries.length > 0) {
-          this.emptyQueryListSeen = true;
-          this.onQueryFinish();
-          return;
-        }
-        this.model = latest;
-        this.standDown("query list was emptied by a cancel");
-        return;
-      }
-      this.emptyQueryListSeen = false;
+      if (this.stopsForEmptyQueryList(latest)) return;
       this.model = latest;
       try {
         const queryMap = await this.refreshQueryStatuses();
@@ -613,8 +597,30 @@ export abstract class QueryRunner<
         await this.shutDownWithError(getErrorMessage(e));
       }
     } finally {
-      this.refreshStartedAt = null;
+      this.refreshInFlight = false;
     }
+  }
+
+  /**
+   * True when this pass must stop on an empty query list: the runner stands
+   * down once the list has stayed empty for EMPTY_QUERY_LIST_CONFIRM_MS and
+   * re-reads at that deadline until then.
+   */
+  private stopsForEmptyQueryList(latest: Model): boolean {
+    if (this.status !== "running" || latest.queries.length > 0) {
+      this.emptyQueryListSince = null;
+      return false;
+    }
+    const now = Date.now();
+    this.emptyQueryListSince ??= now;
+    const deadline = this.emptyQueryListSince + EMPTY_QUERY_LIST_CONFIRM_MS;
+    if (now < deadline) {
+      this.scheduleRefreshPass(deadline);
+      return true;
+    }
+    this.model = latest;
+    this.standDown("query list was emptied by a cancel");
+    return true;
   }
 
   private async getQueryMap(pointers: Queries): Promise<QueryMap> {
@@ -701,16 +707,15 @@ export abstract class QueryRunner<
     this.model = newModel;
 
     if (error || result) {
-      this.dagPersisted = true;
       this.setStatus("finished", error, result);
     } else {
       this.setStatus("running");
       try {
         await this.beforeFirstRefresh();
       } finally {
-        this.dagPersisted = true;
+        this.refreshEnabled = true;
         // Pick up any query completions that happened before this point.
-        this.onQueryFinish();
+        this.scheduleRefreshPass();
       }
     }
 
@@ -1029,7 +1034,6 @@ export abstract class QueryRunner<
       );
     }
 
-    this.clearRefreshTimer();
     this.clearAllTimers();
     const newModel = await this.updateModel({
       queries: [],
