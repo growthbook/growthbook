@@ -6,6 +6,7 @@ import {
   calculateProductAnalyticsDateRange,
   computeBigNumberTrend,
   createComparisonAlignmentResolver,
+  isAverageValue,
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy, ValueAxis } from "shared/enterprise";
 import type {
@@ -318,8 +319,8 @@ export function getPopulationSeriesKeys(
   );
 }
 
-// Ratio and per-unit series keys. A bucket with no data has no value for
-// these (see getEffectiveMetricValue), and their line is joined across it
+// Average (ratio and per-unit) series keys. A bucket with no data has no
+// value for these (see isAverageValue), and their line is joined across it
 // rather than broken: an empty hour says nothing about the rate, so joining
 // the neighbours reads better than a gap or a drop to 0.
 export function getJoinGapsSeriesKeys(
@@ -327,10 +328,9 @@ export function getJoinGapsSeriesKeys(
   renderOpts: RenderOpts,
 ): Set<string> {
   return new Set(
-    Object.keys(seriesMeta).filter((seriesKey) => {
-      const opts = renderOpts.values[seriesMeta[seriesKey].valueIndex];
-      return opts?.isRatio || opts?.showAs === "per_unit";
-    }),
+    Object.keys(seriesMeta).filter((seriesKey) =>
+      isAverageValue(renderOpts.values[seriesMeta[seriesKey].valueIndex]),
+    ),
   );
 }
 

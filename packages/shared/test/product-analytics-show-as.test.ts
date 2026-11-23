@@ -428,7 +428,7 @@ describe("getEffectiveMetricValue", () => {
     ).toEqual([100, 25, 100]);
   });
 
-  it("has no data for a filled bucket, except for totals", () => {
+  it("has no value for an average without a numerator, but 0 for a total", () => {
     const opts = getExplorationRenderOpts(
       metricConfig([
         metricValue("revenue", "total"),
@@ -437,13 +437,20 @@ describe("getEffectiveMetricValue", () => {
       ]),
       getFactMetricById,
     );
-    // What a bucket with no data is filled with.
-    const filled = { numerator: 0, denominator: 0 };
+    const empty = { numerator: null, denominator: null };
     expect(
       [0, 1, 2].map((i) =>
-        getEffectiveMetricValue(filled, opts.values[i], undefined),
+        getEffectiveMetricValue(empty, opts.values[i], undefined),
       ),
     ).toEqual([0, null, null]);
+    // A real 0 / 0 from the warehouse still reads 0.
+    expect(
+      getEffectiveMetricValue(
+        { numerator: 0, denominator: 0 },
+        opts.values[2],
+        undefined,
+      ),
+    ).toBe(0);
   });
 
   it("keeps a real per-unit value that has no denominator", () => {

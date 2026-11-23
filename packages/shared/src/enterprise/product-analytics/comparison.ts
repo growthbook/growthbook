@@ -16,6 +16,7 @@ import { configHasPopulation } from "./populations";
 import {
   buildExplorationColumns,
   getEffectiveMetricValue,
+  isAverageValue,
   getExplorationCellValue,
   getExplorationRenderOpts,
   sortExplorationRows,
@@ -757,17 +758,17 @@ function orderedMetricIdsForDensify(
 }
 
 /**
- * Values for a bucket with no data. The denominator is 0, not null, so ratios
- * and per-unit values read 0 / 0 (no data) rather than falling back to the
- * numerator, while counts read 0.
+ * Values for a bucket with no data: 0 for a count or sum, and no value for an
+ * average (a ratio or per-unit value), since an average over nothing isn't 0.
  */
-function buildZeroValueRow(
+function buildEmptyBucketValues(
   metricIds: string[],
-): ProductAnalyticsResultRow["values"] {
-  return metricIds.map((metricId) => ({
+  renderOpts: ExplorationRenderOpts,
+): NonNullable<ProductAnalyticsResultRow["values"]> {
+  return metricIds.map((metricId, i) => ({
     metricId,
-    numerator: 0,
-    denominator: 0,
+    numerator: isAverageValue(renderOpts.values[i]) ? null : 0,
+    denominator: null,
   }));
 }
 
@@ -783,7 +784,7 @@ function bucketBreakdownMergeKey(
 
 /**
  * Returns a clone of `comparison` whose `result.rows` include every date bucket in the
- * comparison window (zeros for gaps). Supports a single date dimension and the
+ * comparison window, up to `until` (see `buildEmptyBucketValues` for gaps). Supports a single date dimension and the
  * `date + 1 breakdown` case. For the grouped case the breakdown values come from
  * the union of the primary and comparison periods, so every primary series has a
  * continuous prior line even when the previous period returned no/partial rows.
@@ -794,15 +795,22 @@ export function densifyComparisonExplorationTimeseries(params: {
   previousTimeFrame: ExplorationDateRange;
   /** Primary-period rows; used to seed breakdown series in the grouped case. */
   primaryRows?: ProductAnalyticsResultRow[];
-  /** Buckets that start after this are left out; they haven't happened yet. */
-  now?: Date;
+  /** Decides what an empty bucket holds for each value. */
+  renderOpts: ExplorationRenderOpts;
+  /**
+   * Buckets that start after this are left out, e.g. the current time, so a
+   * range ending in the future isn't drawn as "nothing happened". Null fills
+   * the whole range.
+   */
+  until: Date | null;
 }): ProductAnalyticsExploration | null {
   const {
     comparison,
     submittedConfig,
     previousTimeFrame,
     primaryRows,
-    now = new Date(),
+    renderOpts,
+    until,
   } = params;
 
   if (!comparison) return null;
@@ -834,17 +842,13 @@ export function densifyComparisonExplorationTimeseries(params: {
   const bucketStrings = enumerateProductAnalyticsDateBuckets({
     resolvedGranularity: resolved,
     rangeStart: dr.startDate,
-    // A custom range can end in the future; zeros there would read as
-    // "nothing happened" rather than "not yet".
-    rangeEnd: dr.endDate.getTime() > now.getTime() ? now : dr.endDate,
+    rangeEnd: until && until < dr.endDate ? until : dr.endDate,
   });
   if (bucketStrings.length === 0) {
     return null;
   }
 
-  // buildZeroValueRow always returns an array; the `| undefined` comes from
-  // the union type on ProductAnalyticsResultRow["values"] (funnel rows omit it).
-  const zeroValues = buildZeroValueRow(metricIds)!;
+  const emptyValues = buildEmptyBucketValues(metricIds, renderOpts);
 
   if (!isGrouped) {
     const byMergeKey = new Map<string, ProductAnalyticsResultRow>();
@@ -869,7 +873,7 @@ export function densifyComparisonExplorationTimeseries(params: {
         }
         return {
           dimensions: [bucketIso],
-          values: zeroValues.map((v) => ({ ...v })),
+          values: emptyValues.map((v) => ({ ...v })),
         };
       },
     );
@@ -877,7 +881,7 @@ export function densifyComparisonExplorationTimeseries(params: {
     return { ...comparison, result: { rows: merged } };
   }
 
-  // Grouped (date + 1 breakdown): zero-fill the cross-product of every bucket
+  // Grouped (date + 1 breakdown): fill the cross-product of every bucket
   // and every breakdown value seen in either period, preserving insertion order
   // (primary series first, then comparison-only series) for deterministic output.
   const breakdownValues: string[] = [];
@@ -922,7 +926,7 @@ export function densifyComparisonExplorationTimeseries(params: {
       }
       merged.push({
         dimensions: [bucketIso, breakdown],
-        values: zeroValues.map((v) => ({ ...v })),
+        values: emptyValues.map((v) => ({ ...v })),
       });
     }
   }
@@ -939,23 +943,27 @@ export function densifyComparisonExplorationTimeseries(params: {
 export function densifyPopulationTimeseriesRows(
   exploration: ProductAnalyticsExploration,
   config: ExplorationConfig,
+  renderOpts: ExplorationRenderOpts,
+  until: Date | null,
 ): ProductAnalyticsResultRow[] {
   if (!configHasPopulation(config)) return exploration.result?.rows ?? [];
-  return densifyTimeseriesRows(exploration, config);
+  return densifyTimeseriesRows(exploration, config, renderOpts, until);
 }
 
 /**
- * A result's rows with a row for every date bucket in its whole date range,
- * up to now. A bucket with no data has no row, so without these a line
- * chart's axis would only span the dates that have data, and would join
- * straight across a gap instead of dropping to 0.
+ * A result's rows with a row for every date bucket in its date range, up to
+ * `until` (null for the whole range). A bucket with no data has no row, so
+ * without these a line chart's axis would only span the dates that have data.
+ * A filled bucket is 0 for a count or sum, and has no value for an average
+ * (see `buildEmptyBucketValues`).
  *
  * Unchanged unless the first dimension is a date, with at most one breakdown.
  */
 export function densifyTimeseriesRows(
   exploration: ProductAnalyticsExploration,
   config: ExplorationConfig,
-  now?: Date,
+  renderOpts: ExplorationRenderOpts,
+  until: Date | null,
 ): ProductAnalyticsResultRow[] {
   const rows = exploration.result?.rows ?? [];
   return (
@@ -963,7 +971,8 @@ export function densifyTimeseriesRows(
       comparison: exploration,
       submittedConfig: config,
       previousTimeFrame: config.dateRange,
-      now,
+      renderOpts,
+      until,
     })?.result?.rows ?? rows
   );
 }
@@ -1036,7 +1045,9 @@ export function computeExplorationComparisonPayload(
   submittedConfig: ExplorationConfig,
   previousTimeFrame: ExplorationDateRange,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-  alignment: ComparisonAlignmentStrategy = "calendarYearOverYear",
+  alignment: ComparisonAlignmentStrategy,
+  /** Where filled date buckets stop (see `densifyTimeseriesRows`). */
+  fillUntil: Date | null,
 ): ProductAnalyticsRunComparisonPayload {
   const previousPeriod = dateRangeToPeriodStrings(previousTimeFrame);
 
@@ -1076,15 +1087,16 @@ export function computeExplorationComparisonPayload(
     (c) => c.kind === "metric" && c.sub !== "single",
   );
 
-  // Zero-filled ratio rows would read as 0/0, so ratios aren't densified.
-  const densifiedComparison = hasAnyRatio
-    ? null
-    : densifyComparisonExplorationTimeseries({
-        comparison,
-        submittedConfig,
-        previousTimeFrame,
-        primaryRows: primary?.result?.rows,
-      });
+  // Fill the previous period's empty buckets here, once, so the chart and
+  // table pair the same buckets.
+  const densifiedComparison = densifyComparisonExplorationTimeseries({
+    comparison,
+    submittedConfig,
+    previousTimeFrame,
+    primaryRows: primary.result.rows,
+    renderOpts,
+    until: fillUntil,
+  });
 
   const exploration = densifiedComparison ?? comparison;
 
@@ -1130,8 +1142,8 @@ export function computeExplorationComparisonPayload(
     alignment,
     // Rank against every bucket, as the table and chart do, so a missing day
     // doesn't shift the pairing.
-    densifyTimeseriesRows(primary, submittedConfig).map((r) =>
-      String(r.dimensions[0] ?? ""),
+    densifyTimeseriesRows(primary, submittedConfig, renderOpts, fillUntil).map(
+      (r) => String(r.dimensions[0] ?? ""),
     ),
   );
 

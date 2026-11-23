@@ -90,9 +90,8 @@ function getAnnotatedName(
  * "% of Population" is null (no data) when the row has no members, since a
  * share of nobody isn't 0%.
  *
- * Ratios and per-unit values are null at 0 / 0: an average over nothing isn't
- * 0. That's how a date bucket filled in for a gap reads (see
- * `densifyTimeseriesRows`). A missing denominator still falls back to the
+ * Averages (see `isAverageValue`) are null when there's no numerator: an
+ * average over nothing isn't 0. A missing denominator still falls back to the
  * numerator, since per-unit results have none when no unit is selected.
  */
 export function getEffectiveMetricValue(
@@ -100,17 +99,29 @@ export function getEffectiveMetricValue(
   opts: Pick<ValueRenderOpts, "showAs" | "isRatio"> | undefined,
   populationCount: number | undefined,
 ): number | null {
-  const num = v.numerator ?? 0;
-  if (opts?.isRatio || opts?.showAs === "per_unit") {
-    if (num === 0 && v.denominator === 0) return null;
-    return v.denominator ? num / v.denominator : num;
+  if (isAverageValue(opts)) {
+    if (v.numerator === null) return null;
+    return v.denominator ? v.numerator / v.denominator : v.numerator;
   }
+  const num = v.numerator ?? 0;
   if (opts?.showAs === "percent_of_population") {
     if (!populationCount) return null;
     const shareOfPopulation = num / populationCount;
     return shareOfPopulation * 100;
   }
   return num;
+}
+
+/**
+ * Whether a value is an average: a ratio, or a per-unit value. A date bucket
+ * with no data has no value for it, where a count or sum is 0. Filled buckets
+ * are written that way (see `densifyTimeseriesRows`), and charts join a line
+ * across them.
+ */
+export function isAverageValue(
+  opts: Pick<ValueRenderOpts, "showAs" | "isRatio"> | undefined,
+): boolean {
+  return Boolean(opts?.isRatio) || opts?.showAs === "per_unit";
 }
 
 /** Whether a dataset value is a ratio metric. Only metric values can be. */

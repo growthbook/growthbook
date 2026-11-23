@@ -734,9 +734,12 @@ export default function useExplorationTableData(
         // Rank against every bucket, as the chart does, so a missing day
         // doesn't shift the pairing.
         exploration && submittedExploreState
-          ? densifyTimeseriesRows(exploration, submittedExploreState).map((r) =>
-              String(r.dimensions[0] ?? ""),
-            )
+          ? densifyTimeseriesRows(
+              exploration,
+              submittedExploreState,
+              renderOpts,
+              new Date(),
+            ).map((r) => String(r.dimensions[0] ?? ""))
           : undefined,
       );
       return sortedRows.map((row, idx) => {

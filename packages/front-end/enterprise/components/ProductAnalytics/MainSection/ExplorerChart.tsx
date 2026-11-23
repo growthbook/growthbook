@@ -12,7 +12,6 @@ import { isManagedWarehousePendingQueryError } from "shared/util";
 import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
-  densifyComparisonExplorationTimeseries,
   densifyPopulationTimeseriesRows,
   densifyTimeseriesRows,
   extendDateBucketsForward,
@@ -297,30 +296,30 @@ export default function ExplorerChart({
       submittedExploreState.dataset?.type === "journey"
     )
       return null;
-    // Line/area charts get a 0 for every bucket in the date range with no
-    // data, so the axis covers the whole range and gaps drop to 0 rather than
-    // being joined across. Bars are left sparse: they sort by value, so
-    // zero bars would only pile up at the end.
+    // Line/area charts get a row for every bucket in the date range, up to
+    // now, so the axis covers the whole range: counts and sums drop to 0 and
+    // averages join across (see getJoinGapsSeriesKeys). Bars sort by value,
+    // so filled bars would only pile up at the end; they're filled only for a
+    // Population, as before.
     const fillsDates =
       submittedExploreState.chartType === "line" ||
       submittedExploreState.chartType === "area";
+    const now = new Date();
     const rows = fillsDates
-      ? densifyTimeseriesRows(exploration, submittedExploreState)
-      : densifyPopulationTimeseriesRows(exploration, submittedExploreState);
-    // The previous period has to be filled the same way, or pairing its
-    // buckets with the current ones by position would shift. It usually
-    // arrives filled already, but not when any value is a ratio.
-    const comparisonRows =
-      (fillsDates && comparisonExploration && submittedPreviousTimeFrame
-        ? densifyComparisonExplorationTimeseries({
-            comparison: comparisonExploration,
-            submittedConfig: submittedExploreState,
-            previousTimeFrame: submittedPreviousTimeFrame,
-            primaryRows: rows,
-          })?.result?.rows
-        : undefined) ??
-      comparisonExploration?.result?.rows ??
-      [];
+      ? densifyTimeseriesRows(
+          exploration,
+          submittedExploreState,
+          renderOpts,
+          now,
+        )
+      : densifyPopulationTimeseriesRows(
+          exploration,
+          submittedExploreState,
+          renderOpts,
+          now,
+        );
+    // Already filled the same way by computeExplorationComparisonPayload.
+    const comparisonRows = comparisonExploration?.result?.rows ?? [];
 
     // Resolve date granularity for tooltip formatting
     const dateDimension = submittedExploreState.dimensions?.find(
