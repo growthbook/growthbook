@@ -32,38 +32,31 @@ export default function PasskeySignInButton({
 }: {
   onSuccess: (token: string) => void;
 }) {
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!browserSupportsWebAuthn()) return null;
 
+  // Button shows the spinner and passes anything thrown here to setError
   const signIn = async () => {
-    setError(null);
-    setLoading(true);
+    const { options } = await postToAuth<{
+      options: PublicKeyCredentialRequestOptionsJSON;
+    }>("/auth/passkey/options", {});
+
+    let response: AuthenticationResponseJSON;
     try {
-      const { options } = await postToAuth<{
-        options: PublicKeyCredentialRequestOptionsJSON;
-      }>("/auth/passkey/options", {});
-
-      let response: AuthenticationResponseJSON;
-      try {
-        response = await startAuthentication({ optionsJSON: options });
-      } catch (e) {
-        throw new Error(
-          describeWebAuthnError(e) ??
-            "Passkey sign-in was cancelled or didn't finish. Please try again.",
-        );
-      }
-
-      const { token } = await postToAuth<{ token: string }>(
-        "/auth/passkey/verify",
-        { response },
-      );
-      onSuccess(token);
+      response = await startAuthentication({ optionsJSON: options });
     } catch (e) {
-      setError(e.message);
+      throw new Error(
+        describeWebAuthnError(e) ??
+          "Passkey sign-in was cancelled or didn't finish. Please try again.",
+      );
     }
-    setLoading(false);
+
+    const { token } = await postToAuth<{ token: string }>(
+      "/auth/passkey/verify",
+      { response },
+    );
+    onSuccess(token);
   };
 
   return (
@@ -71,9 +64,9 @@ export default function PasskeySignInButton({
       <Button
         variant="outline"
         size="xl"
-        loading={loading}
         style={{ width: "100%" }}
         onClick={signIn}
+        setError={setError}
       >
         Sign in with a passkey
       </Button>
