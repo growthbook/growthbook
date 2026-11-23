@@ -14,7 +14,6 @@ import {
 import { getAllVariations } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
-import { generateId } from "back-end/src/util/uuid";
 import { assumeUtc } from "back-end/src/util/dates";
 import {
   getExperimentById,
@@ -50,6 +49,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
   assertValidReportClusterConfig,
+  copySnapshotForReport,
   createReportSnapshot,
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
@@ -68,18 +68,14 @@ export async function postReportFromSnapshot(
 
   const reportArgs = req.body || {};
 
-  const snapshot = await findSnapshotById(context, req.params.snapshot);
-  if (!snapshot) {
+  const experimentSnapshot = await findSnapshotById(
+    context,
+    req.params.snapshot,
+  );
+  if (!experimentSnapshot) {
     throw new Error("Invalid snapshot id");
   }
-  // Prepare a new report-specific snapshot
-  snapshot.id = generateId("snp_");
-  snapshot.type = "report";
-  snapshot.triggeredBy = "manual";
-  if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {
-    // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
-    snapshot.health.traffic.dimension = {};
-  }
+  const snapshot = copySnapshotForReport(experimentSnapshot);
 
   const experiment = await getExperimentById(context, snapshot.experiment);
 
