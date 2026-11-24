@@ -116,8 +116,8 @@ export function getDefaultFactMetricProps({
   datasources: DataSourceInterfaceWithParams[];
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableDefinition;
-  // Row filters to start from on initialFactTable (e.g. "New metric" from an
-  // event on the fact table page). Blank prompts are added for the rest.
+  // Row filters to start from on initialFactTable (e.g. "Add Fact Metric for
+  // this event" on the fact table page). Blank prompts are added for the rest.
   initialRowFilters?: RowFilter[];
   // Starting data source when no fact table is chosen yet (e.g. "Add" from a
   // data source's page) - otherwise the org default wins.
