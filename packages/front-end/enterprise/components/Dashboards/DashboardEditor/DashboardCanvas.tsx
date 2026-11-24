@@ -17,7 +17,7 @@ import {
   getBlockSizeBounds,
 } from "shared/enterprise";
 import { isDefined } from "shared/util";
-import { Flex } from "@radix-ui/themes";
+import { Card, Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import {
   LayoutItem,
@@ -260,46 +260,47 @@ export default function DashboardCanvas({
         {blocks.length === 0 && !canEdit && !isEditing ? (
           <Text color="text-mid">This dashboard has no blocks yet.</Text>
         ) : blocks.length === 0 ? (
-          <Flex
-            direction="column"
-            align="center"
-            justify="center"
-            px="80px"
-            pt="60px"
-            pb="70px"
-            className="appbox"
-            gap="5"
-          >
-            <Flex direction="column">
-              <Heading as="h1" size="lg" weight="medium" align="center">
-                Add Content Blocks
-              </Heading>
-              <Text align="center">
-                {addBlockType
-                  ? "Choose a block type to get started."
-                  : "Add some blocks to get started"}
-              </Text>
+          <Card>
+            <Flex
+              direction="column"
+              align="center"
+              justify="center"
+              px="80px"
+              pt="60px"
+              pb="70px"
+              gap="5"
+            >
+              <Flex direction="column">
+                <Heading as="h1" size="lg" weight="medium" align="center">
+                  Add Content Blocks
+                </Heading>
+                <Text align="center">
+                  {addBlockType
+                    ? "Choose a block type to get started."
+                    : "Add some blocks to get started"}
+                </Text>
+              </Flex>
+              {addBlockType ? (
+                <AddBlockDropdown
+                  addBlockType={addBlockType}
+                  isGeneralDashboard={isGeneralDashboard}
+                  trigger={
+                    <Button
+                      size="md"
+                      icon={<PiCaretDownFill />}
+                      iconPosition="right"
+                    >
+                      Add block
+                    </Button>
+                  }
+                />
+              ) : canEdit && setIsEditing ? (
+                <Button size="lg" onClick={() => setIsEditing(true)}>
+                  Add block
+                </Button>
+              ) : null}
             </Flex>
-            {addBlockType ? (
-              <AddBlockDropdown
-                addBlockType={addBlockType}
-                isGeneralDashboard={isGeneralDashboard}
-                trigger={
-                  <Button
-                    size="md"
-                    icon={<PiCaretDownFill />}
-                    iconPosition="right"
-                  >
-                    Add block
-                  </Button>
-                }
-              />
-            ) : canEdit && setIsEditing ? (
-              <Button size="lg" onClick={() => setIsEditing(true)}>
-                Add block
-              </Button>
-            ) : null}
-          </Flex>
+          </Card>
         ) : (
           <DashboardGrid
             blocks={blocks}
