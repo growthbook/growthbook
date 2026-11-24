@@ -15,7 +15,7 @@ import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import FeatureModal from "@/components/Features/FeatureModal";
-import { featureStatusColors } from "@/components/Features/FeaturesOverview";
+import { featureStatusColors } from "@/components/Features/featureStatusColors";
 import track from "@/services/track";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {

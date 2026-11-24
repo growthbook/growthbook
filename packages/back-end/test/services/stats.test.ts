@@ -114,7 +114,7 @@ describe("parseStatsEngineResult", () => {
         analysisSettings,
         { ...analysisSettings, dimensions: ["dim_exp_country"] },
       ],
-      snapshotSettings: { variations },
+      snapshotSettings: { variations, goalMetrics: [] },
       queryResults,
       unknownVariations: [],
       result: [
@@ -137,7 +137,7 @@ describe("parseStatsEngineResult", () => {
   it("attaches a failed metric to every surviving variation", () => {
     const [result] = parseStatsEngineResult({
       analysisSettings: [analysisSettings],
-      snapshotSettings: { variations },
+      snapshotSettings: { variations, goalMetrics: [] },
       queryResults: [],
       unknownVariations: [],
       result: [survivorResult, failedResult],
@@ -160,7 +160,7 @@ describe("parseStatsEngineResult", () => {
   it("keeps the stats traceback out of the persisted metric error message", () => {
     const [result] = parseStatsEngineResult({
       analysisSettings: [analysisSettings],
-      snapshotSettings: { variations },
+      snapshotSettings: { variations, goalMetrics: [] },
       queryResults: [],
       unknownVariations: [],
       result: [
@@ -188,7 +188,7 @@ describe("parseStatsEngineResult", () => {
     const goodSlot = survivorResult.analyses[0];
     const results = parseStatsEngineResult({
       analysisSettings: [analysisSettings, analysisSettings],
-      snapshotSettings: { variations },
+      snapshotSettings: { variations, goalMetrics: [] },
       queryResults: [],
       unknownVariations: [],
       result: [
@@ -246,7 +246,7 @@ describe("parseStatsEngineResult", () => {
 
     const [result] = parseStatsEngineResult({
       analysisSettings: [analysisSettings],
-      snapshotSettings: { variations },
+      snapshotSettings: { variations, goalMetrics: [] },
       queryResults: [],
       unknownVariations: [],
       result: [survivorResult, throwingResult],
@@ -262,7 +262,7 @@ describe("parseStatsEngineResult", () => {
   it("creates variations for errors when no metric survives", () => {
     const [result] = parseStatsEngineResult({
       analysisSettings: [analysisSettings],
-      snapshotSettings: { variations },
+      snapshotSettings: { variations, goalMetrics: [] },
       queryResults: [],
       unknownVariations: [],
       result: [failedResult],
@@ -300,7 +300,7 @@ describe("parseStatsEngineResult", () => {
     });
     const [result] = parseStatsEngineResult({
       analysisSettings: [analysisSettings],
-      snapshotSettings: { variations },
+      snapshotSettings: { variations, goalMetrics: [] },
       queryResults: [
         {
           metrics: ["a"],
@@ -326,7 +326,7 @@ describe("parseStatsEngineResult", () => {
   it("uses an empty All dimension when nothing computed and nothing failed", () => {
     const [result] = parseStatsEngineResult({
       analysisSettings: [analysisSettings],
-      snapshotSettings: { variations },
+      snapshotSettings: { variations, goalMetrics: [] },
       queryResults: [],
       unknownVariations: [],
       result: [],
@@ -339,6 +339,51 @@ describe("parseStatsEngineResult", () => {
         variations: [],
       },
     ]);
+  });
+  it("stores multiple-testing-corrected p-values for the goal metrics", () => {
+    const [baseline, treatment] =
+      survivorResult.analyses[0].dimensions[0].variations;
+    const withPValue = (
+      metric: string,
+      pValue: number,
+    ): ExperimentMetricAnalysis[number] => ({
+      metric,
+      analyses: [
+        {
+          ...survivorResult.analyses[0],
+          dimensions: [
+            {
+              dimension: "All",
+              srm: 1,
+              variations: [baseline, { ...treatment, pValue }],
+            },
+          ],
+        },
+      ],
+    });
+
+    const [result] = parseStatsEngineResult({
+      analysisSettings: [
+        {
+          ...analysisSettings,
+          statsEngine: "frequentist",
+          pValueCorrection: "holm-bonferroni",
+        },
+      ],
+      snapshotSettings: { variations, goalMetrics: ["goal1", "goal2"] },
+      queryResults: [],
+      unknownVariations: [],
+      result: [
+        withPValue("goal1", 0.01),
+        withPValue("goal2", 0.04),
+        withPValue("secondary", 0.01),
+      ],
+    });
+
+    const { metrics } = result.dimensions[0].variations[1];
+    expect(metrics.goal1.pValueAdjusted).toBeCloseTo(0.02);
+    expect(metrics.goal2.pValueAdjusted).toBeCloseTo(0.04);
+    expect(metrics.secondary.pValueAdjusted).toBeUndefined();
   });
 });
 

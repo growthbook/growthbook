@@ -29,7 +29,7 @@ export default function ScrollAreaStories() {
           key={String(gutter)}
           title={gutter ? "With gutter" : "Scrollbar over the content"}
         >
-          <ScrollArea gutter={gutter} alwaysShow style={{ height: "100%" }}>
+          <ScrollArea gutter={gutter} type="auto" style={{ height: "100%" }}>
             {rows.map((row, i) => (
               <Flex
                 key={row}

@@ -15,7 +15,17 @@ export interface ProxyConnection {
   version: string;
   error: string;
   lastError: Date | null;
+  /**
+   * Failed attempts in a row to send the payload to the proxy. Each push makes
+   * up to two attempts: the first request, and a retry 5 seconds later if that
+   * fails. Responses with status 413 and attempts that get no response aren't
+   * counted. The proxy is disabled when this reaches 10.
+   */
   consecutiveFailures?: number;
+  /** When the proxy started failing. Cleared when a push succeeds. */
+  failingSince?: Date | null;
+  /** When the last failure alert was sent. Cleared when a push succeeds. */
+  failureAlertedAt?: Date | null;
 }
 
 export type EditSDKConnectionParams = {

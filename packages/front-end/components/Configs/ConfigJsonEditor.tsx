@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { createPortal } from "react-dom";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiBracketsCurly } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
   fieldsToTsType,
@@ -23,24 +23,28 @@ import {
   tsTypesToFields,
 } from "shared/util";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import ValueDisplay from "@/components/Features/ValueDisplay";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Field from "@/components/Forms/Field";
-import Button from "@/ui/Button";
-import ScrollArea from "@/ui/ScrollArea";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Tooltip from "@/ui/Tooltip";
+import Button from "@/ui/Button";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
+import StagedEditsBar from "@/components/StagedEdits/StagedEditsBar";
 import { ResolvedField } from "@/components/Configs/fieldSchema";
 import FormatJsonAction from "@/components/Features/FormatJsonAction";
+import StatusDot from "@/components/Experiment/StatusDot";
+import { draftStatusDotColor } from "@/components/Reviews/RevisionStatusBadge";
 
 // Non-`json` ids match the converter ids (also a projection's `language`), so
 // one dispatch map serves both the schema buffer and projections.
@@ -120,6 +124,13 @@ type Props = {
     // When provided, replaces the config's per-source projections (set/clear).
     renderProjections?: Record<string, SchemaProjection>,
   ) => Promise<void>;
+  // The page's bottom bar, where unsaved edits show their Save and Discard.
+  ribbonEl?: HTMLElement | null;
+  // Unsaved edits hold the page, as other edits there do.
+  onDirtyChange?: (dirty: boolean) => void;
+  // From live, where the view is read-only: opens a draft to edit in.
+  onEditInDraft?: () => void | Promise<void>;
+  onSavingChange?: (saving: boolean) => void;
 };
 
 function prettyValue(json: string): string {
@@ -252,6 +263,10 @@ export default function ConfigJsonEditor({
   renderProjections,
   unpublishedFormats,
   onSave,
+  ribbonEl = null,
+  onDirtyChange,
+  onEditInDraft,
+  onSavingChange,
 }: Props) {
   const [valueText, setValueText] = useState<string>(() =>
     prettyValue(valueJson),
@@ -262,6 +277,13 @@ export default function ConfigJsonEditor({
   const [parseError, setParseError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    onSavingChange?.(saving);
+  }, [saving, onSavingChange]);
+  useEffect(() => () => onSavingChange?.(false), [onSavingChange]);
+  // Bumped by a successful save, so a save the server stores unchanged still
+  // resets the buffers to what's saved.
+  const [saveCount, setSaveCount] = useState(0);
   const [schemaCodeMode, setSchemaCodeMode] = useState(true);
   // Held in a ref too so the reseed effect (which must not re-run on a language
   // switch) can read the current language.
@@ -294,20 +316,41 @@ export default function ConfigJsonEditor({
     [ancestorOwnedSig],
   );
 
-  // Reseed when the saved value/schema changes (post-save mutate, revision switch).
+  // Each buffer as of its last seed or save. A reseed (after a save, or a
+  // change saved elsewhere) replaces only a buffer still at its base, so text
+  // typed since, such as during a save, survives it.
+  const valueBase = useRef<string | null>(null);
+  const schemaBase = useRef<string | null>(null);
+  const valueTextRef = useRef(valueText);
+  valueTextRef.current = valueText;
+  const schemaTextRef = useRef(schemaText);
+  schemaTextRef.current = schemaText;
   useEffect(() => {
-    setValueText(prettyValue(valueJson));
-  }, [valueJson]);
+    const base = valueBase.current;
+    if (base !== null && valueTextRef.current !== base) return;
+    valueBase.current = prettyValue(valueJson);
+    setValueText(valueBase.current);
+  }, [valueJson, saveCount]);
   useEffect(() => {
-    setSchemaText(
-      seedSchemaText(schemaJson, schemaType, extensible, schemaLangRef.current),
+    const base = schemaBase.current;
+    if (base !== null && schemaTextRef.current !== base) return;
+    schemaBase.current = seedSchemaText(
+      schemaJson,
+      schemaType,
+      extensible,
+      schemaLangRef.current,
     );
+    setSchemaText(schemaBase.current);
     seededKeys.current = new Set();
-  }, [schemaJson, schemaType, extensible]);
+  }, [schemaJson, schemaType, extensible, saveCount]);
 
-  // Live assist (draft only): when the value introduces a brand-new own key,
-  // splice a best-guess property into the schema once. Keys the author removed,
-  // and ancestor-owned override keys, are left alone. JSON Schema only.
+  // Live assist (draft only): a key the author types that the saved value lacks
+  // gets an optional best-guess property in the schema, once. Saved keys stay
+  // undeclared where extra fields are allowed. JSON Schema only.
+  const savedKeys = useMemo(
+    () => new Set(Object.keys(parsePlainObject(valueJson) ?? {})),
+    [valueJson],
+  );
   useEffect(() => {
     if (!canEdit || view === "preview") return;
     const valueObj = parsePlainObject(valueText);
@@ -327,20 +370,17 @@ export default function ConfigJsonEditor({
         !Array.isArray(schemaObj.properties)
           ? { ...(schemaObj.properties as Record<string, unknown>) }
           : {};
-      const required = new Set(
-        Array.isArray(schemaObj.required)
-          ? (schemaObj.required as unknown[]).filter(
-              (r): r is string => typeof r === "string",
-            )
-          : [],
-      );
       let changed = false;
       for (const k of valueKeys) {
-        if (k in props || seededKeys.current.has(k) || ancestorOwned.has(k)) {
+        if (
+          k in props ||
+          savedKeys.has(k) ||
+          seededKeys.current.has(k) ||
+          ancestorOwned.has(k)
+        ) {
           continue;
         }
         props[k] = inferJsonSchemaForValue(valueObj[k]);
-        required.add(k);
         seededKeys.current.add(k);
         changed = true;
       }
@@ -349,11 +389,10 @@ export default function ConfigJsonEditor({
         ...schemaObj,
         type: schemaObj.type ?? "object",
         properties: props,
-        required: [...required],
       };
       return JSON.stringify(next, null, 2);
     });
-  }, [valueText, ancestorOwned, canEdit, schemaLang, view]);
+  }, [valueText, savedKeys, ancestorOwned, canEdit, schemaLang, view]);
 
   const parsedSchema = useMemo(
     () => parseSchemaText(schemaText, schemaLang),
@@ -370,7 +409,10 @@ export default function ConfigJsonEditor({
     // A buffer with a parse error yields empty fields — switching now would
     // wipe the draft. Keep the current language until the error is fixed.
     if (schemaError) return;
-    setSchemaText(compileFieldsToText(fields, schemaType, extensible, next));
+    const text = compileFieldsToText(fields, schemaType, extensible, next);
+    // A clean buffer stays clean in the new language, so reseeds still reach it.
+    if (schemaText === schemaBase.current) schemaBase.current = text;
+    setSchemaText(text);
     setSchemaLang(next);
     seededKeys.current = new Set();
   };
@@ -409,8 +451,8 @@ export default function ConfigJsonEditor({
   const activeProjection = projectionSource
     ? renderProjections?.[projectionSource]
     : undefined;
-  const editingProjection =
-    view === "edit" && canEdit && !!projectionSource && !!activeProjection;
+  // Not tied to the view: the buffer survives Resolved, like the value's.
+  const editingProjection = canEdit && !!projectionSource && !!activeProjection;
   const projectionLang: ProjectionLang =
     activeProjection?.language ?? "typescript";
   const projectionSeed = useMemo(
@@ -476,7 +518,17 @@ export default function ConfigJsonEditor({
     conflictKeys.length === 0 &&
     !saving;
 
+  // Resolved shows saved values, but the buffer survives it, so it still holds the page.
+  const holdsPage = canEdit && dirty;
+  useEffect(() => {
+    onDirtyChange?.(holdsPage);
+  }, [holdsPage, onDirtyChange]);
+  // Unmounted (another tab, another Config), nothing is held.
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+
   const handleCancel = () => {
+    valueBase.current = pristineValue;
+    schemaBase.current = pristineSchema;
     setValueText(pristineValue);
     setSchemaText(pristineSchema);
     setProjectionText(projectionSeed);
@@ -486,6 +538,10 @@ export default function ConfigJsonEditor({
   };
 
   const handleSave = async () => {
+    // A failed save leaves the buffers unsaved, so their bases go back.
+    const bases = [valueBase.current, schemaBase.current] as const;
+    valueBase.current = valueText;
+    schemaBase.current = schemaText;
     setSaving(true);
     setSaveError(null);
     try {
@@ -510,7 +566,9 @@ export default function ConfigJsonEditor({
       } else {
         await onSave(obj, reconciled);
       }
+      setSaveCount((n) => n + 1);
     } catch (e) {
+      [valueBase.current, schemaBase.current] = bases;
       setSaveError(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setSaving(false);
@@ -555,41 +613,54 @@ export default function ConfigJsonEditor({
     setNewProjLang("typescript");
   };
 
-  const columnHeader = (text: string) => (
-    <Text weight="semibold" size="md" as="div" mb="1">
-      {text}
-    </Text>
+  // Sized to the value editor's label row so both columns line up.
+  const columnHeader = (text: string, actions: ReactNode = null) => (
+    <Flex
+      justify="between"
+      align="center"
+      gap="3"
+      mb="2"
+      style={{ minHeight: 40 }}
+    >
+      <Text weight="semibold" size="md" as="div">
+        {text}
+      </Text>
+      {actions}
+    </Flex>
   );
 
-  const readonlyJsonSchema = (jsonString: string): ReactNode => (
-    <ValueDisplay
-      value={jsonString}
-      type="json"
+  // Read-only views use the editable view's editors, sized the same, so
+  // switching views keeps the layout.
+  const readonlySchemaEditor = (lang: string, code: string): ReactNode => (
+    <CodeTextArea
+      language={aceMode(lang)}
+      value={code}
+      setValue={() => undefined}
+      readOnly
+      minLines={12}
+      maxLines={40}
+      showCopyButton
       showFullscreenButton
-      fullStyle={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}
+      slimGutter
+      matchValueDisplay
     />
   );
+  const readonlyJsonSchema = (jsonString: string): ReactNode =>
+    readonlySchemaEditor("json", prettyValue(jsonString));
 
-  // Uses the syntax highlighter rather than a disabled code editor. A projection
-  // reproduces named types.
+  // A projection reproduces named types.
   const readonlyCodeSchema = (
     lang: string,
     schemaFields: SchemaField[],
     projection?: SchemaProjection,
-  ): ReactNode => {
-    const render = CODE_RENDERERS[lang] ?? fieldsToTsType;
-    return (
-      <ScrollArea edgeCue="fade" style={{ maxHeight: 320, maxWidth: "100%" }}>
-        <InlineCode
-          language={lang === "go" ? "go" : (lang as "typescript")}
-          code={render(schemaFields, {
-            additionalProperties: extensible,
-            projection,
-          })}
-        />
-      </ScrollArea>
+  ): ReactNode =>
+    readonlySchemaEditor(
+      lang,
+      (CODE_RENDERERS[lang] ?? fieldsToTsType)(schemaFields, {
+        additionalProperties: extensible,
+        projection,
+      }),
     );
-  };
 
   // A child with no own schema still inherits its parent's; say so rather than
   // the bare "No schema defined."
@@ -652,31 +723,17 @@ export default function ConfigJsonEditor({
                   <Flex align="center" justify="between" gap="2">
                     <span>{option.label}</span>
                     {dirtyValues.has(option.value) && (
-                      <Tooltip
-                        flipTheme={false}
-                        body={
-                          <Text size="sm" color="text-high">
-                            Differs from the published version
-                          </Text>
-                        }
-                        style={{
-                          position: "relative",
-                          zIndex: 1000,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          flexShrink: 0,
-                          padding: 6,
-                          margin: -6,
-                        }}
-                      >
+                      <Tooltip content="Differs from the published version">
+                        {/* Padded, so the small dot is easy to hover. */}
                         <span
                           style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: "var(--amber-9)",
+                            display: "inline-flex",
+                            padding: 6,
+                            margin: -6,
                           }}
-                        />
+                        >
+                          <StatusDot color={draftStatusDotColor("draft")} />
+                        </span>
                       </Tooltip>
                     )}
                   </Flex>
@@ -721,13 +778,12 @@ export default function ConfigJsonEditor({
     },
   ): ReactNode => (
     <>
-      <Flex justify="between" align="center" mb="1" gap="3">
-        <Text weight="semibold" size="md" as="div">
-          {heading}
-        </Text>
-        {schemaFields.length > 0 &&
-          schemaFormatSelect(sel, setSel, opts?.projections)}
-      </Flex>
+      {columnHeader(
+        heading,
+        schemaFields.length > 0
+          ? schemaFormatSelect(sel, setSel, opts?.projections)
+          : null,
+      )}
       {schemaFields.length === 0 || jsonString === null
         ? (opts?.emptyState ?? (
             <Text size="md" color="text-low" as="div">
@@ -744,18 +800,24 @@ export default function ConfigJsonEditor({
   );
 
   const readonlyValue = (jsonString: string): ReactNode => (
-    <ValueDisplay
-      value={jsonString}
-      type="json"
+    <CodeTextArea
+      language="json"
+      value={prettyValue(jsonString)}
+      setValue={() => undefined}
+      readOnly
+      resizable
+      defaultHeight={320}
+      showCopyButton
       showFullscreenButton
-      fullStyle={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}
+      slimGutter
+      matchValueDisplay
     />
   );
 
   const twoColumns = (left: ReactNode, right: ReactNode): ReactNode => (
-    <Flex gap="5" align="start">
-      <Box style={{ flex: "1 1 0", minWidth: 0 }}>{left}</Box>
-      <Box style={{ flex: "1 1 0", minWidth: 0 }}>{right}</Box>
+    <Flex gap="5" align="start" wrap="wrap">
+      <Box style={{ flex: "1 1 320px", minWidth: 0 }}>{left}</Box>
+      <Box style={{ flex: "1 1 320px", minWidth: 0 }}>{right}</Box>
     </Flex>
   );
 
@@ -774,57 +836,36 @@ export default function ConfigJsonEditor({
     </Flex>
   );
 
-  const schemaHeader = (
-    <Flex
-      justify="between"
-      align="center"
-      mb="1"
-      gap="3"
-      // Fixed label-row height so it lines up with the value editor's.
-      style={{ minHeight: 40 }}
-    >
-      <Text weight="semibold" size="md" as="div">
-        Schema
-      </Text>
-      <Flex align="center" gap="1">
-        {schemaFormatSelect(
-          schemaPreviewSel ?? schemaLang,
-          onEditorFormatSelect,
-          renderProjections,
-          unpublishedFormats,
-        )}
-        <DropdownMenu
-          variant="soft"
-          menuPlacement="end"
-          triggerStyle={{ marginLeft: 0, marginRight: 0 }}
-          trigger={
-            <IconButton
-              variant="ghost"
-              color="gray"
-              radius="full"
-              size="2"
-              highContrast
-            >
-              <BsThreeDotsVertical size={16} />
-            </IconButton>
-          }
-        >
-          <DropdownMenuItem onClick={() => setShowNewProjection(true)}>
-            New projection
+  const schemaHeader = columnHeader(
+    "Schema",
+    <Flex align="center" gap="1">
+      {schemaFormatSelect(
+        schemaPreviewSel ?? schemaLang,
+        onEditorFormatSelect,
+        renderProjections,
+        unpublishedFormats,
+      )}
+      <DropdownMenu
+        variant="soft"
+        menuPlacement="end"
+        triggerStyle={{ marginLeft: 0, marginRight: 0 }}
+        trigger={<MoreMenuTrigger label="Schema actions" />}
+      >
+        <DropdownMenuItem onClick={() => setShowNewProjection(true)}>
+          New projection
+        </DropdownMenuItem>
+        {editingProjection && (
+          <DropdownMenuItem
+            color="red"
+            onClick={() => {
+              if (!saving) handleRemoveProjection();
+            }}
+          >
+            Remove projection
           </DropdownMenuItem>
-          {editingProjection && (
-            <DropdownMenuItem
-              color="red"
-              onClick={() => {
-                if (!saving) handleRemoveProjection();
-              }}
-            >
-              Remove projection
-            </DropdownMenuItem>
-          )}
-        </DropdownMenu>
-      </Flex>
-    </Flex>
+        )}
+      </DropdownMenu>
+    </Flex>,
   );
 
   const projectionEditor = (
@@ -838,6 +879,9 @@ export default function ConfigJsonEditor({
         maxLines={40}
         showCopyButton
         showFullscreenButton
+        // The same editor as the value's beside it.
+        slimGutter
+        matchValueDisplay
       />
       <HelperText status="info" size="sm" mt="1">
         <span>
@@ -921,6 +965,9 @@ export default function ConfigJsonEditor({
                   maxLines={40}
                   showCopyButton
                   showFullscreenButton
+                  // The same editor as the value's beside it.
+                  slimGutter
+                  matchValueDisplay
                   // Format JSON only applies to the JSON Schema surface.
                   actions={
                     schemaLang === "json" ? (
@@ -1006,8 +1053,27 @@ export default function ConfigJsonEditor({
     </Modal>
   ) : null;
 
+  const ribbon =
+    holdsPage && ribbonEl
+      ? createPortal(
+          <StagedEditsBar
+            changes={null}
+            saving={saving}
+            saveDisabled={!canSave}
+            onDiscard={handleCancel}
+            onSave={handleSave}
+          />,
+          ribbonEl,
+        )
+      : null;
+
   if (view === "preview") {
-    return <Box mt="3">{previewContent}</Box>;
+    return (
+      <Box mt="3">
+        {previewContent}
+        {ribbon}
+      </Box>
+    );
   }
 
   // Off-draft: read-only view of this config's own stored value + schema.
@@ -1016,7 +1082,14 @@ export default function ConfigJsonEditor({
       <Box mt="3">
         {twoColumns(
           <>
-            {columnHeader("Value")}
+            {columnHeader(
+              "Value",
+              onEditInDraft ? (
+                <Button variant="outline" size="sm" onClick={onEditInDraft}>
+                  Edit
+                </Button>
+              ) : null,
+            )}
             {readonlyValue(prettyValue(valueJson))}
           </>,
           readonlySchemaColumn(
@@ -1034,26 +1107,9 @@ export default function ConfigJsonEditor({
 
   return (
     <Box mt="3">
-      <Flex justify="end" gap="2" mb="3">
-        <Button
-          size="md"
-          onClick={handleSave}
-          disabled={!canSave}
-          loading={saving}
-        >
-          Save
-        </Button>
-        <Button
-          size="md"
-          variant="ghost"
-          onClick={handleCancel}
-          disabled={!dirty || saving}
-        >
-          Cancel
-        </Button>
-      </Flex>
       {editContent}
       {newProjectionModal}
+      {ribbon}
     </Box>
   );
 }

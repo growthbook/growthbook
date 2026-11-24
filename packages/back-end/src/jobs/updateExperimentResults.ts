@@ -207,6 +207,7 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       regressionAdjustmentEnabled,
       postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
       pValueThreshold: scopedSettings.pValueThreshold.value,
+      pValueCorrection: scopedSettings.pValueCorrection.value,
       metricGroups,
     });
 

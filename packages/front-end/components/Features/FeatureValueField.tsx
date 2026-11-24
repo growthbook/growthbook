@@ -96,6 +96,8 @@ export interface Props {
   codeInputDefaultHeight?: number;
   // Number fields fill their container rather than sitting at a fixed width.
   fullWidth?: boolean;
+  // A JSON editor opens focused with its text selected.
+  autoSelect?: boolean;
   // In a table cell: smaller constant tags.
   compact?: boolean;
   size?: ComponentProps<typeof Field>["size"];
@@ -141,6 +143,7 @@ export default function FeatureValueField({
   useDropdown = false,
   codeInputDefaultHeight,
   fullWidth = false,
+  autoSelect = false,
   compact = false,
   size,
   sparse,
@@ -697,6 +700,7 @@ export default function FeatureValueField({
           onEditorLoad={(e) => (jsonEditorRef.current = e)}
           highlightLines={codeEditorDiffLines}
           matchValueDisplay
+          autoSelect={autoSelect}
         />
       </Box>
     );

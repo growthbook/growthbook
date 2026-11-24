@@ -23,6 +23,7 @@ import {
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
+  getPValueCorrectionOutdatedReasons,
   isAnalysisDateRangeOutdated,
   isAutoSnapshotScheduled,
   isExperimentResultsUpdateDisabled,
@@ -830,6 +831,21 @@ export default function AnalysisSettingsSummary({
     if (isStringArrayMissingElements(snapshotMetrics, experimentMetrics)) {
       reasons.push("Metrics changed");
     }
+
+    // Compared among the metrics the snapshot analyzed: a goal it lacks is
+    // already reported as "Metrics changed".
+    const goalsInSnapshot = (goalMetrics: string[]) =>
+      expandMetricGroups(goalMetrics, mg).filter((m) =>
+        snapshotMetrics.includes(m),
+      );
+    reasons.push(
+      ...getPValueCorrectionOutdatedReasons({
+        analysisSettings,
+        currentPValueCorrection: org.pValueCorrection,
+        snapshotGoalMetrics: goalsInSnapshot(snapshotSettings.goalMetrics),
+        currentGoalMetrics: goalsInSnapshot(exp.goalMetrics),
+      }),
+    );
 
     if (
       isDifferentStringArray(

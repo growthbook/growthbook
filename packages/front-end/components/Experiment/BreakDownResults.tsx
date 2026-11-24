@@ -49,7 +49,6 @@ import FunnelStepSliceLink, {
 import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
-import { getGoalFamilyRows } from "@/hooks/useExperimentTableRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   DrilldownOptions,
@@ -187,10 +186,8 @@ const BreakDownResults: FC<{
     getDimensionById,
     getExperimentMetricById,
     getFactTableById: _getFactTableById,
-    metricGroups: _metricGroups,
   } = useDefinitions();
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
-  const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
 
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
@@ -243,12 +240,9 @@ const BreakDownResults: FC<{
     sortDirection,
     customMetricOrder,
     analysisBarSettings,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
-    pValueThreshold: significanceThresholds.pValueThreshold,
     customMetricSlices,
   });
 
@@ -279,81 +273,38 @@ const BreakDownResults: FC<{
   const { metricDefaults } =
     ssrPolyfills?.useOrganizationMetricDefaults?.() || _metricDefaults;
 
-  // The drilldown for a dimension value corrects p-values across all of that
-  // value's goal metrics, so the badge builds the same family per value.
-  const goalRowsByValue = useMemo(() => {
-    const rowsByValue = new Map<string, ExperimentTableRow[]>();
-    results.forEach((dimensionResults) => {
-      const goalRows = getGoalFamilyRows({
-        results: dimensionResults,
-        goalMetrics,
-        metricGroups,
-        metricOverrides,
-        settingsForSnapshotMetrics,
-        getExperimentMetricById: (id) =>
-          ssrPolyfills?.getExperimentMetricById?.(id) ||
-          getExperimentMetricById(id),
-        getFactTableById,
-      });
-      rowsByValue.set(dimensionResults.name, goalRows);
-    });
-    return rowsByValue;
-  }, [
-    results,
-    goalMetrics,
-    metricGroups,
-    metricOverrides,
-    settingsForSnapshotMetrics,
-    ssrPolyfills,
-    getExperimentMetricById,
-    getFactTableById,
-  ]);
   const largeImpactsByRow = useMemo(() => {
-    const metricRowsByValue = new Map<string, ExperimentTableRow[]>();
-    tables.forEach((table) =>
-      table.rows.forEach((row) => {
-        if (row.isChildRow) return;
-        const value = getRowDimensionValue(row);
-        metricRowsByValue.set(value, [
-          ...(metricRowsByValue.get(value) ?? []),
-          row,
-        ]);
-      }),
+    const metricRows = tables.flatMap((table) =>
+      table.rows.filter((row) => !row.isChildRow),
     );
-
+    const impacts = getLargeAdjustmentImpacts(metricRows, {
+      baselineIndex: baselineRow ?? 0,
+      variationFilter,
+      statsEngine,
+      differenceType,
+      metricDefaults,
+      ciUpper: significanceThresholds.bayesianConfidenceLevels.ciUpper,
+      ciLower: significanceThresholds.bayesianConfidenceLevels.ciLower,
+      pValueThreshold: significanceThresholds.pValueThreshold,
+    });
     const impactsByRow = new Map<string, AdjustmentImpact[]>();
-    metricRowsByValue.forEach((metricRows, value) => {
-      const goalRows = goalRowsByValue.get(value);
-      if (!goalRows) return;
-      const impacts = getLargeAdjustmentImpacts(metricRows, {
-        baselineIndex: baselineRow ?? 0,
-        variationFilter,
-        statsEngine,
-        differenceType,
-        metricDefaults,
-        ciUpper: significanceThresholds.bayesianConfidenceLevels.ciUpper,
-        ciLower: significanceThresholds.bayesianConfidenceLevels.ciLower,
-        pValueThreshold: significanceThresholds.pValueThreshold,
-        pValueCorrection,
-        goalRows,
-      });
-      metricRows.forEach((row, i) => {
-        if (impacts[i].length) {
-          impactsByRow.set(`${row.metric.id}:${value}`, impacts[i]);
-        }
-      });
+    metricRows.forEach((row, i) => {
+      if (impacts[i].length) {
+        impactsByRow.set(
+          `${row.metric.id}:${getRowDimensionValue(row)}`,
+          impacts[i],
+        );
+      }
     });
     return impactsByRow;
   }, [
     tables,
-    goalRowsByValue,
     baselineRow,
     variationFilter,
     statsEngine,
     differenceType,
     metricDefaults,
     significanceThresholds,
-    pValueCorrection,
   ]);
 
   return (

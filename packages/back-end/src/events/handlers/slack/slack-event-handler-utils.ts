@@ -54,7 +54,10 @@ import {
   buildExperimentAlertMessage,
 } from "./experimentAlertMessage";
 import { buildHoldoutAlertMessage } from "./holdoutAlerts";
-import { buildSdkConnectionAlertMessage } from "./sdkConnectionAlerts";
+import {
+  buildSdkConnectionAlertMessage,
+  buildSdkProxyAlertMessage,
+} from "./sdkConnectionAlerts";
 import { buildExperimentAlertMessageForEvent } from "./experimentAlerts";
 
 // region Filtering
@@ -138,6 +141,11 @@ export const getSlackMessageForNotificationEvent = async (
 
     case "sdkConnection.payloadSize.warning":
       return buildSdkConnectionAlertMessage(event);
+
+    case "sdkConnection.proxy.failing":
+    case "sdkConnection.proxy.disabled":
+    case "sdkConnection.proxy.recovered":
+      return buildSdkProxyAlertMessage(event);
 
     case "sdkConnection.revision.created":
     case "sdkConnection.revision.updated":

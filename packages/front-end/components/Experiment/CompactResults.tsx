@@ -39,10 +39,7 @@ import {
   AdjustmentImpact,
 } from "shared/experiments";
 import Link from "@/ui/Link";
-import {
-  getGoalFamilyRows,
-  useExperimentTableRows,
-} from "@/hooks/useExperimentTableRows";
+import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   excludeFunnelSliceRows,
@@ -231,13 +228,10 @@ const CompactResults: FC<{
     sortBy,
     sortDirection,
     analysisBarSettings,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
-    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const drilldownContext = useMetricDrilldownContext();
@@ -245,31 +239,6 @@ const CompactResults: FC<{
   const { metricDefaults } =
     ssrPolyfills?.useOrganizationMetricDefaults?.() || _metricDefaults;
 
-  // Same family the drilldown's Stats Adjustments tab uses, so the badge and
-  // that tab agree on which adjustments have a large effect.
-  const goalRows = useMemo(
-    () =>
-      results
-        ? getGoalFamilyRows({
-            results,
-            goalMetrics,
-            metricGroups,
-            metricOverrides,
-            settingsForSnapshotMetrics,
-            getExperimentMetricById,
-            getFactTableById,
-          })
-        : [],
-    [
-      results,
-      goalMetrics,
-      metricGroups,
-      metricOverrides,
-      settingsForSnapshotMetrics,
-      getExperimentMetricById,
-      getFactTableById,
-    ],
-  );
   const largeImpactsByRow = useMemo(() => {
     const metricRows = rows.filter((row) => !row.isChildRow);
     const impacts = getLargeAdjustmentImpacts(metricRows, {
@@ -281,8 +250,6 @@ const CompactResults: FC<{
       ciUpper: significanceThresholds.bayesianConfidenceLevels.ciUpper,
       ciLower: significanceThresholds.bayesianConfidenceLevels.ciLower,
       pValueThreshold: significanceThresholds.pValueThreshold,
-      pValueCorrection,
-      goalRows,
     });
     const impactsByRow = new Map<string, AdjustmentImpact[]>();
     metricRows.forEach((row, i) => {
@@ -293,14 +260,12 @@ const CompactResults: FC<{
     return impactsByRow;
   }, [
     rows,
-    goalRows,
     baselineRow,
     variationFilter,
     statsEngine,
     differenceType,
     metricDefaults,
     significanceThresholds,
-    pValueCorrection,
   ]);
   const getStatsAdjustmentImpacts = (row: ExperimentTableRow) =>
     largeImpactsByRow.get(`${row.resultGroup}:${row.metric.id}`) ?? [];

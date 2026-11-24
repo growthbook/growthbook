@@ -37,10 +37,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  getGoalFamilyRows,
-  useExperimentTableRows,
-} from "@/hooks/useExperimentTableRows";
+import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   useSnapshot,
@@ -210,16 +207,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
 }) => {
   const { isAuthenticated } = useAuth();
   const { hasCommercialFeature } = useUser();
-  const {
-    getDatasourceById,
-    getExperimentMetricById: _getExperimentMetricById,
-    getFactTableById: _getFactTableById,
-    metricGroups: _metricGroups,
-  } = useDefinitions();
-  const getExperimentMetricById =
-    ssrPolyfills?.getExperimentMetricById || _getExperimentMetricById;
-  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
-  const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
+  const { getDatasourceById } = useDefinitions();
   const { analysis, experiment } = useSnapshot();
 
   const liveResults = useMemo(() => {
@@ -253,13 +241,10 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     metricOverrides,
     ssrPolyfills,
     customMetricSlices,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
-    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const mainMetricRow = useMemo(() => {
@@ -268,28 +253,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     );
     return updatedRow ?? row;
   }, [allRows, metric.id, row]);
-
-  const goalRows = useMemo(
-    () =>
-      getGoalFamilyRows({
-        results,
-        goalMetrics,
-        metricGroups,
-        metricOverrides,
-        settingsForSnapshotMetrics,
-        getExperimentMetricById,
-        getFactTableById,
-      }),
-    [
-      results,
-      goalMetrics,
-      metricGroups,
-      metricOverrides,
-      settingsForSnapshotMetrics,
-      getExperimentMetricById,
-      getFactTableById,
-    ],
-  );
 
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
@@ -495,7 +458,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           reportDate={reportDate}
           isLatestPhase={isLatestPhase}
           pValueCorrection={pValueCorrection}
-          goalRows={goalRows}
           sequentialTestingEnabled={sequentialTestingEnabled}
           experimentStatus={experimentStatus}
         />

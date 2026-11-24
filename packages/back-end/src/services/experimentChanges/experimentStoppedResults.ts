@@ -4,13 +4,11 @@ import {
   getMetricResultStatus,
   isFactMetric,
   isMetricGroupId,
+  isPValueCorrected,
   resolveSnapshotMetricIds,
   resolveSnapshotVariation,
-  setAdjustedCIs,
-  setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { getExperimentTotalUnitsFromHealth } from "shared/health";
-import cloneDeep from "lodash/cloneDeep";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import type { ExperimentStoppedGoalMetric } from "shared/validators";
@@ -79,15 +77,35 @@ export async function getStoppedGoalMetricResults(
     const replacedIds = goalMetrics.flatMap((m) =>
       isFactMetric(m) ? (m.replaces ?? []) : [],
     );
-    const snapshot = await getLatestSuccessfulSnapshot({
-      context,
-      experiment: experiment.id,
-      phase: experiment.phases.length - 1,
-      type: "standard",
-      // The p-value correction spans every goal metric, so load them all
-      // (but not secondaries or guardrails).
-      metricIds: [...goalIds, ...replacedIds],
-    });
+    const loadSnapshot = (metricIds: string[]) =>
+      getLatestSuccessfulSnapshot({
+        context,
+        experiment: experiment.id,
+        phase: experiment.phases.length - 1,
+        type: "standard",
+        metricIds,
+      });
+    // The p-value correction spans every goal metric, so load them all (but
+    // not secondaries or guardrails).
+    const loadedIds = [...goalIds, ...replacedIds];
+    let snapshot = await loadSnapshot(loadedIds);
+    // An analysis from before corrections were stored is corrected as it is
+    // read, which needs every goal metric it ran with: also the ones removed
+    // from the experiment since.
+    const removedGoalIds = (snapshot?.settings.goalMetrics ?? []).filter(
+      (id) => !loadedIds.includes(id),
+    );
+    if (snapshot && removedGoalIds.length > 0) {
+      const snapshotAnalysis = getSnapshotAnalysis(snapshot);
+      if (
+        snapshotAnalysis &&
+        snapshotAnalysis.settings.pValueCorrection === undefined &&
+        isPValueCorrected(snapshotAnalysis.settings) &&
+        significance.pValueCorrection
+      ) {
+        snapshot = await loadSnapshot([...loadedIds, ...removedGoalIds]);
+      }
+    }
     const analysis = snapshot ? getSnapshotAnalysis(snapshot) : null;
     if (!snapshot || !analysis?.results?.length) return undefined;
 
@@ -101,18 +119,9 @@ export async function getStoppedGoalMetricResults(
     const [resultId] = resolvedGoalIds;
     const metric = getMetric(goalId);
 
-    // Judge significance the way the results table does: correct the
-    // p-values across the goal metrics and widen the CIs before comparing.
-    const results = cloneDeep(analysis.results);
     const pValueThreshold =
       analysis.settings.pValueThreshold ?? significance.pValueThreshold;
-    setAdjustedPValuesOnResults(
-      results,
-      resolvedGoalIds,
-      significance.pValueCorrection,
-    );
-    setAdjustedCIs(results, pValueThreshold);
-    const dim = results[0];
+    const dim = analysis.results[0];
 
     // Result columns follow the snapshot's variation keys, not the
     // experiment's current order.

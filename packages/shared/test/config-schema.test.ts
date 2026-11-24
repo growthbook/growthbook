@@ -1,6 +1,7 @@
 import { SchemaField } from "../types/feature";
 import {
   canonicalSchemaString,
+  collectConfigValueIssuesByKey,
   collectInvalidConfigValueKeys,
   diffSchemaFields,
   fieldsCanonicallyEqual,
@@ -22,6 +23,7 @@ import {
   reconcileSchemaFields,
   tsTypesToFields,
   validateConfigValue,
+  UNDECLARED_FIELDS_FIX,
 } from "../src/util/config-schema";
 import { simpleSchemaFieldToJSONSchema } from "../src/util/features";
 import { splitGoFieldStatements } from "../src/util/config-schema/go-fields";
@@ -885,8 +887,102 @@ describe("validateConfigValue", () => {
         fields,
         additionalProperties: false,
         requireAll: true,
+      }),
+    ).toEqual({ valid: false, errors: ['"timeout" is required'] });
+  });
+
+  it("counts a reference-backed key as present when requireAll is set", () => {
+    expect(
+      validateConfigValue({
+        value: { timeout: "@const:timeout" },
+        fields,
+        additionalProperties: false,
+        requireAll: true,
       }).valid,
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("groups a resolved value's issues by top-level key", () => {
+    const issues = collectConfigValueIssuesByKey({
+      value: { name: 1, conn: { host: 1 }, extra: true },
+      fields: [
+        ...fields,
+        field({
+          key: "conn",
+          jsonSchema: JSON.stringify({
+            type: "object",
+            properties: { host: { type: "string" }, port: { type: "integer" } },
+            required: ["host", "port"],
+          }),
+        }),
+      ],
+    });
+    expect(Object.fromEntries(issues)).toEqual({
+      timeout: [{ path: "timeout", message: "is required" }],
+      name: [{ path: "name", message: "must be string" }],
+      conn: expect.arrayContaining([
+        { path: "conn/host", message: "must be string" },
+        { path: "conn/port", message: "is required" },
+      ]),
+    });
+  });
+
+  it("groups issues under keys holding / or ~", () => {
+    const issues = collectConfigValueIssuesByKey({
+      value: { "a/b": 1 },
+      fields: [field({ key: "a/b" }), field({ key: "c~d" })],
+    });
+    expect([...issues.keys()].sort()).toEqual(["a/b", "c~d"]);
+  });
+
+  it.each([
+    {
+      name: "keys with no schema",
+      value: { a: 1, b: 2 },
+      fields: [],
+      errors: [
+        '"a" isn\'t in the schema',
+        '"b" isn\'t in the schema',
+        UNDECLARED_FIELDS_FIX,
+      ],
+    },
+    {
+      name: "an undeclared top-level key",
+      value: { timeout: 1, other: 1 },
+      fields,
+      errors: ['"other" isn\'t in the schema', UNDECLARED_FIELDS_FIX],
+    },
+    {
+      name: "an undeclared nested key",
+      value: { conn: { host: "h", extra: 1 } },
+      fields: [
+        field({
+          key: "conn",
+          jsonSchema: JSON.stringify({
+            type: "object",
+            properties: { host: { type: "string" } },
+            additionalProperties: false,
+          }),
+        }),
+      ],
+      errors: ['"conn/extra" isn\'t in the schema'],
+    },
+    {
+      name: "a value outside an enum",
+      value: { mode: "x" },
+      fields: [field({ key: "mode", type: "string", enum: ["a", "b"] })],
+      errors: ['"mode" must be one of "a", "b"'],
+    },
+    {
+      name: "a fractional integer",
+      value: { timeout: 1.5 },
+      fields,
+      errors: ['"timeout" must be an integer'],
+    },
+  ])("names what to fix for $name", ({ value, fields, errors }) => {
+    expect(
+      validateConfigValue({ value, fields, additionalProperties: false }),
+    ).toEqual({ valid: false, errors });
   });
 
   it("does not enforce NESTED required for a sparse patch", () => {
@@ -918,8 +1014,8 @@ describe("validateConfigValue", () => {
         fields: nested,
         additionalProperties: false,
         requireAll: true,
-      }).valid,
-    ).toBe(false);
+      }),
+    ).toEqual({ valid: false, errors: ['"conn/port" is required'] });
     // A present nested value with a wrong type is still rejected when sparse.
     expect(
       validateConfigValue({

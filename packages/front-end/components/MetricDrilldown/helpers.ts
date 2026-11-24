@@ -110,24 +110,12 @@ export function formatAdjustmentQualifiers({
   return parts.join(" · ");
 }
 
-export type LargeAdjustmentImpactArgs = Omit<
-  AdjustmentImpactArgs,
-  "goalMetrics" | "settings"
-> & {
-  /** Every goal row, from `getGoalFamilyRows`. */
-  goalRows: ExperimentTableRow[];
-};
-
 /** For each row, the adjustments with a large effect, most severe first. */
 export function getLargeAdjustmentImpacts(
   rows: ExperimentTableRow[],
-  { goalRows, ...args }: LargeAdjustmentImpactArgs,
+  args: AdjustmentImpactArgs,
 ): AdjustmentImpact[][] {
-  return getAdjustmentImpactSummaries({
-    ...args,
-    metrics: rows,
-    goalMetrics: goalRows,
-  }).map((impacts) =>
-    impacts.filter(({ effectSize }) => effectSize === "large"),
+  return getAdjustmentImpactSummaries({ ...args, metrics: rows }).map(
+    (impacts) => impacts.filter(({ effectSize }) => effectSize === "large"),
   );
 }

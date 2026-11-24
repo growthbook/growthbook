@@ -31669,6 +31669,17 @@ paths:
                     When the config has no schema yet, infer one from the
                     supplied `value` and stage it on the same draft.
                   type: boolean
+                inferUndeclaredFields:
+                  description: >-
+                    Add an optional schema field, inferred from its value, for
+                    each top-level key in `value` that the Config's effective
+                    schema doesn't declare, staged on the same draft. Existing
+                    fields are never changed, and keys holding a
+                    `@const:`/`@config:` reference are skipped. Each added field
+                    is listed in `warnings` with code `inferred-field`. When
+                    `inferSchemaIfMissing` infers a whole schema, that takes
+                    precedence.
+                  type: boolean
                 ignoreWarnings:
                   description: >-
                     Set to true to acknowledge the warnings listed in a blocked
@@ -31977,6 +31988,16 @@ paths:
                 infer:
                   description: Derive the schema from the draft's value instead.
                   type: boolean
+                value:
+                  description: >-
+                    This config's own value, staged together with the schema and
+                    validated against it. Use it to retype or remove a field the
+                    value sets, which a schema write or a value write can't do
+                    on its own.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
                 additionalProperties:
                   description: >-
                     Whether the resulting object schema permits extra keys
@@ -80196,6 +80217,7 @@ components:
             - unsupported-member
             - redundant-declaration
             - undeclared-rule-field
+            - inferred-field
         message:
           type: string
         path:
@@ -80772,11 +80794,11 @@ components:
                 items:
                   type: string
                 description: >-
-                  Own value keys the effective schema no longer declares (e.g.
-                  an ancestor removed the field). They still resolve and are
-                  served, but nothing validates them and validation rules read
-                  them as null; a non-extensible family rejects them on the next
-                  changing publish.
+                  Own value keys the schema doesn't declare, for example because
+                  an ancestor removed the field. They're still served, but
+                  nothing checks them, and validation rules see them as null.
+                  When the base Config doesn't allow extra fields, publishing
+                  this Config fails until they're removed or added to a schema.
             required:
               - key
               - name
