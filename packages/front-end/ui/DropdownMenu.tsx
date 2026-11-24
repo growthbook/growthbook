@@ -291,9 +291,6 @@ export function DropdownMenuItem({
   >(null);
 
   const [error, setError] = useState<null | string>(null);
-  // Server messages already end with a period.
-  const errorMessage =
-    error && `${error.replace(/\.+$/, "")}. Exit the menu and try again.`;
   const [loading, setLoading] = useState(false);
 
   // Get hideDropdown, showDropdown, and closeDropdown from confirmation prop or context
@@ -322,7 +319,8 @@ export function DropdownMenuItem({
 
   const menuItem = (
     <RadixDropdownMenu.Item
-      disabled={disabled || !!error || !!loading}
+      // Stays enabled after an error, so selecting it again retries.
+      disabled={disabled || !!loading}
       onSelect={async (event) => {
         if (confirmation) {
           // Prevent Radix from closing the menu so the confirmation modal can
@@ -384,7 +382,7 @@ export function DropdownMenuItem({
               color="red"
               style={{ whiteSpace: "normal", maxWidth: 280 }}
             >
-              {errorMessage}
+              {error}
             </Text>
           ) : null}
         </Flex>
@@ -398,9 +396,9 @@ export function DropdownMenuItem({
     <>
       {/* A menu item's children are presentational, so a live region inside
           it may not be announced. This one sits outside the menu. */}
-      {errorMessage
+      {error
         ? createPortal(
-            <VisuallyHidden role="alert">{errorMessage}</VisuallyHidden>,
+            <VisuallyHidden role="alert">{error}</VisuallyHidden>,
             document.body,
           )
         : null}
