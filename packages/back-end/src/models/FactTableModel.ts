@@ -872,50 +872,36 @@ function columnRefReferencesColumn(
   return false;
 }
 
-// Saved explorations and dashboard blocks that still reference `columnName` on
-// this fact table. Scanned on demand so no dependency state is persisted.
+// Dashboard blocks that still reference `columnName` on this fact table.
+// Scanned on demand so no dependency state is persisted.
+//
+// Explorations are deliberately not scanned: `analyticsexploration` rows are a
+// result cache written on every run, with no name or page, so the user could
+// never find or clear them. A cached result for a deleted column is never
+// re-run; a new run of that config fails like any other stale config.
 //
 // The scan is org-wide and deliberately ignores the caller's read permissions:
 // deleting a column is destructive and cross-cutting, so a dependent the caller
 // happens to not be able to read must still block the delete. Using a
 // read-filtered `getAll()` here would under-report and let the delete through,
-// leaving that exploration or dashboard generating SQL for a column that no
-// longer exists. A dependent the caller cannot read still blocks the delete but
-// must not be named in the error, so those are counted in `hiddenCount` instead.
-async function getDependentExplorationsAndDashboards(
+// leaving that dashboard generating SQL for a column that no longer exists. A
+// dependent the caller cannot read still blocks the delete but must not be
+// named in the error, so those are counted in `hiddenCount` instead.
+async function getDependentDashboards(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
   columnName: string,
   identifierQuote: SqlIdentifierQuote,
 ): Promise<{
-  explorations: Array<{ id: string; name?: string }>;
   dashboards: Array<{ id: string; name?: string }>;
   hiddenCount: number;
 }> {
-  const [
-    allExplorations,
-    allDashboards,
-    visibleExplorations,
-    visibleDashboards,
-  ] = await Promise.all([
-    context.models.analyticsExplorations.dangerousGetAllForDependencyScan(),
+  const [allDashboards, visibleDashboards] = await Promise.all([
     context.models.dashboards.dangerousGetAllForDependencyScan(),
-    context.models.analyticsExplorations.getAll(),
     context.models.dashboards.getAll(),
   ]);
 
-  const visibleExplorationIds = new Set(visibleExplorations.map((e) => e.id));
   const visibleDashboardIds = new Set(visibleDashboards.map((d) => d.id));
-
-  const dependentExplorations = allExplorations.filter((e) =>
-    explorationConfigReferencesColumn(
-      e.config,
-      factTable.id,
-      columnName,
-      identifierQuote,
-      factTable.filters,
-    ),
-  );
 
   const dependentDashboards = allDashboards.filter((d) =>
     d.blocks.some(
@@ -931,20 +917,14 @@ async function getDependentExplorationsAndDashboards(
     ),
   );
 
-  const explorations = dependentExplorations
-    .filter((e) => visibleExplorationIds.has(e.id))
-    .map((e) => ({ id: e.id }));
-
   const dashboards = dependentDashboards
     .filter((d) => visibleDashboardIds.has(d.id))
     .map((d) => ({ id: d.id, name: d.title }));
 
-  const hiddenCount =
-    dependentExplorations.length -
-    explorations.length +
-    (dependentDashboards.length - dashboards.length);
-
-  return { explorations, dashboards, hiddenCount };
+  return {
+    dashboards,
+    hiddenCount: dependentDashboards.length - dashboards.length,
+  };
 }
 
 export async function deleteColumn(
@@ -980,8 +960,8 @@ export async function deleteColumn(
   const dependentFilters = factTable.filters.filter((f) =>
     sqlReferencesColumn(f.value, columnName, identifierQuote),
   );
-  // Org-wide for the same reason as explorations/dashboards below: a metric in a
-  // project the caller cannot read must still block the delete.
+  // Org-wide for the same reason as dashboards below: a metric in a project
+  // the caller cannot read must still block the delete.
   const [
     allFactMetrics,
     visibleFactMetrics,
@@ -1028,20 +1008,16 @@ export async function deleteColumn(
   const hiddenPopulationCount =
     allDependentPopulations.length - dependentPopulations.length;
 
-  // Explorations and dashboard blocks persist column references (valueColumn,
-  // dimensions, row filters) that resolve through the same query-time
-  // chokepoint, so a virtual column they use must not be deleted out from
-  // under them.
-  const {
-    explorations: dependentExplorations,
-    dashboards: dependentDashboards,
-    hiddenCount,
-  } = await getDependentExplorationsAndDashboards(
-    context,
-    factTable,
-    columnName,
-    identifierQuote,
-  );
+  // Dashboard blocks persist column references (valueColumn, dimensions, row
+  // filters) that resolve through the same query-time chokepoint, so a virtual
+  // column they use must not be deleted out from under them.
+  const { dashboards: dependentDashboards, hiddenCount } =
+    await getDependentDashboards(
+      context,
+      factTable,
+      columnName,
+      identifierQuote,
+    );
 
   const lines: string[] = [
     ...dependentIdentifierTypes.map(
@@ -1053,7 +1029,6 @@ export async function deleteColumn(
     ...dependentFilters.map((f) => `\n - Filter: ${f.name || f.id}`),
     ...dependentMetrics.map((m) => `\n - Fact Metric: ${m.name || m.id}`),
     ...dependentPopulations.map((p) => `\n - Population: ${p.name || p.id}`),
-    ...dependentExplorations.map((e) => `\n - Exploration: ${e.name || e.id}`),
     ...dependentDashboards.map((d) => `\n - Dashboard: ${d.name || d.id}`),
   ];
   // Counted, not named, so the error never reveals resources the caller cannot

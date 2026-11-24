@@ -14,10 +14,10 @@ import {
 import type { PopulationInterface } from "../../validators/population";
 import { sqlReferencesColumn } from "../../sql";
 
-// The exploration config shape persisted by both saved explorations and
-// dashboard "exploration" blocks. Metric definitions are covered by the
-// fact-metric dependency scan; their dataset population only references a
-// saved Population, which `populationReferencesColumn` scans.
+// The exploration config shape persisted by dashboard "exploration" blocks.
+// Metric definitions are covered by the fact-metric dependency scan; their
+// dataset population only references a saved Population, which
+// `populationReferencesColumn` scans.
 type ExplorationConfig =
   | z.infer<typeof metricExplorationConfigValidator>
   | z.infer<typeof factTableExplorationConfigValidator>
