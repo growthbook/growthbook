@@ -11,6 +11,7 @@ import {
 import Link from "@/ui/Link";
 import MultiSelectField from "@/ui/MultiSelectField";
 import HelperText from "@/ui/HelperText";
+import Tooltip from "@/ui/Tooltip";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 
@@ -25,20 +26,32 @@ const FILTER_COPY: Record<
   projects: { label: "Projects", add: "Projects" },
 };
 
+const PROJECTS_NEED_FLAG =
+  "Project filters only apply to Feature Flags, and this experiment has none linked.";
+
 function AddLink({
   onClick,
+  disabledReason,
   children,
 }: {
   onClick: () => void;
+  disabledReason?: string;
   children: React.ReactNode;
 }) {
-  return (
-    <Link onClick={onClick}>
+  const link = (
+    <Link onClick={onClick} disabled={!!disabledReason}>
       <Flex align="center" gap="1">
         <PiPlus />
         {children}
       </Flex>
     </Link>
+  );
+  if (!disabledReason) return link;
+  // A disabled button doesn't report hover, so the wrapper carries the tooltip.
+  return (
+    <Tooltip content={disabledReason}>
+      <span>{link}</span>
+    </Tooltip>
   );
 }
 
@@ -128,6 +141,11 @@ export function QaOverrideWhereFields({
           {available.map((kind) => (
             <AddLink
               key={kind}
+              disabledReason={
+                kind === "projects" && projectsNote === "warning"
+                  ? PROJECTS_NEED_FLAG
+                  : undefined
+              }
               onClick={() => {
                 addFilter(kind);
                 setJustAdded(kind);
