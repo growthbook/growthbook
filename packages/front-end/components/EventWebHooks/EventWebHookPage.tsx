@@ -36,7 +36,7 @@ import WebhookHeadersField from "@/components/EventWebHooks/WebhookHeadersField"
 import DatadogWebhookFields from "@/components/EventWebHooks/DatadogWebhookFields";
 import DatadogWebhookChecks from "@/components/EventWebHooks/DatadogWebhookChecks";
 import EventWebHookStatus, {
-  recentFailures,
+  WebhookStatusBadge,
 } from "@/components/EventWebHooks/EventWebHookStatus";
 import { parseHeaders } from "@/components/EventWebHooks/datadog";
 import {
@@ -54,7 +54,6 @@ import {
   WebhookIcon,
 } from "@/components/EventWebHooks/utils";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -286,7 +285,6 @@ export default function EventWebHookPage({
   } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [tab, setTab] = useURLHash(WEBHOOK_TABS);
-  const recent = recentFailures(logs);
   const latestFailed = !!logs[0] && logs[0].result !== "success";
 
   // The Slack app manages its channels' webhooks.
@@ -799,38 +797,7 @@ export default function EventWebHookPage({
             />
             {eventWebHook?.name ?? "New Webhook"}
             {eventWebHook ? (
-              eventWebHook.enabled ? (
-                <Badge
-                  label="Enabled"
-                  color="green"
-                  variant="soft"
-                  radius="full"
-                />
-              ) : (
-                <Badge
-                  label="Disabled"
-                  color="gray"
-                  variant="soft"
-                  radius="full"
-                />
-              )
-            ) : null}
-            {recent.total ? (
-              recent.failed ? (
-                <Badge
-                  label={`${recent.failed} of the last ${recent.total} failed`}
-                  color="red"
-                  variant="soft"
-                  radius="full"
-                />
-              ) : (
-                <Badge
-                  label="Healthy"
-                  color="green"
-                  variant="soft"
-                  radius="full"
-                />
-              )
+              <WebhookStatusBadge webhook={eventWebHook} />
             ) : null}
           </Flex>
         }

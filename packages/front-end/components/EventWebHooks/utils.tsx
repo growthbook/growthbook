@@ -4,14 +4,9 @@ import {
   NotificationEventNameOrWildcard,
 } from "shared/validators";
 import { DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS } from "shared/constants";
-import React, { ReactNode, useMemo } from "react";
+import React from "react";
 import clsx from "clsx";
-import {
-  PiBracketsCurly,
-  PiQuestionLight,
-  PiXSquareLight,
-  PiCheckCircleLight,
-} from "react-icons/pi";
+import { PiBracketsCurly } from "react-icons/pi";
 import {
   EventWebHookPayloadType,
   EventWebHookMethod,
@@ -213,63 +208,6 @@ export const formatWebhookEventOptionLabel = (
     meta?.context === "menu";
   return <span className={clsx(shouldIndent && "pl-3")}>{option.label}</span>;
 };
-
-/**
- * Get the icon for the event web hook state
- * @param state
- */
-export const useIconForState = (
-  state: "none" | "success" | "error",
-  { text }: { text: boolean } = { text: false },
-): ReactNode =>
-  useMemo(() => {
-    let invalidState: never;
-
-    switch (state) {
-      case "none": {
-        const icon = <PiQuestionLight className="d-block text-muted" />;
-        if (text)
-          return (
-            <span className="p-1 px-2 rounded-pill badge badge-light d-flex align-items-center">
-              {icon}{" "}
-              <span className="ml-1 mb-0 text-muted font-weight-normal">
-                Not ran
-              </span>
-            </span>
-          );
-        else return icon;
-      }
-      case "success": {
-        const icon = <PiCheckCircleLight className="d-block text-success" />;
-        if (text)
-          return (
-            <span className="p-1 px-2 rounded-pill badge badge-success-light d-flex align-items-center">
-              {icon}{" "}
-              <span className="ml-1 mb-0 text-success font-weight-normal">
-                Successful
-              </span>
-            </span>
-          );
-        else return icon;
-      }
-      case "error": {
-        const icon = <PiXSquareLight className="d-block text-danger" />;
-        if (text)
-          return (
-            <span className="p-1 px-2 rounded-pill badge badge-danger-light d-flex align-items-center">
-              {icon}{" "}
-              <span className="ml-1 mb-0 text-danger font-weight-normal">
-                Failed
-              </span>
-            </span>
-          );
-        else return icon;
-      }
-      default:
-        invalidState = state;
-        throw new Error(`Invalid state: ${invalidState}`);
-    }
-  }, [state, text]);
 
 const ImageIcon = ({
   src,

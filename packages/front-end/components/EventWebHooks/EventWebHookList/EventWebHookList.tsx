@@ -10,8 +10,26 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
+import Badge from "@/ui/Badge";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
-import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
+import { WebhookIcon, displayedEvents } from "@/components/EventWebHooks/utils";
+import {
+  LastDelivery,
+  WebhookStatusBadge,
+} from "@/components/EventWebHooks/EventWebHookStatus";
+
+const MAX_EVENTS_DISPLAY = 5;
+
+// Chat webhook URLs carry their own credentials.
+const SHOWS_ENDPOINT = new Set(["raw", "json", "datadog"]);
 
 type EventWebHookListProps = {
   eventWebHooks: EventWebHookInterface[];
@@ -70,30 +88,86 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
       )}
 
       {eventWebHooks.length > 0 && (
-        <div>
-          {/* List view */}
-          {eventWebHooks.map((eventWebHook) => {
-            const managedInSlack =
-              eventWebHook.payloadType === "slack" &&
-              !!eventWebHook.slack?.teamId &&
-              canManageSlack;
-            const href = managedInSlack
-              ? eventWebHook.slack?.channelId
-                ? `/integrations/slack?channel=${encodeURIComponent(
-                    eventWebHook.id,
-                  )}`
-                : `/integrations/slack?workspace=${encodeURIComponent(
-                    eventWebHook.slack?.teamId || "",
-                  )}`
-              : `/settings/webhooks/event/${eventWebHook.id}`;
+        <Table variant="surface">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Webhook</TableColumnHeader>
+              <TableColumnHeader>Endpoint</TableColumnHeader>
+              <TableColumnHeader>Events</TableColumnHeader>
+              <TableColumnHeader>Last delivery</TableColumnHeader>
+              <TableColumnHeader>Status</TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {eventWebHooks.map((eventWebHook) => {
+              const { id, name, payloadType, url, events, lastState } =
+                eventWebHook;
+              if (!payloadType) return null;
+              const managedInSlack =
+                payloadType === "slack" && !!eventWebHook.slack?.teamId;
+              const href =
+                managedInSlack && canManageSlack
+                  ? eventWebHook.slack?.channelId
+                    ? `/integrations/slack?channel=${encodeURIComponent(id)}`
+                    : `/integrations/slack?workspace=${encodeURIComponent(
+                        eventWebHook.slack?.teamId || "",
+                      )}`
+                  : `/settings/webhooks/event/${id}`;
 
-            return (
-              <div key={eventWebHook.id} className="mb-3">
-                <EventWebHookListItem href={href} eventWebHook={eventWebHook} />
-              </div>
-            );
-          })}
-        </div>
+              return (
+                <TableRow key={id} align="start">
+                  <TableCell minWidth="200px">
+                    <Flex align="center" gap="2">
+                      <WebhookIcon
+                        type={payloadType}
+                        style={{ height: 16, width: 16, flexShrink: 0 }}
+                      />
+                      <Link href={href}>{name}</Link>
+                    </Flex>
+                    {managedInSlack ? (
+                      <Box mt="1">
+                        <Badge
+                          label="Managed in Slack settings"
+                          color="purple"
+                          variant="soft"
+                        />
+                      </Box>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>
+                    {SHOWS_ENDPOINT.has(payloadType) ? (
+                      <Text size="sm" mono overflowWrap="anywhere">
+                        {url}
+                      </Text>
+                    ) : (
+                      <Text color="text-mid" fontStyle="italic">
+                        hidden
+                      </Text>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {displayedEvents(events, {
+                      maxEventsDisplay: MAX_EVENTS_DISPLAY,
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    {eventWebHook.lastRunAt && lastState !== "none" ? (
+                      <LastDelivery
+                        log={{ result: lastState, responseCode: null }}
+                        date={eventWebHook.lastRunAt}
+                      />
+                    ) : (
+                      <Text color="text-mid">None yet</Text>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <WebhookStatusBadge webhook={eventWebHook} />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
     </div>
   );

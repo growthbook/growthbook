@@ -8,6 +8,7 @@ import {
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import { EventWebHookLogInterface } from "shared/types/event-webhook-log";
+import { EventWebHookInterface } from "shared/types/event-webhook";
 import SectionFrame from "@/components/SectionFrame";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -32,7 +33,7 @@ const RECENT_DELIVERIES = 10;
 const flushHeader = { backgroundColor: "transparent" };
 
 // Failures among the latest deliveries: a health check, not a running tally.
-export function recentFailures(logs: EventWebHookLogInterface[]) {
+function recentFailures(logs: EventWebHookLogInterface[]) {
   const recent = logs.slice(0, RECENT_DELIVERIES);
   return {
     total: recent.length,
@@ -67,6 +68,53 @@ export function DeliveryStatusBadge({
       color="red"
       variant="soft"
     />
+  );
+}
+
+// Like an experiment's status: whether it's on, and whether its last delivery
+// failed.
+export function WebhookStatusBadge({
+  webhook,
+}: {
+  webhook: Pick<EventWebHookInterface, "enabled" | "lastState">;
+}) {
+  if (!webhook.enabled) {
+    return (
+      <Badge label="Disabled" color="gray" variant="solid" radius="full" />
+    );
+  }
+  if (webhook.lastState === "error") {
+    return (
+      <Tooltip content="The last delivery failed.">
+        <Badge
+          label="Enabled: Unhealthy"
+          color="amber"
+          variant="solid"
+          radius="full"
+          style={{ cursor: "default" }}
+        />
+      </Tooltip>
+    );
+  }
+  return <Badge label="Enabled" color="indigo" variant="solid" radius="full" />;
+}
+
+export function LastDelivery({
+  log,
+  date,
+}: {
+  log: Pick<EventWebHookLogInterface, "result" | "responseCode">;
+  date: Date | string;
+}) {
+  return (
+    <Flex align="center" gap="2">
+      <DeliveryStatusBadge log={log} />
+      <Tooltip content={datetime(date)}>
+        <Text color="text-mid" whiteSpace="nowrap">
+          {ago(date)}
+        </Text>
+      </Tooltip>
+    </Flex>
   );
 }
 
@@ -134,12 +182,7 @@ export default function EventWebHookStatus({
         ) : !logs ? null : latest ? (
           <>
             <SetupFieldRow label="Last delivery" content="text">
-              <Flex align="center" gap="2">
-                <DeliveryStatusBadge log={latest} />
-                <Tooltip content={datetime(latest.dateCreated)}>
-                  <Text color="text-mid">{ago(latest.dateCreated)}</Text>
-                </Tooltip>
-              </Flex>
+              <LastDelivery log={latest} date={latest.dateCreated} />
             </SetupFieldRow>
             <SetupFieldRow label="Recent deliveries" content="text">
               <Text>
