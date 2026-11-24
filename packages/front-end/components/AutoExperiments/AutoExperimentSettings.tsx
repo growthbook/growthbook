@@ -15,6 +15,16 @@ import EnableAutoExperimentDialog, {
   AUTO_EXPERIMENT_COPY,
 } from "./EnableAutoExperimentDialog";
 
+// Each feature followed by the ones that depend on it.
+const ORDERED_FEATURES = AUTO_EXPERIMENT_FEATURES.filter(
+  (f) => !getAutoExperimentParentFeature(f),
+).flatMap((parent) => [
+  parent,
+  ...AUTO_EXPERIMENT_FEATURES.filter(
+    (f) => getAutoExperimentParentFeature(f) === parent,
+  ),
+]);
+
 // Saved with the rest of the settings form. Turning one on asks first.
 export default function AutoExperimentSettings() {
   const { mode, canManage, isEnabled: isSaved } = useAutoExperiments();
@@ -44,7 +54,7 @@ export default function AutoExperimentSettings() {
 
   return (
     <>
-      {AUTO_EXPERIMENT_FEATURES.map((feature) => {
+      {ORDERED_FEATURES.map((feature) => {
         const parent = getAutoExperimentParentFeature(feature);
         if (parent && !isEnabled(parent)) return null;
         // Judged on the saved value, so a queued uncheck can still be undone.
