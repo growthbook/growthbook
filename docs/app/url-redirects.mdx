@@ -30,7 +30,7 @@ Verify URL Redirect tests are enabled for your SDK Connection: Go to **SDK Conne
 
 ### HTML Script Tag SDK
 
-The easiest option is to use our [Script Tag](/lib/script-tag) SDK. This involves adding a single `<script>` tag to the HEAD of your website. This option fully works out-of-the-box with no configuration required.
+The easiest option is to use our [Script Tag](/lib/script-tag) SDK. This involves adding a single `<script>` tag to the HEAD of your website. Use a [bundle](/lib/script-tag#bundles) with `redirects` in its name, such as `core-redirects.min.js`. To redirect to a different origin, also add `data-allow-cross-origin-redirects`.
 
 Like the JavaScript and React SDKs, the HTML Script tag supports setting a custom `navigate` function, `navigateDelay`, and `maxNavigateDelay`. See the [JavaScript and React section](#front-end-javascript-and-react-sdks) below for more information.
 

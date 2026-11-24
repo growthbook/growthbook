@@ -223,6 +223,7 @@ export default function ConnectPage() {
               encryptionKey={encryptionKey}
               remoteEvalEnabled={remoteEvalEnabled}
               eventIngestorRegion={eventIngestorRegion}
+              connection={connection}
             />
           </Frame>
 
