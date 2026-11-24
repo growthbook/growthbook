@@ -1,4 +1,4 @@
-import { funnelStepMetricId } from "shared/experiments";
+import { AdjustmentImpact, funnelStepMetricId } from "shared/experiments";
 import { ExperimentReportResultDimension } from "shared/types/report";
 import {
   ExperimentTableRow,
@@ -83,4 +83,24 @@ export function buildFunnelStepSliceRows({
     },
     ...stepSliceRows,
   ];
+}
+
+export function formatAdjustmentChange({
+  relativeChange,
+  standardErrorShift,
+}: Pick<AdjustmentImpact, "relativeChange" | "standardErrorShift">): string {
+  if (standardErrorShift !== null) {
+    return `Estimate shifted by ${standardErrorShift.toFixed(2)} standard errors`;
+  }
+  return `${(relativeChange * 100).toFixed(1)}% change in estimate`;
+}
+
+export function formatAdjustmentQualifiers({
+  significanceChanged,
+  signFlipped,
+}: Pick<AdjustmentImpact, "significanceChanged" | "signFlipped">): string {
+  const parts: string[] = [];
+  if (signFlipped) parts.push("sign flip");
+  if (significanceChanged) parts.push("significance change");
+  return parts.join(" · ");
 }
