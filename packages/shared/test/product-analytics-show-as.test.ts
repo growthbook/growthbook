@@ -372,7 +372,7 @@ describe("getDefaultValueAxisName", () => {
     ).toBe("Per user_id");
   });
 
-  it("ignores values that offer no options", () => {
+  it("names the total when a mean and a proportion both render as totals", () => {
     expect(
       getDefaultValueAxisName(
         getExplorationRenderOpts(
@@ -397,7 +397,7 @@ describe("getDefaultValueAxisName", () => {
     ).toBe("");
   });
 
-  it("names the total when every value is a proportion without options", () => {
+  it("names the total when every value is a proportion", () => {
     expect(
       getDefaultValueAxisName(
         getExplorationRenderOpts(
