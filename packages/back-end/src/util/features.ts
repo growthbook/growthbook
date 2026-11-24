@@ -1468,7 +1468,7 @@ export function getFeatureDefinition({
                 rule,
                 allowedKeys.featureRuleKeys,
               ) as FeatureDefinitionRule;
-              if (includeRuleIds && rule.id != null) {
+              if (includeRuleIds && (rule.id ?? null) !== null) {
                 (picked as Record<string, unknown>).id = rule.id;
               }
               return picked;
