@@ -31,6 +31,10 @@ import {
   cancelExternalJobsForQueries,
   cancelQueryAndConfirm,
 } from "back-end/src/services/queryCancellation";
+import {
+  getBackendFeatureValue,
+  getTrustedOrgAttributes,
+} from "back-end/src/services/growthbook";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -103,8 +107,14 @@ export const REFRESH_WATCHDOG_INTERVAL_MS = 5 * 60 * 1000;
 /**
  * Minimum time between refresh pass starts. A finish after a quiet period
  * refreshes at once; finishes inside the window coalesce into one pass.
+ * Applies to runs with the query-runner-fast-refresh flag on.
  */
 export const REFRESH_MIN_INTERVAL_MS = 100;
+/**
+ * Wait between arming a refresh pass and starting it, for runs with the
+ * query-runner-fast-refresh flag off.
+ */
+export const REFRESH_DEBOUNCE_MS = 1000;
 /**
  * startAnalysis never leaves a runner running on an empty DAG, so an empty
  * query list read mid-run is either a cancel from another instance or a read
@@ -271,6 +281,8 @@ export abstract class QueryRunner<
   private heartbeatTimer: null | NodeJS.Timeout = null;
   private refreshWatchdogTimer: null | NodeJS.Timeout = null;
   private lastRefreshStartedAt = Number.NEGATIVE_INFINITY;
+  /** The query-runner-fast-refresh flag, read once per run; null until then. */
+  private fastRefresh: boolean | null = null;
   private consecutiveRefreshFailures = 0;
   /** When a pass first read an empty query list; null once one is not. */
   private emptyQueryListSince: number | null = null;
@@ -414,8 +426,35 @@ export abstract class QueryRunner<
   }
 
   /**
-   * Arm one refresh pass, due REFRESH_MIN_INTERVAL_MS after the last pass
-   * started and no earlier than `notBefore`. An armed pass that has not
+   * Attributes that identify this run to the query-runner-fast-refresh flag,
+   * on top of the organization's.
+   */
+  protected getRefreshFlagAttributes(): Record<string, unknown> {
+    return {};
+  }
+
+  private usesFastRefresh(): boolean {
+    if (this.fastRefresh === null) {
+      this.fastRefresh = getBackendFeatureValue(
+        "query-runner-fast-refresh",
+        false,
+        {
+          ...getTrustedOrgAttributes(this.context.org),
+          ...this.getRefreshFlagAttributes(),
+        },
+      );
+      if (this.experimentUpdateExecutionLogger) {
+        this.experimentUpdateExecutionLogger.execution.fastRefresh =
+          this.fastRefresh;
+      }
+    }
+    return this.fastRefresh;
+  }
+
+  /**
+   * Arm one refresh pass, no earlier than `notBefore`. With the fast-refresh
+   * flag on it is due REFRESH_MIN_INTERVAL_MS after the last pass started;
+   * with it off, REFRESH_DEBOUNCE_MS from now. An armed pass that has not
    * started yet covers any later request.
    */
   private scheduleRefreshPass(notBefore = 0): void {
@@ -434,11 +473,10 @@ export abstract class QueryRunner<
       return;
     }
     const now = performance.now();
-    const delay = Math.max(
-      0,
-      this.lastRefreshStartedAt + REFRESH_MIN_INTERVAL_MS - now,
-      notBefore - now,
-    );
+    const earliest = this.usesFastRefresh()
+      ? this.lastRefreshStartedAt + REFRESH_MIN_INTERVAL_MS
+      : now + REFRESH_DEBOUNCE_MS;
+    const delay = Math.max(0, earliest - now, notBefore - now);
     logger.debug(`Refreshing ${this.model.id} in ${delay} ms`);
     this.refreshTimer = setTimeout(() => this.queueRefreshPass(), delay);
   }

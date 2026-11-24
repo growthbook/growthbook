@@ -110,6 +110,7 @@ export type AppFeatures = {
   "proxy-cloud": boolean;
   "proxy-cloud-sse": boolean;
   "pylon-config": Record<string, unknown>;
+  "query-runner-fast-refresh": boolean;
   "quantile-metrics": boolean;
   "remote-evaluation": boolean;
   "remote-saved-groups": boolean;

@@ -411,6 +411,10 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     );
   }
 
+  protected override getRefreshFlagAttributes(): Record<string, unknown> {
+    return { snapshot_id: this.model.id };
+  }
+
   protected override onHeartbeat(): void {
     this.context.models.incrementalRefresh
       .touchReaderHeartbeat(this.model.experiment, this.model.id)

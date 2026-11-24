@@ -10,10 +10,15 @@ import {
   getQueryFailureError,
   getQueryFailureCause,
   EMPTY_QUERY_LIST_CONFIRM_MS,
+  REFRESH_DEBOUNCE_MS,
   REFRESH_MIN_INTERVAL_MS,
   REFRESH_WATCHDOG_INTERVAL_MS,
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import {
+  getBackendFeatureValue,
+  getTrustedOrgAttributes,
+} from "back-end/src/services/growthbook";
 import {
   countRunningQueries,
   getQueriesByIds,
@@ -27,11 +32,17 @@ import {
 } from "back-end/src/models/QueryModel";
 
 jest.mock("back-end/src/models/QueryModel");
+jest.mock("back-end/src/services/growthbook");
 
 // The automocked heartbeat resolves nowhere by default, and the runner calls
 // `.catch` on it inside a timer callback.
 beforeEach(() => {
   jest.mocked(touchQueuedQueriesHeartbeat).mockResolvedValue(0);
+  // query-runner-fast-refresh is on unless a test turns it off.
+  jest.mocked(getBackendFeatureValue).mockReset().mockReturnValue(true);
+  jest
+    .mocked(getTrustedOrgAttributes)
+    .mockReturnValue({ organizationId: "hashed-org" });
 });
 
 function deferred<T = void>() {
@@ -1874,6 +1885,54 @@ describe("QueryRunner", () => {
         expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
         expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
         expect(runner.status).toBe("finished");
+      });
+
+      it("waits out the debounce before every pass when the flag is off", async () => {
+        jest.mocked(getBackendFeatureValue).mockReturnValue(false);
+        const db: QueryDb = { a: "running" };
+        const runner = await startRunner(db);
+
+        await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS - 1);
+        expect(runner.getLatestModelSpy).not.toHaveBeenCalled();
+        await jest.advanceTimersByTimeAsync(1);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+
+        // A finish after a quiet period still waits the full debounce.
+        await jest.advanceTimersByTimeAsync(10 * REFRESH_DEBOUNCE_MS);
+        db.a = "succeeded";
+        await runner.onQueryFinish();
+        await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS - 1);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(1);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
+        expect(runner.status).toBe("finished");
+      });
+
+      it("reads the flag once per run, with the run's attributes", async () => {
+        class SnapshotRunner extends StallTestQueryRunner {
+          protected override getRefreshFlagAttributes() {
+            return { snapshot_id: this.model.id };
+          }
+        }
+        const db: QueryDb = { a: "running" };
+        const runner = makeRunner(db, SnapshotRunner);
+        await runner.startAnalysis({ pointers: runningPointers(db) });
+        await jest.advanceTimersByTimeAsync(0);
+
+        // A flip mid-run must not move the run to the other timer.
+        jest.mocked(getBackendFeatureValue).mockReturnValue(false);
+        await jest.advanceTimersByTimeAsync(10 * REFRESH_MIN_INTERVAL_MS);
+        db.a = "succeeded";
+        await runner.onQueryFinish();
+        await jest.advanceTimersByTimeAsync(0);
+
+        expect(runner.status).toBe("finished");
+        expect(getBackendFeatureValue).toHaveBeenCalledTimes(1);
+        expect(getBackendFeatureValue).toHaveBeenCalledWith(
+          "query-runner-fast-refresh",
+          false,
+          { organizationId: "hashed-org", snapshot_id: runner.model.id },
+        );
       });
 
       it("runs no pass until beforeFirstRefresh settles, then picks up finishes", async () => {
