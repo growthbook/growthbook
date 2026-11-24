@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
-import { isDashboardEligibleAsProjectDefault } from "shared/enterprise";
+import {
+  isDashboardEligibleAsProjectDefault,
+  isProjectDefaultDashboard,
+} from "shared/enterprise";
 import { Box, Flex } from "@radix-ui/themes";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -35,11 +38,10 @@ export default function ProjectDefaultDashboardSection({
   );
   // A stored default that was deleted, made private, or moved out of this
   // Project no longer counts; flag it here, don't clear it.
-  const savedDefaultDashboardId = projectDashboards.some(
-    (d) => d.id === defaultDashboardId,
-  )
-    ? defaultDashboardId
-    : "";
+  const savedDefaultDashboardId =
+    dashboards.find((d) =>
+      isProjectDefaultDashboard({ id: pid, defaultDashboardId }, d),
+    )?.id ?? "";
   const defaultDashboardUnavailable =
     dashboardsLoaded && !!defaultDashboardId && !savedDefaultDashboardId;
 

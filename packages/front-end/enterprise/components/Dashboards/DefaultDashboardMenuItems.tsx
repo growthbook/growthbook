@@ -1,6 +1,7 @@
 import {
   DashboardInterface,
   isDashboardEligibleAsProjectDefault,
+  isProjectDefaultDashboard,
 } from "shared/enterprise";
 import { DropdownMenuItem, DropdownSubMenu } from "@/ui/DropdownMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -28,7 +29,7 @@ export default function DefaultDashboardMenuItems({
   if (eligibleProjects.length === 0) return null;
 
   const items = eligibleProjects.map((p) => {
-    const isCurrentDefault = p.defaultDashboardId === dashboard.id;
+    const isCurrentDefault = isProjectDefaultDashboard(p, dashboard);
     return (
       <DropdownMenuItem
         key={p.id}
@@ -52,7 +53,7 @@ export default function DefaultDashboardMenuItems({
   return (
     <DropdownSubMenu
       trigger={
-        eligibleProjects.some((p) => p.defaultDashboardId === dashboard.id)
+        eligibleProjects.some((p) => isProjectDefaultDashboard(p, dashboard))
           ? "Manage default dashboard"
           : "Set as default dashboard"
       }

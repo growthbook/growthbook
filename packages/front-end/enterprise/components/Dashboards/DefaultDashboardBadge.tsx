@@ -1,24 +1,21 @@
 import {
   DashboardInterface,
-  isDashboardEligibleAsProjectDefault,
+  isProjectDefaultDashboard,
 } from "shared/enterprise";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 import TruncatedText from "@/ui/TruncatedText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
-// Names the Projects that use this dashboard as their default. A stored
-// default that is no longer eligible doesn't count, so it isn't shown.
+// Names the Projects that use this dashboard as their default.
 export default function DefaultDashboardBadge({
   dashboard,
 }: {
   dashboard: DashboardInterface;
 }) {
   const { projects } = useDefinitions();
-  const defaultFor = projects.filter(
-    (p) =>
-      p.defaultDashboardId === dashboard.id &&
-      isDashboardEligibleAsProjectDefault(dashboard, p.id),
+  const defaultFor = projects.filter((p) =>
+    isProjectDefaultDashboard(p, dashboard),
   );
   if (defaultFor.length === 0) return null;
 
