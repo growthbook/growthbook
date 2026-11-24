@@ -249,7 +249,7 @@ export class AnalyticsExplorationModel extends BaseClass {
       minUnusedLookahead?: number;
       /** See `getConfigHashes`. */
       savedPopulation?: Pick<PopulationInterface, "steps"> | null;
-      metricVersions?: Map<string, Date> | null;
+      metricDefinitions?: Map<string, object> | null;
     },
   ) {
     const { dataset } = config;
@@ -258,7 +258,7 @@ export class AnalyticsExplorationModel extends BaseClass {
     const configHashes = this.getConfigHashes(
       config,
       options?.savedPopulation ?? null,
-      options?.metricVersions ?? null,
+      options?.metricDefinitions ?? null,
     );
     if (!configHashes) return null;
 

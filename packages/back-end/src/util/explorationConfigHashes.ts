@@ -12,13 +12,13 @@ import { journeyFamilyIdentity } from "shared/journeys";
  * `savedPopulation` is the saved Population behind a metric dataset's
  * `population`. Required when the config has one: the cache is keyed on its
  * definition, so edits to it invalidate cached results and Populations with
- * the same definition share them. `metricVersions` maps each saved metric
- * id to its `dateUpdated`, so editing a metric invalidates cached results.
+ * the same definition share them. `metricDefinitions` maps each saved metric
+ * id to its `EXPLORATION_METRIC_QUERY_FIELDS`, so only query edits invalidate.
  */
 export function getExplorationConfigHashes(
   config: ExplorationConfig,
   savedPopulation: Pick<PopulationInterface, "steps"> | null = null,
-  metricVersions: Map<string, Date> | null = null,
+  metricDefinitions: Map<string, object> | null = null,
 ) {
   const dataset = config.dataset;
   if (!dataset) return null;
@@ -93,14 +93,14 @@ export function getExplorationConfigHashes(
         : config.chartType === "rawTable"
           ? []
           : dataset.values.map((value) => {
-              const metricUpdated =
+              const metric =
                 "metricId" in value
-                  ? metricVersions?.get(value.metricId)
+                  ? metricDefinitions?.get(value.metricId)
                   : undefined;
               return md5(
                 JSON.stringify({
                   ...omitRenderOnlyFields(value),
-                  ...(metricUpdated ? { metricUpdated } : {}),
+                  ...(metric ? { metric } : {}),
                 }),
               );
             });

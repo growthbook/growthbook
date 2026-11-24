@@ -90,19 +90,22 @@ function getTimestampColumnExpression(
   return quoteColumnIdentifier(factTable.timestampColumn, helpers);
 }
 
+// The metric fields an exploration's SQL reads, so only edits to them bust its cache
+export const EXPLORATION_METRIC_QUERY_FIELDS = [
+  "metricType",
+  "numerator",
+  "denominator",
+  "cappingSettings",
+  "windowSettings",
+  "quantileSettings",
+] as const;
+
 // Funnel fact metrics are excluded: product-analytics explorations describe
 // their own funnels through the funnel dataset, and a funnel fact metric has no
 // numerator column to roll up.
 type MinimalMetric = Pick<
   StandardFactMetricInterface,
-  | "id"
-  | "name"
-  | "metricType"
-  | "numerator"
-  | "denominator"
-  | "cappingSettings"
-  | "windowSettings"
-  | "quantileSettings"
+  "id" | "name" | (typeof EXPLORATION_METRIC_QUERY_FIELDS)[number]
 >;
 interface MinimalDatasourceInterface {
   type?: string;
