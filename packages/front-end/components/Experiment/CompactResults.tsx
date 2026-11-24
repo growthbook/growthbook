@@ -1,12 +1,4 @@
-import {
-  CSSProperties,
-  FC,
-  ReactElement,
-  useMemo,
-  useState,
-  useEffect,
-  useRef,
-} from "react";
+import { FC, ReactElement, useMemo, useState, useEffect, useRef } from "react";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
@@ -803,23 +795,23 @@ export function getRenderLabelColumn({
       ? null
       : externalLinkIcon;
 
-    const lineClamp: CSSProperties | undefined = maxRows
-      ? {
-          display: "-webkit-box",
-          WebkitLineClamp: maxRows,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }
-      : undefined;
-    // Clamping the whole label would cut off a badge after a long name, so
-    // with a badge only the name is clamped and the badge starts a new line.
-    const hasBadge = !!row && statsAdjustmentImpacts.length > 0;
-
     // Render non-slice metric
     return (
       <>
         <div className="pl-3">
-          <span className="ml-2" style={hasBadge ? undefined : lineClamp}>
+          <span
+            className="ml-2"
+            style={
+              maxRows
+                ? {
+                    display: "-webkit-box",
+                    WebkitLineClamp: maxRows,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }
+                : undefined
+            }
+          >
             {shouldShowExpandButton ? (
               <div
                 style={{
@@ -883,11 +875,7 @@ export function getRenderLabelColumn({
                 color: "var(--color-text-high)",
               }}
             >
-              <Text
-                weight="bold"
-                className={styles.metricLabel}
-                style={hasBadge ? lineClamp : undefined}
-              >
+              <Text weight="bold" className={styles.metricLabel}>
                 {/* Ensure the external icon is never shown alone in a single line */}
                 {typeof label === "string" ? (
                   <Link
@@ -937,7 +925,7 @@ export function getRenderLabelColumn({
               {row?.replacedByMetricName ? (
                 <ReplacedMetricWarning name={row.replacedByMetricName} />
               ) : null}
-              {row && hasBadge ? (
+              {row && statsAdjustmentImpacts.length ? (
                 <StatsAdjustmentBadge
                   impacts={statsAdjustmentImpacts}
                   trailing={externalLinkIcon}
