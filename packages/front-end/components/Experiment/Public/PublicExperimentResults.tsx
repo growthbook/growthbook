@@ -9,6 +9,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getSnapshotDataAsOfDate,
   getAnalysisPValueCorrection,
   getAnalysisPValueThreshold,
 } from "shared/experiments";
@@ -156,7 +157,7 @@ export default function PublicExperimentResults({
             pValueCorrection={pValueCorrection}
             startDate={phaseObj?.dateStarted ?? ""}
             endDate={phaseObj?.dateEnded ?? ""}
-            reportDate={snapshot.dateCreated}
+            reportDate={getSnapshotDataAsOfDate(snapshot)}
             isLatestPhase={phase === experiment.phases.length - 1}
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
             lookbackOverride={getEffectiveLookbackOverride(
@@ -198,7 +199,7 @@ export default function PublicExperimentResults({
                 phase={phase}
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
-                reportDate={snapshot.dateCreated}
+                reportDate={getSnapshotDataAsOfDate(snapshot)}
                 activationMetric={experiment.activationMetric}
                 status={experiment.status}
                 statsEngine={analysis.settings.statsEngine}
@@ -219,7 +220,7 @@ export default function PublicExperimentResults({
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}
-                reportDate={snapshot.dateCreated}
+                reportDate={getSnapshotDataAsOfDate(snapshot)}
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
                 isLatestPhase={phase === experiment.phases.length - 1}

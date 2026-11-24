@@ -2,7 +2,6 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   BANDIT_SRM_DIMENSION_NAME,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_TARGET_MDE,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 
@@ -13,6 +12,7 @@ import {
   enrichAnalysisResults,
   getAnalysisAlpha,
   getFunnelStepMetrics,
+  getMetricStatsEngineInputs,
   isBinomialMetric,
   isFactMetric,
   isFactFunnelMetric,
@@ -36,7 +36,6 @@ import {
 import {
   AnalysisSettingsForStatsEngine,
   BanditSettingsForStatsEngine,
-  BusinessMetricTypeForStatsEngine,
   DataForStatsEngine,
   ExperimentDataForStatsEngine,
   ExperimentMetricAnalysis,
@@ -290,21 +289,6 @@ export async function runSnapshotAnalyses(
   return results.flat();
 }
 
-function getBusinessMetricTypeForStatsEngine(
-  metricId: string,
-  settings: ExperimentSnapshotSettings,
-): BusinessMetricTypeForStatsEngine[] {
-  return [
-    settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
-    settings.secondaryMetrics.includes(metricId)
-      ? ("secondary" as const)
-      : null,
-    settings.guardrailMetrics.includes(metricId)
-      ? ("guardrail" as const)
-      : null,
-  ].filter((m) => m !== null);
-}
-
 export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
@@ -353,6 +337,16 @@ export function getMetricSettingsForStatsEngine(
     denominator = metric;
   }
 
+  const inputs = getMetricStatsEngineInputs(
+    metric.id,
+    {
+      properPrior: metric.priorSettings.proper,
+      properPriorMean: metric.priorSettings.mean,
+      properPriorStdDev: metric.priorSettings.stddev,
+      targetMDE: metric.targetMDE,
+    },
+    settings,
+  );
   return {
     id: metric.id,
     name: metric.name,
@@ -383,14 +377,11 @@ export function getMetricSettingsForStatsEngine(
     ...(!!quantileMetric && isFactMetric(metric)
       ? { quantile_value: metric.quantileSettings?.quantile ?? 0 }
       : {}),
-    prior_proper: metric.priorSettings.proper,
-    prior_mean: metric.priorSettings.mean,
-    prior_stddev: metric.priorSettings.stddev,
-    target_mde: metric.targetMDE ?? DEFAULT_TARGET_MDE,
-    business_metric_type: getBusinessMetricTypeForStatsEngine(
-      metric.id,
-      settings,
-    ),
+    prior_proper: inputs.properPrior,
+    prior_mean: inputs.properPriorMean,
+    prior_stddev: inputs.properPriorStdDev,
+    target_mde: inputs.targetMDE,
+    business_metric_type: inputs.businessMetricTypes,
     compute_uncapped_metric: eligibleForUncappedMetric(metric),
     scale_by_sub_unit_count: isScalableClusterSubUnitMetric(metric, settings),
   };

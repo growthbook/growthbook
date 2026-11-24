@@ -33,6 +33,7 @@ import {
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_LEARNING_STATUSES,
   DEFAULT_CLUSTER_ISSUE_THRESHOLD,
+  DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
   FEATURE_KEY_PATTERN,
 } from "shared/constants";
 import {
@@ -279,6 +280,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       requireExperimentTemplates: false,
       disableResultsUpdateForStoppedExperiments: false,
       disableResultsUpdateForStoppedExperimentGraceHours: 0,
+      newMetricsUpdateWindowHours: DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
       requireUniqueExperimentTrackingKeys: false,
       experimentKeyExample: "",
       experimentKeyRegexValidator: "",

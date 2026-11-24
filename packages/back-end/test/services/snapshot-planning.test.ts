@@ -1,8 +1,13 @@
 import {
   ExperimentMetricInterface,
   expandDerivedMetricsInMap,
+  getLatestPhaseVariations,
   getMetricSnapshotSettings,
+  getNewMetricsUpdateRefusal,
+  getPlannedCopiedMetricSettings,
+  getResultsOutdatedReasons,
 } from "shared/experiments";
+import { getScopedSettings } from "shared/settings";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
@@ -10,6 +15,7 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
+  SnapshotQueryRunnerKind,
 } from "shared/types/experiment-snapshot";
 import {
   ExperimentSnapshotReportInterface,
@@ -17,6 +23,8 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { MetricGroupInterface } from "shared/types/metric-groups";
+import type { MetricPriorSettings } from "shared/types/fact-table";
+import type { PValueCorrection } from "shared/types/stats";
 import { ApiReqContext } from "back-end/types/api";
 import {
   assertIncrementalRefreshPrerequisites,
@@ -27,9 +35,14 @@ import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
 } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import BigQuery from "back-end/src/integrations/BigQuery";
 import {
   createExperimentSnapshot,
+  getAdditionalExperimentAnalysisSettings,
+  getDefaultExperimentAnalysisSettings,
+  getSettingsForSnapshotMetrics,
   getSnapshotSettings,
+  planExperimentSnapshot,
   planSnapshot,
 } from "back-end/src/services/experiments";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
@@ -43,10 +56,13 @@ import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   createExperimentSnapshotModel,
+  findLatestSuccessfulOverallSnapshot,
   findSnapshotById,
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getQueriesByIds } from "back-end/src/models/QueryModel";
+import { generateExperimentResultQuerySql } from "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import {
@@ -62,13 +78,30 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   createExperimentSnapshotModel: jest.fn(),
+  findLatestSuccessfulOverallSnapshot: jest.fn(),
   findSnapshotById: jest.fn(),
+  getLatestSnapshotStatus: jest.fn(),
   getLatestSuccessfulSnapshot: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
 }));
+
+jest.mock("back-end/src/models/QueryModel", () => ({
+  ...jest.requireActual("back-end/src/models/QueryModel"),
+  getQueriesByIds: jest.fn(),
+}));
+
+jest.mock(
+  "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity",
+  () => ({
+    ...jest.requireActual(
+      "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity",
+    ),
+    generateExperimentResultQuerySql: jest.fn(),
+  }),
+);
 
 jest.mock("back-end/src/models/MetricModel", () => ({
   getMetricById: jest.fn(),
@@ -107,6 +140,16 @@ jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
         typeof import("back-end/src/enterprise/services/data-pipeline")
       >("back-end/src/enterprise/services/data-pipeline")
       .legacyDocDescribesPhase(args),
+  getMetricSettingsHashesForIncrementalRefresh: (
+    args: Parameters<
+      (typeof import("back-end/src/enterprise/services/data-pipeline"))["getMetricSettingsHashesForIncrementalRefresh"]
+    >[0],
+  ) =>
+    jest
+      .requireActual<
+        typeof import("back-end/src/enterprise/services/data-pipeline")
+      >("back-end/src/enterprise/services/data-pipeline")
+      .getMetricSettingsHashesForIncrementalRefresh(args),
 }));
 
 const {
@@ -133,6 +176,9 @@ const getLatestSuccessfulSnapshotMock =
   getLatestSuccessfulSnapshot as jest.MockedFunction<
     typeof getLatestSuccessfulSnapshot
   >;
+const findLatestSuccessfulOverallSnapshotMock = jest.mocked(
+  findLatestSuccessfulOverallSnapshot,
+);
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
 >;
@@ -1445,6 +1491,7 @@ describe("snapshot planning", () => {
     expect(plannedCurrentHash).toEqual(currentMetricHash);
     expect(
       getFactTablesNeedingRebuild({
+        restateOnAddedMetric: true,
         existingMetricSources: [
           {
             ...persistedMetricSources[0],
@@ -2288,5 +2335,826 @@ describe("snapshot planning", () => {
     expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBeNull();
     expect(assertIncrementalRefreshPrerequisitesMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("planExperimentSnapshot", () => {
+  const now = new Date("2025-02-15T12:00:00.000Z");
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    orgHasPremiumFeatureMock.mockReturnValue(true);
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
+    jest.useFakeTimers({
+      now,
+      doNotFake: [
+        "nextTick",
+        "queueMicrotask",
+        "setImmediate",
+        "setInterval",
+        "setTimeout",
+      ],
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function makeFixture() {
+    const datasource = makeDatasource({
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_user",
+              name: "Users",
+              userIdType: "user_id",
+              query: "SELECT * FROM exposures",
+              dimensions: ["country"],
+            },
+          ],
+        },
+      } as unknown as DataSourceInterface["settings"],
+    });
+    const eventsTable = factTableFactory.build({
+      id: "ft_events",
+      userIdTypes: ["user_id"],
+      columns: [
+        {
+          column: "country",
+          datatype: "string",
+          name: "country",
+          description: "",
+          dateCreated: now,
+          dateUpdated: now,
+          numberFormat: "",
+          deleted: false,
+          isAutoSliceColumn: true,
+          autoSlices: ["us", "ca"],
+        },
+      ],
+    });
+    const ordersTable = factTableFactory.build({
+      id: "ft_orders",
+      userIdTypes: ["user_id"],
+    });
+    const factMetric = (
+      id: string,
+      overrides: Parameters<typeof factMetricFactory.build>[0] = {},
+    ) =>
+      factMetricFactory.build({
+        id,
+        datasource: "ds_123",
+        dateCreated: now,
+        dateUpdated: now,
+        ...overrides,
+      });
+    const legacyMetric = (id: string) =>
+      ({
+        id,
+        organization: "org_123",
+        owner: "",
+        datasource: "ds_123",
+        dateCreated: now,
+        dateUpdated: now,
+        name: id,
+        description: "",
+        type: "binomial",
+        inverse: false,
+        ignoreNulls: false,
+        userIdTypes: ["user_id"],
+        sql: "SELECT user_id, timestamp FROM conversions",
+        cappingSettings: { type: "", value: 0 },
+        windowSettings: {
+          type: "conversion",
+          delayValue: 0,
+          delayUnit: "hours",
+          windowValue: 72,
+          windowUnit: "hours",
+        },
+        priorSettings: { override: false, proper: false, mean: 0, stddev: 1 },
+        queries: [],
+        runStarted: null,
+      }) as unknown as ExperimentMetricInterface;
+
+    const metrics: ExperimentMetricInterface[] = [
+      factMetric("fact__revenue", {
+        numerator: { factTableId: "ft_orders", column: "amount" },
+        regressionAdjustmentEnabled: true,
+      }),
+      factMetric("fact__clicks", {
+        numerator: { factTableId: "ft_events", column: "clicks" },
+        metricAutoSlices: ["country"],
+      } as Parameters<typeof factMetricFactory.build>[0]),
+      factMetric("fact__aov", {
+        metricType: "ratio",
+        numerator: { factTableId: "ft_orders", column: "amount" },
+        denominator: { factTableId: "ft_events", column: "$$count" },
+      }),
+      factMetric("fact__guard", {
+        metricType: "proportion",
+        numerator: { factTableId: "ft_events", column: "$$distinctUsers" },
+      }),
+      legacyMetric("met_signup"),
+      legacyMetric("met_activation"),
+    ];
+    const metricGroup = {
+      id: "mg_core",
+      organization: "org_123",
+      owner: "",
+      name: "Core",
+      description: "",
+      tags: [],
+      projects: [],
+      metrics: ["fact__clicks", "met_signup"],
+      datasource: "ds_123",
+      archived: false,
+      dateCreated: now,
+      dateUpdated: now,
+    } as unknown as MetricGroupInterface;
+
+    const experiment = makeExperiment({
+      goalMetrics: ["fact__revenue", "mg_core"],
+      secondaryMetrics: ["fact__aov"],
+      guardrailMetrics: ["fact__guard"],
+      activationMetric: "met_activation",
+      exposureQueryId: "exposure_user",
+      regressionAdjustmentEnabled: true,
+      metricOverrides: [
+        { id: "fact__aov", windowType: "conversion", windowHours: 48 },
+      ],
+      phases: [
+        {
+          dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+          variationWeights: [0.5, 0.5],
+          coverage: 1,
+        },
+      ] as ExperimentInterface["phases"],
+    } as Partial<ExperimentInterface>);
+
+    const context = makeContext();
+    context.models.metricGroups.getAll = jest
+      .fn()
+      .mockResolvedValue([metricGroup]);
+    wireIncrementalRefreshState(context);
+
+    getDataSourceByIdMock.mockResolvedValue(datasource);
+    getSourceIntegrationObjectMock.mockReturnValue({} as never);
+    getMetricMapMock.mockImplementation(
+      async () => new Map(metrics.map((m) => [m.id, m])),
+    );
+    getFactTableMapMock.mockImplementation(
+      async () =>
+        new Map([
+          [eventsTable.id, eventsTable],
+          [ordersTable.id, ordersTable],
+        ]) as FactTableMap,
+    );
+
+    return { context, experiment, datasource };
+  }
+
+  describe("with new metrics only", () => {
+    const refreshTime = new Date("2025-02-15T15:00:00.000Z");
+
+    function asParent(snapshot: ExperimentSnapshotInterface) {
+      return {
+        ...snapshot,
+        id: "snp_parent",
+        status: "success",
+        queries: [
+          { name: "group_0", query: "qry_group_0", status: "succeeded" },
+        ],
+        analyses: snapshot.analyses.map((a) => ({ ...a, status: "success" })),
+      } as ExperimentSnapshotInterface;
+    }
+
+    async function planRefresh(
+      { context, datasource }: ReturnType<typeof makeFixture>,
+      experiment: ExperimentInterface,
+      parent: ExperimentSnapshotInterface,
+    ) {
+      findLatestSuccessfulOverallSnapshotMock.mockResolvedValue(parent);
+      // The parent's copied query would be generated with the SQL it stored.
+      jest
+        .mocked(getQueriesByIds)
+        .mockResolvedValue([
+          { id: "qry_group_0", query: "SELECT group_0" },
+        ] as Awaited<ReturnType<typeof getQueriesByIds>>);
+      jest
+        .mocked(generateExperimentResultQuerySql)
+        .mockResolvedValue(new Map([["group_0", "SELECT group_0"]]));
+      getSourceIntegrationObjectMock.mockReturnValue({
+        getSourceProperties: () => ({ separateExperimentResultQueries: true }),
+      } as never);
+      jest.setSystemTime(refreshTime);
+      return planExperimentSnapshot({
+        context: context as never,
+        experiment,
+        datasource,
+        dimension: undefined,
+        phase: 0,
+        updateScope: { kind: "new_metrics", window: null, onRefusal: "fail" },
+      });
+    }
+
+    // What the app decides: its Outdated reasons against the parent, and the
+    // shared rule with the plan predicted from today's definitions.
+    async function appRefusal({
+      context,
+      datasource,
+      experiment,
+      parent,
+      plannedRunnerKind,
+    }: Pick<ReturnType<typeof makeFixture>, "context" | "datasource"> & {
+      experiment: ExperimentInterface;
+      parent: ExperimentSnapshotInterface;
+      plannedRunnerKind: SnapshotQueryRunnerKind;
+    }) {
+      const { settings: scoped } = getScopedSettings({
+        organization: context.org,
+        experiment,
+      });
+      const metricGroups = await context.models.metricGroups.getAll();
+      const outdatedReasons = getResultsOutdatedReasons({
+        experiment,
+        snapshot: parent,
+        metricGroups,
+        orgSettings: context.org.settings ?? {},
+        pValueThreshold: scoped.pValueThreshold.value,
+        statsEngine: scoped.statsEngine.value,
+        features: {
+          regressionAdjustment: true,
+          postStratification: true,
+          sequentialTesting: true,
+        },
+        phase: 0,
+        exposureQueries: datasource.settings.queries?.exposure ?? [],
+        unjoinableMetricIds: new Set(),
+        conversionWindowMetricIds: new Set(),
+        newerOverallResultsAvailable: false,
+        resultsUpdateDisabled: false,
+      });
+      const todaysMetrics = await getMetricMapMock(context);
+      const refusal = getNewMetricsUpdateRefusal({
+        experiment,
+        phase: 0,
+        separateExperimentResultQueries: true,
+        parent,
+        outdatedReasons,
+        window: { windowHours: 4, now: refreshTime },
+        planned: {
+          runnerKind: plannedRunnerKind,
+          settings: getPlannedCopiedMetricSettings({
+            parentSettings: parent.settings,
+            experiment,
+            metricGroups,
+            organizationSettings: context.org.settings ?? {},
+            getMetricById: (id) => todaysMetrics.get(id),
+          }),
+        },
+      });
+      return { outdatedReasons, refusal };
+    }
+
+    // The experiment adjusts with CUPED but its one metric opts out, where the
+    // scheduled job once stored CUPED as off.
+    it("accepts a parent the scheduled update planned, and the app offers it", async () => {
+      const fixture = makeFixture();
+      const { context } = fixture;
+      const base: ExperimentInterface = {
+        ...fixture.experiment,
+        variations: [
+          { id: "var_0", key: "0", name: "Control" },
+          { id: "var_1", key: "1", name: "Treatment" },
+        ] as ExperimentInterface["variations"],
+        goalMetrics: ["fact__guard"],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+      };
+      const { settings: scopedSettings } = getScopedSettings({
+        organization: context.org,
+        experiment: base,
+      });
+      const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
+        await getSettingsForSnapshotMetrics(context, base);
+      const analysisSettings = getDefaultExperimentAnalysisSettings({
+        statsEngine: base.statsEngine || scopedSettings.statsEngine.value,
+        experiment: base,
+        organization: context.org,
+        regressionAdjustmentEnabled,
+        postStratificationEnabled:
+          scopedSettings.postStratificationEnabled.value,
+        pValueThreshold: scopedSettings.pValueThreshold.value,
+        metricGroups: await context.models.metricGroups.getAll(),
+      });
+      const scheduled = await planSnapshot({
+        experiment: base,
+        context,
+        phaseIndex: 0,
+        useCache: true,
+        defaultAnalysisSettings: analysisSettings,
+        additionalAnalysisSettings:
+          getAdditionalExperimentAnalysisSettings(analysisSettings),
+        settingsForSnapshotMetrics,
+        metricMap: await getMetricMapMock(context),
+        factTableMap: await getFactTableMapMock(context),
+        type: "standard",
+        triggeredBy: "schedule",
+        cutoff: null,
+      });
+
+      const refresh = { ...base, secondaryMetrics: ["fact__aov"] };
+      const parent = asParent(scheduled.snapshot);
+      const plan = await planRefresh(fixture, refresh, parent);
+
+      expect(plan.snapshot.updateScope?.queriedMetricIds).toEqual([
+        "fact__aov",
+      ]);
+      await expect(
+        appRefusal({
+          ...fixture,
+          experiment: refresh,
+          parent,
+          plannedRunnerKind: "results",
+        }),
+      ).resolves.toEqual({
+        outdatedReasons: expect.arrayContaining(["cuped", "metrics_changed"]),
+        refusal: null,
+      });
+    });
+
+    // The planner refuses on the app's Outdated reasons, so only the settings
+    // it also compares could refuse an update the app offers.
+    describe("agrees with the app's Outdated reasons", () => {
+      const { generateExperimentResultQuerySql: generateSql } =
+        jest.requireActual<
+          typeof import("back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity")
+        >(
+          "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity",
+        );
+
+      async function outdatedRefresh(
+        fixture: ReturnType<typeof makeFixture>,
+        {
+          base: baseChanges = {},
+          refresh: refreshChanges = {},
+          editMetric,
+          orgPrior,
+          correction,
+          pipeline,
+        }: {
+          base?: Partial<ExperimentInterface>;
+          refresh?: Partial<ExperimentInterface>;
+          // A definition edited after the base update.
+          editMetric?: { id: string; changes: object };
+          // The organization's default prior at the base update, then today.
+          orgPrior?: {
+            base: MetricPriorSettings;
+            refresh: MetricPriorSettings;
+          };
+          // Frequentist, with the organization's correction method at the
+          // base update, then today. A legacy parent recorded no method.
+          correction?: {
+            base: PValueCorrection;
+            refresh: PValueCorrection;
+            legacyParent?: boolean;
+          };
+          pipeline: "standard" | "incremental";
+        },
+      ) {
+        const { context, datasource } = fixture;
+        const setOrgPrior = (
+          priorSettings: MetricPriorSettings | undefined,
+        ) => {
+          context.org.settings = {
+            ...context.org.settings,
+            metricDefaults: priorSettings ? { priorSettings } : undefined,
+          };
+        };
+        setOrgPrior(orgPrior?.base);
+        const setOrgCorrection = (pValueCorrection: PValueCorrection) => {
+          context.org.settings = {
+            ...context.org.settings,
+            statsEngine: "frequentist",
+            pValueCorrection,
+          };
+        };
+        if (correction) setOrgCorrection(correction.base);
+        const exposure = datasource.settings.queries?.exposure ?? [];
+        if (pipeline === "incremental") {
+          datasource.settings.pipelineSettings = {
+            allowWriting: true,
+            mode: "incremental",
+          } as DataSourceInterface["settings"]["pipelineSettings"];
+          assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+            undefined as never,
+          );
+        }
+        context.logger = { warn: jest.fn() } as never;
+        // @ts-expect-error -- the integration only reads `.datasource` here
+        const integration = new BigQuery("", {
+          type: "bigquery",
+          settings: datasource.settings,
+        });
+        getSourceIntegrationObjectMock.mockReturnValue(integration);
+
+        const variations = [
+          { id: "var_0", key: "0", name: "Control" },
+          { id: "var_1", key: "1", name: "Treatment" },
+        ] as ExperimentInterface["variations"];
+        const base = {
+          ...fixture.experiment,
+          variations,
+          guardrailMetrics: [],
+          ...baseChanges,
+        };
+        const parentPlan = await planExperimentSnapshot({
+          context: context as never,
+          experiment: base,
+          datasource,
+          dimension: undefined,
+          phase: 0,
+        });
+        // The base update's run generates its SQL with the slices expanded.
+        const metricMap = await getMetricMapMock(context);
+        const factTableMap = await getFactTableMapMock(context);
+        expandDerivedMetricsInMap({
+          metricMap,
+          factTableMap,
+          experiment: base,
+          metricGroups: await context.models.metricGroups.getAll(),
+        });
+        const sqlFor = (settings: ExperimentSnapshotSettings) =>
+          generateSql(
+            context,
+            {
+              snapshotType: "standard",
+              snapshotSettings: settings,
+              variationNames: getLatestPhaseVariations(base).map((v) => v.name),
+              metricMap,
+              factTableMap,
+              queryParentId: "snp_parent",
+              experimentQueryMetadata: null,
+            },
+            integration,
+          );
+        const storedSql = await sqlFor(parentPlan.snapshot.settings);
+        const planned = asParent(parentPlan.snapshot);
+        const parent = {
+          ...planned,
+          ...(correction?.legacyParent
+            ? {
+                analyses: planned.analyses.map((a) => ({
+                  ...a,
+                  settings: { ...a.settings, pValueCorrection: undefined },
+                })),
+              }
+            : {}),
+          ...(pipeline === "incremental"
+            ? { runnerKind: "incremental-update" as const }
+            : {}),
+          queries: [...storedSql.keys()].map((name) => ({
+            name,
+            query: `qry_${name}`,
+            status: "succeeded" as const,
+          })),
+        };
+        findLatestSuccessfulOverallSnapshotMock.mockResolvedValue(parent);
+        // Today's SQL is the SQL the base stored.
+        jest
+          .mocked(generateExperimentResultQuerySql)
+          .mockResolvedValue(new Map(storedSql));
+        if (pipeline === "incremental") {
+          // The tables the parent left, with no metric cache yet.
+          wireIncrementalRefreshState(context, {
+            phaseDoc: {
+              unitsTableFullName: "db.schema.units_exp_123",
+              unitsMaxTimestamp: parent.settings.endDate,
+              materializedBySnapshotId: parent.id,
+              experimentSettingsHash:
+                getExperimentSettingsHashForIncrementalRefresh(
+                  parent.settings,
+                  exposure,
+                ),
+              metricSources: [],
+            },
+          });
+        }
+        jest.mocked(getQueriesByIds).mockResolvedValue(
+          [...storedSql].map(([name, query]) => ({
+            id: `qry_${name}`,
+            query,
+          })) as Awaited<ReturnType<typeof getQueriesByIds>>,
+        );
+
+        if (editMetric) {
+          const edited = new Map(
+            [...(await getMetricMapMock(context))].map(([id, m]) => [
+              id,
+              id === editMetric.id
+                ? ({ ...m, ...editMetric.changes } as ExperimentMetricInterface)
+                : m,
+            ]),
+          );
+          getMetricMapMock.mockImplementation(async () => new Map(edited));
+        }
+        setOrgPrior(orgPrior?.refresh);
+        if (correction) setOrgCorrection(correction.refresh);
+
+        jest.setSystemTime(refreshTime);
+        const experiment = {
+          ...fixture.experiment,
+          variations,
+          ...baseChanges,
+          ...refreshChanges,
+        };
+        // The app reads today's definitions, not the planner's settings.
+        const { outdatedReasons: reasons, refusal } = await appRefusal({
+          context,
+          datasource,
+          experiment,
+          parent,
+          plannedRunnerKind:
+            pipeline === "incremental" ? "incremental-update" : "results",
+        });
+        const offered = refusal === null;
+        const plan = planExperimentSnapshot({
+          context: context as never,
+          experiment,
+          datasource,
+          dimension: undefined,
+          phase: 0,
+          updateScope: {
+            kind: "new_metrics" as const,
+            window: null,
+            onRefusal: "fail",
+          },
+        });
+        // Asserted by the caller, after the reasons.
+        plan.catch(() => undefined);
+        return { reasons, offered, plan };
+      }
+
+      // The pipeline can't run legacy metrics, so its base has none.
+      describe.each<{
+        pipeline: "standard" | "incremental";
+        pipelineBase: Partial<ExperimentInterface>;
+        runnerKind: string;
+      }>([
+        { pipeline: "standard", pipelineBase: {}, runnerKind: "results" },
+        {
+          pipeline: "incremental",
+          pipelineBase: {
+            goalMetrics: ["fact__revenue"],
+            activationMetric: "",
+          },
+          runnerKind: "incremental-update",
+        },
+      ])(
+        "on the $pipeline pipeline",
+        ({ pipeline, pipelineBase, runnerKind }) => {
+          it("plans a new-metrics update when added metrics are the only reason", async () => {
+            const { reasons, offered, plan } = await outdatedRefresh(
+              makeFixture(),
+              { base: pipelineBase, pipeline },
+            );
+
+            expect(reasons).toEqual(["metrics_changed"]);
+            expect(offered).toBe(true);
+            await expect(plan).resolves.toMatchObject({
+              snapshot: {
+                runnerKind,
+                updateScope: { queriedMetricIds: ["fact__guard"] },
+              },
+            });
+          });
+
+          it("refuses, and the app doesn't offer it, when CUPED is turned on for adjustable copied metrics", async () => {
+            const { reasons, offered, plan } = await outdatedRefresh(
+              makeFixture(),
+              {
+                base: { ...pipelineBase, regressionAdjustmentEnabled: false },
+                refresh: { ...pipelineBase, regressionAdjustmentEnabled: true },
+                pipeline,
+              },
+            );
+
+            expect(reasons).toEqual(
+              expect.arrayContaining(["metrics_changed", "cuped"]),
+            );
+            expect(offered).toBe(false);
+            await expect(plan).rejects.toMatchObject({
+              details: { reason: "settings_changed" },
+            });
+          });
+
+          // Snapshots don't store a metric's direction, so this edit goes
+          // unseen and the copied results keep the old one.
+          it("plans it, and the app offers it, after an edit to a copied metric's direction", async () => {
+            const { reasons, offered, plan } = await outdatedRefresh(
+              makeFixture(),
+              {
+                base: pipelineBase,
+                editMetric: { id: "fact__revenue", changes: { inverse: true } },
+                pipeline,
+              },
+            );
+
+            expect(reasons).toEqual(["metrics_changed"]);
+            expect(offered).toBe(true);
+            await expect(plan).resolves.toMatchObject({
+              snapshot: { updateScope: { queriedMetricIds: ["fact__guard"] } },
+            });
+          });
+
+          // None of these edits reaches the SQL or the settings hash.
+          it.each<{
+            name: string;
+            refresh?: Partial<ExperimentInterface>;
+            editMetric?: { id: string; changes: object };
+          }>([
+            {
+              name: "a copied metric's prior",
+              editMetric: {
+                id: "fact__revenue",
+                changes: {
+                  priorSettings: {
+                    override: true,
+                    proper: true,
+                    mean: 0.1,
+                    stddev: 0.2,
+                  },
+                },
+              },
+            },
+            {
+              name: "a copied metric's prior override in the experiment",
+              refresh: {
+                metricOverrides: [
+                  {
+                    id: "fact__revenue",
+                    properPriorOverride: true,
+                    properPriorEnabled: true,
+                    properPriorMean: 0.1,
+                    properPriorStdDev: 0.2,
+                  },
+                ],
+              },
+            },
+            {
+              name: "a copied metric's target MDE",
+              refresh: {
+                decisionFrameworkSettings: {
+                  decisionFrameworkMetricOverrides: [
+                    { id: "fact__revenue", targetMDE: 0.3 },
+                  ],
+                },
+              },
+            },
+          ])(
+            "refuses, and the app doesn't offer it, after an edit to $name",
+            async ({ refresh, editMetric }) => {
+              const { reasons, offered, plan } = await outdatedRefresh(
+                makeFixture(),
+                {
+                  base: pipelineBase,
+                  refresh: { ...pipelineBase, ...refresh },
+                  editMetric,
+                  pipeline,
+                },
+              );
+
+              expect(reasons).toEqual(["metrics_changed"]);
+              expect(offered).toBe(false);
+              await expect(plan).rejects.toMatchObject({
+                details: { reason: "settings_changed" },
+              });
+            },
+          );
+
+          // The stats engine reads each metric's prior resolved from the
+          // organization's default, its definition and the experiment, which
+          // both sides compare. The default reaches no other number.
+          describe("after a change to the organization's default prior", () => {
+            const orgPrior = {
+              base: { override: false, proper: true, mean: 0, stddev: 0.444 },
+              refresh: { override: false, proper: true, mean: 0, stddev: 0.3 },
+            };
+            const copiedMetricIds =
+              pipeline === "standard"
+                ? ["fact__revenue", "fact__clicks", "met_signup", "fact__aov"]
+                : ["fact__revenue", "fact__aov"];
+            const overridingPriors = (ids: string[]) => ({
+              metricOverrides: ids.map((id) => ({
+                id,
+                // The fixture's own override of this metric's window.
+                ...(id === "fact__aov"
+                  ? { windowType: "conversion" as const, windowHours: 48 }
+                  : {}),
+                properPriorOverride: true,
+                properPriorEnabled: true,
+                properPriorMean: 0,
+                properPriorStdDev: 0.5,
+              })),
+            });
+
+            it("plans it, and the app offers it, when every copied metric overrides its prior in the experiment", async () => {
+              const changes = {
+                ...pipelineBase,
+                ...overridingPriors(copiedMetricIds),
+              };
+              const { reasons, offered, plan } = await outdatedRefresh(
+                makeFixture(),
+                { base: changes, refresh: changes, orgPrior, pipeline },
+              );
+
+              expect(reasons).toEqual(["metrics_changed"]);
+              expect(offered).toBe(true);
+              await expect(plan).resolves.toMatchObject({
+                snapshot: {
+                  runnerKind,
+                  updateScope: { queriedMetricIds: ["fact__guard"] },
+                },
+              });
+            });
+
+            // A fact metric on either pipeline, and a legacy one on the
+            // standard pipeline, which can't run them incrementally.
+            it.each(
+              pipeline === "standard"
+                ? ["fact__revenue", "met_signup"]
+                : ["fact__revenue"],
+            )(
+              "refuses, and the app doesn't offer it, when %s follows the default",
+              async (followerId) => {
+                const changes = {
+                  ...pipelineBase,
+                  ...overridingPriors(
+                    copiedMetricIds.filter((id) => id !== followerId),
+                  ),
+                };
+                const { reasons, offered, plan } = await outdatedRefresh(
+                  makeFixture(),
+                  { base: changes, refresh: changes, orgPrior, pipeline },
+                );
+
+                expect(reasons).toEqual(["metrics_changed"]);
+                expect(offered).toBe(false);
+                await expect(plan).rejects.toMatchObject({
+                  details: { reason: "settings_changed" },
+                });
+              },
+            );
+          });
+        },
+      );
+
+      // The update corrects copied and new goal metrics together with the
+      // method the parent recorded. A parent saved before methods were
+      // recorded can't be extended.
+      describe("with a frequentist correction method", () => {
+        it("refuses, and the app doesn't offer it, when the parent's method was turned off", async () => {
+          const { reasons, offered, plan } = await outdatedRefresh(
+            makeFixture(),
+            {
+              correction: { base: "holm-bonferroni", refresh: null },
+              pipeline: "standard",
+            },
+          );
+
+          expect(reasons).toEqual(["metrics_changed", "p_value_correction"]);
+          expect(offered).toBe(false);
+          await expect(plan).rejects.toMatchObject({
+            details: { reason: "settings_changed" },
+          });
+        });
+
+        // No Outdated reason covers it: a method that was never recorded is
+        // never out of date.
+        it.each<{ name: string; refresh: PValueCorrection }>([
+          { name: "while a correction applies", refresh: "holm-bonferroni" },
+          { name: "while none applies", refresh: null },
+        ])(
+          "refuses, and the app doesn't offer it, for a parent that recorded no method, $name",
+          async ({ refresh }) => {
+            const { reasons, offered, plan } = await outdatedRefresh(
+              makeFixture(),
+              {
+                correction: { base: null, refresh, legacyParent: true },
+                pipeline: "standard",
+              },
+            );
+
+            expect(reasons).toEqual(["metrics_changed"]);
+            expect(offered).toBe(false);
+            await expect(plan).rejects.toMatchObject({
+              details: { reason: "settings_changed" },
+            });
+          },
+        );
+      });
+    });
   });
 });

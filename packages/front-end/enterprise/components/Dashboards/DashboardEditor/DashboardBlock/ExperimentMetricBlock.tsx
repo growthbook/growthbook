@@ -11,6 +11,7 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getSnapshotDataAsOfDate,
   getAnalysisPValueCorrection,
   getAnalysisPValueThreshold,
 } from "shared/experiments";
@@ -190,7 +191,7 @@ export default function ExperimentMetricBlock({
       pValueCorrection={pValueCorrection}
       startDate={latestPhase?.dateStarted || ""}
       endDate={latestPhase?.dateEnded || ""}
-      reportDate={snapshot.dateCreated}
+      reportDate={getSnapshotDataAsOfDate(snapshot)}
       isLatestPhase={true}
       sequentialTestingEnabled={sequentialTestingEnabled}
       differenceType={differenceType}
@@ -234,7 +235,7 @@ export default function ExperimentMetricBlock({
                 getChildRowCounts,
                 sliceTagsFilter: blockSliceTagsFilter,
               })}
-              dateCreated={snapshot.dateCreated}
+              dateCreated={getSnapshotDataAsOfDate(snapshot)}
               statsEngine={statsEngine}
               sequentialTestingEnabled={sequentialTestingEnabled}
               pValueCorrection={pValueCorrection}

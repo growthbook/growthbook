@@ -25,6 +25,7 @@ import { applyMetricOverrides } from "back-end/src/util/integration";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import {
   BANDIT_CUPED_FLOAT_COLS,
+  BASE_COLUMNS_PER_QUERY,
   BASE_METRIC_CUPED_FLOAT_COLS,
   BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
   BASE_METRIC_FLOAT_COLS,
@@ -265,9 +266,7 @@ export function chunkMetrics({
   isBandit: boolean;
   efficientQuantileGrid?: boolean;
 }): FactMetricInterface[][] {
-  // up to 100 dimensions (overkill, but also adds in buffer)
-  // + 1 for variation + 2 for users and count
-  const baseColumnsNeeded = 103;
+  const baseColumnsNeeded = BASE_COLUMNS_PER_QUERY;
 
   const chunks: FactMetricInterface[][] = [];
 

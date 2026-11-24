@@ -5,6 +5,7 @@ import {
   parseFunnelStepMetricId,
   getLatestPhaseVariations,
   resolveSnapshotVariation,
+  getSnapshotSideEffects,
 } from "shared/experiments";
 import {
   PRESET_DECISION_CRITERIA,
@@ -1260,11 +1261,13 @@ export const notifyExperimentChange = async ({
     metricGroups,
   });
 
-  await notifyExperimentUpdateFailed({
-    context,
-    experiment,
-    cause: null,
-  });
+  if (getSnapshotSideEffects(snapshot).ownsUpdateFailedAlert) {
+    await notifyExperimentUpdateFailed({
+      context,
+      experiment,
+      cause: null,
+    });
+  }
 
   const triggeredNoData = await notifyNoData({
     context,

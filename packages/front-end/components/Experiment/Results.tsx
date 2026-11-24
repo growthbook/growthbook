@@ -16,11 +16,14 @@ import {
   getEffectiveLookbackOverride,
   getAllMetricIdsFromExperiment,
   getLatestPhaseVariations,
+  getNewMetricsUpdate,
+  getSnapshotDataAsOfDate,
   getAnalysisPValueCorrection,
   getAnalysisPValueThreshold,
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
+import type { PostExperimentSnapshotBody } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -37,7 +40,10 @@ import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import {
+  getIsExperimentIncludedInIncrementalRefresh,
+  NewMetricRowState,
+} from "@/services/experiments";
 import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import { hasHealthData } from "@/components/HealthTab/constants";
@@ -62,6 +68,7 @@ const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => void;
   editMetrics?: () => void;
+  newMetricStates?: Map<string, NewMetricRowState>;
   statsEngine: StatsEngine;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
@@ -78,6 +85,7 @@ const Results: FC<{
   experiment,
   mutateExperiment,
   editMetrics,
+  newMetricStates,
   statsEngine,
   analysisBarSettings,
   setAnalysisBarSettings,
@@ -352,7 +360,7 @@ const Results: FC<{
               body: JSON.stringify({
                 phase,
                 dimension,
-              }),
+              } satisfies PostExperimentSnapshotBody),
             });
             trackSnapshot(
               "create",
@@ -386,7 +394,7 @@ const Results: FC<{
           pValueCorrection={pValueCorrection}
           startDate={phaseObj?.dateStarted ?? ""}
           endDate={phaseObj?.dateEnded ?? ""}
-          reportDate={snapshot?.dateCreated ?? new Date()}
+          reportDate={snapshot ? getSnapshotDataAsOfDate(snapshot) : new Date()}
           isLatestPhase={phase === experiment.phases.length - 1}
           sequentialTestingEnabled={analysis.settings?.sequentialTesting}
           lookbackOverride={getEffectiveLookbackOverride(
@@ -451,7 +459,7 @@ const Results: FC<{
               phase={phase}
               startDate={phaseObj?.dateStarted ?? ""}
               endDate={phaseObj?.dateEnded ?? ""}
-              reportDate={snapshot.dateCreated}
+              reportDate={getSnapshotDataAsOfDate(snapshot)}
               activationMetric={experiment.activationMetric}
               status={experiment.status}
               statsEngine={
@@ -482,6 +490,14 @@ const Results: FC<{
               experimentId={experiment.id}
               significanceThresholds={significanceThresholds}
               editMetrics={editMetrics}
+              newMetricStates={newMetricStates}
+              onViewNewMetricsUpdateQueries={
+                latest?.status === "error" &&
+                getNewMetricsUpdate(latest) &&
+                hasQueries
+                  ? () => setQueriesModalOpen(true)
+                  : undefined
+              }
               variations={variations}
               variationFilter={analysisBarSettings.variationFilter}
               setVariationFilter={(v: number[]) =>
@@ -504,7 +520,7 @@ const Results: FC<{
               multipleExposures={snapshot.multipleExposures || 0}
               results={analysis.results[0]}
               queryStatusData={queryStatusData}
-              reportDate={snapshot.dateCreated}
+              reportDate={getSnapshotDataAsOfDate(snapshot)}
               startDate={phaseObj?.dateStarted ?? ""}
               endDate={phaseObj?.dateEnded ?? ""}
               isLatestPhase={phase === experiment.phases.length - 1}

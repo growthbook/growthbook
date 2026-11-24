@@ -255,19 +255,31 @@ describe("enrichAnalysisResults", () => {
       sigmahat2Delta: 0.0009,
       targetMDE: 0.05,
     };
-    const scalingFactor = (numGoalMetrics: number) =>
+    const scalingFactor = (
+      goalMetrics: string[],
+      settings: Partial<ExperimentSnapshotAnalysisSettings> = {},
+    ) =>
       enrich(
         [level("", { g1: { ...stat(0.01), power: powerInputs } })],
-        ["g1"],
-        { numGoalMetrics },
+        goalMetrics,
+        settings,
       )[0].variations[1].metrics.g1.power?.scalingFactor;
 
     it("works out how much more sample a test needs", () => {
-      expect(scalingFactor(1)).toBeCloseTo(1.8255615234375, 8);
+      expect(scalingFactor(["g1"])).toBeCloseTo(1.8255615234375, 8);
     });
 
     it("asks more of each test when more goal metrics share the experiment's power", () => {
-      expect(scalingFactor(3)).toBeCloseTo(3.218994140625, 8);
+      expect(scalingFactor(["g1", "g2", "g3"])).toBeCloseTo(3.218994140625, 8);
+    });
+
+    it("counts the distinct goal metrics the snapshot lists, not the count the analysis stored", () => {
+      expect(
+        scalingFactor(["g1", "g2", "g3", "g2"], { numGoalMetrics: 1 }),
+      ).toBe(scalingFactor(["g1", "g2", "g3"]));
+      expect(scalingFactor(["g1"], { numGoalMetrics: 3 })).toBe(
+        scalingFactor(["g1"]),
+      );
     });
 
     it("leaves a test without power inputs alone", () => {

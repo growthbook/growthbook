@@ -116,7 +116,7 @@ describe("getPValueCorrectionOutdatedReasons", () => {
   });
 
   it("flags a different method, or one turned on or off", () => {
-    const changed = ["P-value correction changed"];
+    const changed = ["p_value_correction"];
     expect(
       reasonsFor({ currentPValueCorrection: "benjamini-hochberg" }),
     ).toEqual(changed);
@@ -127,7 +127,7 @@ describe("getPValueCorrectionOutdatedReasons", () => {
   });
 
   it("flags a goal metric added, removed or swapped", () => {
-    const changed = ["Goal metrics changed (p-value correction affected)"];
+    const changed = ["goal_metrics_changed"];
     expect(reasonsFor({ currentGoalMetrics: ["g1", "g2", "g3"] })).toEqual(
       changed,
     );
@@ -156,7 +156,7 @@ describe("getPValueCorrectionOutdatedReasons", () => {
 
     it("is out of date on the goal metrics, which are the snapshot's", () => {
       expect(reasonsFor({ settings, currentGoalMetrics: ["g1"] })).toEqual([
-        "Goal metrics changed (p-value correction affected)",
+        "goal_metrics_changed",
       ]);
       expect(
         reasonsFor({

@@ -692,6 +692,33 @@ describe("calculatePowerScalingFactor", () => {
     ).toBeNull();
   });
 
+  it("searches again after an earlier search failed, since the goal count may differ", () => {
+    const inputs = {
+      firstPeriodPairwiseSampleSize: 1000,
+      sigmahat2Delta: 1,
+      targetMDE: 2.6e-4,
+    };
+    const withThreeGoals = calculatePowerScalingFactor(
+      { status: "successful", ...inputs },
+      { ...settings, numGoalMetrics: 3 },
+    );
+    expect(withThreeGoals).toMatchObject({
+      status: "unsuccessful",
+      errorMessage: "could not find upper bound for scaling factor",
+    });
+
+    const withOneGoal = calculatePowerScalingFactor(
+      { ...inputs, ...withThreeGoals, status: "unsuccessful" },
+      { ...settings, numGoalMetrics: 1 },
+    );
+    expect(withOneGoal).toMatchObject({
+      status: "successful",
+      errorMessage: undefined,
+      upperBoundAchieved: false,
+    });
+    expect(withOneGoal?.scalingFactor).toBeGreaterThan(0);
+  });
+
   it("leaves a response without the inputs alone", () => {
     expect(
       calculatePowerScalingFactor(

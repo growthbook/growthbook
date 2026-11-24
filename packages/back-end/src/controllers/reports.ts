@@ -14,6 +14,7 @@ import {
 import {
   expandMetricGroups,
   getAllVariations,
+  getNewMetricsUpdate,
   setCorrectedPValues,
 } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -78,9 +79,17 @@ export async function postReportFromSnapshot(
     throw new Error("Invalid snapshot id");
   }
   // Prepare a new report-specific snapshot
+  // A report snapshot has no lineage, so a new-metrics update's dates become
+  // the ones its copied results were computed at.
+  const newMetricsUpdate = getNewMetricsUpdate(snapshot);
+  if (newMetricsUpdate) {
+    snapshot.dateCreated = newMetricsUpdate.base.dateCreated;
+    snapshot.runStarted = newMetricsUpdate.base.runStarted;
+  }
   snapshot.id = generateId("snp_");
   snapshot.type = "report";
   snapshot.triggeredBy = "manual";
+  delete snapshot.updateScope;
   if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {
     // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
     snapshot.health.traffic.dimension = {};
