@@ -84,11 +84,11 @@ import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { analyzeSnapshotResults } from "back-end/src/services/experimentResults/compute/analyzeSnapshot";
 import {
-  analyzeSnapshotResults,
   getNewMetricsUpdateQueryStatus,
   getNewMetricsUpdateStartQuery,
-} from "back-end/src/services/newMetricsUpdateExecution";
+} from "back-end/src/services/experimentResults/query/newMetricsUpdateQueries";
 import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 import {
   QueryRunner,

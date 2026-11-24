@@ -142,7 +142,7 @@ import {
 } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
-import { createScopedExperimentSnapshot } from "back-end/src/services/snapshotUpdateScope";
+import { createScopedExperimentSnapshot } from "back-end/src/services/experimentResults/plan/updateScope";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import {
   cancelExperimentSnapshot,

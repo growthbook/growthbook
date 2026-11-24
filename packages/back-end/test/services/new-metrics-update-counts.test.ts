@@ -14,8 +14,8 @@ import {
   getSnapshotSettings,
 } from "back-end/src/services/experiments";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
-import { mergeNewMetricsUpdateAnalyses } from "back-end/src/services/newMetricsUpdateExecution";
-import { getNewMetricsUpdateLineage } from "back-end/src/services/newMetricsUpdatePlanning";
+import { mergeNewMetricsUpdateAnalyses } from "back-end/src/services/experimentResults/compute/analyzeSnapshot";
+import { getNewMetricsUpdateLineage } from "back-end/src/services/experimentResults/plan/newMetricsUpdate";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 

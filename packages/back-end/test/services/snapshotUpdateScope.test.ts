@@ -4,7 +4,7 @@ import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import {
   createScopedExperimentSnapshot,
   resolveApiUpdateScope,
-} from "back-end/src/services/snapshotUpdateScope";
+} from "back-end/src/services/experimentResults/plan/updateScope";
 import {
   BadRequestError,
   NewMetricsUpdateUnavailableError,

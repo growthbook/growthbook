@@ -13,7 +13,7 @@ import {
   getQueriesWithChangedSql,
   replayNewMetricsUpdateLineage,
   type NewMetricsUpdateReplayLevel,
-} from "back-end/src/services/newMetricsUpdateSqlIdentity";
+} from "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 import { factTableFactory } from "back-end/test/factories/FactTable.factory";
 

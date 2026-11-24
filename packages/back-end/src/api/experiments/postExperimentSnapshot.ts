@@ -18,7 +18,7 @@ import { validateSnapshotDimension } from "back-end/src/services/snapshotDimensi
 import {
   createScopedExperimentSnapshot,
   resolveApiUpdateScope,
-} from "back-end/src/services/snapshotUpdateScope";
+} from "back-end/src/services/experimentResults/plan/updateScope";
 import { toApiExperimentSnapshot } from "back-end/src/api/snapshots/toApiExperimentSnapshot";
 import {
   DimensionAlreadyUpToDateError,

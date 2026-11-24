@@ -59,11 +59,11 @@ import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
+import { analyzeSnapshotResults } from "back-end/src/services/experimentResults/compute/analyzeSnapshot";
 import {
-  analyzeSnapshotResults,
   getNewMetricsUpdateQueryStatus,
   startNewMetricsUpdateResultQueries,
-} from "back-end/src/services/newMetricsUpdateExecution";
+} from "back-end/src/services/experimentResults/query/newMetricsUpdateQueries";
 import {
   QueryRunner,
   QueryMap,

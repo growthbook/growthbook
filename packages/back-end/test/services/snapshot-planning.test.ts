@@ -62,7 +62,7 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
-import { generateExperimentResultQuerySql } from "back-end/src/services/newMetricsUpdateSqlIdentity";
+import { generateExperimentResultQuerySql } from "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import {
@@ -93,10 +93,15 @@ jest.mock("back-end/src/models/QueryModel", () => ({
   getQueriesByIds: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/newMetricsUpdateSqlIdentity", () => ({
-  ...jest.requireActual("back-end/src/services/newMetricsUpdateSqlIdentity"),
-  generateExperimentResultQuerySql: jest.fn(),
-}));
+jest.mock(
+  "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity",
+  () => ({
+    ...jest.requireActual(
+      "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity",
+    ),
+    generateExperimentResultQuerySql: jest.fn(),
+  }),
+);
 
 jest.mock("back-end/src/models/MetricModel", () => ({
   getMetricById: jest.fn(),
@@ -2686,8 +2691,10 @@ describe("planExperimentSnapshot", () => {
     describe("agrees with the app's Outdated reasons", () => {
       const { generateExperimentResultQuerySql: generateSql } =
         jest.requireActual<
-          typeof import("back-end/src/services/newMetricsUpdateSqlIdentity")
-        >("back-end/src/services/newMetricsUpdateSqlIdentity");
+          typeof import("back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity")
+        >(
+          "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity",
+        );
 
       async function outdatedRefresh(
         fixture: ReturnType<typeof makeFixture>,

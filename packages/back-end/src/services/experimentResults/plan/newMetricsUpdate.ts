@@ -43,7 +43,7 @@ import {
   assertCarriedQuerySqlUnchanged,
   tooManyNewMetricsUpdatesError,
   type GenerateResultQuerySql,
-} from "back-end/src/services/newMetricsUpdateSqlIdentity";
+} from "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity";
 import {
   BadRequestError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,

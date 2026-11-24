@@ -32,9 +32,9 @@ import type { SourceIntegrationInterface } from "back-end/src/types/Integration"
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   analyzeNewMetricsUpdate,
-  getNewMetricsUpdateQueryStatus,
   mergeNewMetricsUpdateAnalyses,
-} from "back-end/src/services/newMetricsUpdateExecution";
+} from "back-end/src/services/experimentResults/compute/analyzeSnapshot";
+import { getNewMetricsUpdateQueryStatus } from "back-end/src/services/experimentResults/query/newMetricsUpdateQueries";
 import {
   COPIED_RESULTS_SETTING_RULES,
   getChangedCopiedResultsSettings,
@@ -42,11 +42,11 @@ import {
   mergeNewMetricsUpdateSettings,
   assertIncrementalTablesMatchParent,
   planNewMetricsUpdate,
-} from "back-end/src/services/newMetricsUpdatePlanning";
+} from "back-end/src/services/experimentResults/plan/newMetricsUpdate";
 import {
   getQueriesWithChangedSql,
   type GenerateResultQuerySql,
-} from "back-end/src/services/newMetricsUpdateSqlIdentity";
+} from "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { isCarriedNewMetricsUpdateQuery } from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";

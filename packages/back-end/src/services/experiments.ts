@@ -244,7 +244,7 @@ import {
 } from "back-end/src/services/featurePublishGates";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { generateExperimentResultQuerySql } from "back-end/src/services/newMetricsUpdateSqlIdentity";
+import { generateExperimentResultQuerySql } from "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity";
 import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   FactTableMap,
@@ -304,9 +304,9 @@ import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnal
 import {
   assertIncrementalNewMetricsUpdateBase,
   planNewMetricsUpdate,
-} from "back-end/src/services/newMetricsUpdatePlanning";
+} from "back-end/src/services/experimentResults/plan/newMetricsUpdate";
 import { interruptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
-import type { ResolvedUpdateScope } from "back-end/src/services/snapshotUpdateScope";
+import type { ResolvedUpdateScope } from "back-end/src/services/experimentResults/plan/updateScope";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getMetricForSnapshot } from "./reports";
 import {
