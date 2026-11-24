@@ -10,6 +10,7 @@ import {
   isHashedClass,
   isPreferredAttr,
 } from "back-end/src/api/visual-editor-ai/selectorHeuristics";
+import { redactFetchError } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 
 // visual-editor/src/content_script/pageDigest.ts is the source of truth for
@@ -544,21 +545,6 @@ const redactUrl = (raw: string): string => {
   return url.origin + url.pathname;
 };
 
-// Network errors (node-fetch's FetchError) repeat the full request URL in their
-// message and stack, so strip query strings and fragments there too.
-const stripUrlQueries = (text: string): string =>
-  text.replace(/(https?:\/\/[^\s?#]+)[?#][^\s]*/g, "$1");
-
-const redactError = (e: unknown) =>
-  e instanceof Error
-    ? {
-        name: e.name,
-        code: (e as NodeJS.ErrnoException).code,
-        message: stripUrlQueries(e.message),
-        stack: e.stack && stripUrlQueries(e.stack),
-      }
-    : { message: "(non-Error thrown)" };
-
 export const buildDigestFromEditorUrl = async (
   editorUrl: string,
 ): Promise<DomDigest | null> => {
@@ -616,7 +602,7 @@ export const buildDigestFromEditorUrl = async (
     return digest;
   } catch (e) {
     logger.info(
-      { err: redactError(e), url: redactUrl(url.href) },
+      { err: redactFetchError(e), url: redactUrl(url.href) },
       "[visual-editor-ai] server digest build failed; continuing without a digest",
     );
     return null;

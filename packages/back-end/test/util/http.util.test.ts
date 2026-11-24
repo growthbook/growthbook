@@ -7,6 +7,7 @@ import {
   trimTrailingSlashes,
   validateWebhookTimeoutSeconds,
 } from "back-end/src/util/http.util";
+import { logger } from "back-end/src/util/logger";
 
 // proxy-agent is stubbed in jest.config.js, so assert on the agent's presence, not its class.
 jest.mock("node-fetch");
@@ -22,9 +23,9 @@ jest.mock("back-end/src/util/secrets", () => ({
 
 const mockedFetch = nodeFetch as unknown as jest.Mock;
 
-function proxyRefused() {
+function proxyRefused(url = "https://example.com/hook") {
   const err = new Error(
-    "request to https://example.com/hook failed, reason: connect ECONNREFUSED 10.0.1.131:4750",
+    `request to ${url} failed, reason: connect ECONNREFUSED 10.0.1.131:4750`,
   ) as Error & { code: string };
   err.name = "FetchError";
   err.code = "ECONNREFUSED";
@@ -57,6 +58,29 @@ describe("cancellableFetch with WEBHOOK_PROXY set", () => {
     for (const [, init] of mockedFetch.mock.calls) {
       expect(init.agent).toBeDefined();
     }
+  });
+
+  it("keeps URL query strings out of the proxy-refused log", async () => {
+    const error = jest.spyOn(logger, "error").mockImplementation(() => {});
+    const url = "https://example.com/account?reset_token=s3cret#frag";
+    mockedFetch.mockRejectedValueOnce(proxyRefused(url));
+    await expect(cancellableFetch(url, {}, abortOptions)).rejects.toMatchObject(
+      { code: "ECONNREFUSED" },
+    );
+
+    expect(JSON.stringify(error.mock.calls)).not.toMatch(/s3cret|frag/);
+    expect(error).toHaveBeenCalledWith(
+      {
+        err: expect.objectContaining({
+          name: "FetchError",
+          code: "ECONNREFUSED",
+          message:
+            "request to https://example.com/account failed, reason: connect ECONNREFUSED 10.0.1.131:4750",
+        }),
+      },
+      "Webhook proxy connection refused",
+    );
+    error.mockRestore();
   });
 });
 
