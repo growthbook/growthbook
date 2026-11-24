@@ -96,22 +96,7 @@ export default function ProjectDefaultDashboardSection({
               <Callout status="error">{dashboardError}</Callout>
             )}
             {defaultDashboardUnavailable && (
-              <Callout
-                status="warning"
-                action={
-                  // The select already shows "No default" here, so it can't
-                  // send the clear request itself.
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    color="inherit"
-                    disabled={savingDashboard}
-                    onClick={() => setDefaultDashboard("")}
-                  >
-                    Clear default
-                  </Button>
-                }
-              >
+              <Callout status="warning">
                 The dashboard chosen as this Project&apos;s default is no longer
                 available. Choose another one or clear it.
               </Callout>
@@ -135,13 +120,24 @@ export default function ProjectDefaultDashboardSection({
             ) : (
               <DashboardSelector
                 aria-label="Default dashboard"
+                placeholder="No default"
                 dashboards={projectDashboards}
                 value={pendingDashboardId ?? savedDefaultDashboardId ?? ""}
                 setValue={setDefaultDashboard}
                 disabled={savingDashboard}
-                allowClear
-                clearLabel="No default"
               />
+            )}
+            {/* Also clears a stored default that is no longer available, which
+                the select can't show. */}
+            {defaultDashboardId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={savingDashboard}
+                onClick={() => setDefaultDashboard("")}
+              >
+                Clear default
+              </Button>
             )}
             {/* After the select, so the control doesn't move when it shows. */}
             {dashboardSavedMsg && (

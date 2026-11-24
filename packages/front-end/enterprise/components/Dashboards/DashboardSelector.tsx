@@ -6,10 +6,6 @@ import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import Text from "@/ui/Text";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
-// Radix Select forbids an empty-string item value, so a "no selection"
-// option needs its own sentinel that gets translated back to "" here.
-const CLEAR_VALUE = "__clear__";
-
 export interface DashboardSelectorProps {
   dashboards: DashboardInterface[];
   defaultDashboard?: DashboardInterface;
@@ -20,9 +16,8 @@ export interface DashboardSelectorProps {
   style?: React.CSSProperties;
   showIcon?: boolean;
   disabled?: boolean;
-  // Adds a "no selection" option that calls setValue("") when chosen.
-  allowClear?: boolean;
-  clearLabel?: string;
+  // Shown while `value` is "", which matches no dashboard.
+  placeholder?: string;
   "aria-label"?: string;
 }
 
@@ -36,8 +31,7 @@ export default function DashboardSelector({
   style,
   showIcon = true,
   disabled = false,
-  allowClear = false,
-  clearLabel = "None",
+  placeholder,
   "aria-label": ariaLabel,
 }: DashboardSelectorProps) {
   return (
@@ -46,29 +40,18 @@ export default function DashboardSelector({
         minWidth: "200px",
         ...style,
       }}
-      value={allowClear && !value ? CLEAR_VALUE : value}
+      value={value}
       setValue={(newValue) => {
         if (newValue === "__create__") {
           onCreateNew?.();
           return;
         }
-        if (newValue === CLEAR_VALUE) {
-          setValue("");
-          return;
-        }
         setValue(newValue);
       }}
       disabled={disabled}
+      placeholder={placeholder}
       aria-label={ariaLabel}
     >
-      {allowClear && (
-        <>
-          <SelectItem value={CLEAR_VALUE}>
-            <Text color="text-low">{clearLabel}</Text>
-          </SelectItem>
-          <SelectSeparator />
-        </>
-      )}
       {defaultDashboard && (
         <>
           <SelectItem value={defaultDashboard.id}>
