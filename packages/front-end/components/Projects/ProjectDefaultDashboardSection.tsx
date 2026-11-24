@@ -12,8 +12,8 @@ import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelec
 import { useDashboards } from "@/hooks/useDashboards";
 import { useSetProjectDefaultDashboard } from "@/hooks/useSetProjectDefaultDashboard";
 
-// Picks a project's home page dashboard. Saves on change, separately from the
-// project's stats settings form.
+// Picks a Project's default dashboard. Saves on change, separately from the
+// Project's stats settings form.
 export default function ProjectDefaultDashboardSection({
   projectId: pid,
   defaultDashboardId,
@@ -34,7 +34,7 @@ export default function ProjectDefaultDashboardSection({
     [dashboards, pid],
   );
   // A stored default that was deleted, made private, or moved out of this
-  // project is ignored on the home page; flag it here, don't clear it.
+  // Project no longer counts; flag it here, don't clear it.
   const savedDefaultDashboardId = projectDashboards.some(
     (d) => d.id === defaultDashboardId,
   )
@@ -80,7 +80,7 @@ export default function ProjectDefaultDashboardSection({
       <Flex gap="4" mb="4">
         <Box width="220px" flexShrink="0">
           <Heading as="h4" size="md">
-            Home Page Dashboard
+            Dashboards
           </Heading>
         </Box>
         <Flex align="start" direction="column" flexGrow="1">
@@ -89,9 +89,8 @@ export default function ProjectDefaultDashboardSection({
               Default Dashboard
             </Heading>
             <Text as="p">
-              Members of this Project see this dashboard on their home page by
-              default. They can still pick a different one for themselves.
-              Changes save immediately.
+              Choose a default dashboard for this Project. Changes save
+              immediately.
             </Text>
             {dashboardError && (
               <Callout status="error">{dashboardError}</Callout>
@@ -114,8 +113,7 @@ export default function ProjectDefaultDashboardSection({
                 }
               >
                 The dashboard chosen as this Project&apos;s default is no longer
-                available, so the home page ignores it. Choose another one or
-                clear it.
+                available. Choose another one or clear it.
               </Callout>
             )}
             {dashboardsError ? (

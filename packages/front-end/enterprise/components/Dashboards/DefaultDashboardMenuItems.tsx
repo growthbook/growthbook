@@ -33,11 +33,6 @@ export default function DefaultDashboardMenuItems({
       <DropdownMenuItem
         key={p.id}
         keepOpenWhileLoading
-        tooltip={
-          isCurrentDefault
-            ? `Members of the ${p.name} Project no longer see this dashboard on their home page by default.`
-            : `Members of the ${p.name} Project see this dashboard on their home page by default.`
-        }
         onClick={() =>
           setProjectDefaultDashboard(
             p.id,

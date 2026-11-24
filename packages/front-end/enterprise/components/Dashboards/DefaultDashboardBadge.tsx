@@ -7,8 +7,8 @@ import Tooltip from "@/ui/Tooltip";
 import TruncatedText from "@/ui/TruncatedText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
-// Names the Projects that show this dashboard on Home. A stored default that
-// is no longer eligible is ignored on Home, so it isn't shown here either.
+// Names the Projects that use this dashboard as their default. A stored
+// default that is no longer eligible doesn't count, so it isn't shown.
 export default function DefaultDashboardBadge({
   dashboard,
 }: {
@@ -26,7 +26,7 @@ export default function DefaultDashboardBadge({
     // One Project is already named in the label.
     <Tooltip
       enabled={defaultFor.length > 1}
-      content={`Home page default for ${defaultFor.map((p) => p.name).join(", ")}`}
+      content={`Default dashboard for ${defaultFor.map((p) => p.name).join(", ")}`}
     >
       <Badge
         ml="2"
