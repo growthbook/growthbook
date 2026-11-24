@@ -2,6 +2,10 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   getConnectionSDKCapabilities,
   getConnectionsSDKCapabilities,
+  getScriptTagChannelVersion,
+  getSDKCapabilities,
+  isLegacyScriptTagVersion,
+  isSDKOutdated,
   someConnectionSupportsCapabilities,
 } from "../src/sdk-versioning";
 
@@ -147,5 +151,33 @@ describe("contextualBanditsAuto", () => {
         project: "prj_a",
       }),
     ).toBe(false);
+  });
+});
+
+describe("script tag versions", () => {
+  it("treats a no-code version as a channel that keeps updating", () => {
+    const versions = ["4.1.0", "4.0.0", "3.2.0", "3.0.0", "0.0.0"];
+    // Legacy auto.min.js follows the latest release
+    expect(getScriptTagChannelVersion(versions, "0.0.0")).toBe("4.1.0");
+    expect(getScriptTagChannelVersion(versions, undefined)).toBe("4.1.0");
+    // /script/v3/ follows the latest 3.x release
+    expect(getScriptTagChannelVersion(versions, "3.0.0")).toBe("3.2.0");
+    expect(getScriptTagChannelVersion(versions, "4.0.0")).toBe("4.1.0");
+  });
+
+  it("keeps existing no-code connections on every capability", () => {
+    const legacy = getSDKCapabilities("nocode-other", "0.0.0");
+    expect(legacy).toContain("visualEditor");
+    expect(legacy).toContain("redirects");
+    expect(getSDKCapabilities("nocode-other", "3.0.0")).toEqual(legacy);
+    expect(getSDKCapabilities("nocode-shopify")).toEqual(legacy);
+  });
+
+  it("never calls the legacy script tag outdated", () => {
+    expect(isSDKOutdated("nocode-other", "0.0.0")).toBe(false);
+    expect(isSDKOutdated("nocode-other", "3.0.0")).toBe(false);
+    expect(isLegacyScriptTagVersion("0.0.0")).toBe(true);
+    expect(isLegacyScriptTagVersion(undefined)).toBe(true);
+    expect(isLegacyScriptTagVersion("3.0.0")).toBe(false);
   });
 });

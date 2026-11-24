@@ -1,5 +1,6 @@
 import {
   connectionServesAutoExperimentFeature,
+  getScriptBundleUrl,
   hasCustomJs,
   isAutoExperimentFeatureEnabled,
   isCrossOriginRedirect,
@@ -57,6 +58,44 @@ describe("isAutoExperimentFeatureEnabled", () => {
     expect(
       isAutoExperimentFeatureEnabled(undefined, "urlRedirects", "disabled"),
     ).toBe(false);
+  });
+});
+
+describe("getScriptBundleUrl", () => {
+  const base = "https://cdn.growthbook.io/script/v3/";
+  const v3 = { sdkVersion: "3.0.0" };
+
+  it("picks the bundle with only what the connection serves", () => {
+    expect(getScriptBundleUrl(v3)).toBe(base + "core.min.js");
+    expect(getScriptBundleUrl({ ...v3, includeVisualExperiments: true })).toBe(
+      base + "core-visual.min.js",
+    );
+    expect(
+      getScriptBundleUrl({ ...v3, includeRedirectExperiments: true }),
+    ).toBe(base + "core-redirects.min.js");
+  });
+
+  it("lists features in alphabetical order after core", () => {
+    expect(
+      getScriptBundleUrl({
+        ...v3,
+        includeVisualExperiments: true,
+        includeRedirectExperiments: true,
+      }),
+    ).toBe(base + "core-redirects-visual.min.js");
+  });
+
+  it("uses the path for the connection's major version", () => {
+    expect(getScriptBundleUrl({ sdkVersion: "4.2.0" })).toBe(
+      "https://cdn.growthbook.io/script/v4/core.min.js",
+    );
+  });
+
+  it("keeps a legacy connection on auto.min.js", () => {
+    const legacy =
+      "https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";
+    expect(getScriptBundleUrl({ includeVisualExperiments: true })).toBe(legacy);
+    expect(getScriptBundleUrl({ sdkVersion: "0.0.0" })).toBe(legacy);
   });
 });
 

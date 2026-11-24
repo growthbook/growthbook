@@ -9,7 +9,7 @@ import ScriptTagEventTracking from "/snippets/partials/sdk-event-tracking/_scrip
 
 We provide an HTML `<script>` tag option for easily integrating GrowthBook into any website.
 
-This option is quick to add. AI Visual Editor experiments run when the page loads and do not require code. Feature flag experiments still require you to evaluate the flag in code (for example with `isOn`). Adding the script does not enroll users in those experiments by itself.
+This option is quick to add. With a [bundle](#bundles) that includes them, AI Visual Editor and URL Redirect experiments run when the page loads and do not require code. Feature flag experiments still require you to evaluate the flag in code (for example with `isOn`). Adding the script does not enroll users in those experiments by itself.
 
 ## Installation
 
@@ -20,7 +20,7 @@ Add the following script tag to your website and replace `YOUR_CLIENT_KEY_HERE` 
 ```html
 <script async
   data-client-key="YOUR_CLIENT_KEY_HERE"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+  src="https://cdn.growthbook.io/script/v3/core.min.js"
 ></script>
 ```
 
@@ -31,13 +31,42 @@ Or, if you can't add `data-*` attributes (e.g. in Google Tag Manager), you can u
 (function(s) {
   s=document.createElement('script'); s.async=true;
   s.dataset.clientKey="YOUR_CLIENT_KEY_HERE";
-  s.src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";
+  s.src="https://cdn.growthbook.io/script/v3/core.min.js";
   document.head.appendChild(s);
 })();
 </script>
 ```
 
 For best performance, we recommend adding this script tag directly before the closing `</head>` tag, however it is also possible to load through something like Google Tag Manager if that is your only option.
+
+The snippet shown for your SDK Connection in GrowthBook already has the right bundle and settings for that connection, as long as the connection's **SDK version** is set to **v3**.
+
+### Bundles
+
+The file name in the script URL lists what the script can do. Start with `core`, then add each feature you need, separated by hyphens. A bundle only contains the code for the features in its name, so a feature you don't list can't run on your site.
+
+| Name        | Adds                         |
+| ----------- | ---------------------------- |
+| `core`      | Feature flags. Required.     |
+| `visual`    | AI Visual Editor experiments |
+| `redirects` | URL Redirect experiments     |
+
+That gives four bundles: `core.min.js`, `core-visual.min.js`, `core-redirects.min.js` and `core-redirects-visual.min.js`.
+
+Two riskier parts of these features are off unless you add an attribute to the script tag:
+
+- `data-allow-custom-js` - Run AI Visual Editor experiments that inject custom JavaScript. Without it, those experiments are skipped.
+- `data-allow-cross-origin-redirects` - Run URL Redirect experiments that send visitors to a different origin (protocol or host). Without it, those experiments are skipped.
+
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY_HERE"
+  data-allow-custom-js
+  src="https://cdn.growthbook.io/script/v3/core-visual.min.js"
+></script>
+```
+
+The `v3` in the URL is the major version of the SDK. You get fixes and improvements within that version automatically, and a new major version never changes the script on your site.
 
 ### Optional Configuration Settings
 
@@ -48,7 +77,9 @@ Besides the Client Key, there are some additional settings you can define with `
 - `data-tracking` - Comma-separated list of where to send experiment view events: `growthbook`, `gtag`, `gtm`, or `segment`. Defaults to `gtag,gtm,segment`, and `none` turns tracking off. This reports exposures that already happened; it does not enroll users in an experiment.
 - `data-event-ingestor-host` and `data-event-transport` - Options for [GrowthBook event tracking](#growthbook).
 
-All other settings can be defined with a `window.growthbook_config` object BEFORE you load the script tag. This accepts the same settings as our [JavaScript SDK](/lib/js). Here's an example:
+An attribute that turns something on or off, like `data-allow-custom-js` or `data-no-auto-cookies`, is on when it has no value. The values `off`, `false` and `0` turn it off, and any other value turns it on.
+
+All other settings can be defined with a `window.growthbook_config` object BEFORE you load the script tag. This accepts the same settings as our [JavaScript SDK](/lib/js), plus the settings of its `visualEditorPlugin` and `urlRedirectsPlugin` (for example `allowCustomJs`, `jsInjectionNonce` and `navigate`). Here's an example:
 
 ```html
 <script>
@@ -195,7 +226,7 @@ window.growthbook_config.trackingCallback = (experiment, result, user) => {
 <!-- then load the GrowthBook SDK -->
 <script async
   data-client-key="YOUR_CLIENT_KEY_HERE"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+  src="https://cdn.growthbook.io/script/v3/core.min.js"
 ></script>
 ```
 
@@ -278,7 +309,7 @@ To keep one stable id across all subdomains, scope the cookie to your parent dom
 <script async
   data-client-key="YOUR_CLIENT_KEY"
   data-uuid-cookie-domain=".example.com"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+  src="https://cdn.growthbook.io/script/v3/core-redirects.min.js"
 ></script>
 ```
 
@@ -302,9 +333,9 @@ document.dispatchEvent(new CustomEvent("growthbookpersist"));
 
 If your site uses a Content Security Policy, you may need to make a few changes to the `script-src` directive for this SDK to load and run on your site.
 
-First, make sure to add `https://cdn.jsdelivr.net` so the script itself can load. If this isn't possible, you can save the contents of the script and host it on your own domain instead. Just note that doing that means you will no longer get automatic updates when we make improvements to the script tag.
+First, make sure to add `https://cdn.growthbook.io` so the script itself can load. If this isn't possible, you can save the contents of the script and host it on your own domain instead. Each bundle is a single file. Just note that doing that means you will no longer get automatic updates when we make improvements to the script tag.
 
-Second, if you plan to use the AI Visual Editor to inject custom JavaScript into your site, you need to allow both `unsafe-inline` and `unsafe-eval`. If this isn't possible, we have an alternative using nonces (see below).
+Second, if you plan to use the AI Visual Editor to inject custom JavaScript into your site (`data-allow-custom-js`), you need to allow both `unsafe-inline` and `unsafe-eval`. If this isn't possible, we have an alternative using nonces (see below).
 
 ### Using Script Nonces
 
@@ -322,3 +353,28 @@ window.growthbook_config = window.growthbook_config || {};
 window.growthbook_config.jsInjectionNonce = "$NONCE";
 </script>
 ```
+
+## Migrating from auto.min.js
+
+Before version 3.0.0, the script tag was a single file loaded from jsDelivr:
+
+```
+https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js
+```
+
+That URL keeps working and keeps its behavior. It runs AI Visual Editor and URL Redirect experiments by default, including custom JavaScript and cross-origin redirects.
+
+To move to the bundles above, change the `src` and translate these settings:
+
+| With `auto.min.js`                                 | With a bundle                                         |
+| -------------------------------------------------- | ----------------------------------------------------- |
+| AI Visual Editor experiments run by default        | Add `visual` to the bundle name                       |
+| URL Redirect experiments run by default            | Add `redirects` to the bundle name                    |
+| `disableVisualExperiments`                         | Leave `visual` out of the bundle name                 |
+| `disableUrlRedirectExperiments`                    | Leave `redirects` out of the bundle name              |
+| Custom JavaScript runs unless `disableJsInjection` | Add `data-allow-custom-js` only if you use it         |
+| Cross-origin redirects run unless disabled         | Add `data-allow-cross-origin-redirects` if you use it |
+
+After you change a site over, set the **SDK version** of its SDK Connection in GrowthBook from **Legacy (auto.min.js)** to **v3**. GrowthBook uses it to know which script the site runs.
+
+On/off attributes are also read differently. With `auto.min.js`, an attribute with no value is off for most settings, and any other value is on, even `false`.

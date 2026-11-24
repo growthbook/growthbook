@@ -1,5 +1,15 @@
-import { SDKLanguage } from "shared/types/sdk-connection";
-import { getLatestSDKVersion } from "shared/sdk-versioning";
+import {
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "shared/types/sdk-connection";
+import {
+  connectionServesAutoExperimentFeature,
+  getScriptBundleUrl,
+} from "shared/util";
+import {
+  getLatestSDKVersion,
+  isLegacyScriptTagVersion,
+} from "shared/sdk-versioning";
 import React, { useCallback, useMemo } from "react";
 import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -16,6 +26,7 @@ export default function InstallationCodeSnippet({
   eventTracker,
   setEventTracker,
   eventIngestorRegion,
+  connection,
 }: {
   language: SDKLanguage;
   apiKey: string;
@@ -25,7 +36,26 @@ export default function InstallationCodeSnippet({
   eventTracker: string;
   setEventTracker: (value: string) => void;
   eventIngestorRegion?: DataRegion;
+  // The script tag only loads what the connection serves
+  connection: Pick<
+    SDKConnectionInterface,
+    | "sdkVersion"
+    | "includeVisualExperiments"
+    | "includeRedirectExperiments"
+    | "allowCustomJs"
+    | "allowCrossOriginRedirects"
+  >;
 }) {
+  const scriptUrl = getScriptBundleUrl(connection);
+  // The legacy auto.min.js runs both without being asked
+  const legacyScript =
+    !connection.sdkVersion || isLegacyScriptTagVersion(connection.sdkVersion);
+  const allowCustomJs =
+    !legacyScript &&
+    connectionServesAutoExperimentFeature(connection, "customJs");
+  const allowCrossOriginRedirects =
+    !legacyScript &&
+    connectionServesAutoExperimentFeature(connection, "crossOriginRedirects");
   const eventIngestorHost =
     eventTracker === "growthbook" && eventIngestorRegion
       ? getEventIngestorHost(eventIngestorRegion)
@@ -41,8 +71,14 @@ export default function InstallationCodeSnippet({
     encryptionKey
       ? `\n  s.dataset.decryptionKey=${JSON.stringify(encryptionKey)};`
       : ""
-  }${remoteEvalEnabled ? `\n  s.dataset.remoteEval="true";` : ""}
-  s.src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";
+  }${remoteEvalEnabled ? `\n  s.dataset.remoteEval="true";` : ""}${
+    allowCustomJs ? `\n  s.dataset.allowCustomJs="true";` : ""
+  }${
+    allowCrossOriginRedirects
+      ? `\n  s.dataset.allowCrossOriginRedirects="true";`
+      : ""
+  }
+  s.src=${JSON.stringify(scriptUrl)};
   document.head.appendChild(s);
 })();
 </script>      
@@ -58,8 +94,10 @@ export default function InstallationCodeSnippet({
     encryptionKey
       ? `\n  data-decryption-key=${JSON.stringify(encryptionKey)}`
       : ""
-  }${remoteEvalEnabled ? `\n  data-remote-eval="true"` : ""}
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+  }${remoteEvalEnabled ? `\n  data-remote-eval="true"` : ""}${
+    allowCustomJs ? `\n  data-allow-custom-js` : ""
+  }${allowCrossOriginRedirects ? `\n  data-allow-cross-origin-redirects` : ""}
+  src=${JSON.stringify(scriptUrl)}
 ></script>
             `.trim();
 

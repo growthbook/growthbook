@@ -6,6 +6,7 @@ import {
 import {
   getConnectionSDKCapabilities,
   getLatestSDKVersion,
+  isLegacyScriptTagVersion,
   savedGroupFormatFromConnection,
   SDKCapability,
 } from "shared/sdk-versioning";
@@ -29,6 +30,29 @@ export function versionedLanguage(
 ): SDKLanguage | null {
   const language = languages.length === 1 ? languages[0] : null;
   return language && !/^(other|nocode-.*)$/.test(language) ? language : null;
+}
+
+// The script tag a connection loads, if that is its one SDK. Its version is
+// which script tag URL the site uses, not a version of an installed package.
+export function scriptTagLanguage(
+  languages: SDKLanguage[],
+): SDKLanguage | null {
+  const language = languages.length === 1 ? languages[0] : null;
+  return language && /^nocode-/.test(language) ? language : null;
+}
+
+// How a connection's version reads: the script tag URL for a script tag
+// connection, the version number for any other.
+export function sdkVersionLabel(
+  // A revision snapshot stores languages as plain strings
+  languages: string[] | undefined,
+  version: string | undefined,
+): string {
+  const isScriptTag = languages?.length === 1 && /^nocode-/.test(languages[0]);
+  if (!isScriptTag) return version ?? "";
+  return !version || isLegacyScriptTagVersion(version)
+    ? "Legacy (auto.min.js)"
+    : `v${version.split(".")[0]}`;
 }
 
 // A new single SDK starts on its latest version.
