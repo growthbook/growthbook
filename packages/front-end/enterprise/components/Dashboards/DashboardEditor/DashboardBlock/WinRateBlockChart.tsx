@@ -34,10 +34,12 @@ const GOOD_PERCENT_LOW = 15;
 const GOOD_PERCENT_HIGH = 38;
 const GAUGE_HEIGHT = 200;
 
-function gaugeOption(winRate: number, textColor: string) {
-  // The good range uses the same green as Velocity's "Won".
-  const good = cssColorToHex(EXPERIMENT_RESULT_COLORS.won);
-  const track = cssColorToHex("var(--gray-6)");
+function gaugeOption(
+  winRate: number,
+  textColor: string,
+  good: string,
+  track: string,
+) {
   return {
     series: [
       {
@@ -107,6 +109,9 @@ function GaugePanel({
   periodLabel?: string;
   periodRange?: string;
 }) {
+  // The good range uses the same green as Velocity's "Won".
+  const good = cssColorToHex(EXPERIMENT_RESULT_COLORS.won);
+  const track = cssColorToHex("var(--gray-6)");
   return (
     <Flex direction="column" align="center" style={{ flex: 1, minWidth: 0 }}>
       {periodLabel && (
@@ -120,7 +125,7 @@ function GaugePanel({
         </Box>
       )}
       <EChartsReact
-        option={gaugeOption(summary.winRate, textColor)}
+        option={gaugeOption(summary.winRate, textColor, good, track)}
         style={{ width: "100%", height: GAUGE_HEIGHT }}
       />
       <Text as="div" size="sm" align="center" color="text-mid">
