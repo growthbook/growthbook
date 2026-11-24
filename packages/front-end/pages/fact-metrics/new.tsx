@@ -1,9 +1,7 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { z } from "zod";
-import { FactMetricInterface, RowFilter } from "shared/types/fact-table";
-import { rowFilterValidator } from "shared/validators";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
@@ -24,6 +22,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspace";
 import {
   parseMetricTemplate,
+  parseRowFiltersParam,
   TemplateMetric,
 } from "@/components/FactTables/MetricEditor/templateMetric";
 
@@ -74,18 +73,10 @@ export default function NewFactMetricPage() {
   }
 
   // ?rowFilters=<json> seeds the fact table's row filters (useFactMetricFlow
-  // sets it, e.g. "New metric" from an event). Ignore it if it doesn't parse.
-  let initialRowFilters: RowFilter[] | undefined;
-  if (initialFactTable && typeof router.query.rowFilters === "string") {
-    try {
-      const parsed = z
-        .array(rowFilterValidator)
-        .safeParse(JSON.parse(router.query.rowFilters));
-      if (parsed.success) initialRowFilters = parsed.data;
-    } catch {
-      // Malformed JSON: start from blank filters.
-    }
-  }
+  // sets it, e.g. "Add Fact Metric for this event").
+  const initialRowFilters = initialFactTable
+    ? (parseRowFiltersParam(router.query.rowFilters) ?? undefined)
+    : undefined;
 
   // ?addMetric=<json> (crafted externally - docs, support, onboarding,
   // nothing in this repo generates the link) pre-fills a metric from a

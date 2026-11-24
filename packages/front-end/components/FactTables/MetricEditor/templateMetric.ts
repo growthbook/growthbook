@@ -4,6 +4,7 @@ import {
   columnRefValidator,
   metricTypeValidator,
   quantileSettingsValidator,
+  rowFilterValidator,
   windowSettingsValidator,
 } from "shared/validators";
 import {
@@ -90,6 +91,18 @@ export function parseMetricTemplate(raw: string): TemplateMetric {
 // slot (matches FactMetricModal's own FieldMappingModal exactly: a count-
 // distinct aggregation column and a row-filter column both resolve against
 // the same inline-filterable string-column list, not two different ones).
+// ?rowFilters=<json> seeds a new metric's row filters. Anything that isn't a
+// valid list of row filters is ignored (null) so the form starts blank.
+export function parseRowFiltersParam(raw: unknown): RowFilter[] | null {
+  if (typeof raw !== "string") return null;
+  try {
+    const parsed = z.array(rowFilterValidator).safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export function placeholderColumns(seed: IncompleteFactMetricSeed) {
   const numeric = new Set<string>();
   const string = new Set<string>();
