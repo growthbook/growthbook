@@ -490,7 +490,19 @@ If the experiment came from a feature rule, `result.featureId` in the trackingCa
 
 ### AI Visual Editor Experiments
 
-Experiments created through the GrowthBook AI Visual Editor will run automatically as soon as their targeting conditions are met.
+Experiments created through the GrowthBook AI Visual Editor only run when you add the `visualEditorPlugin`. With the plugin, they run automatically as soon as their targeting conditions are met.
+
+```js
+import { GrowthBook } from "@growthbook/growthbook";
+import { visualEditorPlugin } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  plugins: [visualEditorPlugin()],
+  // ... other settings
+});
+```
+
+Before version 3.0.0, these experiments ran without a plugin. See [Updating to 3.0.0](#updating-to-3-0-0).
 
 **Note**: AI Visual Editor experiments are only supported in a web browser environment. They will not run in Node.js, Mobile apps, or Desktop apps.
 
@@ -503,32 +515,52 @@ function onRouteChange() {
 }
 ```
 
-AI Visual Editor experiments are enabled by default, but can be disabled with various GrowthBook constructor settings:
+The plugin takes these settings:
 
-- **disableVisualExperiments** - If true, all AI Visual Editor experiments will be skipped
-- **disableJsInjection** - If true, any AI Visual Editor experiment that injects custom JavaScript will be skipped.
+- **allowCustomJs** - Any AI Visual Editor experiment that injects custom JavaScript is skipped unless this is true. Custom JavaScript runs with full access to your page.
+- **jsInjectionNonce** - A nonce to add to injected script tags. See below.
+
+```js
+visualEditorPlugin({ allowCustomJs: true });
+```
 
 #### Content Security Policy
 
 If you plan to use the Custom JavaScript feature of the AI Visual Editor and you have a Content Security Policy on your site, there are two options:
 
 1. Enable `unsafe-inline` script-src
-2. OR generate a unique nonce value, add it to your script-src directive, and pass it into the GrowthBook constructor as `jsInjectionNonce`
+2. OR generate a unique nonce value, add it to your script-src directive, and pass it into the `visualEditorPlugin` as `jsInjectionNonce`
 
 ### URL Redirect Experiments
 
-Similarly to AI Visual Editor experiments, URL redirect tests will run automatically if targeting conditions are met.
+URL redirect tests only run when you add the `urlRedirectsPlugin`. With the plugin, they run automatically if targeting conditions are met.
 
-If you are using this SDK in a Single Page App (SPA), you'll want to pass in a custom navigation function into the SDK (as default navigation for URL Redirects uses `window.location.replace(url)`) and set the `navigateDelay` to 0.
+```js
+import { GrowthBook } from "@growthbook/growthbook";
+import { urlRedirectsPlugin } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  plugins: [urlRedirectsPlugin()],
+  // ... other settings
+});
+```
+
+Before version 3.0.0, these experiments ran without a plugin. See [Updating to 3.0.0](#updating-to-3-0-0).
+
+If you are using this SDK in a Single Page App (SPA), you'll want to pass a custom navigation function into the plugin (as default navigation for URL Redirects uses `window.location.replace(url)`) and set the `navigateDelay` to 0.
 
 ```js
 // Example in Next.js
 import router from "next/router";
 
 const gb = new GrowthBook({
-    navigate: (url) => router.replace(url),
-    navigateDelay: 0,
-    // ... other settings
+  plugins: [
+    urlRedirectsPlugin({
+      navigate: (url) => router.replace(url),
+      navigateDelay: 0,
+    }),
+  ],
+  // ... other settings
 });
 ```
 
@@ -541,10 +573,13 @@ function onRouteChange() {
 }
 ```
 
-URL Redirect experiments are enabled by default, but can be disabled with various GrowthBook constructor settings:
+The plugin also takes this setting:
 
-- **disableUrlRedirectExperiments** - If true, all URL Redirect experiments will be skipped
-- **disableCrossOriginUrlRedirectExperiments** - If true, any URL Redirect with a destination pointing to a different origin will be skipped.
+- **allowCrossOriginRedirects** - Any URL Redirect with a destination pointing to a different origin (protocol or host) than the current page is skipped unless this is true.
+
+```js
+urlRedirectsPlugin({ allowCrossOriginRedirects: true });
+```
 
 ### Deferred Tracking
 
@@ -792,6 +827,45 @@ await gb.init({ fallbackPayload: payload });
 ## Updating
 
 As a general philosophy, we aim to keep the SDK 100% backwards compatible at all times. View the [Changelog](https://github.com/growthbook/growthbook/blob/main/packages/sdk-js/CHANGELOG.md) for a complete list of all SDK changes.
+
+### Updating to 3.0.0
+
+Version 3.0.0 moves AI Visual Editor and URL Redirect experiments out of the core SDK and into plugins. They no longer run unless you add the plugin. Custom JavaScript and cross-origin redirects are each a separate plugin setting that is off by default.
+
+If you don't use either kind of experiment, nothing changes.
+
+Otherwise, add the plugins. This runs everything that ran by default before 3.0.0:
+
+```js
+import { GrowthBook } from "@growthbook/growthbook";
+import {
+  visualEditorPlugin,
+  urlRedirectsPlugin,
+} from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  plugins: [
+    visualEditorPlugin({ allowCustomJs: true }),
+    urlRedirectsPlugin({ allowCrossOriginRedirects: true }),
+  ],
+  // ... other settings
+});
+```
+
+Only turn on `allowCustomJs` and `allowCrossOriginRedirects` if you use them.
+
+The related GrowthBook constructor settings are removed:
+
+| Before 3.0.0                                    | 3.0.0                                                 |
+| ----------------------------------------------- | ----------------------------------------------------- |
+| `disableVisualExperiments`                      | Leave out `visualEditorPlugin`                        |
+| `disableJsInjection`                            | Leave out `allowCustomJs`, which is off by default    |
+| `jsInjectionNonce`, `applyDomChangesCallback`   | Same name, passed to `visualEditorPlugin`             |
+| `disableUrlRedirectExperiments`                 | Leave out `urlRedirectsPlugin`                        |
+| `disableCrossOriginUrlRedirectExperiments`      | Leave out `allowCrossOriginRedirects`, off by default |
+| `navigate`, `navigateDelay`, `maxNavigateDelay` | Same name, passed to `urlRedirectsPlugin`             |
+
+The [Script Tag](/lib/script-tag) is not affected. It still runs these experiments by default and still takes the old settings. The same is true of the `dist/bundles/index.js`, `index.min.js`, `esm.js` and `esm.min.js` files when you load them straight from a CDN.
 
 ### Updating to 2.0.0
 
