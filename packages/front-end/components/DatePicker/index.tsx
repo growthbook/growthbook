@@ -397,11 +397,12 @@ export default function DatePicker({
             gap="1rem"
             display={inputWidth ? "inline-flex" : "flex"}
             wrap={wrapRangeInputs && isRange ? "wrap" : undefined}
-            style={
-              wrapRangeInputs && isRange
+            style={{
+              verticalAlign: "top",
+              ...(wrapRangeInputs && isRange
                 ? { width: "100%", minWidth: 0 }
-                : undefined
-            }
+                : {}),
+            }}
           >
             <div
               style={{
