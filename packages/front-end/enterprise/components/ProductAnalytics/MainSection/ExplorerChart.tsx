@@ -1233,7 +1233,9 @@ export default function ExplorerChart(
           flexBasis="240px"
           minHeight="240px"
         >
-          <Text weight="medium">{panel.name}</Text>
+          <Text weight="medium" truncate title={panel.name}>
+            {panel.name}
+          </Text>
           <ExplorerChartPanel
             {...props}
             submittedExploreState={panel.config}
