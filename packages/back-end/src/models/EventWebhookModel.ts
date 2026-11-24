@@ -12,13 +12,15 @@ import {
   notificationSettingsSchema,
   isEventWebhookWildcard,
   getWildcardPatternsForEvent,
+  isDatadogEventWebHookEvent,
   NotificationFilters,
   NotificationDelivery,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
+import { datadogWebhookProblem } from "shared/util";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { validateWebhookTimeoutSeconds } from "back-end/src/util/http.util";
 import { ReqContext } from "back-end/types/request";
 import { createEvent } from "./EventModel";
@@ -47,6 +49,10 @@ const eventWebHookSchema = new mongoose.Schema({
     channelName: String,
     channelId: String,
     configurationUrl: String,
+  },
+  datadog: {
+    serviceField: String,
+    includeApprovers: Boolean,
   },
   notificationSettings: {
     type: Object,
@@ -241,6 +247,14 @@ type CreateEventWebHookOptions = EditableEventWebHook &
   Pick<EventWebHookInterface, "organizationId" | "excludeBookkeepingUpdates"> &
   Partial<Pick<EventWebHookInterface, "id">>;
 
+function assertValidDatadogWebhook(
+  webhook: Pick<NotificationDelivery, "payloadType" | "method" | "headers">,
+) {
+  if (webhook.payloadType !== "datadog") return;
+  const problem = datadogWebhookProblem(webhook);
+  if (problem) throw new BadRequestError(problem);
+}
+
 /**
  * Create an event web hook for an organization for the given events
  * @param options CreateEventWebHookOptions
@@ -261,10 +275,12 @@ export const createEventWebHook = async ({
   headers,
   timeoutSeconds,
   slack,
+  datadog,
   notificationSettings,
   excludeBookkeepingUpdates,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   validateWebhookTimeoutSeconds(timeoutSeconds);
+  assertValidDatadogWebhook({ payloadType, method, headers });
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
 
@@ -286,6 +302,7 @@ export const createEventWebHook = async ({
     headers,
     timeoutSeconds,
     slack,
+    datadog,
     notificationSettings,
     excludeBookkeepingUpdates,
     lastRunAt: null,
@@ -367,6 +384,10 @@ export const updateEventWebHook = async (
   updates: UpdateEventWebHookAttributes,
 ): Promise<boolean> => {
   validateWebhookTimeoutSeconds(updates.timeoutSeconds);
+  if (updates.payloadType || updates.method || updates.headers) {
+    const existing = await getEventWebHookById(eventWebHookId, organizationId);
+    if (existing) assertValidDatadogWebhook({ ...existing, ...updates });
+  }
   const result = await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId },
     {
@@ -518,6 +539,9 @@ export const getAllEventWebHooksForEvent = async ({
   const docs = allDocs.filter((doc) => {
     if (!filterOptional(doc.tags, tags)) return false;
     if (!filterOptional(doc.projects, projects)) return false;
+    // Datadog webhooks get only the events the Datadog formatter converts.
+    if (doc.payloadType === "datadog" && !isDatadogEventWebHookEvent(eventName))
+      return false;
 
     return true;
   });

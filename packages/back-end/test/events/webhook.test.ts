@@ -51,6 +51,7 @@ describe("webhook test events", () => {
           projects: [],
           tags: [],
           user: { type: "system" },
+          requestSource: "unknown",
         },
         dateCreated: expect.any(Date),
         event: "webhook.test",

@@ -1,0 +1,372 @@
+import type { EventInterface } from "shared/types/events/event";
+import type { Context } from "back-end/src/models/BaseModel";
+import {
+  buildDatadogChangeEvent,
+  DatadogEnvelope,
+  getDatadogEnvironments,
+  getDatadogNotificationPayload,
+} from "back-end/src/services/datadog/getDatadogNotificationPayload";
+
+const created = new Date("2026-11-24T12:00:00Z").getTime();
+const origin = "https://app.example.com";
+
+const flag = (overrides: Record<string, unknown>) => ({
+  id: "new-checkout-flow",
+  project: "prj_checkout",
+  tags: ["checkout"],
+  archived: false,
+  revision: { version: 14, comment: "Ramp step 3 of 5" },
+  environments: {
+    production: {
+      enabled: true,
+      rules: [{ id: "fr_1", type: "rollout", coverage: 0.4, value: "true" }],
+    },
+    staging: { enabled: true, rules: [] },
+  },
+  ...overrides,
+});
+
+const featureUpdated = (
+  overrides: Partial<DatadogEnvelope> = {},
+): DatadogEnvelope => ({
+  event: "feature.updated",
+  created,
+  environments: ["production"],
+  user: { type: "system", subtype: "ramp-schedule", id: "rs_8f2" },
+  requestSource: "system",
+  data: {
+    object: flag({}),
+    previous_attributes: {
+      revision: { version: 13, comment: "Ramp step 2 of 5" },
+      environments: {
+        production: {
+          enabled: true,
+          rules: [
+            { id: "fr_1", type: "rollout", coverage: 0.2, value: "true" },
+          ],
+        },
+      },
+    },
+  },
+  ...overrides,
+});
+
+const build = (envelope: DatadogEnvelope, services: string[] = []) =>
+  buildDatadogChangeEvent({
+    envelope,
+    environments: getDatadogEnvironments(envelope, []),
+    services,
+    includeApprovers: false,
+    appOrigin: origin,
+  });
+
+describe("buildDatadogChangeEvent", () => {
+  it("sends a ramp step as a change to the flag", () => {
+    const relatedEntities = [
+      {
+        type: "rampSchedule" as const,
+        id: "rs_8f2",
+        name: "Checkout ramp",
+        action: "step" as const,
+        step: 3,
+        steps: 5,
+      },
+    ];
+    expect(
+      build(featureUpdated({ relatedEntities }), [
+        "checkout-api",
+        "checkout-web",
+      ]),
+    ).toEqual({
+      data: {
+        type: "event",
+        attributes: {
+          category: "change",
+          integration_id: "custom-events",
+          title: "new-checkout-flow: Ramp step 3 of 5 (production)",
+          timestamp: "2026-11-24T12:00:00.000Z",
+          aggregation_key: "growthbook:new-checkout-flow",
+          tags: [
+            "env:production",
+            "service:checkout-api",
+            "service:checkout-web",
+          ],
+          attributes: {
+            changed_resource: {
+              type: "feature_flag",
+              name: "new-checkout-flow",
+            },
+            impacted_resources: [
+              { type: "service", name: "checkout-api" },
+              { type: "service", name: "checkout-web" },
+            ],
+            author: { type: "automation", name: "Ramp schedule" },
+            prev_value: {
+              production: {
+                enabled: true,
+                rules: [
+                  { id: "fr_1", type: "rollout", coverage: 0.2, value: "true" },
+                ],
+              },
+            },
+            new_value: {
+              production: {
+                enabled: true,
+                rules: [
+                  { id: "fr_1", type: "rollout", coverage: 0.4, value: "true" },
+                ],
+              },
+            },
+            change_metadata: {
+              resource_link: `${origin}/features/new-checkout-flow?v=14`,
+              revision: { version: 14, comment: "Ramp step 3 of 5" },
+              project: "prj_checkout",
+              flag_tags: ["checkout"],
+              request_source: "system",
+              related: relatedEntities,
+            },
+          },
+        },
+      },
+    });
+  });
+
+  it("titles an environment toggle by its revision and credits the user", () => {
+    const event = build(
+      featureUpdated({
+        user: {
+          type: "dashboard",
+          id: "u_1",
+          email: "dev@example.com",
+          name: "Dev",
+        },
+        data: {
+          object: flag({
+            revision: { version: 15, comment: "Turn off in production" },
+          }),
+          previous_attributes: {
+            revision: { version: 14, comment: "" },
+            environments: {
+              production: { enabled: false, rules: [] },
+            },
+          },
+        },
+      }),
+    );
+    expect(event.data).toMatchObject({
+      attributes: {
+        title: "new-checkout-flow: Turn off in production (production)",
+        attributes: {
+          author: { type: "user", name: "dev@example.com" },
+          prev_value: { production: { enabled: false, rules: [] } },
+        },
+      },
+    });
+  });
+
+  it("names experiments by tracking key and tags the environments where flags run them", () => {
+    const envelope: DatadogEnvelope = {
+      event: "experiment.updated",
+      created,
+      environments: ["production", "staging", "dev"],
+      user: {
+        type: "dashboard",
+        id: "u_1",
+        email: "pm@example.com",
+        name: "PM",
+      },
+      relatedEntities: [
+        {
+          type: "feature",
+          id: "new-checkout-flow",
+          environments: ["production"],
+        },
+      ],
+      data: {
+        object: {
+          id: "exp_1",
+          trackingKey: "checkout-test",
+          name: "Checkout test",
+          type: "standard",
+          status: "running",
+          phases: [{ coverage: 1, variationWeights: [0.5, 0.5] }],
+        },
+        previous_attributes: { status: "draft" },
+      },
+    };
+    expect(build(envelope).data).toMatchObject({
+      attributes: {
+        title: "checkout-test: Started (production)",
+        tags: ["env:production"],
+        attributes: {
+          changed_resource: { type: "feature_flag", name: "checkout-test" },
+          prev_value: { status: "draft" },
+          new_value: { status: "running" },
+        },
+      },
+    });
+  });
+
+  it("sends a saved group's condition and member count, never its members", () => {
+    const envelope: DatadogEnvelope = {
+      event: "savedGroup.updated",
+      created,
+      environments: ["production"],
+      user: { type: "api_key", apiKey: "key_1", name: "CI" },
+      data: {
+        object: {
+          id: "grp_1",
+          name: "Beta testers",
+          attributeKey: "id",
+          values: ["a", "b", "c"],
+        },
+        previous_attributes: { values: ["a", "b"] },
+      },
+    };
+    const event = build(envelope);
+    expect(event.data).toMatchObject({
+      attributes: {
+        title: "Beta testers: Updated (production)",
+        attributes: {
+          changed_resource: { type: "configuration", name: "Beta testers" },
+          author: { type: "api", name: "CI (API)" },
+          prev_value: { attributeKey: "id", members: 2 },
+          new_value: { attributeKey: "id", members: 3 },
+        },
+      },
+    });
+    expect(JSON.stringify(event)).not.toContain('"a"');
+  });
+
+  it("lists approvers only when the webhook opts in", () => {
+    const envelope = featureUpdated({
+      approvers: [{ id: "u_2", email: "lead@example.com", name: "Lead" }],
+    });
+    const metadata = (includeApprovers: boolean) =>
+      (
+        buildDatadogChangeEvent({
+          envelope,
+          environments: ["production"],
+          services: [],
+          includeApprovers,
+          appOrigin: origin,
+        }) as {
+          data: { attributes: { attributes: { change_metadata: object } } };
+        }
+      ).data.attributes.attributes.change_metadata;
+    expect(metadata(false)).not.toHaveProperty("approved_by");
+    expect(metadata(true)).toHaveProperty("approved_by", ["Lead"]);
+  });
+});
+
+describe("getDatadogEnvironments", () => {
+  it("keeps only the environments the webhook covers", () => {
+    expect(
+      getDatadogEnvironments(
+        featureUpdated({ environments: ["production", "staging"] }),
+        ["staging"],
+      ),
+    ).toEqual(["staging"]);
+  });
+
+  it("keeps every environment for experiments with no listed flags", () => {
+    expect(
+      getDatadogEnvironments(
+        {
+          ...featureUpdated(),
+          event: "experiment.updated",
+          environments: ["production", "staging"],
+        },
+        [],
+      ),
+    ).toEqual(["production", "staging"]);
+  });
+});
+
+describe("getDatadogNotificationPayload", () => {
+  const context = {} as Context;
+  const asEvent = (envelope: DatadogEnvelope) =>
+    ({
+      id: "event-1",
+      organizationId: "org",
+      dateCreated: new Date(created),
+      version: 1,
+      event: envelope.event,
+      data: envelope,
+    }) as unknown as EventInterface;
+
+  it("skips changes with no environments left after the webhook's filter", async () => {
+    expect(
+      await getDatadogNotificationPayload({
+        context,
+        event: asEvent(featureUpdated({ environments: [] })),
+        eventWebHook: { environments: [] },
+      }),
+    ).toBeNull();
+    expect(
+      await getDatadogNotificationPayload({
+        context,
+        event: asEvent(featureUpdated()),
+        eventWebHook: { environments: ["staging"] },
+      }),
+    ).toBeNull();
+  });
+
+  it("skips events Datadog doesn't support", async () => {
+    expect(
+      await getDatadogNotificationPayload({
+        context,
+        event: asEvent({ ...featureUpdated(), event: "user.login" }),
+        eventWebHook: { environments: [] },
+      }),
+    ).toBeNull();
+  });
+
+  it("sends test events as a change with no services", async () => {
+    expect(
+      await getDatadogNotificationPayload({
+        context,
+        event: asEvent({
+          ...featureUpdated(),
+          event: "webhook.test",
+          data: { object: { webhookId: "ewh_1" } },
+        }),
+        eventWebHook: { environments: ["production"] },
+      }),
+    ).toMatchObject({
+      data: {
+        attributes: {
+          category: "change",
+          attributes: {
+            changed_resource: { type: "feature_flag", name: "growthbook-test" },
+          },
+        },
+      },
+    });
+  });
+
+  it("reads a flag's services from the webhook's service field", async () => {
+    expect(
+      await getDatadogNotificationPayload({
+        context,
+        event: asEvent(
+          featureUpdated({
+            data: {
+              object: flag({
+                customFields: { "datadog-service": ["Checkout-API"] },
+              }),
+            },
+          }),
+        ),
+        eventWebHook: {
+          environments: [],
+          datadog: { serviceField: "datadog-service" },
+        },
+      }),
+    ).toMatchObject({
+      data: {
+        attributes: { tags: ["env:production", "service:checkout-api"] },
+      },
+    });
+  });
+});

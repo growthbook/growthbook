@@ -17,6 +17,7 @@ import {
   emitOrDeferBulkPublishEvent,
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
+import { EventReach, NO_REACH } from "back-end/src/events/relatedEntities";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
@@ -240,52 +241,65 @@ export class ConstantModel extends BaseClass {
     newDoc: ConstantInterface,
   ) {
     this.invalidateAllSnapshot();
+
+    // Skip the webhook event when only `dateUpdated` changed. During a
+    // bulk-publish commit the emission defers to the post-commit flush.
+    const previous = this.toApiInterface(existing);
+    const current = this.toApiInterface(newDoc);
+    const buffer = captureEventBuffer(this.context);
+    const emit = !isEqual(
+      omit(previous, ["dateUpdated"]),
+      omit(current, ["dateUpdated"]),
+    )
+      ? (reach: EventReach) =>
+          emitOrDeferBulkPublishEvent(
+            () =>
+              logConstantUpdatedEvent(this.context, previous, current, reach),
+            entityKey("constant", newDoc.id),
+            buffer,
+          )
+      : undefined;
+
     if (
       updates.value !== undefined ||
       updates.environmentValues !== undefined ||
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {
+      // The event waits for the refresh scan, which finds what the change reaches.
       resolvableValueChanged(
         this.context,
         "updated",
         "constant",
         newDoc.key,
+        emit,
       ).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on constant update",
         );
       });
-    }
-
-    // Skip the webhook event when only `dateUpdated` changed. During a
-    // bulk-publish commit the emission defers to the post-commit flush.
-    const previous = this.toApiInterface(existing);
-    const current = this.toApiInterface(newDoc);
-    if (
-      !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
-    ) {
-      await emitOrDeferBulkPublishEvent(
-        () => logConstantUpdatedEvent(this.context, previous, current),
-        entityKey("constant", newDoc.id),
-        captureEventBuffer(this.context),
-      );
+    } else {
+      await emit?.(NO_REACH);
     }
   }
 
   // A delete leaves references unresolved, changing the payload.
   protected async afterDelete(doc: ConstantInterface) {
     this.invalidateAllSnapshot();
-    resolvableValueChanged(this.context, "deleted", "constant", doc.key).catch(
-      (e) => {
-        this.context.logger.error(
-          e,
-          "Error refreshing SDK Payload on constant delete",
-        );
-      },
-    );
-    await logConstantDeletedEvent(this.context, this.toApiInterface(doc));
+    const deleted = this.toApiInterface(doc);
+    resolvableValueChanged(
+      this.context,
+      "deleted",
+      "constant",
+      doc.key,
+      (reach) => logConstantDeletedEvent(this.context, deleted, reach),
+    ).catch((e) => {
+      this.context.logger.error(
+        e,
+        "Error refreshing SDK Payload on constant delete",
+      );
+    });
   }
 
   public getByKey(key: string) {

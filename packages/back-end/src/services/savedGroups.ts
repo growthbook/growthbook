@@ -16,6 +16,7 @@ import type {
 import type {
   ContextualBanditInterface,
   InterleavingInterface,
+  EventRelatedEntity,
 } from "shared/validators";
 import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ReqContext } from "back-end/types/request";
@@ -48,6 +49,12 @@ import {
 } from "back-end/src/util/featureDefinitionReferences.util";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { getInterleavingPayloadKeys } from "back-end/src/util/interleavings";
+import {
+  EventReach,
+  getDependentEntities,
+  payloadKeysReach,
+  refreshThenReport,
+} from "back-end/src/events/relatedEntities";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
@@ -135,6 +142,16 @@ export async function getSavedGroupPayloadKeys(
   context: ReqContext,
   groupId: string,
 ): Promise<SDKPayloadKey[] | null> {
+  return (await getSavedGroupReach(context, groupId))?.payloadKeys ?? null;
+}
+
+async function getSavedGroupReach(
+  context: ReqContext,
+  groupId: string,
+): Promise<{
+  payloadKeys: SDKPayloadKey[];
+  relatedEntities: EventRelatedEntity[];
+} | null> {
   const [
     savedGroups,
     features,
@@ -164,7 +181,7 @@ export async function getSavedGroupPayloadKeys(
   const allProjectIds = await context.getAllProjectIds();
   const featuresById = new Map(features.map((f) => [f.id, f]));
   const environments = getEnvironmentIdsFromOrg(context.org);
-  return [
+  const payloadKeys = [
     ...getInterleavingPayloadKeys(dependents.interleavings, environments),
     ...getAffectedSDKPayloadKeys(
       dependents.features,
@@ -188,6 +205,14 @@ export async function getSavedGroupPayloadKeys(
       ),
     ),
   ];
+  return {
+    payloadKeys,
+    relatedEntities: getDependentEntities(
+      dependents,
+      environments,
+      featuresById,
+    ),
+  };
 }
 
 // Reference checks read ids and conditions, never the ID lists, and only for
@@ -203,11 +228,30 @@ export async function getSavedGroupsForValidation(
   return new Map(groups.map((group) => [group.id, group]));
 }
 
+// `onReach` gets what the change reaches once the scan is done.
 export async function savedGroupUpdated(
   baseContext: ReqContext | ApiReqContext,
   groupId?: string,
-  { projectsChanged = false }: { projectsChanged?: boolean } = {},
+  {
+    projectsChanged = false,
+    onReach,
+  }: {
+    projectsChanged?: boolean;
+    onReach?: (reach: EventReach) => Promise<unknown>;
+  } = {},
 ) {
+  await refreshThenReport(
+    baseContext.org,
+    () => refreshSavedGroupPayloads(baseContext, groupId, projectsChanged),
+    onReach,
+  );
+}
+
+async function refreshSavedGroupPayloads(
+  baseContext: ReqContext | ApiReqContext,
+  groupId: string | undefined,
+  projectsChanged: boolean,
+): Promise<EventReach | null> {
   // This is a background job, so create a new context with full read permissions
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
   // Carry the bulk publisher's refresh buffer across the context boundary so a
@@ -218,17 +262,22 @@ export async function savedGroupUpdated(
   // A project change, a holdout reference or a failed scan refreshes every
   // payload.
   if (groupId && !projectsChanged) {
-    let payloadKeys: SDKPayloadKey[] | null = null;
+    let scoped: Awaited<ReturnType<typeof getSavedGroupReach>> = null;
     try {
-      payloadKeys = await getSavedGroupPayloadKeys(context, groupId);
+      scoped = await getSavedGroupReach(context, groupId);
     } catch (e) {
       context.logger.warn(e, "Scoping a saved group refresh failed");
     }
-    if (payloadKeys) {
+    if (scoped) {
+      const { payloadKeys, relatedEntities } = scoped;
       if (payloadKeys.length) {
         queueSDKPayloadRefresh({ context, payloadKeys, auditContext });
       }
-      return;
+      return payloadKeysReach(
+        payloadKeys,
+        relatedEntities,
+        getEnvironmentIdsFromOrg(context.org),
+      );
     }
   }
 
@@ -238,6 +287,7 @@ export async function savedGroupUpdated(
     treatEmptyProjectAsGlobal: true,
     auditContext,
   });
+  return null;
 }
 
 export type SavedGroupReferences = {

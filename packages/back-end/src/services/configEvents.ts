@@ -2,6 +2,7 @@ import { ApiConfig } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent } from "back-end/src/models/EventModel";
+import { EventReach, NO_REACH } from "back-end/src/events/relatedEntities";
 import { logger } from "back-end/src/util/logger";
 
 // Config lifecycle webhook events. Emitted from ConfigModel's
@@ -34,6 +35,7 @@ export async function logConfigUpdatedEvent(
   context: ReqContext | ApiReqContext,
   previous: ApiConfig,
   current: ApiConfig,
+  reach: EventReach = NO_REACH,
 ): Promise<void> {
   try {
     await createEvent({
@@ -48,7 +50,8 @@ export async function logConfigUpdatedEvent(
         ),
       ),
       tags: [],
-      environments: [],
+      environments: reach.environments,
+      relatedEntities: reach.relatedEntities,
       containsSecrets: false,
     });
   } catch (e) {
@@ -59,6 +62,7 @@ export async function logConfigUpdatedEvent(
 export async function logConfigDeletedEvent(
   context: ReqContext | ApiReqContext,
   config: ApiConfig,
+  reach: EventReach = NO_REACH,
 ): Promise<void> {
   try {
     await createEvent({
@@ -69,7 +73,8 @@ export async function logConfigDeletedEvent(
       data: { object: config },
       projects: config.project ? [config.project] : [],
       tags: [],
-      environments: [],
+      environments: reach.environments,
+      relatedEntities: reach.relatedEntities,
       containsSecrets: false,
     });
   } catch (e) {

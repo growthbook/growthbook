@@ -1,5 +1,8 @@
 import { publicNotificationEventNames } from "shared/notifications";
-import { NotificationEventNameOrWildcard } from "shared/validators";
+import {
+  DatadogEventWebHookSettings,
+  NotificationEventNameOrWildcard,
+} from "shared/validators";
 import { DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS } from "shared/constants";
 import React, { ReactNode, useMemo } from "react";
 import clsx from "clsx";
@@ -13,6 +16,7 @@ import {
   EventWebHookMethod,
 } from "shared/types/event-webhook";
 import { VscJson } from "react-icons/vsc";
+import { SiDatadog } from "react-icons/si";
 import { FormatOptionLabelMeta } from "react-select";
 import { SingleValue } from "@/components/Forms/SelectField";
 import { isCloud } from "@/services/env";
@@ -22,7 +26,13 @@ export type {
   EventWebHookMethod,
 } from "shared/types/event-webhook";
 
-export const eventWebHookPayloadTypes = ["json", "slack", "discord"] as const;
+// In display order.
+export const eventWebHookPayloadTypes = [
+  "discord",
+  "json",
+  "slack",
+  "datadog",
+] as const;
 
 export const legacyEventWebHookPayloadTypes = [
   ...eventWebHookPayloadTypes,
@@ -43,6 +53,7 @@ export type EventWebHookEditParams = {
   method: EventWebHookMethod;
   headers: string;
   timeoutSeconds?: number | null;
+  datadog?: DatadogEventWebHookSettings;
 };
 
 // Blank is null rather than undefined so an edit clears the stored value.
@@ -66,11 +77,13 @@ export const notificationEventNames = publicNotificationEventNames;
 
 // Build grouped options with wildcards for "select all in group"
 // Only supports two levels: "{1}.*" and "{1}.{2}.*"
-const buildGroupedEventOptions = () => {
+export const buildGroupedEventOptions = (
+  eventNames: readonly string[] = notificationEventNames,
+) => {
   // Organize: { "feature": { "revision": [...events], "rampSchedule": [...events] } }
   const groups: Record<string, Record<string, string[]>> = {};
 
-  for (const eventName of notificationEventNames) {
+  for (const eventName of eventNames) {
     const parts = eventName.split(".");
     const level1 = parts[0]; // "feature", "experiment", etc.
     const level2 = parts[1]; // "revision", "rampSchedule", "created", etc.
@@ -300,6 +313,13 @@ export const WebhookIcon = ({
       );
     case "json":
       return <VscJson style={style} className={className} />;
+    case "datadog":
+      return (
+        <SiDatadog
+          style={{ color: "#632ca6", ...style }}
+          className={className}
+        />
+      );
     default:
       invalidType = type;
       throw new Error(`Invalid type: ${invalidType}`);

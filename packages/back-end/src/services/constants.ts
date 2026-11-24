@@ -29,6 +29,12 @@ import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureMo
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import {
+  EventReach,
+  getDependentEntities,
+  payloadKeysReach,
+  refreshThenReport,
+} from "back-end/src/events/relatedEntities";
 import { getResolvableValues, ResolvableValue } from "./resolvableValues";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
@@ -44,12 +50,27 @@ import { getContextForAgendaJobByOrgObject } from "./organizations";
 // Saved groups deliberately keep the org-wide refresh (`savedGroupUpdated`):
 // their reference graph is condition-string based, recursively nested, and spans
 // experiments as well as features, so it doesn't share this token machinery.
+// `onReach` gets what the change reaches once the scan is done.
 export async function resolvableValueChanged(
   baseContext: ReqContext | ApiReqContext,
   event: "updated" | "deleted" = "updated",
   model: "constant" | "config" = "constant",
   changedKey?: string,
+  onReach?: (reach: EventReach) => Promise<unknown>,
 ) {
+  await refreshThenReport(
+    baseContext.org,
+    () => refreshResolvablePayloads(baseContext, event, model, changedKey),
+    onReach,
+  );
+}
+
+async function refreshResolvablePayloads(
+  baseContext: ReqContext | ApiReqContext,
+  event: "updated" | "deleted",
+  model: "constant" | "config",
+  changedKey: string | undefined,
+): Promise<EventReach | null> {
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
   // Carry the bulk publisher's refresh buffer across the context boundary so a
   // buffered commit's constant/config side effects don't escape it.
@@ -61,14 +82,20 @@ export async function resolvableValueChanged(
       model,
       changedKey,
     );
+    const environments = getEnvironmentIdsFromOrg(context.org);
     const payloadKeys = getAffectedSDKPayloadKeys(
       features,
-      getEnvironmentIdsFromOrg(context.org),
+      environments,
       undefined,
       await context.getAllProjectIds(),
     );
+    const reach = payloadKeysReach(
+      payloadKeys,
+      getDependentEntities({ features }, environments),
+      environments,
+    );
     // No feature depends on this value — nothing to rebuild or notify.
-    if (!payloadKeys.length) return;
+    if (!payloadKeys.length) return reach;
     queueSDKPayloadRefresh({
       context,
       payloadKeys,
@@ -77,7 +104,7 @@ export async function resolvableValueChanged(
         model,
       },
     });
-    return;
+    return reach;
   }
 
   queueSDKPayloadRefresh({
@@ -89,6 +116,7 @@ export async function resolvableValueChanged(
       model,
     },
   });
+  return null;
 }
 
 type ResolvableRef = { source: ConstantSource; key: string };

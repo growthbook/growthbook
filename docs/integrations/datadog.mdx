@@ -1,12 +1,14 @@
 ---
 title: Datadog Integration
-description: "Let a Datadog monitor roll back GrowthBook ramp-ups or turn a feature flag off, through a Datadog webhook that calls the GrowthBook REST API."
+description: "Send GrowthBook changes to Datadog Change Tracking, and let a Datadog monitor roll back GrowthBook ramp-ups or turn a feature flag off."
 ---
 
 When a Datadog monitor alerts, a Datadog webhook can call the GrowthBook REST API to undo a release. There are two ways to set it up, depending on how the feature is released:
 
 - **[Roll back ramp-ups](#roll-back-ramp-ups)**: for features released with [ramp-ups](/features/ramp-schedules). Any monitor you already have works, and Datadog needs no flag data.
 - **[Turn a flag off](#turn-a-flag-off)**: for a flag without a ramp-up. Connect an existing service monitor to a specific flag, or send flag evaluations to Datadog to monitor only users who receive that feature.
+
+In the other direction, GrowthBook can [send its changes to Datadog](#send-changes-to-datadog), so a monitor or service page shows which release just went out.
 
 Both need a GrowthBook [API key](/app/api) whose role can publish the features in the affected environments. A key with **Require confirmation** turned on holds each request until someone confirms it, so use one without it ([API Keys for Agents](/integrations/ai-agents/api-keys)). The examples use `https://api.growthbook.io`. If you self-host, use your API host.
 
@@ -171,3 +173,56 @@ A delivered webhook is not proof that a release stopped. The bulk ramp endpoint 
 Check the filters and schedule status for zero matches, and the API key's project/environment publish permissions for skipped operations. For flag toggles, also check approval bypass permissions. If you need automated detection of skipped actions, add a webhook receiver that inspects the response and notifies your team; the direct webhook setup does not do this.
 
 Datadog's [webhook retry policy](https://docs.datadoghq.com/integrations/webhooks/#usage) covers certain delivery failures, including server errors, but does not retry individual `skipped` entries inside a successful response. Arrange a human notification alongside the webhook so delivery failures or an unsuccessful rollback can be investigated. After fixing the incident, deliberately re-enable the flag or restart/resume the appropriate schedule; these examples do not restore a release automatically.
+
+## Send changes to Datadog
+
+An event webhook with the **Datadog** payload type sends each Feature Flag, experiment, Saved Group, Constant and Config change to Datadog as a [change event](https://docs.datadoghq.com/change_tracking/). Datadog shows it in [Change Tracking](https://docs.datadoghq.com/change_tracking/): beside the graphs on the service page, on monitor status pages, and on dashboards, tagged with the environments and services the change affects.
+
+<Note>
+The Datadog payload type is rolling out. If it isn't in the payload type list yet, create the webhook with the [REST API](/api/event-webhooks/operation/postEventWebhook) using `"payloadType": "datadog"`. Create the API key's webhook secret in the app first, since the REST API can't set secret values. Leave out `events` to get all supported events.
+</Note>
+
+### 1. Name each flag's services
+
+Datadog places a change on a service page only when the change names that service. GrowthBook reads service names from a [custom field](/using/growthbook-best-practices#custom-fields) you choose. Custom fields need an Enterprise plan; without one, changes still reach Datadog's Event Explorer but no service page.
+
+1. Create a custom field, for example **Datadog service** with the key `datadog-service`. A multiselect that allows custom values and applies to Feature Flags and experiments works best. Enum and text fields work too; a text field can list several services separated by commas.
+2. Fill it in on each Feature Flag and experiment with the Datadog service names it affects, such as `checkout-api`.
+
+Values are trimmed and lowercased. An experiment sends its own services plus those of every Feature Flag linked to it. A Saved Group, Constant or Config change sends the services of every Feature Flag and experiment that depends on it.
+
+### 2. Create the webhook
+
+Datadog's event intake needs an [API key](https://docs.datadoghq.com/account_management/api-app-keys/); an application key isn't needed. In GrowthBook, go to **Settings → Webhooks**, add an event webhook, and choose the **Datadog** payload type:
+
+- **Datadog site**: the site you sign in on, such as US1 or EU1. It sets the endpoint URL.
+- **API key**: a [webhook secret](/app/webhooks#webhook-secrets) holding the key, sent as `DD-API-KEY`. **Create secret** restricts a new secret to the Datadog endpoint.
+- **Service field**: the custom field from step 1.
+- **Events**: **All supported events** by default. It's saved as `*`, and a Datadog webhook sends only the events it supports, so it picks up new ones as they're added. You can pick individual events instead.
+- **Environment** filter: usually your production environments. Each change is tagged `env:<environment>` with only the environments that pass it.
+
+Use **Send test** on the webhook's page to send a `growthbook-test` change. The page also checks that the API key secret exists, that the service field applies to Feature Flags and experiments, and how many Feature Flags in scope have no service.
+
+### What Datadog receives
+
+| Datadog field             | From GrowthBook                                                                                                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `title`                   | The Feature Flag key or experiment tracking key, what happened (such as the revision comment), and environments                            |
+| `changed_resource`        | `feature_flag` for Feature Flags and experiments; `configuration` for Saved Groups, Constants and Configs                                  |
+| `impacted_resources`      | The service field's values, up to 100                                                                                                      |
+| `author`                  | The user, the API key, or the automation (a ramp schedule)                                                                                 |
+| `prev_value`, `new_value` | Each environment's enabled state and a short summary of each rule. Saved Groups send their condition and member count, never their members |
+| `change_metadata`         | A link to the revision, its number and comment, the Project, tags, related entities, and approvers if you turn on **Include approvers**    |
+
+A ramp-up's steps share a grouping key, so they appear together. An event with no changed environment left after the webhook's filter is skipped, as are experiment results refreshes, which change nothing SDKs serve.
+
+### Pair it with rollbacks
+
+Use the same custom field to scope a [rollback webhook](#roll-back-ramp-ups) with `customFields[datadog-service]=checkout-api`. A ramp step then shows on the `checkout-api` monitor, and if the monitor alerts, its rollback shows there too, titled `Rolled back to "Ramp step 2 of 5"` with the alert in its comment.
+
+### Known gaps
+
+- Legacy rule-level schedules send nothing when a rule turns on or off. Use [ramp schedules](/features/ramp-schedules) with a start or end date instead.
+- A scheduled experiment start sends one change for the experiment and one for each linked Feature Flag draft it publishes.
+- A change shows when it was published. SDKs pick it up seconds to minutes later.
+- Datadog limits titles to 500 characters and events to 100 tags. A rejected event shows as an error in the webhook's log.

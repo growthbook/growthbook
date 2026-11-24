@@ -19,6 +19,7 @@ import {
   displayedEvents,
 } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
+import DatadogWebhookChecks from "@/components/EventWebHooks/EventWebHookDetail/DatadogWebhookChecks";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -79,7 +80,8 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   const projects = (projectIds || []).map(getProjectById).filter(defined);
 
   const { apiCall } = useAuth();
-  const { mutate: mutateEventLogs } = useEventWebhookLogs(webhookId);
+  const { data: logsData, mutate: mutateEventLogs } =
+    useEventWebhookLogs(webhookId);
   const [state, setStateRaw] = useState<State>();
   const stateTimeout = useRef<undefined | ReturnType<typeof setTimeout>>();
 
@@ -368,6 +370,13 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         </div>
       </Box>
 
+      {payloadType === "datadog" && (
+        <DatadogWebhookChecks
+          eventWebHook={eventWebHook}
+          logs={logsData?.eventWebHookLogs ?? []}
+        />
+      )}
+
       {isModalOpen && !slackSettingsUrl ? (
         <EventWebHookAddEditModal
           isOpen={isModalOpen}
@@ -425,6 +434,7 @@ export const EventWebHookDetailContainer = ({
               "method",
               "headers",
               "timeoutSeconds",
+              "datadog",
             ]),
           ),
         },

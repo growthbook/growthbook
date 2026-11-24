@@ -35,8 +35,8 @@ export const filterEventForEnvironments = ({
 
   // `[]` means "no environment-scoped impact" (see eventEnvironments.ts), so it
   // correctly matches nothing here. Widening it at this layer sent every
-  // description edit — metadata isn't in RELEVANT_KEYS_FOR_ALL_ENVS, so its
-  // producer emits [] — to every environment-filtered subscription. An event that
+  // description edit — it changes no SDK payload, so its producer emits [] —
+  // to every environment-filtered subscription. An event that
   // reaches ALL environments has to say so at the PRODUCER, which is the only place
   // that can tell "affects nothing" from "affects everything".
   return intersection(event.environments || [], environments).length > 0;

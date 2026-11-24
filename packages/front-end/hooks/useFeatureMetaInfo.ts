@@ -5,9 +5,12 @@ import useApi from "@/hooks/useApi";
 export function useFeatureMetaInfo({
   project,
   includeDefaultValue = false,
+  customFields = [],
 }: {
   project?: string;
   includeDefaultValue?: boolean;
+  // Custom field keys whose values to include.
+  customFields?: string[];
 } = {}): {
   features: FeatureMetaInfo[];
   loading: boolean;
@@ -18,6 +21,7 @@ export function useFeatureMetaInfo({
   const params = new URLSearchParams();
   if (project) params.set("project", project);
   if (includeDefaultValue) params.set("defaultValue", "1");
+  if (customFields.length) params.set("customFields", customFields.join(","));
   const qs = params.toString();
 
   const { data, isLoading, error, mutate } = useApi<{

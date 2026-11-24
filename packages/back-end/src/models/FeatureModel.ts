@@ -38,6 +38,8 @@ import {
   RampStepAction,
   resolveStartApproval,
   RampMonitoringConfig,
+  EventRelatedEntity,
+  eventUserPerson,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -133,7 +135,14 @@ import {
   getReferenceIdsInRules,
   getSDKPayloadKeysByDiff,
   toFeatureMetaInfo,
+  featureMetaInfoIncludeProjection,
+  FeatureMetaInfoInclude,
+  EmbeddedFeatureMetadata,
+  NO_EMBEDDED_FEATURE_METADATA,
+  getChangedFeatureEnvironments,
 } from "back-end/src/util/features";
+import { getEmbeddedFeatureMetadata } from "back-end/src/models/SdkConnectionModel";
+import { getChangedExperimentEntities } from "back-end/src/events/relatedEntities";
 import {
   assertHoldoutAvailableForProject,
   getHoldoutAvailableForProject,
@@ -1295,13 +1304,21 @@ async function withOwnerEmail<T extends { owner: string }>(
   return ownerEmail ? { ...feature, ownerEmail } : feature;
 }
 
+type FeatureEventExtras = {
+  embedded?: EmbeddedFeatureMetadata;
+  relatedEntities?: EventRelatedEntity[];
+};
+
 export const createFeatureEvent = async <
   Event extends ResourceEvents<"feature">,
->(eventData: {
-  context: ReqContext;
-  event: Event;
-  data: CreateEventData<"feature", Event, FeatureInterface>;
-}) => {
+>(
+  eventData: {
+    context: ReqContext;
+    event: Event;
+    data: CreateEventData<"feature", Event, FeatureInterface>;
+  },
+  extras: FeatureEventExtras = {},
+) => {
   const event: CreateEventParams<"feature", Event> = await (async () => {
     // Resolve targetingAllProjects into concrete ids so webhooks route by delivery scope.
     const allProjectIds = await eventData.context.getAllProjectIds();
@@ -1379,6 +1396,16 @@ export const createFeatureEvent = async <
       eventData.context,
     );
 
+    const allowedEnvs = getEnvironmentIdsFromOrg(eventData.context.org);
+    const environments = getChangedFeatureEnvironments(
+      eventData.data.previous_object,
+      eventData.data.object,
+      allowedEnvs,
+      extras.embedded,
+    );
+    const published =
+      eventData.data.previous_object.version !== eventData.data.object.version;
+
     let changes: DiffResult | undefined;
     try {
       changes = getObjectDiff(previousApiFeature, currentApiFeature, {
@@ -1414,10 +1441,31 @@ export const createFeatureEvent = async <
       tags: Array.from(
         new Set([...previousApiFeature.tags, ...currentApiFeature.tags]),
       ),
-      environments: deriveLiveFeatureEventEnvironments({
-        previous: previousApiFeature,
-        current: currentApiFeature,
-      }),
+      environments,
+      relatedEntities: [
+        ...(extras.relatedEntities ?? []),
+        ...getChangedExperimentEntities(
+          eventData.data.previous_object,
+          eventData.data.object,
+          environments,
+          allowedEnvs,
+        ),
+      ],
+      approvers: published
+        ? (currentRevision?.reviews ?? []).flatMap((r) => {
+            const person =
+              r.status === "approved" ? eventUserPerson(r.user) : null;
+            return person?.id
+              ? [
+                  {
+                    id: person.id,
+                    name: person.name ?? "",
+                    email: person.email ?? "",
+                  },
+                ]
+              : [];
+          })
+        : [],
       containsSecrets: false,
     } as CreateEventParams<"feature", Event>;
   })();
@@ -1436,15 +1484,19 @@ export const logFeatureUpdatedEvent = async (
   context: ReqContext | ApiReqContext,
   previous: FeatureInterface,
   current: FeatureInterface,
+  extras: FeatureEventExtras = {},
 ) =>
-  createFeatureEvent({
-    context,
-    event: "updated",
-    data: {
-      object: current,
-      previous_object: previous,
+  createFeatureEvent(
+    {
+      context,
+      event: "updated",
+      data: {
+        object: current,
+        previous_object: previous,
+      },
     },
-  });
+    extras,
+  );
 
 /**
  * @param organization
@@ -1537,6 +1589,21 @@ async function onFeatureDelete(
     });
 }
 
+// Only a tag or custom field edit needs to know what SDK connections embed.
+async function getEmbeddedMetadataForChange(
+  context: ReqContext | ApiReqContext,
+  original: FeatureInterface,
+  updated: FeatureInterface,
+): Promise<EmbeddedFeatureMetadata> {
+  if (
+    isEqual(original.tags ?? [], updated.tags ?? []) &&
+    isEqual(original.customFields ?? {}, updated.customFields ?? {})
+  ) {
+    return NO_EMBEDDED_FEATURE_METADATA;
+  }
+  return getEmbeddedFeatureMetadata(context);
+}
+
 export async function onFeatureUpdate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1547,7 +1614,13 @@ export async function onFeatureUpdate(
   // `getAllProjectIds` resolves, the next landing in a bulk publish may have
   // opened its own buffer — reading the context then misattributes this write.
   const buffer = captureEventBuffer(context);
+  const relatedEntities = context.eventRelatedEntities ?? [];
   const allProjectIds = await context.getAllProjectIds();
+  const embedded = await getEmbeddedMetadataForChange(
+    context,
+    feature,
+    updatedFeature,
+  );
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getSDKPayloadKeysByDiff(
@@ -1555,6 +1628,7 @@ export async function onFeatureUpdate(
       updatedFeature,
       getEnvironmentIdsFromOrg(context.org),
       allProjectIds,
+      embedded,
     ),
     skipRefreshForProject,
     auditContext: {
@@ -1574,7 +1648,11 @@ export async function onFeatureUpdate(
     // Event-based webhooks. During a bulk-publish commit the emission defers
     // to the post-commit flush (dropped entirely if the commit compensates).
     await emitOrDeferBulkPublishEvent(
-      () => logFeatureUpdatedEvent(context, feature, updatedFeature),
+      () =>
+        logFeatureUpdatedEvent(context, feature, updatedFeature, {
+          embedded,
+          relatedEntities,
+        }),
       entityKey("feature", feature.id),
       buffer,
     );
@@ -5008,12 +5086,12 @@ export async function hasNonDemoFeature(context: ReqContext | ApiReqContext) {
 export async function getFeatureMetaInfoById(
   context: ReqContext | ApiReqContext,
   opts: {
-    includeDefaultValue?: boolean;
+    include?: FeatureMetaInfoInclude;
     project?: string;
     ids?: string[];
   } = {},
 ): Promise<FeatureMetaInfo[]> {
-  const { includeDefaultValue = false, project, ids } = opts;
+  const { include = {}, project, ids } = opts;
 
   const query: Record<string, unknown> = { organization: context.org.id };
   if (project) {
@@ -5056,7 +5134,7 @@ export async function getFeatureMetaInfoById(
     // it — the list itself never parses it.
     baseConfig: 1,
     "holdout.id": 1,
-    ...(includeDefaultValue ? { defaultValue: 1 } : {}),
+    ...featureMetaInfoIncludeProjection(include),
   };
 
   const features = await FeatureModel.find(query, projection).lean<
@@ -5070,7 +5148,7 @@ export async function getFeatureMetaInfoById(
     if (!context.permissions.canReadTargetingScopedResource(f)) continue;
 
     metaInfo.push({
-      ...toFeatureMetaInfo(f, includeDefaultValue),
+      ...toFeatureMetaInfo(f, include),
       holdoutId: f.holdout?.id ?? null,
     });
   }

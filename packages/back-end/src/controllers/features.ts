@@ -306,7 +306,11 @@ import {
 } from "back-end/src/services/experiment-feature";
 import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
-import { UnrecoverableApiError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  UnrecoverableApiError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import {
   MAX_IDS_QUERY_LENGTH,
   parseIdsQuery,
@@ -7311,7 +7315,12 @@ export async function getFeatureMetaInfo(
   req: AuthRequest<
     null,
     null,
-    { defaultValue?: string; project?: string; ids?: string }
+    {
+      defaultValue?: string;
+      customFields?: string;
+      project?: string;
+      ids?: string;
+    }
   >,
   res: Response<
     { status: 200; features: FeatureMetaInfo[] },
@@ -7319,10 +7328,20 @@ export async function getFeatureMetaInfo(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { defaultValue, project, ids } = req.query;
+  const { defaultValue, customFields, project, ids } = req.query;
+
+  const customFieldKeys = parseIdsQuery(customFields);
+  if (
+    customFieldKeys?.some((key) => key.includes(".") || key.startsWith("$"))
+  ) {
+    throw new BadRequestError("customFields must be custom field keys");
+  }
 
   const features = await getFeatureMetaInfoById(context, {
-    includeDefaultValue: defaultValue === "1",
+    include: {
+      defaultValue: defaultValue === "1",
+      customFields: customFieldKeys,
+    },
     project: project || undefined,
     ids: parseIdsQuery(ids),
   });

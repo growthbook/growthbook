@@ -163,6 +163,8 @@ export type FeatureMetaInfo = Pick<
   | "neverStale"
 > & {
   defaultValue?: string;
+  // Only the custom fields the caller asked for.
+  customFields?: FeatureInterface["customFields"];
   // The flag's `baseConfig` (the config backing it), or null. Sent so the
   // feature list can show "Config · <name>" without shipping every default value.
   configBackingKey?: string | null;

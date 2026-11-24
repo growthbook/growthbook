@@ -1,182 +1,168 @@
+import cloneDeep from "lodash/cloneDeep";
 import { ApiFeature, ApiFeatureForceRule } from "shared/validators";
-import {
-  RELEVANT_KEYS_FOR_ALL_ENVS,
-  deriveLiveFeatureEventEnvironments,
-  getChangedApiFeatureEnvironments,
-} from "back-end/src/events/eventEnvironments";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
+import { getChangedFeatureEnvironments } from "back-end/src/util/features";
 
-describe("getChangedApiFeatureEnvironments", () => {
-  const rule: ApiFeatureForceRule = {
-    description: "",
-    enabled: true,
-    condition: "",
-    id: "",
+const envs = ["dev", "prod"];
+
+const forceRule = (overrides: Partial<FeatureRule> = {}): FeatureRule =>
+  ({
+    id: "fr_1",
     type: "force",
-    value: "true",
-  };
-  const feature: ApiFeature = {
-    archived: false,
-    defaultValue: "default",
-    environments: {
-      dev: { enabled: true, defaultValue: "false", rules: [{ ...rule }] },
-      prod: { enabled: true, defaultValue: "false", rules: [{ ...rule }] },
-    },
-    prerequisites: [],
-    project: "project",
-    valueType: "string",
-    dateCreated: new Date().toISOString(),
-    dateUpdated: new Date().toISOString(),
     description: "",
-    id: "id",
-    owner: "",
-    revision: {
-      comment: "",
-      date: new Date().toISOString(),
-      publishedBy: "",
-      version: 1,
-    },
-    tags: [],
-  };
+    condition: "",
+    enabled: true,
+    value: "true",
+    allEnvironments: true,
+    ...overrides,
+  }) as FeatureRule;
 
-  it("returns all envs when a global field changes", () => {
-    const values = RELEVANT_KEYS_FOR_ALL_ENVS.map((key) =>
-      getChangedApiFeatureEnvironments(feature, {
-        ...feature,
-        [key]: key === "archived" ? !feature.archived : "new-value",
-      }),
-    );
+const baseFeature: FeatureInterface = {
+  id: "checkout",
+  organization: "org",
+  owner: "",
+  dateCreated: new Date("2026-01-01"),
+  dateUpdated: new Date("2026-01-01"),
+  valueType: "boolean",
+  defaultValue: "false",
+  archived: false,
+  description: "",
+  version: 1,
+  tags: ["payments"],
+  customFields: { "datadog-service": ["checkout-api"] },
+  environmentSettings: {
+    dev: { enabled: true, rules: [] },
+    prod: { enabled: true, rules: [] },
+  },
+  rules: [forceRule()],
+};
 
-    values.forEach((v) => expect(v).toEqual(["dev", "prod"]));
+const change = (mutate: (f: FeatureInterface) => void) => {
+  const updated = cloneDeep(baseFeature);
+  mutate(updated);
+  return updated;
+};
+
+describe("getChangedFeatureEnvironments", () => {
+  it("returns no environments for a description-only change", () => {
+    expect(
+      getChangedFeatureEnvironments(
+        baseFeature,
+        change((f) => (f.description = "New copy")),
+        envs,
+      ),
+    ).toEqual([]);
   });
 
-  it("returns the specific env that changed", () => {
+  it.each([
+    ["defaultValue", (f: FeatureInterface) => (f.defaultValue = "true")],
+    ["archived", (f: FeatureInterface) => (f.archived = true)],
+    ["project", (f: FeatureInterface) => (f.project = "prj_1")],
+    [
+      "targetingProjects",
+      (f: FeatureInterface) => (f.targetingProjects = ["prj_2"]),
+    ],
+    [
+      "holdout",
+      (f: FeatureInterface) => (f.holdout = { id: "hld_1", value: "false" }),
+    ],
+  ])("returns every enabled environment when %s changes", (_, mutate) => {
     expect(
-      getChangedApiFeatureEnvironments(feature, {
-        ...feature,
-        environments: {
-          ...feature.environments,
-          prod: {
-            ...feature.environments["prod"],
-            enabled: !feature.environments["prod"]?.enabled,
-          } as ApiFeature["environments"][string],
-        },
-      }),
+      getChangedFeatureEnvironments(baseFeature, change(mutate), envs),
+    ).toEqual(envs);
+  });
+
+  it("skips environments disabled before and after a feature-wide change", () => {
+    const original = change(
+      (f) => (f.environmentSettings.prod.enabled = false),
+    );
+    expect(
+      getChangedFeatureEnvironments(
+        original,
+        change((f) => {
+          f.environmentSettings.prod.enabled = false;
+          f.defaultValue = "true";
+        }),
+        envs,
+      ),
+    ).toEqual(["dev"]);
+  });
+
+  it("returns only the environments a changed rule applies to", () => {
+    const original = change((f) => {
+      f.rules = [forceRule({ allEnvironments: false, environments: ["prod"] })];
+    });
+    expect(
+      getChangedFeatureEnvironments(
+        original,
+        change((f) => {
+          f.rules = [
+            forceRule({
+              allEnvironments: false,
+              environments: ["prod"],
+              value: "false",
+            }),
+          ];
+        }),
+        envs,
+      ),
     ).toEqual(["prod"]);
   });
 
-  it("returns no envs when nothing has changed", () => {
-    expect(getChangedApiFeatureEnvironments(feature, feature)).toEqual([]);
+  it("returns the environment that was toggled", () => {
+    expect(
+      getChangedFeatureEnvironments(
+        baseFeature,
+        change((f) => (f.environmentSettings.dev.enabled = false)),
+        envs,
+      ),
+    ).toEqual(["dev"]);
   });
 
-  it("returns false when a filtered environment is disabled before and after the event", () => {
-    function getFeatureToTest(enabled: 0 | 1, defaultValue: 0 | 1): ApiFeature {
-      return {
-        ...feature,
-        environments: {
-          dev: {
-            ...feature.environments.dev,
-            enabled: enabled === 1,
-            defaultValue: defaultValue === 1 ? "true" : "false",
-          } as ApiFeature["environments"][string],
-          prod: {
-            ...feature.environments.prod,
-            enabled: enabled === 1,
-            defaultValue: defaultValue === 1 ? "true" : "false",
-          } as ApiFeature["environments"][string],
-        },
-      };
-    }
+  it("returns nothing for a feature archived before and after", () => {
+    const archived = change((f) => (f.archived = true));
+    expect(
+      getChangedFeatureEnvironments(
+        archived,
+        change((f) => {
+          f.archived = true;
+          f.defaultValue = "true";
+        }),
+        envs,
+      ),
+    ).toEqual([]);
+  });
 
+  it("counts a tag change only when an SDK connection embeds tags", () => {
+    const retagged = change((f) => (f.tags = ["payments", "beta"]));
+    expect(getChangedFeatureEnvironments(baseFeature, retagged, envs)).toEqual(
+      [],
+    );
     expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(0, 0),
-        getFeatureToTest(0, 0),
-      ),
+      getChangedFeatureEnvironments(baseFeature, retagged, envs, {
+        tags: true,
+        customFields: [],
+      }),
+    ).toEqual(envs);
+  });
+
+  it("counts a custom field change only when that field is embedded", () => {
+    const updated = change(
+      (f) => (f.customFields = { "datadog-service": ["checkout-web"] }),
+    );
+    expect(
+      getChangedFeatureEnvironments(baseFeature, updated, envs, {
+        tags: true,
+        customFields: ["owner-team"],
+      }),
     ).toEqual([]);
     expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(0, 0),
-        getFeatureToTest(0, 1),
-      ),
-    ).toEqual([]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(0, 0),
-        getFeatureToTest(1, 0),
-      ),
-    ).toEqual(["dev", "prod"]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(0, 0),
-        getFeatureToTest(1, 1),
-      ),
-    ).toEqual(["dev", "prod"]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(0, 1),
-        getFeatureToTest(0, 0),
-      ),
-    ).toEqual([]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(0, 1),
-        getFeatureToTest(0, 1),
-      ),
-    ).toEqual([]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(0, 1),
-        getFeatureToTest(1, 1),
-      ),
-    ).toEqual(["dev", "prod"]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(1, 0),
-        getFeatureToTest(0, 0),
-      ),
-    ).toEqual(["dev", "prod"]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(1, 0),
-        getFeatureToTest(0, 1),
-      ),
-    ).toEqual(["dev", "prod"]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(1, 0),
-        getFeatureToTest(1, 0),
-      ),
-    ).toEqual([]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(1, 0),
-        getFeatureToTest(1, 1),
-      ),
-    ).toEqual(["dev", "prod"]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(1, 1),
-        getFeatureToTest(0, 0),
-      ),
-    ).toEqual(["dev", "prod"]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(1, 1),
-        getFeatureToTest(0, 1),
-      ),
-    ).toEqual(["dev", "prod"]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(1, 1),
-        getFeatureToTest(1, 0),
-      ),
-    ).toEqual(["dev", "prod"]);
-    expect(
-      getChangedApiFeatureEnvironments(
-        getFeatureToTest(1, 1),
-        getFeatureToTest(1, 1),
-      ),
-    ).toEqual([]);
+      getChangedFeatureEnvironments(baseFeature, updated, envs, {
+        tags: false,
+        customFields: ["datadog-service"],
+      }),
+    ).toEqual(envs);
   });
 });
 
@@ -189,7 +175,7 @@ describe("deriveLiveFeatureEventEnvironments", () => {
     type: "force",
     value: "true",
   };
-  const feature: ApiFeature = {
+  const apiFeature: ApiFeature = {
     archived: false,
     defaultValue: "default",
     environments: {
@@ -213,42 +199,18 @@ describe("deriveLiveFeatureEventEnvironments", () => {
     tags: [],
   };
 
-  it("uses changed envs when a previous snapshot exists (updated)", () => {
-    expect(
-      deriveLiveFeatureEventEnvironments({
-        previous: feature,
-        current: {
-          ...feature,
-          environments: {
-            ...feature.environments,
-            dev: {
-              ...feature.environments["dev"],
-              enabled: false,
-            } as ApiFeature["environments"][string],
-          },
-        },
-      }),
-    ).toEqual(["dev"]);
-  });
-
-  it("returns no envs for a metadata-only transition", () => {
-    expect(
-      deriveLiveFeatureEventEnvironments({
-        previous: feature,
-        current: { ...feature, description: "new description" },
-      }),
-    ).toEqual([]);
-  });
-
   it("uses enabled envs when there is no previous snapshot (created)", () => {
-    expect(deriveLiveFeatureEventEnvironments({ current: feature })).toEqual([
-      "dev",
-    ]);
+    expect(deriveLiveFeatureEventEnvironments({ current: apiFeature })).toEqual(
+      ["dev"],
+    );
   });
 
   it("uses all configured envs for deletions", () => {
     expect(
-      deriveLiveFeatureEventEnvironments({ current: feature, deleted: true }),
+      deriveLiveFeatureEventEnvironments({
+        current: apiFeature,
+        deleted: true,
+      }),
     ).toEqual(["dev", "prod"]);
   });
 });

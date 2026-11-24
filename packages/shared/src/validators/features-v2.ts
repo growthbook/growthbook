@@ -35,6 +35,7 @@ import {
   apiFeatureHoldout,
   revisionStatusFilterSchema,
   apiRevisionRampAction,
+  scheduleRulesDeprecation,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
@@ -577,7 +578,11 @@ const v2RuleForceBase = z
     ...v2RuleSavedGroupInput,
     ...v2RuleReadOnlyEcho,
     prerequisites: z.array(postFeaturePrerequisite).optional(),
-    scheduleRules: z.array(apiScheduleRule).optional(),
+    scheduleRules: z
+      .array(apiScheduleRule)
+      .optional()
+      .describe(scheduleRulesDeprecation)
+      .meta({ deprecated: true }),
     id: z.string().optional(),
     enabled: z.boolean().optional(),
     type: z.literal("force"),
@@ -598,7 +603,11 @@ const v2RuleRolloutBase = z
     ...v2RuleSavedGroupInput,
     ...v2RuleReadOnlyEcho,
     prerequisites: z.array(postFeaturePrerequisite).optional(),
-    scheduleRules: z.array(apiScheduleRule).optional(),
+    scheduleRules: z
+      .array(apiScheduleRule)
+      .optional()
+      .describe(scheduleRulesDeprecation)
+      .meta({ deprecated: true }),
     id: z.string().optional(),
     enabled: z.boolean().optional(),
     type: z.literal("rollout"),
@@ -633,7 +642,11 @@ const v2RuleExperimentRefBase = z
     ...v2RuleSavedGroupInput,
     ...v2RuleReadOnlyEcho,
     prerequisites: z.array(postFeaturePrerequisite).optional(),
-    scheduleRules: z.array(apiScheduleRule).optional(),
+    scheduleRules: z
+      .array(apiScheduleRule)
+      .optional()
+      .describe(scheduleRulesDeprecation)
+      .meta({ deprecated: true }),
     variations: z.array(
       z
         .object({
@@ -670,7 +683,11 @@ const v2RuleSafeRolloutBase = z
     ...v2RuleSavedGroupInput,
     ...v2RuleReadOnlyEcho,
     prerequisites: z.array(postFeaturePrerequisite).optional(),
-    scheduleRules: z.array(apiScheduleRule).optional(),
+    scheduleRules: z
+      .array(apiScheduleRule)
+      .optional()
+      .describe(scheduleRulesDeprecation)
+      .meta({ deprecated: true }),
     controlValue: z.string(),
     variationValue: z.string(),
     hashAttribute: z.string(),

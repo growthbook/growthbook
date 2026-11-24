@@ -44,6 +44,10 @@ You can also send events to Slack with an event webhook and a Slack incoming web
 
 Discord notifications work the same way as Slack event webhook notifications. The only difference is that you need to follow our instructions on [setting up a Discord integration](/integrations/discord).
 
+## Datadog change events
+
+The **Datadog** payload type sends Feature Flag, experiment, Saved Group, Constant and Config changes to Datadog Change Tracking, tagged with the services and environments they affect. See [Send changes to Datadog](/integrations/datadog#send-changes-to-datadog).
+
 ## Projects, tags and environments filtering
 
 You can select which notifications should be sent to your webhook according to projects, tags or environments. When set, your webhook will only fire when events associated with the selected items are triggered. If unset, you webhook will fire on all events regardless of the given item.

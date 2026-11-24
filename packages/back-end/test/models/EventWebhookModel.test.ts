@@ -31,7 +31,7 @@ describe("getAllEventWebHooksForEvent", () => {
 
       expect(EventWebHookModel.find).toHaveBeenCalledWith({
         enabled: true,
-        events: { $in: ["feature.created", "feature.*"] },
+        events: { $in: ["feature.created", "*", "feature.*"] },
         organizationId: "aabb",
       });
       expect(ret).toEqual([
@@ -63,7 +63,12 @@ describe("getAllEventWebHooksForEvent", () => {
       expect(EventWebHookModel.find).toHaveBeenCalledWith({
         enabled: true,
         events: {
-          $in: ["feature.revision.created", "feature.*", "feature.revision.*"],
+          $in: [
+            "feature.revision.created",
+            "*",
+            "feature.*",
+            "feature.revision.*",
+          ],
         },
         organizationId: "aabb",
       });
@@ -103,7 +108,7 @@ describe("getAllEventWebHooksForEvent", () => {
 
       expect(EventWebHookModel.find).toHaveBeenCalledWith({
         enabled: true,
-        events: { $in: ["feature.created", "feature.*"] },
+        events: { $in: ["feature.created", "*", "feature.*"] },
         organizationId: "aabb",
       });
       expect(ret).toEqual([
@@ -126,6 +131,29 @@ describe("getAllEventWebHooksForEvent", () => {
           payloadType: "raw",
         },
       ]);
+    });
+  });
+
+  describe("when a Datadog webhook matches", () => {
+    it("keeps it only for events the Datadog formatter converts", async () => {
+      const docs = [
+        { toJSON: () => ({ name: "json" }), payloadType: "json" },
+        { toJSON: () => ({ name: "datadog" }), payloadType: "datadog" },
+      ];
+      jest.spyOn(EventWebHookModel, "find").mockImplementation(() => docs);
+      const names = async (eventName: "feature.updated" | "user.login") =>
+        (
+          await getAllEventWebHooksForEvent({
+            organizationId: "aabb",
+            eventName,
+            enabled: true,
+            tags: [],
+            projects: [],
+          })
+        ).map((w) => w.name);
+
+      expect(await names("feature.updated")).toEqual(["json", "datadog"]);
+      expect(await names("user.login")).toEqual(["json"]);
     });
   });
 });

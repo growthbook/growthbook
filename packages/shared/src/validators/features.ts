@@ -887,6 +887,10 @@ export type ComputedFeatureInterface = z.infer<typeof computedFeatureInterface>;
 // ---------------------------------------------------------------------------
 
 // ---- ScheduleRule (schemas/ScheduleRule.yaml) ----
+// Rule-level schedules are replaced by ramp schedules with no steps.
+export const scheduleRulesDeprecation =
+  "Deprecated: use [PUT /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule](#operation/putFeatureRevisionRuleRampScheduleV2) with no steps and a start or end date. Still accepted.";
+
 export const apiScheduleRuleValidator = namedSchema(
   "ScheduleRule",
   z
@@ -919,7 +923,8 @@ export const apiFeatureBaseRuleValidator = namedSchema(
       enabled: z.boolean(),
       scheduleRules: z
         .array(apiScheduleRuleValidator)
-        .describe("Simple time-based on/off schedule for this rule")
+        .describe(scheduleRulesDeprecation)
+        .meta({ deprecated: true })
         .optional(),
       scheduleType: z
         .enum(["none", "schedule", "ramp"])
@@ -1504,7 +1509,11 @@ const postFeatureForceRule = z
       .optional(),
     ...v1RuleSavedGroupInput,
     prerequisites: z.array(postFeaturePrerequisite).optional(),
-    scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+    scheduleRules: z
+      .array(apiScheduleRuleValidator)
+      .optional()
+      .describe(scheduleRulesDeprecation)
+      .meta({ deprecated: true }),
     id: z.string().optional(),
     enabled: z.boolean().describe("Enabled by default").optional(),
     type: z.literal("force"),
@@ -1528,7 +1537,11 @@ const postFeatureRolloutRule = z
       .optional(),
     ...v1RuleSavedGroupInput,
     prerequisites: z.array(postFeaturePrerequisite).optional(),
-    scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+    scheduleRules: z
+      .array(apiScheduleRuleValidator)
+      .optional()
+      .describe(scheduleRulesDeprecation)
+      .meta({ deprecated: true }),
     id: z.string().optional(),
     enabled: z.boolean().describe("Enabled by default").optional(),
     type: z.literal("rollout"),
@@ -1569,7 +1582,11 @@ const postFeatureExperimentRefRule = z
     condition: z.string().optional(),
     ...v1RuleSavedGroupInput,
     prerequisites: z.array(postFeaturePrerequisite).optional(),
-    scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+    scheduleRules: z
+      .array(apiScheduleRuleValidator)
+      .optional()
+      .describe(scheduleRulesDeprecation)
+      .meta({ deprecated: true }),
     variations: z.array(
       z
         .object({
@@ -1611,7 +1628,11 @@ const postFeatureExperimentRuleFields = {
     .optional(),
   coverage: z.number().optional(),
   prerequisites: z.array(postFeaturePrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+  scheduleRules: z
+    .array(apiScheduleRuleValidator)
+    .optional()
+    .describe(scheduleRulesDeprecation)
+    .meta({ deprecated: true }),
   values: z
     .array(
       z.object({

@@ -2671,6 +2671,9 @@ export default function RuleModal({
                 <ExperimentRefNewFields
                   step={i}
                   source="rule"
+                  // Experiment start and stop schedules replace rule dates;
+                  // only a rule that already has them keeps the inputs.
+                  noSchedule={!defaultHasSchedule}
                   feature={feature}
                   project={feature.project}
                   attributeProjects={effectiveAttributeProjects}

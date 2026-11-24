@@ -1,4 +1,5 @@
 import {
+  ALL_EVENTS_WILDCARD,
   deleteEventWebhookValidator,
   getEventWebhookValidator,
   listEventWebhookLogsValidator,
@@ -36,6 +37,7 @@ function toApiEventWebhook(w: EventWebHookInterface, withSecrets = true) {
     method: w.method,
     ...(withSecrets ? { headers: w.headers, signingKey: w.signingKey } : {}),
     timeoutSeconds: w.timeoutSeconds ?? null,
+    ...(w.datadog ? { datadog: w.datadog } : {}),
     lastRunAt: w.lastRunAt?.toISOString() ?? null,
     lastState: w.lastState,
     lastResponseBody: w.lastResponseBody ?? null,
@@ -111,8 +113,12 @@ export const postEventWebhook = createApiRequestHandler(
     environments = [],
     method = "POST",
     headers = {},
+    events = req.body.payloadType === "datadog" ? [ALL_EVENTS_WILDCARD] : [],
     ...rest
   } = req.body;
+  if (!events.length) {
+    req.context.throwBadRequestError("events is required.");
+  }
   if (
     !req.context.permissions.canCreateEventWebhook({ projects, environments })
   ) {
@@ -126,6 +132,7 @@ export const postEventWebhook = createApiRequestHandler(
     environments,
     method,
     headers,
+    events,
   });
   return { eventWebhook: toApiEventWebhook(created, false) };
 });

@@ -1,10 +1,16 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
+import { DATADOG_API_KEY_HEADER } from "shared/util";
 import { z } from "zod";
 import { useForm, UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowLeft, PiCaretRight, PiCheckCircleFill } from "react-icons/pi";
-import { isEventWebhookWildcard } from "shared/validators";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import {
+  ALL_EVENTS_WILDCARD,
+  datadogEventWebHookEvents,
+  isEventWebhookWildcard,
+} from "shared/validators";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -22,6 +28,7 @@ import {
   EventWebHookPayloadType,
   EventWebHookEditParams,
   eventWebHookEventOptions,
+  buildGroupedEventOptions,
   formatWebhookEventOptionLabel,
   EventWebHookModalMode,
   notificationEventNames,
@@ -37,6 +44,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsInput from "@/components/Tags/TagsInput";
 import { DocLink } from "@/components/DocLink";
 import WebhookHeadersField from "@/components/EventWebHooks/WebhookHeadersField";
+import DatadogWebhookFields from "@/components/EventWebHooks/DatadogWebhookFields";
+import {
+  headerSecretKey,
+  parseHeaders,
+} from "@/components/EventWebHooks/datadog";
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;
@@ -48,20 +60,42 @@ type EventWebHookAddEditModalProps = {
 
 const detailedWebhook = (s: string) => ["raw", "json"].includes(s);
 
+// The create-time connection test can't send headers, so these create
+// directly; "Send test" on the webhook's page uses the real path.
+const skipsConnectionTest = (s: string) =>
+  detailedWebhook(s) || s === "datadog";
+
+// Only the events Datadog converts; group rows would subscribe to the rest.
+const datadogEventOptions = buildGroupedEventOptions(
+  datadogEventWebHookEvents,
+).map((group) => ({
+  ...group,
+  options: group.options
+    .filter((option) => !option.isWildcard)
+    .map((option) => ({ ...option, shouldIndent: false })),
+}));
+
+const allEventsOption = {
+  label: "All supported events",
+  value: ALL_EVENTS_WILDCARD,
+};
+
 const scopeMessage =
   "You can only save webhooks filtered to environments and Projects you have access to.";
 
 // These types hide the method, headers, and timeout fields, so their values
-// are forced here for both validation and submit
+// are forced here for both validation and submit. Datadog's form writes its
+// own headers.
 const forcedParamsMap: {
   [key in EventWebHookPayloadType]?: {
     method: EventWebHookMethod;
-    headers: string;
+    headers?: string;
     timeoutSeconds: null;
   };
 } = {
   slack: { method: "POST", headers: "{}", timeoutSeconds: null },
   discord: { method: "POST", headers: "{}", timeoutSeconds: null },
+  datadog: { method: "POST", timeoutSeconds: null },
 };
 
 const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
@@ -69,6 +103,7 @@ const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
   json: "JSON",
   slack: "Slack",
   discord: "Discord",
+  datadog: "Datadog",
 } as const;
 
 type Form = UseFormReturn<EventWebHookEditParams>;
@@ -177,13 +212,15 @@ const EventWebHookAddEditSettings = ({
   form,
   handleFormValidation,
   forcedParams,
+  payloadTypes,
 }: {
   form: Form;
   handleFormValidation: () => void;
   forcedParams?: {
     method: EventWebHookMethod;
-    headers: string;
+    headers?: string;
   };
+  payloadTypes: readonly EventWebHookPayloadType[];
 }) => {
   const permissionsUtil = usePermissionsUtil();
 
@@ -215,6 +252,8 @@ const EventWebHookAddEditSettings = ({
   );
 
   const isDetailedWebhook = detailedWebhook(selectedPayloadType);
+  const isDatadog = selectedPayloadType === "datadog";
+  const selectedEvents = form.watch("events");
 
   const { tags } = useDefinitions();
 
@@ -225,6 +264,7 @@ const EventWebHookAddEditSettings = ({
         label="Payload Type"
         value={form.watch("payloadType")}
         placeholder="Choose payload type"
+        sort={false}
         disabled={form.watch("payloadType") === "raw"}
         formatOptionLabel={({ label }) => (
           <Flex as="span" align="center" gap="2">
@@ -238,12 +278,17 @@ const EventWebHookAddEditSettings = ({
         options={
           form.watch("payloadType") === "raw"
             ? [{ label: "raw", value: "raw" }]
-            : eventWebHookPayloadTypes.map((key) => ({
+            : payloadTypes.map((key) => ({
                 label: key,
                 value: key,
               }))
         }
         onChange={(value: EventWebHookPayloadType) => {
+          if (value === "datadog" && selectedPayloadType !== "datadog") {
+            form.setValue("events", [ALL_EVENTS_WILDCARD]);
+            form.setValue("url", "");
+            form.setValue("headers", "{}");
+          }
           form.setValue("payloadType", value);
           handleFormValidation();
         }}
@@ -282,30 +327,39 @@ const EventWebHookAddEditSettings = ({
         </Box>
       )}
 
-      <Box mt="4">
-        <Field
-          size="legacy"
-          label="Endpoint URL"
-          placeholder="https://example.com/growthbook-webhook"
-          {...form.register("url")}
-          helpText={
-            isDetailedWebhook && (
-              <>
-                Must accept <code>{form.watch("method")}</code> requests.
-                Supports{" "}
-                <DocLink useRadix={false} docSection="webhookSecrets">
-                  Webhook Secrets
-                </DocLink>
-                .
-              </>
-            )
-          }
-          onChange={(evt) => {
-            form.setValue("url", evt.target.value);
-            handleFormValidation();
-          }}
+      {isDatadog && (
+        <DatadogWebhookFields
+          form={form}
+          handleFormValidation={handleFormValidation}
         />
-      </Box>
+      )}
+
+      {!isDatadog && (
+        <Box mt="4">
+          <Field
+            size="legacy"
+            label="Endpoint URL"
+            placeholder="https://example.com/growthbook-webhook"
+            {...form.register("url")}
+            helpText={
+              isDetailedWebhook && (
+                <>
+                  Must accept <code>{form.watch("method")}</code> requests.
+                  Supports{" "}
+                  <DocLink useRadix={false} docSection="webhookSecrets">
+                    Webhook Secrets
+                  </DocLink>
+                  .
+                </>
+              )
+            }
+            onChange={(evt) => {
+              form.setValue("url", evt.target.value);
+              handleFormValidation();
+            }}
+          />
+        </Box>
+      )}
 
       {isDetailedWebhook && (
         <Box mt="4">
@@ -346,14 +400,32 @@ const EventWebHookAddEditSettings = ({
           placeholder="Choose events"
           sort={false}
           disabled={form.watch("payloadType") === "raw"}
-          options={eventWebHookEventOptions}
+          options={
+            !isDatadog
+              ? eventWebHookEventOptions
+              : selectedEvents.includes(ALL_EVENTS_WILDCARD)
+                ? [allEventsOption]
+                : [allEventsOption, ...datadogEventOptions]
+          }
           formatOptionLabel={(option, meta) =>
             formatWebhookEventOptionLabel(option, meta)
           }
           onChange={(value: string[]) => {
-            form.setValue("events", value);
+            // "*" replaces every other choice.
+            form.setValue(
+              "events",
+              value.includes(ALL_EVENTS_WILDCARD) &&
+                !selectedEvents.includes(ALL_EVENTS_WILDCARD)
+                ? [ALL_EVENTS_WILDCARD]
+                : value,
+            );
             handleFormValidation();
           }}
+          helpText={
+            isDatadog
+              ? "Picks up newly supported events automatically."
+              : undefined
+          }
         />
       </Box>
 
@@ -487,7 +559,7 @@ const buttonText = ({
 
   switch (step) {
     case "create":
-      if (detailedWebhook(payloadType)) return "Create";
+      if (skipsConnectionTest(payloadType)) return "Create";
       return (
         <>
           Next{" "}
@@ -517,6 +589,14 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const permissionsUtil = usePermissionsUtil();
   const [submitEnabled, setSubmitEnabled] = useState(false);
   const [step, setStep] = useState<Step>(mode.mode);
+  // Hidden until we roll it out, except on a webhook that's already Datadog.
+  const datadogEnabled = useFeatureIsOn("datadog-change-events");
+  const payloadTypes = eventWebHookPayloadTypes.filter(
+    (type) =>
+      type !== "datadog" ||
+      datadogEnabled ||
+      (mode.mode === "edit" && mode.data.payloadType === "datadog"),
+  );
 
   const validateHeaders = (headers: string) => {
     try {
@@ -554,12 +634,16 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   );
 
   const handleSubmit = useMemo(() => {
-    if (step === "create" && !detailedWebhook(form.watch("payloadType")))
+    if (step === "create" && !skipsConnectionTest(form.watch("payloadType")))
       return () => setStep("confirm");
 
     return form.handleSubmit(async (rawValues) => {
       const values = filteredValues(rawValues);
-      await onSubmit({ ...values, headers: JSON.parse(values.headers) });
+      await onSubmit({
+        ...values,
+        headers: JSON.parse(values.headers),
+        datadog: values.payloadType === "datadog" ? values.datadog : undefined,
+      });
       onClose();
     });
   }, [step, onSubmit, onClose, form, filteredValues]);
@@ -579,6 +663,12 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const handleFormValidation = useCallback(() => {
     const formValues = filteredValues(form.getValues());
     if (!validateHeaders(formValues.headers)) return setSubmitEnabled(false);
+    if (
+      formValues.payloadType === "datadog" &&
+      !headerSecretKey(parseHeaders(formValues.headers), DATADOG_API_KEY_HEADER)
+    ) {
+      return setSubmitEnabled(false);
+    }
     // Same check the field shows, including the Cloud cap
     if (timeoutError(formValues.timeoutSeconds)) return setSubmitEnabled(false);
 
@@ -657,6 +747,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             form={form}
             handleFormValidation={handleFormValidation}
             forcedParams={forcedParams}
+            payloadTypes={payloadTypes}
           />
         </>
       )}

@@ -20,6 +20,7 @@ import {
 import { ApiKeyInterface } from "shared/types/apikey";
 import { EventUser } from "shared/types/events/event-types";
 import {
+  EventRelatedEntity,
   SuperAdmin,
   eventUserIdentity,
   eventUserPerson,
@@ -380,6 +381,9 @@ export class ReqContextClass {
   // its own token. Revision lifecycle events emitted while set carry it as
   // `bulkPublishId`. Absent on single-entity publishes.
   public bulkPublishId?: string | null;
+
+  // What caused the publish in progress (a ramp step), for its live-state event.
+  public eventRelatedEntities?: EventRelatedEntity[] | null;
 
   // True ONLY while a bulk-publish commit is writing entities (the claim →
   // apply → compensation window). Write-path guards that already ran as plan

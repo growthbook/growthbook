@@ -539,13 +539,46 @@ export function getContextualBanditVisualPayloadKeys(
   );
 }
 
-export function getSDKPayloadKeysByDiff(
+// Feature metadata some SDK connection embeds in its payload, so changing it
+// changes that payload.
+export type EmbeddedFeatureMetadata = {
+  tags: boolean;
+  customFields: string[];
+};
+
+export const NO_EMBEDDED_FEATURE_METADATA: EmbeddedFeatureMetadata = {
+  tags: false,
+  customFields: [],
+};
+
+export function embeddedFeatureMetadataChanged(
+  originalFeature: Pick<FeatureInterface, "tags" | "customFields">,
+  updatedFeature: Pick<FeatureInterface, "tags" | "customFields">,
+  embedded: EmbeddedFeatureMetadata,
+): boolean {
+  if (
+    embedded.tags &&
+    !isEqual(originalFeature.tags ?? [], updatedFeature.tags ?? [])
+  ) {
+    return true;
+  }
+  return embedded.customFields.some(
+    (fieldId) =>
+      !isEqual(
+        originalFeature.customFields?.[fieldId] ?? null,
+        updatedFeature.customFields?.[fieldId] ?? null,
+      ),
+  );
+}
+
+// The environments whose SDK payload a feature change alters. Feature events
+// and the SDK cache refresh both use it.
+export function getChangedFeatureEnvironments(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface,
   allowedEnvs: string[],
-  // Every org project id — only consulted when the feature targets all projects.
-  allProjectIds: string[] = [],
-): SDKPayloadKey[] {
+  embedded: EmbeddedFeatureMetadata = NO_EMBEDDED_FEATURE_METADATA,
+): string[] {
   const environments = new Set<string>();
 
   // If the feature is archived both before and after the change, no payloads need to update
@@ -571,7 +604,8 @@ export function getSDKPayloadKeysByDiff(
   if (
     allEnvKeys.some(
       (k) => !isEqual(originalFeature[k] ?? null, updatedFeature[k] ?? null),
-    )
+    ) ||
+    embeddedFeatureMetadataChanged(originalFeature, updatedFeature, embedded)
   ) {
     getEnabledEnvironments(
       [originalFeature, updatedFeature],
@@ -617,12 +651,10 @@ export function getSDKPayloadKeysByDiff(
     (updatedFeature.rules ?? []).forEach(addRuleEnvs);
   }
 
-  const allEnvs = new Set(allowedEnvs);
-
   // Add in environments if their specific settings changed
-  allEnvs.forEach((e) => {
-    const oldSettings = originalFeature.environmentSettings[e];
-    const newSettings = updatedFeature.environmentSettings[e];
+  allowedEnvs.forEach((e) => {
+    const oldSettings = originalFeature.environmentSettings?.[e];
+    const newSettings = updatedFeature.environmentSettings?.[e];
 
     // If the environment is disabled both before and after the change, ignore changes
     if (!oldSettings?.enabled && !newSettings?.enabled) {
@@ -634,6 +666,26 @@ export function getSDKPayloadKeysByDiff(
       environments.add(e);
     }
   });
+
+  return allowedEnvs.filter((e) => environments.has(e));
+}
+
+export function getSDKPayloadKeysByDiff(
+  originalFeature: FeatureInterface,
+  updatedFeature: FeatureInterface,
+  allowedEnvs: string[],
+  // Every org project id — only consulted when the feature targets all projects.
+  allProjectIds: string[] = [],
+  embedded: EmbeddedFeatureMetadata = NO_EMBEDDED_FEATURE_METADATA,
+): SDKPayloadKey[] {
+  const environments = new Set(
+    getChangedFeatureEnvironments(
+      originalFeature,
+      updatedFeature,
+      allowedEnvs,
+      embedded,
+    ),
+  );
 
   const projects = new Set([
     "",
@@ -1950,12 +2002,32 @@ export function expandRuleEnvsForInheritance(
   return { ...rule, environments: expanded } as FeatureRule;
 }
 
+// Extras a caller can add to a flag's meta info. Each is loaded only when
+// asked for, so the default list stays lean; add new ones here and in the
+// projection below.
+export type FeatureMetaInfoInclude = {
+  defaultValue?: boolean;
+  // Custom field keys; only these fields' values are sent.
+  customFields?: string[];
+};
+
+export function featureMetaInfoIncludeProjection(
+  include: FeatureMetaInfoInclude,
+): Record<string, 1> {
+  return {
+    ...(include.defaultValue ? { defaultValue: 1 } : {}),
+    ...Object.fromEntries(
+      (include.customFields ?? []).map((key) => [`customFields.${key}`, 1]),
+    ),
+  };
+}
+
 // The feature list's summary of a stored flag, from the fields
 // getFeatureMetaInfoById loads. Lean documents leave out the empty lists that
 // Mongoose hydration would add, so those default here.
 export function toFeatureMetaInfo(
   f: LegacyFeatureInterface,
-  includeDefaultValue: boolean,
+  include: FeatureMetaInfoInclude = {},
 ): FeatureMetaInfo {
   const rules = f.rules as
     | { prerequisites?: unknown[]; savedGroups?: unknown[] }[]
@@ -1989,7 +2061,10 @@ export function toFeatureMetaInfo(
     // `baseConfig` (authoritative), not by parsing the default value.
     configBackingKey: f.baseConfig ?? null,
     revision: f.revision as FeatureMetaInfo["revision"],
-    ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
+    ...(include.defaultValue && { defaultValue: f.defaultValue ?? "" }),
+    ...(include.customFields?.length && {
+      customFields: pick(f.customFields ?? {}, include.customFields),
+    }),
   };
 }
 

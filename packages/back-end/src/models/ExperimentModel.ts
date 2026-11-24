@@ -91,6 +91,7 @@ import {
   notifyExperimentStatusTransition,
   notifyExperimentBanditWeightsTransition,
 } from "back-end/src/services/experimentNotifications";
+import { getExperimentFlagEntities } from "back-end/src/events/relatedEntities";
 import { CasConflictError } from "./BaseModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -1723,9 +1724,17 @@ export const logExperimentUpdated = async ({
   // Otherwise, it doesn't affect any
   const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
 
-  const changedEnvs = hasPayloadChanges
-    ? getEnvironmentIdsFromOrg(context.org)
-    : [];
+  const allowedEnvs = getEnvironmentIdsFromOrg(context.org);
+  const changedEnvs = hasPayloadChanges ? allowedEnvs : [];
+  // Results refreshes change nothing SDKs serve, so they skip the lookup.
+  const relatedEntities =
+    hasPayloadChanges && current.linkedFeatures?.length
+      ? getExperimentFlagEntities(
+          current.id,
+          await getFeaturesByIds(context, current.linkedFeatures),
+          allowedEnvs,
+        )
+      : [];
 
   let changes: DiffResult | undefined;
   try {
@@ -1774,6 +1783,7 @@ export const logExperimentUpdated = async ({
       new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags]),
     ),
     environments: changedEnvs,
+    relatedEntities,
     containsSecrets: false,
   });
 };
