@@ -107,11 +107,11 @@ export default function ChartSettingsSection() {
           {canSeparateValueCharts(draftExploreState) && (
             <Switch
               label={`Separate chart per ${valueNoun}`}
-              description={
+              description={`${
                 mustSeparate
                   ? "Ratio and quantile metrics always chart separately from other metric types."
-                  : `Each ${valueNoun} gets its own value axis.`
-              }
+                  : `Each ${valueNoun} gets its own chart and value axis.`
+              } Charts are titled with the ${valueNoun} name instead of a shared axis label.`}
               value={separateCharts}
               disabled={mustSeparate}
               onChange={(separateValueCharts) =>

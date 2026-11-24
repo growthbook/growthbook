@@ -1217,14 +1217,21 @@ export default function ExplorerChart(
     <Flex
       direction="column"
       gap="3"
-      style={{ flex: 1, minHeight: 0, minWidth: 0, overflowY: "auto" }}
+      flexGrow="1"
+      minHeight="0"
+      minWidth="0"
+      overflowY="auto"
     >
       {panels.map((panel, i) => (
+        // Values have no stable id; the index is their identity in the config
         <Flex
           key={i}
           direction="column"
           gap="1"
-          style={{ flex: "1 0 240px", minHeight: 240 }}
+          flexGrow="1"
+          flexShrink="0"
+          flexBasis="240px"
+          minHeight="240px"
         >
           <Text weight="medium">{panel.name}</Text>
           <ExplorerChartPanel

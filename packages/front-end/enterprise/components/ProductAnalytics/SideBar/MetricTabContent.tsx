@@ -297,12 +297,10 @@ export default function MetricTabContent() {
       <Button
         size="md"
         variant="outline"
+        icon={<PiPlus size={14} />}
         onClick={() => addValueToDataset("metric")}
       >
-        <Flex align="center" gap="2">
-          <PiPlus size={14} />
-          Add metric
-        </Flex>
+        Add metric
       </Button>
       {/* An applied Population stays clearable with no metric selected. */}
       {(unitPicker || hasPopulation) && (
