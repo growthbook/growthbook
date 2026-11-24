@@ -65,6 +65,7 @@ import {
   secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
+import { NotFoundError } from "back-end/src/util/errors";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -517,7 +518,7 @@ export async function putMetric(
   const { id } = req.params;
   const metric = await getMetricById(context, id);
   if (!metric) {
-    throw new Error("Could not find metric");
+    throw new NotFoundError("Could not find metric");
   }
 
   const updates: Partial<MetricInterface> = {};
@@ -594,7 +595,7 @@ export const getMetricExperimentResults = async (
   // experiment but not the metric. Returns null when it isn't readable.
   const metric = await getExperimentMetricById(context, req.params.id);
   if (!metric) {
-    throw new Error("Could not find metric with that id");
+    throw new NotFoundError("Could not find metric with that id");
   }
 
   const parseDate = (v?: string) => (v ? new Date(v) : undefined);

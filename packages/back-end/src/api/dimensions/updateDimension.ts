@@ -13,6 +13,7 @@ import {
 } from "back-end/src/models/DimensionModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { validateDimensionBeforeSave } from "back-end/src/services/dimensions";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const updateDimension = createApiRequestHandler(
   updateDimensionValidator,
@@ -24,11 +25,11 @@ export const updateDimension = createApiRequestHandler(
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);
 
-  if (!dimension) {
-    throw new Error("Could not find dimension with that id");
-  }
-  if (!(await hasDimensionDatasourceAccess(req.context, dimension))) {
-    throw new Error("You don't have access to this dimension");
+  if (
+    !dimension ||
+    !(await hasDimensionDatasourceAccess(req.context, dimension))
+  ) {
+    throw new NotFoundError("Could not find dimension with that id");
   }
   const datasourceDoc = await getDataSourceById(
     req.context,

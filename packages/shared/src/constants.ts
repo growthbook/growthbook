@@ -308,6 +308,7 @@ export const entityEvents = {
   ],
   featureRevisionLog: ["create", "update", "delete"],
   urlRedirect: ["create", "update", "delete"],
+  experimentQaOverride: ["create", "update", "delete"],
   metric: ["autocreate", "create", "update", "delete", "analysis"],
   metricAnalysis: ["create", "update", "delete"],
   metricGroup: ["create", "delete", "update"],

@@ -12,15 +12,17 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 // barrel forms a require cycle with this file, leaving the array undefined.
 import { comparisonMode } from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
+import { configHasPopulation } from "./populations";
 import {
   buildExplorationColumns,
   getEffectiveMetricValue,
   getExplorationCellValue,
   getExplorationRenderOpts,
   sortExplorationRows,
+  type ExplorationRenderOpts,
 } from "./utils";
 
-type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
+export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
 
 // --- Comparison date ranges -------------------------------------------------
 
@@ -545,6 +547,11 @@ export function buildAlignedComparisonRowLookup(
   comparisonRows: ProductAnalyticsResultRow[],
   firstDimensionIsDate: boolean,
   strategy: ComparisonAlignmentStrategy = "calendarYearOverYear",
+  // The current period's buckets to rank against, when it has more than
+  // `primaryRows` (see `densifyPopulationTimeseriesRows`).
+  currentXValues: readonly string[] = primaryRows.map((r) =>
+    String(r.dimensions[0] ?? ""),
+  ),
 ): (currentDims: (string | null)[]) => ProductAnalyticsResultRow | null {
   if (!firstDimensionIsDate) {
     const byKey = new Map<string, ProductAnalyticsResultRow>();
@@ -554,8 +561,9 @@ export function buildAlignedComparisonRowLookup(
     return (currentDims) => byKey.get(dimensionsTupleKey(currentDims)) ?? null;
   }
 
-  const primaryKeys = primaryRows.map((r) => String(r.dimensions[0] ?? ""));
-  const sortedXValues = [...new Set(primaryKeys)].sort(compareDateStringsAsc);
+  const sortedXValues = [...new Set(currentXValues)].sort(
+    compareDateStringsAsc,
+  );
   const comparisonXValues = comparisonRows.map((r) =>
     String(r.dimensions[0] ?? ""),
   );
@@ -618,6 +626,7 @@ function truncateUtc(d: Date, granularity: ResolvedGranularity): Date {
   return x;
 }
 
+/** Moves `d` (in place) to the start of the next bucket, in UTC. */
 function stepBucketUtc(d: Date, granularity: ResolvedGranularity): void {
   switch (granularity) {
     case "hour":
@@ -656,12 +665,50 @@ export function extendDateBucketsForward(params: {
 }): string[] {
   const { resolvedGranularity, afterIso, count } = params;
   if (count <= 0) return [];
-  const cur = truncateUtc(parseWarehouseDate(afterIso), resolvedGranularity);
+  // `afterIso` is already a bucket start, so step from it as-is.
+  const cur = parseWarehouseDate(afterIso);
   if (Number.isNaN(cur.getTime())) return [];
   const out: string[] = [];
   for (let i = 0; i < count; i++) {
     stepBucketUtc(cur, resolvedGranularity);
     out.push(cur.toISOString());
+  }
+  return out;
+}
+
+/** The start of the bucket after the one starting at `time`, in UTC ms. */
+export function nextDateBucketStart(
+  time: number,
+  resolvedGranularity: ResolvedGranularity,
+): number {
+  const d = new Date(time);
+  stepBucketUtc(d, resolvedGranularity);
+  return d.getTime();
+}
+
+/**
+ * Every bucket start, in UTC ms, from the earliest of `bucketIsos` to the
+ * latest, including buckets with no data. `bucketIsos` are bucket starts, so
+ * this steps from the earliest one as-is. They can be in any order;
+ * unparseable values are skipped.
+ */
+export function enumerateDateBucketsBetween(params: {
+  resolvedGranularity: ResolvedGranularity;
+  bucketIsos: string[];
+}): number[] {
+  const { resolvedGranularity, bucketIsos } = params;
+  const times = bucketIsos
+    .map((iso) => parseWarehouseDate(iso).getTime())
+    .filter((t) => Number.isFinite(t));
+  if (!times.length) return [];
+  const end = Math.max(...times);
+  const out: number[] = [];
+  for (
+    let t = Math.min(...times);
+    t <= end;
+    t = nextDateBucketStart(t, resolvedGranularity)
+  ) {
+    out.push(t);
   }
   return out;
 }
@@ -868,6 +915,27 @@ export function densifyComparisonExplorationTimeseries(params: {
   return { ...comparison, result: { rows: merged } };
 }
 
+/**
+ * A result's rows with a row for every date bucket in its range when a
+ * Population is applied. A bucket with no members has no row, so without these
+ * a "% of Population" line would join across it, and rank-based comparison
+ * pairing would shift every later bucket by one.
+ */
+export function densifyPopulationTimeseriesRows(
+  exploration: ProductAnalyticsExploration,
+  config: ExplorationConfig,
+): ProductAnalyticsResultRow[] {
+  const rows = exploration.result?.rows ?? [];
+  if (!configHasPopulation(config)) return rows;
+  return (
+    densifyComparisonExplorationTimeseries({
+      comparison: exploration,
+      submittedConfig: config,
+      previousTimeFrame: config.dateRange,
+    })?.result?.rows ?? rows
+  );
+}
+
 // --- Comparison payload for POST /product-analytics/run ---------------------
 
 function round2(n: number): number {
@@ -882,6 +950,47 @@ function dateRangeToPeriodStrings(dateRange: ExplorationDateRange): {
   return {
     startDate: dr.startDate.toISOString().slice(0, 10),
     endDate: dr.endDate.toISOString().slice(0, 10),
+  };
+}
+
+/**
+ * The change in one value's aggregate (first) row between the two periods.
+ * Null when either period has no data for it, or when the previous value is 0,
+ * where a percentage change is undefined.
+ */
+export function computeBigNumberTrend(
+  primary: ProductAnalyticsExploration | null,
+  comparison: ProductAnalyticsExploration | null,
+  renderOpts: ExplorationRenderOpts,
+  metricIndex: number,
+): ProductAnalyticsRunComparisonPayload["bigNumberTrends"][number] {
+  const currRow = primary?.result?.rows?.[0];
+  const prevRow = comparison?.result?.rows?.[0];
+  const currCell = currRow?.values?.[metricIndex];
+  const prevCell = prevRow?.values?.[metricIndex];
+  if (!currCell || !prevCell) return null;
+
+  const currentValue = getEffectiveMetricValue(
+    currCell,
+    renderOpts.values[metricIndex],
+    currRow.populationCount,
+  );
+  const previousValue = getEffectiveMetricValue(
+    prevCell,
+    renderOpts.values[metricIndex],
+    prevRow.populationCount,
+  );
+  if (currentValue === null || previousValue === null || previousValue === 0) {
+    return null;
+  }
+
+  const pctChangeFraction =
+    (currentValue - previousValue) / Math.abs(previousValue);
+  return {
+    currentValue,
+    previousValue,
+    pctChangeFraction,
+    pctChangePercent: round2(pctChangeFraction * 100),
   };
 }
 
@@ -956,33 +1065,9 @@ export function computeExplorationComparisonPayload(
     };
   }
 
-  const bigNumberTrends = Array.from({ length: n }, (_, metricIndex) => {
-    const currCell = primary.result.rows[0]?.values?.[metricIndex];
-    const prevCell = exploration.result.rows[0]?.values?.[metricIndex];
-    if (!currCell || !prevCell) return null;
-
-    const currentValue = getEffectiveMetricValue(
-      currCell,
-      renderOpts.values[metricIndex],
-    );
-    const previousValue = getEffectiveMetricValue(
-      prevCell,
-      renderOpts.values[metricIndex],
-    );
-
-    if (previousValue === 0) {
-      return null;
-    }
-
-    const pctChangeFraction =
-      (currentValue - previousValue) / Math.abs(previousValue);
-    return {
-      currentValue,
-      previousValue,
-      pctChangeFraction,
-      pctChangePercent: round2(pctChangeFraction * 100),
-    };
-  });
+  const bigNumberTrends = Array.from({ length: n }, (_, metricIndex) =>
+    computeBigNumberTrend(primary, exploration, renderOpts, metricIndex),
+  );
 
   if (hasAnyRatio) {
     return {
@@ -1011,6 +1096,9 @@ export function computeExplorationComparisonPayload(
     cmpSorted,
     isTimeseries,
     alignment,
+    densifyPopulationTimeseriesRows(primary, submittedConfig).map((r) =>
+      String(r.dimensions[0] ?? ""),
+    ),
   );
 
   const tableTrendsByRow = sortedRows.map((row) => {

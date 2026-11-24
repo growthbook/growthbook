@@ -123,6 +123,8 @@ export interface Props {
   newPhase?: (() => void) | null;
   editPhases?: (() => void) | null;
   editTargeting?: (() => void) | null;
+  /** Opens the Make Changes form, set where it's the way to edit delivery. */
+  makeChanges?: ((openAt?: "traffic") => void) | null;
   /** Targeting confirmed in a modal but not yet written. */
   targetingDraft?: TargetingDraft;
   editTraffic?: (() => void) | null;
@@ -161,6 +163,7 @@ function TabbedPageContents({
   datasourceMissing = false,
   urlRedirects,
   editTargeting,
+  makeChanges,
   targetingDraft,
   editTraffic,
   canAddVariation,
@@ -705,6 +708,7 @@ function TabbedPageContents({
         mutateWatchers={mutateWatchers}
         editResult={editResult || undefined}
         editTargeting={editTargeting}
+        makeChanges={makeChanges ? () => makeChanges() : null}
         detailsOpen={details.open}
         setDetailsOpen={details.toggle}
         start={start}
@@ -742,7 +746,7 @@ function TabbedPageContents({
         <div className="experiment-column">
           <div
             className={clsx(
-              "container-fluid pagecontents px-4",
+              "container-fluid pagecontents px-0",
               showDashboardView && "pt-0",
             )}
           >
@@ -876,6 +880,7 @@ function TabbedPageContents({
                 visualChangesets={visualChangesets}
                 urlRedirects={urlRedirects}
                 editTargeting={editTargeting}
+                makeChanges={makeChanges}
                 targetingDraft={targetingDraft}
                 analysisSettingsOpen={analysisSettingsOpen}
                 setAnalysisSettingsOpen={showAnalysisSettings}
@@ -894,7 +899,7 @@ function TabbedPageContents({
                 className={
                   // todo: standardize explore & results tabs across experiment types
                   isBandit && tab === "results"
-                    ? "container-fluid pagecontents px-4 py-4 d-block"
+                    ? "container-fluid pagecontents px-0 py-4 d-block"
                     : "d-none d-print-block"
                 }
               >
@@ -912,7 +917,7 @@ function TabbedPageContents({
               ((!isBandit && tab === "results") ||
                 (isBandit && tab === "explore")) &&
               !showDashboardView
-                ? "container-fluid pagecontents px-4 py-4 d-block"
+                ? "container-fluid pagecontents px-0 py-4 d-block"
                 : "d-none d-print-block"
             }
           >
@@ -957,7 +962,7 @@ function TabbedPageContents({
           <div
             className={
               tab === "dashboards" && !showDashboardView
-                ? "container-fluid pagecontents px-4 py-4 d-block"
+                ? "container-fluid pagecontents px-0 py-4 d-block"
                 : "d-none d-print-block"
             }
           >
@@ -972,7 +977,7 @@ function TabbedPageContents({
           <div
             className={
               tab === "health" && !showDashboardView
-                ? "container-fluid pagecontents px-4 py-4 d-block"
+                ? "container-fluid pagecontents px-0 py-4 d-block"
                 : "d-none d-print-block"
             }
           >

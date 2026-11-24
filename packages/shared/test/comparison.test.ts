@@ -18,8 +18,10 @@ import {
   computeExplorationComparisonPayload,
   createComparisonAlignmentResolver,
   densifyComparisonExplorationTimeseries,
+  densifyPopulationTimeseriesRows,
   enumerateProductAnalyticsDateBuckets,
   explorerDimensionDateToUtcYyyyMmDd,
+  enumerateDateBucketsBetween,
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getComparisonShiftDays,
@@ -1058,6 +1060,25 @@ describe("buildAlignedComparisonRowLookup", () => {
     expect(lookup(["2024-01-06"])?.values[0]?.numerator).toBe(200);
   });
 
+  it("ranks against every current bucket when one has no row", () => {
+    // Sep 2 had no Population members, so it has no row.
+    const primary = [row(["2026-09-01"], 10), row(["2026-09-03"], 30)];
+    const comparison = [
+      row(["2026-08-29"], 1),
+      row(["2026-08-30"], 2),
+      row(["2026-08-31"], 3),
+    ];
+    const lookup = buildAlignedComparisonRowLookup(
+      primary,
+      comparison,
+      true,
+      "chronological",
+      ["2026-09-01", "2026-09-02T00:00:00.000Z", "2026-09-03"],
+    );
+    expect(lookup(["2026-09-01"])?.values[0]?.numerator).toBe(1);
+    expect(lookup(["2026-09-03"])?.values[0]?.numerator).toBe(3);
+  });
+
   it("pairs breakdown rows by the full dimension tuple, not just the date", () => {
     const primary: ProductAnalyticsResultRow[] = [
       row(["2024-01-01", "Chrome"], 10),
@@ -1358,6 +1379,51 @@ describe("extendDateBucketsForward", () => {
   });
 });
 
+describe("enumerateDateBucketsBetween", () => {
+  it("fills in every bucket between the earliest and latest, in any order", () => {
+    expect(
+      enumerateDateBucketsBetween({
+        resolvedGranularity: "month",
+        bucketIsos: ["2026-04-01", "2026-01-01 00:00:00", "not a date"],
+      }),
+    ).toEqual([
+      Date.UTC(2026, 0, 1),
+      Date.UTC(2026, 1, 1),
+      Date.UTC(2026, 2, 1),
+      Date.UTC(2026, 3, 1),
+    ]);
+  });
+
+  it("lines up with a weekly extension", () => {
+    const primary = ["2026-11-02 00:00:00", "2026-11-09 00:00:00"];
+    const extended = extendDateBucketsForward({
+      resolvedGranularity: "week",
+      afterIso: primary[1],
+      count: 2,
+    });
+    expect(
+      enumerateDateBucketsBetween({
+        resolvedGranularity: "week",
+        bucketIsos: [...primary, ...extended],
+      }),
+    ).toEqual([
+      Date.UTC(2026, 10, 2),
+      Date.UTC(2026, 10, 9),
+      Date.UTC(2026, 10, 16),
+      Date.UTC(2026, 10, 23),
+    ]);
+  });
+
+  it("returns nothing for no valid buckets", () => {
+    expect(
+      enumerateDateBucketsBetween({
+        resolvedGranularity: "day",
+        bucketIsos: ["nope"],
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe("productAnalyticsDateDimensionBucketMergeKey", () => {
   it("merges intraday timestamps into the same UTC day bucket", () => {
     const day = "day" as const;
@@ -1434,6 +1500,33 @@ describe("densifyComparisonExplorationTimeseries", () => {
     runStarted: null,
     status: "success",
     queries: [],
+  });
+
+  it("fills days with no Population members only when one is applied", () => {
+    const withPopulation: ExplorationConfig = {
+      ...baseConfig,
+      dataset: {
+        ...baseConfig.dataset,
+        type: "metric",
+        values:
+          baseConfig.dataset.type === "metric" ? baseConfig.dataset.values : [],
+        population: { populationId: "pop_1", unit: "user_id" },
+      },
+    };
+    const sparse = shellExploration([
+      {
+        dimensions: ["2024-01-01"],
+        values: [{ metricId: "m1", numerator: 1, denominator: 1 }],
+        populationCount: 10,
+      },
+    ]);
+    const filled = densifyPopulationTimeseriesRows(sparse, withPopulation);
+    expect(filled).toHaveLength(7);
+    // Filled days have no member count, so "% of Population" reads no data.
+    expect(filled.filter((r) => r.populationCount === undefined)).toHaveLength(
+      6,
+    );
+    expect(densifyPopulationTimeseriesRows(sparse, baseConfig)).toHaveLength(1);
   });
 
   it("fills an empty comparison with one zero row per day", () => {

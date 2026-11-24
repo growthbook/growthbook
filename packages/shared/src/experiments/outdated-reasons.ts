@@ -1,4 +1,7 @@
 import { getValidDate } from "shared/dates";
+import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
+import { PValueCorrection } from "shared/types/stats";
+import { isPValueCorrected } from "./results/enrich";
 
 export const EXPERIMENT_OUTDATED_REASON_LABELS = {
   activationMetric: "Activation metric changed",
@@ -81,4 +84,49 @@ export function isAnalysisDateRangeOutdated({
       ),
     )
   );
+}
+
+/**
+ * Why an analysis's stored multiple-testing correction no longer matches the
+ * experiment. The correction is computed when results update, from the method
+ * and the goal metrics at that time, so a change to either only shows up after
+ * the next update.
+ */
+export function getPValueCorrectionOutdatedReasons({
+  analysisSettings,
+  currentPValueCorrection,
+  snapshotGoalMetrics,
+  currentGoalMetrics,
+}: {
+  analysisSettings: Pick<
+    ExperimentSnapshotAnalysisSettings,
+    "statsEngine" | "dimensions" | "useCovariateAsResponse" | "pValueCorrection"
+  >;
+  currentPValueCorrection: PValueCorrection | undefined;
+  snapshotGoalMetrics: string[];
+  currentGoalMetrics: string[];
+}): string[] {
+  if (!isPValueCorrected(analysisSettings)) return [];
+
+  const reasons: string[] = [];
+  const current = currentPValueCorrection ?? null;
+  // An analysis that recorded no method is corrected with the current one
+  // each time it is read, so its method is never out of date.
+  const recorded = analysisSettings.pValueCorrection;
+  if (recorded !== undefined && recorded !== current) {
+    reasons.push("P-value correction changed");
+  }
+
+  const applied = recorded !== undefined ? recorded : current;
+  const snapshotGoals = new Set(snapshotGoalMetrics);
+  const currentGoals = new Set(currentGoalMetrics);
+  if (
+    applied &&
+    (snapshotGoals.size !== currentGoals.size ||
+      [...snapshotGoals].some((id) => !currentGoals.has(id)))
+  ) {
+    reasons.push("Goal metrics changed (p-value correction affected)");
+  }
+
+  return reasons;
 }

@@ -11,7 +11,6 @@ import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges, parseIntWithDefault } from "shared/util";
 import { Flex, Separator } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
@@ -51,7 +50,7 @@ const StopExperimentForm: FC<{
 
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
 
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
   const aiSuggestionRef = useRef<string | undefined>(undefined);
 
   const aiSuggestFunction = async (): Promise<string> => {

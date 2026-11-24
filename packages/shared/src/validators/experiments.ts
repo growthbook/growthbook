@@ -2392,12 +2392,9 @@ export const listExperimentsValidator = {
           "Filter by comma-separated metric ids. Matches experiments that use a metric as a goal, secondary, or guardrail metric",
         )
         .optional(),
-      bandits: z
-        .enum(["true", "false"])
-        .describe(
-          "When true, return only multi-armed bandits; when false, exclude them",
-        )
-        .optional(),
+      bandits: booleanQueryField.describe(
+        "When true, return only multi-armed bandits; when false, exclude them",
+      ),
       archived: booleanQueryField.describe(
         "Filter by archived status. Set to `true` to return only archived experiments, `false` to exclude them. If omitted, both archived and non-archived experiments are returned.",
       ),
@@ -2507,7 +2504,7 @@ export const postExperimentArchiveValidator = {
 };
 
 export const postExperimentUnarchiveValidator = {
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z

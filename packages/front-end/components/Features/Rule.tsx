@@ -44,6 +44,7 @@ import {
 import { format as formatTimeZone } from "date-fns-tz";
 import {
   ApiContextualBanditInterface,
+  getRampRetry,
   isReadyForApproval,
   isAwaitingStartApproval,
   SafeRolloutInterface,
@@ -127,7 +128,6 @@ import useSortableItem from "@/hooks/useSortableItem";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import RuleField, { TargetingField } from "./RuleField";
-import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 function fmtScheduleDate(d: Date | string): string {
   return new Date(d).toLocaleDateString(undefined, {
@@ -369,7 +369,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     ref,
   ) => {
     const { apiCall } = useAuth();
-    const redesign = useFeaturePageRedesign();
     const { hasCommercialFeature } = useUser();
     const canUseRampSchedules = hasCommercialFeature("ramp-schedules");
 
@@ -384,6 +383,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [showDeleteRuleModal, setShowDeleteRuleModal] = useState(false);
     const [rampApproveLoading, setRampApproveLoading] = useState(false);
+    const [rampRetryLoading, setRampRetryLoading] = useState(false);
     const [rampActionError, setRampActionError] = useState("");
     useApprovalTimerTick(rampSchedule);
     const rollbackToStart = async (reason = "rolled back to start") => {
@@ -568,10 +568,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rampSchedule,
       rampPendingDetach: !!hasPendingDetach,
       missingSavedGroupIds: getMissingSavedGroupIds?.(rule) ?? [],
-      // The redesign's ribbons all match its conflict ribbon.
-      calloutSize: redesign ? "sm" : undefined,
-      // And say why a rule is off there, rather than in a header pill.
-      disabledAsRibbon: redesign,
     });
 
     if (hideInactive && isInactive) {
@@ -586,6 +582,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     // only repeat it.
     const simpleScheduleDone =
       isSimpleSchedule && rampSchedule?.status === "completed";
+    const rampRetry = rampSchedule ? getRampRetry(rampSchedule) : null;
     const hasMonitoringStatusRow =
       !!rampSchedule?.safeRolloutId &&
       rampSchedule.steps.some((s) => s.monitored);
@@ -985,9 +982,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               >
                 {/* Ahead of the ramp's CTAs, which stay by the menu. Shown on
                     hover, as the menu is. */}
-                {redesign && canEditRule ? (
-                  <RuleEditButton onClick={editRule} />
-                ) : null}
+                {canEditRule ? <RuleEditButton onClick={editRule} /> : null}
                 {rampSchedule &&
                   safeRollout &&
                   canControlRamp &&
@@ -1044,8 +1039,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                 {ruleCtas}
 
-                {info.pill}
-
                 {canEdit && lockedBySchedule && !rampSchedule ? (
                   <LockedRowMenu className={ruleRowMenuClass} />
                 ) : null}
@@ -1069,17 +1062,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     >
                       {canEdit && !locked && (
                         <DropdownMenuGroup>
-                          {/* The redesign has it on the card itself. */}
-                          {canEditRule && !redesign && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                editRule();
-                                setDropdownOpen(false);
-                              }}
-                            >
-                              Edit
-                            </DropdownMenuItem>
-                          )}
                           {rule.type !== "experiment-ref" &&
                             rule.type !== "contextual-bandit-ref" && (
                               <DropdownMenuItem
@@ -1894,6 +1876,45 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     {rampActionError}
                   </Callout>
                 )}
+                {rampRetry && (
+                  <Callout
+                    status="warning"
+                    mb="2"
+                    action={
+                      canControlRamp && !rampControlsLocked ? (
+                        <Button
+                          size="sm"
+                          color="inherit"
+                          loading={rampRetryLoading}
+                          onClick={async () => {
+                            setRampActionError("");
+                            setRampRetryLoading(true);
+                            try {
+                              await apiCall(
+                                `/ramp-schedule/${rampSchedule.id}/actions/retry`,
+                                { method: "POST" },
+                              );
+                            } catch (e) {
+                              setRampActionError(
+                                e instanceof Error ? e.message : String(e),
+                              );
+                            } finally {
+                              await mutate();
+                              setRampRetryLoading(false);
+                            }
+                          }}
+                        >
+                          Retry now
+                        </Button>
+                      ) : undefined
+                    }
+                  >
+                    <Text weight="semibold">Retrying a failed step.</Text> The
+                    ramp holds at its current step and pauses if retries keep
+                    failing. Attempt {rampRetry.attempts} failed:{" "}
+                    {rampRetry.lastError}
+                  </Callout>
+                )}
                 {rampSchedule.status === "rolled-back" &&
                   !hasMonitoringStatusRow &&
                   rampSchedule.lastRollbackReason && (
@@ -2031,14 +2052,10 @@ export function SortableRule(props: SortableProps) {
 }
 
 // A rule that serves nothing says so, and why, across its card.
-function skipped(
-  reason: ReactNode,
-  size?: "sm",
-  label = "Skipped",
-): RuleMetaInfo {
+function skipped(reason: ReactNode, label = "Skipped"): RuleMetaInfo {
   return {
     callout: (
-      <Callout status="warning" size={size}>
+      <Callout status="warning" size="sm">
         <strong>{label}</strong>
         {reason ? <>: {reason}</> : null}
       </Callout>
@@ -2048,7 +2065,6 @@ function skipped(
 }
 
 export type RuleMetaInfo = {
-  pill?: ReactElement;
   callout?: ReactElement;
   sideColor: "active" | "skipped" | "disabled" | "unreachable";
 };
@@ -2063,8 +2079,6 @@ export function getRuleMetaInfo({
   rampSchedule,
   rampPendingDetach,
   missingSavedGroupIds = [],
-  calloutSize,
-  disabledAsRibbon = false,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
@@ -2076,8 +2090,6 @@ export function getRuleMetaInfo({
   rampPendingDetach?: boolean;
   // Saved groups this rule names that no longer exist
   missingSavedGroupIds?: string[];
-  calloutSize?: "sm";
-  disabledAsRibbon?: boolean;
 }): RuleMetaInfo {
   const linkedExperiment =
     rule.type === "experiment-ref"
@@ -2105,48 +2117,21 @@ export function getRuleMetaInfo({
         : null;
 
   if (!rule.enabled) {
-    // A disabled rule's pill, or on the redesign a ribbon saying why, with
-    // any other ribbon it has.
-    const disabled = ({
-      label,
-      title,
-      reason,
-    }: {
-      label: string;
-      title: string;
-      reason?: string;
-    }): RuleMetaInfo => {
+    // A disabled rule's ribbon saying why, with any other ribbon it has.
+    const disabled = (reason?: string): RuleMetaInfo => {
       // Its summary has nothing to show for a missing or retired target.
       const targetCallout = targetReason ? (
-        <Callout key="target" status="info" size={calloutSize}>
+        <Callout key="target" status="info" size="sm">
           {targetReason}
         </Callout>
       ) : null;
-      if (!disabledAsRibbon) {
-        return {
-          pill: (
-            <Badge
-              color="gray"
-              title={title}
-              label={
-                <>
-                  <RxCircleBackslash />
-                  {label}
-                </>
-              }
-            />
-          ),
-          callout: targetCallout ?? undefined,
-          sideColor: "disabled",
-        };
-      }
       return {
         callout: (
           <Flex direction="column">
             <Callout
               key="disabled"
               status="neutral"
-              size={calloutSize}
+              size="sm"
               icon={<RxCircleBackslash />}
             >
               <strong>Disabled</strong>
@@ -2162,13 +2147,9 @@ export function getRuleMetaInfo({
     // approves the start — surface that instead of a bare "Disabled" so it's
     // clear the rule is staged, not turned off by hand.
     if (rampSchedule && isAwaitingStartApproval(rampSchedule)) {
-      return disabled({
-        label: "Disabled · awaiting approval",
-        title:
-          "This rule is staged and serving no traffic. It will go live when someone approves the ramp's start.",
-        reason:
-          "Staged with no traffic until someone approves its ramp's start.",
-      });
+      return disabled(
+        "Staged with no traffic until someone approves its ramp's start.",
+      );
     }
     const rampEnableDate = getRampEnableDate(rampSchedule);
     if (rampEnableDate) {
@@ -2177,17 +2158,11 @@ export function getRuleMetaInfo({
       // a one-shot gate and enables immediately. Showing the stale date is
       // confusing; surface the actual semantics instead.
       const inPast = rampEnableDate.getTime() <= Date.now();
-      return disabled({
-        label: inPast
-          ? "Disabled · enables on publish"
-          : `Disabled \u00b7 enables ${fmtScheduleDate(rampEnableDate)}`,
-        title: inPast
-          ? "Rule will be enabled by its schedule on the next publish"
-          : `Rule will be enabled by its schedule on ${rampEnableDate.toLocaleDateString()}`,
-        reason: inPast
+      return disabled(
+        inPast
           ? "Its ramp schedule enables it on the next publish."
           : `Its ramp schedule enables it ${fmtScheduleDate(rampEnableDate)}.`,
-      });
+      );
     }
     // A pre-start ramp with no start date and no approval gate (both handled
     // above) starts — and enables the rule — immediately on publish. Disabling
@@ -2202,15 +2177,11 @@ export function getRuleMetaInfo({
       (rampSchedule.status === "pending" || rampSchedule.status === "ready") &&
       !rampSchedule.startDate;
     if (rampEnablesOnPublish) {
-      return disabled({
-        label: "Disabled · enables on publish",
-        title:
-          "This rule's ramp schedule starts on publish and will re-enable it — disabling here won't hold the rollout. Use Start → On approval to stage it with zero traffic until approved.",
-        reason:
-          "Its ramp starts on publish and enables it, so this won't hold the rollout. To stage it with no traffic, start the ramp On approval.",
-      });
+      return disabled(
+        "Its ramp starts on publish and enables it, so this won't hold the rollout. To stage it with no traffic, start the ramp On approval.",
+      );
     }
-    return disabled({ label: "Disabled", title: "Rule is not enabled" });
+    return disabled();
   }
 
   if (
@@ -2226,7 +2197,6 @@ export function getRuleMetaInfo({
           {new Date(lastRule.timestamp).toLocaleDateString()} at{" "}
           {formatTimeZone(new Date(lastRule.timestamp), "h:mm a z")}.
         </>,
-        calloutSize,
       );
     }
   }
@@ -2236,7 +2206,6 @@ export function getRuleMetaInfo({
       rule.type === "safe-rollout"
         ? "This Safe Rollout is stopped."
         : experimentRefSkipReason(linkedExperiment),
-      calloutSize,
     );
   }
 
@@ -2251,20 +2220,15 @@ export function getRuleMetaInfo({
         {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
         {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}.
       </>,
-      calloutSize,
     );
   }
 
   if (ruleSkipped) {
     if (rule.type === "contextual-bandit-ref" && linkedContextualBandit) {
-      return skipped(
-        contextualBanditSkipReason(linkedContextualBandit),
-        calloutSize,
-      );
+      return skipped(contextualBanditSkipReason(linkedContextualBandit));
     }
     return skipped(
       experimentRefSkipReason(linkedExperiment),
-      calloutSize,
       // An SDK connection can include draft experiment rules.
       linkedExperiment?.status === "draft" ? "Skipped by default" : "Skipped",
     );
@@ -2285,7 +2249,7 @@ export function getRuleMetaInfo({
   ));
   if (missingSavedGroupIds.length) {
     callouts.unshift(
-      <Callout key="missing-saved-groups" status="error" size={calloutSize}>
+      <Callout key="missing-saved-groups" status="error" size="sm">
         {missingSavedGroupIds.length === 1
           ? "This rule targets a Saved Group that no longer exists"
           : "This rule targets Saved Groups that no longer exist"}{" "}
@@ -2308,7 +2272,7 @@ export function getRuleMetaInfo({
 
   if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
     callouts.push(
-      <Callout key="schedule" status="info" size={calloutSize}>
+      <Callout key="schedule" status="info" size="sm">
         Will be disabled on{" "}
         {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
         {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}

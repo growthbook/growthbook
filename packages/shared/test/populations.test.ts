@@ -7,6 +7,7 @@ import {
 import {
   getPopulationFactTableIds,
   getPopulationRuleViolations,
+  getSinglePopulationStep,
   MAX_POPULATION_FACT_TABLES,
   MAX_POPULATION_STEPS,
   type PopulationRuleFactTable,
@@ -84,6 +85,22 @@ describe("getPopulationFactTableIds", () => {
         step("ftb_orders"),
       ]),
     ).toEqual(["ftb_orders", "ftb_events"]);
+  });
+});
+
+describe("getSinglePopulationStep", () => {
+  it("returns the only step", () => {
+    const only = step("ftb_orders");
+    expect(getSinglePopulationStep({ steps: [only] })).toBe(only);
+  });
+
+  it("returns null for no steps or several", () => {
+    expect(getSinglePopulationStep({ steps: [] })).toBeNull();
+    expect(
+      getSinglePopulationStep({
+        steps: [step("ftb_orders"), step("ftb_events")],
+      }),
+    ).toBeNull();
   });
 });
 

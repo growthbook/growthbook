@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import UnsavedDot from "@/components/UnsavedDot";
 
 // Shared by every setup field so their controls line up.
 export const LABEL_WIDTH = "180px";
@@ -21,9 +22,11 @@ export default function SetupFieldRow({
   label,
   labelSize = "md",
   tooltip,
+  labelBadge,
   content = "control",
   labelAlign = "top",
   stacked = false,
+  changed = false,
   children,
 }: {
   /** For pointing at the field from elsewhere on the page. */
@@ -32,6 +35,8 @@ export default function SetupFieldRow({
   /** `lg` for a field whose label doubles as the section's title. */
   labelSize?: LabelSize;
   tooltip?: string;
+  /** Beside the label, for what is true of the field whatever its value. */
+  labelBadge?: ReactNode;
   /**
    * `text` for a row that only reads a value back, which needs no offset;
    * `panel` for values inside a padded panel.
@@ -41,6 +46,8 @@ export default function SetupFieldRow({
   labelAlign?: "top" | "center";
   /** Label above, for a control that needs the row's full width. */
   stacked?: boolean;
+  /** Marks the label for an unsaved change. */
+  changed?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -71,7 +78,8 @@ export default function SetupFieldRow({
                 : LABEL_OFFSET[labelSize],
         }}
       >
-        <Flex align="center" gap="1">
+        <Flex align="center" gap="1" position="relative">
+          {changed ? <UnsavedDot /> : null}
           <Text
             as="label"
             size={labelSize}
@@ -84,6 +92,7 @@ export default function SetupFieldRow({
           {tooltip ? (
             <InfoTip content={<Text align="left">{tooltip}</Text>} />
           ) : null}
+          {labelBadge}
         </Flex>
       </Box>
       <Box

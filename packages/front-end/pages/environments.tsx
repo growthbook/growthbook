@@ -61,7 +61,9 @@ const EnvironmentsPage: FC = () => {
       )
     : environments;
 
-  const { data: sdkConnectionData } = useSDKConnections();
+  const { data: sdkConnectionData } = useSDKConnections({
+    includeArchived: true,
+  });
   const sdkConnectionsMap = useMemo(() => {
     const map: Record<string, string[]> = {};
     sdkConnectionData?.connections?.forEach((c) => {
@@ -123,7 +125,7 @@ const EnvironmentsPage: FC = () => {
           </Modal>
         )}
       <Flex align="center" justify="between" mb="1">
-        <Heading as="h1" size="xl" mb="0">
+        <Heading as="h1" size="xl" mb="2">
           Environments
         </Heading>
         {canCreate && (

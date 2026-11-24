@@ -1,3 +1,5 @@
+import { isProductionEnvironment } from "shared/util";
+import { Environment } from "shared/types/organization";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { countSDKConnectionsByEnvironment } from "back-end/src/models/SdkConnectionModel";
@@ -19,13 +21,31 @@ export async function assertEnvironmentDeletable(
   );
 }
 
-// Notification filters are derived config, not a dependency: prune, never block.
+// Notification filters and QA overrides are derived config, not a dependency:
+// prune, never block.
 export async function cleanupDeletedEnvironment(
-  organizationId: string,
+  context: ReqContext | ApiReqContext,
   environmentId: string,
 ): Promise<void> {
   await removeEnvironmentFromSlackIntegration({
-    organizationId,
+    organizationId: context.org.id,
     envId: environmentId,
   });
+  await context.models.experimentQaOverrides.deleteByEnvironment(
+    environmentId,
+    {
+      skipSDKRefresh: true,
+    },
+  );
+}
+
+// QA overrides only serve non-production environments.
+export async function cleanupUpdatedEnvironment(
+  context: ReqContext | ApiReqContext,
+  previous: Environment,
+  updated: Environment,
+): Promise<void> {
+  if (!isProductionEnvironment(previous) && isProductionEnvironment(updated)) {
+    await context.models.experimentQaOverrides.deleteByEnvironment(updated.id);
+  }
 }

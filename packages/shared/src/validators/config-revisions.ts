@@ -510,7 +510,7 @@ export const postConfigRevisionReopenValidator = {
     "Returns a previously discarded revision to `draft` status so it can be edited and published again. Only discarded revisions can be reopened.",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -525,7 +525,7 @@ export const postConfigRevisionRecallReviewValidator = {
     "Pulls a revision in review (`pending-review`, `changes-requested`, or `approved`) back to `draft`, clearing existing reviews and disarming any auto-publish-on-approval.",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -594,6 +594,12 @@ export const putConfigRevisionValueValidator = {
         .optional()
         .describe(
           "When the config has no schema yet, infer one from the supplied `value` and stage it on the same draft.",
+        ),
+      inferUndeclaredFields: z
+        .boolean()
+        .optional()
+        .describe(
+          "Add an optional schema field, inferred from its value, for each top-level key in `value` that the Config's effective schema doesn't declare, staged on the same draft. Existing fields are never changed, and keys holding a `@const:`/`@config:` reference are skipped. Each added field is listed in `warnings` with code `inferred-field`. When `inferSchemaIfMissing` infers a whole schema, that takes precedence.",
         ),
       ...publishOverrideBodyFields,
     })
@@ -666,6 +672,11 @@ export const putConfigRevisionSchemaValidator = {
         .boolean()
         .optional()
         .describe("Derive the schema from the draft's value instead."),
+      value: configValueObject
+        .optional()
+        .describe(
+          "This config's own value, staged together with the schema and validated against it. Use it to retype or remove a field the value sets, which a schema write or a value write can't do on its own.",
+        ),
       additionalProperties: z
         .boolean()
         .optional()
@@ -764,7 +775,7 @@ export const postConfigRevisionUndoReviewValidator = {
   description: `Retracts the calling user's own active \`approve\` or \`request-changes\` verdict, returning the revision to \`pending-review\`. Review comments stay in the log. Retracting a \`request-changes\` can leave the revision approved by someone else, in which case an armed auto-publish fires. ${REVIEW_VERDICT_NOTE}`,
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };

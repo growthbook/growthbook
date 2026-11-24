@@ -180,7 +180,7 @@ export async function putSafeRolloutStatus(
   const context = getContextFromReq(req);
   const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
-    throw new Error("Could not find safe rollout");
+    throw new NotFoundError("Could not find safe rollout");
   }
 
   await context.models.safeRollout.update(safeRollout, {
@@ -214,7 +214,7 @@ export async function putSafeRollout(
   const context = getContextFromReq(req);
   const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
-    throw new Error("Could not find safe rollout");
+    throw new NotFoundError("Could not find safe rollout");
   }
 
   // The resolver only scope-checks a changed selection, so a rollout whose
@@ -245,7 +245,7 @@ export async function putAutoSnapshots(
   const context = getContextFromReq(req);
   const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
-    throw new Error("Could not find safe rollout");
+    throw new NotFoundError("Could not find safe rollout");
   }
 
   if (safeRollout.rampScheduleId) {
@@ -306,7 +306,7 @@ export const getSafeRolloutTimeSeries = async (
   const { id } = req.params;
   const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
-    throw new Error("Safe rollout not found");
+    throw new NotFoundError("Safe rollout not found");
   }
 
   const timeSeries =

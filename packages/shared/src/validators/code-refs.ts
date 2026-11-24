@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  booleanQueryField,
+  paginationQueryFields,
+} from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -87,13 +91,11 @@ export const postCodeRefsValidator = {
   bodySchema: postCodeRefsBody,
   querySchema: z
     .object({
-      deleteMissing: z
-        .enum(["true", "false"])
+      deleteMissing: booleanQueryField
         .describe(
           "Whether to delete code references that are no longer present in the submitted data",
         )
-        .meta({ default: "false" })
-        .optional(),
+        .meta({ default: false }),
     })
     .strict(),
   paramsSchema: z.never(),

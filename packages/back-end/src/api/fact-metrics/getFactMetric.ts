@@ -1,6 +1,7 @@
 import { getFactMetricValidator } from "shared/validators";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
   async (req) => {
@@ -12,7 +13,7 @@ export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
 
     const factMetric = await req.context.models.factMetrics.getById(id);
     if (!factMetric) {
-      throw new Error("Could not find factMetric with that id");
+      throw new NotFoundError("Could not find factMetric with that id");
     }
 
     return {

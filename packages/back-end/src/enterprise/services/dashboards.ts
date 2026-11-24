@@ -194,6 +194,7 @@ export async function updateExperimentDashboards({
       postStratificationEnabled,
       dimension: snapshotSettings.dimensionId,
       pValueThreshold: scopedDashboardSettings.pValueThreshold.value,
+      pValueCorrection: scopedDashboardSettings.pValueCorrection.value,
       metricGroups,
     });
 

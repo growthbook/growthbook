@@ -45,6 +45,7 @@ import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { SettingsNavProvider } from "@/components/Layout/SettingsNavContext";
 import { SettingsFormProvider } from "@/components/GeneralSettings/SettingsFormProvider";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
+import PageFrame from "@/components/Layout/PageFrame";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureHealthStatesProvider } from "@/hooks/useFeatureHealthStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
@@ -76,6 +77,7 @@ type ModAppProps = AppProps & {
     progressiveAuthTopNav?: boolean;
     noLoadingOverlay?: boolean;
     mainClassName?: string;
+    noPageWrapper?: boolean;
   };
 };
 
@@ -159,7 +161,7 @@ function App({
       eventFilter: (event) => {
         // Wait for account plan to load before sending events
         // When the plan does load, the app will re-render, so no events will be lost
-        if (event.attributes.accountPlan === "loading") return false;
+        if (event.attributes.accountPlan === null) return false;
         return true;
       },
       dedupeKeyAttributes: ["id", "organizationId"],
@@ -215,6 +217,8 @@ function App({
     );
   };
 
+  const page = <Component {...{ ...pageProps, envReady: ready }} />;
+
   return (
     <>
       <GlobalFontStyles />
@@ -264,12 +268,16 @@ function App({
                                             <OrgPageContent>
                                               <GuidedGetStartedBar />
                                               <DefinitionsGuard>
-                                                <Component
-                                                  {...{
-                                                    ...pageProps,
-                                                    envReady: ready,
-                                                  }}
-                                                />
+                                                {Component.noPageWrapper ||
+                                                liteLayout ? (
+                                                  page
+                                                ) : (
+                                                  <PageFrame
+                                                    settings={inSettings}
+                                                  >
+                                                    {page}
+                                                  </PageFrame>
+                                                )}
                                               </DefinitionsGuard>
                                             </OrgPageContent>
                                           </main>

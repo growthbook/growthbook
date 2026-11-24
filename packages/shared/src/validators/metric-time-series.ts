@@ -1,17 +1,18 @@
 import { z } from "zod";
 import { DistributiveOmit } from "shared/util";
 
+const confidenceInterval = z.tuple([
+  z.number().or(z.literal(-Infinity)),
+  z.number().or(z.literal(Infinity)),
+]);
+
 const metricTimeSeriesValue = z
   .object({
     value: z.number(),
     denominator: z.number().optional(),
     expected: z.number().optional(),
-    ci: z
-      .tuple([
-        z.number().or(z.literal(-Infinity)),
-        z.number().or(z.literal(Infinity)),
-      ])
-      .optional(),
+    ci: confidenceInterval.optional(),
+    ciAdjusted: confidenceInterval.optional(),
     pValue: z.number().optional(),
     pValueAdjusted: z.number().optional(),
     chanceToWin: z.number().optional(),
@@ -44,6 +45,8 @@ const metricTimeSeriesDataPointTag = z.enum([
   "triggered-alert",
   "metric-settings-changed",
   "experiment-settings-changed",
+  // Only the multiple-testing-corrected values changed basis, not the raw ones.
+  "p-value-correction-changed",
 ]);
 export type MetricTimeSeriesDataPointTag = z.infer<
   typeof metricTimeSeriesDataPointTag
@@ -72,6 +75,7 @@ const metricTimeSeriesBaseSchema = z
 
     lastExperimentSettingsHash: z.string(),
     lastMetricSettingsHash: z.string(),
+    lastPValueCorrectionHash: z.string().optional(),
     dataPoints: z.array(metricTimeSeriesDataPoint),
   })
   .strict();

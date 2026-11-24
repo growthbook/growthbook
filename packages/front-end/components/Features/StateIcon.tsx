@@ -5,7 +5,7 @@ import {
   FaCircleQuestion,
   FaCircleXmark,
 } from "react-icons/fa6";
-import { featureStatusColors } from "./FeaturesOverview";
+import { featureStatusColors } from "./featureStatusColors";
 
 const ICONS = {
   on: { Icon: FaCircleCheck, color: featureStatusColors.on },

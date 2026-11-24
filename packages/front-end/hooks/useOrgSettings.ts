@@ -18,6 +18,14 @@ export function applyApprovalFlowEntitlements(
   return {
     ...approvalFlows,
     savedGroups: savedGroups.map((rule) => ({ ...rule, required: false })),
+    ...(approvalFlows.sdkConnections
+      ? {
+          sdkConnections: approvalFlows.sdkConnections.map((rule) => ({
+            ...rule,
+            required: false,
+          })),
+        }
+      : {}),
   };
 }
 

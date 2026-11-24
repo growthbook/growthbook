@@ -11,7 +11,6 @@ import Modal from "@/components/Modal";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
@@ -37,6 +36,7 @@ import HelperText from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsInput from "@/components/Tags/TagsInput";
 import { DocLink } from "@/components/DocLink";
+import WebhookHeadersField from "@/components/EventWebHooks/WebhookHeadersField";
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;
@@ -176,12 +176,10 @@ const FilterLabel = ({
 const EventWebHookAddEditSettings = ({
   form,
   handleFormValidation,
-  validHeaders,
   forcedParams,
 }: {
   form: Form;
   handleFormValidation: () => void;
-  validHeaders: boolean;
   forcedParams?: {
     method: EventWebHookMethod;
     headers: string;
@@ -311,32 +309,15 @@ const EventWebHookAddEditSettings = ({
 
       {isDetailedWebhook && (
         <Box mt="4">
-          <CodeTextArea
-            label="Headers (JSON)"
-            language="json"
+          <WebhookHeadersField
             minLines={forcedParams ? 1 : 3}
-            maxLines={6}
             value={forcedParams?.headers || form.watch("headers")}
             disabled={!!forcedParams}
             setValue={(headers) => {
               form.setValue("headers", headers);
               handleFormValidation();
             }}
-            helpText={
-              <>
-                {!validHeaders ? (
-                  <Callout status="error">Invalid JSON</Callout>
-                ) : (
-                  <Text>
-                    JSON format for headers. Supports{" "}
-                    <DocLink useRadix={false} docSection="webhookSecrets">
-                      Webhook Secrets
-                    </DocLink>
-                    .
-                  </Text>
-                )}
-              </>
-            }
+            endpoint={form.watch("url")}
           />
         </Box>
       )}
@@ -535,16 +516,13 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 }) => {
   const permissionsUtil = usePermissionsUtil();
   const [submitEnabled, setSubmitEnabled] = useState(false);
-  const [validHeaders, setValidHeaders] = useState(true);
   const [step, setStep] = useState<Step>(mode.mode);
 
   const validateHeaders = (headers: string) => {
     try {
       JSON.parse(headers);
-      setValidHeaders(true);
       return true;
     } catch (error) {
-      setValidHeaders(false);
       return false;
     }
   };
@@ -678,7 +656,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           <EventWebHookAddEditSettings
             form={form}
             handleFormValidation={handleFormValidation}
-            validHeaders={validHeaders}
             forcedParams={forcedParams}
           />
         </>

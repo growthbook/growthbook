@@ -48,4 +48,6 @@ export type ApiEndpointSpec<
   confirmation?: readonly ConfirmAction[];
   /** The handler holds the request itself, once it knows what changes. */
   confirmationInHandler?: boolean;
+  /** Top-level body fields stored encrypted, and redacted on the confirm page, while held. */
+  secretBodyFields?: readonly string[];
 };

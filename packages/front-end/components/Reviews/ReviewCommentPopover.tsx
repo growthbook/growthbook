@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
-import LinkButton from "@/components/Button";
 import RadioGroup from "@/ui/RadioGroup";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
@@ -271,15 +270,15 @@ export default function ReviewCommentPopover({
       ) : null}
 
       <Flex gap="2" mt="3" justify="end">
-        <LinkButton
-          color="link"
+        <Button
+          variant="ghost"
           onClick={() => {
             clearDraft();
             setOpen(false);
           }}
         >
           Cancel
-        </LinkButton>
+        </Button>
         {showPublishOption && (
           <Button
             variant="outline"

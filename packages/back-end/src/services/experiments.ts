@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isEqual } from "lodash";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
+import md5 from "md5";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -25,6 +26,7 @@ import {
   mergeResultHasChanges,
   draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
+  entityTrackingKey,
   findAnalysisComputeFailure,
   generateVariationId,
   getAffectedEnvsForExperiment,
@@ -60,6 +62,12 @@ import {
   needsPercentileCapSubquery,
   expandMetricGroups,
   ExperimentMetricInterface,
+  AdjustmentImpactArgs,
+  DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
+  getAdjustmentImpactSummaries,
+  MetricResults,
+  parseAdjustmentImpactSettings,
+  SupplementalField,
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
   getClusterSubUnit,
@@ -80,8 +88,6 @@ import {
   parseDimensionId,
   parseFunnelStepMetricId,
   parseSliceMetricId,
-  setAdjustedCIs,
-  setAdjustedPValuesOnResults,
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
@@ -137,6 +143,7 @@ import {
   SnapshotType,
   SnapshotBanditSettings,
   DimensionForSnapshot,
+  SnapshotMetric,
 } from "shared/types/experiment-snapshot";
 import { Condition, MetricInterface, Operator } from "shared/types/metric";
 import {
@@ -166,7 +173,7 @@ import {
   ExperimentReportAnalysisSettings,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { StatsEngine } from "shared/types/stats";
+import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   ContextualBanditRefRule,
   ExperimentRefRule,
@@ -219,6 +226,11 @@ import {
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import {
+  getBackendFeatureValue,
+  getTrustedOrgAttributes,
+  trackEventForContext,
+} from "back-end/src/services/growthbook";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { assessRevisionApprovalForAutoPublish } from "back-end/src/services/experiment-feature";
 import {
@@ -237,7 +249,7 @@ import {
   getFeature,
   getFeaturesByIds,
 } from "back-end/src/models/FeatureModel";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
 import {
   getRevision,
   getActiveDraftMetadataByFeatureIds,
@@ -283,6 +295,7 @@ import {
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
+import { interruptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getMetricForSnapshot } from "./reports";
 import {
@@ -510,6 +523,7 @@ export function getDefaultExperimentAnalysisSettings({
   postStratificationEnabled,
   dimension,
   pValueThreshold,
+  pValueCorrection,
   metricGroups = [],
 }: {
   statsEngine: StatsEngine;
@@ -519,6 +533,7 @@ export function getDefaultExperimentAnalysisSettings({
   postStratificationEnabled?: boolean;
   dimension?: string;
   pValueThreshold?: number;
+  pValueCorrection?: PValueCorrection;
   metricGroups?: MetricGroupInterface[];
 }): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
@@ -559,6 +574,14 @@ export function getDefaultExperimentAnalysisSettings({
       pValueThreshold ??
       organization.settings?.pValueThreshold ??
       DEFAULT_P_VALUE_THRESHOLD,
+    // Always explicit: an analysis with no value here predates stored
+    // corrections and gets one computed when it is read.
+    pValueCorrection:
+      statsEngine !== "frequentist"
+        ? null
+        : pValueCorrection !== undefined
+          ? pValueCorrection
+          : (organization.settings?.pValueCorrection ?? null),
     numGoalMetrics: expandMetricGroups(
       experiment.goalMetrics ?? [],
       metricGroups,
@@ -589,6 +612,7 @@ export function getAdditionalExperimentAnalysisSettings(
     differenceType: "absolute",
     statsEngine: "frequentist",
     sequentialTesting: false,
+    pValueCorrection: null,
     useCovariateAsResponse: true,
   });
 
@@ -2233,6 +2257,30 @@ export async function planSnapshot({
   };
 }
 
+// Incremental full/update mutates the per-experiment pipeline tables
+// (DROP/CREATE/RENAME on units + metric-source tables), so they take the
+// lock as the one writer and concurrent triggers (scheduled auto-refresh +
+// manual Update) cannot race. Exploratory only _reads_ those tables, so
+// breakdowns share the lock as readers; a writer never waits for them and
+// interrupts them instead. The results runner only writes per-snapshot
+// ephemeral tables, so it does not need this lock.
+function getIncrementalRefreshLockRole(
+  runnerKind: SnapshotQueryRunnerKind,
+): "writer" | "reader" | null {
+  switch (runnerKind) {
+    case "incremental-full":
+    case "incremental-update":
+      return "writer";
+    case "incremental-exploratory":
+      return "reader";
+    case "results":
+      return null;
+    default:
+      runnerKind satisfies never;
+      throw new Error(`Unknown snapshot runner kind: ${runnerKind}`);
+  }
+}
+
 export async function createSnapshotFromPlan({
   plan,
   context,
@@ -2252,31 +2300,33 @@ export async function createSnapshotFromPlan({
   }
   const integration = getSourceIntegrationObject(context, datasource, true);
   const { runnerKind } = plan.snapshot;
-
-  // Incremental full/update mutate the per-experiment pipeline tables
-  // (DROP/CREATE/RENAME on units + metric-source tables). Exploratory reads
-  // those tables. Lock all three so concurrent triggers (scheduled
-  // auto-refresh + manual Update) cannot race and produce empty or malformed
-  // results. The results runner only writes per-snapshot ephemeral tables, so
-  // it does not need this lock.
-  const needsIncrementalRefreshLock =
-    runnerKind === "incremental-full" ||
-    runnerKind === "incremental-update" ||
-    runnerKind === "incremental-exploratory";
+  const lockRole = getIncrementalRefreshLockRole(runnerKind);
 
   let hasIncrementalRefreshLock = false;
-  if (needsIncrementalRefreshLock) {
+  if (lockRole !== null) {
+    const lockParams = {
+      experimentId: experiment.id,
+      phase: plan.snapshot.phase,
+      snapshotId: plan.snapshot.id,
+      legacyExperimentSettingsHash:
+        getExperimentSettingsHashForIncrementalRefresh(
+          plan.snapshot.settings,
+          datasource.settings.queries?.exposure ?? [],
+        ),
+    };
     hasIncrementalRefreshLock =
-      await context.models.incrementalRefresh.acquireLock({
-        experimentId: experiment.id,
-        phase: plan.snapshot.phase,
-        snapshotId: plan.snapshot.id,
-        legacyExperimentSettingsHash:
-          getExperimentSettingsHashForIncrementalRefresh(
-            plan.snapshot.settings,
-            datasource.settings.queries?.exposure ?? [],
-          ),
-      });
+      lockRole === "reader"
+        ? await context.models.incrementalRefresh.acquireReaderLock({
+            ...lockParams,
+            request: {
+              type: "dimension",
+              // Planning only picks this runner for a single-dimension breakdown.
+              dimension:
+                plan.snapshot.dimension ??
+                plan.snapshot.settings.dimensions.map((d) => d.id).join(","),
+            },
+          })
+        : await context.models.incrementalRefresh.acquireLock(lockParams);
     if (!hasIncrementalRefreshLock) {
       throw new ConcurrentIncrementalRefreshError(
         "There is already an update in progress for this experiment.",
@@ -2289,6 +2339,14 @@ export async function createSnapshotFromPlan({
     null;
 
   try {
+    if (lockRole === "writer") {
+      await interruptIncrementalReaders(
+        context,
+        experiment.id,
+        plan.snapshot.id,
+      );
+    }
+
     let scheduleNextSnapshot = true;
     if (
       experiment.type === "multi-armed-bandit" &&
@@ -3155,6 +3213,7 @@ export async function planExperimentSnapshot({
     postStratificationEnabled,
     dimension,
     pValueThreshold: settings.pValueThreshold.value,
+    pValueCorrection: settings.pValueCorrection.value,
     metricGroups,
   });
 
@@ -5012,6 +5071,7 @@ export async function assertValidClusterExperimentConfig({
 
   const identifierValidation = validateClusterExperimentIdentifiers(
     currentQuery,
+    datasource,
     clusterIdentifier,
     current.clusterSubUnitIdentifier ?? undefined,
   );
@@ -6265,7 +6325,7 @@ export async function getLinkedChangeEnvironmentStates(
   urlRedirectEnvStates: LinkedChangeEnvStates;
 }> {
   const environments = getEnvironmentIdsFromOrg(context.org);
-  const connections = await findSDKConnectionsByOrganization(context);
+  const connections = await findServingSDKConnections(context);
 
   const visualChangesetEnvStates: Record<string, LinkedChangeEnvState> = {};
   const urlRedirectEnvStates: Record<string, LinkedChangeEnvState> = {};
@@ -6479,6 +6539,15 @@ export async function getExperimentAnalysisSummary({
         context,
         analysis: relativeAnalysis,
         experiment,
+        // Telemetry only, so it runs after the results status has been returned.
+        onComputed: (inputs) =>
+          setImmediate(() =>
+            trackAdjustmentImpact({
+              context,
+              experimentId: experiment.id,
+              ...inputs,
+            }),
+          ),
       });
 
       if (resultsStatus) {
@@ -6524,22 +6593,114 @@ function getLatestPhaseVariationId(
   return i + "";
 }
 
+// The results the status was computed from, and their settings.
+type ResultsStatusInputs = {
+  variations: { metrics: Record<string, SnapshotMetric> }[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+} & Pick<
+  AdjustmentImpactArgs,
+  | "metricDefaults"
+  | "statsEngine"
+  | "differenceType"
+  | "ciUpper"
+  | "ciLower"
+  | "pValueThreshold"
+>;
+
+// One event per results update: how many metrics each adjustment (CUPED,
+// post-stratification, capping, Bayesian prior) would alert on.
+function trackAdjustmentImpact({
+  context,
+  experimentId,
+  variations,
+  metricMap,
+  ...analysisSettings
+}: ResultsStatusInputs & { context: ReqContext; experimentId: string }) {
+  try {
+    // The settings are under test, randomized by experiment. The id is hashed
+    // like other entity ids in events, and sent with the event so that it
+    // joins to the exposure.
+    const experimentAttributes = {
+      experiment_id_hashed: md5(
+        entityTrackingKey(context.org.id, experimentId),
+      ),
+    };
+    // The fallback is the new settings, so an install that cannot reach the
+    // CDN still gets them.
+    const settings = parseAdjustmentImpactSettings(
+      getBackendFeatureValue(
+        "experiment-impact-setting",
+        DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
+        { ...getTrustedOrgAttributes(context.org), ...experimentAttributes },
+      ),
+    );
+
+    // Slice and funnel-step ids are not in the metric map, so they are skipped.
+    const toMetricResults = (metricId: string): MetricResults | null => {
+      const metric = metricMap.get(metricId);
+      if (!metric) return null;
+      const stats = variations.map((variation) => variation.metrics[metricId]);
+      if (!stats.every(isDefined)) return null;
+      return { metric, variations: stats };
+    };
+
+    const summaries = getAdjustmentImpactSummaries({
+      ...analysisSettings,
+      metrics: Object.keys(variations[0]?.metrics ?? {})
+        .map(toMetricResults)
+        .filter(isDefined),
+      baselineIndex: 0,
+      settings,
+    });
+    const numFlagged = (field: SupplementalField) =>
+      summaries.filter((summary) =>
+        summary.some(
+          (impact) => impact.field === field && impact.effectSize === "large",
+        ),
+      ).length;
+
+    trackEventForContext(
+      context,
+      "Experiment Adjustment Impact",
+      {
+        numMetrics: summaries.length,
+        numPostStratificationFlagged: numFlagged("unstratified"),
+        numCupedFlagged: numFlagged("cupedUnadjusted"),
+        numPriorFlagged: numFlagged("flatPrior"),
+        numCappingFlagged: numFlagged("uncapped"),
+      },
+      experimentAttributes,
+    );
+  } catch (e) {
+    logger.warn(e, "Failed to track adjustment impact");
+  }
+}
+
 export async function computeResultsStatus({
   context,
   analysis,
   experiment,
+  onComputed,
 }: {
   context: ReqContext;
   analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
   experiment: ExperimentInterface | SafeRolloutInterface;
+  onComputed?: (inputs: ResultsStatusInputs) => void;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = analysis.settings.statsEngine;
   const projectId =
     "project" in experiment && typeof experiment.project === "string"
       ? experiment.project
       : undefined;
-  const { ciUpper, ciLower, pValueCorrection, pValueThreshold } =
-    await getSignificanceSettingsForProject(context, projectId);
+  const significance = await getSignificanceSettingsForProject(
+    context,
+    projectId,
+  );
+  const { ciUpper, ciLower } = significance;
+  // The threshold the analysis ran at, so that the status only changes when
+  // the results do.
+  const pValueThreshold =
+    analysis.settings.pValueThreshold ?? significance.pValueThreshold;
   const metricDefaults = getMetricDefaultsForOrg(context);
   const metricMap = await getMetricMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
@@ -6553,16 +6714,26 @@ export async function computeResultsStatus({
       ? expandMetricGroups(experiment.guardrailMetrics, metricGroups)
       : expandMetricGroups(experiment.guardrailMetricIds, metricGroups);
 
-  const results = cloneDeep(analysis.results);
-
-  // modifies results in place
-  setAdjustedPValuesOnResults(results, expandedGoalMetrics, pValueCorrection);
-  setAdjustedCIs(results, pValueThreshold);
-
-  const variations = results[0]?.variations;
+  const variations = analysis.results[0]?.variations;
   if (!variations || !variations.length) {
     return;
   }
+
+  const differenceType =
+    "differenceType" in analysis.settings
+      ? analysis.settings.differenceType
+      : "relative";
+
+  onComputed?.({
+    variations,
+    metricMap,
+    metricDefaults,
+    statsEngine,
+    differenceType,
+    ciUpper,
+    ciLower,
+    pValueThreshold,
+  });
 
   const variationStatuses: ExperimentAnalysisSummaryVariationStatus[] = [];
   const baselineVariation = variations[0];
@@ -6594,10 +6765,7 @@ export async function computeResultsStatus({
           ciUpper,
           pValueThreshold,
           statsEngine: statsEngine,
-          differenceType:
-            "differenceType" in analysis.settings
-              ? analysis.settings.differenceType
-              : "relative",
+          differenceType,
         });
 
         if (goalMetric) {

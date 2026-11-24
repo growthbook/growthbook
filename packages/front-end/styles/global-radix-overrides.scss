@@ -347,12 +347,32 @@
       box-shadow: inset 0 0 0 1px var(--gray-a8);
     }
   }
+
+  // Faintly grayed, with no hover; what it holds can't take the cursor back.
+  // `[type]` outranks Bootstrap's pointer on a `[type="button"]` trigger.
+  &:disabled,
+  &[data-disabled],
+  &[data-disabled][type] {
+    cursor: not-allowed;
+    color: var(--gray-11);
+    background-color: var(--gray-a2);
+    box-shadow: inset 0 0 0 1px var(--gray-a5);
+
+    * {
+      cursor: not-allowed;
+    }
+  }
 }
 
 .rt-RadioGroupItem {
   cursor: pointer;
   &.disabled {
     cursor: not-allowed;
+  }
+  // The item's baseline is its label's first line, not the button's bottom
+  // edge, so a label beside the group lines up with the first option.
+  > .rt-RadioGroupItemInner {
+    align-self: baseline;
   }
   &:hover:not(.disabled) {
     .main-text {
@@ -463,15 +483,19 @@
   &.rt-r-size-3 .rt-SegmentedControlItemLabel {
     padding-inline: calc(var(--space-4) + 4px);
   }
+  // As tall as a button of the same size, so the two sit level in a row.
   &:not(.gb-segmented-control--wrap) {
     &.rt-r-size-1 {
+      height: var(--space-5);
+    }
+    &.rt-r-size-1.gb-segmented-control--normal {
       height: calc(var(--space-5) + 6px);
     }
     &.rt-r-size-2 {
-      height: calc(var(--space-6) + 6px);
+      height: var(--space-6);
     }
     &.rt-r-size-3 {
-      height: calc(var(--space-7) + 6px);
+      height: var(--space-7);
     }
   }
 }
@@ -483,14 +507,14 @@
   align-self: start;
 
   &.rt-r-size-1 {
-    min-height: calc(var(--space-5) + 6px);
+    min-height: var(--space-5);
     line-height: var(--line-height-1);
   }
   &.rt-r-size-2 {
-    min-height: calc(var(--space-6) + 6px);
+    min-height: var(--space-6);
   }
   &.rt-r-size-3 {
-    min-height: calc(var(--space-7) + 6px);
+    min-height: var(--space-7);
   }
 
   .rt-SegmentedControlItemLabel {
