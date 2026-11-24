@@ -26,7 +26,7 @@ import {
   WebhookStatusBadge,
 } from "@/components/EventWebHooks/EventWebHookStatus";
 
-const MAX_EVENTS_DISPLAY = 5;
+const MAX_EVENTS_DISPLAY = 3;
 
 // Chat webhook URLs carry their own credentials.
 const SHOWS_ENDPOINT = new Set(["raw", "json", "datadog"]);

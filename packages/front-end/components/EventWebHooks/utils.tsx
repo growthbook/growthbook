@@ -13,7 +13,9 @@ import {
 } from "shared/types/event-webhook";
 import { SiDatadog } from "react-icons/si";
 import { FormatOptionLabelMeta } from "react-select";
+import { Flex } from "@radix-ui/themes";
 import { SingleValue } from "@/components/Forms/SelectField";
+import Tooltip from "@/ui/Tooltip";
 import { isCloud } from "@/services/env";
 
 export type {
@@ -261,7 +263,7 @@ export const displayedEvents = (
   { maxEventsDisplay }: { maxEventsDisplay?: number } = {},
 ) => {
   const shown = events.slice(0, maxEventsDisplay);
-  const more = events.length - shown.length;
+  const hidden = events.slice(shown.length);
   return (
     <>
       {shown.map((event, i) => (
@@ -270,7 +272,24 @@ export const displayedEvents = (
           <code style={{ color: "var(--violet-11)" }}>{event}</code>
         </React.Fragment>
       ))}
-      {more > 0 && ` and ${more} more`}
+      {hidden.length > 0 && (
+        <>
+          {" and "}
+          <Tooltip
+            content={
+              <Flex direction="column" gap="1">
+                {hidden.map((event) => (
+                  <code key={event}>{event}</code>
+                ))}
+              </Flex>
+            }
+          >
+            <span style={{ textDecoration: "underline dotted" }}>
+              {hidden.length} more
+            </span>
+          </Tooltip>
+        </>
+      )}
     </>
   );
 };

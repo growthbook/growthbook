@@ -1,13 +1,17 @@
 import React, { FC, useState } from "react";
 import { datetime } from "shared/dates";
-import { Box, IconButton } from "@radix-ui/themes";
-import { PiArrowUpRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
+import { Box } from "@radix-ui/themes";
+import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventWebHookListContainer } from "@/components/EventWebHooks/EventWebHookList/EventWebHookList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import CopyableCode from "@/components/Settings/CopyableCode";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
 import SettingsPage, {
@@ -53,7 +57,7 @@ const WebhooksPage: FC = () => {
         <>
           Monitor specific events globally across features and experiments.{" "}
           <DocLink docSection="eventWebhooks">
-            View documentation <PiArrowUpRight />
+            View documentation <PiArrowSquareOut />
           </DocLink>
         </>
       }
@@ -105,7 +109,7 @@ const WebhooksPage: FC = () => {
             {webhookSecrets.map((secret) => (
               <TableRow key={secret.id}>
                 <TableCell>
-                  <ClickToCopy>{secret.key}</ClickToCopy>
+                  <CopyableCode value={secret.key} />
                 </TableCell>
                 <TableCell>{secret.description}</TableCell>
                 <TableCell>
@@ -120,15 +124,12 @@ const WebhooksPage: FC = () => {
                 <TableCell>
                   {canManageSecrets && (
                     <DropdownMenu
+                      variant="soft"
                       trigger={
-                        <IconButton
-                          variant="ghost"
-                          color="gray"
-                          radius="full"
-                          aria-label="Webhook secret actions"
-                        >
-                          <PiDotsThreeVertical size={18} />
-                        </IconButton>
+                        <MoreMenuTrigger
+                          label="Webhook secret actions"
+                          style={{ marginBlock: -4 }}
+                        />
                       }
                       menuPlacement="end"
                     >
