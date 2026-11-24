@@ -3,7 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCheck } from "react-icons/pi";
 import type { ShowAs } from "shared/validators";
 import type { FactMetricType } from "shared/types/fact-table";
-import { getShowAsLabel } from "shared/enterprise";
+import { getShowAsLabel, hasShowAsChoice } from "shared/enterprise";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
@@ -56,10 +56,10 @@ export default function ShowAsInput({
   unit: string | null;
   /** Names the trigger, since every metric card with options has one. */
   metricName: string;
-  /** Undefined when the metric isn't found. */
   metricType: FactMetricType | undefined;
 }) {
   const [open, setOpen] = useState(false);
+  if (!hasShowAsChoice(options)) return null;
   const optionText = getOptionText(unit);
   const optionKey = (showAs: ShowAs): OptionKey =>
     showAs === "total" && metricType === "mean" ? "event_totals" : showAs;
