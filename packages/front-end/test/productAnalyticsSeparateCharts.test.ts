@@ -99,7 +99,10 @@ describe("sliceExplorationToValue", () => {
       sliced.config.dataset.type === "metric" &&
         sliced.config.dataset.values.map((v) => v.metricId),
     ).toEqual(["signups"]);
-    expect(sliced.config.chartSettings).toEqual({ separateValueCharts: true });
+    expect(sliced.config.chartSettings).toEqual({
+      valueAxisLabel: "",
+      separateValueCharts: true,
+    });
     expect(sliced.exploration?.result.rows[0].values).toEqual([
       { metricId: "signups", numerator: 3, denominator: 4 },
     ]);

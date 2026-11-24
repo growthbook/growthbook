@@ -155,6 +155,7 @@ function ExplorerChartPanel({
   submittedPreviousTimeFrame = null,
   submittedComparisonMode = null,
   serverBigNumberTrends = null,
+  hideSingleCompareLegend = false,
 }: {
   exploration: ProductAnalyticsExploration | null;
   comparisonExploration?: ProductAnalyticsExploration | null;
@@ -169,6 +170,8 @@ function ExplorerChartPanel({
   serverBigNumberTrends?:
     | ProductAnalyticsRunComparisonPayload["bigNumberTrends"]
     | null;
+  /** Skip a compare legend that only names this chart's one series (its heading already does). */
+  hideSingleCompareLegend?: boolean;
 }) {
   const { theme } = useAppearanceUITheme();
   const { textColor, tooltipBackgroundColor, gridLineColor } =
@@ -858,7 +861,9 @@ function ExplorerChartPanel({
       submittedComparisonMode ?? "previousPeriod",
     );
     const items = buildCompareChartLegendModel(series, labels);
-    if (!items.length) return null;
+    if (!items.length || (hideSingleCompareLegend && items.length === 1)) {
+      return null;
+    }
     return { ...labels, items };
   }, [
     compareEnabled,
@@ -866,6 +871,7 @@ function ExplorerChartPanel({
     submittedExploreState.dateRange,
     submittedPreviousTimeFrame,
     submittedComparisonMode,
+    hideSingleCompareLegend,
   ]);
 
   // Series toggled off via the custom compare legend. Reset whenever the legend
@@ -1263,6 +1269,8 @@ export default function ExplorerChart(
             exploration={panel.exploration}
             comparisonExploration={panel.comparisonExploration}
             serverBigNumberTrends={panel.serverBigNumberTrends}
+            // The first chart's legend keys the periods for all of them
+            hideSingleCompareLegend={i > 0}
           />
         </Flex>
       ))}

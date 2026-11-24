@@ -1904,7 +1904,7 @@ export function showsSeparateValueCharts(config: ExplorationConfig): boolean {
 
 /**
  * The config and results narrowed to one value, for drawing it as its own
- * chart. Its axis takes the value's own default label.
+ * chart. Its heading names the value, so its value axis has no title.
  */
 export function sliceExplorationToValue(
   config: ExplorationConfig,
@@ -1919,7 +1919,7 @@ export function sliceExplorationToValue(
     config: {
       ...config,
       dataset: { ...config.dataset, values: [values[index]] },
-      chartSettings: omit(config.chartSettings, "valueAxisLabel"),
+      chartSettings: { ...config.chartSettings, valueAxisLabel: "" },
     } as ExplorationConfig,
     exploration: exploration && {
       ...exploration,
