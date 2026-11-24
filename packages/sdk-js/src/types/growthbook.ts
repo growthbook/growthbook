@@ -347,6 +347,29 @@ export type ApplyDomChangesCallback = (
   changes: AutoExperimentVariation,
 ) => () => void;
 
+// How visualEditorPlugin and urlRedirectsPlugin each run their kind of
+// experiment from the payload
+export type AutoExperimentHandler = {
+  // Excludes the user from the experiment, without tracking
+  isBlocked: (experiment: AutoExperiment, url: string) => boolean;
+  // Returns how to undo the changes, when they can be undone
+  apply: (
+    experiment: AutoExperiment,
+    value: AutoExperimentVariation,
+    url: string,
+    trackingCall?: Promise<void>,
+  ) => void | (() => void);
+};
+
+// Created by the first of those plugins on an instance. Without one, the
+// experiments in the payload never run.
+export type AutoExperimentRunner = {
+  handlers: Partial<Record<AutoExperimentChangeType, AutoExperimentHandler>>;
+  redirectUrl: string;
+  update: (forceRerun?: boolean) => void;
+  trigger: (key: string) => null | Result<AutoExperimentVariation>[];
+};
+
 export type RenderFunction = () => void;
 
 // Constructor Options
@@ -362,11 +385,6 @@ export type Options<AppAttributes extends Attributes = RegisteredAttributes> = {
   forcedFeatureValues?: Map<string, any>;
   attributeOverrides?: Partial<AppAttributes>;
   blockedChangeIds?: string[];
-  disableVisualExperiments?: boolean;
-  disableJsInjection?: boolean;
-  jsInjectionNonce?: string;
-  disableUrlRedirectExperiments?: boolean;
-  disableCrossOriginUrlRedirectExperiments?: boolean;
   disableExperimentsOnLoad?: boolean;
   stickyBucketAssignmentDocs?: Record<
     StickyAttributeKey,
@@ -412,14 +430,10 @@ export type Options<AppAttributes extends Attributes = RegisteredAttributes> = {
   renderer?: null | RenderFunction;
   decryptionKey?: string;
   remoteEval?: boolean;
-  navigate?: NavigateCallback;
-  navigateDelay?: number;
-  maxNavigateDelay?: number;
   /** @deprecated */
   antiFlicker?: boolean;
   /** @deprecated */
   antiFlickerTimeout?: number;
-  applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];

@@ -9,6 +9,7 @@ import {
   BrowserCookieStickyBucketService,
   RedisStickyBucketService,
 } from "../src";
+import { visualEditorPlugin } from "../src/plugins";
 
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");
@@ -199,6 +200,7 @@ describe("sticky-buckets", () => {
 
     // with sticky bucket support
     const growthbook1a = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
@@ -212,6 +214,7 @@ describe("sticky-buckets", () => {
 
     // no sticky bucket support (but enabled anyhow)
     const growthbook2a = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       attributes: {
@@ -246,6 +249,7 @@ describe("sticky-buckets", () => {
 
     // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
     const growthbook1b = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
@@ -258,6 +262,7 @@ describe("sticky-buckets", () => {
       },
     });
     const growthbook2b = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       attributes: {
@@ -292,6 +297,7 @@ describe("sticky-buckets", () => {
     // remove the fallbackAttribute "deviceId".
     // bucketing for "id" should have persisted in growthbook1 only
     const growthbook1c = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
@@ -302,6 +308,7 @@ describe("sticky-buckets", () => {
       },
     });
     const growthbook2c = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       attributes: {
@@ -340,6 +347,7 @@ describe("sticky-buckets", () => {
 
     // with sticky bucket support
     const growthbook = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
@@ -398,6 +406,7 @@ describe("sticky-buckets", () => {
 
     // with sticky bucket support
     const growthbook1 = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new BrowserCookieStickyBucketService({
@@ -426,6 +435,7 @@ describe("sticky-buckets", () => {
 
     // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
     const growthbook2 = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new BrowserCookieStickyBucketService({
@@ -455,6 +465,7 @@ describe("sticky-buckets", () => {
     // remove the fallbackAttribute "deviceId".
     // bucketing for "id" should have persisted in growthbook1 only
     const growthbook3 = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new BrowserCookieStickyBucketService({
@@ -496,6 +507,7 @@ describe("sticky-buckets", () => {
 
     // with sticky bucket support
     const growthbook1 = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new RedisStickyBucketService({
@@ -523,6 +535,7 @@ describe("sticky-buckets", () => {
 
     // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
     const growthbook2 = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new RedisStickyBucketService({
@@ -551,6 +564,7 @@ describe("sticky-buckets", () => {
     // remove the fallbackAttribute "deviceId".
     // bucketing for "id" should have persisted in growthbook1 only
     const growthbook3 = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new RedisStickyBucketService({

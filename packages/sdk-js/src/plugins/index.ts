@@ -8,6 +8,8 @@ export {
 } from "./interleave";
 export { growthbookTrackingPlugin } from "./growthbook-tracking";
 export { thirdPartyTrackingPlugin } from "./third-party-tracking";
+export { visualEditorPlugin } from "./visual-editor";
+export { urlRedirectsPlugin } from "./url-redirects";
 export {
   tracingPlugin,
   getTracingTags,
@@ -39,6 +41,8 @@ export type {
   TrackingTransport,
 } from "./growthbook-tracking";
 export type { Trackers } from "./third-party-tracking";
+export type { VisualEditorPluginOptions } from "./visual-editor";
+export type { UrlRedirectsPluginOptions } from "./url-redirects";
 export type { TracingAssignment, TracingPluginOptions } from "./tracing";
 export type {
   DevtoolsState,
