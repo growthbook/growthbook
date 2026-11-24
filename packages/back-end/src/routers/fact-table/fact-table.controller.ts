@@ -41,6 +41,7 @@ import {
   updateColumn,
   updateColumnsTopValues,
   deleteColumn as deleteColumnInDb,
+  getCachedExplorationsUsingColumn,
   updateFactTable,
   updateFactTableColumns,
   deleteFactTable as deleteFactTableInDb,
@@ -54,6 +55,7 @@ import {
   getIntegrationIdentifierQuote,
 } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getProductAnalyticsExplorationUrl } from "back-end/src/enterprise/services/product-analytics";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import {
   runColumnDetectionQuery,
@@ -1313,20 +1315,67 @@ export const deleteColumn = async (
     context.permissions.throwPermissionError();
   }
 
-  const datasource = await getDataSourceById(context, factTable.datasource);
   await deleteColumnInDb(
     context,
     factTable,
     req.params.column,
-    datasource
-      ? getIntegrationIdentifierQuote(
-          getSourceIntegrationObject(context, datasource),
-        )
-      : '"',
+    await getFactTableIdentifierQuote(context, factTable),
   );
 
   res.status(200).json({
     status: 200,
+  });
+};
+
+async function getFactTableIdentifierQuote(
+  context: ReqContext,
+  factTable: FactTableInterface,
+) {
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  return datasource
+    ? getIntegrationIdentifierQuote(
+        getSourceIntegrationObject(context, datasource),
+      )
+    : '"';
+}
+
+// Shown in the delete modal so the user can check the cached explorations that
+// use a column before deleting it. Lists the newest few, with Explorer links.
+const CACHED_EXPLORATIONS_LIMIT = 5;
+export const getColumnCachedExplorations = async (
+  req: AuthRequest<null, { id: string; column: string }>,
+  res: Response<{
+    status: 200;
+    total: number;
+    explorations: { id: string; dateUpdated: Date; url: string | null }[];
+  }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new NotFoundError("Could not find fact table with that id");
+  }
+
+  const cached = await getCachedExplorationsUsingColumn(
+    context,
+    factTable,
+    req.params.column,
+    await getFactTableIdentifierQuote(context, factTable),
+  );
+
+  res.status(200).json({
+    status: 200,
+    total: cached.length,
+    explorations: cached.slice(0, CACHED_EXPLORATIONS_LIMIT).map((e) => ({
+      id: e.id,
+      dateUpdated: e.dateUpdated,
+      // Population previews have no Explorer page.
+      url:
+        e.config.dataset.type === "population"
+          ? null
+          : getProductAnalyticsExplorationUrl(e.config),
+    })),
   });
 };
 

@@ -1,6 +1,7 @@
 import { FactTableInterface, ColumnInterface } from "shared/types/fact-table";
 import { useState } from "react";
-import { IconButton } from "@radix-ui/themes";
+import { Box, IconButton } from "@radix-ui/themes";
+import { ago } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
@@ -11,6 +12,9 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -90,8 +94,52 @@ function VirtualColumnRowMenu({
               confirmation={{
                 confirmationTitle: "Delete Virtual Column",
                 cta: "Delete",
-                getConfirmationContent: async () =>
-                  "This will remove the virtual column. Metrics or filters that reference it will need to be updated.",
+                getConfirmationContent: async () => {
+                  const { total, explorations } = await apiCall<{
+                    total: number;
+                    explorations: {
+                      id: string;
+                      dateUpdated: string;
+                      url: string | null;
+                    }[];
+                  }>(
+                    `/fact-tables/${factTableId}/column/${column.column}/cached-explorations`,
+                  );
+                  return (
+                    <Box>
+                      {total > 0 && (
+                        <Callout status="warning" mb="3">
+                          <Text as="p" mb="1">
+                            {total} cached exploration
+                            {total === 1 ? " uses" : "s use"} this column. If
+                            you still need one, check it before you delete the
+                            column. It fails the next time it runs.
+                          </Text>
+                          <ul style={{ marginBottom: 0 }}>
+                            {explorations.map((e) => (
+                              <li key={e.id}>
+                                {e.url ? (
+                                  <Link href={e.url} external>
+                                    Last run {ago(e.dateUpdated)}
+                                  </Link>
+                                ) : (
+                                  `Last run ${ago(e.dateUpdated)}`
+                                )}
+                              </li>
+                            ))}
+                            {total > explorations.length && (
+                              <li>{total - explorations.length} more</li>
+                            )}
+                          </ul>
+                        </Callout>
+                      )}
+                      <Text as="p">
+                        This will remove the virtual column. Metrics or filters
+                        that reference it will need to be updated.
+                      </Text>
+                    </Box>
+                  );
+                },
                 submit: async () => {
                   await apiCall(
                     `/fact-tables/${factTableId}/column/${column.column}`,

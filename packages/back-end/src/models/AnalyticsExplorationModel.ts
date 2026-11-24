@@ -182,6 +182,15 @@ const BaseClass = MakeModelClass({
 });
 
 export class AnalyticsExplorationModel extends BaseClass {
+  // Cached results on one datasource, newest first, without their result rows
+  // (journeys can be large). Read-filtered, so callers only see what they can read.
+  public getAllWithoutResultsForDatasource(datasource: string) {
+    return this._find(
+      { datasource },
+      { projection: { result: 0 }, sort: { dateUpdated: -1 } },
+    );
+  }
+
   /**
    * `savedPopulation` is the saved Population behind a metric dataset's
    * `population`. Required when the config has one: the cache is keyed on its

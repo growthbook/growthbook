@@ -151,6 +151,14 @@ router.put(
   factTableController.putColumn,
 );
 
+router.get(
+  "/fact-tables/:id/column/:column/cached-explorations",
+  validateRequestMiddleware({
+    params: columnParams,
+  }),
+  factTableController.getColumnCachedExplorations,
+);
+
 router.delete(
   "/fact-tables/:id/column/:column",
   validateRequestMiddleware({
