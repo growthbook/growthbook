@@ -63,7 +63,7 @@ const StatsAdjustmentBadge: FC<{
       <span className={styles.group}>
         <Tooltip content={tooltip}>
           {onClick ? (
-            <Link className={styles.link} onClick={onClick}>
+            <Link underline="none" className={styles.link} onClick={onClick}>
               {badge}
             </Link>
           ) : (
