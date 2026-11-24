@@ -140,6 +140,22 @@ const Field = forwardRef(
     }
 
     const customClassName = customClassNameProp || "";
+    const labelElement = label ? (
+      <label
+        htmlFor={fieldId}
+        className={clsx(labelClassName)}
+        style={{ fontWeight: 600 }}
+      >
+        {label}
+        {markRequired && <span className="text-danger ml-1">*</span>}
+      </label>
+    ) : null;
+    const counterElement =
+      currentLength !== undefined && otherProps.maxLength ? (
+        <div className="font-weight-light">
+          <small>{`${currentLength} / ${otherProps.maxLength}`}</small>
+        </div>
+      ) : null;
     return (
       <div
         className={clsx(
@@ -150,23 +166,12 @@ const Field = forwardRef(
         )}
         style={containerStyle}
       >
-        <div className="d-flex flex-row justify-content-between">
-          {label && (
-            <label
-              htmlFor={fieldId}
-              className={clsx(labelClassName)}
-              style={{ fontWeight: 600 }}
-            >
-              {label}
-              {markRequired && <span className="text-danger ml-1">*</span>}
-            </label>
-          )}
-          {currentLength !== undefined && otherProps.maxLength ? (
-            <div className="font-weight-light">
-              <small>{`${currentLength} / ${otherProps.maxLength}`}</small>
-            </div>
-          ) : null}
-        </div>
+        {(labelElement || counterElement) && (
+          <div className="d-flex flex-row justify-content-between">
+            {labelElement}
+            {counterElement}
+          </div>
+        )}
         {component}
         {error && (
           <HelperText status={errorLevel} mt="1">
