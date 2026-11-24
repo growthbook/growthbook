@@ -282,6 +282,16 @@ export type ExplorationColumn =
     };
 
 /**
+ * Metric columns that split into current and previous in compare mode. A
+ * ratio compares only its Value; its Numerator / Denominator are hidden.
+ */
+export function isComparedMetricColumn(
+  col: ExplorationColumn,
+): col is Extract<ExplorationColumn, { kind: "metric" }> {
+  return col.kind === "metric" && (col.sub === "single" || col.sub === "value");
+}
+
+/**
  * Compute the human-readable labels used for dimension columns. Date and
  * "Total"-fallback handling matches both the Explorer table and the agent CSV.
  */

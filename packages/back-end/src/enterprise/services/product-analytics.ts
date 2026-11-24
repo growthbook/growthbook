@@ -123,10 +123,25 @@ export async function runProductAnalyticsExploration(
     }
   }
 
+  // Loaded before the cache lookup: the cache is keyed on each metric's
+  // dateUpdated so an edited metric doesn't serve stale results.
+  const savedFactMetrics =
+    dataset.type === "metric"
+      ? await context.models.factMetrics.getByIds(
+          dataset.values
+            .filter((value) => !value.draftMetric)
+            .map((value) => value.metricId),
+        )
+      : [];
+  const metricVersions = new Map(
+    savedFactMetrics.map((fm) => [fm.id, fm.dateUpdated]),
+  );
+
   if (options.cache !== "never") {
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config, {
         savedPopulation,
+        metricVersions,
         // Every journey request needs one unused frontier level to project a
         // display payload. Prefix cache hits are reused; a miss runs SQL with
         // the full lookahead still in the dataset.
@@ -179,11 +194,7 @@ export async function runProductAnalyticsExploration(
       );
     }
 
-    const factMetrics = await context.models.factMetrics.getByIds(
-      dataset.values
-        .filter((value) => !value.draftMetric)
-        .map((value) => value.metricId),
-    );
+    const factMetrics = [...savedFactMetrics];
     for (const value of dataset.values) {
       if (!value.draftMetric) continue;
       factMetrics.push(
@@ -438,6 +449,7 @@ export async function runProductAnalyticsExploration(
   const configHashes = context.models.analyticsExplorations.getConfigHashes(
     config,
     savedPopulation,
+    metricVersions,
   );
   if (!configHashes) {
     throw new BadRequestError("Invalid config");

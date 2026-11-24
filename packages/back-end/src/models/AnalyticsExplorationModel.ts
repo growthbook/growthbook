@@ -198,11 +198,13 @@ export class AnalyticsExplorationModel extends BaseClass {
    * `savedPopulation` is the saved Population behind a metric dataset's
    * `population`. Required when the config has one: the cache is keyed on its
    * definition, so edits to it invalidate cached results and Populations with
-   * the same definition share them.
+   * the same definition share them. `metricVersions` maps each saved metric
+   * id to its `dateUpdated`, so editing a metric invalidates cached results.
    */
   public getConfigHashes(
     config: ExplorationConfig,
     savedPopulation: Pick<PopulationInterface, "steps"> | null = null,
+    metricVersions: Map<string, Date> | null = null,
   ) {
     const dataset = config.dataset;
     if (!dataset) return null;
@@ -276,9 +278,18 @@ export class AnalyticsExplorationModel extends BaseClass {
           ? [md5("journey")]
           : config.chartType === "rawTable"
             ? []
-            : dataset.values.map((value) =>
-                md5(JSON.stringify(omitRenderOnlyFields(value))),
-              );
+            : dataset.values.map((value) => {
+                const metricUpdated =
+                  "metricId" in value
+                    ? metricVersions?.get(value.metricId)
+                    : undefined;
+                return md5(
+                  JSON.stringify({
+                    ...omitRenderOnlyFields(value),
+                    ...(metricUpdated ? { metricUpdated } : {}),
+                  }),
+                );
+              });
 
     return {
       generalSettingsHash,
@@ -338,6 +349,7 @@ export class AnalyticsExplorationModel extends BaseClass {
       minUnusedLookahead?: number;
       /** See `getConfigHashes`. */
       savedPopulation?: Pick<PopulationInterface, "steps"> | null;
+      metricVersions?: Map<string, Date> | null;
     },
   ) {
     const { dataset } = config;
@@ -346,6 +358,7 @@ export class AnalyticsExplorationModel extends BaseClass {
     const configHashes = this.getConfigHashes(
       config,
       options?.savedPopulation ?? null,
+      options?.metricVersions ?? null,
     );
     if (!configHashes) return null;
 

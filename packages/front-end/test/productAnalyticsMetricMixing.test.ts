@@ -6,11 +6,8 @@ import type {
 import type { MetricValue } from "shared/validators";
 import { metricSupportsUnitSelection } from "shared/enterprise";
 import {
-  getAddMetricConflict,
   getMetricChartPopulationViolations,
-  getLockedMixClass,
   getMetricValuesUnitState,
-  getMixClassConflict,
   getPopulationConflict,
   getPopulationFactTableId,
   getUnitConflict,
@@ -62,58 +59,6 @@ function value(metricId: string, unit: string | null): MetricValue {
     rowFilters: [],
   };
 }
-
-const RATIO_CONFLICT = "Ratio metrics can't be combined with other metrics.";
-const QUANTILE_CONFLICT =
-  "Quantile metrics can't be combined with other metrics.";
-
-describe("getLockedMixClass", () => {
-  it("locks to the first selected metric's class, skipping empty slots", () => {
-    expect(getLockedMixClass([undefined, "ratio", "mean"])).toBe("ratio");
-    expect(getLockedMixClass(["proportion"])).toBe("standard");
-  });
-
-  it("locks nothing when no metric is selected", () => {
-    expect(getLockedMixClass([undefined, null])).toBeNull();
-  });
-});
-
-describe("getMixClassConflict", () => {
-  it("lets standard metric types mix", () => {
-    expect(getMixClassConflict("mean", "standard")).toBeNull();
-    expect(getMixClassConflict("proportion", "standard")).toBeNull();
-  });
-
-  it("allows anything when nothing is locked", () => {
-    expect(getMixClassConflict("quantile", null)).toBeNull();
-  });
-
-  it("names the ratio or quantile being added to a standard chart", () => {
-    expect(getMixClassConflict("ratio", "standard")).toBe(RATIO_CONFLICT);
-    expect(getMixClassConflict("quantile", "standard")).toBe(QUANTILE_CONFLICT);
-  });
-
-  it("names the chart's class when it's ratio or quantile", () => {
-    expect(getMixClassConflict("mean", "ratio")).toBe(RATIO_CONFLICT);
-    expect(getMixClassConflict("mean", "quantile")).toBe(QUANTILE_CONFLICT);
-  });
-
-  it("allows another metric of the same exclusive class", () => {
-    expect(getMixClassConflict("ratio", "ratio")).toBeNull();
-  });
-});
-
-describe("getAddMetricConflict", () => {
-  it("blocks adding beside a ratio or quantile, skipping empty slots", () => {
-    expect(getAddMetricConflict([undefined, "ratio"])).toBe(RATIO_CONFLICT);
-    expect(getAddMetricConflict(["quantile"])).toBe(QUANTILE_CONFLICT);
-  });
-
-  it("allows adding beside standard metrics or an empty chart", () => {
-    expect(getAddMetricConflict(["mean", "proportion"])).toBeNull();
-    expect(getAddMetricConflict([])).toBeNull();
-  });
-});
 
 describe("getUnitConflict", () => {
   it("rejects a metric whose Fact Table lacks the chart's unit", () => {

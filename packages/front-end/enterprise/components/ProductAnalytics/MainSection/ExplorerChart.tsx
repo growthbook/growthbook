@@ -8,6 +8,7 @@ import type {
   ProductAnalyticsExploration,
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
+import { datasetHasValues } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import { parseWarehouseDate } from "shared/dates";
 import {
@@ -19,6 +20,8 @@ import {
   getSecondaryValueAxisName,
 } from "shared/enterprise";
 import {
+  showsSeparateValueCharts,
+  sliceExplorationToValue,
   shouldChartSectionShow,
   computeDimensionTotals,
   getExplorationRenderOpts,
@@ -134,7 +137,7 @@ function sortSeriesConfigsForCompareLegendOrder(
   ).map((row) => row.cfg);
 }
 
-export default function ExplorerChart({
+function ExplorerChartPanel({
   exploration,
   comparisonExploration = null,
   compareEnabled = false,
@@ -1144,6 +1147,83 @@ export default function ExplorerChart({
           <HelperText status="error">Unknown chart type</HelperText>
         </Box>
       )}
+    </Flex>
+  );
+}
+
+/**
+ * With `separateValueCharts`, each value is drawn as its own chart so values on
+ * different scales (e.g. a ratio beside a count) each get their own axis.
+ */
+export default function ExplorerChart(
+  props: Parameters<typeof ExplorerChartPanel>[0],
+) {
+  const {
+    submittedExploreState,
+    exploration,
+    comparisonExploration,
+    serverBigNumberTrends,
+  } = props;
+  const { getFactMetricById } = useDefinitions();
+  const separate = showsSeparateValueCharts(
+    submittedExploreState,
+    getFactMetricById,
+  );
+
+  const panels = useMemo(() => {
+    if (!separate || !datasetHasValues(submittedExploreState.dataset)) {
+      return null;
+    }
+    return submittedExploreState.dataset.values.map((_, i) => {
+      const current = sliceExplorationToValue(
+        submittedExploreState,
+        exploration,
+        i,
+      );
+      return {
+        config: current.config,
+        exploration: current.exploration,
+        comparisonExploration: sliceExplorationToValue(
+          submittedExploreState,
+          comparisonExploration ?? null,
+          i,
+        ).exploration,
+        serverBigNumberTrends: serverBigNumberTrends
+          ? [serverBigNumberTrends[i] ?? null]
+          : null,
+      };
+    });
+  }, [
+    separate,
+    submittedExploreState,
+    exploration,
+    comparisonExploration,
+    serverBigNumberTrends,
+  ]);
+
+  if (!panels) return <ExplorerChartPanel {...props} />;
+
+  return (
+    <Flex
+      direction="column"
+      gap="3"
+      style={{ flex: 1, minHeight: 0, minWidth: 0, overflowY: "auto" }}
+    >
+      {panels.map((panel, i) => (
+        <Flex
+          key={i}
+          direction="column"
+          style={{ flex: "1 0 240px", minHeight: 240 }}
+        >
+          <ExplorerChartPanel
+            {...props}
+            submittedExploreState={panel.config}
+            exploration={panel.exploration}
+            comparisonExploration={panel.comparisonExploration}
+            serverBigNumberTrends={panel.serverBigNumberTrends}
+          />
+        </Flex>
+      ))}
     </Flex>
   );
 }

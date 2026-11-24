@@ -9,12 +9,23 @@ const clickHouseEscapeStringLiteral = (value: string) =>
 
 const SAFE_CH_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
-// Quote a native-JSON subcolumn key. The key is a single top-level JSON field
-// (may contain spaces/dots/etc.), so backtick-quote it as one identifier when
-// it isn't a safe bare identifier — `attributes.company id` is invalid SQL,
-// `attributes.\`company id\`` is correct.
+// Quote a native-JSON subcolumn path. Each dotted key (may contain spaces etc.)
+// is backtick-quoted when it isn't a safe bare identifier —
+// `attributes.company id` is invalid SQL, `attributes.\`company id\`` is correct.
 const quoteClickHouseJsonPath = (path: string): string =>
-  SAFE_CH_IDENTIFIER.test(path) ? path : `\`${path.replace(/`/g, "``")}\``;
+  path
+    .split(".")
+    .map((key) =>
+      SAFE_CH_IDENTIFIER.test(key) ? key : `\`${key.replace(/`/g, "``")}\``,
+    )
+    .join(".");
+
+// JSONExtract* take nested keys as separate arguments
+const clickHouseJsonKeys = (path: string): string =>
+  path
+    .split(".")
+    .map((key) => `'${clickHouseEscapeStringLiteral(key)}'`)
+    .join(", ");
 
 export const clickHouseDialect: SqlDialect = {
   ...baseDialect,
@@ -100,7 +111,7 @@ export const clickHouseDialect: SqlDialect = {
 if(
   toTypeName(${jsonCol}) = 'JSON',
   toFloat64OrNull(${jsonCol}.${quoteClickHouseJsonPath(path)}::Nullable(String)),
-  JSONExtractFloat(${jsonCol}, '${path}')
+  JSONExtractFloat(${jsonCol}, ${clickHouseJsonKeys(path)})
 )
       `;
     }
@@ -111,7 +122,7 @@ if(
 if(
   toTypeName(${jsonCol}) = 'JSON',
   ${jsonCol}.${quoteClickHouseJsonPath(path)}::Nullable(String),
-  JSONExtractString(${jsonCol}, '${path}')
+  JSONExtractString(${jsonCol}, ${clickHouseJsonKeys(path)})
 )
       `;
   },

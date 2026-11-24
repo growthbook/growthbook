@@ -19,6 +19,7 @@ import type {
   JourneyStepGroup,
   ExplorationDateRange,
   ProductAnalyticsChartSettings,
+  ProductAnalyticsExploration,
 } from "shared/validators";
 import {
   explorationConfigValidator,
@@ -54,6 +55,7 @@ import {
   getRelevantFactTableIds,
   normalizeShowAs,
   fillMissingUnits,
+  getMetricMixClass,
 } from "shared/enterprise";
 import type { DimensionFactTable } from "shared/enterprise";
 import {
@@ -1832,3 +1834,86 @@ export const comparisonModeQueryParser = createParser<ComparisonMode | null>({
   },
   serialize: (value) => value ?? "",
 });
+
+/** Chart types that can draw each value as its own chart. */
+export const CHART_TYPES_WITH_AXES = new Set<ExplorationConfig["chartType"]>([
+  "line",
+  "area",
+  "bar",
+  "stackedBar",
+  "horizontalBar",
+  "stackedHorizontalBar",
+]);
+
+/** Whether the chart can offer one chart per value. */
+export function canSeparateValueCharts(config: ExplorationConfig): boolean {
+  return (
+    CHART_TYPES_WITH_AXES.has(config.chartType) &&
+    datasetHasValues(config.dataset) &&
+    config.dataset.values.length > 1
+  );
+}
+
+/**
+ * Ratio and quantile metrics can't share an axis with other metric types, so a
+ * chart mixing them always draws each metric separately.
+ */
+export function valuesMixMetricClasses(
+  config: ExplorationConfig,
+  getFactMetricById: (
+    id: string,
+  ) => Pick<FactMetricInterface, "metricType"> | null,
+): boolean {
+  if (config.dataset.type !== "metric") return false;
+  const classes = new Set(
+    config.dataset.values
+      .map((v) => getMetricMixClass(getFactMetricById(v.metricId)?.metricType))
+      .filter((c) => c !== "unknown"),
+  );
+  return classes.size > 1;
+}
+
+/** Whether each value is drawn as its own chart. */
+export function showsSeparateValueCharts(
+  config: ExplorationConfig,
+  getFactMetricById: (
+    id: string,
+  ) => Pick<FactMetricInterface, "metricType"> | null,
+): boolean {
+  return (
+    canSeparateValueCharts(config) &&
+    (!!config.chartSettings?.separateValueCharts ||
+      valuesMixMetricClasses(config, getFactMetricById))
+  );
+}
+
+/**
+ * The config and results narrowed to one value, for drawing it as its own
+ * chart. Its axis takes the value's own default label.
+ */
+export function sliceExplorationToValue(
+  config: ExplorationConfig,
+  exploration: ProductAnalyticsExploration | null,
+  index: number,
+): {
+  config: ExplorationConfig;
+  exploration: ProductAnalyticsExploration | null;
+} {
+  const values = datasetHasValues(config.dataset) ? config.dataset.values : [];
+  return {
+    config: {
+      ...config,
+      dataset: { ...config.dataset, values: [values[index]] },
+      chartSettings: omit(config.chartSettings, "valueAxisLabel"),
+    } as ExplorationConfig,
+    exploration: exploration && {
+      ...exploration,
+      result: {
+        ...exploration.result,
+        rows: exploration.result.rows.map((row) =>
+          row.values ? { ...row, values: [row.values[index]] } : row,
+        ),
+      },
+    },
+  };
+}

@@ -12,6 +12,7 @@ import {
   getDateGranularity,
   buildAlignedComparisonRowLookup,
   densifyPopulationTimeseriesRows,
+  isComparedMetricColumn,
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import { FactTableDefinition } from "shared/types/fact-table";
@@ -38,11 +39,9 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
-// In compare mode only metric columns split into current and previous. A type
-// predicate so the other branch can read the metric column's `sub`.
-function showsCurrentPeriodOnly(
-  col: ExplorationColumn,
-): col is Exclude<ExplorationColumn, { kind: "metric" }> {
+// In compare mode only metric columns split into current and previous (a
+// ratio's Numerator / Denominator are hidden)
+function showsCurrentPeriodOnly(col: ExplorationColumn): boolean {
   return col.kind !== "metric";
 }
 
@@ -577,12 +576,8 @@ export default function useExplorationTableData(
 
   const tableCompareActive = useMemo(
     () =>
-      Boolean(
-        compareEnabled &&
-          comparisonExploration?.result?.rows?.length &&
-          !hasAnyRatio,
-      ),
-    [compareEnabled, comparisonExploration?.result?.rows?.length, hasAnyRatio],
+      Boolean(compareEnabled && comparisonExploration?.result?.rows?.length),
+    [compareEnabled, comparisonExploration?.result?.rows?.length],
   );
 
   const orderedColumnKeys = useMemo(() => {
@@ -591,7 +586,7 @@ export default function useExplorationTableData(
       columns.forEach((col, i) => {
         if (showsCurrentPeriodOnly(col)) {
           keys.push(col.key);
-        } else if (col.sub === "single") {
+        } else if (isComparedMetricColumn(col)) {
           keys.push(`${col.key}__curr`, `${col.key}__prev`);
         }
         // Insert the previous-date column immediately after the current date
@@ -611,8 +606,7 @@ export default function useExplorationTableData(
     if (!tableCompareActive) return undefined;
     const meta: Record<string, ExplorationTableCompareColumnMeta> = {};
     for (const col of columns) {
-      if (col.kind !== "metric") continue;
-      if (col.sub !== "single") continue;
+      if (!isComparedMetricColumn(col)) continue;
       const prevKey = `${col.key}__prev`;
       const currKey = `${col.key}__curr`;
       const trendKey = `${col.key}__trend`;
@@ -637,7 +631,7 @@ export default function useExplorationTableData(
       columns.forEach((col, i) => {
         if (showsCurrentPeriodOnly(col)) {
           labels.push(col.label);
-        } else if (col.sub === "single") {
+        } else if (isComparedMetricColumn(col)) {
           labels.push(
             `${col.label} — ${currHeading}`,
             `${col.label} — ${prevHeading}`,
@@ -672,7 +666,7 @@ export default function useExplorationTableData(
       columns.forEach((col, i) => {
         if (showsCurrentPeriodOnly(col)) {
           row1.push({ label: col.label, rowSpan: 2 });
-        } else if (col.sub === "single") {
+        } else if (isComparedMetricColumn(col)) {
           row1.push({ label: col.label, colSpan: 2 });
           row2Labels.push(currHeading, prevHeading);
         }
@@ -797,7 +791,7 @@ export default function useExplorationTableData(
             ] as const);
             continue;
           }
-          if (col.sub === "single") {
+          if (isComparedMetricColumn(col)) {
             const rawCurr = getExplorationCellValue(row, col, renderOpts);
             const rawPrev = cmpRow
               ? getExplorationCellValue(cmpRow, col, renderOpts)
@@ -864,7 +858,9 @@ export default function useExplorationTableData(
         textKeys.push(col.key);
       } else if (tableCompareActive && col.kind === "metric") {
         // Current and previous share decimals so the pair reads consistently.
-        numberKeyGroups.push([`${col.key}__curr`, `${col.key}__prev`]);
+        if (isComparedMetricColumn(col)) {
+          numberKeyGroups.push([`${col.key}__curr`, `${col.key}__prev`]);
+        }
       } else {
         numberKeyGroups.push([col.key]);
       }

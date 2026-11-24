@@ -624,6 +624,24 @@ from
         },
       ]);
     });
+
+    it("flattens nested JSON objects into dotted fields", () => {
+      expect(
+        determineColumnTypes(
+          [{ props: { address: { city: "Paris", zip: 75 } } }],
+          new Map(),
+        ),
+      ).toEqual([
+        {
+          column: "props",
+          datatype: "json",
+          jsonFields: {
+            "address.city": { datatype: "string" },
+            "address.zip": { datatype: "number" },
+          },
+        },
+      ]);
+    });
   });
 });
 

@@ -74,6 +74,8 @@ export const jsonColumnFieldsValidator = z.record(
   z.string(),
   z.object({
     datatype: factTableColumnTypeValidator,
+    // Written only by updateColumnsTopValues
+    topValues: z.array(z.string()).optional(),
   }),
 );
 

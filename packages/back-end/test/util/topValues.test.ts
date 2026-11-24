@@ -240,6 +240,44 @@ describe("buildTopValuesWrite", () => {
   });
 });
 
+describe("buildTopValuesWrite for JSON fields", () => {
+  it("rewrites the JSON column's fields, guarded on the read copy", () => {
+    const jsonFields = {
+      "address.city": { datatype: "string" as const },
+      plan: { datatype: "string" as const },
+    };
+    const current = {
+      userIdTypes: [],
+      columns: [
+        { column: "props", datatype: "json", deleted: false, jsonFields },
+      ] as ColumnInterface[],
+    };
+    const snapshot = {
+      values: [{ value: "Paris" }],
+      refreshedAt: new Date("2026-11-01T00:00:00Z"),
+    };
+    expect(
+      buildTopValuesWrite(current, [
+        { column: "props.address.city", snapshot },
+        { column: "props.unknown", snapshot },
+      ]),
+    ).toEqual({
+      $set: {
+        "columns.$[j0].jsonFields": {
+          "address.city": { datatype: "string", topValues: ["Paris"] },
+          plan: { datatype: "string" },
+        },
+      },
+      $unset: {},
+      arrayFilters: [{ "j0.column": "props" }],
+      filter: {
+        $and: [{ columns: { $elemMatch: { column: "props", jsonFields } } }],
+      },
+      changed: true,
+    });
+  });
+});
+
 describe("storedTopValuesFilter", () => {
   it("matches each stored column's snapshot date, or its absence", () => {
     const topValuesDate = new Date("2026-11-01T00:00:00Z");

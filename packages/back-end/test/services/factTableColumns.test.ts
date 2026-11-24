@@ -79,6 +79,26 @@ async function refreshColumns({
 }
 
 describe("selectColumnsForTopValues", () => {
+  it("adds string JSON fields by path after plain columns", () => {
+    const result = selectColumnsForTopValues({
+      columns: [
+        makeCol("props", {
+          datatype: "json",
+          jsonFields: {
+            "address.city": { datatype: "string" },
+            count: { datatype: "number" },
+          },
+        }),
+        makeCol("country"),
+      ],
+      userIdTypes: [],
+    });
+    expect(result.map((c) => [c.column, c.datatype])).toEqual([
+      ["country", "string"],
+      ["props.address.city", "string"],
+    ]);
+  });
+
   it("selects all eligible string columns when under the cap", () => {
     const columns = [
       makeCol("country"),

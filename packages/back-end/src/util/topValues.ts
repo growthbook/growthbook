@@ -4,6 +4,7 @@ import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import {
   ColumnInterface,
   FactTableInterface,
+  JSONColumnFields,
   TopValuesSnapshot,
 } from "shared/types/fact-table";
 
@@ -160,8 +161,26 @@ export function buildTopValuesWrite(
   const arrayFilters: Record<string, string>[] = [];
   const guards: Record<string, unknown>[] = [];
   let changed = false;
+  // A JSON field's top values live on its jsonFields entry, so the column's
+  // whole map is rewritten
+  const jsonWrites = new Map<ColumnInterface, JSONColumnFields>();
   updates.forEach((update, i) => {
     const column = current.columns.find((c) => c.column === update.column);
+    if (!column && update.snapshot.values.length) {
+      const [base, ...path] = update.column.split(".");
+      const field = path.join(".");
+      const jsonColumn = current.columns.find(
+        (c) => c.column === base && c.datatype === "json" && !c.deleted,
+      );
+      if (!jsonColumn?.jsonFields?.[field]) return;
+      const fields = jsonWrites.get(jsonColumn) ?? { ...jsonColumn.jsonFields };
+      fields[field] = {
+        ...fields[field],
+        topValues: update.snapshot.values.map((v) => v.value),
+      };
+      jsonWrites.set(jsonColumn, fields);
+      return;
+    }
     if (!column || column.deleted || !update.snapshot.values.length) return;
     const id = `c${i}`;
     const fields = getTopValuesUpdateFields(column, update, maxSliceLevels);
@@ -186,6 +205,21 @@ export function buildTopValuesWrite(
       }
     });
     arrayFilters.push({ [`${id}.column`]: update.column });
+  });
+  [...jsonWrites].forEach(([jsonColumn, fields], i) => {
+    const id = `j${i}`;
+    $set[`columns.$[${id}].jsonFields`] = fields;
+    arrayFilters.push({ [`${id}.column`]: jsonColumn.column });
+    // A jsonFields edit between the read and the write fails the match
+    guards.push({
+      columns: {
+        $elemMatch: {
+          column: jsonColumn.column,
+          jsonFields: jsonColumn.jsonFields,
+        },
+      },
+    });
+    changed ||= !isEqual(jsonColumn.jsonFields, fields);
   });
   const filter = guards.length ? { $and: guards } : {};
   return arrayFilters.length

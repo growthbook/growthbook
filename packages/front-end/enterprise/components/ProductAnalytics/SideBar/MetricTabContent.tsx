@@ -20,13 +20,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   generateUniqueValueName,
   getShowAsChoice,
-  MetricMixClass,
 } from "@/enterprise/components/ProductAnalytics/util";
 import {
-  getAddMetricConflict,
-  getLockedMixClass,
   getMetricValuesUnitState,
-  getMixClassConflict,
   getPopulationConflict,
   getReadOnlyUnit,
   getUnitConflict,
@@ -39,10 +35,10 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { usePopulations } from "@/hooks/usePopulations";
+import styles from "./ValueCard.module.scss";
 import PopulationPicker from "./PopulationPicker";
 import ShowAsInput from "./ShowAsInput";
 import ValueCard from "./ValueCard";
-import styles from "./ValueCard.module.scss";
 
 export default function MetricTabContent() {
   const {
@@ -90,9 +86,6 @@ export default function MetricTabContent() {
     getFactTableById,
   );
   const unitPicker = getUnitPicker(values, unitState, getFactMetricById);
-  const addMetricConflict = getAddMetricConflict(
-    values.map((v) => getFactMetricById(v.metricId ?? "")?.metricType),
-  );
 
   // Build the base grouped options list for this datasource. All metrics are
   // always shown; compat is enforced per-slot via isOptionDisabled so users
@@ -124,17 +117,6 @@ export default function MetricTabContent() {
         : [];
   }, [factMetrics, draftExploreState.datasource]);
 
-  /** The class any metric in `slotIdx` must match to be compatible with the
-   *  rest of the chart (or null if no restriction applies). */
-  const getLockedClassForSlot = (
-    slotIdx: number,
-  ): Exclude<MetricMixClass, "unknown"> | null => {
-    const otherTypes = values
-      .filter((_, i) => i !== slotIdx)
-      .map((v) => getFactMetricById(v.metricId ?? "")?.metricType);
-    return getLockedMixClass(otherTypes);
-  };
-
   /** The unit a metric in `slotIdx` must offer to keep the chart on one unit
    *  (or null when the other metrics have none, or already mix units). */
   const getLockedUnitForSlot = (slotIdx: number): string | null => {
@@ -148,11 +130,7 @@ export default function MetricTabContent() {
 
   /** Why `metric` can't go in a slot with these locks, or null if it can. */
   const getDisabledReason = useCallback(
-    (
-      metric: FactMetricInterface,
-      lockedClass: Exclude<MetricMixClass, "unknown"> | null,
-      lockedUnit: string | null,
-    ): string | null => {
+    (metric: FactMetricInterface, lockedUnit: string | null): string | null => {
       if (populationFactTable !== null) {
         const conflict = getPopulationConflict(
           metric,
@@ -161,10 +139,7 @@ export default function MetricTabContent() {
         );
         if (conflict !== null) return conflict;
       }
-      return (
-        getMixClassConflict(metric.metricType, lockedClass) ??
-        getUnitConflict(metric, lockedUnit, getFactTableById)
-      );
+      return getUnitConflict(metric, lockedUnit, getFactTableById);
     },
     [getFactTableById, populationFactTable],
   );
@@ -174,19 +149,13 @@ export default function MetricTabContent() {
   // re-clone every metric option on each edit.
   const getOrderedOptions = useMemo(() => {
     const orderedByLocks = new Map<string, (SingleValue | GroupedValue)[]>();
-    return (
-      lockedClass: Exclude<MetricMixClass, "unknown"> | null,
-      lockedUnit: string | null,
-    ) => {
-      const key = `${lockedClass}|${lockedUnit}`;
+    return (lockedUnit: string | null) => {
+      const key = lockedUnit ?? "";
       let ordered = orderedByLocks.get(key);
       if (!ordered) {
         ordered = orderEnabledOptionsFirst(groupedOptions, (metricId) => {
           const metric = getFactMetricById(metricId);
-          return (
-            !!metric &&
-            getDisabledReason(metric, lockedClass, lockedUnit) !== null
-          );
+          return !!metric && getDisabledReason(metric, lockedUnit) !== null;
         });
         orderedByLocks.set(key, ordered);
       }
@@ -219,13 +188,10 @@ export default function MetricTabContent() {
       )}
 
       {values.map((v, idx) => {
-        const lockedClass = getLockedClassForSlot(idx);
         const lockedUnit = getLockedUnitForSlot(idx);
         const disabledReasonFor = (metricId: string) => {
           const metric = getFactMetricById(metricId);
-          return metric
-            ? getDisabledReason(metric, lockedClass, lockedUnit)
-            : null;
+          return metric ? getDisabledReason(metric, lockedUnit) : null;
         };
         const { options: showAsOptions, showAs } = getShowAsChoice(
           v,
@@ -295,7 +261,7 @@ export default function MetricTabContent() {
 
                   updateValueInDataset(idx, updates as MetricValue);
                 }}
-                options={getOrderedOptions(lockedClass, lockedUnit)}
+                options={getOrderedOptions(lockedUnit)}
                 isOptionDisabled={(option) =>
                   "value" in option && disabledReasonFor(option.value) !== null
                 }
@@ -328,22 +294,16 @@ export default function MetricTabContent() {
           </ValueCard>
         );
       })}
-      <Tooltip
-        enabled={addMetricConflict !== null}
-        content={addMetricConflict ?? ""}
+      <Button
+        size="md"
+        variant="outline"
+        onClick={() => addValueToDataset("metric")}
       >
-        <Button
-          size="md"
-          variant="outline"
-          disabled={addMetricConflict !== null}
-          onClick={() => addValueToDataset("metric")}
-        >
-          <Flex align="center" gap="2">
-            <PiPlus size={14} />
-            Add metric
-          </Flex>
-        </Button>
-      </Tooltip>
+        <Flex align="center" gap="2">
+          <PiPlus size={14} />
+          Add metric
+        </Flex>
+      </Button>
       {/* An applied Population stays clearable with no metric selected. */}
       {(unitPicker || hasPopulation) && (
         <Flex
