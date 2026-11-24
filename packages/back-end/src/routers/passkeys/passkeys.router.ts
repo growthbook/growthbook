@@ -68,23 +68,26 @@ router.delete(
 // Sign-in runs before login, so this router is mounted without auth
 const signInRouter = express.Router();
 
-// Each options request stores a challenge, so cap anonymous callers per IP
-const signInRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: "Too many sign-in attempts. Please try again later." },
-});
+const signInRateLimit = (max: number) =>
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many sign-in attempts. Please try again later." },
+  });
 
+// Each options request stores a challenge, so cap anonymous callers per IP.
+// The login page asks for one on every visit to offer passkeys in autofill,
+// and without EXPRESS_TRUST_PROXY_OPTS everyone behind a proxy shares an IP.
 signInRouter.post(
   "/options",
-  signInRateLimit,
+  signInRateLimit(100),
   signInController.postPasskeySignInOptions,
 );
 signInRouter.post(
   "/verify",
-  signInRateLimit,
+  signInRateLimit(30),
   validateRequestMiddleware({ body: finishPasskeySignInBodyValidator }),
   signInController.postPasskeySignInVerify,
 );
