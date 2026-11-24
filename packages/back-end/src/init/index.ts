@@ -14,7 +14,7 @@ export async function init() {
       // concurrent first-touch upserts without the unique index would create
       // duplicate per-org docs (breaking this index's creation on the next boot).
       await ensureDefinitionsVersionIndex();
-      // Cloud runs this as a script instead. A failure leaves organizations
+      // Cloud runs this from the super admin page instead. A failure leaves organizations
       // on what they had before, so it must not stop the server.
       if (!IS_CLOUD) {
         try {

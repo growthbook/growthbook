@@ -79,6 +79,10 @@ import {
   validateExperimentData,
 } from "back-end/src/services/experiments";
 import {
+  assertUrlRedirectAllowed,
+  assertVisualChangesAllowed,
+} from "back-end/src/services/autoExperiments";
+import {
   assertRegisteredAttributesScoped,
   lazyAttributeScope,
 } from "back-end/src/services/attributes";
@@ -1524,6 +1528,16 @@ export async function postExperiments(
     if (originalVisualChangesets.length || originalUrlRedirects.length) {
       assertCanRunLinkedChanges(context, obj);
     }
+
+    // Also checked on each write; here so a refused copy creates nothing.
+    if (originalVisualChangesets.length) {
+      assertVisualChangesAllowed(
+        context,
+        originalVisualChangesets.flatMap((c) => c.visualChanges),
+        { always: true },
+      );
+    }
+    originalUrlRedirects.forEach((r) => assertUrlRedirectAllowed(context, r));
 
     const experiment = await createExperiment({
       data: obj,

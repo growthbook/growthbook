@@ -1,3 +1,4 @@
+import type { ObjectId } from "mongodb";
 import { isCrossOriginRedirect } from "shared/util";
 import type { AutoExperimentFeature } from "shared/types/organization";
 import { getCollection } from "back-end/src/util/mongo.util";
@@ -88,26 +89,49 @@ async function backfillConnections(organization: string, usage: Settings) {
   );
 }
 
+const PENDING = { "settings.autoExperiments": { $exists: false } };
+
+export function countAutoExperimentBackfillPending(): Promise<number> {
+  return getCollection("organizations").countDocuments(PENDING);
+}
+
 // Gives every organization that predates the opt-in explicit settings that
 // match what it already uses, so nothing live changes. Safe to run again: an
-// organization that has settings is skipped.
-export async function backfillAutoExperimentSettings(): Promise<number> {
+// organization that has settings is skipped. With `maxMs` it stops early and
+// reports what is left, so a request can run it in passes.
+export async function backfillAutoExperimentSettings({
+  maxMs,
+}: { maxMs?: number } = {}): Promise<{ updated: number; remaining: number }> {
   const orgs = getCollection<{ id: string }>("organizations");
-  const pending = { "settings.autoExperiments": { $exists: false } };
-  const ids = (await orgs.find(pending, { projection: { id: 1 } }).toArray())
-    .map((o) => o.id)
-    .filter(Boolean);
+  const deadline = maxMs === undefined ? Infinity : Date.now() + maxMs;
   let updated = 0;
-  for (const id of ids) {
-    const usage = await getUsage(id);
-    // Connections first: a crash in between leaves the organization pending,
-    // and the next run finishes it.
-    await backfillConnections(id, usage);
-    const res = await orgs.updateOne(
-      { id, ...pending },
-      { $set: { "settings.autoExperiments": usage } },
-    );
-    updated += res.modifiedCount;
+  // Walks forward by _id, so an organization that can't be updated is passed
+  // over rather than read again forever.
+  let after: ObjectId | null = null;
+  while (Date.now() < deadline) {
+    const batch: { _id: ObjectId; id: string }[] = await orgs
+      .find(
+        { ...PENDING, ...(after !== null ? { _id: { $gt: after } } : {}) },
+        { projection: { id: 1 } },
+      )
+      .sort({ _id: 1 })
+      .limit(100)
+      .toArray();
+    if (!batch.length) break;
+    for (const { _id, id } of batch) {
+      after = _id;
+      if (!id) continue;
+      const usage = await getUsage(id);
+      // Connections first: a crash in between leaves the organization
+      // pending, and the next run finishes it.
+      await backfillConnections(id, usage);
+      const res = await orgs.updateOne(
+        { id, ...PENDING },
+        { $set: { "settings.autoExperiments": usage } },
+      );
+      updated += res.modifiedCount;
+      if (Date.now() >= deadline) break;
+    }
   }
-  return updated;
+  return { updated, remaining: await countAutoExperimentBackfillPending() };
 }
