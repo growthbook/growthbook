@@ -25,6 +25,9 @@ import Tooltip from "@/ui/Tooltip";
 
 const RECENT_DELIVERIES = 10;
 
+// Settings pages shade table headers; inside a card the header sits on it.
+const flushHeader = { backgroundColor: "transparent" };
+
 // Failures among the latest deliveries: a health check, not a running tally.
 export function recentFailures(logs: EventWebHookLogInterface[]) {
   const recent = logs.slice(0, RECENT_DELIVERIES);
@@ -149,10 +152,14 @@ export default function EventWebHookStatus({
           <Table variant="ghost">
             <TableHeader>
               <TableRow>
-                <TableColumnHeader width="32px" />
-                <TableColumnHeader width="180px">Time</TableColumnHeader>
-                <TableColumnHeader>Event</TableColumnHeader>
-                <TableColumnHeader width="160px">Result</TableColumnHeader>
+                <TableColumnHeader width="32px" style={flushHeader} />
+                <TableColumnHeader width="180px" style={flushHeader}>
+                  Time
+                </TableColumnHeader>
+                <TableColumnHeader style={flushHeader}>Event</TableColumnHeader>
+                <TableColumnHeader width="160px" style={flushHeader}>
+                  Result
+                </TableColumnHeader>
               </TableRow>
             </TableHeader>
             <TableBody>

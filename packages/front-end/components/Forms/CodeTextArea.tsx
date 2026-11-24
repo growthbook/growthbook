@@ -578,7 +578,7 @@ export default function CodeTextArea({
               <div
                 ref={containerRef}
                 className={clsx(
-                  "position-relative border rounded",
+                  styles.frame,
                   "gb-field-indicator-host",
                   wrapperClassName,
                   {
