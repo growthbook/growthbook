@@ -654,6 +654,40 @@ describe("getFeatureDefinition with QA overrides", () => {
       expect(def?.rules).toHaveLength(1);
       expect(def?.rules?.[0]?.condition).toBeUndefined();
     });
+
+    it("is kept when the experiment rule is disabled or not yet scheduled", () => {
+      const withRule = (rule: Record<string, unknown>) =>
+        ({
+          ...holdoutFeature,
+          environmentSettings: {
+            dev: {
+              enabled: true,
+              rules: [
+                {
+                  ...holdoutFeature.environmentSettings.dev.rules[0],
+                  ...rule,
+                },
+              ],
+            },
+          },
+        }) as unknown as FeatureInterface;
+      const future = new Date(Date.now() + 86400000).toISOString();
+
+      for (const rule of [
+        { enabled: false },
+        { scheduleRules: [{ enabled: true, timestamp: future }] },
+      ]) {
+        const def = build([forcedOverride], {
+          feature: withRule(rule),
+          holdoutsMap,
+        });
+        expect(def?.rules).toHaveLength(1);
+        expect(def?.rules?.[0]?.parentConditions?.[0]?.id).toBe(
+          "$holdout:hld_1",
+        );
+        expect(def?.rules?.[0]?.condition).toBeUndefined();
+      }
+    });
   });
 });
 
