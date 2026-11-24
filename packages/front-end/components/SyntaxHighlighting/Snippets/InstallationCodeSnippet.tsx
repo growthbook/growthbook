@@ -6,7 +6,10 @@ import {
   connectionServesAutoExperimentFeature,
   getScriptBundleUrl,
 } from "shared/util";
-import { getLatestSDKVersion } from "shared/sdk-versioning";
+import {
+  getLatestSDKVersion,
+  isLegacyScriptTagVersion,
+} from "shared/sdk-versioning";
 import React, { useCallback, useMemo } from "react";
 import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -36,6 +39,7 @@ export default function InstallationCodeSnippet({
   // The script tag only loads what the connection serves
   connection: Pick<
     SDKConnectionInterface,
+    | "sdkVersion"
     | "includeVisualExperiments"
     | "includeRedirectExperiments"
     | "allowCustomJs"
@@ -43,14 +47,15 @@ export default function InstallationCodeSnippet({
   >;
 }) {
   const scriptUrl = getScriptBundleUrl(connection);
-  const allowCustomJs = connectionServesAutoExperimentFeature(
-    connection,
-    "customJs",
-  );
-  const allowCrossOriginRedirects = connectionServesAutoExperimentFeature(
-    connection,
-    "crossOriginRedirects",
-  );
+  // The legacy auto.min.js runs both without being asked
+  const legacyScript =
+    !connection.sdkVersion || isLegacyScriptTagVersion(connection.sdkVersion);
+  const allowCustomJs =
+    !legacyScript &&
+    connectionServesAutoExperimentFeature(connection, "customJs");
+  const allowCrossOriginRedirects =
+    !legacyScript &&
+    connectionServesAutoExperimentFeature(connection, "crossOriginRedirects");
   const eventIngestorHost =
     eventTracker === "growthbook" && eventIngestorRegion
       ? getEventIngestorHost(eventIngestorRegion)

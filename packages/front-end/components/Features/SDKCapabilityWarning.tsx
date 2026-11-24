@@ -13,6 +13,10 @@ import { Popover } from "@/ui/Popover";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
+import {
+  scriptTagLanguage,
+  sdkVersionLabel,
+} from "./SDKConnections/sdkConnectionRules";
 
 export function IncompatibleSDKsPopover({
   connections,
@@ -46,7 +50,10 @@ export function IncompatibleSDKsPopover({
   const formatLanguage = (c: SDKConnectionInterface) => {
     const lang = c.languages?.[0];
     const label = lang ? (languageMapping[lang]?.label ?? lang) : "Unknown";
-    return c.sdkVersion ? `${label} v${c.sdkVersion}` : label;
+    if (!c.sdkVersion) return label;
+    return scriptTagLanguage(c.languages ?? [])
+      ? `${label} ${sdkVersionLabel(c.languages, c.sdkVersion)}`
+      : `${label} v${c.sdkVersion}`;
   };
 
   return (
