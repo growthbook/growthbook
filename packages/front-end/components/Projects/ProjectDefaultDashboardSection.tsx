@@ -20,9 +20,13 @@ import { useSetProjectDefaultDashboard } from "@/hooks/useSetProjectDefaultDashb
 export default function ProjectDefaultDashboardSection({
   projectId: pid,
   defaultDashboardId,
+  canChoose,
 }: {
   projectId: string;
   defaultDashboardId: string | undefined;
+  // False when the plan lacks dashboards: the stored default can only be
+  // cleared, which the back end still allows.
+  canChoose: boolean;
 }) {
   const setProjectDefaultDashboard = useSetProjectDefaultDashboard();
   const {
@@ -97,13 +101,18 @@ export default function ProjectDefaultDashboardSection({
             {dashboardError && (
               <Callout status="error">{dashboardError}</Callout>
             )}
-            {defaultDashboardUnavailable && (
+            {canChoose && defaultDashboardUnavailable && (
               <Callout status="warning">
                 The dashboard chosen as this Project&apos;s default is no longer
                 available. Choose another one or clear it.
               </Callout>
             )}
-            {dashboardsError ? (
+            {!canChoose ? (
+              <Callout status="warning">
+                Your plan doesn&apos;t include dashboards, so you can only clear
+                this Project&apos;s default.
+              </Callout>
+            ) : dashboardsError ? (
               <Callout status="error">
                 There was an error loading the list of dashboards.
               </Callout>

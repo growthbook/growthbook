@@ -500,11 +500,17 @@ const ProjectPage: FC = () => {
                   </RadixButton>
                 </Flex>
                 {/* Below the Save row because it saves on change, not on Save. */}
-                {hasCommercialFeature("product-analytics-dashboards") && (
+                {/* Without the plan, the section stays while a default is
+                    stored, so it can still be cleared. */}
+                {(hasCommercialFeature("product-analytics-dashboards") ||
+                  p?.defaultDashboardId) && (
                   <Box mt="5">
                     <ProjectDefaultDashboardSection
                       projectId={pid}
                       defaultDashboardId={p?.defaultDashboardId}
+                      canChoose={hasCommercialFeature(
+                        "product-analytics-dashboards",
+                      )}
                     />
                   </Box>
                 )}
