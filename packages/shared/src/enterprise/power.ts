@@ -342,6 +342,11 @@ export interface PowerScalingFactorSettings {
   sequentialTuningParameter: number;
 }
 
+const SEARCH_FAILURES = {
+  noUpperBound: "could not find upper bound for scaling factor",
+  notConverged: "bisection search did not converge",
+} as const;
+
 type PowerScalingFactorOutcome = Pick<
   MetricPowerResponseFromStatsEngine,
   "status" | "errorMessage" | "scalingFactor" | "upperBoundAchieved"
@@ -358,7 +363,12 @@ export function calculatePowerScalingFactor(
   // The stats engine sends null, not undefined, for what it could not compute.
   const sampleSize = response.firstPeriodPairwiseSampleSize ?? null;
   const variance = response.sigmahat2Delta ?? null;
-  if (response.errorMessage || sampleSize === null || variance === null) {
+  // An earlier search's failure is stored in the same field as the stats
+  // engine's error. It is not an error in the inputs, so the search runs again.
+  const inputError =
+    !!response.errorMessage &&
+    !Object.values<string>(SEARCH_FAILURES).includes(response.errorMessage);
+  if (inputError || sampleSize === null || variance === null) {
     return null;
   }
   const targetMDE = Math.abs(response.targetMDE);
@@ -422,7 +432,7 @@ export function calculatePowerScalingFactor(
     power = powerAt(scalingFactor);
   }
   if (power < targetPower) {
-    return failure("could not find upper bound for scaling factor", true);
+    return failure(SEARCH_FAILURES.noUpperBound, true);
   }
 
   let lower = 0;
@@ -445,7 +455,7 @@ export function calculatePowerScalingFactor(
     }
   }
   if (!converged) {
-    return failure("bisection search did not converge", false);
+    return failure(SEARCH_FAILURES.notConverged, false);
   }
 
   return {
