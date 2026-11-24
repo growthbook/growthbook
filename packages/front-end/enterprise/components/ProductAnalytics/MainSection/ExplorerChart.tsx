@@ -1197,11 +1197,7 @@ export default function ExplorerChart(
     comparisonExploration,
     serverBigNumberTrends,
   } = props;
-  const { getFactMetricById } = useDefinitions();
-  const separate = showsSeparateValueCharts(
-    submittedExploreState,
-    getFactMetricById,
-  );
+  const separate = showsSeparateValueCharts(submittedExploreState);
 
   const panels = useMemo(() => {
     if (!separate || !datasetHasValues(submittedExploreState.dataset)) {

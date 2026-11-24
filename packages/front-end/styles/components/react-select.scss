@@ -239,6 +239,11 @@
     .gb-select__group-heading {
       margin-top: var(--space-1) !important;
     }
+    // An unlabeled group has nothing above it to divide from, e.g. once a search filters out the groups before it
+    .gb-multi-select__group-heading:empty,
+    .gb-select__group-heading:empty {
+      display: none;
+    }
   }
 }
 

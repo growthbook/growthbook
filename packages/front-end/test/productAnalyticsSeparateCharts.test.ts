@@ -6,16 +6,8 @@ import type {
 import {
   showsSeparateValueCharts,
   sliceExplorationToValue,
-  valuesMixMetricClasses,
+  stripExplorerDraftFields,
 } from "@/enterprise/components/ProductAnalytics/util";
-
-const metricTypes: Record<string, string> = {
-  revenue: "mean",
-  signups: "proportion",
-  aov: "ratio",
-};
-const getFactMetricById = (id: string) =>
-  metricTypes[id] ? ({ metricType: metricTypes[id] } as never) : null;
 
 function config(
   metricIds: string[],
@@ -46,41 +38,38 @@ describe("showsSeparateValueCharts", () => {
   it("separates when asked, on axis charts with more than one value", () => {
     const separate = { chartSettings: { separateValueCharts: true } };
     expect(
-      showsSeparateValueCharts(
-        config(["revenue", "signups"], separate),
-        getFactMetricById,
-      ),
+      showsSeparateValueCharts(config(["revenue", "signups"], separate)),
     ).toBe(true);
-    expect(
-      showsSeparateValueCharts(
-        config(["revenue"], separate),
-        getFactMetricById,
-      ),
-    ).toBe(false);
+    expect(showsSeparateValueCharts(config(["revenue"], separate))).toBe(false);
     expect(
       showsSeparateValueCharts(
         config(["revenue", "signups"], { ...separate, chartType: "bigNumber" }),
-        getFactMetricById,
       ),
     ).toBe(false);
-    expect(
-      showsSeparateValueCharts(
-        config(["revenue", "signups"]),
-        getFactMetricById,
-      ),
-    ).toBe(false);
+    expect(showsSeparateValueCharts(config(["revenue", "signups"]))).toBe(
+      false,
+    );
   });
 
-  it("always separates a ratio charted with other metric types", () => {
+  it("lets a ratio share one chart with other metric types when turned off", () => {
+    expect(showsSeparateValueCharts(config(["revenue", "aov"]))).toBe(false);
+  });
+});
+
+describe("stripExplorerDraftFields", () => {
+  it("keeps the separate-charts setting on the submitted config", () => {
+    const separate = { chartSettings: { separateValueCharts: true } };
     expect(
-      valuesMixMetricClasses(config(["revenue", "aov"]), getFactMetricById),
-    ).toBe(true);
+      stripExplorerDraftFields(config(["revenue", "signups"], separate))
+        .chartSettings,
+    ).toEqual({ separateValueCharts: true });
     expect(
-      valuesMixMetricClasses(config(["revenue", "signups"]), getFactMetricById),
-    ).toBe(false);
-    expect(
-      showsSeparateValueCharts(config(["revenue", "aov"]), getFactMetricById),
-    ).toBe(true);
+      stripExplorerDraftFields(
+        config(["revenue", "signups"], {
+          chartSettings: { separateValueCharts: false },
+        }),
+      ).chartSettings,
+    ).toBeUndefined();
   });
 });
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import Collapsible from "react-collapsible";
@@ -8,7 +8,6 @@ import {
   canSeparateValueCharts,
   getDefaultValueAxisName,
   showsSeparateValueCharts,
-  valuesMixMetricClasses,
   getExplorationRenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -33,6 +32,12 @@ export default function ChartSettingsSection() {
       (draftExploreState.chartType !== "line" ||
         draftExploreState.chartSettings?.anchorYAxisToZero === undefined),
   );
+  // Show the separate-charts switch when it turns on, e.g. on adding a second metric
+  const separateValueCharts =
+    !!draftExploreState.chartSettings?.separateValueCharts;
+  useEffect(() => {
+    if (separateValueCharts) setIsCollapsed(false);
+  }, [separateValueCharts]);
 
   if (!CHART_TYPES_WITH_AXES.has(draftExploreState.chartType)) return null;
 
@@ -53,14 +58,7 @@ export default function ChartSettingsSection() {
   const isLineChart = draftExploreState.chartType === "line";
   const valueNoun =
     draftExploreState.dataset.type === "metric" ? "metric" : "value";
-  const separateCharts = showsSeparateValueCharts(
-    draftExploreState,
-    getFactMetricById,
-  );
-  const mustSeparate = valuesMixMetricClasses(
-    draftExploreState,
-    getFactMetricById,
-  );
+  const separateCharts = showsSeparateValueCharts(draftExploreState);
 
   const updateAxisLabel = (key: AxisLabelKey, value: string) => {
     setDraftExploreState((prev) => ({
@@ -102,18 +100,15 @@ export default function ChartSettingsSection() {
         trigger=""
         triggerDisabled
         transitionTime={100}
+        // Don't clip the switch's focus ring at the edge once open
+        overflowWhenOpen="visible"
       >
         <Flex direction="column" gap="2" mt="2">
           {canSeparateValueCharts(draftExploreState) && (
             <Switch
               label={`Separate chart per ${valueNoun}`}
-              description={`${
-                mustSeparate
-                  ? "Ratio and quantile metrics always chart separately from other metric types."
-                  : `Each ${valueNoun} gets its own chart and value axis.`
-              } Charts are titled with the ${valueNoun} name instead of a shared axis label.`}
+              description={`Each ${valueNoun} gets its own chart and value axis, titled with the ${valueNoun} name instead of a shared axis label.`}
               value={separateCharts}
-              disabled={mustSeparate}
               onChange={(separateValueCharts) =>
                 setDraftExploreState((prev) => ({
                   ...prev,

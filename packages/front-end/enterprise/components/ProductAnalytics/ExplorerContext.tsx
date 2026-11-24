@@ -947,8 +947,15 @@ export function ExplorerProvider({
           }
         }
 
+        // A second metric usually sits on another scale, so start it on its own chart
+        const separateOnSecondMetric =
+          prev.dataset.type === "metric" && prev.dataset.values.length === 1;
+
         return {
           ...prev,
+          ...(separateOnSecondMetric && {
+            chartSettings: { ...prev.chartSettings, separateValueCharts: true },
+          }),
           dataset: {
             ...prev.dataset,
             values: [...prev.dataset.values, value],

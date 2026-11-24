@@ -55,7 +55,6 @@ import {
   getRelevantFactTableIds,
   normalizeShowAs,
   fillMissingUnits,
-  getMetricMixClass,
 } from "shared/enterprise";
 import type {
   DimensionFactTable,
@@ -896,6 +895,10 @@ function cleanChartSettings(
   // Only persist the non-default: anchored to zero is the default.
   if (chartSettings.anchorYAxisToZero === false) {
     next.anchorYAxisToZero = false;
+  }
+  // Only persist the non-default: one shared chart is the default.
+  if (chartSettings.separateValueCharts) {
+    next.separateValueCharts = true;
   }
   return Object.keys(next).length ? next : undefined;
 }
@@ -1892,35 +1895,10 @@ export function canSeparateValueCharts(config: ExplorationConfig): boolean {
   );
 }
 
-/**
- * Ratio and quantile metrics can't share an axis with other metric types, so a
- * chart mixing them always draws each metric separately.
- */
-export function valuesMixMetricClasses(
-  config: ExplorationConfig,
-  getFactMetricById: (
-    id: string,
-  ) => Pick<FactMetricInterface, "metricType"> | null,
-): boolean {
-  if (config.dataset.type !== "metric") return false;
-  const classes = new Set(
-    config.dataset.values
-      .map((v) => getMetricMixClass(getFactMetricById(v.metricId)?.metricType))
-      .filter((c) => c !== "unknown"),
-  );
-  return classes.size > 1;
-}
-
-export function showsSeparateValueCharts(
-  config: ExplorationConfig,
-  getFactMetricById: (
-    id: string,
-  ) => Pick<FactMetricInterface, "metricType"> | null,
-): boolean {
+export function showsSeparateValueCharts(config: ExplorationConfig): boolean {
   return (
     canSeparateValueCharts(config) &&
-    (!!config.chartSettings?.separateValueCharts ||
-      valuesMixMetricClasses(config, getFactMetricById))
+    !!config.chartSettings?.separateValueCharts
   );
 }
 
