@@ -142,7 +142,10 @@ import {
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
-import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
+import {
+  cancelExperimentSnapshot,
+  interruptIncrementalReaders,
+} from "back-end/src/services/snapshotCancellation";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
   auditDetailsCreate,
@@ -944,6 +947,11 @@ export async function getExperimentPublic(
   }
 
   const context = await getContextForAgendaJobByOrgId(experiment.organization);
+  if (context.org.settings?.disablePublicSharing) {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
   const phase = experiment.phases.length - 1;
 
   const snapshot =
@@ -1000,7 +1008,7 @@ async function _getSuccessfulSnapshot({
   const experimentObj = await getExperimentById(context, experiment);
 
   if (!experimentObj) {
-    throw new Error("Experiment not found");
+    throw new NotFoundError("Experiment not found");
   }
 
   if (experimentObj.organization !== context.org.id) {
@@ -1100,7 +1108,7 @@ export async function getSnapshotSummary(
 
   const experimentObj = await getExperimentById(context, id);
   if (!experimentObj) {
-    throw new Error("Experiment not found");
+    throw new NotFoundError("Experiment not found");
   }
   if (experimentObj.organization !== context.org.id) {
     throw new Error("You do not have access to view this experiment");
@@ -1568,6 +1576,8 @@ export async function postExperiments(
           dimension: "",
           phase: 0,
           useCache: true,
+          // Imported experiments may already be stopped but have no results yet
+          bypassResultsUpdateDisabled: true,
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");
@@ -1787,7 +1797,7 @@ export async function postExperimentStatus(
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
-    throw new Error("Experiment not found");
+    throw new NotFoundError("Experiment not found");
   }
   if (experiment.organization !== org.id) {
     throw new Error("You do not have access to this experiment");
@@ -2102,6 +2112,16 @@ export async function deleteExperimentPhase(
   // Remove an element from an array without mutating the original
   changes.phases = experiment.phases.filter((phase, i) => i !== phaseIndex);
 
+  // The summary names its phase by index, which this delete shifts or removes.
+  const summary = experiment.analysisSummary;
+  const summaryPhase = summary?.phase;
+  if (summary && summaryPhase !== undefined && summaryPhase >= phaseIndex) {
+    changes.analysisSummary = {
+      ...summary,
+      phase: summaryPhase === phaseIndex ? -1 : summaryPhase - 1,
+    };
+  }
+
   if (!changes.phases.length) {
     changes.status = "draft";
     if (experiment.type === "multi-armed-bandit") {
@@ -2128,6 +2148,8 @@ export async function deleteExperimentPhase(
   }
 
   try {
+    await interruptIncrementalReaders(context, id, mutationToken);
+
     const updated = await updateExperiment({
       context,
       experiment,
@@ -2186,7 +2208,7 @@ export async function putExperimentPhase(
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
-    throw new Error("Experiment not found");
+    throw new NotFoundError("Experiment not found");
   }
 
   if (experiment.organization !== org.id) {
@@ -3150,7 +3172,7 @@ export async function postVisualChangeset(
   const experiment = await getExperimentById(context, req.params.id);
 
   if (!experiment) {
-    throw new Error("Could not find experiment");
+    throw new NotFoundError("Could not find experiment");
   }
 
   assertVisualChangesEditable(context, experiment);
@@ -3177,7 +3199,7 @@ export async function putVisualChangeset(
 
   const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
   if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
+    throw new NotFoundError("Visual Changeset not found");
   }
 
   const owner = await resolveChangesetOwner(context, visualChangeset);
@@ -3233,7 +3255,7 @@ export async function deleteVisualChangeset(
 
   const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
   if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
+    throw new NotFoundError("Visual Changeset not found");
   }
 
   const owner = await resolveChangesetOwner(context, visualChangeset);
@@ -3321,7 +3343,7 @@ export async function getExperimentTimeSeries(
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
-    throw new Error("Experiment not found");
+    throw new NotFoundError("Experiment not found");
   }
 
   if (isNaN(phaseIndex)) {

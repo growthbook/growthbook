@@ -3,6 +3,7 @@ import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   ExperimentMetricInterface,
   getFactMetricFactTableIds,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isFactMetric,
   isRatioMetric,
@@ -43,6 +44,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { parseDimension } from "back-end/src/services/experiments";
+import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
@@ -251,7 +253,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // data is fully present in this FT. Cross-FT ratios and multifact
     // funnels are handled in dedicated passes below.
     const sameFtMetrics = group.metrics.filter((m) => {
-      if (isFactFunnelMetric(m)) {
+      if (isFactFunnelMetric(m) || isFactCompoundMetric(m)) {
         const ftIds = [...new Set(getFactMetricFactTableIds(m))];
         return ftIds.length === 1;
       }
@@ -411,7 +413,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 
   protected override onHeartbeat(): void {
     this.context.models.incrementalRefresh
-      .touchLockHeartbeat(this.model.experiment, this.model.id)
+      .touchReaderHeartbeat(this.model.experiment, this.model.id)
       .catch((e) =>
         this.context.logger.warn(
           e,
@@ -478,6 +480,27 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       this.integration,
       this.startQuery.bind(this),
     );
+  }
+
+  override async startAnalysis(
+    params: ExperimentIncrementalRefreshExploratoryQueryParams,
+  ): Promise<ExperimentSnapshotInterface> {
+    const model = await super.startAnalysis(params);
+    // A writer that cleared this run's reader entry while its queries were
+    // starting saw an empty query list and cancelled none of them so we
+    // have to finish that cancel here.
+    if (
+      model.status === "running" &&
+      !(await this.context.models.incrementalRefresh.isLockedBySnapshotId(
+        model.experiment,
+        model.id,
+      ))
+    ) {
+      await cancelExperimentSnapshot(this.context, model, {
+        interruptedByWriter: true,
+      });
+    }
+    return model;
   }
 
   // largely copied from ExperimentResultsQueryRunner

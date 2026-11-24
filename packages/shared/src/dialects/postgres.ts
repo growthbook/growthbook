@@ -5,6 +5,7 @@ import { baseDialect } from "./base";
 
 export const postgresDialect: SqlDialect = {
   ...baseDialect,
+  eStrings: true,
   formatDialect: "postgresql",
   jsonArray: {
     unnest: (jsonColumn, itemAlias) =>

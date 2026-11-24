@@ -6,13 +6,14 @@ import {
   getIntegrationIdentifierQuote,
 } from "back-end/src/services/datasource";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const deleteFactTableVirtualColumn = createApiRequestHandler(
   deleteFactTableVirtualColumnValidator,
 )(async (req) => {
   const factTable = await getFactTable(req.context, req.params.factTableId);
   if (!factTable) {
-    throw new Error("Could not find factTable with that id");
+    throw new NotFoundError("Could not find factTable with that id");
   }
 
   // Deleting a virtual column removes a stored SQL expression, so it needs the
@@ -23,7 +24,7 @@ export const deleteFactTableVirtualColumn = createApiRequestHandler(
 
   const column = factTable.columns.find((c) => c.column === req.params.id);
   if (!column) {
-    throw new Error("Could not find a column with that id");
+    throw new NotFoundError("Could not find a column with that id");
   }
 
   // Only virtual (computed) columns are deletable through the API; SQL-detected

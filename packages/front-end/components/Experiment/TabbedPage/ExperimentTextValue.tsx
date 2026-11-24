@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
-import ExpandableBlock from "./ExpandableBlock";
+import ExpandableBlock from "@/ui/ExpandableBlock";
 
 type ExperimentType = ExperimentInterfaceStringDates["type"];
 
@@ -54,7 +54,7 @@ export default function ExperimentTextValue({
   );
   // Clamped, so a long one doesn't push the rest of the page away.
   return field === "description" ? (
-    <ExpandableBlock>{body}</ExpandableBlock>
+    <ExpandableBlock bleed>{body}</ExpandableBlock>
   ) : (
     body
   );

@@ -460,7 +460,7 @@ export const postFeatureRevisionDiscardV2Validator = {
   summary: "Discard a draft revision",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -476,7 +476,7 @@ export const postFeatureRevisionReopenV2Validator = {
     "Returns a `discarded` revision to `draft` status so it can be edited, reviewed, and published. Prior review state is not restored — the draft must go back through review if approvals are required.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -653,8 +653,8 @@ const diffSupplementalFull = z
   .object({
     name: z.string(),
     type: z.string(),
-    before: z.unknown().nullable(),
-    after: z.unknown().nullable(),
+    before: z.unknown().nullish(),
+    after: z.unknown().nullish(),
   })
   .strict();
 
@@ -742,6 +742,7 @@ export const postFeatureRevisionRequestReviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/request-review",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionRequestReviewV2",
   summary: "Request review for a draft revision",
   description:
@@ -835,7 +836,7 @@ export const postFeatureRevisionRecallReviewV2Validator = {
     "Retracts the review request, returning the revision from `pending-review`, `changes-requested`, or `approved` back to `draft`. Allowed for any user with draft-management permission on the feature (the same permission required to request review), not only the original requester. Existing review log entries are preserved as audit history but any in-flight reviewer verdicts (Approved / Requested Changes) submitted during this review cycle no longer count — submitting a fresh `request-review` starts a new cycle.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -850,7 +851,7 @@ export const postFeatureRevisionUndoReviewV2Validator = {
   description: `Reviewer retracts their own verdict. ${REVIEW_VERDICT_NOTE} The revision status rewinds to the state implied by the remaining active verdicts from other reviewers: any outstanding \`Requested Changes\` → \`changes-requested\`, else any outstanding \`Approved\` → \`approved\`, else \`pending-review\`. Existing review comments are preserved. If the retraction resolves the revision to \`approved\` and auto-publish-on-approval is armed, the revision is published.`,
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -927,7 +928,7 @@ export const deleteFeatureRevisionLogEntryV2Validator = {
     "Author of a `Comment` log entry can delete it. Verdict entries (Approved, Requested Changes, Review Requested) and other audit-trail events are immutable. To retract a verdict use `/undo-review`; to retract a review request use `/recall-review`.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionLogParams,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: okResponse,
   version: "v2" as const,

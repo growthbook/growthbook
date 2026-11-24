@@ -9,6 +9,7 @@ import {
   savedGroupFormatValidator,
   SdkPayloadSize,
   SdkPayloadSizeLevel,
+  withNewSdkConnectionDefaults,
 } from "shared/validators";
 import {
   CreateSDKConnectionParams,
@@ -23,7 +24,10 @@ import {
   savedGroupFormatFromConnection,
   withLegacySavedGroupFlag,
 } from "shared/sdk-versioning";
-import { cancellableFetch } from "back-end/src/util/http.util";
+import {
+  cancellableFetch,
+  trimTrailingSlashes,
+} from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
   PROXY_ENABLED,
@@ -35,9 +39,12 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/licenseServerManagedClickhouse";
 import { logger } from "back-end/src/util/logger";
+import { purgeCDNCache } from "back-end/src/util/cdn.util";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { sdkConnectionAuditDetails } from "back-end/src/models/AuditModel";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import {
   getBackendFeatureValue,
   getTrustedOrgAttributes,
@@ -52,6 +59,7 @@ const audit = createModelAuditLogger({
   createEvent: "sdk-connection.create",
   updateEvent: "sdk-connection.update",
   deleteEvent: "sdk-connection.delete",
+  toAuditDetails: sdkConnectionAuditDetails,
 });
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -92,6 +100,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   savedGroupReferencesEnabled: Boolean,
   savedGroupFormat: String,
   eventTracker: String,
+  archived: Boolean,
   managedBy: {},
   key: {
     type: String,
@@ -107,6 +116,8 @@ const sdkConnectionSchema = new mongoose.Schema({
     error: String,
     lastError: Date,
     consecutiveFailures: Number,
+    failingSince: Date,
+    failureAlertedAt: Date,
   },
   payloadSize: {
     bytes: Number,
@@ -190,6 +201,16 @@ export async function findSDKConnectionsByOrganization(
   return readableConnections(context, docs);
 }
 
+// The connections that serve a payload: an archived one can't satisfy a launch
+// check or count toward what SDKs support.
+export async function findServingSDKConnections(
+  context: ReqContext | ApiReqContext,
+) {
+  return (await findSDKConnectionsByOrganization(context)).filter(
+    (c) => !c.archived,
+  );
+}
+
 function readableConnections(
   context: ReqContext | ApiReqContext,
   docs: SDKConnectionDocument[],
@@ -244,23 +265,50 @@ export async function findSDKConnectionsByIds(
   return docs.map(toInterface);
 }
 
+// Throws unless every id is a connection in the org that `can` allows.
+export async function assertCanUseSDKConnections(
+  context: ReqContext,
+  ids: string[],
+  can: (conn: SDKConnectionInterface) => boolean,
+) {
+  const conns = await findSDKConnectionsByIds(context, ids);
+  if (conns.length !== new Set(ids).size) {
+    context.throwBadRequestError("Unknown SDK Connection id");
+  }
+  if (!conns.every(can)) context.permissions.throwPermissionError();
+  return conns;
+}
+
 // Not org-scoped — authenticated callers must scope to their own org.
-export async function findSDKConnectionByKey(key: string) {
+// Archived connections stop serving, so their key doesn't resolve unless
+// `includeArchived` is passed.
+export async function findSDKConnectionByKey(
+  key: string,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+) {
   if (key && typeof key !== "string") return null;
   const doc = await SDKConnectionModel.findOne({ key });
-  return doc ? toInterface(doc) : null;
+  return doc ? visibleByKey(toInterface(doc), includeArchived) : null;
 }
 
 // Org-scoped only; does not check project-read (unlike findSDKConnectionById).
 export async function findSDKConnectionByKeyForOrg(
   context: ReqContext | ApiReqContext,
   key: string,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
 ) {
   const doc = await SDKConnectionModel.findOne({
     organization: context.org.id,
     key,
   });
-  return doc ? toInterface(doc) : null;
+  return doc ? visibleByKey(toInterface(doc), includeArchived) : null;
+}
+
+function visibleByKey(
+  connection: SDKConnectionInterface,
+  includeArchived: boolean,
+) {
+  return !includeArchived && connection.archived ? null : connection;
 }
 
 export const createSDKConnectionValidator = z
@@ -295,7 +343,7 @@ export const createSDKConnectionValidator = z
   })
   .strict();
 
-function assertCanEnableTraces(context: ReqContext | ApiReqContext) {
+export function assertCanEnableTraces(context: ReqContext | ApiReqContext) {
   if (
     !getBackendFeatureValue(
       "trace-ingest",
@@ -319,21 +367,13 @@ export async function createSDKConnection(
   context: ReqContext | ApiReqContext,
   params: CreateSDKConnectionParams,
 ) {
-  const {
-    proxyEnabled,
-    proxyHost,
-    languages,
-    // Written explicitly so "absent" keeps one meaning: off, for the
-    // connections that predate the setting.
-    includeReferencedPrerequisites = true,
-    ...otherParams
-  } = createSDKConnectionValidator.parse(params);
+  const { proxyEnabled, proxyHost, languages, ...otherParams } =
+    withNewSdkConnectionDefaults(createSDKConnectionValidator.parse(params));
   if (otherParams.tracesEnabled) assertCanEnableTraces(context);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
     ...withLegacySavedGroupFlag(otherParams),
-    includeReferencedPrerequisites,
     organization: context.org.id,
     languages: languages as SDKLanguage[],
     id: uniqid("sdk_"),
@@ -426,6 +466,7 @@ export const editSDKConnectionValidator = z
     savedGroupFormat: savedGroupFormatValidator.optional(),
     includeReferencedPrerequisites: z.boolean().optional(),
     eventTracker: z.string().optional(),
+    archived: z.boolean().optional(),
   })
   .strict();
 
@@ -433,6 +474,11 @@ export async function editSDKConnection(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updates: EditSDKConnectionParams,
+  // `null` guards a connection that has never been stamped.
+  options?: {
+    casOnDateUpdated?: Date | null;
+    unset?: readonly (keyof SDKConnectionInterface)[];
+  },
 ) {
   const { proxyEnabled, proxyHost, languages, ...rest } =
     editSDKConnectionValidator.parse(updates);
@@ -458,11 +504,13 @@ export async function editSDKConnection(
     newProxy.enabled = proxyEnabled;
     if (proxyEnabled) {
       newProxy.consecutiveFailures = 0;
+      newProxy.failingSince = null;
     }
   }
   if (proxyHost !== undefined && proxyHost !== connection.proxy.host) {
     newProxy.host = proxyHost;
     newProxy.consecutiveFailures = 0;
+    newProxy.failingSince = null;
 
     if (addEnvProxySettings(newProxy).host) {
       const res = await testProxyConnection(
@@ -505,42 +553,62 @@ export async function editSDKConnection(
     "includeTagsInMetadata",
     "includeExperimentScheduleInMetadata",
     "savedGroupReferencesEnabled",
+    "archived",
     "savedGroupFormat",
     "includeReferencedPrerequisites",
   ] as const;
-  keysRequiringProxyUpdate.forEach((key) => {
-    if (key in otherChanges && !isEqual(otherChanges[key], connection[key])) {
-      needsProxyUpdate = true;
-    }
-  });
-
   const fullChanges = {
     ...otherChanges,
     proxy: newProxy,
     project: "",
     dateUpdated: new Date(),
   };
+  // A key also being set (the legacy saved group flag) can't be unset too.
+  const unset = (options?.unset ?? []).filter((key) => !(key in fullChanges));
 
-  await SDKConnectionModel.updateOne(
+  keysRequiringProxyUpdate.forEach((key) => {
+    if (
+      (key in otherChanges && !isEqual(otherChanges[key], connection[key])) ||
+      (unset.includes(key) && connection[key] !== undefined)
+    ) {
+      needsProxyUpdate = true;
+    }
+  });
+
+  const casOnDateUpdated = options?.casOnDateUpdated;
+  const result = await SDKConnectionModel.updateOne(
     {
       organization: context.org.id,
       id: connection.id,
+      ...(casOnDateUpdated !== undefined && {
+        dateUpdated:
+          casOnDateUpdated === null ? { $exists: false } : casOnDateUpdated,
+      }),
     },
     {
       $set: fullChanges,
+      ...(unset.length > 0 && {
+        $unset: Object.fromEntries(unset.map((key) => [key, ""])),
+      }),
     },
   );
+  if (casOnDateUpdated !== undefined && result.matchedCount === 0) {
+    throw new CasConflictError();
+  }
 
-  if (needsProxyUpdate) {
+  const updated: SDKConnectionInterface = { ...connection, ...fullChanges };
+  unset.forEach((key) => delete updated[key]);
+
+  // An archived connection stops serving: purge its cache instead of refreshing.
+  if (updated.archived) {
+    if (!connection.archived) {
+      await purgeArchivedConnectionCache(context, updated);
+    }
+  } else if (needsProxyUpdate) {
     queueSDKPayloadRefresh({
       context,
       payloadKeys: [],
-      sdkConnections: [
-        {
-          ...connection,
-          ...fullChanges,
-        },
-      ],
+      sdkConnections: [updated],
       auditContext: {
         event: "updated",
         model: "sdkconnection",
@@ -549,9 +617,30 @@ export async function editSDKConnection(
     });
   }
 
-  const updated = { ...connection, ...fullChanges };
   await audit.logUpdate(context, connection, updated);
   return updated;
+}
+
+async function purgeArchivedConnectionCache(
+  context: ReqContext | ApiReqContext,
+  connection: SDKConnectionInterface,
+) {
+  try {
+    await context.models.sdkConnectionCache.deleteByKey(connection.key);
+  } catch (e) {
+    logger.warn(e, "Failed to delete cache entry for archived SDK connection");
+  }
+  await purgeCDNCache(context.org.id, [connection.key]);
+}
+
+// Webhooks have no version of their own, so a direct webhook write advances its
+// connections' stamp and a publish computed against the older state loses.
+export async function touchSDKConnections(context: ReqContext, ids: string[]) {
+  if (!ids.length) return;
+  await SDKConnectionModel.updateMany(
+    { organization: context.org.id, id: { $in: ids } },
+    { $set: { dateUpdated: new Date() } },
+  );
 }
 
 export const updateSdkConnectionsRemoveManagedBy = async (
@@ -602,6 +691,8 @@ export async function findSDKConnectionsWithPayloadOver(
   const docs = await SDKConnectionModel.find({
     organization: context.org.id,
     "payloadSize.bytes": { $gte: minBytes },
+    // An archived connection serves nothing; its last measurement is stale.
+    archived: { $ne: true },
   });
   return readableConnections(context, docs);
 }
@@ -635,12 +726,29 @@ export async function claimSDKConnectionNotifiedPayloadSizeLevel(
   return result.modifiedCount === 1;
 }
 
+export interface ProxyErrorResult {
+  /** This failure disabled the proxy. */
+  disabled: boolean;
+  consecutiveFailures: number;
+  failingSince: Date;
+}
+
+/**
+ * @param countFailure - When false, the error is saved but doesn't count toward disabling the proxy.
+ */
 export async function setProxyError(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   error: string,
-) {
-  const consecutiveFailures = (connection.proxy.consecutiveFailures || 0) + 1;
+  { countFailure = true }: { countFailure?: boolean } = {},
+): Promise<ProxyErrorResult> {
+  const now = new Date();
+  const consecutiveFailures =
+    (connection.proxy.consecutiveFailures || 0) + (countFailure ? 1 : 0);
+  const disabled =
+    connection.proxy.enabled &&
+    consecutiveFailures >= WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD;
+  const failingSince = connection.proxy.failingSince ?? now;
   await SDKConnectionModel.updateOne(
     {
       organization: context.org.id,
@@ -650,19 +758,24 @@ export async function setProxyError(
       $set: {
         "proxy.error": error,
         "proxy.connected": false,
-        "proxy.lastError": new Date(),
+        "proxy.lastError": now,
         "proxy.consecutiveFailures": consecutiveFailures,
-        ...(consecutiveFailures >= WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD
-          ? { "proxy.enabled": false }
-          : {}),
+        "proxy.failingSince": failingSince,
+        ...(disabled ? { "proxy.enabled": false } : {}),
       },
     },
   );
+  return { disabled, consecutiveFailures, failingSince };
 }
 
+/**
+ * @param clearFailureAlert - When false, keeps `failureAlertedAt` so a
+ * `proxy.recovered` alert that couldn't be sent is tried again.
+ */
 export async function clearProxyError(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
+  { clearFailureAlert = true }: { clearFailureAlert?: boolean } = {},
 ) {
   await SDKConnectionModel.updateOne(
     {
@@ -674,8 +787,24 @@ export async function clearProxyError(
         "proxy.error": "",
         "proxy.connected": true,
         "proxy.consecutiveFailures": 0,
+        "proxy.failingSince": null,
+        ...(clearFailureAlert ? { "proxy.failureAlertedAt": null } : {}),
       },
     },
+  );
+}
+
+export async function setProxyFailureAlertedAt(
+  context: ReqContext | ApiReqContext,
+  connection: SDKConnectionInterface,
+  failureAlertedAt: Date,
+) {
+  await SDKConnectionModel.updateOne(
+    {
+      organization: context.org.id,
+      id: connection.id,
+    },
+    { $set: { "proxy.failureAlertedAt": failureAlertedAt } },
   );
 }
 
@@ -683,6 +812,9 @@ export async function testProxyConnection(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updateDB: boolean = true,
+  // Whether a healthy proxy is switched back on. Off where that switch is a
+  // reviewed setting, which a test must not change.
+  reenable: boolean = true,
 ): Promise<ProxyTestResult | undefined> {
   const proxy = connection.proxy;
   if (!proxy) {
@@ -698,7 +830,7 @@ export async function testProxyConnection(
     return;
   }
 
-  const url = proxy.host.replace(/\/*$/, "") + "/healthcheck";
+  const url = trimTrailingSlashes(proxy.host) + "/healthcheck";
   let statusCode = 0;
   try {
     const { responseWithoutBody, stringBody } = await cancellableFetch(
@@ -752,7 +884,10 @@ export async function testProxyConnection(
             "proxy.version": version,
             "proxy.error": "",
             "proxy.consecutiveFailures": 0,
-            "proxy.enabled": true,
+            // failureAlertedAt stays, so the next successful push still sends
+            // proxy.recovered
+            "proxy.failingSince": null,
+            ...(reenable ? { "proxy.enabled": true } : {}),
           },
         },
       );
@@ -791,28 +926,30 @@ export function toApiSDKConnectionInterface(
     environment: connection.environment,
     project: connection.projects[0] || "",
     projects: connection.projects,
-    encryptPayload: connection.encryptPayload,
+    encryptPayload: !!connection.encryptPayload,
     encryptionKey: connection.encryptionKey,
-    hashSecureAttributes: connection.hashSecureAttributes,
-    includeVisualExperiments: connection.includeVisualExperiments,
-    includeDraftExperiments: connection.includeDraftExperiments,
-    includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
-    includeExperimentNames: connection.includeExperimentNames,
-    includeRedirectExperiments: connection.includeRedirectExperiments,
-    includeRuleIds: connection.includeRuleIds,
-    includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
-    includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
+    hashSecureAttributes: !!connection.hashSecureAttributes,
+    includeVisualExperiments: !!connection.includeVisualExperiments,
+    includeDraftExperiments: !!connection.includeDraftExperiments,
+    includeDraftExperimentRefs: !!connection.includeDraftExperimentRefs,
+    includeExperimentNames: !!connection.includeExperimentNames,
+    includeRedirectExperiments: !!connection.includeRedirectExperiments,
+    includeRuleIds: !!connection.includeRuleIds,
+    includeProjectIdInMetadata: !!connection.includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata: !!connection.includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
-    includeTagsInMetadata: connection.includeTagsInMetadata,
+    includeTagsInMetadata: !!connection.includeTagsInMetadata,
     includeExperimentScheduleInMetadata:
-      connection.includeExperimentScheduleInMetadata,
+      !!connection.includeExperimentScheduleInMetadata,
+    tracesEnabled: !!connection.tracesEnabled,
     key: connection.key,
-    proxyEnabled: connection.proxy.enabled,
+    proxyEnabled: !!connection.proxy.enabled,
     proxyHost: connection.proxy.host,
     proxySigningKey: connection.proxy.signingKey,
-    remoteEvalEnabled: connection.remoteEvalEnabled,
-    savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+    remoteEvalEnabled: !!connection.remoteEvalEnabled,
+    savedGroupReferencesEnabled: !!connection.savedGroupReferencesEnabled,
     savedGroupFormat: savedGroupFormatFromConnection(connection),
-    includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
+    includeReferencedPrerequisites: !!connection.includeReferencedPrerequisites,
+    archived: !!connection.archived,
   };
 }

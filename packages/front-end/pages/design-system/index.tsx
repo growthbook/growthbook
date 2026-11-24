@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -27,6 +27,7 @@ import TruncatedTextStories from "@/ui/TruncatedText.stories";
 import TextFieldStories from "@/ui/TextField.stories";
 import HeadingStories from "@/ui/Heading.stories";
 import HelperTextStories from "@/ui/HelperText.stories";
+import LabelWithHelpStories from "@/ui/LabelWithHelp.stories";
 import LinkStories from "@/ui/Link.stories";
 import MetadataStories from "@/ui/Metadata.stories";
 import PaginationStories from "@/ui/Pagination.stories";
@@ -57,15 +58,20 @@ type StoryEntry = {
   Stories: () => React.ReactNode;
 };
 
-const TOP_NAV_HEIGHT = 56;
-const PAGE_TOP_PADDING = 24;
 const PAGE_BOTTOM_PADDING = 16;
-const SIDEBAR_TOP_OFFSET = TOP_NAV_HEIGHT + PAGE_TOP_PADDING;
-const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${
-  SIDEBAR_TOP_OFFSET + PAGE_BOTTOM_PADDING
-}px)`;
+// Under the header (--header-height) and the page's top padding
+// (--page-top-padding, which the page uses too), both from global.scss.
+const SIDEBAR_TOP_OFFSET =
+  "calc(var(--header-height) + var(--page-top-padding))";
+const SIDEBAR_MAX_HEIGHT = `calc(100vh - var(--header-height) - var(--page-top-padding) - ${PAGE_BOTTOM_PADDING}px)`;
 
 export default function DesignSystemPage() {
+  // The browser looks for a linked story before the app has drawn the page.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, []);
+
   const components = [
     {
       name: "AnalysisResultSummary",
@@ -115,6 +121,12 @@ export default function DesignSystemPage() {
     },
     { name: "Heading", Stories: HeadingStories },
     { name: "HelperText", Stories: HelperTextStories },
+    {
+      name: "LabelWithHelp",
+      description:
+        "A field/checkbox label with an optional PiInfo help tooltip and an optional trailing adornment (e.g. a PremiumTooltip). The help icon and adornment guard their own clicks so interacting with them never toggles the control the label is attached to.",
+      Stories: LabelWithHelpStories,
+    },
     { name: "Link", Stories: LinkStories },
     { name: "Metadata", Stories: MetadataStories },
     { name: "Pagination", Stories: PaginationStories },
@@ -155,7 +167,9 @@ export default function DesignSystemPage() {
   );
 
   return (
-    <div className="pt-4 pb-3">
+    // Not in the page frame (a pre-sign-in page), so it takes the frame's
+    // top padding itself, for its sidebar to stick where it sits.
+    <div className="pb-3" style={{ paddingTop: "var(--page-top-padding)" }}>
       <Flex gap="6">
         <nav
           aria-label="Components"
@@ -198,7 +212,10 @@ export default function DesignSystemPage() {
           <h1 className="mb-4">GrowthBook Design System</h1>
           <div className="pagecontents">
             <Flex gap="4" direction="column">
-              <Frame id="size-cohesion" style={{ scrollMarginTop: 90 }}>
+              <Frame
+                id="size-cohesion"
+                style={{ scrollMarginTop: "calc(var(--header-height) + 34px)" }}
+              >
                 <Flex direction="column" gap="3">
                   <h3 className="mb-1">Size cohesion</h3>
                   <Text>
@@ -214,7 +231,13 @@ export default function DesignSystemPage() {
                 </Flex>
               </Frame>
               {entries.map(({ name, description, Stories, id }) => (
-                <Frame key={id} id={id} style={{ scrollMarginTop: 90 }}>
+                <Frame
+                  key={id}
+                  id={id}
+                  style={{
+                    scrollMarginTop: "calc(var(--header-height) + 34px)",
+                  }}
+                >
                   <Flex direction="column" gap="3">
                     <h3 className="mb-1">{name}</h3>
                     <Text>{description}</Text>

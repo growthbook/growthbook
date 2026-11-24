@@ -9,8 +9,10 @@ import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
+  mergeApprovalFlows,
   toApiRequireReviews,
   toApiSavedGroupApprovals,
+  toApiSdkConnectionApprovals,
 } from "./approvalRuleShapes";
 
 export const putApprovalSettings = createApiRequestHandler(
@@ -23,19 +25,21 @@ export const putApprovalSettings = createApiRequestHandler(
   const org = req.context.org;
   const { requireReviews, approvalFlows, targetingReviewMode } = req.body;
 
-  // Matches the interactive route: saved-group approvals are the licensed part.
+  // Matches the interactive route: approval flows are the licensed part.
   if (
-    approvalFlows?.savedGroups?.some((rule) => rule.required) &&
+    (approvalFlows?.savedGroups?.some((rule) => rule.required) ||
+      approvalFlows?.sdkConnections?.some((rule) => rule.required)) &&
     !req.context.hasPremiumFeature("require-approvals")
   ) {
     throw new Error(
-      "Saved Groups approval flows require the Require Approvals enterprise feature.",
+      "Approval flows require the Require Approvals enterprise feature.",
     );
   }
 
   await assertApprovalRuleReferencesExist(req.context, [
     ...(requireReviews ?? []),
     ...(approvalFlows?.savedGroups ?? []),
+    ...(approvalFlows?.sdkConnections ?? []),
     ...(targetingReviewMode ?? []),
   ]);
   assertTargetingRulesDisjoint(targetingReviewMode ?? []);
@@ -50,7 +54,14 @@ export const putApprovalSettings = createApiRequestHandler(
           })),
         }
       : {}),
-    ...(approvalFlows ? { approvalFlows } : {}),
+    ...(approvalFlows
+      ? {
+          approvalFlows: mergeApprovalFlows(
+            org.settings?.approvalFlows,
+            approvalFlows,
+          ),
+        }
+      : {}),
   });
   const targetingUpdate = targetingReviewMode ? { targetingReviewMode } : {};
 
@@ -83,6 +94,9 @@ export const putApprovalSettings = createApiRequestHandler(
     approvalFlows: {
       savedGroups: toApiSavedGroupApprovals(
         stored.approvalFlows?.savedGroups ?? [],
+      ),
+      sdkConnections: toApiSdkConnectionApprovals(
+        stored.approvalFlows?.sdkConnections ?? [],
       ),
     },
     targetingReviewMode: stored.targetingReviewMode ?? [],

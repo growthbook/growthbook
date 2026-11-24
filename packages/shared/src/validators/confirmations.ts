@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 import { eventUserRequestedBy } from "./event-user";
-import { bypassViaValues } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  bypassViaValues,
+  paginationQueryFields,
+} from "./shared";
 import { namedSchema } from "./openapi-helpers";
 
 // `model.action`, model-first like webhook events. `override.*` actions are the
@@ -57,6 +61,8 @@ export const CONFIRM_ACTIONS = [
   "rampSchedule.delete",
   "rampSchedule.other",
   "settings.approvals",
+  "settings.dataSources",
+  "settings.webhooks",
   "settings.other",
   "access.members",
   "access.teams",
@@ -76,6 +82,8 @@ export const CONFIRM_ACTIONS = [
   "customField.edit",
   "customField.delete",
   "sdkConnection.create",
+  "sdkConnection.draft",
+  "sdkConnection.review",
   "sdkConnection.edit",
   "sdkConnection.delete",
   "metric.create",
@@ -226,7 +234,7 @@ export const confirmationStatuses = [
 ] as const;
 
 const confirmationResponseValidator = z
-  .strictObject({ status: z.number(), body: z.unknown() })
+  .strictObject({ status: z.number(), body: z.unknown().optional() })
   .nullable();
 
 // A page the person can check before deciding.
@@ -283,7 +291,9 @@ export const confirmationValidator = baseSchema.safeExtend({
   method: z.string(),
   path: z.string(),
   query: z.record(z.string(), z.unknown()),
-  body: z.unknown(),
+  body: z.unknown().optional(),
+  // Body fields stored encrypted; decrypted for the replay, redacted for display.
+  secretBodyFields: z.array(z.string()).optional(),
   requestHash: z.string(),
   // What the key's rules matched, shown as why it was held.
   actions: z.array(heldActionValidator),
@@ -359,4 +369,28 @@ export const getConfirmationValidator = {
   }),
   bodySchema: z.never(),
   responseSchema: z.strictObject({ confirmation: apiConfirmationValidator }),
+};
+
+export const listConfirmationsValidator = {
+  method: "get" as const,
+  path: "/confirmations",
+  operationId: "listConfirmations",
+  summary: "List confirmations",
+  description:
+    "Lists the held requests made by this API key, or by any token of the same person, newest first. Returns pending ones unless `status` is set.",
+  tags: ["meta"],
+  paramsSchema: z.never(),
+  querySchema: z.strictObject({
+    ...paginationQueryFields,
+    status: z
+      .enum(confirmationStatuses)
+      .optional()
+      .describe("Only return confirmations with this status")
+      .meta({ default: "pending" }),
+  }),
+  bodySchema: z.never(),
+  responseSchema: z.intersection(
+    z.object({ confirmations: z.array(apiConfirmationValidator) }),
+    apiPaginationFieldsValidator,
+  ),
 };

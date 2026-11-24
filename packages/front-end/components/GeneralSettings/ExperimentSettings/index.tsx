@@ -317,6 +317,57 @@ export default function ExperimentSettings() {
           </SettingsField>
         )}
 
+        <UnsavedMark name="disableResultsUpdateForStoppedExperiments">
+          <Checkbox
+            id="toggle-disableResultsUpdateForStoppedExperiments"
+            label="Disable updating results for stopped experiments"
+            description={
+              <>
+                Once an experiment is stopped, this setting disables updates
+                (overall and dimension breakdowns) to preserve the results at
+                the time the experiment was stopped. Custom reports remain
+                available for ad-hoc analysis. When on, you can set a grace
+                period to allow updates for a period of time after stopping.
+              </>
+            }
+            value={!!form.watch("disableResultsUpdateForStoppedExperiments")}
+            setValue={(v) =>
+              form.setValue("disableResultsUpdateForStoppedExperiments", v)
+            }
+          />
+          {form.watch("disableResultsUpdateForStoppedExperiments") && (
+            <Box ml="6" mt="3">
+              <SettingsField
+                name="disableResultsUpdateForStoppedExperimentGraceHours"
+                htmlFor="settings-disableResultsUpdateForStoppedExperimentGraceHours"
+                label="Grace period"
+                help="How long results can still be updated after an experiment stops."
+              >
+                <Box width="150px">
+                  <Field
+                    id="settings-disableResultsUpdateForStoppedExperimentGraceHours"
+                    size="md"
+                    append="hours"
+                    type="number"
+                    step="any"
+                    min={0}
+                    containerClassName="mb-0"
+                    disabled={hasFileConfig()}
+                    placeholder="0"
+                    {...form.register(
+                      "disableResultsUpdateForStoppedExperimentGraceHours",
+                      {
+                        valueAsNumber: true,
+                        min: 0,
+                      },
+                    )}
+                  />
+                </Box>
+              </SettingsField>
+            </Box>
+          )}
+        </UnsavedMark>
+
         <SettingsField
           name="attributionModel"
           label={
@@ -541,6 +592,23 @@ export default function ExperimentSettings() {
         keywords="decision framework shipping recommendation mde minimum runtime decision criteria"
       >
         <DecisionFrameworkSettings />
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="exp-sharing"
+        title="Public Sharing"
+        description="Whether experiments and reports can be shared with people outside your organization."
+        keywords="public share link anonymous login report"
+      >
+        <UnsavedMark name="disablePublicSharing">
+          <Checkbox
+            id="toggle-disablePublicSharing"
+            label="Disable public sharing"
+            description="Public links to experiments and reports stop working. Unchecking this restores them."
+            value={!!form.watch("disablePublicSharing")}
+            setValue={(v) => form.setValue("disablePublicSharing", v)}
+          />
+        </UnsavedMark>
       </SettingsGroup>
 
       {editChecklistOpen ? (

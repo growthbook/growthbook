@@ -22,7 +22,7 @@ import type {
   ExperimentViewedSubCallback,
   TrackingCallback,
   TrackingData,
-  WidenPrimitives,
+  FeatureValueOrFallback,
   EvalContext,
   InitOptions,
   InitResponse,
@@ -34,6 +34,12 @@ import type {
   EventLogger,
   LogUnion,
   DestroyOptions,
+  RegisteredAttributes,
+  RegisteredEvents,
+  RegisteredFeatures,
+  EventArgs,
+  EventProperties,
+  NoInferType,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -75,7 +81,8 @@ const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>,
+  AppFeatures extends Record<string, any> = RegisteredFeatures,
+  AppAttributes extends Attributes = RegisteredAttributes,
 > {
   // context is technically private, but some tools depend on it so we can't mangle the name
   private context: Options;
@@ -126,13 +133,13 @@ export class GrowthBook<
   // Bounded buffer for events logged before an eventLogger is registered
   private _pendingEvents: Array<{
     eventName: string;
-    properties?: Record<string, unknown>;
+    properties?: EventProperties;
     userContext?: Partial<TrackingUserContext>;
   }> = [];
   private static _MAX_PENDING_EVENTS = 100;
   private _warnedNoEventLogger?: boolean;
 
-  constructor(options?: Options) {
+  constructor(options?: Options<NoInferType<AppAttributes>>) {
     options = options || {};
     // These properties are all initialized in the constructor instead of above
     // This saves ~80 bytes in the final output
@@ -237,9 +244,13 @@ export class GrowthBook<
     }
   }
 
-  public async setPayload(payload: FeatureApiResponse): Promise<void> {
-    this._payload = payload;
-    const data = await decryptPayload(payload, this._options.decryptionKey);
+  public async setPayload(
+    payload: FeatureApiResponse<AppFeatures>,
+  ): Promise<void> {
+    // AppFeatures only checks payloads written in code; internally they are untyped
+    const untyped = payload as FeatureApiResponse;
+    this._payload = untyped;
+    const data = await decryptPayload(untyped, this._options.decryptionKey);
     this._decryptedPayload = data;
     await this.refreshStickyBuckets(data);
     if (data.features) {
@@ -272,10 +283,10 @@ export class GrowthBook<
     });
   }
 
-  public initSync(options: InitSyncOptions): GrowthBook {
+  public initSync(options: InitSyncOptions<AppFeatures>): this {
     this._initialized = true;
 
-    const payload = options.payload;
+    const payload = options.payload as FeatureApiResponse;
 
     if (payload.encryptedExperiments || payload.encryptedFeatures) {
       throw new Error("initSync does not support encrypted payloads");
@@ -318,7 +329,7 @@ export class GrowthBook<
     return this;
   }
 
-  public async init(options?: InitOptions): Promise<InitResponse> {
+  public async init(options?: InitOptions<AppFeatures>): Promise<InitResponse> {
     this._initialized = true;
     options = options || {};
 
@@ -339,7 +350,7 @@ export class GrowthBook<
         allowStale: true,
       });
       startBackgroundSync(this, options);
-      await this.setPayload(data || {});
+      await this.setPayload(data || options.fallbackPayload || {});
       return res;
     }
   }
@@ -473,7 +484,7 @@ export class GrowthBook<
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
 
-  public async setAttributes(attributes: Attributes) {
+  public async setAttributes(attributes: AppAttributes) {
     this._options.attributes = attributes;
     if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
@@ -486,11 +497,14 @@ export class GrowthBook<
     this._updateAllAutoExperiments();
   }
 
-  public async updateAttributes(attributes: Attributes) {
-    return this.setAttributes({ ...this._options.attributes, ...attributes });
+  public async updateAttributes(attributes: Partial<AppAttributes>) {
+    return this.setAttributes({
+      ...this._options.attributes,
+      ...attributes,
+    } as AppAttributes);
   }
 
-  public async setAttributeOverrides(overrides: Attributes) {
+  public async setAttributeOverrides(overrides: Partial<AppAttributes>) {
     this._options.attributeOverrides = overrides;
     if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
@@ -542,7 +556,8 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
-  public getAttributes(): Attributes {
+  // Partial because attributes may not have been set yet
+  public getAttributes(): Partial<AppAttributes> {
     // Remote evaluation sends these, so it includes remote group IDs.
     return {
       ...this._options.attributes,
@@ -550,7 +565,7 @@ export class GrowthBook<
       ...(this._options.remoteGroupIds && {
         [REMOTE_GROUP_IDS_ATTRIBUTE]: this._options.remoteGroupIds,
       }),
-    };
+    } as Partial<AppAttributes>;
   }
 
   public getForcedVariations() {
@@ -813,6 +828,7 @@ export class GrowthBook<
       debug: this.debug,
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
+      defaultHashVersion: this._options.defaultHashVersion,
       savedGroups: this._options.savedGroups,
       contextualBandits: this._options.contextualBandits,
       groups: this._options.groups,
@@ -1040,11 +1056,14 @@ export class GrowthBook<
   }
 
   public getFeatureValue<
-    V extends AppFeatures[K],
+    V extends AppFeatures[K] | null,
     K extends string & keyof AppFeatures = string,
-  >(key: K, defaultValue: V): WidenPrimitives<V> {
-    const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
-    return value === null ? (defaultValue as WidenPrimitives<V>) : value;
+  >(key: K, defaultValue: V): FeatureValueOrFallback<V, AppFeatures[K]> {
+    const value = this.evalFeature(key).value;
+    return (value === null ? defaultValue : value) as FeatureValueOrFallback<
+      V,
+      AppFeatures[K]
+    >;
   }
 
   /**
@@ -1143,12 +1162,22 @@ export class GrowthBook<
     }
   }
 
+  // Event names and properties are checked against the registered events
+  public logEvent<K extends string & keyof RegisteredEvents>(
+    eventName: K,
+    ...args: EventArgs<RegisteredEvents[K]>
+  ): Promise<void>;
   // userContext overrides fields of the instance's own context for this event
   // (e.g. the url of a page already navigated away from), mirroring
   // GrowthBookClient.logEvent
+  public logEvent<K extends string & keyof RegisteredEvents>(
+    eventName: K,
+    properties: RegisteredEvents[K],
+    userContext: Partial<TrackingUserContext>,
+  ): Promise<void>;
   public async logEvent(
     eventName: string,
-    properties?: Record<string, unknown>,
+    properties?: EventProperties,
     userContext?: Partial<TrackingUserContext>,
   ) {
     if (this._destroyed) {

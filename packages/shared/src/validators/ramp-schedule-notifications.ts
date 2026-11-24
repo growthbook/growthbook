@@ -78,8 +78,43 @@ export type RampScheduleResumedPayload = z.infer<
   typeof rampScheduleResumedPayload
 >;
 
+// A step failed for a reason that may clear on its own; the schedule holds and
+// retries. Sent once, on the first failure of a streak.
+export const rampScheduleStepRetryingPayload =
+  rampScheduleBaseNotificationPayload
+    .extend({
+      reason: z.string().describe("The failed attempt's error."),
+      attempts: z.number().int().describe("Failed attempts so far."),
+      maxAttempts: z
+        .number()
+        .int()
+        .describe("Failed attempts after which the schedule pauses."),
+      nextAttemptAt: z
+        .string()
+        .describe("ISO timestamp of the next automatic attempt."),
+    })
+    .strict();
+export type RampScheduleStepRetryingPayload = z.infer<
+  typeof rampScheduleStepRetryingPayload
+>;
+
+// A retry succeeded after one or more failed attempts.
+export const rampScheduleStepRecoveredPayload =
+  rampScheduleBaseNotificationPayload
+    .extend({
+      attempts: z
+        .number()
+        .int()
+        .describe("Failed attempts before the one that succeeded."),
+    })
+    .strict();
+export type RampScheduleStepRecoveredPayload = z.infer<
+  typeof rampScheduleStepRecoveredPayload
+>;
+
 // The engine could not apply a step (a plan it now refuses, a structural
-// error) and paused the schedule where it stood.
+// error, or a failure that outlasted its retries) and paused the schedule
+// where it stood.
 export const rampScheduleErrorPausedPayload =
   rampScheduleBaseNotificationPayload.extend({ reason: z.string() }).strict();
 export type RampScheduleErrorPausedPayload = z.infer<

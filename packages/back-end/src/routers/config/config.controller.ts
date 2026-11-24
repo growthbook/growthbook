@@ -11,6 +11,7 @@ import {
 } from "shared/validators";
 import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
 import {
+  JsonPatchOperation,
   Revision,
   normalizeProposedChanges,
   getConstantRevisionChange,
@@ -33,6 +34,9 @@ import {
   ScopedOverrideEntry,
   setOwnValueProperty,
   removeOwnValueProperty,
+  configChangeReachesDescendants,
+  configChangeReshapesFamily,
+  getConfigBaseKeys,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { ReqContext } from "back-end/types/request";
@@ -77,7 +81,10 @@ import {
   syncScopedConfigMarkers,
 } from "back-end/src/services/constants";
 import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
-import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import {
+  getClientResolvables,
+  getResolvableValues,
+} from "back-end/src/services/resolvableValues";
 import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
@@ -87,6 +94,9 @@ import {
   assertConfigValueValid,
   assertConfigValueValidForCreate,
   assertConfigValueValidForPublish,
+  configDraftContent,
+  configDraftState,
+  configValidationLeaf,
 } from "back-end/src/services/configValidation";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
@@ -308,22 +318,7 @@ export const getConfigResolved = async (
 
   // Scoped to this config's project + globals so cross-project values never leak.
   const configProject = config.project || "";
-  const constants = (await getResolvableValues(context))
-    .filter((c) => !c.project || c.project === configProject)
-    .map((c) => ({
-      key: c.key,
-      type: c.type,
-      source: c.source,
-      value: c.value,
-      project: c.project,
-      archived: c.archived,
-      // Carry a config's env/project flavor selection so the client can resolve
-      // per-environment (swap in the matching flavor) without a second fetch —
-      // the flavor configs themselves are already in this resolvable set.
-      ...(c.scopedOverrides?.length
-        ? { scopedOverrides: c.scopedOverrides }
-        : {}),
-    }));
+  const constants = await getClientResolvables(context, configProject);
 
   // Own value keys that no longer conform to a node's effective schema (the
   // "incompatible, must fix" state) or that it no longer declares at all
@@ -366,6 +361,11 @@ export const getConfigResolved = async (
   // on each node rather than as separate tree branches.
   const spineRootKey = getConfigSpineRootKey(config.key, byKey);
 
+  // Counted live, the viewed Config included, so the tree's counts read the
+  // same from any of its pages; an open draft has its own flag.
+  const liveFieldCount = (node: ConfigInterface) =>
+    configOwnFieldCount((node.key === config.key ? config : node).value);
+
   const buildSpineLineage = (rootKey: string) =>
     getConfigSpineSubtree(rootKey, allConfigs).flatMap((key) => {
       const node = byKey.get(key);
@@ -386,7 +386,7 @@ export const getConfigResolved = async (
           parentKey: getConfigParentKey(node),
           // Composition mixins (the non-spine bases) for same-level chips.
           extendsKeys: node.extends ?? [],
-          fieldCount: configOwnFieldCount(node.value),
+          fieldCount: liveFieldCount(node),
           // Own schema field keys, so the editor can preview "base wins"
           // reconciliation (a descendant's field is stripped when an ancestor
           // declares the same key).
@@ -457,6 +457,11 @@ export const getConfigResolved = async (
   const fieldCounts: Record<string, number> = {};
   const configNames: Record<string, string> = {};
   const archivedByKey: Record<string, boolean> = {};
+  // Family members with an open draft, so the page can flag them.
+  const openDraftIds = new Set(
+    await context.models.revisions.getOpenRevisionTargetIds("config"),
+  );
+  const draftByKey: Record<string, boolean> = {};
   for (const key of referencedKeys) {
     const c = byKey.get(key);
     if (!c) continue;
@@ -464,9 +469,10 @@ export const getConfigResolved = async (
     // doesn't filter them — a readable node can reference a mixin in a project
     // the caller can't read. Gate the map so that mixin's name/count don't leak.
     if (!context.permissions.canReadSingleProjectResource(c.project)) continue;
-    fieldCounts[c.key] = configOwnFieldCount(c.value);
+    fieldCounts[c.key] = liveFieldCount(c);
     configNames[c.key] = c.name;
     if (c.archived) archivedByKey[c.key] = true;
+    if (openDraftIds.has(c.id)) draftByKey[c.key] = true;
   }
 
   return res.status(200).json({
@@ -481,6 +487,7 @@ export const getConfigResolved = async (
     fieldCounts,
     configNames,
     archivedByKey,
+    draftByKey,
     constants,
   });
 };
@@ -672,27 +679,45 @@ type DeleteConfigPropertyRequest = AuthRequest<
   PutConfigRequest["query"]
 >;
 
-// The draft's own value, or live's when writing outside a draft.
+// The draft a write goes into, or null when it lands on live: a publish-now
+// request ignores a named draft, so that draft must not shape the checks.
+const loadTargetDraft = async (
+  context: ReqContext,
+  existing: ConfigInterface,
+  query: PutConfigRequest["query"],
+): Promise<Revision | null> => {
+  const { revisionId, bypassApproval, autoPublish } = query;
+  if (!revisionId || bypassApproval === "1" || autoPublish === "1") return null;
+  const revision = await context.models.revisions.getByIdReadable(revisionId);
+  if (!revision) return context.throwNotFoundError("Revision not found");
+  if (revision.target.type !== "config" || revision.target.id !== existing.id) {
+    throw new BadRequestError("Revision does not belong to this Config");
+  }
+  return revision;
+};
+
+// The value a property write starts from: the draft's, or live's.
 const resolveConfigOwnValue = async (
   context: ReqContext,
   existing: ConfigInterface,
-  revisionId?: string,
+  query: PutConfigRequest["query"],
 ): Promise<string | undefined> => {
-  if (!revisionId) return existing.value;
-  const targetRevision =
-    await context.models.revisions.getByIdReadable(revisionId);
-  if (targetRevision && targetRevision.target.type === "config") {
-    const patched = applyPatchToSnapshot(
-      targetRevision.target.snapshot as ConfigInterface,
-      normalizeProposedChanges(targetRevision.target.proposedChanges),
-    );
-    return ({ ...existing, ...patched } as ConfigInterface).value;
-  }
-  return existing.value;
+  const draft = await loadTargetDraft(context, existing, query);
+  return draft ? configDraftContent(existing, draft).value : existing.value;
 };
 
+// buildPatchOps drops null, but a null schema is a clear the draft must carry.
+const configPatchOps = (
+  changes: Record<string, unknown>,
+): JsonPatchOperation[] => [
+  ...buildPatchOps(changes),
+  ...(changes.schema === null
+    ? [{ op: "replace" as const, path: "/schema", value: null }]
+    : []),
+];
+
 // Property-scoped writes, mirroring PUT/DELETE /configs-revisions/:key/:version/property.
-// Both delegate to putConfig, so permissions, validation, revisions and events
+// Both delegate to writeConfig, so permissions, validation, revisions and events
 // stay identical to a whole-value write.
 export const putConfigProperty = async (
   req: PutConfigPropertyRequest,
@@ -703,18 +728,16 @@ export const putConfigProperty = async (
   if (!existing) {
     return context.throwNotFoundError("Config not found");
   }
-  const current = await resolveConfigOwnValue(
-    context,
-    existing,
-    req.query.revisionId,
-  );
-  const value = setOwnValueProperty(current, req.body.property, req.body.value);
+  const current = await resolveConfigOwnValue(context, existing, req.query);
+  // Read before the body is swapped below: `delegated` is the same request.
+  const { property, value: propertyValue } = req.body;
+  const value = setOwnValueProperty(current, property, propertyValue);
   const delegated = req as unknown as PutConfigRequest;
   delegated.body = { value };
-  return putConfig(delegated, res, {
-    property: req.body.property,
+  return writeConfig(delegated, res, {
+    property,
     remove: false,
-    value: req.body.value,
+    value: propertyValue,
   });
 };
 
@@ -727,28 +750,29 @@ export const deleteConfigProperty = async (
   if (!existing) {
     return context.throwNotFoundError("Config not found");
   }
-  const current = await resolveConfigOwnValue(
-    context,
-    existing,
-    req.query.revisionId,
-  );
-  const { value, existed } = removeOwnValueProperty(current, req.body.property);
+  const current = await resolveConfigOwnValue(context, existing, req.query);
+  const { property } = req.body;
+  const { value, existed } = removeOwnValueProperty(current, property);
   if (!existed) {
     return context.throwNotFoundError(
-      `No property "${req.body.property}" set on this config`,
+      `No property "${property}" set on this config`,
     );
   }
   const delegated = req as unknown as PutConfigRequest;
   delegated.body = { value };
-  return putConfig(delegated, res, {
-    property: req.body.property,
-    remove: true,
-  });
+  return writeConfig(delegated, res, { property, remove: true });
 };
 
 // All edits flow through the revision system (same approval model as constants):
 // merged immediately when approval isn't required, else stored as a draft.
-export const putConfig = async (
+// Two parameters only: Express passes `next` third, which must never be read as
+// a property op.
+export const putConfig = (
+  req: PutConfigRequest,
+  res: Response<PutConfigResponse | ApiErrorResponse>,
+) => writeConfig(req, res);
+
+const writeConfig = async (
   req: PutConfigRequest,
   res: Response<PutConfigResponse | ApiErrorResponse>,
   // Set by the property endpoints: lets the revision write recompute the value
@@ -809,38 +833,34 @@ export const putConfig = async (
       ),
     });
 
-  // If updating a specific revision, compare against its current (patched) state
-  // rather than the live entity so we don't re-propose unchanged fields.
+  // A write into a draft is diffed against the draft's own content, so
+  // unchanged fields aren't re-proposed, and judged against what that draft
+  // would publish, the same state the publish checks see.
   const revisionId = req.query.revisionId;
-  let comparisonBase: ConfigInterface = existing;
-  if (revisionId) {
-    const targetRevision =
-      await context.models.revisions.getByIdReadable(revisionId);
-    // Writing `archived` into a PINNED revision is a write into someone
-    // else's draft: it makes that draft delete-class, so its author — a
-    // publisher without delete — could no longer publish their own work.
-    // `archiveOnlyRequest` inspects only the body, so it does not cover
-    // this query-param path.
-    if (
-      targetRevision &&
-      typeof archived === "boolean" &&
-      !canWriteArchiveIntoDraft({
-        permissions: context.permissions,
-        model: "config",
-        entity: existing,
-        revision: targetRevision,
-        userId: context.userId,
-      })
-    ) {
-      context.permissions.throwPermissionError();
-    }
-    if (targetRevision && targetRevision.target.type === "config") {
-      const patchedSnapshot = applyPatchToSnapshot(
-        targetRevision.target.snapshot as ConfigInterface,
-        normalizeProposedChanges(targetRevision.target.proposedChanges),
-      );
-      comparisonBase = { ...existing, ...patchedSnapshot };
-    }
+  const targetRevision = await loadTargetDraft(context, existing, req.query);
+  const comparisonBase = targetRevision
+    ? configDraftContent(existing, targetRevision)
+    : existing;
+  const draftState = targetRevision
+    ? configDraftState(existing, targetRevision)
+    : existing;
+  // Writing `archived` into a PINNED revision is a write into someone
+  // else's draft: it makes that draft delete-class, so its author — a
+  // publisher without delete — could no longer publish their own work.
+  // `archiveOnlyRequest` inspects only the body, so it does not cover
+  // this query-param path.
+  if (
+    targetRevision &&
+    typeof archived === "boolean" &&
+    !canWriteArchiveIntoDraft({
+      permissions: context.permissions,
+      model: "config",
+      entity: existing,
+      revision: targetRevision,
+      userId: context.userId,
+    })
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   // The destination of a move. A draft may already carry one: editing it
@@ -848,7 +868,7 @@ export const putConfig = async (
   // destination, so resolve from the draft's patched state rather than this
   // request alone — otherwise a draft moving A→B checks A on both sides.
   const destinationProject =
-    project ?? comparisonBase.project ?? existing.project ?? "";
+    project ?? draftState.project ?? existing.project ?? "";
 
   // Both sides: authoring rights where it lives now, and where it would land.
   const canDraftEntity =
@@ -1003,21 +1023,27 @@ export const putConfig = async (
   // doing it here keeps drafts honest too.
   const lineageChanged =
     fieldsToUpdate.parent !== undefined || "extends" in fieldsToUpdate;
+  if (lineageChanged) {
+    await context.models.configs.assertValidLineage(
+      { ...draftState, ...fieldsToUpdate } as ConfigInterface,
+      getConfigBaseKeys(existing),
+    );
+  }
   // `in`, not `??`: an explicit null is a CLEAR and must not fall through to
   // the stored schema — otherwise a revert that clears the schema AND changes
   // lineage in one request would normalize `existing.schema` against the new
   // ancestors and write the remnant back. Same basis as
   // `postConfigRevisionRevert`; see `configSchemaNormalize.test.ts`.
   const schemaToNormalize =
-    "schema" in fieldsToUpdate ? fieldsToUpdate.schema : existing.schema;
+    "schema" in fieldsToUpdate ? fieldsToUpdate.schema : draftState.schema;
   if ((fieldsToUpdate.schema || lineageChanged) && schemaToNormalize) {
     const { schema: normalized, conflicting } =
       await context.models.configs.normalizeSchemaAgainstAncestors(
         {
           key: existing.key,
-          parent: fieldsToUpdate.parent ?? existing.parent,
-          extends: extendsKeys ?? existing.extends,
-          value: fieldsToUpdate.value ?? existing.value,
+          parent: fieldsToUpdate.parent ?? draftState.parent,
+          extends: extendsKeys ?? draftState.extends,
+          value: fieldsToUpdate.value ?? draftState.value,
         },
         schemaToNormalize,
       );
@@ -1051,27 +1077,16 @@ export const putConfig = async (
     );
   }
 
-  // The proposed (merged) config state, used to validate the staged value(s)
-  // against the effective schema — same check the REST write path enforces, so
-  // the UI can't save/publish a schema-violating value.
-  const proposed = { ...existing, ...fieldsToUpdate } as ConfigInterface;
-  const proposedLeaf = {
-    key: proposed.key,
-    name: proposed.name,
-    value: proposed.value,
-    schema: proposed.schema,
-    parent: proposed.parent,
-    extends: proposed.extends,
-    extensible: proposed.extensible,
-  };
+  // The state this write leaves behind (the draft's when writing into one), so
+  // a value is judged against the schema it is staged with, not live's.
+  const proposed = { ...draftState, ...fieldsToUpdate } as ConfigInterface;
+  const proposedLeaf = configValidationLeaf(proposed);
   const proposedValues = {
     value: proposed.value,
   };
   const valueAffectingChange =
     fieldsToUpdate.value !== undefined ||
-    fieldsToUpdate.schema !== undefined ||
-    fieldsToUpdate.parent !== undefined ||
-    "extends" in fieldsToUpdate;
+    configChangeReachesDescendants(fieldsToUpdate);
   if (valueAffectingChange) {
     await assertConfigValueValid(context, proposedLeaf, proposedValues);
   }
@@ -1128,7 +1143,7 @@ export const putConfig = async (
     existing as unknown as RevisionEntityArg,
   );
 
-  const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
+  const patchOps = configPatchOps(fieldsToUpdate as Record<string, unknown>);
 
   // Resolved once (only for a request that names a revert target) and consulted
   // by both the write-narrowing check and the landing gate below.
@@ -1224,15 +1239,11 @@ export const putConfig = async (
     valuePropertyOp
       ? async (row) => {
           if (!row) return patchOps;
-          const draft = applyPatchToSnapshot(
-            row.target.snapshot as ConfigInterface,
-            normalizeProposedChanges(row.target.proposedChanges),
-          ) as ConfigInterface;
+          const shown = configDraftContent(existing, row).value;
           const nextValue = valuePropertyOp.remove
-            ? removeOwnValueProperty(draft.value, valuePropertyOp.property)
-                .value
+            ? removeOwnValueProperty(shown, valuePropertyOp.property).value
             : setOwnValueProperty(
-                draft.value,
+                shown,
                 valuePropertyOp.property,
                 valuePropertyOp.value,
               );
@@ -1242,17 +1253,12 @@ export const putConfig = async (
           // has to hold for the aggregate that actually lands.
           await assertConfigValueValid(
             context,
-            {
-              key: existing.key,
-              name: existing.name,
+            configValidationLeaf(configDraftState(existing, row), {
               value: strippedValue,
-              schema: draft.schema,
-              parent: draft.parent,
-              extends: draft.extends,
-            },
+            }),
             { value: strippedValue },
           );
-          return buildPatchOps({
+          return configPatchOps({
             ...(fieldsToUpdate as Record<string, unknown>),
             value: strippedValue,
           });
@@ -1263,8 +1269,7 @@ export const putConfig = async (
       title,
       comment,
       revertedFrom,
-      revisionId:
-        wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+      revisionId: targetRevision?.id,
     },
   );
 
@@ -1325,16 +1330,14 @@ export const putConfig = async (
       // post-write cascade — see assertConfigDescendantsReconcilable for the
       // accepted residual race), then soft-warn when the change removes or
       // retypes fields descendants still use (?ignoreWarnings=true proceeds).
-      if (
-        fieldsToUpdate.schema !== undefined ||
-        fieldsToUpdate.parent !== undefined ||
-        "extends" in fieldsToUpdate
-      ) {
+      if (configChangeReachesDescendants(fieldsToUpdate)) {
         const proposedRoot = {
           ...existing,
           ...fieldsToUpdate,
         } as ConfigInterface;
-        await assertConfigDescendantsReconcilable(context, proposedRoot);
+        if (configChangeReshapesFamily(fieldsToUpdate)) {
+          await assertConfigDescendantsReconcilable(context, proposedRoot);
+        }
         await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
       }
 
@@ -1406,11 +1409,7 @@ export const putConfig = async (
         // writes). Kept inside the try so a cascade failure reopens the revision
         // too — otherwise the revision stays "merged", the webhook never fires,
         // and the caller sees a 500 for a publish that half-happened.
-        if (
-          fieldsToUpdate.schema !== undefined ||
-          fieldsToUpdate.parent !== undefined ||
-          "extends" in fieldsToUpdate
-        ) {
+        if (configChangeReshapesFamily(fieldsToUpdate)) {
           await reconcileConfigDescendants(context, existing.key, (w) =>
             cascadeWrites.push({
               before: w.before as unknown as Record<string, unknown> & {
@@ -1465,8 +1464,7 @@ export const putConfig = async (
 
   // Draft path (approval required, no immediate merge). Fire created/updated so
   // the draft lifecycle is observable via webhooks even from the internal UI.
-  const updatedExisting =
-    wantsDraft && !bypassApproval && !autoPublish && !!revisionId;
+  const updatedExisting = !!targetRevision;
   await dispatchConfigRevisionEvent(
     context,
     revision,

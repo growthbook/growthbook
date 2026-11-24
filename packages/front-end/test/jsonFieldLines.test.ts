@@ -1,4 +1,5 @@
 import {
+  formatJsonValue,
   getFieldLineNumbers,
   getTopLevelFieldLines,
 } from "@/components/Features/jsonFieldLines";
@@ -47,5 +48,48 @@ describe("getFieldLineNumbers", () => {
     const json = '{\n  "a": 1,\n  "b": {\n    "c": 2\n  }\n}';
     expect(getFieldLineNumbers(json, new Set(["b"]))).toEqual([3, 4, 5]);
     expect(getFieldLineNumbers(json, new Set(["missing"]))).toEqual([]);
+  });
+});
+
+describe("formatJsonValue", () => {
+  it("keeps what fits on one line, and inlines short arrays", () => {
+    expect(formatJsonValue({ singlelineField: true })).toBe(
+      '{ "singlelineField": true }',
+    );
+    expect(
+      formatJsonValue({ foo: true, bar: ["a", "b"], baz: "x".repeat(60) }),
+    ).toBe(
+      [
+        "{",
+        '  "foo": true,',
+        '  "bar": ["a", "b"],',
+        `  "baz": "${"x".repeat(60)}"`,
+        "}",
+      ].join("\n"),
+    );
+  });
+
+  it("gives each top-level key its own lines when keys are highlighted", () => {
+    const text = formatJsonValue(
+      { foo: true, bar: ["a", "b"] },
+      { keysOnOwnLines: true },
+    );
+    expect(text).toBe(
+      ["{", '  "foo": true,', '  "bar": ["a", "b"]', "}"].join("\n"),
+    );
+    expect(getFieldLineNumbers(text, new Set(["bar"]))).toEqual([3]);
+  });
+
+  it("breaks a nested value that doesn't fit beside its key", () => {
+    const long = Array.from({ length: 12 }, (_, i) => `item-${i}`);
+    const text = formatJsonValue({ list: long }, { keysOnOwnLines: true });
+    expect(text.split("\n").every((line) => line.length <= 80)).toBe(true);
+    expect(getFieldLineNumbers(text, new Set(["list"]))[0]).toBe(2);
+  });
+
+  it("pads one-line objects but not arrays, and leaves strings alone", () => {
+    expect(formatJsonValue({ a: { b: 1 }, c: ["{x}"], d: {} })).toBe(
+      '{ "a": { "b": 1 }, "c": ["{x}"], "d": {} }',
+    );
   });
 });

@@ -25,8 +25,8 @@ export default function EditInterleavingInfoModal({
   close,
 }: {
   interleaving: ApiInterleavingInterface;
-  // Project and tracking key reach the SDK payload, so the server wants run
-  // permission for them once this is serving.
+  // Project reaches the SDK payload, so the server wants run permission for
+  // it once this is serving.
   canEditServing: boolean;
   mutate: () => Promise<unknown>;
   close: () => void;
@@ -38,7 +38,6 @@ export default function EditInterleavingInfoModal({
   const form = useForm({
     defaultValues: {
       name: il.name,
-      trackingKey: il.trackingKey,
       owner: il.owner ?? "",
       project: il.project ?? "",
       tags: il.tags,
@@ -79,14 +78,10 @@ export default function EditInterleavingInfoModal({
       size="lg"
       submit={validatedSubmit(form, async (data) => {
         if (!data.name.trim()) throw new Error("Name is required");
-        if (!data.trackingKey.trim()) {
-          throw new Error("Tracking key is required");
-        }
         await restApiCall(interleavingEndpoints.updateInterleaving, {
           params: { id: il.id },
           body: {
             name: data.name.trim(),
-            trackingKey: data.trackingKey.trim(),
             // A stored owner who has left the org fails the server's membership
             // check, which would block an unrelated name or tag edit.
             owner: data.owner !== (il.owner ?? "") ? data.owner : undefined,
@@ -101,16 +96,6 @@ export default function EditInterleavingInfoModal({
       })}
     >
       <Field label="Name" required minLength={2} {...form.register("name")} />
-      <Field
-        label="Tracking key"
-        disabled={!canEditServing}
-        helpText={
-          canEditServing
-            ? "Matched against experiment_id in your Interleaving Exposure Query."
-            : "Matched against experiment_id in your Interleaving Exposure Query. Changing it while this is running needs permission to run experiments."
-        }
-        {...form.register("trackingKey")}
-      />
       <SelectOwner
         value={form.watch("owner")}
         onChange={(v) => form.setValue("owner", v)}

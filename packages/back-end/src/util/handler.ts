@@ -308,7 +308,8 @@ export async function runApiHandler(
     return {
       status,
       body,
-      ...(status < 500 && { refusal: refusalNotices(e) }),
+      // Something missing isn't a check a later try could skip.
+      ...(status < 500 && status !== 404 && { refusal: refusalNotices(e) }),
     };
   }
 }
@@ -426,6 +427,7 @@ export function createApiRequestHandler<
     possibleErrors,
     confirmation,
     confirmationInHandler,
+    secretBodyFields,
   } = data;
 
   return (
@@ -453,6 +455,7 @@ export function createApiRequestHandler<
           path,
           req,
           summary,
+          secretBodyFields,
         );
         return inner(req);
       };

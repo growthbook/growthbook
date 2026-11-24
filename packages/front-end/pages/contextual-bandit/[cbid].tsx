@@ -2,6 +2,7 @@ import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useRouter } from "next/router";
 import React, { ReactElement, useMemo, useState } from "react";
 import { canEditContextualBanditVisualChanges } from "shared/experiments";
+import { canRunContextualBanditControl } from "shared/permissions";
 import { useRestApiCall } from "@/services/restApi";
 import { useAuth } from "@/services/auth";
 import {
@@ -121,11 +122,12 @@ const ContextualBanditPage = (): ReactElement => {
   const canAddVisualChanges =
     canAddLinkedChanges &&
     permissionsUtil.canCreateVisualChange({ project: cb.project });
-  const hasRunPermission = permissionsUtil.canRunContextualBandit(
-    { project: cb.project },
+  const canChangeServing = canRunContextualBanditControl(
+    permissionsUtil,
+    cb,
     envs,
   );
-  const canRun = !cb.archived && hasRunPermission;
+  const canRun = canChangeServing && !cb.archived;
   const canEditVisualChangesets =
     canEditContextualBanditVisualChanges(cb) &&
     permissionsUtil.canUpdateVisualChange({ project: cb.project }) &&
@@ -139,7 +141,9 @@ const ContextualBanditPage = (): ReactElement => {
   };
   const canArchive =
     permissionsUtil.canViewContextualBanditModal(cb.project) &&
-    (cb.status !== "running" || hasRunPermission);
+    canUpdate &&
+    (cb.status !== "running" ||
+      permissionsUtil.canRunContextualBandit({ project: cb.project }, envs));
   const canDelete = permissionsUtil.canDeleteContextualBandit(cb);
 
   return (
@@ -157,7 +161,7 @@ const ContextualBanditPage = (): ReactElement => {
             cb={cb}
             mutate={mutate}
             canRun={canRun}
-            canStop={hasRunPermission}
+            canStop={canChangeServing}
             canArchive={canArchive}
             canDelete={canDelete}
             editOverview={

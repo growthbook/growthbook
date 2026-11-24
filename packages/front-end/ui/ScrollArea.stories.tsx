@@ -29,7 +29,7 @@ export default function ScrollAreaStories() {
           key={String(gutter)}
           title={gutter ? "With gutter" : "Scrollbar over the content"}
         >
-          <ScrollArea gutter={gutter} alwaysShow style={{ height: "100%" }}>
+          <ScrollArea gutter={gutter} type="auto" style={{ height: "100%" }}>
             {rows.map((row, i) => (
               <Flex
                 key={row}
@@ -86,6 +86,32 @@ export default function ScrollAreaStories() {
             </tbody>
           </table>
         </ScrollArea>
+      </Example>
+      <Example title="Pinned footer, deep shadow">
+        <Flex direction="column" height="100%">
+          <ScrollArea
+            edgeCue="deep-shadow"
+            skipEdges={["bottom"]}
+            style={{ flex: 1, minHeight: 0 }}
+          >
+            {rows.map((row) => (
+              <Text as="div" key={row} style={{ padding: "4px 8px" }}>
+                {row}
+              </Text>
+            ))}
+          </ScrollArea>
+          <Box
+            className={pinnedTo.bottom}
+            p="2"
+            flexShrink="0"
+            style={{
+              position: "relative",
+              background: "var(--color-panel-solid)",
+            }}
+          >
+            <Text>Composer</Text>
+          </Box>
+        </Flex>
       </Example>
     </Flex>
   );

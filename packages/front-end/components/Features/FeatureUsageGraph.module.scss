@@ -1,7 +1,6 @@
 .sparkTrigger {
   cursor: pointer;
   padding: 4px 4px 4px 6px;
-  margin-bottom: -10px;
   border-radius: var(--radius-3);
   border: none;
   background: transparent;
@@ -10,22 +9,11 @@
 
   &:hover {
     background-color: var(--violet-a3);
-
-    .sparkCaret {
-      opacity: 0.7;
-    }
   }
 
   &:active {
     background-color: var(--violet-a3);
   }
-}
-
-.sparkCaret {
-  font-size: 12px;
-  color: var(--violet-11);
-  transition: opacity 80ms ease;
-  flex-shrink: 0;
 }
 
 @keyframes sparkLivePulse {

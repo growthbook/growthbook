@@ -3,6 +3,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import type {
   InterleavingAnalysis,
   InterleavingVariationRole,
+  ResolvedExplorationPopulation,
 } from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
@@ -155,8 +156,9 @@ export type FactMetricData = {
   computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
-  // Empty for non-funnel metrics.
   funnelStepSourceIndices: number[];
+  compoundComponentSourceIndices: number[];
+  compoundComponentRefs: string[];
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
@@ -354,6 +356,8 @@ export type ColumnTopValuesParams = {
 export type ColumnTopValuesResponseRow = {
   column: string;
   value: string;
+  // Missing when the warehouse can only rank values
+  count?: number;
 };
 
 export interface ExperimentUnitsQuerySettings {
@@ -689,6 +693,8 @@ export type MetricAnalysisParams = {
 export type ProductAnalyticsExplorationParams = {
   factTableMap: FactTableMap;
   factMetricMap: Map<string, FactMetricInterface>;
+  /** The saved Population behind a metric dataset's `population`, if any. */
+  population: ResolvedExplorationPopulation | null;
 };
 
 export type DimensionColumnData = {

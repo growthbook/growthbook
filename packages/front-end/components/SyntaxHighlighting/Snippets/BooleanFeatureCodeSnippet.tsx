@@ -1,5 +1,6 @@
 import { SDKLanguage } from "shared/types/sdk-connection";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Text from "@/ui/Text";
 
 function rubySymbol(name: string): string {
   return name.match(/[^a-zA-Z0-9_]+/) ? `'${name}'` : `:${name}`;
@@ -78,9 +79,9 @@ app.get("/", (req, res) => {
   if (language === "nextjs") {
     return (
       <>
-        <div className="font-weight-bold text-muted mt-2">
+        <Text as="div" weight="semibold" color="text-low" mt="2">
           Define your feature flag
-        </div>
+        </Text>
         <Code
           filename="flags.ts"
           language="typescript"
@@ -98,7 +99,9 @@ export const myFeatureFlag = flag<boolean>({
 `.trim()}
         />
 
-        <div className="font-weight-bold text-muted mt-2">Use the flag</div>
+        <Text as="div" weight="semibold" color="text-low" mt="2">
+          Use the flag
+        </Text>
         <Code
           filename="my-component.tsx"
           language="tsx"

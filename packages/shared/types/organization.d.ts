@@ -249,10 +249,13 @@ export type ApprovalFlowConfiguration = {
   blockSelfApproval?: boolean;
   autopublishOnApproval?: boolean;
   resetReviewOnChange?: boolean;
+  // SDK connections only. Empty or omitted means all.
+  environments?: string[];
 };
 
 export type ApprovalFlowConfigurations = {
   savedGroups: ApprovalFlowConfiguration[];
+  sdkConnections?: ApprovalFlowConfiguration[];
 };
 
 // Team requirements are deliberately absent here: a multi-project entity has
@@ -341,14 +344,14 @@ export interface OrganizationSettings {
   // flag). true (default) blocks the publish; false surfaces a bypassable soft
   // warning instead. Absent = true.
   blockPublishOnSchemaError?: boolean;
-  // When enabled, a feature draft whose base version is behind the current
+  // When enabled, a draft whose base version is behind the current
   // live version (or whose approval has gone stale) must be rebased
   // ("Rebase with live") before it can be published.
   requireRebaseBeforePublish?: boolean;
   // When enabled, anyone with publish permission can revert to a previously
   // published revision and publish it immediately, even when approvals are
   // otherwise required. Reverts restore an already-reviewed state, so the
-  // revert UI defaults to "Publish now". Applies to features and saved groups.
+  // revert UI defaults to "Publish now". Applies to every revisioned entity.
   revertsBypassApproval?: boolean;
   // Soft cap on active (unpublished, non-discarded) drafts per feature.
   // Advisory only: the UI warns and asks for confirmation, REST returns an
@@ -404,7 +407,10 @@ export interface OrganizationSettings {
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
+  banditPeriodWeighting?: boolean;
   requireExperimentTemplates?: boolean;
+  disableResultsUpdateForStoppedExperiments?: boolean;
+  disableResultsUpdateForStoppedExperimentGraceHours?: number;
   requireUniqueExperimentTrackingKeys?: boolean;
   experimentKeyExample?: string;
   experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
@@ -414,6 +420,8 @@ export interface OrganizationSettings {
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
+  // Kill switch: public links stop resolving; shareLevel is left as-is.
+  disablePublicSharing?: boolean;
   savedGroupSizeLimit?: number;
   // Opt-in validation of Saved Group scope at consuming Feature Flags.
   enforceSavedGroupProjectScope?: boolean;

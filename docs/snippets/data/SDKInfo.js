@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "2.0.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -95,7 +95,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "2.0.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -248,7 +248,7 @@ export default {
   },
   php: {
     name: "PHP SDK",
-    version: "3.0.0",
+    version: "3.0.1",
     github: "https://github.com/growthbook/growthbook-php",
     examples: [],
     packageRepos: [
@@ -307,7 +307,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "2.0.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -445,7 +445,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "4.0.0",
+    version: "4.1.0",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -460,6 +460,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v4.1.0",
       },
       {
         savedGroupReferencesV2: "≥ v3.2.0",
@@ -507,7 +510,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.7.0",
+    version: "0.8.0",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -527,6 +530,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v0.8.0",
       },
       {
         savedGroupReferencesV2: "≥ v0.6.0",
@@ -632,7 +638,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.12.0",
+    version: "0.13.0",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -711,7 +717,7 @@ export default {
   },
   csharp: {
     name: "C# SDK",
-    version: "2.0.0",
+    version: "2.1.1",
     github: "https://github.com/growthbook/growthbook-c-sharp",
     examples: [
       {
@@ -819,7 +825,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "10.0.0",
+    version: "10.2.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -834,6 +840,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v10.2.0",
+      },
+      {
+        savedGroupReferencesV2: "≥ v10.2.0",
       },
       {
         savedGroupReferences: "≥ v10.0.0",
@@ -881,7 +893,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "2.0.0",
+    version: "2.1.0",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -896,6 +908,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v2.1.0",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v2.1.0",
       },
       {
         savedGroupReferences: "≥ v2.0.0",
@@ -943,7 +961,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "2.0.0",
+    version: "2.2.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -1357,7 +1375,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "5.0.0",
+    version: "5.1.0",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [
@@ -1372,6 +1390,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v5.1.0",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v5.1.0",
       },
       {
         caseInsensitiveRegex: "≥ v4.3.0",

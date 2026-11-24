@@ -1,31 +1,56 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
+import { omit } from "lodash";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import type { MetricValue } from "shared/validators";
-import { getFactMetricPrimaryFactTableId } from "shared/experiments";
+import { getSinglePopulationStep } from "shared/populations";
+import {
+  configHasPopulation,
+  getMetricIdentifierTypes,
+} from "shared/enterprise";
 import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import Button from "@/ui/Button";
+import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   generateUniqueValueName,
-  getLockedMixClass,
-  getMetricMixClass,
+  getShowAsChoice,
   MetricMixClass,
 } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  getAddMetricConflict,
+  getLockedMixClass,
+  getMetricValuesUnitState,
+  getMixClassConflict,
+  getPopulationConflict,
+  getReadOnlyUnit,
+  getUnitConflict,
+  getUnitPicker,
+  orderEnabledOptionsFirst,
+  setMetricValuesUnit,
+} from "@/enterprise/components/ProductAnalytics/metricMixing";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
+import { usePopulations } from "@/hooks/usePopulations";
+import PopulationPicker from "./PopulationPicker";
+import ShowAsInput from "./ShowAsInput";
 import ValueCard from "./ValueCard";
 import styles from "./ValueCard.module.scss";
 
 export default function MetricTabContent() {
-  const { draftExploreState, addValueToDataset, updateValueInDataset } =
-    useExplorerContext();
+  const {
+    draftExploreState,
+    setDraftExploreState,
+    addValueToDataset,
+    updateValueInDataset,
+  } = useExplorerContext();
   const { factMetrics, getFactTableById, getFactMetricById, project } =
     useDefinitions();
   const { permissionsUtil } = useUser();
@@ -34,6 +59,40 @@ export default function MetricTabContent() {
     draftExploreState.dataset?.type === "metric"
       ? draftExploreState.dataset.values
       : [];
+  const hasPopulation = configHasPopulation(draftExploreState);
+  // The applied Population's Fact Table, which every metric must read from.
+  // Shares PopulationPicker's request; null until the Population loads.
+  const populationId =
+    draftExploreState.dataset?.type === "metric"
+      ? (draftExploreState.dataset.population?.populationId ?? null)
+      : null;
+  const { populations } = usePopulations(undefined, {
+    enabled: populationId !== null,
+  });
+  const appliedPopulation =
+    populations.find((p) => p.id === populationId) ?? null;
+  const populationFactTableId = appliedPopulation
+    ? (getSinglePopulationStep(appliedPopulation)?.source.factTableId ?? null)
+    : null;
+  const populationFactTable = useMemo(
+    () =>
+      populationFactTableId !== null
+        ? {
+            id: populationFactTableId,
+            name: getFactTableById(populationFactTableId)?.name ?? null,
+          }
+        : null,
+    [getFactTableById, populationFactTableId],
+  );
+  const unitState = getMetricValuesUnitState(
+    values,
+    getFactMetricById,
+    getFactTableById,
+  );
+  const unitPicker = getUnitPicker(values, unitState, getFactMetricById);
+  const addMetricConflict = getAddMetricConflict(
+    values.map((v) => getFactMetricById(v.metricId ?? "")?.metricType),
+  );
 
   // Build the base grouped options list for this datasource. All metrics are
   // always shown; compat is enforced per-slot via isOptionDisabled so users
@@ -44,8 +103,8 @@ export default function MetricTabContent() {
     const unManagedMetrics: SingleValue[] = [];
     factMetrics.forEach((m) => {
       if (m.datasource !== draftExploreState.datasource) return;
-      // The Explorer can't chart funnel metrics yet.
-      if (m.metricType === "funnel") return;
+      // The Explorer can't chart funnel or compound metrics yet.
+      if (m.metricType === "funnel" || m.metricType === "compound") return;
       if (m.managedBy) {
         managedMetrics.push({ label: m.name, value: m.id });
       } else {
@@ -76,20 +135,80 @@ export default function MetricTabContent() {
     return getLockedMixClass(otherTypes);
   };
 
-  // Ratio/quantile metrics chart alone: no second slot once one is picked.
-  const exclusiveClass =
-    values
-      .map((v) =>
-        getMetricMixClass(getFactMetricById(v.metricId ?? "")?.metricType),
-      )
-      .find((c) => c === "ratio" || c === "quantile") ?? null;
+  /** The unit a metric in `slotIdx` must offer to keep the chart on one unit
+   *  (or null when the other metrics have none, or already mix units). */
+  const getLockedUnitForSlot = (slotIdx: number): string | null => {
+    const others = getMetricValuesUnitState(
+      values.filter((_, i) => i !== slotIdx),
+      getFactMetricById,
+      getFactTableById,
+    );
+    return others.isMixed ? null : others.unit;
+  };
 
-  const mixTooltip = (locked: Exclude<MetricMixClass, "unknown">) =>
-    locked === "ratio"
-      ? "Ratio metrics can't be combined with other metrics."
-      : locked === "quantile"
-        ? "Quantile metrics can't be combined with other metrics."
-        : "Only the same metric type can be combined in one chart.";
+  /** Why `metric` can't go in a slot with these locks, or null if it can. */
+  const getDisabledReason = useCallback(
+    (
+      metric: FactMetricInterface,
+      lockedClass: Exclude<MetricMixClass, "unknown"> | null,
+      lockedUnit: string | null,
+    ): string | null => {
+      if (populationFactTable !== null) {
+        const conflict = getPopulationConflict(
+          metric,
+          populationFactTable,
+          getFactTableById,
+        );
+        if (conflict !== null) return conflict;
+      }
+      return (
+        getMixClassConflict(metric.metricType, lockedClass) ??
+        getUnitConflict(metric, lockedUnit, getFactTableById)
+      );
+    },
+    [getFactTableById, populationFactTable],
+  );
+
+  // Each slot lists its enabled metrics first. Slots with the same locks share
+  // one list, and lists are kept between renders so SelectField doesn't
+  // re-clone every metric option on each edit.
+  const getOrderedOptions = useMemo(() => {
+    const orderedByLocks = new Map<string, (SingleValue | GroupedValue)[]>();
+    return (
+      lockedClass: Exclude<MetricMixClass, "unknown"> | null,
+      lockedUnit: string | null,
+    ) => {
+      const key = `${lockedClass}|${lockedUnit}`;
+      let ordered = orderedByLocks.get(key);
+      if (!ordered) {
+        ordered = orderEnabledOptionsFirst(groupedOptions, (metricId) => {
+          const metric = getFactMetricById(metricId);
+          return (
+            !!metric &&
+            getDisabledReason(metric, lockedClass, lockedUnit) !== null
+          );
+        });
+        orderedByLocks.set(key, ordered);
+      }
+      return ordered;
+    };
+  }, [groupedOptions, getFactMetricById, getDisabledReason]);
+
+  const handleUnitChange = (unit: string) =>
+    setDraftExploreState((prev) => {
+      if (prev.type !== "metric") return prev;
+      const nextValues = setMetricValuesUnit(
+        prev.dataset.values,
+        unit,
+        getFactMetricById,
+      );
+      // The Population counts members by the chart's identifier type.
+      const nextDataset = { ...prev.dataset, values: nextValues };
+      if (prev.dataset.population) {
+        nextDataset.population = { ...prev.dataset.population, unit };
+      }
+      return { ...prev, dataset: nextDataset };
+    });
 
   return (
     <Flex direction="column" gap="4">
@@ -101,9 +220,43 @@ export default function MetricTabContent() {
 
       {values.map((v, idx) => {
         const lockedClass = getLockedClassForSlot(idx);
-        const disabledTooltip = lockedClass ? mixTooltip(lockedClass) : "";
+        const lockedUnit = getLockedUnitForSlot(idx);
+        const disabledReasonFor = (metricId: string) => {
+          const metric = getFactMetricById(metricId);
+          return metric
+            ? getDisabledReason(metric, lockedClass, lockedUnit)
+            : null;
+        };
+        const { options: showAsOptions, showAs } = getShowAsChoice(
+          v,
+          draftExploreState.showAs,
+          getFactMetricById,
+          hasPopulation,
+        );
         return (
-          <ValueCard key={idx} index={idx}>
+          <ValueCard
+            key={idx}
+            index={idx}
+            readOnlyUnit={getReadOnlyUnit(
+              v,
+              unitState.isMixed,
+              getFactMetricById,
+            )}
+            filterActions={
+              showAsOptions.length > 0 && (
+                <ShowAsInput
+                  options={showAsOptions}
+                  value={showAs}
+                  setValue={(next) =>
+                    updateValueInDataset(idx, { ...v, showAs: next })
+                  }
+                  unit={v.unit}
+                  metricName={v.name.trim() || `Metric ${idx + 1}`}
+                  metricType={getFactMetricById(v.metricId)?.metricType}
+                />
+              )
+            }
+          >
             <Flex direction="column">
               <SelectField
                 size="legacy"
@@ -115,22 +268,20 @@ export default function MetricTabContent() {
                   }) && !permissionsUtil.canRunMetricQueries({ projects: [] })
                 }
                 onChange={(val) => {
-                  const newMetric = factMetrics.find((m) => m.id === val);
-                  const newFactTable = newMetric
-                    ? getFactTableById(
-                        getFactMetricPrimaryFactTableId(newMetric),
-                      )
-                    : null;
-
-                  let unit = v.unit;
-                  if (!unit || !newFactTable?.userIdTypes.includes(unit)) {
-                    unit = newFactTable?.userIdTypes[0] ?? null;
-                  }
-
+                  const newMetric = getFactMetricById(val);
+                  // Keep the chart's unit (or this slot's, when it's the only
+                  // metric) if the new metric offers it; otherwise
+                  // fillMissingUnits picks one.
+                  const unit = lockedUnit ?? v.unit;
+                  const newIdentifierTypes = newMetric
+                    ? getMetricIdentifierTypes(newMetric, getFactTableById)
+                    : [];
+                  // A new metric starts from its own inferred showAs.
                   const updates = {
-                    ...v,
+                    ...omit(v, "showAs"),
                     metricId: val,
-                    unit,
+                    unit:
+                      unit && newIdentifierTypes.includes(unit) ? unit : null,
                     name: newMetric?.name
                       ? generateUniqueValueName(
                           newMetric.name,
@@ -144,27 +295,22 @@ export default function MetricTabContent() {
 
                   updateValueInDataset(idx, updates as MetricValue);
                 }}
-                options={groupedOptions}
-                isOptionDisabled={(option) => {
-                  if (!lockedClass || !("value" in option)) return false;
-                  const metric = factMetrics.find((m) => m.id === option.value);
-                  if (!metric) return false;
-                  return getMetricMixClass(metric.metricType) !== lockedClass;
-                }}
+                options={getOrderedOptions(lockedClass, lockedUnit)}
+                isOptionDisabled={(option) =>
+                  "value" in option && disabledReasonFor(option.value) !== null
+                }
                 formatOptionLabel={({ value }, meta) => {
-                  const metric = factMetrics.find((m) => m.id === value);
+                  const metric = getFactMetricById(value);
                   if (!metric) return value;
-                  // Only attach the mix-restriction tooltip inside the open
-                  // menu (not in the selected-value display) so it doesn't
-                  // fire on every hover over the selected option.
-                  const isDisabledInMenu =
-                    meta.context === "menu" &&
-                    !!lockedClass &&
-                    getMetricMixClass(metric.metricType) !== lockedClass;
-                  if (!isDisabledInMenu) return <MetricName metric={metric} />;
+                  // Only attach the restriction tooltip inside the open menu
+                  // (not in the selected-value display) so it doesn't fire on
+                  // every hover over the selected option.
+                  const disabledReason =
+                    meta.context === "menu" ? disabledReasonFor(value) : null;
+                  if (!disabledReason) return <MetricName metric={metric} />;
                   // Badge tooltip off: one tooltip per option.
                   return (
-                    <Tooltip content={disabledTooltip}>
+                    <Tooltip content={disabledReason}>
                       <span>
                         <MetricName metric={metric} disableTooltip />
                       </span>
@@ -183,13 +329,13 @@ export default function MetricTabContent() {
         );
       })}
       <Tooltip
-        enabled={exclusiveClass !== null}
-        content={exclusiveClass ? mixTooltip(exclusiveClass) : ""}
+        enabled={addMetricConflict !== null}
+        content={addMetricConflict ?? ""}
       >
         <Button
           size="md"
           variant="outline"
-          disabled={exclusiveClass !== null}
+          disabled={addMetricConflict !== null}
           onClick={() => addValueToDataset("metric")}
         >
           <Flex align="center" gap="2">
@@ -198,6 +344,39 @@ export default function MetricTabContent() {
           </Flex>
         </Button>
       </Tooltip>
+      {/* An applied Population stays clearable with no metric selected. */}
+      {(unitPicker || hasPopulation) && (
+        <Flex
+          direction="column"
+          gap="2"
+          p="3"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+            backgroundColor: "var(--color-panel-translucent)",
+          }}
+        >
+          <PopulationPicker unit={unitPicker?.value ?? null} />
+          {unitPicker && (
+            <Select
+              label="Identifier type"
+              labelWeight="medium"
+              value={unitPicker.value ?? undefined}
+              placeholder={unitPicker.placeholder}
+              disabled={unitPicker.disabledReason !== null}
+              error={unitPicker.disabledReason ?? undefined}
+              errorLevel="warning"
+              setValue={handleUnitChange}
+            >
+              {unitPicker.options.map((unit) => (
+                <SelectItem key={unit} value={unit}>
+                  {unit}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
+        </Flex>
+      )}
     </Flex>
   );
 }

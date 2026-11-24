@@ -43,8 +43,8 @@ export default function VariationUsersTable({
         direction="horizontal"
         size="md"
         gutter
-        alwaysShow
-        wheelScrollsSideways
+        type="auto"
+        wheelScrollsSideways="area"
         edgeCue="fade"
         skipEdges={["left"]}
       >

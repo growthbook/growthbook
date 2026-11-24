@@ -29,8 +29,8 @@ const row = {
 };
 
 describe("processExperimentFactMetricsQueryRows", () => {
-  it("parses metric, funnel step, quantile, dimension and bandit columns", () => {
-    const [result] = processExperimentFactMetricsQueryRows([row]);
+  it("parses metric, funnel step, quantile, dimension and bandit columns", async () => {
+    const [result] = await processExperimentFactMetricsQueryRows([row]);
 
     expect(result).toEqual({
       variation: "1",
@@ -79,9 +79,41 @@ describe("processExperimentFactMetricsQueryRows", () => {
     ]);
   });
 
-  it("returns only shared columns for a row without metrics", () => {
+  it("keeps compound component unit counts", async () => {
+    const [result] = await processExperimentFactMetricsQueryRows([
+      {
+        variation: "0",
+        users: "10",
+        m0_id: "fact__compound",
+        m0_main_sum: "2",
+        m0_c0_units: "6",
+        m0_c1_units: "3",
+      },
+    ]);
+    expect(result).toMatchObject({ m0_c0_units: 6, m0_c1_units: 3 });
+  });
+
+  it("returns only shared columns for a row without metrics", async () => {
     expect(
-      processExperimentFactMetricsQueryRows([{ variation: "0", users: "3" }]),
+      await processExperimentFactMetricsQueryRows([
+        { variation: "0", users: "3" },
+      ]),
     ).toEqual([{ variation: "0", users: 3, count: 3 }]);
+  });
+
+  it("yields to the event loop while processing many rows", async () => {
+    let ticks = 0;
+    const timer = setInterval(() => ticks++, 0);
+    const rows = Array.from({ length: 1000 }, (_, i) => ({
+      ...row,
+      variation: String(i),
+    }));
+    const result = await processExperimentFactMetricsQueryRows(rows);
+    clearInterval(timer);
+
+    expect(result.map((r) => r.variation)).toEqual(
+      rows.map((r) => r.variation),
+    );
+    expect(ticks).toBeGreaterThan(0);
   });
 });

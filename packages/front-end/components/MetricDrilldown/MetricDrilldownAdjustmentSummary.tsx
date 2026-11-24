@@ -6,6 +6,12 @@ import {
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
+import {
+  AdjustmentEffectSize,
+  AdjustmentImpact,
+  getAdjustmentImpactSummaries,
+  SupplementalField,
+} from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
@@ -14,12 +20,6 @@ import Text from "@/ui/Text";
 import { RadixColor } from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import { ExperimentTableRow } from "@/services/experiments";
-import {
-  AdjustmentEffectSize,
-  AdjustmentImpact,
-  getAdjustmentImpactSummary,
-  SupplementalField,
-} from "./helpers";
 
 interface MetricDrilldownAdjustmentSummaryProps {
   row: ExperimentTableRow;
@@ -49,7 +49,13 @@ const EFFECT_SIZE_DISPLAY: Record<
   large: { label: "Large effect", color: "amber" },
 };
 
-function formatAdjustmentChange(relativeChange: number): string {
+function formatAdjustmentChange({
+  relativeChange,
+  standardErrorShift,
+}: Pick<AdjustmentImpact, "relativeChange" | "standardErrorShift">): string {
+  if (standardErrorShift !== null) {
+    return `Estimate shifted by ${standardErrorShift.toFixed(2)} standard errors`;
+  }
   return `${(relativeChange * 100).toFixed(1)}% change in estimate`;
 }
 
@@ -82,9 +88,9 @@ const MetricDrilldownAdjustmentSummary: FC<
 
   const summary = useMemo(
     () =>
-      getAdjustmentImpactSummary({
-        row,
-        baselineRow,
+      getAdjustmentImpactSummaries({
+        metrics: [row],
+        baselineIndex: baselineRow,
         variationFilter,
         metricDefaults,
         statsEngine,
@@ -92,9 +98,9 @@ const MetricDrilldownAdjustmentSummary: FC<
         ciUpper,
         ciLower,
         pValueThreshold,
-        goalRows,
+        goalMetrics: goalRows,
         pValueCorrection,
-      }),
+      })[0],
     [
       row,
       baselineRow,
@@ -126,11 +132,15 @@ const MetricDrilldownAdjustmentSummary: FC<
             label,
             effectSize,
             relativeChange,
+            standardErrorShift,
             significanceChanged,
             signFlipped,
           }) => {
             const display = EFFECT_SIZE_DISPLAY[effectSize];
-            const changeText = formatAdjustmentChange(relativeChange);
+            const changeText = formatAdjustmentChange({
+              relativeChange,
+              standardErrorShift,
+            });
             const qualifiers = formatAdjustmentQualifiers({
               significanceChanged,
               signFlipped,

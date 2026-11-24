@@ -77,7 +77,7 @@ const apiPopulationStepInput = populationStepValidator.extend({
 
 export const apiCreatePopulationBody = z
   .strictObject({
-    name: z.string().min(1),
+    name: z.string().trim().min(1, "Name cannot be empty"),
     description: z.string().optional(),
     owner: requiredUnlessPersonOwnerInputField,
     projects: z.array(z.string()).optional(),

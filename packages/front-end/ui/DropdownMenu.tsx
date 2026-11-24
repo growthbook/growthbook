@@ -21,7 +21,7 @@ import React, {
 import { createPortal } from "react-dom";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { radixSize, Size } from "@/ui/sizes";
 
@@ -250,7 +250,7 @@ type DropdownItemProps = {
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
   tooltip?: string;
-  tooltipStyle?: React.CSSProperties;
+  tooltipSide?: "top" | "right" | "bottom" | "left";
   confirmation?: {
     submit: () => Promise<void> | void;
     getConfirmationContent?: (
@@ -274,7 +274,7 @@ export function DropdownMenuItem({
   onClick,
   confirmation,
   tooltip,
-  tooltipStyle = { width: "max-content" },
+  tooltipSide = "bottom",
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -355,8 +355,11 @@ export function DropdownMenuItem({
           <Box width="14px" className="ml-3">
             {loading ? <LoadingSpinner /> : null}
             {error ? (
-              <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
-                <PiWarningFill color={amber.amber11} />
+              <Tooltip content={`Error: ${error}. Exit menu and try again.`}>
+                {/* An icon can't hold the tooltip's ref. */}
+                <span>
+                  <PiWarningFill color={amber.amber11} />
+                </span>
               </Tooltip>
             ) : null}
           </Box>
@@ -383,7 +386,7 @@ export function DropdownMenuItem({
         </ModalStandard>
       )}
       {tooltip ? (
-        <Tooltip body={tooltip} popperStyle={tooltipStyle}>
+        <Tooltip content={tooltip} side={tooltipSide}>
           {menuItem}
         </Tooltip>
       ) : (

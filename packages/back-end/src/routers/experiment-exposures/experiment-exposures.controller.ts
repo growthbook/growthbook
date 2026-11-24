@@ -12,7 +12,8 @@ import {
   formatQueryExecutionErrorForApi,
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
-  getExposureQueryIdentifierTypes,
+  getClusterSubUnitIdentifierTypes,
+  getClusterSubUnitMissingError,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
   parseOptionalInt,
@@ -134,12 +135,18 @@ export async function postExposures(
     null;
   if (
     subUnitIdentifierType &&
-    !getExposureQueryIdentifierTypes(exposureQuery).includes(
-      subUnitIdentifierType,
-    )
+    !getClusterSubUnitIdentifierTypes(
+      exposureQuery,
+      datasource,
+      resolvedExposureQuery.identifierType,
+    ).includes(subUnitIdentifierType)
   ) {
     context.throwBadRequestError(
-      `Assignment query "${exposureQuery.name || exposureQuery.id}" doesn't declare the sub-unit identifier type "${subUnitIdentifierType}".`,
+      getClusterSubUnitMissingError(
+        exposureQuery,
+        datasource,
+        subUnitIdentifierType,
+      ),
     );
     return;
   }

@@ -113,7 +113,7 @@ describe("getQuantileBoundsFromQueryResponse — array vs scalar shape", () => {
     expect(bounds[`${prefix}quantile_nstar`]).toBe(0);
   });
 
-  it("keeps zero bounds after chunked SQL result roundtrip for sparse slices", () => {
+  it("keeps zero bounds after chunked SQL result roundtrip for sparse slices", async () => {
     const denseRow = {
       variation: "0",
       users: 100,
@@ -134,7 +134,7 @@ describe("getQuantileBoundsFromQueryResponse — array vs scalar shape", () => {
       m0_quantile_grid: null,
     };
 
-    const processed = processExperimentFactMetricsQueryRows([
+    const processed = await processExperimentFactMetricsQueryRows([
       denseRow,
       sparseRow,
     ]);

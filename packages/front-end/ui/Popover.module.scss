@@ -19,6 +19,39 @@
   }
 }
 
+.HoverBridge {
+  position: relative;
+
+  &::before {
+    content: "";
+    position: absolute;
+  }
+  &[data-side="bottom"]::before,
+  &[data-side="top"]::before {
+    left: var(--hover-bridge-start);
+    width: var(--hover-bridge-length);
+    height: var(--hover-bridge);
+  }
+  &[data-side="right"]::before,
+  &[data-side="left"]::before {
+    top: var(--hover-bridge-start);
+    height: var(--hover-bridge-length);
+    width: var(--hover-bridge);
+  }
+  &[data-side="bottom"]::before {
+    bottom: 100%;
+  }
+  &[data-side="top"]::before {
+    top: 100%;
+  }
+  &[data-side="right"]::before {
+    right: 100%;
+  }
+  &[data-side="left"]::before {
+    left: 100%;
+  }
+}
+
 .Arrow {
   fill: var(--color-panel);
 }

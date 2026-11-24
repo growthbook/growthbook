@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isEqual } from "lodash";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
+import md5 from "md5";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -25,6 +26,7 @@ import {
   mergeResultHasChanges,
   draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
+  entityTrackingKey,
   findAnalysisComputeFailure,
   generateVariationId,
   getAffectedEnvsForExperiment,
@@ -60,6 +62,12 @@ import {
   needsPercentileCapSubquery,
   expandMetricGroups,
   ExperimentMetricInterface,
+  AdjustmentImpactArgs,
+  DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
+  getAdjustmentImpactSummaries,
+  MetricResults,
+  parseAdjustmentImpactSettings,
+  SupplementalField,
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
   getClusterSubUnit,
@@ -89,6 +97,8 @@ import {
   scheduleWriteNeedsRunPermission,
   sdkConnectionServesProject,
   withScheduledBy,
+  isExperimentResultsUpdateDisabled,
+  EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -135,6 +145,7 @@ import {
   SnapshotType,
   SnapshotBanditSettings,
   DimensionForSnapshot,
+  SnapshotMetric,
 } from "shared/types/experiment-snapshot";
 import { Condition, MetricInterface, Operator } from "shared/types/metric";
 import {
@@ -150,6 +161,7 @@ import {
   LinkedFeatureState,
   StagedRefDraft,
   Variation,
+  ExperimentHealthSettings,
 } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
@@ -178,6 +190,7 @@ import {
   getUnsupportedIncrementalExperimentTypeReason,
   PRESET_DECISION_CRITERIA,
   getPresetDecisionCriteriaForOrg,
+  getHealthSettings,
 } from "shared/enterprise";
 import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { generateId } from "back-end/src/util/uuid";
@@ -215,6 +228,11 @@ import {
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import {
+  getBackendFeatureValue,
+  getTrustedOrgAttributes,
+  trackEventForContext,
+} from "back-end/src/services/growthbook";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { assessRevisionApprovalForAutoPublish } from "back-end/src/services/experiment-feature";
 import {
@@ -233,7 +251,7 @@ import {
   getFeature,
   getFeaturesByIds,
 } from "back-end/src/models/FeatureModel";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
 import {
   getRevision,
   getActiveDraftMetadataByFeatureIds,
@@ -263,6 +281,7 @@ import {
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   InvalidTrackingKeyError,
+  SoftWarningError,
 } from "back-end/src/util/errors";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 import { isoOrNull } from "back-end/src/services/experimentChanges/loadedBase";
@@ -278,6 +297,7 @@ import {
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
+import { interruptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getMetricForSnapshot } from "./reports";
 import {
@@ -2228,6 +2248,30 @@ export async function planSnapshot({
   };
 }
 
+// Incremental full/update mutates the per-experiment pipeline tables
+// (DROP/CREATE/RENAME on units + metric-source tables), so they take the
+// lock as the one writer and concurrent triggers (scheduled auto-refresh +
+// manual Update) cannot race. Exploratory only _reads_ those tables, so
+// breakdowns share the lock as readers; a writer never waits for them and
+// interrupts them instead. The results runner only writes per-snapshot
+// ephemeral tables, so it does not need this lock.
+function getIncrementalRefreshLockRole(
+  runnerKind: SnapshotQueryRunnerKind,
+): "writer" | "reader" | null {
+  switch (runnerKind) {
+    case "incremental-full":
+    case "incremental-update":
+      return "writer";
+    case "incremental-exploratory":
+      return "reader";
+    case "results":
+      return null;
+    default:
+      runnerKind satisfies never;
+      throw new Error(`Unknown snapshot runner kind: ${runnerKind}`);
+  }
+}
+
 export async function createSnapshotFromPlan({
   plan,
   context,
@@ -2247,31 +2291,33 @@ export async function createSnapshotFromPlan({
   }
   const integration = getSourceIntegrationObject(context, datasource, true);
   const { runnerKind } = plan.snapshot;
-
-  // Incremental full/update mutate the per-experiment pipeline tables
-  // (DROP/CREATE/RENAME on units + metric-source tables). Exploratory reads
-  // those tables. Lock all three so concurrent triggers (scheduled
-  // auto-refresh + manual Update) cannot race and produce empty or malformed
-  // results. The results runner only writes per-snapshot ephemeral tables, so
-  // it does not need this lock.
-  const needsIncrementalRefreshLock =
-    runnerKind === "incremental-full" ||
-    runnerKind === "incremental-update" ||
-    runnerKind === "incremental-exploratory";
+  const lockRole = getIncrementalRefreshLockRole(runnerKind);
 
   let hasIncrementalRefreshLock = false;
-  if (needsIncrementalRefreshLock) {
+  if (lockRole !== null) {
+    const lockParams = {
+      experimentId: experiment.id,
+      phase: plan.snapshot.phase,
+      snapshotId: plan.snapshot.id,
+      legacyExperimentSettingsHash:
+        getExperimentSettingsHashForIncrementalRefresh(
+          plan.snapshot.settings,
+          datasource.settings.queries?.exposure ?? [],
+        ),
+    };
     hasIncrementalRefreshLock =
-      await context.models.incrementalRefresh.acquireLock({
-        experimentId: experiment.id,
-        phase: plan.snapshot.phase,
-        snapshotId: plan.snapshot.id,
-        legacyExperimentSettingsHash:
-          getExperimentSettingsHashForIncrementalRefresh(
-            plan.snapshot.settings,
-            datasource.settings.queries?.exposure ?? [],
-          ),
-      });
+      lockRole === "reader"
+        ? await context.models.incrementalRefresh.acquireReaderLock({
+            ...lockParams,
+            request: {
+              type: "dimension",
+              // Planning only picks this runner for a single-dimension breakdown.
+              dimension:
+                plan.snapshot.dimension ??
+                plan.snapshot.settings.dimensions.map((d) => d.id).join(","),
+            },
+          })
+        : await context.models.incrementalRefresh.acquireLock(lockParams);
     if (!hasIncrementalRefreshLock) {
       throw new ConcurrentIncrementalRefreshError(
         "There is already an update in progress for this experiment.",
@@ -2284,6 +2330,14 @@ export async function createSnapshotFromPlan({
     null;
 
   try {
+    if (lockRole === "writer") {
+      await interruptIncrementalReaders(
+        context,
+        experiment.id,
+        plan.snapshot.id,
+      );
+    }
+
     let scheduleNextSnapshot = true;
     if (
       experiment.type === "multi-armed-bandit" &&
@@ -2959,6 +3013,7 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
+  bypassResultsUpdateDisabled,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2969,6 +3024,7 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
+  bypassResultsUpdateDisabled?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentSnapshotQueryRunner;
@@ -2983,6 +3039,7 @@ export async function createExperimentSnapshot({
     triggeredBy,
     type,
     reweight,
+    bypassResultsUpdateDisabled,
   });
 
   return createExperimentSnapshotFromPlan({
@@ -3036,6 +3093,7 @@ export async function planExperimentSnapshot({
   type,
   reweight,
   throwIfRequiresFullRefresh,
+  bypassResultsUpdateDisabled,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -3047,7 +3105,19 @@ export async function planExperimentSnapshot({
   type?: SnapshotType;
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
+  // Skip the org "disable updating results for stopped experiments" setting.
+  bypassResultsUpdateDisabled?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
+  if (
+    !bypassResultsUpdateDisabled &&
+    !context.ignoreWarnings &&
+    isExperimentResultsUpdateDisabled(experiment, context.org.settings ?? {})
+  ) {
+    throw new SoftWarningError(EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE, [
+      EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
+    ]);
+  }
+
   const snapshotType =
     type ??
     getSnapshotType({
@@ -3768,6 +3838,15 @@ export function toApiDimension(
     case "user":
       return { type: "user", id: parsed.id };
   }
+}
+
+export function getHealthSettingsForOrg(
+  context: ReqContext | ApiReqContext,
+): ExperimentHealthSettings {
+  return getHealthSettings(
+    context.org.settings,
+    orgHasPremiumFeature(context.org, "decision-framework"),
+  );
 }
 
 export function toSnapshotApiInterface(
@@ -4982,6 +5061,7 @@ export async function assertValidClusterExperimentConfig({
 
   const identifierValidation = validateClusterExperimentIdentifiers(
     currentQuery,
+    datasource,
     clusterIdentifier,
     current.clusterSubUnitIdentifier ?? undefined,
   );
@@ -6235,7 +6315,7 @@ export async function getLinkedChangeEnvironmentStates(
   urlRedirectEnvStates: LinkedChangeEnvStates;
 }> {
   const environments = getEnvironmentIdsFromOrg(context.org);
-  const connections = await findSDKConnectionsByOrganization(context);
+  const connections = await findServingSDKConnections(context);
 
   const visualChangesetEnvStates: Record<string, LinkedChangeEnvState> = {};
   const urlRedirectEnvStates: Record<string, LinkedChangeEnvState> = {};
@@ -6343,6 +6423,7 @@ export async function getExperimentAnalysisSummary({
 }): Promise<ExperimentAnalysisSummary> {
   const analysisSummary: ExperimentAnalysisSummary = {
     snapshotId: experimentSnapshot.id,
+    phase: experimentSnapshot.phase,
     precomputedDimensions: experimentSnapshot.settings.dimensions.map(
       (d) => d.id,
     ),
@@ -6448,6 +6529,15 @@ export async function getExperimentAnalysisSummary({
         context,
         analysis: relativeAnalysis,
         experiment,
+        // Telemetry only, so it runs after the results status has been returned.
+        onComputed: (inputs) =>
+          setImmediate(() =>
+            trackAdjustmentImpact({
+              context,
+              experimentId: experiment.id,
+              ...inputs,
+            }),
+          ),
       });
 
       if (resultsStatus) {
@@ -6493,14 +6583,103 @@ function getLatestPhaseVariationId(
   return i + "";
 }
 
+// The corrected results the status was computed from, and their settings.
+type ResultsStatusInputs = {
+  variations: { metrics: Record<string, SnapshotMetric> }[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+  goalMetricIds: string[];
+} & Pick<
+  AdjustmentImpactArgs,
+  | "metricDefaults"
+  | "statsEngine"
+  | "differenceType"
+  | "ciUpper"
+  | "ciLower"
+  | "pValueThreshold"
+  | "pValueCorrection"
+>;
+
+// One event per results update: how many metrics each adjustment (CUPED,
+// post-stratification, capping, Bayesian prior) would alert on.
+function trackAdjustmentImpact({
+  context,
+  experimentId,
+  variations,
+  metricMap,
+  goalMetricIds,
+  ...analysisSettings
+}: ResultsStatusInputs & { context: ReqContext; experimentId: string }) {
+  try {
+    // The settings are under test, randomized by experiment. The id is hashed
+    // like other entity ids in events, and sent with the event so that it
+    // joins to the exposure.
+    const experimentAttributes = {
+      experiment_id_hashed: md5(
+        entityTrackingKey(context.org.id, experimentId),
+      ),
+    };
+    // The fallback is the new settings, so an install that cannot reach the
+    // CDN still gets them.
+    const settings = parseAdjustmentImpactSettings(
+      getBackendFeatureValue(
+        "experiment-impact-setting",
+        DEFAULT_ADJUSTMENT_IMPACT_SETTINGS,
+        { ...getTrustedOrgAttributes(context.org), ...experimentAttributes },
+      ),
+    );
+
+    // Slice and funnel-step ids are not in the metric map, so they are skipped.
+    const toMetricResults = (metricId: string): MetricResults | null => {
+      const metric = metricMap.get(metricId);
+      if (!metric) return null;
+      const stats = variations.map((variation) => variation.metrics[metricId]);
+      if (!stats.every(isDefined)) return null;
+      return { metric, variations: stats };
+    };
+
+    const summaries = getAdjustmentImpactSummaries({
+      ...analysisSettings,
+      metrics: Object.keys(variations[0]?.metrics ?? {})
+        .map(toMetricResults)
+        .filter(isDefined),
+      baselineIndex: 0,
+      goalMetrics: goalMetricIds.map(toMetricResults).filter(isDefined),
+      settings,
+    });
+    const numFlagged = (field: SupplementalField) =>
+      summaries.filter((summary) =>
+        summary.some(
+          (impact) => impact.field === field && impact.effectSize === "large",
+        ),
+      ).length;
+
+    trackEventForContext(
+      context,
+      "Experiment Adjustment Impact",
+      {
+        numMetrics: summaries.length,
+        numPostStratificationFlagged: numFlagged("unstratified"),
+        numCupedFlagged: numFlagged("cupedUnadjusted"),
+        numPriorFlagged: numFlagged("flatPrior"),
+        numCappingFlagged: numFlagged("uncapped"),
+      },
+      experimentAttributes,
+    );
+  } catch (e) {
+    logger.warn(e, "Failed to track adjustment impact");
+  }
+}
+
 export async function computeResultsStatus({
   context,
   analysis,
   experiment,
+  onComputed,
 }: {
   context: ReqContext;
   analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
   experiment: ExperimentInterface | SafeRolloutInterface;
+  onComputed?: (inputs: ResultsStatusInputs) => void;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = analysis.settings.statsEngine;
   const projectId =
@@ -6533,6 +6712,24 @@ export async function computeResultsStatus({
     return;
   }
 
+  const differenceType =
+    "differenceType" in analysis.settings
+      ? analysis.settings.differenceType
+      : "relative";
+
+  onComputed?.({
+    variations,
+    metricMap,
+    goalMetricIds: expandedGoalMetrics,
+    metricDefaults,
+    statsEngine,
+    differenceType,
+    ciUpper,
+    ciLower,
+    pValueThreshold,
+    pValueCorrection,
+  });
+
   const variationStatuses: ExperimentAnalysisSummaryVariationStatus[] = [];
   const baselineVariation = variations[0];
 
@@ -6563,10 +6760,7 @@ export async function computeResultsStatus({
           ciUpper,
           pValueThreshold,
           statsEngine: statsEngine,
-          differenceType:
-            "differenceType" in analysis.settings
-              ? analysis.settings.differenceType
-              : "relative",
+          differenceType,
         });
 
         if (goalMetric) {

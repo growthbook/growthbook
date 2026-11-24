@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { cloneDeep, isEqual } from "lodash";
+import { cloneDeep, isEqual, isNull, omitBy } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import {
@@ -16,6 +16,7 @@ import {
   findColumnsNeedingQuotes,
   getColumnsNeedingQuotesMessage,
   resolveAnalysisIdentifierType,
+  parseOptionalInt,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -57,6 +58,7 @@ import { deleteClickhouseUser } from "back-end/src/services/licenseServerManaged
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
+import { getClaimedEventForwarderEnvironments } from "back-end/src/services/eventForwarder/config";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 import {
   definitionsScope,
@@ -102,6 +104,18 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   settings: {},
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
+// Managed Warehouse recreate state isn't part of the datasource and is written
+// outside this schema: `recreateRequest` by super admins, `recreateStatus` and
+// the lock's `lockOwner` by the license server. Only the admin endpoints read
+// them (services/managedWarehouseRecreate).
+dataSourceSchema.set("toJSON", {
+  transform: (doc, ret) => {
+    delete ret.recreateRequest;
+    delete ret.recreateStatus;
+    delete ret.lockOwner;
+    return ret;
+  },
+});
 
 // At most one Managed Warehouse per org. Partial so other datasource types
 // stay unconstrained. exists() is the fast path; this index closes the race
@@ -169,6 +183,9 @@ export async function getEventPipelineStatusForOrganization(
   eventIngestorRegion: DataRegion | undefined;
   hasManagedWarehouse: boolean;
   hasEventForwarder: boolean;
+  eventForwarderEnvironments: ReturnType<
+    typeof getClaimedEventForwarderEnvironments
+  >;
 }> {
   const datasources = usingFileConfig()
     ? getConfigDatasources(context.org.id)
@@ -189,6 +206,8 @@ export async function getEventPipelineStatusForOrganization(
       : forwarderConfigs.find((c) => c.region)?.region,
     hasManagedWarehouse: !!managedWarehouse,
     hasEventForwarder: forwarderConfigs.length > 0,
+    eventForwarderEnvironments:
+      getClaimedEventForwarderEnvironments(forwarderConfigs),
   };
 }
 
@@ -919,6 +938,9 @@ export function toDataSourceApiInterface(
   datasource: DataSourceInterface,
 ): ApiDataSource {
   const settings = datasource.settings;
+  // As the query runner reads them; negatives are left out so a GET echo saves
+  const maxConcurrentQueries = parseOptionalInt(settings?.maxConcurrentQueries);
+  const queryCacheTTLMins = parseOptionalInt(settings?.queryCacheTTLMins);
   const obj: ApiDataSource = {
     id: datasource.id,
     dateCreated: datasource.dateCreated?.toISOString() || "",
@@ -952,6 +974,21 @@ export function toDataSourceApiInterface(
       }),
     ),
     eventTracker: settings?.schemaFormat || "custom",
+    // Cleared form fields are stored as null, which an echoed PUT would reject
+    ...(settings?.pipelineSettings
+      ? {
+          pipelineSettings: omitBy(
+            settings.pipelineSettings,
+            isNull,
+          ) as DataSourcePipelineSettings,
+        }
+      : {}),
+    ...(maxConcurrentQueries !== undefined && maxConcurrentQueries >= 0
+      ? { maxConcurrentQueries }
+      : {}),
+    ...(queryCacheTTLMins !== undefined && queryCacheTTLMins >= 0
+      ? { queryCacheTTLMins }
+      : {}),
   };
 
   if (datasource.type === "mixpanel") {

@@ -10,8 +10,9 @@ import { useInterleavingExposureQueries } from "@/hooks/useInterleavings";
 import { useUser } from "@/services/UserContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import PagedModal from "@/components/Modal/PagedModal";
-import Page from "@/components/Modal/Page";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import SelectOwner from "@/components/Owner/SelectOwner";
@@ -22,6 +23,7 @@ import InterleavingAnalysisFields, {
   getAnalysisError,
   InterleavingAnalysisValue,
 } from "@/components/Interleaving/InterleavingAnalysisFields";
+import { analysisOf } from "@/components/Interleaving/EditInterleavingAnalysisModal";
 import AddEditInterleavingExposureQueryModal from "@/components/Interleaving/AddEditInterleavingExposureQueryModal";
 import { rankersOf } from "@/components/Interleaving/EditInterleavingRankersModal";
 
@@ -45,10 +47,6 @@ function schemaInput(
   if (!jsonSchema) return undefined;
   const { date: _date, ...input } = jsonSchema;
   return input;
-}
-
-function assertNoError(error: string | null) {
-  if (error) throw new Error(error);
 }
 
 type InterleavingFormValues = {
@@ -83,16 +81,19 @@ export default function InterleavingForm({
   } = useDefinitions();
   const { userId } = useUser();
 
-  const [step, setStep] = useState(0);
   const [keyEdited, setKeyEdited] = useState(!!initialValue);
+
+  const [analysis, setAnalysis] = useState<InterleavingAnalysisValue>(() =>
+    duplicate && initialValue
+      ? analysisOf(initialValue)
+      : {
+          datasourceId: "",
+          interleavingExposureQueryId: "",
+          userIdType: "",
+          metrics: [],
+        },
+  );
   const [addingQuery, setAddingQuery] = useState(false);
-  const [analysis, setAnalysis] = useState<InterleavingAnalysisValue>({
-    datasourceId: initialValue?.datasourceId ?? "",
-    interleavingExposureQueryId:
-      initialValue?.interleavingExposureQueryId ?? "",
-    userIdType: initialValue?.userIdType ?? "",
-    metrics: initialValue?.metrics ?? [],
-  });
 
   // Resolved against the starting project, like ContextualBanditForm. A copy
   // keeps the original's attribute; a new one falls back to the project's.
@@ -162,13 +163,18 @@ export default function InterleavingForm({
     ),
   );
 
-  const validateOverview = async () => {
-    if (!form.watch("name").trim()) throw new Error("Name is required");
-    if (!form.watch("key")) throw new Error("Key is required");
-  };
-
   const submit = form.handleSubmit(async (data) => {
-    assertNoError(getAnalysisError(analysis));
+    if (!data.name.trim()) throw new Error("Name is required");
+    if (!data.key) throw new Error("Key is required");
+    const analysisStarted =
+      !!analysis.datasourceId ||
+      !!analysis.interleavingExposureQueryId ||
+      !!analysis.userIdType ||
+      analysis.metrics.length > 0;
+    if (duplicate && analysisStarted) {
+      const analysisError = getAnalysisError(analysis);
+      if (analysisError) throw new Error(analysisError);
+    }
     const res = await restApiCall(interleavingEndpoints.createInterleaving, {
       body: {
         name: data.name.trim(),
@@ -189,7 +195,7 @@ export default function InterleavingForm({
         condition: initialValue?.condition,
         savedGroups: initialValue?.savedGroups,
         prerequisites: initialValue?.prerequisites,
-        ...analysis,
+        ...(duplicate ? analysis : {}),
       },
     });
     if (data.tags.length) await refreshTags(data.tags);
@@ -203,7 +209,6 @@ export default function InterleavingForm({
     ? getDatasourceById(analysis.datasourceId)
     : null;
 
-  // Swap modals because Radix renders beneath the legacy PagedModal portal.
   if (addingQuery && analysisDatasource) {
     return (
       <AddEditInterleavingExposureQueryModal
@@ -225,7 +230,8 @@ export default function InterleavingForm({
   }
 
   return (
-    <PagedModal
+    <ModalStandard
+      open
       trackingEventModalType="interleaving-form"
       header={
         duplicate
@@ -236,92 +242,95 @@ export default function InterleavingForm({
       submit={submit}
       cta="Create"
       ctaEnabled={canCreate}
-      disabledMessage="You don't have permission to create interleaving experiments in this project."
       closeCta="Cancel"
       size="lg"
-      step={step}
-      setStep={setStep}
-      backButton
     >
-      <Page display="Overview" validate={validateOverview}>
-        <Box px="2">
-          {projects.length > 0 && (
-            <SelectField
-              label="Project"
-              value={project}
-              onChange={(v) => form.setValue("project", v)}
-              options={projects
-                .filter((p) =>
-                  permissionsUtil.canCreateInterleaving({ project: p.id }),
-                )
-                .map((p) => ({ value: p.id, label: p.name }))}
-              initialOption="All Projects"
-            />
-          )}
-          <Field
-            label="Name"
-            required
-            value={form.watch("name")}
-            onChange={(e) => {
-              form.setValue("name", e.target.value);
-              if (!keyEdited) {
-                form.setValue("key", keyFromName(e.target.value));
-              }
-            }}
-          />
-          <Field
-            label="Key"
-            required
-            value={form.watch("key")}
-            onChange={(e) => {
-              form.setValue("key", e.target.value);
-              setKeyEdited(true);
-            }}
-            helpText="Passed to interleave() in your code. Can't be changed later."
-          />
-          <SelectOwner
-            value={form.watch("owner")}
-            onChange={(v) => form.setValue("owner", v)}
-          />
-          <TagsInput
-            label="Tags"
-            // Defaults to true, which would pull focus off Project/Name.
-            autoFocus={false}
-            value={form.watch("tags")}
-            onChange={(tags) => form.setValue("tags", tags)}
-          />
+      <Box px="2">
+        {!canCreate && (
+          <Callout status="warning" mb="3">
+            You don&apos;t have permission to create interleaving experiments in
+            this project.
+          </Callout>
+        )}
+        {projects.length > 0 && (
           <SelectField
-            label="Hash attribute"
-            value={form.watch("hashAttribute")}
-            onChange={(v) => form.setValue("hashAttribute", v)}
-            options={hashAttributes.map((a) => ({ value: a, label: a }))}
-            createable
-            helpText="Decides which users are interleaved."
+            label="Project"
+            value={project}
+            onChange={(v) => form.setValue("project", v)}
+            options={projects
+              .filter((p) =>
+                permissionsUtil.canCreateInterleaving({ project: p.id }),
+              )
+              .map((p) => ({ value: p.id, label: p.name }))}
+            initialOption="All Projects"
           />
-          <EnvironmentSelect
-            environmentSettings={environmentSettings}
-            environments={environments}
-            project={project}
-            canEnableEnvironment={canEnableEnvironment}
-            setValue={(env, enabled) =>
-              setEnvironmentSettings((prev) => ({
-                ...prev,
-                [env.id]: { ...prev[env.id], enabled },
-              }))
+        )}
+        <Field
+          label="Name"
+          required
+          value={form.watch("name")}
+          onChange={(e) => {
+            form.setValue("name", e.target.value);
+            if (!keyEdited) {
+              form.setValue("key", keyFromName(e.target.value));
             }
-          />
-        </Box>
-      </Page>
-      <Page display="Analysis">
-        <Box px="2">
-          <InterleavingAnalysisFields
-            value={analysis}
-            setValue={setAnalysis}
-            project={project}
-            onAddExposureQuery={() => setAddingQuery(true)}
-          />
-        </Box>
-      </Page>
-    </PagedModal>
+          }}
+        />
+        <Field
+          label="Key"
+          required
+          value={form.watch("key")}
+          onChange={(e) => {
+            form.setValue("key", e.target.value);
+            setKeyEdited(true);
+          }}
+          helpText="Passed to interleave() in your code. Can't be changed later."
+        />
+        <SelectOwner
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
+        />
+        <TagsInput
+          label="Tags"
+          // Defaults to true, which would pull focus off Project/Name.
+          autoFocus={false}
+          value={form.watch("tags")}
+          onChange={(tags) => form.setValue("tags", tags)}
+        />
+        <SelectField
+          label="Hash attribute"
+          value={form.watch("hashAttribute")}
+          onChange={(v) => form.setValue("hashAttribute", v)}
+          options={hashAttributes.map((a) => ({ value: a, label: a }))}
+          createable
+          helpText="Decides which users are interleaved."
+        />
+        <EnvironmentSelect
+          environmentSettings={environmentSettings}
+          environments={environments}
+          project={project}
+          canEnableEnvironment={canEnableEnvironment}
+          setValue={(env, enabled) =>
+            setEnvironmentSettings((prev) => ({
+              ...prev,
+              [env.id]: { ...prev[env.id], enabled },
+            }))
+          }
+        />
+        {duplicate && (
+          <Box mt="4">
+            <Heading as="h4" size="sm" mb="2">
+              Analysis
+            </Heading>
+            <InterleavingAnalysisFields
+              value={analysis}
+              setValue={setAnalysis}
+              project={project}
+              onAddExposureQuery={() => setAddingQuery(true)}
+            />
+          </Box>
+        )}
+      </Box>
+    </ModalStandard>
   );
 }

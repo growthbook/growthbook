@@ -25,6 +25,7 @@ import {
   useConstantDraftTarget,
   ConstantRevisionContext,
 } from "@/components/Constants/useConstantDraftTarget";
+import { draftModeCta } from "@/components/DraftSelector";
 
 type FormValues = {
   value: string;
@@ -55,6 +56,9 @@ export default function ConstantValueModal({
 
   // Value is a content edit (not metadata-only).
   const draft = useConstantDraftTarget(revisionCtx, false);
+  const cta = draftModeCta(draft.draftMode, {
+    bypassesApproval: draft.selectorApprovalRequired,
+  });
 
   const type = existing.type;
 
@@ -139,10 +143,11 @@ export default function ConstantValueModal({
     <ModalStandard
       open={true}
       trackingEventModalType="constant-value-modal"
-      header="Edit value"
+      header="Edit Value"
       size="lg"
       close={close}
-      cta="Save"
+      cta={cta.label}
+      ctaColor={cta.bypass ? "red" : "violet"}
       submit={validatedSubmit(form, async (values) => {
         // A key's presence is the override (even when its value is empty): an
         // empty override forces that environment's resolved value to empty,
@@ -213,7 +218,6 @@ export default function ConstantValueModal({
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
           valueType={type === "string" ? "string" : "json"}
-          showFullscreenButton={type === "json"}
           constantContext={constantContext}
         />
       </Box>
@@ -281,7 +285,6 @@ export default function ConstantValueModal({
                   value={envValues[envId] || ""}
                   setValue={(v) => setOverrideValue(envId, v)}
                   valueType={type === "string" ? "string" : "json"}
-                  showFullscreenButton={type === "json"}
                   constantContext={constantContext}
                 />
               </Box>

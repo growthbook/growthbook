@@ -6,6 +6,8 @@ import {
   canManageApiKeySecret,
   canSetApiKeyDisabled,
   featurePublishFootprint,
+  holdsSdkConnectionDraftDestination,
+  interleavingEnvsForChange,
   revertFootprint,
   serveFootprint,
   NO_ENVIRONMENT_BINDING,
@@ -351,6 +353,47 @@ describe("the cancel footprint is the entity's own scope, unwidened", () => {
   });
 });
 
+describe("an SDK connection draft's footprint includes where it lands", () => {
+  // Manages SDK connections everywhere, but only in staging.
+  const stagingOnly = new Permissions({
+    global: {
+      permissions: { manageSDKConnections: true },
+      limitAccessByEnvironment: true,
+      environments: ["staging"],
+    },
+    projects: {},
+  });
+  const live = { projects: [] as string[], environment: "staging" };
+  const draftTo = (environment: string) => ({
+    target: {
+      snapshot: { sdkConnection: live },
+      proposedChanges: [
+        {
+          op: "replace" as const,
+          path: "/sdkConnection",
+          value: { ...live, environment },
+        },
+      ],
+    },
+  });
+
+  it("refuses a move into an environment the user can't manage", () => {
+    expect(
+      holdsSdkConnectionDraftDestination(
+        stagingOnly,
+        live,
+        draftTo("production"),
+      ),
+    ).toBe(false);
+  });
+
+  it("holds a draft that stays in the user's environment", () => {
+    expect(
+      holdsSdkConnectionDraftDestination(stagingOnly, live, draftTo("staging")),
+    ).toBe(true);
+  });
+});
+
 describe("metric creation has no environment footprint", () => {
   it("allows Fact Metric creation across environments when its project atom is granted", () => {
     const permissions = new Permissions({
@@ -406,5 +449,62 @@ describe("API key controls have no environment footprint", () => {
       ),
     ).toBe(true);
     expect(canApplyExpirationPolicy(tokensOnly, "pat")).toBe(true);
+  });
+});
+
+describe("interleaving serving footprint", () => {
+  const enabled = (...ids: string[]) => ({
+    environmentSettings: Object.fromEntries(
+      environmentIds.map((id) => [id, { enabled: ids.includes(id) }]),
+    ),
+  });
+
+  it("answers for the environments it currently serves", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: enabled("production"),
+        environmentIds,
+      }),
+    ).toEqual(["production"]);
+  });
+
+  it("answers for nothing when it serves nowhere", () => {
+    expect(
+      interleavingEnvsForChange({ existing: enabled(), environmentIds }),
+    ).toEqual([]);
+  });
+
+  it("unions both sides of a toggle so neither end is unguarded", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: enabled("dev"),
+        updated: enabled("production"),
+        environmentIds,
+      }).sort(),
+    ).toEqual(["dev", "production"]);
+  });
+
+  it("still answers for an environment being turned off", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: enabled("production"),
+        updated: enabled(),
+        environmentIds,
+      }),
+    ).toEqual(["production"]);
+  });
+
+  it("ignores environments the organization does not have", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: {
+          environmentSettings: {
+            production: { enabled: true },
+            ghost: { enabled: true },
+          },
+        },
+        environmentIds,
+      }),
+    ).toEqual(["production"]);
   });
 });

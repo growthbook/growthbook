@@ -23,7 +23,10 @@ import {
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
+  isAnalysisDateRangeOutdated,
   isAutoSnapshotScheduled,
+  isExperimentResultsUpdateDisabled,
+  EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
   getClusterSubUnit,
 } from "shared/experiments";
 import {
@@ -73,9 +76,11 @@ import {
   getIsExperimentIncludedInIncrementalRefresh,
   getPipelineSettingsAfterDisablingExperiment,
   getHonoredPrecomputedUnitDimensionIds,
+  getResultsSubUnitTotal,
   getUnitDisplayName,
 } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
+import Tooltip from "@/ui/Tooltip";
 import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
@@ -247,16 +252,32 @@ export default function AnalysisSettingsSummary({
   const totalUnits = healthUnits ?? resultsUnits;
   // A cluster's subunits can fall into several breakdown slices, so summing
   // slices would count it more than once. Use the overall results instead.
-  const overallClusterUnits = useMemo(() => {
-    const overall = dimensionless?.analyses?.find(
-      (a) => !a.settings.dimensions.length,
-    );
-    if (!overall?.results?.length) return null;
-    return (overall.results[0].variations ?? []).reduce(
-      (acc, v) => acc + (v?.users || 0),
-      0,
-    );
-  }, [dimensionless?.analyses]);
+  const overallVariations = useMemo(
+    () =>
+      dimensionless?.analyses?.find((a) => !a.settings.dimensions.length)
+        ?.results?.[0]?.variations ?? null,
+    [dimensionless?.analyses],
+  );
+  const overallClusterUnits = useMemo(
+    () =>
+      overallVariations
+        ? overallVariations.reduce((acc, v) => acc + (v?.users || 0), 0)
+        : null,
+    [overallVariations],
+  );
+  // From the overall snapshot too, so a breakdown keeps it. Without health
+  // traffic, fall back to the metrics' own subunit counts.
+  const overallSubUnits = useMemo(() => {
+    const healthVariationUnits =
+      dimensionless?.health?.traffic?.overall?.variationUnits;
+    if (healthVariationUnits?.length) {
+      return healthVariationUnits.reduce((acc, a) => acc + a, 0);
+    }
+    return overallVariations ? getResultsSubUnitTotal(overallVariations) : null;
+  }, [
+    dimensionless?.health?.traffic?.overall?.variationUnits,
+    overallVariations,
+  ]);
 
   // Cluster results are analyzed per cluster, so their unit counts are
   // clusters, while health traffic counts subunits.
@@ -405,6 +426,12 @@ export default function AnalysisSettingsSummary({
     overallNeedsFullRefresh || overallNeverRanIncrementally;
   const hideOutdatedBadge =
     viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
+  // Org setting that freezes results (overall and dimension) of stopped
+  // experiments once the grace period has elapsed. Custom reports stay open.
+  const resultsUpdateDisabled = isExperimentResultsUpdateDisabled(
+    experiment,
+    orgSettings,
+  );
 
   const newerOverallResultsAvailable = isNewerOverallResultsDataAvailable(
     sourceSnapshot,
@@ -531,6 +558,7 @@ export default function AnalysisSettingsSummary({
     conversionWindowMetrics,
     newerOverallResultsAvailable:
       newerOverallResultsAvailable && !incrementalUpdatesUnavailable,
+    resultsUpdateDisabled,
   });
 
   // If a dimension breakdown already covers the latest Overall Results, another
@@ -674,15 +702,6 @@ export default function AnalysisSettingsSummary({
     return elements.some((v) => !strings.includes(v));
   }
 
-  function isDifferentDate(
-    val1: Date,
-    val2: Date,
-    threshold: number = 86400000,
-  ) {
-    // 86400000 = 1 day
-    return Math.abs(val1.getTime() - val2.getTime()) >= threshold;
-  }
-
   function isOutdated({
     experiment: exp,
     snapshot: snap,
@@ -697,6 +716,7 @@ export default function AnalysisSettingsSummary({
     unjoinableMetrics: unjoinable,
     conversionWindowMetrics: conversion,
     newerOverallResultsAvailable,
+    resultsUpdateDisabled: updateDisabled,
   }: {
     experiment?: ExperimentInterfaceStringDates;
     snapshot?: ExperimentSnapshotInterface;
@@ -711,6 +731,7 @@ export default function AnalysisSettingsSummary({
     unjoinableMetrics?: Set<string>;
     conversionWindowMetrics?: Set<string>;
     newerOverallResultsAvailable?: boolean;
+    resultsUpdateDisabled?: boolean;
   }): { outdated: boolean; reasons: string[] } {
     const snapshotSettings = snap?.settings;
     const analysisSettings = snap ? getSnapshotAnalysis(snap)?.settings : null;
@@ -819,21 +840,12 @@ export default function AnalysisSettingsSummary({
       reasons.push("Variations changed");
     }
     if (
-      isDifferentDate(
-        getValidDate(exp.phases?.[currentPhase ?? 0]?.dateStarted ?? ""),
-        getValidDate(snapshotSettings.startDate),
-      ) ||
-      // A running phase analyzed through a lagged cutoff ends before the
-      // snapshot ran, so measure its staleness from the run time.
-      isDifferentDate(
-        getValidDate(exp.phases?.[currentPhase ?? 0]?.dateEnded ?? ""),
-        getValidDate(
-          !exp.phases?.[currentPhase ?? 0]?.dateEnded &&
-            snapshotSettings.endDateIsCutoff
-            ? snap?.dateCreated
-            : snapshotSettings.endDate,
-        ),
-      )
+      isAnalysisDateRangeOutdated({
+        phase: exp.phases?.[currentPhase ?? 0],
+        snapshotSettings,
+        snapshotDateCreated: snap?.dateCreated,
+        resultsUpdateDisabled: updateDisabled,
+      })
     ) {
       reasons.push("Analysis dates changed");
     }
@@ -957,10 +969,10 @@ export default function AnalysisSettingsSummary({
                     style={{ whiteSpace: "nowrap" }}
                   />
                 )}
-                {healthUnits !== null && (
+                {overallSubUnits !== null && (
                   <Metadata
                     label={getUnitDisplayName(clusterSubUnitIdentifier)}
-                    value={numberFormatter.format(healthUnits)}
+                    value={numberFormatter.format(overallSubUnits)}
                     style={{ whiteSpace: "nowrap" }}
                   />
                 )}
@@ -1018,52 +1030,65 @@ export default function AnalysisSettingsSummary({
             {ds &&
             permissionsUtil.canRunExperimentQueries(ds) &&
             allMetrics.length > 0 ? (
-              <RefreshResultsButton
-                entityType={
-                  experiment.type === "holdout" ? "holdout" : "experiment"
-                }
-                entityId={experiment.id}
-                datasourceId={experiment.datasource}
-                latest={latest}
-                experimentSnapshotTrackingProps={{
-                  trackingSource: "RunQueriesButton",
-                  datasourceType: datasource?.type || null,
-                }}
-                onSuccess={() => {
-                  if (experiment.type === "multi-armed-bandit") {
-                    setSnapshotType?.("exploratory");
-                  } else {
-                    setSnapshotType?.(undefined);
-                  }
-                }}
-                // Poll loop + post-submit refresh hit the default
-                // status-only `mutate()` — the provider auto-upgrades to a
-                // full snapshot fetch when status reports a newer successful
-                // run, so a heavy refetch here would be redundant.
-                mutate={mutate}
-                mutateAdditional={mutateExperiment}
-                setRefreshError={setRefreshError}
-                experiment={experiment}
-                phase={phase}
-                dimension={dimension}
-                setAnalysisSettings={setAnalysisSettings}
-                customValidation={confirmRefresh}
-                onSnapshotRefreshBlocked={handleSnapshotRefreshBlocked}
-                disabled={
-                  viewingDimensionThatRequiresOverallFirst &&
-                  overallResultsRequiredBeforeDimensionRefresh
-                }
-                fullRefreshRequired={
-                  !viewingDimensionThatRequiresOverallFirst &&
-                  overallNeedsFullRefresh
-                }
-                fullRefreshReasons={fullRefreshReasons}
-              />
+              <Tooltip
+                content={EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE}
+                enabled={resultsUpdateDisabled}
+              >
+                <Flex display="inline-flex">
+                  <RefreshResultsButton
+                    entityType={
+                      experiment.type === "holdout" ? "holdout" : "experiment"
+                    }
+                    entityId={experiment.id}
+                    datasourceId={experiment.datasource}
+                    latest={latest}
+                    experimentSnapshotTrackingProps={{
+                      trackingSource: "RunQueriesButton",
+                      datasourceType: datasource?.type || null,
+                    }}
+                    onSuccess={() => {
+                      if (experiment.type === "multi-armed-bandit") {
+                        setSnapshotType?.("exploratory");
+                      } else {
+                        setSnapshotType?.(undefined);
+                      }
+                    }}
+                    // Poll loop + post-submit refresh hit the default
+                    // status-only `mutate()` — the provider auto-upgrades to a
+                    // full snapshot fetch when status reports a newer successful
+                    // run, so a heavy refetch here would be redundant.
+                    mutate={mutate}
+                    mutateAdditional={mutateExperiment}
+                    setRefreshError={setRefreshError}
+                    experiment={experiment}
+                    phase={phase}
+                    dimension={dimension}
+                    setAnalysisSettings={setAnalysisSettings}
+                    customValidation={confirmRefresh}
+                    onSnapshotRefreshBlocked={handleSnapshotRefreshBlocked}
+                    disabled={
+                      resultsUpdateDisabled ||
+                      (viewingDimensionThatRequiresOverallFirst &&
+                        overallResultsRequiredBeforeDimensionRefresh)
+                    }
+                    fullRefreshRequired={
+                      !viewingDimensionThatRequiresOverallFirst &&
+                      overallNeedsFullRefresh
+                    }
+                    fullRefreshReasons={fullRefreshReasons}
+                  />
+                </Flex>
+              </Tooltip>
             ) : null}
 
             <ResultMoreMenu
               experiment={experiment}
               datasource={datasource}
+              forceRefreshDisabledReason={
+                resultsUpdateDisabled
+                  ? EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE
+                  : undefined
+              }
               forceRefresh={
                 allMetrics.length > 0 &&
                 shouldOfferMenuRefresh({

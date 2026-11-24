@@ -11,11 +11,13 @@ import {
   sqlExplorationConfigValidator,
   populationExplorationConfigValidator,
 } from "../../validators/product-analytics";
-import { sqlReferencesColumn } from "../../experiments/experiments";
+import type { PopulationInterface } from "../../validators/population";
+import { sqlReferencesColumn } from "../../sql";
 
 // The exploration config shape persisted by both saved explorations and
 // dashboard "exploration" blocks. Metric definitions are covered by the
-// fact-metric dependency scan; their dataset population is scanned here.
+// fact-metric dependency scan; their dataset population only references a
+// saved Population, which `populationReferencesColumn` scans.
 type ExplorationConfig =
   | z.infer<typeof metricExplorationConfigValidator>
   | z.infer<typeof factTableExplorationConfigValidator>
@@ -84,6 +86,34 @@ function dimensionReferencesColumn(
 }
 
 /**
+ * Whether a saved Population reads `columnName` on this fact table: as an
+ * identifier type's column, an aggregate filter column, or in a step's row
+ * filters.
+ */
+export function populationReferencesColumn(
+  population: Pick<PopulationInterface, "steps" | "userIdTypes">,
+  factTable: { id: string; userIdColumns?: Record<string, string> },
+  columnName: string,
+  identifierQuote: SqlIdentifierQuote,
+  filters: SavedFilter[],
+): boolean {
+  // An identifier type reads the column it's mapped to, or the column of its
+  // own name when it isn't mapped.
+  const identifierColumns = population.userIdTypes.map(
+    (idType) => (factTable.userIdColumns?.[idType] ?? idType).split(".")[0],
+  );
+  return population.steps.some(
+    (step) =>
+      step.source.factTableId === factTable.id &&
+      (identifierColumns.includes(columnName) ||
+        step.aggregateFilterColumn === columnName ||
+        step.rowFilters.some((f) =>
+          rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
+        )),
+  );
+}
+
+/**
  * Whether an exploration/dashboard-block config references `columnName` on the
  * fact table `factTableId`. Used to block deletion of a virtual column that a
  * saved exploration or dashboard block still depends on — those surfaces
@@ -98,19 +128,9 @@ export function explorationConfigReferencesColumn(
   identifierQuote: SqlIdentifierQuote,
   filters: SavedFilter[],
 ): boolean {
-  if (config.type === "metric") {
-    const population = config.dataset.population;
-    if (!population || population.source.factTableId !== factTableId) {
-      return false;
-    }
-    return (
-      population.unit === columnName ||
-      population.aggregateFilterColumn === columnName ||
-      population.rowFilters.some((f) =>
-        rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
-      )
-    );
-  }
+  // Metric definitions are covered by the fact-metric scan, and the dataset
+  // population by the saved Population scan.
+  if (config.type === "metric") return false;
 
   if (config.type === "fact_table") {
     if (config.dataset.factTableId !== factTableId) return false;

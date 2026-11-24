@@ -6,6 +6,7 @@ import {
 } from "back-end/src/models/DimensionModel";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const getDimension = createApiRequestHandler(getDimensionValidator)(
   async (req) => {
@@ -17,7 +18,7 @@ export const getDimension = createApiRequestHandler(getDimensionValidator)(
       !dimension ||
       !(await hasDimensionDatasourceAccess(req.context, dimension))
     ) {
-      throw new Error("Could not find dimension with that id");
+      throw new NotFoundError("Could not find dimension with that id");
     }
 
     return {

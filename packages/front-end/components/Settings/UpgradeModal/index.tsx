@@ -320,6 +320,8 @@ export default function UpgradeModal({
       "Define retention metrics that measure return activity",
     "funnel-metrics":
       "Define funnel metrics that measure steps completed in order",
+    "compound-metrics":
+      "Define compound metrics that require every event, in any order",
     "metric-populations": "Analyze metrics for different sub-populations",
     "multi-armed-bandits": "Run adaptive experiments with Bandits",
     "contextual-bandits":
@@ -773,6 +775,7 @@ export default function UpgradeModal({
           <CloudProUpgradeModal
             close={() => setShowCloudProUpgrade(false)}
             closeParent={close}
+            source={source}
           />
         </StripeProvider>
       ) : orgIsManagedByVercel ? (

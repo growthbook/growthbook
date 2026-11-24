@@ -17,8 +17,11 @@ import {
   normalizeFunnelStepOrder,
   normalizeTimelessSqlConfig,
   resolveSqlPreviewTimestamp,
+  stripExplorerDraftFields,
   validateDimensions,
   type ExplorerDraftConfig,
+  buildExplorationTableColumnFormats,
+  formatExplorationTableCell,
 } from "@/enterprise/components/ProductAnalytics/util";
 
 function makeColumn(overrides: Partial<ColumnInterface>): ColumnInterface {
@@ -751,5 +754,150 @@ describe("normalizeFunnelStepOrder", () => {
     expect(result[0]).toBe(steps[0]);
     expect(result[1]).toBe(steps[1]);
     expect(normalizeFunnelStepOrder([])).toEqual([]);
+  });
+});
+
+describe("stripExplorerDraftFields", () => {
+  function lineDraft(
+    chartSettings?: ExplorerDraftConfig["chartSettings"],
+  ): ExplorerDraftConfig {
+    return {
+      type: "sql",
+      datasource: "ds_1",
+      chartType: "line",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        { dimensionType: "date", column: "date", dateGranularity: "auto" },
+      ],
+      dataset: {
+        type: "sql",
+        sql: "SELECT 1",
+        timestampColumn: "created_at",
+        columnTypes: { created_at: "date" },
+        values: [],
+      },
+      ...(chartSettings ? { chartSettings } : {}),
+    } as ExplorerDraftConfig;
+  }
+
+  it("keeps anchorYAxisToZero when it is turned off", () => {
+    expect(
+      stripExplorerDraftFields(lineDraft({ anchorYAxisToZero: false }))
+        .chartSettings,
+    ).toEqual({ anchorYAxisToZero: false });
+  });
+
+  it("drops anchorYAxisToZero when it is the default (true)", () => {
+    expect(
+      stripExplorerDraftFields(lineDraft({ anchorYAxisToZero: true })),
+    ).not.toHaveProperty("chartSettings");
+  });
+
+  it("leaves chartSettings absent when nothing is set", () => {
+    expect(stripExplorerDraftFields(lineDraft())).not.toHaveProperty(
+      "chartSettings",
+    );
+  });
+
+  it("keeps custom axis labels alongside an unanchored axis", () => {
+    expect(
+      stripExplorerDraftFields(
+        lineDraft({
+          categoryAxisLabel: " Day ",
+          valueAxisLabel: "",
+          anchorYAxisToZero: false,
+        }),
+      ).chartSettings,
+    ).toEqual({
+      categoryAxisLabel: "Day",
+      valueAxisLabel: "",
+      anchorYAxisToZero: false,
+    });
+  });
+
+  it("keeps custom axis labels but drops a default anchorYAxisToZero", () => {
+    expect(
+      stripExplorerDraftFields(
+        lineDraft({ valueAxisLabel: "Revenue", anchorYAxisToZero: true }),
+      ).chartSettings,
+    ).toEqual({ valueAxisLabel: "Revenue" });
+  });
+});
+
+describe("formatExplorationTableCell", () => {
+  it("leaves label columns untouched even when they look numeric", () => {
+    expect(formatExplorationTableCell("2026", { type: "text" })).toBe("2026");
+    expect(formatExplorationTableCell(90210, { type: "text" })).toBe("90210");
+  });
+
+  it("adds separators and fixed decimals to number columns", () => {
+    expect(
+      formatExplorationTableCell(26770, { type: "number", fractionDigits: 0 }),
+    ).toBe("26,770");
+    expect(
+      formatExplorationTableCell(1234.5, { type: "number", fractionDigits: 2 }),
+    ).toBe("1,234.50");
+  });
+
+  it("never reinterprets a string in a number column", () => {
+    expect(
+      formatExplorationTableCell("12.3%", {
+        type: "number",
+        fractionDigits: 0,
+      }),
+    ).toBe("12.3%");
+    expect(
+      formatExplorationTableCell("2026", { type: "number", fractionDigits: 0 }),
+    ).toBe("2026");
+  });
+
+  it("renders empty values as blank", () => {
+    expect(formatExplorationTableCell(null, { type: "text" })).toBe("");
+    expect(formatExplorationTableCell(undefined, undefined)).toBe("");
+  });
+});
+
+describe("buildExplorationTableColumnFormats", () => {
+  const rows = [
+    { date: "2026", count: 10, rate: 12.5, curr: 3, prev: 2.25 },
+    { date: "2025", count: 20, rate: 12.25, curr: 4, prev: null },
+  ];
+
+  it("marks label columns as text", () => {
+    const formats = buildExplorationTableColumnFormats(rows, ["date"], []);
+    expect(formats).toEqual({ date: { type: "text" } });
+  });
+
+  it("keeps decimals for a column whose values all round to zero", () => {
+    const tiny = [{ rate: 0.004 }, { rate: 0.001 }];
+    const formats = buildExplorationTableColumnFormats(tiny, [], [["rate"]]);
+    expect(formats).toEqual({ rate: { type: "number", fractionDigits: 2 } });
+    expect(formatExplorationTableCell(0.004, formats.rate)).toBe("0.00");
+  });
+
+  it("uses decimals only for columns that have fractional values", () => {
+    const formats = buildExplorationTableColumnFormats(
+      rows,
+      [],
+      [["count"], ["rate"]],
+    );
+    expect(formats.count).toEqual({ type: "number", fractionDigits: 0 });
+    expect(formats.rate).toEqual({ type: "number", fractionDigits: 2 });
+  });
+
+  it("shares one decimal count across a grouped pair", () => {
+    const formats = buildExplorationTableColumnFormats(
+      rows,
+      [],
+      [["curr", "prev"]],
+    );
+    expect(formats.curr).toEqual({ type: "number", fractionDigits: 2 });
+    expect(formats.prev).toEqual({ type: "number", fractionDigits: 2 });
   });
 });

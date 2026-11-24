@@ -10,7 +10,7 @@ type PermissionsUtil = Pick<
   "canUpdateInterleaving" | "canRunInterleaving" | "canRunInterleavingUpdate"
 >;
 
-type Interleaving = { project?: string; archived: boolean };
+type Interleaving = { project?: string };
 
 // Start, Stop and Edit status all route through `update`, which demands the
 // update atom on top of the run one.
@@ -19,7 +19,6 @@ export function canRunInterleavingControl(
   interleaving: Interleaving,
   environments: string[],
 ): boolean {
-  if (interleaving.archived) return false;
   if (!permissionsUtil.canUpdateInterleaving(interleaving, {})) return false;
   return (
     environments.length === 0 ||

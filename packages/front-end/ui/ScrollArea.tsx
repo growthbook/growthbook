@@ -1,4 +1,5 @@
 import {
+  ComponentProps,
   CSSProperties,
   forwardRef,
   ReactNode,
@@ -16,46 +17,41 @@ import styles from "./ScrollArea.module.scss";
 type Edge = "top" | "bottom" | "left" | "right";
 
 const WHEEL_DEADSPACE_PX = 100;
+// A trackpad swipe carries some sideways movement; a mouse wheel's never does.
+const TRACKPAD_MEMORY_MS = 600;
 
-/**
- * A scroll box whose scrollbars overlay the content, shown while hovered or
- * scrolled. The ref is the element that scrolls.
- */
+function sidewaysWheelDelta(e: WheelEvent, el: HTMLElement): number {
+  const unit =
+    e.deltaMode === WheelEvent.DOM_DELTA_LINE
+      ? 16
+      : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
+        ? el.clientWidth
+        : 1;
+  return e.deltaY * unit;
+}
+
+// Scrollbars overlay the content. The ref is the element that scrolls.
 const ScrollArea = forwardRef<
   HTMLDivElement,
   {
     children: ReactNode;
-    /**
-     * Keeps the content clear of the scrollbars drawn over it: a strip at the
-     * right, and one at the bottom while it overflows sideways.
-     */
+    // Keeps the content clear of the overlaid scrollbars.
     gutter?: boolean;
-    /** A full-height column, so a child can fill it (`flex: 1`) or scroll. */
+    // A full-height column a child can fill or scroll within.
     fill?: boolean;
-    /**
-     * With `fill`, the content is held to the area's height, down to this
-     * one, so a child can scroll itself; shorter than it, the area scrolls.
-     */
+    // With `fill`, how short the content gets before the area scrolls instead.
     fillMinHeight?: string;
     direction?: "vertical" | "horizontal" | "both";
-    /** The scrollbar's thickness: 4, 8 or 12px. */
     size?: Size<"sm" | "md" | "lg">;
-    /** Shows the scrollbars whenever the content overflows, not just on hover. */
-    alwaysShow?: boolean;
-    /**
-     * A vertical wheel over a sideways-only scroll moves it sideways; a little
-     * past the end it reaches, the page takes over.
-     */
-    wheelScrollsSideways?: boolean;
-    /**
-     * Marks each edge with more content past it: the content fades out there,
-     * or a shadow falls over it.
-     */
-    edgeCue?: "fade" | "shadow";
-    /**
-     * Edges marked instead by content pinned (sticky) to them, given
-     * `pinnedTo`'s class: the shadow falls past it.
-     */
+    type?: ComponentProps<typeof RadixScrollArea>["type"];
+    // Sticks the sideways scrollbar to the window's bottom along a tall area.
+    pinScrollbar?: boolean;
+    // Where a vertical wheel scrolls sideways: over the scrollbar, or the whole
+    // area (trackpads excepted).
+    wheelScrollsSideways?: "area" | "scrollbar";
+    // Marks each edge with more content past it.
+    edgeCue?: "fade" | "shadow" | "deep-shadow";
+    // Edges left unmarked, e.g. under content stuck there with `pinnedTo`.
     skipEdges?: Edge[];
     onScroll?: UIEventHandler<HTMLDivElement>;
     className?: string;
@@ -69,8 +65,9 @@ const ScrollArea = forwardRef<
     fillMinHeight,
     direction = "vertical",
     size = "sm",
-    alwaysShow = false,
-    wheelScrollsSideways = false,
+    type = "hover",
+    pinScrollbar = false,
+    wheelScrollsSideways,
     edgeCue,
     skipEdges = [],
     onScroll,
@@ -89,9 +86,10 @@ const ScrollArea = forwardRef<
   const [overflowsSideways, setOverflowsSideways] = useState(false);
   useEffect(() => {
     const el = viewport.current;
-    if ((!edgeCue && !sidewaysGutter) || !el) return;
+    if ((!edgeCue && !sidewaysGutter && !pinScrollbar) || !el) return;
     const update = () => {
-      setOverflowsSideways(el.scrollWidth - el.clientWidth > 1);
+      // Radix's own test for showing the sideways bar.
+      setOverflowsSideways(el.offsetWidth < el.scrollWidth);
       if (!edgeCue) return;
       const past: Record<Edge, boolean> = {
         top: vertical && el.scrollTop > 0,
@@ -113,18 +111,21 @@ const ScrollArea = forwardRef<
       el.removeEventListener("scroll", update);
       observer.disconnect();
     };
-  }, [edgeCue, sidewaysGutter, vertical, sideways]);
+  }, [edgeCue, sidewaysGutter, pinScrollbar, vertical, sideways]);
 
   useEffect(() => {
     const el = viewport.current;
-    if (!wheelScrollsSideways || !el) return;
-    // Wheel left to absorb at the end a wheel just reached, so finishing the
-    // sideways scroll doesn't carry straight on into the page.
+    if (wheelScrollsSideways !== "area" || !el) return;
+    // Absorbed at an end, so the page doesn't take over mid-gesture.
     let deadspace = 0;
+    let sidewaysAt = -Infinity;
     const onWheel = (e: WheelEvent) => {
-      // A sideways swipe or shift-wheel already scrolls sideways; a pinch or
-      // modified wheel zooms.
+      if (e.deltaX !== 0) sidewaysAt = e.timeStamp;
+      // Left alone: sideways and modified wheels, ones an inner scroller
+      // (a code editor) took, and trackpads.
       if (
+        e.defaultPrevented ||
+        e.timeStamp - sidewaysAt < TRACKPAD_MEMORY_MS ||
         e.shiftKey ||
         e.ctrlKey ||
         e.metaKey ||
@@ -132,7 +133,7 @@ const ScrollArea = forwardRef<
       ) {
         return;
       }
-      // A box inside that scrolls up and down keeps the wheel while it can.
+      // An inner box that scrolls up and down keeps the wheel while it can.
       for (
         let node = e.target instanceof Element ? e.target : null;
         node && node !== el;
@@ -148,13 +149,7 @@ const ScrollArea = forwardRef<
       }
       const max = el.scrollWidth - el.clientWidth;
       if (max <= 0) return;
-      const unit =
-        e.deltaMode === WheelEvent.DOM_DELTA_LINE
-          ? 16
-          : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
-            ? el.clientWidth
-            : 1;
-      const delta = e.deltaY * unit;
+      const delta = sidewaysWheelDelta(e, el);
       const atEnd = () =>
         delta < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
       if (atEnd()) {
@@ -173,25 +168,62 @@ const ScrollArea = forwardRef<
     return () => el.removeEventListener("wheel", onWheel);
   }, [wheelScrollsSideways]);
 
-  const shadowed = edgeCue === "shadow";
+  // Over the scrollbar (or a pinned one's gutter), outside what scrolls, a
+  // vertical wheel scrolls sideways until an end.
+  useEffect(() => {
+    const el = viewport.current;
+    const root = el?.parentElement;
+    if (!wheelScrollsSideways || !el || !root) return;
+    const onWheel = (e: WheelEvent) => {
+      const target = e.target instanceof Node ? e.target : null;
+      if (
+        !target ||
+        el.contains(target) ||
+        e.defaultPrevented ||
+        e.ctrlKey ||
+        e.metaKey ||
+        Math.abs(e.deltaY) <= Math.abs(e.deltaX)
+      ) {
+        return;
+      }
+      const max = el.scrollWidth - el.clientWidth;
+      const delta = sidewaysWheelDelta(e, el);
+      const atEnd = delta < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
+      if (max <= 0 || atEnd) return;
+      e.preventDefault();
+      el.scrollLeft += delta;
+    };
+    root.addEventListener("wheel", onWheel, { passive: false });
+    return () => root.removeEventListener("wheel", onWheel);
+  }, [wheelScrollsSideways]);
+
+  const shadowed = edgeCue === "shadow" || edgeCue === "deep-shadow";
+  // With nothing past the sides, no bar, so no gutter to pin over the content.
+  const pinned = pinScrollbar && overflowsSideways;
   const marked = more.filter((edge) => !skipEdges.includes(edge));
   const underPinned = more.filter((edge) => skipEdges.includes(edge));
   const scrollArea = (
     <RadixScrollArea
       ref={viewport}
-      type={alwaysShow ? "auto" : "hover"}
+      type={pinScrollbar ? "auto" : type}
       size={radixSize(size)}
       scrollbars={direction}
       onScroll={onScroll}
       className={clsx(
         styles.root,
-        fill && styles.fullWidth,
+        (fill || !sideways) && styles.fullWidth,
         fill && fillMinHeight !== undefined && styles.bounded,
         edgeCue === "fade" && styles.fades,
+        pinned && styles.pinsScrollbar,
         shadowed ? styles.fillsWrapper : className,
       )}
-      style={shadowed ? undefined : style}
-      // Lands on the viewport, the element that scrolls.
+      style={{
+        ...(shadowed ? undefined : style),
+        ...(pinned && {
+          "--pinned-scrollbar-size": `var(--space-${radixSize(size)})`,
+        }),
+      }}
+      // Radix puts these on the viewport.
       data-more={marked.join(" ") || undefined}
       data-under-pinned={underPinned.join(" ") || undefined}
     >
@@ -199,7 +231,9 @@ const ScrollArea = forwardRef<
         style={{
           width: "100%",
           ...(gutter && vertical && { paddingRight: "var(--space-3)" }),
+          // A pinned scrollbar takes its own room.
           ...(sidewaysGutter &&
+            !pinScrollbar &&
             overflowsSideways && {
               paddingBottom: `calc(var(--space-${radixSize(size)}) + var(--space-1))`,
             }),
@@ -218,7 +252,15 @@ const ScrollArea = forwardRef<
   if (!shadowed) return scrollArea;
 
   return (
-    <div className={clsx(styles.shadowed, className)} style={style}>
+    <div
+      className={clsx(
+        styles.shadowed,
+        edgeCue === "deep-shadow" && styles.deep,
+        className,
+      )}
+      style={style}
+      data-under-pinned={underPinned.join(" ") || undefined}
+    >
       {scrollArea}
       {marked.map((edge) => (
         <span key={edge} className={styles.shadow} data-edge={edge} />
@@ -227,11 +269,12 @@ const ScrollArea = forwardRef<
   );
 });
 
-/**
- * For content pinned (sticky) to the area's top or left edge, which then
- * shadows that edge past itself while more scrolls under it. The area skips
- * that edge (`skipEdges`).
- */
-export const pinnedTo = { top: styles.pinnedTop, left: styles.pinnedLeft };
+// For content stuck to an edge, which shadows past itself while more scrolls
+// under it; skip that edge in `skipEdges`. Bottom is the area's next sibling.
+export const pinnedTo = {
+  top: styles.pinnedTop,
+  left: styles.pinnedLeft,
+  bottom: styles.pinnedBottom,
+};
 
 export default ScrollArea;

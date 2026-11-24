@@ -1,3 +1,4 @@
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   Permissions,
   getRolePermissions,
@@ -71,6 +72,7 @@ import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplate
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
+import { DagModel } from "back-end/src/models/DagModel";
 import { AggregatedFactTableModel } from "back-end/src/models/AggregatedFactTableModel";
 import { AggregatedFactTableRunModel } from "back-end/src/models/AggregatedFactTableRunModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
@@ -158,6 +160,7 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
+  | "dags"
   | "aggregatedFactTables"
   | "aggregatedFactTableRuns"
   | "experimentSnapshotAnalysisChunks"
@@ -226,6 +229,7 @@ export const modelClasses = {
   dashboards: DashboardModel,
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
+  dags: DagModel,
   aggregatedFactTables: AggregatedFactTableModel,
   aggregatedFactTableRuns: AggregatedFactTableRunModel,
   experimentSnapshotAnalysisChunks: ExperimentSnapshotAnalysisChunkModel,
@@ -285,6 +289,13 @@ type ModelInstances = {
  * skipHooks) are read from.
  */
 type OverrideSource = { body?: unknown; query?: Record<string, unknown> };
+// The families whose privileged skip flags answer to their own bypass authority.
+export type SkipFamily =
+  | "feature"
+  | "config"
+  | "constant"
+  | "saved-group"
+  | "sdk-connection";
 
 export class ReqContextClass {
   // When set, guard evaluators use this as their org-wide scan context instead
@@ -317,6 +328,9 @@ export class ReqContextClass {
   // would have. Cleared before the flush itself refreshes.
   public sdkPayloadRefreshBuffer?: {
     keys: SDKPayloadKey[];
+    // Connections refreshed by identity rather than by key (a connection's own
+    // settings changed), so they can't be folded into `keys`.
+    sdkConnections?: SDKConnectionInterface[];
     treatEmptyProjectAsGlobal: boolean;
     // Set when the flush drains the buffer. Fire-and-forget producers that
     // captured the buffer reference before the flush (e.g. a model
@@ -417,6 +431,7 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      dags: new DagModel(this),
       aggregatedFactTables: new AggregatedFactTableModel(this),
       aggregatedFactTableRuns: new AggregatedFactTableRunModel(this),
       experimentSnapshotAnalysisChunks:
@@ -710,11 +725,9 @@ export class ReqContextClass {
   // an org-wide Constants bypass clear Config and Feature schema validation.
   // Bulk publish already resolves per item; these keep single-entity paths on
   // the same rule.
-  private hasFlagBypassAuthorityFor(
-    model: "feature" | "config" | "constant" | "saved-group",
-  ): boolean {
-    if (model === "saved-group") {
-      return this.permissions.canRevisionAction("saved-group", "bypass", {
+  private hasFlagBypassAuthorityFor(model: SkipFamily): boolean {
+    if (model === "saved-group" || model === "sdk-connection") {
+      return this.permissions.canRevisionAction(model, "bypass", {
         projects: [],
       });
     }
@@ -734,9 +747,7 @@ export class ReqContextClass {
     );
   }
 
-  public canSkipSchemaValidationFor(
-    model: "feature" | "config" | "constant" | "saved-group",
-  ): boolean {
+  public canSkipSchemaValidationFor(model: SkipFamily): boolean {
     return (
       this.skipRequested("skipSchemaValidation") &&
       this.hasFlagBypassAuthorityFor(model)
@@ -746,9 +757,7 @@ export class ReqContextClass {
   // Force past a custom validation hook that rejected the change. Its own flag
   // (not skipSchemaValidation — a hook failure isn't a schema error), honored
   // only for callers with org-wide bypass authority on the entity's own family.
-  public canSkipHooksFor(
-    model: "feature" | "config" | "constant" | "saved-group",
-  ): boolean {
+  public canSkipHooksFor(model: SkipFamily): boolean {
     return (
       this.skipRequested("skipHooks") && this.hasFlagBypassAuthorityFor(model)
     );

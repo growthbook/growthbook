@@ -20,7 +20,6 @@ import {
   PiTimer,
   PiX,
 } from "react-icons/pi";
-import { AppFeatures } from "shared/types/app-features";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import VariationNumber from "@/ui/VariationNumber";
@@ -254,7 +253,7 @@ function buildEvaluationsFromMetadata(
 }
 
 export default function SessionReplayPage() {
-  const gb = useGrowthBook<AppFeatures>();
+  const gb = useGrowthBook();
   const sessionReplayEnabled = !!gb?.isOn("session-replays");
   const permissionsUtil = usePermissionsUtil();
 
@@ -493,7 +492,7 @@ export default function SessionReplayPage() {
         display: "flex",
         flexDirection: "row",
         alignItems: "stretch",
-        height: "calc(100vh - 72px)",
+        height: "calc(100vh - var(--page-top-offset) - 16px)",
         minHeight: 520,
         overflow: "hidden",
       }}
@@ -1148,3 +1147,5 @@ export default function SessionReplayPage() {
     </div>
   );
 }
+
+SessionReplayPage.noPageWrapper = true;

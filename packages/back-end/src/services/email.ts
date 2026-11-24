@@ -13,6 +13,7 @@ import {
   APP_ORIGIN,
 } from "back-end/src/util/secrets";
 import { getEmailFromUserId } from "back-end/src/models/UserModel";
+import { NotFoundError } from "back-end/src/util/errors";
 import { getInviteUrl } from "./organizations";
 
 export function isEmailEnabled(): boolean {
@@ -98,7 +99,7 @@ export async function sendInviteEmail(
 ) {
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
   if (!invite) {
-    throw new Error("Could not find invite with specified key");
+    throw new NotFoundError("Could not find invite with specified key");
   }
 
   const inviteUrl = getInviteUrl(key);
@@ -181,6 +182,43 @@ export async function sendSdkPayloadSizeEmail({
     message,
     ...recommendations.map((r) => `- ${r}`),
     `See more details at ${connectionUrl}`,
+  ].join("\n\n");
+
+  await Promise.all(emails.map((to) => sendMail({ html, subject, to, text })));
+}
+
+export async function sendSdkProxyErrorEmail({
+  emails,
+  connectionId,
+  connectionName,
+  error,
+  disabled,
+}: {
+  emails: string[];
+  connectionId: string;
+  connectionName: string;
+  error: string;
+  disabled: boolean;
+}) {
+  const connectionUrl =
+    APP_ORIGIN + (APP_ORIGIN.endsWith("/") ? "" : "/") + "sdks/" + connectionId;
+  const html = nunjucks.render("sdk-proxy-error.jinja", {
+    connectionName,
+    connectionUrl,
+    error,
+    disabled,
+  });
+  const subject = disabled
+    ? `GrowthBook Proxy disabled for: ${noHyperlink(connectionName)}`
+    : `GrowthBook Proxy failing for: ${noHyperlink(connectionName)}`;
+  const text = [
+    disabled
+      ? `GrowthBook disabled the proxy after too many consecutive failures. SDKs using it no longer get updates.`
+      : `GrowthBook couldn't send the latest SDK payload to the proxy. If this connection no longer uses a proxy, turn it off on the SDK Connection.`,
+    error,
+    disabled
+      ? `Fix the cause, then use Recheck on the SDK Connection to turn the proxy back on. If changes to the connection need approval, publish an approved change that enables the proxy instead. ${connectionUrl}`
+      : `See more details at ${connectionUrl}`,
   ].join("\n\n");
 
   await Promise.all(emails.map((to) => sendMail({ html, subject, to, text })));

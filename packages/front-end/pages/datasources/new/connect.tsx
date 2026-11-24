@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box } from "@radix-ui/themes";
 import {
@@ -32,7 +32,7 @@ function parseType(
   return raw;
 }
 
-const NewDataSourceConnectPage: FC = () => {
+const NewDataSourceConnectPage = () => {
   const router = useRouter();
   // Generated once per visit. `initial` is rebuilt as definitions load, and
   // the layout copies it back into the form until the user edits something,
@@ -140,3 +140,5 @@ const NewDataSourceConnectPage: FC = () => {
 };
 
 export default NewDataSourceConnectPage;
+
+NewDataSourceConnectPage.noPageWrapper = true;

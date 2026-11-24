@@ -184,9 +184,23 @@ describe("startInterleaving", () => {
       status: "running",
       dateStarted,
       dateStopped: undefined,
+      autoSnapshots: true,
+      nextSnapshotAttempt: expect.any(Date),
     });
     expect(context.auditLog).toHaveBeenCalledWith(
       expect.objectContaining({ event: "interleaving.start" }),
+    );
+  });
+
+  it("leaves auto-snapshots off when the org never auto-updates", async () => {
+    const { context, update } = makeContext();
+    context.org.settings = { updateSchedule: { type: "never" } };
+    await startInterleaving(context as never, interleaving());
+    expect(update.mock.calls[0][1]).toEqual(
+      expect.objectContaining({
+        autoSnapshots: false,
+        nextSnapshotAttempt: undefined,
+      }),
     );
   });
 
@@ -223,9 +237,23 @@ describe("stopInterleaving", () => {
     );
     expect(stopped.status).toBe("stopped");
     expect(stopped.dateStopped).toBeInstanceOf(Date);
+    // Cleared so the cron scan drops it and the UI indicator goes grey.
+    expect(stopped.autoSnapshots).toBe(false);
+    expect(stopped.nextSnapshotAttempt).toBeUndefined();
     expect(context.auditLog).toHaveBeenCalledWith(
       expect.objectContaining({ event: "interleaving.stop" }),
     );
+  });
+
+  // Archiving never stops the experiment, so archived + running is reachable
+  // and the only way out of it is Stop. The UI gates on this.
+  it("stops an archived running one", async () => {
+    const { context } = makeContext();
+    const stopped = await stopInterleaving(
+      context as never,
+      interleaving({ status: "running", archived: true }),
+    );
+    expect(stopped.status).toBe("stopped");
   });
 
   it("refuses a draft and leaves a stopped one alone", async () => {

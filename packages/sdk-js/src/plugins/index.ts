@@ -2,6 +2,8 @@ export { autoAttributesPlugin } from "./auto-attributes";
 export {
   interleavePlugin,
   interleave,
+  getInterleaveRankers,
+  getInterleaveRankersForKey,
   EVENT_INTERLEAVE_EXPOSURE,
 } from "./interleave";
 export { growthbookTrackingPlugin } from "./growthbook-tracking";
@@ -34,6 +36,7 @@ export type {
   InterleaveExposure,
   InterleaveOptions,
   InterleavePluginOptions,
+  InterleaveRanker,
   InterleaveResult,
   InterleaveTrackingProps,
 } from "./interleave";

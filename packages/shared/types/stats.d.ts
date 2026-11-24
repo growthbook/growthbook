@@ -359,6 +359,7 @@ export interface MetricSettingsForStatsEngine {
   target_mde: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
   compute_uncapped_metric: boolean;
+  scale_by_sub_unit_count?: boolean;
 }
 
 export interface QueryResultsForStatsEngine {

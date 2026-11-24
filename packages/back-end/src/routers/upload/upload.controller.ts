@@ -292,6 +292,14 @@ export async function getSignedPublicImageToken(
     return;
   }
 
+  if (org.settings?.disablePublicSharing) {
+    res.status(403).json({
+      status: 403,
+      message: "Public sharing is disabled for this organization",
+    });
+    return;
+  }
+
   if (org.settings?.blockFileUploads) {
     res.status(403).json({
       status: 403,

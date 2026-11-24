@@ -130,9 +130,11 @@ The detailed reference material lives under `.agents/guides/`. Read the relevant
 - Permissions: `.agents/guides/permissions.md`
 - Flag-family authority (Feature Flags, Configs, Constants, Saved Groups): `.agents/guides/flag-family-authority.md`
 - How revisions become live state (both engines, landing, recovery): `.agents/guides/revisions-architecture.md`
+- Custom hooks on an entity (contract, checklist for a new entity): `.agents/guides/custom-hooks.md`
 - Front-end React/UI: `.agents/guides/frontend/react-patterns.md`
 - Front-end data fetching: `.agents/guides/frontend/data-fetching.md`
 - Back-end APIs: `.agents/guides/backend/api-patterns.md`
 - Back-end models: `.agents/guides/backend/model-patterns.md`
 - Legacy model migrations: `.agents/guides/backend/legacy-model-migration-patterns.md`
 - Docs (Mintlify MDX): `.agents/guides/docs.md`
+- Backport (patch) releases: `.agents/guides/backport-releases.md`

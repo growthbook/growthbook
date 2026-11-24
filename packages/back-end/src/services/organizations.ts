@@ -1,9 +1,9 @@
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import { cloneDeep } from "lodash";
+import { cloneDeep, omitBy } from "lodash";
 import { Request } from "express";
-import { PermissionError } from "shared/util";
+import { PermissionError, secretParamKeys } from "shared/util";
 import {
   areAdditionalRolesValid,
   areProjectRolesValid,
@@ -132,6 +132,7 @@ import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import {
   BadRequestError,
+  NotFoundError,
   PaymentRequiredError,
 } from "back-end/src/util/errors";
 import { getAnalysisEndDateSettingsError } from "back-end/src/services/scheduledAnalysisEndDate";
@@ -1129,7 +1130,7 @@ export async function acceptInvite(key: string, userId: string, email: string) {
 
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
   if (!invite) {
-    throw new Error("Could not find invitation with that key");
+    throw new NotFoundError("Could not find invitation with that key");
   }
 
   // Ensure the invite was issued to the authenticated user's email; otherwise a
@@ -1164,7 +1165,7 @@ export async function acceptInvite(key: string, userId: string, email: string) {
       );
     }
     if (!latestOrganization.invites.some((existing) => existing.key === key)) {
-      throw new Error("Could not find invitation with that key");
+      throw new NotFoundError("Could not find invitation with that key");
     }
     throw new Error("Unable to accept organization invitation");
   }
@@ -1520,7 +1521,12 @@ export async function importConfig(
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
               const integration = getSourceIntegrationObject(context, existing);
-              mergeParams(integration, ds.params);
+              // A blank YAML value parses as null, which would remove a stored secret
+              const secrets = secretParamKeys(existing.type);
+              mergeParams(
+                integration,
+                omitBy(ds.params, (v, k) => v === null && secrets.includes(k)),
+              );
               await integration.testConnection();
               params = encryptParams(integration.params);
             }

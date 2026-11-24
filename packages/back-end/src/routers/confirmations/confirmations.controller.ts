@@ -4,6 +4,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
+  heldBodyForDisplay,
   overridesIn,
   toApiConfirmation,
 } from "back-end/src/services/confirmations";
@@ -62,7 +63,12 @@ export const getConfirmation = async (
     links: c.links,
     notices: c.notices,
     lastAttemptAt: c.lastAttemptAt,
-    request: { method: c.method, path: c.path, query: c.query, body: c.body },
+    request: {
+      method: c.method,
+      path: c.path,
+      query: c.query,
+      body: heldBodyForDisplay(c),
+    },
     overrides: [
       ...new Set([
         ...overridesIn(c),

@@ -49,11 +49,15 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
+  assertValidReportClusterConfig,
   createReportSnapshot,
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
-import { getExperimentQueryMetadata } from "back-end/src/services/experiments";
-import { BadRequestError } from "back-end/src/util/errors";
+import {
+  assertCanEnableClusterExperiment,
+  getExperimentQueryMetadata,
+} from "back-end/src/services/experiments";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -280,6 +284,11 @@ export async function getReportPublic(
     });
   }
   const context = await getContextForAgendaJobByOrgId(report.organization);
+  if (context.org.settings?.disablePublicSharing) {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
 
   let snapshot =
     (await findSnapshotById(context, report.snapshot)) || undefined;
@@ -331,7 +340,7 @@ export async function deleteReport(
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
-    throw new Error("Could not find report");
+    throw new NotFoundError("Could not find report");
   }
 
   // Only allow admins to delete other people's reports
@@ -594,6 +603,13 @@ export async function putReport(
       }
     }
 
+    if (
+      updates.experimentAnalysisSettings?.isClusterExperiment &&
+      !report.experimentAnalysisSettings.isClusterExperiment
+    ) {
+      assertCanEnableClusterExperiment(context);
+    }
+
     if (updates.experimentAnalysisSettings) {
       await applyReportAssignmentQuery(context, {
         previous: report.experimentAnalysisSettings,
@@ -602,6 +618,11 @@ export async function putReport(
         requestedIdentifierType:
           data.experimentAnalysisSettings?.exposureQueryIdentifierType,
       });
+      await assertValidReportClusterConfig(
+        context,
+        updates.experimentAnalysisSettings,
+        report.experimentAnalysisSettings,
+      );
     }
 
     updates.dateUpdated = new Date();

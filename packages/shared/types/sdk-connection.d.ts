@@ -15,7 +15,17 @@ export interface ProxyConnection {
   version: string;
   error: string;
   lastError: Date | null;
+  /**
+   * Failed attempts in a row to send the payload to the proxy. Each push makes
+   * up to two attempts: the first request, and a retry 5 seconds later if that
+   * fails. Responses with status 413 and attempts that get no response aren't
+   * counted. The proxy is disabled when this reaches 10.
+   */
   consecutiveFailures?: number;
+  /** When the proxy started failing. Cleared when a push succeeds. */
+  failingSince?: Date | null;
+  /** When the last failure alert was sent. Cleared when a push succeeds. */
+  failureAlertedAt?: Date | null;
 }
 
 export type EditSDKConnectionParams = {
@@ -40,8 +50,10 @@ export type EditSDKConnectionParams = {
   includeTagsInMetadata?: boolean;
   includeExperimentScheduleInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
+  savedGroupReferencesEnabled?: boolean;
   tracesEnabled?: boolean;
   eventTracker?: string;
+  archived?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
@@ -131,6 +143,7 @@ export interface SDKConnectionInterface {
    * accepted by the API so existing integrations keep working.
    */
   savedGroupReferencesEnabled?: boolean;
+  archived?: boolean;
   managedBy?: ManagedBy;
 
   // Size of the last payload built for this connection

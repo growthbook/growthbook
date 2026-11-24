@@ -52,6 +52,7 @@ import {
   isURLTargeted,
   toString,
   hasOwn,
+  trimTrailingSlashes,
 } from "./util";
 import { StickyBucketService } from "./sticky-bucket-service";
 import { REMOTE_GROUP_IDS_ATTRIBUTE } from "./remoteSavedGroups";
@@ -690,7 +691,7 @@ export function runExperiment<T>(
   const n = hash(
     experiment.seed || key,
     hashValue,
-    experiment.hashVersion || 1,
+    experiment.hashVersion || ctx.global.defaultHashVersion || 1,
   );
   if (n === null) {
     process.env.NODE_ENV !== "production" &&
@@ -1034,7 +1035,11 @@ function isIncludedInRollout(
     return false;
   }
 
-  const n = hash(seed, hashValue, hashVersion || 1);
+  const n = hash(
+    seed,
+    hashValue,
+    hashVersion || ctx.global.defaultHashVersion || 1,
+  );
   if (n === null) return false;
 
   return range
@@ -1690,8 +1695,8 @@ export function getApiHosts(options: Options | ClientOptions): {
 } {
   const defaultHost = options.apiHost || "https://cdn.growthbook.io";
   return {
-    apiHost: defaultHost.replace(/\/*$/, ""),
-    streamingHost: (options.streamingHost || defaultHost).replace(/\/*$/, ""),
+    apiHost: trimTrailingSlashes(defaultHost),
+    streamingHost: trimTrailingSlashes(options.streamingHost || defaultHost),
     apiRequestHeaders: options.apiHostRequestHeaders,
     streamingHostRequestHeaders: options.streamingHostRequestHeaders,
   };

@@ -201,7 +201,7 @@ export const postFeatureRevisionDiscardValidator = {
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -333,6 +333,7 @@ export const postFeatureRevisionRequestReviewValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/request-review",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
