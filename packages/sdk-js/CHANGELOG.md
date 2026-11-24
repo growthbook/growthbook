@@ -1,8 +1,8 @@
 # Changelog
 
-## **3.0.0** - Unreleased
+## **3.0.0** - Nov 24, 2026
 
-- Move AI Visual Editor and URL Redirect experiments out of the core SDK and into `visualEditorPlugin` and `urlRedirectsPlugin`. The core bundle is about 14% smaller.
+- Move AI Visual Editor and URL Redirect experiments out of the core SDK and into `visualEditorPlugin` and `urlRedirectsPlugin`. An app that doesn't add them no longer bundles that code, which saves about 2.7 KB gzipped.
 - Add script tag bundles that only contain the features in their name: `core.min.js`, `core-visual.min.js`, `core-redirects.min.js` and `core-redirects-visual.min.js`. Custom JavaScript and cross-origin redirects need `data-allow-custom-js` and `data-allow-cross-origin-redirects`
 
 **Breaking changes.** See [Updating to 3.0.0](https://docs.growthbook.io/lib/js#updating-to-3-0-0).
@@ -11,7 +11,7 @@
 - Custom JavaScript and cross-origin redirects are off unless you turn on `allowCustomJs` and `allowCrossOriginRedirects`
 - Remove the `disableVisualExperiments`, `disableJsInjection`, `disableUrlRedirectExperiments` and `disableCrossOriginUrlRedirectExperiments` options
 - Move the `jsInjectionNonce`, `applyDomChangesCallback`, `navigate`, `navigateDelay` and `maxNavigateDelay` options to the plugins
-- The script tag bundle (`auto.min.js`) is unchanged. It still runs these experiments by default and still takes the old options
+- The bundles loaded straight from a CDN (`auto.min.js` and `dist/bundles/index*.js` and `esm*.js`) are unchanged. They still run these experiments by default and still take the old options
 
 ## **2.2.0** - Nov 18, 2026
 

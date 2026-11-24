@@ -865,7 +865,7 @@ The related GrowthBook constructor settings are removed:
 | `disableCrossOriginUrlRedirectExperiments`      | Leave out `allowCrossOriginRedirects`, off by default |
 | `navigate`, `navigateDelay`, `maxNavigateDelay` | Same name, passed to `urlRedirectsPlugin`             |
 
-The [Script Tag](/lib/script-tag) is not affected. It still runs these experiments by default and still takes the old settings.
+The [Script Tag](/lib/script-tag) is not affected. It still runs these experiments by default and still takes the old settings. The same is true of the `dist/bundles/index.js`, `index.min.js`, `esm.js` and `esm.min.js` files when you load them straight from a CDN.
 
 ### Updating to 2.0.0
 
