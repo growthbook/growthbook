@@ -116,7 +116,7 @@ As an alternative to `'unsafe-inline'`, GrowthBook supports nonces. This require
 
 First, generate a unique nonce on every request and add it to your CSP header (e.g., in a Cloudflare Worker).
 
-Then, pass the nonce to the SDK as `jsInjectionNonce`. In the JavaScript and React SDKs, it is a setting of the `visualEditorPlugin`. With the [Script Tag SDK](/lib/script-tag), set it before loading the GrowthBook snippet:
+Then, pass the nonce to the SDK as `jsInjectionNonce`. With the [Script Tag SDK](/lib/script-tag), set it before loading the GrowthBook snippet:
 
 ```html
 <script nonce="$NONCE">

@@ -1,18 +1,5 @@
 # Changelog
 
-## **3.0.0** - Unreleased
-
-- Move AI Visual Editor and URL Redirect experiments out of the core SDK and into `visualEditorPlugin` and `urlRedirectsPlugin`. The core bundle is about 14% smaller.
-- Add script tag bundles that only contain the features in their name: `core.min.js`, `core-visual.min.js`, `core-redirects.min.js` and `core-redirects-visual.min.js`. Custom JavaScript and cross-origin redirects need `data-allow-custom-js` and `data-allow-cross-origin-redirects`
-
-**Breaking changes.** See [Updating to 3.0.0](https://docs.growthbook.io/lib/js#updating-to-3-0-0).
-
-- AI Visual Editor and URL Redirect experiments only run when you add their plugin
-- Custom JavaScript and cross-origin redirects are off unless you turn on `allowCustomJs` and `allowCrossOriginRedirects`
-- Remove the `disableVisualExperiments`, `disableJsInjection`, `disableUrlRedirectExperiments` and `disableCrossOriginUrlRedirectExperiments` options
-- Move the `jsInjectionNonce`, `applyDomChangesCallback`, `navigate`, `navigateDelay` and `maxNavigateDelay` options to the plugins
-- The script tag bundle (`auto.min.js`) is unchanged. It still runs these experiments by default and still takes the old options
-
 ## **2.2.0** - Nov 18, 2026
 
 - Add `defaultHashVersion` option, the hash version for percentage rollouts and experiments that are missing a `hashVersion`. Defaults to `1` for backwards compatibility. Recommend setting to `2` for new installations.
