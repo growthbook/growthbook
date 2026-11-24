@@ -474,8 +474,7 @@ export async function updateFactTable(
   const { columns, ...rest } = changes;
   await persistColumns(factTable, columns, {
     ...rest,
-    dateUpdated: new Date(),
-    ...(sqlChanged(factTable, changes) && { sqlUpdated: new Date() }),
+    ...updateTimestamps(factTable, changes),
   });
 
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
@@ -608,11 +607,15 @@ export async function updateFactTableColumns(
   }
 }
 
-function sqlChanged(
+// Every write that can change sql spreads this into its $set, so a SQL edit
+// always moves sqlUpdated and the Rows Per Day staleness warning stays correct.
+function updateTimestamps(
   factTable: Pick<FactTableInterface, "sql">,
   changes: Pick<UpdateFactTableProps, "sql">,
-) {
-  return changes.sql !== undefined && changes.sql !== factTable.sql;
+): Pick<FactTableInterface, "dateUpdated" | "sqlUpdated"> {
+  const now = new Date();
+  const sqlChanged = changes.sql !== undefined && changes.sql !== factTable.sql;
+  return { dateUpdated: now, ...(sqlChanged && { sqlUpdated: now }) };
 }
 
 // System-driven update of the managed-warehouse events fact table (managedBy "api").
@@ -637,8 +640,7 @@ export async function dangerouslySyncManagedWarehouseFactTable(
   const { columns, ...rest } = changes;
   await persistColumns(factTable, columns, {
     ...rest,
-    dateUpdated: new Date(),
-    ...(sqlChanged(factTable, changes) && { sqlUpdated: new Date() }),
+    ...updateTimestamps(factTable, changes),
   });
   await touchDefinitionsVersion(
     factTable.organization,
