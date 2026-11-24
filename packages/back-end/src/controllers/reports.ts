@@ -18,7 +18,6 @@ import {
 } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
-import { generateId } from "back-end/src/util/uuid";
 import { assumeUtc } from "back-end/src/util/dates";
 import {
   getExperimentById,
@@ -55,6 +54,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
   assertValidReportClusterConfig,
+  copySnapshotForReport,
   createReportSnapshot,
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
@@ -73,18 +73,14 @@ export async function postReportFromSnapshot(
 
   const reportArgs = req.body || {};
 
-  const snapshot = await findSnapshotById(context, req.params.snapshot);
-  if (!snapshot) {
+  const experimentSnapshot = await findSnapshotById(
+    context,
+    req.params.snapshot,
+  );
+  if (!experimentSnapshot) {
     throw new Error("Invalid snapshot id");
   }
-  // Prepare a new report-specific snapshot
-  snapshot.id = generateId("snp_");
-  snapshot.type = "report";
-  snapshot.triggeredBy = "manual";
-  if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {
-    // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
-    snapshot.health.traffic.dimension = {};
-  }
+  const snapshot = copySnapshotForReport(experimentSnapshot);
 
   const experiment = await getExperimentById(context, snapshot.experiment);
 
@@ -392,6 +388,76 @@ export async function deleteReport(
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function postDuplicateReport(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const report = await getReportById(org.id, req.params.id);
+  if (!report || report.type !== "experiment-snapshot") {
+    throw new NotFoundError("Could not find report");
+  }
+  if (report.shareLevel === "private" && report.userId !== req.userId) {
+    context.permissions.throwPermissionError();
+  }
+
+  const experiment = await getExperimentById(
+    context,
+    report.experimentId || "",
+  );
+  if (!experiment) {
+    throw new NotFoundError("Could not find experiment");
+  }
+  if (!context.permissions.canCreateReport(experiment)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const reportSnapshot = await findSnapshotById(context, report.snapshot);
+  if (!reportSnapshot) {
+    throw new NotFoundError("Could not find the report's results");
+  }
+  if (reportSnapshot.status === "running") {
+    throw new BadRequestError(
+      "This report is still updating. Try again when it finishes.",
+    );
+  }
+  // Copy the results too, so the duplicate opens without running queries.
+  const snapshot = copySnapshotForReport(reportSnapshot);
+
+  const doc = await createReport(org.id, {
+    experimentId: report.experimentId,
+    userId: req.userId,
+    title: `Copy of ${report.title}`,
+    description: report.description,
+    type: "experiment-snapshot",
+    snapshot: snapshot.id,
+    experimentMetadata: report.experimentMetadata,
+    experimentAnalysisSettings: report.experimentAnalysisSettings,
+  });
+
+  snapshot.report = doc.id;
+  await createExperimentSnapshotModel({ context, data: snapshot });
+
+  await req.audit({
+    event: "experiment.analysis",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: JSON.stringify({
+      report: doc.id,
+      duplicatedFrom: report.id,
+    }),
+  });
+
+  res.status(200).json({
+    status: 200,
+    report: doc,
   });
 }
 

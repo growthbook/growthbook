@@ -1,5 +1,42 @@
-import { getMetricForSnapshot } from "back-end/src/services/reports";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import {
+  copySnapshotForReport,
+  getMetricForSnapshot,
+} from "back-end/src/services/reports";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
+
+describe("copySnapshotForReport", () => {
+  const snapshot = {
+    id: "snp_original",
+    experiment: "exp_1",
+    type: "standard",
+    triggeredBy: "schedule",
+    report: "rep_original",
+    dimension: "country",
+    health: { traffic: { overall: { variationUnits: [10, 12] } } },
+  } as unknown as ExperimentSnapshotInterface;
+
+  it("returns a manual report snapshot with a new id and the same results", () => {
+    const copy = copySnapshotForReport(snapshot);
+
+    expect(copy.id).toMatch(/^snp_/);
+    expect(copy.id).not.toBe("snp_original");
+    expect(copy).toMatchObject({
+      experiment: "exp_1",
+      type: "report",
+      triggeredBy: "manual",
+      dimension: "country",
+    });
+  });
+
+  it("fills in a missing traffic dimension map without touching the original", () => {
+    const copy = copySnapshotForReport(snapshot);
+
+    expect(copy.health?.traffic.dimension).toEqual({});
+    expect(snapshot.health?.traffic.dimension).toBeUndefined();
+    expect(snapshot.id).toBe("snp_original");
+  });
+});
 
 const metric = factMetricFactory.build({
   id: "fact_window",

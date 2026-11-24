@@ -94,6 +94,11 @@ export default function ReportPage() {
     isAdmin ||
     (report.editLevel === "organization" && canUpdateReport);
   const canDelete = isOwner || isAdmin;
+  // Matches the server: no copying someone else's private report.
+  const canDuplicate =
+    !!experiment &&
+    permissionsUtil.canCreateReport(experiment) &&
+    (report.shareLevel !== "private" || report.userId === userId);
 
   const isBandit = experiment?.type === "multi-armed-bandit";
   const isHoldout = experiment?.type === "holdout";
@@ -138,6 +143,7 @@ export default function ReportPage() {
         isAdmin={isAdmin}
         canEdit={canEdit}
         canDelete={canDelete}
+        canDuplicate={canDuplicate}
         showEditControls={true}
       />
 

@@ -94,6 +94,26 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 
+// Each report owns a copy of its snapshot, so it can be refreshed on its own.
+export function copySnapshotForReport(
+  snapshot: ExperimentSnapshotInterface,
+): ExperimentSnapshotInterface {
+  const copy: ExperimentSnapshotInterface = {
+    ...snapshot,
+    id: generateId("snp_"),
+    type: "report",
+    triggeredBy: "manual",
+  };
+  // A formerly-empty Mongoose Map can come back missing.
+  if (copy.health?.traffic && !copy.health.traffic.dimension) {
+    copy.health = {
+      ...copy.health,
+      traffic: { ...copy.health.traffic, dimension: {} },
+    };
+  }
+  return copy;
+}
+
 export function getAnalysisSettingsFromReportArgs(
   args: LegacyExperimentReportArgs,
 ): ExperimentSnapshotAnalysisSettings {
