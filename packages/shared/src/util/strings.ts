@@ -14,3 +14,15 @@ export function stripLeadingUtf8ByteOrderMark(text: string): string {
     ? text.slice(UTF8_BYTE_ORDER_MARK.length)
     : text;
 }
+
+/**
+ * Percent-decodes a value, returning it unchanged when the encoding is
+ * malformed.
+ */
+export function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}

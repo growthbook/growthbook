@@ -6,7 +6,7 @@ import {
   getSessionReplayChunksBySessionId,
   SessionReplayRow,
 } from "back-end/src/services/clickhouse";
-import { getSessionReplayEventsByStoragePrefix } from "back-end/src/services/session-replay";
+import { getSessionReplayEventsByChunkKeys } from "back-end/src/services/session-replay";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { logger } from "back-end/src/util/logger";
 
@@ -16,10 +16,13 @@ jest.mock("back-end/src/services/clickhouse", () => ({
 }));
 
 jest.mock("back-end/src/services/session-replay", () => ({
-  getSessionReplayEventsByStoragePrefix: jest.fn(),
+  getSessionReplayEventsByChunkKeys: jest.fn(),
   filterClientKeysByProject: jest.requireActual<
     typeof import("back-end/src/services/session-replay")
   >("back-end/src/services/session-replay").filterClientKeysByProject,
+  extractSortedChunkKeys: jest.requireActual<
+    typeof import("back-end/src/services/session-replay")
+  >("back-end/src/services/session-replay").extractSortedChunkKeys,
 }));
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
@@ -45,7 +48,7 @@ const mockListSessionReplays = jest.mocked(listSessionReplays);
 const mockGetSessionReplayChunksBySessionId = jest.mocked(
   getSessionReplayChunksBySessionId,
 );
-const mockGetEvents = jest.mocked(getSessionReplayEventsByStoragePrefix);
+const mockGetEvents = jest.mocked(getSessionReplayEventsByChunkKeys);
 const mockGetGrowthbookDatasource = jest.mocked(getGrowthbookDatasource);
 const mockLoggerWarn = jest.mocked(logger.warn);
 
@@ -292,14 +295,15 @@ describe("SessionReplayModel — list()", () => {
     await model.list({
       userId: "u1",
       clientKey: "ck_1",
-      country: "US",
-      device: "desktop",
+      country: ["US", "CA"],
+      device: ["desktop"],
       minDurationSecs: 1.5,
       maxDurationSecs: 10,
       minEventCount: 5,
       maxEventCount: 25,
-      featureKey: "flag_1",
-      experimentKey: "exp_1",
+      featureKey: ["flag_1"],
+      // A comma inside one key must survive as a single value.
+      experimentKey: ["checkout,v2"],
       limit: 50,
       offset: 100,
     });
@@ -309,14 +313,14 @@ describe("SessionReplayModel — list()", () => {
       expect.objectContaining({
         userId: "u1",
         clientKey: "ck_1",
-        country: "US",
-        device: "desktop",
+        country: ["US", "CA"],
+        device: ["desktop"],
         minDurationSecs: 1.5,
         maxDurationSecs: 10,
         minEventCount: 5,
         maxEventCount: 25,
-        featureKey: "flag_1",
-        experimentKey: "exp_1",
+        featureKey: ["flag_1"],
+        experimentKey: ["checkout,v2"],
         limit: 50,
         offset: 100,
       }),
@@ -335,19 +339,13 @@ describe("SessionReplayModel — list()", () => {
     expect(session.clientKey).toBe(row.client_key);
     expect(session.userId).toBe(row.user_id);
     expect(session.deviceId).toBe(row.device_id);
-    expect(session.s3Key).toBe(row.s3_key);
     expect(session.durationMs).toBe(row.duration_ms);
     expect(session.eventCount).toBe(row.event_count);
     expect(session.errorCount).toBe(row.error_count);
     expect(session.urlFirst).toBe(row.url_first);
-    expect(session.urlsVisited).toEqual(row.urls_visited);
     expect(session.pageTitle).toBe(row.page_title);
     expect(session.viewportWidth).toBe(row.viewport_width);
     expect(session.viewportHeight).toBe(row.viewport_height);
-    expect(session.attributes).toEqual(row.attributes);
-    expect(session.featureKeys).toEqual(row.feature_keys);
-    expect(session.experimentKeys).toEqual(row.experiment_keys);
-    expect(session.userAgent).toBe(row.user_agent);
     expect(session.country).toBe(row.country);
     expect(session.device).toBe(row.device);
     expect(session.browser).toBe(row.browser);
@@ -434,6 +432,7 @@ describe("SessionReplayModel — getBySessionId()", () => {
   it("aggregates multiple chunks correctly", async () => {
     mockGetSessionReplayChunksBySessionId.mockResolvedValue([
       makeRow({
+        chunk_index: 0,
         duration_ms: 30000,
         event_count: 50,
         key_event_count: 4,
@@ -456,6 +455,7 @@ describe("SessionReplayModel — getBySessionId()", () => {
         },
       }),
       makeRow({
+        chunk_index: 1,
         duration_ms: 60000,
         event_count: 100,
         key_event_count: 7,
@@ -497,19 +497,75 @@ describe("SessionReplayModel — getBySessionId()", () => {
     expect(session!.experimentEvals?.items).toHaveLength(1);
     expect(session!.sessionEvents?.items).toHaveLength(2);
   });
+
+  // A tenant table provisioned before a column was added omits the key
+  // entirely from SELECT *, and Number(undefined) would poison every sum.
+  // The recorder can reuse a session id and restart its chunk counter, so the
+  // same chunk index arrives twice. Summing both inflated the counts.
+  it("collapses duplicate chunk indexes to the newest row", async () => {
+    mockGetSessionReplayChunksBySessionId.mockResolvedValue([
+      makeRow({
+        chunk_index: 0,
+        ingested_at: "2026-05-21 20:46:23",
+        event_count: 19,
+      }),
+      makeRow({
+        chunk_index: 0,
+        ingested_at: "2026-05-21 22:36:46",
+        event_count: 347,
+      }),
+      makeRow({
+        chunk_index: 1,
+        ingested_at: "2026-05-21 20:47:26",
+        event_count: 423,
+      }),
+    ]);
+
+    const model = new SessionReplayModel(makeContext());
+    const session = await model.getBySessionId("sess_abc123");
+
+    // Newest chunk 0 (347) plus chunk 1 (423) — not 789 with the stale 19.
+    expect(session!.eventCount).toBe(770);
+  });
+
+  it("treats missing numeric columns as zero rather than NaN", async () => {
+    const withoutCounts = (overrides: Partial<SessionReplayRow> = {}) => {
+      const row = makeRow(overrides);
+      delete (row as Partial<SessionReplayRow>).key_event_count;
+      delete (row as Partial<SessionReplayRow>).error_count;
+      return row;
+    };
+    mockGetSessionReplayChunksBySessionId.mockResolvedValue([
+      withoutCounts({ chunk_index: 0, duration_ms: 30000, event_count: 50 }),
+      withoutCounts({ chunk_index: 1, duration_ms: 60000, event_count: 100 }),
+    ]);
+
+    const model = new SessionReplayModel(makeContext());
+    const session = await model.getBySessionId("sess_abc123");
+
+    expect(session!.keyEventCount).toBe(0);
+    expect(session!.errorCount).toBe(0);
+    expect(session!.eventCount).toBe(150);
+    expect(session!.durationMs).toBe(60000);
+  });
 });
 
 // ---------------------------------------------------------------------------
-// getEventsForS3Key()
+// getEventsForChunkKeys()
 // ---------------------------------------------------------------------------
 
-describe("SessionReplayModel — getEventsForS3Key()", () => {
+const CHUNK_KEYS = [
+  "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
+  "session-replays/org_1/2026/04/29/sess_abc123/1.json.gz",
+];
+
+describe("SessionReplayModel — getEventsForChunkKeys()", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetGrowthbookDatasource.mockResolvedValue(null);
   });
 
-  it("strips the chunk filename and passes the directory prefix and region to the service", async () => {
+  it("passes the chunk keys through to the service unchanged", async () => {
     const events = [
       { type: 2, timestamp: 1000, data: {} },
       { type: 3, timestamp: 2000, data: {} },
@@ -517,26 +573,17 @@ describe("SessionReplayModel — getEventsForS3Key()", () => {
     mockGetEvents.mockResolvedValue(events as never);
 
     const model = new SessionReplayModel(makeContext());
-    const result = await model.getEventsForS3Key(
-      "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
-    );
+    const result = await model.getEventsForChunkKeys(CHUNK_KEYS);
 
     expect(result).toEqual(events);
-    expect(mockGetEvents).toHaveBeenCalledWith(
-      "session-replays/org_1/2026/04/29/sess_abc123/",
-      "us-east-1",
-    );
+    expect(mockGetEvents).toHaveBeenCalledWith(CHUNK_KEYS, "us-east-1");
   });
 
   it("returns an empty array when the service returns no events", async () => {
     mockGetEvents.mockResolvedValue([]);
 
     const model = new SessionReplayModel(makeContext());
-    const result = await model.getEventsForS3Key(
-      "session-replays/org_1/2026/04/29/sess_empty/0.json.gz",
-    );
-
-    expect(result).toEqual([]);
+    await expect(model.getEventsForChunkKeys(CHUNK_KEYS)).resolves.toEqual([]);
   });
 
   it("uses eu-west-1 when the org's managed warehouse is provisioned there", async () => {
@@ -547,14 +594,9 @@ describe("SessionReplayModel — getEventsForS3Key()", () => {
     mockGetEvents.mockResolvedValue([]);
 
     const model = new SessionReplayModel(makeContext());
-    await model.getEventsForS3Key(
-      "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
-    );
+    await model.getEventsForChunkKeys(CHUNK_KEYS);
 
-    expect(mockGetEvents).toHaveBeenCalledWith(
-      "session-replays/org_1/2026/04/29/sess_abc123/",
-      "eu-west-1",
-    );
+    expect(mockGetEvents).toHaveBeenCalledWith(CHUNK_KEYS, "eu-west-1");
   });
 
   it("defaults to us-east-1 when no managed warehouse datasource exists", async () => {
@@ -562,13 +604,8 @@ describe("SessionReplayModel — getEventsForS3Key()", () => {
     mockGetEvents.mockResolvedValue([]);
 
     const model = new SessionReplayModel(makeContext());
-    await model.getEventsForS3Key(
-      "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
-    );
+    await model.getEventsForChunkKeys(CHUNK_KEYS);
 
-    expect(mockGetEvents).toHaveBeenCalledWith(
-      "session-replays/org_1/2026/04/29/sess_abc123/",
-      "us-east-1",
-    );
+    expect(mockGetEvents).toHaveBeenCalledWith(CHUNK_KEYS, "us-east-1");
   });
 });

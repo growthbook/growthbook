@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { NextRouter } from "next/router";
+import { safeDecodeURIComponent } from "shared/util";
 import { transformQuery, SyntaxFilter } from "@/services/search";
 
 const FILTER_KEYS = [
@@ -39,13 +40,22 @@ const PARAM_TO_SYNTAX: Record<string, string> = {
   experimentKey: "experiment:",
 };
 
-/** Params whose value is a comma-joined list rather than a single value. */
 const MULTI_VALUE_PARAMS = new Set([
   "country",
   "device",
   "featureKey",
   "experimentKey",
 ]);
+
+// Mirrors the caps in session-replay.router.ts. The server limits the whole
+// joined value, so enough selections build a request it rejects with a 400
+// that the UI can only report as "Failed to load sessions".
+const PARAM_MAX_LENGTH: Record<string, number> = {
+  country: 64,
+  device: 64,
+  featureKey: 255,
+  experimentKey: 255,
+};
 
 /** Needs quoting if the value contains spaces or commas (parser delimiters). */
 function quoteIfNeeded(val: string): string {
@@ -56,7 +66,12 @@ function quoteIfNeeded(val: string): string {
 // quoted too and the whole list parses back as one value.
 function formatParamValue(param: string, val: string): string {
   if (!MULTI_VALUE_PARAMS.has(param)) return quoteIfNeeded(val);
-  return val.split(",").filter(Boolean).map(quoteIfNeeded).join(",");
+  return val
+    .split(",")
+    .filter(Boolean)
+    .map((v) => safeDecodeURIComponent(v.trim()))
+    .map(quoteIfNeeded)
+    .join(",");
 }
 
 function queryParamsToSearchString(
@@ -72,14 +87,51 @@ function queryParamsToSearchString(
   return parts.join(" ");
 }
 
-function syntaxFiltersToQueryParams(
+export type DroppedFilters = {
+  /** Param names whose selections exceeded the server's length cap. */
+  truncated: Set<string>;
+  /** Syntax fields whose exclusion tokens the API cannot express. */
+  negated: Set<string>;
+};
+
+export function emptyDroppedFilters(): DroppedFilters {
+  return { truncated: new Set(), negated: new Set() };
+}
+
+export function syntaxFiltersToQueryParams(
   filters: SyntaxFilter[],
+  dropped: DroppedFilters = emptyDroppedFilters(),
 ): Record<string, string> {
   const params: Record<string, string> = {};
+  // Repeated tokens for one field accumulate rather than overwrite, so
+  // `country:US country:CA` doesn't silently drop US
+  const addMulti = (param: string, values: string[]) => {
+    const max = PARAM_MAX_LENGTH[param];
+    const existing = params[param]
+      ? params[param].split(",").map((v) => safeDecodeURIComponent(v.trim()))
+      : [];
+    for (const v of values) {
+      if (!v || existing.includes(v)) continue;
+      const next = existing.concat(v).map(encodeURIComponent).join(",");
+      if (max !== undefined && next.length > max) {
+        dropped.truncated.add(param);
+        continue;
+      }
+      existing.push(v);
+    }
+    params[param] = existing.map(encodeURIComponent).join(",");
+  };
+
   for (const f of filters) {
     if (!f.values.length) continue;
     const val = f.values[0];
     if (!val) continue;
+    // The API has no exclusion filter, so sending the bare value would invert
+    // what was asked for. Drop it rather than return the opposite sessions.
+    if (f.negated) {
+      dropped.negated.add(f.field);
+      continue;
+    }
 
     switch (f.field) {
       case "user":
@@ -92,10 +144,10 @@ function syntaxFiltersToQueryParams(
         params.url = val;
         break;
       case "country":
-        params.country = f.values.join(",");
+        addMulti("country", f.values);
         break;
       case "device":
-        params.device = f.values.join(",");
+        addMulti("device", f.values);
         break;
       case "duration":
         if (f.operator === ">") params.durationMinSecs = val;
@@ -112,14 +164,21 @@ function syntaxFiltersToQueryParams(
         else if (f.operator === "<") params.dateBefore = val;
         break;
       case "flag":
-        params.featureKey = f.values.join(",");
+        addMulti("featureKey", f.values);
         break;
       case "experiment":
-        params.experimentKey = f.values.join(",");
+        addMulti("experimentKey", f.values);
         break;
     }
   }
   return params;
+}
+
+// Report the token the user typed, not the param name: `durationMinSecs` is
+// `duration:>` in the search box.
+function paramToFieldLabel(param: string): string {
+  const syntax = PARAM_TO_SYNTAX[param];
+  return syntax ? syntax.split(":")[0] : param;
 }
 
 /**
@@ -156,6 +215,11 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
   // === LOCAL INPUT STATE ===
 
   const [inputValue, setInputValue] = useState(committedSearchString);
+  // Filters the request could not carry, reported back to the user
+  const [droppedFilters, setDroppedFilters] = useState<{
+    truncated: string[];
+    negated: string[];
+  }>({ truncated: [], negated: [] });
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   // When URL changes externally (back/forward nav, or after our own push
@@ -170,6 +234,10 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
       debounceRef.current = undefined;
     }
     setInputValue(committedSearchString);
+    // The rebuilt string never contains the tokens that were dropped, so a
+    // warning about them no longer matches what the input shows. Our own
+    // pushes pre-set prevCommittedRef and return above, keeping theirs.
+    setDroppedFilters({ truncated: [], negated: [] });
   }, [committedSearchString]);
 
   // syntaxFilters derived from inputValue so dropdowns always see filters
@@ -187,7 +255,12 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
 
   const commitToUrl = useCallback((searchString: string) => {
     const { syntaxFilters: parsed } = transformQuery(searchString, FILTER_KEYS);
-    const newParams = syntaxFiltersToQueryParams(parsed);
+    const dropped = emptyDroppedFilters();
+    const newParams = syntaxFiltersToQueryParams(parsed, dropped);
+    setDroppedFilters({
+      truncated: Array.from(dropped.truncated).map(paramToFieldLabel),
+      negated: Array.from(dropped.negated),
+    });
     const r = routerRef.current;
     const currentParams = routerQueryToParams(r.query);
     if (JSON.stringify(newParams) === JSON.stringify(currentParams)) return;
@@ -247,6 +320,7 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
     syntaxFilters,
     setSearchValue: setSearchValueAndNavigate,
     queryParams,
+    droppedFilters,
     project,
   };
 }

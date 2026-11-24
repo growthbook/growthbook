@@ -1,3 +1,5 @@
+import { safeDecodeURIComponent } from "shared/util";
+
 /**
  * Client-side fallback capture for the gb_attr cookie. Mirrors the script
  * embedded in Webflow on www.growthbook.io so that users who land directly
@@ -27,7 +29,7 @@ const ATTRIB_KEYS = [
 
 function getCookie(name: string): string | null {
   const m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
-  return m ? decodeURIComponent(m[1]) : null;
+  return m ? safeDecodeURIComponent(m[1]) : null;
 }
 
 function setCookie(name: string, value: string): void {

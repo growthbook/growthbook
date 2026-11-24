@@ -91,17 +91,6 @@ export async function s3GetObjectBuffer(
   return Buffer.concat(chunks);
 }
 
-export async function s3ListByPrefix(
-  client: S3Client,
-  bucket: string,
-  prefix: string,
-): Promise<string[]> {
-  const response = await client.send(
-    new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix }),
-  );
-  return (response.Contents ?? []).map((obj) => obj.Key ?? "").filter(Boolean);
-}
-
 export const s3FileStorage: FileStorage = {
   async upload(key, contentType, contents, cfg, logContext) {
     try {

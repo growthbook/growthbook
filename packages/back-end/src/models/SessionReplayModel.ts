@@ -8,11 +8,13 @@ import { logger } from "back-end/src/util/logger";
 import {
   getSessionReplayChunksBySessionId,
   listSessionReplays,
+  SessionReplayListRow,
   SessionReplayRow,
 } from "back-end/src/services/clickhouse";
 import {
   filterClientKeysByProject,
-  getSessionReplayEventsByStoragePrefix,
+  getSessionReplayEventsByChunkKeys,
+  extractSortedChunkKeys,
 } from "back-end/src/services/session-replay";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
@@ -81,14 +83,14 @@ export class SessionReplayModel {
     userId?: string;
     clientKey?: string;
     url?: string;
-    country?: string;
-    device?: string;
+    country?: string[];
+    device?: string[];
     minDurationSecs?: number;
     maxDurationSecs?: number;
     minEventCount?: number;
     maxEventCount?: number;
-    featureKey?: string;
-    experimentKey?: string;
+    featureKey?: string[];
+    experimentKey?: string[];
     dateAfter?: string;
     dateBefore?: string;
     project?: string;
@@ -109,46 +111,58 @@ export class SessionReplayModel {
       clientKeys,
     });
     return rows
-      .map((row) => this.toInterface(row))
+      .map((row) => this.toListInterface(row))
       .filter((doc) => {
         const projects = permittedKeys.get(doc.clientKey) ?? [];
         return this.canRead(doc, projects);
       });
   }
 
-  public async getBySessionId(
-    sessionId: string,
-  ): Promise<SessionReplayInterface | null> {
+  /**
+   * Merged session metadata plus the S3 key of every chunk backing it, in
+   * chunk-index order.
+   *
+   * The keys come from the metadata rows the ClickHouse query already
+   * returned, so the caller does not need a separate S3 listing to find them.
+   */
+  public async getSessionWithChunkKeys(sessionId: string): Promise<{
+    session: SessionReplayInterface;
+    chunkKeys: string[];
+  } | null> {
     const chunks = await getSessionReplayChunksBySessionId(
       this.context,
       sessionId,
     );
     if (!chunks.length) return null;
-    const doc = this.mergeChunks(chunks);
+    const session = this.mergeChunks(chunks);
 
     const permittedKeys = await this.getPermittedClientKeys();
-    const projects = permittedKeys.get(doc.clientKey);
+    const projects = permittedKeys.get(session.clientKey);
     // clientKey not in permitted set — orphaned or no access
     if (projects === undefined) return null;
-    if (!this.canRead(doc, projects)) return null;
+    if (!this.canRead(session, projects)) return null;
 
-    return doc;
+    return { session, chunkKeys: extractSortedChunkKeys(chunks) };
   }
 
-  public async getEventsForS3Key(
-    s3Key: string,
+  public async getBySessionId(
+    sessionId: string,
+  ): Promise<SessionReplayInterface | null> {
+    const result = await this.getSessionWithChunkKeys(sessionId);
+    return result ? result.session : null;
+  }
+
+  public async getEventsForChunkKeys(
+    chunkKeys: string[],
   ): Promise<SessionReplayRrwebEvent[]> {
-    // s3Key is the full object key (e.g. .../uuid/0.json.gz); strip the
-    // chunk filename so the S3 listing finds all chunks for the session.
-    const prefix = s3Key.substring(0, s3Key.lastIndexOf("/") + 1);
     const datasource = await getGrowthbookDatasource(this.context);
     const region =
       datasource?.type === "growthbook_clickhouse" &&
       datasource.settings.region === "eu-west-1"
         ? "eu-west-1"
         : "us-east-1";
-    const events = (await getSessionReplayEventsByStoragePrefix(
-      prefix,
+    const events = (await getSessionReplayEventsByChunkKeys(
+      chunkKeys,
       region,
     )) as unknown as SessionReplayRrwebEvent[];
     return events;
@@ -161,7 +175,29 @@ export class SessionReplayModel {
    * Scalars use first-row / max / sum as appropriate; arrays are
    * union-deduped; JSON eval items are concatenated across chunks.
    */
-  private mergeChunks(chunks: SessionReplayRow[]): SessionReplayInterface {
+  private dedupeChunks(chunks: SessionReplayRow[]): SessionReplayRow[] {
+    const newestByChunk = new Map<number, SessionReplayRow>();
+    for (const row of chunks) {
+      const existing = newestByChunk.get(row.chunk_index);
+      if (!existing || row.ingested_at > existing.ingested_at) {
+        newestByChunk.set(row.chunk_index, row);
+      }
+    }
+    if (newestByChunk.size < chunks.length) {
+      logger.warn(
+        {
+          sessionReplayId: chunks[0]?.session_replay_id,
+          rows: chunks.length,
+          chunks: newestByChunk.size,
+        },
+        "session-replay: duplicate chunk indexes; earlier uploads were overwritten",
+      );
+    }
+    return Array.from(newestByChunk.values());
+  }
+
+  private mergeChunks(allRows: SessionReplayRow[]): SessionReplayInterface {
+    const chunks = this.dedupeChunks(allRows);
     const base = this.toInterface(chunks[0]);
     if (chunks.length === 1) return base;
 
@@ -203,6 +239,21 @@ export class SessionReplayModel {
     }
 
     return base;
+  }
+
+  private toListInterface(row: SessionReplayListRow): SessionReplayInterface {
+    return {
+      ...this.toInterface({
+        ...row,
+        s3_key: "",
+        chunk_index: 0,
+        urls_visited: [],
+        attributes: {},
+        user_agent: "",
+        feature_keys: [],
+        experiment_keys: [],
+      }),
+    };
   }
 
   /**

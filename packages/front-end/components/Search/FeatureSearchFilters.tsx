@@ -1,6 +1,7 @@
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, IconButton, TextField } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
+import { safeDecodeURIComponent } from "shared/util";
 import Text from "@/ui/Text";
 import {
   FEATURE_HEALTH_FILTER_OPTIONS,
@@ -60,7 +61,7 @@ function getCompoundHasValue(
     if (filter.field !== "has") continue;
     for (const val of filter.values) {
       if (val.startsWith(prefix)) {
-        return decodeURIComponent(val.slice(prefix.length));
+        return safeDecodeURIComponent(val.slice(prefix.length));
       }
     }
   }
