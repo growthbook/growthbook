@@ -228,7 +228,7 @@ export default function QaOverrideModal({
                 renderOnSelect: (
                   <Box ml="5">
                     <Select
-                      label="Variation"
+                      aria-label="Variation"
                       value={values.forcedVariationId || undefined}
                       setValue={(v) => form.setValue("forcedVariationId", v)}
                       placeholder="Select a variation…"
