@@ -28,6 +28,7 @@ export default function SetupFieldRow({
   stacked = false,
   changed = false,
   required = false,
+  htmlFor,
   children,
 }: {
   /** For pointing at the field from elsewhere on the page. */
@@ -51,6 +52,8 @@ export default function SetupFieldRow({
   changed?: boolean;
   /** Marks the label as needing a value before saving. */
   required?: boolean;
+  /** The control the label names, by its id. */
+  htmlFor?: string;
   children: ReactNode;
 }) {
   return (
@@ -89,6 +92,7 @@ export default function SetupFieldRow({
             weight={labelSize === "lg" ? "semibold" : "medium"}
             color="text-high"
             mb="0"
+            htmlFor={htmlFor}
           >
             {label}
             {required ? (

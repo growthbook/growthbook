@@ -1,5 +1,5 @@
 import React, { Fragment, ReactNode, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import {
   PiCaretDown,
   PiCaretRight,
@@ -111,11 +111,13 @@ function DeliveryDetails({ log }: { log: EventWebHookLogInterface }) {
 export default function EventWebHookStatus({
   logs,
   error,
+  canTest,
   children,
 }: {
   // Null while loading.
   logs: EventWebHookLogInterface[] | null;
   error: string | null;
+  canTest: boolean;
   children?: ReactNode;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
@@ -149,83 +151,87 @@ export default function EventWebHookStatus({
           </>
         ) : (
           <Text color="text-mid">
-            No deliveries yet. Use Send test to check the setup.
+            {canTest
+              ? "No deliveries yet. Use Send test to check the setup."
+              : "No deliveries yet."}
           </Text>
         )}
         {children}
       </SectionFrame>
 
-      <SectionFrame title="Deliveries" mt="4">
-        {error ? (
-          <Text color="text-mid">Unavailable.</Text>
-        ) : !logs ? (
-          <LoadingSpinner />
-        ) : logs.length ? (
-          <Table variant="ghost">
-            <TableHeader>
-              <TableRow>
-                <TableColumnHeader width="32px" style={flushHeader} />
-                <TableColumnHeader width="180px" style={flushHeader}>
-                  Time
-                </TableColumnHeader>
-                <TableColumnHeader style={flushHeader}>Event</TableColumnHeader>
-                <TableColumnHeader width="160px" style={flushHeader}>
-                  Result
-                </TableColumnHeader>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logs.map((log) => {
-                const open = openId === log.id;
-                return (
-                  <Fragment key={log.id}>
-                    <TableRow
-                      style={{ cursor: "pointer" }}
-                      onClick={() => setOpenId(open ? null : log.id)}
-                    >
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          color="gray"
-                          size="sm"
-                          aria-label="Delivery details"
-                          aria-expanded={open}
-                          stopPropagation
-                          onClick={() => setOpenId(open ? null : log.id)}
-                        >
-                          {open ? <PiCaretDown /> : <PiCaretRight />}
-                        </Button>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip content={datetime(log.dateCreated)}>
-                          <span>{ago(log.dateCreated)}</span>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Text size="sm" mono>
-                          {log.event ?? "unknown"}
-                        </Text>
-                      </TableCell>
-                      <TableCell>
-                        <DeliveryStatusBadge log={log} />
-                      </TableCell>
-                    </TableRow>
-                    {open ? (
-                      <TableRow>
-                        <TableViewportCell colSpan={4}>
-                          <DeliveryDetails log={log} />
-                        </TableViewportCell>
+      {error || logs?.length === 0 ? null : (
+        <SectionFrame title="Deliveries" mt="4">
+          {!logs ? (
+            <LoadingSpinner />
+          ) : (
+            <Table variant="ghost">
+              <TableHeader>
+                <TableRow>
+                  <TableColumnHeader width="32px" style={flushHeader}>
+                    <VisuallyHidden>Details</VisuallyHidden>
+                  </TableColumnHeader>
+                  <TableColumnHeader width="180px" style={flushHeader}>
+                    Time
+                  </TableColumnHeader>
+                  <TableColumnHeader style={flushHeader}>
+                    Event
+                  </TableColumnHeader>
+                  <TableColumnHeader width="160px" style={flushHeader}>
+                    Result
+                  </TableColumnHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logs.map((log) => {
+                  const open = openId === log.id;
+                  return (
+                    <Fragment key={log.id}>
+                      <TableRow
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setOpenId(open ? null : log.id)}
+                      >
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            color="gray"
+                            size="sm"
+                            aria-label="Delivery details"
+                            aria-expanded={open}
+                            stopPropagation
+                            onClick={() => setOpenId(open ? null : log.id)}
+                          >
+                            {open ? <PiCaretDown /> : <PiCaretRight />}
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <Tooltip content={datetime(log.dateCreated)}>
+                            <span>{ago(log.dateCreated)}</span>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell>
+                          <Text size="sm" mono>
+                            {log.event ?? "unknown"}
+                          </Text>
+                        </TableCell>
+                        <TableCell>
+                          <DeliveryStatusBadge log={log} />
+                        </TableCell>
                       </TableRow>
-                    ) : null}
-                  </Fragment>
-                );
-              })}
-            </TableBody>
-          </Table>
-        ) : (
-          <Text color="text-mid">Nothing sent yet.</Text>
-        )}
-      </SectionFrame>
+                      {open ? (
+                        <TableRow>
+                          <TableViewportCell colSpan={4}>
+                            <DeliveryDetails log={log} />
+                          </TableViewportCell>
+                        </TableRow>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </SectionFrame>
+      )}
     </>
   );
 }

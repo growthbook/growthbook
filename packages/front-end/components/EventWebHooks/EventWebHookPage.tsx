@@ -525,10 +525,12 @@ export default function EventWebHookPage({
       <SectionFrame title="Delivery">
         <SetupFieldRow
           label="Name"
+          htmlFor="webhook-name"
           required={isNew || values.name.trim().length < 2}
           changed={changed("name")}
         >
           <Field
+            id="webhook-name"
             placeholder="My webhook"
             disabled={disabled}
             containerStyle={fieldStyle}
@@ -537,8 +539,13 @@ export default function EventWebHookPage({
           />
         </SetupFieldRow>
 
-        <SetupFieldRow label="Payload type" changed={changed("payloadType")}>
+        <SetupFieldRow
+          label="Payload type"
+          htmlFor="webhook-payload-type"
+          changed={changed("payloadType")}
+        >
           <SelectField
+            id="webhook-payload-type"
             value={values.payloadType}
             disabled={disabled || values.payloadType === "raw"}
             sort={false}
@@ -586,10 +593,12 @@ export default function EventWebHookPage({
         ) : (
           <SetupFieldRow
             label="Endpoint URL"
+            htmlFor="webhook-url"
             required={isNew || !isUrl(values.url)}
             changed={changed("url")}
           >
             <Field
+              id="webhook-url"
               placeholder="https://example.com/growthbook-webhook"
               disabled={disabled}
               containerStyle={fieldStyle}
@@ -612,8 +621,13 @@ export default function EventWebHookPage({
 
         {isDetailed && (
           <>
-            <SetupFieldRow label="Method" changed={changed("method")}>
+            <SetupFieldRow
+              label="Method"
+              htmlFor="webhook-method"
+              changed={changed("method")}
+            >
               <SelectField
+                id="webhook-method"
                 value={values.method}
                 disabled={disabled}
                 containerStyle={fieldStyle}
@@ -637,9 +651,11 @@ export default function EventWebHookPage({
             </SetupFieldRow>
             <SetupFieldRow
               label="Timeout (seconds)"
+              htmlFor="webhook-timeout"
               changed={changed("timeoutSeconds")}
             >
               <Field
+                id="webhook-timeout"
                 type="number"
                 min={1}
                 placeholder="30"
@@ -671,10 +687,12 @@ export default function EventWebHookPage({
       <SectionFrame title="Events and Filters" mt="4">
         <SetupFieldRow
           label="Events"
+          htmlFor="webhook-events"
           required={isNew || !values.events.length}
           changed={changed("events")}
         >
           <MultiSelectField
+            id="webhook-events"
             value={values.events}
             placeholder="Choose events"
             sort={false}
@@ -708,8 +726,13 @@ export default function EventWebHookPage({
           />
         </SetupFieldRow>
 
-        <SetupFieldRow label="Environments" changed={changed("environments")}>
+        <SetupFieldRow
+          label="Environments"
+          htmlFor="webhook-environments"
+          changed={changed("environments")}
+        >
           <MultiSelectField
+            id="webhook-environments"
             value={values.environments}
             placeholder="All Environments"
             sort={false}
@@ -726,8 +749,13 @@ export default function EventWebHookPage({
           />
         </SetupFieldRow>
 
-        <SetupFieldRow label="Projects" changed={changed("projects")}>
+        <SetupFieldRow
+          label="Projects"
+          htmlFor="webhook-projects"
+          changed={changed("projects")}
+        >
           <MultiSelectField
+            id="webhook-projects"
             value={values.projects}
             placeholder="All Projects"
             sort={false}
@@ -846,6 +874,7 @@ export default function EventWebHookPage({
             <EventWebHookStatus
               logs={loadedLogs}
               error={logsError?.message ?? null}
+              canTest={canTest && !slackSettingsUrl}
             >
               {eventWebHook.payloadType === "datadog" && (
                 <DatadogWebhookChecks eventWebHook={eventWebHook} logs={logs} />

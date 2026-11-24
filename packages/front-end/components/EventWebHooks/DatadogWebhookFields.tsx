@@ -69,6 +69,7 @@ function ApiKeySelect({
     <>
       <SelectField
         value={value}
+        id="webhook-api-key"
         placeholder="Choose a secret"
         sort={false}
         disabled={disabled}
@@ -177,8 +178,13 @@ export default function DatadogWebhookFields({
 
   return (
     <>
-      <SetupFieldRow label="Datadog site" required={isNew || !origin}>
+      <SetupFieldRow
+        label="Datadog site"
+        htmlFor="webhook-datadog-site"
+        required={isNew || !origin}
+      >
         <SelectField
+          id="webhook-datadog-site"
           value={customUrl ? CUSTOM_SITE : (site?.id ?? "")}
           placeholder="Choose your Datadog site"
           sort={false}
@@ -200,8 +206,13 @@ export default function DatadogWebhookFields({
       </SetupFieldRow>
 
       {customUrl && (
-        <SetupFieldRow label="Endpoint URL" required={isNew || !origin}>
+        <SetupFieldRow
+          label="Endpoint URL"
+          htmlFor="webhook-url"
+          required={isNew || !origin}
+        >
           <Field
+            id="webhook-url"
             placeholder="https://event-management-intake.datadoghq.com/api/v2/events"
             disabled={disabled}
             containerStyle={fieldStyle}
@@ -211,12 +222,17 @@ export default function DatadogWebhookFields({
         </SetupFieldRow>
       )}
 
-      <SetupFieldRow label="API key" required={isNew || !hasApiKey}>
+      <SetupFieldRow
+        label="API key"
+        htmlFor="webhook-api-key"
+        required={isNew || !hasApiKey}
+      >
         <ApiKeySelect form={form} allowedOrigin={origin} disabled={disabled} />
       </SetupFieldRow>
 
-      <SetupFieldRow label="Datadog services">
+      <SetupFieldRow label="Datadog services" htmlFor="webhook-services">
         <SelectField
+          id="webhook-services"
           value={datadog?.serviceField ?? ""}
           placeholder="Choose a custom field"
           isClearable
