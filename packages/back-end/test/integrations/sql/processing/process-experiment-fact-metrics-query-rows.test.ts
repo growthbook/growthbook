@@ -101,6 +101,39 @@ describe("processExperimentFactMetricsQueryRows", () => {
     ).toEqual([{ variation: "0", users: 3, count: 3 }]);
   });
 
+  it("parses scientific-notation user counts (Athena DOUBLE output)", async () => {
+    // The users column must NOT go through parseInt() semantics, which would
+    // turn "3.518884E7" into 3 because it stops at the exponent marker.
+    expect(
+      await processExperimentFactMetricsQueryRows([
+        { variation: "0", users: "3.518884E7" },
+      ]),
+    ).toEqual([{ variation: "0", users: 35188840, count: 35188840 }]);
+
+    expect(
+      await processExperimentFactMetricsQueryRows([
+        { variation: "0", users: "3.1234567e7" },
+      ]),
+    ).toEqual([{ variation: "0", users: 31234567, count: 31234567 }]);
+  });
+
+  it("sums scientific-notation user counts across rows", async () => {
+    const rows = await processExperimentFactMetricsQueryRows([
+      { variation: "0", users: "1.5e7" },
+      { variation: "1", users: "2e7" },
+    ]);
+    expect(rows.map((r) => r.users)).toEqual([15000000, 20000000]);
+    expect(rows.reduce((total, r) => total + r.users, 0)).toBe(35000000);
+  });
+
+  it("keeps plain-integer user counts unchanged", async () => {
+    expect(
+      await processExperimentFactMetricsQueryRows([
+        { variation: "0", users: "35188840" },
+      ]),
+    ).toEqual([{ variation: "0", users: 35188840, count: 35188840 }]);
+  });
+
   it("yields to the event loop while processing many rows", async () => {
     let ticks = 0;
     const timer = setInterval(() => ticks++, 0);
