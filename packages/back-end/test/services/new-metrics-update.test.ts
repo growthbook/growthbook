@@ -2051,6 +2051,27 @@ function analysis(
   };
 }
 
+const frequentist = {
+  statsEngine: "frequentist",
+  pValueThreshold: 0.05,
+  sequentialTesting: false,
+} as const;
+const tested = (pValue: number, extra: Partial<SnapshotMetric> = {}) =>
+  ({ ...metricResult(pValue), pValue, ...extra }) as SnapshotMetric;
+const treatmentDimension = (
+  metrics: Record<string, SnapshotMetric>,
+  name = "All",
+): ExperimentReportResultDimension => ({
+  name,
+  srm: 0.5,
+  variations: [
+    { users: 10, metrics: {} },
+    { users: 10, metrics },
+  ],
+});
+const treatmentMetrics = (merged: ExperimentSnapshotAnalysis, level = 0) =>
+  merged.results[level].variations[1].metrics;
+
 describe("mergeNewMetricsUpdateAnalyses", () => {
   type MergeArgs = Parameters<typeof mergeNewMetricsUpdateAnalyses>[0];
   const merge = (
@@ -2180,34 +2201,16 @@ describe("mergeNewMetricsUpdateAnalyses", () => {
   });
 
   describe("the values that depend on more than one test", () => {
-    const frequentist = {
-      statsEngine: "frequentist",
-      pValueThreshold: 0.05,
-      sequentialTesting: false,
-    } as const;
-    const tested = (pValue: number, extra: Partial<SnapshotMetric> = {}) =>
-      ({ ...metricResult(pValue), pValue, ...extra }) as SnapshotMetric;
-    const treatmentDimension = (
-      metrics: Record<string, SnapshotMetric>,
-    ): ExperimentReportResultDimension => ({
-      name: "All",
-      srm: 0.5,
-      variations: [
-        { users: 10, metrics: {} },
-        { users: 10, metrics },
-      ],
-    });
-    const treatmentMetrics = (merged: ExperimentSnapshotAnalysis) =>
-      merged.results[0].variations[1].metrics;
-
     describe("with a correction method the parent recorded", () => {
-      // met_a and met_b were corrected as a family of two; met_s is secondary.
+      // met_a and met_b hold the values of a family of two; met_demoted, a goal
+      // since moved to secondary, still holds a corrected value; met_s is
+      // secondary.
       const parent = (pValueCorrection?: "holm-bonferroni") =>
         analysis({ ...frequentist, pValueCorrection }, [
           treatmentDimension({
             met_a: tested(0.01, { pValueAdjusted: 0.02 }),
             met_b: tested(0.03, { pValueAdjusted: 0.03 }),
-            met_gone: tested(0.02, { pValueAdjusted: 0.04 }),
+            met_demoted: tested(0.02, { pValueAdjusted: 0.04 }),
             met_s: tested(0.02),
           }),
         ]);
@@ -2236,17 +2239,87 @@ describe("mergeNewMetricsUpdateAnalyses", () => {
         expect(metrics.met_s.pValueAdjusted).toBeUndefined();
       });
 
-      // With met_gone's 0.02 in the family, met_a would get 4 x 0.01.
-      it("leaves a removed goal metric out of the family", () => {
+      // met_demoted is still analyzed and still corrected in the parent's
+      // results. With its 0.02 in the family, met_a would get 4 x 0.01.
+      it("leaves a goal metric moved to secondary out of the family", () => {
         const [merged] = mergeWithNewGoal(
           [parent("holm-bonferroni")],
-          ["met_a", "met_b", "met_c"],
+          ["met_a", "met_b", "met_c", "met_demoted"],
         );
 
         const metrics = treatmentMetrics(merged);
-        expect(metrics.met_gone).toBeUndefined();
+        expect(metrics.met_demoted.pValue).toBe(0.02);
         expect(metrics.met_a.pValueAdjusted).toBeCloseTo(0.03);
         expect(metrics.met_b.pValueAdjusted).toBeCloseTo(0.06);
+      });
+
+      // The family without CUPED: met_a's unadjusted 0.02 and the others'
+      // own 0.03 and 0.04. Holm: 3 x 0.02, then 2 x 0.03.
+      it("recomputes a copied goal's corrected value without an adjustment, leaving the parent as it was", () => {
+        const withCupedUnadjusted = analysis(
+          { ...frequentist, pValueCorrection: "holm-bonferroni" },
+          [
+            treatmentDimension({
+              met_a: tested(0.01, {
+                pValueAdjusted: 0.02,
+                supplementalResults: {
+                  cupedUnadjusted: tested(0.02, { pValueAdjusted: 0.04 }),
+                },
+              }),
+              met_b: tested(0.03, { pValueAdjusted: 0.03 }),
+            }),
+          ],
+        );
+        const before = cloneDeep(withCupedUnadjusted);
+
+        const [merged] = mergeWithNewGoal(
+          [withCupedUnadjusted],
+          ["met_a", "met_b", "met_c"],
+        );
+
+        expect(
+          treatmentMetrics(merged).met_a.supplementalResults?.cupedUnadjusted
+            ?.pValueAdjusted,
+        ).toBeCloseTo(0.06);
+        expect(withCupedUnadjusted).toEqual(before);
+      });
+
+      // One family across the levels: US met_a 0.01, US met_c 0.04, FR met_c
+      // 0.015. Holm: 3 x 0.01, 2 x 0.015, then 1 x 0.04.
+      it("corrects every dimension level as one family, including a level only this run returned", () => {
+        const byCountry = analysis(
+          {
+            ...frequentist,
+            pValueCorrection: "holm-bonferroni",
+            dimensions: ["dim:country"],
+          },
+          [treatmentDimension({ met_a: tested(0.01) }, "US")],
+        );
+
+        const [merged] = merge(
+          [byCountry],
+          [
+            [
+              treatmentDimension({ met_c: tested(0.04) }, "US"),
+              treatmentDimension({ met_c: tested(0.015) }, "FR"),
+            ],
+          ],
+        );
+
+        expect(
+          merged.results.map((level, i) => ({
+            level: level.name,
+            met_a: treatmentMetrics(merged, i).met_a?.pValueAdjusted,
+            met_c: treatmentMetrics(merged, i).met_c.pValueAdjusted,
+          })),
+        ).toEqual([
+          {
+            level: "US",
+            met_a: expect.closeTo(0.03),
+            met_c: expect.closeTo(0.04),
+          },
+          { level: "FR", met_a: undefined, met_c: expect.closeTo(0.03) },
+        ]);
       });
 
       it("stores no correction for a parent that recorded no method, which is corrected when read", () => {
@@ -2495,6 +2568,56 @@ describe("analyzeNewMetricsUpdate", () => {
       [0, 0],
       [0, 0],
     ]);
+  });
+
+  // The parent's goals were met_a and met_b; met_c joins them. Holm over
+  // 0.01, 0.03, 0.04: 3 x 0.01, 2 x 0.03, then max(0.06, 1 x 0.04).
+  it("corrects the goal metrics the update ends with, including one the parent lacked", async () => {
+    findSnapshotByIdMock.mockResolvedValue(
+      makeParent({
+        settings: makeSettings(["met_a", "met_b"]),
+        analyses: [
+          analysis({ ...frequentist, pValueCorrection: "holm-bonferroni" }, [
+            treatmentDimension({
+              met_a: tested(0.01, { pValueAdjusted: 0.02 }),
+              met_b: tested(0.03, { pValueAdjusted: 0.03 }),
+            }),
+          ]),
+        ],
+      }),
+    );
+    analyzeMock.mockResolvedValue({
+      results: [
+        {
+          unknownVariations: [],
+          multipleExposures: 0,
+          dimensions: [treatmentDimension({ met_c: tested(0.04) })],
+        },
+      ],
+    });
+    const newMetricsUpdate = {
+      ...refresh.updateScope!,
+      metricCounts: { numGoalMetrics: 3, numGuardrailMetrics: 0 },
+    };
+
+    const result = await analyzeNewMetricsUpdate({
+      context,
+      snapshot: {
+        ...refresh,
+        settings: makeSettings(["met_a", "met_b", "met_c"]),
+        updateScope: newMetricsUpdate,
+      },
+      newMetricsUpdate,
+      queryMap,
+      metricMap,
+      variationNames: ["Control", "Treatment"],
+    });
+
+    const { met_a, met_c } = treatmentMetrics(result.analyses[0]);
+    expect({
+      met_a: met_a.pValueAdjusted,
+      met_c: met_c.pValueAdjusted,
+    }).toEqual({ met_a: expect.closeTo(0.03), met_c: expect.closeTo(0.06) });
   });
 });
 
