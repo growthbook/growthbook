@@ -1,5 +1,6 @@
 import { GrowthBook } from "../src";
 import { GrowthBookClient } from "../src/GrowthBookClient";
+import { visualEditorPlugin } from "../src/plugins";
 import {
   AutoExperiment,
   ContextualBanditDefinitions,
@@ -578,6 +579,7 @@ describe("contextual bandit auto experiments", () => {
   it("buckets on the matching leaf's weights and applies that variation's changes", async () => {
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "u1", plan: "free" },
       trackingCallback,
       experiments: [cbAutoExperiment()],
@@ -604,6 +606,7 @@ describe("contextual bandit auto experiments", () => {
   it("never writes leaf weights onto the payload experiment object", async () => {
     const exp = cbAutoExperiment();
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "u1", plan: "free" },
       experiments: [exp],
       contextualBandits: cbMap(),
@@ -621,6 +624,7 @@ describe("contextual bandit auto experiments", () => {
   it("buckets on the aggregate weights with no leaf metadata when the ref is dangling", async () => {
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "u1", plan: "free" },
       trackingCallback,
       experiments: [cbAutoExperiment()],
@@ -643,6 +647,7 @@ describe("contextual bandit auto experiments", () => {
   it("re-runs on attribute changes and switches leaves", async () => {
     const exp = cbAutoExperiment();
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "u1", plan: "enterprise" },
       experiments: [exp],
       contextualBandits: cbMap(),
@@ -663,6 +668,7 @@ describe("contextual bandit auto experiments", () => {
   it("reports no leaf metadata when the user is excluded by coverage", async () => {
     const results: Result<unknown>[] = [];
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "u1", plan: "free" },
       experiments: [cbAutoExperiment({ coverage: 0 })],
       contextualBandits: cbMap(),
@@ -686,6 +692,7 @@ describe("contextual bandit auto experiments", () => {
   it("re-runs active auto experiments when setPayload delivers only bandit definitions", async () => {
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "u1", plan: "free" },
       trackingCallback,
       experiments: [cbAutoExperiment()],
@@ -711,6 +718,7 @@ describe("contextual bandit auto experiments", () => {
 
   it("re-runs active auto experiments when initSync delivers only bandit definitions", async () => {
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "u1", plan: "free" },
       experiments: [cbAutoExperiment()],
     });
@@ -725,12 +733,11 @@ describe("contextual bandit auto experiments", () => {
     gb.destroy();
   });
 
-  it("does not evaluate the bandit when visual experiments are disabled", async () => {
+  it("does not evaluate the bandit without the visual editor plugin", async () => {
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "free" },
       trackingCallback,
-      disableVisualExperiments: true,
       experiments: [cbAutoExperiment()],
       contextualBandits: cbMap(),
     });

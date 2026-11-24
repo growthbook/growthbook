@@ -13,6 +13,7 @@ import {
   Result,
 } from "../src";
 import { evalCondition, pruneCondition } from "../src/mongrule";
+import { urlRedirectsPlugin } from "../src/plugins";
 import {
   SavedGroupsValues,
   SavedGroupsPayload,
@@ -361,7 +362,10 @@ describe("json test suite", () => {
   it.each((cases as Cases).urlRedirect)(
     "urlRedirect[%#] %s",
     async (name, ctx, result) => {
-      const growthbook = new GrowthBook(ctx);
+      const growthbook = new GrowthBook({
+        ...ctx,
+        plugins: [urlRedirectsPlugin()],
+      });
       await sleep();
       const trackingCalls = growthbook.getDeferredTrackingCalls();
       const actualResult: {

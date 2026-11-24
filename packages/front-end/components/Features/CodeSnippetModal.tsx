@@ -404,6 +404,7 @@ export default function CodeSnippetModal({
             encryptionKey={encryptionKey}
             remoteEvalEnabled={remoteEvalEnabled}
             eventIngestorRegion={eventIngestorRegion}
+            connection={currentConnection}
           />
           {packageUrl ? (
             <Box mt="3">

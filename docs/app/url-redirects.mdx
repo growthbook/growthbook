@@ -30,7 +30,7 @@ Verify URL Redirect tests are enabled for your SDK Connection: Go to **SDK Conne
 
 ### HTML Script Tag SDK
 
-The easiest option is to use our [Script Tag](/lib/script-tag) SDK. This involves adding a single `<script>` tag to the HEAD of your website. This option fully works out-of-the-box with no configuration required.
+The easiest option is to use our [Script Tag](/lib/script-tag) SDK. This involves adding a single `<script>` tag to the HEAD of your website. Use a [bundle](/lib/script-tag#bundles) with `redirects` in its name, such as `core-redirects.min.js`. To redirect to a different origin, also add `data-allow-cross-origin-redirects`.
 
 Like the JavaScript and React SDKs, the HTML Script tag supports setting a custom `navigate` function, `navigateDelay`, and `maxNavigateDelay`. See the [JavaScript and React section](#front-end-javascript-and-react-sdks) below for more information.
 
@@ -73,8 +73,9 @@ A small flicker will remain between page and SDK load (which usually happens asy
 
 A more advanced integration involves using our [JavaScript](/lib/js) or [ReactJS](/lib/js) client-side SDKs.
 
-Besides the standard implementation described in the SDK docs, there are additional settings to control redirect behavior.
+URL Redirect tests only run when you add the `urlRedirectsPlugin` (version 3.0.0 and later). It takes these settings to control redirect behavior.
 
+- `allowCrossOriginRedirects`: Redirects to a different origin (protocol or host) than the current page are skipped unless this is `true`.
 - `navigate`: A callback function to perform the redirect. Defaults to `(url) => window.location.replace(url)`.
 - `navigateDelay`: The number of milliseconds to wait before redirecting. Use this delay to give time for your analytics tracking callback to finish. If your tracking callback is properly implemented as async, then you should set this value as low as possible. Defaults to `100` (0.1 seconds).
 - `maxNavigateDelay`: The maximum number of milliseconds that navigation will be delayed while any async tracking callback is still in flight. If the tracking callback exceeds this value, `navigate` will be fired. Missed tracking calls are generally the largest contributor to [Sample Ratio Mismatch (SRM)](/using/experimenting#sample-ratio-mismatch-srm). Defaults to `1000` (1 second).
@@ -90,13 +91,17 @@ If you have a SPA, it's recommended to use your own `navigate` function to avoid
 
 ```jsx
 import router from "next/router";
+import { urlRedirectsPlugin } from "@growthbook/growthbook/plugins";
 
 const gb = new GrowthBook({
-    navigate: (url) => router.replace(url),
-    navigateDelay: 0,
-    maxNavigateDelay: 0 // only needed if your tracking callback is async
-
-    // ... other settings
+  plugins: [
+    urlRedirectsPlugin({
+      navigate: (url) => router.replace(url),
+      navigateDelay: 0,
+      maxNavigateDelay: 0, // only needed if your tracking callback is async
+    }),
+  ],
+  // ... other settings
 });
 ```
 
@@ -118,7 +123,7 @@ We provide native support for edge redirect tests without screen flickering or t
 
 ### Node.js <Badge color="purple">BETA</Badge>
 
-It is possible to use our [JavaScript](/lib/js) SDK to perform redirects on the back-end. You must implement your own `navigate` function.
+It is possible to use our [JavaScript](/lib/js) SDK to perform redirects on the back-end. Add the `urlRedirectsPlugin` with your own `navigate` function.
 
 ## Sample Ratio Mismatch (SRM) Warnings on URL Redirect Tests
 
@@ -146,4 +151,4 @@ GrowthBook JavaScript and React SDKs introduced **async tracking callbacks** in 
 
 </Note>
 
-3. If you are unable to use an async tracking callback, you can try increasing the `navigateDelay` timeout passed into the GrowthBook SDK constructor. This defers the URL redirection until after a minimum time, increasing the likelihood that your tracking callback is successfully dispatched before page redirection. The default delay is 1000 ms (1 second), however some network conditions or SDK implementations do better with a navigate delay of 2 to 3 seconds. _Segment_ recommends a 300 ms delay; if you are using our HTML Script Tag with _Segment_, this is automatically set to 300 ms.
+3. If you are unable to use an async tracking callback, you can try increasing the `navigateDelay` timeout passed into the `urlRedirectsPlugin`. This defers the URL redirection until after a minimum time, increasing the likelihood that your tracking callback is successfully dispatched before page redirection. The default delay is 1000 ms (1 second), however some network conditions or SDK implementations do better with a navigate delay of 2 to 3 seconds. _Segment_ recommends a 300 ms delay; if you are using our HTML Script Tag with _Segment_, this is automatically set to 300 ms.
