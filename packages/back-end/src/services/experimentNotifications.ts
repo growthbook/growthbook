@@ -1,15 +1,11 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import { daysBetween } from "shared/dates";
 import {
-  expandMetricGroups,
   getMetricResultStatus,
   parseFunnelStepMetricId,
-  setAdjustedCIs,
-  setAdjustedPValuesOnResults,
   getLatestPhaseVariations,
   resolveSnapshotVariation,
 } from "shared/experiments";
-import cloneDeep from "lodash/cloneDeep";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
@@ -871,37 +867,12 @@ export const computeExperimentChanges = async ({
   // get the org level settings for significance:
   const statsEngine = currentAnalysis.settings.statsEngine;
   const projectId = experiment.project;
-  const { ciUpper, ciLower, pValueCorrection, pValueThreshold } =
+  const { ciUpper, ciLower, pValueThreshold } =
     await getSignificanceSettingsForProject(context, projectId);
   const metricDefaults = getMetricDefaultsForOrg(context);
 
-  // Apply p-value correction to match what the UI and analysisSummary use,
-  // so notifications don't fire for metrics that appear non-significant to users
-  const metricGroups = await context.models.metricGroups.getAll();
-  const expandedGoalMetrics = expandMetricGroups(
-    experiment.goalMetrics,
-    metricGroups,
-  );
-  const currentResults = cloneDeep(currentAnalysis.results);
-  setAdjustedPValuesOnResults(
-    currentResults,
-    expandedGoalMetrics,
-    pValueCorrection,
-  );
-  setAdjustedCIs(currentResults, pValueThreshold);
-  const currentVariations = currentResults[0]?.variations;
-
-  let lastVariations = lastAnalysis?.results?.[0]?.variations;
-  if (lastAnalysis) {
-    const lastResults = cloneDeep(lastAnalysis.results);
-    setAdjustedPValuesOnResults(
-      lastResults,
-      expandedGoalMetrics,
-      pValueCorrection,
-    );
-    setAdjustedCIs(lastResults, pValueThreshold);
-    lastVariations = lastResults[0]?.variations;
-  }
+  const currentVariations = currentAnalysis.results[0].variations;
+  const lastVariations = lastAnalysis?.results?.[0]?.variations;
 
   const experimentChanges: ExperimentSignificanceChange[] = [];
 
@@ -941,7 +912,9 @@ export const computeExperimentChanges = async ({
         stats: curMetric,
         ciLower,
         ciUpper,
-        pValueThreshold,
+        // Each snapshot is judged at the threshold its analysis ran at.
+        pValueThreshold:
+          currentAnalysis.settings.pValueThreshold ?? pValueThreshold,
         statsEngine: statsEngine,
         differenceType: currentAnalysis.settings.differenceType,
       });
@@ -955,7 +928,8 @@ export const computeExperimentChanges = async ({
               stats: lastMetric,
               ciLower,
               ciUpper,
-              pValueThreshold,
+              pValueThreshold:
+                lastAnalysis.settings.pValueThreshold ?? pValueThreshold,
               statsEngine: lastAnalysis.settings.statsEngine,
               differenceType: lastAnalysis.settings.differenceType,
             })

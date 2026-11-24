@@ -3237,7 +3237,10 @@ export function adjustedCI(
 
 // Modifies the metric in place.
 export function setAdjustedCI(
-  metric: SnapshotMetric,
+  metric: Pick<
+    SnapshotMetric,
+    "pValueAdjusted" | "uplift" | "ci" | "ciAdjusted"
+  >,
   pValueThreshold: number,
 ): void {
   const { pValueAdjusted, uplift, ci } = metric;
