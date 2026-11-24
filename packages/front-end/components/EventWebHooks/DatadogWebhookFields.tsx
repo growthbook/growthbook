@@ -117,7 +117,6 @@ function ApiKeySelect({
   );
 }
 
-// Datadog's rows: the site sets the URL, the secret the API key header.
 export default function DatadogWebhookFields({
   form,
   disabled,

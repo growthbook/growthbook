@@ -519,7 +519,6 @@ export default function EventWebHookPage({
     </Flex>
   );
 
-  // The setup, on its own or as the first tab.
   const setup = (
     <>
       <SectionFrame title="Delivery">
@@ -766,10 +765,15 @@ export default function EventWebHookPage({
           />
         </SetupFieldRow>
 
-        <SetupFieldRow label="Tags" changed={changed("tags")}>
+        <SetupFieldRow
+          label="Tags"
+          htmlFor="webhook-tags"
+          changed={changed("tags")}
+        >
           <TagsInput
             tagOptions={tagOptions}
             value={values.tags}
+            id="webhook-tags"
             prompt="All tags"
             autoFocus={false}
             disabled={disabled}
