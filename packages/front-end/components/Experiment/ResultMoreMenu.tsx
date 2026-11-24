@@ -6,6 +6,7 @@ import {
   ExperimentReportVariation,
 } from "shared/types/report";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { restoreOpenAdjustedCI } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { IconButton } from "@radix-ui/themes";
 import { Parser } from "json2csv";
@@ -224,8 +225,9 @@ export default function ResultMoreMenu({
     resultsCopy.forEach((result) => {
       metrics.forEach((metricId) => {
         result.variations.forEach((variation, index) => {
-          const stats = variation.metrics[metricId];
-          if (!stats) return;
+          const storedStats = variation.metrics[metricId];
+          if (!storedStats) return;
+          const stats = restoreOpenAdjustedCI(storedStats);
 
           const metricName = getResultMetricDisplayName(
             metricId,

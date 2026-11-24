@@ -1432,7 +1432,6 @@ export default function ResultsTable({
                                       <div className={styles.timeSeriesCell}>
                                         <ExperimentMetricTimeSeriesGraphWrapper
                                           experimentId={experimentId}
-                                          pValueThreshold={pValueThreshold}
                                           phase={phase}
                                           snapshotSettings={snapshot?.settings}
                                           metric={row.metric}
