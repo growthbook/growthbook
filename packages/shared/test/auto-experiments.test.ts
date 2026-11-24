@@ -1,6 +1,5 @@
 import {
   connectionServesAutoExperimentFeature,
-  getScriptBundleUrl,
   hasCustomJs,
   isAutoExperimentFeatureEnabled,
   isCrossOriginRedirect,
@@ -58,29 +57,6 @@ describe("isAutoExperimentFeatureEnabled", () => {
     expect(
       isAutoExperimentFeatureEnabled(undefined, "urlRedirects", "disabled"),
     ).toBe(false);
-  });
-});
-
-describe("getScriptBundleUrl", () => {
-  const base = "https://cdn.growthbook.io/script/v3/";
-
-  it("picks the bundle with only what the connection serves", () => {
-    expect(getScriptBundleUrl({})).toBe(base + "core.min.js");
-    expect(getScriptBundleUrl({ includeVisualExperiments: true })).toBe(
-      base + "core-visual.min.js",
-    );
-    expect(getScriptBundleUrl({ includeRedirectExperiments: true })).toBe(
-      base + "core-redirects.min.js",
-    );
-  });
-
-  it("lists features in alphabetical order after core", () => {
-    expect(
-      getScriptBundleUrl({
-        includeVisualExperiments: true,
-        includeRedirectExperiments: true,
-      }),
-    ).toBe(base + "core-redirects-visual.min.js");
   });
 });
 

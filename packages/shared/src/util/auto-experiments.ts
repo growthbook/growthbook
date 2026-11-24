@@ -91,26 +91,6 @@ export function connectionServesAutoExperimentFeature(
   }
 }
 
-// The script tag bundle for an SDK Connection: the one with only the features
-// the connection serves. A bundle's name is "core" followed by its features in
-// alphabetical order, the same as the builds in sdk-js/rollup.config.mjs.
-export function getScriptBundleUrl(
-  connection: ConnectionAutoExperimentFlags,
-): string {
-  const name = [
-    "core",
-    connectionServesAutoExperimentFeature(connection, "urlRedirects")
-      ? "redirects"
-      : "",
-    connectionServesAutoExperimentFeature(connection, "visualEditor")
-      ? "visual"
-      : "",
-  ]
-    .filter(Boolean)
-    .join("-");
-  return `https://cdn.growthbook.io/script/v3/${name}.min.js`;
-}
-
 export function hasCustomJs(visualChanges: { js?: string }[]): boolean {
   return visualChanges.some((c) => !!c.js?.trim());
 }
