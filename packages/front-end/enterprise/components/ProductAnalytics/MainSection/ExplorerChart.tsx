@@ -174,7 +174,7 @@ function ExplorerChartPanel({
     | null;
   /** Skip a compare legend that only names this chart's one series (its heading already does). */
   hideSingleCompareLegend?: boolean;
-  /** Skip a legend for a lone series, e.g. a separate chart whose heading names it. */
+  /** Skip the legend when its only series is the value, e.g. a separate chart whose heading names it. */
   hideSingleSeriesLegend?: boolean;
 }) {
   const { theme } = useAppearanceUITheme();
@@ -617,7 +617,14 @@ function ExplorerChartPanel({
       );
     }
 
-    const legendShow = seriesConfigs.length > (hideSingleSeriesLegend ? 1 : 0);
+    // A lone series that is the value itself is named by the heading; a lone group still needs its legend
+    const onlySeriesIsTheValue =
+      seriesConfigs.length === 1 &&
+      seriesNameFromEChartsSeriesConfig(seriesConfigs[0]) ===
+        renderOpts.values[0]?.seriesName;
+    const legendShow =
+      seriesConfigs.length > 0 &&
+      !(hideSingleSeriesLegend && onlySeriesIsTheValue);
 
     const axisPointerLabelFormatter =
       resolvedGranularity && !sparseFlatCompareBars

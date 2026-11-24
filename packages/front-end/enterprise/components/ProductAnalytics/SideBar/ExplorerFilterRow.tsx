@@ -2,7 +2,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiX } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import Text from "@/ui/Text";
+import TruncatedText from "@/ui/TruncatedText";
 import Button from "@/ui/Button";
 import Switch from "@/ui/Switch";
 import { type FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
@@ -69,15 +69,11 @@ export function ExplorerFilterRow({
       }}
     >
       <Flex justify="between" align="center" width="100%" gap="2">
-        <Text
+        <TruncatedText
+          text={getFilterSummary()}
           size="sm"
-          truncate
-          whiteSpace="nowrap"
-          title={getFilterSummary()}
           color={filter.disabled ? "text-disabled" : undefined}
-        >
-          {getFilterSummary()}
-        </Text>
+        />
         <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
           <Switch
             value={!filter.disabled}
