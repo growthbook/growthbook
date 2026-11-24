@@ -197,11 +197,11 @@ Datadog's event intake needs an [API key](https://docs.datadoghq.com/account_man
 
 - **Datadog site**: the site you sign in on, such as US1 or EU1. It sets the endpoint URL.
 - **API key**: a [webhook secret](/app/webhooks#webhook-secrets) holding the key, sent as `DD-API-KEY`. **Create secret** restricts a new secret to the Datadog endpoint.
-- **Service field**: the custom field from step 1.
+- **Datadog services**: the custom field from step 1.
 - **Events**: **All supported events** by default. It's saved as `*`, and a Datadog webhook sends only the events it supports, so it picks up new ones as they're added. You can pick individual events instead.
 - **Environment** filter: usually your production environments. Each change is tagged `env:<environment>` with only the environments that pass it.
 
-Use **Send test** on the webhook's page to send a `growthbook-test` change. The page also checks that the API key secret exists, that the service field applies to Feature Flags and experiments, and how many Feature Flags in scope have no service.
+Use **Send test** on the webhook's page to send a `growthbook-test` change. The page also checks that the API key secret exists, that the custom field for Datadog services applies to Feature Flags and experiments, and how many Feature Flags in scope have no service.
 
 ### What Datadog receives
 
@@ -209,7 +209,7 @@ Use **Send test** on the webhook's page to send a `growthbook-test` change. The 
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `title`                   | The Feature Flag key or experiment tracking key, what happened (such as the revision comment), and environments                            |
 | `changed_resource`        | `feature_flag` for Feature Flags and experiments; `configuration` for Saved Groups, Constants and Configs                                  |
-| `impacted_resources`      | The service field's values, up to 100                                                                                                      |
+| `impacted_resources`      | The values of the custom field for Datadog services, up to 100                                                                             |
 | `author`                  | The user, the API key, or the automation (a ramp schedule)                                                                                 |
 | `prev_value`, `new_value` | Each environment's enabled state and a short summary of each rule. Saved Groups send their condition and member count, never their members |
 | `change_metadata`         | A link to the revision, its number and comment, the Project, tags, related entities, and approvers if you turn on **Include approvers**    |

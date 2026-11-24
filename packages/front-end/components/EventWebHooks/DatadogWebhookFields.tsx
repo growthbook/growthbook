@@ -187,7 +187,7 @@ export default function DatadogWebhookFields({
         <ApiKeySelect form={form} allowedOrigin={origin} disabled={disabled} />
       </SetupFieldRow>
 
-      <SetupFieldRow label="Service field">
+      <SetupFieldRow label="Datadog services">
         <SelectField
           value={datadog?.serviceField ?? ""}
           placeholder="Choose a custom field"
@@ -200,9 +200,10 @@ export default function DatadogWebhookFields({
           }
           helpText={
             <>
-              Each Feature Flag&apos;s and experiment&apos;s values become
-              Datadog services. Without one, changes reach Event Explorer but no
-              service page.{" "}
+              The custom field that names each Feature Flag&apos;s and
+              experiment&apos;s Datadog services, such as{" "}
+              <code>checkout-api</code>. Without one, changes reach Event
+              Explorer but no service page.{" "}
               <Link href="/settings/customfields" external>
                 Create a custom field
               </Link>

@@ -88,7 +88,7 @@ function useServiceFieldCheck(serviceField: string | undefined): Check {
     return {
       ok: false,
       message:
-        "No service field. Changes reach Event Explorer but no service page.",
+        "No custom field names Datadog services. Changes reach Event Explorer but no service page.",
     };
   }
   if (!field) {
@@ -96,7 +96,8 @@ function useServiceFieldCheck(serviceField: string | undefined): Check {
       ok: false,
       message: (
         <>
-          The service field <code>{serviceField}</code> no longer exists.
+          The custom field <code>{serviceField}</code> for Datadog services no
+          longer exists.
         </>
       ),
     };
