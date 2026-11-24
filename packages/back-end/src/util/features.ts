@@ -619,15 +619,15 @@ export function getChangedFeatureEnvironments(
   ).forEach((e) => environments.add(e));
 
   // Diff rules by id; each changed rule invalidates only the envs in its
-  // footprint (union of old and new). Skip envs disabled both before and
-  // after — no payload exists to refresh.
+  // footprint (union of old and new). Skip disabled rules and envs disabled
+  // both before and after — neither is in a payload.
   const envIsRelevant = (e: string): boolean => {
     const oldEnabled = !!originalFeature.environmentSettings?.[e]?.enabled;
     const newEnabled = !!updatedFeature.environmentSettings?.[e]?.enabled;
     return oldEnabled || newEnabled;
   };
   const addRuleEnvs = (rule: FeatureRule | undefined) => {
-    if (!rule) return;
+    if (!rule || rule.enabled === false) return;
     ruleFootprint(rule, allowedEnvs).forEach((e) => {
       if (envIsRelevant(e)) environments.add(e);
     });

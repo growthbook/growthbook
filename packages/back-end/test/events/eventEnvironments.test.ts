@@ -110,6 +110,27 @@ describe("getChangedFeatureEnvironments", () => {
     ).toEqual(["prod"]);
   });
 
+  it("counts a disabled rule only when it switches on or off", () => {
+    const off = (overrides: Partial<FeatureRule> = {}) =>
+      change((f) => (f.rules = [forceRule({ enabled: false, ...overrides })]));
+    expect(
+      getChangedFeatureEnvironments(off(), off({ value: "false" }), envs),
+    ).toEqual([]);
+    expect(
+      getChangedFeatureEnvironments(
+        off(),
+        change((f) => (f.rules = [])),
+        envs,
+      ),
+    ).toEqual([]);
+    expect(getChangedFeatureEnvironments(off(), baseFeature, envs)).toEqual(
+      envs,
+    );
+    expect(getChangedFeatureEnvironments(baseFeature, off(), envs)).toEqual(
+      envs,
+    );
+  });
+
   it("returns the environment that was toggled", () => {
     expect(
       getChangedFeatureEnvironments(
