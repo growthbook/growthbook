@@ -184,6 +184,8 @@ const BaseClass = MakeModelClass({
 export class AnalyticsExplorationModel extends BaseClass {
   // Cached results on one datasource, newest first, without their result rows
   // (journeys can be large). Read-filtered, so callers only see what they can read.
+  // shortcut: loads every cached row for the datasource; add a
+  // { datasource, dateUpdated } index or a cap if the cache grows large.
   public getAllWithoutResultsForDatasource(datasource: string) {
     return this._find(
       { datasource },

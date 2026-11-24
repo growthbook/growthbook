@@ -11,6 +11,8 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useApi from "@/hooks/useApi";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -23,6 +25,68 @@ import {
 } from "@/ui/DropdownMenu";
 import VirtualColumnModal from "./VirtualColumnModal";
 import ColumnModal from "./ColumnModal";
+
+// Cached explorations never block the delete, but they fail on their next run,
+// so the modal lists them for the user to check first.
+function DeleteVirtualColumnContent({
+  factTableId,
+  column,
+}: {
+  factTableId: string;
+  column: string;
+}) {
+  const { data, error } = useApi<{
+    total: number;
+    explorations: { id: string; dateUpdated: string; url: string | null }[];
+  }>(
+    `/fact-tables/${factTableId}/column/${encodeURIComponent(column)}/cached-explorations`,
+  );
+  const total = data?.total ?? 0;
+  const explorations = data?.explorations ?? [];
+
+  return (
+    <Box>
+      {error ? (
+        <Callout status="warning" mb="3">
+          Couldn&apos;t check for cached explorations that use this column.
+        </Callout>
+      ) : !data ? (
+        <Box mb="3">
+          <LoadingSpinner /> Checking for cached explorations…
+        </Box>
+      ) : total > 0 ? (
+        <Callout status="warning" mb="3">
+          <Text as="p" mb="1">
+            {total} cached exploration{total === 1 ? " uses" : "s use"} this
+            column and will fail the next time{" "}
+            {total === 1 ? "it runs" : "they run"}. Open any you still need
+            before you delete it.
+          </Text>
+          <ul style={{ marginBottom: 0 }}>
+            {explorations.map((e) => (
+              <li key={e.id}>
+                {e.url ? (
+                  <Link href={e.url} external>
+                    Last run {ago(e.dateUpdated)}
+                  </Link>
+                ) : (
+                  `Last run ${ago(e.dateUpdated)}`
+                )}
+              </li>
+            ))}
+            {total > explorations.length && (
+              <li>{total - explorations.length} more</li>
+            )}
+          </ul>
+        </Callout>
+      ) : null}
+      <Text as="p">
+        This will remove the virtual column. Metrics or filters that reference
+        it will need to be updated.
+      </Text>
+    </Box>
+  );
+}
 
 function VirtualColumnRowMenu({
   column,
@@ -94,52 +158,12 @@ function VirtualColumnRowMenu({
               confirmation={{
                 confirmationTitle: "Delete Virtual Column",
                 cta: "Delete",
-                getConfirmationContent: async () => {
-                  const { total, explorations } = await apiCall<{
-                    total: number;
-                    explorations: {
-                      id: string;
-                      dateUpdated: string;
-                      url: string | null;
-                    }[];
-                  }>(
-                    `/fact-tables/${factTableId}/column/${column.column}/cached-explorations`,
-                  );
-                  return (
-                    <Box>
-                      {total > 0 && (
-                        <Callout status="warning" mb="3">
-                          <Text as="p" mb="1">
-                            {total} cached exploration
-                            {total === 1 ? " uses" : "s use"} this column. If
-                            you still need one, check it before you delete the
-                            column. It fails the next time it runs.
-                          </Text>
-                          <ul style={{ marginBottom: 0 }}>
-                            {explorations.map((e) => (
-                              <li key={e.id}>
-                                {e.url ? (
-                                  <Link href={e.url} external>
-                                    Last run {ago(e.dateUpdated)}
-                                  </Link>
-                                ) : (
-                                  `Last run ${ago(e.dateUpdated)}`
-                                )}
-                              </li>
-                            ))}
-                            {total > explorations.length && (
-                              <li>{total - explorations.length} more</li>
-                            )}
-                          </ul>
-                        </Callout>
-                      )}
-                      <Text as="p">
-                        This will remove the virtual column. Metrics or filters
-                        that reference it will need to be updated.
-                      </Text>
-                    </Box>
-                  );
-                },
+                getConfirmationContent: async () => (
+                  <DeleteVirtualColumnContent
+                    factTableId={factTableId}
+                    column={column.column}
+                  />
+                ),
                 submit: async () => {
                   await apiCall(
                     `/fact-tables/${factTableId}/column/${column.column}`,

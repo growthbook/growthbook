@@ -14,7 +14,8 @@ import {
 import type { PopulationInterface } from "../../validators/population";
 import { sqlReferencesColumn } from "../../sql";
 
-// The exploration config shape persisted by dashboard "exploration" blocks.
+// The exploration config shape persisted by dashboard "exploration" blocks and
+// cached exploration results.
 // Metric definitions are covered by the fact-metric dependency scan; their
 // dataset population only references a saved Population, which
 // `populationReferencesColumn` scans.

@@ -187,6 +187,19 @@ export function getIntegrationIdentifierQuote(
   return getIntegrationSqlDialect(integration)?.identifierQuote ?? '"';
 }
 
+// The identifier-quote character for the datasource behind a fact table.
+export async function getDatasourceIdentifierQuote(
+  context: ReqContext | ApiReqContext,
+  datasourceId: string,
+): Promise<SqlIdentifierQuote> {
+  const datasource = await getDataSourceById(context, datasourceId);
+  return datasource
+    ? getIntegrationIdentifierQuote(
+        getSourceIntegrationObject(context, datasource),
+      )
+    : '"';
+}
+
 // The SQL dialect backing an integration, or null for non-SQL sources
 // (e.g. Mixpanel), which have no dialect to generate SQL with.
 export function getIntegrationSqlDialect(

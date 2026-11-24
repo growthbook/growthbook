@@ -26,6 +26,7 @@ import {
 import { DataSourceInterface } from "shared/types/datasource";
 import { QueryStatus } from "shared/types/query";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
+import type { ProductAnalyticsExploration } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -52,7 +53,7 @@ import {
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getSourceIntegrationObject,
-  getIntegrationIdentifierQuote,
+  getDatasourceIdentifierQuote,
 } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getProductAnalyticsExplorationUrl } from "back-end/src/enterprise/services/product-analytics";
@@ -1319,7 +1320,7 @@ export const deleteColumn = async (
     context,
     factTable,
     req.params.column,
-    await getFactTableIdentifierQuote(context, factTable),
+    await getDatasourceIdentifierQuote(context, factTable.datasource),
   );
 
   res.status(200).json({
@@ -1327,16 +1328,17 @@ export const deleteColumn = async (
   });
 };
 
-async function getFactTableIdentifierQuote(
-  context: ReqContext,
-  factTable: FactTableInterface,
-) {
-  const datasource = await getDataSourceById(context, factTable.datasource);
-  return datasource
-    ? getIntegrationIdentifierQuote(
-        getSourceIntegrationObject(context, datasource),
-      )
-    : '"';
+// Population previews (and any config the Explorer can't map) have no page.
+function getExplorerUrlOrNull(
+  config: ProductAnalyticsExploration["config"],
+): string | null {
+  if (config.dataset.type === "population") return null;
+  try {
+    return getProductAnalyticsExplorationUrl(config);
+  } catch (e) {
+    logger.warn(e, "Could not build Explorer URL for a cached exploration");
+    return null;
+  }
 }
 
 // Shown in the delete modal so the user can check the cached explorations that
@@ -1361,7 +1363,7 @@ export const getColumnCachedExplorations = async (
     context,
     factTable,
     req.params.column,
-    await getFactTableIdentifierQuote(context, factTable),
+    await getDatasourceIdentifierQuote(context, factTable.datasource),
   );
 
   res.status(200).json({
@@ -1370,11 +1372,7 @@ export const getColumnCachedExplorations = async (
     explorations: cached.slice(0, CACHED_EXPLORATIONS_LIMIT).map((e) => ({
       id: e.id,
       dateUpdated: e.dateUpdated,
-      // Population previews have no Explorer page.
-      url:
-        e.config.dataset.type === "population"
-          ? null
-          : getProductAnalyticsExplorationUrl(e.config),
+      url: getExplorerUrlOrNull(e.config),
     })),
   });
 };
