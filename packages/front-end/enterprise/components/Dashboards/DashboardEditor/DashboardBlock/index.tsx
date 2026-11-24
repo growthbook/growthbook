@@ -14,7 +14,11 @@ import {
   DASHBOARD_GRID_ROW_HEIGHT_DEFAULT,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
-import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
+import {
+  PiDotsSixVertical,
+  PiDotsThreeVertical,
+  PiPencilSimpleFill,
+} from "react-icons/pi";
 import clsx from "clsx";
 import { isNumber, isString, isDefined } from "shared/util";
 import {
@@ -27,7 +31,6 @@ import {
   ExperimentMetricDefinition,
 } from "shared/experiments";
 import { ErrorBoundary } from "@sentry/nextjs";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -662,7 +665,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                     size="1"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <BsThreeDotsVertical />
+                    <PiDotsThreeVertical />
                   </IconButton>
                 }
               >
@@ -734,7 +737,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                   size="1"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <BsThreeDotsVertical />
+                  <PiDotsThreeVertical />
                 </IconButton>
               }
             >
