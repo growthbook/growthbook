@@ -178,7 +178,7 @@ Releasing SDK updates is a very manual process right now. It requires bumping ve
 The script tag bundles (`core.min.js`, `core-visual.min.js`, ...) are served from our own CDN, not from npm. Releasing them is two steps, so merging a version bump doesn't change what customer sites load.
 
 1. Merging the version bump runs the **Script CDN upload** workflow. It builds the bundles from `main` and uploads them to `https://cdn.growthbook.io/script/<version>/`. That path never changes afterwards, and no site loads it unless it pinned that exact version.
-2. When you are ready for sites to get the new version, run the **Script CDN promote** workflow with the version number. It copies that version to `https://cdn.growthbook.io/script/v<major>/`, which is the URL in our docs and in-app snippets. Sites pick it up within a day.
+2. When you are ready for sites to get the new version, run the **Script CDN promote** workflow with the version number. It copies that version to `https://cdn.growthbook.io/script/v<major>/`, which is the URL sites load. They pick it up within a day.
 
 To roll back, run **Script CDN promote** again with the earlier version.
 

@@ -33,7 +33,7 @@ or use directly in your HTML without installing first:
 
 ```html
 <!-- Creates `window.growthbook` with all of the exported classes -->
-<script src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/index.js"></script>
 ```
 
 ## Quick Usage
