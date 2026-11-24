@@ -55,6 +55,9 @@ import {
   getRelevantFactTableIds,
   normalizeShowAs,
   fillMissingUnits,
+  getAnnotatedName,
+  getExplorationRenderOpts,
+  getValueName,
 } from "shared/enterprise";
 import type {
   DimensionFactTable,
@@ -1900,6 +1903,27 @@ export function showsSeparateValueCharts(config: ExplorationConfig): boolean {
     canSeparateValueCharts(config) &&
     !!config.chartSettings?.separateValueCharts
   );
+}
+
+/**
+ * A separate chart's heading: the value's name with how it's calculated, e.g.
+ * "Revenue (per user_id)", since the chart has no axis title or legend to say so.
+ * Ratios and quantiles have no calculation mode, so they keep the plain name.
+ */
+export function getSeparateChartTitle(
+  config: ExplorationConfig,
+  index: number,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
+  if (!datasetHasValues(config.dataset)) return "";
+  const value = config.dataset.values[0];
+  const { primaryAxisShowAs, sharedUnit } = getExplorationRenderOpts(
+    config,
+    getFactMetricById,
+  );
+  return primaryAxisShowAs === null
+    ? getValueName(value, index)
+    : getAnnotatedName(value, index, primaryAxisShowAs, sharedUnit);
 }
 
 /**

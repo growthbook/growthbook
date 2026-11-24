@@ -4,6 +4,7 @@ import type {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import {
+  getSeparateChartTitle,
   showsSeparateValueCharts,
   sliceExplorationToValue,
   stripExplorerDraftFields,
@@ -53,6 +54,26 @@ describe("showsSeparateValueCharts", () => {
 
   it("lets a ratio share one chart with other metric types when turned off", () => {
     expect(showsSeparateValueCharts(config(["revenue", "aov"]))).toBe(false);
+  });
+});
+
+describe("getSeparateChartTitle", () => {
+  const metrics: Record<string, object> = {
+    revenue: { metricType: "mean", numerator: { column: "amount" } },
+    aov: { metricType: "ratio", numerator: { column: "amount" } },
+  };
+  const getFactMetricById = (id: string) => (metrics[id] as never) ?? null;
+
+  it("names how a metric is calculated, since the chart has no axis title", () => {
+    expect(
+      getSeparateChartTitle(config(["revenue"]), 0, getFactMetricById),
+    ).toBe("revenue (total)");
+  });
+
+  it("keeps a ratio's plain name", () => {
+    expect(getSeparateChartTitle(config(["aov"]), 1, getFactMetricById)).toBe(
+      "aov",
+    );
   });
 });
 

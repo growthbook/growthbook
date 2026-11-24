@@ -66,7 +66,7 @@ export function getValueName(
  * or "Revenue (total)". Parenthesized so it reads as a note, not part of a
  * name that may already say "per user".
  */
-function getAnnotatedName(
+export function getAnnotatedName(
   value: ProductAnalyticsValue,
   index: number,
   showAs: ShowAs,

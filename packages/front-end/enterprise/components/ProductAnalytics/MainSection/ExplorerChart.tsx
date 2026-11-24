@@ -25,9 +25,9 @@ import {
   getComparisonAlignmentStrategy,
   getDateGranularity,
   getSecondaryValueAxisName,
-  getValueName,
 } from "shared/enterprise";
 import {
+  getSeparateChartTitle,
   showsSeparateValueCharts,
   sliceExplorationToValue,
   shouldChartSectionShow,
@@ -1208,6 +1208,7 @@ export default function ExplorerChart(
     comparisonExploration,
     serverBigNumberTrends,
   } = props;
+  const { getFactMetricById } = useDefinitions();
   const separate = showsSeparateValueCharts(submittedExploreState);
 
   const panels = useMemo(() => {
@@ -1221,8 +1222,7 @@ export default function ExplorerChart(
         i,
       );
       return {
-        // A grouped chart's legend shows the groups, so name the value
-        name: getValueName(value, i),
+        name: getSeparateChartTitle(current.config, i, getFactMetricById),
         config: current.config,
         exploration: current.exploration,
         comparisonExploration: sliceExplorationToValue(
@@ -1241,6 +1241,7 @@ export default function ExplorerChart(
     exploration,
     comparisonExploration,
     serverBigNumberTrends,
+    getFactMetricById,
   ]);
 
   if (!panels) return <ExplorerChartPanel {...props} />;
