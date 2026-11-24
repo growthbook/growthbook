@@ -908,13 +908,18 @@ function EventForwarderStoppedBanner({
               : `${daysToDeletion} ${daysToDeletion === 1 ? "day" : "days"}`
           }.`
         : " Events are queuing.";
+  // Viewers without edit access can't act on this, so point them at who can.
+  const ask =
+    "Ask someone who can edit this data source to fix the destination and restart forwarding";
   const guidance = !hasBacklog
-    ? "Fix the destination, then restart forwarding."
+    ? canEdit
+      ? "Fix the destination, then restart forwarding."
+      : `${ask}.`
     : deleting
-      ? `Each day, events older than ${BACKLOG_RETENTION_DAYS} days are deleted and can't be recovered. Fix the destination, then restart to send what's left.`
+      ? `Each day, events older than ${BACKLOG_RETENTION_DAYS} days are deleted and can't be recovered. ${canEdit ? "Fix the destination, then restart to send what's left." : `${ask}.`}`
       : approaching
-        ? `Fix the destination and restart before ${deletionDate} to keep every queued event.`
-        : `Nothing is lost yet. Fix the destination, then restart to send queued events. Queued events are kept for ${BACKLOG_RETENTION_DAYS} days.`;
+        ? `${canEdit ? "Fix the destination and restart" : ask} before ${deletionDate} to keep every queued event.`
+        : `Nothing is lost yet. ${canEdit ? "Fix the destination, then restart to send queued events." : `${ask}.`} Queued events are kept for ${BACKLOG_RETENTION_DAYS} days.`;
   const details = [
     !deleting && erroredAt
       ? `Oldest event ${formatShortAgo(new Date(erroredAt))}`
@@ -1248,7 +1253,7 @@ export default function EventForwarder({
       ) : null}
 
       {showReplay ? (
-        <Callout status="info" role="status" icon={null} mb="3">
+        <Callout status="info" icon={null} mb="3">
           <Flex direction="column" gap="2">
             <Flex align="center" gap="2">
               <PiArrowUp size={16} style={{ flexShrink: 0 }} />
