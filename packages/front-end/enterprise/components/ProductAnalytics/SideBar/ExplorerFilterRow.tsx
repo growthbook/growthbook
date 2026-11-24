@@ -106,7 +106,7 @@ export function ExplorerFilterRow({
         triggerDisabled
         transitionTime={100}
       >
-        {/* When off, dim and lock only the fields; the header controls stay usable */}
+        {/* A disabled fieldset disables every nested input (react-select and Radix Select) for keyboard and assistive tech; pointer-events stops mouse clicks */}
         <fieldset
           disabled={filter.disabled}
           style={{

@@ -48,6 +48,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import TruncatedText from "@/ui/TruncatedText";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import {
   buildAlignedComparisonOverlayForExplorer,
@@ -1265,9 +1266,7 @@ export default function ExplorerChart(
           flexBasis="0"
           minHeight="140px"
         >
-          <Text weight="medium" truncate title={panel.name}>
-            {panel.name}
-          </Text>
+          <TruncatedText text={panel.name} weight="medium" />
           <ExplorerChartPanel
             {...props}
             submittedExploreState={panel.config}
