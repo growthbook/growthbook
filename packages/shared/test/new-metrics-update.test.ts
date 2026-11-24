@@ -557,8 +557,13 @@ describe("stats engine inputs", () => {
               ({ ...metric, id }) as ExperimentMetricDefinition,
           });
         return getNewMetricsUpdatePlanRefusal({
-          parent: { runnerKind: "results", settings: plan(0.444) },
+          parent: {
+            runnerKind: "results",
+            settings: plan(0.444),
+            analyses: [],
+          },
           outdatedReasons: ["metrics_changed"],
+          pValueCorrection: null,
           planned: { runnerKind: "results", settings: plan(0.3) },
         });
       };
@@ -702,8 +707,10 @@ describe("new-metrics updates in a row", () => {
         runnerKind,
         updateScope: newMetricsUpdate(parentUpdatesInARow),
         settings,
+        analyses: [],
       },
       outdatedReasons: ["metrics_changed"],
+      pValueCorrection: null,
       planned: { runnerKind, settings },
     });
 

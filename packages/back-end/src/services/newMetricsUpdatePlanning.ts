@@ -212,6 +212,7 @@ export async function planNewMetricsUpdate({
   const planRefusal = getNewMetricsUpdatePlanRefusal({
     parent,
     outdatedReasons,
+    pValueCorrection: context.org.settings?.pValueCorrection,
     planned: {
       runnerKind: plan.snapshot.runnerKind ?? "results",
       settings: plan.snapshot.settings,
@@ -221,15 +222,6 @@ export async function planNewMetricsUpdate({
     throw getPlanRefusalError(planRefusal, plan);
   }
   if (getChangedCopiedResultsSettings(parent, plan.snapshot.settings).length) {
-    throw new NewMetricsUpdateUnavailableError("settings_changed");
-  }
-  // The update corrects copied and new goal metrics together with the method
-  // the parent recorded. A parent that recorded none is corrected on each read
-  // with the current method, so it only extends while there is none.
-  if (
-    (parent.analyses[0].settings.pValueCorrection ?? null) !==
-    (plan.snapshot.analyses[0].settings.pValueCorrection ?? null)
-  ) {
     throw new NewMetricsUpdateUnavailableError("settings_changed");
   }
 

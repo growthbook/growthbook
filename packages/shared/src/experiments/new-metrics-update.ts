@@ -19,6 +19,7 @@ import type { MetricGroupInterface } from "shared/types/metric-groups";
 import type { DataSourceSettings } from "shared/types/datasource";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type { OrganizationSettings } from "shared/types/organization";
+import type { PValueCorrection } from "shared/types/stats";
 import type { newMetricsUpdateUnavailableReasons } from "../validators/api-errors";
 import {
   type ExperimentMetricDefinition,
@@ -32,6 +33,7 @@ import {
   isMetricJoinable,
 } from "./experiments";
 import type { ResultsOutdatedReason } from "./outdated-reasons";
+import { isPValueCorrected } from "./results/enrich";
 
 /**
  * The experiment's metrics that a snapshot holds no results for, in the
@@ -361,6 +363,22 @@ type ParentMetricSettings = BusinessMetricLists & {
  * parent computed. The back end passes its plan; the app predicts it with
  * getPlannedCopiedMetricSettings.
  */
+type NewMetricsUpdateParent = Pick<
+  ExperimentSnapshotInterface,
+  "type" | "updateScope" | "runnerKind"
+> & {
+  settings: ParentMetricSettings;
+  analyses: {
+    settings: Pick<
+      ExperimentSnapshotAnalysisSettings,
+      | "statsEngine"
+      | "dimensions"
+      | "useCovariateAsResponse"
+      | "pValueCorrection"
+    >;
+  }[];
+};
+
 export type PlannedNewMetricsUpdate = {
   runnerKind: SnapshotQueryRunnerKind;
   settings: ParentMetricSettings;
@@ -376,19 +394,17 @@ const optsOutOfCuped = (m: PlannedMetricSettings) =>
  * MAX_NEW_METRICS_UPDATES_IN_A_ROW build on each other. Copied metrics keep
  * the parent's results and analysis, so only the metric lists may be
  * outdated, and the inputs only the stats engine reads must be unchanged.
+ * `pValueCorrection` is the organization's current method.
  */
 export function getNewMetricsUpdatePlanRefusal({
   parent,
   outdatedReasons,
+  pValueCorrection,
   planned,
 }: {
-  parent: Pick<
-    ExperimentSnapshotInterface,
-    "type" | "updateScope" | "runnerKind"
-  > & {
-    settings: ParentMetricSettings;
-  };
+  parent: NewMetricsUpdateParent;
   outdatedReasons: readonly ResultsOutdatedReason[];
+  pValueCorrection: PValueCorrection | undefined;
   planned: PlannedNewMetricsUpdate;
 }): Exclude<NewMetricsUpdateRefusal, "outside_window"> | null {
   const parentPipeline =
@@ -443,6 +459,19 @@ export function getNewMetricsUpdatePlanRefusal({
   ) {
     return "settings_changed";
   }
+
+  // The update corrects copied and new goal metrics together with the method
+  // the parent recorded. A parent saved before methods were recorded is
+  // corrected on each read instead, so it only extends while none applies.
+  const parentAnalysis = parent.analyses[0]?.settings;
+  if (
+    parentAnalysis &&
+    parentAnalysis.pValueCorrection === undefined &&
+    pValueCorrection &&
+    isPValueCorrected(parentAnalysis)
+  ) {
+    return "settings_changed";
+  }
   return null;
 }
 
@@ -454,17 +483,15 @@ export function getNewMetricsUpdatePlanRefusal({
 export function getNewMetricsUpdateRefusal({
   parent,
   window,
+  pValueCorrection,
   planned,
   ...facts
 }: NewMetricsUpdateParentFacts & {
-  parent: Pick<
-    ExperimentSnapshotInterface,
-    "type" | "updateScope" | "runnerKind"
-  > & {
-    settings: ParentMetricSettings &
-      Pick<ExperimentSnapshotSettings, "endDate">;
+  parent: NewMetricsUpdateParent & {
+    settings: Pick<ExperimentSnapshotSettings, "endDate">;
   };
   window: NewMetricsUpdateWindow | null;
+  pValueCorrection: PValueCorrection | undefined;
   planned: PlannedNewMetricsUpdate;
 }): NewMetricsUpdateRefusal | null {
   if (
@@ -481,6 +508,7 @@ export function getNewMetricsUpdateRefusal({
     getNewMetricsUpdatePlanRefusal({
       parent,
       outdatedReasons: facts.outdatedReasons,
+      pValueCorrection,
       planned,
     })
   );

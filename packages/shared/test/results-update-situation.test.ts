@@ -32,6 +32,15 @@ function makeParent(
 ): Parent {
   return {
     runnerKind: "results",
+    analyses: [
+      {
+        settings: {
+          statsEngine: "frequentist",
+          dimensions: [],
+          pValueCorrection: null,
+        },
+      },
+    ],
     ...overrides,
     settings: {
       endDate: hoursAgo(1),
@@ -71,6 +80,7 @@ function refusal(overrides: Partial<Args> = {}) {
     parent: makeParent(),
     outdatedReasons: ["metrics_changed"],
     window: { windowHours: 4, now: NOW },
+    pValueCorrection: null,
     planned: makePlanned(),
     ...overrides,
   });
@@ -225,6 +235,34 @@ describe("getNewMetricsUpdateRefusal", () => {
     expect(
       refusal({ outdatedReasons: ["metrics_changed", "goal_metrics_changed"] }),
     ).toBeNull();
+  });
+
+  describe("a parent saved before correction methods were recorded", () => {
+    const legacy = (statsEngine: "frequentist" | "bayesian") =>
+      makeParent({
+        analyses: [{ settings: { statsEngine, dimensions: [] } }],
+      });
+
+    it("is refused while a correction applies, since its corrected values are only computed on read", () => {
+      expect(
+        refusal({
+          parent: legacy("frequentist"),
+          pValueCorrection: "holm-bonferroni",
+        }),
+      ).toBe("settings_changed");
+    });
+
+    it("is accepted while none applies", () => {
+      expect(
+        refusal({ parent: legacy("frequentist"), pValueCorrection: null }),
+      ).toBeNull();
+      expect(
+        refusal({
+          parent: legacy("bayesian"),
+          pValueCorrection: "holm-bonferroni",
+        }),
+      ).toBeNull();
+    });
   });
 
   describe("a CUPED change", () => {

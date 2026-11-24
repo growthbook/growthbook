@@ -2598,6 +2598,7 @@ describe("planExperimentSnapshot", () => {
         separateExperimentResultQueries: true,
         parent,
         outdatedReasons,
+        pValueCorrection: context.org.settings?.pValueCorrection,
         window: { windowHours: 4, now: refreshTime },
         planned: {
           runnerKind: plannedRunnerKind,
@@ -3140,31 +3141,26 @@ describe("planExperimentSnapshot", () => {
           });
         });
 
-        const legacyParentWithMethod = () =>
-          outdatedRefresh(makeFixture(), {
-            correction: {
-              base: null,
-              refresh: "holm-bonferroni",
-              legacyParent: true,
+        // No Outdated reason covers it: a method that was never recorded is
+        // never out of date.
+        it("refuses, and the app doesn't offer it, for a parent that recorded no method once one applies", async () => {
+          const { reasons, offered, plan } = await outdatedRefresh(
+            makeFixture(),
+            {
+              correction: {
+                base: null,
+                refresh: "holm-bonferroni",
+                legacyParent: true,
+              },
+              pipeline: "standard",
             },
-            pipeline: "standard",
-          });
-
-        it("refuses a parent that recorded no method once one applies", async () => {
-          const { plan } = await legacyParentWithMethod();
-
-          await expect(plan).rejects.toMatchObject({
-            details: { reason: "settings_changed" },
-          });
-        });
-
-        // Known gap: no Outdated reason covers it, so the app offers an update
-        // the planner refuses (the app then falls back to a full update).
-        it.failing("the app doesn't offer it either", async () => {
-          const { reasons, offered } = await legacyParentWithMethod();
+          );
 
           expect(reasons).toEqual(["metrics_changed"]);
           expect(offered).toBe(false);
+          await expect(plan).rejects.toMatchObject({
+            details: { reason: "settings_changed" },
+          });
         });
       });
     });
