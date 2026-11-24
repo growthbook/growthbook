@@ -1,6 +1,7 @@
 import { ReactNode, useCallback, useState } from "react";
 import { connectionServesAutoExperimentFeature } from "shared/util";
 import type { AutoExperimentFeature } from "shared/types/organization";
+import { Box } from "@radix-ui/themes";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Link from "@/ui/Link";
 import useAutoExperiments, {
@@ -67,13 +68,13 @@ function ConnectionCount({
           : `All ${total} SDK Connections block ${blocked}.`;
   return (
     // Spans: the dialog renders its content inside a paragraph.
-    <span style={{ display: "block", marginTop: "var(--space-3)" }}>
+    <Box as="span" display="block" mt="3">
       {summary}{" "}
       {/* A new tab: the dialog opens over forms with unsaved changes. */}
       <Link href="/sdks" external>
         View SDK Connections
       </Link>
-    </span>
+    </Box>
   );
 }
 
