@@ -18,13 +18,8 @@ import {
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
-import {
-  ComparisonMode,
-  ExplorationConfig,
-  ExplorationDateRange,
-} from "shared/validators";
+import { ComparisonMode, ExplorationConfig } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
-import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { isTableChartType } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -36,12 +31,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
-import {
-  Loaded,
-  TileResult,
-  pollDelayForExploration,
-  useTileResult,
-} from "./useTileResult";
+import { TileResult, useTileResult } from "./useTileResult";
 import { BlockProps } from ".";
 
 type ExplorationBlockInterface =
@@ -96,107 +86,12 @@ export default function ProductAnalyticsExplorerBlock({
       !!dateControlledBlock && Boolean(dashboardGlobalControls?.dateRange),
   };
 
-  if (selfUpdate && config) {
-    return (
-      <SelfUpdatingTile
-        settings={settings}
-        config={config}
-        previousTimeFrame={
-          comparison?.enabled
-            ? resolveComparisonPreviousTimeFrame(config.dateRange, comparison)
-            : null
-        }
-        headerActionSlot={headerActionSlot}
-      />
-    );
-  }
-  return <StoredTile settings={settings} />;
-}
-
-function TilePrompt({
-  status = "info",
-  children,
-}: {
-  status?: "info" | "warning" | "error";
-  children: ReactNode;
-}) {
-  return (
-    <Flex direction="column" align="center" p="4">
-      <Callout status={status} contentAlign="center">
-        {children}
-      </Callout>
-    </Flex>
-  );
-}
-
-// Shows the result stored on the block, which the dashboard header's Update
-// writes.
-function StoredTile({ settings }: { settings: TileSettings }) {
-  const { block, compareEnabled } = settings;
-  const { data, error, isLoading } = useApi<{ status: number } & Loaded>(
-    `/product-analytics/exploration/${block.explorerAnalysisId}`,
-    {
-      shouldRun: () => !!block.explorerAnalysisId,
-      // A tile's exploration can be returned still "running" (a refresh query
-      // that exceeded the ~5s sync budget keeps executing server-side). Poll on
-      // a backoff until it reaches a terminal state; 0 stops the interval.
-      refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
-    },
-  );
-  const { data: comparisonData } = useApi<{ status: number } & Loaded>(
-    `/product-analytics/exploration/${block.comparisonExplorerAnalysisId}`,
-    {
-      shouldRun: () => compareEnabled && !!block.comparisonExplorerAnalysisId,
-      refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
-    },
-  );
-
-  if (isLoading) {
-    return <LoadingSpinner />;
-  }
-  return (
-    <TileBody
-      settings={settings}
-      result={{
-        exploration: data?.exploration ?? null,
-        query: data?.query ?? null,
-        comparison: comparisonData?.exploration ?? null,
-        comparisonError: null,
-      }}
-      loadError={error?.message ?? null}
-      emptyState={
-        <TilePrompt>
-          Click <strong>Update</strong> to generate the necessary data.
-        </TilePrompt>
-      }
-      staleState={
-        <TilePrompt>
-          Global controls changed. Click <strong>Update</strong> to refresh this
-          block.
-        </TilePrompt>
-      }
-    />
-  );
-}
-
-// Starts from the stored result, or from the cache for a block that was never
-// saved, and offers its own Update in the block's title row.
-function SelfUpdatingTile({
-  settings,
-  config,
-  previousTimeFrame,
-  headerActionSlot,
-}: {
-  settings: TileSettings;
-  config: ExplorationConfig;
-  previousTimeFrame: ExplorationDateRange | null;
-  headerActionSlot: HTMLElement | null;
-}) {
-  const { block, comparisonMode } = settings;
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const datasource = getDatasourceById(config.datasource);
+  const datasource = config ? getDatasourceById(config.datasource) : null;
   const canRun =
+    selfUpdate &&
+    !!config &&
     !!datasource &&
     permissionsUtil.canRunProductAnalyticsExplorationQueries(
       datasource,
@@ -204,10 +99,16 @@ function SelfUpdatingTile({
     );
   const { state, run } = useTileResult({
     config,
-    previousTimeFrame,
-    comparisonMode,
+    previousTimeFrame:
+      config && comparison?.enabled
+        ? resolveComparisonPreviousTimeFrame(config.dateRange, comparison)
+        : null,
+    comparisonMode: settings.comparisonMode,
     stored: block.explorerAnalysisId || null,
-    storedComparison: block.comparisonExplorerAnalysisId || null,
+    storedComparison:
+      (settings.compareEnabled && block.comparisonExplorerAnalysisId) || null,
+    // Only a self-updating tile starts a never-saved block from the cache
+    readCache: selfUpdate,
   });
 
   const needsRun = (message: string) => (
@@ -258,27 +159,55 @@ function SelfUpdatingTile({
         <TileBody
           settings={settings}
           result={state.status === "ready" ? state.result : null}
-          loadError={null}
-          emptyState={needsRun("No results yet.")}
-          staleState={needsRun(
-            "The dashboard dates changed since this block last ran.",
-          )}
+          emptyState={
+            selfUpdate ? (
+              needsRun("No results yet.")
+            ) : (
+              <TilePrompt>
+                Click <strong>Update</strong> to generate the necessary data.
+              </TilePrompt>
+            )
+          }
+          staleState={
+            selfUpdate ? (
+              needsRun("The dashboard dates changed since this block last ran.")
+            ) : (
+              <TilePrompt>
+                Global controls changed. Click <strong>Update</strong> to
+                refresh this block.
+              </TilePrompt>
+            )
+          }
         />
       )}
     </>
   );
 }
 
+function TilePrompt({
+  status = "info",
+  children,
+}: {
+  status?: "info" | "warning" | "error";
+  children: ReactNode;
+}) {
+  return (
+    <Flex direction="column" align="center" p="4">
+      <Callout status={status} contentAlign="center">
+        {children}
+      </Callout>
+    </Flex>
+  );
+}
+
 function TileBody({
   settings,
   result,
-  loadError,
   emptyState,
   staleState,
 }: {
   settings: TileSettings;
   result: TileResult | null;
-  loadError: string | null;
   emptyState: ReactNode;
   staleState: ReactNode;
 }) {
@@ -347,18 +276,11 @@ function TileBody({
   // Explorer) rather than the raw fetched one.
   const comparisonExploration = comparisonPayload?.exploration ?? null;
 
-  if (!exploration) {
-    // A result that failed to load says why, not "Click Update"
-    return loadError ? (
-      <TilePrompt status="error">{loadError}</TilePrompt>
-    ) : (
-      <>{emptyState}</>
-    );
-  }
+  if (!exploration) return <>{emptyState}</>;
   if (exploration.status === "running") return <LoadingSpinner />;
   if (hasStaleDashboardDateResults) return <>{staleState}</>;
 
-  const error = exploration.error || loadError || null;
+  const error = exploration.error || null;
   return (
     <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>
       {compareEnabled && result?.comparisonError && (
