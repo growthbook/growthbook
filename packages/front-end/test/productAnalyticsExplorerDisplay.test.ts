@@ -194,7 +194,7 @@ describe("describeExplorerDisplay", () => {
       seriesNames: ["p95"],
       columnHeaders: ["p95"],
       unitPicker: null,
-      cards: [{ showAsOptions: [], showAs: "total", readOnlyUnit: null }],
+      cards: [{ showAsOptions: [], showAs: null, readOnlyUnit: null }],
     });
   });
 });

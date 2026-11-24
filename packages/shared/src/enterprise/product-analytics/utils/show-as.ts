@@ -12,14 +12,8 @@ import type {
 import { configHasPopulation } from "../populations";
 
 /**
- * How a value renders when its metric type has no Show as modes: its raw
- * value. Ratios ignore it and always render numerator / denominator.
- */
-const NO_SHOW_AS_CHOICE_DEFAULT: ShowAs = "total";
-
-/**
  * The Show as modes each metric type renders in without a population, in
- * display order. A type with no modes renders as `NO_SHOW_AS_CHOICE_DEFAULT`.
+ * display order. A type with no modes renders its raw value.
  *
  * - mean: the numerator sums each unit's value, so dividing by the unit count
  *   gives a real per-unit average.
@@ -55,6 +49,33 @@ const POPULATION_SHOW_AS_OPTIONS_BY_METRIC_TYPE: Partial<
 > = {
   mean: ["per_population_member"],
   proportion: ["percent_of_population"],
+};
+
+/**
+ * The mode each metric type renders in until the user picks one, without a
+ * population; null for types with no modes. Except: a mean whose total is
+ * incoherent defaults to `per_unit` (see `inferShowAs`).
+ */
+const DEFAULT_SHOW_AS_BY_METRIC_TYPE: Record<FactMetricType, ShowAs | null> = {
+  mean: "total",
+  proportion: "total",
+  retention: "total",
+  dailyParticipation: "total",
+  ratio: null,
+  quantile: null,
+  funnel: null,
+  compound: null,
+};
+
+/**
+ * The default with a population, replacing the one above: measuring its
+ * members is what a population is for.
+ */
+const POPULATION_DEFAULT_SHOW_AS_BY_METRIC_TYPE: Partial<
+  Record<FactMetricType, ShowAs>
+> = {
+  mean: "per_population_member",
+  proportion: "percent_of_population",
 };
 
 /** The Show as modes a metric type renders in; empty when it has none. */
@@ -105,7 +126,8 @@ export function getShowAsLabel(showAs: ShowAs, unit: string | null): string {
 export type ShowAsChoice = {
   /** Empty when the value's metric type has no modes. */
   options: readonly ShowAs[];
-  showAs: ShowAs;
+  /** Null when there are no options: the value renders its raw value. */
+  showAs: ShowAs | null;
 };
 
 /**
@@ -118,7 +140,7 @@ export function hasShowAsChoice(options: readonly ShowAs[]): boolean {
 
 const NO_SHOW_AS_CHOICE: ShowAsChoice = {
   options: [],
-  showAs: NO_SHOW_AS_CHOICE_DEFAULT,
+  showAs: null,
 };
 
 /** The parts of a metric definition that decide how its values can render. */
@@ -138,13 +160,11 @@ export function getDraftOrSavedMetric(
 
 /**
  * The default `showAs` for a value without an explicit choice:
- * - `percent_of_population` for proportions and `per_population_member` for
- *   means when the dataset has a population, since measuring its members is
- *   what a population is for.
- * - `per_unit` for other mean metrics whose total is incoherent — numerator
+ * - With a population, `POPULATION_DEFAULT_SHOW_AS_BY_METRIC_TYPE`.
+ * - `per_unit` for mean metrics whose total is incoherent — numerator
  *   aggregation `max` (a sum of per-unit maxes has no interpretation) or
  *   `count distinct` (double-counts values shared across units).
- * - Otherwise `total`.
+ * - Otherwise `DEFAULT_SHOW_AS_BY_METRIC_TYPE`.
  *
  * If you change these defaults, also update the two places that describe them
  * in words:
@@ -156,18 +176,20 @@ export function getDraftOrSavedMetric(
 export function inferShowAs(
   metric: ShowAsMetric | null,
   hasPopulation: boolean,
-): ShowAs {
-  if (metric?.metricType === "proportion" && hasPopulation) {
-    return "percent_of_population";
+): ShowAs | null {
+  if (!metric) return null;
+  const populationDefault = hasPopulation
+    ? POPULATION_DEFAULT_SHOW_AS_BY_METRIC_TYPE[metric.metricType]
+    : undefined;
+  if (populationDefault) return populationDefault;
+  const agg = metric.numerator?.aggregation ?? "sum";
+  if (
+    metric.metricType === "mean" &&
+    (agg === "max" || agg === "count distinct")
+  ) {
+    return "per_unit";
   }
-  if (metric?.metricType === "mean" && hasPopulation) {
-    return "per_population_member";
-  }
-  if (metric?.metricType === "mean") {
-    const agg = metric.numerator?.aggregation ?? "sum";
-    return agg === "max" || agg === "count distinct" ? "per_unit" : "total";
-  }
-  return NO_SHOW_AS_CHOICE_DEFAULT;
+  return DEFAULT_SHOW_AS_BY_METRIC_TYPE[metric.metricType];
 }
 
 /**
@@ -197,7 +219,9 @@ export function getShowAsChoice(
   const showAs =
     [value.showAs, legacyShowAs, inferShowAs(metric, hasPopulation)].find(
       (candidate): candidate is ShowAs =>
-        candidate !== undefined && options.includes(candidate),
+        candidate !== undefined &&
+        candidate !== null &&
+        options.includes(candidate),
     ) ?? options[0];
   return { options, showAs };
 }

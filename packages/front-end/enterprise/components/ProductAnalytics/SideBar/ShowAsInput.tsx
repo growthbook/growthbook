@@ -50,7 +50,8 @@ export default function ShowAsInput({
   metricType,
 }: {
   options: readonly ShowAs[];
-  value: ShowAs;
+  /** Null when the metric has no modes, so there's nothing to pick. */
+  value: ShowAs | null;
   setValue: (value: ShowAs) => void;
   /** The chart's identifier type, when every metric shares one. */
   unit: string | null;
@@ -59,7 +60,7 @@ export default function ShowAsInput({
   metricType: FactMetricType | undefined;
 }) {
   const [open, setOpen] = useState(false);
-  if (!hasShowAsChoice(options)) return null;
+  if (value === null || !hasShowAsChoice(options)) return null;
   const optionText = getOptionText(unit);
   const optionKey = (showAs: ShowAs): OptionKey =>
     showAs === "total" && metricType === "mean" ? "event_totals" : showAs;

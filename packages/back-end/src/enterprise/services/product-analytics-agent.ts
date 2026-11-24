@@ -284,13 +284,13 @@ function describeShowAs(
   if (config.dataset?.type !== "metric") return "";
   return config.dataset.values
     .flatMap((v) => {
-      const { options, showAs } = getShowAsChoice(
+      const { showAs } = getShowAsChoice(
         v,
         config.showAs,
         getFactMetricById,
         configHasPopulation(config),
       );
-      return options.length ? [`${v.name}: ${showAs}`] : [];
+      return showAs === null ? [] : [`${v.name}: ${showAs}`];
     })
     .join(", ");
 }
@@ -763,8 +763,8 @@ function describeDroppedShowAs(
     getFactMetricById,
     hasPopulation,
   );
-  // No options (e.g. ratio, quantile) means the metric renders as computed.
-  if (!options.length) {
+  // No mode (e.g. ratio, quantile) means the metric renders as computed.
+  if (showAs === null) {
     return `"${value.name}": ${droppedMode} isn't an option (this metric has no showAs options)`;
   }
   // Only modes this metric type gains from a Population, e.g. not

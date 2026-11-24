@@ -38,11 +38,10 @@ export function getDefaultValueAxisName({
 export function getSecondaryValueAxisName(
   renderOpts: ExplorationRenderOpts,
 ): string | null {
-  const secondaryValue = renderOpts.values.find(
-    (v) => v.valueAxis === "secondary",
-  );
-  if (!secondaryValue) return null;
-  return getShowAsLabel(secondaryValue.showAs, renderOpts.sharedUnit);
+  const secondaryShowAs =
+    renderOpts.values.find((v) => v.valueAxis === "secondary")?.showAs ?? null;
+  if (secondaryShowAs === null) return null;
+  return getShowAsLabel(secondaryShowAs, renderOpts.sharedUnit);
 }
 
 /**
@@ -107,6 +106,8 @@ export function getEffectiveMetricValue(
   if (opts.isRatio) {
     return v.denominator ? num / v.denominator : num;
   }
+  // No mode (e.g. a quantile): the raw value.
+  if (opts.showAs === null) return num;
   switch (opts.showAs) {
     case "total":
       return num;
@@ -146,13 +147,14 @@ export type ValueAxis = "primary" | "secondary";
  * "% of Population" is a percentage, on a different scale from every other
  * mode.
  */
-function usesOwnAxisWhenMixed(showAs: ShowAs): boolean {
+function usesOwnAxisWhenMixed(showAs: ShowAs | null): boolean {
   return showAs === "percent_of_population";
 }
 
 /** How one dataset value renders. */
 export type ValueRenderOpts = {
-  showAs: ShowAs;
+  /** Null when the value has no mode (ratios, quantiles). */
+  showAs: ShowAs | null;
   isRatio: boolean;
   /** Chart legend and tooltip name. */
   seriesName: string;
@@ -205,29 +207,39 @@ export function getExplorationRenderOpts(
   const choices = values.map((v) =>
     getShowAsChoice(v, config.showAs, getFactMetricById, hasPopulation),
   );
-  const someValueHasMode = choices.some((choice) => choice.options.length > 0);
-  const modes = new Set(choices.map((choice) => choice.showAs));
-  const sharedShowAs =
-    someValueHasMode && modes.size === 1 ? [...modes][0] : null;
-  const modesAreMixed = someValueHasMode && sharedShowAs === null;
+  const modes = new Set(
+    choices
+      .map((choice) => choice.showAs)
+      .filter((showAs): showAs is ShowAs => showAs !== null),
+  );
+  // Ratios and quantiles have no mode, so a chart with one shares none. A
+  // metric that isn't found doesn't count, since its type is unknown.
+  const hasMetricWithoutMode = values.some(
+    (v, i) =>
+      choices[i].showAs === null &&
+      v.type === "metric" &&
+      getDraftOrSavedMetric(v, getFactMetricById) !== null,
+  );
+  const onlyMode = (set: Set<ShowAs>) =>
+    set.size === 1 && !hasMetricWithoutMode ? [...set][0] : null;
+  const sharedShowAs = onlyMode(modes);
+  const modesAreMixed = modes.size > 0 && sharedShowAs === null;
   const sharedUnit = getSharedUnit(config, getFactMetricById);
 
-  // When other modes share the chart, values whose mode uses its own axis (see
-  // usesOwnAxisWhenMixed) move to the secondary axis. The primary axis is then
-  // titled by the modes left on it, and has no title when they differ.
-  const otherModes = new Set<ShowAs>();
-  for (const choice of choices) {
-    if (!usesOwnAxisWhenMixed(choice.showAs)) otherModes.add(choice.showAs);
-  }
+  // When other values share the chart, values whose mode uses its own axis
+  // (see usesOwnAxisWhenMixed) move to the secondary axis. The primary axis is
+  // then titled by the modes left on it, and has no title when they differ.
+  const primaryModes = new Set(
+    [...modes].filter((mode) => !usesOwnAxisWhenMixed(mode)),
+  );
   const hasSecondAxis =
-    choices.some((choice) => usesOwnAxisWhenMixed(choice.showAs)) &&
-    otherModes.size > 0;
-  const valueAxisFor = (showAs: ShowAs): ValueAxis =>
+    [...modes].some(usesOwnAxisWhenMixed) &&
+    (primaryModes.size > 0 || hasMetricWithoutMode);
+  const valueAxisFor = (showAs: ShowAs | null): ValueAxis =>
     hasSecondAxis && usesOwnAxisWhenMixed(showAs) ? "secondary" : "primary";
-  let primaryAxisShowAs = sharedShowAs;
-  if (hasSecondAxis) {
-    primaryAxisShowAs = otherModes.size === 1 ? [...otherModes][0] : null;
-  }
+  const primaryAxisShowAs = hasSecondAxis
+    ? onlyMode(primaryModes)
+    : sharedShowAs;
 
   // Annotate series names when the axis title can't tell readers how the
   // values are calculated.
@@ -239,14 +251,18 @@ export function getExplorationRenderOpts(
     (dividesByPopulationCount(sharedShowAs) && hasCustomAxisTitle);
 
   return {
-    values: values.map((v, i) => ({
-      showAs: choices[i].showAs,
-      isRatio: isRatioValue(v, getFactMetricById),
-      seriesName: annotateNames
-        ? getAnnotatedName(v, i, choices[i].showAs, sharedUnit)
-        : getValueName(v, i),
-      valueAxis: valueAxisFor(choices[i].showAs),
-    })),
+    values: values.map((v, i) => {
+      const { showAs } = choices[i];
+      return {
+        showAs,
+        isRatio: isRatioValue(v, getFactMetricById),
+        seriesName:
+          annotateNames && showAs !== null
+            ? getAnnotatedName(v, i, showAs, sharedUnit)
+            : getValueName(v, i),
+        valueAxis: valueAxisFor(showAs),
+      };
+    }),
     sharedShowAs,
     modesAreMixed,
     primaryAxisShowAs,
@@ -372,9 +388,10 @@ export function buildExplorationColumns(
       showAs === "per_unit" ||
       dividesByPopulationCount(showAs) ||
       modesAreMixed;
-    const singleLabel = annotate
-      ? getAnnotatedName(v, metricIndex, showAs, sharedUnit)
-      : name;
+    const singleLabel =
+      annotate && showAs !== null
+        ? getAnnotatedName(v, metricIndex, showAs, sharedUnit)
+        : name;
     cols.push({
       kind: "metric",
       key: `__metric_${metricIndex}__`,

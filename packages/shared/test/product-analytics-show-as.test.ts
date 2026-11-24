@@ -43,6 +43,8 @@ const metrics = new Map(
     makeMetric("maxOrder", "mean", "max"),
     makeMetric("converted", "proportion"),
     makeMetric("aov", "ratio"),
+    makeMetric("p90", "quantile"),
+    makeMetric("retained", "retention"),
   ].map((m) => [m.id, m]),
 );
 const getFactMetricById = (id: string) => metrics.get(id) ?? null;
@@ -79,7 +81,7 @@ function metricConfig(
 }
 
 const MEAN_OPTIONS = ["total", "per_unit"];
-const none = { options: [], showAs: "total" };
+const none = { options: [], showAs: null };
 const proportionTotal = { options: ["total"], showAs: "total" };
 const mean = (showAs: ShowAs) => ({ options: MEAN_OPTIONS, showAs });
 
@@ -415,6 +417,53 @@ describe("getDefaultValueAxisName", () => {
         ),
       ),
     ).toBe("");
+  });
+
+  it("names the total when every value is a retention metric", () => {
+    expect(
+      getDefaultValueAxisName(
+        getExplorationRenderOpts(
+          metricConfig([metricValue("retained"), metricValue("retained")]),
+          getFactMetricById,
+        ),
+      ),
+    ).toBe("Total");
+  });
+
+  it.each(["aov", "p90"])(
+    "is empty when a count metric shares the chart with %s, which has no mode",
+    (metricId) => {
+      const opts = getExplorationRenderOpts(
+        metricConfig([metricValue("converted"), metricValue(metricId)]),
+        getFactMetricById,
+      );
+      expect(getDefaultValueAxisName(opts)).toBe("");
+      // Only the value with a mode is annotated.
+      expect(opts.values.map((v) => v.seriesName)).toEqual([
+        "converted (total)",
+        metricId,
+      ]);
+    },
+  );
+
+  it("leaves the primary axis untitled when a ratio sits beside % of Population", () => {
+    const values = [
+      metricValue("converted", "percent_of_population"),
+      metricValue("aov"),
+    ];
+    const opts = getExplorationRenderOpts(
+      {
+        ...metricConfig(values),
+        dataset: {
+          type: "metric",
+          values,
+          population: { populationId: "pop", unit: "user_id" },
+        },
+      },
+      getFactMetricById,
+    );
+    expect(getSecondaryValueAxisName(opts)).toBe("% of Population");
+    expect(getDefaultValueAxisName(opts)).toBe("");
   });
 
   it("ignores a value whose metric isn't found", () => {
