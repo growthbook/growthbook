@@ -1281,7 +1281,7 @@ export default function ExplorerChart(
             exploration={panel.exploration}
             comparisonExploration={panel.comparisonExploration}
             serverBigNumberTrends={panel.serverBigNumberTrends}
-            // The first chart's legend keys the periods for all of them
+            // The first chart's legend keys the periods for all; its toggles act on its own metric, which it names
             hideSingleCompareLegend={i > 0}
             hideSingleSeriesLegend
           />
