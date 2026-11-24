@@ -92,6 +92,37 @@ describe("keepStoredTopValues", () => {
       { column: "plan" },
     ]);
   });
+
+  it("keeps each stored JSON field's top values, never the caller's", () => {
+    const stored = [
+      {
+        column: "props",
+        jsonFields: {
+          plan: { datatype: "string", topValues: ["pro"] },
+          gone: { datatype: "string", topValues: ["x"] },
+        },
+      } as ColumnInterface,
+    ];
+    expect(
+      keepStoredTopValues(stored, [
+        {
+          column: "props",
+          jsonFields: {
+            plan: { datatype: "string" as const },
+            added: { datatype: "string" as const, topValues: ["stale"] },
+          },
+        },
+      ]),
+    ).toEqual([
+      {
+        column: "props",
+        jsonFields: {
+          plan: { datatype: "string", topValues: ["pro"] },
+          added: { datatype: "string" },
+        },
+      },
+    ]);
+  });
 });
 
 describe("Auto Slice level policies", () => {
@@ -267,6 +298,7 @@ describe("buildTopValuesWrite for JSON fields", () => {
           "address.city": { datatype: "string", topValues: ["Paris"] },
           plan: { datatype: "string" },
         },
+        "columns.$[j0].topValuesDate": snapshot.refreshedAt,
       },
       $unset: {},
       arrayFilters: [{ "j0.column": "props" }],

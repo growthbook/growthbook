@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import * as echarts from "echarts/core";
@@ -18,6 +25,7 @@ import {
   getComparisonAlignmentStrategy,
   getDateGranularity,
   getSecondaryValueAxisName,
+  getValueName,
 } from "shared/enterprise";
 import {
   showsSeparateValueCharts,
@@ -69,8 +77,6 @@ import {
 } from "@/components/DataViz/chart-theme";
 import FunnelChart from "./FunnelChart";
 import JourneyChart from "./JourneyChart";
-
-const CHART_ID = "explorer-chart";
 
 // ECharts 6 treats these as a minimum around the plot, then shrinks the grid
 // until axis labels and names fit. (v5's `containLabel` is ignored.)
@@ -167,6 +173,8 @@ function ExplorerChartPanel({
   const { textColor, tooltipBackgroundColor, gridLineColor } =
     getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
+  // Distinct per chart so separate charts and dashboard blocks each link
+  const chartId = useId();
   const { getFactMetricById } = useDefinitions();
 
   // ECharts only auto-resizes on window resize, not when its parent container
@@ -1136,7 +1144,7 @@ function ExplorerChartPanel({
               onChartReady={(chart) => {
                 chartInstanceRef.current = chart ?? null;
                 if (chartsContext && chart) {
-                  chartsContext.registerChart(CHART_ID, chart);
+                  chartsContext.registerChart(chartId, chart);
                 }
               }}
             />
@@ -1174,13 +1182,15 @@ export default function ExplorerChart(
     if (!separate || !datasetHasValues(submittedExploreState.dataset)) {
       return null;
     }
-    return submittedExploreState.dataset.values.map((_, i) => {
+    return submittedExploreState.dataset.values.map((value, i) => {
       const current = sliceExplorationToValue(
         submittedExploreState,
         exploration,
         i,
       );
       return {
+        // A grouped chart's legend shows the groups, so name the value
+        name: getValueName(value, i),
         config: current.config,
         exploration: current.exploration,
         comparisonExploration: sliceExplorationToValue(
@@ -1213,8 +1223,10 @@ export default function ExplorerChart(
         <Flex
           key={i}
           direction="column"
+          gap="1"
           style={{ flex: "1 0 240px", minHeight: 240 }}
         >
+          <Text weight="medium">{panel.name}</Text>
           <ExplorerChartPanel
             {...props}
             submittedExploreState={panel.config}

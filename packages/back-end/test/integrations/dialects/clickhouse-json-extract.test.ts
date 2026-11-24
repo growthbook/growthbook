@@ -3,19 +3,19 @@ import { clickHouseDialect } from "shared/dialects";
 const compact = (sql: string) => sql.replace(/\s+/g, " ").trim();
 
 describe("clickHouseDialect.jsonExtract", () => {
-  it("reads a nested path as one key per level", () => {
+  it("reads a dotted path as the literal key when present, else nested", () => {
     expect(
-      compact(
-        clickHouseDialect.jsonExtract("props", "address.zip code", false),
-      ),
+      compact(clickHouseDialect.jsonExtract("props", "http.url", false)),
     ).toBe(
-      "if( toTypeName(props) = 'JSON', props.address.`zip code`::Nullable(String), JSONExtractString(props, 'address', 'zip code') )",
+      "if( toTypeName(props) = 'JSON', props.`http.url`::Nullable(String), if(JSONHas(props, 'http.url'), JSONExtractString(props, 'http.url'), JSONExtractString(props, 'http', 'url')) )",
     );
   });
 
-  it("escapes quotes in string keys", () => {
+  it("keeps an undotted key as a single lookup and escapes quotes", () => {
     expect(
       compact(clickHouseDialect.jsonExtract("props", "o'brien", true)),
-    ).toContain("JSONExtractFloat(props, 'o''brien')");
+    ).toBe(
+      "if( toTypeName(props) = 'JSON', toFloat64OrNull(props.`o'brien`::Nullable(String)), JSONExtractFloat(props, 'o''brien') )",
+    );
   });
 });

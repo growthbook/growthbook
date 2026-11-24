@@ -79,15 +79,21 @@ async function refreshColumns({
 }
 
 describe("selectColumnsForTopValues", () => {
-  it("adds string JSON fields by path after plain columns", () => {
+  it("adds safe string JSON fields by path after plain columns", () => {
     const result = selectColumnsForTopValues({
       columns: [
         makeCol("props", {
           datatype: "json",
           jsonFields: {
             "address.city": { datatype: "string" },
+            "o'brien": { datatype: "string" },
             count: { datatype: "number" },
           },
+        }),
+        makeCol("virtual_props", {
+          datatype: "json",
+          isVirtual: true,
+          jsonFields: { plan: { datatype: "string" } },
         }),
         makeCol("country"),
       ],

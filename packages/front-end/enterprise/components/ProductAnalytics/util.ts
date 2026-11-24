@@ -1835,7 +1835,6 @@ export const comparisonModeQueryParser = createParser<ComparisonMode | null>({
   serialize: (value) => value ?? "",
 });
 
-/** Chart types that can draw each value as its own chart. */
 export const CHART_TYPES_WITH_AXES = new Set<ExplorationConfig["chartType"]>([
   "line",
   "area",
@@ -1845,7 +1844,6 @@ export const CHART_TYPES_WITH_AXES = new Set<ExplorationConfig["chartType"]>([
   "stackedHorizontalBar",
 ]);
 
-/** Whether the chart can offer one chart per value. */
 export function canSeparateValueCharts(config: ExplorationConfig): boolean {
   return (
     CHART_TYPES_WITH_AXES.has(config.chartType) &&
@@ -1873,7 +1871,6 @@ export function valuesMixMetricClasses(
   return classes.size > 1;
 }
 
-/** Whether each value is drawn as its own chart. */
 export function showsSeparateValueCharts(
   config: ExplorationConfig,
   getFactMetricById: (

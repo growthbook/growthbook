@@ -54,7 +54,10 @@ export function getValueAxisName(
 }
 
 /** A value's display name; "Metric N" when it was saved blank. */
-function getValueName(value: ProductAnalyticsValue, index: number): string {
+export function getValueName(
+  value: ProductAnalyticsValue,
+  index: number,
+): string {
   return value.name.trim() ? value.name : `Metric ${index + 1}`;
 }
 

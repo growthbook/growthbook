@@ -36,6 +36,8 @@ import { logger } from "back-end/src/util/logger";
 export const MAX_COLUMNS_WITH_TOP_VALUES = 50;
 export const MAX_TOP_VALUE_LENGTH = 100;
 export const MAX_PRIMARY_TOP_VALUES = 500;
+const SAFE_JSON_FIELD_PATH =
+  /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 export const TOP_VALUES_CHUNK_SIZE = 25;
 
 type TopValuesLookbackUnit = NonNullable<
@@ -88,11 +90,14 @@ export function selectColumnsForTopValues({
     (c) => c.alwaysInlineFilter || c.isAutoSliceColumn,
   );
 
-  // String JSON fields are queried by their dotted path, after plain columns
+  // String JSON fields go after plain columns; unescaped keys or virtual bases would break the chunk's SQL
   const jsonFieldColumns: ColumnInterface[] = columns.flatMap((col) =>
-    col.datatype === "json" && !col.deleted
+    col.datatype === "json" && !col.deleted && !col.isVirtual
       ? Object.entries(col.jsonFields ?? {})
-          .filter(([, field]) => field.datatype === "string")
+          .filter(
+            ([field, info]) =>
+              info.datatype === "string" && SAFE_JSON_FIELD_PATH.test(field),
+          )
           .map(([field]) => ({
             ...col,
             column: `${col.column}.${field}`,
