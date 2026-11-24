@@ -405,7 +405,8 @@ export default function EventWebHookPage({
   const actions = slackSettingsUrl ? (
     <LinkButton href={slackSettingsUrl}>Edit Slack settings</LinkButton>
   ) : (
-    <>
+    // Spaced like the detail pages' header actions.
+    <Flex align="center" gap="4">
       {canTest && (
         <Button
           variant="outline"
@@ -455,7 +456,7 @@ export default function EventWebHookPage({
           )}
         </DropdownMenu>
       )}
-    </>
+    </Flex>
   );
 
   return (
