@@ -102,7 +102,6 @@ import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 import {
   CLUSTER_HEALTH_QUERY_NAME,
   CLUSTER_TRAFFIC_QUERY_NAME,
-  REPLACED_TABLE_DROP_QUERY_PREFIX,
   STATISTICS_QUERY_PREFIX,
   TRAFFIC_QUERY_NAME,
 } from "./newMetricsUpdateQueryNaming";
@@ -758,8 +757,7 @@ export const startExperimentIncrementalRefreshQueries = async (
   // full INSERT) instead of appending, since their schema/values may be out of
   // shape with the desired metric set. So is a source that takes new metrics,
   // under a new id. Their covariate caches are replaced with them so CUPED
-  // state stays consistent, and the replaced tables are dropped once the
-  // replacements are recorded.
+  // state stays consistent. The replaced tables stay in the warehouse.
   const metricSourceGroups = getIncrementalRefreshMetricSources({
     metrics: factMetrics,
     existingMetricSources: storedSources.filter(
@@ -774,12 +772,15 @@ export const startExperimentIncrementalRefreshQueries = async (
       g.replacesGroupId ? [g.replacesGroupId] : [],
     ),
   );
-  const replacedSources = storedSources.filter(
-    (source) =>
-      factTablesToRebuild.has(source.factTableId) ||
-      extendedGroupIds.has(source.groupId),
+  const replacedGroupIds = new Set(
+    storedSources
+      .filter(
+        (source) =>
+          factTablesToRebuild.has(source.factTableId) ||
+          extendedGroupIds.has(source.groupId),
+      )
+      .map((source) => source.groupId),
   );
-  const replacedGroupIds = new Set(replacedSources.map((s) => s.groupId));
   const existingSources = storedSources.filter(
     (source) => !replacedGroupIds.has(source.groupId),
   );
@@ -804,19 +805,6 @@ export const startExperimentIncrementalRefreshQueries = async (
       }
     }
   }
-  // State writes of the caches replacing each replaced source, by its group id.
-  const replacementWritesByGroupId = new Map<string, string[]>();
-  const getReplacedGroupIds = (group: MetricSourceGroups) =>
-    group.replacesGroupId
-      ? [group.replacesGroupId]
-      : replacedSources
-          .filter(
-            (source) =>
-              factTablesToRebuild.has(source.factTableId) &&
-              source.factTableId === group.factTableId,
-          )
-          .map((source) => source.groupId);
-
   let runningSourceData = existingSources;
   let runningCovariateSourceData = existingCovariateSources;
 
@@ -1252,15 +1240,6 @@ export const startExperimentIncrementalRefreshQueries = async (
         queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
       });
       queries.push(maxTimestampMetricsSourceQuery);
-      for (const replacedGroupId of getReplacedGroupIds(group)) {
-        replacementWritesByGroupId.set(replacedGroupId, [
-          ...(replacementWritesByGroupId.get(replacedGroupId) ?? []),
-          maxTimestampMetricsSourceQuery.query,
-          ...(insertMetricCovariateDataQuery
-            ? [insertMetricCovariateDataQuery.query]
-            : []),
-        ]);
-      }
     }
 
     const writeQueryIds = [
@@ -1506,76 +1485,6 @@ export const startExperimentIncrementalRefreshQueries = async (
     }
   }
 
-  // A rebuilt cache lives in a new table. Drop each table it replaces once
-  // the replacement is recorded, so replaced tables don't pile up.
-  for (const source of replacedSources) {
-    const dependencies = replacementWritesByGroupId.get(source.groupId) ?? [];
-    if (!dependencies.length) continue;
-    const covariateSource = storedCovariateSources.find(
-      (s) => s.groupId === source.groupId,
-    );
-    const replacedTables = [
-      {
-        name: `${REPLACED_TABLE_DROP_QUERY_PREFIX}metrics_source_${source.groupId}`,
-        tableFullName: source.tableFullName,
-      },
-      ...(covariateSource
-        ? [
-            {
-              name: `${REPLACED_TABLE_DROP_QUERY_PREFIX}metrics_covariate_table_${source.groupId}`,
-              tableFullName: covariateSource.tableFullName,
-            },
-          ]
-        : []),
-    ];
-    for (const { name, tableFullName } of replacedTables) {
-      const dropQuery = await startQuery({
-        name,
-        displayTitle: `Drop Replaced Metrics Table (${params.factTableMap.get(source.factTableId)?.name ?? source.factTableId})`,
-        query: integration.getDropMetricSourceTableQuery({
-          metricSourceTableFullName: tableFullName,
-        }),
-        dependencies,
-        run: fenced(async (query, setExternalId, queryMetadata) => {
-          // A dependency counts as succeeded before its state write lands.
-          const state =
-            await context.models.incrementalRefresh.getLockedBySnapshotId(
-              experimentId,
-              executionId,
-            );
-          if (!state) {
-            context.logger.warn(
-              `Kept replaced metrics table ${tableFullName}: the pipeline state could not be read`,
-            );
-            return { rows: [] };
-          }
-          const stillStored = [
-            ...state.metricSources,
-            ...state.metricCovariateSources,
-          ].some((s) => s.tableFullName === tableFullName);
-          if (stillStored) {
-            context.logger.warn(
-              `Kept replaced metrics table ${tableFullName}: the pipeline state still lists it`,
-            );
-            return { rows: [] };
-          }
-          return integration
-            .runDropTableQuery(query, setExternalId, queryMetadata)
-            .catch((error: unknown) => {
-              // The state no longer lists the table, so no later run drops it.
-              context.logger.error(
-                error,
-                `Failed to drop replaced metrics table ${tableFullName}`,
-              );
-              throw error;
-            });
-        }),
-        metadata: { factTableIds: [source.factTableId] },
-        queryType: "experimentIncrementalRefreshDropMetricsSourceTable",
-      });
-      queries.push(dropQuery);
-    }
-  }
   return queries;
 };
 

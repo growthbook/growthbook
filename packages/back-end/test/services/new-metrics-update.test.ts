@@ -1726,7 +1726,7 @@ describe("new-metrics update status", () => {
         "insert_metrics_source_data_ftc_1",
         "statistics_ftc_1",
       ],
-      cleanup: "drop_replaced_metrics_source_ftc_0",
+      cleanup: null,
     },
   } as const;
 
@@ -1757,20 +1757,8 @@ describe("new-metrics update status", () => {
     },
     {
       runnerKind: "incremental-update",
-      run: "a new-metrics update",
-      failed: "cleanup",
-      expected: "partially-succeeded",
-    },
-    {
-      runnerKind: "incremental-update",
       run: "a normal update",
       failed: "insert_metrics_source_data_ftc_1",
-      expected: "partially-succeeded",
-    },
-    {
-      runnerKind: "incremental-update",
-      run: "a normal update",
-      failed: "cleanup",
       expected: "partially-succeeded",
     },
   ] as const)(
@@ -1778,10 +1766,11 @@ describe("new-metrics update status", () => {
     ({ runnerKind, run, failed, expected }) => {
       const { queries, cleanup } = pipelines[runnerKind];
       const failedName = failed === "cleanup" ? cleanup : failed;
+      const names = cleanup ? [...queries, cleanup] : queries;
       const snapshot = makeParent({
         id: "snp_refresh",
         runnerKind,
-        queries: [...queries, cleanup].map((name) => ({
+        queries: names.map((name) => ({
           name,
           query: `qry_${name}`,
           status: name === failedName ? "failed" : "succeeded",

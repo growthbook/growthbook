@@ -35,7 +35,6 @@ import {
   ExperimentFactMetricsQueryResponse,
   UserExperimentExposuresQueryResponse,
   DropMetricSourceCovariateTableQueryParams,
-  DropMetricSourceTableQueryParams,
   InsertMetricSourceCovariateDataQueryParams,
   InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
@@ -248,11 +247,6 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     _setExternalId: ExternalIdCallback,
     _queryMetadata?: QueryMetadata,
   ): Promise<IncrementalWithNoOutputQueryResponse> {
-    throw new Error("Method not implemented.");
-  }
-  getDropMetricSourceTableQuery(
-    _params: DropMetricSourceTableQueryParams,
-  ): string {
     throw new Error("Method not implemented.");
   }
   getDropMetricSourceCovariateTableQuery(

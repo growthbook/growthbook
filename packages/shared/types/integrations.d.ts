@@ -479,10 +479,6 @@ export interface InsertMetricSourceDataQueryParams {
   incrementalRefreshStartTime: Date;
 }
 
-export interface DropMetricSourceTableQueryParams {
-  metricSourceTableFullName: string;
-}
-
 export interface DropMetricSourceCovariateTableQueryParams {
   metricSourceCovariateTableFullName: string;
 }

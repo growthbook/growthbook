@@ -96,7 +96,6 @@ import {
   InsertMetricSourceDataQueryParams,
   DimensionColumnData,
   DropMetricSourceCovariateTableQueryParams,
-  DropMetricSourceTableQueryParams,
   MaxTimestampQueryResponse,
   ExperimentFactMetricsQueryResponseRows,
   IncrementalRefreshStatisticsQueryParams,
@@ -184,7 +183,6 @@ import { getDimensionSlicesQuery as getDimensionSlicesQueryFromSql } from "back-
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
 import { getUnitDimensionChain } from "back-end/src/integrations/sql/fact-metrics/timed-unit-dimension-value";
 import { getDropMetricSourceCovariateTableQuery } from "back-end/src/integrations/sql/queries/drop-metric-source-covariate-table-query";
-import { getDropMetricSourceTableQuery } from "back-end/src/integrations/sql/queries/drop-metric-source-table-query";
 import { getCreateAggregatedFactTableQuery } from "back-end/src/integrations/sql/queries/create-aggregated-fact-table-query";
 import { getInsertAggregatedFactTableDataQuery } from "back-end/src/integrations/sql/queries/insert-aggregated-fact-table-data-query";
 import { getAggregatedFactTableMaxTimestampQuery } from "back-end/src/integrations/sql/queries/aggregated-fact-table-max-timestamp-query";
@@ -2278,12 +2276,6 @@ export default abstract class SqlIntegration
       `,
       this.getSqlDialect().formatDialect,
     );
-  }
-
-  getDropMetricSourceTableQuery(
-    params: DropMetricSourceTableQueryParams,
-  ): string {
-    return getDropMetricSourceTableQuery(this.getSqlDialect(), params);
   }
 
   getDropMetricSourceCovariateTableQuery(

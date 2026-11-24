@@ -22,14 +22,9 @@ export const getGroupQueryName = (index: number): string => `group_${index}`;
 
 export const STATISTICS_QUERY_PREFIX = "statistics_";
 
-export const REPLACED_TABLE_DROP_QUERY_PREFIX = "drop_replaced_";
-
-/** A drop of a table the run no longer needs once its results landed. */
+/** The drop of the units table a run no longer needs once its results landed. */
 export function isTableCleanupQuery(name: string, snapshotId: string): boolean {
-  return (
-    name === `drop_${snapshotId}` ||
-    name.startsWith(REPLACED_TABLE_DROP_QUERY_PREFIX)
-  );
+  return name === `drop_${snapshotId}`;
 }
 
 /** The metrics a run of the standard pipeline's result queries covers. */

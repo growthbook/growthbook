@@ -2,11 +2,7 @@ import type { ExposureQuery } from "shared/types/datasource";
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { IncrementalRefreshInterface } from "shared/validators";
-import type {
-  QueryInterface,
-  QueryPointer,
-  RunQueryMetadata,
-} from "shared/types/query";
+import type { QueryInterface, QueryPointer } from "shared/types/query";
 import type { ExperimentInterface } from "shared/types/experiment";
 import {
   ExperimentIncrementalRefreshQueryRunner,
@@ -257,13 +253,10 @@ type BuilderCall = { method: string; args: Record<string, unknown> };
 function fakeIntegration(maxColumns: number): {
   integration: SourceIntegrationInterface;
   calls: Map<string, BuilderCall>;
-  runDropTableQuery: jest.Mock;
 } {
-  const runDropTableQuery = jest.fn().mockResolvedValue({ rows: [] });
   const calls = new Map<string, BuilderCall>();
   let n = 0;
   const base: Record<string, unknown> = {
-    runDropTableQuery,
     datasource: {
       id: "ds_1",
       type: "bigquery",
@@ -296,7 +289,7 @@ function fakeIntegration(maxColumns: number): {
       return undefined;
     },
   }) as unknown as SourceIntegrationInterface;
-  return { integration, calls, runDropTableQuery };
+  return { integration, calls };
 }
 
 type Recorded = StartQueryParams<unknown, unknown> & {
@@ -339,7 +332,7 @@ async function buildDag({
   state: IncrementalRefreshInterface | null;
   maxColumns?: number;
 }) {
-  const { integration, calls, runDropTableQuery } = fakeIntegration(maxColumns);
+  const { integration, calls } = fakeIntegration(maxColumns);
   const recorded: Recorded[] = [];
   const updateState = jest.fn().mockResolvedValue(true);
   const context = makeContext(state, updateState);
@@ -380,9 +373,6 @@ async function buildDag({
     recorded,
     calls,
     updateState,
-    runDropTableQuery,
-    models: context.models,
-    logger: context.logger,
   };
 }
 
@@ -509,68 +499,10 @@ describe("new-metrics update (new-metrics runs)", () => {
     expect(createdCaches(refresh)).toEqual(
       createdCaches(await updateDag([...BASE_METRICS, "r3"])),
     );
-    expect(namesOf(refresh).filter((n) => n.includes("stored0"))).toEqual([
-      "drop_replaced_metrics_source_ft_a_stored0",
-      "drop_replaced_metrics_covariate_table_ft_a_stored0",
-      "drop_replaced_metrics_source_ft_b_stored0",
-    ]);
+    expect(namesOf(refresh).filter((n) => n.includes("stored0"))).toEqual([]);
     expect(
       argsOf(refresh, "statistics_multi_").flatMap(metricIdsOf).sort(),
     ).toEqual(["r1", "r3"]);
-  });
-
-  it("drops each table it replaces once the replacement is recorded, never one the state still lists", async () => {
-    const state = baseState();
-    const refresh = await refreshDag(["a3"], { state });
-    const drops = refresh.recorded.filter((r) =>
-      r.name.startsWith("drop_replaced_"),
-    );
-    const builtA = refresh.recorded
-      .find((r) => r.name.startsWith("create_metrics_source_ft_a_"))
-      ?.name.replace("create_metrics_source_", "");
-    expect(
-      drops.map((r) => [
-        r.name,
-        r.dependencyNames,
-        refresh.calls.get(r.query)?.args.metricSourceTableFullName,
-      ]),
-    ).toEqual(
-      [
-        ["source", "proj.ds.gb_metrics_exp_1_ft_a_stored0"],
-        ["covariate_table", "proj.ds.gb_metrics_exp_1_ft_a_stored0_covariate"],
-      ].map(([kind, table]) => [
-        `drop_replaced_metrics_${kind}_ft_a_stored0`,
-        [
-          `max_timestamp_metrics_source_${builtA}`,
-          `insert_metrics_covariate_data_${builtA}`,
-        ],
-        table,
-      ]),
-    );
-
-    const runDrops = () =>
-      Promise.all(
-        drops.map((r) => r.run(r.query, jest.fn(), {} as RunQueryMetadata)),
-      );
-    await runDrops();
-    expect(refresh.runDropTableQuery).not.toHaveBeenCalled();
-
-    Object.assign(state, await finishWrites(refresh, baseState()));
-    await runDrops();
-    expect(refresh.runDropTableQuery.mock.calls.map((c) => c[0])).toEqual(
-      drops.map((r) => r.query),
-    );
-  });
-
-  it("drops the table a normal update replaced, and none when no cache was rebuilt", async () => {
-    const dropsOf = (dag: Dag) =>
-      namesOf(dag).filter((name) => name.startsWith("drop_replaced_"));
-
-    expect(dropsOf(await updateDag([...BASE_METRICS, "a3"]))).toEqual([
-      "drop_replaced_metrics_source_ft_a_stored0",
-      "drop_replaced_metrics_covariate_table_ft_a_stored0",
-    ]);
-    expect(dropsOf(await updateDag(BASE_METRICS))).toEqual([]);
   });
 
   it("lets the normal update that replaces a refused new-metrics update rebuild a metric edited since its cache was built", async () => {
@@ -598,43 +530,6 @@ describe("new-metrics update (new-metrics runs)", () => {
     expect(createdCaches(await updateDag([...BASE_METRICS, "c1"]))).toEqual([
       "ft_c:c1",
     ]);
-  });
-
-  describe("dropping a replaced table", () => {
-    const replacedSourceDrop = async (state: IncrementalRefreshInterface) => {
-      const refresh = await refreshDag(["a3"], { state });
-      Object.assign(state, await finishWrites(refresh, baseState()));
-      const drop = refresh.recorded.find(
-        (r) => r.name === "drop_replaced_metrics_source_ft_a_stored0",
-      );
-      if (!drop) throw new Error("no drop of the replaced source table");
-      return {
-        ...refresh,
-        runDrop: () => drop.run(drop.query, jest.fn(), {} as RunQueryMetadata),
-      };
-    };
-
-    it("keeps the table when the pipeline state cannot be read", async () => {
-      const refresh = await replacedSourceDrop(baseState());
-      jest
-        .mocked(refresh.models.incrementalRefresh.getLockedBySnapshotId)
-        .mockResolvedValue(null);
-
-      await expect(refresh.runDrop()).resolves.toEqual({ rows: [] });
-      expect(refresh.runDropTableQuery).not.toHaveBeenCalled();
-    });
-
-    it("logs the table it failed to drop, which no later run will drop", async () => {
-      const refresh = await replacedSourceDrop(baseState());
-      const failure = new Error("Access Denied");
-      refresh.runDropTableQuery.mockRejectedValue(failure);
-
-      await expect(refresh.runDrop()).rejects.toBe(failure);
-      expect(refresh.logger.error).toHaveBeenCalledWith(
-        failure,
-        "Failed to drop replaced metrics table proj.ds.gb_metrics_exp_1_ft_a_stored0",
-      );
-    });
   });
 
   describe("a fact table split across two caches", () => {
@@ -669,19 +564,6 @@ describe("new-metrics update (new-metrics runs)", () => {
       const [builtA] = argsOf(refresh, "create_metrics_source_").map((a) =>
         a.name.replace("create_metrics_source_", ""),
       );
-      expect(
-        refresh.recorded
-          .filter((r) => r.name.startsWith("drop_replaced_"))
-          .map((r) => [r.name, r.dependencyNames]),
-      ).toEqual([
-        [
-          "drop_replaced_metrics_source_ft_a_stored1",
-          [
-            `max_timestamp_metrics_source_${builtA}`,
-            `insert_metrics_covariate_data_${builtA}`,
-          ],
-        ],
-      ]);
       expect(
         argsOf(refresh, "statistics_multi_").map((a) => [
           a.name,
@@ -718,9 +600,6 @@ describe("new-metrics update (new-metrics runs)", () => {
         maxColumns: 118,
       });
       expect(createdCaches(refresh)).toEqual(["ft_a:a3,a3?dim:country=US,r1"]);
-      expect(
-        namesOf(refresh).filter((n) => n.startsWith("drop_replaced_")),
-      ).toEqual(["drop_replaced_metrics_source_ft_a_stored1"]);
     });
 
     it("opens a new cache alongside when no cache has room, and rebuilds none", async () => {
@@ -760,9 +639,6 @@ describe("new-metrics update (new-metrics runs)", () => {
       state: afterSecond,
     });
     expect(createdCaches(update)).toEqual([]);
-    expect(
-      namesOf(update).filter((n) => n.startsWith("drop_replaced_")),
-    ).toEqual([]);
   });
 
   it("refuses to keep a source under its id when its metrics would change", async () => {
