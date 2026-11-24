@@ -13,6 +13,8 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getSnapshotDataAsOfDate,
+  getAnalysisPValueCorrection,
+  getAnalysisPValueThreshold,
 } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -407,6 +409,9 @@ const Presentation = ({
       const experiment = e.experiment;
       const snapshot = e.snapshot;
       const phase = experiment.phases[snapshot.phase];
+      const currentThresholds =
+        significanceThresholdsByProject.get(experiment.project || "") ??
+        defaultSignificanceThresholds;
       const settingsForSnapshotMetrics =
         snapshot?.settings?.metricSettings?.map((m) => ({
           metric: m.id,
@@ -475,11 +480,13 @@ const Presentation = ({
             >
               <CompactResults
                 experimentId={experiment.id}
-                significanceThresholds={
-                  significanceThresholdsByProject.get(
-                    experiment.project || "",
-                  ) ?? defaultSignificanceThresholds
-                }
+                significanceThresholds={{
+                  ...currentThresholds,
+                  pValueThreshold: getAnalysisPValueThreshold(
+                    snapshot.analyses?.[0],
+                    currentThresholds.pValueThreshold,
+                  ),
+                }}
                 variations={getLatestPhaseVariations(experiment).map(
                   (v, i) => ({
                     id: v.key || v.index + "",
@@ -503,7 +510,10 @@ const Presentation = ({
                 metricOverrides={experiment.metricOverrides ?? []}
                 id={experiment.id}
                 statsEngine={snapshot?.analyses?.[0]?.settings?.statsEngine}
-                pValueCorrection={orgSettings?.pValueCorrection}
+                pValueCorrection={getAnalysisPValueCorrection(
+                  snapshot?.analyses?.[0],
+                  orgSettings?.pValueCorrection,
+                )}
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={
                   snapshot?.analyses?.[0]?.settings?.sequentialTesting

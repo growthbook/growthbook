@@ -3,6 +3,8 @@ export * from "./dimension-timing";
 export * from "./experiments";
 export * from "./adjustment-impact";
 export * from "./new-metrics-update";
+export * from "./analysis-alpha";
+export * from "./results/enrich";
 export * from "./metric-replacement";
 export * from "./outdated-reasons";
 export * from "./phases";

@@ -18,6 +18,8 @@ import {
   getLatestPhaseVariations,
   getNewMetricsUpdate,
   getSnapshotDataAsOfDate,
+  getAnalysisPValueCorrection,
+  getAnalysisPValueThreshold,
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
@@ -101,16 +103,10 @@ const Results: FC<{
 
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
 
-  // todo: move to snapshot property
   const orgSettings = useOrgSettings();
-  const pValueCorrection = orgSettings?.pValueCorrection;
 
   const bayesianConfidenceLevels = useConfidenceLevels(experiment.project);
-  const pValueThreshold = usePValueThreshold(experiment.project);
-  const significanceThresholds: SignificanceThresholds = {
-    bayesianConfidenceLevels,
-    pValueThreshold,
-  };
+  const currentPValueThreshold = usePValueThreshold(experiment.project);
 
   const {
     error,
@@ -125,6 +121,17 @@ const Results: FC<{
     mutate,
     loading: snapshotLoading,
   } = useSnapshot();
+  const pValueCorrection = getAnalysisPValueCorrection(
+    analysis,
+    orgSettings?.pValueCorrection,
+  );
+  const significanceThresholds: SignificanceThresholds = {
+    bayesianConfidenceLevels,
+    pValueThreshold: getAnalysisPValueThreshold(
+      analysis,
+      currentPValueThreshold,
+    ),
+  };
 
   // Child tables (BreakdownResults/CompactResults → BaselineChooserColumnLabel)
   // append analyses to the **current** snapshot in place, so the heavy

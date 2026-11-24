@@ -4,7 +4,6 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { MetricOverride } from "shared/types/experiment";
-import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import { FactTableDefinition } from "shared/types/fact-table";
 import {
   expandMetricGroups,
@@ -12,15 +11,13 @@ import {
   ExperimentSortBy,
   funnelStepMetricId,
   isFactFunnelMetric,
-  setAdjustedCIs,
-  setAdjustedPValuesOnResults,
   getSliceDataForMetric,
   SliceDataForMetric,
   generateSliceString,
   generateSelectAllSliceString,
   isMetricGroupId,
   resolveMetricsForSnapshot,
-  resolveSnapshotMetricIds,
+  restoreOpenAdjustedCI,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
@@ -64,13 +61,10 @@ export interface UseExperimentTableRowsParams {
   analysisBarSettings?: {
     variationFilter: number[];
   };
-  statsEngine: StatsEngine;
-  pValueCorrection?: PValueCorrection;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   shouldShowMetricSlices?: boolean;
   enableExpansion?: boolean;
   expandedMetrics: Record<string, boolean>;
-  pValueThreshold: number;
   newMetricStates?: Map<string, NewMetricRowState>;
 }
 
@@ -94,13 +88,10 @@ export function useExperimentTableRows({
   sortDirection,
   customMetricOrder,
   analysisBarSettings,
-  statsEngine,
-  pValueCorrection,
   settingsForSnapshotMetrics,
   shouldShowMetricSlices = true,
   enableExpansion: _enableExpansion = true,
   expandedMetrics,
-  pValueThreshold,
   newMetricStates,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
   const {
@@ -318,19 +309,6 @@ export function useExperimentTableRows({
     }
 
     if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
-    if (pValueCorrection && statsEngine === "frequentist") {
-      // Only include goals in calculation, not secondary or guardrails
-      setAdjustedPValuesOnResults(
-        [results],
-        resolveSnapshotMetricIds({
-          metricIds: expandedGoals,
-          getExperimentMetricById,
-          results: [results],
-        }),
-        pValueCorrection,
-      );
-      setAdjustedCIs([results], pValueThreshold);
-    }
 
     const metricDefs = expandedGoals
       .map(
@@ -438,9 +416,6 @@ export function useExperimentTableRows({
     expandedGuardrails,
     metricOverrides,
     settingsForSnapshotMetrics,
-    pValueCorrection,
-    pValueThreshold,
-    statsEngine,
     ready,
     ssrPolyfills,
     getExperimentMetricById,
@@ -651,14 +626,15 @@ export function generateRowsForMetric({
     variations: isLabelOnly
       ? noDataVariations()
       : resultsArray[0].variations.map((v) => {
-          return (
-            v.metrics?.[metricId] || {
-              users: 0,
-              value: 0,
-              cr: 0,
-              errorMessage: NO_DATA_ERROR_MESSAGE,
-            }
-          );
+          const stats = v.metrics?.[metricId];
+          return stats
+            ? restoreOpenAdjustedCI(stats)
+            : {
+                users: 0,
+                value: 0,
+                cr: 0,
+                errorMessage: NO_DATA_ERROR_MESSAGE,
+              };
         }),
     metricSnapshotSettings,
     resultGroup,

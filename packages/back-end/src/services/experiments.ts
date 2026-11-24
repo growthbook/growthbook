@@ -88,8 +88,6 @@ import {
   parseDimensionId,
   parseFunnelStepMetricId,
   parseSliceMetricId,
-  setAdjustedCIs,
-  setAdjustedPValuesOnResults,
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
@@ -180,7 +178,7 @@ import {
   ExperimentReportAnalysisSettings,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { StatsEngine } from "shared/types/stats";
+import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   ContextualBanditRefRule,
   ExperimentRefRule,
@@ -536,6 +534,7 @@ export function getDefaultExperimentAnalysisSettings({
   postStratificationEnabled,
   dimension,
   pValueThreshold,
+  pValueCorrection,
   metricGroups = [],
 }: {
   statsEngine: StatsEngine;
@@ -545,6 +544,7 @@ export function getDefaultExperimentAnalysisSettings({
   postStratificationEnabled?: boolean;
   dimension?: string;
   pValueThreshold?: number;
+  pValueCorrection?: PValueCorrection;
   metricGroups?: MetricGroupInterface[];
 }): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
@@ -585,6 +585,14 @@ export function getDefaultExperimentAnalysisSettings({
       pValueThreshold ??
       organization.settings?.pValueThreshold ??
       DEFAULT_P_VALUE_THRESHOLD,
+    // Always explicit: an analysis with no value here predates stored
+    // corrections and gets one computed when it is read.
+    pValueCorrection:
+      statsEngine !== "frequentist"
+        ? null
+        : pValueCorrection !== undefined
+          ? pValueCorrection
+          : (organization.settings?.pValueCorrection ?? null),
     numGoalMetrics: expandMetricGroups(
       experiment.goalMetrics ?? [],
       metricGroups,
@@ -615,6 +623,7 @@ export function getAdditionalExperimentAnalysisSettings(
     differenceType: "absolute",
     statsEngine: "frequentist",
     sequentialTesting: false,
+    pValueCorrection: null,
     useCovariateAsResponse: true,
   });
 
@@ -3242,6 +3251,7 @@ export async function planExperimentSnapshot({
     postStratificationEnabled,
     dimension,
     pValueThreshold: settings.pValueThreshold.value,
+    pValueCorrection: settings.pValueCorrection.value,
     metricGroups,
   });
 
@@ -6656,11 +6666,10 @@ function getLatestPhaseVariationId(
   return i + "";
 }
 
-// The corrected results the status was computed from, and their settings.
+// The results the status was computed from, and their settings.
 type ResultsStatusInputs = {
   variations: { metrics: Record<string, SnapshotMetric> }[];
   metricMap: Map<string, ExperimentMetricInterface>;
-  goalMetricIds: string[];
 } & Pick<
   AdjustmentImpactArgs,
   | "metricDefaults"
@@ -6669,7 +6678,6 @@ type ResultsStatusInputs = {
   | "ciUpper"
   | "ciLower"
   | "pValueThreshold"
-  | "pValueCorrection"
 >;
 
 // One event per results update: how many metrics each adjustment (CUPED,
@@ -6679,7 +6687,6 @@ function trackAdjustmentImpact({
   experimentId,
   variations,
   metricMap,
-  goalMetricIds,
   ...analysisSettings
 }: ResultsStatusInputs & { context: ReqContext; experimentId: string }) {
   try {
@@ -6716,7 +6723,6 @@ function trackAdjustmentImpact({
         .map(toMetricResults)
         .filter(isDefined),
       baselineIndex: 0,
-      goalMetrics: goalMetricIds.map(toMetricResults).filter(isDefined),
       settings,
     });
     const numFlagged = (field: SupplementalField) =>
@@ -6759,8 +6765,15 @@ export async function computeResultsStatus({
     "project" in experiment && typeof experiment.project === "string"
       ? experiment.project
       : undefined;
-  const { ciUpper, ciLower, pValueCorrection, pValueThreshold } =
-    await getSignificanceSettingsForProject(context, projectId);
+  const significance = await getSignificanceSettingsForProject(
+    context,
+    projectId,
+  );
+  const { ciUpper, ciLower } = significance;
+  // The threshold the analysis ran at, so that the status only changes when
+  // the results do.
+  const pValueThreshold =
+    analysis.settings.pValueThreshold ?? significance.pValueThreshold;
   const metricDefaults = getMetricDefaultsForOrg(context);
   const metricMap = await getMetricMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
@@ -6774,13 +6787,7 @@ export async function computeResultsStatus({
       ? expandMetricGroups(experiment.guardrailMetrics, metricGroups)
       : expandMetricGroups(experiment.guardrailMetricIds, metricGroups);
 
-  const results = cloneDeep(analysis.results);
-
-  // modifies results in place
-  setAdjustedPValuesOnResults(results, expandedGoalMetrics, pValueCorrection);
-  setAdjustedCIs(results, pValueThreshold);
-
-  const variations = results[0]?.variations;
+  const variations = analysis.results[0]?.variations;
   if (!variations || !variations.length) {
     return;
   }
@@ -6793,14 +6800,12 @@ export async function computeResultsStatus({
   onComputed?.({
     variations,
     metricMap,
-    goalMetricIds: expandedGoalMetrics,
     metricDefaults,
     statsEngine,
     differenceType,
     ciUpper,
     ciLower,
     pValueThreshold,
-    pValueCorrection,
   });
 
   const variationStatuses: ExperimentAnalysisSummaryVariationStatus[] = [];

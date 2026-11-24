@@ -10,10 +10,13 @@ import type {
   ExperimentInterface,
   ExperimentPhase,
 } from "shared/types/experiment";
-import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
 import type { OrganizationSettings } from "shared/types/organization";
-import type { StatsEngine } from "shared/types/stats";
+import type { PValueCorrection, StatsEngine } from "shared/types/stats";
 import { resolveAnalysisIdentifierType } from "../util/exposure-queries";
 import {
   expandMetricGroups,
@@ -21,6 +24,7 @@ import {
   getClusterSubUnit,
 } from "./experiments";
 import { getSnapshotDataAsOfDate } from "./new-metrics-update";
+import { isPValueCorrected } from "./results/enrich";
 import { getLatestPhaseVariations } from "./variations";
 
 export const EXPERIMENT_OUTDATED_REASON_LABELS = {
@@ -119,6 +123,8 @@ const RESULTS_OUTDATED_REASON_LABELS = {
   cluster_sub_unit: EXPERIMENT_OUTDATED_REASON_LABELS.clusterSubUnitIdentifier,
   attribution_model: EXPERIMENT_OUTDATED_REASON_LABELS.attributionModel,
   metrics_changed: "Metrics changed",
+  p_value_correction: "P-value correction changed",
+  goal_metrics_changed: "Goal metrics changed (p-value correction affected)",
   variations_changed: "Variations changed",
   analysis_dates_changed: "Analysis dates changed",
   p_value_threshold: "P-value threshold changed",
@@ -162,6 +168,54 @@ export type ResultsOutdatedExperiment = Pick<
     dateEnded?: string | Date;
   })[];
 };
+
+/**
+ * Why an analysis's stored multiple-testing correction no longer matches the
+ * experiment. The correction is computed when results update, from the method
+ * and the goal metrics at that time, so a change to either only shows up after
+ * the next update.
+ */
+export function getPValueCorrectionOutdatedReasons({
+  analysisSettings,
+  currentPValueCorrection,
+  snapshotGoalMetrics,
+  currentGoalMetrics,
+}: {
+  analysisSettings: Pick<
+    ExperimentSnapshotAnalysisSettings,
+    "statsEngine" | "dimensions" | "useCovariateAsResponse" | "pValueCorrection"
+  >;
+  currentPValueCorrection: PValueCorrection | undefined;
+  snapshotGoalMetrics: string[];
+  currentGoalMetrics: string[];
+}): Extract<
+  ResultsOutdatedReason,
+  "p_value_correction" | "goal_metrics_changed"
+>[] {
+  if (!isPValueCorrected(analysisSettings)) return [];
+
+  const reasons: ReturnType<typeof getPValueCorrectionOutdatedReasons> = [];
+  const current = currentPValueCorrection ?? null;
+  // An analysis that recorded no method is corrected with the current one
+  // each time it is read, so its method is never out of date.
+  const recorded = analysisSettings.pValueCorrection;
+  if (recorded !== undefined && recorded !== current) {
+    reasons.push("p_value_correction");
+  }
+
+  const applied = recorded !== undefined ? recorded : current;
+  const snapshotGoals = new Set(snapshotGoalMetrics);
+  const currentGoals = new Set(currentGoalMetrics);
+  if (
+    applied &&
+    (snapshotGoals.size !== currentGoals.size ||
+      [...snapshotGoals].some((id) => !currentGoals.has(id)))
+  ) {
+    reasons.push("goal_metrics_changed");
+  }
+
+  return reasons;
+}
 
 function isDifferent(
   val1?: string | boolean | number | null,
@@ -211,6 +265,7 @@ export function getResultsOutdatedReasons({
   orgSettings: Pick<
     OrganizationSettings,
     | "disablePrecomputedDimensions"
+    | "pValueCorrection"
     | "postStratificationEnabled"
     | "sequentialTestingEnabled"
     | "sequentialTestingTuningParameter"
@@ -313,6 +368,21 @@ export function getResultsOutdatedReasons({
   if (isStringArrayMissingElements(snapshotMetrics, experimentMetrics)) {
     reasons.push("metrics_changed");
   }
+
+  // Compared among the metrics the snapshot analyzed: a goal it lacks is
+  // already reported as "Metrics changed".
+  const goalsInSnapshot = (goalMetrics: string[]) =>
+    expandMetricGroups(goalMetrics, metricGroups).filter((m) =>
+      snapshotMetrics.includes(m),
+    );
+  reasons.push(
+    ...getPValueCorrectionOutdatedReasons({
+      analysisSettings,
+      currentPValueCorrection: org.pValueCorrection,
+      snapshotGoalMetrics: goalsInSnapshot(snapshotSettings.goalMetrics),
+      currentGoalMetrics: goalsInSnapshot(exp.goalMetrics),
+    }),
+  );
 
   if (
     isDifferentStringArray(

@@ -13,6 +13,7 @@ import {
   isFactFunnelMetric,
   getDefinitionMetricId,
   getSnapshotSideEffects,
+  isPValueCorrected,
 } from "shared/experiments";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
@@ -293,6 +294,11 @@ export async function updateExperimentAnalysisTimeSeries({
         sourcePhase: experimentSnapshot.phase,
         metricId,
         lastExperimentSettingsHash: experimentHash,
+        lastPValueCorrectionHash: getPValueCorrectionHash({
+          metricId,
+          snapshotSettings: experimentSnapshot.settings,
+          analysisSettings: baseAnalysis.settings,
+        }),
         lastMetricSettingsHash: getMetricSettingsHash(
           metricId,
           experimentSnapshot.settings.metricSettings.find(
@@ -379,6 +385,7 @@ function convertMetricToMetricValue(
     denominator: metric.denominator ?? undefined,
     expected: metric.expected ?? undefined,
     ci: metric.ci ?? undefined,
+    ciAdjusted: metric.ciAdjusted ?? undefined,
     pValue: metric.pValue ?? undefined,
     pValueAdjusted: metric.pValueAdjusted ?? undefined,
     chanceToWin: metric.chanceToWin ?? undefined,
@@ -427,8 +434,36 @@ function getExperimentSettingsHash(
     sequentialTestingTuningParameter:
       snapshotAnalysisSettings.sequentialTestingTuningParameter,
     baselineVariationIndex: snapshotAnalysisSettings.baselineVariationIndex,
-    pValueCorrection: snapshotAnalysisSettings.pValueCorrection,
   });
+}
+
+/**
+ * What a metric's multiple-testing-corrected values depend on beyond its raw
+ * results: the method and the goal metrics corrected together. Hashed apart
+ * from the experiment settings so that the raw series is not marked as changed
+ * when only these do.
+ */
+export function getPValueCorrectionHash({
+  metricId,
+  snapshotSettings,
+  analysisSettings,
+}: {
+  metricId: string;
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "goalMetrics">;
+  analysisSettings: Pick<
+    ExperimentSnapshotAnalysisSettings,
+    "statsEngine" | "dimensions" | "useCovariateAsResponse" | "pValueCorrection"
+  >;
+}): string {
+  const pValueCorrection = isPValueCorrected(analysisSettings)
+    ? (analysisSettings.pValueCorrection ?? null)
+    : null;
+  const goalMetrics = Array.from(new Set(snapshotSettings.goalMetrics)).sort();
+  return hashObject(
+    pValueCorrection && goalMetrics.includes(metricId)
+      ? { pValueCorrection, goalMetrics }
+      : { pValueCorrection: null },
+  );
 }
 
 export function getFiltersForHash(

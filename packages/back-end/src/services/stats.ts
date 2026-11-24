@@ -1,8 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import {
   BANDIT_SRM_DIMENSION_NAME,
-  BAYESIAN_CREDIBLE_INTERVAL_ALPHA,
-  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
@@ -11,6 +9,8 @@ import { parseEnvInt, putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
   eligibleForUncappedMetric,
+  enrichAnalysisResults,
+  getAnalysisAlpha,
   getFunnelStepMetrics,
   getMetricStatsEngineInputs,
   isBinomialMetric,
@@ -111,13 +111,6 @@ export function getAnalysisSettingsForStatsEngine(
   const sequentialTestingTuningParameterNumber =
     Number(settings.sequentialTestingTuningParameter) ||
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
-  const pValueThresholdNumber =
-    Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
-  // The threshold is a frequentist setting; Bayesian intervals stay at 95%.
-  const alpha =
-    settings.statsEngine === "bayesian"
-      ? BAYESIAN_CREDIBLE_INTERVAL_ALPHA
-      : pValueThresholdNumber;
 
   const analysisData: AnalysisSettingsForStatsEngine = {
     var_names: sortedVariations.map((v) => v.name),
@@ -126,19 +119,16 @@ export function getAnalysisSettingsForStatsEngine(
     baseline_index: settings.baselineVariationIndex ?? 0,
     dimension: settings.dimensions[0] || "",
     stats_engine: settings.statsEngine,
-    p_value_corrected: !!settings.pValueCorrection,
     sequential_testing_enabled: settings.sequentialTesting ?? false,
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
     difference_type: settings.differenceType,
     phase_length_days: phaseLengthDays,
-    alpha,
+    alpha: getAnalysisAlpha(settings),
     max_dimensions:
       parseDimensionId(settings.dimensions[0] || "").kind === "date"
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
-    num_goal_metrics: settings.numGoalMetrics,
-    num_guardrail_metrics: settings.numGuardrailMetrics ?? 0,
     one_sided_intervals: !!settings.oneSidedIntervals,
     use_covariate_as_response: !!settings.useCovariateAsResponse,
     post_stratification_enabled:
@@ -566,7 +556,10 @@ export function parseStatsEngineResult({
   result: metricResults,
 }: {
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
-  snapshotSettings: Pick<ExperimentSnapshotSettings, "variations">;
+  snapshotSettings: Pick<
+    ExperimentSnapshotSettings,
+    "variations" | "goalMetrics"
+  >;
   queryResults: QueryResultsForStatsEngine[];
   unknownVariations: string[];
   result: ExperimentMetricAnalysis;
@@ -730,6 +723,11 @@ export function parseStatsEngineResult({
         }
       });
     }
+    enrichAnalysisResults({
+      results: dimensions,
+      analysisSettings: analysisSettings[analysisIndex],
+      snapshotSettings,
+    });
     experimentReportResults.push({
       multipleExposures,
       unknownVariations: Array.from(new Set(unknownVariationsCopy)),

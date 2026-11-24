@@ -504,6 +504,7 @@ export async function createReportSnapshot({
     postStratificationEnabled,
     dimension: report.experimentAnalysisSettings.dimension,
     pValueThreshold: settings.pValueThreshold.value,
+    pValueCorrection: settings.pValueCorrection.value,
     metricGroups,
   });
 
