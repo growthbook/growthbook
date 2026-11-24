@@ -7,6 +7,8 @@ import type {
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
 import { getStatsEngineAnalysisSettings } from "shared/experiments";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { calculatePowerScalingFactor } from "shared/enterprise";
 import {
   getDefaultExperimentAnalysisSettings,
   getSnapshotSettings,
@@ -96,11 +98,27 @@ const planFullUpdate = (e: ExperimentInterface) => ({
   }),
 });
 
+const powerInputs = {
+  status: "successful",
+  firstPeriodPairwiseSampleSize: 1000,
+  sigmahat2Delta: 0.01,
+  targetMDE: 0.1,
+};
+const powerFor = (numGoalMetrics: number) => ({
+  ...powerInputs,
+  ...calculatePowerScalingFactor(powerInputs, {
+    alpha: 0.05,
+    numGoalMetrics,
+    sequential: false,
+    sequentialTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  }),
+});
+// Computed by the full update, which counted 3 goals.
 const withPower = {
   cr: 1,
   users: 10,
   value: 10,
-  power: { status: "successful", targetMDE: 0.1 },
+  power: powerFor(3),
 } as unknown as SnapshotMetric;
 
 // fact__device can't be joined to the exposure identifier, so the snapshot
@@ -146,11 +164,8 @@ describe("the goal counts of a new-metrics update with a listed goal that can't 
       analyzedMetricIds: new Set([...goalMetrics, ...queriedMetricIds]),
       newMetricIds: new Set(queriedMetricIds),
       variationWeights: [0.5, 0.5],
+      goalMetrics: plan.settings.goalMetrics,
       counts: updateScope.metricCounts,
-      getCountsComputedWith: () => ({
-        numGoalMetrics: root.defaultAnalysis.numGoalMetrics,
-        numGuardrailMetrics: root.defaultAnalysis.numGuardrailMetrics,
-      }),
     });
     return {
       settings: plan.settings,
@@ -187,7 +202,7 @@ describe("the goal counts of a new-metrics update with a listed goal that can't 
     expect(copiedPower).toEqual(withPower.power);
   });
 
-  it("drops copied power when a goal was added", () => {
+  it("rescales copied power for every listed goal when a goal was added", () => {
     const { updateScope, copiedPower } = update(
       experiment({
         goalMetrics: [...goalMetrics, "fact__c"],
@@ -197,6 +212,7 @@ describe("the goal counts of a new-metrics update with a listed goal that can't 
     );
 
     expect(updateScope.metricCounts.numGoalMetrics).toBe(4);
-    expect(copiedPower).toBeUndefined();
+    expect(copiedPower).toEqual(powerFor(4));
+    expect(copiedPower).not.toEqual(withPower.power);
   });
 });

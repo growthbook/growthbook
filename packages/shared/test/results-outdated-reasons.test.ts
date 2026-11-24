@@ -244,6 +244,55 @@ describe("getResultsOutdatedReasons", () => {
     expect(reasons(overrides)).toEqual([]);
   });
 
+  describe("a frequentist analysis that stored corrected p-values", () => {
+    const corrected = (goalMetrics: string[]): Partial<Input> => ({
+      statsEngine: "frequentist",
+      orgSettings: { pValueCorrection: "holm-bonferroni" },
+      snapshot: snapshot(
+        { goalMetrics },
+        {
+          analyses: [
+            {
+              settings: {
+                statsEngine: "frequentist",
+                dimensions: [],
+                pValueThreshold: 0.05,
+                regressionAdjusted: false,
+                postStratificationEnabled: false,
+                sequentialTesting: false,
+                pValueCorrection: "holm-bonferroni",
+              },
+            },
+          ] as Input["snapshot"]["analyses"],
+        },
+      ),
+    });
+
+    it("returns p_value_correction when the organization's method changed", () => {
+      expect(
+        reasons({
+          ...corrected(["fact__a"]),
+          orgSettings: { pValueCorrection: "benjamini-hochberg" },
+        }),
+      ).toEqual(["p_value_correction"]);
+    });
+
+    it("returns goal_metrics_changed when an analyzed goal metric was removed", () => {
+      expect(reasons(corrected(["fact__a", "fact__b"]))).toEqual([
+        "goal_metrics_changed",
+      ]);
+    });
+
+    it("returns only metrics_changed for a newly added goal metric", () => {
+      expect(
+        reasons({
+          ...corrected(["fact__a"]),
+          experiment: experiment({ goalMetrics: ["fact__a", "fact__b"] }),
+        }),
+      ).toEqual(["metrics_changed"]);
+    });
+  });
+
   it("measures a lagged running phase from the base update of a new-metrics update", () => {
     const now = Date.now();
     const runningExperiment = experiment({

@@ -212,8 +212,19 @@ describe("getNewMetricsUpdateRefusal", () => {
       ["metrics_changed", "newer_overall_results"],
     ],
     ["CUPED changed for an adjusted metric", ["metrics_changed", "cuped"]],
+    [
+      "the p-value correction method changed",
+      ["metrics_changed", "p_value_correction"],
+    ],
   ])("refuses when %s", (name, outdatedReasons) => {
     expect(refusal({ outdatedReasons })).toBe("settings_changed");
+  });
+
+  // The update corrects copied and new goal metrics together.
+  it("accepts the goal metrics that the corrected p-values cover changing", () => {
+    expect(
+      refusal({ outdatedReasons: ["metrics_changed", "goal_metrics_changed"] }),
+    ).toBeNull();
   });
 
   describe("a CUPED change", () => {

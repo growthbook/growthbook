@@ -24,6 +24,7 @@ import {
 } from "shared/types/report";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import type { MetricPriorSettings } from "shared/types/fact-table";
+import type { PValueCorrection } from "shared/types/stats";
 import { ApiReqContext } from "back-end/types/api";
 import {
   assertIncrementalRefreshPrerequisites,
@@ -2694,6 +2695,7 @@ describe("planExperimentSnapshot", () => {
           refresh: refreshChanges = {},
           editMetric,
           orgPrior,
+          correction,
           pipeline,
         }: {
           base?: Partial<ExperimentInterface>;
@@ -2704,6 +2706,13 @@ describe("planExperimentSnapshot", () => {
           orgPrior?: {
             base: MetricPriorSettings;
             refresh: MetricPriorSettings;
+          };
+          // Frequentist, with the organization's correction method at the
+          // base update, then today. A legacy parent recorded no method.
+          correction?: {
+            base: PValueCorrection;
+            refresh: PValueCorrection;
+            legacyParent?: boolean;
           };
           pipeline: "standard" | "incremental";
         },
@@ -2718,6 +2727,14 @@ describe("planExperimentSnapshot", () => {
           };
         };
         setOrgPrior(orgPrior?.base);
+        const setOrgCorrection = (pValueCorrection: PValueCorrection) => {
+          context.org.settings = {
+            ...context.org.settings,
+            statsEngine: "frequentist",
+            pValueCorrection,
+          };
+        };
+        if (correction) setOrgCorrection(correction.base);
         const exposure = datasource.settings.queries?.exposure ?? [];
         if (pipeline === "incremental") {
           datasource.settings.pipelineSettings = {
@@ -2777,8 +2794,17 @@ describe("planExperimentSnapshot", () => {
             integration,
           );
         const storedSql = await sqlFor(parentPlan.snapshot.settings);
+        const planned = asParent(parentPlan.snapshot);
         const parent = {
-          ...asParent(parentPlan.snapshot),
+          ...planned,
+          ...(correction?.legacyParent
+            ? {
+                analyses: planned.analyses.map((a) => ({
+                  ...a,
+                  settings: { ...a.settings, pValueCorrection: undefined },
+                })),
+              }
+            : {}),
           ...(pipeline === "incremental"
             ? { runnerKind: "incremental-update" as const }
             : {}),
@@ -2828,6 +2854,7 @@ describe("planExperimentSnapshot", () => {
           getMetricMapMock.mockImplementation(async () => new Map(edited));
         }
         setOrgPrior(orgPrior?.refresh);
+        if (correction) setOrgCorrection(correction.refresh);
 
         jest.setSystemTime(refreshTime);
         const experiment = {
@@ -3076,6 +3103,70 @@ describe("planExperimentSnapshot", () => {
           });
         },
       );
+
+      // The update corrects copied and new goal metrics together with the
+      // method the parent recorded. A legacy parent is corrected on each read
+      // with today's method, so it only extends while none applies.
+      describe("with a frequentist correction method", () => {
+        it("refuses, and the app doesn't offer it, when the parent's method was turned off", async () => {
+          const { reasons, offered, plan } = await outdatedRefresh(
+            makeFixture(),
+            {
+              correction: { base: "holm-bonferroni", refresh: null },
+              pipeline: "standard",
+            },
+          );
+
+          expect(reasons).toEqual(["metrics_changed", "p_value_correction"]);
+          expect(offered).toBe(false);
+          await expect(plan).rejects.toMatchObject({
+            details: { reason: "settings_changed" },
+          });
+        });
+
+        it("plans it, and the app offers it, for a parent that recorded no method while none applies", async () => {
+          const { reasons, offered, plan } = await outdatedRefresh(
+            makeFixture(),
+            {
+              correction: { base: null, refresh: null, legacyParent: true },
+              pipeline: "standard",
+            },
+          );
+
+          expect(reasons).toEqual(["metrics_changed"]);
+          expect(offered).toBe(true);
+          await expect(plan).resolves.toMatchObject({
+            snapshot: { updateScope: { queriedMetricIds: ["fact__guard"] } },
+          });
+        });
+
+        const legacyParentWithMethod = () =>
+          outdatedRefresh(makeFixture(), {
+            correction: {
+              base: null,
+              refresh: "holm-bonferroni",
+              legacyParent: true,
+            },
+            pipeline: "standard",
+          });
+
+        it("refuses a parent that recorded no method once one applies", async () => {
+          const { plan } = await legacyParentWithMethod();
+
+          await expect(plan).rejects.toMatchObject({
+            details: { reason: "settings_changed" },
+          });
+        });
+
+        // Known gap: no Outdated reason covers it, so the app offers an update
+        // the planner refuses (the app then falls back to a full update).
+        it.failing("the app doesn't offer it either", async () => {
+          const { reasons, offered } = await legacyParentWithMethod();
+
+          expect(reasons).toEqual(["metrics_changed"]);
+          expect(offered).toBe(false);
+        });
+      });
     });
   });
 });
