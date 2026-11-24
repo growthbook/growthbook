@@ -337,11 +337,20 @@ export function getMetricSettingsForStatsEngine(
     denominator = metric;
   }
 
-  const inputs = getMetricStatsEngineInputs(metric, settings);
+  const inputs = getMetricStatsEngineInputs(
+    metric.id,
+    {
+      properPrior: metric.priorSettings.proper,
+      properPriorMean: metric.priorSettings.mean,
+      properPriorStdDev: metric.priorSettings.stddev,
+      targetMDE: metric.targetMDE,
+    },
+    settings,
+  );
   return {
     id: metric.id,
     name: metric.name,
-    inverse: inputs.inverse,
+    inverse: !!metric.inverse,
     statistic_type:
       quantileMetric === "unit"
         ? "quantile_unit"

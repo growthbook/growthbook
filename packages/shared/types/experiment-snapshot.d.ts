@@ -6,7 +6,6 @@ import {
   AnalysisMetaEntry,
 } from "shared/snapshot-analysis-chunks";
 import {
-  BusinessMetricTypeForStatsEngine,
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
   DifferenceType,
@@ -122,20 +121,6 @@ export interface MetricForSnapshot {
   };
 }
 
-/**
- * A metric's settings that change its statistics without changing its result
- * query SQL or its Incremental Pipeline settings hash. The stats engine's
- * settings for the metric are built from them, and a new-metrics update
- * compares all but `inverse` to tell whether a result it would copy is stale.
- */
-export interface MetricStatsEngineInputs {
-  inverse: boolean;
-  properPrior: boolean;
-  properPriorMean: number;
-  properPriorStdDev: number;
-  targetMDE: number;
-  businessMetricTypes: BusinessMetricTypeForStatsEngine[];
-}
 export interface DimensionForSnapshot {
   /** Encodes type and id (e.g. `exp:country`, `pre:date`). */
   id: string;

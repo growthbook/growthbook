@@ -1,22 +1,18 @@
 import { DEFAULT_TARGET_MDE } from "shared/constants";
-import type {
-  ExperimentSnapshotSettings,
-  MetricStatsEngineInputs,
-} from "shared/types/experiment-snapshot";
-import type { ExperimentMetricDefinition } from "../experiments";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 
 export type BusinessMetricLists = Pick<
   ExperimentSnapshotSettings,
   "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
 >;
 
-type StatsEngineInputsSettings = Pick<
-  ExperimentSnapshotSettings,
-  "metricSettings" | "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
->;
-
-/** The inputs taken from stored or computed priors and the metric's roles. */
-export function getPriorAndRoleInputs(
+/**
+ * The stats engine's settings for a metric that change its statistics without
+ * changing its result query SQL or its Incremental Pipeline settings hash. A
+ * new-metrics update compares them to tell whether a result it would copy is
+ * stale, so both are built here.
+ */
+export function getMetricStatsEngineInputs(
   metricId: string,
   priors: {
     properPrior: boolean;
@@ -25,7 +21,7 @@ export function getPriorAndRoleInputs(
     targetMDE?: number;
   },
   settings: BusinessMetricLists,
-): Omit<MetricStatsEngineInputs, "inverse"> {
+) {
   return {
     properPrior: priors.properPrior,
     properPriorMean: priors.properPriorMean,
@@ -40,35 +36,5 @@ export function getPriorAndRoleInputs(
         ? ("guardrail" as const)
         : null,
     ].filter((type) => type !== null),
-  };
-}
-
-/**
- * The inputs the stats engine reads for a metric of a snapshot with these
- * settings. Its computed settings override the definition's priors and target
- * MDE, as they do before the stats engine runs.
- */
-export function getMetricStatsEngineInputs(
-  metric: Pick<
-    ExperimentMetricDefinition,
-    "id" | "inverse" | "priorSettings" | "targetMDE"
-  >,
-  settings: StatsEngineInputsSettings,
-): MetricStatsEngineInputs {
-  const computed = settings.metricSettings.find(
-    (m) => m.id === metric.id,
-  )?.computedSettings;
-  return {
-    inverse: !!metric.inverse,
-    ...getPriorAndRoleInputs(
-      metric.id,
-      computed ?? {
-        properPrior: metric.priorSettings.proper,
-        properPriorMean: metric.priorSettings.mean,
-        properPriorStdDev: metric.priorSettings.stddev,
-        targetMDE: metric.targetMDE,
-      },
-      settings,
-    ),
   };
 }

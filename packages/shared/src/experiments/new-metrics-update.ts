@@ -10,7 +10,6 @@ import type {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
-  MetricStatsEngineInputs,
   SnapshotNewMetricsUpdate,
   SnapshotQueryRunnerKind,
 } from "shared/types/experiment-snapshot";
@@ -33,7 +32,7 @@ import {
 import type { ResultsOutdatedReason } from "./outdated-reasons";
 import {
   type BusinessMetricLists,
-  getPriorAndRoleInputs,
+  getMetricStatsEngineInputs,
 } from "./results/stats-engine-inputs";
 
 /**
@@ -580,11 +579,13 @@ export function getPlannedCopiedMetricSettings({
 function getStoredStatsEngineInputs(
   settings: ParentMetricSettings,
   metricId: string,
-): Omit<MetricStatsEngineInputs, "inverse"> | null {
+) {
   const computed = settings.metricSettings.find(
     (m) => m.id === metricId,
   )?.computedSettings;
-  return computed ? getPriorAndRoleInputs(metricId, computed, settings) : null;
+  return computed
+    ? getMetricStatsEngineInputs(metricId, computed, settings)
+    : null;
 }
 
 /**

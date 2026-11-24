@@ -16,7 +16,6 @@ import {
   getSnapshotSideEffects,
   haveStatsEngineInputsChanged,
 } from "../src/experiments/new-metrics-update";
-import { getMetricStatsEngineInputs } from "../src/experiments/results/stats-engine-inputs";
 
 function snapshotSettingsFor(metricIds: string[]) {
   return {
@@ -340,41 +339,6 @@ describe("stats engine inputs", () => {
     secondaryMetrics: [],
     guardrailMetrics: ["met_a"],
   };
-
-  it("reads the snapshot's computed priors and target MDE over the definition's", () => {
-    expect(
-      getMetricStatsEngineInputs({ ...metric, inverse: true }, {
-        ...lists,
-        metricSettings: [
-          {
-            id: "met_a",
-            computedSettings: {
-              properPrior: true,
-              properPriorMean: 0.1,
-              properPriorStdDev: 0.5,
-            },
-          },
-        ],
-      } as unknown as Parameters<typeof getMetricStatsEngineInputs>[1]),
-    ).toEqual({
-      inverse: true,
-      properPrior: true,
-      properPriorMean: 0.1,
-      properPriorStdDev: 0.5,
-      targetMDE: 0.1,
-      businessMetricTypes: ["goal", "guardrail"],
-    });
-  });
-
-  it("falls back to the definition without computed settings", () => {
-    expect(
-      getMetricStatsEngineInputs(metric, { ...lists, metricSettings: [] }),
-    ).toMatchObject({
-      properPrior: false,
-      properPriorStdDev: 0.3,
-      targetMDE: 0.2,
-    });
-  });
 
   describe("getPlannedCopiedMetricSettings", () => {
     const experiment: Parameters<
