@@ -39,6 +39,7 @@ import {
   assertFlagLinkable,
   prevalidateFlagLink,
   flagHoldsExperimentRule,
+  getFlagsMissingNewVariations,
   assertFlagKeepable,
   assertFlagRemovable,
   keepFlagInExperiment,
@@ -706,22 +707,16 @@ async function assertNewVariationsCovered(
       "Keep a Feature Flag in a save of its own, before adding variations.",
     );
   }
-  const covered = new Set([
-    ...(body.flagValues ?? []).map((f) => f.featureId),
-    ...(body.linkFeatures ?? []).map((f) => f.featureId),
-    ...(body.unlinkFeatures ?? []),
-  ]);
-  const missing: string[] = [];
-  for (const id of experiment.linkedFeatures ?? []) {
-    if (covered.has(id)) continue;
-    const feature = await getFeature(context, id);
-    if (
-      feature &&
-      (await flagHoldsExperimentRule(context, feature, experiment.id))
-    ) {
-      missing.push(id);
-    }
-  }
+  const missing = await getFlagsMissingNewVariations(
+    context,
+    experiment,
+    planned.variations.map((v) => v.id),
+    [
+      ...(body.flagValues ?? []).map((f) => f.featureId),
+      ...(body.linkFeatures ?? []).map((f) => f.featureId),
+      ...(body.unlinkFeatures ?? []),
+    ],
+  );
   if (missing.length) {
     throw new BadRequestError(
       `Give each linked Feature Flag a value for the new variations: ${missing.join(", ")}.`,
