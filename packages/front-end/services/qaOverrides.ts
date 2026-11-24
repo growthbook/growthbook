@@ -2,6 +2,7 @@ import {
   ExperimentQaOverrideAssignment,
   ExperimentQaOverrideInterface,
   QaOverrideFilters,
+  QaOverrideStaleSdkConnection,
 } from "shared/types/experiment-qa-override";
 import { SavedGroupTargeting } from "shared/validators";
 import {
@@ -11,6 +12,11 @@ import {
 } from "shared/util";
 import groupBy from "lodash/groupBy";
 import { jsonToConds } from "@/services/features";
+
+export const QA_OVERRIDES_SECTION_ID = "qa-overrides";
+
+export const qaOverridesCountLabel = (count: number) =>
+  count === 1 ? "1 QA override" : `${count} QA overrides`;
 
 export type QaOverrideGroup<T> = {
   environment: string;
@@ -60,6 +66,29 @@ export type QaOverrideNameLookups = {
   projectName: (id: string) => string;
   operatorText: (operator: string) => string;
 };
+
+const STALE_SDK_CONNECTION_SUFFIX = {
+  archived: "archived",
+  "other-environment": "in another environment",
+} as const;
+
+// A deleted connection has no name left, so the label stands in for it.
+export function withStaleSdkConnections(
+  lookups: QaOverrideNameLookups,
+  stale: QaOverrideStaleSdkConnection[],
+): QaOverrideNameLookups {
+  if (!stale.length) return lookups;
+  const reasons = new Map(stale.map((c) => [c.id, c.reason]));
+  return {
+    ...lookups,
+    sdkConnectionName: (id) => {
+      const reason = reasons.get(id);
+      if (!reason) return lookups.sdkConnectionName(id);
+      if (reason === "deleted") return "Deleted SDK Connection";
+      return `${lookups.sdkConnectionName(id)} (${STALE_SDK_CONNECTION_SUFFIX[reason]})`;
+    },
+  };
+}
 
 export type QaOverrideAudienceSegment = {
   kind: QaOverrideFilterKind;
@@ -249,21 +278,22 @@ export type QaOverrideFormValues = {
   projects: string[];
   assignmentType: ExperimentQaOverrideAssignment["type"] | "";
   forcedVariationId: string;
-  // Random assignment only: serve the experiment's own targeting, or replace
-  // it with the attribute and Saved Group filters above.
+  // Only read for random assignment.
   targetingMode: QaOverrideTargetingMode;
 };
 
 export type QaOverrideTargetingMode = "experiment" | "custom";
 
-// Attribute and Saved Group filters say who sees the override. The others
-// say which SDK Connections receive it.
+// Who sees the override, as opposed to which SDK Connections receive it.
 export const QA_OVERRIDE_TARGETING_KINDS: QaOverrideFilterKind[] = [
   "condition",
   "savedGroups",
 ];
+export const QA_OVERRIDE_WHERE_KINDS: QaOverrideFilterKind[] = [
+  "sdkConnections",
+  "projects",
+];
 
-// A forced variation always uses the override's own targeting.
 export function qaOverrideFormUsesOwnTargeting(
   values: Pick<QaOverrideFormValues, "assignmentType" | "targetingMode">,
 ): boolean {
@@ -290,8 +320,7 @@ export function qaOverrideFormDefaults(
     "environment" | "filters" | "assignment"
   >,
   defaultEnvironment = "",
-  // When given, a forced variation that is no longer one of these starts
-  // empty, so it has to be picked again.
+  // A forced variation that isn't one of these starts empty.
   variationIds?: string[],
 ): QaOverrideFormValues {
   const forcedVariationId =
@@ -384,8 +413,6 @@ export function isQaOverrideFormComplete(
   if (values.assignmentType === "forced" && !values.forcedVariationId)
     return false;
   const ownTargeting = qaOverrideFormUsesOwnTargeting(values);
-  // Targeting filters left over from custom mode aren't saved, so they
-  // can't hold the form up.
   const used = values.filters.filter(
     (kind) => ownTargeting || !QA_OVERRIDE_TARGETING_KINDS.includes(kind),
   );

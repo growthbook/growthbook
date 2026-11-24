@@ -5,9 +5,6 @@ import {
 } from "shared/experiments";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 
-// What an override with no targeting of its own serves: the experiment's
-// attribute targeting, Saved Groups and prerequisites, as the Implementation
-// panel shows them.
 export default function QaOverrideExperimentTargeting({
   phase,
 }: {

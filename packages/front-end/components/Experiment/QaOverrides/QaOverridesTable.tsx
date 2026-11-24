@@ -15,7 +15,11 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-override";
 import { qaOverrideHasOwnTargeting } from "shared/util";
-import { QaOverrideGroup, QaOverrideNameLookups } from "@/services/qaOverrides";
+import {
+  QaOverrideGroup,
+  QaOverrideNameLookups,
+  withStaleSdkConnections,
+} from "@/services/qaOverrides";
 import useSortableItem from "@/hooks/useSortableItem";
 import FunnelStepDragHandle from "@/components/FactTables/FunnelStepDragHandle";
 import Text from "@/ui/Text";
@@ -37,25 +41,26 @@ import QaOverrideAudience from "./QaOverrideAudience";
 import QaOverrideStatusBadge from "./QaOverrideStatusBadge";
 import styles from "./QaOverridesTable.module.scss";
 
-export type QaOverrideRow = {
-  override: ExperimentQaOverrideWithStatus;
-  variations: { id: string; name: string }[];
-};
+type Override = ExperimentQaOverrideWithStatus;
 
 export type QaOverridesTableProps = {
-  groups: QaOverrideGroup<QaOverrideRow>[];
+  groups: QaOverrideGroup<Override>[];
+  variations: { id: string; name: string }[];
   grouped?: boolean;
   reorderable?: boolean;
   lookups: QaOverrideNameLookups;
-  canEdit: (row: QaOverrideRow) => boolean;
-  onEdit: (row: QaOverrideRow) => void;
-  onRemove: (row: QaOverrideRow) => Promise<void>;
-  removeConfirmation: (row: QaOverrideRow) => string;
+  canEdit: (override: Override) => boolean;
+  onEdit: (override: Override) => void;
+  onRemove: (override: Override) => Promise<void>;
+  removeConfirmation: (override: Override) => string;
   onReorder?: (environment: string, orderedIds: string[]) => Promise<void>;
 };
 
-function VariationCell({ row }: { row: QaOverrideRow }) {
-  const { assignment } = row.override;
+function VariationCell({
+  override,
+  variations,
+}: Pick<QaOverridesTableProps, "variations"> & { override: Override }) {
+  const { assignment } = override;
   if (assignment.type === "random") {
     return (
       <Text size="inherit" color="text-mid">
@@ -63,9 +68,7 @@ function VariationCell({ row }: { row: QaOverrideRow }) {
       </Text>
     );
   }
-  const index = row.variations.findIndex(
-    (v) => v.id === assignment.variationId,
-  );
+  const index = variations.findIndex((v) => v.id === assignment.variationId);
   if (index < 0)
     return (
       <Text size="inherit" color="text-mid" fontStyle="italic">
@@ -73,16 +76,13 @@ function VariationCell({ row }: { row: QaOverrideRow }) {
       </Text>
     );
   return (
-    <VariationLabel
-      number={index}
-      name={row.variations[index].name}
-      size="sm"
-    />
+    <VariationLabel number={index} name={variations[index].name} size="sm" />
   );
 }
 
 function RowCells({
-  row,
+  override,
+  variations,
   priority,
   grouped,
   handle,
@@ -93,12 +93,13 @@ function RowCells({
   onRemove,
   removeConfirmation,
 }: {
-  row: QaOverrideRow;
+  override: Override;
   priority: number;
   handle: ReactNode;
   showActions: boolean;
 } & Pick<
   QaOverridesTableProps,
+  | "variations"
   | "grouped"
   | "lookups"
   | "canEdit"
@@ -106,23 +107,11 @@ function RowCells({
   | "onRemove"
   | "removeConfirmation"
 >) {
-  const editable = canEdit(row);
-  const { override } = row;
-  // A deleted connection has no name left to show.
-  const deleted = new Set(
-    override.staleSdkConnections
-      .filter((c) => c.reason === "deleted")
-      .map((c) => c.id),
+  const editable = canEdit(override);
+  const rowLookups = withStaleSdkConnections(
+    lookups,
+    override.staleSdkConnections,
   );
-  const rowLookups = deleted.size
-    ? {
-        ...lookups,
-        sdkConnectionName: (id: string) =>
-          deleted.has(id)
-            ? "Deleted SDK Connection"
-            : lookups.sdkConnectionName(id),
-      }
-    : lookups;
   return (
     <>
       {handle !== null && <TableCell>{handle}</TableCell>}
@@ -135,16 +124,15 @@ function RowCells({
       ) : (
         <TableCell>
           <Text size="inherit" weight="medium">
-            {row.override.environment}
+            {override.environment}
           </Text>
         </TableCell>
       )}
       <TableCell>
         <QaOverrideAudience
           variant="inline"
-          filters={row.override.filters}
-          environment={row.override.environment}
-          // An override with targeting of its own replaces the experiment's.
+          filters={override.filters}
+          environment={override.environment}
           usesExperimentTargeting={
             override.assignment.type === "random" &&
             !qaOverrideHasOwnTargeting(override.filters)
@@ -153,12 +141,12 @@ function RowCells({
         />
       </TableCell>
       <TableCell>
-        <VariationCell row={row} />
+        <VariationCell override={override} variations={variations} />
       </TableCell>
       <TableCell>
         <QaOverrideStatusBadge
           override={override}
-          onEdit={editable ? () => onEdit(row) : undefined}
+          onEdit={editable ? () => onEdit(override) : undefined}
         />
       </TableCell>
       {showActions && (
@@ -170,7 +158,7 @@ function RowCells({
                 menuPlacement="end"
                 variant="soft"
               >
-                <DropdownMenuItem onClick={() => onEdit(row)}>
+                <DropdownMenuItem onClick={() => onEdit(override)}>
                   Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -179,9 +167,10 @@ function RowCells({
                     confirmationTitle: "Remove this QA override?",
                     cta: "Remove",
                     ctaColor: "red",
-                    getConfirmationContent: async () => removeConfirmation(row),
+                    getConfirmationContent: async () =>
+                      removeConfirmation(override),
                     // Let errors propagate so the dialog shows them inline.
-                    submit: () => onRemove(row),
+                    submit: () => onRemove(override),
                   }}
                 >
                   Remove
@@ -223,11 +212,12 @@ function Group({
   columns,
   ...cells
 }: {
-  group: QaOverrideGroup<QaOverrideRow>;
+  group: QaOverrideGroup<Override>;
   columns: number;
   reorderable: boolean;
 } & Pick<
   QaOverridesTableProps,
+  | "variations"
   | "grouped"
   | "lookups"
   | "canEdit"
@@ -242,25 +232,29 @@ function Group({
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
-  const ids = group.rows.map((r) => r.item.override.id);
+  const ids = group.rows.map((r) => r.item.id);
   const canDrag =
     reorderable &&
     ids.length > 1 &&
     group.rows.every((r) => cells.canEdit(r.item));
 
-  const rows = group.rows.map(({ item: row, priority }) => {
-    const { override } = row;
+  const rows = group.rows.map(({ item: override, priority }) => {
     const label = `override ${priority} in ${group.environment}`;
     return canDrag ? (
       <SortableRow key={override.id} id={override.id} label={label}>
         {(handle) => (
-          <RowCells row={row} priority={priority} handle={handle} {...cells} />
+          <RowCells
+            override={override}
+            priority={priority}
+            handle={handle}
+            {...cells}
+          />
         )}
       </SortableRow>
     ) : (
       <TableRow key={override.id} className={styles.row}>
         <RowCells
-          row={row}
+          override={override}
           priority={priority}
           // Keeps the column count when another group is draggable.
           handle={reorderable ? <span /> : null}
@@ -314,6 +308,7 @@ function Group({
 
 export default function QaOverridesTable({
   groups,
+  variations,
   grouped = false,
   reorderable = false,
   lookups,
@@ -360,6 +355,7 @@ export default function QaOverridesTable({
             key={group.environment}
             group={group}
             columns={columns}
+            variations={variations}
             grouped={grouped}
             reorderable={showHandles}
             showActions={showActions}

@@ -1,43 +1,17 @@
-import { useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { QaOverrideFilters } from "shared/types/experiment-qa-override";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import {
   QaOverrideFilterKind,
   QaOverrideNameLookups,
   qaOverrideAudienceParts,
   summarizeQaOverrideAudience,
 } from "@/services/qaOverrides";
-import ConditionDisplay, {
-  operatorToText,
-} from "@/components/Features/ConditionDisplay";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import styles from "./QaOverrides.module.scss";
-
-type NamedConnection = { id: string; name: string };
-
-export function useQaOverrideNameLookups(
-  connections?: NamedConnection[],
-): QaOverrideNameLookups {
-  const { getSavedGroupById, getProjectById } = useDefinitions();
-  const { data: connectionData } = useSDKConnections();
-  return useMemo(
-    () => ({
-      savedGroupName: (id) => getSavedGroupById(id)?.groupName ?? id,
-      projectName: (id) => getProjectById(id)?.name ?? id,
-      sdkConnectionName: (id) =>
-        connections?.find((c) => c.id === id)?.name ??
-        connectionData?.connections?.find((c) => c.id === id)?.name ??
-        id,
-      operatorText: (operator) => operatorToText({ operator }),
-    }),
-    [connections, connectionData, getProjectById, getSavedGroupById],
-  );
-}
 
 function QaOverrideAnd() {
   return (
@@ -77,7 +51,9 @@ export default function QaOverrideAudience({
       aria-label={sentence ? "Who sees it summary" : undefined}
       align="baseline"
       wrap="wrap"
-      style={{ columnGap: 6, rowGap: 2, minWidth: 0 }}
+      gapX="2"
+      gapY="1"
+      minWidth="0"
     >
       {parts.map((part, i) => {
         if (part.type === "and") return <QaOverrideAnd key={i} />;
@@ -94,7 +70,7 @@ export default function QaOverrideAudience({
                 side="top"
                 align="start"
                 trigger={
-                  // A real button, so the keyboard can open it.
+                  // A real button, so Enter and Space open it.
                   <Link
                     color="inherit"
                     underline="none"
@@ -106,7 +82,7 @@ export default function QaOverrideAudience({
                   </Link>
                 }
                 content={
-                  <Flex direction="column" style={{ maxWidth: 420 }}>
+                  <Flex direction="column" maxWidth="420px">
                     <ConditionDisplay condition={filters.condition} />
                   </Flex>
                 }

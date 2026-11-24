@@ -4,7 +4,6 @@ import { LinkedFeatureInfo } from "shared/types/experiment";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { getQaOverrideWaitingFeatures } from "shared/util";
 import {
-  QA_OVERRIDE_FILTER_KINDS,
   QaOverrideFilterKind,
   QaOverrideFormValues,
   buildQaOverrideBody,
@@ -12,16 +11,6 @@ import {
   qaOverrideBodyEquals,
   qaOverrideFormDefaults,
 } from "@/services/qaOverrides";
-
-export const QA_OVERRIDE_FILTER_META: Record<
-  QaOverrideFilterKind,
-  { label: string }
-> = {
-  condition: { label: "Attribute" },
-  savedGroups: { label: "Saved Groups" },
-  sdkConnections: { label: "SDK Connections" },
-  projects: { label: "Projects" },
-};
 
 export default function useQaOverrideForm({
   existing,
@@ -63,15 +52,20 @@ export default function useQaOverrideForm({
     const empty = qaOverrideFormDefaults();
     form.setValue(kind, empty[kind]);
   };
+  // For a field that counts as a filter only while it has a value.
+  const setFilterActive = (kind: QaOverrideFilterKind, active: boolean) => {
+    const current = form.getValues("filters");
+    if (active === current.includes(kind)) return;
+    form.setValue(
+      "filters",
+      active ? [...current, kind] : current.filter((k) => k !== kind),
+    );
+  };
   const setEnvironment = (environment: string) => {
     form.setValue("environment", environment);
-    // SDK Connections belong to one environment.
     form.setValue("sdkConnections", []);
   };
 
-  const availableFilters = QA_OVERRIDE_FILTER_KINDS.filter(
-    (k) => !values.filters.includes(k),
-  );
   const waitingFeatures = useMemo(
     () =>
       values.environment
@@ -98,8 +92,8 @@ export default function useQaOverrideForm({
     values,
     addFilter,
     removeFilter,
+    setFilterActive,
     setEnvironment,
-    availableFilters,
     waitingFeatures,
     body,
     canSave: complete && dirty,

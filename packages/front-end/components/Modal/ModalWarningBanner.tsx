@@ -33,7 +33,6 @@ export default function ModalWarningBanner({
         />
       </Box>
     ) : null;
-  // The same colors and icons Callout and HelperText use for a status.
   const color = getRadixColor(status);
   return (
     <Flex

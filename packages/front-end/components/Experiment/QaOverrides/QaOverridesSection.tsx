@@ -11,6 +11,7 @@ import { experimentHasLinkedChanges } from "shared/util";
 import { useAuth } from "@/services/auth";
 import useExperimentQaOverrides from "@/hooks/useExperimentQaOverrides";
 import {
+  QA_OVERRIDES_SECTION_ID,
   groupQaOverrides,
   qaOverridesNeedGrouping,
 } from "@/services/qaOverrides";
@@ -23,9 +24,8 @@ import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import QaOverrideModal from "./QaOverrideModal";
-import QaOverridesTable, { QaOverrideRow } from "./QaOverridesTable";
-import { useQaOverrideNameLookups } from "./QaOverrideAudience";
-import { QA_OVERRIDES_SECTION_ID } from "./QaActiveChip";
+import QaOverridesTable from "./QaOverridesTable";
+import useQaOverrideNameLookups from "./useQaOverrideNameLookups";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 
 const MATCH_TABLE_WIDTH = { contain: "inline-size" } as const;
@@ -44,7 +44,7 @@ export default function QaOverridesSection({
   linkedFeatures?: LinkedFeatureInfo[];
 }) {
   const { apiCall } = useAuth();
-  const { data, error, mutate } = useExperimentQaOverrides(experiment.id);
+  const { data, error, mutate } = useExperimentQaOverrides(experiment);
   const { environmentOrder, eligibleEnvironments, canEditIn, canAdd } =
     useQaOverridePermissions(experiment);
   const lookups = useQaOverrideNameLookups(data?.sdkConnections);
@@ -58,21 +58,14 @@ export default function QaOverridesSection({
   const overrides = useMemo(() => data?.overrides ?? [], [data]);
   const variations = getLatestPhaseVariations(experiment);
   const groups = useMemo(
-    () =>
-      groupQaOverrides(overrides, environmentOrder).map((g) => ({
-        environment: g.environment,
-        rows: g.rows.map((r) => ({
-          priority: r.priority,
-          item: { override: r.item, variations } as QaOverrideRow,
-        })),
-      })),
-    [overrides, variations, environmentOrder],
+    () => groupQaOverrides(overrides, environmentOrder),
+    [overrides, environmentOrder],
   );
   const grouped = qaOverridesNeedGrouping(groups);
 
-  const remove = async (row: QaOverrideRow) => {
+  const remove = async (override: ExperimentQaOverrideWithStatus) => {
     setActionError(null);
-    await apiCall(`/qa-overrides/${row.override.id}`, { method: "DELETE" });
+    await apiCall(`/qa-overrides/${override.id}`, { method: "DELETE" });
     await mutate();
   };
 
@@ -105,7 +98,16 @@ export default function QaOverridesSection({
 
   const isEmpty = overrides.length === 0 && !error;
   const allProduction = eligibleEnvironments.length === 0;
-  const openCreate = () => setModal({ mode: "create" });
+  const addButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      icon={<PiPlusBold />}
+      onClick={() => setModal({ mode: "create" })}
+    >
+      Add override
+    </Button>
+  );
 
   return (
     <>
@@ -136,36 +138,18 @@ export default function QaOverridesSection({
                 Manage environments →
               </Link>
             ) : canAdd ? (
-              <Box mt="2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<PiPlusBold />}
-                  onClick={openCreate}
-                >
-                  Add override
-                </Button>
-              </Box>
+              <Box mt="2">{addButton}</Box>
             ) : null}
           </Flex>
         ) : (
           <>
-            <Flex align="center" gap="2" px="4" style={{ paddingBlock: 14 }}>
+            <Flex align="center" gap="2" px="4" py="3">
               <Heading as="h4" size="xs" mb="0">
                 QA Overrides
               </Heading>
               <InfoTip content={ABOUT} />
               <Box flexGrow="1" />
-              {canAdd && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<PiPlusBold />}
-                  onClick={openCreate}
-                >
-                  Add override
-                </Button>
-              )}
+              {canAdd && addButton}
             </Flex>
             {(error || actionError) && (
               <Box px="4" pb="3">
@@ -187,18 +171,15 @@ export default function QaOverridesSection({
             {overrides.length > 0 && (
               <QaOverridesTable
                 groups={groups}
+                variations={variations}
                 grouped={grouped}
-                // The first override a tester matches wins, for Feature
-                // Flags, Visual Editor changes and URL Redirects alike.
                 reorderable={grouped}
                 lookups={lookups}
-                canEdit={(row) => canEditIn(row.override.environment)}
-                onEdit={(row) =>
-                  setModal({ mode: "edit", override: row.override })
-                }
+                canEdit={(override) => canEditIn(override.environment)}
+                onEdit={(override) => setModal({ mode: "edit", override })}
                 onRemove={remove}
-                removeConfirmation={(row) =>
-                  `This draft will stop being served to ${row.override.environment} through this override.`
+                removeConfirmation={(override) =>
+                  `This draft will stop being served to ${override.environment} through this override.`
                 }
                 onReorder={reorder}
               />

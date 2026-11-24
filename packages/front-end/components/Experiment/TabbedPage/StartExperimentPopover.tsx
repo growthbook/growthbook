@@ -18,8 +18,8 @@ import {
   PreLaunchChecklistPanel,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
-import useExperimentQaOverrides from "@/hooks/useExperimentQaOverrides";
-import { qaOverridesCountLabel } from "@/components/Experiment/QaOverrides/QaOverridesStartNote";
+import { useQaOverrideCount } from "@/hooks/useExperimentQaOverrides";
+import { qaOverridesCountLabel } from "@/services/qaOverrides";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
 import { getStartTitle } from "./startActions";
@@ -128,10 +128,7 @@ function StartContent({
     setBypassed(false);
   }
   const editsBlocked = useEditsBlockedReason();
-  const { data: qaData } = useExperimentQaOverrides(
-    experiment.status === "draft" ? experiment.id : undefined,
-  );
-  const qaOverrideCount = qaData?.overrides.length ?? 0;
+  const qaOverrideCount = useQaOverrideCount(experiment);
   const end = scheduledEnd(experiment.statusUpdateSchedule);
   const [error, setError] = useState<string | null>(null);
 

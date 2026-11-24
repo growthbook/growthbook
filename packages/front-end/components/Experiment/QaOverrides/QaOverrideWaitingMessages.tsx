@@ -122,7 +122,6 @@ export function QaOverrideWaitingBanner({
   );
 }
 
-// Problems only an edit can fix, as opposed to waiting on a Feature Flag.
 function invalidCopy(reason: QaOverrideInvalidReason): {
   title: string;
   description: string;
@@ -150,8 +149,7 @@ type Problem = {
   action: ReactNode;
 };
 
-// One entry per reason the override isn't applied. Invalid reasons come first:
-// they need an edit, the others clear up once the Feature Flag is ready.
+// Invalid reasons first: they need an edit, the rest clear up by themselves.
 export function QaOverrideProblemsPopoverContent({
   override,
   onEdit,

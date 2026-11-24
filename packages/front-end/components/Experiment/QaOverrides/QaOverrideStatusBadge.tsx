@@ -15,7 +15,7 @@ export default function QaOverrideStatusBadge({
     ExperimentQaOverrideWithStatus,
     "status" | "waitingOn" | "invalidReasons" | "environment"
   >;
-  // Offered for problems only an edit can fix. Omit when the user can't edit.
+  // Omit when the user can't edit.
   onEdit?: () => void;
 }) {
   if (override.status === "active") {
@@ -28,7 +28,7 @@ export default function QaOverrideStatusBadge({
       align="start"
       contentStyle={{ padding: 0 }}
       trigger={
-        // A real button, so Enter and Space open it from the keyboard.
+        // A real button, so Enter and Space open it.
         <Link color="inherit" underline="none" className={styles.help}>
           <Badge
             color="amber"

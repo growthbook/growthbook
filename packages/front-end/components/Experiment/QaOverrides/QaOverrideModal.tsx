@@ -17,9 +17,12 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import {
+  QA_OVERRIDE_TARGETING_KINDS,
+  QA_OVERRIDE_WHERE_KINDS,
   QaOverrideFilterKind,
   QaOverrideTargetingMode,
   qaOverrideFiltersFromForm,
+  withStaleSdkConnections,
 } from "@/services/qaOverrides";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
@@ -34,21 +37,22 @@ import HelperText from "@/ui/HelperText";
 import VariationLabel from "@/ui/VariationLabel";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import QaOverrideAudience, {
-  useQaOverrideNameLookups,
-} from "./QaOverrideAudience";
+import QaOverrideAudience from "./QaOverrideAudience";
+import useQaOverrideNameLookups from "./useQaOverrideNameLookups";
 import QaOverrideExperimentTargeting from "./QaOverrideExperimentTargeting";
 import { QaOverrideWaitingBanner } from "./QaOverrideWaitingMessages";
 import useQaOverridePermissions from "./useQaOverridePermissions";
-import useQaOverrideForm, {
-  QA_OVERRIDE_FILTER_META,
-} from "./useQaOverrideForm";
+import useQaOverrideForm from "./useQaOverrideForm";
 
-const WHERE_FILTERS: QaOverrideFilterKind[] = ["sdkConnections", "projects"];
-const WHO_FILTERS = ["condition", "savedGroups"] as const;
-const WHO_LINK_LABELS: Record<(typeof WHO_FILTERS)[number], string> = {
-  condition: "Target by attribute",
-  savedGroups: "Target by Saved Group",
+// `label` names the field, `add` the link that adds it.
+const FILTER_COPY: Record<
+  QaOverrideFilterKind,
+  { label: string; add: string }
+> = {
+  condition: { label: "Attributes", add: "Target by attribute" },
+  savedGroups: { label: "Saved Groups", add: "Target by Saved Group" },
+  sdkConnections: { label: "SDK Connections", add: "SDK Connections" },
+  projects: { label: "Projects", add: "Projects" },
 };
 
 export type QaOverrideModalExperiment = Pick<
@@ -63,17 +67,28 @@ export type QaOverrideModalExperiment = Pick<
   | "hasURLRedirects"
 >;
 
-const STALE_CONNECTION_LABELS = {
-  deleted: "deleted",
-  archived: "archived",
-  "other-environment": "in another environment",
-} as const;
-
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <Text as="div" size="lg" weight="semibold">
       {children}
     </Text>
+  );
+}
+
+function AddLink({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link onClick={onClick}>
+      <Flex align="center" gap="1">
+        <PiPlus />
+        {children}
+      </Flex>
+    </Link>
   );
 }
 
@@ -88,8 +103,7 @@ export default function QaOverrideModal({
   experiment: QaOverrideModalExperiment;
   linkedFeatures?: LinkedFeatureInfo[];
   existing?: ExperimentQaOverrideWithStatus;
-  // Names for the connections `existing` lists, including ones that no
-  // longer serve its environment.
+  // Names for the connections `existing` lists, stale ones included.
   sdkConnections?: { id: string; name: string }[];
   close: () => void;
   onSaved: () => Promise<unknown> | void;
@@ -98,7 +112,11 @@ export default function QaOverrideModal({
   const { getUserDisplay } = useUser();
   const { projects } = useDefinitions();
   const { data: connectionData } = useSDKConnections();
-  const lookups = useQaOverrideNameLookups(sdkConnections);
+  const staleSdkConnections = existing?.staleSdkConnections ?? [];
+  const lookups = withStaleSdkConnections(
+    useQaOverrideNameLookups(sdkConnections),
+    staleSdkConnections,
+  );
   const [justAdded, setJustAdded] = useState<QaOverrideFilterKind | null>(null);
   const { environments, eligibleEnvironments, canEditIn } =
     useQaOverridePermissions(experiment);
@@ -119,8 +137,8 @@ export default function QaOverrideModal({
     values,
     addFilter,
     removeFilter,
+    setFilterActive,
     setEnvironment,
-    availableFilters,
     waitingFeatures,
     body,
     canSave,
@@ -132,8 +150,6 @@ export default function QaOverrideModal({
     linkedFeatures: linkedFeatures ?? [],
   });
 
-  // The forced variation was removed from the experiment since this override
-  // was saved. The select starts empty and one has to be picked.
   const savedVariationId =
     existing?.assignment.type === "forced"
       ? existing.assignment.variationId
@@ -142,20 +158,8 @@ export default function QaOverrideModal({
     savedVariationId !== undefined &&
     !variations.some((v) => v.id === savedVariationId);
 
-  // Connections the override still lists but that no longer receive it. They
-  // stay in the field so they can be seen and removed.
-  const staleConnectionOptions = (existing?.staleSdkConnections ?? []).map(
-    (c) => ({
-      value: c.id,
-      label:
-        c.reason === "deleted"
-          ? "Deleted SDK Connection"
-          : `${lookups.sdkConnectionName(c.id)} (${STALE_CONNECTION_LABELS[c.reason]})`,
-    }),
-  );
-  const staleConnectionIds = new Set(
-    staleConnectionOptions.map((o) => o.value),
-  );
+  // Kept as options so they can be seen and removed.
+  const staleConnectionIds = new Set(staleSdkConnections.map((c) => c.id));
 
   const liveConnectionOptions = useMemo(
     () =>
@@ -166,13 +170,15 @@ export default function QaOverrideModal({
   );
   const connectionOptions = [
     ...liveConnectionOptions.filter((o) => !staleConnectionIds.has(o.value)),
-    ...staleConnectionOptions,
+    ...[...staleConnectionIds].map((id) => ({
+      value: id,
+      label: lookups.sdkConnectionName(id),
+    })),
   ];
   const hasStaleConnection = values.sdkConnections.some((id) =>
     staleConnectionIds.has(id),
   );
-  // Visual Editor changes and URL Redirects are sent by the experiment's own
-  // Project, so a Projects filter only matters for Feature Flags.
+  // Visual changes and redirects are sent by the experiment's own Project.
   const projectsNote =
     experiment.hasVisualChangesets || experiment.hasURLRedirects
       ? linkedFeatures?.length
@@ -187,21 +193,10 @@ export default function QaOverrideModal({
   const forced = values.assignmentType === "forced";
   const testing = values.assignmentType === "random";
 
-  // Targeting is on when its field has a value; empty means no filter.
-  const setFilterActive = (kind: QaOverrideFilterKind, active: boolean) => {
-    const current = form.getValues("filters");
-    if (active === current.includes(kind)) return;
-    form.setValue(
-      "filters",
-      active ? [...current, kind] : current.filter((k) => k !== kind),
-    );
-  };
-
   const whereFields = values.filters
-    .filter((k) => WHERE_FILTERS.includes(k))
+    .filter((k) => QA_OVERRIDE_WHERE_KINDS.includes(k))
     .map((kind) => {
       const field = kind as "sdkConnections" | "projects";
-      const { label } = QA_OVERRIDE_FILTER_META[kind];
       return (
         // Clearing the field, or leaving it empty, removes it.
         <Box
@@ -214,7 +209,7 @@ export default function QaOverrideModal({
         >
           <MultiSelectField
             legacyLabelFormatting={false}
-            label={label}
+            label={FILTER_COPY[kind].label}
             containerClassName="mb-0"
             value={values[field]}
             onChange={(v, action) => {
@@ -247,12 +242,11 @@ export default function QaOverrideModal({
         </Box>
       );
     });
-  const whereAvailable = availableFilters.filter((k) =>
-    WHERE_FILTERS.includes(k),
-  );
-  const whoAvailable = WHO_FILTERS.filter((k) => !values.filters.includes(k));
+  const notAdded = (kind: QaOverrideFilterKind) =>
+    !values.filters.includes(kind);
+  const whereAvailable = QA_OVERRIDE_WHERE_KINDS.filter(notAdded);
+  const whoAvailable = QA_OVERRIDE_TARGETING_KINDS.filter(notAdded);
 
-  // Adding opens one step at a time. Editing shows them all.
   const showEnvironment =
     !!existing || testing || (forced && !!values.forcedVariationId);
 
@@ -262,7 +256,7 @@ export default function QaOverrideModal({
       {values.filters.includes("condition") && (
         <ConditionInput
           slimMode
-          label="Attributes"
+          label={FILTER_COPY.condition.label}
           defaultValue={values.condition}
           onChange={(v) => {
             form.setValue("condition", v);
@@ -274,7 +268,7 @@ export default function QaOverrideModal({
       {values.filters.includes("savedGroups") && (
         <SavedGroupTargetingField
           slimMode
-          label="Saved Groups"
+          label={FILTER_COPY.savedGroups.label}
           value={values.savedGroups}
           setValue={(v) => {
             form.setValue("savedGroups", v);
@@ -286,12 +280,9 @@ export default function QaOverrideModal({
       {whoAvailable.length > 0 && (
         <Flex gap="4">
           {whoAvailable.map((kind) => (
-            <Link key={kind} onClick={() => addFilter(kind)}>
-              <Flex align="center" gap="1">
-                <PiPlus />
-                {WHO_LINK_LABELS[kind]}
-              </Flex>
-            </Link>
+            <AddLink key={kind} onClick={() => addFilter(kind)}>
+              {FILTER_COPY[kind].add}
+            </AddLink>
           ))}
         </Flex>
       )}
@@ -433,18 +424,15 @@ export default function QaOverrideModal({
               {!!values.environment && whereAvailable.length > 0 && (
                 <Flex gap="4" mt="1">
                   {whereAvailable.map((kind) => (
-                    <Link
+                    <AddLink
                       key={kind}
                       onClick={() => {
                         addFilter(kind);
                         setJustAdded(kind);
                       }}
                     >
-                      <Flex align="center" gap="1">
-                        <PiPlus />
-                        {QA_OVERRIDE_FILTER_META[kind].label}
-                      </Flex>
-                    </Link>
+                      {FILTER_COPY[kind].add}
+                    </AddLink>
                   ))}
                 </Flex>
               )}

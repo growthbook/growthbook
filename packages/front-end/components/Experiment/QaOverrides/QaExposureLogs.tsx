@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import useExperimentQaOverrides from "@/hooks/useExperimentQaOverrides";
+import { useQaOverrideCount } from "@/hooks/useExperimentQaOverrides";
 import ExposureLogsCard from "@/components/HealthTab/ExposureLogsCard";
 
 export default function QaExposureLogs({
@@ -7,8 +7,7 @@ export default function QaExposureLogs({
 }: {
   experiment: ExperimentInterfaceStringDates;
 }) {
-  const { data } = useExperimentQaOverrides(experiment.id);
-  if (!data?.overrides.length) return null;
+  if (!useQaOverrideCount(experiment)) return null;
   return (
     <ExposureLogsCard
       experiment={experiment}
