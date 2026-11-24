@@ -7,7 +7,9 @@ import {
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
 import { useAuth } from "@/services/auth";
-import RunQueriesButton from "@/components/Queries/RunQueriesButton";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSnapshotButton";
 import {
@@ -15,6 +17,8 @@ import {
   useExperimentSnapshotUpdate,
 } from "@/hooks/useExperimentSnapshotUpdate";
 import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
+import NewMetricsUpdateButton from "@/components/Experiment/NewMetricsUpdateButton";
+import Text from "@/ui/Text";
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
 
@@ -22,6 +26,7 @@ type RefreshResultsModel = {
   id: string;
   queries?: Queries;
   runStarted?: string | Date | null;
+  status?: "running" | "success" | "error";
 };
 
 export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
@@ -29,7 +34,8 @@ export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
   entityId: string;
   datasourceId?: string | null;
   latest?: T;
-  mutate: () => void;
+  // Refetches the latest snapshot; a returned promise settles once it has.
+  mutate: () => Promise<unknown> | void;
   mutateAdditional?: () => void;
   setRefreshError: (error: string) => void;
   experimentSnapshotTrackingProps?: {
@@ -51,6 +57,9 @@ export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
   safeRollout?: SafeRolloutInterface;
   fullRefreshRequired?: boolean;
   fullRefreshReasons?: string[];
+  // Offer "Update new metrics" as the main action, with "Update all metrics"
+  // in the menu.
+  offerNewMetricsUpdate?: boolean;
   disabled?: boolean;
 }
 
@@ -72,6 +81,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
   safeRollout,
   fullRefreshRequired = false,
   fullRefreshReasons = [],
+  offerNewMetricsUpdate = false,
   disabled = false,
 }: RefreshResultsButtonProps<T>) {
   const hasQueries = (latest?.queries?.length ?? 0) > 0;
@@ -93,6 +103,7 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         dimension={dimension}
         fullRefreshRequired={fullRefreshRequired}
         fullRefreshReasons={fullRefreshReasons}
+        offerNewMetricsUpdate={offerNewMetricsUpdate}
         disabled={disabled}
       />
     );
@@ -154,6 +165,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   dimension,
   fullRefreshRequired,
   fullRefreshReasons,
+  offerNewMetricsUpdate,
   disabled = false,
 }: RefreshResultsButtonProps<T> & {
   latest: T;
@@ -161,18 +173,19 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   fullRefreshReasons: string[];
 }) {
   const { apiCall } = useAuth();
-  const { submitUpdate, fullRefreshConfirm } = useExperimentSnapshotUpdate({
-    experiment,
-    phase: phase ?? 0,
-    dimension,
-    mutate,
-    mutateAdditional,
-    setRefreshError,
-    onSuccess,
-    customValidation,
-    onSnapshotRefreshBlocked,
-    experimentSnapshotTrackingProps,
-  });
+  const { submitUpdate, notice, fullRefreshConfirm } =
+    useExperimentSnapshotUpdate({
+      experiment,
+      phase: phase ?? 0,
+      dimension,
+      mutate,
+      mutateAdditional,
+      setRefreshError,
+      onSuccess,
+      customValidation,
+      onSnapshotRefreshBlocked,
+      experimentSnapshotTrackingProps,
+    });
 
   const cancelEndpoint =
     entityType === "safe-rollout"
@@ -208,9 +221,35 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
         ? () => submitUpdate({ force: true, fullRefreshReasons })
         : () => submitUpdate();
 
+  const running = getQueryStatus(latest.queries || []).status === "running";
+  // Its queries are done but the statistics are still being computed. The
+  // offer comes from the results before this update, so it can't be taken yet.
+  const analyzing = !running && latest.status === "running";
+  if (offerNewMetricsUpdate && entityType !== "safe-rollout" && !running) {
+    return (
+      <>
+        <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
+        <NewMetricsUpdateButton
+          onUpdateNewMetrics={() =>
+            submitUpdate({ updateScope: "new_metrics" })
+          }
+          onUpdateAllMetrics={() =>
+            submitUpdate({ updateScope: "all_metrics" })
+          }
+          disabled={disabled || analyzing}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
+      {running && notice?.snapshotId === latest.id ? (
+        <Text size="sm" color="text-low" mr="3">
+          {notice.message}
+        </Text>
+      ) : null}
       <RunQueriesButton
         cta={ctaLabel}
         cancelEndpoint={cancelEndpoint}

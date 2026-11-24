@@ -263,6 +263,9 @@ organization:
     # days to use. Can be overridden in your metric definitions if you wish.
     regressionAdjustmentEnabled: true
     regressionAdjustmentDays: 14
+    # Compute only newly added metrics when the results' end date is less than
+    # this many hours ago. 0 always updates all metrics. Default `4`
+    newMetricsUpdateWindowHours: 4
     # When we should auto-update experiment results
     updateSchedule:
       type: stale

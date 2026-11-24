@@ -2,6 +2,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "shared/types/report";
+import { restoreOpenAdjustedCI } from "shared/experiments";
 import React, { useCallback, useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";
@@ -68,8 +69,9 @@ export default function ResultsDownloadButton({
     resultsCopy.forEach((result) => {
       metrics?.forEach((metricId) => {
         result.variations.forEach((variation, index) => {
-          const stats = variation.metrics[metricId];
-          if (!stats) return;
+          const storedStats = variation.metrics[metricId];
+          if (!storedStats) return;
+          const stats = restoreOpenAdjustedCI(storedStats);
 
           const metricName = getResultMetricDisplayName(
             metricId,
