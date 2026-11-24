@@ -49,7 +49,7 @@ import {
 } from "back-end/src/services/experimentResults/plan/newMetricsUpdateSqlIdentity";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import { isCarriedNewMetricsUpdateQuery } from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
+import { isCarriedNewMetricsUpdateQuery } from "back-end/src/queryRunners/experimentQueryNaming";
 import {
   findLatestSuccessfulOverallSnapshot,
   findNewMetricsUpdateAncestor,

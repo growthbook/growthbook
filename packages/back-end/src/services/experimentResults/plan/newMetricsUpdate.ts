@@ -38,7 +38,7 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import { getMetricSettingsHashesForIncrementalRefresh } from "back-end/src/enterprise/services/data-pipeline";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { isCarriedNewMetricsUpdateQuery } from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
+import { isCarriedNewMetricsUpdateQuery } from "back-end/src/queryRunners/experimentQueryNaming";
 import {
   assertCarriedQuerySqlUnchanged,
   tooManyNewMetricsUpdatesError,

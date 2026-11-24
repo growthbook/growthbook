@@ -23,7 +23,7 @@ import {
 import {
   getIndexAfterLastGroup,
   type ResultQueryScope,
-} from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
+} from "back-end/src/queryRunners/experimentQueryNaming";
 import { NewMetricsUpdateUnavailableError } from "back-end/src/util/errors";
 
 /**

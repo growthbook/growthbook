@@ -2,7 +2,6 @@ import isEqual from "lodash/isEqual";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import type { ExperimentInterface } from "shared/types/experiment";
@@ -32,6 +31,10 @@ import {
   isMetricJoinable,
 } from "./experiments";
 import type { ResultsOutdatedReason } from "./outdated-reasons";
+import {
+  type BusinessMetricLists,
+  getPriorAndRoleInputs,
+} from "./results/stats-engine-inputs";
 
 /**
  * The experiment's metrics that a snapshot holds no results for, in the
@@ -335,11 +338,6 @@ export function getNewMetricsUpdateParentRefusal({
   return null;
 }
 
-type BusinessMetricLists = Pick<
-  ExperimentSnapshotSettings,
-  "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
->;
-
 type PlannedMetricSettings = {
   id: string;
   computedSettings?: Pick<
@@ -494,68 +492,6 @@ export function getNewMetricsUpdateRefusal({
       planned,
     })
   );
-}
-
-type StatsEngineInputsSettings = Pick<
-  ExperimentSnapshotSettings,
-  "metricSettings" | "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
->;
-
-function getPriorAndRoleInputs(
-  metricId: string,
-  priors: {
-    properPrior: boolean;
-    properPriorMean: number;
-    properPriorStdDev: number;
-    targetMDE?: number;
-  },
-  settings: BusinessMetricLists,
-): Omit<MetricStatsEngineInputs, "inverse"> {
-  return {
-    properPrior: priors.properPrior,
-    properPriorMean: priors.properPriorMean,
-    properPriorStdDev: priors.properPriorStdDev,
-    targetMDE: priors.targetMDE ?? DEFAULT_TARGET_MDE,
-    businessMetricTypes: [
-      settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
-      settings.secondaryMetrics.includes(metricId)
-        ? ("secondary" as const)
-        : null,
-      settings.guardrailMetrics.includes(metricId)
-        ? ("guardrail" as const)
-        : null,
-    ].filter((type) => type !== null),
-  };
-}
-
-/**
- * The inputs the stats engine reads for a metric of a snapshot with these
- * settings. Its computed settings override the definition's priors and target
- * MDE, as they do before the stats engine runs.
- */
-export function getMetricStatsEngineInputs(
-  metric: Pick<
-    ExperimentMetricDefinition,
-    "id" | "inverse" | "priorSettings" | "targetMDE"
-  >,
-  settings: StatsEngineInputsSettings,
-): MetricStatsEngineInputs {
-  const computed = settings.metricSettings.find(
-    (m) => m.id === metric.id,
-  )?.computedSettings;
-  return {
-    inverse: !!metric.inverse,
-    ...getPriorAndRoleInputs(
-      metric.id,
-      computed ?? {
-        properPrior: metric.priorSettings.proper,
-        properPriorMean: metric.priorSettings.mean,
-        properPriorStdDev: metric.priorSettings.stddev,
-        targetMDE: metric.targetMDE,
-      },
-      settings,
-    ),
-  };
 }
 
 /**

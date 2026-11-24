@@ -5,6 +5,7 @@ export * from "./adjustment-impact";
 export * from "./new-metrics-update";
 export * from "./analysis-alpha";
 export * from "./results/enrich";
+export * from "./results/stats-engine-inputs";
 export * from "./metric-replacement";
 export * from "./outdated-reasons";
 export * from "./phases";

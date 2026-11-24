@@ -10,7 +10,6 @@ import type { ExperimentMetricDefinition } from "../src/experiments/experiments"
 import {
   getComputableNewMetricIds,
   getMetricIdsMissingFromSnapshot,
-  getMetricStatsEngineInputs,
   getNewMetricsUpdatePlanRefusal,
   getNewMetricsUpdatesInARow,
   MAX_NEW_METRICS_UPDATES_IN_A_ROW,
@@ -19,6 +18,7 @@ import {
   getStatsEngineAnalysisSettings,
   haveStatsEngineInputsChanged,
 } from "../src/experiments/new-metrics-update";
+import { getMetricStatsEngineInputs } from "../src/experiments/results/stats-engine-inputs";
 
 function snapshotSettingsFor(metricIds: string[]) {
   return {

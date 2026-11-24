@@ -123,8 +123,10 @@ export interface MetricForSnapshot {
 }
 
 /**
- * What the stats engine reads for a metric that neither its result query SQL
- * nor the Incremental Pipeline's settings hash covers.
+ * A metric's settings that change its statistics without changing its result
+ * query SQL or its Incremental Pipeline settings hash. The stats engine's
+ * settings for the metric are built from them, and a new-metrics update
+ * compares all but `inverse` to tell whether a result it would copy is stale.
  */
 export interface MetricStatsEngineInputs {
   inverse: boolean;

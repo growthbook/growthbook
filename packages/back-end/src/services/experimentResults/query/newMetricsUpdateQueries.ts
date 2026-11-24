@@ -22,7 +22,7 @@ import {
   isCarriedNewMetricsUpdateQuery,
   isTableCleanupQuery,
   type ResultQueryScope,
-} from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
+} from "back-end/src/queryRunners/experimentQueryNaming";
 
 type NewMetricsUpdateSnapshot = Pick<
   ExperimentSnapshotInterface,

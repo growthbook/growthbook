@@ -5,7 +5,7 @@ import type { SegmentInterface } from "shared/types/segment";
 import type { ApiReqContext } from "back-end/types/api";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import Databricks from "back-end/src/integrations/Databricks";
-import { getIndexAfterLastGroup } from "back-end/src/queryRunners/newMetricsUpdateQueryNaming";
+import { getIndexAfterLastGroup } from "back-end/src/queryRunners/experimentQueryNaming";
 import {
   generateExperimentResultQuerySql,
   type GenerateResultQuerySql,

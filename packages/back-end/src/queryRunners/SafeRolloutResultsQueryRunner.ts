@@ -20,7 +20,7 @@ import {
   ExperimentResultsQueryParams,
   startExperimentResultQueries,
 } from "./ExperimentResultsQueryRunner";
-import { TRAFFIC_QUERY_NAME } from "./newMetricsUpdateQueryNaming";
+import { TRAFFIC_QUERY_NAME } from "./experimentQueryNaming";
 
 export type SafeRolloutSnapshotResult = {
   unknownVariations: string[];

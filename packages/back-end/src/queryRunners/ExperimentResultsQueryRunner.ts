@@ -79,7 +79,7 @@ import {
   getGroupQueryName,
   type ResultQueryScope,
   TRAFFIC_QUERY_NAME,
-} from "./newMetricsUpdateQueryNaming";
+} from "./experimentQueryNaming";
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;

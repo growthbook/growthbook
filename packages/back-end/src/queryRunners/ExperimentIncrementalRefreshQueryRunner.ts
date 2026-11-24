@@ -104,7 +104,7 @@ import {
   CLUSTER_TRAFFIC_QUERY_NAME,
   STATISTICS_QUERY_PREFIX,
   TRAFFIC_QUERY_NAME,
-} from "./newMetricsUpdateQueryNaming";
+} from "./experimentQueryNaming";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
