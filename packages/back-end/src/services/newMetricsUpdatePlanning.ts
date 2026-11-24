@@ -223,6 +223,15 @@ export async function planNewMetricsUpdate({
   if (getChangedCopiedResultsSettings(parent, plan.snapshot.settings).length) {
     throw new NewMetricsUpdateUnavailableError("settings_changed");
   }
+  // The update corrects copied and new goal metrics together with the method
+  // the parent recorded. A parent that recorded none is corrected on each read
+  // with the current method, so it only extends while there is none.
+  if (
+    (parent.analyses[0].settings.pValueCorrection ?? null) !==
+    (plan.snapshot.analyses[0].settings.pValueCorrection ?? null)
+  ) {
+    throw new NewMetricsUpdateUnavailableError("settings_changed");
+  }
 
   const { settings, queriedMetricIds } = mergeNewMetricsUpdateSettings({
     parent: parent.settings,

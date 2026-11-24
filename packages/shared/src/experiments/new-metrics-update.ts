@@ -176,10 +176,9 @@ export function getNewMetricsUpdatesInARow(
 export type StatsEngineMetricCounts = SnapshotNewMetricsUpdate["metricCounts"];
 
 /**
- * The settings the stats engine runs an analysis of this snapshot with. A
- * new-metrics update's analyses keep the parent's settings so the front end
- * finds them by equality, but their goal and guardrail counts predate the
- * metrics it added.
+ * The settings an analysis of this snapshot is computed with. A new-metrics
+ * update's analyses keep the parent's settings so the front end finds them by
+ * equality, but their goal and guardrail counts predate the metrics it added.
  */
 export function getStatsEngineAnalysisSettings(
   snapshot: Pick<ExperimentSnapshotInterface, "type" | "updateScope">,
@@ -188,33 +187,6 @@ export function getStatsEngineAnalysisSettings(
   const newMetricsUpdate = getNewMetricsUpdate(snapshot);
   if (!newMetricsUpdate) return analysisSettings;
   return { ...analysisSettings, ...newMetricsUpdate.metricCounts };
-}
-
-/**
- * A snapshot that a new-metrics update's copied results come from, with the
- * metrics it queried (null for the full update the lineage starts from, which
- * queried every metric) and the counts its stats engine ran with.
- */
-export type MetricCountsLineageLevel = {
-  queriedMetricIds: readonly string[] | null;
-  counts: StatsEngineMetricCounts;
-};
-
-/**
- * The counts the stats engine computed a copied metric's results with: those
- * of the latest snapshot in the lineage, parent first, that queried it, since
- * every later one copied its results. Null when the lineage ends before one.
- */
-export function getCopiedMetricCounts(
-  lineage: readonly MetricCountsLineageLevel[],
-  metricId: string,
-): StatsEngineMetricCounts | null {
-  const definitionId = getDefinitionMetricId(metricId);
-  const level = lineage.find(
-    ({ queriedMetricIds }) =>
-      !queriedMetricIds || queriedMetricIds.includes(definitionId),
-  );
-  return level?.counts ?? null;
 }
 
 export function getSnapshotDataAsOfDate(snapshot: SnapshotLineage): Date {
@@ -402,7 +374,7 @@ const optsOutOfCuped = (m: PlannedMetricSettings) =>
  * pipeline, on the Incremental Pipeline to the tables the parent left, which
  * an "incremental-full" run would rebuild. On the standard pipeline at most
  * MAX_NEW_METRICS_UPDATES_IN_A_ROW build on each other. Copied metrics keep
- * the parent's results and analysis, so only "Metrics changed" may be
+ * the parent's results and analysis, so only the metric lists may be
  * outdated, and the inputs only the stats engine reads must be unchanged.
  */
 export function getNewMetricsUpdatePlanRefusal({
@@ -452,6 +424,10 @@ export function getNewMetricsUpdatePlanRefusal({
     outdatedReasons.some(
       (reason) =>
         reason !== "metrics_changed" &&
+        // A goal metric was added or removed, and the update corrects the
+        // goal metrics it ends with together. A copied metric that changed
+        // role is refused below.
+        reason !== "goal_metrics_changed" &&
         !(reason === "cuped" && cupedChangesNoCopiedMetric),
     )
   ) {

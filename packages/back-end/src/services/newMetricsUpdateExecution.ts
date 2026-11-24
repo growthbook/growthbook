@@ -1,12 +1,11 @@
+import cloneDeep from "lodash/cloneDeep";
 import groupBy from "lodash/groupBy";
 import isEqual from "lodash/isEqual";
 import mapValues from "lodash/mapValues";
 import pickBy from "lodash/pickBy";
 import type {
   ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  SnapshotMetric,
   SnapshotNewMetricsUpdate,
   SnapshotVariation,
 } from "shared/types/experiment-snapshot";
@@ -14,21 +13,18 @@ import type { ExperimentReportResults } from "shared/types/report";
 import type { BanditResult } from "shared/types/experiment";
 import type { Queries, QueryPointer, QueryStatus } from "shared/types/query";
 import {
-  getCopiedMetricCounts,
+  enrichAnalysisResults,
   getDefinitionMetricId,
   getNewMetricsUpdate,
   getStatsEngineAnalysisSettings,
   type ExperimentMetricInterface,
-  type MetricCountsLineageLevel,
   type StatsEngineMetricCounts,
 } from "shared/experiments";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import {
-  findNewMetricsUpdateAncestor,
   findSnapshotById,
   getSnapshotQueryPointers,
-  type NewMetricsUpdateAncestor,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   createNewQueryFromCached,
@@ -126,70 +122,15 @@ function getQueriesStartedByNewMetricsUpdate(
   return new Map([...queryMap].filter(([name]) => !parentNames.has(name)));
 }
 
-type CountDependentField = "power" | "ci";
-
 /**
- * The fields of a copied result that the stats engine derived from goal and
- * guardrail counts other than this run's: power from the goal count, and the
- * covariate-imbalance analysis's intervals, whose alpha is divided by goals
- * plus guardrails. Every other field doesn't depend on the counts.
- */
-function getStaleCountFields(
-  analysisSettings: ExperimentSnapshotAnalysisSettings,
-  computedWith: StatsEngineMetricCounts | null,
-  counts: StatsEngineMetricCounts,
-): CountDependentField[] {
-  const fields: CountDependentField[] = [];
-  if (computedWith?.numGoalMetrics !== counts.numGoalMetrics) {
-    fields.push("power");
-  }
-  if (
-    analysisSettings.useCovariateAsResponse &&
-    (!computedWith ||
-      computedWith.numGoalMetrics + computedWith.numGuardrailMetrics !==
-        counts.numGoalMetrics + counts.numGuardrailMetrics)
-  ) {
-    fields.push("ci");
-  }
-  return fields;
-}
-
-function withoutFields<T extends object>(
-  result: T,
-  fields: CountDependentField[],
-): T {
-  const copy = { ...result };
-  fields.forEach((field) => Reflect.deleteProperty(copy, field));
-  return copy;
-}
-
-function withoutCountDependentFields(
-  metric: SnapshotMetric,
-  fields: CountDependentField[],
-): SnapshotMetric {
-  if (!fields.length) return metric;
-  const { supplementalResults } = metric;
-  return {
-    ...withoutFields(metric, fields),
-    ...(supplementalResults
-      ? {
-          supplementalResults: mapValues(
-            supplementalResults,
-            (result) => result && withoutFields(result, fields),
-          ),
-        }
-      : {}),
-  };
-}
-
-/**
- * Each parent analysis with the copied metrics' results kept verbatim and the
+ * Each parent analysis with the copied metrics' per-test results kept and the
  * new metrics' results added. Only the new metrics, with their slices and
  * funnel steps, take fresh results: a rebuilt Incremental Pipeline cache also
  * returns rows for the other metrics of its fact table, and those keep the
  * parent's numbers. Units are the most any metric saw, as in a full analysis,
- * and SRM is recomputed when they change. A copied result drops the values
- * the stats engine derived from goal and guardrail counts other than `counts`.
+ * and SRM is recomputed when they change. The values that depend on more than
+ * one test (corrected p-values, power) are then computed over copied and new
+ * metrics together, for `goalMetrics` and `counts`.
  */
 export function mergeNewMetricsUpdateAnalyses({
   analyses,
@@ -197,38 +138,31 @@ export function mergeNewMetricsUpdateAnalyses({
   analyzedMetricIds,
   newMetricIds,
   variationWeights,
+  goalMetrics,
   counts,
-  getCountsComputedWith,
 }: {
   analyses: ExperimentSnapshotAnalysis[];
   freshResults: ExperimentReportResults["dimensions"][];
   analyzedMetricIds: ReadonlySet<string>;
   newMetricIds: ReadonlySet<string>;
   variationWeights: number[];
+  goalMetrics: string[];
   counts: StatsEngineMetricCounts;
-  getCountsComputedWith: (metricId: string) => StatsEngineMetricCounts | null;
 }): ExperimentSnapshotAnalysis[] {
   const isNew = (metricId: string) =>
     newMetricIds.has(getDefinitionMetricId(metricId));
   const addedMetrics = (metrics: SnapshotVariation["metrics"]) =>
     pickBy(metrics, (_, metricId) => isNew(metricId));
+  // Copies, since the cross-metric values are set in place.
+  const copiedMetrics = (metrics: SnapshotVariation["metrics"]) =>
+    mapValues(
+      pickBy(
+        metrics,
+        (_, metricId) => analyzedMetricIds.has(metricId) && !isNew(metricId),
+      ),
+      (metric) => cloneDeep(metric),
+    );
   return analyses.map((analysis, i) => {
-    const copiedMetrics = (metrics: SnapshotVariation["metrics"]) =>
-      mapValues(
-        pickBy(
-          metrics,
-          (_, metricId) => analyzedMetricIds.has(metricId) && !isNew(metricId),
-        ),
-        (metric, metricId) =>
-          withoutCountDependentFields(
-            metric,
-            getStaleCountFields(
-              analysis.settings,
-              getCountsComputedWith(metricId),
-              counts,
-            ),
-          ),
-      );
     const fresh = new Map(
       (freshResults[i] ?? [])
         .filter((d) => d.variations.length)
@@ -284,50 +218,14 @@ export function mergeNewMetricsUpdateAnalyses({
         metrics: addedMetrics(v.metrics),
       })),
     }));
-    return { ...analysis, results: [...merged, ...added] };
-  });
-}
-
-/**
- * The snapshots a new-metrics update copies results from, parent first, ending
- * with the full update they build on. A new-metrics update stores its parent's
- * analyses, so the default analysis's counts are those of that full update. A
- * lineage that can't be followed to it ends early.
- */
-async function getMetricCountsLineage(
-  context: ReqContext | ApiReqContext,
-  parent: ExperimentSnapshotInterface,
-): Promise<MetricCountsLineageLevel[]> {
-  const { numGoalMetrics, numGuardrailMetrics } = parent.analyses[0].settings;
-  const lineage: MetricCountsLineageLevel[] = [];
-  const visited = new Set<string>();
-  let level: Pick<
-    NewMetricsUpdateAncestor,
-    "id" | "type" | "updateScope"
-  > | null = parent;
-  while (level && !visited.has(level.id)) {
-    visited.add(level.id);
-    const newMetricsUpdate = getNewMetricsUpdate(level);
-    if (!newMetricsUpdate) {
-      lineage.push({
-        queriedMetricIds: null,
-        counts: {
-          numGoalMetrics,
-          numGuardrailMetrics: numGuardrailMetrics ?? 0,
-        },
-      });
-      break;
-    }
-    lineage.push({
-      queriedMetricIds: newMetricsUpdate.queriedMetricIds,
-      counts: newMetricsUpdate.metricCounts,
+    const results = [...merged, ...added];
+    enrichAnalysisResults({
+      results,
+      analysisSettings: { ...analysis.settings, ...counts },
+      snapshotSettings: { goalMetrics },
     });
-    level = await findNewMetricsUpdateAncestor(
-      context,
-      newMetricsUpdate.parentSnapshotId,
-    );
-  }
-  return lineage;
+    return { ...analysis, results };
+  });
 }
 
 /**
@@ -394,7 +292,6 @@ export async function analyzeNewMetricsUpdate({
     });
   }
 
-  const lineage = await getMetricCountsLineage(context, parent);
   return {
     analyses: mergeNewMetricsUpdateAnalyses({
       analyses,
@@ -402,9 +299,8 @@ export async function analyzeNewMetricsUpdate({
       analyzedMetricIds,
       newMetricIds: new Set(newMetricsUpdate.queriedMetricIds),
       variationWeights: snapshot.settings.variations.map((v) => v.weight),
+      goalMetrics: snapshot.settings.goalMetrics,
       counts: newMetricsUpdate.metricCounts,
-      getCountsComputedWith: (metricId) =>
-        getCopiedMetricCounts(lineage, metricId),
     }),
     unknownVariations: [
       ...new Set([
@@ -417,31 +313,6 @@ export async function analyzeNewMetricsUpdate({
       ...freshResults.map((r) => r?.multipleExposures ?? 0),
     ),
   };
-}
-
-/**
- * Whether a goal metric this new-metrics update or an earlier one in its
- * lineage copied has no power left. The experiment's power takes every goal
- * metric's, and the stats engine gives every goal metric power in the overall
- * relative analysis, so a copied result without it was left out.
- */
-export function isCopiedGoalMetricPowerMissing({
-  analysis,
-  goalMetrics,
-  newMetricsUpdate,
-}: {
-  analysis: ExperimentSnapshotAnalysis;
-  goalMetrics: string[];
-  newMetricsUpdate: SnapshotNewMetricsUpdate;
-}): boolean {
-  const copiedGoalMetrics = goalMetrics.filter(
-    (id) =>
-      !newMetricsUpdate.queriedMetricIds.includes(getDefinitionMetricId(id)),
-  );
-  const treatments = analysis.results[0]?.variations.slice(1) ?? [];
-  return treatments.some((v) =>
-    copiedGoalMetrics.some((id) => v.metrics[id] && !v.metrics[id].power),
-  );
 }
 
 /**
