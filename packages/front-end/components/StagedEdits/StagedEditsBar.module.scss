@@ -13,3 +13,12 @@
 :global([data-panel-docked]) .bar {
   padding: var(--space-2) var(--space-4);
 }
+
+// Settings pages cap their content on the left; the bar's content keeps to it.
+:global(.settings-layout) .bar {
+  padding-left: var(--page-padding);
+  padding-right: max(
+    var(--page-padding),
+    100% - var(--page-padding) - var(--settings-content-max-width)
+  );
+}

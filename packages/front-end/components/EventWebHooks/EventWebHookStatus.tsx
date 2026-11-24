@@ -12,6 +12,7 @@ import SectionFrame from "@/components/SectionFrame";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import Table, {
   TableBody,
   TableCell,
@@ -172,7 +173,17 @@ export default function EventWebHookStatus({
                       onClick={() => setOpenId(open ? null : log.id)}
                     >
                       <TableCell>
-                        {open ? <PiCaretDown /> : <PiCaretRight />}
+                        <Button
+                          variant="ghost"
+                          color="gray"
+                          size="sm"
+                          aria-label="Delivery details"
+                          aria-expanded={open}
+                          stopPropagation
+                          onClick={() => setOpenId(open ? null : log.id)}
+                        >
+                          {open ? <PiCaretDown /> : <PiCaretRight />}
+                        </Button>
                       </TableCell>
                       <TableCell>
                         <Tooltip content={datetime(log.dateCreated)}>

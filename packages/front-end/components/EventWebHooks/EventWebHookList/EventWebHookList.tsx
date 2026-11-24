@@ -33,9 +33,11 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
         as="h2"
         title="Webhooks"
         actions={
-          <LinkButton href="/settings/webhooks/event/new" icon={<PiPlus />}>
-            Add webhook
-          </LinkButton>
+          permissionsUtils.canManageSomeEventWebhooks() ? (
+            <LinkButton href="/settings/webhooks/event/new" icon={<PiPlus />}>
+              Add webhook
+            </LinkButton>
+          ) : null
         }
       />
 

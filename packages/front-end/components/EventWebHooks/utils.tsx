@@ -44,7 +44,6 @@ export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 export type EventWebHookEditParams = {
   name: string;
   url: string;
-  enabled: boolean;
   events: NotificationEventNameOrWildcard[];
   tags: string[];
   environments: string[];

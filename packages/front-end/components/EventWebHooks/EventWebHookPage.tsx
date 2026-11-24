@@ -11,7 +11,7 @@ import {
   datadogEventWebHookEvents,
   isEventWebhookWildcard,
 } from "shared/validators";
-import { DATADOG_API_KEY_HEADER } from "shared/util";
+import { datadogWebhookProblem } from "shared/util";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -24,7 +24,9 @@ import SettingsPage, {
 } from "@/components/Layout/SettingsPage";
 import SectionFrame from "@/components/SectionFrame";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
-import StagedEditsBar from "@/components/StagedEdits/StagedEditsBar";
+import StagedEditsBar, {
+  EDITS_BLOCKED_REASON,
+} from "@/components/StagedEdits/StagedEditsBar";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -36,10 +38,7 @@ import DatadogWebhookChecks from "@/components/EventWebHooks/DatadogWebhookCheck
 import EventWebHookStatus, {
   recentFailures,
 } from "@/components/EventWebHooks/EventWebHookStatus";
-import {
-  headerSecretKey,
-  parseHeaders,
-} from "@/components/EventWebHooks/datadog";
+import { parseHeaders } from "@/components/EventWebHooks/datadog";
 import {
   buildGroupedEventOptions,
   eventWebHookEventOptions,
@@ -61,6 +60,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
 import {
@@ -93,9 +93,7 @@ const payloadTypeDescriptions: Record<EventWebHookPayloadType, ReactNode> = {
     "A message in a Discord channel for each event, through a webhook URL.",
   datadog: (
     <>
-      Shows Feature Flag, experiment, Saved Group, Constant and Config changes
-      in Datadog Change Tracking, beside the graphs and monitors of the services
-      they affect.{" "}
+      Sends changes that affect your SDK payloads to Datadog Change Tracking.{" "}
       <DocLink docSection="datadogChangeEvents">Learn more</DocLink>
     </>
   ),
@@ -128,7 +126,6 @@ const NEW_WEBHOOK: EventWebHookEditParams = {
   name: "",
   events: [],
   url: "",
-  enabled: true,
   environments: [],
   projects: [],
   tags: [],
@@ -146,7 +143,6 @@ function toEditParams(
     name: webhook.name,
     events: webhook.events,
     url: webhook.url,
-    enabled: webhook.enabled,
     environments: webhook.environments,
     projects: webhook.projects,
     tags: webhook.tags,
@@ -165,7 +161,6 @@ function toRequestBody(values: EventWebHookEditParams) {
   return {
     name: v.name,
     url: v.url,
-    enabled: v.enabled,
     events: v.events,
     projects: v.projects,
     tags: v.tags,
@@ -198,21 +193,24 @@ function isJson(value: string) {
   }
 }
 
-// Why the webhook can't be saved yet, or null when it can.
+// Problems the rows show themselves: an empty required row (marked) or a
+// timeout out of range.
+function shownOnRows(values: EventWebHookEditParams): boolean {
+  return (
+    values.name.trim().length < 2 ||
+    !values.url.trim() ||
+    !values.events.length ||
+    (values.payloadType === "datadog" &&
+      !!datadogWebhookProblem({ headers: parseHeaders(values.headers) })) ||
+    (!forcedParams[values.payloadType] && !!timeoutError(values.timeoutSeconds))
+  );
+}
+
+// Anything else that stops a save, or null.
 function saveProblem(values: EventWebHookEditParams): string | null {
-  if (values.name.trim().length < 2) return "Add a name.";
-  if (!isUrl(values.url)) {
-    return values.payloadType === "datadog"
-      ? "Choose a Datadog site."
-      : "Add an endpoint URL.";
+  if (values.url.trim() && !isUrl(values.url)) {
+    return "Enter a valid endpoint URL.";
   }
-  if (
-    values.payloadType === "datadog" &&
-    !headerSecretKey(parseHeaders(values.headers), DATADOG_API_KEY_HEADER)
-  ) {
-    return "Choose an API key secret.";
-  }
-  if (!values.events.length) return "Choose at least one event.";
   if (
     !values.events.every(
       (e) =>
@@ -222,10 +220,8 @@ function saveProblem(values: EventWebHookEditParams): string | null {
   ) {
     return "Remove events that no longer exist.";
   }
-  if (!forcedParams[values.payloadType]) {
-    if (!isJson(values.headers)) return "Headers must be valid JSON.";
-    const timeout = timeoutError(values.timeoutSeconds);
-    if (timeout) return timeout;
+  if (!forcedParams[values.payloadType] && !isJson(values.headers)) {
+    return "Headers must be valid JSON.";
   }
   return null;
 }
@@ -245,7 +241,12 @@ export default function EventWebHookPage({
   const datadogEnabled = useFeatureIsOn("datadog-change-events");
   const isNew = !eventWebHook;
 
-  const saved = useMemo(() => toEditParams(eventWebHook), [eventWebHook]);
+  // Refetches return a new object; edits only reset when saved values change.
+  const savedJson = JSON.stringify(toEditParams(eventWebHook));
+  const saved = useMemo<EventWebHookEditParams>(
+    () => JSON.parse(savedJson),
+    [savedJson],
+  );
   const form = useForm<EventWebHookEditParams>({ defaultValues: saved });
   useEffect(() => form.reset(saved), [form, saved]);
   const values = form.watch();
@@ -267,16 +268,18 @@ export default function EventWebHookPage({
   const latestFailed = !!logs[0] && logs[0].result !== "success";
 
   // The Slack app manages its channels' webhooks.
+  const managedInSlack =
+    eventWebHook?.payloadType === "slack" && !!eventWebHook.slack?.teamId;
   const slackSettingsUrl =
-    eventWebHook?.payloadType === "slack" && eventWebHook.slack?.teamId
-      ? eventWebHook.slack.channelId
+    managedInSlack && permissionsUtil.canManageIntegrations()
+      ? eventWebHook.slack?.channelId
         ? `/integrations/slack?channel=${encodeURIComponent(eventWebHook.id)}`
         : `/integrations/slack?workspace=${encodeURIComponent(
-            eventWebHook.slack.teamId,
+            eventWebHook.slack?.teamId ?? "",
           )}`
       : null;
   const canEdit =
-    !slackSettingsUrl &&
+    !managedInSlack &&
     (eventWebHook
       ? permissionsUtil.canUpdateEventWebhook(eventWebHook, {})
       : permissionsUtil.canManageSomeEventWebhooks());
@@ -330,6 +333,7 @@ export default function EventWebHookPage({
   const changed = (field: keyof ReturnType<typeof normalize>) =>
     !isNew && !isEqual(shownNormal[field], savedNormal[field]);
   const dirty = isNew || !isEqual(shownNormal, savedNormal);
+  const blockedReason = !isNew && dirty ? EDITS_BLOCKED_REASON : null;
   const problem =
     saveProblem(values) ??
     (permitted
@@ -340,7 +344,10 @@ export default function EventWebHookPage({
     setSaving(true);
     setSaveError(null);
     try {
-      const body = JSON.stringify(toRequestBody(values));
+      const body = JSON.stringify({
+        ...toRequestBody(values),
+        enabled: eventWebHook?.enabled ?? true,
+      });
       if (eventWebHook) {
         await apiCall(`/event-webhooks/${eventWebHook.id}`, {
           method: "PUT",
@@ -430,16 +437,21 @@ export default function EventWebHookPage({
     // Spaced like the detail pages' header actions.
     <Flex align="center" gap="4">
       {canTest && (
-        <Button
-          variant="outline"
-          icon={<PiPaperPlaneTilt />}
-          disabled={
-            !eventWebHook && !z.string().url().safeParse(values.url).success
-          }
-          onClick={sendTest}
-        >
-          {eventWebHook ? "Send test" : "Test connection"}
-        </Button>
+        // A test sends the saved settings.
+        <Tooltip content={blockedReason} enabled={!!blockedReason}>
+          <span>
+            <Button
+              variant="outline"
+              icon={<PiPaperPlaneTilt />}
+              disabled={
+                !!blockedReason || (!eventWebHook && !isUrl(values.url))
+              }
+              onClick={sendTest}
+            >
+              {eventWebHook ? "Send test" : "Test connection"}
+            </Button>
+          </span>
+        </Tooltip>
       )}
       {eventWebHook && canEdit && (
         <DropdownMenu
@@ -483,7 +495,7 @@ export default function EventWebHookPage({
 
   return (
     <SettingsPage
-      title={eventWebHook?.name ?? "New webhook"}
+      title={eventWebHook?.name ?? "New Webhook"}
       hideHeader
       parent={{ display: "Webhooks", href: "/settings/webhooks" }}
     >
@@ -494,7 +506,7 @@ export default function EventWebHookPage({
               type={values.payloadType}
               style={{ height: "1em", width: "1em", flexShrink: 0 }}
             />
-            {eventWebHook?.name ?? "New webhook"}
+            {eventWebHook?.name ?? "New Webhook"}
             {eventWebHook ? (
               eventWebHook.enabled ? (
                 <Badge
@@ -594,6 +606,12 @@ export default function EventWebHookPage({
                       form.setValue("events", [ALL_EVENTS_WILDCARD]);
                       form.setValue("url", "");
                       form.setValue("headers", "{}");
+                    } else if (type !== "datadog") {
+                      // Only Datadog lists "All supported events".
+                      form.setValue(
+                        "events",
+                        values.events.filter((e) => e !== ALL_EVENTS_WILDCARD),
+                      );
                     }
                     form.setValue("payloadType", type);
                   }}
@@ -696,7 +714,7 @@ export default function EventWebHookPage({
                 )}
             </SectionFrame>
 
-            <SectionFrame title="Events and filters" mt="4">
+            <SectionFrame title="Events and Filters" mt="4">
               <SetupFieldRow
                 label="Events"
                 required={isNew || !values.events.length}
@@ -742,7 +760,7 @@ export default function EventWebHookPage({
               >
                 <MultiSelectField
                   value={values.environments}
-                  placeholder="All environments"
+                  placeholder="All Environments"
                   sort={false}
                   disabled={disabled}
                   containerStyle={fieldStyle}
@@ -779,6 +797,7 @@ export default function EventWebHookPage({
                   value={values.tags}
                   prompt="All tags"
                   autoFocus={false}
+                  disabled={disabled}
                   onChange={(selected) => form.setValue("tags", selected)}
                 />
               </SetupFieldRow>
@@ -843,14 +862,14 @@ export default function EventWebHookPage({
               </Text>
             }
             notes={
-              saveError || problem ? (
-                <HelperText status={saveError ? "error" : "info"}>
-                  {saveError ?? problem}
-                </HelperText>
+              saveError ? (
+                <HelperText status="error">{saveError}</HelperText>
+              ) : problem ? (
+                <Text color="text-mid">{problem}</Text>
               ) : null
             }
             saving={saving}
-            saveDisabled={!!problem}
+            saveDisabled={shownOnRows(values) || !!problem}
             onDiscard={() =>
               isNew ? router.push("/settings/webhooks") : form.reset(saved)
             }

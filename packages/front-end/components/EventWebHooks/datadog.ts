@@ -16,14 +16,21 @@ export function parseHeaders(headers: string): Record<string, string> {
   return {};
 }
 
+// Header names are case-insensitive.
+function findHeader(headers: Record<string, string>, name: string) {
+  return Object.keys(headers).find(
+    (key) => key.toLowerCase() === name.toLowerCase(),
+  );
+}
+
 // The secret a header is set to, when it is exactly one `{{ KEY }}` reference.
 export function headerSecretKey(
   headers: Record<string, string>,
   name: string,
 ): string {
-  const value = headers[name] ?? "";
+  const value = headers[findHeader(headers, name) ?? ""] ?? "";
   const keys = referencedWebhookSecrets(value);
-  return keys.length === 1 && value.trim() === `{{ ${keys[0]} }}`
+  return keys.length === 1 && value.replace(/\s/g, "") === `{{${keys[0]}}}`
     ? keys[0]
     : "";
 }
@@ -33,8 +40,8 @@ export function withHeaderSecret(
   name: string,
   secretKey: string,
 ): string {
-  return JSON.stringify({
-    ...parseHeaders(headers),
-    [name]: `{{ ${secretKey} }}`,
-  });
+  const parsed = parseHeaders(headers);
+  const existing = findHeader(parsed, name);
+  if (existing) delete parsed[existing];
+  return JSON.stringify({ ...parsed, [name]: `{{ ${secretKey} }}` });
 }

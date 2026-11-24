@@ -4,6 +4,7 @@ import {
   datadogEventsUrl,
   datadogSiteForUrl,
   datadogSites,
+  datadogWebhookProblem,
 } from "shared/util";
 import { UseFormReturn } from "react-hook-form";
 import { Flex } from "@radix-ui/themes";
@@ -128,10 +129,10 @@ export default function DatadogWebhookFields({
 }) {
   const customFields = useCustomFields();
   const url = form.watch("url");
-  const [customUrl, setCustomUrl] = useState(
-    () => !!url && !datadogSiteForUrl(url),
-  );
-  const site = customUrl ? null : datadogSiteForUrl(url);
+  // "Custom" clears the URL; any URL that isn't a site's is custom.
+  const [customChosen, setCustomChosen] = useState(false);
+  const site = datadogSiteForUrl(url);
+  const customUrl = url ? !site : customChosen;
   let origin: string | null = null;
   try {
     origin = url ? new URL(url).origin : null;
@@ -172,10 +173,9 @@ export default function DatadogWebhookFields({
     // Only when the field list or the modal changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customFields, creatingField]);
-  const hasApiKey = !!headerSecretKey(
-    parseHeaders(form.watch("headers")),
-    DATADOG_API_KEY_HEADER,
-  );
+  const hasApiKey = !datadogWebhookProblem({
+    headers: parseHeaders(form.watch("headers")),
+  });
 
   return (
     <>
@@ -191,10 +191,11 @@ export default function DatadogWebhookFields({
             { label: "Custom", value: CUSTOM_SITE },
           ]}
           onChange={(value) => {
-            setCustomUrl(value === CUSTOM_SITE);
-            if (value !== CUSTOM_SITE) {
-              form.setValue("url", datadogEventsUrl(value));
-            }
+            setCustomChosen(value === CUSTOM_SITE);
+            form.setValue(
+              "url",
+              value === CUSTOM_SITE ? "" : datadogEventsUrl(value),
+            );
           }}
           helpText="The site you sign in to Datadog on. It sets the endpoint URL."
         />
