@@ -98,6 +98,17 @@ async function seedLocalStorage(
   );
 }
 
+// Wraps the real mocksse EventSource so tests can assert whether any
+// streaming channel was constructed. Remember to restore the polyfill
+// with `setPolyfills({ EventSource })` when done.
+function spyEventSourcePolyfill() {
+  const spy = jest.fn((url: string, options?: Record<string, unknown>) => {
+    return new EventSource(url, options);
+  });
+  setPolyfills({ EventSource: spy });
+  return spy;
+}
+
 describe("feature-repo", () => {
   beforeEach(async () => {
     await clearCache();
@@ -587,6 +598,168 @@ describe("feature-repo", () => {
     growthbook.destroy();
     cleanup();
     event.clear();
+  });
+
+  it("does not open a streaming subscription by default", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "initial",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true);
+
+    const spyEventSource = spyEventSourcePolyfill();
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.init();
+
+    // Features are fetched exactly once
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    // Even though the API host reported SSE support, no subscription is
+    // created and no background auto-refresh happens without streaming: true
+    await sleep(150);
+    expect(spyEventSource).not.toHaveBeenCalled();
+    expect(f.mock.calls.length).toEqual(1);
+
+    growthbook.destroy();
+    setPolyfills({ EventSource });
+    cleanup();
+  });
+
+  it("opens a streaming subscription when streaming is true", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "initial",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const streamingPayload = {
+      features: {
+        foo: {
+          defaultValue: "streaming",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2010-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true);
+
+    // Simulate SSE data
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 50,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(streamingPayload),
+        },
+      ],
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.init({ streaming: true });
+
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    // The pushed feature change is applied without a manual refresh
+    await sleep(100);
+    expect(growthbook.evalFeature("foo").value).toEqual("streaming");
+    expect(growthbook.getPayload()).toEqual(streamingPayload);
+
+    growthbook.destroy();
+    cleanup();
+    event.clear();
+  });
+
+  it("still subscribes when the legacy backgroundSync option is set", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "initial",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true);
+
+    const spyEventSource = spyEventSourcePolyfill();
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      backgroundSync: true,
+    });
+    await growthbook.init();
+
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    // The legacy option opts back in to the streaming channel
+    await sleep(50);
+    expect(spyEventSource).toHaveBeenCalled();
+    expect(spyEventSource.mock.calls[0][0]).toEqual(
+      "https://fakeapi.sample.io/sub/qwerty1234",
+    );
+
+    growthbook.destroy();
+    setPolyfills({ EventSource });
+    cleanup();
+  });
+
+  it("does not subscribe when calling loadFeatures() without autoRefresh", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "initial",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true);
+
+    const spyEventSource = spyEventSourcePolyfill();
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.loadFeatures();
+
+    // Features load successfully
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    // But no streaming subscription is started
+    await sleep(150);
+    expect(spyEventSource).not.toHaveBeenCalled();
+    expect(f.mock.calls.length).toEqual(1);
+
+    growthbook.destroy();
+    setPolyfills({ EventSource });
+    cleanup();
   });
 
   it("keeps the payload when the EventSource polyfill is not a constructor", async () => {

@@ -397,12 +397,14 @@ export class GrowthBook<
       throw new Error("Missing clientKey");
     }
     // Trigger refresh in feature repository
+    // Streaming/background sync is opt-in: without an explicit `streaming` init
+    // option or the legacy `backgroundSync` option, no subscription is created
     return refreshFeatures({
       instance: this,
       timeout,
       skipCache: skipCache || this._options.disableCache,
       allowStale,
-      backgroundSync: streaming ?? this._options.backgroundSync ?? true,
+      backgroundSync: streaming ?? this._options.backgroundSync,
     });
   }
 
