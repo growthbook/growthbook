@@ -6,12 +6,14 @@ import type {
   ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
 } from "shared/validators";
+import { datasetHasValues } from "shared/validators";
 import {
   calculateProductAnalyticsDateRange,
   getComparisonAlignmentStrategy,
   getDateGranularity,
   buildAlignedComparisonRowLookup,
   densifyPopulationTimeseriesRows,
+  getValueName,
   isComparedMetricColumn,
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy } from "shared/enterprise";
@@ -43,6 +45,24 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 // ratio's Numerator / Denominator are hidden)
 function showsCurrentPeriodOnly(col: ExplorationColumn): boolean {
   return col.kind !== "metric";
+}
+
+// The metric's own name, for headers that group or replace a ratio's parts
+function metricColumnName(
+  config: ExplorationConfig | null | undefined,
+  col: { metricIndex: number; label: string },
+): string {
+  const ds = config?.dataset;
+  const value = datasetHasValues(ds) ? ds.values[col.metricIndex] : undefined;
+  return value ? getValueName(value, col.metricIndex) : col.label;
+}
+
+// Compare mode hides a ratio's numerator and denominator, so its value column is just the metric
+function comparedColumnLabel(
+  config: ExplorationConfig | null | undefined,
+  col: Extract<ExplorationColumn, { kind: "metric" }>,
+): string {
+  return col.sub === "value" ? metricColumnName(config, col) : col.label;
 }
 
 /**
@@ -632,10 +652,8 @@ export default function useExplorationTableData(
         if (showsCurrentPeriodOnly(col)) {
           labels.push(col.label);
         } else if (isComparedMetricColumn(col)) {
-          labels.push(
-            `${col.label} — ${currHeading}`,
-            `${col.label} — ${prevHeading}`,
-          );
+          const label = comparedColumnLabel(submittedExploreState, col);
+          labels.push(`${label} — ${currHeading}`, `${label} — ${prevHeading}`);
         }
         if (i === 0 && firstDimensionIsDate) {
           labels.push(`${columns[0].label} (previous)`);
@@ -667,7 +685,10 @@ export default function useExplorationTableData(
         if (showsCurrentPeriodOnly(col)) {
           row1.push({ label: col.label, rowSpan: 2 });
         } else if (isComparedMetricColumn(col)) {
-          row1.push({ label: col.label, colSpan: 2 });
+          row1.push({
+            label: comparedColumnLabel(submittedExploreState, col),
+            colSpan: 2,
+          });
           row2Labels.push(currHeading, prevHeading);
         }
         // Dedicated previous-date column, mirroring orderedColumnKeys.
@@ -688,11 +709,7 @@ export default function useExplorationTableData(
         row1.push({ label: col.label, rowSpan: 2 });
         continue;
       }
-      const ds = submittedExploreState?.dataset;
-      const metricName =
-        (ds && ds.type !== "funnel" && ds.type !== "journey"
-          ? ds.values?.[col.metricIndex]?.name
-          : undefined) ?? col.label;
+      const metricName = metricColumnName(submittedExploreState, col);
       if (col.sub === "numerator") {
         row1.push({ label: metricName, colSpan: 3 });
       }
