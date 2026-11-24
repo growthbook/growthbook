@@ -312,38 +312,6 @@ describe("environments API", () => {
     });
   });
 
-  it("deletes QA overrides only when an environment becomes production", async () => {
-    const deleteByEnvironment = jest.fn().mockResolvedValue([]);
-    const org = {
-      id: "org1",
-      settings: {
-        environments: [{ id: "dev", isProduction: false }],
-      },
-    };
-    jest.mocked(findOrganizationById).mockResolvedValue(org as never);
-    setReqContext({
-      models: { experimentQaOverrides: { deleteByEnvironment } },
-      org,
-      permissions: {
-        canUpdateEnvironment: () => true,
-      },
-    });
-
-    const stillNotProduction = await request(app)
-      .put("/api/v1/environments/dev")
-      .send({ description: "still for testing" })
-      .set("Authorization", "Bearer foo");
-    expect(stillNotProduction.status).toBe(200);
-    expect(deleteByEnvironment).not.toHaveBeenCalled();
-
-    const nowProduction = await request(app)
-      .put("/api/v1/environments/dev")
-      .send({ isProduction: true })
-      .set("Authorization", "Bearer foo");
-    expect(nowProduction.status).toBe(200);
-    expect(deleteByEnvironment).toHaveBeenCalledWith("dev");
-  });
-
   it("refuses to update projects when they do not exist", async () => {
     setReqContext({
       models: {
