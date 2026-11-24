@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -92,10 +92,13 @@ export default function SetupFieldRow({
           >
             {label}
             {required ? (
-              <span aria-hidden="true" style={{ color: "var(--red-11)" }}>
-                {" "}
-                *
-              </span>
+              <>
+                <span aria-hidden="true" style={{ color: "var(--red-11)" }}>
+                  {" "}
+                  *
+                </span>
+                <VisuallyHidden> (required)</VisuallyHidden>
+              </>
             ) : null}
           </Text>
           {tooltip ? (

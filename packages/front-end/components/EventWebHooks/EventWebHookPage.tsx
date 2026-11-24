@@ -63,6 +63,8 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
+import useUnsavedChangesGuard from "@/hooks/useUnsavedChangesGuard";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -352,7 +354,9 @@ export default function EventWebHookPage({
   const shownNormal = normalize(values);
   const changed = (field: keyof ReturnType<typeof normalize>) =>
     !isNew && !isEqual(shownNormal[field], savedNormal[field]);
-  const dirty = isNew || !isEqual(shownNormal, savedNormal);
+  const edited = !isEqual(shownNormal, savedNormal);
+  const dirty = isNew || edited;
+  const navigationGuard = useUnsavedChangesGuard(canEdit && edited);
   const blockedReason = !isNew && dirty ? EDITS_BLOCKED_REASON : null;
   const problem =
     saveProblem(values) ??
@@ -379,6 +383,7 @@ export default function EventWebHookPage({
           "/event-webhooks",
           { method: "POST", body },
         );
+        navigationGuard.allowUnload();
         await router.replace(`/settings/webhooks/event/${res.eventWebHook.id}`);
       }
     } catch (e) {
@@ -444,6 +449,7 @@ export default function EventWebHookPage({
   const remove = async () => {
     if (!eventWebHook) return;
     await apiCall(`/event-webhooks/${eventWebHook.id}`, { method: "DELETE" });
+    navigationGuard.allowUnload();
     await router.replace("/settings/webhooks");
   };
 
@@ -513,6 +519,239 @@ export default function EventWebHookPage({
     </Flex>
   );
 
+  // The setup, on its own or as the first tab.
+  const setup = (
+    <>
+      <SectionFrame title="Delivery">
+        <SetupFieldRow
+          label="Name"
+          required={isNew || values.name.trim().length < 2}
+          changed={changed("name")}
+        >
+          <Field
+            placeholder="My webhook"
+            disabled={disabled}
+            containerStyle={fieldStyle}
+            value={values.name}
+            onChange={(e) => form.setValue("name", e.target.value)}
+          />
+        </SetupFieldRow>
+
+        <SetupFieldRow label="Payload type" changed={changed("payloadType")}>
+          <SelectField
+            value={values.payloadType}
+            disabled={disabled || values.payloadType === "raw"}
+            sort={false}
+            containerStyle={fieldStyle}
+            options={payloadTypes.map((type) => ({
+              label: type,
+              value: type,
+            }))}
+            formatOptionLabel={({ label }) => (
+              <Flex as="span" align="center" gap="2">
+                <WebhookIcon
+                  type={label as EventWebHookPayloadType}
+                  style={{
+                    height: "1.25em",
+                    width: "1.25em",
+                    flexShrink: 0,
+                  }}
+                />
+                {payloadTypeLabels[label as EventWebHookPayloadType]}
+              </Flex>
+            )}
+            onChange={(value) => {
+              const type = value as EventWebHookPayloadType;
+              if (type === "datadog" && values.payloadType !== "datadog") {
+                form.setValue("events", [ALL_EVENTS_WILDCARD]);
+                form.setValue("url", "");
+                form.setValue("headers", "{}");
+              } else if (type !== "datadog") {
+                // Only Datadog lists "All supported events".
+                form.setValue(
+                  "events",
+                  values.events.filter((e) => e !== ALL_EVENTS_WILDCARD),
+                );
+              }
+              form.setValue("payloadType", type);
+            }}
+          />
+          <Text as="p" color="text-mid" mt="2" mb="0">
+            {payloadTypeDescriptions[values.payloadType]}
+          </Text>
+        </SetupFieldRow>
+
+        {isDatadog ? (
+          <DatadogWebhookFields form={form} disabled={disabled} isNew={isNew} />
+        ) : (
+          <SetupFieldRow
+            label="Endpoint URL"
+            required={isNew || !isUrl(values.url)}
+            changed={changed("url")}
+          >
+            <Field
+              placeholder="https://example.com/growthbook-webhook"
+              disabled={disabled}
+              containerStyle={fieldStyle}
+              value={values.url}
+              onChange={(e) => form.setValue("url", e.target.value)}
+              helpText={
+                isDetailed ? (
+                  <>
+                    Must accept <code>{values.method}</code> requests. Supports{" "}
+                    <DocLink useRadix={false} docSection="webhookSecrets">
+                      webhook secrets
+                    </DocLink>
+                    .
+                  </>
+                ) : null
+              }
+            />
+          </SetupFieldRow>
+        )}
+
+        {isDetailed && (
+          <>
+            <SetupFieldRow label="Method" changed={changed("method")}>
+              <SelectField
+                value={values.method}
+                disabled={disabled}
+                containerStyle={fieldStyle}
+                options={eventWebHookMethods.map((method) => ({
+                  label: method,
+                  value: method,
+                }))}
+                onChange={(value) =>
+                  form.setValue("method", value as EventWebHookMethod)
+                }
+              />
+            </SetupFieldRow>
+            <SetupFieldRow label="Headers" changed={changed("headers")}>
+              <WebhookHeadersField
+                hideLabel
+                value={values.headers}
+                disabled={disabled}
+                setValue={(headers) => form.setValue("headers", headers)}
+                endpoint={values.url}
+              />
+            </SetupFieldRow>
+            <SetupFieldRow
+              label="Timeout (seconds)"
+              changed={changed("timeoutSeconds")}
+            >
+              <Field
+                type="number"
+                min={1}
+                placeholder="30"
+                disabled={disabled}
+                containerStyle={fieldStyle}
+                value={values.timeoutSeconds ?? ""}
+                error={timeoutError(values.timeoutSeconds)}
+                onChange={(e) =>
+                  form.setValue(
+                    "timeoutSeconds",
+                    timeoutSecondsFromInput(e.target.value),
+                  )
+                }
+              />
+            </SetupFieldRow>
+          </>
+        )}
+
+        {eventWebHook && ["raw", "json"].includes(eventWebHook.payloadType) && (
+          <SetupFieldRow label="Signing secret" content="text">
+            <CopyableCode value={eventWebHook.signingKey} />
+            <Text as="p" size="sm" color="text-mid" mt="1" mb="0">
+              Verifies the signature header on each request.
+            </Text>
+          </SetupFieldRow>
+        )}
+      </SectionFrame>
+
+      <SectionFrame title="Events and Filters" mt="4">
+        <SetupFieldRow
+          label="Events"
+          required={isNew || !values.events.length}
+          changed={changed("events")}
+        >
+          <MultiSelectField
+            value={values.events}
+            placeholder="Choose events"
+            sort={false}
+            disabled={disabled || values.payloadType === "raw"}
+            containerStyle={fieldStyle}
+            options={
+              !isDatadog
+                ? eventWebHookEventOptions
+                : values.events.includes(ALL_EVENTS_WILDCARD)
+                  ? [allEventsOption]
+                  : [allEventsOption, ...datadogEventOptions]
+            }
+            formatOptionLabel={(option, meta) =>
+              formatWebhookEventOptionLabel(option, meta)
+            }
+            onChange={(value: string[]) =>
+              form.setValue(
+                "events",
+                // "*" replaces every other choice.
+                value.includes(ALL_EVENTS_WILDCARD) &&
+                  !values.events.includes(ALL_EVENTS_WILDCARD)
+                  ? [ALL_EVENTS_WILDCARD]
+                  : value,
+              )
+            }
+            helpText={
+              isDatadog
+                ? "Picks up newly supported events automatically."
+                : undefined
+            }
+          />
+        </SetupFieldRow>
+
+        <SetupFieldRow label="Environments" changed={changed("environments")}>
+          <MultiSelectField
+            value={values.environments}
+            placeholder="All Environments"
+            sort={false}
+            disabled={disabled}
+            containerStyle={fieldStyle}
+            options={environmentOptions.map((env) => ({
+              label: env,
+              value: env,
+            }))}
+            isOptionDisabled={(option) =>
+              "value" in option && !canUseEnvironments([option.value])
+            }
+            onChange={(value: string[]) => form.setValue("environments", value)}
+          />
+        </SetupFieldRow>
+
+        <SetupFieldRow label="Projects" changed={changed("projects")}>
+          <MultiSelectField
+            value={values.projects}
+            placeholder="All Projects"
+            sort={false}
+            disabled={disabled}
+            containerStyle={fieldStyle}
+            options={projectOptions}
+            onChange={(value: string[]) => form.setValue("projects", value)}
+          />
+        </SetupFieldRow>
+
+        <SetupFieldRow label="Tags" changed={changed("tags")}>
+          <TagsInput
+            tagOptions={tagOptions}
+            value={values.tags}
+            prompt="All tags"
+            autoFocus={false}
+            disabled={disabled}
+            onChange={(selected) => form.setValue("tags", selected)}
+          />
+        </SetupFieldRow>
+      </SectionFrame>
+    </>
+  );
+
   return (
     <SettingsPage
       title={eventWebHook?.name ?? "New Webhook"}
@@ -572,300 +811,51 @@ export default function EventWebHookPage({
         </Callout>
       )}
 
-      {/* The setup, on its own or as the first tab. */}
-      {(() => {
-        const setup = (
-          <>
-            <SectionFrame title="Delivery">
-              <SetupFieldRow
-                label="Name"
-                required={isNew || values.name.trim().length < 2}
-                changed={changed("name")}
-              >
-                <Field
-                  placeholder="My webhook"
-                  disabled={disabled}
-                  containerStyle={fieldStyle}
-                  value={values.name}
-                  onChange={(e) => form.setValue("name", e.target.value)}
-                />
-              </SetupFieldRow>
-
-              <SetupFieldRow
-                label="Payload type"
-                changed={changed("payloadType")}
-              >
-                <SelectField
-                  value={values.payloadType}
-                  disabled={disabled || values.payloadType === "raw"}
-                  sort={false}
-                  containerStyle={fieldStyle}
-                  options={payloadTypes.map((type) => ({
-                    label: type,
-                    value: type,
-                  }))}
-                  formatOptionLabel={({ label }) => (
-                    <Flex as="span" align="center" gap="2">
-                      <WebhookIcon
-                        type={label as EventWebHookPayloadType}
-                        style={{
-                          height: "1.25em",
-                          width: "1.25em",
-                          flexShrink: 0,
-                        }}
-                      />
-                      {payloadTypeLabels[label as EventWebHookPayloadType]}
-                    </Flex>
-                  )}
-                  onChange={(value) => {
-                    const type = value as EventWebHookPayloadType;
-                    if (
-                      type === "datadog" &&
-                      values.payloadType !== "datadog"
-                    ) {
-                      form.setValue("events", [ALL_EVENTS_WILDCARD]);
-                      form.setValue("url", "");
-                      form.setValue("headers", "{}");
-                    } else if (type !== "datadog") {
-                      // Only Datadog lists "All supported events".
-                      form.setValue(
-                        "events",
-                        values.events.filter((e) => e !== ALL_EVENTS_WILDCARD),
-                      );
-                    }
-                    form.setValue("payloadType", type);
-                  }}
-                />
-                <Text as="p" color="text-mid" mt="2" mb="0">
-                  {payloadTypeDescriptions[values.payloadType]}
-                </Text>
-              </SetupFieldRow>
-
-              {isDatadog ? (
-                <DatadogWebhookFields
-                  form={form}
-                  disabled={disabled}
-                  isNew={isNew}
-                />
-              ) : (
-                <SetupFieldRow
-                  label="Endpoint URL"
-                  required={isNew || !isUrl(values.url)}
-                  changed={changed("url")}
-                >
-                  <Field
-                    placeholder="https://example.com/growthbook-webhook"
-                    disabled={disabled}
-                    containerStyle={fieldStyle}
-                    value={values.url}
-                    onChange={(e) => form.setValue("url", e.target.value)}
-                    helpText={
-                      isDetailed ? (
-                        <>
-                          Must accept <code>{values.method}</code> requests.
-                          Supports{" "}
-                          <DocLink useRadix={false} docSection="webhookSecrets">
-                            webhook secrets
-                          </DocLink>
-                          .
-                        </>
-                      ) : null
-                    }
+      {eventWebHook ? (
+        <Tabs
+          value={tab}
+          onValueChange={(v) => {
+            setNotice(null);
+            setTab(v as WebhookTab);
+          }}
+        >
+          <Box mb="4">
+            <TabsList>
+              <TabsTrigger value="setup">Setup</TabsTrigger>
+              <TabsTrigger value="diagnostics">
+                Diagnostics
+                {latestFailed ? (
+                  // Sized like the unsaved-change dot, in red.
+                  <span
+                    role="img"
+                    aria-label="Last delivery failed"
+                    style={{
+                      width: 8,
+                      height: 8,
+                      marginLeft: 6,
+                      borderRadius: "50%",
+                      background: "var(--red-9)",
+                    }}
                   />
-                </SetupFieldRow>
+                ) : null}
+              </TabsTrigger>
+            </TabsList>
+          </Box>
+          <TabsContent value="setup">{setup}</TabsContent>
+          <TabsContent value="diagnostics">
+            <EventWebHookStatus
+              logs={loadedLogs}
+              error={logsError?.message ?? null}
+            >
+              {eventWebHook.payloadType === "datadog" && (
+                <DatadogWebhookChecks eventWebHook={eventWebHook} logs={logs} />
               )}
-
-              {isDetailed && (
-                <>
-                  <SetupFieldRow label="Method" changed={changed("method")}>
-                    <SelectField
-                      value={values.method}
-                      disabled={disabled}
-                      containerStyle={fieldStyle}
-                      options={eventWebHookMethods.map((method) => ({
-                        label: method,
-                        value: method,
-                      }))}
-                      onChange={(value) =>
-                        form.setValue("method", value as EventWebHookMethod)
-                      }
-                    />
-                  </SetupFieldRow>
-                  <SetupFieldRow label="Headers" changed={changed("headers")}>
-                    <WebhookHeadersField
-                      hideLabel
-                      value={values.headers}
-                      disabled={disabled}
-                      setValue={(headers) => form.setValue("headers", headers)}
-                      endpoint={values.url}
-                    />
-                  </SetupFieldRow>
-                  <SetupFieldRow
-                    label="Timeout (seconds)"
-                    changed={changed("timeoutSeconds")}
-                  >
-                    <Field
-                      type="number"
-                      min={1}
-                      placeholder="30"
-                      disabled={disabled}
-                      containerStyle={fieldStyle}
-                      value={values.timeoutSeconds ?? ""}
-                      error={timeoutError(values.timeoutSeconds)}
-                      onChange={(e) =>
-                        form.setValue(
-                          "timeoutSeconds",
-                          timeoutSecondsFromInput(e.target.value),
-                        )
-                      }
-                    />
-                  </SetupFieldRow>
-                </>
-              )}
-
-              {eventWebHook &&
-                ["raw", "json"].includes(eventWebHook.payloadType) && (
-                  <SetupFieldRow label="Signing secret" content="text">
-                    <CopyableCode value={eventWebHook.signingKey} />
-                    <Text as="p" size="sm" color="text-mid" mt="1" mb="0">
-                      Verifies the signature header on each request.
-                    </Text>
-                  </SetupFieldRow>
-                )}
-            </SectionFrame>
-
-            <SectionFrame title="Events and Filters" mt="4">
-              <SetupFieldRow
-                label="Events"
-                required={isNew || !values.events.length}
-                changed={changed("events")}
-              >
-                <MultiSelectField
-                  value={values.events}
-                  placeholder="Choose events"
-                  sort={false}
-                  disabled={disabled || values.payloadType === "raw"}
-                  containerStyle={fieldStyle}
-                  options={
-                    !isDatadog
-                      ? eventWebHookEventOptions
-                      : values.events.includes(ALL_EVENTS_WILDCARD)
-                        ? [allEventsOption]
-                        : [allEventsOption, ...datadogEventOptions]
-                  }
-                  formatOptionLabel={(option, meta) =>
-                    formatWebhookEventOptionLabel(option, meta)
-                  }
-                  onChange={(value: string[]) =>
-                    form.setValue(
-                      "events",
-                      // "*" replaces every other choice.
-                      value.includes(ALL_EVENTS_WILDCARD) &&
-                        !values.events.includes(ALL_EVENTS_WILDCARD)
-                        ? [ALL_EVENTS_WILDCARD]
-                        : value,
-                    )
-                  }
-                  helpText={
-                    isDatadog
-                      ? "Picks up newly supported events automatically."
-                      : undefined
-                  }
-                />
-              </SetupFieldRow>
-
-              <SetupFieldRow
-                label="Environments"
-                changed={changed("environments")}
-              >
-                <MultiSelectField
-                  value={values.environments}
-                  placeholder="All Environments"
-                  sort={false}
-                  disabled={disabled}
-                  containerStyle={fieldStyle}
-                  options={environmentOptions.map((env) => ({
-                    label: env,
-                    value: env,
-                  }))}
-                  isOptionDisabled={(option) =>
-                    "value" in option && !canUseEnvironments([option.value])
-                  }
-                  onChange={(value: string[]) =>
-                    form.setValue("environments", value)
-                  }
-                />
-              </SetupFieldRow>
-
-              <SetupFieldRow label="Projects" changed={changed("projects")}>
-                <MultiSelectField
-                  value={values.projects}
-                  placeholder="All Projects"
-                  sort={false}
-                  disabled={disabled}
-                  containerStyle={fieldStyle}
-                  options={projectOptions}
-                  onChange={(value: string[]) =>
-                    form.setValue("projects", value)
-                  }
-                />
-              </SetupFieldRow>
-
-              <SetupFieldRow label="Tags" changed={changed("tags")}>
-                <TagsInput
-                  tagOptions={tagOptions}
-                  value={values.tags}
-                  prompt="All tags"
-                  autoFocus={false}
-                  disabled={disabled}
-                  onChange={(selected) => form.setValue("tags", selected)}
-                />
-              </SetupFieldRow>
-            </SectionFrame>
-          </>
-        );
-        if (!eventWebHook) return setup;
-        return (
-          <Tabs value={tab} onValueChange={(v) => setTab(v as WebhookTab)}>
-            <Box mb="4">
-              <TabsList>
-                <TabsTrigger value="setup">Setup</TabsTrigger>
-                <TabsTrigger value="diagnostics">
-                  Diagnostics
-                  {latestFailed ? (
-                    // Sized like the unsaved-change dot, in red.
-                    <span
-                      role="img"
-                      aria-label="Last delivery failed"
-                      style={{
-                        width: 8,
-                        height: 8,
-                        marginLeft: 6,
-                        borderRadius: "50%",
-                        background: "var(--red-9)",
-                      }}
-                    />
-                  ) : null}
-                </TabsTrigger>
-              </TabsList>
-            </Box>
-            <TabsContent value="setup">{setup}</TabsContent>
-            <TabsContent value="diagnostics">
-              <EventWebHookStatus
-                logs={loadedLogs}
-                error={logsError?.message ?? null}
-              >
-                {eventWebHook.payloadType === "datadog" && (
-                  <DatadogWebhookChecks
-                    eventWebHook={eventWebHook}
-                    logs={logs}
-                  />
-                )}
-              </EventWebHookStatus>
-            </TabsContent>
-          </Tabs>
-        );
-      })()}
+            </EventWebHookStatus>
+          </TabsContent>
+        </Tabs>
+      ) : (
+        setup
+      )}
 
       {canEdit && dirty && (
         // Pinned to the window's bottom, from the navs to its right edge.
@@ -875,7 +865,8 @@ export default function EventWebHookPage({
             left: "var(--page-nav-width)",
             right: 0,
             bottom: 0,
-            zIndex: 1003,
+            // As General's bar: over the sub nav, under the slide-out sidebar.
+            zIndex: 999,
           }}
         >
           <StagedEditsBar
@@ -893,13 +884,26 @@ export default function EventWebHookPage({
             }
             saving={saving}
             saveDisabled={shownOnRows(values) || !!problem}
-            onDiscard={() =>
-              isNew ? router.push("/settings/webhooks") : form.reset(saved)
-            }
+            onDiscard={() => {
+              if (!isNew) return form.reset(saved);
+              navigationGuard.allowUnload();
+              router.push("/settings/webhooks");
+            }}
             onSave={onSave}
           />
         </Box>
       )}
+      {navigationGuard.pendingHref ? (
+        <ConfirmDialog
+          title="Leave without saving?"
+          content="You have unsaved changes to this webhook. Leaving this page discards them."
+          yesText="Keep editing"
+          noText="Leave page"
+          onConfirm={navigationGuard.cancelNavigation}
+          onCancel={navigationGuard.confirmNavigation}
+          onDismiss={navigationGuard.cancelNavigation}
+        />
+      ) : null}
       {/* Room for the bar under the last section. */}
       <Box style={{ height: "var(--bottom-bar-clearance, 0px)" }} />
     </SettingsPage>
