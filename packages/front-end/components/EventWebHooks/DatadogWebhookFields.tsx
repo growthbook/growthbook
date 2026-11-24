@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   DATADOG_API_KEY_HEADER,
   datadogEventsUrl,
@@ -249,7 +250,13 @@ export default function DatadogWebhookFields({
             if (value !== CREATE_FIELD) return setServiceField(value);
             setCreatingFrom(customFields.map((f) => f.id));
           }}
-          helpText="Its values on each Feature Flag and experiment, such as checkout-api."
+          helpText={
+            <>
+              A <Link href="/settings/customfields">custom field</Link> whose
+              values on each flag and experiment are its services, such as
+              checkout-api.
+            </>
+          }
         />
         {creatingFrom && (
           <CustomFieldModal
