@@ -9,6 +9,7 @@ import { cancellableFetch } from "back-end/src/util/http.util";
 import { buildDigestFromEditorUrl } from "back-end/src/api/visual-editor-ai/serverPageDigest";
 import { parseFetchableEditorUrl } from "back-end/src/api/visual-editor-ai/editorUrlFetch";
 import { hasDocumentOrder } from "back-end/src/api/visual-editor-ai/pageStructure";
+import { logger } from "back-end/src/util/logger";
 
 const mockFetch = cancellableFetch as jest.Mock;
 
@@ -362,6 +363,36 @@ describe("buildDigestFromEditorUrl", () => {
     await expect(
       buildDigestFromEditorUrl("https://example.com/"),
     ).resolves.toBeNull();
+  });
+
+  it("keeps editor URL query strings out of fetch error logs", async () => {
+    const info = jest.spyOn(logger, "info").mockImplementation(() => {});
+    const href = "https://example.com/account?reset_token=s3cret#frag";
+    mockFetch.mockRejectedValue(
+      Object.assign(
+        new Error(`request to ${href} failed, reason: connect ECONNREFUSED`),
+        { name: "FetchError", code: "ECONNREFUSED" },
+      ),
+    );
+
+    await expect(buildDigestFromEditorUrl(href)).resolves.toBeNull();
+
+    const logged = JSON.stringify(info.mock.calls);
+    expect(logged).not.toContain("s3cret");
+    expect(logged).not.toContain("frag");
+    expect(info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://example.com/account",
+        err: expect.objectContaining({
+          name: "FetchError",
+          code: "ECONNREFUSED",
+          message:
+            "request to https://example.com/account failed, reason: connect ECONNREFUSED",
+        }),
+      }),
+      expect.any(String),
+    );
+    info.mockRestore();
   });
 
   it("never fetches an unfetchable editorUrl", async () => {
