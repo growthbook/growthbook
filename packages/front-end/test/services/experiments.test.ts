@@ -3,14 +3,18 @@ import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { MetricInterface } from "shared/types/metric";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
 import type { SnapshotVariation } from "shared/types/experiment-snapshot";
+import type { ExperimentReportResultDimension } from "shared/types/report";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
   convertExperimentToTemplate,
   getClusterSubUnitsLabel,
   getClusterUnitsLabel,
   getIneligibleClusterMetrics,
+  getNewMetricRowStates,
   getResultsSubUnitTotal,
   getUnitDisplayName,
 } from "@/services/experiments";
+import { generateRowsForMetricGroup } from "@/hooks/useExperimentTableRows";
 
 describe("convertExperimentToTemplate", () => {
   it("stores a legacy experiment's resolved identifier type", () => {
@@ -142,5 +146,132 @@ describe("getIneligibleClusterMetrics", () => {
     const result = getIneligibleClusterMetrics(["mg_group"], options);
     expect(result.droppedIds.size).toBe(0);
     expect(result.groupNames).toEqual(["Group"]);
+  });
+});
+
+describe("getNewMetricRowStates", () => {
+  const statesFor = (
+    overrides: Partial<Parameters<typeof getNewMetricRowStates>[0]>,
+  ) =>
+    Object.fromEntries(
+      getNewMetricRowStates({
+        newMetricIds: ["met_goal", "met_secondary", "met_guardrail"],
+        latest: null,
+        ...overrides,
+      }),
+    );
+  const refreshOf = (metricIds: string[]) => ({
+    kind: "new_metrics" as const,
+    parentSnapshotId: "snp_base",
+    queriedMetricIds: metricIds,
+    base: {
+      dateCreated: new Date("2026-11-16T09:00:00Z"),
+      runStarted: null,
+      cutoffDate: null,
+    },
+  });
+
+  it("marks every new metric as not computed", () => {
+    expect(
+      statesFor({
+        latest: {
+          type: "standard",
+          status: "success",
+        },
+      }),
+    ).toEqual({
+      met_goal: { status: "notComputed" },
+      met_secondary: { status: "notComputed" },
+      met_guardrail: { status: "notComputed" },
+    });
+  });
+
+  it("gives a computed metric with zero users its results row, next to a new metric", () => {
+    const metricsById: Record<string, ExperimentMetricDefinition> = {
+      met_goal: { id: "met_goal", name: "Zero users" } as MetricInterface,
+      met_secondary: { id: "met_secondary", name: "Added" } as MetricInterface,
+    };
+    const zeroUsers = { users: 0, value: 0, cr: 0 };
+    const results: ExperimentReportResultDimension = {
+      name: "",
+      srm: 1,
+      variations: [0, 1].map(() => ({
+        users: 1000,
+        metrics: { met_goal: zeroUsers },
+      })),
+    };
+    const rows = generateRowsForMetricGroup({
+      metricIds: ["met_goal", "met_secondary"],
+      resultGroup: "goal",
+      results,
+      metricOverrides: [],
+      shouldShowMetricSlices: false,
+      getExperimentMetricById: (id) => metricsById[id] ?? null,
+      getFactTableById: () => null,
+      newMetricStates: getNewMetricRowStates({
+        newMetricIds: ["met_secondary"],
+        latest: null,
+      }),
+    });
+    expect(
+      rows.map((r) => [r.metric.id, r.newMetricState, r.variations[1]]),
+    ).toEqual([
+      ["met_goal", undefined, zeroUsers],
+      ["met_secondary", { status: "notComputed" }, expect.anything()],
+    ]);
+  });
+
+  it.each([
+    {
+      name: "a running new-metrics update shows its metrics as running and the rest as not computed",
+      latest: {
+        type: "standard" as const,
+        status: "running" as const,
+        updateScope: refreshOf(["met_goal", "met_secondary"]),
+      },
+      expected: {
+        met_goal: { status: "running" },
+        met_secondary: { status: "running" },
+        met_guardrail: { status: "notComputed" },
+      },
+    },
+    {
+      name: "a running full update shows every new metric as running",
+      latest: { type: "standard" as const, status: "running" as const },
+      expected: {
+        met_goal: { status: "running" },
+        met_secondary: { status: "running" },
+        met_guardrail: { status: "running" },
+      },
+    },
+    {
+      name: "a failed new-metrics update shows its metrics as failed",
+      latest: {
+        type: "standard" as const,
+        status: "error" as const,
+        error: "Query failed",
+        updateScope: refreshOf(["met_goal"]),
+      },
+      expected: {
+        met_goal: { status: "failed", error: "Query failed" },
+        met_secondary: { status: "notComputed" },
+        met_guardrail: { status: "notComputed" },
+      },
+    },
+    {
+      name: "a failed full update leaves new metrics not computed",
+      latest: {
+        type: "standard" as const,
+        status: "error" as const,
+        error: "Query failed",
+      },
+      expected: {
+        met_goal: { status: "notComputed" },
+        met_secondary: { status: "notComputed" },
+        met_guardrail: { status: "notComputed" },
+      },
+    },
+  ])("$name", ({ latest, expected }) => {
+    expect(statesFor({ latest })).toEqual(expected);
   });
 });

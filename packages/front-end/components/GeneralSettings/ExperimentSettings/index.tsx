@@ -150,7 +150,7 @@ export default function ExperimentSettings() {
         id="exp-results"
         title="Results & Refresh"
         description="How often results update and how they're computed."
-        keywords="auto-update refresh schedule cron data cutoff lag conversion window attribution dimensions slices import past experiments"
+        keywords="auto-update refresh schedule cron data cutoff lag conversion window attribution dimensions slices import past experiments new metrics"
       >
         <SettingsField
           name={[
@@ -367,6 +367,31 @@ export default function ExperimentSettings() {
             </Box>
           )}
         </UnsavedMark>
+
+        <SettingsField
+          name="newMetricsUpdateWindowHours"
+          htmlFor="settings-newMetricsUpdateWindowHours"
+          label="Update only new metrics when results are newer than"
+          help="Applies to the Update button and to API updates that don't set a scope. Results' age is counted from their end date. Set 0 to always update all metrics."
+        >
+          <Box width="150px">
+            <Field
+              id="settings-newMetricsUpdateWindowHours"
+              size="md"
+              type="number"
+              append="hours"
+              step="any"
+              min={0}
+              containerClassName="mb-0"
+              disabled={hasFileConfig()}
+              placeholder={defaultFor("newMetricsUpdateWindowHours")}
+              {...form.register("newMetricsUpdateWindowHours", {
+                valueAsNumber: true,
+                min: 0,
+              })}
+            />
+          </Box>
+        </SettingsField>
 
         <SettingsField
           name="attributionModel"

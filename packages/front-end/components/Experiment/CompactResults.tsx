@@ -43,6 +43,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   excludeFunnelSliceRows,
   ExperimentTableRow,
+  NewMetricRowState,
 } from "@/services/experiments";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
 import FunnelStepSliceLink, {
@@ -64,6 +65,8 @@ const CompactResults: FC<{
   experimentId: string;
   significanceThresholds: SignificanceThresholds;
   editMetrics?: () => void;
+  newMetricStates?: Map<string, NewMetricRowState>;
+  onViewNewMetricsUpdateQueries?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
@@ -128,6 +131,8 @@ const CompactResults: FC<{
   experimentId,
   significanceThresholds,
   editMetrics,
+  newMetricStates,
+  onViewNewMetricsUpdateQueries,
   variations,
   variationFilter,
   setVariationFilter,
@@ -223,13 +228,11 @@ const CompactResults: FC<{
     sortBy,
     sortDirection,
     analysisBarSettings,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
-    pValueThreshold: significanceThresholds.pValueThreshold,
+    newMetricStates,
   });
 
   const expandedGoals = useMemo(
@@ -429,6 +432,7 @@ const CompactResults: FC<{
           editMetrics={
             experimentType !== "multi-armed-bandit" ? editMetrics : undefined
           }
+          onViewNewMetricsUpdateQueries={onViewNewMetricsUpdateQueries}
           statsEngine={statsEngine}
           sequentialTestingEnabled={sequentialTestingEnabled}
           pValueCorrection={pValueCorrection}
@@ -487,6 +491,7 @@ const CompactResults: FC<{
             tableRowAxis="metric"
             labelHeader="Secondary Metrics"
             editMetrics={editMetrics}
+            onViewNewMetricsUpdateQueries={onViewNewMetricsUpdateQueries}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
@@ -545,6 +550,7 @@ const CompactResults: FC<{
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
+            onViewNewMetricsUpdateQueries={onViewNewMetricsUpdateQueries}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}

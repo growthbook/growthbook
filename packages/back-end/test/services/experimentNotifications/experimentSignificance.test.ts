@@ -1,5 +1,6 @@
 import { Promise as BluebirdPromise } from "bluebird";
 import { ensureAndReturn } from "shared/util";
+import { enrichAnalysisResults } from "shared/experiments";
 import { Permissions } from "shared/permissions";
 import { ReqContext } from "shared/types/organization";
 import { MetricInterface } from "shared/types/metric";
@@ -169,6 +170,19 @@ describe("Experiment Significance notifications", () => {
           await ExperimentModel.findOne({ id: currentSnapshot.experiment }),
         );
 
+        // Results reach notifications already corrected.
+        const snapshot = structuredClone(currentSnapshot);
+        snapshot.analyses.forEach((analysis) =>
+          enrichAnalysisResults({
+            results: analysis.results,
+            analysisSettings: {
+              ...analysis.settings,
+              pValueCorrection: params.getPValueCorrectionForOrg,
+            },
+            snapshotSettings: snapshot.settings,
+          }),
+        );
+
         const results = await computeExperimentChanges({
           context: {
             org: { id: orgId },
@@ -176,7 +190,7 @@ describe("Experiment Significance notifications", () => {
             models: { metricGroups: { getAll: () => [] } },
           },
           experiment,
-          snapshot: currentSnapshot,
+          snapshot,
         });
 
         expect(results).toEqual(

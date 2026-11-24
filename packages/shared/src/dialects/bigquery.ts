@@ -131,8 +131,10 @@ export const bigQueryDialect: SqlDialect = {
     `DATETIME_${
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`,
+  // WEEK starts on Sunday in BigQuery; ISOWEEK starts on Monday, like the
+  // other dialects.
   dateTrunc: (col: string, granularity: DateTruncGranularity = "day") =>
-    `date_trunc(${col}, ${granularity.toUpperCase()})`,
+    `date_trunc(${col}, ${granularity === "week" ? "ISOWEEK" : granularity.toUpperCase()})`,
   dateDiff: (startCol: string, endCol: string) =>
     `date_diff(${endCol}, ${startCol}, DAY)`,
   formatDate: (col: string) => `format_date("%F", ${col})`,

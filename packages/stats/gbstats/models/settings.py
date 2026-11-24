@@ -19,6 +19,7 @@ class AnalysisSettingsForStatsEngine:
     baseline_index: int = 0
     dimension: str = ""
     stats_engine: StatsEngine = "bayesian"
+    # No longer read; kept so that callers that still pass it do not break.
     p_value_corrected: bool = False
     sequential_testing_enabled: bool = False
     sequential_tuning_parameter: float = 5000
@@ -27,6 +28,7 @@ class AnalysisSettingsForStatsEngine:
     alpha: float = 0.05
     max_dimensions: int = 20
     traffic_percentage: float = 1
+    # No longer read; kept so that callers that still pass them do not break.
     num_goal_metrics: int = 1
     num_guardrail_metrics: int = 0
     one_sided_intervals: bool = False

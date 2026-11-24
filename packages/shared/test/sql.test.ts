@@ -1558,3 +1558,23 @@ describe("sqlReferencesColumnAllowingQualified", () => {
     ).toBe(false);
   });
 });
+
+describe("dateTrunc weeks", () => {
+  // Every dialect starts weeks on Monday, so date buckets line up across
+  // warehouses and with the charts' filled buckets.
+  it("uses Monday weeks in BigQuery and SQL Server", () => {
+    expect(bigQueryDialect.dateTrunc("ts", "week")).toBe(
+      "date_trunc(ts, ISOWEEK)",
+    );
+    expect(mssqlDialect.dateTrunc("ts", "week")).toBe(
+      "DATETRUNC(iso_week, ts)",
+    );
+  });
+
+  it("leaves other granularities alone", () => {
+    expect(bigQueryDialect.dateTrunc("ts", "month")).toBe(
+      "date_trunc(ts, MONTH)",
+    );
+    expect(mssqlDialect.dateTrunc("ts", "month")).toBe("DATETRUNC(month, ts)");
+  });
+});
