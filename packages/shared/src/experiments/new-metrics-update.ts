@@ -449,10 +449,11 @@ export function getNewMetricsUpdatePlanRefusal({
     return "settings_changed";
   }
 
-  // Every analysis records its correction method, null included, since the
-  // stats engine stopped deriving values from the goal and guardrail counts.
-  // A parent saved before that holds such values, and is corrected on each
-  // read instead, so its results can't be extended.
+  // An analysis that recorded no correction method, not even null, was saved
+  // before methods were stored. It is corrected on each read instead, and its
+  // results hold values the stats engine then derived from the goal and
+  // guardrail counts, so they can't be extended. The field stands in for the
+  // stats engine's version: the two changes shipped together.
   if (parent.analyses[0]?.settings.pValueCorrection === undefined) {
     return "settings_changed";
   }
