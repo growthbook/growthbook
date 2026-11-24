@@ -1,10 +1,8 @@
 import { ReactNode, useCallback, useState } from "react";
 import { connectionServesAutoExperimentFeature } from "shared/util";
 import type { AutoExperimentFeature } from "shared/types/organization";
-import { Flex } from "@radix-ui/themes";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Link from "@/ui/Link";
-import Text from "@/ui/Text";
 import useAutoExperiments from "@/hooks/useAutoExperiments";
 import useSDKConnections from "@/hooks/useSDKConnections";
 
@@ -66,13 +64,14 @@ function ConnectionCount({
           ? `Your only SDK Connection blocks ${blocked}.`
           : `All ${total} SDK Connections block ${blocked}.`;
   return (
-    <Text as="div">
+    // Spans: the dialog renders its content inside a paragraph.
+    <span style={{ display: "block", marginTop: "var(--space-3)" }}>
       {summary}{" "}
       {/* A new tab: the dialog opens over forms with unsaved changes. */}
       <Link href="/sdks" external>
         View SDK Connections
       </Link>
-    </Text>
+    </span>
   );
 }
 
@@ -115,10 +114,10 @@ export default function EnableAutoExperimentDialog({
     <ConfirmDialog
       title={copy.title}
       content={
-        <Flex direction="column" gap="3">
-          <Text as="div">{copy.risk}</Text>
+        <>
+          {copy.risk}
           <ConnectionCount feature={feature} project={project} />
-        </Flex>
+        </>
       }
       yesText="Enable"
       onConfirm={async () => {
