@@ -249,10 +249,10 @@ describe("the who-sees-it summary", () => {
 });
 
 describe("the add/edit form", () => {
-  it("starts with nothing picked when creating", () => {
+  it("starts on forcing a variation, with none picked, when creating", () => {
     const v = qaOverrideFormDefaults(undefined, "dev");
     expect(v.environment).toBe("dev");
-    expect(v.assignmentType).toBe("");
+    expect(v.assignmentType).toBe("forced");
     expect(v.filters).toEqual([]);
     expect(isQaOverrideFormComplete(v)).toBe(false);
   });

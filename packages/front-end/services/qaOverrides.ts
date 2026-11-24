@@ -314,7 +314,7 @@ export type QaOverrideFormValues = {
   savedGroups: SavedGroupTargeting[];
   sdkConnections: string[];
   projects: string[];
-  assignmentType: ExperimentQaOverrideAssignment["type"] | "";
+  assignmentType: ExperimentQaOverrideAssignment["type"];
   forcedVariationId: string;
   // Only read for random assignment.
   targetingMode: QaOverrideTargetingMode;
@@ -372,7 +372,7 @@ export function qaOverrideFormDefaults(
     savedGroups: existing?.filters.savedGroups ?? [],
     sdkConnections: existing?.filters.sdkConnections ?? [],
     projects: existing?.filters.projects ?? [],
-    assignmentType: existing?.assignment.type ?? "",
+    assignmentType: existing?.assignment.type ?? "forced",
     forcedVariationId:
       !variationIds || variationIds.includes(forcedVariationId)
         ? forcedVariationId
@@ -447,7 +447,6 @@ export function isQaOverrideFormComplete(
   values: QaOverrideFormValues,
 ): boolean {
   if (!values.environment) return false;
-  if (values.assignmentType === "") return false;
   if (values.assignmentType === "forced" && !values.forcedVariationId)
     return false;
   const ownTargeting = qaOverrideFormUsesOwnTargeting(values);

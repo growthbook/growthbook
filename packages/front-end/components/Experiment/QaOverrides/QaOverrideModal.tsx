@@ -24,7 +24,6 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import { Select, SelectItem } from "@/ui/Select";
 import RadioGroup from "@/ui/RadioGroup";
-import Collapse from "@/ui/Collapse";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
@@ -157,10 +156,6 @@ export default function QaOverrideModal({
   );
 
   const forced = values.assignmentType === "forced";
-  const testing = values.assignmentType === "random";
-
-  const showEnvironment =
-    !!existing || testing || (forced && !!values.forcedVariationId);
 
   const audienceFilters = qaOverrideFiltersFromForm(values);
   const targetingFields = (
@@ -171,7 +166,6 @@ export default function QaOverrideModal({
       setFilterActive={setFilterActive}
     />
   );
-  const showAudience = showEnvironment && !!values.environment;
 
   return (
     <ModalStandard
@@ -188,7 +182,7 @@ export default function QaOverrideModal({
       }
       cta={existing ? "Apply" : "Add override"}
       ctaEnabled={canSave}
-      size="md"
+      size="lg"
       aboveFooterContent={
         waitingFeatures.length > 0 ? (
           <QaOverrideWaitingBanner
@@ -214,12 +208,11 @@ export default function QaOverrideModal({
         await onSaved();
       })}
     >
-      {/* Collapse always renders a wrapper, so spacing sits inside each one. */}
-      <Flex direction="column">
-        <Flex direction="column" gap="4">
+      <Flex direction="column" gap="5">
+        <Flex direction="column" gap="3">
           <SectionLabel>What do you want to QA?</SectionLabel>
           <RadioGroup
-            gap="2"
+            gap="3"
             value={values.assignmentType}
             setValue={(v) =>
               form.setValue("assignmentType", v as "random" | "forced")
@@ -230,6 +223,29 @@ export default function QaOverrideModal({
                 label: "Force a specific variation",
                 description:
                   "Show one variation to people you choose. Ignores the experiment\u2019s targeting.",
+                // A select can't sit inside the radio's label.
+                renderOutsideItem: true,
+                renderOnSelect: (
+                  <Box ml="5">
+                    <Select
+                      label="Variation"
+                      value={values.forcedVariationId || undefined}
+                      setValue={(v) => form.setValue("forcedVariationId", v)}
+                      placeholder="Select a variation…"
+                      error={
+                        variationDeleted && !values.forcedVariationId
+                          ? "The variation this override forced was deleted. Pick another."
+                          : undefined
+                      }
+                    >
+                      {variations.map((v, i) => (
+                        <SelectItem key={v.id} value={v.id} textValue={v.name}>
+                          <VariationLabel number={i} name={v.name} />
+                        </SelectItem>
+                      ))}
+                    </Select>
+                  </Box>
+                ),
               },
               {
                 value: "random",
@@ -241,145 +257,105 @@ export default function QaOverrideModal({
           />
         </Flex>
 
-        <Collapse open={forced}>
-          <Box pt="4">
-            <Select
-              label="Variation"
-              value={values.forcedVariationId || undefined}
-              setValue={(v) => form.setValue("forcedVariationId", v)}
-              placeholder="Select a variation…"
-              error={
-                variationDeleted && !values.forcedVariationId
-                  ? "The variation this override forced was deleted. Pick another."
-                  : undefined
-              }
-            >
-              {variations.map((v, i) => (
-                <SelectItem key={v.id} value={v.id} textValue={v.name}>
-                  <VariationLabel number={i} name={v.name} />
-                </SelectItem>
-              ))}
-            </Select>
-          </Box>
-        </Collapse>
-
-        <Collapse open={showEnvironment}>
-          <Box pt="6">
-            <Flex direction="column" gap="2">
-              <SectionLabel>Where should the override apply?</SectionLabel>
-              {existing ? (
-                <>
-                  <Text as="div" size="md" weight="semibold">
-                    Environment
-                  </Text>
-                  <Box>
-                    <Badge
-                      label={existing.environment}
-                      color="gray"
-                      variant="soft"
-                    />
-                  </Box>
-                </>
-              ) : (
-                <>
-                  <Select
-                    label="Environment"
-                    value={values.environment}
-                    setValue={setEnvironment}
-                    placeholder="Select an environment…"
-                  >
-                    {environmentOptions.map((e) => (
-                      <SelectItem
-                        key={e.id}
-                        value={e.id}
-                        disabled={e.isProduction}
-                      >
-                        {e.id}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                  <Text as="div" size="sm" color="text-low">
-                    Non-production environments only.
-                  </Text>
-                </>
-              )}
-              <QaOverrideWhereFields
-                form={form}
-                addFilter={addFilter}
-                removeFilter={removeFilter}
-                connectionOptions={connectionOptions}
-                projectOptions={projectOptions}
-                hasStaleConnection={hasStaleConnection}
-                projectsNote={projectsNote}
-              />
-            </Flex>
-          </Box>
-        </Collapse>
-
-        <Collapse open={showAudience}>
-          <Box pt="6">
-            <Flex direction="column" gap="2">
-              <SectionLabel>Who sees it?</SectionLabel>
-              {forced ? (
-                <>
-                  <QaOverrideAudience
-                    variant="sentence"
-                    filters={audienceFilters}
-                    order={values.filters}
-                    environment={values.environment}
-                    lookups={lookups}
-                  />
-                  <Box mt="2">{targetingFields}</Box>
-                </>
-              ) : (
-                <RadioGroup
-                  gap="2"
-                  value={values.targetingMode}
-                  setValue={(v) =>
-                    form.setValue("targetingMode", v as QaOverrideTargetingMode)
-                  }
-                  options={[
-                    {
-                      value: "experiment",
-                      label: "Experiment\u2019s targeting",
-                      description: (
-                        <QaOverrideExperimentTargeting
-                          phase={
-                            experiment.phases[experiment.phases.length - 1]
-                          }
-                        />
-                      ),
-                    },
-                    {
-                      value: "custom",
-                      label: "Custom targeting",
-                      description:
-                        values.targetingMode === "custom" &&
-                        qaOverrideHasOwnTargeting(audienceFilters) ? (
-                          <QaOverrideAudience
-                            variant="sentence"
-                            filters={audienceFilters}
-                            order={values.filters}
-                            environment={values.environment}
-                            lookups={lookups}
-                          />
-                        ) : (
-                          "Replaces the experiment\u2019s targeting while testing"
-                        ),
-                      // The filter fields can't sit inside the radio's label.
-                      renderOutsideItem: true,
-                      renderOnSelect: (
-                        <Box ml="5" mt="2">
-                          {targetingFields}
-                        </Box>
-                      ),
-                    },
-                  ]}
+        <Flex direction="column" gap="3">
+          <SectionLabel>Where should the override apply?</SectionLabel>
+          {existing ? (
+            <>
+              <Text as="div" size="md" weight="semibold">
+                Environment
+              </Text>
+              <Box>
+                <Badge
+                  label={existing.environment}
+                  color="gray"
+                  variant="soft"
                 />
-              )}
-            </Flex>
-          </Box>
-        </Collapse>
+              </Box>
+            </>
+          ) : (
+            <Box maxWidth="280px">
+              <Select
+                label="Environment"
+                value={values.environment}
+                setValue={setEnvironment}
+                placeholder="Select an environment…"
+              >
+                {environmentOptions.map((e) => (
+                  <SelectItem key={e.id} value={e.id} disabled={e.isProduction}>
+                    {e.id}
+                  </SelectItem>
+                ))}
+              </Select>
+            </Box>
+          )}
+          <QaOverrideWhereFields
+            form={form}
+            addFilter={addFilter}
+            removeFilter={removeFilter}
+            connectionOptions={connectionOptions}
+            projectOptions={projectOptions}
+            hasStaleConnection={hasStaleConnection}
+            projectsNote={projectsNote}
+          />
+        </Flex>
+
+        <Flex direction="column" gap="3">
+          <SectionLabel>Who sees it?</SectionLabel>
+          {forced ? (
+            <>
+              <QaOverrideAudience
+                variant="sentence"
+                filters={audienceFilters}
+                order={values.filters}
+                environment={values.environment}
+                lookups={lookups}
+              />
+              <Box mt="2">{targetingFields}</Box>
+            </>
+          ) : (
+            <RadioGroup
+              gap="2"
+              value={values.targetingMode}
+              setValue={(v) =>
+                form.setValue("targetingMode", v as QaOverrideTargetingMode)
+              }
+              options={[
+                {
+                  value: "experiment",
+                  label: "Experiment\u2019s targeting",
+                  description: (
+                    <QaOverrideExperimentTargeting
+                      phase={experiment.phases[experiment.phases.length - 1]}
+                    />
+                  ),
+                },
+                {
+                  value: "custom",
+                  label: "Custom targeting",
+                  description:
+                    values.targetingMode === "custom" &&
+                    qaOverrideHasOwnTargeting(audienceFilters) ? (
+                      <QaOverrideAudience
+                        variant="sentence"
+                        filters={audienceFilters}
+                        order={values.filters}
+                        environment={values.environment}
+                        lookups={lookups}
+                      />
+                    ) : (
+                      "Replaces the experiment\u2019s targeting while testing"
+                    ),
+                  renderOutsideItem: true,
+                  renderOnSelect: (
+                    <Box ml="5" mt="2">
+                      {targetingFields}
+                    </Box>
+                  ),
+                },
+              ]}
+            />
+          )}
+        </Flex>
       </Flex>
     </ModalStandard>
   );
