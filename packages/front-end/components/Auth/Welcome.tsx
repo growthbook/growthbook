@@ -349,7 +349,10 @@ export default function Welcome({
               type="email"
               {...form.register("email")}
               autoFocus={state === "login" || state === "forgot"}
-              autoComplete="username"
+              // "webauthn" lets the browser offer passkeys here too
+              autoComplete={
+                state === "login" ? "username webauthn" : "username"
+              }
             />
           )}
           {(state === "login" ||
