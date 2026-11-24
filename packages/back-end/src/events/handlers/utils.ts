@@ -1,4 +1,6 @@
 import intersection from "lodash/intersection";
+import { isDatadogEventWebHookEvent } from "shared/validators";
+import type { EventWebHookInterface } from "shared/types/event-webhook";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
@@ -40,4 +42,23 @@ export const filterEventForEnvironments = ({
   // reaches ALL environments has to say so at the PRODUCER, which is the only place
   // that can tell "affects nothing" from "affects everything".
   return intersection(event.environments || [], environments).length > 0;
+};
+
+// Whether a webhook is sent an event that passed its Project and tag filters.
+// Datadog takes only events its formatter converts, once they reach an
+// environment.
+export const webhookTakesEvent = (
+  webhook: Pick<EventWebHookInterface, "payloadType" | "environments">,
+  event: { event: string; environments?: string[] },
+): boolean => {
+  if (
+    webhook.payloadType === "datadog" &&
+    (!isDatadogEventWebHookEvent(event.event) || !event.environments?.length)
+  ) {
+    return false;
+  }
+  return filterEventForEnvironments({
+    event: { environments: event.environments ?? [] },
+    environments: webhook.environments ?? [],
+  });
 };

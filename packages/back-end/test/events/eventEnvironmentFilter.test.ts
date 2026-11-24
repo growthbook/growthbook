@@ -1,5 +1,8 @@
 import type { NotificationEvent } from "back-end/src/events/notification-events";
-import { filterEventForEnvironments } from "back-end/src/events/handlers/utils";
+import {
+  filterEventForEnvironments,
+  webhookTakesEvent,
+} from "back-end/src/events/handlers/utils";
 
 /**
  * The delivery filter, and the contract `[]` carries.
@@ -53,5 +56,39 @@ describe("filterEventForEnvironments", () => {
         environments: ["production"],
       }),
     ).toBe(false);
+  });
+});
+
+describe("webhookTakesEvent", () => {
+  const datadog = { payloadType: "datadog" as const, environments: [] };
+
+  it("sends Datadog only the events it converts, once they reach an environment", () => {
+    expect(
+      webhookTakesEvent(datadog, {
+        event: "feature.updated",
+        environments: ["production"],
+      }),
+    ).toBe(true);
+    expect(
+      webhookTakesEvent(datadog, {
+        event: "user.login",
+        environments: ["production"],
+      }),
+    ).toBe(false);
+    expect(
+      webhookTakesEvent(datadog, {
+        event: "feature.updated",
+        environments: [],
+      }),
+    ).toBe(false);
+  });
+
+  it("leaves other webhooks to their environment filter", () => {
+    expect(
+      webhookTakesEvent(
+        { payloadType: "json", environments: [] },
+        { event: "user.login", environments: [] },
+      ),
+    ).toBe(true);
   });
 });

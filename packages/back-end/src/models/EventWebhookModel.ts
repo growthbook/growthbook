@@ -12,7 +12,6 @@ import {
   notificationSettingsSchema,
   isEventWebhookWildcard,
   getWildcardPatternsForEvent,
-  isDatadogEventWebHookEvent,
   NotificationFilters,
   NotificationDelivery,
 } from "shared/validators";
@@ -539,9 +538,6 @@ export const getAllEventWebHooksForEvent = async ({
   const docs = allDocs.filter((doc) => {
     if (!filterOptional(doc.tags, tags)) return false;
     if (!filterOptional(doc.projects, projects)) return false;
-    // Datadog webhooks get only the events the Datadog formatter converts.
-    if (doc.payloadType === "datadog" && !isDatadogEventWebHookEvent(eventName))
-      return false;
 
     return true;
   });

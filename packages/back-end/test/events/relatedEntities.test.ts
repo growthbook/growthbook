@@ -8,9 +8,11 @@ import {
   getExperimentReach,
   payloadKeysReach,
   refreshThenReport,
+  scopeRelatedEntities,
 } from "back-end/src/events/relatedEntities";
 
 const envs = ["dev", "prod"];
+const scope = { environments: envs, projectIds: ["prj_a", "prj_b"] };
 
 const experimentRule = (overrides: Partial<FeatureRule> = {}): FeatureRule =>
   ({
@@ -148,17 +150,22 @@ describe("getExperimentReach", () => {
 
   it("reaches where its linked flags run it", () => {
     expect(
-      getExperimentReach("exp_1", false, [scoped, disabled], envs),
+      getExperimentReach("exp_1", false, [scoped, disabled], scope),
     ).toEqual({
       environments: ["prod"],
       relatedEntities: [
-        { type: "feature", id: "checkout", environments: ["prod"] },
+        {
+          type: "feature",
+          id: "checkout",
+          environments: ["prod"],
+          projects: [],
+        },
       ],
     });
   });
 
   it("reaches nowhere when no linked flag runs it", () => {
-    expect(getExperimentReach("exp_1", false, [disabled], envs)).toEqual({
+    expect(getExperimentReach("exp_1", false, [disabled], scope)).toEqual({
       environments: [],
       relatedEntities: [],
     });
@@ -166,29 +173,50 @@ describe("getExperimentReach", () => {
 
   it("reaches every environment with visual changes or redirects", () => {
     expect(
-      getExperimentReach("exp_1", true, [scoped], envs).environments,
+      getExperimentReach("exp_1", true, [scoped], scope).environments,
     ).toEqual(envs);
   });
 });
 
 describe("getDependentEntities", () => {
-  it("lists dependent flags and experiments with their live environments", () => {
+  it("lists dependents with their live environments and Projects", () => {
     const devOnly = change((f) => {
       f.id = "banner";
+      f.project = "prj_a";
       f.environmentSettings.prod.enabled = false;
     });
     expect(
       getDependentEntities(
         {
           features: [devOnly],
-          experiments: [{ id: "exp_1", linkedFeatures: ["checkout"] }],
+          experiments: [
+            { id: "exp_1", project: "prj_b", linkedFeatures: ["checkout"] },
+            { id: "exp_visual", hasVisualChangesets: true },
+            { id: "exp_unserved" },
+          ],
         },
-        envs,
+        scope,
         new Map([["checkout", feature]]),
       ),
     ).toEqual([
-      { type: "feature", id: "banner", environments: ["dev"] },
-      { type: "experiment", id: "exp_1", environments: envs },
+      {
+        type: "feature",
+        id: "banner",
+        environments: ["dev"],
+        projects: ["prj_a"],
+      },
+      {
+        type: "experiment",
+        id: "exp_1",
+        environments: envs,
+        projects: ["prj_b"],
+      },
+      {
+        type: "experiment",
+        id: "exp_visual",
+        environments: envs,
+        projects: [],
+      },
     ]);
   });
 });
@@ -236,5 +264,39 @@ describe("refreshThenReport", () => {
       [{ environments: envs, relatedEntities: [] }],
       [{ environments: envs, relatedEntities: [] }],
     ]);
+  });
+});
+
+describe("scopeRelatedEntities", () => {
+  const entities = [
+    {
+      type: "feature" as const,
+      id: "a",
+      environments: envs,
+      projects: ["prj_a"],
+    },
+    {
+      type: "feature" as const,
+      id: "b",
+      environments: ["dev"],
+      projects: ["prj_b"],
+    },
+    { type: "experiment" as const, id: "c", environments: envs },
+  ];
+
+  it("keeps entities in the webhook's Projects, narrowed to its environments", () => {
+    expect(
+      scopeRelatedEntities(entities, {
+        projects: ["prj_a"],
+        environments: ["prod"],
+      }),
+    ).toEqual([
+      { type: "feature", id: "a", environments: ["prod"], projects: ["prj_a"] },
+      { type: "experiment", id: "c", environments: ["prod"] },
+    ]);
+  });
+
+  it("keeps everything for a webhook without filters", () => {
+    expect(scopeRelatedEntities(entities, {})).toEqual(entities);
   });
 });

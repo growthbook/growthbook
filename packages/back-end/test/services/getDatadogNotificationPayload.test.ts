@@ -230,7 +230,7 @@ describe("buildDatadogChangeEvent", () => {
           name: "Checkout test",
           type: "standard",
           status: "running",
-          phases: [{ coverage: 1, variationWeights: [0.5, 0.5] }],
+          phases: [{ coverage: 1 }],
         },
         previous_attributes: { status: "draft" },
       },
@@ -243,6 +243,40 @@ describe("buildDatadogChangeEvent", () => {
           changed_resource: { type: "feature_flag", name: "checkout-test" },
           prev_value: { status: "draft" },
           new_value: { status: "running" },
+        },
+      },
+    });
+  });
+
+  it("shows a bandit's reweighting as its traffic split", () => {
+    const split = (a: number, b: number) => [
+      { variationId: "v0", weight: a },
+      { variationId: "v1", weight: b },
+    ];
+    const envelope: DatadogEnvelope = {
+      event: "experiment.updated",
+      created,
+      environments: ["production"],
+      user: null,
+      data: {
+        object: {
+          id: "exp_2",
+          trackingKey: "hero-bandit",
+          type: "multi-armed-bandit",
+          status: "running",
+          phases: [{ coverage: 1, trafficSplit: split(0.7, 0.3) }],
+        },
+        previous_attributes: {
+          phases: [{ coverage: 1, trafficSplit: split(0.5, 0.5) }],
+        },
+      },
+    };
+    expect(build(envelope).data).toMatchObject({
+      attributes: {
+        title: "hero-bandit: Bandit reweighted (production)",
+        attributes: {
+          prev_value: { trafficSplit: split(0.5, 0.5) },
+          new_value: { trafficSplit: split(0.7, 0.3) },
         },
       },
     });

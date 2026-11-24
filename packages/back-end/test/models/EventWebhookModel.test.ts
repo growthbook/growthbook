@@ -133,27 +133,4 @@ describe("getAllEventWebHooksForEvent", () => {
       ]);
     });
   });
-
-  describe("when a Datadog webhook matches", () => {
-    it("keeps it only for events the Datadog formatter converts", async () => {
-      const docs = [
-        { toJSON: () => ({ name: "json" }), payloadType: "json" },
-        { toJSON: () => ({ name: "datadog" }), payloadType: "datadog" },
-      ];
-      jest.spyOn(EventWebHookModel, "find").mockImplementation(() => docs);
-      const names = async (eventName: "feature.updated" | "user.login") =>
-        (
-          await getAllEventWebHooksForEvent({
-            organizationId: "aabb",
-            eventName,
-            enabled: true,
-            tags: [],
-            projects: [],
-          })
-        ).map((w) => w.name);
-
-      expect(await names("feature.updated")).toEqual(["json", "datadog"]);
-      expect(await names("user.login")).toEqual(["json"]);
-    });
-  });
 });

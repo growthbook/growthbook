@@ -212,10 +212,12 @@ Triggered when a feature is created
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -349,10 +351,12 @@ Triggered when a feature is updated
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -450,10 +454,12 @@ Triggered when a feature is deleted
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -525,10 +531,12 @@ Triggered when a safe rollout is completed and safe to roll out to 100%.
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -600,10 +608,12 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -676,10 +686,12 @@ Triggered when a safe rollout is failing a health check and may not be working a
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -753,10 +765,12 @@ Triggered when a ramp schedule is created for a feature
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -828,10 +842,12 @@ Triggered when a ramp schedule is deleted from a feature
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -905,10 +921,12 @@ Triggered when a feature ramp schedule starts
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -983,10 +1001,12 @@ Triggered when a feature ramp schedule completes all steps
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1062,10 +1082,12 @@ Triggered when a feature ramp schedule is rolled back or reset to start
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1140,10 +1162,12 @@ Triggered when a feature ramp schedule is jumped to a specific step
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1218,10 +1242,12 @@ Triggered when a feature ramp schedule advances. Overdue steps are caught up in 
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1296,10 +1322,12 @@ Triggered when a feature ramp step is waiting for approval
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1373,10 +1401,12 @@ Triggered when a feature ramp schedule is published but held at the start, await
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1450,10 +1480,12 @@ Triggered when a held ramp schedule's start is approved by a user
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1528,10 +1560,12 @@ Triggered when a feature ramp schedule pauses because a step could not be applie
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1606,10 +1640,12 @@ Triggered when a monitored ramp step is held by a health check (SRM, multiple ex
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1691,10 +1727,12 @@ Triggered when a ramp step fails for a reason that may clear on its own, such as
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1770,10 +1808,12 @@ Triggered when a ramp step succeeds after failed attempts; the schedule continue
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1848,10 +1888,12 @@ Triggered when a feature ramp schedule is paused by a user or by its monitoring 
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -1925,10 +1967,12 @@ Triggered when a paused feature ramp schedule is resumed
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -2082,10 +2126,12 @@ Triggered when a new draft revision is created for a feature
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -2241,10 +2287,12 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -2399,10 +2447,12 @@ Triggered when a draft revision is submitted for review
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -2578,10 +2628,12 @@ Triggered when a draft revision is approved by a reviewer
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -2757,10 +2809,12 @@ Triggered when a reviewer requests changes on a draft revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -2936,10 +2990,12 @@ Triggered when a comment is added to a draft revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -3093,10 +3149,12 @@ Triggered when a draft revision is discarded
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -3250,10 +3308,12 @@ Triggered when a discarded draft revision is reopened as a draft
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -3407,10 +3467,12 @@ Triggered when the author (or an editor) recalls a review request, returning the
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -3564,10 +3626,12 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -3721,10 +3785,12 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -3878,10 +3944,12 @@ Triggered when a draft revision is rebased onto the latest published version
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -4036,10 +4104,12 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -4195,10 +4265,12 @@ Triggered when a feature is reverted to a previous published revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -4356,10 +4428,12 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -4678,10 +4752,12 @@ Triggered when an experiment is created
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -5257,10 +5333,12 @@ Triggered when an experiment is updated
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -5579,10 +5657,12 @@ Triggered when an experiment is deleted
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -5702,10 +5782,12 @@ Triggered when a warning condition is detected on an experiment, such as a sampl
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -5783,10 +5865,12 @@ Triggered when an experiment starts or resumes running.
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -5898,10 +5982,12 @@ Triggered when an experiment stops, including its result and any temporary rollo
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -5978,10 +6064,12 @@ Triggered when a running experiment is within 3 days of its scheduled end date.
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6057,10 +6145,12 @@ Triggered when a running experiment has been active for a long time without a de
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6138,10 +6228,12 @@ Triggered when a running experiment has a failing guardrail metric.
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6216,10 +6308,12 @@ Triggered when a multi-armed bandit materially changes variation weights.
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6298,10 +6392,12 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6380,10 +6476,12 @@ Triggered when a scheduled start or stop is automatically applied to an experime
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6457,10 +6555,12 @@ Triggered when an experiment is ready to ship a variation.
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6534,10 +6634,12 @@ Triggered when an experiment should be rolled back to the control.
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6611,10 +6713,12 @@ Triggered when an experiment has reached the desired power point, but the result
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6686,10 +6790,12 @@ Triggered when a holdout is created.
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6763,10 +6869,12 @@ Triggered when a holdout moves between its lifecycle stages, such as running or 
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6840,10 +6948,12 @@ Triggered when feature flags or experiments are linked to a holdout.
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -6924,10 +7034,12 @@ Triggered when an SDK Connection's payload grows past half, 80%, or all of the 1
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -7003,10 +7115,12 @@ Triggered when an SDK Connection's GrowthBook Proxy has failed to receive its pa
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -7082,10 +7196,12 @@ Triggered when an SDK Connection's GrowthBook Proxy is disabled after too many c
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -7159,10 +7275,12 @@ Triggered when a push to an SDK Connection's GrowthBook Proxy succeeds after `pr
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -7445,10 +7563,12 @@ Triggered when a new draft revision is created for an SDK Connection
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -7732,10 +7852,12 @@ Triggered when a draft revision's proposed changes are modified (settings, webho
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -8018,10 +8140,12 @@ Triggered when a draft revision is submitted for review
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -8326,10 +8450,12 @@ Triggered when a draft revision is approved by a reviewer
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -8634,10 +8760,12 @@ Triggered when a reviewer requests changes on a draft revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -8942,10 +9070,12 @@ Triggered when a comment is added to a draft revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -9228,10 +9358,12 @@ Triggered when a draft revision is discarded
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -9514,10 +9646,12 @@ Triggered when a draft revision is rebased onto the latest live state
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -9801,10 +9935,12 @@ Triggered when a draft revision is published, changing the live SDK Connection's
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -10089,10 +10225,12 @@ Triggered when an SDK Connection is reverted to a previous published revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -10375,10 +10513,12 @@ Triggered when a discarded revision is reopened
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -10661,10 +10801,12 @@ Triggered when the author (or an editor) recalls a review request, returning the
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -10947,10 +11089,12 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -11233,10 +11377,12 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -11523,10 +11669,12 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -11622,10 +11770,12 @@ Triggered when a saved group is created
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -11755,10 +11905,12 @@ Triggered when a saved group is updated
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -11854,10 +12006,12 @@ Triggered when a saved group is deleted
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -12116,10 +12270,12 @@ Triggered when a new draft revision is created for a saved group
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -12379,10 +12535,12 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -12641,10 +12799,12 @@ Triggered when a draft revision is submitted for review
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -12925,10 +13085,12 @@ Triggered when a draft revision is approved by a reviewer
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -13209,10 +13371,12 @@ Triggered when a reviewer requests changes on a draft revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -13493,10 +13657,12 @@ Triggered when a comment is added to a draft revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -13755,10 +13921,12 @@ Triggered when a draft revision is discarded
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -14017,10 +14185,12 @@ Triggered when a draft revision is rebased onto the latest live state
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -14280,10 +14450,12 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -14544,10 +14716,12 @@ Triggered when a saved group is reverted to a previous published revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -14806,10 +14980,12 @@ Triggered when a discarded revision is reopened
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -15068,10 +15244,12 @@ Triggered when the author (or an editor) recalls a review request, returning the
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -15330,10 +15508,12 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -15592,10 +15772,12 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -15858,10 +16040,12 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -15948,10 +16132,12 @@ Triggered when a constant is created
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -16063,10 +16249,12 @@ Triggered when a constant is updated
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -16153,10 +16341,12 @@ Triggered when a constant is deleted
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -16398,10 +16588,12 @@ Triggered when a new draft revision is created for a constant
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -16644,10 +16836,12 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -16889,10 +17083,12 @@ Triggered when a draft revision is submitted for review
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -17156,10 +17352,12 @@ Triggered when a draft revision is approved by a reviewer
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -17423,10 +17621,12 @@ Triggered when a reviewer requests changes on a draft revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -17690,10 +17890,12 @@ Triggered when a comment is added to a draft revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -17935,10 +18137,12 @@ Triggered when a draft revision is discarded
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -18180,10 +18384,12 @@ Triggered when a draft revision is rebased onto the latest live state
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -18426,10 +18632,12 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -18673,10 +18881,12 @@ Triggered when a constant is reverted to a previous published revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -18918,10 +19128,12 @@ Triggered when a discarded revision is reopened
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -19163,10 +19375,12 @@ Triggered when the author (or an editor) recalls a review request, returning the
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -19408,10 +19622,12 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -19653,10 +19869,12 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -19902,10 +20120,12 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -20041,10 +20261,12 @@ Triggered when a config is created
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -20254,10 +20476,12 @@ Triggered when a config is updated
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -20393,10 +20617,12 @@ Triggered when a config is deleted
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -20736,10 +20962,12 @@ Triggered when a new draft revision is created for a config
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -21080,10 +21308,12 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -21423,10 +21653,12 @@ Triggered when a draft revision is submitted for review
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -21788,10 +22020,12 @@ Triggered when a draft revision is approved by a reviewer
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -22153,10 +22387,12 @@ Triggered when a reviewer requests changes on a draft revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -22518,10 +22754,12 @@ Triggered when a comment is added to a draft revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -22861,10 +23099,12 @@ Triggered when a draft revision is discarded
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -23204,10 +23444,12 @@ Triggered when a draft revision is rebased onto the latest live state
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -23548,10 +23790,12 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -23893,10 +24137,12 @@ Triggered when a config is reverted to a previous published revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -24236,10 +24482,12 @@ Triggered when a discarded revision is reopened
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -24579,10 +24827,12 @@ Triggered when the author (or an editor) recalls a review request, returning the
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -24922,10 +25172,12 @@ Triggered when a reviewer retracts their own verdict. The status is recomputed f
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -25265,10 +25517,12 @@ Triggered when a deferred publish is armed, re-armed, or cancelled on a revision
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -25612,10 +25866,12 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -25691,10 +25947,12 @@ Triggered when a user logs in
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -25766,10 +26024,12 @@ Triggered once when a secret API key is within a week of expiring
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;
@@ -25841,10 +26101,12 @@ Triggered once when a secret API key passes its expiration date
         type: "feature";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "experiment";
         id: string;
         environments: string[];
+        projects?: string[] | undefined;
     } | {
         type: "rampSchedule";
         id: string;

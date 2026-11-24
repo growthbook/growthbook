@@ -186,8 +186,8 @@ function experimentState(object: JsonRecord): JsonRecord {
   return {
     status: object.status,
     ...(phase.coverage !== undefined ? { coverage: phase.coverage } : {}),
-    ...(phase.variationWeights !== undefined
-      ? { variationWeights: phase.variationWeights }
+    ...(phase.trafficSplit !== undefined
+      ? { trafficSplit: phase.trafficSplit }
       : {}),
   };
 }

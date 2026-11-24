@@ -127,15 +127,16 @@ async function refreshResolvablePayloads(
     const environments = getEnvironmentIdsFromOrg(context.org).filter(
       (e) => !changedEnvironments || changedEnvironments.includes(e),
     );
+    const projectIds = await context.getAllProjectIds();
     const payloadKeys = getAffectedSDKPayloadKeys(
       features,
       environments,
       undefined,
-      await context.getAllProjectIds(),
+      projectIds,
     );
     const reach = payloadKeysReach(
       payloadKeys,
-      getDependentEntities({ features }, environments),
+      getDependentEntities({ features }, { environments, projectIds }),
       environments,
     );
     // No feature depends on this value — nothing to rebuild or notify.

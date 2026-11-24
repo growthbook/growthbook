@@ -5,7 +5,7 @@ import {
 import { NotificationEventHandler } from "back-end/src/events/notifiers/EventNotifier";
 import {
   getFilterDataForNotificationEvent,
-  filterEventForEnvironments,
+  webhookTakesEvent,
 } from "back-end/src/events/handlers/utils";
 import { EventWebHookNotifier } from "./EventWebHookNotifier";
 
@@ -41,13 +41,7 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
           tags,
           projects,
         })) || []
-      ).filter(
-        ({ environments = [], payloadType }) =>
-          // Datadog shows changes per environment, so one reaching none is
-          // never sent.
-          (payloadType !== "datadog" || !!event.data.environments?.length) &&
-          filterEventForEnvironments({ event: event.data, environments }),
-      );
+      ).filter((webhook) => webhookTakesEvent(webhook, event.data));
     }
   })();
 

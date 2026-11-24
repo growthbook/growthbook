@@ -181,12 +181,20 @@ export const eventRequestSources = [
   "unknown",
 ] as const;
 
+const relatedEntityProjects = z
+  .array(z.string())
+  .optional()
+  .describe(
+    "Its Projects, as webhook Project filters match them. Absent for experiments the changed Feature Flag's own rules reference.",
+  );
+
 export const eventRelatedEntity = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("feature"),
       id: z.string(),
       environments: z.array(z.string()),
+      projects: relatedEntityProjects,
     })
     .strict(),
   z
@@ -194,6 +202,7 @@ export const eventRelatedEntity = z.discriminatedUnion("type", [
       type: z.literal("experiment"),
       id: z.string(),
       environments: z.array(z.string()),
+      projects: relatedEntityProjects,
     })
     .strict(),
   z

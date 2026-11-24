@@ -1740,7 +1740,10 @@ export const logExperimentUpdated = async ({
             ...(current.linkedFeatures ?? []),
           ]),
         ]),
-        getEnvironmentIdsFromOrg(context.org),
+        {
+          environments: getEnvironmentIdsFromOrg(context.org),
+          projectIds: await context.getAllProjectIds(),
+        },
       )
     : NO_REACH;
 

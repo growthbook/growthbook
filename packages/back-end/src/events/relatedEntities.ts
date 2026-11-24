@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "async_hooks";
 import isEqual from "lodash/isEqual";
 import { EventRelatedEntity } from "shared/validators";
-import { ruleFootprint } from "shared/util";
+import { resolveTargetingProjectIds, ruleFootprint } from "shared/util";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { OrganizationInterface } from "shared/types/organization";
 import { getEnabledEnvironments } from "back-end/src/util/features";
@@ -41,17 +41,26 @@ function ruleIsLive(
   );
 }
 
+// The org's environments and Projects, which related entities are listed in.
+export type OrgScope = { environments: string[]; projectIds: string[] };
+
+type Reach = { environments: Iterable<string>; projects?: string[] };
+
 function toEntities(
   type: "feature" | "experiment",
-  envsById: Map<string, Set<string>>,
+  reachById: Map<string, Reach>,
   allowedEnvs: string[],
 ): EventRelatedEntity[] {
-  return [...envsById.entries()]
-    .map(([id, envs]) => ({
-      type,
-      id,
-      environments: allowedEnvs.filter((e) => envs.has(e)),
-    }))
+  return [...reachById.entries()]
+    .map(([id, reach]) => {
+      const envs = new Set(reach.environments);
+      return {
+        type,
+        id,
+        environments: allowedEnvs.filter((e) => envs.has(e)),
+        ...(reach.projects ? { projects: reach.projects } : {}),
+      };
+    })
     .filter((entity) => entity.environments.length > 0);
 }
 
@@ -99,7 +108,13 @@ export function getChangedExperimentEntities(
       record(before, after);
     }
   }
-  return toEntities("experiment", envsByExperiment, allowedEnvs);
+  return toEntities(
+    "experiment",
+    new Map(
+      [...envsByExperiment].map(([id, environments]) => [id, { environments }]),
+    ),
+    allowedEnvs,
+  );
 }
 
 export function getExperimentRunEnvironments(
@@ -115,21 +130,19 @@ export function getExperimentRunEnvironments(
   );
 }
 
-export function getExperimentFlagEntities(
+function flagReach(
   experimentId: string,
-  linkedFeatures: FeatureInterface[],
-  allowedEnvs: string[],
-): EventRelatedEntity[] {
-  return toEntities(
-    "feature",
-    new Map(
-      linkedFeatures.map((f) => [
-        f.id,
-        new Set(getExperimentRunEnvironments(experimentId, f, allowedEnvs)),
-      ]),
+  feature: FeatureInterface,
+  scope: OrgScope,
+): Reach {
+  return {
+    environments: getExperimentRunEnvironments(
+      experimentId,
+      feature,
+      scope.environments,
     ),
-    allowedEnvs,
-  );
+    projects: resolveTargetingProjectIds(feature, scope.projectIds),
+  };
 }
 
 // Visual changes and URL redirects are served in every environment; otherwise
@@ -138,62 +151,74 @@ export function getExperimentReach(
   experimentId: string,
   servedEverywhere: boolean,
   linkedFeatures: FeatureInterface[],
-  allowedEnvs: string[],
+  scope: OrgScope,
 ): EventReach {
-  const relatedEntities = getExperimentFlagEntities(
-    experimentId,
-    linkedFeatures,
-    allowedEnvs,
+  const relatedEntities = toEntities(
+    "feature",
+    new Map(
+      linkedFeatures.map((f) => [f.id, flagReach(experimentId, f, scope)]),
+    ),
+    scope.environments,
   );
   const envs = new Set(
     relatedEntities.flatMap((e) => ("environments" in e ? e.environments : [])),
   );
   return {
     environments: servedEverywhere
-      ? allowedEnvs
-      : allowedEnvs.filter((e) => envs.has(e)),
+      ? scope.environments
+      : scope.environments.filter((e) => envs.has(e)),
     relatedEntities,
   };
 }
+
+type DependentExperiment = {
+  id: string;
+  project?: string;
+  linkedFeatures?: string[];
+  hasVisualChangesets?: boolean;
+  hasURLRedirects?: boolean;
+};
 
 export function getDependentEntities(
   {
     features,
     experiments = [],
-  }: {
-    features: FeatureInterface[];
-    experiments?: { id: string; linkedFeatures?: string[] }[];
-  },
-  allowedEnvs: string[],
+  }: { features: FeatureInterface[]; experiments?: DependentExperiment[] },
+  scope: OrgScope,
   featuresById: Map<string, FeatureInterface> = new Map(),
 ): EventRelatedEntity[] {
   const featureEntities = toEntities(
     "feature",
     new Map(
-      features.map((f) => [f.id, getEnabledEnvironments(f, allowedEnvs)]),
+      features.map((f) => [
+        f.id,
+        {
+          environments: getEnabledEnvironments(f, scope.environments),
+          projects: resolveTargetingProjectIds(f, scope.projectIds),
+        },
+      ]),
     ),
-    allowedEnvs,
+    scope.environments,
   );
   const experimentEntities = toEntities(
     "experiment",
     new Map(
       experiments.map((experiment) => [
         experiment.id,
-        new Set(
-          (experiment.linkedFeatures ?? []).flatMap((featureId) => {
-            const feature = featuresById.get(featureId);
-            return feature
-              ? getExperimentRunEnvironments(
-                  experiment.id,
-                  feature,
-                  allowedEnvs,
-                )
-              : [];
-          }),
-        ),
+        {
+          environments: getExperimentReach(
+            experiment.id,
+            !!(experiment.hasVisualChangesets || experiment.hasURLRedirects),
+            (experiment.linkedFeatures ?? []).flatMap(
+              (id) => featuresById.get(id) ?? [],
+            ),
+            scope,
+          ).environments,
+          projects: experiment.project ? [experiment.project] : [],
+        },
       ]),
     ),
-    allowedEnvs,
+    scope.environments,
   );
   return [...featureEntities, ...experimentEntities];
 }
@@ -236,4 +261,27 @@ export async function refreshThenReport(
       },
     );
   }
+}
+
+// What a webhook may be sent of an event's related entities: those in its
+// Projects, narrowed to its environments.
+export function scopeRelatedEntities(
+  entities: EventRelatedEntity[],
+  webhook: { projects?: string[]; environments?: string[] },
+): EventRelatedEntity[] {
+  const projects = webhook.projects ?? [];
+  const environments = webhook.environments ?? [];
+  return entities.flatMap((entity): EventRelatedEntity[] => {
+    if (entity.type === "rampSchedule") return [entity];
+    if (
+      projects.length &&
+      entity.projects &&
+      !entity.projects.some((p) => projects.includes(p))
+    ) {
+      return [];
+    }
+    if (!environments.length) return [entity];
+    const envs = entity.environments.filter((e) => environments.includes(e));
+    return envs.length ? [{ ...entity, environments: envs }] : [];
+  });
 }

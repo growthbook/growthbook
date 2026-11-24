@@ -11,7 +11,9 @@ import { EventWebHookLogInterface } from "shared/types/event-webhook-log";
 import SectionFrame from "@/components/SectionFrame";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Code from "@/components/SyntaxHighlighting/Code";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import Badge from "@/ui/Badge";
+import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Table, {
   TableBody,
@@ -106,23 +108,28 @@ function DeliveryDetails({ log }: { log: EventWebHookLogInterface }) {
   );
 }
 
-// How the webhook is doing: its latest result and any setup checks, then each
-// request it sent.
 export default function EventWebHookStatus({
   logs,
+  error,
   children,
 }: {
-  logs: EventWebHookLogInterface[];
+  // Null while loading.
+  logs: EventWebHookLogInterface[] | null;
+  error: string | null;
   children?: ReactNode;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [latest] = logs;
-  const recent = recentFailures(logs);
+  const [latest] = logs ?? [];
+  const recent = recentFailures(logs ?? []);
 
   return (
     <>
       <SectionFrame title="Status">
-        {latest ? (
+        {error ? (
+          <Callout status="error">
+            Deliveries couldn&apos;t be loaded. {error}
+          </Callout>
+        ) : !logs ? null : latest ? (
           <>
             <SetupFieldRow label="Last delivery" content="text">
               <Flex align="center" gap="2">
@@ -149,7 +156,11 @@ export default function EventWebHookStatus({
       </SectionFrame>
 
       <SectionFrame title="Deliveries" mt="4">
-        {logs.length ? (
+        {error ? (
+          <Text color="text-mid">Unavailable.</Text>
+        ) : !logs ? (
+          <LoadingSpinner />
+        ) : logs.length ? (
           <Table variant="ghost">
             <TableHeader>
               <TableRow>

@@ -1,7 +1,10 @@
 import { getAllEventWebHooksForEvent } from "back-end/src/models/EventWebhookModel";
 import { getSlackIntegrationsForFilters } from "back-end/src/models/SlackIntegrationModel";
 import { logger } from "back-end/src/util/logger";
-import { filterEventForEnvironments } from "./handlers/utils";
+import {
+  filterEventForEnvironments,
+  webhookTakesEvent,
+} from "./handlers/utils";
 
 export async function hasEventSubscribers({
   environments,
@@ -18,11 +21,16 @@ export async function hasEventSubscribers({
     // A failed legacy Slack lookup returns null. Keep dispatching if uncertain.
     if (slackIntegrations === null) return true;
 
-    return [...webhooks, ...slackIntegrations].some((subscription) =>
-      filterEventForEnvironments({
-        event: { environments },
-        environments: subscription.environments || [],
-      }),
+    return (
+      webhooks.some((webhook) =>
+        webhookTakesEvent(webhook, { event: filters.eventName, environments }),
+      ) ||
+      slackIntegrations.some((integration) =>
+        filterEventForEnvironments({
+          event: { environments },
+          environments: integration.environments || [],
+        }),
+      )
     );
   } catch (error) {
     logger.error(

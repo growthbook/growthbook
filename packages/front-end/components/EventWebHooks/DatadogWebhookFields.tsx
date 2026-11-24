@@ -155,24 +155,22 @@ export default function DatadogWebhookFields({
     .sort((a, b) => a.label.localeCompare(b.label));
   const datadog = form.watch("datadog");
 
-  // The fields there were when "Create custom field" opened; the new one is
-  // picked once it shows up.
-  const [fieldsBeforeCreate, setFieldsBeforeCreate] = useState<string[] | null>(
-    null,
-  );
-  const [creatingField, setCreatingField] = useState(false);
+  // The fields there were when "Create custom field" opened, while its modal
+  // is open; once it saves, the new field is picked when it shows up.
+  const { mutateDefinitions } = useDefinitions();
+  const [creatingFrom, setCreatingFrom] = useState<string[] | null>(null);
+  const [awaitingFrom, setAwaitingFrom] = useState<string[] | null>(null);
   const setServiceField = (serviceField: string) =>
     form.setValue("datadog", { ...form.watch("datadog"), serviceField });
   useEffect(() => {
-    if (!fieldsBeforeCreate || creatingField) return;
-    const created = customFields.find(
-      (f) => !fieldsBeforeCreate.includes(f.id),
-    );
-    if (created) setServiceField(created.id);
-    setFieldsBeforeCreate(null);
-    // Only when the field list or the modal changes.
+    const created =
+      awaitingFrom && customFields.find((f) => !awaitingFrom.includes(f.id));
+    if (!created) return;
+    setServiceField(created.id);
+    setAwaitingFrom(null);
+    // Only when the field list or the pending pick changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customFields, creatingField]);
+  }, [customFields, awaitingFrom]);
   const hasApiKey = !datadogWebhookProblem({
     headers: parseHeaders(form.watch("headers")),
   });
@@ -234,12 +232,11 @@ export default function DatadogWebhookFields({
           formatOptionLabel={actionOrLabel}
           onChange={(value) => {
             if (value !== CREATE_FIELD) return setServiceField(value);
-            setFieldsBeforeCreate(customFields.map((f) => f.id));
-            setCreatingField(true);
+            setCreatingFrom(customFields.map((f) => f.id));
           }}
           helpText="Its values on each Feature Flag and experiment, such as checkout-api."
         />
-        {creatingField && (
+        {creatingFrom && (
           <CustomFieldModal
             existing={{
               name: "Datadog service",
@@ -247,7 +244,11 @@ export default function DatadogWebhookFields({
               creatable: true,
               sections: ["feature", "experiment"],
             }}
-            close={() => setCreatingField(false)}
+            close={() => setCreatingFrom(null)}
+            onSuccess={() => {
+              setAwaitingFrom(creatingFrom);
+              mutateDefinitions();
+            }}
           />
         )}
       </SetupFieldRow>

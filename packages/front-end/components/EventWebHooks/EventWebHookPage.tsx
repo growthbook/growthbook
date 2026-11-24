@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useMemo, useState } from "react";
+import React, { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import isEqual from "lodash/isEqual";
@@ -248,13 +248,33 @@ export default function EventWebHookPage({
     [savedJson],
   );
   const form = useForm<EventWebHookEditParams>({ defaultValues: saved });
-  useEffect(() => form.reset(saved), [form, saved]);
+  // When someone else saves, fields edited here keep the edit and the rest
+  // take the new saved value.
+  const loaded = useRef(saved);
+  useEffect(() => {
+    const shown = form.getValues();
+    const before = loaded.current;
+    loaded.current = saved;
+    const keys = new Set([...Object.keys(saved), ...Object.keys(shown)]);
+    form.reset(
+      Object.fromEntries(
+        [...keys].map((key) => {
+          const k = key as keyof EventWebHookEditParams;
+          return [k, isEqual(shown[k], before[k]) ? saved[k] : shown[k]];
+        }),
+      ) as EventWebHookEditParams,
+    );
+  }, [form, saved]);
   const values = form.watch();
 
-  const { data: logsData, mutate: mutateLogs } = useEventWebhookLogs(
-    eventWebHook?.id ?? null,
-  );
-  const logs = eventWebHook ? (logsData?.eventWebHookLogs ?? []) : [];
+  const {
+    data: logsData,
+    error: logsError,
+    mutate: mutateLogs,
+  } = useEventWebhookLogs(eventWebHook?.id ?? null);
+  // Null until they load.
+  const loadedLogs = logsData?.eventWebHookLogs ?? null;
+  const logs = loadedLogs ?? [];
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -831,7 +851,10 @@ export default function EventWebHookPage({
             </Box>
             <TabsContent value="setup">{setup}</TabsContent>
             <TabsContent value="diagnostics">
-              <EventWebHookStatus logs={logs}>
+              <EventWebHookStatus
+                logs={loadedLogs}
+                error={logsError?.message ?? null}
+              >
                 {eventWebHook.payloadType === "datadog" && (
                   <DatadogWebhookChecks
                     eventWebHook={eventWebHook}

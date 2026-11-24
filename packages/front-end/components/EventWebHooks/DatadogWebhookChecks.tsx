@@ -125,9 +125,17 @@ function ServiceCoverageCheck({
   eventWebHook: EventWebHookInterface;
   serviceField: string;
 }) {
-  const { features, loading } = useFeatureMetaInfo({
+  const { features, loading, error } = useFeatureMetaInfo({
     customFields: [serviceField],
   });
+  if (error) {
+    return (
+      <CheckRow
+        ok={false}
+        message="Feature Flags couldn't be loaded to check their services."
+      />
+    );
+  }
   if (loading) return null;
 
   const { projects, tags } = eventWebHook;

@@ -209,7 +209,7 @@ async function getSavedGroupReach(
     payloadKeys,
     relatedEntities: getDependentEntities(
       dependents,
-      environments,
+      { environments, projectIds: allProjectIds },
       featuresById,
     ),
   };
