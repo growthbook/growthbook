@@ -450,10 +450,10 @@ export function getNewMetricsUpdatePlanRefusal({
   }
 
   // An analysis that recorded no correction method, not even null, was saved
-  // before methods were stored. It is corrected on each read instead, and its
-  // results hold values the stats engine then derived from the goal and
-  // guardrail counts, so they can't be extended. The field stands in for the
-  // stats engine's version: the two changes shipped together.
+  // before methods were stored. Its corrected p-values are only computed when
+  // it is read, and its results hold values the stats engine then derived
+  // from the goal and guardrail counts, so they can't be extended. The field
+  // stands in for the stats engine's version, which changed one commit later.
   if (parent.analyses[0]?.settings.pValueCorrection === undefined) {
     return "settings_changed";
   }
