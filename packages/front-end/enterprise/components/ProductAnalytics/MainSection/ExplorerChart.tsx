@@ -39,6 +39,7 @@ import {
   type ResolvedGranularity,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
+import { buildDateTimeAxisOption } from "@/enterprise/components/ProductAnalytics/dateTimeAxis";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
@@ -638,30 +639,54 @@ function ExplorerChartPanel({
         : plotSize.height
       : undefined;
 
+    const isLineOrArea = chartType === "line" || chartType === "area";
+    // Pin a date axis's ticks to bucket starts; ECharts' own choice ignores
+    // bucket size (e.g. hour labels around a single yearly bucket).
+    const dateTimeAxis =
+      isLineOrArea && firstDimensionIsDate && resolvedGranularity
+        ? buildDateTimeAxisOption({
+            bucketIsos: sortedXValues,
+            granularity: resolvedGranularity,
+            plotWidth: plotSize?.width ?? null,
+          })
+        : null;
+
+    const baseCategoryAxisLabel = {
+      color: textColor,
+      rotate: isHorizontalBar ? 0 : -45,
+      hideOverlap: true,
+    };
+    let categoryAxisLabel;
+    if (dateTimeAxis) {
+      categoryAxisLabel = {
+        ...baseCategoryAxisLabel,
+        ...dateTimeAxis.axisLabel,
+      };
+    } else if (sparseFlatCompareBars) {
+      categoryAxisLabel = {
+        ...baseCategoryAxisLabel,
+        // Sparse-flat compare bars use "<dimension> — <metric>" categories
+        // internally to position each bar pair. Show just the dimension
+        // value, once per group, so the axis reads the same as compare-off.
+        interval: 0,
+        formatter: (value: string, index: number) => {
+          const k = Math.max(1, sortedSeriesKeys.length);
+          if (index % k !== Math.floor((k - 1) / 2)) return "";
+          return sortedXValues[Math.floor(index / k)] ?? "";
+        },
+      };
+    } else {
+      categoryAxisLabel = baseCategoryAxisLabel;
+    }
+
     const categoryAxis = {
-      type: chartType === "line" || chartType === "area" ? "time" : "category",
+      type: isLineOrArea ? "time" : "category",
       data: categoryAxisValues,
+      ...dateTimeAxis?.axis,
       ...axisTitle(customCategoryAxisName, categoryNameMaxWidth),
       nameLocation: "middle" as const,
       nameTextStyle,
-      axisLabel: {
-        color: textColor,
-        rotate: isHorizontalBar ? 0 : -45,
-        hideOverlap: true,
-        // Sparse-flat compare bars use "<dimension> — <metric>" categories
-        // internally to position each bar pair. Show just the dimension value,
-        // once per group, so the axis reads the same as compare-off.
-        ...(sparseFlatCompareBars
-          ? {
-              interval: 0,
-              formatter: (value: string, index: number) => {
-                const k = Math.max(1, sortedSeriesKeys.length);
-                if (index % k !== Math.floor((k - 1) / 2)) return "";
-                return sortedXValues[Math.floor(index / k)] ?? "";
-              },
-            }
-          : {}),
-      },
+      axisLabel: categoryAxisLabel,
       // Only attach the axisPointer key when we actually have a formatter to
       // apply. Setting `axisPointer: undefined` overwrites ECharts' default
       ...(axisPointerLabelFormatter

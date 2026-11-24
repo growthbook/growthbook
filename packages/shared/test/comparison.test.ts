@@ -21,6 +21,7 @@ import {
   densifyPopulationTimeseriesRows,
   enumerateProductAnalyticsDateBuckets,
   explorerDimensionDateToUtcYyyyMmDd,
+  enumerateDateBucketsBetween,
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getComparisonShiftDays,
@@ -1375,6 +1376,51 @@ describe("extendDateBucketsForward", () => {
     };
     expect(extendDateBucketsForward({ ...args, count: 0 })).toEqual([]);
     expect(extendDateBucketsForward({ ...args, count: -3 })).toEqual([]);
+  });
+});
+
+describe("enumerateDateBucketsBetween", () => {
+  it("fills in every bucket between the earliest and latest, in any order", () => {
+    expect(
+      enumerateDateBucketsBetween({
+        resolvedGranularity: "month",
+        bucketIsos: ["2026-04-01", "2026-01-01 00:00:00", "not a date"],
+      }),
+    ).toEqual([
+      Date.UTC(2026, 0, 1),
+      Date.UTC(2026, 1, 1),
+      Date.UTC(2026, 2, 1),
+      Date.UTC(2026, 3, 1),
+    ]);
+  });
+
+  it("lines up with a weekly extension", () => {
+    const primary = ["2026-11-02 00:00:00", "2026-11-09 00:00:00"];
+    const extended = extendDateBucketsForward({
+      resolvedGranularity: "week",
+      afterIso: primary[1],
+      count: 2,
+    });
+    expect(
+      enumerateDateBucketsBetween({
+        resolvedGranularity: "week",
+        bucketIsos: [...primary, ...extended],
+      }),
+    ).toEqual([
+      Date.UTC(2026, 10, 2),
+      Date.UTC(2026, 10, 9),
+      Date.UTC(2026, 10, 16),
+      Date.UTC(2026, 10, 23),
+    ]);
+  });
+
+  it("returns nothing for no valid buckets", () => {
+    expect(
+      enumerateDateBucketsBetween({
+        resolvedGranularity: "day",
+        bucketIsos: ["nope"],
+      }),
+    ).toEqual([]);
   });
 });
 

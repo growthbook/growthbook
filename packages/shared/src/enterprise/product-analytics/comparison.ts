@@ -23,7 +23,7 @@ import {
   type ExplorationRenderOpts,
 } from "./utils";
 
-type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
+export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
 
 // --- Comparison date ranges -------------------------------------------------
 
@@ -627,6 +627,7 @@ function truncateUtc(d: Date, granularity: ResolvedGranularity): Date {
   return x;
 }
 
+/** Moves `d` (in place) to the start of the next bucket, in UTC. */
 function stepBucketUtc(d: Date, granularity: ResolvedGranularity): void {
   switch (granularity) {
     case "hour":
@@ -665,12 +666,50 @@ export function extendDateBucketsForward(params: {
 }): string[] {
   const { resolvedGranularity, afterIso, count } = params;
   if (count <= 0) return [];
-  const cur = truncateUtc(parseWarehouseDate(afterIso), resolvedGranularity);
+  // `afterIso` is already a bucket start, so step from it as-is.
+  const cur = parseWarehouseDate(afterIso);
   if (Number.isNaN(cur.getTime())) return [];
   const out: string[] = [];
   for (let i = 0; i < count; i++) {
     stepBucketUtc(cur, resolvedGranularity);
     out.push(cur.toISOString());
+  }
+  return out;
+}
+
+/** The start of the bucket after the one starting at `time`, in UTC ms. */
+export function nextDateBucketStart(
+  time: number,
+  resolvedGranularity: ResolvedGranularity,
+): number {
+  const d = new Date(time);
+  stepBucketUtc(d, resolvedGranularity);
+  return d.getTime();
+}
+
+/**
+ * Every bucket start, in UTC ms, from the earliest of `bucketIsos` to the
+ * latest, including buckets with no data. `bucketIsos` are bucket starts, so
+ * this steps from the earliest one as-is. They can be in any order;
+ * unparseable values are skipped.
+ */
+export function enumerateDateBucketsBetween(params: {
+  resolvedGranularity: ResolvedGranularity;
+  bucketIsos: string[];
+}): number[] {
+  const { resolvedGranularity, bucketIsos } = params;
+  const times = bucketIsos
+    .map((iso) => parseWarehouseDate(iso).getTime())
+    .filter((t) => Number.isFinite(t));
+  if (!times.length) return [];
+  const end = Math.max(...times);
+  const out: number[] = [];
+  for (
+    let t = Math.min(...times);
+    t <= end;
+    t = nextDateBucketStart(t, resolvedGranularity)
+  ) {
+    out.push(t);
   }
   return out;
 }
