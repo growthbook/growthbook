@@ -508,6 +508,22 @@ describe("planNewMetricsUpdate", () => {
       },
     },
     {
+      name: "nothing missing while another update runs",
+      setup: () => {
+        latestStatusMock.mockResolvedValue({
+          id: "snp_running",
+          status: "running",
+        } as Awaited<ReturnType<typeof getLatestSnapshotStatus>>);
+        return {
+          experiment: makeExperiment({ goalMetrics: ["met_a", "met_b"] }),
+        };
+      },
+      expected: {
+        type: MetricsAlreadyUpToDateError,
+        details: { latestSnapshotId: "snp_parent" },
+      },
+    },
+    {
       name: "an Incremental Pipeline parent with a results plan",
       setup: () => {
         findParentMock.mockResolvedValue(

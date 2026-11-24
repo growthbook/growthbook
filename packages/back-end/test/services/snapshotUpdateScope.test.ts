@@ -78,12 +78,18 @@ describe("updateScope", () => {
       triggeredBy: "schedule",
       expected: "all_metrics",
     },
-    ...[notMissing, unavailable, running].map((newMetrics) => ({
+    ...[notMissing, unavailable].map((newMetrics) => ({
       name: `"auto" falls back after ${newMetrics.name}`,
       newMetrics,
       window: { windowHours: 4, now },
       expected: "all_metrics" as const,
     })),
+    {
+      name: '"auto" fails on a running update instead of starting a second one',
+      newMetrics: running,
+      window: { windowHours: 4, now },
+      expected: running,
+    },
     {
       name: '"auto" fails on another error',
       newMetrics: otherError,

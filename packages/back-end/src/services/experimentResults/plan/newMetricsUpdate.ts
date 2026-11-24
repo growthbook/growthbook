@@ -112,16 +112,6 @@ export async function planNewMetricsUpdate({
     throw new NewMetricsUpdateUnavailableError(setupBlocker);
   }
 
-  const latest = await getLatestSnapshotStatus({
-    context,
-    experiment: experiment.id,
-    phase,
-    type: "standard",
-  });
-  if (latest?.status === "running") {
-    throw new SnapshotInProgressError(latest.id);
-  }
-
   const parent = await findLatestSuccessfulOverallSnapshot(context, {
     experiment: experiment.id,
     phase,
@@ -137,6 +127,17 @@ export async function planNewMetricsUpdate({
   });
   if (!missingMetricIds.length) {
     throw new MetricsAlreadyUpToDateError(parent.id);
+  }
+  // Checked once there are metrics to add: a request with none falls back to
+  // a normal update, which decides on its own what a running update means.
+  const latest = await getLatestSnapshotStatus({
+    context,
+    experiment: experiment.id,
+    phase,
+    type: "standard",
+  });
+  if (latest?.status === "running") {
+    throw new SnapshotInProgressError(latest.id);
   }
   // The app offers a new-metrics update only when "Metrics changed" is the one
   // Outdated reason, so the back end refuses on the same reasons.

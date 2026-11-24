@@ -93,6 +93,20 @@ describe("useExperimentSnapshotUpdate", () => {
     );
   });
 
+  it("reports a started update and stops loading when the refetch fails", async () => {
+    apiCall.mockResolvedValue({ status: 200, snapshot: { id: "snap_1" } });
+    const mutate = vi.fn().mockRejectedValue(new Error("offline"));
+    const { result } = render({ mutate });
+
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.runSnapshot("");
+    });
+
+    expect(outcome).toBe(true);
+    expect(result.current.loading).toBe(false);
+  });
+
   it("holds a started update until the refetch that shows it has settled", async () => {
     apiCall.mockResolvedValue({ status: 200, snapshot: { id: "snap_1" } });
     let settleRefetch = () => {};

@@ -26,6 +26,7 @@ type RefreshResultsModel = {
   id: string;
   queries?: Queries;
   runStarted?: string | Date | null;
+  status?: "running" | "success" | "error";
 };
 
 export interface RefreshResultsButtonProps<T extends RefreshResultsModel> {
@@ -221,6 +222,9 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
         : () => submitUpdate();
 
   const running = getQueryStatus(latest.queries || []).status === "running";
+  // Its queries are done but the statistics are still being computed. The
+  // offer comes from the results before this update, so it can't be taken yet.
+  const analyzing = !running && latest.status === "running";
   if (offerNewMetricsUpdate && entityType !== "safe-rollout" && !running) {
     return (
       <>
@@ -232,7 +236,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
           onUpdateAllMetrics={() =>
             submitUpdate({ updateScope: "all_metrics" })
           }
-          disabled={disabled}
+          disabled={disabled || analyzing}
         />
       </>
     );

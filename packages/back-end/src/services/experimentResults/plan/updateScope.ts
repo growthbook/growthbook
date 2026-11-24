@@ -12,7 +12,6 @@ import {
   BadRequestError,
   NewMetricsUpdateUnavailableError,
   MetricsAlreadyUpToDateError,
-  SnapshotInProgressError,
 } from "back-end/src/util/errors";
 
 // Which metrics an update computes, once the request has been read.
@@ -71,14 +70,12 @@ export function resolveApiUpdateScope({
   };
 }
 
-// Refusals a fallback replaces with a normal update. Another running update is
-// one: on the Incremental Pipeline the normal update then reports it as well,
-// with the running snapshot's id.
+// Refusals a fallback replaces with a normal update. A running update is not
+// one: a second update of every metric beside it would cost more than waiting.
 function isFallbackRefusal(error: unknown): boolean {
   return (
     error instanceof MetricsAlreadyUpToDateError ||
-    error instanceof NewMetricsUpdateUnavailableError ||
-    error instanceof SnapshotInProgressError
+    error instanceof NewMetricsUpdateUnavailableError
   );
 }
 

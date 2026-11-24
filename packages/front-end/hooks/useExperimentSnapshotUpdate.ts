@@ -239,8 +239,8 @@ export function useExperimentSnapshotUpdate({
         const refetched = mutate();
         mutateAdditional?.();
         // Until the refetch shows the update running, the controls would
-        // offer to start another.
-        if (started) await refetched;
+        // offer to start another. The update started even if the refetch fails.
+        if (started) await Promise.resolve(refetched).catch(() => undefined);
         setLoading(false);
       }
     },
