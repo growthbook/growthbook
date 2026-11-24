@@ -15,6 +15,7 @@ import {
   expandMetricGroups,
   getAllVariations,
   getNewMetricsUpdate,
+  getStatsEngineAnalysisSettings,
   setCorrectedPValues,
 } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -85,6 +86,13 @@ export async function postReportFromSnapshot(
   if (newMetricsUpdate) {
     snapshot.dateCreated = newMetricsUpdate.base.dateCreated;
     snapshot.runStarted = newMetricsUpdate.base.runStarted;
+    // The analyses keep their parent's goal and guardrail counts.
+    snapshot.analyses.forEach((analysis) => {
+      analysis.settings = getStatsEngineAnalysisSettings(
+        snapshot,
+        analysis.settings,
+      );
+    });
   }
   snapshot.id = generateId("snp_");
   snapshot.type = "report";
