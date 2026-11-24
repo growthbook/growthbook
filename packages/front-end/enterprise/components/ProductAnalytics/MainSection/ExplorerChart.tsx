@@ -156,6 +156,7 @@ function ExplorerChartPanel({
   submittedComparisonMode = null,
   serverBigNumberTrends = null,
   hideSingleCompareLegend = false,
+  hideSingleSeriesLegend = false,
 }: {
   exploration: ProductAnalyticsExploration | null;
   comparisonExploration?: ProductAnalyticsExploration | null;
@@ -172,6 +173,8 @@ function ExplorerChartPanel({
     | null;
   /** Skip a compare legend that only names this chart's one series (its heading already does). */
   hideSingleCompareLegend?: boolean;
+  /** Skip a legend for a lone series, e.g. a separate chart whose heading names it. */
+  hideSingleSeriesLegend?: boolean;
 }) {
   const { theme } = useAppearanceUITheme();
   const { textColor, tooltipBackgroundColor, gridLineColor } =
@@ -613,7 +616,7 @@ function ExplorerChartPanel({
       );
     }
 
-    const legendShow = seriesConfigs.length > 0;
+    const legendShow = seriesConfigs.length > (hideSingleSeriesLegend ? 1 : 0);
 
     const axisPointerLabelFormatter =
       resolvedGranularity && !sparseFlatCompareBars
@@ -847,6 +850,7 @@ function ExplorerChartPanel({
     customCategoryAxisName,
     valueAxisName,
     chartBoxSize,
+    hideSingleSeriesLegend,
   ]);
 
   // Custom compare-mode legend model, derived from the chart's actual series so
@@ -1257,8 +1261,9 @@ export default function ExplorerChart(
           gap="1"
           flexGrow="1"
           flexShrink="0"
-          flexBasis="240px"
-          minHeight="240px"
+          // Share the height equally; scroll only once a chart would drop below its minimum
+          flexBasis="0"
+          minHeight="140px"
         >
           <Text weight="medium" truncate title={panel.name}>
             {panel.name}
@@ -1271,6 +1276,7 @@ export default function ExplorerChart(
             serverBigNumberTrends={panel.serverBigNumberTrends}
             // The first chart's legend keys the periods for all of them
             hideSingleCompareLegend={i > 0}
+            hideSingleSeriesLegend
           />
         </Flex>
       ))}
