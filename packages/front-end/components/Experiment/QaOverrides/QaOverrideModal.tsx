@@ -25,6 +25,7 @@ import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import { Select, SelectItem } from "@/ui/Select";
 import RadioGroup from "@/ui/RadioGroup";
 import Badge from "@/ui/Badge";
+import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import QaOverrideAudience from "./QaOverrideAudience";
@@ -281,11 +282,24 @@ export default function QaOverrideModal({
                 setValue={setEnvironment}
                 placeholder="Select an environment…"
               >
-                {environmentOptions.map((e) => (
-                  <SelectItem key={e.id} value={e.id} disabled={e.isProduction}>
-                    {e.id}
-                  </SelectItem>
-                ))}
+                {environmentOptions.map((e) =>
+                  e.isProduction ? (
+                    <Tooltip
+                      key={e.id}
+                      content="QA overrides can\u2019t run in production environments."
+                      side="right"
+                      maxWidth="260px"
+                    >
+                      <SelectItem value={e.id} disabled>
+                        {e.id}
+                      </SelectItem>
+                    </Tooltip>
+                  ) : (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.id}
+                    </SelectItem>
+                  ),
+                )}
               </Select>
             </Box>
           )}
