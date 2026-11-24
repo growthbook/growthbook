@@ -5,6 +5,7 @@ import router from "next/router";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
+import { projectSettingsValidator } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -105,20 +106,24 @@ const ProjectPage: FC = () => {
   // Keyed on the stored values, not the settings object: any definitions
   // refresh, like a default dashboard change, makes a new object, and
   // resetting then would drop unsaved edits.
-  const statsEngine = settings?.statsEngine;
-  const confidenceLevel = settings?.confidenceLevel;
-  const pValueThreshold = settings?.pValueThreshold;
+  const storedSettings = JSON.stringify(settings ?? {});
   useEffect(() => {
-    const newVal: ProjectSettings = {
-      statsEngine,
-      // The form shows confidence as a percentage.
-      confidenceLevel:
-        typeof confidenceLevel === "number" ? confidenceLevel * 100 : undefined,
-      pValueThreshold,
-    };
+    const stored: ProjectSettings = JSON.parse(storedSettings);
+    // Every settings field, so one this Project hasn't set is cleared rather
+    // than kept from the previous Project.
+    const newVal: ProjectSettings = Object.fromEntries(
+      Object.keys(projectSettingsValidator.shape).map((k) => [
+        k,
+        stored[k as keyof ProjectSettings],
+      ]),
+    );
+    // The form shows confidence as a percentage.
+    if (typeof newVal.confidenceLevel === "number") {
+      newVal.confidenceLevel = newVal.confidenceLevel * 100;
+    }
     form.reset(newVal);
     setOriginalValue(newVal);
-  }, [form, statsEngine, confidenceLevel, pValueThreshold]);
+  }, [form, storedSettings]);
 
   const isValid = form.formState.isValid;
   const ctaEnabled = hasChanges(form.getValues(), originalValue) && isValid;
