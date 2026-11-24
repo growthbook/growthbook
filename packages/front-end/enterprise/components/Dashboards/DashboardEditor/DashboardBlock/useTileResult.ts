@@ -23,6 +23,8 @@ export type TileResult = {
   comparison: ProductAnalyticsExploration | null;
   // Set when the comparison failed but the primary result came back
   comparisonError: string | null;
+  // Set when an Update failed and this is the earlier result it kept
+  updateError: string | null;
 };
 
 type TileState =
@@ -75,7 +77,12 @@ export function useTileResult(request: TileRequest) {
           ? current
           : { status: "loading" },
       );
-      const fail = (error: string) => setState({ status: "error", error });
+      const fail = (error: string) =>
+        setState((current) =>
+          isUpdate && current.status === "ready"
+            ? { ...current, result: { ...current.result, updateError: error } }
+            : { status: "error", error },
+        );
       const commit = ({ primary, comparison }: Loaded) => {
         if (!primary.data) {
           if (primary.error) fail(primary.error);
@@ -90,6 +97,7 @@ export function useTileResult(request: TileRequest) {
             // A comparison that fails or times out leaves the primary up
             comparison: comparison?.error ? null : (comparison?.data ?? null),
             comparisonError: comparison?.error ?? null,
+            updateError: null,
           },
         });
       };

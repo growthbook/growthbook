@@ -283,6 +283,11 @@ function TileBody({
   const error = exploration.error || null;
   return (
     <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>
+      {result?.updateError && (
+        <Callout status="warning" size="sm">
+          Update failed: {result.updateError}
+        </Callout>
+      )}
       {compareEnabled && result?.comparisonError && (
         <ComparisonErrorCallout error={result.comparisonError} />
       )}
