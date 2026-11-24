@@ -1,5 +1,6 @@
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import {
+  applyQaOverrideOrder,
   buildQaOverrideBody,
   groupQaOverrides,
   isQaOverrideFormComplete,
@@ -7,6 +8,7 @@ import {
   qaOverrideFormDefaults,
   qaOverridesNeedGrouping,
   qaOverrideFiltersFromForm,
+  reconcileQaOverrideOrder,
   qaOverrideAudienceParts,
   summarizeQaOverrideAudience,
 } from "@/services/qaOverrides";
@@ -425,5 +427,45 @@ describe("the add/edit form", () => {
     expect(
       qaOverrideFormDefaults(existing, "", ["gone"]).forcedVariationId,
     ).toBe("gone");
+  });
+
+  describe("a staged order", () => {
+    const stored = [
+      override({ id: "a", order: 0 }),
+      override({ id: "b", order: 1 }),
+      override({ id: "c", order: 2 }),
+      override({ id: "s", environment: "staging", order: 0 }),
+    ];
+
+    it("reorders its own environment and leaves the others", () => {
+      const order = reconcileQaOverrideOrder({ dev: ["c", "a", "b"] }, stored);
+      expect(order).toEqual({ dev: ["c", "a", "b"] });
+      expect(
+        applyQaOverrideOrder(stored, order).map((o) => [o.id, o.order]),
+      ).toEqual([
+        ["a", 1],
+        ["b", 2],
+        ["c", 0],
+        ["s", 0],
+      ]);
+    });
+
+    it("is no longer staged once it matches the stored order", () => {
+      expect(
+        reconcileQaOverrideOrder({ dev: ["a", "b", "c"] }, stored),
+      ).toEqual({});
+    });
+
+    it("drops an override removed since and puts one added since last", () => {
+      expect(
+        reconcileQaOverrideOrder({ dev: ["c", "gone", "a"] }, stored),
+      ).toEqual({ dev: ["c", "a", "b"] });
+    });
+
+    it("is dropped with the last override it moved", () => {
+      expect(
+        reconcileQaOverrideOrder({ dev: ["b", "a"] }, [stored[0], stored[3]]),
+      ).toEqual({});
+    });
   });
 });

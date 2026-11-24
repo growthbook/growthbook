@@ -12,9 +12,17 @@ import { useAuth } from "@/services/auth";
 import useExperimentQaOverrides from "@/hooks/useExperimentQaOverrides";
 import {
   QA_OVERRIDES_SECTION_ID,
+  QaOverrideOrder,
+  applyQaOverrideOrder,
   groupQaOverrides,
   qaOverridesNeedGrouping,
+  reconcileQaOverrideOrder,
+  summarizeQaOverrideAudience,
 } from "@/services/qaOverrides";
+import {
+  useRegisterExperimentEdit,
+  useStagedState,
+} from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import { InfoTip } from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -53,9 +61,20 @@ export default function QaOverridesSection({
     | { mode: "edit"; override: ExperimentQaOverrideWithStatus }
     | null
   >(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  // Dragging stages an order for the page's Save; adding, editing and
+  // removing an override save on their own.
+  const [stagedOrder, setStagedOrder, discardOrder] =
+    useStagedState<QaOverrideOrder>("qaOverrideOrder", {});
 
-  const overrides = useMemo(() => data?.overrides ?? [], [data]);
+  const stored = useMemo(() => data?.overrides ?? [], [data]);
+  const order = useMemo(
+    () => reconcileQaOverrideOrder(stagedOrder, stored),
+    [stagedOrder, stored],
+  );
+  const overrides = useMemo(
+    () => applyQaOverrideOrder(stored, order),
+    [stored, order],
+  );
   const variations = getLatestPhaseVariations(experiment);
   const groups = useMemo(
     () => groupQaOverrides(overrides, environmentOrder),
@@ -64,37 +83,57 @@ export default function QaOverridesSection({
   const grouped = qaOverridesNeedGrouping(groups);
 
   const remove = async (override: ExperimentQaOverrideWithStatus) => {
-    setActionError(null);
     await apiCall(`/qa-overrides/${override.id}`, { method: "DELETE" });
     await mutate();
   };
 
-  const reorder = async (environment: string, orderedIds: string[]) => {
-    setActionError(null);
-    const position = new Map(orderedIds.map((id, i) => [id, i]));
-    const next = overrides.map((o) => ({
-      ...o,
-      order: position.get(o.id) ?? o.order,
-    }));
-    try {
-      await mutate(
-        async () => {
-          await apiCall(`/qa-overrides/experiment/${experiment.id}/order`, {
-            method: "PUT",
-            body: JSON.stringify({ environment, overrideIds: orderedIds }),
-          });
-          return undefined;
-        },
-        {
-          optimisticData: data ? { ...data, overrides: next } : undefined,
-          rollbackOnError: true,
-          revalidate: true,
-        },
-      );
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : String(e));
-    }
+  const reorder = (environment: string, orderedIds: string[]) =>
+    setStagedOrder(
+      reconcileQaOverrideOrder({ ...order, [environment]: orderedIds }, stored),
+    );
+
+  const reviewOrder = (from: ExperimentQaOverrideWithStatus[]) =>
+    Object.fromEntries(
+      groupQaOverrides(from, environmentOrder)
+        .filter((group) => group.environment in order)
+        .map((group) => [
+          group.environment,
+          group.rows.map(({ item }) => overrideLabel(item)),
+        ]),
+    );
+  const overrideLabel = ({
+    assignment,
+    filters,
+  }: ExperimentQaOverrideWithStatus) => {
+    const serves =
+      assignment.type === "random"
+        ? "Set by experiment"
+        : (variations.find((v) => v.id === assignment.variationId)?.name ??
+          "Deleted variation");
+    const audience = summarizeQaOverrideAudience(filters, lookups)
+      .map((segment) => segment.text)
+      .join(", ");
+    return audience ? `${serves}: ${audience}` : serves;
   };
+
+  useRegisterExperimentEdit("qaOverrideOrder", Object.keys(order).length > 0, {
+    label: "QA override order",
+    review: () => ({
+      before: reviewOrder(stored),
+      after: reviewOrder(overrides),
+    }),
+    discard: discardOrder,
+    // Shown in the saved order while the refetch is on its way.
+    onSaved: () => {
+      void mutate(data && { ...data, overrides }, { revalidate: true });
+      discardOrder();
+    },
+    changes: () => ({
+      qaOverrideOrder: Object.entries(order).map(
+        ([environment, overrideIds]) => ({ environment, overrideIds }),
+      ),
+    }),
+  });
 
   const isEmpty = overrides.length === 0 && !error;
   const allProduction = eligibleEnvironments.length === 0;
@@ -151,12 +190,10 @@ export default function QaOverridesSection({
               <Box flexGrow="1" />
               {canAdd && addButton}
             </Flex>
-            {(error || actionError) && (
+            {error && (
               <Box px="4" pb="3">
                 <Callout status="error">
-                  {error
-                    ? `Could not load QA overrides: ${error.message}`
-                    : actionError}
+                  Could not load QA overrides: {error.message}
                 </Callout>
               </Box>
             )}

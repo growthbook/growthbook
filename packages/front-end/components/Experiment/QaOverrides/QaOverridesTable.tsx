@@ -53,7 +53,7 @@ export type QaOverridesTableProps = {
   onEdit: (override: Override) => void;
   onRemove: (override: Override) => Promise<void>;
   removeConfirmation: (override: Override) => string;
-  onReorder?: (environment: string, orderedIds: string[]) => Promise<void>;
+  onReorder?: (environment: string, orderedIds: string[]) => void;
 };
 
 function VariationCell({
@@ -295,7 +295,7 @@ function Group({
             ids.indexOf(String(active.id)),
             ids.indexOf(String(over.id)),
           );
-          void onReorder(group.environment, next);
+          onReorder(group.environment, next);
         }}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>

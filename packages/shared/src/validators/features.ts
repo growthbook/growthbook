@@ -57,6 +57,7 @@ import {
   FALLBACK_ATTRIBUTE_DESCRIPTION,
 } from "./api-field-descriptions";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
+import { reorderExperimentQaOverridesBodyValidator } from "./experiment-qa-overrides";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -2402,6 +2403,10 @@ export const experimentChangesBody = z
       )
       .optional(),
     removeVisualChangesets: z.array(z.string()).optional(),
+    // Each environment once, listing every QA override in it, first match first.
+    qaOverrideOrder: z
+      .array(reorderExperimentQaOverridesBodyValidator)
+      .optional(),
     // Without one, what a running experiment serves can't change in place.
     release: z
       .object({
