@@ -1,7 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Box } from "@radix-ui/themes";
-import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
+import SectionFrame from "@/components/SectionFrame";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import {
@@ -17,10 +15,12 @@ import {
 export default function ConfigUsageSection({
   implementations,
   fieldKeys = [],
+  stickyTop,
 }: {
   implementations: ConfigKeyImplementation[];
   // Field order, so the "by key" sections match the table above.
   fieldKeys?: string[];
+  stickyTop?: number;
 }): React.ReactElement | null {
   const [groupBy, setGroupBy] = useState("key");
 
@@ -74,36 +74,26 @@ export default function ConfigUsageSection({
   if (!deduped.length) return null;
 
   return (
-    <Box>
-      <Heading as="h3" size="md" mb="1">
-        Usage
-      </Heading>
-      <Text as="p" size="md" color="text-low" mb="4">
-        Feature Flag rules and default values that override this Config&apos;s
-        keys.
-      </Text>
-
-      <Tabs value={groupBy} onValueChange={setGroupBy}>
-        <TabsList>
-          <TabsTrigger value="key">By key</TabsTrigger>
-          <TabsTrigger value="reference">By reference</TabsTrigger>
-        </TabsList>
-
+    <Tabs value={groupBy} onValueChange={setGroupBy}>
+      <SectionFrame
+        title="Usage"
+        description="Feature Flag rules and default values that override this Config's keys."
+        mb="4"
+        stickyTop={stickyTop}
+        tabs={
+          <TabsList>
+            <TabsTrigger value="key">By key</TabsTrigger>
+            <TabsTrigger value="reference">By reference</TabsTrigger>
+          </TabsList>
+        }
+      >
         <TabsContent value="reference">
-          <Box pt="4">
-            <ByReferenceUsageTable
-              groups={featureGroups}
-              keyOrder={fieldKeys}
-            />
-          </Box>
+          <ByReferenceUsageTable groups={featureGroups} keyOrder={fieldKeys} />
         </TabsContent>
-
         <TabsContent value="key">
-          <Box pt="4">
-            <ByKeyUsageTable groups={keyGroups} />
-          </Box>
+          <ByKeyUsageTable groups={keyGroups} />
         </TabsContent>
-      </Tabs>
-    </Box>
+      </SectionFrame>
+    </Tabs>
   );
 }

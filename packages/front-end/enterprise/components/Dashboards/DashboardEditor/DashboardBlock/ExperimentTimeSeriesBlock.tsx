@@ -7,10 +7,10 @@ import { getValidDate } from "shared/dates";
 import {
   funnelStepMetricId,
   getLatestPhaseVariations,
+  getAnalysisPValueCorrection,
 } from "shared/experiments";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { excludeFunnelSliceRows } from "@/services/experiments";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
@@ -37,12 +37,10 @@ export default function ExperimentTimeSeriesBlock({
   const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
   const statsEngine = analysis.settings.statsEngine;
-  const pValueCorrection =
-    ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
-
-  const _pValueThreshold = usePValueThreshold(experiment.project);
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
+  const pValueCorrection = getAnalysisPValueCorrection(
+    analysis,
+    ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection,
+  );
 
   const result = analysis.results[0];
 
@@ -93,8 +91,6 @@ export default function ExperimentTimeSeriesBlock({
     metricTagFilter: blockMetricTagFilter,
     metricsFilter: blockMetricIds,
     sliceTagsFilter: blockSliceTagsFilter,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
@@ -105,7 +101,6 @@ export default function ExperimentTimeSeriesBlock({
       blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds
         : undefined,
-    pValueThreshold,
   });
 
   // Filter rows based on expansion state when there's no slice filter
@@ -206,7 +201,6 @@ export default function ExperimentTimeSeriesBlock({
                       <ExperimentMetricTimeSeriesGraphWrapper
                         key={metric.id}
                         experimentId={experiment.id}
-                        pValueThreshold={pValueThreshold}
                         phase={snapshot.phase}
                         snapshotSettings={snapshot.settings}
                         metric={metric}
@@ -259,7 +253,6 @@ export default function ExperimentTimeSeriesBlock({
                           </div>
                           <ExperimentMetricTimeSeriesGraphWrapper
                             experimentId={experiment.id}
-                            pValueThreshold={pValueThreshold}
                             phase={snapshot.phase}
                             snapshotSettings={snapshot.settings}
                             metric={sliceRow.metric}

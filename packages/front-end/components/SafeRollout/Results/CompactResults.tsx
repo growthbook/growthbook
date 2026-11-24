@@ -20,8 +20,6 @@ import {
   expandMetricGroups,
   ExperimentMetricDefinition,
   getMetricLink,
-  setAdjustedCIs,
-  setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { SafeRolloutReportResultDimension } from "shared/validators";
@@ -52,7 +50,6 @@ const CompactResults: FC<{
   startDate: string;
   isLatestPhase: boolean;
   status: ExperimentStatus;
-  goalMetrics: string[];
   guardrailMetrics: string[];
   metricOverrides: MetricOverride[];
   id: string;
@@ -76,7 +73,6 @@ const CompactResults: FC<{
   startDate,
   isLatestPhase,
   status,
-  goalMetrics,
   guardrailMetrics,
   metricOverrides,
   id,
@@ -91,20 +87,14 @@ const CompactResults: FC<{
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
 
-  const { pValueThreshold } = significanceThresholds;
-
-  const { expandedGoals, expandedGuardrails } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(
-      goalMetrics,
-      ssrPolyfills?.metricGroups || metricGroups,
-    );
-    const expandedGuardrails = expandMetricGroups(
-      guardrailMetrics,
-      ssrPolyfills?.metricGroups || metricGroups,
-    );
-
-    return { expandedGoals, expandedGuardrails };
-  }, [goalMetrics, metricGroups, ssrPolyfills?.metricGroups, guardrailMetrics]);
+  const expandedGuardrails = useMemo(
+    () =>
+      expandMetricGroups(
+        guardrailMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      ),
+    [metricGroups, ssrPolyfills?.metricGroups, guardrailMetrics],
+  );
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(
@@ -146,25 +136,15 @@ const CompactResults: FC<{
     }
 
     if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
-    if (pValueCorrection && statsEngine === "frequentist") {
-      // Only include goals in calculation, not secondary or guardrails
-      setAdjustedPValuesOnResults([results], expandedGoals, pValueCorrection);
-      setAdjustedCIs([results], pValueThreshold);
-    }
-
     const retGuardrails = expandedGuardrails
       .map((metricId) => getRow(metricId, "guardrail"))
       .filter(isDefined);
     return [...retGuardrails];
   }, [
     results,
-    expandedGoals,
     expandedGuardrails,
     metricOverrides,
     settingsForSnapshotMetrics,
-    pValueCorrection,
-    pValueThreshold,
-    statsEngine,
     ready,
     ssrPolyfills,
     getExperimentMetricById,

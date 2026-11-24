@@ -1,4 +1,36 @@
-import type { MetricTimeSeries } from "../validators/metric-time-series";
+import type {
+  MetricTimeSeries,
+  MetricTimeSeriesDataPointTag,
+} from "../validators/metric-time-series";
+
+type SettingsHashes = Pick<
+  MetricTimeSeries,
+  | "lastExperimentSettingsHash"
+  | "lastMetricSettingsHash"
+  | "lastPValueCorrectionHash"
+>;
+
+/** The tags for a new data point whose settings differ from the series' last. */
+export function getSettingsChangedTags(
+  existing: SettingsHashes,
+  next: SettingsHashes,
+): MetricTimeSeriesDataPointTag[] {
+  const tags: MetricTimeSeriesDataPointTag[] = [];
+  if (next.lastExperimentSettingsHash !== existing.lastExperimentSettingsHash) {
+    tags.push("experiment-settings-changed");
+  }
+  if (next.lastMetricSettingsHash !== existing.lastMetricSettingsHash) {
+    tags.push("metric-settings-changed");
+  }
+  // A series from before this hash was recorded has nothing to compare with.
+  if (
+    (existing.lastPValueCorrectionHash ?? null) !== null &&
+    next.lastPValueCorrectionHash !== existing.lastPValueCorrectionHash
+  ) {
+    tags.push("p-value-correction-changed");
+  }
+  return tags;
+}
 
 export function filterInvalidMetricTimeSeries(
   metricTimeSeries: MetricTimeSeries[],

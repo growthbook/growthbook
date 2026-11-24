@@ -11,7 +11,10 @@ import {
   redshiftDialect,
   mysqlDialect,
 } from "shared/dialects";
-import { getColumnsTopValuesQuery } from "back-end/src/integrations/sql/queries/columns-top-values-query";
+import {
+  getColumnsTopValuesQuery,
+  parseColumnTopValuesRows,
+} from "back-end/src/integrations/sql/queries/columns-top-values-query";
 
 function makeColumn(column: string): ColumnInterface {
   return {
@@ -75,6 +78,9 @@ function registerSharedTopValuesTests(dialect: SqlDialect) {
     expect(sql).toMatch(/\bvalue\b/i);
     expect(sql).toMatch(/\bcount\b/i);
     expect(sql).toMatch(/ORDER BY\s+column_name,\s*count DESC/i);
+    expect(sql).toMatch(
+      /SELECT\s+column_name,\s*value,\s*count\s+FROM\s+__topValues/i,
+    );
   });
 
   it("applies the max-value-length gate", () => {
@@ -179,5 +185,30 @@ describe("getColumnsTopValuesQuery — exact fallback path", () => {
     expect(redshiftDialect.approxTopValuesCTEBody).toBeUndefined();
     expect(mysqlDialect.approxTopValuesCTEBody).toBeUndefined();
     expect(athenaDialect.approxTopValuesCTEBody).toBeUndefined();
+  });
+});
+
+describe("ClickHouse topK", () => {
+  it("asks topK for approximate counts", () => {
+    const sql = buildSql(clickHouseDialect);
+    expect(sql).toMatch(/topK\(\d+, 3, 'counts'\)/);
+    expect(sql).toMatch(/toInt64\(tupleElement\(__item, 2\)\) AS count/);
+    expect(sql).not.toMatch(/\brank\b/);
+  });
+});
+
+describe("parseColumnTopValuesRows", () => {
+  it("keeps a count only when it is a real number", () => {
+    expect(
+      parseColumnTopValuesRows([
+        { column_name: "country", value: "US", count: "12" },
+        { column_name: "country", value: "CA", count: null },
+        { column_name: "country", value: "MX" },
+      ]),
+    ).toEqual([
+      { column: "country", value: "US", count: 12 },
+      { column: "country", value: "CA" },
+      { column: "country", value: "MX" },
+    ]);
   });
 });

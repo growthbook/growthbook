@@ -1,0 +1,92 @@
+.value {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 32px;
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+  color: var(--color-text-high);
+}
+
+// Text sits as far inside the box as an input's; the code block itself has
+// 1px above its text and 2px below.
+.code {
+  padding: calc((32px - var(--line-height-2)) / 2) 0
+    calc((32px - var(--line-height-2)) / 2 - 1px);
+}
+
+.centered {
+  display: flex;
+  align-items: center;
+}
+
+// A strut in the row's font puts the value on the same baseline as the row's
+// label.
+.text :global(code)::before {
+  // Interpolated so Sass keeps the escape: emitting the raw character makes
+  // it prefix a byte-order mark, which breaks the module's first rule.
+  content: #{'"\\200b"'};
+  display: inline-block;
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+}
+
+// Drawn beside the value's box, so rows keep their size when values become
+// editable. Its top and bottom are the box's, lining up with the row's inputs.
+// The frame sits outside the value's box by an input's border and padding.
+.frame {
+  --frame-start: calc(var(--space-2) + 1px);
+  --frame-end: calc(var(--space-1) + 1px);
+}
+
+.frame {
+  isolation: isolate;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0 calc(-1 * var(--frame-end)) 0 calc(-1 * var(--frame-start));
+    z-index: -1;
+    border: 1px solid var(--gray-a3);
+    border-radius: var(--radius-2);
+  }
+}
+
+// The edit button on its own: at a tall value's top, or beside "No value set".
+.openEditor {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+// Beside "No value set": centred on the line, as a value's own buttons are.
+.openEditorCentered {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+// Lines up with the value's own buttons, which sit inside a flush frame's
+// padding.
+.frame.flush .openEditor {
+  right: calc(10px + var(--frame-end));
+}
+
+// A flush frame keeps to the value's column, and the value sits inside it
+// where an input's text would.
+.frame.flush {
+  padding-left: var(--frame-start);
+  padding-right: var(--frame-end);
+
+  &::before {
+    inset: 0;
+  }
+}
+
+// An input shown in place of a flush-framed value: its border lands on the
+// frame's, so its text stays where the value's was.
+.inPlace {
+  // The cell spaces what follows; a form's bottom margin would add to it.
+  > :last-child {
+    margin-bottom: 0;
+  }
+}

@@ -157,7 +157,7 @@ export default function TrafficCard({
               <Box px="3">
                 <div className="uppercase-title text-muted">Unit</div>
                 <SegmentedControl
-                  size="sm"
+                  size="normal"
                   aria-label="Unit"
                   value={showClusters ? "cluster" : "subunit"}
                   setValue={(v) => setShowClusters(v === "cluster")}

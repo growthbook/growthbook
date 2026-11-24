@@ -513,8 +513,14 @@ export function trackEventForContext<K extends AppEventName>(
   context: ReqContext,
   eventName: K,
   properties: AppEvents[K],
+  // Server-derived only, like the attributes these are added to.
+  extraAttributes: Record<string, unknown> = {},
 ): void {
-  logAppEvent(eventName, properties, eventUserContext(context));
+  const userContext = eventUserContext(context);
+  logAppEvent(eventName, properties, {
+    ...userContext,
+    attributes: { ...userContext.attributes, ...extraAttributes },
+  });
 }
 
 function logAppEvent<K extends AppEventName>(

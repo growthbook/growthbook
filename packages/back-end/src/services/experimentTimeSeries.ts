@@ -11,8 +11,9 @@ import {
   getFactMetricPrimaryFactTableId,
   isFactCompoundMetric,
   isFactFunnelMetric,
-  parseFunnelStepMetricId,
-  parseSliceMetricId,
+  getDefinitionMetricId,
+  getSnapshotSideEffects,
+  isPValueCorrected,
 } from "shared/experiments";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
@@ -220,6 +221,7 @@ export async function updateExperimentAnalysisTimeSeries({
     experimentSnapshot.settings.datasourceId,
   );
   const variationIds = getLatestPhaseVariations(experiment);
+  const { timeSeries } = getSnapshotSideEffects(experimentSnapshot);
   const allDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = [];
   const dimensionValues = dimensionId
     ? baseAnalysis.results.map((result) => result.name)
@@ -244,6 +246,7 @@ export async function updateExperimentAnalysisTimeSeries({
     );
 
     for (const metricId of allMetricIds) {
+      if (!timeSeries.includesMetric(metricId)) continue;
       const variations: MetricTimeSeriesVariation[] = variationIds.map(
         (v, variationIndex) => {
           // Each difference type computes independently; drop the ones that
@@ -291,6 +294,11 @@ export async function updateExperimentAnalysisTimeSeries({
         sourcePhase: experimentSnapshot.phase,
         metricId,
         lastExperimentSettingsHash: experimentHash,
+        lastPValueCorrectionHash: getPValueCorrectionHash({
+          metricId,
+          snapshotSettings: experimentSnapshot.settings,
+          analysisSettings: baseAnalysis.settings,
+        }),
         lastMetricSettingsHash: getMetricSettingsHash(
           metricId,
           experimentSnapshot.settings.metricSettings.find(
@@ -301,7 +309,7 @@ export async function updateExperimentAnalysisTimeSeries({
           experimentSnapshot.settings,
         ),
         singleDataPoint: {
-          date: experimentSnapshot.dateCreated,
+          date: timeSeries.pointDate,
           variations,
           ...(tags?.length ? { tags: [...tags] } : {}),
         },
@@ -377,6 +385,7 @@ function convertMetricToMetricValue(
     denominator: metric.denominator ?? undefined,
     expected: metric.expected ?? undefined,
     ci: metric.ci ?? undefined,
+    ciAdjusted: metric.ciAdjusted ?? undefined,
     pValue: metric.pValue ?? undefined,
     pValueAdjusted: metric.pValueAdjusted ?? undefined,
     chanceToWin: metric.chanceToWin ?? undefined,
@@ -425,8 +434,36 @@ function getExperimentSettingsHash(
     sequentialTestingTuningParameter:
       snapshotAnalysisSettings.sequentialTestingTuningParameter,
     baselineVariationIndex: snapshotAnalysisSettings.baselineVariationIndex,
-    pValueCorrection: snapshotAnalysisSettings.pValueCorrection,
   });
+}
+
+/**
+ * What a metric's multiple-testing-corrected values depend on beyond its raw
+ * results: the method and the goal metrics corrected together. Hashed apart
+ * from the experiment settings so that the raw series is not marked as changed
+ * when only these do.
+ */
+export function getPValueCorrectionHash({
+  metricId,
+  snapshotSettings,
+  analysisSettings,
+}: {
+  metricId: string;
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "goalMetrics">;
+  analysisSettings: Pick<
+    ExperimentSnapshotAnalysisSettings,
+    "statsEngine" | "dimensions" | "useCovariateAsResponse" | "pValueCorrection"
+  >;
+}): string {
+  const pValueCorrection = isPValueCorrected(analysisSettings)
+    ? (analysisSettings.pValueCorrection ?? null)
+    : null;
+  const goalMetrics = Array.from(new Set(snapshotSettings.goalMetrics)).sort();
+  return hashObject(
+    pValueCorrection && goalMetrics.includes(metricId)
+      ? { pValueCorrection, goalMetrics }
+      : { pValueCorrection: null },
+  );
 }
 
 export function getFiltersForHash(
@@ -469,24 +506,6 @@ export function getCompoundComponentFactTablesForHash(
       filters: getFiltersForHash(factTable, component),
     };
   });
-}
-
-/**
- * The id whose stored definition governs a metric. Funnel steps and slices are
- * derived from a parent and have no document of their own, so they hash against
- * the parent: an edit anywhere in the parent (another step's row filters, say)
- * tags every derived series. That blast radius is wider than strictly needed,
- * but it matches how the parent already behaves and errs toward flagging a
- * change rather than hiding it.
- */
-function getDefinitionMetricId(metricId: string): string {
-  const stepInfo = parseFunnelStepMetricId(metricId);
-  // Strip step info first (if present), then strip slice info.
-  // A sliced funnel step like funnelId?step=0&dim:col=val has both.
-  const afterStep = stepInfo.isFunnelStepMetric
-    ? stepInfo.baseMetricId
-    : metricId;
-  return parseSliceMetricId(afterStep).baseMetricId;
 }
 
 /**

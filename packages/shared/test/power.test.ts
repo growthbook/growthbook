@@ -1,4 +1,10 @@
-import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
+import fs from "fs";
+import path from "path";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotTraffic,
+} from "shared/types/experiment-snapshot";
 import { MetricPowerResponseFromStatsEngine } from "shared/types/stats";
 import {
   frequentistVariance,
@@ -14,7 +20,9 @@ import {
   PowerCalculationParams,
 } from "../src/power";
 import {
+  analyzeExperimentPower,
   calculateMidExperimentPowerSingle,
+  calculatePowerScalingFactor,
   getAverageExposureOverLastNDays,
   MidExperimentPowerParamsSingle,
 } from "../src/enterprise/power";
@@ -607,4 +615,193 @@ it("midExperimentPower", () => {
       parseFloat(powerTrue.toFixed(5)),
     );
   }
+});
+
+describe("calculatePowerScalingFactor", () => {
+  // Recorded from gbstats' MidExperimentPower, which ran this search before
+  // it moved here.
+  const cases: {
+    name: string;
+    inputs: {
+      firstPeriodPairwiseSampleSize: number;
+      sigmahat2Delta: number;
+      targetMDE: number;
+      priorProper: boolean | null;
+      priorLiftMean: number | null;
+      priorLiftVariance: number | null;
+      alpha: number;
+      numGoalMetrics: number;
+      sequential: boolean;
+      sequentialTuningParameter: number;
+    };
+    expected: {
+      status: string;
+      errorMessage: string | null;
+      scalingFactor: number | null;
+      upperBoundAchieved: boolean;
+    };
+  }[] = JSON.parse(
+    fs.readFileSync(
+      path.join(__dirname, "fixtures/mid_experiment_power_scaling_factor.json"),
+      "utf8",
+    ),
+  );
+
+  it.each(cases)("matches gbstats: $name", ({ inputs, expected }) => {
+    const outcome = calculatePowerScalingFactor(
+      {
+        status: "successful",
+        firstPeriodPairwiseSampleSize: inputs.firstPeriodPairwiseSampleSize,
+        sigmahat2Delta: inputs.sigmahat2Delta,
+        targetMDE: inputs.targetMDE,
+        priorProper: inputs.priorProper ?? undefined,
+        priorLiftMean: inputs.priorLiftMean ?? undefined,
+        priorLiftVariance: inputs.priorLiftVariance ?? undefined,
+      },
+      inputs,
+    );
+    expect(outcome?.status).toBe(expected.status);
+    expect(outcome?.errorMessage ?? null).toBe(expected.errorMessage);
+    expect(outcome?.upperBoundAchieved).toBe(expected.upperBoundAchieved);
+    if (expected.scalingFactor === null) {
+      expect(outcome?.scalingFactor).toBeUndefined();
+    } else {
+      expect(outcome?.scalingFactor).toBeCloseTo(expected.scalingFactor, 8);
+    }
+  });
+
+  const settings = {
+    alpha: 0.05,
+    numGoalMetrics: 1,
+    sequential: false,
+    sequentialTuningParameter: 5000,
+  };
+
+  it("leaves a test the stats engine could not compute alone", () => {
+    expect(
+      calculatePowerScalingFactor(
+        {
+          status: "unsuccessful",
+          errorMessage: "ZERO_VARIANCE",
+          firstPeriodPairwiseSampleSize: 0,
+          sigmahat2Delta: 0,
+          targetMDE: 0.05,
+        },
+        settings,
+      ),
+    ).toBeNull();
+  });
+
+  it("searches again after an earlier search failed, since the goal count may differ", () => {
+    const inputs = {
+      firstPeriodPairwiseSampleSize: 1000,
+      sigmahat2Delta: 1,
+      targetMDE: 2.6e-4,
+    };
+    const withThreeGoals = calculatePowerScalingFactor(
+      { status: "successful", ...inputs },
+      { ...settings, numGoalMetrics: 3 },
+    );
+    expect(withThreeGoals).toMatchObject({
+      status: "unsuccessful",
+      errorMessage: "could not find upper bound for scaling factor",
+    });
+
+    const withOneGoal = calculatePowerScalingFactor(
+      { ...inputs, ...withThreeGoals, status: "unsuccessful" },
+      { ...settings, numGoalMetrics: 1 },
+    );
+    expect(withOneGoal).toMatchObject({
+      status: "successful",
+      errorMessage: undefined,
+      upperBoundAchieved: false,
+    });
+    expect(withOneGoal?.scalingFactor).toBeGreaterThan(0);
+  });
+
+  it("leaves a response without the inputs alone", () => {
+    expect(
+      calculatePowerScalingFactor(
+        { status: "successful", targetMDE: 0.05 },
+        settings,
+      ),
+    ).toBeNull();
+  });
+
+  it("does not report a search that fails to converge as missing an upper bound", () => {
+    expect(
+      calculatePowerScalingFactor(
+        {
+          status: "successful",
+          firstPeriodPairwiseSampleSize: 1000,
+          sigmahat2Delta: 0,
+          targetMDE: 0,
+        },
+        settings,
+      ),
+    ).toEqual({
+      status: "unsuccessful",
+      errorMessage: "bisection search did not converge",
+      scalingFactor: undefined,
+      upperBoundAchieved: false,
+    });
+  });
+});
+
+describe("analyzeExperimentPower", () => {
+  const power = (settings: Partial<ExperimentSnapshotAnalysisSettings>) => {
+    const result = analyzeExperimentPower({
+      trafficHealth: {
+        overall: { name: "All", srm: 1, variationUnits: [500, 500] },
+        dimension: {},
+      },
+      targetDaysRemaining: 7,
+      analysis: {
+        settings,
+        results: [
+          {
+            name: "",
+            srm: 1,
+            variations: [
+              { users: 500, metrics: {} },
+              {
+                users: 500,
+                metrics: {
+                  met: {
+                    power: {
+                      status: "successful",
+                      firstPeriodPairwiseSampleSize: 1000,
+                      targetMDE: 0.05,
+                      sigmahat2Delta: 0.0009,
+                      priorProper: settings.statsEngine === "bayesian",
+                      priorLiftMean: 0.05,
+                      priorLiftVariance: 0.001,
+                      scalingFactor: 0,
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      } as unknown as ExperimentSnapshotAnalysis,
+      goalMetrics: ["met"],
+      variationsSettings: [
+        { id: "0", weight: 0.5 },
+        { id: "1", weight: 0.5 },
+      ],
+    });
+    return result?.type === "success" ? result.power : undefined;
+  };
+
+  it("uses the alpha the analysis ran at", () => {
+    const bayesian = power({ statsEngine: "bayesian" });
+    expect(bayesian).toBeDefined();
+    expect(power({ statsEngine: "bayesian", pValueThreshold: 0.01 })).toBe(
+      bayesian,
+    );
+    expect(
+      power({ statsEngine: "frequentist", pValueThreshold: 0.01 }),
+    ).toBeLessThan(power({ statsEngine: "frequentist" }) ?? 0);
+  });
 });

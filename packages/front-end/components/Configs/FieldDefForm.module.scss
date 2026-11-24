@@ -1,0 +1,41 @@
+// The key input's edge, at the key cell's padding. The drawer's toggle and
+// contents line up on it.
+$key-inset: var(--key-gutter);
+
+// A small button's height, and the room above and below it.
+$toggle-height: 24px;
+$toggle-gap-above: 10px;
+$toggle-gap-below: 8px;
+
+// The edited row's bottom holds its drawer's toggle, close under its inputs.
+.editRow > :global(.rt-TableCell) {
+  padding-bottom: calc(
+    #{$toggle-gap-above} + #{$toggle-height} + #{$toggle-gap-below}
+  );
+}
+
+// The drawer's toggle, inside the edited row's bottom, under its key. The
+// drawer's cell stays put as the table scrolls sideways, so the toggle does too.
+.drawerToggle {
+  position: absolute;
+  top: 0;
+  left: $key-inset;
+  z-index: 1;
+  margin: 0;
+  transform: translateY(calc(-100% - #{$toggle-gap-below}));
+}
+
+// Inset from both edges by the key input's, and cast a soft shadow on by the
+// edited row.
+.drawer {
+  padding: var(--space-2) $key-inset;
+  background-image: linear-gradient(
+    to bottom,
+    var(--gray-a2),
+    transparent var(--space-2)
+  );
+}
+
+.drawerNote {
+  padding: 0 $key-inset var(--space-2);
+}

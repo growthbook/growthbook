@@ -319,13 +319,6 @@ export class InternalServerError extends Error {
   }
 }
 
-export class ConcurrentIncrementalRefreshError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ConcurrentIncrementalRefreshError";
-  }
-}
-
 // Another advance holds a ramp schedule's advance lock. Transient: callers
 // either retry briefly (user-initiated actions) or defer to the scheduler.
 export class RampAdvanceLockBusyError extends Error {
@@ -351,6 +344,67 @@ export class DimensionAlreadyUpToDateError extends ApiError<"dimension_already_u
       overallResultsAsOf,
     });
     this.name = "DimensionAlreadyUpToDateError";
+  }
+}
+
+export class MetricsAlreadyUpToDateError extends ApiError<"metrics_already_up_to_date"> {
+  constructor(latestSnapshotId: string) {
+    super(
+      "metrics_already_up_to_date",
+      "Every metric of this experiment that an update can compute already has results in the latest update.",
+      { latestSnapshotId },
+    );
+    this.name = "MetricsAlreadyUpToDateError";
+  }
+}
+
+export class SnapshotInProgressError extends ApiError<"snapshot_in_progress"> {
+  constructor(snapshotId: string | null) {
+    super(
+      "snapshot_in_progress",
+      "An update is already running for this experiment. Try again when it finishes.",
+      snapshotId ? { snapshotId } : {},
+    );
+    this.name = "SnapshotInProgressError";
+  }
+}
+
+export type NewMetricsUpdateUnavailableReason =
+  ApiErrorDetails<"new_metrics_update_unavailable">["reason"];
+
+const NEW_METRICS_UPDATE_UNAVAILABLE_MESSAGES: Record<
+  NewMetricsUpdateUnavailableReason,
+  string
+> = {
+  no_base_snapshot:
+    'This experiment has no results to add metrics to yet. Send "updateScope": "all_metrics" to compute every metric.',
+  not_latest_phase:
+    "Only the current phase's results can be updated for newly added metrics.",
+  phase_ended:
+    'This phase has ended, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
+  unsupported_experiment_type:
+    'Bandits and holdouts can\'t update newly added metrics on their own. Send "updateScope": "all_metrics" instead.',
+  unsupported_data_source:
+    'This Data Source analyzes every metric in one query, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
+  incremental_pipeline:
+    'The experiment\'s Incremental Pipeline tables don\'t match its latest results, for example because a later update failed. Send "updateScope": "all_metrics" to fix this.',
+  metric_not_supported:
+    'The latest results ran on a different pipeline than this experiment\'s metrics need now, so newly added metrics can\'t be updated on their own. Send "updateScope": "all_metrics" instead.',
+  settings_changed:
+    'The last update\'s results can\'t be reused for newly added metrics. Send "updateScope": "all_metrics" instead.',
+  analysis_dates_changed:
+    'The analysis dates changed by a day or more since the latest results, so newly added metrics would cover different dates than the other metrics. Send "updateScope": "all_metrics" instead.',
+  base_incomplete:
+    'The last update\'s results are incomplete, so they can\'t be reused. Send "updateScope": "all_metrics" instead.',
+};
+
+export class NewMetricsUpdateUnavailableError extends ApiError<"new_metrics_update_unavailable"> {
+  constructor(
+    reason: NewMetricsUpdateUnavailableReason,
+    message: string = NEW_METRICS_UPDATE_UNAVAILABLE_MESSAGES[reason],
+  ) {
+    super("new_metrics_update_unavailable", message, { reason });
+    this.name = "NewMetricsUpdateUnavailableError";
   }
 }
 
