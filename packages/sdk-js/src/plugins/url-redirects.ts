@@ -14,7 +14,6 @@ export type UrlRedirectsPluginOptions = {
   maxNavigateDelay?: number;
 };
 
-/** Runs the URL redirect experiments in the payload. */
 export function urlRedirectsPlugin({
   allowCrossOriginRedirects,
   navigate,

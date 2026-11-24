@@ -44,7 +44,6 @@ function applyDOMChanges(changes: AutoExperimentVariation, nonce?: string) {
   };
 }
 
-/** Runs the visual editor experiments in the payload. */
 export function visualEditorPlugin({
   allowCustomJs,
   jsInjectionNonce,

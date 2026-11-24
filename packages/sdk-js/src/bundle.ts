@@ -7,13 +7,7 @@
 //
 // The npm package (./index) does not do this. It needs the plugins.
 
-import type {
-  Attributes,
-  NoInferType,
-  Options,
-  RegisteredAttributes,
-  RegisteredFeatures,
-} from "./types/growthbook";
+import type { Options } from "./types/growthbook";
 import { GrowthBook as CoreGrowthBook } from "./GrowthBook";
 import {
   legacyAutoExperimentPlugins,
@@ -22,21 +16,16 @@ import {
 
 export * from "./index";
 
-export class GrowthBook<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = RegisteredFeatures,
-  AppAttributes extends Attributes = RegisteredAttributes,
-> extends CoreGrowthBook<AppFeatures, AppAttributes> {
-  constructor(
-    options: Options<NoInferType<AppAttributes>> &
-      LegacyAutoExperimentOptions = {},
-  ) {
-    super({
-      ...options,
-      plugins: [
-        ...legacyAutoExperimentPlugins(options),
-        ...(options.plugins || []),
-      ],
-    });
+export class GrowthBook extends CoreGrowthBook {
+  constructor(options: Options & LegacyAutoExperimentOptions = {}) {
+    // GrowthBook keeps the object it is given, and sites change that object
+    // after creating the instance. So pass theirs, not a copy.
+    const plugins = options.plugins;
+    options.plugins = [
+      ...legacyAutoExperimentPlugins(options),
+      ...(plugins || []),
+    ];
+    super(options);
+    options.plugins = plugins;
   }
 }
