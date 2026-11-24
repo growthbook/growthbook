@@ -1,8 +1,8 @@
-import mutate, { DeclarativeMutation } from "dom-mutator";
 import type {
   ApiHost,
   Attributes,
   AutoExperiment,
+  AutoExperimentRunner,
   AutoExperimentVariation,
   ClientKey,
   Options,
@@ -40,14 +40,7 @@ import type {
   EventProperties,
   NoInferType,
 } from "./types/growthbook";
-import {
-  decrypt,
-  getAutoExperimentChangeType,
-  isURLTargeted,
-  loadSDKVersion,
-  mergeQueryStrings,
-  promiseTimeout,
-} from "./util";
+import { decrypt, loadSDKVersion } from "./util";
 import {
   clearAutoRefresh,
   configureCache,
@@ -93,7 +86,6 @@ export class GrowthBook<
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _options: Options;
   private _renderer: null | RenderFunction;
-  private _redirectedUrl: string;
   private _trackedExperiments: Set<string>;
   private _completedChangeIds: Set<string>;
   private _trackedFeatures: Record<string, string>;
@@ -110,11 +102,6 @@ export class GrowthBook<
       result: Result<any>;
     }
   >;
-  private _activeAutoExperiments: Map<
-    AutoExperiment,
-    { valueHash: string; undo: () => void }
-  >;
-  private _triggeredExpKeys: Set<string>;
   private _initialized: boolean;
   private _deferredTrackingCalls: Map<string, TrackingData>;
   private _saveStickyBucketAssignmentDoc:
@@ -127,6 +114,11 @@ export class GrowthBook<
 
   private _autoExperimentsAllowed: boolean;
   private _destroyed?: boolean;
+
+  // Internal — first-party plugin use only.
+  // Set by visualEditorPlugin and urlRedirectsPlugin. Without one of them, the
+  // experiments in the payload never run.
+  public _autoExperimentRunner?: AutoExperimentRunner;
 
   constructor(options?: Options<NoInferType<AppAttributes>>) {
     options = options || {};
@@ -145,10 +137,7 @@ export class GrowthBook<
     this._experimentViewedSubs = new Set();
     this.ready = false;
     this._assigned = new Map();
-    this._activeAutoExperiments = new Map();
-    this._triggeredExpKeys = new Set();
     this._initialized = false;
-    this._redirectedUrl = "";
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !options.disableExperimentsOnLoad;
     this._destroyCallbacks = [];
@@ -523,7 +512,7 @@ export class GrowthBook<
   public async setURL(url: string) {
     if (url === this._options.url) return;
     this._options.url = url;
-    this._redirectedUrl = "";
+    if (this._autoExperimentRunner) this._autoExperimentRunner.redirectUrl = "";
     if (this._options.remoteEval) {
       await this._refreshForRemoteEval();
       this._updateAllAutoExperiments(true);
@@ -685,13 +674,6 @@ export class GrowthBook<
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
     }
-
-    // Undo any active auto experiments
-    this._activeAutoExperiments.forEach((exp) => {
-      exp.undo();
-    });
-    this._activeAutoExperiments.clear();
-    this._triggeredExpKeys.clear();
   }
 
   public setRenderer(renderer: null | RenderFunction) {
@@ -716,16 +698,9 @@ export class GrowthBook<
   }
 
   public triggerExperiment(key: string) {
-    this._triggeredExpKeys.add(key);
-    if (!this._options.experiments) return null;
-    const experiments = this._options.experiments.filter(
-      (exp) => exp.key === key,
-    );
-    return experiments
-      .map((exp) => {
-        return this._runAutoExperiment(exp);
-      })
-      .filter((res) => res !== null);
+    return this._autoExperimentRunner
+      ? this._autoExperimentRunner.trigger(key)
+      : null;
   }
 
   public triggerAutoExperiments() {
@@ -802,176 +777,45 @@ export class GrowthBook<
     };
   }
 
-  private _runAutoExperiment(experiment: AutoExperiment, forceRerun?: boolean) {
-    const existing = this._activeAutoExperiments.get(experiment);
-
-    // If this is a manual experiment and it's not already running, skip
+  // Internal — first-party plugin use only.
+  // Assigns the user a variation of an experiment from the payload. A blocked
+  // experiment excludes the user without tracking. Also returns the tracking
+  // call, so a redirect can wait for it.
+  public _evalAutoExperiment(
+    experiment: AutoExperiment,
+    blocked?: boolean,
+  ): {
+    result: Result<AutoExperimentVariation>;
+    trackingCall?: Promise<void>;
+  } {
+    const ctx = this._getEvalContext();
     if (
-      experiment.manual &&
-      !this._triggeredExpKeys.has(experiment.key) &&
-      !existing
-    )
-      return null;
-
-    // Check if this particular experiment is blocked by options settings
-    // For example, if all visualEditor experiments are disabled
-    const isBlocked = this._isAutoExperimentBlockedByContext(experiment);
-    if (isBlocked) {
+      blocked ||
+      (experiment.changeId &&
+        (this._options.blockedChangeIds || []).includes(experiment.changeId))
+    ) {
       process.env.NODE_ENV !== "production" &&
         this.log("Auto experiment blocked", { id: experiment.key });
+      return { result: getExperimentResult(ctx, experiment, -1, false, "") };
     }
-
-    let result: Result<AutoExperimentVariation> | undefined;
-    let trackingCall: Promise<void> | undefined;
-    // Run the experiment (if blocked exclude)
-    if (isBlocked) {
-      result = getExperimentResult(
-        this._getEvalContext(),
-        experiment,
-        -1,
-        false,
-        "",
+    let expToRun = experiment;
+    if (experiment.contextualBanditRef) {
+      expToRun = { ...experiment };
+      buildContextualBanditExperiment(
+        expToRun,
+        experiment.contextualBanditRef,
+        experiment.key,
+        ctx,
       );
-    } else {
-      const ctx = this._getEvalContext();
-      let expToRun = experiment;
-      if (experiment.contextualBanditRef) {
-        expToRun = { ...experiment };
-        buildContextualBanditExperiment(
-          expToRun,
-          experiment.contextualBanditRef,
-          experiment.key,
-          ctx,
-        );
-      }
-      ({ result, trackingCall } = runExperiment(expToRun, null, ctx));
-      this._onExperimentEval(experiment, result);
     }
-
-    // A hash to quickly tell if the assigned value changed
-    const valueHash = JSON.stringify(result.value);
-
-    // If the changes are already active, no need to re-apply them
-    if (
-      !forceRerun &&
-      result.inExperiment &&
-      existing &&
-      existing.valueHash === valueHash
-    ) {
-      return result;
-    }
-
-    // Undo any existing changes
-    if (existing) this._undoActiveAutoExperiment(experiment);
-
-    // Apply new changes
-    if (result.inExperiment) {
-      const changeType = getAutoExperimentChangeType(experiment);
-
-      if (
-        changeType === "redirect" &&
-        result.value.urlRedirect &&
-        experiment.urlPatterns
-      ) {
-        const url = experiment.persistQueryString
-          ? mergeQueryStrings(this._getContextUrl(), result.value.urlRedirect)
-          : result.value.urlRedirect;
-
-        if (isURLTargeted(url, experiment.urlPatterns)) {
-          this.log(
-            "Skipping redirect because original URL matches redirect URL",
-            {
-              id: experiment.key,
-            },
-          );
-          return result;
-        }
-        this._redirectedUrl = url;
-        const { navigate, delay } = this._getNavigateFunction();
-        if (navigate) {
-          if (isBrowser) {
-            // Wait for the possibly-async tracking callback, bound by min and max delays
-            Promise.all([
-              ...(trackingCall
-                ? [
-                    promiseTimeout(
-                      trackingCall,
-                      this._options.maxNavigateDelay ?? 1000,
-                    ),
-                  ]
-                : []),
-              new Promise((resolve) =>
-                window.setTimeout(
-                  resolve,
-                  this._options.navigateDelay ?? delay,
-                ),
-              ),
-            ]).then(() => {
-              try {
-                navigate(url);
-              } catch (e) {
-                console.error(e);
-              }
-            });
-          } else {
-            try {
-              navigate(url);
-            } catch (e) {
-              console.error(e);
-            }
-          }
-        }
-      } else if (changeType === "visual") {
-        const undo = this._options.applyDomChangesCallback
-          ? this._options.applyDomChangesCallback(result.value)
-          : this._applyDOMChanges(result.value);
-        if (undo) {
-          this._activeAutoExperiments.set(experiment, {
-            undo,
-            valueHash,
-          });
-        }
-      }
-    }
-
-    return result;
-  }
-
-  private _undoActiveAutoExperiment(exp: AutoExperiment) {
-    const data = this._activeAutoExperiments.get(exp);
-    if (data) {
-      data.undo();
-      this._activeAutoExperiments.delete(exp);
-    }
+    const res = runExperiment(expToRun, null, ctx);
+    this._onExperimentEval(experiment, res.result);
+    return res;
   }
 
   private _updateAllAutoExperiments(forceRerun?: boolean) {
-    if (!this._autoExperimentsAllowed) return;
-
-    const experiments = this._options.experiments || [];
-
-    // Stop any experiments that are no longer defined
-    const keys = new Set(experiments);
-    this._activeAutoExperiments.forEach((v, k) => {
-      if (!keys.has(k)) {
-        v.undo();
-        this._activeAutoExperiments.delete(k);
-      }
-    });
-
-    // Re-run all new/updated experiments
-    for (const exp of experiments) {
-      const result = this._runAutoExperiment(exp, forceRerun);
-
-      // Once you're in a redirect experiment, break out of the loop and don't run any further experiments
-      if (
-        result &&
-        result.inExperiment &&
-        getAutoExperimentChangeType(exp) === "redirect"
-      ) {
-        break;
-      }
-    }
+    if (!this._autoExperimentsAllowed || !this._autoExperimentRunner) return;
+    this._autoExperimentRunner.update(forceRerun);
   }
 
   private _onExperimentEval<T>(experiment: Experiment<T>, result: Result<T>) {
@@ -1154,110 +998,10 @@ export class GrowthBook<
     return this._options.url || (isBrowser ? window.location.href : "");
   }
 
-  private _isAutoExperimentBlockedByContext(
-    experiment: AutoExperiment,
-  ): boolean {
-    const changeType = getAutoExperimentChangeType(experiment);
-    if (changeType === "visual") {
-      if (this._options.disableVisualExperiments) return true;
-
-      if (this._options.disableJsInjection) {
-        if (experiment.variations.some((v) => v.js)) {
-          return true;
-        }
-      }
-    } else if (changeType === "redirect") {
-      if (this._options.disableUrlRedirectExperiments) return true;
-
-      // Validate URLs
-      try {
-        const current = new URL(this._getContextUrl());
-        for (const v of experiment.variations) {
-          if (!v || !v.urlRedirect) continue;
-          const url = new URL(v.urlRedirect);
-
-          // If we're blocking cross origin redirects, block if the protocol or host is different
-          if (this._options.disableCrossOriginUrlRedirectExperiments) {
-            if (url.protocol !== current.protocol) return true;
-            if (url.host !== current.host) return true;
-          }
-        }
-      } catch (e) {
-        // Problem parsing one of the URLs
-        this.log("Error parsing current or redirect URL", {
-          id: experiment.key,
-          error: e,
-        });
-        return true;
-      }
-    } else {
-      // Block any unknown changeTypes
-      return true;
-    }
-
-    if (
-      experiment.changeId &&
-      (this._options.blockedChangeIds || []).includes(experiment.changeId)
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
   public getRedirectUrl(): string {
-    return this._redirectedUrl;
-  }
-
-  private _getNavigateFunction(): {
-    navigate: null | ((url: string) => void | Promise<void>);
-    delay: number;
-  } {
-    if (this._options.navigate) {
-      return {
-        navigate: this._options.navigate,
-        delay: 0,
-      };
-    } else if (isBrowser) {
-      return {
-        navigate: (url: string) => {
-          window.location.replace(url);
-        },
-        delay: 100,
-      };
-    }
-    return {
-      navigate: null,
-      delay: 0,
-    };
-  }
-
-  private _applyDOMChanges(changes: AutoExperimentVariation) {
-    if (!isBrowser) return;
-    const undo: (() => void)[] = [];
-    if (changes.css) {
-      const s = document.createElement("style");
-      s.innerHTML = changes.css;
-      document.head.appendChild(s);
-      undo.push(() => s.remove());
-    }
-    if (changes.js) {
-      const script = document.createElement("script");
-      script.innerHTML = changes.js;
-      if (this._options.jsInjectionNonce) {
-        script.nonce = this._options.jsInjectionNonce;
-      }
-      document.head.appendChild(script);
-      undo.push(() => script.remove());
-    }
-    if (changes.domMutations) {
-      changes.domMutations.forEach((mutation) => {
-        undo.push(mutate.declarative(mutation as DeclarativeMutation).revert);
-      });
-    }
-    return () => {
-      undo.forEach((fn) => fn());
-    };
+    return this._autoExperimentRunner
+      ? this._autoExperimentRunner.redirectUrl
+      : "";
   }
 
   public async refreshStickyBuckets(data?: FeatureApiResponse) {

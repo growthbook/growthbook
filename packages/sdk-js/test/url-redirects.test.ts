@@ -1,4 +1,5 @@
 import { AutoExperiment, GrowthBook } from "../src";
+import { urlRedirectsPlugin, visualEditorPlugin } from "../src/plugins";
 
 function sleep(ms = 20) {
   return new Promise((res) => setTimeout(res, ms));
@@ -19,6 +20,7 @@ describe("urlRedirects", () => {
 
   it("redirects when default navigate function is used", async () => {
     const gb = new GrowthBook({
+      plugins: [urlRedirectsPlugin()],
       attributes: { id: "1" },
       url: "http://www.example.com",
       experiments: [
@@ -55,6 +57,7 @@ describe("urlRedirects", () => {
 
   it("conditional prereq allows redirect", async () => {
     const gb = new GrowthBook({
+      plugins: [urlRedirectsPlugin()],
       attributes: { id: "1" },
       url: "http://www.example.com",
       features: {
@@ -108,6 +111,7 @@ describe("urlRedirects", () => {
 
   it("conditional prereq blocks redirect", async () => {
     const gb = new GrowthBook({
+      plugins: [urlRedirectsPlugin()],
       attributes: { id: "1" },
       url: "http://www.example.com",
       features: {
@@ -160,6 +164,7 @@ describe("urlRedirects", () => {
 
   it("Skips redirect when the context URL is invalid", async () => {
     const gb = new GrowthBook({
+      plugins: [urlRedirectsPlugin()],
       attributes: { id: "1" },
       url: "http:://www.example.com/home",
       experiments: [
@@ -201,6 +206,7 @@ describe("urlRedirects", () => {
 
   it("Skips redirect test when one of the variation URLs is invalid", async () => {
     const gb = new GrowthBook({
+      plugins: [urlRedirectsPlugin()],
       attributes: { id: "1" },
       url: "http://www.example.com/home",
       experiments: [
@@ -238,8 +244,9 @@ describe("urlRedirects", () => {
     gb.destroy();
   });
 
-  it("Skips redirect test when one of the variations is a cross-origin test and that is disabled", () => {
+  it("Skips redirect test when one of the variations is a cross-origin test and that is not allowed", () => {
     const gb = new GrowthBook({
+      plugins: [urlRedirectsPlugin()],
       attributes: { id: "1" },
       url: "http://www.example.com/home",
       experiments: [
@@ -262,7 +269,6 @@ describe("urlRedirects", () => {
           ],
         },
       ],
-      disableCrossOriginUrlRedirectExperiments: true,
     });
 
     // Different domain, block
@@ -289,9 +295,22 @@ describe("urlRedirects", () => {
     expect(results4?.[0]?.inExperiment).toEqual(true);
 
     gb.destroy();
+
+    // Different domain, but cross-origin redirects are allowed
+    const gb2 = new GrowthBook({
+      plugins: [urlRedirectsPlugin({ allowCrossOriginRedirects: true })],
+      attributes: { id: "1" },
+      url: "http://www.example.com/home",
+      experiments: gb.getExperiments(),
+    });
+    const results5 = gb2.triggerExperiment("my-experiment");
+    expect(results5?.length).toBe(1);
+    expect(results5?.[0]?.inExperiment).toEqual(true);
+
+    gb2.destroy();
   });
 
-  it("Skips redirect test when it is disabled via context", () => {
+  it("Skips redirect test without the plugin or when the change is blocked", () => {
     const experiments: AutoExperiment[] = [
       {
         changeId: "123",
@@ -314,12 +333,21 @@ describe("urlRedirects", () => {
       },
     ];
 
-    // All URL Redirect tests blocked via context
-    const gb = new GrowthBook({
+    // Neither plugin, nothing runs
+    const gb0 = new GrowthBook({
       attributes: { id: "1" },
       url: "http://www.example.com/home",
       experiments: experiments,
-      disableUrlRedirectExperiments: true,
+    });
+    expect(gb0.triggerExperiment("my-experiment")).toEqual(null);
+    gb0.destroy();
+
+    // Only the visual editor plugin, URL Redirect tests are blocked
+    const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
+      attributes: { id: "1" },
+      url: "http://www.example.com/home",
+      experiments: experiments,
     });
     const results = gb.triggerExperiment("my-experiment");
     expect(results?.length).toBe(1);
@@ -328,6 +356,7 @@ describe("urlRedirects", () => {
 
     // This specific changeId is blocked via context
     const gb2 = new GrowthBook({
+      plugins: [urlRedirectsPlugin()],
       attributes: { id: "1" },
       url: "http://www.example.com/home",
       experiments: experiments,
@@ -340,6 +369,7 @@ describe("urlRedirects", () => {
 
     // Not blocked
     const gb3 = new GrowthBook({
+      plugins: [urlRedirectsPlugin()],
       attributes: { id: "1" },
       url: "http://www.example.com/home",
       experiments: experiments,
@@ -357,6 +387,9 @@ describe("urlRedirects", () => {
     });
 
     const gb = new GrowthBook({
+      plugins: [
+        urlRedirectsPlugin({ navigate: navigateMock, navigateDelay: 0 }),
+      ],
       attributes: { id: "1" },
       url: "http://www.example.com",
       experiments: [
@@ -378,8 +411,6 @@ describe("urlRedirects", () => {
           ],
         },
       ],
-      navigate: navigateMock,
-      navigateDelay: 0,
     });
     // Changes applied immediately
     await sleep();
