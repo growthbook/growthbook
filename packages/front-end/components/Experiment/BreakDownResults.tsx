@@ -28,7 +28,6 @@ import {
   SetExperimentSortBy,
   formatDimensionValueForDisplay,
   isFactFunnelMetric,
-  AdjustmentImpact,
 } from "shared/experiments";
 import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { CustomMetricSlice } from "shared/validators";
@@ -54,9 +53,9 @@ import {
   DrilldownOptions,
   useMetricDrilldownContext,
 } from "@/components/MetricDrilldown/useMetricDrilldownContext";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getLargeAdjustmentImpacts } from "@/components/MetricDrilldown/helpers";
-import StatsAdjustmentBadge from "@/components/MetricDrilldown/StatsAdjustmentBadge";
+import StatsAdjustmentBadge, {
+  useLargeAdjustmentImpacts,
+} from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import TruncatedText from "@/ui/TruncatedText";
@@ -76,6 +75,9 @@ export const includeVariation = (
 function getRowDimensionValue(row: ExperimentTableRow): string {
   return row.dimensionValue ?? (typeof row.label === "string" ? row.label : "");
 }
+
+const getDimensionRowKey = (row: ExperimentTableRow) =>
+  `${row.metric.id}:${getRowDimensionValue(row)}`;
 
 const BreakDownResults: FC<{
   experimentId: string;
@@ -269,43 +271,20 @@ const BreakDownResults: FC<{
       }
     : undefined;
 
-  const _metricDefaults = useOrganizationMetricDefaults();
-  const { metricDefaults } =
-    ssrPolyfills?.useOrganizationMetricDefaults?.() || _metricDefaults;
-
-  const largeImpactsByRow = useMemo(() => {
-    const metricRows = tables.flatMap((table) =>
-      table.rows.filter((row) => !row.isChildRow),
-    );
-    const impacts = getLargeAdjustmentImpacts(metricRows, {
-      baselineIndex: baselineRow ?? 0,
-      variationFilter,
-      statsEngine,
-      differenceType,
-      metricDefaults,
-      ciUpper: significanceThresholds.bayesianConfidenceLevels.ciUpper,
-      ciLower: significanceThresholds.bayesianConfidenceLevels.ciLower,
-      pValueThreshold: significanceThresholds.pValueThreshold,
-    });
-    const impactsByRow = new Map<string, AdjustmentImpact[]>();
-    metricRows.forEach((row, i) => {
-      if (impacts[i].length) {
-        impactsByRow.set(
-          `${row.metric.id}:${getRowDimensionValue(row)}`,
-          impacts[i],
-        );
-      }
-    });
-    return impactsByRow;
-  }, [
-    tables,
+  const tableRows = useMemo(
+    () => tables.flatMap((table) => table.rows),
+    [tables],
+  );
+  const getStatsAdjustmentImpacts = useLargeAdjustmentImpacts({
+    rows: tableRows,
+    getKey: getDimensionRowKey,
     baselineRow,
     variationFilter,
     statsEngine,
     differenceType,
-    metricDefaults,
     significanceThresholds,
-  ]);
+    ssrPolyfills,
+  });
 
   return (
     <div className="mb-3">
@@ -441,10 +420,8 @@ const BreakDownResults: FC<{
                   ? "funnel steps"
                   : "metric slices";
                 const statsAdjustmentImpacts = row
-                  ? largeImpactsByRow.get(
-                      `${row.metric.id}:${getRowDimensionValue(row)}`,
-                    )
-                  : undefined;
+                  ? getStatsAdjustmentImpacts(row)
+                  : [];
                 const rowName =
                   typeof label === "string" && label
                     ? formatDimensionValueForDisplay(label)
@@ -511,7 +488,7 @@ const BreakDownResults: FC<{
                         <em>unknown</em>
                       )}
                     </span>
-                    {row && statsAdjustmentImpacts ? (
+                    {row && statsAdjustmentImpacts.length ? (
                       <StatsAdjustmentBadge
                         impacts={statsAdjustmentImpacts}
                         onClick={

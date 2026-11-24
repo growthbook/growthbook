@@ -55,15 +55,18 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { ReplacedMetricWarning } from "@/components/Metrics/MetricReplacement";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
-import { getLargeAdjustmentImpacts } from "@/components/MetricDrilldown/helpers";
-import StatsAdjustmentBadge from "@/components/MetricDrilldown/StatsAdjustmentBadge";
+import StatsAdjustmentBadge, {
+  useLargeAdjustmentImpacts,
+} from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import DataQualityWarning from "./DataQualityWarning";
 import ClusterReliabilityWarning from "./ClusterReliabilityWarning";
+
+const getResultRowKey = (row: ExperimentTableRow) =>
+  `${row.resultGroup}:${row.metric.id}`;
 
 const CompactResults: FC<{
   experimentId: string;
@@ -235,40 +238,16 @@ const CompactResults: FC<{
   });
 
   const drilldownContext = useMetricDrilldownContext();
-  const _metricDefaults = useOrganizationMetricDefaults();
-  const { metricDefaults } =
-    ssrPolyfills?.useOrganizationMetricDefaults?.() || _metricDefaults;
-
-  const largeImpactsByRow = useMemo(() => {
-    const metricRows = rows.filter((row) => !row.isChildRow);
-    const impacts = getLargeAdjustmentImpacts(metricRows, {
-      baselineIndex: baselineRow ?? 0,
-      variationFilter,
-      statsEngine,
-      differenceType,
-      metricDefaults,
-      ciUpper: significanceThresholds.bayesianConfidenceLevels.ciUpper,
-      ciLower: significanceThresholds.bayesianConfidenceLevels.ciLower,
-      pValueThreshold: significanceThresholds.pValueThreshold,
-    });
-    const impactsByRow = new Map<string, AdjustmentImpact[]>();
-    metricRows.forEach((row, i) => {
-      if (impacts[i].length) {
-        impactsByRow.set(`${row.resultGroup}:${row.metric.id}`, impacts[i]);
-      }
-    });
-    return impactsByRow;
-  }, [
+  const getStatsAdjustmentImpacts = useLargeAdjustmentImpacts({
     rows,
+    getKey: getResultRowKey,
     baselineRow,
     variationFilter,
     statsEngine,
     differenceType,
-    metricDefaults,
     significanceThresholds,
-  ]);
-  const getStatsAdjustmentImpacts = (row: ExperimentTableRow) =>
-    largeImpactsByRow.get(`${row.resultGroup}:${row.metric.id}`) ?? [];
+    ssrPolyfills,
+  });
   const onStatsAdjustmentClick = drilldownContext
     ? (row: ExperimentTableRow) =>
         drilldownContext.openDrilldown(row, { initialTab: "debug" })

@@ -1,9 +1,4 @@
-import {
-  AdjustmentImpact,
-  AdjustmentImpactArgs,
-  funnelStepMetricId,
-  getAdjustmentImpactSummaries,
-} from "shared/experiments";
+import { AdjustmentImpact, funnelStepMetricId } from "shared/experiments";
 import { ExperimentReportResultDimension } from "shared/types/report";
 import {
   ExperimentTableRow,
@@ -108,14 +103,4 @@ export function formatAdjustmentQualifiers({
   if (signFlipped) parts.push("sign flip");
   if (significanceChanged) parts.push("significance change");
   return parts.join(" · ");
-}
-
-/** For each row, the adjustments with a large effect, most severe first. */
-export function getLargeAdjustmentImpacts(
-  rows: ExperimentTableRow[],
-  args: AdjustmentImpactArgs,
-): AdjustmentImpact[][] {
-  return getAdjustmentImpactSummaries({ ...args, metrics: rows }).map(
-    (impacts) => impacts.filter(({ effectSize }) => effectSize === "large"),
-  );
 }
