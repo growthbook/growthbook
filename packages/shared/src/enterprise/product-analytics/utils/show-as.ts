@@ -80,6 +80,27 @@ export function dividesByPopulationCount(
   );
 }
 
+/**
+ * A mode's display name, shared by the Show as picker, the axis title and the
+ * series names, e.g. "Per user_id" or "% of Population".
+ */
+export function getShowAsLabel(showAs: ShowAs, unit: string | null): string {
+  switch (showAs) {
+    case "total":
+      return "Total";
+    case "per_unit":
+      return unit ? `Per ${unit}` : "Per unit";
+    case "percent_of_population":
+      return "% of Population";
+    case "per_population_member":
+      return "Per Population member";
+    default: {
+      const exhaustiveCheck: never = showAs;
+      return exhaustiveCheck;
+    }
+  }
+}
+
 /** How one dataset value renders, and which Show as modes it offers. */
 export type ShowAsChoice = {
   /** Empty when the value's metric type has no modes. */
@@ -124,6 +145,13 @@ export function getDraftOrSavedMetric(
  *   aggregation `max` (a sum of per-unit maxes has no interpretation) or
  *   `count distinct` (double-counts values shared across units).
  * - Otherwise `total`.
+ *
+ * If you change these defaults, also update the two places that describe them
+ * in words:
+ * - the DEFAULT rules in the AI agent's prompt (`show_as_rules` in
+ *   back-end/src/enterprise/services/product-analytics-agent.ts)
+ * - the `showAs` description in shared/src/validators/product-analytics.ts,
+ *   which is published in the REST API docs
  */
 export function inferShowAs(
   metric: ShowAsMetric | null,

@@ -321,8 +321,8 @@ export function getPopulationSeriesKeys(
 }
 
 // Marks each date in `xValues` that a series divided by the Population count
-// has no bucket for as a gap, e.g. dates past the end of the current window that the axis
-// reaches for a longer comparison window.
+// has no bucket for as a gap, e.g. dates past the end of the current window
+// that the axis reaches for a longer comparison window.
 export function fillPopulationSeriesGaps(
   dataMap: Record<string, Record<string, ChartPoint>>,
   populationSeriesKeys: ReadonlySet<string>,
@@ -1211,8 +1211,8 @@ const fractionNumberFormatter = Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
-// The fraction of a value divided by the Population count, muted like the fraction in experiment
-// results.
+// The fraction of a value divided by the Population count, muted like the
+// fraction in experiment results.
 function populationFractionHtml({
   numerator,
   populationCount,

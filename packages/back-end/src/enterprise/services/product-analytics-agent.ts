@@ -11,8 +11,10 @@ import {
   dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
+  MetricValue,
   ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
+  ShowAs,
 } from "shared/validators";
 import {
   ColumnInterface,
@@ -40,6 +42,7 @@ import {
   dividesByPopulationCount,
   densifyPopulationTimeseriesRows,
 } from "shared/enterprise";
+import { formatWarehouseDateAsIso } from "shared/dates";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { aiTool } from "back-end/src/enterprise/services/ai";
@@ -405,7 +408,12 @@ function buildResultCsv(
   ): string => {
     if (col.kind === "dimension") {
       if (raw == null || raw === "") return hasNoDimensions ? "Total" : "";
-      return typeof raw === "number" ? String(raw) : raw;
+      if (typeof raw === "number") return String(raw);
+      // Days without Population members are built in code, so their dates
+      // differ from the warehouse's format unless both are formatted alike
+      const isDateDimension =
+        config.dimensions?.[col.dimIndex]?.dimensionType === "date";
+      return isDateDimension ? formatWarehouseDateAsIso(raw) : raw;
     }
     if (raw == null) return "";
     if (col.kind === "populationCount") return String(raw);
@@ -744,6 +752,35 @@ async function withMetricsOf(
   return (id) => getFactMetricById(id) ?? metricById.get(id) ?? null;
 }
 
+/**
+ * Why a value's showAs was dropped, what it allows, and what it renders as
+ * instead, e.g. `"Revenue": per_population_member needs a Population (renders
+ * as total)` or `"Signups": per_unit isn't an option; options: total (renders
+ * as total)`.
+ */
+function describeDroppedShowAs(
+  value: MetricValue,
+  droppedMode: ShowAs,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+  hasPopulation: boolean,
+): string {
+  const { options, showAs } = getShowAsChoice(
+    value,
+    undefined,
+    getFactMetricById,
+    hasPopulation,
+  );
+  // No options (e.g. ratio, quantile) means the metric renders as computed.
+  if (!options.length) {
+    return `"${value.name}": ${droppedMode} isn't an option (this metric has no showAs options)`;
+  }
+  const reason =
+    dividesByPopulationCount(droppedMode) && !hasPopulation
+      ? `${droppedMode} needs a Population`
+      : `${droppedMode} isn't an option; options: ${options.join(", ")}`;
+  return `"${value.name}": ${reason} (renders as ${showAs})`;
+}
+
 async function normalizeConfigForExplorer(
   ctx: ReqContext,
   config: ExplorationConfig,
@@ -881,30 +918,26 @@ async function normalizeConfigForExplorer(
   normalized = normalizeShowAs(normalized, getFactMetricByIdResolver);
   const valuesAfter =
     normalized.dataset.type === "metric" ? normalized.dataset.values : [];
-  // Values the agent set a showAs on that normalizing removed.
-  const droppedShowAs = valuesAfter.filter(
-    (v, i) =>
-      (valuesBefore[i]?.showAs ?? legacyShowAs) !== undefined &&
-      v.showAs === undefined,
-  );
+  // Values the agent set a showAs on that normalizing removed, with the mode
+  // that was removed.
+  const droppedShowAs: { value: MetricValue; droppedMode: ShowAs }[] = [];
+  valuesAfter.forEach((value, i) => {
+    const droppedMode = valuesBefore[i]?.showAs ?? legacyShowAs;
+    if (droppedMode !== undefined && value.showAs === undefined) {
+      droppedShowAs.push({ value, droppedMode });
+    }
+  });
   if (droppedShowAs.length) {
     const hasPopulation = configHasPopulation(normalized);
-    const described = droppedShowAs.map((v) => {
-      const { options, showAs } = getShowAsChoice(
-        v,
-        undefined,
+    const described = droppedShowAs.map(({ value, droppedMode }) =>
+      describeDroppedShowAs(
+        value,
+        droppedMode,
         getFactMetricByIdResolver,
         hasPopulation,
-      );
-      // No options (e.g. ratio, quantile) means the metric renders as computed.
-      const rendersAs = options.length
-        ? `renders as ${showAs}`
-        : "has no showAs options";
-      return `"${v.name}" (${rendersAs})`;
-    });
-    warnings.push(
-      `Dropped showAs from ${described.join(", ")}: it isn't an option for that metric.`,
+      ),
     );
+    warnings.push(`Dropped showAs: ${described.join("; ")}.`);
   }
 
   return {

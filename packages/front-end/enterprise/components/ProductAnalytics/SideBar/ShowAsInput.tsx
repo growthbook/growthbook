@@ -3,33 +3,42 @@ import { Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCheck } from "react-icons/pi";
 import type { ShowAs } from "shared/validators";
 import type { FactMetricType } from "shared/types/fact-table";
+import { getShowAsLabel } from "shared/enterprise";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 
-// A mean metric's total sums event values; a proportion's counts converting
-// units, so only a mean's total is labelled as events.
-type LabelKey = ShowAs | "event_totals";
+// A mean metric's total sums event values, while a proportion's counts
+// converting units, so a mean's total is its own option.
+type OptionKey = ShowAs | "event_totals";
 
-// Keyed by every ShowAs so a new option can't ship without a label.
-const getLabels = (unit: string | null): Record<LabelKey, string> => ({
-  total: "Total",
-  event_totals: "Event totals",
-  per_unit: unit ? `Per ${unit}` : "Per unit",
-  percent_of_population: "% of Population",
-  per_population_member: "Per Population member",
-});
-
-// How each option calculates its value. "Per unit" and "Per Population member"
-// differ only in who counts, which their labels don't say.
-const getDescriptions = (unit: string | null): Record<LabelKey, string> => ({
-  total: `Count of every ${unit ?? "unit"} that converted`,
-  // Each unit's value is aggregated first (e.g. its max), then summed.
-  event_totals: `Sum of every ${unit ?? "unit"}'s value`,
-  per_unit: `Average per ${unit ?? "unit"} with at least one event`,
-  percent_of_population: "Share of Population members who converted",
-  per_population_member:
-    "Average per Population member, including members with no events",
+// Each option's name, and how it calculates its value. "Per unit" and "Per
+// Population member" differ only in who counts, which their labels don't say.
+const getOptionText = (
+  unit: string | null,
+): Record<OptionKey, { label: string; description: string }> => ({
+  total: {
+    label: getShowAsLabel("total", unit),
+    description: `Count of every ${unit ?? "unit"} that converted`,
+  },
+  event_totals: {
+    label: "Event totals",
+    // Each unit's value is aggregated first (e.g. its max), then summed.
+    description: `Sum of every ${unit ?? "unit"}'s value`,
+  },
+  per_unit: {
+    label: getShowAsLabel("per_unit", unit),
+    description: `Average per ${unit ?? "unit"} with at least one event`,
+  },
+  percent_of_population: {
+    label: getShowAsLabel("percent_of_population", unit),
+    description: "Share of Population members who converted",
+  },
+  per_population_member: {
+    label: getShowAsLabel("per_population_member", unit),
+    description:
+      "Average per Population member, including members with no events",
+  },
 });
 
 export default function ShowAsInput({
@@ -51,11 +60,11 @@ export default function ShowAsInput({
   metricType: FactMetricType | undefined;
 }) {
   const [open, setOpen] = useState(false);
-  const allLabels = getLabels(unit);
-  const allDescriptions = getDescriptions(unit);
-  const labelKey = (showAs: ShowAs): LabelKey =>
+  const optionText = getOptionText(unit);
+  const optionKey = (showAs: ShowAs): OptionKey =>
     showAs === "total" && metricType === "mean" ? "event_totals" : showAs;
-  const label = (showAs: ShowAs) => allLabels[labelKey(showAs)];
+  const describeOption = (showAs: ShowAs) => optionText[optionKey(showAs)];
+  const label = (showAs: ShowAs) => describeOption(showAs).label;
   return (
     <DropdownMenu
       open={open}
@@ -75,7 +84,7 @@ export default function ShowAsInput({
       {options.map((option) => (
         <DropdownMenuItem
           key={option}
-          tooltip={allDescriptions[labelKey(option)]}
+          tooltip={describeOption(option).description}
           tooltipSide="right"
           onClick={() => {
             setValue(option);

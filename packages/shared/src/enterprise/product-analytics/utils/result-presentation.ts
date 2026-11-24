@@ -12,6 +12,7 @@ import {
   dividesByPopulationCount,
   getDraftOrSavedMetric,
   getShowAsChoice,
+  getShowAsLabel,
 } from "./show-as";
 import { getSharedUnit } from "./units";
 
@@ -31,27 +32,17 @@ export function getDefaultValueAxisName({
   sharedUnit,
 }: ExplorationRenderOpts): string {
   if (primaryAxisShowAs === null) return "";
-  switch (primaryAxisShowAs) {
-    case "total":
-      return "Total";
-    case "per_unit":
-      return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
-    case "percent_of_population":
-      return "% of Population";
-    case "per_population_member":
-      return "Per Population member";
-    default: {
-      const exhaustiveCheck: never = primaryAxisShowAs;
-      return exhaustiveCheck;
-    }
-  }
+  return getShowAsLabel(primaryAxisShowAs, sharedUnit);
 }
 
 export function getSecondaryValueAxisName(
   renderOpts: ExplorationRenderOpts,
 ): string | null {
-  if (!renderOpts.values.some((v) => v.valueAxis === "secondary")) return null;
-  return "% of Population";
+  const secondaryValue = renderOpts.values.find(
+    (v) => v.valueAxis === "secondary",
+  );
+  if (!secondaryValue) return null;
+  return getShowAsLabel(secondaryValue.showAs, renderOpts.sharedUnit);
 }
 
 /**
@@ -85,27 +76,14 @@ function getAnnotatedName(
   sharedUnit: string | null,
 ): string {
   const name = getValueName(value, index);
-  switch (showAs) {
-    case "total":
-      return `${name} (total)`;
-    case "per_unit": {
-      const unit =
-        ("unit" in value && typeof value.unit === "string"
-          ? value.unit
-          : null) ||
-        sharedUnit ||
-        "unit";
-      return `${name} (per ${unit})`;
-    }
-    case "percent_of_population":
-      return `${name} (% of Population)`;
-    case "per_population_member":
-      return `${name} (per Population member)`;
-    default: {
-      const exhaustiveCheck: never = showAs;
-      return exhaustiveCheck;
-    }
-  }
+  const valueUnit =
+    "unit" in value && typeof value.unit === "string" ? value.unit : null;
+  const label = getShowAsLabel(showAs, valueUnit || sharedUnit);
+  return `${name} (${lowercaseFirstLetter(label)})`;
+}
+
+function lowercaseFirstLetter(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 /**
@@ -163,6 +141,15 @@ export function isRatioValue(
 /** The value axis a value is drawn against. */
 export type ValueAxis = "primary" | "secondary";
 
+/**
+ * Whether a mode moves to the secondary axis when other modes share the chart:
+ * "% of Population" is a percentage, on a different scale from every other
+ * mode.
+ */
+function usesOwnAxisWhenMixed(showAs: ShowAs): boolean {
+  return showAs === "percent_of_population";
+}
+
 /** How one dataset value renders. */
 export type ValueRenderOpts = {
   showAs: ShowAs;
@@ -180,9 +167,12 @@ export type ValueRenderOpts = {
 export type ExplorationRenderOpts = {
   /** Index-aligned with `dataset.values`; empty for funnels and journeys. */
   values: ValueRenderOpts[];
-  /** The mode every value renders in; null when modes differ or no value has a mode (ratios, quantiles). */
+  /**
+   * The mode every value renders in; null when modes differ or no value has a
+   * mode (ratios, quantiles).
+   */
   sharedShowAs: ShowAs | null;
-  /** Some values render as totals and others per unit. */
+  /** Values render in more than one mode, e.g. totals beside per unit. */
   modesAreMixed: boolean;
   /**
    * The mode every value on the left axis renders in; null when they differ or
@@ -222,20 +212,18 @@ export function getExplorationRenderOpts(
   const modesAreMixed = someValueHasMode && sharedShowAs === null;
   const sharedUnit = getSharedUnit(config, getFactMetricById);
 
-  // "% of Population" is on a different scale from every other mode, so when
-  // it's mixed with them it moves to its own axis. Then each axis keeps a title.
+  // When other modes share the chart, values whose mode uses its own axis (see
+  // usesOwnAxisWhenMixed) move to the secondary axis. The primary axis is then
+  // titled by the modes left on it, and has no title when they differ.
   const otherModes = new Set<ShowAs>();
   for (const choice of choices) {
-    if (choice.showAs !== "percent_of_population")
-      otherModes.add(choice.showAs);
+    if (!usesOwnAxisWhenMixed(choice.showAs)) otherModes.add(choice.showAs);
   }
   const hasSecondAxis =
-    choices.some((choice) => choice.showAs === "percent_of_population") &&
+    choices.some((choice) => usesOwnAxisWhenMixed(choice.showAs)) &&
     otherModes.size > 0;
   const valueAxisFor = (showAs: ShowAs): ValueAxis =>
-    hasSecondAxis && showAs === "percent_of_population"
-      ? "secondary"
-      : "primary";
+    hasSecondAxis && usesOwnAxisWhenMixed(showAs) ? "secondary" : "primary";
   let primaryAxisShowAs = sharedShowAs;
   if (hasSecondAxis) {
     primaryAxisShowAs = otherModes.size === 1 ? [...otherModes][0] : null;

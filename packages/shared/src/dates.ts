@@ -151,6 +151,16 @@ export function parseWarehouseDate(value: string | Date | number): Date {
     : new Date(s);
 }
 
+/**
+ * A warehouse date as an ISO string, so dates from different drivers (or built
+ * in code) read alike. A value that isn't a date is returned unchanged.
+ */
+export function formatWarehouseDateAsIso(value: string): string {
+  const date = parseWarehouseDate(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toISOString();
+}
+
 // Compact relative time using single-char units: "5s ago", "3m ago", "2h ago", "7d ago"
 export function formatShortAgo(dateOrTimestamp: Date | number): string {
   const ts =

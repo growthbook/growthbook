@@ -1,6 +1,7 @@
 import {
   dateStringArrayBetweenDates,
   datetimeWithZone,
+  formatWarehouseDateAsIso,
   getValidDate,
   lastMondayString,
   parseWarehouseDate,
@@ -64,6 +65,25 @@ describe("parseWarehouseDate", () => {
     const d = new Date("2026-10-01T07:00:00Z");
     expect(parseWarehouseDate(d).getTime()).toBe(d.getTime());
     expect(parseWarehouseDate(d.getTime()).getTime()).toBe(d.getTime());
+  });
+});
+
+describe("formatWarehouseDateAsIso", () => {
+  it("formats warehouse and ISO dates alike", () => {
+    expect(formatWarehouseDateAsIso("2026-11-01 00:00:00")).toBe(
+      "2026-11-01T00:00:00.000Z",
+    );
+    expect(formatWarehouseDateAsIso("2026-11-01T00:00:00.000Z")).toBe(
+      "2026-11-01T00:00:00.000Z",
+    );
+    expect(formatWarehouseDateAsIso("2026-11-01")).toBe(
+      "2026-11-01T00:00:00.000Z",
+    );
+  });
+
+  it("leaves a value that isn't a date unchanged", () => {
+    expect(formatWarehouseDateAsIso("Total")).toBe("Total");
+    expect(formatWarehouseDateAsIso("")).toBe("");
   });
 });
 
