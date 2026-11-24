@@ -88,6 +88,8 @@ export interface ExplorerContextValue {
   needsFetch: boolean;
   needsUpdate: boolean;
   isSubmittable: boolean;
+  /** An always-filter column (e.g. event_name) is still waiting for a value. */
+  missingInlineFilterValue: boolean;
   managedWarehouseUnavailable: boolean;
   trackingSource: string | undefined;
 
@@ -440,19 +442,24 @@ export function ExplorerProvider({
     comparisonMode,
   ]);
 
+  // Block submission while alwaysInlineFilter columns are seeded but empty.
+  // cleanConfigForSubmission would otherwise strip the placeholder filter
+  // and let the query run unfiltered, contradicting the "always filter" intent.
+  const missingInlineFilterValue = useMemo(
+    () => hasUnsatisfiedInlineFilters(draftExploreState, getFactTableById),
+    [draftExploreState, getFactTableById],
+  );
+
   const isSubmittable = useMemo(() => {
     return (
       queryEnabled &&
       isSubmittableConfig(cleanedDraftExploreState, getFactTableById) &&
-      // Block submission while alwaysInlineFilter columns are seeded but empty.
-      // cleanConfigForSubmission would otherwise strip the placeholder filter
-      // and let the query run unfiltered, contradicting the "always filter" intent.
-      !hasUnsatisfiedInlineFilters(draftExploreState, getFactTableById)
+      !missingInlineFilterValue
     );
   }, [
     cleanedDraftExploreState,
-    draftExploreState,
     getFactTableById,
+    missingInlineFilterValue,
     queryEnabled,
   ]);
 
@@ -1271,6 +1278,7 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       isSubmittable,
+      missingInlineFilterValue,
       managedWarehouseUnavailable,
       clearAllDatasets,
       query,
@@ -1314,6 +1322,7 @@ export function ExplorerProvider({
       handleSubmit,
       isStale,
       isSubmittable,
+      missingInlineFilterValue,
       loading,
       polling,
       managedWarehouseUnavailable,

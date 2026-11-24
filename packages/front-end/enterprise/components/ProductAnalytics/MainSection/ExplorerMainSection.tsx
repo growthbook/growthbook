@@ -286,6 +286,7 @@ export default function ExplorerMainSection({
     draftExploreState,
     handleSubmit,
     isSubmittable,
+    missingInlineFilterValue,
     collapseFunnelStepsForAnalyze,
   } = useExplorerContext();
 
@@ -452,7 +453,9 @@ export default function ExplorerMainSection({
             <>
               <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
               <Text size="lg" weight="medium">
-                Configure your explorer to visualize data
+                {missingInlineFilterValue
+                  ? "Choose a value for each required filter to visualize data"
+                  : "Configure your explorer to visualize data"}
               </Text>
             </>
           )}

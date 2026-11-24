@@ -66,11 +66,16 @@ export function ExplorerFilterRow({
         borderRadius: "var(--radius-3)",
         padding: "var(--space-2)",
         backgroundColor: "var(--color-panel-translucent)",
-        opacity: filter.disabled ? 0.5 : 1,
       }}
     >
       <Flex justify="between" align="center" width="100%" gap="2">
-        <Text size="sm" truncate whiteSpace="nowrap" title={getFilterSummary()}>
+        <Text
+          size="sm"
+          truncate
+          whiteSpace="nowrap"
+          title={getFilterSummary()}
+          color={filter.disabled ? "text-disabled" : undefined}
+        >
           {getFilterSummary()}
         </Text>
         <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
@@ -101,32 +106,47 @@ export function ExplorerFilterRow({
         triggerDisabled
         transitionTime={100}
       >
-        <Flex direction="column" gap="2" mt="2">
-          <RowFilterFields
-            filter={filter}
-            columnSource={columnSource}
-            autoFocus={autoFocus}
-            onUpdate={(updates, commit) => onUpdate(updates, commit !== false)}
-          >
-            {({ columnSelect, operatorSelect, valueInput }) => (
-              <>
-                {columnSelect && operatorSelect ? (
-                  <Flex direction="row" gap="2" align="center">
-                    <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 0 }}>
-                      {columnSelect}
-                    </Box>
-                    <Box style={{ minWidth: 0, flex: "0 1 130px" }}>
-                      {operatorSelect}
-                    </Box>
-                  </Flex>
-                ) : (
-                  columnSelect
-                )}
-                {valueInput}
-              </>
-            )}
-          </RowFilterFields>
-        </Flex>
+        {/* When off, dim and lock only the fields; the header controls stay usable */}
+        <fieldset
+          disabled={filter.disabled}
+          style={{
+            border: 0,
+            margin: 0,
+            padding: 0,
+            minWidth: 0,
+            opacity: filter.disabled ? 0.5 : 1,
+            pointerEvents: filter.disabled ? "none" : undefined,
+          }}
+        >
+          <Flex direction="column" gap="2" mt="2">
+            <RowFilterFields
+              filter={filter}
+              columnSource={columnSource}
+              autoFocus={autoFocus}
+              onUpdate={(updates, commit) =>
+                onUpdate(updates, commit !== false)
+              }
+            >
+              {({ columnSelect, operatorSelect, valueInput }) => (
+                <>
+                  {columnSelect && operatorSelect ? (
+                    <Flex direction="row" gap="2" align="center">
+                      <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 0 }}>
+                        {columnSelect}
+                      </Box>
+                      <Box style={{ minWidth: 0, flex: "0 1 130px" }}>
+                        {operatorSelect}
+                      </Box>
+                    </Flex>
+                  ) : (
+                    columnSelect
+                  )}
+                  {valueInput}
+                </>
+              )}
+            </RowFilterFields>
+          </Flex>
+        </fieldset>
       </Collapsible>
     </Flex>
   );
