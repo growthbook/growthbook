@@ -286,7 +286,7 @@ export default function QaOverrideModal({
                   e.isProduction ? (
                     <Tooltip
                       key={e.id}
-                      content="QA overrides can\u2019t run in production environments."
+                      content="QA overrides can't run in production environments."
                       side="right"
                       maxWidth="260px"
                     >
@@ -301,6 +301,9 @@ export default function QaOverrideModal({
                   ),
                 )}
               </Select>
+              <Text as="div" size="sm" color="text-low" mt="1">
+                Only non-production environments are selectable.
+              </Text>
             </Box>
           )}
           <QaOverrideWhereFields
