@@ -176,11 +176,11 @@ function unknownVariationHint(cause: UnknownVariationCause): ReactNode {
     case "index":
       return cause.expectedKey !== undefined ? (
         <>
-          looks like a 0-based index; emit the variation key{" "}
-          <code>{cause.expectedKey}</code> at this position, not the index.
+          looks like a 0-based index; return the key{" "}
+          <code>{cause.expectedKey}</code> instead.
         </>
       ) : (
-        <>looks like a 0-based index; emit the variation key, not the index.</>
+        <>looks like a 0-based index; return the variation key instead.</>
       );
     case "unrecognized":
       return <>matches no configured variation key.</>;
@@ -546,9 +546,11 @@ export default function ContextualBanditResultsTable({
       {unknownVariationCauses.length > 0 ? (
         <Callout status="warning" mb="3">
           The assignment query returned {unknownVariationCauses.length}{" "}
-          <code>variation_id</code> value
-          {unknownVariationCauses.length === 1 ? "" : "s"} that match no
-          configured variation key (<CommaCodeList vals={configuredKeys} />
+          <code>variation_id</code>{" "}
+          {unknownVariationCauses.length === 1
+            ? "value that matches"
+            : "values that match"}{" "}
+          no configured variation key (<CommaCodeList vals={configuredKeys} />
           ). Rows with an unrecognized <code>variation_id</code> are dropped, so
           affected variations show 0 {unitDisplayName.toLowerCase()}.
           <Box asChild mt="2" mb="0">
