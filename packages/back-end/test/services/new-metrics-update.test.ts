@@ -530,15 +530,15 @@ describe("planNewMetricsUpdate", () => {
       expected: unavailable("metric_not_supported"),
     },
     {
-      name: "an Incremental Pipeline parent whose tables a later run extended",
+      name: "an Incremental Pipeline parent whose tables a later run rebuilt",
       setup: () => {
         findParentMock.mockResolvedValue(
           makeParent({ runnerKind: "incremental-update" }),
         );
         pipelineStateMock.mockResolvedValue({
           unitsTableFullName: "t_units",
-          unitsMaxTimestamp: new Date(PARENT_END.getTime() + 60_000),
-          materializedBySnapshotId: "snp_parent",
+          unitsMaxTimestamp: PARENT_END,
+          materializedBySnapshotId: "snp_later",
           metricSources: [],
         });
       },
@@ -1342,65 +1342,33 @@ describe("getQueriesWithChangedSql", () => {
 });
 
 describe("assertIncrementalTablesMatchParent", () => {
-  const SCAN_END = PARENT_END;
-  const before = (minutes: number) =>
-    new Date(SCAN_END.getTime() - minutes * 60_000);
-  const after = (minutes: number) =>
-    new Date(SCAN_END.getTime() + minutes * 60_000);
-
   type State = NonNullable<
     Parameters<typeof assertIncrementalTablesMatchParent>[0]["state"]
   >;
-  const source = (
-    groupId: string,
-    metricIds: string[],
-    maxTimestamp: Date | null,
-  ): State["metricSources"][number] => ({
-    groupId,
-    factTableId: groupId.split("_")[0],
-    metrics: metricIds.map((id) => ({ id, settingsHash: `h_${id}` })),
-    maxTimestamp,
-    maxTimestampRaw: null,
-    tableFullName: `t_${groupId}`,
-  });
   const state = (overrides: Partial<State> = {}): State => ({
     unitsTableFullName: "t_units",
-    unitsMaxTimestamp: before(1),
     materializedBySnapshotId: "snp_parent",
-    metricSources: [
-      source("fta_0", ["met_a"], before(2)),
-      source("ftb_0", ["met_b"], SCAN_END),
-    ],
     ...overrides,
   });
-  const withSource = (...extra: State["metricSources"]) => {
-    const s = state();
-    s.metricSources.push(...extra);
-    return s;
-  };
   const parse = (s: State | null) => () =>
     assertIncrementalTablesMatchParent({
       state: s,
       parentSnapshotId: "snp_parent",
-      scanEnd: SCAN_END,
     });
 
-  it.each<[string, () => State]>([
-    ["the state the parent left", () => state()],
-    [
-      "a cache that already holds a target, left by a new-metrics update that failed after rebuilding it",
-      () => withSource(source("ftc_1", ["met_c"], SCAN_END)),
-    ],
-    [
-      "a rebuilt cache sharing a target with a metric the new-metrics update copies",
-      () => withSource(source("fta_1", ["met_d", "met_c"], before(1))),
-    ],
-  ])("accepts %s", (name, makeState) => {
-    expect(parse(makeState())).not.toThrow();
+  it("accepts the state the parent left", () => {
+    expect(parse(state())).not.toThrow();
   });
 
-  it("rejects a cache a failed update filled past the parent's end", () => {
-    expect(parse(withSource(source("ftc_1", ["met_c"], after(1))))).toThrow(
+  it.each<[string, State | null]>([
+    ["no pipeline state", null],
+    ["no units table", state({ unitsTableFullName: null })],
+    [
+      "tables a later run succeeded on",
+      state({ materializedBySnapshotId: "snp_later" }),
+    ],
+  ])("rejects %s", (name, s) => {
+    expect(parse(s)).toThrow(
       expect.objectContaining({ details: { reason: "incremental_pipeline" } }),
     );
   });

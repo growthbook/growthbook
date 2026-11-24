@@ -183,8 +183,6 @@ export async function planNewMetricsUpdate({
     throw new NewMetricsUpdateUnavailableError("base_incomplete");
   }
 
-  // Planning reports tables past the cutoff as changed settings, so check the
-  // tables a later run may have left first.
   const onIncrementalPipeline = (parent.runnerKind ?? "results") !== "results";
   const incrementalState = onIncrementalPipeline
     ? await context.models.incrementalRefresh.getByExperimentIdAndPhase(
@@ -196,9 +194,10 @@ export async function planNewMetricsUpdate({
     assertIncrementalTablesMatchParent({
       state: incrementalState,
       parentSnapshotId: parent.id,
-      scanEnd: parent.settings.endDate,
     });
   }
+  // Planned as of the parent's end. The pipeline's own validation refuses a
+  // plan whose tables hold rows past it, such as rows a failed run appended.
   const plan = await planSnapshotAt(parent.settings.endDate).catch(
     (error: unknown) => {
       if (
@@ -509,36 +508,22 @@ export function getNewMetricsUpdateLineage(
 }
 
 /**
- * Accepts the pipeline state only when every stored table still holds no data
- * past the parent's end and the parent is the last run that succeeded on it.
- * A failed run since then may have rebuilt some caches; those hold data only
- * up to the parent's end as well, so the new-metrics update reads them like
- * the others.
+ * Accepts the pipeline state only when the parent is the last run that
+ * succeeded on its tables.
  */
 export function assertIncrementalTablesMatchParent({
   state,
   parentSnapshotId,
-  scanEnd,
 }: {
   state: Pick<
     IncrementalRefreshInterface,
-    | "unitsTableFullName"
-    | "unitsMaxTimestamp"
-    | "materializedBySnapshotId"
-    | "metricSources"
+    "unitsTableFullName" | "materializedBySnapshotId"
   > | null;
   parentSnapshotId: string;
-  scanEnd: Date;
 }): void {
-  const pastScanEnd = (timestamp: Date | null) =>
-    !!timestamp && timestamp > scanEnd;
   const tablesMatchParent =
     !!state?.unitsTableFullName &&
-    state.materializedBySnapshotId === parentSnapshotId &&
-    ![
-      state.unitsMaxTimestamp,
-      ...state.metricSources.map((s) => s.maxTimestamp),
-    ].some(pastScanEnd);
+    state.materializedBySnapshotId === parentSnapshotId;
   if (!tablesMatchParent) {
     throw new NewMetricsUpdateUnavailableError("incremental_pipeline");
   }
@@ -589,6 +574,5 @@ export async function assertIncrementalNewMetricsUpdateBase({
       snapshot.id,
     ),
     parentSnapshotId: newMetricsUpdate.parentSnapshotId,
-    scanEnd: snapshot.settings.endDate,
   });
 }
