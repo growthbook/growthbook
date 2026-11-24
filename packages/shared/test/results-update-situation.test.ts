@@ -32,15 +32,7 @@ function makeParent(
 ): Parent {
   return {
     runnerKind: "results",
-    analyses: [
-      {
-        settings: {
-          statsEngine: "frequentist",
-          dimensions: [],
-          pValueCorrection: null,
-        },
-      },
-    ],
+    analyses: [{ settings: { pValueCorrection: null } }],
     ...overrides,
     settings: {
       endDate: hoursAgo(1),
@@ -80,7 +72,6 @@ function refusal(overrides: Partial<Args> = {}) {
     parent: makeParent(),
     outdatedReasons: ["metrics_changed"],
     window: { windowHours: 4, now: NOW },
-    pValueCorrection: null,
     planned: makePlanned(),
     ...overrides,
   });
@@ -237,32 +228,12 @@ describe("getNewMetricsUpdateRefusal", () => {
     ).toBeNull();
   });
 
-  describe("a parent saved before correction methods were recorded", () => {
-    const legacy = (statsEngine: "frequentist" | "bayesian") =>
-      makeParent({
-        analyses: [{ settings: { statsEngine, dimensions: [] } }],
-      });
-
-    it("is refused while a correction applies, since its corrected values are only computed on read", () => {
-      expect(
-        refusal({
-          parent: legacy("frequentist"),
-          pValueCorrection: "holm-bonferroni",
-        }),
-      ).toBe("settings_changed");
-    });
-
-    it("is accepted while none applies", () => {
-      expect(
-        refusal({ parent: legacy("frequentist"), pValueCorrection: null }),
-      ).toBeNull();
-      expect(
-        refusal({
-          parent: legacy("bayesian"),
-          pValueCorrection: "holm-bonferroni",
-        }),
-      ).toBeNull();
-    });
+  // Such a parent holds values the stats engine derived from the goal and
+  // guardrail counts, and is corrected on each read.
+  it("refuses a parent saved before analyses recorded their correction method", () => {
+    expect(
+      refusal({ parent: makeParent({ analyses: [{ settings: {} }] }) }),
+    ).toBe("settings_changed");
   });
 
   describe("a CUPED change", () => {

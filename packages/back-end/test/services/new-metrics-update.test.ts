@@ -142,6 +142,8 @@ const analysisSettings = {
   differenceType: "relative",
   numGoalMetrics: 2,
   numGuardrailMetrics: 0,
+  // Bayesian analyses record that no correction applies.
+  pValueCorrection: null,
 } as unknown as ExperimentSnapshotAnalysisSettings;
 
 function makeExperiment(

@@ -589,7 +589,6 @@ export default function AnalysisSettingsSummary({
         !!datasource?.properties?.separateExperimentResultQueries,
       parent: snapshot,
       outdatedReasons,
-      pValueCorrection: orgSettings.pValueCorrection,
       window: {
         windowHours:
           orgSettings.newMetricsUpdateWindowHours ??

@@ -212,7 +212,6 @@ export async function planNewMetricsUpdate({
   const planRefusal = getNewMetricsUpdatePlanRefusal({
     parent,
     outdatedReasons,
-    pValueCorrection: context.org.settings?.pValueCorrection,
     planned: {
       runnerKind: plan.snapshot.runnerKind ?? "results",
       settings: plan.snapshot.settings,

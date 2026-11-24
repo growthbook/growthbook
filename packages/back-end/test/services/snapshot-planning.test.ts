@@ -2603,7 +2603,6 @@ describe("planExperimentSnapshot", () => {
         separateExperimentResultQueries: true,
         parent,
         outdatedReasons,
-        pValueCorrection: context.org.settings?.pValueCorrection,
         window: { windowHours: 4, now: refreshTime },
         planned: {
           runnerKind: plannedRunnerKind,
@@ -3113,8 +3112,8 @@ describe("planExperimentSnapshot", () => {
       );
 
       // The update corrects copied and new goal metrics together with the
-      // method the parent recorded. A legacy parent is corrected on each read
-      // with today's method, so it only extends while none applies.
+      // method the parent recorded. A parent saved before methods were
+      // recorded can't be extended.
       describe("with a frequentist correction method", () => {
         it("refuses, and the app doesn't offer it, when the parent's method was turned off", async () => {
           const { reasons, offered, plan } = await outdatedRefresh(
@@ -3132,43 +3131,29 @@ describe("planExperimentSnapshot", () => {
           });
         });
 
-        it("plans it, and the app offers it, for a parent that recorded no method while none applies", async () => {
-          const { reasons, offered, plan } = await outdatedRefresh(
-            makeFixture(),
-            {
-              correction: { base: null, refresh: null, legacyParent: true },
-              pipeline: "standard",
-            },
-          );
-
-          expect(reasons).toEqual(["metrics_changed"]);
-          expect(offered).toBe(true);
-          await expect(plan).resolves.toMatchObject({
-            snapshot: { updateScope: { queriedMetricIds: ["fact__guard"] } },
-          });
-        });
-
         // No Outdated reason covers it: a method that was never recorded is
         // never out of date.
-        it("refuses, and the app doesn't offer it, for a parent that recorded no method once one applies", async () => {
-          const { reasons, offered, plan } = await outdatedRefresh(
-            makeFixture(),
-            {
-              correction: {
-                base: null,
-                refresh: "holm-bonferroni",
-                legacyParent: true,
+        it.each<{ name: string; refresh: PValueCorrection }>([
+          { name: "while a correction applies", refresh: "holm-bonferroni" },
+          { name: "while none applies", refresh: null },
+        ])(
+          "refuses, and the app doesn't offer it, for a parent that recorded no method, $name",
+          async ({ refresh }) => {
+            const { reasons, offered, plan } = await outdatedRefresh(
+              makeFixture(),
+              {
+                correction: { base: null, refresh, legacyParent: true },
+                pipeline: "standard",
               },
-              pipeline: "standard",
-            },
-          );
+            );
 
-          expect(reasons).toEqual(["metrics_changed"]);
-          expect(offered).toBe(false);
-          await expect(plan).rejects.toMatchObject({
-            details: { reason: "settings_changed" },
-          });
-        });
+            expect(reasons).toEqual(["metrics_changed"]);
+            expect(offered).toBe(false);
+            await expect(plan).rejects.toMatchObject({
+              details: { reason: "settings_changed" },
+            });
+          },
+        );
       });
     });
   });

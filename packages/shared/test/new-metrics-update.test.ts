@@ -560,10 +560,9 @@ describe("stats engine inputs", () => {
           parent: {
             runnerKind: "results",
             settings: plan(0.444),
-            analyses: [],
+            analyses: [{ settings: { pValueCorrection: null } }],
           },
           outdatedReasons: ["metrics_changed"],
-          pValueCorrection: null,
           planned: { runnerKind: "results", settings: plan(0.3) },
         });
       };
@@ -707,10 +706,9 @@ describe("new-metrics updates in a row", () => {
         runnerKind,
         updateScope: newMetricsUpdate(parentUpdatesInARow),
         settings,
-        analyses: [],
+        analyses: [{ settings: { pValueCorrection: null } }],
       },
       outdatedReasons: ["metrics_changed"],
-      pValueCorrection: null,
       planned: { runnerKind, settings },
     });
 
