@@ -200,6 +200,7 @@ import {
   ExperimentUpdateInput,
   planExperimentUpdate,
 } from "back-end/src/services/experimentChanges/planExperimentUpdate";
+import { assertNoFlagsMissingNewVariations } from "back-end/src/services/experiment-feature";
 import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
@@ -1648,6 +1649,13 @@ export async function postExperiment(
   }
 
   const plan = await planExperimentUpdate(context, experiment, req.body);
+  if (plan.changes.variations) {
+    await assertNoFlagsMissingNewVariations(
+      context,
+      experiment,
+      plan.changes.variations.map((v) => v.id),
+    );
+  }
   const updated = await applyExperimentUpdatePlan({
     context,
     experiment,
