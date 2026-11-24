@@ -1,10 +1,13 @@
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { OrganizationInterface } from "shared/types/organization";
 import {
+  EventReach,
   getChangedExperimentEntities,
   getDependentEntities,
-  getExperimentFlagEntities,
+  getExperimentReach,
   payloadKeysReach,
+  refreshThenReport,
 } from "back-end/src/events/relatedEntities";
 
 const envs = ["dev", "prod"];
@@ -131,21 +134,40 @@ describe("getChangedExperimentEntities", () => {
   });
 });
 
-describe("getExperimentFlagEntities", () => {
-  it("lists linked flags with the environments where they run it", () => {
-    const scoped = change((f) => {
-      f.rules = [
-        experimentRule({ allEnvironments: false, environments: ["prod"] }),
-      ];
-    });
-    const disabled = change((f) => {
-      f.id = "pricing";
-      f.environmentSettings.dev.enabled = false;
-      f.environmentSettings.prod.enabled = false;
-    });
+describe("getExperimentReach", () => {
+  const scoped = change((f) => {
+    f.rules = [
+      experimentRule({ allEnvironments: false, environments: ["prod"] }),
+    ];
+  });
+  const disabled = change((f) => {
+    f.id = "pricing";
+    f.environmentSettings.dev.enabled = false;
+    f.environmentSettings.prod.enabled = false;
+  });
+
+  it("reaches where its linked flags run it", () => {
     expect(
-      getExperimentFlagEntities("exp_1", [scoped, disabled], envs),
-    ).toEqual([{ type: "feature", id: "checkout", environments: ["prod"] }]);
+      getExperimentReach("exp_1", false, [scoped, disabled], envs),
+    ).toEqual({
+      environments: ["prod"],
+      relatedEntities: [
+        { type: "feature", id: "checkout", environments: ["prod"] },
+      ],
+    });
+  });
+
+  it("reaches nowhere when no linked flag runs it", () => {
+    expect(getExperimentReach("exp_1", false, [disabled], envs)).toEqual({
+      environments: [],
+      relatedEntities: [],
+    });
+  });
+
+  it("reaches every environment with visual changes or redirects", () => {
+    expect(
+      getExperimentReach("exp_1", true, [scoped], envs).environments,
+    ).toEqual(envs);
   });
 });
 
@@ -183,5 +205,36 @@ describe("payloadKeysReach", () => {
         envs,
       ),
     ).toEqual({ environments: ["prod"], relatedEntities: [] });
+  });
+});
+
+describe("refreshThenReport", () => {
+  const org = {
+    settings: { environments: [{ id: "dev" }, { id: "prod" }] },
+  } as OrganizationInterface;
+  const reach: EventReach = { environments: ["prod"], relatedEntities: [] };
+
+  it("reports what the scan found", async () => {
+    const onReach = jest.fn().mockResolvedValue(undefined);
+    await refreshThenReport(org, async () => reach, onReach);
+    expect(onReach).toHaveBeenCalledWith(reach);
+  });
+
+  it("reports every environment when the scan falls back or fails", async () => {
+    const onReach = jest.fn().mockResolvedValue(undefined);
+    await refreshThenReport(org, async () => null, onReach);
+    await expect(
+      refreshThenReport(
+        org,
+        async () => {
+          throw new Error("scan failed");
+        },
+        onReach,
+      ),
+    ).rejects.toThrow("scan failed");
+    expect(onReach.mock.calls).toEqual([
+      [{ environments: envs, relatedEntities: [] }],
+      [{ environments: envs, relatedEntities: [] }],
+    ]);
   });
 });

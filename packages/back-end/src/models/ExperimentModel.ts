@@ -64,7 +64,10 @@ import {
 } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
-import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgObject,
+  getEnvironmentIdsFromOrg,
+} from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
 import {
   getCollection,
@@ -91,7 +94,10 @@ import {
   notifyExperimentStatusTransition,
   notifyExperimentBanditWeightsTransition,
 } from "back-end/src/services/experimentNotifications";
-import { getExperimentFlagEntities } from "back-end/src/events/relatedEntities";
+import {
+  getExperimentReach,
+  NO_REACH,
+} from "back-end/src/events/relatedEntities";
 import { CasConflictError } from "./BaseModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -1720,21 +1726,23 @@ export const logExperimentUpdated = async ({
     toExperimentEventPayload(context, previous),
     toExperimentEventPayload(context, current),
   ]);
-  // If experiment is part of the SDK payload, it affects all environments
-  // Otherwise, it doesn't affect any
-  const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
-
-  const allowedEnvs = getEnvironmentIdsFromOrg(context.org);
-  const changedEnvs = hasPayloadChanges ? allowedEnvs : [];
   // Results refreshes change nothing SDKs serve, so they skip the lookup.
-  const relatedEntities =
-    hasPayloadChanges && current.linkedFeatures?.length
-      ? getExperimentFlagEntities(
-          current.id,
-          await getFeaturesByIds(context, current.linkedFeatures),
-          allowedEnvs,
-        )
-      : [];
+  // Flags the actor can't read still count toward where it's served.
+  const reach = hasChangesForSDKPayloadRefresh(previous, current)
+    ? getExperimentReach(
+        current.id,
+        [previous, current].some(
+          (e) => e.hasVisualChangesets || e.hasURLRedirects,
+        ),
+        await getFeaturesByIds(getContextForAgendaJobByOrgObject(context.org), [
+          ...new Set([
+            ...(previous.linkedFeatures ?? []),
+            ...(current.linkedFeatures ?? []),
+          ]),
+        ]),
+        getEnvironmentIdsFromOrg(context.org),
+      )
+    : NO_REACH;
 
   let changes: DiffResult | undefined;
   try {
@@ -1782,8 +1790,8 @@ export const logExperimentUpdated = async ({
     tags: Array.from(
       new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags]),
     ),
-    environments: changedEnvs,
-    relatedEntities,
+    environments: reach.environments,
+    relatedEntities: reach.relatedEntities,
     containsSecrets: false,
   });
 };

@@ -7330,11 +7330,14 @@ export async function getFeatureMetaInfo(
   const context = getContextFromReq(req);
   const { defaultValue, customFields, project, ids } = req.query;
 
-  const customFieldKeys = parseIdsQuery(customFields);
+  const customFieldKeys = parseIdsQuery(customFields, {
+    max: 20,
+    name: "customFields",
+  });
   if (
     customFieldKeys?.some((key) => key.includes(".") || key.startsWith("$"))
   ) {
-    throw new BadRequestError("customFields must be custom field keys");
+    throw new BadRequestError("customFields must be custom field keys.");
   }
 
   const features = await getFeatureMetaInfoById(context, {

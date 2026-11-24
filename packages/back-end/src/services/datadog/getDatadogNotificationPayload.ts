@@ -9,7 +9,7 @@ import {
 } from "shared/validators";
 import { getDatadogServiceNames } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getFeatureMetaInfoById } from "back-end/src/models/FeatureModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 
@@ -28,6 +28,7 @@ export type DatadogEnvelope = {
 type JsonRecord = Record<string, unknown>;
 
 const MAX_SERVICES = 100;
+const MAX_RELATED = 100;
 const MAX_TAGS = 100;
 const MAX_TITLE = 500;
 const MAX_VALUE = 200;
@@ -54,25 +55,15 @@ function previousAttributes(envelope: DatadogEnvelope): JsonRecord {
   return asRecord(asRecord(envelope.data).previous_attributes);
 }
 
-// Experiments are tagged with the environments where linked flags run them;
-// ones with no listed flag (visual editor, URL redirects) keep every one.
-export function getDatadogEnvironments(
-  envelope: DatadogEnvelope,
-  webhookEnvironments: string[],
-): string[] {
-  let environments = envelope.environments;
-  if (envelope.event === "experiment.updated") {
-    const flags = (envelope.relatedEntities ?? []).filter(
-      (e) => e.type === "feature",
-    );
-    if (flags.length) {
-      const envs = new Set(flags.flatMap((f) => f.environments));
-      environments = environments.filter((e) => envs.has(e));
-    }
-  }
-  return webhookEnvironments.length
-    ? environments.filter((e) => webhookEnvironments.includes(e))
-    : environments;
+// A deleted flag's event lists every configured environment; Datadog shows
+// the change only where the flag was served.
+export function servedEnvironments(envelope: DatadogEnvelope): string[] {
+  if (envelope.event !== "feature.deleted") return envelope.environments;
+  const object = eventObject(envelope);
+  const settings = asRecord(object.environments);
+  return object.archived
+    ? []
+    : envelope.environments.filter((e) => !!asRecord(settings[e]).enabled);
 }
 
 function datadogAuthor(user: EventUser): { type: string; name: string } {
@@ -103,25 +94,25 @@ function summarizeRule(rule: unknown): JsonRecord {
   return summary;
 }
 
-function summarizeFeatureEnvironments(
-  environmentsValue: unknown,
-  environments: string[],
-): JsonRecord {
-  const all = asRecord(environmentsValue);
-  return Object.fromEntries(
-    environments.map((env) => {
-      const settings = asRecord(all[env]);
-      return [
-        env,
-        {
-          enabled: !!settings.enabled,
-          rules: Array.isArray(settings.rules)
-            ? settings.rules.map(summarizeRule)
-            : [],
-        },
-      ];
-    }),
-  );
+function featureState(object: JsonRecord, environments: string[]): JsonRecord {
+  const all = asRecord(object.environments);
+  return {
+    defaultValue: truncate(asString(object.defaultValue), MAX_VALUE),
+    environments: Object.fromEntries(
+      environments.map((env) => {
+        const settings = asRecord(all[env]);
+        return [
+          env,
+          {
+            enabled: !!settings.enabled,
+            rules: Array.isArray(settings.rules)
+              ? settings.rules.map(summarizeRule)
+              : [],
+          },
+        ];
+      }),
+    ),
+  };
 }
 
 function changeEvent(attributes: JsonRecord): JsonRecord {
@@ -168,10 +159,7 @@ function featureChange(
     what = comment.split("\n")[0].trim() || `Published revision ${version}`;
   }
 
-  const current = summarizeFeatureEnvironments(
-    object.environments,
-    environments,
-  );
+  const current = featureState(object, environments);
   return {
     resourceType: "feature_flag",
     name: id,
@@ -182,10 +170,7 @@ function featureChange(
         ? undefined
         : envelope.event === "feature.deleted"
           ? current
-          : summarizeFeatureEnvironments(
-              previous.environments ?? object.environments,
-              environments,
-            ),
+          : featureState({ ...object, ...previous }, environments),
     newValue: envelope.event === "feature.deleted" ? undefined : current,
     metadata: {
       ...(version ? { revision: { version, comment } } : {}),
@@ -318,7 +303,7 @@ export function buildDatadogChangeEvent({
       MAX_TITLE,
     ),
     timestamp: new Date(envelope.created).toISOString(),
-    aggregation_key: `growthbook:${change.name}`,
+    aggregation_key: `growthbook:${envelope.event.split(".")[0]}:${asString(eventObject(envelope).id)}`,
     tags: [
       ...environments.map((env) => `env:${env}`),
       ...services.map((service) => `service:${service}`),
@@ -343,7 +328,10 @@ export function buildDatadogChangeEvent({
           ? { request_source: envelope.requestSource }
           : {}),
         ...(envelope.relatedEntities?.length
-          ? { related: envelope.relatedEntities }
+          ? {
+              related: envelope.relatedEntities.slice(0, MAX_RELATED),
+              related_total: envelope.relatedEntities.length,
+            }
           : {}),
         ...(approvers.length ? { approved_by: approvers } : {}),
       },
@@ -377,8 +365,14 @@ async function getServiceFieldValues(
   const related = envelope.relatedEntities ?? [];
   const idsOf = (type: "feature" | "experiment") =>
     related.filter((e) => e.type === type).map((e) => e.id);
+  const featureIds = idsOf("feature");
   const [features, experiments] = await Promise.all([
-    getFeaturesByIds(context, idsOf("feature")),
+    featureIds.length
+      ? getFeatureMetaInfoById(context, {
+          ids: featureIds,
+          include: { customFields: [serviceField] },
+        })
+      : [],
     envelope.event === "experiment.updated"
       ? []
       : getExperimentsByIds(context, idsOf("experiment")),
@@ -404,9 +398,10 @@ export async function getDatadogNotificationPayload({
   if (!isDatadogEventWebHookEvent(envelope.event)) return null;
 
   // Nothing SDKs serve changed in the environments this webhook covers.
-  const environments = getDatadogEnvironments(
-    envelope,
-    eventWebHook.environments,
+  const environments = servedEnvironments(envelope).filter(
+    (e) =>
+      !eventWebHook.environments.length ||
+      eventWebHook.environments.includes(e),
   );
   if (!environments.length) return null;
 

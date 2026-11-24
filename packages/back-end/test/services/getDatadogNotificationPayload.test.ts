@@ -3,8 +3,8 @@ import type { Context } from "back-end/src/models/BaseModel";
 import {
   buildDatadogChangeEvent,
   DatadogEnvelope,
-  getDatadogEnvironments,
   getDatadogNotificationPayload,
+  servedEnvironments,
 } from "back-end/src/services/datadog/getDatadogNotificationPayload";
 
 const created = new Date("2026-11-24T12:00:00Z").getTime();
@@ -15,6 +15,7 @@ const flag = (overrides: Record<string, unknown>) => ({
   project: "prj_checkout",
   tags: ["checkout"],
   archived: false,
+  defaultValue: "false",
   revision: { version: 14, comment: "Ramp step 3 of 5" },
   environments: {
     production: {
@@ -54,7 +55,7 @@ const featureUpdated = (
 const build = (envelope: DatadogEnvelope, services: string[] = []) =>
   buildDatadogChangeEvent({
     envelope,
-    environments: getDatadogEnvironments(envelope, []),
+    environments: envelope.environments,
     services,
     includeApprovers: false,
     appOrigin: origin,
@@ -85,7 +86,7 @@ describe("buildDatadogChangeEvent", () => {
           integration_id: "custom-events",
           title: "new-checkout-flow: Ramp step 3 of 5 (production)",
           timestamp: "2026-11-24T12:00:00.000Z",
-          aggregation_key: "growthbook:new-checkout-flow",
+          aggregation_key: "growthbook:feature:new-checkout-flow",
           tags: [
             "env:production",
             "service:checkout-api",
@@ -102,19 +103,35 @@ describe("buildDatadogChangeEvent", () => {
             ],
             author: { type: "automation", name: "Ramp schedule" },
             prev_value: {
-              production: {
-                enabled: true,
-                rules: [
-                  { id: "fr_1", type: "rollout", coverage: 0.2, value: "true" },
-                ],
+              defaultValue: "false",
+              environments: {
+                production: {
+                  enabled: true,
+                  rules: [
+                    {
+                      id: "fr_1",
+                      type: "rollout",
+                      coverage: 0.2,
+                      value: "true",
+                    },
+                  ],
+                },
               },
             },
             new_value: {
-              production: {
-                enabled: true,
-                rules: [
-                  { id: "fr_1", type: "rollout", coverage: 0.4, value: "true" },
-                ],
+              defaultValue: "false",
+              environments: {
+                production: {
+                  enabled: true,
+                  rules: [
+                    {
+                      id: "fr_1",
+                      type: "rollout",
+                      coverage: 0.4,
+                      value: "true",
+                    },
+                  ],
+                },
               },
             },
             change_metadata: {
@@ -124,6 +141,7 @@ describe("buildDatadogChangeEvent", () => {
               flag_tags: ["checkout"],
               request_source: "system",
               related: relatedEntities,
+              related_total: 1,
             },
           },
         },
@@ -158,17 +176,40 @@ describe("buildDatadogChangeEvent", () => {
         title: "new-checkout-flow: Turn off in production (production)",
         attributes: {
           author: { type: "user", name: "dev@example.com" },
-          prev_value: { production: { enabled: false, rules: [] } },
+          prev_value: {
+            environments: { production: { enabled: false, rules: [] } },
+          },
         },
       },
     });
   });
 
-  it("names experiments by tracking key and tags the environments where flags run them", () => {
+  it("shows a default value change in every environment", () => {
+    const event = build(
+      featureUpdated({
+        environments: ["production", "staging"],
+        data: {
+          object: flag({ defaultValue: "true" }),
+          previous_attributes: { defaultValue: "false" },
+        },
+      }),
+    );
+    expect(event.data).toMatchObject({
+      attributes: {
+        tags: ["env:production", "env:staging"],
+        attributes: {
+          prev_value: { defaultValue: "false" },
+          new_value: { defaultValue: "true" },
+        },
+      },
+    });
+  });
+
+  it("names experiments by tracking key", () => {
     const envelope: DatadogEnvelope = {
       event: "experiment.updated",
       created,
-      environments: ["production", "staging", "dev"],
+      environments: ["production"],
       user: {
         type: "dashboard",
         id: "u_1",
@@ -238,6 +279,29 @@ describe("buildDatadogChangeEvent", () => {
     expect(JSON.stringify(event)).not.toContain('"a"');
   });
 
+  it("caps the related entities it lists", () => {
+    const relatedEntities = Array.from({ length: 150 }, (_, i) => ({
+      type: "feature" as const,
+      id: `flag-${i}`,
+      environments: ["production"],
+    }));
+    const metadata = (
+      build(
+        featureUpdated({ event: "savedGroup.updated", relatedEntities }),
+      ) as {
+        data: {
+          attributes: {
+            attributes: {
+              change_metadata: { related: unknown[]; related_total: number };
+            };
+          };
+        };
+      }
+    ).data.attributes.attributes.change_metadata;
+    expect(metadata.related).toHaveLength(100);
+    expect(metadata.related_total).toBe(150);
+  });
+
   it("lists approvers only when the webhook opts in", () => {
     const envelope = featureUpdated({
       approvers: [{ id: "u_2", email: "lead@example.com", name: "Lead" }],
@@ -259,25 +323,32 @@ describe("buildDatadogChangeEvent", () => {
   });
 });
 
-describe("getDatadogEnvironments", () => {
-  it("keeps only the environments the webhook covers", () => {
+describe("servedEnvironments", () => {
+  const deleted = (object: Record<string, unknown>) =>
+    featureUpdated({
+      event: "feature.deleted",
+      environments: ["production", "staging"],
+      data: { object: flag(object) },
+    });
+
+  it("lists a deleted flag only where it was served", () => {
     expect(
-      getDatadogEnvironments(
-        featureUpdated({ environments: ["production", "staging"] }),
-        ["staging"],
+      servedEnvironments(
+        deleted({
+          environments: {
+            production: { enabled: true, rules: [] },
+            staging: { enabled: false, rules: [] },
+          },
+        }),
       ),
-    ).toEqual(["staging"]);
+    ).toEqual(["production"]);
+    expect(servedEnvironments(deleted({ archived: true }))).toEqual([]);
   });
 
-  it("keeps every environment for experiments with no listed flags", () => {
+  it("keeps other events' environments", () => {
     expect(
-      getDatadogEnvironments(
-        {
-          ...featureUpdated(),
-          event: "experiment.updated",
-          environments: ["production", "staging"],
-        },
-        [],
+      servedEnvironments(
+        featureUpdated({ environments: ["production", "staging"] }),
       ),
     ).toEqual(["production", "staging"]);
   });

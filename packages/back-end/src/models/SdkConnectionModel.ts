@@ -237,23 +237,19 @@ export async function getEmbeddedFeatureMetadata(
       ],
     },
     {
+      environment: 1,
       includeTagsInMetadata: 1,
       includeCustomFieldsInMetadata: 1,
       allowedCustomFieldsInMetadata: 1,
     },
   ).lean();
-  return {
-    tags: docs.some((d) => d.includeTagsInMetadata),
-    customFields: [
-      ...new Set(
-        docs.flatMap((d) =>
-          d.includeCustomFieldsInMetadata
-            ? (d.allowedCustomFieldsInMetadata ?? [])
-            : [],
-        ),
-      ),
-    ],
-  };
+  return docs.map((d) => ({
+    environment: d.environment,
+    tags: !!d.includeTagsInMetadata,
+    customFields: d.includeCustomFieldsInMetadata
+      ? (d.allowedCustomFieldsInMetadata ?? [])
+      : [],
+  }));
 }
 
 // For super admin views of another org, which have no ReqContext for it

@@ -54,6 +54,15 @@ You can select which notifications should be sent to your webhook according to p
 
 For instance, if your webhook is configured to fire on `feature.created` events with `Project Apollo` as a project filter, only `feature.created` events related to `Project Apollo` (and any other selected project) will trigger your webhook. If the projects filter is empty, your webhook will fire for all `feature.created` events on any project.
 
+An event's environments are the ones whose SDK payload the change alters:
+
+- `feature.updated`: environments where the Feature Flag is enabled and what it serves changed. Flag-wide changes, such as the default value, list every environment the flag is enabled in.
+- `feature.deleted`: every environment the Feature Flag was configured in.
+- `experiment.updated`: environments where a linked Feature Flag runs the experiment, or every environment for visual changes and URL redirects.
+- `savedGroup.updated`, `constant.updated` and `config.updated`: environments where a Feature Flag or experiment that uses it is served. These events are sent once GrowthBook has worked out what the change reaches, usually a few seconds later, and list those Feature Flags and experiments in `relatedEntities`.
+
+A change that alters nothing SDKs serve, such as a description edit, lists no environments, so only webhooks without an environment filter receive it.
+
 ## Testing your webhook
 
 Once your webhook is configured, you should be able to test it! Look for the `Test` button on the webhook's settings page. When clicked, a test event should be delivered to the configured endpoint.

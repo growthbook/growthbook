@@ -9,7 +9,10 @@ import {
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
-import { resolvableValueChanged } from "back-end/src/services/constants";
+import {
+  changedConstantEnvironments,
+  resolvableValueChanged,
+} from "back-end/src/services/constants";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
@@ -267,13 +270,10 @@ export class ConstantModel extends BaseClass {
       updates.archived !== undefined
     ) {
       // The event waits for the refresh scan, which finds what the change reaches.
-      resolvableValueChanged(
-        this.context,
-        "updated",
-        "constant",
-        newDoc.key,
-        emit,
-      ).catch((e) => {
+      resolvableValueChanged(this.context, "updated", "constant", newDoc.key, {
+        onReach: emit,
+        environments: changedConstantEnvironments(existing, newDoc),
+      }).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on constant update",
@@ -288,13 +288,9 @@ export class ConstantModel extends BaseClass {
   protected async afterDelete(doc: ConstantInterface) {
     this.invalidateAllSnapshot();
     const deleted = this.toApiInterface(doc);
-    resolvableValueChanged(
-      this.context,
-      "deleted",
-      "constant",
-      doc.key,
-      (reach) => logConstantDeletedEvent(this.context, deleted, reach),
-    ).catch((e) => {
+    resolvableValueChanged(this.context, "deleted", "constant", doc.key, {
+      onReach: (reach) => logConstantDeletedEvent(this.context, deleted, reach),
+    }).catch((e) => {
       this.context.logger.error(
         e,
         "Error refreshing SDK Payload on constant delete",

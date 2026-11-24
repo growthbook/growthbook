@@ -41,8 +41,12 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
           tags,
           projects,
         })) || []
-      ).filter(({ environments = [] }) =>
-        filterEventForEnvironments({ event: event.data, environments }),
+      ).filter(
+        ({ environments = [], payloadType }) =>
+          // Datadog shows changes per environment, so one reaching none is
+          // never sent.
+          (payloadType !== "datadog" || !!event.data.environments?.length) &&
+          filterEventForEnvironments({ event: event.data, environments }),
       );
     }
   })();

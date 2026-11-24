@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { ConfigInterface } from "shared/types/config";
+import { ConstantInterface } from "shared/types/constant";
 import {
   getConstantReferenceKeys,
   getCyclicConstantRefs,
@@ -51,16 +52,56 @@ import { getContextForAgendaJobByOrgObject } from "./organizations";
 // their reference graph is condition-string based, recursively nested, and spans
 // experiments as well as features, so it doesn't share this token machinery.
 // `onReach` gets what the change reaches once the scan is done.
+// Where an edit changes the resolved value, or null for every environment:
+// an edit to only some environments' values leaves the rest as they were.
+export function changedConstantEnvironments(
+  existing: Pick<
+    ConstantInterface,
+    "value" | "environmentValues" | "project" | "archived"
+  >,
+  updated: Pick<
+    ConstantInterface,
+    "value" | "environmentValues" | "project" | "archived"
+  >,
+): string[] | null {
+  if (
+    !isEqual(existing.value, updated.value) ||
+    existing.project !== updated.project ||
+    !!existing.archived !== !!updated.archived
+  ) {
+    return null;
+  }
+  const before = existing.environmentValues ?? {};
+  const after = updated.environmentValues ?? {};
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
+    (env) => !isEqual(before[env], after[env]),
+  );
+}
+
+// `environments` limits it to where the value changed, when that's known.
 export async function resolvableValueChanged(
   baseContext: ReqContext | ApiReqContext,
   event: "updated" | "deleted" = "updated",
   model: "constant" | "config" = "constant",
   changedKey?: string,
-  onReach?: (reach: EventReach) => Promise<unknown>,
+  {
+    onReach,
+    environments = null,
+  }: {
+    onReach?: (reach: EventReach) => Promise<unknown>;
+    environments?: string[] | null;
+  } = {},
 ) {
   await refreshThenReport(
     baseContext.org,
-    () => refreshResolvablePayloads(baseContext, event, model, changedKey),
+    () =>
+      refreshResolvablePayloads(
+        baseContext,
+        event,
+        model,
+        changedKey,
+        environments,
+      ),
     onReach,
   );
 }
@@ -70,6 +111,7 @@ async function refreshResolvablePayloads(
   event: "updated" | "deleted",
   model: "constant" | "config",
   changedKey: string | undefined,
+  changedEnvironments: string[] | null,
 ): Promise<EventReach | null> {
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
   // Carry the bulk publisher's refresh buffer across the context boundary so a
@@ -82,7 +124,9 @@ async function refreshResolvablePayloads(
       model,
       changedKey,
     );
-    const environments = getEnvironmentIdsFromOrg(context.org);
+    const environments = getEnvironmentIdsFromOrg(context.org).filter(
+      (e) => !changedEnvironments || changedEnvironments.includes(e),
+    );
     const payloadKeys = getAffectedSDKPayloadKeys(
       features,
       environments,

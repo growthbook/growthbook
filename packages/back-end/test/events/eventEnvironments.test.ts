@@ -134,17 +134,17 @@ describe("getChangedFeatureEnvironments", () => {
     ).toEqual([]);
   });
 
-  it("counts a tag change only when an SDK connection embeds tags", () => {
+  it("counts a tag change only where an SDK connection embeds tags", () => {
     const retagged = change((f) => (f.tags = ["payments", "beta"]));
     expect(getChangedFeatureEnvironments(baseFeature, retagged, envs)).toEqual(
       [],
     );
     expect(
-      getChangedFeatureEnvironments(baseFeature, retagged, envs, {
-        tags: true,
-        customFields: [],
-      }),
-    ).toEqual(envs);
+      getChangedFeatureEnvironments(baseFeature, retagged, envs, [
+        { environment: "dev", tags: true, customFields: [] },
+        { environment: "prod", tags: false, customFields: [] },
+      ]),
+    ).toEqual(["dev"]);
   });
 
   it("counts a custom field change only when that field is embedded", () => {
@@ -152,17 +152,15 @@ describe("getChangedFeatureEnvironments", () => {
       (f) => (f.customFields = { "datadog-service": ["checkout-web"] }),
     );
     expect(
-      getChangedFeatureEnvironments(baseFeature, updated, envs, {
-        tags: true,
-        customFields: ["owner-team"],
-      }),
+      getChangedFeatureEnvironments(baseFeature, updated, envs, [
+        { environment: "prod", tags: true, customFields: ["owner-team"] },
+      ]),
     ).toEqual([]);
     expect(
-      getChangedFeatureEnvironments(baseFeature, updated, envs, {
-        tags: false,
-        customFields: ["datadog-service"],
-      }),
-    ).toEqual(envs);
+      getChangedFeatureEnvironments(baseFeature, updated, envs, [
+        { environment: "prod", tags: false, customFields: ["datadog-service"] },
+      ]),
+    ).toEqual(["prod"]);
   });
 });
 

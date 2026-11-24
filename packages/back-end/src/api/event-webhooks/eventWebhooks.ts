@@ -114,6 +114,7 @@ export const postEventWebhook = createApiRequestHandler(
     method = "POST",
     headers = {},
     events = req.body.payloadType === "datadog" ? [ALL_EVENTS_WILDCARD] : [],
+    datadog,
     ...rest
   } = req.body;
   if (!events.length) {
@@ -133,6 +134,7 @@ export const postEventWebhook = createApiRequestHandler(
     method,
     headers,
     events,
+    ...(rest.payloadType === "datadog" ? { datadog } : {}),
   });
   return { eventWebhook: toApiEventWebhook(created, false) };
 });
@@ -142,7 +144,7 @@ export const putEventWebhook = createApiRequestHandler(
 )(async (req) => {
   const { id } = req.params;
   const existing = await getWebhook(req.context, id);
-  const { timeoutSeconds, ...updates } = req.body;
+  const { timeoutSeconds, datadog, ...updates } = req.body;
   if (!req.context.permissions.canUpdateEventWebhook(existing, updates)) {
     req.context.permissions.throwPermissionError();
   }
@@ -150,6 +152,8 @@ export const putEventWebhook = createApiRequestHandler(
     { eventWebHookId: id, organizationId: req.context.org.id },
     {
       ...updates,
+      // Settings left out keep their saved values.
+      ...(datadog ? { datadog: { ...existing.datadog, ...datadog } } : {}),
       // Unchanged values skip the cap check, so a since-lowered cap still round-trips
       ...(timeoutSeconds !== undefined &&
       timeoutSeconds !== (existing.timeoutSeconds ?? null)

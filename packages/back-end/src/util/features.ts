@@ -539,36 +539,39 @@ export function getContextualBanditVisualPayloadKeys(
   );
 }
 
-// Feature metadata some SDK connection embeds in its payload, so changing it
-// changes that payload.
+// Feature metadata SDK connections embed in their environment's payload, so
+// changing it changes that payload.
 export type EmbeddedFeatureMetadata = {
+  environment: string;
   tags: boolean;
   customFields: string[];
-};
+}[];
 
-export const NO_EMBEDDED_FEATURE_METADATA: EmbeddedFeatureMetadata = {
-  tags: false,
-  customFields: [],
-};
+export const NO_EMBEDDED_FEATURE_METADATA: EmbeddedFeatureMetadata = [];
 
-export function embeddedFeatureMetadataChanged(
+// The environments whose connections embed metadata the change edits.
+export function embeddedFeatureMetadataEnvironments(
   originalFeature: Pick<FeatureInterface, "tags" | "customFields">,
   updatedFeature: Pick<FeatureInterface, "tags" | "customFields">,
   embedded: EmbeddedFeatureMetadata,
-): boolean {
-  if (
-    embedded.tags &&
-    !isEqual(originalFeature.tags ?? [], updatedFeature.tags ?? [])
-  ) {
-    return true;
-  }
-  return embedded.customFields.some(
-    (fieldId) =>
-      !isEqual(
-        originalFeature.customFields?.[fieldId] ?? null,
-        updatedFeature.customFields?.[fieldId] ?? null,
-      ),
+): string[] {
+  const tagsChanged = !isEqual(
+    originalFeature.tags ?? [],
+    updatedFeature.tags ?? [],
   );
+  return embedded
+    .filter(
+      (connection) =>
+        (connection.tags && tagsChanged) ||
+        connection.customFields.some(
+          (fieldId) =>
+            !isEqual(
+              originalFeature.customFields?.[fieldId] ?? null,
+              updatedFeature.customFields?.[fieldId] ?? null,
+            ),
+        ),
+    )
+    .map((connection) => connection.environment);
 }
 
 // The environments whose SDK payload a feature change alters. Feature events
@@ -601,17 +604,19 @@ export function getChangedFeatureEnvironments(
     "prerequisites",
   ];
 
-  if (
+  const metadataEnvs = embeddedFeatureMetadataEnvironments(
+    originalFeature,
+    updatedFeature,
+    embedded,
+  );
+  getEnabledEnvironments(
+    [originalFeature, updatedFeature],
     allEnvKeys.some(
       (k) => !isEqual(originalFeature[k] ?? null, updatedFeature[k] ?? null),
-    ) ||
-    embeddedFeatureMetadataChanged(originalFeature, updatedFeature, embedded)
-  ) {
-    getEnabledEnvironments(
-      [originalFeature, updatedFeature],
-      allowedEnvs,
-    ).forEach((e) => environments.add(e));
-  }
+    )
+      ? allowedEnvs
+      : allowedEnvs.filter((e) => metadataEnvs.includes(e)),
+  ).forEach((e) => environments.add(e));
 
   // Diff rules by id; each changed rule invalidates only the envs in its
   // footprint (union of old and new). Skip envs disabled both before and

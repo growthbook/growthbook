@@ -205,16 +205,16 @@ Use **Send test** on the webhook's page to send a `growthbook-test` change. The 
 
 ### What Datadog receives
 
-| Datadog field             | From GrowthBook                                                                                                                            |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `title`                   | The Feature Flag key or experiment tracking key, what happened (such as the revision comment), and environments                            |
-| `changed_resource`        | `feature_flag` for Feature Flags and experiments; `configuration` for Saved Groups, Constants and Configs                                  |
-| `impacted_resources`      | The values of the custom field for Datadog services, up to 100                                                                             |
-| `author`                  | The user, the API key, or the automation (a ramp schedule)                                                                                 |
-| `prev_value`, `new_value` | Each environment's enabled state and a short summary of each rule. Saved Groups send their condition and member count, never their members |
-| `change_metadata`         | A link to the revision, its number and comment, the Project, tags, related entities, and approvers if you turn on **Include approvers**    |
+| Datadog field             | From GrowthBook                                                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `title`                   | The Feature Flag key or experiment tracking key, what happened (such as the revision comment), and environments                                                    |
+| `changed_resource`        | `feature_flag` for Feature Flags and experiments; `configuration` for Saved Groups, Constants and Configs                                                          |
+| `impacted_resources`      | The values of the custom field for Datadog services, up to 100                                                                                                     |
+| `author`                  | The user, the API key, or the automation (a ramp schedule)                                                                                                         |
+| `prev_value`, `new_value` | The default value, each environment's enabled state and a short summary of each rule. Saved Groups send their condition and member count, never their members      |
+| `change_metadata`         | A link to the revision, its number and comment, the Project, tags, up to 100 related entities with their total, and approvers if you turn on **Include approvers** |
 
-A ramp-up's steps share a grouping key, so they appear together. An event with no changed environment left after the webhook's filter is skipped, as are experiment results refreshes, which change nothing SDKs serve.
+Each change is tagged with the environments whose SDK payload it changes, as listed in [event webhook filtering](/app/webhooks/event-webhooks#projects-tags-and-environments-filtering); a deleted Feature Flag is tagged only where it was served. A ramp-up's steps share a grouping key, so they appear together. An event with no environment left after the webhook's filter is skipped, as are experiment results refreshes, which change nothing SDKs serve.
 
 ### Pair it with rollbacks
 

@@ -70919,14 +70919,14 @@ components:
             enabled:
               type: boolean
             scheduleRules:
-              type: array
-              items:
-                $ref: '#/components/schemas/ScheduleRule'
               description: >-
                 Deprecated: use [PUT
                 /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule](#operation/putFeatureRevisionRuleRampScheduleV2)
                 with no steps and a start or end date. Still accepted.
               deprecated: true
+              type: array
+              items:
+                $ref: '#/components/schemas/ScheduleRule'
             scheduleType:
               type: string
               enum:
@@ -71054,14 +71054,14 @@ components:
             enabled:
               type: boolean
             scheduleRules:
-              type: array
-              items:
-                $ref: '#/components/schemas/ScheduleRule'
               description: >-
                 Deprecated: use [PUT
                 /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule](#operation/putFeatureRevisionRuleRampScheduleV2)
                 with no steps and a start or end date. Still accepted.
               deprecated: true
+              type: array
+              items:
+                $ref: '#/components/schemas/ScheduleRule'
             scheduleType:
               type: string
               enum:
@@ -71196,14 +71196,14 @@ components:
             enabled:
               type: boolean
             scheduleRules:
-              type: array
-              items:
-                $ref: '#/components/schemas/ScheduleRule'
               description: >-
                 Deprecated: use [PUT
                 /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule](#operation/putFeatureRevisionRuleRampScheduleV2)
                 with no steps and a start or end date. Still accepted.
               deprecated: true
+              type: array
+              items:
+                $ref: '#/components/schemas/ScheduleRule'
             scheduleType:
               type: string
               enum:
@@ -71355,14 +71355,14 @@ components:
             enabled:
               type: boolean
             scheduleRules:
-              type: array
-              items:
-                $ref: '#/components/schemas/ScheduleRule'
               description: >-
                 Deprecated: use [PUT
                 /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule](#operation/putFeatureRevisionRuleRampScheduleV2)
                 with no steps and a start or end date. Still accepted.
               deprecated: true
+              type: array
+              items:
+                $ref: '#/components/schemas/ScheduleRule'
             scheduleType:
               type: string
               enum:
@@ -71487,14 +71487,14 @@ components:
             enabled:
               type: boolean
             scheduleRules:
-              type: array
-              items:
-                $ref: '#/components/schemas/ScheduleRule'
               description: >-
                 Deprecated: use [PUT
                 /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule](#operation/putFeatureRevisionRuleRampScheduleV2)
                 with no steps and a start or end date. Still accepted.
               deprecated: true
+              type: array
+              items:
+                $ref: '#/components/schemas/ScheduleRule'
             scheduleType:
               type: string
               enum:
@@ -71613,14 +71613,14 @@ components:
             enabled:
               type: boolean
             scheduleRules:
-              type: array
-              items:
-                $ref: '#/components/schemas/ScheduleRule'
               description: >-
                 Deprecated: use [PUT
                 /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule](#operation/putFeatureRevisionRuleRampScheduleV2)
                 with no steps and a start or end date. Still accepted.
               deprecated: true
+              type: array
+              items:
+                $ref: '#/components/schemas/ScheduleRule'
             scheduleType:
               type: string
               enum:
@@ -73199,14 +73199,14 @@ components:
         enabled:
           type: boolean
         scheduleRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleRule'
           description: >-
             Deprecated: use [PUT
             /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule](#operation/putFeatureRevisionRuleRampScheduleV2)
             with no steps and a start or end date. Still accepted.
           deprecated: true
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
         scheduleType:
           type: string
           enum:

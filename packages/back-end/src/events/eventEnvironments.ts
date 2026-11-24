@@ -15,7 +15,8 @@ import {
 //
 // - Live-state events (`feature.updated`, …): the environments whose
 //   effective configuration actually changed in the before/after transition.
-//   Feature-wide keys (defaultValue, prerequisites, …) affect every env.
+//   Feature-wide keys (defaultValue, prerequisites, …) affect every env the
+//   feature is enabled in.
 // - Draft lifecycle events (`feature.revision.*`): the environments the
 //   revision's proposed changes would affect — the union of its rule scopes,
 //   resolved at dispatch time (`allEnvironments: true` expanded against the
@@ -30,7 +31,8 @@ import {
 //   must not try (see handlers/utils.ts).
 //
 // All producers must derive the routing field through the helpers in this
-// module so the semantics can't fork per event family again.
+// module, or `getChangedFeatureEnvironments` for feature updates, so the
+// semantics can't fork per event family again.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**

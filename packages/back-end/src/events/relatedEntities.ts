@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "async_hooks";
 import isEqual from "lodash/isEqual";
 import { EventRelatedEntity } from "shared/validators";
 import { ruleFootprint } from "shared/util";
@@ -5,6 +6,20 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { OrganizationInterface } from "shared/types/organization";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+
+// What caused the writes running inside, such as a ramp step, for their events.
+const causes = new AsyncLocalStorage<EventRelatedEntity[]>();
+
+export function runWithRelatedEntities<T>(
+  entities: EventRelatedEntity[],
+  run: () => Promise<T>,
+): Promise<T> {
+  return causes.run(entities, run);
+}
+
+export function currentRelatedEntities(): EventRelatedEntity[] {
+  return causes.getStore() ?? [];
+}
 
 type ExperimentRefRule = Extract<FeatureRule, { type: "experiment-ref" }>;
 
@@ -115,6 +130,30 @@ export function getExperimentFlagEntities(
     ),
     allowedEnvs,
   );
+}
+
+// Visual changes and URL redirects are served in every environment; otherwise
+// an experiment reaches where its linked flags run it.
+export function getExperimentReach(
+  experimentId: string,
+  servedEverywhere: boolean,
+  linkedFeatures: FeatureInterface[],
+  allowedEnvs: string[],
+): EventReach {
+  const relatedEntities = getExperimentFlagEntities(
+    experimentId,
+    linkedFeatures,
+    allowedEnvs,
+  );
+  const envs = new Set(
+    relatedEntities.flatMap((e) => ("environments" in e ? e.environments : [])),
+  );
+  return {
+    environments: servedEverywhere
+      ? allowedEnvs
+      : allowedEnvs.filter((e) => envs.has(e)),
+    relatedEntities,
+  };
 }
 
 export function getDependentEntities(

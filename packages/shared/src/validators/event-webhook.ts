@@ -35,7 +35,6 @@ export const datadogEventWebHookEvents = [
   "feature.deleted",
   "experiment.updated",
   "savedGroup.updated",
-  "savedGroup.deleted",
   "constant.updated",
   "constant.deleted",
   "config.updated",

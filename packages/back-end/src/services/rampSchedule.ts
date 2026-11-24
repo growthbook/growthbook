@@ -47,6 +47,7 @@ import {
   resolveAnalysisIdentifierType,
 } from "shared/util";
 import uniqid from "uniqid";
+import { runWithRelatedEntities } from "back-end/src/events/relatedEntities";
 import {
   getEnvironmentIdsFromOrg,
   getEnvironments,
@@ -1800,16 +1801,17 @@ async function executeStepActions(
 
   for (const [, group] of byEntity) {
     const handler = getEntityHandler(group.entityType);
-    ctx.eventRelatedEntities = [rampEntity];
     try {
-      await handler.applyActions(ctx, group.entityId, group.actions, {
-        stepLabel,
-        comment,
-        user,
-        environment: group.environment,
-        judgeTargeting: opts.judgeTargeting,
-        notes,
-      });
+      await runWithRelatedEntities([rampEntity], () =>
+        handler.applyActions(ctx, group.entityId, group.actions, {
+          stepLabel,
+          comment,
+          user,
+          environment: group.environment,
+          judgeTargeting: opts.judgeTargeting,
+          notes,
+        }),
+      );
     } catch (e) {
       if ((e as Error).message?.startsWith("Feature not found:")) {
         // The linked feature was deleted while the ramp was running. Skip this
@@ -1828,8 +1830,6 @@ async function executeStepActions(
         continue;
       }
       throw e;
-    } finally {
-      ctx.eventRelatedEntities = null;
     }
   }
   return notes;

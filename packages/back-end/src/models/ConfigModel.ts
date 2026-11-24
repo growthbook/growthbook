@@ -423,13 +423,9 @@ export class ConfigModel extends BaseClass {
       updates.archived !== undefined
     ) {
       // The event waits for the refresh scan, which finds what the change reaches.
-      resolvableValueChanged(
-        this.context,
-        "updated",
-        "config",
-        newDoc.key,
-        emit,
-      ).catch((e) => {
+      resolvableValueChanged(this.context, "updated", "config", newDoc.key, {
+        onReach: emit,
+      }).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on config update",
@@ -458,13 +454,9 @@ export class ConfigModel extends BaseClass {
       );
     }
     const deleted = this.toApiInterface(doc);
-    resolvableValueChanged(
-      this.context,
-      "deleted",
-      "config",
-      doc.key,
-      (reach) => logConfigDeletedEvent(this.context, deleted, reach),
-    ).catch((e) => {
+    resolvableValueChanged(this.context, "deleted", "config", doc.key, {
+      onReach: (reach) => logConfigDeletedEvent(this.context, deleted, reach),
+    }).catch((e) => {
       this.context.logger.error(
         e,
         "Error refreshing SDK Payload on config delete",

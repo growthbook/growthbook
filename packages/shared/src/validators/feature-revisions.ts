@@ -20,6 +20,7 @@ import {
   revisionStatusFilterSchema,
   featureRule,
   FEATURE_V1_DEPRECATED,
+  deprecatedScheduleRules,
   scheduleRulesDeprecation,
 } from "./features";
 import { ownerInputField } from "./owner-field";
@@ -402,11 +403,7 @@ const commonRuleFields = {
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
-  scheduleRules: z
-    .array(scheduleRuleInput)
-    .optional()
-    .describe(scheduleRulesDeprecation)
-    .meta({ deprecated: true }),
+  scheduleRules: deprecatedScheduleRules(scheduleRuleInput),
   scheduleType: z.enum(["none", "schedule", "ramp"]).optional(),
 };
 

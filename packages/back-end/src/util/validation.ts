@@ -24,18 +24,18 @@ export const MAX_IDS_QUERY_LENGTH = 500;
  */
 export function parseIdsQuery(
   ids: unknown,
-  { max = Infinity }: { max?: number } = {},
+  { max = Infinity, name = "ids" }: { max?: number; name?: string } = {},
 ): string[] | undefined {
   if (ids === undefined || ids === "") return undefined;
   if (typeof ids !== "string") {
-    throw new BadRequestError("ids must be a comma-separated string");
+    throw new BadRequestError(`${name} must be a comma-separated string`);
   }
   const list = ids
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);
   if (list.length > max) {
-    throw new BadRequestError(`ids cannot contain more than ${max} values`);
+    throw new BadRequestError(`${name} cannot contain more than ${max} values`);
   }
   return list;
 }

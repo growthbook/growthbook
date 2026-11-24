@@ -11,14 +11,12 @@ import { deliverSlackNotification } from "back-end/src/services/slack/deliverSla
 export async function getEventWebhookPayload({
   event,
   payloadType,
-  context,
-  eventWebHook,
 }: {
   event: EventInterface;
-  payloadType: Exclude<EventWebHookInterface["payloadType"], "slack">;
-  // Datadog reads the webhook's settings and related entities' services.
-  context?: Context;
-  eventWebHook?: Pick<EventWebHookInterface, "environments" | "datadog">;
+  payloadType: Exclude<
+    EventWebHookInterface["payloadType"],
+    "slack" | "datadog"
+  >;
 }): Promise<Record<string, unknown> | null> {
   switch (payloadType) {
     case "json":
@@ -30,9 +28,6 @@ export async function getEventWebhookPayload({
         : event.data;
     case "discord":
       return getDiscordNotificationPayload(event);
-    case "datadog":
-      if (!context || !eventWebHook) throw new Error("Internal error");
-      return getDatadogNotificationPayload({ context, event, eventWebHook });
     default: {
       const invalidPayloadType: never = payloadType;
       throw new Error(`Invalid payload type: ${invalidPayloadType}`);
@@ -58,12 +53,11 @@ export async function deliverEventNotification({
     return deliverSlackNotification({ context, event, eventWebHook });
   }
 
-  const payload = await getEventWebhookPayload({
-    event,
-    payloadType,
-    context,
-    eventWebHook,
-  });
+  // Datadog reads the webhook's settings and related entities' services.
+  const payload =
+    payloadType === "datadog"
+      ? await getDatadogNotificationPayload({ context, event, eventWebHook })
+      : await getEventWebhookPayload({ event, payloadType });
   if (!payload) return null;
 
   const applySecrets =

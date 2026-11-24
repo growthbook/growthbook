@@ -142,7 +142,10 @@ import {
   getChangedFeatureEnvironments,
 } from "back-end/src/util/features";
 import { getEmbeddedFeatureMetadata } from "back-end/src/models/SdkConnectionModel";
-import { getChangedExperimentEntities } from "back-end/src/events/relatedEntities";
+import {
+  currentRelatedEntities,
+  getChangedExperimentEntities,
+} from "back-end/src/events/relatedEntities";
 import {
   assertHoldoutAvailableForProject,
   getHoldoutAvailableForProject,
@@ -1601,7 +1604,13 @@ async function getEmbeddedMetadataForChange(
   ) {
     return NO_EMBEDDED_FEATURE_METADATA;
   }
-  return getEmbeddedFeatureMetadata(context);
+  try {
+    return await getEmbeddedFeatureMetadata(context);
+  } catch (e) {
+    // The refresh and event still go out for everything but the metadata.
+    context.logger.warn(e, "Could not read the SDK connections' metadata");
+    return NO_EMBEDDED_FEATURE_METADATA;
+  }
 }
 
 export async function onFeatureUpdate(
@@ -1614,7 +1623,7 @@ export async function onFeatureUpdate(
   // `getAllProjectIds` resolves, the next landing in a bulk publish may have
   // opened its own buffer — reading the context then misattributes this write.
   const buffer = captureEventBuffer(context);
-  const relatedEntities = context.eventRelatedEntities ?? [];
+  const relatedEntities = currentRelatedEntities();
   const allProjectIds = await context.getAllProjectIds();
   const embedded = await getEmbeddedMetadataForChange(
     context,
