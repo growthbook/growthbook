@@ -1288,6 +1288,24 @@ export async function getFlagsMissingNewVariations(
   return missing;
 }
 
+// For writes that change variations without setting flag values alongside.
+export async function assertNoFlagsMissingNewVariations(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  variationIds: string[],
+): Promise<void> {
+  const missing = await getFlagsMissingNewVariations(
+    context,
+    experiment,
+    variationIds,
+  );
+  if (missing.length) {
+    throw new BadRequestError(
+      `Linked Feature Flags have no value for the new variations: ${missing.join(", ")}. Add variations from the experiment page in GrowthBook, which sets each Feature Flag's values in the same save.`,
+    );
+  }
+}
+
 // Guarded, and retried from a fresh read, so an edit landing in between is
 // kept; a draft published or discarded meanwhile is never written.
 async function updateDraftRules(

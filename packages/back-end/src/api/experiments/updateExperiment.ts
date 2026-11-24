@@ -84,6 +84,7 @@ import {
   requireConfirmation,
   unarchiveActions,
 } from "back-end/src/services/confirmations";
+import { assertNoFlagsMissingNewVariations } from "back-end/src/services/experiment-feature";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -545,6 +546,13 @@ export const updateExperiment = createApiRequestHandler(
   ) {
     throw new BadRequestError(
       "Adding or removing a variation needs a traffic split with one weight per variation. Send `phases` with `variationWeights` for the latest phase.",
+    );
+  }
+  if (changes.variations) {
+    await assertNoFlagsMissingNewVariations(
+      req.context,
+      experiment,
+      changes.variations.map((v) => v.id),
     );
   }
 
