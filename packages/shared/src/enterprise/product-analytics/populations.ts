@@ -26,7 +26,8 @@ export function configHasPopulation(config: ExplorationConfig | null): boolean {
 }
 
 // Metric types that can be combined with a population. Types not listed here
-// are rejected.
+// are rejected. A type added here also needs its Show as mode in
+// `POPULATION_SHOW_AS_OPTIONS_BY_METRIC_TYPE` (utils/show-as.ts).
 const POPULATION_METRIC_TYPES = new Set<FactMetricType>(["proportion", "mean"]);
 
 /** Why a metric can't be combined with any Population. */
