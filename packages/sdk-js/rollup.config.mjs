@@ -75,7 +75,8 @@ function wrapper({ auto = false, features = [], output }) {
 
 export default [
   {
-    input: "src/index.ts",
+    // Not src/index.ts: these keep the pre-3.0 behavior. See src/bundle.ts.
+    input: "src/bundle.ts",
     external: () => false,
     output: [
       {
