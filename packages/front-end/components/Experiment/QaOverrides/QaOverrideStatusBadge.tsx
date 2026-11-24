@@ -1,18 +1,22 @@
 import { Flex } from "@radix-ui/themes";
-import { PiWarningBold } from "react-icons/pi";
 import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-override";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
-import { QaOverrideWaitingPopoverContent } from "./QaOverrideWaitingMessages";
+import { RadixStatusIcon } from "@/ui/HelperText";
+import { QaOverrideProblemsPopoverContent } from "./QaOverrideWaitingMessages";
 import styles from "./QaOverrides.module.scss";
 
 export default function QaOverrideStatusBadge({
   override,
+  onEdit,
 }: {
   override: Pick<
     ExperimentQaOverrideWithStatus,
-    "status" | "waitingOn" | "environment"
+    "status" | "waitingOn" | "invalidReasons" | "environment"
   >;
+  // Offered for problems only an edit can fix. Omit when the user can't edit.
+  onEdit?: () => void;
 }) {
   if (override.status === "active") {
     return <Badge label="Active" color="green" variant="soft" />;
@@ -24,24 +28,22 @@ export default function QaOverrideStatusBadge({
       align="start"
       contentStyle={{ padding: 0 }}
       trigger={
-        <span tabIndex={0} className={styles.help}>
+        // A real button, so Enter and Space open it from the keyboard.
+        <Link color="inherit" underline="none" className={styles.help}>
           <Badge
             color="amber"
             variant="soft"
             label={
               <Flex align="center" gap="1" style={{ whiteSpace: "nowrap" }}>
-                <PiWarningBold size={12} style={{ flexShrink: 0 }} />
+                <RadixStatusIcon status="warning" size="sm" />
                 <span className={styles.dotted}>Not applied</span>
               </Flex>
             }
           />
-        </span>
+        </Link>
       }
       content={
-        <QaOverrideWaitingPopoverContent
-          waitingOn={override.waitingOn}
-          environment={override.environment}
-        />
+        <QaOverrideProblemsPopoverContent override={override} onEdit={onEdit} />
       }
     />
   );

@@ -14,6 +14,7 @@ import ConditionDisplay, {
   operatorToText,
 } from "@/components/Features/ConditionDisplay";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import styles from "./QaOverrides.module.scss";
 
@@ -93,14 +94,16 @@ export default function QaOverrideAudience({
                 side="top"
                 align="start"
                 trigger={
-                  <span
-                    tabIndex={0}
+                  // A real button, so the keyboard can open it.
+                  <Link
+                    color="inherit"
+                    underline="none"
                     className={clsx(styles.help, styles.dotted)}
                   >
                     <Text size={size} color="text-mid">
                       {part.text}
                     </Text>
-                  </span>
+                  </Link>
                 }
                 content={
                   <Flex direction="column" style={{ maxWidth: 420 }}>

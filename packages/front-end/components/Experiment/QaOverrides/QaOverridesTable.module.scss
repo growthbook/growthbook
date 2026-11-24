@@ -53,6 +53,13 @@
   opacity: 1;
 }
 
+// Touch screens have no hover, so the actions would never show.
+@media (hover: none) {
+  .actions {
+    opacity: 1;
+  }
+}
+
 .groupHeader {
   background: var(--gray-a2);
 }

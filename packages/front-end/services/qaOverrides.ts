@@ -4,7 +4,11 @@ import {
   QaOverrideFilters,
 } from "shared/types/experiment-qa-override";
 import { SavedGroupTargeting } from "shared/validators";
-import { qaOverrideHasCondition, sortQaOverrides } from "shared/util";
+import {
+  qaOverrideHasCondition,
+  qaOverrideHasOwnTargeting,
+  sortQaOverrides,
+} from "shared/util";
 import groupBy from "lodash/groupBy";
 import { jsonToConds } from "@/services/features";
 
@@ -245,7 +249,28 @@ export type QaOverrideFormValues = {
   projects: string[];
   assignmentType: ExperimentQaOverrideAssignment["type"] | "";
   forcedVariationId: string;
+  // Random assignment only: serve the experiment's own targeting, or replace
+  // it with the attribute and Saved Group filters above.
+  targetingMode: QaOverrideTargetingMode;
 };
+
+export type QaOverrideTargetingMode = "experiment" | "custom";
+
+// Attribute and Saved Group filters say who sees the override. The others
+// say which SDK Connections receive it.
+export const QA_OVERRIDE_TARGETING_KINDS: QaOverrideFilterKind[] = [
+  "condition",
+  "savedGroups",
+];
+
+// A forced variation always uses the override's own targeting.
+export function qaOverrideFormUsesOwnTargeting(
+  values: Pick<QaOverrideFormValues, "assignmentType" | "targetingMode">,
+): boolean {
+  return (
+    values.assignmentType !== "random" || values.targetingMode === "custom"
+  );
+}
 
 export function activeQaOverrideFilters(
   filters?: QaOverrideFilters,
@@ -265,7 +290,14 @@ export function qaOverrideFormDefaults(
     "environment" | "filters" | "assignment"
   >,
   defaultEnvironment = "",
+  // When given, a forced variation that is no longer one of these starts
+  // empty, so it has to be picked again.
+  variationIds?: string[],
 ): QaOverrideFormValues {
+  const forcedVariationId =
+    existing?.assignment.type === "forced"
+      ? existing.assignment.variationId
+      : "";
   return {
     environment: existing?.environment ?? defaultEnvironment,
     filters: activeQaOverrideFilters(existing?.filters),
@@ -275,9 +307,13 @@ export function qaOverrideFormDefaults(
     projects: existing?.filters.projects ?? [],
     assignmentType: existing?.assignment.type ?? "",
     forcedVariationId:
-      existing?.assignment.type === "forced"
-        ? existing.assignment.variationId
+      !variationIds || variationIds.includes(forcedVariationId)
+        ? forcedVariationId
         : "",
+    targetingMode:
+      existing && qaOverrideHasOwnTargeting(existing.filters)
+        ? "custom"
+        : "experiment",
   };
 }
 
@@ -325,8 +361,11 @@ export function qaOverrideFilterIsComplete(
 export function qaOverrideFiltersFromForm(
   values: QaOverrideFormValues,
 ): QaOverrideFilters {
+  const ownTargeting = qaOverrideFormUsesOwnTargeting(values);
   const done = (kind: QaOverrideFilterKind) =>
-    values.filters.includes(kind) && qaOverrideFilterIsComplete(values, kind);
+    values.filters.includes(kind) &&
+    (ownTargeting || !QA_OVERRIDE_TARGETING_KINDS.includes(kind)) &&
+    qaOverrideFilterIsComplete(values, kind);
   return {
     ...(done("condition") ? { condition: values.condition } : {}),
     ...(done("savedGroups") ? { savedGroups: values.savedGroups } : {}),
@@ -344,9 +383,20 @@ export function isQaOverrideFormComplete(
   if (values.assignmentType === "") return false;
   if (values.assignmentType === "forced" && !values.forcedVariationId)
     return false;
-  return values.filters.every((kind) =>
-    qaOverrideFilterIsComplete(values, kind),
+  const ownTargeting = qaOverrideFormUsesOwnTargeting(values);
+  // Targeting filters left over from custom mode aren't saved, so they
+  // can't hold the form up.
+  const used = values.filters.filter(
+    (kind) => ownTargeting || !QA_OVERRIDE_TARGETING_KINDS.includes(kind),
   );
+  if (!used.every((kind) => qaOverrideFilterIsComplete(values, kind))) {
+    return false;
+  }
+  // Custom targeting with nothing in it would silently mean "everyone".
+  if (values.assignmentType === "random" && values.targetingMode === "custom") {
+    return used.some((kind) => QA_OVERRIDE_TARGETING_KINDS.includes(kind));
+  }
+  return true;
 }
 
 export type QaOverrideBody = {

@@ -14,6 +14,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-override";
+import { qaOverrideHasOwnTargeting } from "shared/util";
 import { QaOverrideGroup, QaOverrideNameLookups } from "@/services/qaOverrides";
 import useSortableItem from "@/hooks/useSortableItem";
 import FunnelStepDragHandle from "@/components/FactTables/FunnelStepDragHandle";
@@ -67,8 +68,8 @@ function VariationCell({ row }: { row: QaOverrideRow }) {
   );
   if (index < 0)
     return (
-      <Text size="inherit" color="text-low">
-        Unknown variation
+      <Text size="inherit" color="text-mid" fontStyle="italic">
+        Deleted variation
       </Text>
     );
   return (
@@ -106,6 +107,22 @@ function RowCells({
   | "removeConfirmation"
 >) {
   const editable = canEdit(row);
+  const { override } = row;
+  // A deleted connection has no name left to show.
+  const deleted = new Set(
+    override.staleSdkConnections
+      .filter((c) => c.reason === "deleted")
+      .map((c) => c.id),
+  );
+  const rowLookups = deleted.size
+    ? {
+        ...lookups,
+        sdkConnectionName: (id: string) =>
+          deleted.has(id)
+            ? "Deleted SDK Connection"
+            : lookups.sdkConnectionName(id),
+      }
+    : lookups;
   return (
     <>
       {handle !== null && <TableCell>{handle}</TableCell>}
@@ -127,15 +144,22 @@ function RowCells({
           variant="inline"
           filters={row.override.filters}
           environment={row.override.environment}
-          usesExperimentTargeting={row.override.assignment.type === "random"}
-          lookups={lookups}
+          // An override with targeting of its own replaces the experiment's.
+          usesExperimentTargeting={
+            override.assignment.type === "random" &&
+            !qaOverrideHasOwnTargeting(override.filters)
+          }
+          lookups={rowLookups}
         />
       </TableCell>
       <TableCell>
         <VariationCell row={row} />
       </TableCell>
       <TableCell>
-        <QaOverrideStatusBadge override={row.override} />
+        <QaOverrideStatusBadge
+          override={override}
+          onEdit={editable ? () => onEdit(row) : undefined}
+        />
       </TableCell>
       {showActions && (
         <TableCell>

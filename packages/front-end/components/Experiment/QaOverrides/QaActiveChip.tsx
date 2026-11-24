@@ -1,11 +1,10 @@
-import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import useExperimentQaOverrides from "@/hooks/useExperimentQaOverrides";
 import { groupQaOverrides } from "@/services/qaOverrides";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
 import useQaOverridePermissions from "./useQaOverridePermissions";
-import styles from "./QaOverrides.module.scss";
 import { qaOverridesCountLabel } from "./QaOverridesStartNote";
 
 export const QA_OVERRIDES_SECTION_ID = "qa-overrides";
@@ -35,14 +34,14 @@ export default function QaActiveChip({
     <Tooltip
       content={`${qaOverridesCountLabel(overrides.length)}: ${perEnvironment}`}
     >
-      <button
-        type="button"
+      <Link
+        color="inherit"
+        underline="none"
         onClick={onClick}
         aria-label="QA active. Go to QA Overrides"
-        className={clsx(styles.plainButton, styles.pill)}
       >
         <Badge label="QA active" color="gray" variant="soft" radius="full" />
-      </button>
+      </Link>
     </Tooltip>
   );
 }

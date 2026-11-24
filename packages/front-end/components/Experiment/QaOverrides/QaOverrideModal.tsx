@@ -5,16 +5,20 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
+import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-override";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { date } from "shared/dates";
-import { isProductionEnvironment } from "shared/util";
+import {
+  isProductionEnvironment,
+  qaOverrideHasOwnTargeting,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import {
   QaOverrideFilterKind,
+  QaOverrideTargetingMode,
   qaOverrideFiltersFromForm,
 } from "@/services/qaOverrides";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -26,13 +30,14 @@ import Link from "@/ui/Link";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
 import VariationLabel from "@/ui/VariationLabel";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import QaOverrideAudience, {
   useQaOverrideNameLookups,
 } from "./QaOverrideAudience";
-import QaOverrideExperimentCard from "./QaOverrideExperimentCard";
+import QaOverrideExperimentTargeting from "./QaOverrideExperimentTargeting";
 import { QaOverrideWaitingBanner } from "./QaOverrideWaitingMessages";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 import useQaOverrideForm, {
@@ -42,14 +47,27 @@ import useQaOverrideForm, {
 const WHERE_FILTERS: QaOverrideFilterKind[] = ["sdkConnections", "projects"];
 const WHO_FILTERS = ["condition", "savedGroups"] as const;
 const WHO_LINK_LABELS: Record<(typeof WHO_FILTERS)[number], string> = {
-  condition: "Attribute targeting",
-  savedGroups: "Saved Group targeting",
+  condition: "Target by attribute",
+  savedGroups: "Target by Saved Group",
 };
 
 export type QaOverrideModalExperiment = Pick<
   ExperimentInterfaceStringDates,
-  "id" | "name" | "project" | "hashAttribute" | "variations" | "phases"
+  | "id"
+  | "name"
+  | "project"
+  | "hashAttribute"
+  | "variations"
+  | "phases"
+  | "hasVisualChangesets"
+  | "hasURLRedirects"
 >;
+
+const STALE_CONNECTION_LABELS = {
+  deleted: "deleted",
+  archived: "archived",
+  "other-environment": "in another environment",
+} as const;
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -63,12 +81,16 @@ export default function QaOverrideModal({
   experiment,
   linkedFeatures,
   existing,
+  sdkConnections,
   close,
   onSaved,
 }: {
   experiment: QaOverrideModalExperiment;
   linkedFeatures?: LinkedFeatureInfo[];
-  existing?: ExperimentQaOverrideInterface;
+  existing?: ExperimentQaOverrideWithStatus;
+  // Names for the connections `existing` lists, including ones that no
+  // longer serve its environment.
+  sdkConnections?: { id: string; name: string }[];
   close: () => void;
   onSaved: () => Promise<unknown> | void;
 }) {
@@ -76,7 +98,7 @@ export default function QaOverrideModal({
   const { getUserDisplay } = useUser();
   const { projects } = useDefinitions();
   const { data: connectionData } = useSDKConnections();
-  const lookups = useQaOverrideNameLookups();
+  const lookups = useQaOverrideNameLookups(sdkConnections);
   const [justAdded, setJustAdded] = useState<QaOverrideFilterKind | null>(null);
   const { environments, eligibleEnvironments, canEditIn } =
     useQaOverridePermissions(experiment);
@@ -106,16 +128,57 @@ export default function QaOverrideModal({
     existing,
     defaultEnvironment: editable.length === 1 ? editable[0].id : "",
     hashAttribute: experiment.hashAttribute || "id",
+    variationIds: variations.map((v) => v.id),
     linkedFeatures: linkedFeatures ?? [],
   });
 
-  const connectionOptions = useMemo(
+  // The forced variation was removed from the experiment since this override
+  // was saved. The select starts empty and one has to be picked.
+  const savedVariationId =
+    existing?.assignment.type === "forced"
+      ? existing.assignment.variationId
+      : undefined;
+  const variationDeleted =
+    savedVariationId !== undefined &&
+    !variations.some((v) => v.id === savedVariationId);
+
+  // Connections the override still lists but that no longer receive it. They
+  // stay in the field so they can be seen and removed.
+  const staleConnectionOptions = (existing?.staleSdkConnections ?? []).map(
+    (c) => ({
+      value: c.id,
+      label:
+        c.reason === "deleted"
+          ? "Deleted SDK Connection"
+          : `${lookups.sdkConnectionName(c.id)} (${STALE_CONNECTION_LABELS[c.reason]})`,
+    }),
+  );
+  const staleConnectionIds = new Set(
+    staleConnectionOptions.map((o) => o.value),
+  );
+
+  const liveConnectionOptions = useMemo(
     () =>
       (connectionData?.connections ?? [])
         .filter((c) => c.environment === values.environment)
         .map((c) => ({ value: c.id, label: c.name })),
     [connectionData, values.environment],
   );
+  const connectionOptions = [
+    ...liveConnectionOptions.filter((o) => !staleConnectionIds.has(o.value)),
+    ...staleConnectionOptions,
+  ];
+  const hasStaleConnection = values.sdkConnections.some((id) =>
+    staleConnectionIds.has(id),
+  );
+  // Visual Editor changes and URL Redirects are sent by the experiment's own
+  // Project, so a Projects filter only matters for Feature Flags.
+  const projectsNote =
+    experiment.hasVisualChangesets || experiment.hasURLRedirects
+      ? linkedFeatures?.length
+        ? "neutral"
+        : "warning"
+      : null;
   const projectOptions = useMemo(
     () => projects.map((p) => ({ value: p.id, label: p.name })),
     [projects],
@@ -163,11 +226,24 @@ export default function QaOverrideModal({
             }
             placeholder={
               field === "sdkConnections"
-                ? "Select SDK connections…"
-                : "Select projects…"
+                ? "Select SDK Connections…"
+                : "Select Projects…"
             }
             autoFocus={justAdded === kind}
           />
+          {field === "sdkConnections" && hasStaleConnection ? (
+            <HelperText status="warning" size="sm" mt="1">
+              An SDK Connection that was deleted, archived or moved no longer
+              receives this override.
+            </HelperText>
+          ) : null}
+          {field === "projects" && projectsNote ? (
+            <HelperText status={projectsNote} size="sm" mt="1">
+              Project filters only apply to Feature Flags. Visual changes and
+              redirects reach SDK Connections through the experiment&apos;s
+              Project.
+            </HelperText>
+          ) : null}
         </Box>
       );
     });
@@ -176,7 +252,51 @@ export default function QaOverrideModal({
   );
   const whoAvailable = WHO_FILTERS.filter((k) => !values.filters.includes(k));
 
-  const showEnvironment = testing || (forced && !!values.forcedVariationId);
+  // Adding opens one step at a time. Editing shows them all.
+  const showEnvironment =
+    !!existing || testing || (forced && !!values.forcedVariationId);
+
+  const audienceFilters = qaOverrideFiltersFromForm(values);
+  const targetingFields = (
+    <Flex direction="column" gap="5">
+      {values.filters.includes("condition") && (
+        <ConditionInput
+          slimMode
+          label="Attributes"
+          defaultValue={values.condition}
+          onChange={(v) => {
+            form.setValue("condition", v);
+            setFilterActive("condition", !!v && v !== "{}");
+          }}
+          project={experiment.project || ""}
+        />
+      )}
+      {values.filters.includes("savedGroups") && (
+        <SavedGroupTargetingField
+          slimMode
+          label="Saved Groups"
+          value={values.savedGroups}
+          setValue={(v) => {
+            form.setValue("savedGroups", v);
+            setFilterActive("savedGroups", v.length > 0);
+          }}
+          project={experiment.project || ""}
+        />
+      )}
+      {whoAvailable.length > 0 && (
+        <Flex gap="4">
+          {whoAvailable.map((kind) => (
+            <Link key={kind} onClick={() => addFilter(kind)}>
+              <Flex align="center" gap="1">
+                <PiPlus />
+                {WHO_LINK_LABELS[kind]}
+              </Flex>
+            </Link>
+          ))}
+        </Flex>
+      )}
+    </Flex>
+  );
   const showAudience = showEnvironment && !!values.environment;
 
   return (
@@ -192,7 +312,7 @@ export default function QaOverrideModal({
           </Text>
         ) : undefined
       }
-      cta={existing ? "Apply" : "Add Override"}
+      cta={existing ? "Apply" : "Add override"}
       ctaEnabled={canSave}
       size="md"
       aboveFooterContent={
@@ -233,13 +353,15 @@ export default function QaOverrideModal({
             options={[
               {
                 value: "forced",
-                label: "A specific variation",
-                description: "Overrides experiment targeting and traffic",
+                label: "Force a specific variation",
+                description:
+                  "Show one variation to people you choose. Ignores the experiment\u2019s targeting.",
               },
               {
                 value: "random",
                 label: "Experiment configuration",
-                description: "Uses its own targeting and split",
+                description:
+                  "Uses the experiment\u2019s split. Uses its targeting unless you add your own.",
               },
             ]}
           />
@@ -252,6 +374,11 @@ export default function QaOverrideModal({
               value={values.forcedVariationId || undefined}
               setValue={(v) => form.setValue("forcedVariationId", v)}
               placeholder="Select a variation…"
+              error={
+                variationDeleted && !values.forcedVariationId
+                  ? "The variation this override forced was deleted. Pick another."
+                  : undefined
+              }
             >
               {variations.map((v, i) => (
                 <SelectItem key={v.id} value={v.id} textValue={v.name}>
@@ -282,15 +409,7 @@ export default function QaOverrideModal({
               ) : (
                 <>
                   <Select
-                    aria-label="Environment"
-                    label={
-                      <Text as="label" size="md" weight="semibold">
-                        Environment{" "}
-                        <Text weight="regular" color="text-low">
-                          (non-production only)
-                        </Text>
-                      </Text>
-                    }
+                    label="Environment"
                     value={values.environment}
                     setValue={setEnvironment}
                     placeholder="Select an environment…"
@@ -305,6 +424,9 @@ export default function QaOverrideModal({
                       </SelectItem>
                     ))}
                   </Select>
+                  <Text as="div" size="sm" color="text-low">
+                    Non-production environments only.
+                  </Text>
                 </>
               )}
               {whereFields}
@@ -334,55 +456,63 @@ export default function QaOverrideModal({
           <Box pt="6">
             <Flex direction="column" gap="2">
               <SectionLabel>Who sees it?</SectionLabel>
-              <QaOverrideAudience
-                variant="sentence"
-                filters={qaOverrideFiltersFromForm(values)}
-                order={values.filters}
-                environment={values.environment}
-                usesExperimentTargeting={testing}
-                lookups={lookups}
-              />
-              <Flex direction="column" gap="5" mt="2">
-                {testing && (
-                  <QaOverrideExperimentCard experiment={experiment} />
-                )}
-                {values.filters.includes("condition") && (
-                  <ConditionInput
-                    slimMode
-                    label="Attributes"
-                    defaultValue={values.condition}
-                    onChange={(v) => {
-                      form.setValue("condition", v);
-                      setFilterActive("condition", !!v && v !== "{}");
-                    }}
-                    project={experiment.project || ""}
+              {forced ? (
+                <>
+                  <QaOverrideAudience
+                    variant="sentence"
+                    filters={audienceFilters}
+                    order={values.filters}
+                    environment={values.environment}
+                    lookups={lookups}
                   />
-                )}
-                {values.filters.includes("savedGroups") && (
-                  <SavedGroupTargetingField
-                    slimMode
-                    label="Saved Groups"
-                    value={values.savedGroups}
-                    setValue={(v) => {
-                      form.setValue("savedGroups", v);
-                      setFilterActive("savedGroups", v.length > 0);
-                    }}
-                    project={experiment.project || ""}
-                  />
-                )}
-                {whoAvailable.length > 0 && (
-                  <Flex gap="4">
-                    {whoAvailable.map((kind) => (
-                      <Link key={kind} onClick={() => addFilter(kind)}>
-                        <Flex align="center" gap="1">
-                          <PiPlus />
-                          {WHO_LINK_LABELS[kind]}
-                        </Flex>
-                      </Link>
-                    ))}
-                  </Flex>
-                )}
-              </Flex>
+                  <Box mt="2">{targetingFields}</Box>
+                </>
+              ) : (
+                <RadioGroup
+                  gap="2"
+                  value={values.targetingMode}
+                  setValue={(v) =>
+                    form.setValue("targetingMode", v as QaOverrideTargetingMode)
+                  }
+                  options={[
+                    {
+                      value: "experiment",
+                      label: "Experiment\u2019s targeting",
+                      description: (
+                        <QaOverrideExperimentTargeting
+                          phase={
+                            experiment.phases[experiment.phases.length - 1]
+                          }
+                        />
+                      ),
+                    },
+                    {
+                      value: "custom",
+                      label: "Custom targeting",
+                      description:
+                        values.targetingMode === "custom" &&
+                        qaOverrideHasOwnTargeting(audienceFilters) ? (
+                          <QaOverrideAudience
+                            variant="sentence"
+                            filters={audienceFilters}
+                            order={values.filters}
+                            environment={values.environment}
+                            lookups={lookups}
+                          />
+                        ) : (
+                          "Replaces the experiment\u2019s targeting while testing"
+                        ),
+                      // The filter fields can't sit inside the radio's label.
+                      renderOutsideItem: true,
+                      renderOnSelect: (
+                        <Box ml="5" mt="2">
+                          {targetingFields}
+                        </Box>
+                      ),
+                    },
+                  ]}
+                />
+              )}
             </Flex>
           </Box>
         </Collapse>

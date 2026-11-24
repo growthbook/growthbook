@@ -15,39 +15,33 @@ import {
 
 export const QA_OVERRIDE_FILTER_META: Record<
   QaOverrideFilterKind,
-  { label: string; description: string }
+  { label: string }
 > = {
-  condition: {
-    label: "Attribute",
-    description: "Users with a specific id, email, country…",
-  },
-  savedGroups: {
-    label: "Saved Groups",
-    description: "Members of a saved group, like a QA team",
-  },
-  sdkConnections: {
-    label: "SDK Connections",
-    description: "Only requests from specific SDK connections",
-  },
-  projects: {
-    label: "Projects",
-    description: "Only SDK connections in specific projects",
-  },
+  condition: { label: "Attribute" },
+  savedGroups: { label: "Saved Groups" },
+  sdkConnections: { label: "SDK Connections" },
+  projects: { label: "Projects" },
 };
 
 export default function useQaOverrideForm({
   existing,
   defaultEnvironment,
   hashAttribute,
+  variationIds,
   linkedFeatures,
 }: {
   existing?: ExperimentQaOverrideInterface;
   defaultEnvironment: string;
   hashAttribute: string;
+  variationIds: string[];
   linkedFeatures: LinkedFeatureInfo[];
 }) {
   const form = useForm<QaOverrideFormValues>({
-    defaultValues: qaOverrideFormDefaults(existing, defaultEnvironment),
+    defaultValues: qaOverrideFormDefaults(
+      existing,
+      defaultEnvironment,
+      variationIds,
+    ),
   });
   const values = form.watch();
 

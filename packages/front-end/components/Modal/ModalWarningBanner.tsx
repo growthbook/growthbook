@@ -1,13 +1,8 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiInfoFill, PiWarningFill } from "react-icons/pi";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
-
-const STATUS_STYLES = {
-  warning: { color: "amber", Icon: PiWarningFill },
-  info: { color: "violet", Icon: PiInfoFill },
-} as const;
+import { getRadixColor, RadixStatusIcon } from "@/ui/HelperText";
 
 // Full-bleed strip for a Modal's `aboveFooterContent` slot: a message on the
 // left, optional controls (an action button, then the "Acknowledge" checkbox
@@ -20,7 +15,7 @@ export default function ModalWarningBanner({
   setAcknowledged,
 }: {
   children: ReactNode;
-  status?: keyof typeof STATUS_STYLES;
+  status?: "warning" | "info";
   controls?: ReactNode;
   // With both, an "Acknowledge" checkbox follows the controls.
   acknowledged?: boolean;
@@ -38,7 +33,8 @@ export default function ModalWarningBanner({
         />
       </Box>
     ) : null;
-  const { color, Icon } = STATUS_STYLES[status];
+  // The same colors and icons Callout and HelperText use for a status.
+  const color = getRadixColor(status);
   return (
     <Flex
       role="status"
@@ -55,7 +51,9 @@ export default function ModalWarningBanner({
       }}
     >
       <Flex align="center" gap="2" style={{ color: `var(--${color}-11)` }}>
-        <Icon size={15} style={{ flexShrink: 0 }} />
+        <Flex flexShrink="0">
+          <RadixStatusIcon status={status} size="md" />
+        </Flex>
         <Text as="div">{children}</Text>
       </Flex>
       {controls || acknowledge ? (

@@ -7,6 +7,7 @@ import {
 } from "shared/types/experiment";
 import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-override";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { experimentHasLinkedChanges } from "shared/util";
 import { useAuth } from "@/services/auth";
 import useExperimentQaOverrides from "@/hooks/useExperimentQaOverrides";
 import {
@@ -20,6 +21,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import QaOverrideModal from "./QaOverrideModal";
 import QaOverridesTable, { QaOverrideRow } from "./QaOverridesTable";
 import { useQaOverrideNameLookups } from "./QaOverrideAudience";
@@ -27,12 +29,12 @@ import { QA_OVERRIDES_SECTION_ID } from "./QaActiveChip";
 import useQaOverridePermissions from "./useQaOverridePermissions";
 
 const MATCH_TABLE_WIDTH = { contain: "inline-size" } as const;
-const SCROLL_TARGET = { scrollMarginTop: "100px" } as const;
+const SCROLL_TARGET = { scrollMarginTop: SCROLL_MARGIN_UNDER_TABS } as const;
 
 const ABOUT =
   "Serve this draft to yourself or your team in a non-production environment. " +
-  "Testers skip holdout, targeting and traffic. When several overrides match, " +
-  "the first one wins. Overrides are removed automatically when the experiment starts.";
+  "Testers get the first override they match and skip holdouts. " +
+  "Overrides are removed automatically when the experiment starts.";
 
 export default function QaOverridesSection({
   experiment,
@@ -97,7 +99,7 @@ export default function QaOverridesSection({
         },
       );
     } catch (e) {
-      setActionError(e.message);
+      setActionError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -131,17 +133,17 @@ export default function QaOverridesSection({
             </Text>
             {allProduction ? (
               <Link href="/environments" mt="2">
-                Manage Environments →
+                Manage environments →
               </Link>
             ) : canAdd ? (
               <Box mt="2">
                 <Button
                   variant="outline"
-                  icon={<PiPlusBold size={12} />}
-                  style={{ fontSize: 13, paddingInline: 14, gap: 6 }}
+                  size="sm"
+                  icon={<PiPlusBold />}
                   onClick={openCreate}
                 >
-                  Add Override
+                  Add override
                 </Button>
               </Box>
             ) : null}
@@ -158,16 +160,10 @@ export default function QaOverridesSection({
                 <Button
                   variant="outline"
                   size="sm"
-                  icon={<PiPlusBold size={12} />}
-                  style={{
-                    height: 30,
-                    fontSize: 13,
-                    paddingInline: 12,
-                    gap: 6,
-                  }}
+                  icon={<PiPlusBold />}
                   onClick={openCreate}
                 >
-                  Add Override
+                  Add override
                 </Button>
               )}
             </Flex>
@@ -180,12 +176,21 @@ export default function QaOverridesSection({
                 </Callout>
               </Box>
             )}
+            {!experimentHasLinkedChanges(experiment) && (
+              <Box px="4" pb="3">
+                <Callout status="info" size="sm">
+                  These overrides have nothing to serve yet. Add a Feature Flag,
+                  Visual Editor change or URL Redirect to this experiment.
+                </Callout>
+              </Box>
+            )}
             {overrides.length > 0 && (
               <QaOverridesTable
                 groups={groups}
                 grouped={grouped}
-                // Order only matters with a Feature Flag.
-                reorderable={grouped && !!linkedFeatures?.length}
+                // The first override a tester matches wins, for Feature
+                // Flags, Visual Editor changes and URL Redirects alike.
+                reorderable={grouped}
                 lookups={lookups}
                 canEdit={(row) => canEditIn(row.override.environment)}
                 onEdit={(row) =>
@@ -206,6 +211,7 @@ export default function QaOverridesSection({
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           existing={modal.mode === "edit" ? modal.override : undefined}
+          sdkConnections={data?.sdkConnections}
           close={() => setModal(null)}
           onSaved={async () => {
             await mutate();

@@ -271,12 +271,16 @@ function StartContent({
             {error}
           </Callout>
         ) : null}
-        <Flex justify="between" align="center" gap="3">
-          <Text size="sm" color="text-mid">
-            {qaOverrideCount > 0
-              ? `Deletes ${qaOverridesCountLabel(qaOverrideCount)}`
-              : ""}
-          </Text>
+        <Flex
+          justify={qaOverrideCount > 0 ? "between" : "end"}
+          align="center"
+          gap="3"
+        >
+          {qaOverrideCount > 0 ? (
+            <Text size="sm" color="text-mid">
+              Deletes {qaOverridesCountLabel(qaOverrideCount)}
+            </Text>
+          ) : null}
           <Tooltip content={blockedReason} enabled={!!blockedReason}>
             <Button
               onClick={async () => {

@@ -1,17 +1,3 @@
-.plainButton {
-  display: inline-flex;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-.pill {
-  border-radius: 9999px;
-}
-
 .help {
   display: inline-flex;
   cursor: help;
@@ -20,13 +6,6 @@
 .dotted {
   text-decoration: underline dotted;
   text-underline-offset: 3px;
-}
-
-.card {
-  background-color: var(--gray-a2);
-  border: 1px solid var(--gray-a3);
-  border-radius: var(--radius-3);
-  padding: 10px 12px 14px;
 }
 
 // The popover can't clip its own corners (that would cut off its hover
@@ -44,6 +23,13 @@
   padding: 10px 14px;
   background: var(--amber-a3);
   border-block: 1px solid var(--amber-a4);
+}
+
+.waitingIcon {
+  display: flex;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--amber-11);
 }
 
 .waitingBody {

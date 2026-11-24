@@ -228,7 +228,9 @@ describe("the who-sees-it summary", () => {
     expect(inline(cond({ $nor: [{ id: "1" }] }))).toBe("Custom condition");
   });
 
-  it("leads with the experiment's targeting in Test mode", () => {
+  // Only an override with no targeting of its own is shown this way; its
+  // SDK Connection and Project filters still narrow where it applies.
+  it("leads with the experiment's targeting when the override has none", () => {
     const test = { environment: "dev", usesExperimentTargeting: true };
     expect(sentence({}, test)).toBe(
       "Anyone matching the experiment’s targeting.",
@@ -236,14 +238,11 @@ describe("the who-sees-it summary", () => {
     expect(
       sentence(
         {
-          savedGroups: [{ match: "any", ids: ["g1"] }],
           sdkConnections: ["c1"],
         },
         test,
       ),
-    ).toBe(
-      "Anyone matching the experiment’s targeting AND QA team AND Local dev (React).",
-    );
+    ).toBe("Anyone matching the experiment’s targeting AND Local dev (React).");
   });
 });
 
@@ -275,6 +274,7 @@ describe("the add/edit form", () => {
       isQaOverrideFormComplete({
         ...v,
         assignmentType: "random",
+        targetingMode: "custom",
         filters: ["condition"],
         condition: JSON.stringify({ id: "" }),
       }),
@@ -283,6 +283,7 @@ describe("the add/edit form", () => {
       isQaOverrideFormComplete({
         ...v,
         assignmentType: "random",
+        targetingMode: "custom",
         filters: ["condition", "savedGroups"],
         condition: JSON.stringify({ id: "123" }),
         savedGroups: [{ match: "any", ids: [] }],
@@ -343,5 +344,86 @@ describe("the add/edit form", () => {
         assignment: existing.assignment,
       }),
     ).toBe(true);
+  });
+  it("starts in custom targeting only when the override has its own", () => {
+    const own = override({
+      id: "a",
+      filters: { condition: JSON.stringify({ id: "123" }) },
+      assignment: { type: "random" },
+    });
+    const none = override({
+      id: "b",
+      filters: { sdkConnections: ["c1"] },
+      assignment: { type: "random" },
+    });
+    expect(qaOverrideFormDefaults(own).targetingMode).toBe("custom");
+    expect(qaOverrideFormDefaults(none).targetingMode).toBe("experiment");
+    expect(qaOverrideFormDefaults(undefined, "dev").targetingMode).toBe(
+      "experiment",
+    );
+  });
+
+  it("saves no targeting when the experiment's targeting is used", () => {
+    const v = {
+      ...qaOverrideFormDefaults(undefined, "dev"),
+      assignmentType: "random" as const,
+      filters: ["condition" as const, "sdkConnections" as const],
+      condition: JSON.stringify({ id: "123" }),
+      sdkConnections: ["c1"],
+    };
+    expect(
+      buildQaOverrideBody({ ...v, targetingMode: "experiment" }).filters,
+    ).toEqual({ sdkConnections: ["c1"] });
+    expect(
+      buildQaOverrideBody({ ...v, targetingMode: "custom" }).filters,
+    ).toEqual({
+      condition: JSON.stringify({ id: "123" }),
+      sdkConnections: ["c1"],
+    });
+    // Unfinished targeting left over from custom mode doesn't block saving.
+    expect(
+      isQaOverrideFormComplete({
+        ...v,
+        targetingMode: "experiment",
+        condition: JSON.stringify({ id: "" }),
+      }),
+    ).toBe(true);
+  });
+
+  it("needs a targeting filter before custom targeting can be saved", () => {
+    const v = {
+      ...qaOverrideFormDefaults(undefined, "dev"),
+      assignmentType: "random" as const,
+      targetingMode: "custom" as const,
+    };
+    expect(isQaOverrideFormComplete(v)).toBe(false);
+    expect(
+      isQaOverrideFormComplete({
+        ...v,
+        filters: ["sdkConnections"],
+        sdkConnections: ["c1"],
+      }),
+    ).toBe(false);
+    expect(
+      isQaOverrideFormComplete({
+        ...v,
+        filters: ["savedGroups"],
+        savedGroups: [{ match: "any", ids: ["g1"] }],
+      }),
+    ).toBe(true);
+  });
+
+  it("empties a forced variation that is no longer in the experiment", () => {
+    const existing = override({
+      id: "a",
+      assignment: { type: "forced", variationId: "gone" },
+    });
+    expect(qaOverrideFormDefaults(existing, "", ["v0", "v1"])).toMatchObject({
+      assignmentType: "forced",
+      forcedVariationId: "",
+    });
+    expect(
+      qaOverrideFormDefaults(existing, "", ["gone"]).forcedVariationId,
+    ).toBe("gone");
   });
 });

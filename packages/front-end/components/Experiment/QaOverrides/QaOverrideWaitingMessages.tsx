@@ -1,8 +1,12 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiWarningBold } from "react-icons/pi";
-import { QaOverrideWaitingFeature } from "shared/types/experiment-qa-override";
+import {
+  ExperimentQaOverrideWithStatus,
+  QaOverrideInvalidReason,
+  QaOverrideWaitingFeature,
+} from "shared/types/experiment-qa-override";
 import Heading from "@/ui/Heading";
+import { RadixStatusIcon } from "@/ui/HelperText";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -27,8 +31,8 @@ function waitingCopy(
             {flag} is off in {environment}
           </>
         ),
-        description: `The override starts applying as soon as the flag is on in ${environment}.`,
-        action: "Turn on flag",
+        description: `The override starts applying as soon as the Feature Flag is on in ${environment}.`,
+        action: "Turn on Feature Flag",
       };
     case "disabled-rule":
       return {
@@ -52,14 +56,14 @@ function waitingCopy(
       return {
         title: <>{flag} has no rule for this experiment</>,
         description:
-          "The flag isn't using this experiment, so there's nothing to override.",
+          "The Feature Flag isn't using this experiment, so there's nothing to override.",
         action: "Add experiment rule",
       };
     case "archived":
       return {
         title: <>{flag} is archived</>,
-        description: "Archived flags aren't sent to SDKs.",
-        action: "Unarchive flag",
+        description: "Archived Feature Flags aren't sent to SDKs.",
+        action: "Unarchive Feature Flag",
       };
   }
 }
@@ -77,17 +81,17 @@ function waitingStatusText(
   environment: string,
 ): string {
   const plural = (one: string, many: string) => (count === 1 ? one : many);
-  const flag = plural("the feature flag is", "the feature flags are");
+  const flag = plural("the Feature Flag is", "the Feature Flags are");
   switch (reason) {
     case "draft":
-      return `QA will be available once the feature flag ${plural("draft is", "drafts are")} published.`;
+      return `QA will be available once the Feature Flag ${plural("draft is", "drafts are")} published.`;
     case "disabled-env":
       return `QA will be available once ${flag} turned on in ${environment}.`;
     case "disabled-rule":
       return `QA will be available once the experiment ${plural("rule is", "rules are")} enabled in ${environment}.`;
     case "discarded":
     case "missing":
-      return `QA will be available once ${plural("the feature flag uses", "the feature flags use")} this experiment.`;
+      return `QA will be available once ${plural("the Feature Flag uses", "the Feature Flags use")} this experiment.`;
     case "archived":
       return `QA will be available once ${flag} unarchived.`;
   }
@@ -118,42 +122,92 @@ export function QaOverrideWaitingBanner({
   );
 }
 
-export function QaOverrideWaitingPopoverContent({
-  waitingOn,
-  environment,
+// Problems only an edit can fix, as opposed to waiting on a Feature Flag.
+function invalidCopy(reason: QaOverrideInvalidReason): {
+  title: string;
+  description: string;
+} {
+  switch (reason) {
+    case "variation-removed":
+      return {
+        title: "The forced variation was deleted",
+        description:
+          "This override forces a variation that\u2019s no longer in the experiment. Pick another variation to use it again.",
+      };
+    case "no-matching-connection":
+      return {
+        title: "No SDK Connection to apply to",
+        description:
+          "The SDK Connections this override targets were deleted, archived or moved to another environment. Pick another SDK Connection, or remove the filter.",
+      };
+  }
+}
+
+type Problem = {
+  key: string;
+  title: ReactNode;
+  description: ReactNode;
+  action: ReactNode;
+};
+
+// One entry per reason the override isn't applied. Invalid reasons come first:
+// they need an edit, the others clear up once the Feature Flag is ready.
+export function QaOverrideProblemsPopoverContent({
+  override,
+  onEdit,
 }: {
-  waitingOn: QaOverrideWaitingFeature[];
-  environment: string;
+  override: Pick<
+    ExperimentQaOverrideWithStatus,
+    "waitingOn" | "invalidReasons" | "environment"
+  >;
+  onEdit?: () => void;
 }) {
+  const problems: Problem[] = [
+    ...override.invalidReasons.map((reason) => ({
+      key: reason,
+      ...invalidCopy(reason),
+      action: onEdit ? (
+        <Link onClick={onEdit} size="sm" weight="medium">
+          Edit override
+        </Link>
+      ) : null,
+    })),
+    ...override.waitingOn.map((w) => {
+      const copy = waitingCopy(w, override.environment);
+      return {
+        key: w.featureId,
+        title: copy.title,
+        description: copy.description,
+        action: (
+          <Link href={fixHref(w)} size="sm" weight="medium">
+            {copy.action}
+          </Link>
+        ),
+      };
+    }),
+  ];
   return (
     <Box className={styles.waitingPopover}>
-      {waitingOn.map((w) => {
-        const copy = waitingCopy(w, environment);
-        return (
-          <Box key={w.featureId}>
-            <Box className={styles.waitingHeader}>
-              <PiWarningBold
-                size={16}
-                color="var(--amber-11)"
-                style={{ flexShrink: 0, marginTop: 2 }}
-              />
-              <Heading as="h4" size="xs" mb="0">
-                {copy.title}
-              </Heading>
+      {problems.map((problem) => (
+        <Box key={problem.key}>
+          <Box className={styles.waitingHeader}>
+            <Box className={styles.waitingIcon}>
+              <RadixStatusIcon status="warning" size="md" />
             </Box>
-            <Box className={styles.waitingBody}>
-              <Text as="p" size="sm" color="text-mid" mb="0">
-                {copy.description}
-              </Text>
-              <Flex justify="end">
-                <Link href={fixHref(w)} size="sm" weight="medium">
-                  {copy.action}
-                </Link>
-              </Flex>
-            </Box>
+            <Heading as="h4" size="xs" mb="0">
+              {problem.title}
+            </Heading>
           </Box>
-        );
-      })}
+          <Box className={styles.waitingBody}>
+            <Text as="p" size="sm" color="text-mid" mb="0">
+              {problem.description}
+            </Text>
+            {problem.action ? (
+              <Flex justify="end">{problem.action}</Flex>
+            ) : null}
+          </Box>
+        </Box>
+      ))}
     </Box>
   );
 }
