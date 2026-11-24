@@ -13,6 +13,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ManagedWarehouseRecreates from "@/components/Admin/ManagedWarehouseRecreate";
+import AutoExperimentsBackfill from "@/components/Admin/AutoExperimentsBackfill";
 import { AdminMember, formatSuperAdmin } from "@/components/Admin/EditMember";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
@@ -608,6 +609,7 @@ export default function Admin() {
                 Managed Warehouses
               </TabsTrigger>
             )}
+            <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           </TabsList>
         </Box>
         {!isCloud() && (
@@ -630,6 +632,9 @@ export default function Admin() {
             />
           </TabsContent>
         )}
+        <TabsContent value="maintenance">
+          <AutoExperimentsBackfill canRun={superAdmin === true} />
+        </TabsContent>
       </Tabs>
     </Box>
   );

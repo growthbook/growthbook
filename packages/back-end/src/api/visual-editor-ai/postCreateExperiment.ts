@@ -17,6 +17,7 @@ import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
+import { assertAutoExperimentFeatureEnabled } from "back-end/src/services/autoExperiments";
 import { requireUserAuth } from "./requireUserAuth";
 
 const bodySchema = z
@@ -162,6 +163,10 @@ export const postCreateExperiment = createApiRequestHandler(validation)(async (
         }
       : {}),
   };
+
+  // Also checked when the changeset is written; here so a refusal doesn't
+  // leave an experiment behind.
+  assertAutoExperimentFeatureEnabled(context, "visualEditor");
 
   let experiment;
   try {
