@@ -61,12 +61,13 @@ import SavedGroupDraftSelectorForChanges, {
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 
 import useProjectOptions from "@/hooks/useProjectOptions";
+import { draftModeCta } from "@/components/DraftSelector";
 
 // The upload version is a form value so resolving a conflict can change it.
 type SavedGroupFormValues = CreateSavedGroupProps &
   Pick<UpdateSavedGroupProps, "currentUploadVersion">;
 
-const TYPE_LABELS: Record<SavedGroupType, string> = {
+export const SAVED_GROUP_TYPE_LABELS: Record<SavedGroupType, string> = {
   condition: "Condition Group",
   list: "ID List",
   remote: "Remote Group",
@@ -86,6 +87,7 @@ const SavedGroupForm: FC<{
   liveVersion?: SavedGroupInterface;
   editInfoOnly?: boolean;
   editConditionOnly?: boolean;
+  focusDescription?: boolean;
   /** Remote groups: switch to this upload version, and nothing else. */
   useUploadVersion?: number;
   autoBypassApproval?: boolean;
@@ -104,6 +106,7 @@ const SavedGroupForm: FC<{
   liveVersion,
   editInfoOnly = false,
   editConditionOnly = false,
+  focusDescription = false,
   useUploadVersion,
   autoBypassApproval = false,
   mutate,
@@ -175,6 +178,10 @@ const SavedGroupForm: FC<{
     if (isMetadataOnlyRevisionFlow) return "new";
     return draftSelectedId ? "existing" : "new";
   });
+  const cta = draftModeCta(draftMode, {
+    bypassesApproval: isApprovalFlowRequired && !autoBypassApproval,
+    publishLabel: editInfoOnly ? "Save" : "Publish",
+  });
 
   const allRevisionsForLabel = allRevisions ?? openRevisions;
 
@@ -216,7 +223,7 @@ const SavedGroupForm: FC<{
   const savedGroupsLoaded = savedGroupsData !== undefined;
 
   const [errorMessage, setErrorMessage] = useState("");
-  const [showDescription, setShowDescription] = useState(false);
+  const [showDescription, setShowDescription] = useState(focusDescription);
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
 
@@ -469,29 +476,10 @@ const SavedGroupForm: FC<{
             ? "Edit Information"
             : editConditionOnly
               ? "Edit Condition"
-              : `${current.id ? "Edit" : "Add"} ${TYPE_LABELS[type]}`
+              : `${current.id ? "Edit" : "Add"} ${SAVED_GROUP_TYPE_LABELS[type]}`
       }
-      cta={
-        !current.id
-          ? "Submit"
-          : draftMode === "publish"
-            ? isApprovalFlowRequired && !autoBypassApproval
-              ? "Publish"
-              : "Save"
-            : isMetadataOnlyRevisionFlow
-              ? draftMode === "existing"
-                ? "Update revision"
-                : "Add to a new revision"
-              : "Save to draft"
-      }
-      submitColor={
-        current.id &&
-        draftMode === "publish" &&
-        isApprovalFlowRequired &&
-        !autoBypassApproval
-          ? "danger"
-          : "primary"
-      }
+      cta={current.id ? cta.label : "Submit"}
+      submitColor={current.id && cta.bypass ? "danger" : "primary"}
       ctaEnabled={
         isValid &&
         (editContentOnly || hasProjectPermission) &&
@@ -739,6 +727,7 @@ const SavedGroupForm: FC<{
                 required={false}
                 textarea
                 maxLength={MAX_SAVED_GROUP_DESCRIPTION_LENGTH}
+                autoFocus={focusDescription}
                 value={form.watch("description")}
                 onChange={(e) => {
                   form.setValue("description", e.target.value);

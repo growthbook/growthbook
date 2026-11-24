@@ -4,22 +4,19 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { CustomMetricSlice, MetricOverride } from "shared/types/experiment";
-import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import { FactTableDefinition } from "shared/types/fact-table";
 import {
   expandMetricGroups,
   ExperimentMetricDefinition,
   ExperimentSortBy,
   quantileMetricType,
-  setAdjustedCIs,
-  setAdjustedPValuesOnResults,
   isMetricGroupId,
   isFactFunnelMetric,
   funnelStepMetricId,
   resolveMetricsForSnapshot,
-  resolveSnapshotMetricIds,
   getSliceDataForMetric,
   SliceDataForMetric,
+  restoreOpenAdjustedCI,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -53,12 +50,9 @@ export interface UseExperimentDimensionRowsParams {
   analysisBarSettings?: {
     variationFilter: number[];
   };
-  statsEngine: StatsEngine;
-  pValueCorrection?: PValueCorrection;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   dimensionValuesFilter?: string[];
   showErrorsOnQuantileMetrics?: boolean;
-  pValueThreshold: number;
   customMetricSlices?: CustomMetricSlice[];
 }
 
@@ -83,12 +77,9 @@ export function useExperimentDimensionRows({
   sortDirection,
   customMetricOrder,
   analysisBarSettings,
-  statsEngine,
-  pValueCorrection,
   settingsForSnapshotMetrics,
   dimensionValuesFilter,
   showErrorsOnQuantileMetrics = false,
-  pValueThreshold,
   customMetricSlices,
 }: UseExperimentDimensionRowsParams): UseExperimentDimensionRowsReturn {
   const {
@@ -301,19 +292,6 @@ export function useExperimentDimensionRows({
       return [];
     }
 
-    if (pValueCorrection && statsEngine === "frequentist") {
-      setAdjustedPValuesOnResults(
-        results,
-        resolveSnapshotMetricIds({
-          metricIds: expandedGoals,
-          getExperimentMetricById: getMetricById,
-          results,
-        }),
-        pValueCorrection,
-      );
-      setAdjustedCIs(results, pValueThreshold);
-    }
-
     // Helper function to process metrics by type
     function processMetricsByType(
       metricIds: string[],
@@ -468,8 +446,6 @@ export function useExperimentDimensionRows({
     sortDirection,
     customMetricOrder,
     analysisBarSettings,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     getExperimentMetricById,
@@ -477,7 +453,6 @@ export function useExperimentDimensionRows({
     customMetricSlices,
     ready,
     metricDefaults,
-    pValueThreshold,
     expandedGoals,
     expandedSecondaries,
     expandedGuardrails,
@@ -562,9 +537,10 @@ export function generateDimensionRowsForMetric({
       metric: newMetric,
       metricOverrideFields: overrideFields,
       rowClass: newMetric?.inverse ? "inverse" : "",
-      variations: dimensionResult.variations.map(
-        (v) => v.metrics?.[metricId] || noData(),
-      ),
+      variations: dimensionResult.variations.map((v) => {
+        const stats = v.metrics?.[metricId];
+        return stats ? restoreOpenAdjustedCI(stats) : noData();
+      }),
       metricSnapshotSettings,
       resultGroup,
       replacedByMetricName,

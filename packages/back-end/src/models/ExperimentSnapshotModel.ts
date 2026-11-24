@@ -12,6 +12,7 @@ import {
   getSnapshotAnalysis,
   isString,
 } from "shared/util";
+import { fillLegacyPValueCorrection } from "shared/experiments";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -391,6 +392,14 @@ async function populateSnapshotAnalyses(
   await context.models.experimentSnapshotAnalysisChunks.populateChunkedAnalyses(
     snapshots,
     metricIds,
+  );
+  const pValueCorrection = context.org.settings?.pValueCorrection ?? null;
+  snapshots.forEach((snapshot) =>
+    fillLegacyPValueCorrection({
+      snapshot,
+      pValueCorrection,
+      hydratedMetricIds: metricIds,
+    }),
   );
   return snapshotOrSnapshots;
 }

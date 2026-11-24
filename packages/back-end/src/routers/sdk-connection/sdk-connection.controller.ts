@@ -38,6 +38,7 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
+import { queueSingleProxyUpdate } from "back-end/src/jobs/proxyUpdate";
 import {
   premiumSettingsWithoutPlan,
   validateSdkConnectionChanges,
@@ -612,6 +613,13 @@ export const checkSDKConnectionProxyStatus = async (
   const reenable =
     !connection.archived && !isSdkConnectionGated(context, connection);
   const result = await testProxyConnection(context, connection, true, reenable);
+
+  // The healthcheck can pass while pushes still fail (e.g. a 413), so push
+  // now to show the real status
+  if (result && !result.error) {
+    const updated = await findSDKConnectionById(context, id);
+    if (updated) await queueSingleProxyUpdate(context.org.id, updated);
+  }
 
   res.status(200).json({
     status: 200,

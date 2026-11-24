@@ -1131,10 +1131,6 @@ app.post(
   "/datasource/:id/event-forwarder/restart",
   datasourcesController.postRestartEventForwarder,
 );
-app.post(
-  "/datasource/:id/event-forwarder/migrate",
-  datasourcesController.postMigrateEventForwarder,
-);
 app.put(
   "/datasource/:id/event-forwarder/environments",
   datasourcesController.putEventForwarderEnvironments,

@@ -25,6 +25,7 @@ import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import {
   assertConfigValueValid,
   assertConfigValueValidForPublish,
+  configValidationLeaf,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { loadRevisionByVersion } from "./validations";
@@ -129,24 +130,8 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 
   // A historical value may predate the current schema; ensure the post-revert
   // state still conforms (against current ancestors).
-  const revertedValue =
-    (fieldsToUpdate.value as string | undefined) ?? config.value;
-  const revertLeaf = {
-    key: config.key,
-    name: config.name,
-    value: revertedValue,
-    // A cleared schema (null) must reach the leaf as "no schema" — `?? config.schema`
-    // would wrongly re-apply the live schema and validate the reverted value against it.
-    schema:
-      "schema" in fieldsToUpdate
-        ? (fieldsToUpdate.schema as typeof config.schema)
-        : config.schema,
-    parent: (fieldsToUpdate.parent as string | undefined) ?? config.parent,
-    extends: (fieldsToUpdate.extends as string[] | undefined) ?? config.extends,
-    extensible:
-      (fieldsToUpdate.extensible as boolean | undefined) ?? config.extensible,
-  };
-  const revertValues = { value: revertedValue };
+  const revertLeaf = configValidationLeaf(config, fieldsToUpdate);
+  const revertValues = { value: revertLeaf.value };
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),
   );

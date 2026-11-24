@@ -52,6 +52,17 @@ Other changes to check when upgrading:
 
 </Warning>
 
+<Info>
+**Upgrading to 0.13.0**
+
+0.13.0 adds [async evaluation](#async-evaluation) and [non-blocking sticky bucket services](#sticky-bucketing). Three `GrowthBookClient` behaviors change:
+
+- **Sticky bucket reads are narrower.** The client used to ask the sticky bucket service for every primitive user attribute. It now asks only for the attributes your experiments hash on, plus `stickyBucketIdentifierAttributes`. See [Which attributes are read](#which-attributes-are-read).
+- **A failed sticky bucket read no longer saves.** The evaluation still buckets the user by hash, but nothing is written, so a variation chosen without the stored assignment cannot replace it. Before 0.13.0, that evaluation's assignment was saved.
+- **A tracking callback that throws no longer fails the evaluation.** The error is logged and the exposure is reported again on that user's next evaluation. Before 0.13.0, the exception propagated out of the evaluating call, for example `run()`. The per-request `GrowthBook` class is unchanged: its exception still propagates.
+
+</Info>
+
 ## Installation
 
 [<Frame>![JitPack version badge for the GrowthBook Java SDK](https://jitpack.io/v/growthbook/growthbook-sdk-java.svg)</Frame>](https://jitpack.io/#growthbook/growthbook-sdk-java)
@@ -81,7 +92,7 @@ Next, add the dependency with the latest version to your project's dependencies:
 <dependency>
     <groupId>com.github.growthbook.growthbook-sdk-java</groupId>
     <artifactId>lib</artifactId>
-    <version>0.11.0</version>
+    <version>0.13.0</version>
 </dependency>
 ```
 
@@ -145,8 +156,11 @@ The `Options` builder configures the `GrowthBookClient`. `apiHost` and `clientKe
 | `cacheDirectory`                   | `String`                       | Directory used when `cacheMode` is `FILE`.                                                                                                                    |
 | `cacheManager`                     | `GbCacheManager`               | A custom cache implementation, used when `cacheMode` is `CUSTOM`.                                                                                             |
 | `isCacheDisabled`                  | `Boolean`                      | Disables cache persistence entirely (default: `false`).                                                                                                       |
-| `stickyBucketService`              | `StickyBucketService`          | Enables [Sticky Bucketing](#sticky-bucketing).                                                                                                                |
-| `stickyBucketIdentifierAttributes` | `List<String>`                 | Accepted, but not used for sticky bucket lookups in 0.11.0. `GrowthBookClient` looks up assignments for every primitive user attribute.                       |
+| `stickyBucketService`              | `StickyBucketService`          | Enables [Sticky Bucketing](#sticky-bucketing) with a blocking service.                                                                                        |
+| `asyncStickyBucketService`         | `AsyncStickyBucketService`     | Enables [Sticky Bucketing](#sticky-bucketing) with a non-blocking service. Set this or `stickyBucketService`, not both.                                       |
+| `stickyBucketIdentifierAttributes` | `List<String>`                 | Extra attributes to read sticky bucket documents for. See [Which attributes are read](#which-attributes-are-read).                                            |
+| `stickyBucketTimeout`              | `Duration`                     | How long the client waits for one sticky bucket read or save (default: 5 seconds). See [Sticky Bucketing options](#options).                                  |
+| `asyncExecutor`                    | `Executor`                     | Executor for the [async methods](#async-evaluation). See [The executor](#the-executor).                                                                       |
 | `trackingCallBackWithUser`         | `TrackingCallbackWithUser`     | Invoked when a user is included in an experiment. The builder method name is `trackingCallBackWithUser`. See [Tracking Callback](#tracking-callback).         |
 | `featureUsageCallbackWithUser`     | `FeatureUsageCallbackWithUser` | Invoked every time a feature is evaluated. See [Feature Usage Callback](#feature-usage-callback).                                                             |
 | `featureRefreshCallback`           | `FeatureRefreshCallback`       | Invoked when features are refreshed in the background.                                                                                                        |
@@ -236,6 +250,89 @@ While the enhanced client is designed for concurrent use, full concurrency suppo
 - Using connection pooling for database-backed sticky bucket services
 - Implementing proper synchronization for custom tracking callbacks
 - Testing thoroughly under expected load conditions
+
+### Async evaluation
+
+**Available starting in version 0.13.0**
+
+Each evaluation method on `GrowthBookClient` has an `...Async` twin that returns a `CompletableFuture`. Use them when evaluation waits on a [sticky bucket](#sticky-bucketing) read from Redis or a database and you do not want to hold the request thread while it waits, for example on Netty, WebFlux, Vert.x, or async servlets.
+
+Without a sticky bucket service, evaluation is in-memory work and the async methods return a future that is already complete. The synchronous methods are simpler in that case.
+
+| Synchronous                                  | Asynchronous                                      | Completes with        |
+| -------------------------------------------- | ------------------------------------------------- | --------------------- |
+| `initialize()`                               | `initializeAsync()`                               | `Boolean`             |
+| `isOn(key, user)`                            | `isOnAsync(key, user)`                            | `Boolean`             |
+| `isOff(key, user)`                           | `isOffAsync(key, user)`                           | `Boolean`             |
+| `evalFeature(key, type, user)`               | `evalFeatureAsync(key, type, user)`               | `FeatureResult<T>`    |
+| `getFeature(featureKey, user)`               | `getFeatureAsync(featureKey, user)`               | `FeatureResult<T>`    |
+| `getFeatureValue(key, default, type, user)`  | `getFeatureValueAsync(key, default, type, user)`  | `T`                   |
+| `getFeatureValue(featureKey, default, user)` | `getFeatureValueAsync(featureKey, default, user)` | `T`                   |
+| `run(experiment, user)`                      | `runAsync(experiment, user)`                      | `ExperimentResult<T>` |
+
+`evalFeatures` and the typed getters such as `getStringFeature` have no async twin.
+
+```java
+import growthbook.sdk.java.model.FeatureResult;
+import growthbook.sdk.java.multiusermode.GrowthBookClient;
+import growthbook.sdk.java.multiusermode.configurations.Options;
+import growthbook.sdk.java.multiusermode.configurations.UserContext;
+import java.util.concurrent.CompletableFuture;
+
+GrowthBookClient gb = new GrowthBookClient(Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .asyncStickyBucketService(stickyBucketService) // see Sticky Bucketing
+        .build());
+
+// Completes with false if features could not be loaded. It never completes exceptionally.
+CompletableFuture<Boolean> ready = gb.initializeAsync();
+
+UserContext user = UserContext.builder()
+        .attributesJson("{\"id\":\"user_123\"}")
+        .build();
+
+CompletableFuture<Boolean> enabled = gb.isOnAsync("new-homepage", user);
+CompletableFuture<String> color = gb.getFeatureValueAsync("button-color", "blue", String.class, user);
+CompletableFuture<FeatureResult<String>> result = gb.evalFeatureAsync("button-color", String.class, user);
+
+enabled.thenCombine(color, (isOn, value) -> isOn ? value : "blue")
+        .thenAccept(value -> render(value));
+```
+
+#### Rules for every async method
+
+- **Nothing is thrown on the calling thread.** Every failure arrives through the returned future, including a `null` `FeatureKey`.
+- **A sticky bucket read that fails or times out does not fail the future.** The evaluation buckets the user by hash and saves nothing. See [When the store fails](#when-the-store-fails).
+- **The future fails** when the executor rejects the work (`RejectedExecutionException`) or the client has been shut down (`IllegalStateException`). After `shutdown()`, no async method evaluates: an evaluation still waiting on its store read fails too.
+- **Two methods never fail.** `getFeatureValueAsync` completes with the default value where the others would fail, except for a `null` `FeatureKey`. `initializeAsync` completes with `false`.
+- **Your continuations and tracking callbacks run on the client's executor or on the calling thread**, not on the store's I/O thread such as a Lettuce event loop. One exception: if the executor rejects the hand-off, the future fails on the thread that completed the read.
+- **Do not modify the `UserContext` or its attributes until the future completes.**
+
+#### What holds a thread
+
+Only an [`AsyncStickyBucketService`](#implementing-a-custom-asyncstickybucketservice) keeps the wait free of threads. The other cases move the blocking call onto the client's executor.
+
+| Waiting on                              | Thread held while it waits                 |
+| --------------------------------------- | ------------------------------------------ |
+| An `AsyncStickyBucketService`           | None                                       |
+| A blocking `StickyBucketService`        | One executor thread per store call         |
+| `initializeAsync()`                     | One executor thread for the features fetch |
+| [Remote Evaluation](#remote-evaluation) | One executor thread per evaluation         |
+
+#### The executor
+
+The client creates its own pool of daemon threads (the larger of 8 and twice the CPU count, with a queue of 1,024 tasks) and shuts it down in `shutdown()`. When the pool and its queue are full, the future fails with `RejectedExecutionException`.
+
+Pass your own with `asyncExecutor`. The SDK never shuts down an executor you supply. On JDK 21 and later, `Executors.newVirtualThreadPerTaskExecutor()` lets blocking store calls scale without a fixed pool.
+
+```java
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .asyncExecutor(Executors.newFixedThreadPool(16))
+        .build();
+```
 
 ### Traditional Usage
 
@@ -737,6 +834,8 @@ Any time an experiment is run to determine the value of a feature, we may call t
 
 **The tracking callback is only called when the user is in the experiment**. If they are not in the experiment, this will not be called.
 
+On `GrowthBookClient`, starting in version 0.13.0, a tracking callback that throws does not fail the evaluation. The error is logged and the exposure is reported again on that user's next evaluation. On the per-request `GrowthBook` class the exception propagates to the caller.
+
 <CodeGroup>
 
 ```java Enhanced Client
@@ -1159,11 +1258,11 @@ Options options = Options.builder()
 
 ##### Caffeine cache adapter
 
-The optional `growthbook-cache-caffeine` module is a Caffeine-backed `GbCacheManager`. It depends on `com.github.ben-manes.caffeine:caffeine:2.9.3`. Published on JitPack as `com.github.growthbook.growthbook-sdk-java:growthbook-cache-caffeine:0.11.0`. That module already depends on `lib`.
+The optional `growthbook-cache-caffeine` module is a Caffeine-backed `GbCacheManager`. It depends on `com.github.ben-manes.caffeine:caffeine:2.9.3`. Published on JitPack as `com.github.growthbook.growthbook-sdk-java:growthbook-cache-caffeine:0.13.0`. That module already depends on `lib`.
 
 ```groovy
 dependencies {
-    implementation 'com.github.growthbook.growthbook-sdk-java:growthbook-cache-caffeine:0.11.0'
+    implementation 'com.github.growthbook.growthbook-sdk-java:growthbook-cache-caffeine:0.13.0'
 }
 ```
 
@@ -1185,11 +1284,11 @@ Options options = Options.builder()
 
 ##### JCache adapter
 
-The optional `growthbook-cache-jcache` module wraps a JSR-107 cache. Published on JitPack as `com.github.growthbook.growthbook-sdk-java:growthbook-cache-jcache:0.11.0`. It depends on `javax.cache:cache-api:1.1.1` and on `lib`. It does not include a cache provider. Put a JSR-107 provider such as Ehcache or Hazelcast on the runtime classpath.
+The optional `growthbook-cache-jcache` module wraps a JSR-107 cache. Published on JitPack as `com.github.growthbook.growthbook-sdk-java:growthbook-cache-jcache:0.13.0`. It depends on `javax.cache:cache-api:1.1.1` and on `lib`. It does not include a cache provider. Put a JSR-107 provider such as Ehcache or Hazelcast on the runtime classpath.
 
 ```groovy
 dependencies {
-    implementation 'com.github.growthbook.growthbook-sdk-java:growthbook-cache-jcache:0.11.0'
+    implementation 'com.github.growthbook.growthbook-sdk-java:growthbook-cache-jcache:0.13.0'
 }
 ```
 
@@ -1246,17 +1345,19 @@ By default, GrowthBook does not persist assigned experiment variations for a use
 
 Sticky Bucketing keeps users on the same experiment variant when user attributes, login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing).
 
-Provide a `StickyBucketService`. The SDK includes `InMemoryStickyBucketServiceImpl`. Implement the interface yourself for a database or other store.
+To enable it, give the SDK a service that stores each user's assignments.
 
-The SDK chooses which attributes to look up. `GrowthBookClient` requests assignments for every primitive user attribute. `GrowthBook` uses each experiment's `hashAttribute` and `fallbackAttribute`. The `stickyBucketIdentifierAttributes` option is accepted but not used for this in 0.11.0.
+### Choosing a service
 
-A `StickyAssignmentsDocument` has three fields:
+| Service                                                                    | Option                     | Synchronous methods (`isOn`, `run`, ...)                         | Async methods (`isOnAsync`, `runAsync`, ...)                                 |
+| -------------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `InMemoryStickyBucketServiceImpl`                                          | `stickyBucketService`      | In memory. Assignments live in one JVM and are lost on restart.  | Same                                                                         |
+| A blocking `StickyBucketService`, such as Jedis, blocking Lettuce, or JDBC | `stickyBucketService`      | Reads and saves run on the calling thread.                       | Reads and saves run on the client's executor, one thread per call in flight. |
+| An `AsyncStickyBucketService`, such as async Lettuce                       | `asyncStickyBucketService` | The calling thread waits for the read. Saves are not waited for. | No thread is held. Saves are not waited for.                                 |
 
-- `attributeName`: the attribute used to identify the user, such as `id` or `cookie_id`
-- `attributeValue`: the value of that attribute, such as `123`
-- `assignments`: persisted experiment assignments, for example `{"exp1__0":"control"}`
+Set `stickyBucketService` or `asyncStickyBucketService`, not both. `asyncStickyBucketService` is available starting in version 0.13.0 and only on `GrowthBookClient`.
 
-`attributeName` and `attributeValue` together are the primary key.
+For a service on one instance, use the in-memory implementation. For more than one instance, use a shared store: the [Redis services](#redis-services) or [your own](#implementing-a-custom-stickybucketservice).
 
 <CodeGroup>
 
@@ -1290,9 +1391,118 @@ GrowthBook growthBook = new GrowthBook(context);
 
 </CodeGroup>
 
+### How assignments are stored
+
+A `StickyAssignmentsDocument` has three fields:
+
+- `attributeName`: the attribute used to identify the user, such as `id` or `cookie_id`
+- `attributeValue`: the value of that attribute, such as `123`
+- `assignments`: persisted experiment assignments, for example `{"exp1__0":"control"}`
+
+`attributeName` and `attributeValue` together are the primary key. Services key documents by `attributeName + "||" + attributeValue`, the same format the other GrowthBook SDKs use, so SDKs in different languages can share one store.
+
+### Which attributes are read
+
+The SDK reads one document per identifying attribute, not one per user attribute.
+
+- **`GrowthBookClient`** reads the `hashAttribute` and `fallbackAttribute` of every experiment in the loaded features, plus any attribute listed in `stickyBucketIdentifierAttributes`. `run()` and `runAsync()` also read the attributes of the inline experiment they are given.
+- **`GrowthBook`** reads each experiment's `hashAttribute` and `fallbackAttribute`.
+
+You need `stickyBucketIdentifierAttributes` only for attributes the client cannot work out from the features. The one case that matters is an inline experiment evaluated with a [prefetched](#prefetching-for-a-request) context: list that experiment's `hashAttribute` and `fallbackAttribute`, or its stored assignment is lost.
+
+Before 0.13.0, `GrowthBookClient` read a document for every primitive user attribute and ignored `stickyBucketIdentifierAttributes`.
+
+### Redis services
+
+**Available starting in version 0.12.0. The non-blocking Lettuce service is available starting in version 0.13.0.**
+
+The `growthbook-cache-redis` module stores assignments in Redis, so every instance gives a user the same variation and assignments survive restarts. Add the module and the Redis client you use. The module does not bring a Redis client with it.
+
+```groovy
+dependencies {
+    implementation 'com.github.growthbook.growthbook-sdk-java:lib:0.13.0'
+    implementation 'com.github.growthbook.growthbook-sdk-java:growthbook-cache-redis:0.13.0'
+    implementation 'io.lettuce:lettuce-core:6.2.6.RELEASE' // or 'redis.clients:jedis:4.4.6'
+}
+```
+
+The module is built against Lettuce 6.2.6 and Jedis 4.4.6.
+
+<CodeGroup>
+
+```java Lettuce (non-blocking)
+import growthbook.sdk.java.cache.redis.stickybucket.LettuceAsyncStickyBucketService;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
+
+StatefulRedisConnection<String, String> connection =
+        RedisClient.create("redis://localhost:6379").connect();
+
+GrowthBookClient gb = new GrowthBookClient(Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .asyncStickyBucketService(new LettuceAsyncStickyBucketService(connection))
+        .build());
+gb.initialize();
+
+gb.isOnAsync("new-homepage", user)
+        .thenAccept(enabled -> render(enabled));
+```
+
+```java Lettuce (blocking)
+import growthbook.sdk.java.cache.redis.stickybucket.LettuceStickyBucketService;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
+
+StatefulRedisConnection<String, String> connection =
+        RedisClient.create("redis://localhost:6379").connect();
+
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .stickyBucketService(new LettuceStickyBucketService(connection))
+        .build();
+```
+
+```java Jedis (blocking)
+import growthbook.sdk.java.cache.redis.stickybucket.JedisStickyBucketService;
+import redis.clients.jedis.JedisPool;
+
+JedisPool jedisPool = new JedisPool("localhost", 6379);
+
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .stickyBucketService(new JedisStickyBucketService(jedisPool))
+        .build();
+```
+
+</CodeGroup>
+
+Jedis has no asynchronous API, so only Lettuce has a non-blocking service.
+
+All three services share these properties:
+
+- **Same data.** They write the same bytes under the same keys, so blocking and non-blocking services, and the JavaScript SDK's `RedisStickyBucketService`, can share one Redis.
+- **Merging saves.** A save merges into the stored document with a compare-and-set, so two instances that assign the same user at the same time keep both assignments.
+- **Optional key prefix and expiry.** There is no expiry by default. The expiry is reset on each write, and the SDK writes only when a user's assignments change. It counts from the last assignment change, not from the user's last visit, so set it comfortably longer than your longest experiment.
+- **Errors.** A Redis failure or a malformed document surfaces as a `StickyBucketServiceException`. A missing key is a normal miss.
+
+```java
+// Key prefix
+new JedisStickyBucketService(jedisPool, "growthbook:sticky:");
+
+// Expiry, counted from the last time the user's assignments changed
+new JedisStickyBucketService(jedisPool, Duration.ofDays(90));
+new LettuceStickyBucketService(connection, "growthbook:sticky:", Duration.ofDays(90));
+new LettuceAsyncStickyBucketService(connection, "growthbook:sticky:", Duration.ofDays(90));
+```
+
+Lettuce does not time out asynchronous commands by default. The client stops waiting after [`stickyBucketTimeout`](#options), but the command itself is not cancelled. Enable `TimeoutOptions` on the `RedisClient` to time it out in Lettuce as well.
+
 ### Implementing a custom StickyBucketService
 
-Implement `StickyBucketService` to persist assignments. `getAssignments`, `saveAssignments`, and `getAllAssignments` are the interface methods. The map returned by `getAllAssignments` must be keyed by `attributeName + "||" + attributeValue`, because the SDK looks documents up by that key. `InMemoryStickyBucketServiceImpl` uses the same format.
+Implement `StickyBucketService` to persist assignments with a blocking client. `getAssignments`, `saveAssignments`, and `getAllAssignments` are the interface methods. The map returned by `getAllAssignments` must be keyed by `attributeName + "||" + attributeValue`, because the SDK looks documents up by that key. `InMemoryStickyBucketServiceImpl` uses the same format.
 
 ```java
 public class MapStickyBucketService implements StickyBucketService {
@@ -1322,7 +1532,138 @@ public class MapStickyBucketService implements StickyBucketService {
 }
 ```
 
-Do not set `stickyBucketService` when `remoteEval` is enabled. Remote evaluation rejects that combination. See [Remote Evaluation](#remote-evaluation).
+### Implementing a custom AsyncStickyBucketService
+
+**Available starting in version 0.13.0**
+
+Implement `AsyncStickyBucketService` when your store's client has an asynchronous API. Methods return a `CompletionStage`, so a Lettuce `RedisFuture` or a Reactor `Mono#toFuture()` can be returned directly.
+
+```java
+import growthbook.sdk.java.model.StickyAssignmentsDocument;
+import growthbook.sdk.java.stickyBucketing.AsyncStickyBucketService;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class MapAsyncStickyBucketService implements AsyncStickyBucketService {
+    // Stand-in for your store. Replace the map calls with your client's asynchronous calls.
+    private final Map<String, StickyAssignmentsDocument> store = new ConcurrentHashMap<>();
+
+    @Override
+    public CompletionStage<StickyAssignmentsDocument> getAssignments(String attributeName, String attributeValue) {
+        // Complete with null when there is no document for the key.
+        return CompletableFuture.completedFuture(store.get(getKey(attributeName, attributeValue)));
+    }
+
+    @Override
+    public CompletionStage<Void> saveAssignments(StickyAssignmentsDocument doc) {
+        // Merge into what is stored, so a save from one instance keeps assignments written by another.
+        store.merge(getKey(doc.getAttributeName(), doc.getAttributeValue()), doc, (stored, incoming) -> {
+            Map<String, String> merged = new HashMap<>(stored.getAssignments());
+            merged.putAll(incoming.getAssignments());
+            return new StickyAssignmentsDocument(incoming.getAttributeName(), incoming.getAttributeValue(), merged);
+        });
+        return CompletableFuture.completedFuture(null);
+    }
+}
+```
+
+The contract:
+
+- `getAssignments` completes with `null` when there is no document. `getKey` gives the store key, `attributeName + "||" + attributeValue`.
+- The service must be thread-safe. The SDK calls it from many threads at once.
+- A stage may complete on your client's own threads. Do not block inside its callbacks.
+- `getAllAssignments` has a default that calls `getAssignments` once per attribute. Override it to fetch all of a user's documents in one round trip, such as one Redis `MGET`.
+- **Merge on save when more than one instance writes to the store.** A save carries the assignments this instance knows for that user. A save that failed is sent again later with the same contents. A store that replaces the document can drop an assignment another instance wrote in between.
+
+A blocking `StickyBucketService` does not need to be ported. It works with the async methods too, at the cost of one executor thread per call. See [What holds a thread](#what-holds-a-thread).
+
+### Options
+
+| Option                             | Type                       | Description                                                                                                                                              |
+| ---------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stickyBucketService`              | `StickyBucketService`      | A blocking service.                                                                                                                                      |
+| `asyncStickyBucketService`         | `AsyncStickyBucketService` | A non-blocking service. `GrowthBookClient` only.                                                                                                         |
+| `stickyBucketIdentifierAttributes` | `List<String>`             | Extra attributes to read documents for. See [Which attributes are read](#which-attributes-are-read).                                                     |
+| `stickyBucketTimeout`              | `Duration`                 | How long the client waits for one store read or save (default: 5 seconds). `Duration.ZERO` disables it. See the note below.                              |
+| `stickyBucketCacheTtlSeconds`      | `Long`                     | Caches each user's documents in memory for this many seconds. Off by default, so assignments written by other instances are seen on the next evaluation. |
+| `stickyBucketCacheSize`            | `Integer`                  | Maximum users in that cache (default: 1,000). Used only when `stickyBucketCacheTtlSeconds` is set.                                                       |
+| `asyncExecutor`                    | `Executor`                 | Runs blocking store calls for the async methods. See [The executor](#the-executor).                                                                      |
+
+`stickyBucketTimeout` covers an `AsyncStickyBucketService`, and a blocking service called through the async methods. It does not cover a blocking service called by the synchronous methods: that call runs on your thread and is bounded only by your store client's own timeout. A timeout stops the SDK from waiting. It does not cancel the store call.
+
+`asyncStickyBucketService`, `stickyBucketTimeout`, the two cache options, and `asyncExecutor` are available starting in version 0.13.0.
+
+### When the store fails
+
+A sticky bucket failure does not fail a synchronous evaluation. The SDK logs a warning and continues.
+
+| Situation                                              | What the evaluation returns                                                                               | Is the assignment saved?                                                                        |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| The read fails                                         | The variation from normal hashing                                                                         | No. A variation chosen without the stored assignment must not replace it.                       |
+| The read takes longer than `stickyBucketTimeout`       | Same as a failed read                                                                                     | No                                                                                              |
+| The save fails or times out                            | Unaffected. The evaluation already has its result.                                                        | It is tried again at that user's next save, at `flushStickyBucketSaves()`, and at `shutdown()`. |
+| The async executor rejects the work                    | The async future fails with `RejectedExecutionException`. `getFeatureValueAsync` gives the default value. | No                                                                                              |
+| `shutdown()` runs while an async evaluation is waiting | The async future fails with `IllegalStateException`. `getFeatureValueAsync` gives the default value.      | No                                                                                              |
+
+While the store is unreadable, a user can see a different variation than the one stored for them. Assignments this instance made itself are still applied from memory. The stored assignment is untouched, and the user gets it back when the store is readable again.
+
+### Prefetching for a request
+
+**Available starting in version 0.13.0**
+
+Each evaluation reads the user's documents once. A request that evaluates several features can read them once in total with `prefetchStickyBuckets`. It fills in the context you pass and completes with that same context.
+
+```java
+UserContext user = UserContext.builder()
+        .attributesJson("{\"id\":\"user_123\"}")
+        .build();
+
+gb.prefetchStickyBuckets(user).thenAccept(prefetched -> {
+    // No store read for these: the assignments are already on the context.
+    boolean showNewHomepage = gb.isOn("new-homepage", prefetched);
+    String color = gb.getFeatureValue("button-color", "blue", String.class, prefetched);
+    render(showNewHomepage + color);
+});
+```
+
+The future fails if the read fails. A prefetched context is safe to use from several threads.
+
+<Warning>
+**Prefetching and inline experiments**
+
+A prefetched context holds documents only for the attributes the client knew to read: those used by experiments in the loaded features, plus `stickyBucketIdentifierAttributes`. If you pass it to `run()` or `runAsync()` with an inline experiment whose `hashAttribute` is not one of those, the stored assignment is not read. The user is bucketed again and the new variation replaces the stored one.
+
+This applies even to `id` when no experiment in your features hashes on it. If you combine prefetching with inline experiments, list their hash attributes:
+
+```java
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        .asyncStickyBucketService(stickyBucketService)
+        .stickyBucketIdentifierAttributes(Arrays.asList("id"))
+        .build();
+```
+
+</Warning>
+
+### Flushing saves
+
+**Available starting in version 0.13.0**
+
+With an `AsyncStickyBucketService`, and with any service on the async methods, saves happen in the background. `flushStickyBucketSaves()` completes when every pending save has been attempted. It does not guarantee that each one reached the store. `shutdown()` flushes too and waits up to 5 seconds, so call it before your process exits.
+
+```java
+// Wait until every pending save has been attempted, for example at the end of a batch job.
+gb.flushStickyBucketSaves().get();
+
+// shutdown() flushes too, and waits up to 5 seconds for it.
+gb.shutdown();
+```
+
+Do not set `stickyBucketService` or `asyncStickyBucketService` when `remoteEval` is enabled. Remote evaluation rejects that combination. See [Remote Evaluation](#remote-evaluation).
 
 ## Remote Evaluation
 
@@ -1355,7 +1696,7 @@ boolean enabled = gb.isOn("new-homepage", userContext);
 `apiHost` cannot be `growthbook.io` or a subdomain of it. `OptionsValidator` also rejects remote evaluation when:
 
 - `decryptionKey` is set
-- `stickyBucketService` is set
+- `stickyBucketService` or `asyncStickyBucketService` is set
 - `refreshStrategy` is explicitly `FeatureRefreshStrategy.STALE_WHILE_REVALIDATE`
 
 Leave `refreshStrategy` unset, as in the example above. `remoteEval(true)` does not change that field. The validator reads `getRefreshStrategy()`, which is `null` until you set it, and `null` is allowed. `getRefreshingStrategy()` still reports `STALE_WHILE_REVALIDATE` when the field is unset, but remote evaluation does not use that default. Setting the strategy explicitly to `STALE_WHILE_REVALIDATE` is what makes `initialize()` return `false`.

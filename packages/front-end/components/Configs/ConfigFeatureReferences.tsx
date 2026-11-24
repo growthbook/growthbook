@@ -6,6 +6,7 @@ import { ConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
+import TruncatedText from "@/ui/TruncatedText";
 import styles from "./ConfigFeatureReferences.module.scss";
 
 const ROW_HEIGHT = 30;
@@ -129,8 +130,8 @@ export default function ConfigFeatureReferences({
         >
           <PiDotOutline size={20} />
         </Flex>
-        <span
-          title={node?.name ?? key}
+        <TruncatedText
+          maxWidth="100%"
           style={{
             flex: 1,
             minWidth: 0,
@@ -138,13 +139,9 @@ export default function ConfigFeatureReferences({
             fontSize: "var(--font-size-1)",
             fontWeight: isCurrent ? 500 : 400,
             color: isCurrent ? "var(--violet-11)" : undefined,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
           }}
-        >
-          {node?.name ?? key}
-        </span>
+          text={node?.name ?? key}
+        />
       </Flex>
     );
     return isCurrent ? (
@@ -203,20 +200,16 @@ export default function ConfigFeatureReferences({
               >
                 <PiFlag size={13} />
               </Flex>
-              <span
-                title={f.name}
+              <TruncatedText
+                maxWidth="100%"
                 style={{
                   minWidth: 0,
                   marginLeft: 4,
                   fontSize: "var(--font-size-1)",
                   fontWeight: 500,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
                 }}
-              >
-                {f.name}
-              </span>
+                text={f.name}
+              />
             </Flex>
           </Link>
           <Branch>

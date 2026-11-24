@@ -4,18 +4,22 @@ import { ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
 
+// "normal", between sm and md and off the shared ladder, is sm with breathing
+// room, for legibility.
+type SegmentedControlSize = Size<"sm" | "md" | "lg"> | "normal";
+
 export type SegmentedControlOption<T extends string> = {
   value: T;
   label: ReactNode;
-  /** Names an icon-only segment. */
+  // Names an icon-only segment.
   ariaLabel?: string;
 };
 
 const INDICATOR_X = "--gb-segmented-control-indicator-x";
 const INDICATOR_WIDTH = "--gb-segmented-control-indicator-width";
 
-// Wrapped segments can differ in width, which Radix's evenly spaced indicator
-// can't follow. Only a new selection slides; mounting and resizing snap.
+// Radix spaces its indicator evenly, which wrapped segments outgrow. Only a new
+// selection slides.
 function placeIndicator(root: HTMLElement, animate: boolean) {
   const on = root.querySelector<HTMLElement>(
     '.rt-SegmentedControlItem[data-state="on"]',
@@ -24,7 +28,7 @@ function placeIndicator(root: HTMLElement, animate: boolean) {
     ".rt-SegmentedControlIndicator",
   );
   const rootRect = root.getBoundingClientRect();
-  // Hidden (e.g. an inactive tab): measure once it shows.
+  // Hidden: measured once it shows.
   if (!on || !indicator || !rootRect.width) return;
   const onRect = on.getBoundingClientRect();
   const x = `${onRect.left - rootRect.left}px`;
@@ -58,8 +62,8 @@ export default function SegmentedControl<T extends string>({
   value: T;
   setValue: (value: NoInfer<T>) => void;
   options: SegmentedControlOption<NoInfer<T>>[];
-  size?: Size<"sm" | "md" | "lg">;
-  /** Long labels wrap onto more lines rather than overflow a narrow container. */
+  size?: SegmentedControlSize;
+  // Long labels wrap rather than overflow.
   wrap?: boolean;
   "aria-label": string;
 } & MarginProps) {
@@ -81,11 +85,12 @@ export default function SegmentedControl<T extends string>({
     <RadixSegmentedControl.Root
       ref={rootRef}
       {...marginProps}
-      size={radixSize(size)}
+      size={radixSize(size === "normal" ? "sm" : size)}
       value={value}
       onValueChange={(v) => setValue(v as T)}
       aria-label={ariaLabel}
       className={clsx("gb-segmented-control", {
+        "gb-segmented-control--normal": size === "normal",
         "gb-segmented-control--wrap": wrap,
       })}
     >

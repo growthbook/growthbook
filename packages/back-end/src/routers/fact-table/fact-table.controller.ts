@@ -4,7 +4,6 @@ import {
   canInlineFilterColumn,
   getFactTableTimestampColumn,
 } from "shared/experiments";
-import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep, omit } from "lodash";
 import {
   CreateVirtualColumnProps,
@@ -40,6 +39,7 @@ import {
   getFactTablesByIds,
   createColumn,
   updateColumn,
+  updateColumnsTopValues,
   deleteColumn as deleteColumnInDb,
   updateFactTable,
   updateFactTableColumns,
@@ -58,9 +58,12 @@ import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTable
 import {
   runColumnDetectionQuery,
   refreshColumnTopValues,
-  runColumnsTopValuesQuery,
-  populateAutoSlices,
+  runColumnsTopValueCountsQuery,
 } from "back-end/src/services/factTableColumns";
+import {
+  getTopValueFields,
+  type TopValuesUpdate,
+} from "back-end/src/util/topValues";
 import {
   applyColumnUpdates,
   buildColumnTypeMaps,
@@ -194,6 +197,8 @@ function mergeColumnsWithTypeMap(
 
 export type RefreshColumnsResult = {
   columns: ColumnInterface[];
+  // Persisted with updateColumnsTopValues after the columns are saved
+  topValuesUpdates: TopValuesUpdate[];
   needsBackgroundRefresh: boolean;
 };
 
@@ -253,12 +258,20 @@ export async function refreshColumns(
       integration.columnNamesAreCaseSensitive,
     );
 
-    return { columns, needsBackgroundRefresh: true };
+    return { columns, topValuesUpdates: [], needsBackgroundRefresh: true };
   }
 
   const columns = await runColumnDetectionQuery(context, datasource, factTable);
-  await refreshColumnTopValues(context, datasource, factTable, columns);
-  return { columns, needsBackgroundRefresh: false };
+  return {
+    columns,
+    topValuesUpdates: await refreshColumnTopValues(
+      context,
+      datasource,
+      factTable,
+      columns,
+    ),
+    needsBackgroundRefresh: false,
+  };
 }
 
 export const postFactTable = async (
@@ -276,28 +289,26 @@ export const postFactTable = async (
     throw new Error("Could not find datasource");
   }
 
+  let topValuesUpdates: TopValuesUpdate[] = [];
   if (!data.columns?.length) {
-    const { columns, needsBackgroundRefresh } = await refreshColumns(
-      context,
-      datasource,
-      {
-        // createFactTable generates the id when the request doesn't supply one
-        id: data.id || null,
-        sql: data.sql,
-        eventName: data.eventName,
-        userIdTypes: data.userIdTypes,
-        userIdColumns: data.userIdColumns,
-        timestampColumn: data.timestampColumn,
-        columns: [],
-      },
-    );
+    const refreshed = await refreshColumns(context, datasource, {
+      // createFactTable generates the id when the request doesn't supply one
+      id: data.id || null,
+      sql: data.sql,
+      eventName: data.eventName,
+      userIdTypes: data.userIdTypes,
+      userIdColumns: data.userIdColumns,
+      timestampColumn: data.timestampColumn,
+      columns: [],
+    });
 
-    if (!columns.length) {
+    if (!refreshed.columns.length) {
       throw new Error("SQL did not return any columns");
     }
 
-    data.columns = columns;
-    data.columnRefreshPending = needsBackgroundRefresh;
+    data.columns = refreshed.columns;
+    data.columnRefreshPending = refreshed.needsBackgroundRefresh;
+    topValuesUpdates = refreshed.topValuesUpdates;
   }
 
   // Columns are resolved synchronously above, so a mapping is always checked
@@ -330,6 +341,11 @@ export const postFactTable = async (
   }
 
   const factTable = await createFactTable(context, data);
+  await updateColumnsTopValues({
+    context,
+    factTable,
+    updates: topValuesUpdates,
+  });
 
   if (data.columnRefreshPending) {
     await queueFactTableColumnsRefresh(factTable);
@@ -378,6 +394,7 @@ export const putFactTable = async (
       "columns" | "columnsError" | "columnRefreshPending" | "userIdTypes"
     >
   > | null = null;
+  let refreshedTopValues: TopValuesUpdate[] = [];
 
   if (
     forceColumnRefresh ||
@@ -390,12 +407,13 @@ export const putFactTable = async (
       // Request columns are input-shaped; normalize them like createFactTable does
       columns: data.columns?.map(buildColumnInterface) ?? factTable.columns,
     };
-    const { columns, needsBackgroundRefresh } = await refreshColumns(
-      context,
-      datasource,
-      updatedFactTable,
-      forceColumnRefresh,
-    );
+    const { columns, needsBackgroundRefresh, topValuesUpdates } =
+      await refreshColumns(
+        context,
+        datasource,
+        updatedFactTable,
+        forceColumnRefresh,
+      );
 
     if (!columns.some((col) => !col.deleted)) {
       throw new Error("SQL did not return any columns");
@@ -406,6 +424,7 @@ export const putFactTable = async (
       columnsError: null,
       columnRefreshPending: needsBackgroundRefresh,
     };
+    refreshedTopValues = topValuesUpdates;
 
     columnRefreshResults.userIdTypes = deriveUserIdTypesFromColumns(
       datasource,
@@ -502,6 +521,11 @@ export const putFactTable = async (
   if (columnRefreshResults) {
     await updateFactTableColumns(factTable, columnRefreshResults, context);
   }
+  await updateColumnsTopValues({
+    context,
+    factTable,
+    updates: refreshedTopValues,
+  });
 
   // The refresh job loads a newly prompted column's values. The job runs as an
   // admin, so like the column endpoint it's skipped for a user who can't run
@@ -872,7 +896,12 @@ export const postColumnTopValues = async (
     { id: string; column: string },
     { forceAutoSlice?: string }
   >,
-  res: Response<{ status: 200 }>,
+  // values is missing when the warehouse can't count them
+  res: Response<{
+    status: 200;
+    values?: ColumnInterface["topValueCounts"];
+    refreshedAt?: Date;
+  }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -909,42 +938,33 @@ export const postColumnTopValues = async (
       }
     : databaseColumn;
 
+  let values: ColumnInterface["topValueCounts"] = [];
+  let refreshedAt: Date | undefined;
+
   if (
     forceAutoSlice ||
     (canInlineFilterColumn(factTable, column.column) &&
       column.datatype === "string")
   ) {
     try {
-      const topValuesByColumn = await runColumnsTopValuesQuery(
+      const countsByColumn = await runColumnsTopValueCountsQuery(
         context,
         datasource,
         factTable,
         [column],
       );
 
-      const topValues = topValuesByColumn[column.column] || [];
-      const maxSliceLevels =
-        context.org.settings?.maxMetricSliceLevels ??
-        DEFAULT_MAX_METRIC_SLICE_LEVELS;
-
-      const changes: UpdateColumnProps = {
-        topValues,
+      const snapshot = {
+        values: countsByColumn[column.column] || [],
+        refreshedAt: new Date(),
       };
+      values = getTopValueFields(snapshot).topValueCounts;
+      refreshedAt = snapshot.refreshedAt;
 
-      if (column.isAutoSliceColumn) {
-        changes.autoSlices = populateAutoSlices(
-          column,
-          topValues,
-          maxSliceLevels,
-        );
-      }
-
-      // Update the column with new top values
-      await updateColumn({
+      await updateColumnsTopValues({
         context,
         factTable,
-        column: column.column,
-        changes,
+        updates: [{ column: column.column, snapshot, slices: "fill" }],
       });
     } catch (e) {
       logger.error(
@@ -964,6 +984,8 @@ export const postColumnTopValues = async (
 
   res.status(200).json({
     status: 200,
+    values,
+    refreshedAt,
   });
 };
 
@@ -1042,16 +1064,20 @@ export const putColumn = async (
     }
 
     if (context.permissions.canRunFactQueries(datasource)) {
-      runColumnsTopValuesQuery(context, datasource, factTable, [col])
-        .then(async (topValuesByColumn) => {
-          const values = topValuesByColumn[col.column] || [];
-          if (!values.length) return;
-          await updateColumn({
+      runColumnsTopValueCountsQuery(context, datasource, factTable, [col])
+        .then(async (countsByColumn) => {
+          await updateColumnsTopValues({
+            context,
             factTable,
-            column: col.column,
-            changes: {
-              topValues: values,
-            },
+            updates: [
+              {
+                column: col.column,
+                snapshot: {
+                  values: countsByColumn[col.column] || [],
+                  refreshedAt: new Date(),
+                },
+              },
+            ],
           });
         })
         .catch((e) => {
