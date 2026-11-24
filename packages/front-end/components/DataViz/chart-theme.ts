@@ -42,6 +42,10 @@ export const COMPARISON_SERIES_COLORS = [
   "#78716c",
 ];
 
+// Keyed by the resolved color, so a theme switch (which changes what a
+// CSS variable resolves to) misses the cache and gets the new hex.
+const hexCache = new Map<string, string>();
+
 /**
  * Normalize any CSS color — including a `var(--…)` reference — to `#rrggbb`.
  *
@@ -57,12 +61,16 @@ export function cssColorToHex(color: string): string {
   const resolved = cssVar
     ? getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
     : color;
+  const cached = hexCache.get(resolved);
+  if (cached !== undefined) return cached;
   const ctx = document.createElement("canvas").getContext("2d");
   if (!resolved || !ctx) return color;
   ctx.fillStyle = resolved;
   ctx.fillRect(0, 0, 1, 1);
   const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-  return `#${[r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+  const hex = `#${[r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+  hexCache.set(resolved, hex);
+  return hex;
 }
 
 export function getChartThemeColors(theme: "light" | "dark") {
