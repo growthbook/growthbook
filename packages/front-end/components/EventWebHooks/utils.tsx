@@ -25,9 +25,9 @@ export type {
 
 // In display order.
 export const eventWebHookPayloadTypes = [
-  "discord",
   "json",
   "slack",
+  "discord",
   "datadog",
 ] as const;
 
