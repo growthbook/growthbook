@@ -278,6 +278,7 @@ const VerifyConnectionPage = ({
                     currentConnection.remoteEvalEnabled || false
                   }
                   eventIngestorRegion={eventIngestorRegion}
+                  connection={currentConnection}
                 />
               </div>
             )}
