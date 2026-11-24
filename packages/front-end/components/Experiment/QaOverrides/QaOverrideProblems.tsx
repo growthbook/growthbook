@@ -6,7 +6,7 @@ import {
   QaOverrideWaitingFeature,
 } from "shared/types/experiment-qa-override";
 import Heading from "@/ui/Heading";
-import { getRadixColor, RadixStatusIcon } from "@/ui/HelperText";
+import { RadixStatusIcon } from "@/ui/HelperText";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -99,20 +99,6 @@ function waitingStatusText(
 
 // An unpublished flag draft is the normal path to QA, so it's info; anything
 // else needs fixing first.
-export type QaOverrideProblemStatus = "info" | "warning";
-
-export function qaOverrideProblemStatus({
-  waitingOn,
-  invalidReasons = [],
-}: {
-  waitingOn: Pick<QaOverrideWaitingFeature, "reason">[];
-  invalidReasons?: QaOverrideInvalidReason[];
-}): QaOverrideProblemStatus {
-  return !invalidReasons.length && waitingOn.every((w) => w.reason === "draft")
-    ? "info"
-    : "warning";
-}
-
 export function QaOverrideWaitingBanner({
   waitingOn,
   environment,
@@ -126,8 +112,9 @@ export function QaOverrideWaitingBanner({
     const key = reason === "discarded" ? "missing" : reason;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
+  const onlyDrafts = [...counts.keys()].every((r) => r === "draft");
   return (
-    <ModalWarningBanner status={qaOverrideProblemStatus({ waitingOn })}>
+    <ModalWarningBanner status={onlyDrafts ? "info" : "warning"}>
       {[...counts].map(([reason, count]) => (
         <div key={reason}>{waitingStatusText(reason, count, environment)}</div>
       ))}
@@ -157,7 +144,6 @@ function invalidCopy(reason: QaOverrideInvalidReason): {
 
 type Problem = {
   key: string;
-  status: QaOverrideProblemStatus;
   title: ReactNode;
   description: ReactNode;
   action: ReactNode;
@@ -177,7 +163,6 @@ export function QaOverrideProblemsPopoverContent({
   const problems: Problem[] = [
     ...override.invalidReasons.map((reason) => ({
       key: reason,
-      status: "warning" as const,
       ...invalidCopy(reason),
       action: onEdit ? (
         <Link onClick={onEdit} size="sm" weight="medium">
@@ -189,7 +174,6 @@ export function QaOverrideProblemsPopoverContent({
       const copy = waitingCopy(w, override.environment);
       return {
         key: w.featureId,
-        status: qaOverrideProblemStatus({ waitingOn: [w] }),
         title: copy.title,
         description: copy.description,
         action: (
@@ -202,38 +186,26 @@ export function QaOverrideProblemsPopoverContent({
   ];
   return (
     <Box className={styles.waitingPopover}>
-      {problems.map((problem) => {
-        const color = getRadixColor(problem.status);
-        return (
-          <Box key={problem.key}>
-            <Box
-              className={styles.waitingHeader}
-              style={{
-                background: `var(--${color}-a3)`,
-                borderBlock: `1px solid var(--${color}-a4)`,
-              }}
-            >
-              <Box
-                className={styles.waitingIcon}
-                style={{ color: `var(--${color}-11)` }}
-              >
-                <RadixStatusIcon status={problem.status} size="md" />
-              </Box>
-              <Heading as="h4" size="xs" mb="0">
-                {problem.title}
-              </Heading>
+      {problems.map((problem) => (
+        <Box key={problem.key}>
+          <Box className={styles.waitingHeader}>
+            <Box className={styles.waitingIcon}>
+              <RadixStatusIcon status="warning" size="md" />
             </Box>
-            <Box className={styles.waitingBody}>
-              <Text as="p" size="sm" color="text-mid" mb="0">
-                {problem.description}
-              </Text>
-              {problem.action ? (
-                <Flex justify="end">{problem.action}</Flex>
-              ) : null}
-            </Box>
+            <Heading as="h4" size="xs" mb="0">
+              {problem.title}
+            </Heading>
           </Box>
-        );
-      })}
+          <Box className={styles.waitingBody}>
+            <Text as="p" size="sm" color="text-mid" mb="0">
+              {problem.description}
+            </Text>
+            {problem.action ? (
+              <Flex justify="end">{problem.action}</Flex>
+            ) : null}
+          </Box>
+        </Box>
+      ))}
     </Box>
   );
 }

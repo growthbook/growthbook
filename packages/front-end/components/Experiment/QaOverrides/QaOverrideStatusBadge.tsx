@@ -3,11 +3,8 @@ import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-overr
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
-import { getRadixColor, RadixStatusIcon } from "@/ui/HelperText";
-import {
-  QaOverrideProblemsPopoverContent,
-  qaOverrideProblemStatus,
-} from "./QaOverrideProblems";
+import { RadixStatusIcon } from "@/ui/HelperText";
+import { QaOverrideProblemsPopoverContent } from "./QaOverrideProblems";
 import styles from "./QaOverrides.module.scss";
 
 export default function QaOverrideStatusBadge({
@@ -24,7 +21,6 @@ export default function QaOverrideStatusBadge({
   if (override.status === "active") {
     return <Badge label="Active" color="green" variant="soft" />;
   }
-  const status = qaOverrideProblemStatus(override);
   return (
     <Popover
       openOnHover
@@ -35,11 +31,11 @@ export default function QaOverrideStatusBadge({
         // A real button, so Enter and Space open it.
         <Link color="inherit" underline="none" className={styles.help}>
           <Badge
-            color={getRadixColor(status)}
+            color="amber"
             variant="soft"
             label={
               <Flex align="center" gap="1" style={{ whiteSpace: "nowrap" }}>
-                <RadixStatusIcon status={status} size="sm" />
+                <RadixStatusIcon status="warning" size="sm" />
                 <span className={styles.dotted}>Not applied</span>
               </Flex>
             }
