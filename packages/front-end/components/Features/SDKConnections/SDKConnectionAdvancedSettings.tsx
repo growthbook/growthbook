@@ -8,6 +8,7 @@ import type { AppFeatures } from "shared/types/app-features";
 import { Box, Flex } from "@radix-ui/themes";
 import type { AutoExperimentFeature } from "shared/types/organization";
 import { useAutoExperimentGate } from "@/components/AutoExperiments/EnableAutoExperimentDialog";
+import useAutoExperiments from "@/hooks/useAutoExperiments";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -87,13 +88,32 @@ export function ExperimentSettings({
     Object.values(patch).some(Boolean)
       ? enableGate.guard(feature, () => onChange(patch))
       : onChange(patch);
+  const { isEnabled, canManage, mode } = useAutoExperiments();
+  // Why a box that is off can't be ticked: the organization hasn't opted in
+  // and this viewer can't opt it in from here. Unticking is always allowed.
+  const optInBlock = (feature: AutoExperimentFeature, checked: boolean) => {
+    if (checked || isEnabled(feature)) return undefined;
+    if (mode !== "allowed") {
+      return "Set the ALLOW_AUTO_EXPERIMENTS environment variable to true to allow enabling this";
+    }
+    return canManage
+      ? undefined
+      : "An admin must enable this for your organization";
+  };
   return (
     <>
       {enableGate.dialog}
       {showVisualEditor && (
         <Checkbox
           weight="regular"
-          disabled={disabled}
+          disabled={
+            disabled ||
+            !!optInBlock("visualEditor", value.includeVisualExperiments)
+          }
+          disabledMessage={optInBlock(
+            "visualEditor",
+            value.includeVisualExperiments,
+          )}
           value={value.includeVisualExperiments}
           setValue={(v) =>
             setOptIn("visualEditor", { includeVisualExperiments: v })
@@ -105,7 +125,8 @@ export function ExperimentSettings({
         <Box pl="5">
           <Checkbox
             weight="regular"
-            disabled={disabled}
+            disabled={disabled || !!optInBlock("customJs", value.allowCustomJs)}
+            disabledMessage={optInBlock("customJs", value.allowCustomJs)}
             value={value.allowCustomJs}
             setValue={(v) => setOptIn("customJs", { allowCustomJs: v })}
             label={SETTING_TITLES.customJs}
@@ -115,7 +136,14 @@ export function ExperimentSettings({
       {showRedirects && (
         <Checkbox
           weight="regular"
-          disabled={disabled}
+          disabled={
+            disabled ||
+            !!optInBlock("urlRedirects", value.includeRedirectExperiments)
+          }
+          disabledMessage={optInBlock(
+            "urlRedirects",
+            value.includeRedirectExperiments,
+          )}
           value={value.includeRedirectExperiments}
           setValue={(v) =>
             setOptIn("urlRedirects", { includeRedirectExperiments: v })
@@ -127,7 +155,17 @@ export function ExperimentSettings({
         <Box pl="5">
           <Checkbox
             weight="regular"
-            disabled={disabled}
+            disabled={
+              disabled ||
+              !!optInBlock(
+                "crossOriginRedirects",
+                value.allowCrossOriginRedirects,
+              )
+            }
+            disabledMessage={optInBlock(
+              "crossOriginRedirects",
+              value.allowCrossOriginRedirects,
+            )}
             value={value.allowCrossOriginRedirects}
             setValue={(v) =>
               setOptIn("crossOriginRedirects", { allowCrossOriginRedirects: v })
