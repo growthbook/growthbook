@@ -530,7 +530,18 @@ If the experiment came from a feature rule, `result.featureId` in the trackingCa
 
 ### AI Visual Editor Experiments
 
-Experiments created through the GrowthBook AI Visual Editor will run automatically as soon as their targeting conditions are met.
+Experiments created through the GrowthBook AI Visual Editor only run when you add the `visualEditorPlugin`. With the plugin, they run automatically as soon as their targeting conditions are met.
+
+```js
+import { visualEditorPlugin } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  plugins: [visualEditorPlugin()],
+  // ... other settings
+});
+```
+
+Experiments that inject custom JavaScript are skipped unless you pass `allowCustomJs: true` to the plugin. Before version 3.0.0, these experiments ran without a plugin. See [Updating to 3.0.0](/lib/js#updating-to-3-0-0).
 
 **Note**: AI Visual Editor experiments are only supported in a web browser environment. They will not run in React Native or during Server Side Rendering (SSR).
 
@@ -557,18 +568,23 @@ export default function MyApp() {
 
 ### URL Redirect Experiments
 
-Similarly to AI Visual Editor experiments, URL redirect tests will run automatically if targeting conditions are met.
+URL redirect tests only run when you add the `urlRedirectsPlugin`. With the plugin, they run automatically if targeting conditions are met. Redirects to a different origin are skipped unless you pass `allowCrossOriginRedirects: true` to the plugin.
 
-If you are using this SDK in a Single Page App (SPA), you'll want to pass in a custom navigation function into the SDK (as default navigation for URL Redirects uses `window.location.replace(url)`) and set the `navigateDelay` to 0.
+If you are using this SDK in a Single Page App (SPA), you'll want to pass a custom navigation function into the plugin (as default navigation for URL Redirects uses `window.location.replace(url)`) and set the `navigateDelay` to 0.
 
 ```js
 // Example in Next.js
 import router from "next/router";
+import { urlRedirectsPlugin } from "@growthbook/growthbook/plugins";
 
 const gb = new GrowthBook({
-    navigate: (url) => router.replace(url),
-    navigateDelay: 0,
-    // ... other settings
+  plugins: [
+    urlRedirectsPlugin({
+      navigate: (url) => router.replace(url),
+      navigateDelay: 0,
+    }),
+  ],
+  // ... other settings
 });
 ```
 
