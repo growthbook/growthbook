@@ -225,8 +225,9 @@ export default function QaOverrideModal({
                   "Show one variation to people you choose. Ignores the experiment\u2019s targeting.",
                 // A select can't sit inside the radio's label.
                 renderOutsideItem: true,
+                // Pulled up under its option, closer than the next option is.
                 renderOnSelect: (
-                  <Box ml="5">
+                  <Box ml="5" mt="-1">
                     <Select
                       aria-label="Variation"
                       value={values.forcedVariationId || undefined}
@@ -346,11 +347,7 @@ export default function QaOverrideModal({
                       "Replaces the experiment\u2019s targeting while testing"
                     ),
                   renderOutsideItem: true,
-                  renderOnSelect: (
-                    <Box ml="5" mt="2">
-                      {targetingFields}
-                    </Box>
-                  ),
+                  renderOnSelect: <Box ml="5">{targetingFields}</Box>,
                 },
               ]}
             />
