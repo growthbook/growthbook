@@ -385,6 +385,49 @@ describe("parseStatsEngineResult", () => {
     expect(metrics.goal2.pValueAdjusted).toBeCloseTo(0.04);
     expect(metrics.secondary.pValueAdjusted).toBeUndefined();
   });
+
+  it("completes the power inputs the stats engine returns", () => {
+    const [baseline, treatment] =
+      survivorResult.analyses[0].dimensions[0].variations;
+    const [result] = parseStatsEngineResult({
+      analysisSettings: [{ ...analysisSettings, statsEngine: "frequentist" }],
+      snapshotSettings: { variations, goalMetrics: ["goal"] },
+      queryResults: [],
+      unknownVariations: [],
+      result: [
+        {
+          metric: "goal",
+          analyses: [
+            {
+              ...survivorResult.analyses[0],
+              dimensions: [
+                {
+                  dimension: "All",
+                  srm: 1,
+                  variations: [
+                    baseline,
+                    {
+                      ...treatment,
+                      power: {
+                        status: "successful",
+                        firstPeriodPairwiseSampleSize: 1000,
+                        sigmahat2Delta: 0.0009,
+                        targetMDE: 0.05,
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(
+      result.dimensions[0].variations[1].metrics.goal.power?.scalingFactor,
+    ).toBeCloseTo(1.8255615234375, 8);
+  });
 });
 
 describe("analyzeExperimentTraffic", () => {
