@@ -47,9 +47,6 @@ type ExperimentUpdateExecutionLog = {
   // Per fact-table group: which covariate table the run used and why. null when
   // the run never resolved a covariate path (e.g. non-incremental runner kinds).
   covariateSources: ExperimentUpdateCovariateSourceLog[] | null;
-  // The query-runner-fast-refresh flag value the run used. null when the
-  // runner never armed a refresh pass.
-  fastRefresh: boolean | null;
 };
 
 export type ExperimentUpdateTimingPhase =
@@ -70,7 +67,6 @@ export class ExperimentUpdateExecutionLogger {
   public execution: ExperimentUpdateExecutionLog = {
     incrementalRefreshMode: null,
     covariateSources: null,
-    fastRefresh: null,
   };
 
   private readonly startedAtMs = Date.now();
@@ -194,7 +190,6 @@ export function logExperimentUpdated(
       incrementalRefreshMode:
         executionLogger?.execution.incrementalRefreshMode ?? null,
       covariateSources: executionLogger?.execution.covariateSources ?? null,
-      fastRefresh: executionLogger?.execution.fastRefresh ?? null,
       timingsMs: {
         generateSql: timings?.generateSql ?? null,
         runQueries: timings?.runQueries ?? null,

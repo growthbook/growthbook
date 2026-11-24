@@ -206,7 +206,6 @@ describe("ExperimentUpdateExecutionLogger", () => {
       fullRefreshReason: null,
       incrementalRefreshMode: "incremental",
       covariateSources: null,
-      fastRefresh: null,
       timingsMs: {
         generateSql: null,
         runQueries: null,

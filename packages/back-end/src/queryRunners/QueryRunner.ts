@@ -434,20 +434,14 @@ export abstract class QueryRunner<
   }
 
   private usesFastRefresh(): boolean {
-    if (this.fastRefresh === null) {
-      this.fastRefresh = getBackendFeatureValue(
-        "query-runner-fast-refresh",
-        false,
-        {
-          ...getTrustedOrgAttributes(this.context.org),
-          ...this.getRefreshFlagAttributes(),
-        },
-      );
-      if (this.experimentUpdateExecutionLogger) {
-        this.experimentUpdateExecutionLogger.execution.fastRefresh =
-          this.fastRefresh;
-      }
-    }
+    this.fastRefresh ??= getBackendFeatureValue(
+      "query-runner-fast-refresh",
+      false,
+      {
+        ...getTrustedOrgAttributes(this.context.org),
+        ...this.getRefreshFlagAttributes(),
+      },
+    );
     return this.fastRefresh;
   }
 
