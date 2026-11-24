@@ -73,6 +73,13 @@ function applyThemeClass(theme: AppearanceUITheme) {
   classList.remove(theme === "dark" ? "light-theme" : "dark-theme");
 }
 
+function effectiveTheme(
+  preferred: PreferredAppearanceUITheme,
+  system: AppearanceUITheme,
+): AppearanceUITheme {
+  return preferred === "system" ? system : preferred;
+}
+
 export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
   children,
 }) => {
@@ -98,7 +105,7 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     function attachSystemListener() {
       const listener = (e: MediaQueryListEvent) => {
         const colourScheme = e.matches ? "dark" : "light";
-        if (preferredTheme === "system") applyThemeClass(colourScheme);
+        applyThemeClass(effectiveTheme(preferredTheme, colourScheme));
         setSystemTheme(colourScheme);
       };
 
@@ -116,12 +123,12 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
   );
 
   useLayoutEffect(() => {
-    applyThemeClass(preferredTheme !== "system" ? preferredTheme : systemTheme);
+    applyThemeClass(effectiveTheme(preferredTheme, systemTheme));
   }, [preferredTheme, systemTheme]);
 
   const handleThemeChange = useCallback(
     (updated: PreferredAppearanceUITheme) => {
-      applyThemeClass(updated === "system" ? systemTheme : updated);
+      applyThemeClass(effectiveTheme(updated, systemTheme));
       setPreferredTheme(updated);
 
       try {
@@ -138,7 +145,7 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
   );
 
   const theme: AppearanceUITheme = useMemo(
-    () => (preferredTheme === "system" ? systemTheme : preferredTheme),
+    () => effectiveTheme(preferredTheme, systemTheme),
     [systemTheme, preferredTheme],
   );
 
