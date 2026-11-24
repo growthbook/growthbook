@@ -6,10 +6,8 @@ import type { ExplorationConfig } from "shared/validators";
 import { getInitialConfigByBlockType } from "shared/enterprise";
 import { ago } from "shared/dates";
 import useExploration from "@/enterprise/components/ProductAnalytics/useExploration";
-import {
-  getRowsPerDay,
-  isRowCountStale,
-} from "@/components/QueryPreview/activityChart";
+import { getRowsPerDay } from "@/components/QueryPreview/activityChart";
+import { isRowCountStale } from "@/services/factTableColumns";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
