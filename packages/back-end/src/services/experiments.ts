@@ -126,6 +126,7 @@ import {
   ApiMetric,
   ScheduledStopPlan,
   resolveSavedGroupsInput,
+  DagNode,
 } from "shared/validators";
 import { ComboConstituent, Dimension } from "shared/types/integrations";
 import {
@@ -211,9 +212,12 @@ import {
   addOrUpdateSnapshotAnalysis,
   addOrUpdateSnapshotMultipleAnalysis,
   createExperimentSnapshotModel,
+  deleteQueuedSnapshots,
   findSnapshotById,
   getLatestSnapshotMultipleExperiments,
   getLatestSuccessfulSnapshot,
+  hasQueuedSnapshot,
+  startQueuedSnapshot,
   updateSnapshot,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -272,12 +276,14 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   getEligiblePrecomputedUnitDimensionIds,
   getExposureQueryEligibleDimensions,
+  resolvePrecomputedUnitDimensions,
 } from "back-end/src/services/dimensions";
 import {
   getErrorMessage,
   BadRequestError,
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  QueuedSnapshotSupersededError,
   InvalidTrackingKeyError,
   SoftWarningError,
 } from "back-end/src/util/errors";
@@ -289,10 +295,7 @@ import {
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
-import {
-  ExperimentUpdateLogPlan,
-  ExperimentUpdateExecutionLogger,
-} from "back-end/src/services/experimentUpdateExecutionLogger";
+import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import { interruptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
@@ -1984,6 +1987,7 @@ function shouldIncrementalThrowErrorInsteadOfFallback(
     case "manual-dashboard":
     case "schedule":
     case "update-dashboards":
+    case "conditional":
       return false;
     default: {
       triggeredBy satisfies never;
@@ -2007,6 +2011,7 @@ export async function planSnapshot({
   reweight,
   throwIfRequiresFullRefresh,
   cutoff,
+  plannedSourceSnapshot,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -2022,6 +2027,8 @@ export async function planSnapshot({
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
   cutoff?: Date | null;
+  // Lets a queued snapshot point to the right parent snapshot
+  plannedSourceSnapshot?: ExperimentSnapshotInterface;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -2176,6 +2183,7 @@ export async function planSnapshot({
   let latestOverallSnapshotId: string | null = null;
   if (
     type === "exploratory" &&
+    !plannedSourceSnapshot &&
     incrementalRefreshModel?.materializedBySnapshotId
   ) {
     const latestOverallSnapshot = await getLatestSuccessfulSnapshot({
@@ -2186,36 +2194,48 @@ export async function planSnapshot({
     latestOverallSnapshotId = latestOverallSnapshot?.id ?? null;
   }
 
-  const runnerPlan = await planSnapshotQueryRunner({
-    organization,
-    datasource,
-    integration,
-    snapshotSettings: data.settings,
-    metricMap,
-    experiment,
-    incrementalRefreshModel,
-    latestOverallSnapshotId,
-    snapshotType: type,
-    fullRefresh,
-    fullRefreshReason,
-    triggeredBy,
-    throwOnErrorInsteadOfFallback: shouldIncrementalThrowErrorInsteadOfFallback(
-      useCache,
-      triggeredBy,
-      throwIfRequiresFullRefresh,
-    ),
-    isLatestPhase: phaseIndex === experiment.phases.length - 1,
-  });
+  const runnerPlan: Awaited<ReturnType<typeof planSnapshotQueryRunner>> =
+    plannedSourceSnapshot
+      ? {
+          runnerFamily: "incremental-exploratory",
+          incrementalFallbackReason: null,
+          fullRefresh: false,
+          fullRefreshReason: null,
+        }
+      : await planSnapshotQueryRunner({
+          organization,
+          datasource,
+          integration,
+          snapshotSettings: data.settings,
+          metricMap,
+          experiment,
+          incrementalRefreshModel,
+          latestOverallSnapshotId,
+          snapshotType: type,
+          fullRefresh,
+          fullRefreshReason,
+          triggeredBy,
+          throwOnErrorInsteadOfFallback:
+            shouldIncrementalThrowErrorInsteadOfFallback(
+              useCache,
+              triggeredBy,
+              throwIfRequiresFullRefresh,
+            ),
+          isLatestPhase: phaseIndex === experiment.phases.length - 1,
+        });
 
   if (runnerPlan.runnerFamily === "incremental-exploratory") {
     // The snapshot whose run materialized the tables this breakdown reads is
     // the source of its freshness date. Absent for legacy docs that predate the
     // field; the UI falls back to the breakdown's own dateCreated in that case.
-    const materializedBySnapshotId =
-      incrementalRefreshModel?.materializedBySnapshotId;
-    const sourceSnapshot = materializedBySnapshotId
-      ? await findSnapshotById(context, materializedBySnapshotId)
-      : null;
+    const materializedBySnapshotId = plannedSourceSnapshot
+      ? null
+      : incrementalRefreshModel?.materializedBySnapshotId;
+    const sourceSnapshot =
+      plannedSourceSnapshot ??
+      (materializedBySnapshotId
+        ? await findSnapshotById(context, materializedBySnapshotId)
+        : null);
     if (sourceSnapshot) {
       data.sourceSnapshotId = sourceSnapshot.id;
       data.sourceSnapshotDateCreated = sourceSnapshot.dateCreated;
@@ -2281,6 +2301,304 @@ function getIncrementalRefreshLockRole(
   }
 }
 
+// Takes the lock a snapshot's runner needs. Returns the role now held, or null
+// when the runner needs no lock, and throws when the lock is refused.
+async function acquireIncrementalRefreshLock({
+  context,
+  experiment,
+  datasource,
+  snapshot,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  snapshot: PlannedExperimentSnapshot["snapshot"];
+}): Promise<"writer" | "reader" | null> {
+  const lockRole = getIncrementalRefreshLockRole(snapshot.runnerKind);
+  if (lockRole === null) return null;
+
+  const lockParams = {
+    experimentId: experiment.id,
+    phase: snapshot.phase,
+    snapshotId: snapshot.id,
+    legacyExperimentSettingsHash:
+      getExperimentSettingsHashForIncrementalRefresh(
+        snapshot.settings,
+        datasource.settings.queries?.exposure ?? [],
+      ),
+  };
+  const acquired =
+    lockRole === "reader"
+      ? await context.models.incrementalRefresh.acquireReaderLock({
+          ...lockParams,
+          request: {
+            type: "dimension",
+            // Planning only picks this runner for a single-dimension breakdown.
+            dimension:
+              snapshot.dimension ??
+              snapshot.settings.dimensions.map((d) => d.id).join(","),
+          },
+        })
+      : await context.models.incrementalRefresh.acquireLock(lockParams);
+  if (!acquired) {
+    throw new ConcurrentIncrementalRefreshError(
+      "There is already an update in progress for this experiment.",
+    );
+  }
+  return lockRole;
+}
+
+// Builds the query runner for a snapshot that is now running and starts its
+// analysis. `planned` is the snapshot as planned; `snapshot` is its stored
+// copy, which the runner updates.
+async function startSnapshotQueryRunner({
+  context,
+  experiment,
+  integration,
+  planned,
+  snapshot,
+  useCache,
+  experimentUpdateExecutionLogger,
+  metricMap,
+  factTableMap,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  integration: SourceIntegrationInterface;
+  planned: PlannedExperimentSnapshot["snapshot"];
+  snapshot: ExperimentSnapshotInterface;
+  useCache: boolean;
+  experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+}): Promise<ExperimentSnapshotQueryRunner> {
+  const { runnerKind } = planned;
+  const snapshotType = planned.type;
+  if (!snapshotType) {
+    throw new Error("Snapshot plan is missing a snapshot type");
+  }
+
+  let queryRunner: ExperimentSnapshotQueryRunner;
+  switch (runnerKind) {
+    case "incremental-exploratory":
+      queryRunner = new ExperimentIncrementalRefreshExploratoryQueryRunner(
+        context,
+        snapshot,
+        integration,
+        false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
+      );
+      break;
+    case "incremental-full":
+    case "incremental-update":
+      queryRunner = new ExperimentIncrementalRefreshQueryRunner(
+        context,
+        snapshot,
+        integration,
+        false, // always ignore cache for incremental refresh queries
+      );
+      break;
+    case "results":
+      queryRunner = new ExperimentResultsQueryRunner(
+        context,
+        snapshot,
+        integration,
+        useCache,
+      );
+      break;
+    default:
+      runnerKind satisfies never;
+      throw new Error(`Unknown snapshot runner kind: ${runnerKind}`);
+  }
+
+  queryRunner.setExperimentUpdateExecutionLogger(
+    experimentUpdateExecutionLogger,
+  );
+
+  const analysisProps = {
+    snapshotType,
+    snapshotSettings: planned.settings,
+    variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
+    metricMap,
+    queryParentId: queryRunner.model.id,
+    factTableMap,
+    experimentQueryMetadata: {
+      ...getExperimentQueryMetadata(experiment),
+      ...getSnapshotQueryMetadata(planned),
+    },
+  };
+
+  if (
+    runnerKind === "incremental-full" ||
+    runnerKind === "incremental-update"
+  ) {
+    await (
+      queryRunner as ExperimentIncrementalRefreshQueryRunner
+    ).startAnalysis({
+      ...analysisProps,
+      experimentId: experiment.id,
+      incrementalRefreshStartTime: getIncrementalMetricScanEnd(
+        experiment.phases[planned.phase],
+        planned.settings,
+      ),
+      fullRefresh: runnerKind === "incremental-full",
+    });
+  } else if (runnerKind === "incremental-exploratory") {
+    await (
+      queryRunner as ExperimentIncrementalRefreshExploratoryQueryRunner
+    ).startAnalysis({
+      ...analysisProps,
+      experimentId: experiment.id,
+      incrementalRefreshStartTime: new Date(),
+    });
+  } else {
+    await (queryRunner as ExperimentResultsQueryRunner).startAnalysis(
+      analysisProps,
+    );
+  }
+
+  return queryRunner;
+}
+
+// Releases the lock of a snapshot that failed to start and, if the snapshot
+// was already stored as running, marks it as failed.
+async function cleanUpFailedSnapshotStart({
+  context,
+  experiment,
+  snapshotId,
+  hasLock,
+  isRunning,
+  error,
+  experimentUpdateExecutionLogger,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  snapshotId: string;
+  hasLock: boolean;
+  isRunning: boolean;
+  error: string;
+  experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null;
+}): Promise<void> {
+  if (hasLock) {
+    await context.models.incrementalRefresh
+      .releaseLock(experiment.id, snapshotId)
+      .catch((releaseErr) =>
+        context.logger.warn(
+          releaseErr,
+          "Failed to release incremental refresh lock during error cleanup",
+        ),
+      );
+  }
+
+  if (isRunning) {
+    await updateSnapshot({
+      context,
+      id: snapshotId,
+      updates: { status: "error", error },
+      conclusion: { concludedBy: "runner" },
+      experimentUpdateExecutionLogger,
+    });
+  }
+}
+
+// Plans and creates, as queued, the breakdowns that run once this Overall
+// Results update succeeds, plus the DAG that starts them.
+async function createQueuedBreakdowns({
+  plan,
+  context,
+  experiment,
+  datasource,
+  metricMap,
+  factTableMap,
+}: {
+  plan: PlannedExperimentSnapshot;
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+}): Promise<void> {
+  const { phase } = plan.snapshot;
+  // Whatever is still queued belongs to the cycle this update supersedes
+  await deleteQueuedSnapshots(context, { experiment: experiment.id, phase });
+
+  const mainAnalysisSettings = plan.snapshot.analyses[0]?.settings;
+  if (!mainAnalysisSettings) return;
+
+  // A dimension that was deleted, or no longer fits the experiment's data
+  // source or identifier type, would run as an unsplit copy of the results.
+  const requestedDimensionIds = [
+    ...new Set(experiment.precomputedUnitDimensionIds),
+  ];
+  const { dimensions, skipped } = await resolvePrecomputedUnitDimensions({
+    context,
+    datasource,
+    exposureQueryId: experiment.exposureQueryId,
+    exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
+    dimensionIds: requestedDimensionIds,
+  });
+  if (skipped.length > 0) {
+    logger.info(
+      { experimentId: experiment.id, skipped },
+      "Ignoring ineligible precomputed unit dimensions",
+    );
+  }
+  const eligibleDimensionIds = new Set(dimensions.map((d) => d.id));
+  const dimensionIds = requestedDimensionIds.filter((id) =>
+    eligibleDimensionIds.has(id),
+  );
+  if (!dimensionIds.length) return;
+
+  const nodes: DagNode[] = [
+    {
+      id: "main",
+      dependsOn: [],
+      type: "experiment-snapshot",
+      targetId: plan.snapshot.id,
+      previousTargetIds: [],
+      maxAttempts: 1,
+    },
+  ];
+  for (const dimensionId of dimensionIds) {
+    // Copied rather than derived again: a breakdown may only read the tables
+    // if it hashes to the same settings as the run that built them, and
+    // regression adjustment is part of that hash.
+    const defaultAnalysisSettings = {
+      ...mainAnalysisSettings,
+      dimensions: [dimensionId],
+    };
+    const { snapshot } = await planSnapshot({
+      experiment,
+      context,
+      type: "exploratory",
+      triggeredBy: "conditional",
+      phaseIndex: phase,
+      useCache: true,
+      defaultAnalysisSettings,
+      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
+        defaultAnalysisSettings,
+      ),
+      settingsForSnapshotMetrics: plan.settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      cutoff: getSnapshotCutoffDate(plan.snapshot.settings),
+      plannedSourceSnapshot: plan.snapshot,
+    });
+    await createExperimentSnapshotModel({
+      context,
+      data: { ...snapshot, status: "queued", runStarted: null },
+    });
+    nodes.push({
+      id: dimensionId,
+      dependsOn: ["main"],
+      type: "experiment-snapshot",
+      targetId: snapshot.id,
+      previousTargetIds: [],
+      maxAttempts: 3,
+    });
+  }
+  await context.models.dags.create({ status: "active", nodes });
+}
+
 export async function createSnapshotFromPlan({
   plan,
   context,
@@ -2299,42 +2617,34 @@ export async function createSnapshotFromPlan({
     throw new Error("Could not load data source");
   }
   const integration = getSourceIntegrationObject(context, datasource, true);
-  const { runnerKind } = plan.snapshot;
-  const lockRole = getIncrementalRefreshLockRole(runnerKind);
 
-  let hasIncrementalRefreshLock = false;
-  if (lockRole !== null) {
-    const lockParams = {
-      experimentId: experiment.id,
+  // The queued snapshot will produce these results, so a second run of the
+  // same breakdown is refused whichever runner it would use. A dashboard's
+  // run is let through: its blocks only take results from a run of their
+  // own, never from the queued one.
+  if (
+    plan.snapshot.dimension &&
+    plan.snapshot.triggeredBy !== "update-dashboards" &&
+    plan.snapshot.triggeredBy !== "manual-dashboard" &&
+    (await hasQueuedSnapshot(context, {
+      experiment: experiment.id,
       phase: plan.snapshot.phase,
-      snapshotId: plan.snapshot.id,
-      legacyExperimentSettingsHash:
-        getExperimentSettingsHashForIncrementalRefresh(
-          plan.snapshot.settings,
-          datasource.settings.queries?.exposure ?? [],
-        ),
-    };
-    hasIncrementalRefreshLock =
-      lockRole === "reader"
-        ? await context.models.incrementalRefresh.acquireReaderLock({
-            ...lockParams,
-            request: {
-              type: "dimension",
-              // Planning only picks this runner for a single-dimension breakdown.
-              dimension:
-                plan.snapshot.dimension ??
-                plan.snapshot.settings.dimensions.map((d) => d.id).join(","),
-            },
-          })
-        : await context.models.incrementalRefresh.acquireLock(lockParams);
-    if (!hasIncrementalRefreshLock) {
-      throw new ConcurrentIncrementalRefreshError(
-        "There is already an update in progress for this experiment.",
-      );
-    }
+      dimension: plan.snapshot.dimension,
+    }))
+  ) {
+    throw new ConcurrentIncrementalRefreshError(
+      "This breakdown is already queued and will run when the Overall Results update finishes.",
+    );
   }
 
-  let createdSnapshotId: string | null = null;
+  const lockRole = await acquireIncrementalRefreshLock({
+    context,
+    experiment,
+    datasource,
+    snapshot: plan.snapshot,
+  });
+
+  let isRunning = false;
   let experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
     null;
 
@@ -2377,103 +2687,52 @@ export async function createSnapshotFromPlan({
       context,
       data: plan.snapshot,
     });
-    createdSnapshotId = snapshot.id;
+    isRunning = true;
 
-    const experimentUpdateLog: ExperimentUpdateLogPlan = {
-      runnerKind,
-      incrementalFallbackReason: plan.incrementalFallbackReason,
-      useCache: plan.useCache,
-      fullRefresh: plan.fullRefresh,
-      fullRefreshReason: plan.fullRefreshReason,
-    };
-
-    const snapshotType = plan.snapshot.type;
-    if (!snapshotType) {
-      throw new Error("Snapshot plan is missing a snapshot type");
+    if (lockRole === "writer") {
+      // Breakdowns are extra: the Overall Results update goes ahead without
+      // them, and nothing is left queued with no DAG to start it.
+      await createQueuedBreakdowns({
+        plan,
+        context,
+        experiment,
+        datasource,
+        metricMap,
+        factTableMap,
+      }).catch(async (e) => {
+        logger.error(
+          { err: e, experimentId: experiment.id, snapshotId: snapshot.id },
+          "Failed to queue the breakdowns of an Overall Results update",
+        );
+        await deleteQueuedSnapshots(context, {
+          experiment: experiment.id,
+          phase: plan.snapshot.phase,
+        });
+      });
     }
 
     experimentUpdateExecutionLogger = new ExperimentUpdateExecutionLogger(
-      experimentUpdateLog,
+      {
+        runnerKind: plan.snapshot.runnerKind,
+        incrementalFallbackReason: plan.incrementalFallbackReason,
+        useCache: plan.useCache,
+        fullRefresh: plan.fullRefresh,
+        fullRefreshReason: plan.fullRefreshReason,
+      },
       { datasource },
     );
 
-    let queryRunner: ExperimentSnapshotQueryRunner;
-    switch (runnerKind) {
-      case "incremental-exploratory":
-        queryRunner = new ExperimentIncrementalRefreshExploratoryQueryRunner(
-          context,
-          snapshot,
-          integration,
-          false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
-        );
-        break;
-      case "incremental-full":
-      case "incremental-update":
-        queryRunner = new ExperimentIncrementalRefreshQueryRunner(
-          context,
-          snapshot,
-          integration,
-          false, // always ignore cache for incremental refresh queries
-        );
-        break;
-      case "results":
-        queryRunner = new ExperimentResultsQueryRunner(
-          context,
-          snapshot,
-          integration,
-          plan.useCache,
-        );
-        break;
-      default:
-        runnerKind satisfies never;
-        throw new Error(`Unknown snapshot runner kind: ${runnerKind}`);
-    }
-
-    queryRunner.setExperimentUpdateExecutionLogger(
+    const queryRunner = await startSnapshotQueryRunner({
+      context,
+      experiment,
+      integration,
+      planned: plan.snapshot,
+      snapshot,
+      useCache: plan.useCache,
       experimentUpdateExecutionLogger,
-    );
-
-    const analysisProps = {
-      snapshotType,
-      snapshotSettings: plan.snapshot.settings,
-      variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
       metricMap,
-      queryParentId: queryRunner.model.id,
       factTableMap,
-      experimentQueryMetadata: {
-        ...getExperimentQueryMetadata(experiment),
-        ...getSnapshotQueryMetadata(plan.snapshot),
-      },
-    };
-
-    if (
-      runnerKind === "incremental-full" ||
-      runnerKind === "incremental-update"
-    ) {
-      await (
-        queryRunner as ExperimentIncrementalRefreshQueryRunner
-      ).startAnalysis({
-        ...analysisProps,
-        experimentId: experiment.id,
-        incrementalRefreshStartTime: getIncrementalMetricScanEnd(
-          experiment.phases[plan.snapshot.phase],
-          plan.snapshot.settings,
-        ),
-        fullRefresh: runnerKind === "incremental-full",
-      });
-    } else if (runnerKind === "incremental-exploratory") {
-      await (
-        queryRunner as ExperimentIncrementalRefreshExploratoryQueryRunner
-      ).startAnalysis({
-        ...analysisProps,
-        experimentId: experiment.id,
-        incrementalRefreshStartTime: new Date(),
-      });
-    } else {
-      await (queryRunner as ExperimentResultsQueryRunner).startAnalysis(
-        analysisProps,
-      );
-    }
+    });
 
     const runningSnapshot = queryRunner.model;
     // Whenever the standard snapshot for an experiment is refreshed, also refresh the associated dashboards in the background
@@ -2505,29 +2764,112 @@ export async function createSnapshotFromPlan({
 
     return queryRunner;
   } catch (e) {
-    if (hasIncrementalRefreshLock) {
-      await context.models.incrementalRefresh
-        .releaseLock(experiment.id, plan.snapshot.id)
-        .catch((releaseErr) =>
-          context.logger.warn(
-            releaseErr,
-            "Failed to release incremental refresh lock during error cleanup",
-          ),
-        );
+    await cleanUpFailedSnapshotStart({
+      context,
+      experiment,
+      snapshotId: plan.snapshot.id,
+      hasLock: lockRole !== null,
+      isRunning,
+      error: e.message,
+      experimentUpdateExecutionLogger,
+    });
+    throw e;
+  }
+}
+
+// Starts a breakdown that an Overall Results update planned and stored as
+// queued. The stored snapshot is the plan, so nothing is planned again here,
+// and that update already scheduled the experiment's next one.
+export async function startQueuedBreakdown({
+  queued,
+  context,
+  experiment,
+}: {
+  queued: PlannedExperimentSnapshot["snapshot"];
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+}): Promise<ExperimentSnapshotQueryRunner> {
+  const datasource = await getDataSourceById(context, experiment.datasource);
+  if (!datasource) {
+    throw new Error("Could not load data source");
+  }
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  expandDerivedMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups: await context.models.metricGroups.getAll(),
+  });
+
+  const lockRole = await acquireIncrementalRefreshLock({
+    context,
+    experiment,
+    datasource,
+    snapshot: queued,
+  });
+
+  let isRunning = false;
+  let experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
+    null;
+
+  try {
+    // Checked under the lock: the Overall Results run marks its snapshot
+    // successful before it records itself here, and only then releases.
+    const incrementalRefresh =
+      await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+        experiment.id,
+        queued.phase,
+      );
+    if (
+      !queued.sourceSnapshotId ||
+      incrementalRefresh?.materializedBySnapshotId !== queued.sourceSnapshotId
+    ) {
+      throw new QueuedSnapshotSupersededError(
+        "The tables were not built by the Overall Results update this breakdown was queued for.",
+      );
     }
 
-    if (createdSnapshotId) {
-      await updateSnapshot({
-        context,
-        id: createdSnapshotId,
-        updates: {
-          status: "error",
-          error: e.message,
-        },
-        conclusion: { concludedBy: "runner" },
-        experimentUpdateExecutionLogger,
-      });
+    const snapshot = await startQueuedSnapshot(context, queued.id);
+    if (!snapshot) {
+      throw new Error("Snapshot is no longer queued");
     }
+    isRunning = true;
+
+    experimentUpdateExecutionLogger = new ExperimentUpdateExecutionLogger(
+      {
+        runnerKind: queued.runnerKind,
+        incrementalFallbackReason: null,
+        useCache: true,
+        fullRefresh: false,
+        fullRefreshReason: null,
+      },
+      { datasource },
+    );
+
+    return await startSnapshotQueryRunner({
+      context,
+      experiment,
+      integration,
+      planned: queued,
+      snapshot,
+      useCache: true,
+      experimentUpdateExecutionLogger,
+      metricMap,
+      factTableMap,
+    });
+  } catch (e) {
+    await cleanUpFailedSnapshotStart({
+      context,
+      experiment,
+      snapshotId: queued.id,
+      hasLock: lockRole !== null,
+      isRunning,
+      error: e.message,
+      experimentUpdateExecutionLogger,
+    });
     throw e;
   }
 }

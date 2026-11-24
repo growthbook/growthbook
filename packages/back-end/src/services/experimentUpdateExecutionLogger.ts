@@ -18,9 +18,9 @@ export type SnapshotReapReason =
   | `recovery-declined:${RecoveryDeclineReason}`
   | "recovery-failed";
 
-/** Who moved a snapshot out of "running", and for the reaper, why. */
+/** Who moved a snapshot out of "running" (or, for the DAG job, out of "queued"), and for the reaper, why. */
 export type SnapshotConclusion =
-  | { concludedBy: "runner" | "recovery" | "cancel" }
+  | { concludedBy: "runner" | "recovery" | "cancel" | "dag" }
   | { concludedBy: "reaper"; reason: SnapshotReapReason };
 
 /** A live run, or a stalled-snapshot recovery replaying its persisted results. */

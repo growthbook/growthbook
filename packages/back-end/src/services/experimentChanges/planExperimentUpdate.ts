@@ -652,6 +652,7 @@ export async function planExperimentUpdate(
       await assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context,
         datasource: effectiveDatasource,
+        experimentId: experiment.id,
         exposureQueryId: effectiveExposureQueryId,
         exposureQueryIdentifierType: effectiveExposureQueryIdentifierType,
         dimensionIds: effectivePrecomputedUnitDimensionIds,
