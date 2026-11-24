@@ -192,7 +192,6 @@ const SafeRolloutResults: FC<{
                 status={
                   safeRollout.status === "running" ? "running" : "stopped"
                 }
-                goalMetrics={[]}
                 guardrailMetrics={safeRollout.guardrailMetricIds}
                 metricOverrides={[]}
                 id={safeRollout.id}

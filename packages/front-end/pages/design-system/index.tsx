@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -66,6 +66,12 @@ const SIDEBAR_TOP_OFFSET =
 const SIDEBAR_MAX_HEIGHT = `calc(100vh - var(--header-height) - var(--page-top-padding) - ${PAGE_BOTTOM_PADDING}px)`;
 
 export default function DesignSystemPage() {
+  // The browser looks for a linked story before the app has drawn the page.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, []);
+
   const components = [
     {
       name: "AnalysisResultSummary",

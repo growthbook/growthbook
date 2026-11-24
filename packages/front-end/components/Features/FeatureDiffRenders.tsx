@@ -33,7 +33,7 @@ import Badge from "@/ui/Badge";
 import ScrollArea from "@/ui/ScrollArea";
 import { useExperiments } from "@/hooks/useExperiments";
 import VariationLabel from "@/ui/VariationLabel";
-import { featureStatusColors } from "@/components/Features/FeaturesOverview";
+import { featureStatusColors } from "@/components/Features/featureStatusColors";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import { useEnvironments } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";

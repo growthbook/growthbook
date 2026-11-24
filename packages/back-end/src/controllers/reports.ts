@@ -11,7 +11,11 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
-import { getAllVariations } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getAllVariations,
+  setCorrectedPValues,
+} from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
 import { generateId } from "back-end/src/util/uuid";
@@ -45,6 +49,7 @@ import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
   getContextForAgendaJobByOrgId,
   getContextFromReq,
+  getSignificanceSettingsForProject,
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
@@ -252,12 +257,36 @@ export async function getReport(
   req: AuthRequest<null, { id: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const report = await getReportById(org.id, req.params.id);
+  const report = await getReportById(context.org.id, req.params.id);
 
   if (!report) {
     throw new Error("Unknown report id");
+  }
+
+  // Legacy reports store their results on the report, uncorrected.
+  if (report.type === "experiment" && report.results) {
+    const experiment = report.experimentId
+      ? await getExperimentById(context, report.experimentId)
+      : null;
+    const { pValueCorrection, pValueThreshold } =
+      await getSignificanceSettingsForProject(context, experiment?.project);
+    setCorrectedPValues({
+      results: report.results.dimensions,
+      analysisSettings: {
+        statsEngine: report.args.statsEngine || DEFAULT_STATS_ENGINE,
+        dimensions: report.args.dimension ? [report.args.dimension] : [],
+        pValueCorrection,
+        pValueThreshold,
+      },
+      snapshotSettings: {
+        goalMetrics: expandMetricGroups(
+          report.args.goalMetrics,
+          await context.models.metricGroups.getAll(),
+        ),
+      },
+    });
   }
 
   res.status(200).json({

@@ -15,6 +15,9 @@ import { ListItemNode, ListNode } from "@lexical/list";
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
+  $generateNodesFromMarkdownString,
+  TEXT_FORMAT_TRANSFORMERS,
+  TEXT_MATCH_TRANSFORMERS,
   TRANSFORMERS,
 } from "@lexical/markdown";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
@@ -27,15 +30,23 @@ import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
+import { TablePlugin } from "@lexical/react/LexicalTablePlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import {
+  $isTableCellNode,
+  $isTableNode,
+  TableCellNode,
+  TableNode,
+  TableRowNode,
+} from "@lexical/table";
 import {
   $isLinkNode,
   $toggleLink,
   AutoLinkNode,
   LinkNode,
 } from "@lexical/link";
-import { $findMatchingParent } from "@lexical/utils";
+import { $findMatchingParent, mergeRegister } from "@lexical/utils";
 import {
   $createParagraphNode,
   $getRoot,
@@ -66,9 +77,16 @@ import {
   IMAGE_TRANSFORMER,
 } from "./RichTextEditorImageNode";
 import RichTextEditorToolbar from "./RichTextEditorToolbar";
+import RichTextEditorTableControls from "./RichTextEditorTableControls";
 import { $insertTextSelected } from "./RichTextEditorLinkEditor";
 import { AUTO_LINK_TRANSFORMER, URL_MATCHERS } from "./RichTextEditorAutoLink";
-import { hasMarkdownFormatting } from "./richTextFormatting";
+import {
+  createTableTransformer,
+  outsideTableCells,
+  registerTableKeys,
+  registerTableRules,
+} from "./RichTextEditorTable";
+import { hasMarkdownFormatting, htmlHasFormatting } from "./richTextFormatting";
 import styles from "./RichTextEditor.module.scss";
 
 export interface RichTextEditorHandle {
@@ -129,13 +147,29 @@ const NODES = [
   CodeNode,
   CodeHighlightNode,
   ImageNode,
+  TableNode,
+  TableRowNode,
+  TableCellNode,
 ];
 
 // Images first: their `![...]` would otherwise match as a link.
-const MARKDOWN_TRANSFORMERS = [
+const INLINE_TRANSFORMERS = [
+  IMAGE_TRANSFORMER,
+  AUTO_LINK_TRANSFORMER,
+  ...TEXT_FORMAT_TRANSFORMERS,
+  ...TEXT_MATCH_TRANSFORMERS,
+];
+
+const SHORTCUT_TRANSFORMERS = outsideTableCells([
   IMAGE_TRANSFORMER,
   AUTO_LINK_TRANSFORMER,
   ...TRANSFORMERS,
+]);
+
+// Tables load, save and paste, but typing pipes doesn't build one.
+const MARKDOWN_TRANSFORMERS = [
+  createTableTransformer(INLINE_TRANSFORMERS),
+  ...SHORTCUT_TRANSFORMERS,
 ];
 
 const THEME = {
@@ -163,6 +197,12 @@ const THEME = {
     code: styles.inlineCode,
   },
   code: styles.codeBlock,
+  table: styles.table,
+  tableScrollableWrapper: styles.tableWrapper,
+  tableCell: styles.tableCell,
+  tableCellHeader: styles.tableCellHeader,
+  tableSelection: styles.tableSelection,
+  tableCellSelected: styles.tableCellSelected,
 };
 
 function EditorBridge({
@@ -265,11 +305,32 @@ function PasteAndDrop({
             return true;
           }
 
-          const text = data.getData("text/plain").trim();
-          if (!/^https?:\/\/\S+$/i.test(text)) return false;
-
           const selection = $getSelection();
           if (!$isRangeSelection(selection)) return false;
+
+          // Markdown copied as text (e.g. from an AI chat) keeps its tables and
+          // formatting, outside code and cells; clipboard HTML's own wins.
+          const plain = data.getData("text/plain").replace(/\r\n?/g, "\n");
+          const text = plain.trim();
+          const isUrl = /^https?:\/\/\S+$/i.test(text);
+          if (
+            !isUrl &&
+            !data.types.includes("application/x-lexical-editor") &&
+            !$findMatchingParent(
+              selection.anchor.getNode(),
+              (n) => $isCodeNode(n) || $isTableCellNode(n),
+            ) &&
+            !htmlHasFormatting(data.getData("text/html")) &&
+            hasMarkdownFormatting(plain)
+          ) {
+            event.preventDefault();
+            selection.insertNodes(
+              $generateNodesFromMarkdownString(plain, MARKDOWN_TRANSFORMERS),
+            );
+            return true;
+          }
+
+          if (!isUrl) return false;
           event.preventDefault();
 
           // With nothing selected, a label from the URL becomes the link text.
@@ -303,20 +364,31 @@ function PasteAndDrop({
   return null;
 }
 
-// Lexical gives the caret no way out of a code block at the end of the
-// document, so one is always followed by an empty paragraph.
-function TrailingParagraphAfterCode() {
+// The caret has no visible way out below a code block or table at the end of
+// the document, so one is always followed by an empty paragraph.
+function TrailingParagraph() {
   const [editor] = useLexicalComposerContext();
   useEffect(() => {
     const ensure = (root: RootNode) => {
       const last = root.getLastChild();
-      if ($isCodeNode(last)) last.insertAfter($createParagraphNode());
+      if ($isCodeNode(last) || $isTableNode(last)) {
+        last.insertAfter($createParagraphNode());
+      }
     };
     // The value loaded at mount predates the transform. Merged into history,
     // so this is neither an undo step nor a reported change.
     editor.update(() => ensure($getRoot()), { tag: HISTORY_MERGE_TAG });
     return editor.registerNodeTransform(RootNode, ensure);
   }, [editor]);
+  return null;
+}
+
+function TableRules() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(
+    () => mergeRegister(registerTableRules(editor), registerTableKeys(editor)),
+    [editor],
+  );
   return null;
 }
 
@@ -473,6 +545,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
                 }
                 ErrorBoundary={LexicalErrorBoundary}
               />
+              <RichTextEditorTableControls />
             </div>
           </ScrollArea>
           {/* After the text, so a dialog focuses the text rather than this. */}
@@ -506,7 +579,12 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         <ListPlugin />
         <LinkPlugin />
         <AutoLinkPlugin matchers={URL_MATCHERS} />
-        <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
+        <MarkdownShortcutPlugin transformers={SHORTCUT_TRANSFORMERS} />
+        <TablePlugin
+          hasCellMerge={false}
+          hasCellBackgroundColor={false}
+          hasHorizontalScroll
+        />
         <OnChangePlugin ignoreSelectionChange onChange={handleChange} />
         <PasteAndDrop
           allowImages={allowImages}
@@ -515,7 +593,8 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           registerDrop={registerDrop}
         />
         <ValueSync value={value} lastMarkdown={lastMarkdown} />
-        <TrailingParagraphAfterCode />
+        <TrailingParagraph />
+        <TableRules />
         <EditorBridge
           handleRef={ref}
           autoFocus={autoFocus}

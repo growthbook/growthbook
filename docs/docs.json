@@ -57,7 +57,7 @@
               "index",
               "overview",
               "quick-start",
-              "command-palette",
+              "sdks",
               {
                 "group": "Feature Flags",
                 "root": "app/features",
@@ -403,7 +403,8 @@
                     "group": "SDKs",
                     "pages": ["kb/sdks/sticky-bucket-cookie-encoding"]
                   },
-                  "kb/glossary"
+                  "kb/glossary",
+                  "command-palette"
                 ]
               },
               {

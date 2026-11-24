@@ -228,12 +228,9 @@ const BreakDownResults: FC<{
     sortDirection,
     customMetricOrder,
     analysisBarSettings,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
-    pValueThreshold: significanceThresholds.pValueThreshold,
     customMetricSlices,
   });
 

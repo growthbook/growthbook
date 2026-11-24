@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode } from "react";
+import { ComponentProps, CSSProperties, ReactNode } from "react";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
@@ -224,6 +224,7 @@ export function DetailsPageTabs({
   revisionPicker,
   detailsOpen,
   setDetailsOpen,
+  leftPanel = null,
   statusBar,
 }: {
   value: string;
@@ -232,6 +233,11 @@ export function DetailsPageTabs({
   revisionPicker?: ReactNode;
   detailsOpen: boolean;
   setDetailsOpen: (open: boolean) => void;
+  // A left panel's name and toggle, before the tabs.
+  leftPanel?: Pick<
+    ComponentProps<typeof DetailsPanelToggle>,
+    "name" | "open" | "setOpen"
+  > | null;
   // The viewed revision's state, fixed under the tabs.
   statusBar?: ReactNode;
 }) {
@@ -252,6 +258,9 @@ export function DetailsPageTabs({
       <PageBleed className={clsx("details-tabs d-print-none", { pinned })}>
         <Box position="relative">
           <Flex align="center" className="header-tabs">
+            {leftPanel ? (
+              <DetailsPanelToggle side="left" {...leftPanel} />
+            ) : null}
             <Tabs
               value={value}
               onValueChange={onValueChange}
