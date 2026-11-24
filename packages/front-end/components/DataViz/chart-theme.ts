@@ -59,8 +59,14 @@ const hexCache = new Map<string, string>();
 export function cssColorToHex(color: string): string {
   if (typeof document === "undefined") return color;
   const cssVar = color.match(/^var\((--[\w-]+)\)$/)?.[1];
+  // Read from the Radix root: it remaps scales like --gray-* (to mauve), and
+  // <html> doesn't see that.
   const resolved = cssVar
-    ? getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
+    ? getComputedStyle(
+        document.querySelector(".radix-themes") ?? document.documentElement,
+      )
+        .getPropertyValue(cssVar)
+        .trim()
     : color;
   const cached = hexCache.get(resolved);
   if (cached !== undefined) return cached;
