@@ -2,11 +2,8 @@ import { Flex } from "@radix-ui/themes";
 import { ReactNode, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
-  MetricExplorationBlockInterface,
-  FactTableExplorationBlockInterface,
-  DataSourceExplorationBlockInterface,
-  SqlExplorationBlockInterface,
-  FunnelExplorationBlockInterface,
+  DashboardBlockInterface,
+  ProductAnalyticsExplorationBlockType,
   blockUsesDashboardDateControl,
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
@@ -34,12 +31,10 @@ import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEdi
 import { TileResult, useTileResult } from "./useTileResult";
 import { BlockProps } from ".";
 
-type ExplorationBlockInterface =
-  | MetricExplorationBlockInterface
-  | FactTableExplorationBlockInterface
-  | DataSourceExplorationBlockInterface
-  | SqlExplorationBlockInterface
-  | FunnelExplorationBlockInterface;
+type ExplorationBlockInterface = Extract<
+  DashboardBlockInterface,
+  { type: ProductAnalyticsExplorationBlockType }
+>;
 
 type TileSettings = {
   block: DashboardBlockInterfaceOrData<ExplorationBlockInterface>;

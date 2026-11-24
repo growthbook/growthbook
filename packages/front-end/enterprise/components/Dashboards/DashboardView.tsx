@@ -1,12 +1,9 @@
 import {
+  DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   DashboardInterface,
-  DataSourceExplorationBlockInterface,
-  FactTableExplorationBlockInterface,
-  FunnelExplorationBlockInterface,
   MarkdownBlockInterface,
-  MetricExplorationBlockInterface,
-  SqlExplorationBlockInterface,
+  ProductAnalyticsExplorationBlockType,
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import useApi from "@/hooks/useApi";
@@ -18,11 +15,10 @@ import DashboardCanvas from "@/enterprise/components/Dashboards/DashboardEditor/
 // that only a saved dashboard can look up.
 type UnsavedBlock =
   | MarkdownBlockInterface
-  | MetricExplorationBlockInterface
-  | FactTableExplorationBlockInterface
-  | DataSourceExplorationBlockInterface
-  | SqlExplorationBlockInterface
-  | FunnelExplorationBlockInterface;
+  | Extract<
+      DashboardBlockInterface,
+      { type: ProductAnalyticsExplorationBlockType }
+    >;
 
 // Read-only blocks with no header: the host page supplies its own. Pass a
 // saved dashboard, or blocks alone for one that was never saved.
