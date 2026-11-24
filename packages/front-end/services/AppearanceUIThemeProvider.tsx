@@ -64,6 +64,22 @@ const AppearanceUIThemeContext = createContext<AppearanceUIThemeContextType>({
 export const useAppearanceUITheme = (): AppearanceUIThemeContextType =>
   useContext(AppearanceUIThemeContext);
 
+// Set before the state update renders, so charts that read CSS variables
+// during render (cssColorToHex) see the new theme. The layout effect below is
+// a backstop.
+function applyThemeClass(theme: AppearanceUITheme) {
+  const classList = document.documentElement.classList;
+  classList.add(`${theme}-theme`);
+  classList.remove(theme === "dark" ? "light-theme" : "dark-theme");
+}
+
+function effectiveTheme(
+  preferred: PreferredAppearanceUITheme,
+  system: AppearanceUITheme,
+): AppearanceUITheme {
+  return preferred === "system" ? system : preferred;
+}
+
 export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
   children,
 }) => {
@@ -85,41 +101,34 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
   const [preferredTheme, setPreferredTheme] =
     useState<PreferredAppearanceUITheme>(initialPreferredTheme);
 
-  useEffect(function attachSystemListener() {
-    const listener = (e: MediaQueryListEvent) => {
-      const colourScheme = e.matches ? "dark" : "light";
-      setSystemTheme(colourScheme);
-    };
+  useEffect(
+    function attachSystemListener() {
+      const listener = (e: MediaQueryListEvent) => {
+        const colourScheme = e.matches ? "dark" : "light";
+        applyThemeClass(effectiveTheme(preferredTheme, colourScheme));
+        setSystemTheme(colourScheme);
+      };
 
-    window
-      .matchMedia("(prefers-color-scheme: dark)")
-      .addEventListener("change", listener);
-
-    return () => {
       window
         .matchMedia("(prefers-color-scheme: dark)")
-        .removeEventListener("change", listener);
-    };
-  }, []);
+        .addEventListener("change", listener);
+
+      return () => {
+        window
+          .matchMedia("(prefers-color-scheme: dark)")
+          .removeEventListener("change", listener);
+      };
+    },
+    [preferredTheme],
+  );
 
   useLayoutEffect(() => {
-    const targetTheme =
-      preferredTheme !== "system" ? preferredTheme : systemTheme;
-    const targetClass = `${targetTheme}-theme`;
-    const otherThemeClass =
-      targetTheme === "dark" ? "light-theme" : "dark-theme";
-
-    const classList = document.documentElement.classList;
-    if (!classList.contains(targetClass)) {
-      classList.add(targetClass);
-    }
-    if (classList.contains(otherThemeClass)) {
-      classList.remove(otherThemeClass);
-    }
+    applyThemeClass(effectiveTheme(preferredTheme, systemTheme));
   }, [preferredTheme, systemTheme]);
 
   const handleThemeChange = useCallback(
     (updated: PreferredAppearanceUITheme) => {
+      applyThemeClass(effectiveTheme(updated, systemTheme));
       setPreferredTheme(updated);
 
       try {
@@ -132,11 +141,11 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
         // We are unable to persist the theme changes due to the browser's privacy settings
       }
     },
-    [],
+    [systemTheme],
   );
 
   const theme: AppearanceUITheme = useMemo(
-    () => (preferredTheme === "system" ? systemTheme : preferredTheme),
+    () => effectiveTheme(preferredTheme, systemTheme),
     [systemTheme, preferredTheme],
   );
 
