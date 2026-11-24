@@ -1,11 +1,4 @@
-import {
-  CSSProperties,
-  Fragment,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   databricksParamsSupportEventForwarder,
   getDatabricksEventForwarderAuthMessage,
@@ -935,12 +928,6 @@ function EventForwarderStoppedBanner({
       // Not an alert: the times in it tick every second.
       role="group"
       mb="3"
-      style={
-        {
-          "--stopped-border": `var(--red-${deleting || approaching ? 7 : 6})`,
-          boxShadow: "inset 0 0 0 1px var(--stopped-border)",
-        } as CSSProperties
-      }
     >
       <Flex direction="column" gap="3">
         <Box style={{ color: "var(--red-12)" }}>
