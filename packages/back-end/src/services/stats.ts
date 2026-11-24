@@ -13,6 +13,7 @@ import {
   enrichAnalysisResults,
   getAnalysisAlpha,
   getFunnelStepMetrics,
+  getMetricWindowHours,
   isBinomialMetric,
   isFactMetric,
   isFactFunnelMetric,
@@ -387,6 +388,7 @@ export function getMetricSettingsForStatsEngine(
     prior_mean: metric.priorSettings.mean,
     prior_stddev: metric.priorSettings.stddev,
     target_mde: metric.targetMDE ?? DEFAULT_TARGET_MDE,
+    scaled_impact_days: getScaledImpactDays(metric, settings),
     business_metric_type: getBusinessMetricTypeForStatsEngine(
       metric.id,
       settings,
@@ -394,6 +396,22 @@ export function getMetricSettingsForStatsEngine(
     compute_uncapped_metric: eligibleForUncappedMetric(metric),
     scale_by_sub_unit_count: isScalableClusterSubUnitMetric(metric, settings),
   };
+}
+
+export function getScaledImpactDays(
+  metric: Pick<ExperimentMetricInterface, "windowSettings">,
+  settings: Pick<ExperimentSnapshotSettings, "startDate" | "endDate">,
+): number {
+  const phaseLengthHours = Math.max(
+    hoursBetween(settings.startDate, settings.endDate),
+    1,
+  );
+  const metricWindowHours =
+    metric.windowSettings.type === "lookback"
+      ? Math.max(Math.abs(getMetricWindowHours(metric.windowSettings)), 1)
+      : phaseLengthHours;
+
+  return Math.min(phaseLengthHours, metricWindowHours) / 24;
 }
 
 export function getMetricsAndQueryDataForStatsEngine(
