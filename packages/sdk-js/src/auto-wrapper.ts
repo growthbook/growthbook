@@ -1,10 +1,8 @@
 import Cookies from "js-cookie";
 import {
-  ApplyDomChangesCallback,
   CacheSettings,
   Options as Context,
   FeatureApiResponse,
-  NavigateCallback,
   Plugin,
   TrackingCallback,
 } from "./types/growthbook";
@@ -22,6 +20,10 @@ import {
 } from "./plugins/third-party-tracking";
 import { visualEditorPlugin } from "./plugins/visual-editor";
 import { urlRedirectsPlugin } from "./plugins/url-redirects";
+import {
+  legacyAutoExperimentPlugins,
+  LegacyAutoExperimentOptions,
+} from "./legacy-auto-experiments";
 
 // This file builds two kinds of bundle, set by rollup.config.mjs:
 //
@@ -38,21 +40,10 @@ const VISUAL: boolean = __GB_VISUAL__;
 // @ts-expect-error replaced by the build with true or false
 const REDIRECTS: boolean = __GB_REDIRECTS__;
 
-type AutoExperimentSettings = {
-  // auto.min.js only
-  disableVisualExperiments?: boolean;
-  disableJsInjection?: boolean;
-  disableUrlRedirectExperiments?: boolean;
-  disableCrossOriginUrlRedirectExperiments?: boolean;
-  // Script bundles only
+// The script bundles ignore the `disable*` options and take these two instead
+type AutoExperimentSettings = LegacyAutoExperimentOptions & {
   allowCustomJs?: boolean;
   allowCrossOriginRedirects?: boolean;
-  // Both
-  jsInjectionNonce?: string;
-  applyDomChangesCallback?: ApplyDomChangesCallback;
-  navigate?: NavigateCallback;
-  navigateDelay?: number;
-  maxNavigateDelay?: number;
 };
 
 type WindowContext = Context &
@@ -263,33 +254,8 @@ const autoExperiments: AutoExperimentSettings = {
   ...dataContext,
   ...windowContext,
 };
-const visualSettings = {
-  jsInjectionNonce: autoExperiments.jsInjectionNonce,
-  applyDomChangesCallback: autoExperiments.applyDomChangesCallback,
-};
-const redirectSettings = {
-  navigate: autoExperiments.navigate,
-  navigateDelay: autoExperiments.navigateDelay,
-  maxNavigateDelay: autoExperiments.maxNavigateDelay,
-};
 if (AUTO) {
-  if (!autoExperiments.disableVisualExperiments) {
-    plugins.push(
-      visualEditorPlugin({
-        allowCustomJs: !autoExperiments.disableJsInjection,
-        ...visualSettings,
-      }),
-    );
-  }
-  if (!autoExperiments.disableUrlRedirectExperiments) {
-    plugins.push(
-      urlRedirectsPlugin({
-        allowCrossOriginRedirects:
-          !autoExperiments.disableCrossOriginUrlRedirectExperiments,
-        ...redirectSettings,
-      }),
-    );
-  }
+  plugins.push(...legacyAutoExperimentPlugins(autoExperiments));
 } else {
   const allowed = (key: "allowCustomJs" | "allowCrossOriginRedirects") =>
     windowContext[key] ?? isOn(dataContext[key]);
@@ -297,7 +263,8 @@ if (AUTO) {
     plugins.push(
       visualEditorPlugin({
         allowCustomJs: allowed("allowCustomJs"),
-        ...visualSettings,
+        jsInjectionNonce: autoExperiments.jsInjectionNonce,
+        applyDomChangesCallback: autoExperiments.applyDomChangesCallback,
       }),
     );
   }
@@ -305,7 +272,9 @@ if (AUTO) {
     plugins.push(
       urlRedirectsPlugin({
         allowCrossOriginRedirects: allowed("allowCrossOriginRedirects"),
-        ...redirectSettings,
+        navigate: autoExperiments.navigate,
+        navigateDelay: autoExperiments.navigateDelay,
+        maxNavigateDelay: autoExperiments.maxNavigateDelay,
       }),
     );
   }
