@@ -13,6 +13,7 @@ import { ExperimentInterface } from "shared/validators";
 import {
   getFactMetricDefinitionForHash,
   getMetricSettingsHash,
+  getPValueCorrectionHash,
   updateExperimentAnalysisTimeSeries,
 } from "back-end/src/services/experimentTimeSeries";
 import {
@@ -962,5 +963,57 @@ describe("metric history hashes with lower capping", () => {
         { ...capped, name: "Renamed" },
       ]),
     ).toBe(hashFor(capped.lowerCappingSettings));
+  });
+});
+
+describe("getPValueCorrectionHash", () => {
+  const hashFor = ({
+    metricId = "goal1",
+    goalMetrics = ["goal1", "goal2"],
+    ...settings
+  }: {
+    metricId?: string;
+    goalMetrics?: string[];
+  } & Partial<
+    Parameters<typeof getPValueCorrectionHash>[0]["analysisSettings"]
+  >) =>
+    getPValueCorrectionHash({
+      metricId,
+      snapshotSettings: { goalMetrics },
+      analysisSettings: {
+        statsEngine: "frequentist",
+        dimensions: [],
+        pValueCorrection: "holm-bonferroni",
+        ...settings,
+      },
+    });
+  const uncorrected = hashFor({ pValueCorrection: null });
+
+  it("changes with the method", () => {
+    expect(hashFor({})).not.toBe(uncorrected);
+    expect(hashFor({})).not.toBe(
+      hashFor({ pValueCorrection: "benjamini-hochberg" }),
+    );
+  });
+
+  it("changes with the goal metrics corrected together, whatever their order", () => {
+    expect(hashFor({})).not.toBe(hashFor({ goalMetrics: ["goal1"] }));
+    expect(hashFor({})).toBe(
+      hashFor({ goalMetrics: ["goal2", "goal1", "goal1"] }),
+    );
+  });
+
+  it("ignores the goal metrics when nothing is corrected", () => {
+    expect(hashFor({ pValueCorrection: null, goalMetrics: ["goal1"] })).toBe(
+      uncorrected,
+    );
+  });
+
+  it("is the uncorrected hash for anything that is never corrected", () => {
+    expect(hashFor({ metricId: "secondary" })).toBe(uncorrected);
+    expect(hashFor({ statsEngine: "bayesian" })).toBe(uncorrected);
+    expect(hashFor({ dimensions: ["pre:date"] })).toBe(uncorrected);
+    // Recorded nothing: saved before corrections were stored.
+    expect(hashFor({ pValueCorrection: undefined })).toBe(uncorrected);
   });
 });

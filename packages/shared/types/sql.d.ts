@@ -124,6 +124,8 @@ export interface SqlDialect {
     fieldText: (itemAlias: string, field: string) => string;
   };
   evalBoolean: (col: string, value: boolean) => string;
+  // Start of the bucket `column` falls in. Weeks start on Monday in every
+  // dialect, so date buckets line up across warehouses.
   dateTrunc: (
     column: string,
     granularity: "hour" | "day" | "week" | "month" | "year",

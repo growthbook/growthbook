@@ -8,6 +8,7 @@ import {
   getLatestPhaseVariations,
   getMetricResultStatus,
   isFactMetric,
+  restoreOpenAdjustedCI,
 } from "shared/experiments";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
@@ -199,7 +200,8 @@ function MetricExperimentResultTab({
           statsEngine = analysis.settings.statsEngine;
           effectiveDifferenceType = analysis.settings.differenceType;
           variationResults = analysis.results?.[0]?.variations.map((v) => {
-            return v.metrics?.[metric.id];
+            const stats = v.metrics?.[metric.id];
+            return stats && restoreOpenAdjustedCI(stats);
           });
         }
       }

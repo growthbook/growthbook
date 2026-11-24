@@ -49,6 +49,7 @@ import {
   getFiltersForHash,
 } from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
+import { getClusterMetricCacheLevel } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import type { MetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 
@@ -365,6 +366,34 @@ export function getMetricSettingsHashForIncrementalRefresh({
   });
 }
 
+/** Each metric's settings hash as a run with these snapshot settings stores it. */
+export function getMetricSettingsHashesForIncrementalRefresh({
+  factMetrics,
+  factTableMap,
+  snapshotSettings,
+}: {
+  factMetrics: FactMetricInterface[];
+  factTableMap: Map<string, FactTableInterface>;
+  snapshotSettings: ExperimentSnapshotSettings;
+}): Map<string, string> {
+  return new Map(
+    factMetrics.map((factMetric) => [
+      factMetric.id,
+      getMetricSettingsHashForIncrementalRefresh({
+        factMetric,
+        factTableMap,
+        metricSettings: snapshotSettings.metricSettings.find(
+          (ms) => ms.id === factMetric.id,
+        ),
+        clusterMetricLevel: getClusterMetricCacheLevel(
+          snapshotSettings,
+          factMetric.id,
+        ),
+      }),
+    ]),
+  );
+}
+
 /**
  * Compares the persisted incremental-refresh cache state against the desired
  * metric fan-out and the current per-metric settings hashes, returning the set
@@ -372,7 +401,9 @@ export function getMetricSettingsHashForIncrementalRefresh({
  * full INSERT) instead of incrementally appended.
  *
  * A fact table needs a rebuild when any of these drift from the persisted cache:
- *   - A metric now maps to it that the cache doesn't hold yet (added metric).
+ *   - A metric now maps to it that the cache doesn't hold yet (added metric),
+ *     when `restateOnAddedMetric` is set. Otherwise the caller places the
+ *     metric in one of the fact table's caches.
  *   - The cache holds a (factTableId, metricId) tuple that's no longer desired
  *     (removed metric, or a cross-FT ratio side that moved to the other FT).
  *   - A metric still maps to it but its `settingsHash` changed — the cache's
@@ -391,10 +422,12 @@ export function getFactTablesNeedingRebuild({
   existingMetricSources,
   desiredFanOut,
   currentMetricSettingsHashes,
+  restateOnAddedMetric,
 }: {
   existingMetricSources: IncrementalRefreshInterface["metricSources"];
   desiredFanOut: MetricFanOut;
   currentMetricSettingsHashes: Map<string, string>;
+  restateOnAddedMetric: boolean;
 }): Set<string> {
   const factTablesToRebuild = new Set<string>();
   if (!existingMetricSources.length) return factTablesToRebuild;
@@ -414,7 +447,7 @@ export function getFactTablesNeedingRebuild({
     metrics.forEach((metric) => {
       const tuple = `${factTableId}|${metric.id}`;
       desiredTuples.add(tuple);
-      if (!storedTuples.has(tuple)) {
+      if (restateOnAddedMetric && !storedTuples.has(tuple)) {
         factTablesToRebuild.add(factTableId);
       }
     });

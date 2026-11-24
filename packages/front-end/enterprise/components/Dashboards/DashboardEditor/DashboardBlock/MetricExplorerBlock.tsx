@@ -6,9 +6,10 @@ import { useMemo } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Text, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { PiWarningFill } from "react-icons/pi";
 import { isString } from "shared/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { getChartThemeColors } from "@/components/DataViz/chart-theme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -34,7 +35,7 @@ export default function MetricExplorerBlock({
     useDashboardMetricAnalysis(block, setBlock);
   const displayCurrency = useCurrency();
   const { theme } = useAppearanceUITheme();
-  const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const { textColor } = getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
 
   const chartId = useMemo(() => {
@@ -287,7 +288,7 @@ export default function MetricExplorerBlock({
               display="View error(s)"
               color="danger"
               status="failed"
-              icon={<FaExclamationTriangle className="mr-2" />}
+              icon={<PiWarningFill style={{ marginRight: "var(--space-2)" }} />}
               condensed={true}
               hideQueryCount={true}
             />

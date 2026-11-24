@@ -1,5 +1,8 @@
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import type { FactMetricInterface } from "shared/types/fact-table";
+import type {
+  FactMetricInterface,
+  StandardFactMetricInterface,
+} from "shared/types/fact-table";
 import {
   getIncrementalRefreshMetricSources,
   MetricSourceGroups,
@@ -54,6 +57,7 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
     const groups = getIncrementalRefreshMetricSources({
       metrics: [metric],
       existingMetricSources: [],
+      extendExistingSources: false,
       integration: fakeIntegration,
       snapshotSettings: baseSnapshotSettings,
     });
@@ -73,6 +77,7 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
     const groups = getIncrementalRefreshMetricSources({
       metrics: [crossFt],
       existingMetricSources: [],
+      extendExistingSources: false,
       integration: fakeIntegration,
       snapshotSettings: baseSnapshotSettings,
     });
@@ -124,6 +129,7 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
     const groups = getIncrementalRefreshMetricSources({
       metrics: [funnel],
       existingMetricSources: [],
+      extendExistingSources: false,
       integration: fakeIntegration,
       snapshotSettings: baseSnapshotSettings,
     });
@@ -152,6 +158,7 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
     const groups = getIncrementalRefreshMetricSources({
       metrics: [sameFt, crossFt],
       existingMetricSources: [],
+      extendExistingSources: false,
       integration: fakeIntegration,
       snapshotSettings: baseSnapshotSettings,
     });
@@ -197,6 +204,7 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
           ],
         },
       ],
+      extendExistingSources: false,
       integration: fakeIntegration,
       snapshotSettings: baseSnapshotSettings,
     });
@@ -233,6 +241,7 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
     const groups = getIncrementalRefreshMetricSources({
       metrics: [subUnitMetric, clusterLevelMetric],
       existingMetricSources: [],
+      extendExistingSources: false,
       integration: fakeIntegration,
       snapshotSettings: {
         ...baseSnapshotSettings,
@@ -284,6 +293,7 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
     const groups = getIncrementalRefreshMetricSources({
       metrics: [metricA, metricB],
       existingMetricSources: [],
+      extendExistingSources: false,
       integration: fakeIntegration,
       // clusterLevelMetricIds is ignored without isClusterExperiment.
       snapshotSettings: {
@@ -298,5 +308,131 @@ describe("getIncrementalRefreshMetricSources fan-out", () => {
       "fact_a1",
       "fact_a2",
     ]);
+  });
+});
+
+describe("getIncrementalRefreshMetricSources placement", () => {
+  const mean = (id: string, over: Partial<StandardFactMetricInterface> = {}) =>
+    factMetricFactory.build({
+      id,
+      metricType: "mean",
+      numerator: { factTableId: "ft_a", column: "amount" },
+      ...over,
+    });
+  // Room for this many metric columns in a cache.
+  const integrationWithRoomFor = (columns: number) =>
+    ({
+      getSourceProperties: () => ({ maxColumns: 103 + columns }),
+    }) as unknown as Parameters<
+      typeof getIncrementalRefreshMetricSources
+    >[0]["integration"];
+  const storedSource = (groupId: string, metricIds: string[]) => ({
+    groupId,
+    factTableId: "ft_a",
+    tableFullName: `proj.ds.${groupId}`,
+    maxTimestamp: null,
+    metrics: metricIds.map((id) => ({ id, settingsHash: "h" })),
+  });
+  const membership = (groups: MetricSourceGroups[]) =>
+    groups.map((g) => g.metrics.map((m) => m.id).join(",")).sort();
+
+  it("rebuilds the stored source a new metric joins under a new id when extending", () => {
+    const groups = getIncrementalRefreshMetricSources({
+      metrics: [mean("m1"), mean("m2"), mean("m_new")],
+      existingMetricSources: [storedSource("stored", ["m1", "m2"])],
+      extendExistingSources: true,
+      integration: integrationWithRoomFor(100),
+      snapshotSettings: baseSnapshotSettings,
+    });
+    expect(groups).toHaveLength(1);
+    expect(groups[0].replacesGroupId).toBe("stored");
+    expect(groups[0].groupId).not.toBe("stored");
+    expect(groups[0].metrics.map((m) => m.id)).toEqual(["m1", "m2", "m_new"]);
+  });
+
+  it("keeps a stored source that takes no new metric under its id", () => {
+    const groups = getIncrementalRefreshMetricSources({
+      metrics: [mean("m1"), mean("m2"), mean("m_new")],
+      existingMetricSources: [
+        storedSource("stored_1", ["m1"]),
+        storedSource("stored_2", ["m2"]),
+      ],
+      extendExistingSources: true,
+      integration: integrationWithRoomFor(100),
+      snapshotSettings: baseSnapshotSettings,
+    });
+    expect(
+      groups.map((g) => [
+        g.replacesGroupId ?? g.groupId,
+        g.metrics.map((m) => m.id),
+      ]),
+    ).toEqual([
+      ["stored_2", ["m2"]],
+      ["stored_1", ["m1", "m_new"]],
+    ]);
+    expect(groups[0].groupId).toBe("stored_2");
+  });
+
+  it("only opens new sources when not extending", () => {
+    const groups = getIncrementalRefreshMetricSources({
+      metrics: [mean("m1"), mean("m_new")],
+      existingMetricSources: [storedSource("stored_1", ["m1"])],
+      extendExistingSources: false,
+      integration: integrationWithRoomFor(100),
+      snapshotSettings: baseSnapshotSettings,
+    });
+    expect(
+      groups.map((g) => [g.groupId === "stored_1", g.replacesGroupId]),
+    ).toEqual([
+      [true, null],
+      [false, null],
+    ]);
+  });
+
+  it("packs the same sources whatever order the experiment lists its metrics in", () => {
+    const metrics = [
+      mean("a"),
+      mean("b", { regressionAdjustmentEnabled: true }),
+      mean("c"),
+      mean("d", { regressionAdjustmentEnabled: true }),
+      mean("e"),
+    ];
+    const pack = (list: FactMetricInterface[]) =>
+      membership(
+        getIncrementalRefreshMetricSources({
+          metrics: list,
+          existingMetricSources: [],
+          extendExistingSources: false,
+          integration: integrationWithRoomFor(12),
+          snapshotSettings: {
+            ...baseSnapshotSettings,
+            regressionAdjustmentEnabled: true,
+          },
+        }),
+      );
+    // CUPED metrics take 6 columns, the others 3.
+    expect(pack(metrics)).toEqual(["b,d", "a,c,e"].sort());
+    expect(pack([...metrics].reverse())).toEqual(pack(metrics));
+  });
+
+  it("counts each slice as its own metric in the column budget, without uncapped copies", () => {
+    const capped = {
+      cappingSettings: { type: "absolute" as const, value: 10 },
+    };
+    const groups = getIncrementalRefreshMetricSources({
+      metrics: [
+        mean("m", capped),
+        mean("m?dim:country=US", capped),
+        mean("m?dim:country=CA", capped),
+      ],
+      existingMetricSources: [],
+      extendExistingSources: false,
+      // The base metric takes 5 columns with its uncapped copy, each slice 3.
+      integration: integrationWithRoomFor(8),
+      snapshotSettings: baseSnapshotSettings,
+    });
+    expect(membership(groups)).toEqual(
+      ["m,m?dim:country=CA", "m?dim:country=US"].sort(),
+    );
   });
 });

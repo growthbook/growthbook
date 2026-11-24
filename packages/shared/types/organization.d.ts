@@ -411,6 +411,8 @@ export interface OrganizationSettings {
   requireExperimentTemplates?: boolean;
   disableResultsUpdateForStoppedExperiments?: boolean;
   disableResultsUpdateForStoppedExperimentGraceHours?: number;
+  // 0 turns the default new-metrics update off.
+  newMetricsUpdateWindowHours?: number;
   requireUniqueExperimentTrackingKeys?: boolean;
   experimentKeyExample?: string;
   experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
