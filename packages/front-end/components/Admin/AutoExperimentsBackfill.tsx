@@ -24,29 +24,35 @@ export default function AutoExperimentsBackfill({
   );
   const [updated, setUpdated] = useState<number | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
   const left = remaining ?? data?.remaining ?? null;
 
   const run = async () => {
     let total = 0;
     setUpdated(0);
-    // Each call is one pass; a pass that updates nothing means the rest
-    // can't be updated, so stop rather than loop.
-    for (;;) {
-      const pass = await apiCall<Pass>("/admin/auto-experiments/backfill", {
-        method: "POST",
-      });
-      total += pass.updated;
-      setUpdated(total);
-      setRemaining(pass.remaining);
-      if (!pass.remaining || !pass.updated) break;
+    try {
+      // Each call is one pass; a pass that updates nothing means the rest
+      // can't be updated, so stop rather than loop.
+      for (;;) {
+        const pass = await apiCall<Pass>("/admin/auto-experiments/backfill", {
+          method: "POST",
+        });
+        total += pass.updated;
+        setUpdated(total);
+        setRemaining(pass.remaining);
+        if (!pass.remaining || !pass.updated) break;
+      }
+    } finally {
+      // A failed pass may still have updated some, so read the count again.
+      setRemaining(null);
+      await mutate();
     }
-    await mutate();
   };
 
   return (
     <Frame>
       <Flex direction="column" gap="3" align="start">
-        <Heading as="h3" size="md" mb="0">
+        <Heading as="h3" size="md">
           Auto Experiment Opt-ins
         </Heading>
         <Text as="div">
@@ -54,6 +60,7 @@ export default function AutoExperimentsBackfill({
           organization that has none saved, to match what it already uses.
         </Text>
         {error ? <Callout status="error">{error.message}</Callout> : null}
+        {runError ? <Callout status="error">{runError}</Callout> : null}
         {left !== null ? (
           <Text as="div" weight="semibold">
             {left === 0
@@ -66,7 +73,11 @@ export default function AutoExperimentsBackfill({
           content="Only a full super admin can run this"
           enabled={!canRun}
         >
-          <Button onClick={run} disabled={!canRun || left === 0}>
+          <Button
+            onClick={run}
+            setError={setRunError}
+            disabled={!canRun || left === 0}
+          >
             Run backfill
           </Button>
         </Tooltip>

@@ -8,7 +8,9 @@ import type { AppFeatures } from "shared/types/app-features";
 import { Box, Flex } from "@radix-ui/themes";
 import type { AutoExperimentFeature } from "shared/types/organization";
 import { useAutoExperimentGate } from "@/components/AutoExperiments/EnableAutoExperimentDialog";
-import useAutoExperiments from "@/hooks/useAutoExperiments";
+import useAutoExperiments, {
+  AUTO_EXPERIMENTS_ENV_HINT,
+} from "@/hooks/useAutoExperiments";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -93,9 +95,7 @@ export function ExperimentSettings({
   // and this viewer can't opt it in from here. Unticking is always allowed.
   const optInBlock = (feature: AutoExperimentFeature, checked: boolean) => {
     if (checked || isEnabled(feature)) return undefined;
-    if (mode !== "allowed") {
-      return "Set the ALLOW_AUTO_EXPERIMENTS environment variable to true to allow enabling this";
-    }
+    if (mode !== "allowed") return AUTO_EXPERIMENTS_ENV_HINT;
     return canManage
       ? undefined
       : "An admin must enable this for your organization";

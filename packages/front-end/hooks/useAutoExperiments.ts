@@ -9,6 +9,10 @@ import { getAutoExperimentsMode } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
+// Why nothing can be turned on when the instance doesn't allow it.
+export const AUTO_EXPERIMENTS_ENV_HINT =
+  "Set the ALLOW_AUTO_EXPERIMENTS environment variable to true to allow enabling this";
+
 // The organization's opt-ins for visual editor and URL redirect experiments.
 export default function useAutoExperiments() {
   const { settings, refreshOrganization } = useUser();

@@ -3,7 +3,9 @@ import { connectionServesAutoExperimentFeature } from "shared/util";
 import type { AutoExperimentFeature } from "shared/types/organization";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Link from "@/ui/Link";
-import useAutoExperiments from "@/hooks/useAutoExperiments";
+import useAutoExperiments, {
+  AUTO_EXPERIMENTS_ENV_HINT,
+} from "@/hooks/useAutoExperiments";
 import useSDKConnections from "@/hooks/useSDKConnections";
 
 export const AUTO_EXPERIMENT_COPY: Record<
@@ -99,7 +101,7 @@ export default function EnableAutoExperimentDialog({
         title={`${copy.name} not enabled`}
         content={
           mode !== "allowed"
-            ? "This GrowthBook instance does not allow enabling this. Set the ALLOW_AUTO_EXPERIMENTS environment variable to true to allow it."
+            ? `${AUTO_EXPERIMENTS_ENV_HINT}.`
             : "An admin must enable this for your organization."
         }
         yesText="Close"

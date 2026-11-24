@@ -8,7 +8,9 @@ import {
 import type { AutoExperimentFeature } from "shared/types/organization";
 import { Box } from "@radix-ui/themes";
 import Checkbox from "@/ui/Checkbox";
-import useAutoExperiments from "@/hooks/useAutoExperiments";
+import useAutoExperiments, {
+  AUTO_EXPERIMENTS_ENV_HINT,
+} from "@/hooks/useAutoExperiments";
 import { UnsavedMark } from "@/components/GeneralSettings/SettingsGroup";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import EnableAutoExperimentDialog, {
@@ -68,7 +70,7 @@ export default function AutoExperimentSettings() {
                 disabled={!canManage || instanceBlocks}
                 disabledMessage={
                   canManage
-                    ? "Set the ALLOW_AUTO_EXPERIMENTS environment variable to true to allow enabling this"
+                    ? AUTO_EXPERIMENTS_ENV_HINT
                     : "Only admins can change this setting"
                 }
                 value={isEnabled(feature)}
