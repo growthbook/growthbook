@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   DATADOG_API_KEY_HEADER,
   datadogEventsUrl,
@@ -15,8 +15,9 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Checkbox from "@/ui/Checkbox";
-import Link from "@/ui/Link";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
+import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
+import { useUser } from "@/services/UserContext";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import {
   headerSecretKey,
@@ -25,8 +26,19 @@ import {
 } from "@/components/EventWebHooks/datadog";
 
 const CUSTOM_SITE = "custom";
-// The last item in the secret picker's menu; opens the secret modal.
+// The last items in the pickers' menus; each opens its create modal.
 const CREATE_SECRET = "__create_secret__";
+const CREATE_FIELD = "__create_custom_field__";
+
+function actionOrLabel({ label, value }: { label: string; value: string }) {
+  return value === CREATE_SECRET || value === CREATE_FIELD ? (
+    <Flex align="center" gap="1" style={{ color: "var(--violet-11)" }}>
+      <PiPlus /> {label}
+    </Flex>
+  ) : (
+    label
+  );
+}
 const fieldStyle = { marginBottom: 0 };
 
 function ApiKeySelect({
@@ -68,15 +80,7 @@ function ApiKeySelect({
             ? [{ label: "Create secret", value: CREATE_SECRET }]
             : []),
         ]}
-        formatOptionLabel={({ label, value }) =>
-          value === CREATE_SECRET ? (
-            <Flex align="center" gap="1" style={{ color: "var(--violet-11)" }}>
-              <PiPlus /> {label}
-            </Flex>
-          ) : (
-            label
-          )
-        }
+        formatOptionLabel={actionOrLabel}
         isOptionDisabled={(option) => {
           const secret = webhookSecrets.find(
             (s) => "value" in option && s.key === option.value,
@@ -135,14 +139,39 @@ export default function DatadogWebhookFields({
     // Not a URL yet.
   }
 
+  const { hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
+  const canCreateField =
+    hasCommercialFeature("custom-metadata") &&
+    permissionsUtil.canManageCustomFields();
   const serviceFieldOptions = customFields
     .filter(
       (f) =>
         f.active !== false &&
         (f.sections.includes("feature") || f.sections.includes("experiment")),
     )
-    .map((f) => ({ label: f.name, value: f.id }));
+    .map((f) => ({ label: f.name, value: f.id }))
+    .sort((a, b) => a.label.localeCompare(b.label));
   const datadog = form.watch("datadog");
+
+  // The fields there were when "Create custom field" opened; the new one is
+  // picked once it shows up.
+  const [fieldsBeforeCreate, setFieldsBeforeCreate] = useState<string[] | null>(
+    null,
+  );
+  const [creatingField, setCreatingField] = useState(false);
+  const setServiceField = (serviceField: string) =>
+    form.setValue("datadog", { ...form.watch("datadog"), serviceField });
+  useEffect(() => {
+    if (!fieldsBeforeCreate || creatingField) return;
+    const created = customFields.find(
+      (f) => !fieldsBeforeCreate.includes(f.id),
+    );
+    if (created) setServiceField(created.id);
+    setFieldsBeforeCreate(null);
+    // Only when the field list or the modal changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customFields, creatingField]);
   const hasApiKey = !!headerSecretKey(
     parseHeaders(form.watch("headers")),
     DATADOG_API_KEY_HEADER,
@@ -192,24 +221,34 @@ export default function DatadogWebhookFields({
           value={datadog?.serviceField ?? ""}
           placeholder="Choose a custom field"
           isClearable
+          sort={false}
           disabled={disabled}
           containerStyle={fieldStyle}
-          options={serviceFieldOptions}
-          onChange={(value) =>
-            form.setValue("datadog", { ...datadog, serviceField: value })
-          }
-          helpText={
-            <>
-              The custom field that names each Feature Flag&apos;s and
-              experiment&apos;s Datadog services, such as{" "}
-              <code>checkout-api</code>. Without one, changes reach Event
-              Explorer but no service page.{" "}
-              <Link href="/settings/customfields" external>
-                Create a custom field
-              </Link>
-            </>
-          }
+          options={[
+            ...serviceFieldOptions,
+            ...(canCreateField
+              ? [{ label: "Create custom field", value: CREATE_FIELD }]
+              : []),
+          ]}
+          formatOptionLabel={actionOrLabel}
+          onChange={(value) => {
+            if (value !== CREATE_FIELD) return setServiceField(value);
+            setFieldsBeforeCreate(customFields.map((f) => f.id));
+            setCreatingField(true);
+          }}
+          helpText="Its values on each Feature Flag and experiment, such as checkout-api."
         />
+        {creatingField && (
+          <CustomFieldModal
+            existing={{
+              name: "Datadog service",
+              type: "multiselect",
+              creatable: true,
+              sections: ["feature", "experiment"],
+            }}
+            close={() => setCreatingField(false)}
+          />
+        )}
       </SetupFieldRow>
 
       <SetupFieldRow label="Approvers" content="text">

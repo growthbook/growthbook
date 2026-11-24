@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { ReactNode, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import isEqual from "lodash/isEqual";
@@ -82,6 +82,23 @@ const payloadTypeLabels: Record<EventWebHookPayloadType, string> = {
   slack: "Slack",
   discord: "Discord",
   datadog: "Datadog",
+};
+
+const payloadTypeDescriptions: Record<EventWebHookPayloadType, ReactNode> = {
+  raw: "The legacy event format. Choose JSON for new webhooks.",
+  json: "Each event as JSON, for your own endpoint. Requests are signed so you can verify them.",
+  slack:
+    "A message in a Slack channel for each event, through an incoming webhook URL.",
+  discord:
+    "A message in a Discord channel for each event, through a webhook URL.",
+  datadog: (
+    <>
+      Shows Feature Flag, experiment, Saved Group, Constant and Config changes
+      in Datadog Change Tracking, beside the graphs and monitors of the services
+      they affect.{" "}
+      <DocLink docSection="datadogChangeEvents">Learn more</DocLink>
+    </>
+  ),
 };
 
 // These types send fixed requests: their method, headers and timeout aren't set.
@@ -581,6 +598,9 @@ export default function EventWebHookPage({
                     form.setValue("payloadType", type);
                   }}
                 />
+                <Text as="p" color="text-mid" mt="2" mb="0">
+                  {payloadTypeDescriptions[values.payloadType]}
+                </Text>
               </SetupFieldRow>
 
               {isDatadog ? (
