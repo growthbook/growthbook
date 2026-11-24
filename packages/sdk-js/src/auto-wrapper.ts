@@ -301,7 +301,7 @@ gb.init({
   streaming: !(
     windowContext.noStreaming ||
     isOn(dataContext.noStreaming) ||
-    windowContext.backgroundSync === false
+    (windowContext.backgroundSync ?? dataOptions.backgroundSync) === false
   ),
   cacheSettings: windowContext.cacheSettings,
 }).then(() => {

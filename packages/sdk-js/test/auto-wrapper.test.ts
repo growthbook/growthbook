@@ -34,6 +34,7 @@ function redirect(urlRedirect: string): AutoExperiment {
 }
 
 let gb: GrowthBook;
+let init: jest.SpyInstance;
 const navigate = jest.fn();
 
 // Loads the wrapper as one of the bundles rollup builds from it: the legacy
@@ -76,6 +77,10 @@ async function load(
     configurable: true,
   });
   jest.isolateModules(() => {
+    init = jest.spyOn(
+      require("../src/GrowthBook").GrowthBook.prototype,
+      "init",
+    );
     gb = require("../src/auto-wrapper").default;
   });
   await sleep();
@@ -235,6 +240,15 @@ describe("script bundles", () => {
 
     await load("core", {}, [], { "data-debug": "" });
     expect(gb.debug).toEqual(true);
+  });
+
+  it("turns streaming off with data-background-sync", async () => {
+    await load("core", { noStreaming: false }, [], {
+      "data-background-sync": "false",
+    });
+    expect(init).toHaveBeenCalledWith(
+      expect.objectContaining({ streaming: false }),
+    );
   });
 
   it("lets window.growthbook_config override a data attribute", async () => {

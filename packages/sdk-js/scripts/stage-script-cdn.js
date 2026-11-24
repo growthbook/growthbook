@@ -1,5 +1,5 @@
 // Prepares the script tag bundles for our CDN.
-// Usage: node scripts/stage-script-cdn.js <output directory>
+// Usage: node scripts/stage-script-cdn.js <output directory> [source directory]
 //
 // Copies dist/script into the output directory, plus:
 // - A copy of each bundle under every ordering of its features, so that
@@ -11,8 +11,10 @@ const fs = require("fs");
 const path = require("path");
 const { version } = require("../package.json");
 
-const src = path.resolve(__dirname, "../dist/script");
 const out = process.argv[2];
+const src = path.resolve(
+  process.argv[3] || path.join(__dirname, "../dist/script"),
+);
 if (!out) {
   console.error("Usage: node scripts/stage-script-cdn.js <output directory>");
   process.exit(1);

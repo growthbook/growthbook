@@ -66,6 +66,23 @@ describe("CDN bundle entry point", () => {
     gb.destroy();
   });
 
+  it("keeps the caller's options object, so later changes to it apply", () => {
+    const plugin = jest.fn();
+    const options: ConstructorParameters<typeof GrowthBook>[0] = {
+      plugins: [plugin],
+    };
+    const gb = new GrowthBook(options);
+    expect(options.plugins).toEqual([plugin]);
+    expect(plugin).toHaveBeenCalledTimes(1);
+
+    const trackingCallback = jest.fn();
+    options.attributes = { id: "1" };
+    options.trackingCallback = trackingCallback;
+    gb.run({ key: "later", variations: [0, 1] });
+    expect(trackingCallback).toHaveBeenCalledTimes(1);
+    gb.destroy();
+  });
+
   it("differs from the npm entry point, which needs the plugins", async () => {
     const gb = new NpmGrowthBook({
       attributes: { id: "1" },
