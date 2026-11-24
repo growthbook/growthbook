@@ -1831,6 +1831,32 @@ describe("productAnalytics", () => {
       ]);
     });
 
+    it("stores date dimensions as ISO whatever format the driver returns", () => {
+      const config = populationConfig([populationValue()], {
+        dimensions: [
+          { dimensionType: "date", column: null, dateGranularity: "day" },
+          {
+            dimensionType: "static",
+            column: "country",
+            values: ["2026-10-22"],
+          },
+        ],
+      });
+      const result = transformProductAnalyticsRowsToResult(
+        config,
+        [
+          { dimension0: "2026-10-22 00:00:00", dimension1: "2026-10-22" },
+          { dimension0: new Date("2026-10-23T00:00:00Z"), dimension1: "US" },
+        ],
+        ["population_0"],
+      );
+
+      expect(result.rows.map((r) => r.dimensions)).toEqual([
+        ["2026-10-22T00:00:00.000Z", "2026-10-22"],
+        ["2026-10-23T00:00:00.000Z", "US"],
+      ]);
+    });
+
     it("requires a unit on every value", () => {
       expect(() =>
         generateProductAnalyticsSQL(

@@ -346,7 +346,7 @@ describe("metric explorations with a population", () => {
       {
         // Members: Alice ($12) and the NULL user ($99). Both purchased; neither
         // logged in.
-        "2026-09-01": {
+        "2026-09-01T00:00:00.000Z": {
           populationCount: 2,
           values: [
             [2, 2],
@@ -354,7 +354,7 @@ describe("metric explorations with a population", () => {
           ],
         },
         // Members: Erin ($20, purchased) and Gina ($15, logged in).
-        "2026-09-02": {
+        "2026-09-02T00:00:00.000Z": {
           populationCount: 2,
           values: [
             [1, 1],
@@ -390,11 +390,11 @@ describe("metric explorations with a population", () => {
       explore({ metrics: [purchasers], population: mobileUsers() }),
       {
         // Members: Alice, Bob, NULL user. Alice and the NULL user purchased.
-        "2026-09-01": { populationCount: 3, values: [[2, 2]] },
+        "2026-09-01T00:00:00.000Z": { populationCount: 3, values: [[2, 2]] },
         // Members: Alice, Bob, Erin, Gina. Bob and Erin purchased.
-        "2026-09-02": { populationCount: 4, values: [[2, 2]] },
+        "2026-09-02T00:00:00.000Z": { populationCount: 4, values: [[2, 2]] },
         // Member: Frank, who didn't purchase.
-        "2026-09-03": { populationCount: 1, values: [[null, 0]] },
+        "2026-09-03T00:00:00.000Z": { populationCount: 1, values: [[null, 0]] },
       },
     ],
     [
@@ -407,8 +407,8 @@ describe("metric explorations with a population", () => {
         }),
       }),
       {
-        "2026-09-01": { populationCount: 1, values: [[1, 1]] }, // Alice (2 purchases)
-        "2026-09-02": { populationCount: 1, values: [[1, 1]] }, // Bob (login + purchase)
+        "2026-09-01T00:00:00.000Z": { populationCount: 1, values: [[1, 1]] }, // Alice (2 purchases)
+        "2026-09-02T00:00:00.000Z": { populationCount: 1, values: [[1, 1]] }, // Bob (login + purchase)
       },
     ],
     [
@@ -422,9 +422,9 @@ describe("metric explorations with a population", () => {
       }),
       {
         // Bob qualifies; Carol's desktop-only $0 doesn't make her a member.
-        "2026-09-01": { populationCount: 1, values: [[null, 0]] },
-        "2026-09-02": { populationCount: 1, values: [[null, 0]] }, // Alice ($0 login)
-        "2026-09-03": { populationCount: 1, values: [[null, 0]] }, // Frank ($0 login)
+        "2026-09-01T00:00:00.000Z": { populationCount: 1, values: [[null, 0]] },
+        "2026-09-02T00:00:00.000Z": { populationCount: 1, values: [[null, 0]] }, // Alice ($0 login)
+        "2026-09-03T00:00:00.000Z": { populationCount: 1, values: [[null, 0]] }, // Frank ($0 login)
       },
     ],
     [
@@ -433,10 +433,10 @@ describe("metric explorations with a population", () => {
       {
         // Members: Alice, Bob, NULL user. Only Alice made 2 purchases. Dylan
         // made 6 but on desktop, so isn't a member.
-        "2026-09-01": { populationCount: 3, values: [[1, 1]] },
+        "2026-09-01T00:00:00.000Z": { populationCount: 3, values: [[1, 1]] },
         // Bob and Erin made one purchase each.
-        "2026-09-02": { populationCount: 4, values: [[null, 0]] },
-        "2026-09-03": { populationCount: 1, values: [[null, 0]] },
+        "2026-09-02T00:00:00.000Z": { populationCount: 4, values: [[null, 0]] },
+        "2026-09-03T00:00:00.000Z": { populationCount: 1, values: [[null, 0]] },
       },
     ],
     [
@@ -449,7 +449,7 @@ describe("metric explorations with a population", () => {
         // Members: Alice, Bob, NULL user. Revenue is $12 + $99 from the two
         // purchasers; Dylan's desktop $21 is left out. Bob has no purchases,
         // so he isn't in any metric's denominator.
-        "2026-09-01": {
+        "2026-09-01T00:00:00.000Z": {
           populationCount: 3,
           values: [
             [111, 2],
@@ -458,7 +458,7 @@ describe("metric explorations with a population", () => {
           ],
         },
         // Members: Alice, Bob, Erin, Gina. Bob ($5) and Erin ($20) purchased.
-        "2026-09-02": {
+        "2026-09-02T00:00:00.000Z": {
           populationCount: 4,
           values: [
             [25, 2],
@@ -467,7 +467,7 @@ describe("metric explorations with a population", () => {
           ],
         },
         // Member: Frank, who didn't purchase.
-        "2026-09-03": {
+        "2026-09-03T00:00:00.000Z": {
           populationCount: 1,
           values: [
             [null, 0],
@@ -860,32 +860,32 @@ describe("metric explorations without a population", () => {
       "proportion",
       purchasers,
       {
-        "2026-09-01": { values: [[3, 3]] }, // Alice, Dylan, NULL user
-        "2026-09-02": { values: [[2, 2]] }, // Bob, Erin
+        "2026-09-01T00:00:00.000Z": { values: [[3, 3]] }, // Alice, Dylan, NULL user
+        "2026-09-02T00:00:00.000Z": { values: [[2, 2]] }, // Bob, Erin
       },
     ],
     [
       "sum mean",
       revenue,
       {
-        "2026-09-01": { values: [[132, 3]] }, // $12 + $21 + $99 over 3 purchasers
-        "2026-09-02": { values: [[25, 2]] }, // $5 + $20
+        "2026-09-01T00:00:00.000Z": { values: [[132, 3]] }, // $12 + $21 + $99 over 3 purchasers
+        "2026-09-02T00:00:00.000Z": { values: [[25, 2]] }, // $5 + $20
       },
     ],
     [
       "distinct-count mean",
       purchaseDevices,
       {
-        "2026-09-01": { values: [[3, 3]] },
-        "2026-09-02": { values: [[2, 2]] },
+        "2026-09-01T00:00:00.000Z": { values: [[3, 3]] },
+        "2026-09-02T00:00:00.000Z": { values: [[2, 2]] },
       },
     ],
     [
       "ratio",
       revenuePerPurchase,
       {
-        "2026-09-01": { values: [[132, 9]] }, // $132 over 9 purchases
-        "2026-09-02": { values: [[25, 2]] },
+        "2026-09-01T00:00:00.000Z": { values: [[132, 9]] }, // $132 over 9 purchases
+        "2026-09-02T00:00:00.000Z": { values: [[25, 2]] },
       },
     ],
   ])("reports a %s metric", (_, metric, expected) => {
@@ -903,7 +903,7 @@ describe("metric explorations without a population", () => {
     });
     // Login-only users (Carol, Gina, Frank) must not count as zero-device
     // purchasers once login rows are in the same scan.
-    expect(together["2026-09-01"].values[3]).toEqual([3, 3]);
+    expect(together["2026-09-01T00:00:00.000Z"].values[3]).toEqual([3, 3]);
   });
 });
 

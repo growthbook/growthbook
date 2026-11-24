@@ -1,4 +1,4 @@
-import { getValidDate } from "shared/dates";
+import { formatWarehouseDateAsIso, getValidDate } from "shared/dates";
 import {
   buildMinimalOrCondition,
   format,
@@ -2405,8 +2405,14 @@ export function transformProductAnalyticsRowsToResult(
     result.rows.push(resultRow);
 
     config.dimensions.forEach((d, i) => {
-      const alias = `dimension${i}`;
-      resultRow.dimensions.push(parseStringValue(row[alias]));
+      const value = parseStringValue(row[`dimension${i}`]);
+      // Drivers return dates in their own formats; store one, so every reader
+      // (and the buckets densify adds) sees the same string.
+      resultRow.dimensions.push(
+        d.dimensionType === "date" && value !== null
+          ? formatWarehouseDateAsIso(value)
+          : value,
+      );
     });
     orderedMetricIds.forEach((metricId, index) => {
       const aliases = getMetricAliases(index);
