@@ -364,7 +364,6 @@ describe("a lineage with a metric removed from the experiment since", () => {
           runStarted: null,
           cutoffDate: settings.endDate,
         },
-        metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
       },
     },
   ].map(({ id, metricSettings, clusterLevelMetricIds, updateScope }) => ({

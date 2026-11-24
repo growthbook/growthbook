@@ -176,22 +176,6 @@ export function getNewMetricsUpdatesInARow(
   return newMetricsUpdate ? (newMetricsUpdate.updatesInARow ?? 1) : 0;
 }
 
-export type StatsEngineMetricCounts = SnapshotNewMetricsUpdate["metricCounts"];
-
-/**
- * The settings an analysis of this snapshot is computed with. A new-metrics
- * update's analyses keep the parent's settings so the front end finds them by
- * equality, but their goal and guardrail counts predate the metrics it added.
- */
-export function getStatsEngineAnalysisSettings(
-  snapshot: Pick<ExperimentSnapshotInterface, "type" | "updateScope">,
-  analysisSettings: ExperimentSnapshotAnalysisSettings,
-): ExperimentSnapshotAnalysisSettings {
-  const newMetricsUpdate = getNewMetricsUpdate(snapshot);
-  if (!newMetricsUpdate) return analysisSettings;
-  return { ...analysisSettings, ...newMetricsUpdate.metricCounts };
-}
-
 export function getSnapshotDataAsOfDate(snapshot: SnapshotLineage): Date {
   return (
     getNewMetricsUpdate(snapshot)?.base.dateCreated ?? snapshot.dateCreated

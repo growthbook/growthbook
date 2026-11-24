@@ -1081,7 +1081,6 @@ describe("snapshots API", () => {
             runStarted: null,
             cutoffDate: null,
           },
-          metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
         },
       });
       const experiment = {

@@ -15,9 +15,7 @@ import {
   enrichAnalysisResults,
   getDefinitionMetricId,
   getNewMetricsUpdate,
-  getStatsEngineAnalysisSettings,
   type ExperimentMetricInterface,
-  type StatsEngineMetricCounts,
 } from "shared/experiments";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
@@ -41,7 +39,7 @@ export type AnalyzedSnapshotResults = {
  * parent's numbers. Units are the most any metric saw, as in a full analysis,
  * and SRM is recomputed when they change. The values that depend on more than
  * one test (corrected p-values, power) are then computed over copied and new
- * metrics together, for `goalMetrics` and `counts`.
+ * metrics together, for `goalMetrics`.
  */
 export function mergeNewMetricsUpdateAnalyses({
   analyses,
@@ -50,7 +48,6 @@ export function mergeNewMetricsUpdateAnalyses({
   newMetricIds,
   variationWeights,
   goalMetrics,
-  counts,
 }: {
   analyses: ExperimentSnapshotAnalysis[];
   freshResults: ExperimentReportResults["dimensions"][];
@@ -58,7 +55,6 @@ export function mergeNewMetricsUpdateAnalyses({
   newMetricIds: ReadonlySet<string>;
   variationWeights: number[];
   goalMetrics: string[];
-  counts: StatsEngineMetricCounts;
 }): ExperimentSnapshotAnalysis[] {
   const isNew = (metricId: string) =>
     newMetricIds.has(getDefinitionMetricId(metricId));
@@ -132,7 +128,7 @@ export function mergeNewMetricsUpdateAnalyses({
     const results = [...merged, ...added];
     enrichAnalysisResults({
       results,
-      analysisSettings: { ...analysis.settings, ...counts },
+      analysisSettings: analysis.settings,
       snapshotSettings: { goalMetrics },
     });
     return { ...analysis, results };
@@ -192,9 +188,7 @@ export async function analyzeNewMetricsUpdate({
     const { results } = await analyzeExperimentResults({
       queryData: freshQueries,
       snapshotSettings: snapshot.settings,
-      analysisSettings: indexes.map((i) =>
-        getStatsEngineAnalysisSettings(snapshot, analyses[i].settings),
-      ),
+      analysisSettings: indexes.map((i) => analyses[i].settings),
       variationNames,
       metricMap,
     });
@@ -211,7 +205,6 @@ export async function analyzeNewMetricsUpdate({
       newMetricIds: new Set(newMetricsUpdate.queriedMetricIds),
       variationWeights: snapshot.settings.variations.map((v) => v.weight),
       goalMetrics: snapshot.settings.goalMetrics,
-      counts: newMetricsUpdate.metricCounts,
     }),
     unknownVariations: [
       ...new Set([

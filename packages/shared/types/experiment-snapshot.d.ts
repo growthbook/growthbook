@@ -278,14 +278,6 @@ export interface SnapshotNewMetricsUpdate {
     // Null when the base analyzed through its run time.
     cutoffDate: Date | null;
   };
-  // The goal and guardrail counts every analysis of this snapshot is computed
-  // with (power scales with the goal count): those of the default analysis a
-  // full update planned at the same time would have. Its analyses keep the
-  // parent's settings, whose counts predate the metrics this run added.
-  metricCounts: Pick<
-    ExperimentSnapshotAnalysisSettings,
-    "numGoalMetrics" | "numGuardrailMetrics"
-  >;
 }
 
 /** Which metrics an update computed. Absent when it computed every metric. */

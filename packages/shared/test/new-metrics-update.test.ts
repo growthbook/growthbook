@@ -1,7 +1,6 @@
 import omit from "lodash/omit";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
-  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
@@ -15,7 +14,6 @@ import {
   MAX_NEW_METRICS_UPDATES_IN_A_ROW,
   getPlannedCopiedMetricSettings,
   getSnapshotSideEffects,
-  getStatsEngineAnalysisSettings,
   haveStatsEngineInputsChanged,
 } from "../src/experiments/new-metrics-update";
 import { getMetricStatsEngineInputs } from "../src/experiments/results/stats-engine-inputs";
@@ -134,7 +132,6 @@ describe("getSnapshotSideEffects", () => {
           runStarted: null,
           cutoffDate: null,
         },
-        metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
       },
     } as unknown as ExperimentSnapshotInterface);
 
@@ -164,7 +161,6 @@ describe("a report snapshot copied from a new-metrics update", () => {
         runStarted: null,
         cutoffDate: null,
       },
-      metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
     },
   } as unknown as ExperimentSnapshotInterface;
 
@@ -678,7 +674,6 @@ describe("new-metrics updates in a row", () => {
       queriedMetricIds: ["met_b"],
       ...(updatesInARow === undefined ? {} : { updatesInARow }),
       base: { dateCreated: new Date(0), runStarted: null, cutoffDate: null },
-      metricCounts: { numGoalMetrics: 1, numGuardrailMetrics: 0 },
     }) as const;
   const settings = {
     goalMetrics: ["met_a"],
@@ -742,43 +737,5 @@ describe("new-metrics updates in a row", () => {
         updateScope: newMetricsUpdate(5),
       }),
     ).toBe(0);
-  });
-});
-
-describe("getStatsEngineAnalysisSettings", () => {
-  const analysisSettings = {
-    baselineVariationIndex: 1,
-    numGoalMetrics: 0,
-    numGuardrailMetrics: 2,
-  } as ExperimentSnapshotAnalysisSettings;
-  const snapshot = (updateScope?: ExperimentSnapshotInterface["updateScope"]) =>
-    ({
-      type: "standard",
-      updateScope,
-    }) as unknown as ExperimentSnapshotInterface;
-
-  it("runs a new-metrics update's analyses with the counts it was planned with", () => {
-    expect(
-      getStatsEngineAnalysisSettings(
-        snapshot({
-          kind: "new_metrics",
-          parentSnapshotId: "snp_parent",
-          queriedMetricIds: ["met_new"],
-          base: { dateCreated: new Date(), runStarted: null, cutoffDate: null },
-          metricCounts: { numGoalMetrics: 1, numGuardrailMetrics: 3 },
-        }),
-        analysisSettings,
-      ),
-    ).toEqual({
-      baselineVariationIndex: 1,
-      numGoalMetrics: 1,
-      numGuardrailMetrics: 3,
-    });
-  });
-
-  it("leaves another snapshot's settings as requested", () => {
-    expect(getStatsEngineAnalysisSettings(snapshot(), analysisSettings)).toBe(
-      analysisSettings,
-    );
   });
 });

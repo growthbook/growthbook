@@ -100,7 +100,6 @@ import {
   getSnapshotDataAsOfDate,
   getSnapshotSideEffects,
   getNewMetricsUpdate,
-  getStatsEngineAnalysisSettings,
   getResultsDateEnd,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
@@ -3427,7 +3426,7 @@ async function getSnapshotAnalyses(
           index: i,
           name: variationNames[i] || v.id,
         })),
-        analyses: [getStatsEngineAnalysisSettings(snapshot, analysisSettings)],
+        analyses: [analysisSettings],
         queryResults: queryResults,
         metrics: metricSettings,
       },
@@ -3506,9 +3505,7 @@ export async function createSnapshotAnalysis(
   const { results } = await analyzeExperimentResults({
     queryData: queryMap,
     snapshotSettings: snapshot.settings,
-    analysisSettings: [
-      getStatsEngineAnalysisSettings(snapshot, analysisSettings),
-    ],
+    analysisSettings: [analysisSettings],
     variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     metricMap: metricMap,
     isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
@@ -3574,9 +3571,7 @@ export async function createSnapshotAnalysesBatched(
     const { results } = await analyzeExperimentResults({
       queryData: queryMap,
       snapshotSettings: snapshot.settings,
-      analysisSettings: analysisSettingsList.map((settings) =>
-        getStatsEngineAnalysisSettings(snapshot, settings),
-      ),
+      analysisSettings: analysisSettingsList,
       variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
       metricMap,
       isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),

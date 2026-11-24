@@ -117,7 +117,6 @@ const findAncestorMock = jest.mocked(findNewMetricsUpdateAncestor);
 const PARENT_START = new Date("2026-11-01T00:00:00Z");
 const PARENT_END = new Date("2026-11-10T12:00:00Z");
 const PARENT_CREATED = new Date("2026-11-10T12:05:00Z");
-const PLANNED_COUNTS = { numGoalMetrics: 2, numGuardrailMetrics: 0 };
 
 const pipelineStateMock = jest.fn();
 const context = {
@@ -365,7 +364,6 @@ describe("planNewMetricsUpdate", () => {
         runStarted: null,
         cutoffDate: PARENT_END,
       },
-      metricCounts: { numGoalMetrics: 3, numGuardrailMetrics: 0 },
     });
     expect(plan.snapshot.settings.metricSettings).toEqual([
       ...metricSettingsFor(["met_a", "met_b"], {}),
@@ -390,7 +388,6 @@ describe("planNewMetricsUpdate", () => {
           runStarted: null,
           cutoffDate: PARENT_END,
         },
-        metricCounts: PLANNED_COUNTS,
       },
       ...overrides,
     });
@@ -1557,13 +1554,10 @@ describe("getNewMetricsUpdateLineage", () => {
       updateScope: getNewMetricsUpdateLineage(
         makeParent({ runStarted: PARENT_CREATED }),
         ["met_c"],
-        PLANNED_COUNTS,
       ),
     });
 
-    expect(
-      getNewMetricsUpdateLineage(refresh, ["met_d"], PLANNED_COUNTS),
-    ).toEqual({
+    expect(getNewMetricsUpdateLineage(refresh, ["met_d"])).toEqual({
       kind: "new_metrics",
       parentSnapshotId: "snp_refresh",
       queriedMetricIds: ["met_d"],
@@ -1572,36 +1566,28 @@ describe("getNewMetricsUpdateLineage", () => {
         runStarted: PARENT_CREATED,
         cutoffDate: PARENT_END,
       },
-      metricCounts: PLANNED_COUNTS,
       updatesInARow: 2,
     });
   });
 
   it("counts the updates in a row, the first after a full update as 1", () => {
-    const fromFull = getNewMetricsUpdateLineage(
-      makeParent(),
-      ["met_c"],
-      PLANNED_COUNTS,
-    );
+    const fromFull = getNewMetricsUpdateLineage(makeParent(), ["met_c"]);
     expect(fromFull.updatesInARow).toBe(1);
 
     const counted = makeParent({
       updateScope: { ...fromFull, updatesInARow: 7 },
     });
-    expect(
-      getNewMetricsUpdateLineage(counted, ["met_d"], PLANNED_COUNTS)
-        .updatesInARow,
-    ).toBe(8);
+    expect(getNewMetricsUpdateLineage(counted, ["met_d"]).updatesInARow).toBe(
+      8,
+    );
 
     // Stored before the count was, so it counts as one.
     const { updatesInARow, ...uncounted } = fromFull;
     expect(updatesInARow).toBe(1);
     expect(
-      getNewMetricsUpdateLineage(
-        makeParent({ updateScope: uncounted }),
-        ["met_d"],
-        PLANNED_COUNTS,
-      ).updatesInARow,
+      getNewMetricsUpdateLineage(makeParent({ updateScope: uncounted }), [
+        "met_d",
+      ]).updatesInARow,
     ).toBe(2);
   });
 });
@@ -1623,11 +1609,7 @@ describe("dateEnd of a new-metrics update", () => {
       runStarted: ran,
       dateCreated: ran,
       settings: { ...parent.settings },
-      updateScope: getNewMetricsUpdateLineage(
-        parent,
-        ["met_c"],
-        PLANNED_COUNTS,
-      ),
+      updateScope: getNewMetricsUpdateLineage(parent, ["met_c"]),
     });
   }
 
@@ -1793,11 +1775,7 @@ describe("new-metrics update status", () => {
         })),
         ...(run === "a new-metrics update"
           ? {
-              updateScope: getNewMetricsUpdateLineage(
-                makeParent(),
-                ["met_c"],
-                PLANNED_COUNTS,
-              ),
+              updateScope: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
             }
           : {}),
       });
@@ -1830,7 +1808,7 @@ describe("a new-metrics update that succeeds on the Incremental Pipeline", () =>
         { name: "statistics_fta_0", query: "qry_a", status: "succeeded" },
         { name: "statistics_ftc_1", query: "qry_c", status: "succeeded" },
       ],
-      updateScope: getNewMetricsUpdateLineage(root, ["met_c"], PLANNED_COUNTS),
+      updateScope: getNewMetricsUpdateLineage(root, ["met_c"]),
     });
 
     await new ExperimentIncrementalRefreshQueryRunner(
@@ -1913,11 +1891,7 @@ describe("starting a new-metrics update's queries", () => {
       settings: makeSettings(["met_a", "met_b", "met_c"], {
         exposureQueryId: "eq_1",
       }),
-      updateScope: getNewMetricsUpdateLineage(
-        makeParent(),
-        ["met_c"],
-        PLANNED_COUNTS,
-      ),
+      updateScope: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
     });
 
   beforeEach(() => {
@@ -2098,7 +2072,6 @@ describe("mergeNewMetricsUpdateAnalyses", () => {
       newMetricIds: new Set(["met_c"]),
       variationWeights: [0.5, 0.5],
       goalMetrics: ["met_a", "met_c"],
-      counts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
       ...overrides,
     });
 
@@ -2228,7 +2201,6 @@ describe("mergeNewMetricsUpdateAnalyses", () => {
         merge(analyses, [[treatmentDimension({ met_c: tested(0.04) })]], {
           analyzedMetricIds: new Set(analyzed),
           goalMetrics: ["met_a", "met_b", "met_c"],
-          counts: { numGoalMetrics: 3, numGuardrailMetrics: 0 },
         });
 
       // Holm-Bonferroni over 0.01, 0.03, 0.04: 3 x 0.01, 2 x 0.03, then
@@ -2340,7 +2312,8 @@ describe("mergeNewMetricsUpdateAnalyses", () => {
       });
     });
 
-    it("rescales a copied metric's power for the goal metrics the update ends with, and keeps its other numbers", () => {
+    // The copy was scaled for one goal; the update ends with three.
+    it("scales copied and new metrics' power for the goal metrics the update ends with, and keeps a copy's other numbers", () => {
       const inputs = {
         status: "successful",
         firstPeriodPairwiseSampleSize: 1000,
@@ -2368,14 +2341,16 @@ describe("mergeNewMetricsUpdateAnalyses", () => {
       );
       const before = cloneDeep(parent);
 
-      const [merged] = merge([parent], [[]], {
-        goalMetrics: ["met_a", "met_c", "met_d"],
-        counts: { numGoalMetrics: 3, numGuardrailMetrics: 0 },
-      });
+      const [merged] = merge(
+        [parent],
+        [[treatmentDimension({ met_c: tested(0.3, { power: inputs }) })]],
+        { goalMetrics: ["met_a", "met_c", "met_d"] },
+      );
 
-      const { met_a } = treatmentMetrics(merged);
+      const { met_a, met_c } = treatmentMetrics(merged);
       const expected = calculatePowerScalingFactor(inputs, powerSettings(3));
       expect(met_a.power?.scalingFactor).toBe(expected?.scalingFactor);
+      expect(met_c.power?.scalingFactor).toBe(expected?.scalingFactor);
       expect(met_a.power?.scalingFactor).not.toBe(copied.power?.scalingFactor);
       expect(omit(met_a, "power")).toEqual(omit(copied, "power"));
       expect(parent).toEqual(before);
@@ -2387,11 +2362,7 @@ describe("analyzeNewMetricsUpdate", () => {
   const refresh = makeParent({
     id: "snp_refresh",
     settings: makeSettings(["met_a", "met_c"]),
-    updateScope: getNewMetricsUpdateLineage(
-      makeParent(),
-      ["met_c"],
-      PLANNED_COUNTS,
-    ),
+    updateScope: getNewMetricsUpdateLineage(makeParent(), ["met_c"]),
   });
   const queryMap: QueryMap = new Map([
     [
@@ -2453,12 +2424,7 @@ describe("analyzeNewMetricsUpdate", () => {
     const [{ queryData, analysisSettings: settings }] =
       analyzeMock.mock.calls[0];
     expect([...queryData.keys()]).toEqual(["group_1"]);
-    expect(settings).toEqual(
-      [analysisSettings, byBaseline.settings].map((s) => ({
-        ...s,
-        numGuardrailMetrics: 0,
-      })),
-    );
+    expect(settings).toEqual([analysisSettings, byBaseline.settings]);
     expect(result.analyses.map((a) => a.settings)).toEqual([
       analysisSettings,
       byBaseline.settings,
@@ -2533,50 +2499,6 @@ describe("analyzeNewMetricsUpdate", () => {
     });
   });
 
-  it("runs the new metrics with the counts the update was planned with, and keeps the parent's analysis settings", async () => {
-    const parentSettings = { numGoalMetrics: 0, numGuardrailMetrics: 0 };
-    findSnapshotByIdMock.mockResolvedValue(
-      makeParent({
-        analyses: [
-          analysis(parentSettings, [resultDimension({ met_a: 1 })]),
-          analysis({ ...parentSettings, baselineVariationIndex: 1 }, []),
-        ],
-      }),
-    );
-
-    const newMetricsUpdate = {
-      ...refresh.updateScope!,
-      metricCounts: { numGoalMetrics: 1, numGuardrailMetrics: 2 },
-    };
-    const result = await analyzeNewMetricsUpdate({
-      context,
-      snapshot: { ...refresh, updateScope: newMetricsUpdate },
-      newMetricsUpdate,
-      queryMap,
-      metricMap,
-      variationNames: ["Control", "Treatment"],
-    });
-
-    expect(
-      analyzeMock.mock.calls[0][0].analysisSettings.map((s) => [
-        s.numGoalMetrics,
-        s.numGuardrailMetrics,
-      ]),
-    ).toEqual([
-      [1, 2],
-      [1, 2],
-    ]);
-    expect(
-      result.analyses.map((a) => [
-        a.settings.numGoalMetrics,
-        a.settings.numGuardrailMetrics,
-      ]),
-    ).toEqual([
-      [0, 0],
-      [0, 0],
-    ]);
-  });
-
   // The parent's goals were met_a and met_b; met_c joins them. Holm over
   // 0.01, 0.03, 0.04: 3 x 0.01, 2 x 0.03, then max(0.06, 1 x 0.04).
   it("corrects the goal metrics the update ends with, including one the parent lacked", async () => {
@@ -2602,19 +2524,13 @@ describe("analyzeNewMetricsUpdate", () => {
         },
       ],
     });
-    const newMetricsUpdate = {
-      ...refresh.updateScope!,
-      metricCounts: { numGoalMetrics: 3, numGuardrailMetrics: 0 },
-    };
-
     const result = await analyzeNewMetricsUpdate({
       context,
       snapshot: {
         ...refresh,
         settings: makeSettings(["met_a", "met_b", "met_c"]),
-        updateScope: newMetricsUpdate,
       },
-      newMetricsUpdate,
+      newMetricsUpdate: refresh.updateScope!,
       queryMap,
       metricMap,
       variationNames: ["Control", "Treatment"],

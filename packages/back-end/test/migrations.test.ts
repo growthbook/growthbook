@@ -3111,6 +3111,25 @@ describe("Snapshot Migration", () => {
         "dim11",
       );
     });
+
+    it("drops the goal counts a new-metrics update stored before release", () => {
+      const updateScope = {
+        kind: "new_metrics",
+        parentSnapshotId: "snp_parent",
+        queriedMetricIds: ["met_c"],
+        updatesInARow: 1,
+        base: { dateCreated: now, runStarted: null, cutoffDate: null },
+      };
+      const initial = {
+        ...buildSnapshot({}, []),
+        updateScope: {
+          ...updateScope,
+          metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
+        },
+      } as LegacyExperimentSnapshotInterface;
+
+      expect(migrateSnapshot(initial).updateScope).toEqual(updateScope);
+    });
   });
 });
 

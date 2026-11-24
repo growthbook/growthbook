@@ -12,7 +12,6 @@ import {
   isFactMetric,
   type ExperimentMetricInterface,
   type NewMetricsUpdateRefusal,
-  type StatsEngineMetricCounts,
 } from "shared/experiments";
 import { getSnapshotCutoffDate } from "shared/util";
 import type { IncrementalRefreshInterface } from "shared/validators";
@@ -237,11 +236,7 @@ export async function planNewMetricsUpdate({
   const snapshot = {
     ...plan.snapshot,
     settings,
-    updateScope: getNewMetricsUpdateLineage(
-      parent,
-      queriedMetricIds,
-      plan.snapshot.analyses[0].settings,
-    ),
+    updateScope: getNewMetricsUpdateLineage(parent, queriedMetricIds),
   };
   const carriedQueries = parent.queries.filter((q) =>
     isCarriedNewMetricsUpdateQuery(q.name, snapshot, snapshot.updateScope),
@@ -499,8 +494,6 @@ export function getNewMetricsUpdateLineage(
     "id" | "type" | "dateCreated" | "runStarted" | "settings" | "updateScope"
   >,
   queriedMetricIds: string[],
-  // The default analysis of the full update planned with it.
-  plannedDefaultAnalysis: StatsEngineMetricCounts,
 ): SnapshotNewMetricsUpdate {
   return {
     kind: "new_metrics",
@@ -511,10 +504,6 @@ export function getNewMetricsUpdateLineage(
       dateCreated: parent.dateCreated,
       runStarted: parent.runStarted,
       cutoffDate: getSnapshotCutoffDate(parent.settings),
-    },
-    metricCounts: {
-      numGoalMetrics: plannedDefaultAnalysis.numGoalMetrics,
-      numGuardrailMetrics: plannedDefaultAnalysis.numGuardrailMetrics,
     },
   };
 }

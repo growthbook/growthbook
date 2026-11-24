@@ -168,7 +168,6 @@ type AnalysisSettingsForPower = Pick<
   ExperimentSnapshotAnalysisSettings,
   | "statsEngine"
   | "pValueThreshold"
-  | "numGoalMetrics"
   | "sequentialTesting"
   | "sequentialTestingTuningParameter"
 >;
@@ -179,10 +178,11 @@ type AnalysisSettingsForPower = Pick<
 function setPowerScalingFactors(
   results: ExperimentReportResultDimension[],
   analysisSettings: AnalysisSettingsForPower,
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "goalMetrics">,
 ): void {
   const settings = {
     alpha: getAnalysisAlpha(analysisSettings),
-    numGoalMetrics: analysisSettings.numGoalMetrics,
+    numGoalMetrics: new Set(snapshotSettings.goalMetrics).size,
     sequential: analysisSettings.sequentialTesting ?? false,
     sequentialTuningParameter:
       Number(analysisSettings.sequentialTestingTuningParameter) ||
@@ -213,7 +213,7 @@ export function enrichAnalysisResults({
   snapshotSettings: Pick<ExperimentSnapshotSettings, "goalMetrics">;
 }): void {
   setCorrectedPValues({ results, analysisSettings, snapshotSettings });
-  setPowerScalingFactors(results, analysisSettings);
+  setPowerScalingFactors(results, analysisSettings, snapshotSettings);
 }
 
 /**

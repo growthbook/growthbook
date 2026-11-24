@@ -3,10 +3,9 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import type { OrganizationInterface } from "shared/types/organization";
 import type {
   ExperimentSnapshotAnalysis,
-  ExperimentSnapshotInterface,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
-import { getStatsEngineAnalysisSettings } from "shared/experiments";
+import { enrichAnalysisResults } from "shared/experiments";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { calculatePowerScalingFactor } from "shared/enterprise";
 import {
@@ -15,7 +14,6 @@ import {
 } from "back-end/src/services/experiments";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { mergeNewMetricsUpdateAnalyses } from "back-end/src/services/experimentResults/compute/analyzeSnapshot";
-import { getNewMetricsUpdateLineage } from "back-end/src/services/experimentResults/plan/newMetricsUpdate";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 
@@ -103,7 +101,7 @@ const powerInputs = {
   firstPeriodPairwiseSampleSize: 1000,
   sigmahat2Delta: 0.01,
   targetMDE: 0.1,
-};
+} as const;
 const powerFor = (numGoalMetrics: number) => ({
   ...powerInputs,
   ...calculatePowerScalingFactor(powerInputs, {
@@ -113,28 +111,15 @@ const powerFor = (numGoalMetrics: number) => ({
     sequentialTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   }),
 });
-// Computed by the full update, which counted 3 goals.
-const withPower = {
-  cr: 1,
-  users: 10,
-  value: 10,
-  power: powerFor(3),
-} as unknown as SnapshotMetric;
 
 // fact__device can't be joined to the exposure identifier, so the snapshot
-// settings leave it out of the goals while the analysis counts it.
-describe("the goal counts of a new-metrics update with a listed goal that can't be analyzed", () => {
+// settings leave it out of the goals.
+describe("the goal count of a new-metrics update with a listed goal that can't be analyzed", () => {
   const goalMetrics = ["fact__a", "fact__b", "fact__device"];
   const root = planFullUpdate(
     experiment({ goalMetrics, secondaryMetrics: [] }),
   );
-  const parent = {
-    id: "snp_root",
-    type: "standard",
-    dateCreated: new Date("2026-11-10T00:00:00Z"),
-    runStarted: null,
-    settings: root.settings,
-  } as unknown as ExperimentSnapshotInterface;
+  // The parent's results as the full update's stats run enriched them.
   const parentAnalysis = {
     dateCreated: new Date(),
     status: "success",
@@ -143,21 +128,31 @@ describe("the goal counts of a new-metrics update with a listed goal that can't 
       {
         name: "",
         srm: 0.5,
-        variations: [
-          { users: 10, metrics: { fact__a: withPower } },
-          { users: 10, metrics: { fact__a: withPower } },
-        ],
+        variations: [0, 1].map(() => ({
+          users: 10,
+          metrics: {
+            fact__a: {
+              cr: 1,
+              users: 10,
+              value: 10,
+              power: powerInputs,
+            } as unknown as SnapshotMetric,
+          },
+        })),
       },
     ],
   } as unknown as ExperimentSnapshotAnalysis;
+  enrichAnalysisResults({
+    results: parentAnalysis.results,
+    analysisSettings: parentAnalysis.settings,
+    snapshotSettings: root.settings,
+  });
 
-  const update = (e: ExperimentInterface, queriedMetricIds: string[]) => {
+  const copiedPowerAfter = (
+    e: ExperimentInterface,
+    queriedMetricIds: string[],
+  ) => {
     const plan = planFullUpdate(e);
-    const updateScope = getNewMetricsUpdateLineage(
-      parent,
-      queriedMetricIds,
-      plan.defaultAnalysis,
-    );
     const [merged] = mergeNewMetricsUpdateAnalyses({
       analyses: [parentAnalysis],
       freshResults: [[]],
@@ -165,54 +160,32 @@ describe("the goal counts of a new-metrics update with a listed goal that can't 
       newMetricIds: new Set(queriedMetricIds),
       variationWeights: [0.5, 0.5],
       goalMetrics: plan.settings.goalMetrics,
-      counts: updateScope.metricCounts,
     });
-    return {
-      settings: plan.settings,
-      updateScope,
-      copiedPower: merged.results[0].variations[1].metrics.fact__a.power,
-    };
+    return merged.results[0].variations[1].metrics.fact__a.power;
   };
 
-  it("counts every listed goal, as a full update would", () => {
-    const { settings, updateScope } = update(
-      experiment({ goalMetrics, secondaryMetrics: ["fact__sec"] }),
-      ["fact__sec"],
-    );
-
-    expect(settings.goalMetrics).toHaveLength(2);
-    expect(updateScope.metricCounts).toEqual({
-      numGoalMetrics: 3,
-      numGuardrailMetrics: 0,
-    });
+  it("counts the goals the snapshot analyzes, in a full update and a new-metrics update alike", () => {
+    expect(root.settings.goalMetrics).toEqual(["fact__a", "fact__b"]);
     expect(
-      getStatsEngineAnalysisSettings(
-        { type: "standard", updateScope },
-        parentAnalysis.settings,
+      parentAnalysis.results[0].variations[1].metrics.fact__a.power,
+    ).toEqual(powerFor(2));
+    expect(
+      copiedPowerAfter(
+        experiment({ goalMetrics, secondaryMetrics: ["fact__sec"] }),
+        ["fact__sec"],
       ),
-    ).toMatchObject({ numGoalMetrics: 3, numGuardrailMetrics: 0 });
+    ).toEqual(powerFor(2));
   });
 
-  it("keeps copied power when only a secondary metric was added", () => {
-    const { copiedPower } = update(
-      experiment({ goalMetrics, secondaryMetrics: ["fact__sec"] }),
-      ["fact__sec"],
-    );
-
-    expect(copiedPower).toEqual(withPower.power);
-  });
-
-  it("rescales copied power for every listed goal when a goal was added", () => {
-    const { updateScope, copiedPower } = update(
-      experiment({
-        goalMetrics: [...goalMetrics, "fact__c"],
-        secondaryMetrics: [],
-      }),
-      ["fact__c"],
-    );
-
-    expect(updateScope.metricCounts.numGoalMetrics).toBe(4);
-    expect(copiedPower).toEqual(powerFor(4));
-    expect(copiedPower).not.toEqual(withPower.power);
+  it("rescales copied power for the analyzed goals when a goal was added", () => {
+    expect(
+      copiedPowerAfter(
+        experiment({
+          goalMetrics: [...goalMetrics, "fact__c"],
+          secondaryMetrics: [],
+        }),
+        ["fact__c"],
+      ),
+    ).toEqual(powerFor(3));
   });
 });

@@ -1362,7 +1362,6 @@ describe("ExperimentSnapshotModel", () => {
               runStarted: null,
               cutoffDate: at(0),
             },
-            metricCounts: { numGoalMetrics: 2, numGuardrailMetrics: 0 },
           },
         });
         await updateSnapshot({
