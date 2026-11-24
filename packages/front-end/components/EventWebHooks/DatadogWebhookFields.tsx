@@ -115,9 +115,12 @@ function ApiKeySelect({
 export default function DatadogWebhookFields({
   form,
   disabled,
+  isNew,
 }: {
   form: UseFormReturn<EventWebHookEditParams>;
   disabled: boolean;
+  // Required rows are marked when creating, or once emptied.
+  isNew: boolean;
 }) {
   const customFields = useCustomFields();
   const url = form.watch("url");
@@ -140,10 +143,14 @@ export default function DatadogWebhookFields({
     )
     .map((f) => ({ label: f.name, value: f.id }));
   const datadog = form.watch("datadog");
+  const hasApiKey = !!headerSecretKey(
+    parseHeaders(form.watch("headers")),
+    DATADOG_API_KEY_HEADER,
+  );
 
   return (
     <>
-      <SetupFieldRow label="Datadog site" required>
+      <SetupFieldRow label="Datadog site" required={isNew || !origin}>
         <SelectField
           value={customUrl ? CUSTOM_SITE : (site?.id ?? "")}
           placeholder="Choose your Datadog site"
@@ -165,7 +172,7 @@ export default function DatadogWebhookFields({
       </SetupFieldRow>
 
       {customUrl && (
-        <SetupFieldRow label="Endpoint URL" required>
+        <SetupFieldRow label="Endpoint URL" required={isNew || !origin}>
           <Field
             placeholder="https://event-management-intake.datadoghq.com/api/v2/events"
             disabled={disabled}
@@ -176,7 +183,7 @@ export default function DatadogWebhookFields({
         </SetupFieldRow>
       )}
 
-      <SetupFieldRow label="API key" required>
+      <SetupFieldRow label="API key" required={isNew || !hasApiKey}>
         <ApiKeySelect form={form} allowedOrigin={origin} disabled={disabled} />
       </SetupFieldRow>
 

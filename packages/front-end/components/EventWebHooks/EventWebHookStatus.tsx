@@ -9,6 +9,7 @@ import {
 import { ago, datetime } from "shared/dates";
 import { EventWebHookLogInterface } from "shared/types/event-webhook-log";
 import SectionFrame from "@/components/SectionFrame";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Badge from "@/ui/Badge";
 import Table, {
@@ -118,19 +119,23 @@ export default function EventWebHookStatus({
     <>
       <SectionFrame title="Status">
         {latest ? (
-          <Flex align="center" gap="2" wrap="wrap">
-            <Text>Last delivery</Text>
-            <DeliveryStatusBadge log={latest} />
-            <Tooltip content={datetime(latest.dateCreated)}>
-              <Text color="text-mid">{ago(latest.dateCreated)}</Text>
-            </Tooltip>
-            <Text color="text-mid">
-              ·{" "}
-              {recent.failed
-                ? `${recent.failed} of the last ${recent.total} failed`
-                : `The last ${recent.total} succeeded`}
-            </Text>
-          </Flex>
+          <>
+            <SetupFieldRow label="Last delivery" content="text">
+              <Flex align="center" gap="2">
+                <DeliveryStatusBadge log={latest} />
+                <Tooltip content={datetime(latest.dateCreated)}>
+                  <Text color="text-mid">{ago(latest.dateCreated)}</Text>
+                </Tooltip>
+              </Flex>
+            </SetupFieldRow>
+            <SetupFieldRow label="Recent deliveries" content="text">
+              <Text>
+                {recent.failed
+                  ? `${recent.failed} of the last ${recent.total} failed`
+                  : `The last ${recent.total} succeeded`}
+              </Text>
+            </SetupFieldRow>
+          </>
         ) : (
           <Text color="text-mid">
             No deliveries yet. Use Send test to check the setup.

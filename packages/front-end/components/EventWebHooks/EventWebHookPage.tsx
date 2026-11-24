@@ -168,6 +168,10 @@ function toRequestBody(values: EventWebHookEditParams) {
   };
 }
 
+function isUrl(value: string) {
+  return z.string().url().safeParse(value).success;
+}
+
 function isJson(value: string) {
   try {
     JSON.parse(value);
@@ -180,7 +184,7 @@ function isJson(value: string) {
 // Why the webhook can't be saved yet, or null when it can.
 function saveProblem(values: EventWebHookEditParams): string | null {
   if (values.name.trim().length < 2) return "Add a name.";
-  if (!z.string().url().safeParse(values.url).success) {
+  if (!isUrl(values.url)) {
     return values.payloadType === "datadog"
       ? "Choose a Datadog site."
       : "Add an endpoint URL.";
@@ -243,6 +247,7 @@ export default function EventWebHookPage({
   const [menuOpen, setMenuOpen] = useState(false);
   const [tab, setTab] = useURLHash(WEBHOOK_TABS);
   const recent = recentFailures(logs);
+  const latestFailed = !!logs[0] && logs[0].result !== "success";
 
   // The Slack app manages its channels' webhooks.
   const slackSettingsUrl =
@@ -523,7 +528,11 @@ export default function EventWebHookPage({
         const setup = (
           <>
             <SectionFrame title="Delivery">
-              <SetupFieldRow label="Name" required changed={changed("name")}>
+              <SetupFieldRow
+                label="Name"
+                required={isNew || values.name.trim().length < 2}
+                changed={changed("name")}
+              >
                 <Field
                   placeholder="My webhook"
                   disabled={disabled}
@@ -575,11 +584,15 @@ export default function EventWebHookPage({
               </SetupFieldRow>
 
               {isDatadog ? (
-                <DatadogWebhookFields form={form} disabled={disabled} />
+                <DatadogWebhookFields
+                  form={form}
+                  disabled={disabled}
+                  isNew={isNew}
+                />
               ) : (
                 <SetupFieldRow
                   label="Endpoint URL"
-                  required
+                  required={isNew || !isUrl(values.url)}
                   changed={changed("url")}
                 >
                   <Field
@@ -666,7 +679,7 @@ export default function EventWebHookPage({
             <SectionFrame title="Events and filters" mt="4">
               <SetupFieldRow
                 label="Events"
-                required
+                required={isNew || !values.events.length}
                 changed={changed("events")}
               >
                 <MultiSelectField
@@ -758,7 +771,23 @@ export default function EventWebHookPage({
             <Box mb="4">
               <TabsList>
                 <TabsTrigger value="setup">Setup</TabsTrigger>
-                <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+                <TabsTrigger value="diagnostics">
+                  Diagnostics
+                  {latestFailed ? (
+                    // Sized like the unsaved-change dot, in red.
+                    <span
+                      role="img"
+                      aria-label="Last delivery failed"
+                      style={{
+                        width: 8,
+                        height: 8,
+                        marginLeft: 6,
+                        borderRadius: "50%",
+                        background: "var(--red-9)",
+                      }}
+                    />
+                  ) : null}
+                </TabsTrigger>
               </TabsList>
             </Box>
             <TabsContent value="setup">{setup}</TabsContent>
