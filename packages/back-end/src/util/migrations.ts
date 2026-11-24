@@ -1,6 +1,5 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
-import omit from "lodash/omit";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -1189,12 +1188,6 @@ export function migrateSnapshot(
   const metaHasEntries = Object.keys(meta).length > 0;
   if (metaHasEntries || snapshot.hasChunkedAnalyses) {
     snapshot.hasChunkedAnalyses = metaHasEntries;
-  }
-
-  // Builds before release stored goal counts on a new-metrics update; nothing
-  // reads them now.
-  if (snapshot.updateScope && "metricCounts" in snapshot.updateScope) {
-    snapshot.updateScope = omit(snapshot.updateScope, "metricCounts");
   }
 
   return snapshot;
