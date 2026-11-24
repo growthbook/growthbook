@@ -60,7 +60,8 @@ export default function AutoExperimentSettings() {
         const parent = getAutoExperimentParentFeature(feature);
         if (parent && !isEnabled(parent)) return null;
         // Judged on the saved value, so a queued uncheck can still be undone.
-        const instanceBlocks = mode !== "allowed" && !isSaved(feature);
+        const saved = isSaved(feature);
+        const instanceBlocks = mode !== "allowed" && !saved;
         return (
           <Box key={feature} pl={parent ? "5" : "0"}>
             <UnsavedMark name={`autoExperiments.${feature}`}>
@@ -75,7 +76,8 @@ export default function AutoExperimentSettings() {
                 }
                 value={isEnabled(feature)}
                 setValue={(v) =>
-                  v ? setEnabling(feature) : set(feature, false)
+                  // Undoing a queued uncheck turns nothing on, so don't ask.
+                  v && !saved ? setEnabling(feature) : set(feature, v)
                 }
               />
             </UnsavedMark>
