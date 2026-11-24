@@ -37,6 +37,8 @@ import {
 import {
   languagesPatch,
   shouldShowPayloadSecurity,
+  scriptTagLanguage,
+  sdkVersionLabel,
   versionedLanguage,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
@@ -248,8 +250,14 @@ export const CONNECTION_ROWS: SettingRow[] = [
     key: "version",
     label: "SDK version",
     fields: ["sdkVersion"],
-    shown: (v) => !!versionedLanguage(v.languages),
-    read: (v) => (v.sdkVersion ? <Text>{v.sdkVersion}</Text> : <NoneValue />),
+    shown: (v) =>
+      !!versionedLanguage(v.languages) || !!scriptTagLanguage(v.languages),
+    read: (v) =>
+      sdkVersionLabel(v.languages, v.sdkVersion) ? (
+        <Text>{sdkVersionLabel(v.languages, v.sdkVersion)}</Text>
+      ) : (
+        <NoneValue />
+      ),
     edit: (v, onChange, disabled) => (
       <Control>
         <SDKVersionField

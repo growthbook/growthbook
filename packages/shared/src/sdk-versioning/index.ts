@@ -131,6 +131,37 @@ const getLatestOrGivenSDKVersion = (
     : latest;
 };
 
+// The script tag is loaded from a URL that keeps updating, so the version on
+// a no-code connection is a release channel, not a fixed version:
+// - 0.0.0 is the legacy auto.min.js, which follows the latest release
+// - 3.0.0 is /script/v3/, which follows the latest 3.x release
+// So a capability added in a later release goes under that release's version
+// in nocode.json. Under 0.0.0, every channel would get it.
+const isScriptTagLanguage = (language: SDKLanguage): boolean =>
+  /^nocode-/.test(language);
+
+const getMajor = (version: string): string => version.split(".")[0];
+
+export const isLegacyScriptTagVersion = (version?: string): boolean =>
+  !version || getMajor(version) === "0";
+
+// The newest version a channel reaches. `versions` is newest first.
+export const getScriptTagChannelVersion = (
+  versions: string[],
+  version?: string,
+): string => {
+  if (!version || isLegacyScriptTagVersion(version)) {
+    return versions[0] ?? "0.0.0";
+  }
+  return versions.find((v) => getMajor(v) === getMajor(version)) ?? version;
+};
+
+// For every other SDK, the version on the connection is the version in use
+const getVersionInUse = (language: SDKLanguage, version: string): string =>
+  isScriptTagLanguage(language)
+    ? getScriptTagChannelVersion(getSDKVersions(language), version)
+    : version;
+
 export const getDefaultSDKVersion = (
   language: SDKLanguage = "other",
 ): string => {
@@ -141,7 +172,10 @@ export const isSDKOutdated = (
   language: SDKLanguage = "other",
   version?: string,
 ): boolean => {
-  version = version || getDefaultSDKVersion(language);
+  version = getVersionInUse(
+    language,
+    version || getDefaultSDKVersion(language),
+  );
   const current = getLatestSDKVersion(language);
   return paddedVersionString(version) < paddedVersionString(current);
 };
@@ -153,7 +187,10 @@ export const getSDKCapabilities = (
 ): SDKCapability[] => {
   language = language || "other";
 
-  version = version || getDefaultSDKVersion(language);
+  version = getVersionInUse(
+    language,
+    version || getDefaultSDKVersion(language),
+  );
   const sdkData = getSdkData(language);
   const versions = sdkData?.versions || [];
   const matches = versions.filter(

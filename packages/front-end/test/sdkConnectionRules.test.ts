@@ -7,6 +7,9 @@ import {
   sanitizeAdvancedForSave,
   SDKConnectionAdvancedValue,
   shouldShowPayloadSecurity,
+  languagesPatch,
+  scriptTagLanguage,
+  sdkVersionLabel,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
 
 const allOn: SDKConnectionAdvancedValue = {
@@ -33,6 +36,39 @@ const fullyCapable: Parameters<typeof sanitizeAdvancedForSave>[1] = {
   latestCapabilities: ["visualEditor", "redirects", "savedGroupReferences"],
   currentCapabilities: ["savedGroupReferences"],
 };
+
+describe("script tag versions", () => {
+  it("finds a connection whose one SDK is the script tag", () => {
+    expect(scriptTagLanguage(["nocode-shopify"])).toBe("nocode-shopify");
+    expect(scriptTagLanguage(["javascript"])).toBe(null);
+    expect(scriptTagLanguage(["nocode-other", "javascript"])).toBe(null);
+  });
+
+  it("names the script tag a version stands for", () => {
+    expect(sdkVersionLabel(["nocode-other"], "0.0.0")).toBe(
+      "Legacy (auto.min.js)",
+    );
+    expect(sdkVersionLabel(["nocode-other"], undefined)).toBe(
+      "Legacy (auto.min.js)",
+    );
+    expect(sdkVersionLabel(["nocode-other"], "3.0.0")).toBe("v3");
+  });
+
+  it("leaves other SDK versions as they are", () => {
+    expect(sdkVersionLabel(["javascript"], "3.0.0")).toBe("3.0.0");
+    expect(sdkVersionLabel(undefined, "1.2.3")).toBe("1.2.3");
+    expect(sdkVersionLabel(["javascript"], undefined)).toBe("");
+  });
+
+  it("starts a new script tag connection on the newest script tag", () => {
+    expect(
+      sdkVersionLabel(
+        ["nocode-other"],
+        languagesPatch(["nocode-other"]).sdkVersion,
+      ),
+    ).toBe("v3");
+  });
+});
 
 describe("shouldShowPayloadSecurity", () => {
   it("hides the secured modes for Next.js only", () => {

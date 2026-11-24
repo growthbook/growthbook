@@ -39,7 +39,7 @@ Or, if you can't add `data-*` attributes (e.g. in Google Tag Manager), you can u
 
 For best performance, we recommend adding this script tag directly before the closing `</head>` tag, however it is also possible to load through something like Google Tag Manager if that is your only option.
 
-The snippet shown for your SDK Connection in GrowthBook already has the right bundle and settings for that connection.
+The snippet shown for your SDK Connection in GrowthBook already has the right bundle and settings for that connection, as long as the connection's **SDK version** is set to **v3**.
 
 ### Bundles
 
@@ -67,8 +67,6 @@ Two riskier parts of these features are off unless you add an attribute to the s
 ```
 
 The `v3` in the URL is the major version of the SDK. You get fixes and improvements within that version automatically, and a new major version never changes the script on your site.
-
-To stay on one exact version, replace `v3` with the full version number, for example `/script/3.0.0/core.min.js`. That file never changes.
 
 ### Optional Configuration Settings
 
@@ -376,5 +374,7 @@ To move to the bundles above, change the `src` and translate these settings:
 | `disableUrlRedirectExperiments`                    | Leave `redirects` out of the bundle name              |
 | Custom JavaScript runs unless `disableJsInjection` | Add `data-allow-custom-js` only if you use it         |
 | Cross-origin redirects run unless disabled         | Add `data-allow-cross-origin-redirects` if you use it |
+
+After you change a site over, set the **SDK version** of its SDK Connection in GrowthBook from **Legacy (auto.min.js)** to **v3**. GrowthBook uses it to know which script the site runs.
 
 On/off attributes are also read differently. With `auto.min.js`, an attribute with no value is off for most settings, and any other value is on, even `false`.

@@ -24,6 +24,8 @@ import Tooltip from "@/ui/Tooltip";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
 import {
   languagesPatch,
+  scriptTagLanguage,
+  sdkVersionLabel,
   versionedLanguage,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
@@ -85,6 +87,27 @@ export function SDKVersionField({
   hideLabel,
   disabled,
 }: FieldsProps) {
+  const scriptTag = scriptTagLanguage(value.languages);
+  if (scriptTag) {
+    return (
+      <SelectField
+        size="md"
+        label={hideLabel ? undefined : "SDK version"}
+        aria-label="SDK version"
+        sort={false}
+        options={getSDKVersions(scriptTag).map((ver) => ({
+          label: sdkVersionLabel(value.languages, ver),
+          value: ver,
+        }))}
+        isClearable={false}
+        disabled={disabled}
+        value={value.sdkVersion || getDefaultSDKVersion(scriptTag)}
+        onChange={(v) => onChange({ sdkVersion: v })}
+        containerStyle={{ marginBottom: 0 }}
+      />
+    );
+  }
+
   const singleLanguage = versionedLanguage(value.languages);
   if (!singleLanguage) return null;
   const latestVersion = getLatestSDKVersion(singleLanguage);
@@ -339,7 +362,9 @@ export default function SDKConnectionFields({
   environmentError?: string | null;
   requireProjectSelection?: boolean;
 }) {
-  const showVersionPicker = !!versionedLanguage(value.languages);
+  const showVersionPicker =
+    !!versionedLanguage(value.languages) ||
+    !!scriptTagLanguage(value.languages);
 
   return (
     <Flex direction="column" gap="4">

@@ -20,7 +20,10 @@ import { PAYLOAD_FORMAT_LABELS } from "@/components/Features/SDKConnections/SdkW
 import { TRACES_TITLE } from "@/components/Features/SDKConnections/SDKConnectionAdvancedSettings";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
-import { snapshotWithAbsentSettings } from "@/components/Features/SDKConnections/sdkConnectionRules";
+import {
+  sdkVersionLabel,
+  snapshotWithAbsentSettings,
+} from "@/components/Features/SDKConnections/sdkConnectionRules";
 import { draftLandedState } from "@/components/Revision/revisionUtils";
 
 type Pre = Partial<SDKConnectionRevisionSnapshot> | null;
@@ -152,8 +155,13 @@ function renderSDKConnectionScope(pre: Pre, post: Post): ReactNode | null {
         key="sdkVersion"
         label="SDK version"
         changed
-        oldNode={strDisplay(p0?.sdkVersion)}
-        newNode={strDisplay(p1.sdkVersion)}
+        oldNode={strDisplay(
+          sdkVersionLabel(p0?.languages ?? p1.languages, p0?.sdkVersion) ||
+            undefined,
+        )}
+        newNode={strDisplay(
+          sdkVersionLabel(p1.languages ?? p0?.languages, p1.sdkVersion),
+        )}
       />,
     );
   }

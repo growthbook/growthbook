@@ -3,6 +3,7 @@ import type {
   OrganizationSettings,
 } from "shared/types/organization";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { isLegacyScriptTagVersion } from "../sdk-versioning";
 
 export const AUTO_EXPERIMENT_FEATURES = [
   "visualEditor",
@@ -75,12 +76,22 @@ export function connectionServesAutoExperimentFeature(
   }
 }
 
-// The script tag bundle for an SDK Connection: the one with only the features
-// the connection serves. A bundle's name is "core" followed by its features in
-// alphabetical order, the same as the builds in sdk-js/rollup.config.mjs.
+// The script tag for an SDK Connection. A legacy connection loads auto.min.js,
+// which has every feature. Any other loads the bundle with only the features
+// the connection serves, from the path for its major version. A bundle's name
+// is "core" followed by its features in alphabetical order, the same as the
+// builds in sdk-js/rollup.config.mjs.
 export function getScriptBundleUrl(
-  connection: ConnectionAutoExperimentFlags,
+  connection: ConnectionAutoExperimentFlags &
+    Pick<SDKConnectionInterface, "sdkVersion">,
 ): string {
+  if (
+    !connection.sdkVersion ||
+    isLegacyScriptTagVersion(connection.sdkVersion)
+  ) {
+    return "https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";
+  }
+  const major = connection.sdkVersion.split(".")[0];
   const name = [
     "core",
     connectionServesAutoExperimentFeature(connection, "urlRedirects")
@@ -92,7 +103,7 @@ export function getScriptBundleUrl(
   ]
     .filter(Boolean)
     .join("-");
-  return `https://cdn.growthbook.io/script/v3/${name}.min.js`;
+  return `https://cdn.growthbook.io/script/v${major}/${name}.min.js`;
 }
 
 export function hasCustomJs(visualChanges: { js?: string }[]): boolean {
