@@ -180,7 +180,7 @@ The script tag bundles (`core.min.js`, `core-visual.min.js`, ...) are served fro
 1. Merging the version bump runs the **Script CDN upload** workflow. It builds the bundles from `main` and uploads them to `https://cdn.growthbook.io/script/<version>/`. That path never changes afterwards, and no site loads it unless it pinned that exact version.
 2. When you are ready for sites to get the new version, run the **Script CDN promote** workflow with the version number. It copies that version to `https://cdn.growthbook.io/script/v<major>/`, which is the URL sites load. They pick it up within a day.
 
-To roll back, run **Script CDN promote** again with the earlier version.
+To roll back, run **Script CDN promote** again with the earlier version. Promoting only writes files and never removes any, so a bundle the earlier version doesn't have stays on the newer one.
 
 Both workflows run `packages/sdk-js/scripts/script-cdn.sh`. You can run it by hand for a release that has to be live before it is merged.
 
