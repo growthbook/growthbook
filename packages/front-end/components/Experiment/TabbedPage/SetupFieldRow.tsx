@@ -27,6 +27,7 @@ export default function SetupFieldRow({
   labelAlign = "top",
   stacked = false,
   changed = false,
+  required = false,
   children,
 }: {
   /** For pointing at the field from elsewhere on the page. */
@@ -48,6 +49,8 @@ export default function SetupFieldRow({
   stacked?: boolean;
   /** Marks the label for an unsaved change. */
   changed?: boolean;
+  /** Marks the label as needing a value before saving. */
+  required?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -88,6 +91,12 @@ export default function SetupFieldRow({
             mb="0"
           >
             {label}
+            {required ? (
+              <span aria-hidden="true" style={{ color: "var(--red-11)" }}>
+                {" "}
+                *
+              </span>
+            ) : null}
           </Text>
           {tooltip ? (
             <InfoTip content={<Text align="left">{tooltip}</Text>} />

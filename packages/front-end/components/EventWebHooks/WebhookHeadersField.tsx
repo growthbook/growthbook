@@ -145,6 +145,7 @@ export default function WebhookHeadersField({
   disabled,
   minLines = 3,
   containerStyle,
+  hideLabel = false,
 }: {
   value: string;
   setValue: (value: string) => void;
@@ -152,6 +153,8 @@ export default function WebhookHeadersField({
   disabled?: boolean;
   minLines?: number;
   containerStyle?: CSSProperties;
+  // When a row beside it names the field.
+  hideLabel?: boolean;
 }) {
   const { webhookSecrets } = useDefinitions();
   const canManageSecrets = usePermissionsUtil().canManageWebhookSecrets();
@@ -163,12 +166,16 @@ export default function WebhookHeadersField({
   return (
     <Box>
       <Flex align="center" justify="between" gap="3" mb="1">
-        <Text as="label" weight="semibold" mb="0">
-          Headers{" "}
-          <Text color="text-mid" weight="regular">
-            (JSON)
+        {hideLabel ? (
+          <Text color="text-mid">JSON</Text>
+        ) : (
+          <Text as="label" weight="semibold" mb="0">
+            Headers{" "}
+            <Text color="text-mid" weight="regular">
+              (JSON)
+            </Text>
           </Text>
-        </Text>
+        )}
         <Flex align="center" gap="1">
           {webhookSecrets.length > 0 ? (
             <InsertSecretMenu

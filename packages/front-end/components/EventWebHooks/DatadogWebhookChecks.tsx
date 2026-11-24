@@ -175,7 +175,7 @@ export default function DatadogWebhookChecks({
   const serviceField = eventWebHook.datadog?.serviceField;
 
   return (
-    <Box className="card mt-3 p-4">
+    <Box mt="3">
       <Flex direction="column" gap="2">
         <CheckRow {...secretsCheck} />
         <CheckRow {...serviceFieldCheck} />

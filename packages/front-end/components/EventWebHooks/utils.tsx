@@ -7,6 +7,7 @@ import { DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS } from "shared/constants";
 import React, { ReactNode, useMemo } from "react";
 import clsx from "clsx";
 import {
+  PiBracketsCurly,
   PiQuestionLight,
   PiXSquareLight,
   PiCheckCircleLight,
@@ -15,7 +16,6 @@ import {
   EventWebHookPayloadType,
   EventWebHookMethod,
 } from "shared/types/event-webhook";
-import { VscJson } from "react-icons/vsc";
 import { SiDatadog } from "react-icons/si";
 import { FormatOptionLabelMeta } from "react-select";
 import { SingleValue } from "@/components/Forms/SelectField";
@@ -215,13 +215,6 @@ export const formatWebhookEventOptionLabel = (
   return <span className={clsx(shouldIndent && "pl-3")}>{option.label}</span>;
 };
 
-export type EventWebHookModalMode =
-  | {
-      mode: "edit";
-      data: EventWebHookEditParams;
-    }
-  | { mode: "create" };
-
 /**
  * Get the icon for the event web hook state
  * @param state
@@ -312,7 +305,7 @@ export const WebhookIcon = ({
         />
       );
     case "json":
-      return <VscJson style={style} className={className} />;
+      return <PiBracketsCurly style={style} className={className} />;
     case "datadog":
       return (
         <SiDatadog

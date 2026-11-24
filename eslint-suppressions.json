@@ -155,14 +155,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "packages/front-end/components/EventWebHooks/WebhookSecretModal.tsx": {
     "no-restricted-syntax": {
       "count": 3

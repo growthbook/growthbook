@@ -1,14 +1,11 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { FC } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowRight, PiPlus } from "react-icons/pi";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import useApi from "@/hooks/useApi";
-import { useAuth } from "@/services/auth";
-import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
-import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -17,48 +14,28 @@ import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
 
 type EventWebHookListProps = {
-  onCreateModalOpen: () => void;
-  onModalClose: () => void;
-  isModalOpen: boolean;
-  onAdd: (data: EventWebHookEditParams) => Promise<void>;
   eventWebHooks: EventWebHookInterface[];
   isLoaded: boolean;
   errorMessage: string | null;
-  createError: string | null;
 };
 
 export const EventWebHookList: FC<EventWebHookListProps> = ({
   eventWebHooks,
   isLoaded,
-  isModalOpen,
-  onAdd,
-  onModalClose,
-  onCreateModalOpen,
   errorMessage,
-  createError,
 }) => {
   const permissionsUtils = usePermissionsUtil();
   const canManageSlack = permissionsUtils.canManageIntegrations();
 
   return (
     <div>
-      {isModalOpen ? (
-        <EventWebHookAddEditModal
-          isOpen={isModalOpen}
-          onClose={onModalClose}
-          onSubmit={onAdd}
-          mode={{ mode: "create" }}
-          error={createError}
-        />
-      ) : null}
-
       <SettingsPageHeader
         as="h2"
         title="Webhooks"
         actions={
-          <Button icon={<PiPlus />} onClick={onCreateModalOpen}>
+          <LinkButton href="/settings/webhooks/event/new" icon={<PiPlus />}>
             Add webhook
-          </Button>
+          </LinkButton>
         }
       />
 
@@ -121,46 +98,15 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
 };
 
 export const EventWebHookListContainer = () => {
-  const { apiCall } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-
-  const { data, error, mutate } = useApi<{
+  const { data, error } = useApi<{
     eventWebHooks: EventWebHookInterface[];
   }>("/event-webhooks");
 
-  const handleCreateModalOpen = useCallback(() => {
-    setIsModalOpen(true);
-  }, []);
-
-  const handleAdd = useCallback(
-    async (data: EventWebHookEditParams) => {
-      const response = await apiCall<{
-        error?: string;
-        eventWebHook?: EventWebHookInterface;
-      }>("/event-webhooks", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-
-      if (response.error) {
-        throw new Error(response.error);
-      }
-
-      mutate();
-    },
-    [mutate, apiCall],
-  );
-
   return (
     <EventWebHookList
-      isModalOpen={isModalOpen}
-      onModalClose={() => setIsModalOpen(false)}
-      onCreateModalOpen={handleCreateModalOpen}
       eventWebHooks={data?.eventWebHooks || []}
       isLoaded={!!data}
-      onAdd={handleAdd}
       errorMessage={error?.message || null}
-      createError={null}
     />
   );
 };

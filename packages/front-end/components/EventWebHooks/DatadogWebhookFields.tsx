@@ -6,13 +6,14 @@ import {
   datadogSites,
 } from "shared/util";
 import { UseFormReturn } from "react-hook-form";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
@@ -24,17 +25,18 @@ import {
 } from "@/components/EventWebHooks/datadog";
 
 const CUSTOM_SITE = "custom";
-// The last item in a secret picker's menu; opens the secret modal.
+// The last item in the secret picker's menu; opens the secret modal.
 const CREATE_SECRET = "__create_secret__";
+const fieldStyle = { marginBottom: 0 };
 
 function ApiKeySelect({
   form,
   allowedOrigin,
-  onChange,
+  disabled,
 }: {
   form: UseFormReturn<EventWebHookEditParams>;
   allowedOrigin: string | null;
-  onChange: () => void;
+  disabled: boolean;
 }) {
   const { webhookSecrets } = useDefinitions();
   const canManageSecrets = usePermissionsUtil().canManageWebhookSecrets();
@@ -44,21 +46,20 @@ function ApiKeySelect({
     DATADOG_API_KEY_HEADER,
   );
 
-  const setSecret = (key: string) => {
+  const setSecret = (key: string) =>
     form.setValue(
       "headers",
       withHeaderSecret(form.watch("headers"), DATADOG_API_KEY_HEADER, key),
     );
-    onChange();
-  };
 
   return (
-    <Box mt="4">
+    <>
       <SelectField
-        label="API key"
         value={value}
         placeholder="Choose a secret"
         sort={false}
+        disabled={disabled}
+        containerStyle={fieldStyle}
         options={[
           ...[...webhookSecrets]
             .sort((a, b) => a.key.localeCompare(b.key))
@@ -106,16 +107,17 @@ function ApiKeySelect({
           }}
         />
       )}
-    </Box>
+    </>
   );
 }
 
+// Datadog's rows: the site sets the URL, the secret the API key header.
 export default function DatadogWebhookFields({
   form,
-  handleFormValidation,
+  disabled,
 }: {
   form: UseFormReturn<EventWebHookEditParams>;
-  handleFormValidation: () => void;
+  disabled: boolean;
 }) {
   const customFields = useCustomFields();
   const url = form.watch("url");
@@ -141,87 +143,81 @@ export default function DatadogWebhookFields({
 
   return (
     <>
-      <Box mt="4">
+      <SetupFieldRow label="Datadog site" required>
         <SelectField
-          label="Datadog site"
           value={customUrl ? CUSTOM_SITE : (site?.id ?? "")}
           placeholder="Choose your Datadog site"
           sort={false}
+          disabled={disabled}
+          containerStyle={fieldStyle}
           options={[
             ...datadogSites.map((s) => ({ label: s.label, value: s.id })),
             { label: "Custom", value: CUSTOM_SITE },
           ]}
           onChange={(value) => {
             setCustomUrl(value === CUSTOM_SITE);
-            if (value !== CUSTOM_SITE)
+            if (value !== CUSTOM_SITE) {
               form.setValue("url", datadogEventsUrl(value));
-            handleFormValidation();
+            }
           }}
-          helpText="Sets the endpoint URL. Match the site you sign in to Datadog on."
+          helpText="The site you sign in to Datadog on. It sets the endpoint URL."
         />
-      </Box>
+      </SetupFieldRow>
 
       {customUrl && (
-        <Box mt="4">
+        <SetupFieldRow label="Endpoint URL" required>
           <Field
-            label="Endpoint URL"
             placeholder="https://event-management-intake.datadoghq.com/api/v2/events"
-            {...form.register("url")}
-            onChange={(evt) => {
-              form.setValue("url", evt.target.value);
-              handleFormValidation();
-            }}
+            disabled={disabled}
+            containerStyle={fieldStyle}
+            value={url}
+            onChange={(e) => form.setValue("url", e.target.value)}
           />
-        </Box>
+        </SetupFieldRow>
       )}
 
-      <ApiKeySelect
-        form={form}
-        allowedOrigin={origin}
-        onChange={handleFormValidation}
-      />
+      <SetupFieldRow label="API key" required>
+        <ApiKeySelect form={form} allowedOrigin={origin} disabled={disabled} />
+      </SetupFieldRow>
 
-      <Box mt="4">
+      <SetupFieldRow label="Service field">
         <SelectField
-          label="Service field"
           value={datadog?.serviceField ?? ""}
           placeholder="Choose a custom field"
           isClearable
+          disabled={disabled}
+          containerStyle={fieldStyle}
           options={serviceFieldOptions}
-          onChange={(value) => {
-            form.setValue("datadog", {
-              ...datadog,
-              serviceField: value,
-            });
-            handleFormValidation();
-          }}
+          onChange={(value) =>
+            form.setValue("datadog", { ...datadog, serviceField: value })
+          }
           helpText={
             <>
-              Each Feature Flag&apos;s and experiment&apos;s values for this
-              field become Datadog services. Without one, changes reach Event
-              Explorer but no service page.{" "}
+              Each Feature Flag&apos;s and experiment&apos;s values become
+              Datadog services. Without one, changes reach Event Explorer but no
+              service page.{" "}
               <Link href="/settings/customfields" external>
                 Create a custom field
               </Link>
             </>
           }
         />
-      </Box>
+      </SetupFieldRow>
 
-      <Box mt="4">
+      <SetupFieldRow label="Approvers" content="text">
         <Checkbox
           label="Include approvers"
           description="Send who approved each published revision."
           value={!!datadog?.includeApprovers}
-          setValue={(includeApprovers) => {
+          disabled={disabled}
+          setValue={(includeApprovers) =>
             form.setValue("datadog", {
               serviceField: datadog?.serviceField ?? "",
               includeApprovers,
-            });
-            handleFormValidation();
-          }}
+            })
+          }
         />
-      </Box>
+      </SetupFieldRow>
     </>
   );
 }
