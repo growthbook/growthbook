@@ -669,7 +669,10 @@ export function generateAutoExperimentsPayload({
         ...data,
         experiment: {
           ...e,
-          phases: [...e.phases.slice(0, -1), serving.phase],
+          // A copy: the prerequisite reduction below rewrites this phase, and
+          // for an override that serves the experiment as configured it is
+          // the same object as configuredPhase.
+          phases: [...e.phases.slice(0, -1), { ...serving.phase }],
         },
         qa: { serving, configuredPhase },
       }));

@@ -938,6 +938,30 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
     ]);
   });
 
+  it("keeps a prerequisite in metadata when the payload drops it because it always passes", () => {
+    const exp = {
+      ...visualDraft,
+      phases: [
+        {
+          ...visualDraft.phases[0],
+          prerequisites: [{ id: "parent", condition: '{"value":true}' }],
+        },
+      ],
+    } as unknown as ExperimentInterface;
+    const parent = {
+      id: "parent",
+      defaultValue: "true",
+      valueType: "boolean",
+      environmentSettings: { dev: { enabled: true, rules: [] } },
+    } as unknown as FeatureInterface;
+
+    const [copy] = build([randomOverride], { exp, features: [parent] });
+    expect(copy.parentConditions).toBeUndefined();
+    expect(copy.metadata?.qaOverride?.parentConditions).toEqual([
+      { id: "parent", condition: { value: true } },
+    ]);
+  });
+
   it("keeps the experiment's own configuration and change id in metadata on every copy", () => {
     const [original] = build([]);
     const payload = build([
