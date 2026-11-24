@@ -5,14 +5,13 @@ import {
   S3_SESSION_REPLAY_BUCKET_EU,
   S3_SESSION_REPLAY_ASSUME_ROLE,
 } from "back-end/src/util/secrets";
-import { buildS3Client, s3GetObjectBuffer, s3ListByPrefix } from "./s3";
+import { buildS3Client, s3GetObjectBuffer } from "./s3";
 
 // --- Session-replay helpers ---
-// Reads from the session-replay bucket (S3 only) using the session-replay
-// client. Used by the session-replay controller to (a) list the gzip-JSON
-// chunks for a given session's storage prefix, and (b) hand out signed
-// read URLs so the browser can fetch chunks directly from S3 — same pattern
-// as AuthorizedImage.
+// Reads gzip-JSON chunks from the session-replay bucket (S3 only) using the
+// session-replay client, so that bucket and role stay independent of the
+// general uploads bucket. Chunk keys come from the ClickHouse metadata rows
+// rather than an S3 listing.
 
 // Which AWS region an org's managed warehouse (and therefore its
 // session-replay data) is provisioned in. Mirrors `GrowthbookClickhouseSettings.region`.
@@ -54,28 +53,6 @@ export function isSessionReplayStorageConfigured(
   region: SessionReplayRegion,
 ): boolean {
   return UPLOAD_METHOD === "s3" && !!getSessionReplayBucket(region);
-}
-
-/**
- * Lists every object key under `storagePrefix` in the session-replay bucket
- * for the given region. Returns the raw S3 keys (in S3 ordering, which is
- * lexicographic — callers that need numeric chunk-index ordering should sort
- * after parsing).
- */
-export async function listSessionReplayChunks(
-  storagePrefix: string,
-  region: SessionReplayRegion,
-): Promise<string[]> {
-  if (!isSessionReplayStorageConfigured(region)) {
-    throw new Error(
-      "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET / S3_SESSION_REPLAY_BUCKET_EU)",
-    );
-  }
-  return s3ListByPrefix(
-    getSessionReplayS3Client(region),
-    getSessionReplayBucket(region),
-    storagePrefix,
-  );
 }
 
 /**
