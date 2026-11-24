@@ -2177,7 +2177,7 @@ describe("experiments API", () => {
           status: "draft",
         });
         (getDataSourceById as jest.Mock).mockImplementation(
-          async (_context, id: string) => ({
+          async (ctx, id: string) => ({
             id,
             type: "postgres",
             settings: {

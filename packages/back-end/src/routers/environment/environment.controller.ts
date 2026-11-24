@@ -30,6 +30,7 @@ import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
   assertEnvironmentDeletable,
   cleanupDeletedEnvironment,
+  cleanupUpdatedEnvironment,
 } from "back-end/src/services/environments";
 
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
@@ -144,6 +145,13 @@ export const putEnvironments = async (
       },
     });
 
+    for (const updated of updatedEnvironments) {
+      const previous = existingEnvs.find((e) => e.id === updated.id);
+      if (previous) {
+        await cleanupUpdatedEnvironment(context, previous, updated);
+      }
+    }
+
     await req.audit({
       event: "environment.update",
       entity: {
@@ -206,6 +214,12 @@ export const putEnvironment = async (
         environments: updatedEnvs,
       },
     });
+
+    await cleanupUpdatedEnvironment(
+      context,
+      envsArr[existingEnvIndex],
+      updatedEnv,
+    );
 
     if (environment.projects) {
       const existingProjects = envsArr[existingEnvIndex].projects || [];
@@ -357,7 +371,7 @@ export const deleteEnvironment = async (
         environments: existingEnvs.filter((env) => env.id !== id),
       },
     });
-    await cleanupDeletedEnvironment(org.id, id);
+    await cleanupDeletedEnvironment(context, id);
 
     await req.audit({
       event: "environment.delete",

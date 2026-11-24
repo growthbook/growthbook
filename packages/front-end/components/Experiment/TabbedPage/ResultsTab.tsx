@@ -5,8 +5,9 @@ import { getScopedSettings } from "shared/settings";
 import {
   isDimensionPrecomputed,
   getEffectiveLookbackOverride,
+  getComputableNewMetricIds,
 } from "shared/experiments";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
@@ -28,7 +29,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
-import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
+import {
+  getHonoredPrecomputedUnitDimensionIds,
+  getNewMetricRowStates,
+} from "@/services/experiments";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
@@ -103,6 +107,8 @@ export default function ResultsTab({
     getProjectById,
     datasources,
     getSegmentById,
+    getFactTableById,
+    metricGroups,
   } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -111,8 +117,14 @@ export default function ResultsTab({
 
   const router = useRouter();
 
-  const { snapshot, analysis, setSnapshotType, setAnalysisSettings } =
-    useSnapshot();
+  const {
+    snapshot,
+    analysis,
+    latestSummary,
+    phase,
+    setSnapshotType,
+    setAnalysisSettings,
+  } = useSnapshot();
 
   const permissionsUtil = usePermissionsUtil();
   const { organization, hasCommercialFeature } = useUser();
@@ -166,6 +178,41 @@ export default function ResultsTab({
       (e) => e.id === experiment.exposureQueryId,
     ),
     experiment.exposureQueryIdentifierType,
+  );
+  const isLatestPhase = phase === experiment.phases.length - 1;
+  const showsMetricRows = !analysis?.settings?.dimensions?.length;
+  const newMetricIds = useMemo(
+    () =>
+      snapshot
+        ? getComputableNewMetricIds({
+            experiment,
+            snapshotSettings: snapshot.settings,
+            metricGroups,
+            getMetricById: getExperimentMetricById,
+            getFactTableById,
+            identifierType: userIdType,
+            datasourceSettings,
+          })
+        : [],
+    [
+      experiment,
+      snapshot,
+      metricGroups,
+      getExperimentMetricById,
+      getFactTableById,
+      userIdType,
+      datasourceSettings,
+    ],
+  );
+  const newMetricStates = useMemo(
+    () =>
+      isLatestPhase && showsMetricRows
+        ? getNewMetricRowStates({
+            newMetricIds,
+            latest: latestSummary ?? null,
+          })
+        : undefined,
+    [newMetricIds, isLatestPhase, showsMetricRows, latestSummary],
   );
 
   const reportArgs: ExperimentSnapshotReportArgs = {
@@ -395,6 +442,7 @@ export default function ResultsTab({
         <div style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
+            newMetricIds={newMetricIds}
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
@@ -472,6 +520,7 @@ export default function ResultsTab({
                   experiment={experiment}
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
+                  newMetricStates={newMetricStates}
                   statsEngine={statsEngine}
                   analysisBarSettings={analysisBarSettings}
                   setAnalysisBarSettings={setAnalysisBarSettings}

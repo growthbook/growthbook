@@ -4,14 +4,16 @@ import { getSnapshotCutoffDate } from "shared/util";
 export function getExperimentEndDate(
   settings: Pick<
     ExperimentSnapshotSettings,
-    "skipPartialData" | "endDate" | "endDateIsCutoff"
+    "skipPartialData" | "endDate" | "endDateIsCutoff" | "plannedAt"
   >,
   conversionWindowHours: number,
   // For Incremental Exploratory queries, we need to know when the last update
   // for the incremental tables happened, so we ensure that we use the same cutoff
   // data as the overall results did.
   // Otherwise the exploratory could include more units than the overall result
-  asOf: Date = getSnapshotCutoffDate(settings) ?? new Date(),
+  asOf: Date = getSnapshotCutoffDate(settings) ??
+    settings.plannedAt ??
+    new Date(),
 ): Date {
   // Only include users who entered the experiment before this timestamp
   // If we need to wait until users have had a chance to fully convert

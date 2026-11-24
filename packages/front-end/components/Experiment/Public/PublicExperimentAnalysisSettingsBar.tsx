@@ -1,5 +1,9 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
+import {
+  getNewMetricsUpdate,
+  getSnapshotDataAsOfDate,
+} from "shared/experiments";
 import { ago, date, datetime } from "shared/dates";
 import { PiEye } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -26,6 +30,7 @@ export default function PublicExperimentAnalysisSettingsBar({
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
   if (!snapshot) return null;
+  const lastUpdated = getSnapshotDataAsOfDate(snapshot);
 
   return (
     <>
@@ -67,14 +72,18 @@ export default function PublicExperimentAnalysisSettingsBar({
                   }
                 />
               )}
-              {snapshot.runStarted && (
-                <div className="text-right mt-3">
+              <div className="text-right mt-3">
+                {/* Added metrics are queried through the run's end date, so
+                    every number is as of the run; the later update only
+                    added metrics. */}
+                <Metadata label="Run date" value={datetime(lastUpdated)} />
+                {getNewMetricsUpdate(snapshot) ? (
                   <Metadata
-                    label="Run date"
-                    value={datetime(snapshot.runStarted)}
+                    label="Metrics added"
+                    value={datetime(snapshot.dateCreated)}
                   />
-                </div>
-              )}
+                ) : null}
+              </div>
             </div>
           }
         />
@@ -124,17 +133,17 @@ export default function PublicExperimentAnalysisSettingsBar({
         </div>
         <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end">
           <div className="col-auto px-0">
-            {hasData && snapshot.runStarted ? (
+            {hasData ? (
               <div
                 className="text-muted text-right"
                 style={{ width: 130, fontSize: "0.8em" }}
-                title={datetime(snapshot.runStarted)}
+                title={datetime(lastUpdated)}
               >
                 <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
                   last updated
                 </div>
                 <div className="d-inline-block" style={{ lineHeight: 1 }}>
-                  {ago(snapshot.runStarted)}
+                  {ago(lastUpdated)}
                 </div>
               </div>
             ) : null}
