@@ -242,6 +242,7 @@ export default function ConnectPage() {
                   eventTracker={eventTracker}
                   setEventTracker={setEventTracker}
                   eventIngestorRegion={eventIngestorRegion}
+                  connection={connection}
                 />
               </Frame>
             </>

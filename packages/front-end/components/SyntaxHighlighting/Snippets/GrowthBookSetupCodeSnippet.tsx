@@ -1,4 +1,8 @@
-import { SDKLanguage } from "shared/types/sdk-connection";
+import {
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "shared/types/sdk-connection";
+import { connectionServesAutoExperimentFeature } from "shared/util";
 import { paddedVersionString } from "@growthbook/growthbook";
 import {
   getLatestSDKVersion,
@@ -28,6 +32,14 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import Text from "@/ui/Text";
+
+type AutoExperimentConnection = Pick<
+  SDKConnectionInterface,
+  | "includeVisualExperiments"
+  | "includeRedirectExperiments"
+  | "allowCustomJs"
+  | "allowCrossOriginRedirects"
+>;
 
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
@@ -82,6 +94,7 @@ export default function GrowthBookSetupCodeSnippet({
   eventTracker = "GA4",
   setEventTracker,
   eventIngestorRegion,
+  connection,
 }: {
   language: SDKLanguage;
   version?: string;
@@ -92,6 +105,7 @@ export default function GrowthBookSetupCodeSnippet({
   eventTracker: string;
   setEventTracker: (value: string) => void;
   eventIngestorRegion?: DataRegion;
+  connection: AutoExperimentConnection;
 }) {
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
@@ -204,6 +218,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             version,
             eventTracker,
             eventIngestorRegion,
+            connection,
             includeInit: true,
           })}
         />
@@ -255,6 +270,7 @@ growthbook.logEvent("Button Click", {
             version,
             eventTracker,
             eventIngestorRegion,
+            connection,
             includeInit: false,
           })}
         />
@@ -1891,6 +1907,7 @@ const getJSCodeSnippet = ({
   version,
   eventTracker,
   eventIngestorRegion,
+  connection,
   includeInit = true,
 }: {
   apiHost: string;
@@ -1900,11 +1917,41 @@ const getJSCodeSnippet = ({
   version?: string;
   eventTracker: string;
   eventIngestorRegion?: DataRegion;
+  connection: AutoExperimentConnection;
   includeInit?: boolean;
 }) => {
   const useInit = paddedVersionString(version) >= paddedVersionString("1.0.0");
   const usePlugins =
     paddedVersionString(version) >= paddedVersionString("1.4.0");
+
+  // From 3.0.0, visual editor and URL redirect experiments only run with
+  // their plugin, so the snippet adds the ones the connection serves
+  const serves = (
+    feature: Parameters<typeof connectionServesAutoExperimentFeature>[1],
+  ) => connectionServesAutoExperimentFeature(connection, feature);
+  const autoPlugins =
+    paddedVersionString(version) >= paddedVersionString("3.0.0")
+      ? [
+          ...(serves("visualEditor")
+            ? [
+                {
+                  name: "visualEditorPlugin",
+                  call: `visualEditorPlugin(${serves("customJs") ? "{ allowCustomJs: true }" : ""})`,
+                },
+              ]
+            : []),
+          ...(serves("urlRedirects")
+            ? [
+                {
+                  name: "urlRedirectsPlugin",
+                  call: `urlRedirectsPlugin(${serves("crossOriginRedirects") ? "{ allowCrossOriginRedirects: true }" : ""})`,
+                },
+              ]
+            : []),
+        ]
+      : [];
+  const autoImports = autoPlugins.map((p) => `,\n  ${p.name}`).join("");
+  const autoCalls = autoPlugins.map((p) => `\n    ${p.call},`).join("");
 
   let jsCode = "";
 
@@ -1923,7 +1970,7 @@ const getJSCodeSnippet = ({
 import { GrowthBook } from "@growthbook/growthbook";
 import {
   autoAttributesPlugin,
-  growthbookTrackingPlugin
+  growthbookTrackingPlugin${autoImports}
 } from "@growthbook/growthbook/plugins";
 
 const growthbook = new GrowthBook({
@@ -1936,7 +1983,7 @@ const growthbook = new GrowthBook({
     autoAttributesPlugin(),
     growthbookTrackingPlugin(${
       ingestorHost ? `{ ingestorHost: ${JSON.stringify(ingestorHost)} }` : ""
-    })
+    }),${autoCalls}
   ],
 });`;
     } else {
@@ -1944,7 +1991,7 @@ const growthbook = new GrowthBook({
 import { GrowthBook } from "@growthbook/growthbook";
 import { 
   thirdPartyTrackingPlugin,
-  autoAttributesPlugin
+  autoAttributesPlugin${autoImports}
 } from "@growthbook/growthbook/plugins";
 
 const growthbook = new GrowthBook({
@@ -1955,7 +2002,7 @@ const growthbook = new GrowthBook({
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   plugins: [
     autoAttributesPlugin(),
-    thirdPartyTrackingPlugin({ trackers: ${pluginTrackers} }),
+    thirdPartyTrackingPlugin({ trackers: ${pluginTrackers} }),${autoCalls}
   ],
 });`;
     }
@@ -1965,7 +2012,11 @@ const growthbook = new GrowthBook({
     const trackingCallback = getTrackingCallback(eventTracker);
     jsCode = `
 import { GrowthBook } from "@growthbook/growthbook";
-import { autoAttributesPlugin } from "@growthbook/growthbook/plugins";
+import ${
+      autoPlugins.length
+        ? `{\n  autoAttributesPlugin${autoImports}\n}`
+        : "{ autoAttributesPlugin }"
+    } from "@growthbook/growthbook/plugins";
 
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
@@ -1976,7 +2027,11 @@ const growthbook = new GrowthBook({
   trackingCallback: (experiment, result) => {
     ${indentLines(trackingCallback.trim(), 4)}
   },
-  plugins: [ autoAttributesPlugin() ],
+  plugins: [${
+    autoPlugins.length
+      ? `\n    autoAttributesPlugin(),${autoCalls}\n  `
+      : " autoAttributesPlugin() "
+  }],
 });`;
   }
   // No plugins support

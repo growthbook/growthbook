@@ -310,6 +310,7 @@ const VerifyConnectionPage = ({
                   eventTracker={eventTracker}
                   setEventTracker={updateEventTracker}
                   eventIngestorRegion={eventIngestorRegion}
+                  connection={currentConnection}
                 />
               </div>
             )}

@@ -433,6 +433,7 @@ export default function CodeSnippetModal({
           eventTracker={eventTracker}
           setEventTracker={updateEventTracker}
           eventIngestorRegion={eventIngestorRegion}
+          connection={currentConnection}
         />
       ),
     });
