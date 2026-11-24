@@ -4,7 +4,7 @@ import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import { RadixStatusIcon } from "@/ui/HelperText";
-import { QaOverrideProblemsPopoverContent } from "./QaOverrideWaitingMessages";
+import { QaOverrideProblemsPopoverContent } from "./QaOverrideProblems";
 import styles from "./QaOverrides.module.scss";
 
 export default function QaOverrideStatusBadge({
