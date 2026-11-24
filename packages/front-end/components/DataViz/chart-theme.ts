@@ -10,8 +10,9 @@ export const CHART_COLORS = [
   "#6b7280",
 ];
 
-// The ECharts 6 default palette, which SQL Explorer charts have always used.
-// Named here so it lives with the other chart colors; switching SQL Explorer
+// A pinned copy of the ECharts 6.1 default palette, which SQL Explorer charts
+// have always used. Kept so saved SQL Explorer charts keep their colors, so it
+// intentionally does not follow later ECharts upgrades. Switching SQL Explorer
 // to CHART_COLORS would recolor every saved chart.
 export const SQL_EXPLORER_COLORS = [
   "#5070dd",
