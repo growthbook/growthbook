@@ -183,7 +183,12 @@ function unknownVariationHint(cause: UnknownVariationCause): ReactNode {
         <>looks like a 0-based index; return the variation key instead.</>
       );
     case "unrecognized":
-      return <>matches no configured variation key.</>;
+      return (
+        <>
+          isn&apos;t one of the keys listed above; check for a typo or a removed
+          variation.
+        </>
+      );
   }
 }
 
