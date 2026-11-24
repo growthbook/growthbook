@@ -13,6 +13,7 @@ type Props = {
   size?: Size;
   style?: CSSProperties;
   className?: string;
+  tabIndex?: number;
 } & MarginProps;
 
 export type Size = SharedSize<"xs" | "sm" | "md" | "lg">;

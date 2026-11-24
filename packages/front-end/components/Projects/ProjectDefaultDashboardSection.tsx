@@ -141,14 +141,17 @@ export default function ProjectDefaultDashboardSection({
             {/* Also clears a stored default that is no longer available, which
                 the select can't show. */}
             {defaultDashboardId && (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={savingDashboard}
-                onClick={() => setDefaultDashboard("")}
-              >
-                Clear default
-              </Button>
+              // A block wrapper keeps the column from stretching the button.
+              <Box>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={savingDashboard}
+                  onClick={() => setDefaultDashboard("")}
+                >
+                  Clear default
+                </Button>
+              </Box>
             )}
             {/* After the select, so the control doesn't move when it shows. */}
             {dashboardSavedMsg && (

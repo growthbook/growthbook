@@ -30,6 +30,8 @@ export default function DefaultDashboardBadge({
         radius="full"
         color="violet"
         variant="soft"
+        // Lets keyboard users reach the tooltip that names the Projects.
+        tabIndex={defaultFor.length > 1 ? 0 : undefined}
         label={
           defaultFor.length === 1 ? (
             // Project names are free text; the full name shows on overflow.
