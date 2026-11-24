@@ -257,7 +257,7 @@ export default function DashboardCanvas({
   return (
     <DashboardChartsProvider>
       <div>
-        {blocks.length === 0 && !edit ? (
+        {blocks.length === 0 && !canEdit && !isEditing ? (
           <Text color="text-mid">This dashboard has no blocks yet.</Text>
         ) : blocks.length === 0 ? (
           <Flex
