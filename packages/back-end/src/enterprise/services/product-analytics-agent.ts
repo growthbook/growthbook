@@ -40,8 +40,8 @@ import {
   getValidDateGranularities,
   calculateProductAnalyticsDateRange,
   dividesByPopulationCount,
-  densifyPopulationTimeseriesRows,
 } from "shared/enterprise";
+import { formatWarehouseDateAsIso } from "shared/dates";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { aiTool } from "back-end/src/enterprise/services/ai";
@@ -407,7 +407,12 @@ function buildResultCsv(
   ): string => {
     if (col.kind === "dimension") {
       if (raw == null || raw === "") return hasNoDimensions ? "Total" : "";
-      return typeof raw === "number" ? String(raw) : raw;
+      if (typeof raw === "number") return String(raw);
+      // Days without Population members are built in code, so their dates
+      // differ from the warehouse's format unless both are formatted alike
+      const isDateDimension =
+        config.dimensions?.[col.dimIndex]?.dimensionType === "date";
+      return isDateDimension ? formatWarehouseDateAsIso(raw) : raw;
     }
     if (raw == null) return "";
     if (col.kind === "populationCount") return String(raw);
@@ -1027,9 +1032,8 @@ async function executeRunExploration(
       config,
       await withMetricsOf(ctx, prevConfig, getFactMetricById),
     );
-    // The same rows the table shows, including days without Population members.
     const resultCsv = buildResultCsv(
-      exploration ? densifyPopulationTimeseriesRows(exploration, config) : [],
+      exploration?.result?.rows ?? [],
       config,
       getFactMetricById,
     );

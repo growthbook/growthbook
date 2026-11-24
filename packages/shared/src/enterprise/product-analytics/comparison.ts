@@ -547,6 +547,11 @@ export function buildAlignedComparisonRowLookup(
   comparisonRows: ProductAnalyticsResultRow[],
   firstDimensionIsDate: boolean,
   strategy: ComparisonAlignmentStrategy = "calendarYearOverYear",
+  // The current period's buckets to rank against, when it has more than
+  // `primaryRows` (see `densifyPopulationTimeseriesRows`).
+  currentXValues: readonly string[] = primaryRows.map((r) =>
+    String(r.dimensions[0] ?? ""),
+  ),
 ): (currentDims: (string | null)[]) => ProductAnalyticsResultRow | null {
   if (!firstDimensionIsDate) {
     const byKey = new Map<string, ProductAnalyticsResultRow>();
@@ -556,9 +561,9 @@ export function buildAlignedComparisonRowLookup(
     return (currentDims) => byKey.get(dimensionsTupleKey(currentDims)) ?? null;
   }
 
-  const sortedXValues = [
-    ...new Set(primaryRows.map((r) => String(r.dimensions[0] ?? ""))),
-  ].sort(compareDateStringsAsc);
+  const sortedXValues = [...new Set(currentXValues)].sort(
+    compareDateStringsAsc,
+  );
   const comparisonXValues = comparisonRows.map((r) =>
     String(r.dimensions[0] ?? ""),
   );
@@ -786,12 +791,6 @@ export function densifyComparisonExplorationTimeseries(params: {
   // the union type on ProductAnalyticsResultRow["values"] (funnel rows omit it).
   const zeroValues = buildZeroValueRow(metricIds)!;
   const comparisonRows = comparison.result?.rows ?? [];
-  // A bucket the query omitted had no Population members.
-  const emptyBucket = (dimensions: string[]): ProductAnalyticsResultRow => ({
-    dimensions,
-    values: zeroValues.map((v) => ({ ...v })),
-    ...(configHasPopulation(submittedConfig) ? { populationCount: 0 } : {}),
-  });
 
   if (!isGrouped) {
     const byMergeKey = new Map<string, ProductAnalyticsResultRow>();
@@ -814,7 +813,10 @@ export function densifyComparisonExplorationTimeseries(params: {
         if (existing) {
           return existing;
         }
-        return emptyBucket([bucketIso]);
+        return {
+          dimensions: [bucketIso],
+          values: zeroValues.map((v) => ({ ...v })),
+        };
       },
     );
 
@@ -864,7 +866,10 @@ export function densifyComparisonExplorationTimeseries(params: {
         merged.push(existing);
         continue;
       }
-      merged.push(emptyBucket([bucketIso, breakdown]));
+      merged.push({
+        dimensions: [bucketIso, breakdown],
+        values: zeroValues.map((v) => ({ ...v })),
+      });
     }
   }
 
@@ -875,8 +880,7 @@ export function densifyComparisonExplorationTimeseries(params: {
  * A result's rows with a row for every date bucket in its range when a
  * Population is applied. A bucket with no members has no row, so without these
  * a "% of Population" line would join across it, and rank-based comparison
- * pairing would shift every later bucket by one. Added rows have a
- * `populationCount` of 0, so the table can say why the bucket has no data.
+ * pairing would shift every later bucket by one.
  */
 export function densifyPopulationTimeseriesRows(
   exploration: ProductAnalyticsExploration,
@@ -1037,10 +1041,11 @@ export function computeExplorationComparisonPayload(
 
   const isTimeseries =
     submittedConfig.dimensions?.[0]?.dimensionType === "date";
-  // Includes days without Population members, as the table does, so each
-  // trend lines up with the table row at the same index.
-  const primaryRows = densifyPopulationTimeseriesRows(primary, submittedConfig);
-  const sortedRows = sortExplorationRows(primaryRows, isTimeseries, renderOpts);
+  const sortedRows = sortExplorationRows(
+    primary.result.rows,
+    isTimeseries,
+    renderOpts,
+  );
   const cmpSorted = sortExplorationRows(
     exploration.result.rows,
     isTimeseries,
@@ -1052,6 +1057,9 @@ export function computeExplorationComparisonPayload(
     cmpSorted,
     isTimeseries,
     alignment,
+    densifyPopulationTimeseriesRows(primary, submittedConfig).map((r) =>
+      String(r.dimensions[0] ?? ""),
+    ),
   );
 
   const tableTrendsByRow = sortedRows.map((row) => {

@@ -1059,12 +1059,9 @@ describe("buildAlignedComparisonRowLookup", () => {
     expect(lookup(["2024-01-06"])?.values[0]?.numerator).toBe(200);
   });
 
-  it("ranks every current bucket, including a day with no members", () => {
-    const primary = [
-      row(["2026-09-01"], 10),
-      row(["2026-09-02"], 0),
-      row(["2026-09-03"], 30),
-    ];
+  it("ranks against every current bucket when one has no row", () => {
+    // Sep 2 had no Population members, so it has no row.
+    const primary = [row(["2026-09-01"], 10), row(["2026-09-03"], 30)];
     const comparison = [
       row(["2026-08-29"], 1),
       row(["2026-08-30"], 2),
@@ -1075,6 +1072,7 @@ describe("buildAlignedComparisonRowLookup", () => {
       comparison,
       true,
       "chronological",
+      ["2026-09-01", "2026-09-02T00:00:00.000Z", "2026-09-03"],
     );
     expect(lookup(["2026-09-01"])?.values[0]?.numerator).toBe(1);
     expect(lookup(["2026-09-03"])?.values[0]?.numerator).toBe(3);
@@ -1478,11 +1476,10 @@ describe("densifyComparisonExplorationTimeseries", () => {
     ]);
     const filled = densifyPopulationTimeseriesRows(sparse, withPopulation);
     expect(filled).toHaveLength(7);
-    // Filled days have no members, so the table shows a count of 0 and
-    // "% of Population" reads no data.
-    expect(filled.map((r) => r.populationCount)).toEqual([
-      10, 0, 0, 0, 0, 0, 0,
-    ]);
+    // Filled days have no member count, so "% of Population" reads no data.
+    expect(filled.filter((r) => r.populationCount === undefined)).toHaveLength(
+      6,
+    );
     expect(densifyPopulationTimeseriesRows(sparse, baseConfig)).toHaveLength(1);
   });
 
@@ -1858,69 +1855,6 @@ describe("computeExplorationComparisonPayload", () => {
     expect(out.tableTrendsByRow).toHaveLength(2);
     expect(out.tableTrendsByRow[0]["__metric_0____trend"]).toBe(100);
     expect(out.tableTrendsByRow[1]["__metric_0____trend"]).toBeNull();
-  });
-
-  it("lines up table trends with the table's rows for days without Population members", () => {
-    const base = metricConfig("m1", { showAs: "total" });
-    const config: ExplorationConfig =
-      base.dataset.type === "metric"
-        ? {
-            ...base,
-            dataset: {
-              ...base.dataset,
-              population: { populationId: "pop_1", unit: "user_id" },
-            },
-          }
-        : base;
-    const row = (date: string, numerator: number) => ({
-      dimensions: [date],
-      values: [{ metricId: "m1", numerator, denominator: null }],
-      populationCount: 10,
-    });
-    // Jan 1 has no members, so it has no row.
-    const primary: ProductAnalyticsExploration = {
-      ...explorationOneRow(0, null, "2024-01-01", config),
-      result: {
-        rows: [
-          row("2024-01-02", 110),
-          row("2024-01-03", 120),
-          row("2024-01-04", 130),
-        ],
-      },
-    };
-    const comparison: ProductAnalyticsExploration = {
-      ...explorationOneRow(0, null, "2023-01-01", config),
-      result: {
-        rows: [
-          row("2023-01-02", 100),
-          row("2023-01-03", 100),
-          row("2023-01-04", 100),
-        ],
-      },
-    };
-
-    const out = computeExplorationComparisonPayload(
-      primary,
-      comparison,
-      config,
-      prevFrame,
-      getFactMetricById,
-    );
-
-    // One trend per table row, Jan 1 to Jan 7.
-    expect(out.tableTrendsByRow.map((t) => t["__metric_0____trend"])).toEqual([
-      null,
-      10,
-      20,
-      30,
-      null,
-      null,
-      null,
-    ]);
-    // Previous-period gaps are created here, so they carry the same count.
-    expect(out.exploration?.result.rows.map((r) => r.populationCount)).toEqual([
-      0, 10, 10, 10, 0, 0, 0,
-    ]);
   });
 
   it("returns empty table trends when ratio metric", () => {
