@@ -128,7 +128,7 @@ SET showAs on a value explicitly ONLY when the user's request clearly asks for o
 - "percent of the Population", "share of members" → "percent_of_population" (a proportion with a Population)
 - "per Population member", "average per member, including members with no events" → "per_population_member" (a mean with a Population)
 
-Do not set showAs on retention, dailyParticipation, ratio, or quantile metric values (it is dropped). Do not set "percent_of_population" or "per_population_member" unless the dataset has a Population (they are dropped). Proportions offer showAs only with a Population. fact_table / data_source values have no showAs.
+Do not set showAs on ratio or quantile metric values (it is dropped). Do not set "percent_of_population" or "per_population_member" unless the dataset has a Population (they are dropped). Retention and dailyParticipation only render as "total", and so do proportions without a Population. fact_table / data_source values have no showAs.
 
 Never set a top-level showAs; it is deprecated.
 </show_as_rules>

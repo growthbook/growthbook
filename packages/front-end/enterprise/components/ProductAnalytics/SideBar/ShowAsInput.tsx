@@ -47,7 +47,7 @@ export default function ShowAsInput({
   unit: string | null;
   /** Names the trigger, since every metric card with options has one. */
   metricName: string;
-  /** Undefined while the metric loads. */
+  /** Undefined when the metric isn't found. */
   metricType: FactMetricType | undefined;
 }) {
   const [open, setOpen] = useState(false);
@@ -56,14 +56,6 @@ export default function ShowAsInput({
   const labelKey = (showAs: ShowAs): LabelKey =>
     showAs === "total" && metricType === "mean" ? "event_totals" : showAs;
   const label = (showAs: ShowAs) => allLabels[labelKey(showAs)];
-  // Nothing to choose (e.g. while the metric loads), so show the saved mode.
-  if (options.length <= 1) {
-    return (
-      <Text size="sm" color="text-mid">
-        Show as: {label(value)}
-      </Text>
-    );
-  }
   return (
     <DropdownMenu
       open={open}

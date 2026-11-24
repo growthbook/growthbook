@@ -5,8 +5,10 @@ import {
   getEffectiveMetricValue,
   getSecondaryValueAxisName,
   getExplorationRenderOpts,
+  dividesByPopulationCount,
   getShowAsChoice,
   getShowAsOptions,
+  hasShowAsChoice,
   isRatioValue,
   normalizeShowAs,
   withRequestedDisplayConfig,
@@ -78,21 +80,26 @@ function metricConfig(
 
 const MEAN_OPTIONS = ["total", "per_unit"];
 const none = { options: [], showAs: "total" };
+const proportionTotal = { options: ["total"], showAs: "total" };
 const mean = (showAs: ShowAs) => ({ options: MEAN_OPTIONS, showAs });
 
 describe("getShowAsOptions", () => {
-  it("offers total and per unit for mean metrics only", () => {
+  it("lists the modes of every metric type", () => {
     expect(getShowAsOptions("mean", false)).toEqual(MEAN_OPTIONS);
-    for (const type of [
-      "proportion",
-      "retention",
-      "dailyParticipation",
-      "ratio",
-      "quantile",
-    ] as const) {
-      expect(getShowAsOptions(type, false)).toEqual([]);
-    }
+    expect(getShowAsOptions("proportion", false)).toEqual(["total"]);
+    expect(getShowAsOptions("retention", false)).toEqual(["total"]);
+    expect(getShowAsOptions("dailyParticipation", false)).toEqual(["total"]);
+    expect(getShowAsOptions("ratio", false)).toEqual([]);
+    expect(getShowAsOptions("quantile", false)).toEqual([]);
+    expect(getShowAsOptions("funnel", false)).toEqual([]);
+    expect(getShowAsOptions("compound", false)).toEqual([]);
     expect(getShowAsOptions(undefined, false)).toEqual([]);
+  });
+
+  it("adds population modes only to means and proportions", () => {
+    expect(getShowAsOptions("retention", true)).toEqual(["total"]);
+    expect(getShowAsOptions("dailyParticipation", true)).toEqual(["total"]);
+    expect(getShowAsOptions("ratio", true)).toEqual([]);
   });
 });
 
@@ -135,7 +142,7 @@ describe("getShowAsChoice", () => {
     ).toEqual(mean("per_unit"));
   });
 
-  it("offers no options and renders totals for other metric types", () => {
+  it("renders other metric types as totals, ignoring a mode they don't offer", () => {
     expect(
       getShowAsChoice(
         metricValue("converted", "per_unit"),
@@ -143,7 +150,7 @@ describe("getShowAsChoice", () => {
         getFactMetricById,
         false,
       ),
-    ).toEqual(none);
+    ).toEqual(proportionTotal);
     expect(
       getShowAsChoice(metricValue("aov"), undefined, getFactMetricById, false),
     ).toEqual(none);
@@ -155,7 +162,7 @@ describe("getShowAsChoice", () => {
     ).toEqual(none);
   });
 
-  it("offers only the saved choice while the metric hasn't loaded", () => {
+  it("offers only the saved choice when the metric isn't found", () => {
     expect(
       getShowAsChoice(
         metricValue("loading", "per_unit"),
@@ -251,7 +258,33 @@ describe("getShowAsChoice", () => {
   });
 });
 
+describe("hasShowAsChoice", () => {
+  it("shows a picker only when there is more than one mode", () => {
+    expect(hasShowAsChoice(getShowAsOptions("mean", false))).toBe(true);
+    expect(hasShowAsChoice(getShowAsOptions("proportion", false))).toBe(false);
+    expect(hasShowAsChoice(getShowAsOptions("proportion", true))).toBe(true);
+    expect(hasShowAsChoice(getShowAsOptions("ratio", true))).toBe(false);
+    expect(hasShowAsChoice(["per_unit"])).toBe(false);
+  });
+});
+
+describe("dividesByPopulationCount", () => {
+  it("is true only for the modes a population adds", () => {
+    expect(dividesByPopulationCount("percent_of_population")).toBe(true);
+    expect(dividesByPopulationCount("per_population_member")).toBe(true);
+    expect(dividesByPopulationCount("total")).toBe(false);
+    expect(dividesByPopulationCount("per_unit")).toBe(false);
+    expect(dividesByPopulationCount(null)).toBe(false);
+    expect(dividesByPopulationCount(undefined)).toBe(false);
+  });
+});
+
 describe("normalizeShowAs", () => {
+  it("keeps total on a proportion without a population", () => {
+    const config = metricConfig([metricValue("converted", "total")]);
+    expect(normalizeShowAs(config, getFactMetricById)).toBe(config);
+  });
+
   it("moves the config-level showAs onto the values that offer it", () => {
     const normalized = normalizeShowAs(
       metricConfig(
@@ -289,7 +322,7 @@ describe("normalizeShowAs", () => {
     });
   });
 
-  it("keeps showAs on values whose metric hasn't loaded", () => {
+  it("keeps showAs on values whose metric isn't found", () => {
     const config = metricConfig([metricValue("loading", "per_unit")]);
     expect(normalizeShowAs(config, getFactMetricById)).toBe(config);
   });
@@ -384,7 +417,7 @@ describe("getDefaultValueAxisName", () => {
     ).toBe("");
   });
 
-  it("is empty while a value's metric hasn't loaded", () => {
+  it("ignores a value whose metric isn't found", () => {
     expect(
       getDefaultValueAxisName(
         getExplorationRenderOpts(
@@ -392,7 +425,7 @@ describe("getDefaultValueAxisName", () => {
           getFactMetricById,
         ),
       ),
-    ).toBe("");
+    ).toBe("Total");
   });
 
   it("is empty when values render in different modes", () => {
@@ -664,12 +697,12 @@ describe("proportions with a population", () => {
     return config;
   }
 
-  it("offers total and percent of population only with a population", () => {
+  it("offers percent of population only with a population", () => {
     expect(getShowAsOptions("proportion", true)).toEqual([
       "total",
       "percent_of_population",
     ]);
-    expect(getShowAsOptions("proportion", false)).toEqual([]);
+    expect(getShowAsOptions("proportion", false)).toEqual(["total"]);
   });
 
   it("defaults to % of Population, keeping an explicit choice", () => {
@@ -700,7 +733,7 @@ describe("proportions with a population", () => {
         getFactMetricById,
         false,
       ),
-    ).toEqual(none);
+    ).toEqual(proportionTotal);
   });
 
   it("divides by the population count as a percentage", () => {

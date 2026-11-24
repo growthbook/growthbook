@@ -8,7 +8,11 @@ import type {
   ShowAs,
 } from "../../../validators/product-analytics";
 import { configHasPopulation } from "../populations";
-import { getDraftOrSavedMetric, getShowAsChoice } from "./show-as";
+import {
+  dividesByPopulationCount,
+  getDraftOrSavedMetric,
+  getShowAsChoice,
+} from "./show-as";
 import { getSharedUnit } from "./units";
 
 // ---- showAs inference & applicability ---------------------------------------
@@ -145,15 +149,6 @@ export function getEffectiveMetricValue(
   }
 }
 
-/** Whether a mode divides by the row's Population member count. */
-export function dividesByPopulationCount(
-  showAs: ShowAs | null | undefined,
-): boolean {
-  return (
-    showAs === "percent_of_population" || showAs === "per_population_member"
-  );
-}
-
 /** Whether a dataset value is a ratio metric. Only metric values can be. */
 export function isRatioValue(
   value: ProductAnalyticsValue,
@@ -162,16 +157,6 @@ export function isRatioValue(
   return (
     value.type === "metric" &&
     getDraftOrSavedMetric(value, getFactMetricById)?.metricType === "ratio"
-  );
-}
-
-function isProportionValue(
-  value: ProductAnalyticsValue,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): boolean {
-  return (
-    value.type === "metric" &&
-    getDraftOrSavedMetric(value, getFactMetricById)?.metricType === "proportion"
   );
 }
 
@@ -195,7 +180,7 @@ export type ValueRenderOpts = {
 export type ExplorationRenderOpts = {
   /** Index-aligned with `dataset.values`; empty for funnels and journeys. */
   values: ValueRenderOpts[];
-  /** The mode every value renders in; null when modes differ or no value offers a choice. */
+  /** The mode every value renders in; null when modes differ or no value has a mode (ratios, quantiles). */
   sharedShowAs: ShowAs | null;
   /** Some values render as totals and others per unit. */
   modesAreMixed: boolean;
@@ -230,13 +215,11 @@ export function getExplorationRenderOpts(
   const choices = values.map((v) =>
     getShowAsChoice(v, config.showAs, getFactMetricById, hasPopulation),
   );
-  const someValueOffersShowAs = choices.some(
-    (choice) => choice.options.length > 0,
-  );
+  const someValueHasMode = choices.some((choice) => choice.options.length > 0);
   const modes = new Set(choices.map((choice) => choice.showAs));
   const sharedShowAs =
-    someValueOffersShowAs && modes.size === 1 ? [...modes][0] : null;
-  const modesAreMixed = someValueOffersShowAs && sharedShowAs === null;
+    someValueHasMode && modes.size === 1 ? [...modes][0] : null;
+  const modesAreMixed = someValueHasMode && sharedShowAs === null;
   const sharedUnit = getSharedUnit(config, getFactMetricById);
 
   // "% of Population" is on a different scale from every other mode, so when
@@ -256,13 +239,6 @@ export function getExplorationRenderOpts(
   let primaryAxisShowAs = sharedShowAs;
   if (hasSecondAxis) {
     primaryAxisShowAs = otherModes.size === 1 ? [...otherModes][0] : null;
-  } else if (
-    !someValueOffersShowAs &&
-    values.every((v) => isProportionValue(v, getFactMetricById))
-  ) {
-    // Proportions offer no choice without a population but still plot a count
-    // of units. Ratios and quantiles don't, so they stay untitled.
-    primaryAxisShowAs = "total";
   }
 
   // Annotate series names when the axis title can't tell readers how the

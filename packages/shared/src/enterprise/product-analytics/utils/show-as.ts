@@ -12,62 +12,88 @@ import type {
 import { configHasPopulation } from "../populations";
 
 /**
- * How a value renders when its metric type offers no Show as options: its raw
+ * How a value renders when its metric type has no Show as modes: its raw
  * value. Ratios ignore it and always render numerator / denominator.
  */
 const NO_SHOW_AS_CHOICE_DEFAULT: ShowAs = "total";
 
 /**
- * The Show as options each metric type offers, in display order. A type that
- * isn't listed offers no choice and renders as `NO_SHOW_AS_CHOICE_DEFAULT`.
+ * The Show as modes each metric type renders in without a population, in
+ * display order. A type with no modes renders as `NO_SHOW_AS_CHOICE_DEFAULT`.
  *
  * - mean: the numerator sums each unit's value, so dividing by the unit count
  *   gives a real per-unit average.
- * - proportion / retention / dailyParticipation: not listed. They emit one row
- *   per qualifying unit, so the unit count equals the numerator and per unit
- *   would always be ~1. Proportions get options only with a population (see
- *   `SHOW_AS_OPTIONS_WITH_POPULATION`).
- * - ratio / quantile: not listed. Ratios already divide by their own
- *   denominator, and quantiles emit no denominator.
+ * - proportion / retention: a count of converting units. Each unit counts
+ *   once, so per unit would always be 1.
+ * - dailyParticipation: each unit's active days, summed.
+ * - ratio: none. Ratios render numerator / denominator.
+ * - quantile: none. Quantiles render a percentile.
+ * - funnel / compound: none. Explorations can't chart them.
  */
-const SHOW_AS_OPTIONS_BY_METRIC_TYPE: Partial<
-  Record<FactMetricType, readonly ShowAs[]>
+const SHOW_AS_OPTIONS_BY_METRIC_TYPE: Record<
+  FactMetricType,
+  readonly ShowAs[]
 > = {
   mean: ["total", "per_unit"],
+  proportion: ["total"],
+  retention: ["total"],
+  dailyParticipation: ["total"],
+  ratio: [],
+  quantile: [],
+  funnel: [],
+  compound: [],
 };
 
 /**
- * The Show as options a metric type offers when the dataset has a population.
- * A proportion's converting units can then be shown as a share of the
- * population's members, and a mean's total as an average over every member,
+ * The modes a population adds after a type's own. Each one divides by the
+ * row's population member count: a proportion's converting units as a share
+ * of the members, and a mean's total as an average over every member,
  * counting members without events as 0.
  */
-const SHOW_AS_OPTIONS_WITH_POPULATION: Partial<
+const POPULATION_SHOW_AS_OPTIONS_BY_METRIC_TYPE: Partial<
   Record<FactMetricType, readonly ShowAs[]>
 > = {
-  mean: ["total", "per_unit", "per_population_member"],
-  proportion: ["total", "percent_of_population"],
+  mean: ["per_population_member"],
+  proportion: ["percent_of_population"],
 };
 
-/** The Show as options a metric type offers; empty when it offers none. */
+/** The Show as modes a metric type renders in; empty when it has none. */
 export function getShowAsOptions(
   metricType: FactMetricType | undefined,
   hasPopulation: boolean,
 ): readonly ShowAs[] {
   if (!metricType) return [];
-  if (hasPopulation) {
-    const populationOptions = SHOW_AS_OPTIONS_WITH_POPULATION[metricType];
-    if (populationOptions) return populationOptions;
-  }
-  return SHOW_AS_OPTIONS_BY_METRIC_TYPE[metricType] ?? [];
+  const options = SHOW_AS_OPTIONS_BY_METRIC_TYPE[metricType];
+  if (!hasPopulation) return options;
+  const populationOptions =
+    POPULATION_SHOW_AS_OPTIONS_BY_METRIC_TYPE[metricType] ?? [];
+  return [...options, ...populationOptions];
 }
 
-/** How one dataset value renders, and which Show as options it offers. */
+/** Whether a mode divides by the row's population member count. */
+export function dividesByPopulationCount(
+  showAs: ShowAs | null | undefined,
+): boolean {
+  if (!showAs) return false;
+  return Object.values(POPULATION_SHOW_AS_OPTIONS_BY_METRIC_TYPE).some(
+    (populationOptions) => populationOptions?.includes(showAs),
+  );
+}
+
+/** How one dataset value renders, and which Show as modes it offers. */
 export type ShowAsChoice = {
-  /** Empty when the value's metric type offers no choice. */
+  /** Empty when the value's metric type has no modes. */
   options: readonly ShowAs[];
   showAs: ShowAs;
 };
+
+/**
+ * Whether the user picks between modes. A value with a single mode renders in
+ * it without a picker. The one place that decides whether a picker shows.
+ */
+export function hasShowAsChoice(options: readonly ShowAs[]): boolean {
+  return options.length > 1;
+}
 
 const NO_SHOW_AS_CHOICE: ShowAsChoice = {
   options: [],
@@ -79,7 +105,8 @@ type ShowAsMetric = Pick<FactMetricInterface, "metricType" | "numerator">;
 
 /**
  * The definition a metric value renders: its unsaved draft in the metric
- * editor preview, otherwise the saved metric. Null while definitions load.
+ * editor preview, otherwise the saved metric. Null when no metric is picked
+ * or its id isn't found (e.g. the metric was deleted).
  */
 export function getDraftOrSavedMetric(
   value: MetricValue,
@@ -117,7 +144,7 @@ export function inferShowAs(
 
 /**
  * Returns the showAs options and selected mode for a metric value. A value
- * whose metric hasn't resolved renders its saved choice, the one
+ * whose metric isn't found renders its saved choice, the one
  * `normalizeShowAs` keeps for it, as the only option.
  */
 export function getShowAsChoice(
@@ -129,8 +156,8 @@ export function getShowAsChoice(
   if (value.type !== "metric") return NO_SHOW_AS_CHOICE;
   const metric = getDraftOrSavedMetric(value, getFactMetricById);
   if (metric === null) {
-    // The other options depend on the metric type, which is unknown until
-    // the metric loads.
+    // The other options depend on the metric type, which is unknown without
+    // the metric.
     const showAs = value.showAs ?? legacyShowAs;
     if (value.metricId && showAs !== undefined) {
       return { options: [showAs], showAs };
@@ -151,8 +178,8 @@ export function getShowAsChoice(
  * Write-time counterpart to `getShowAsChoice`: moves the deprecated
  * config-level `showAs` onto the metric values that offer it as an option and
  * strips `showAs` that isn't one of the value's options, so a stored config
- * never claims a mode that won't render. Values whose metric hasn't resolved
- * yet keep theirs until their options are known. Call it alongside the other
+ * never claims a mode that won't render. Values whose metric isn't found keep
+ * theirs, since their options are unknown. Call it alongside the other
  * write-time normalizers (validateDimensions, fillMissingUnits).
  *
  * Returns the same reference when nothing changed so callers can use identity
@@ -176,8 +203,8 @@ export function normalizeShowAs<T extends ExplorationConfig>(
     if (showAs === undefined) return value;
 
     const metric = getDraftOrSavedMetric(value, getFactMetricById);
-    // No metric yet (not picked, or definitions still loading): its options
-    // are unknown, so keep the choice rather than lose it.
+    // No metric (not picked, or its id isn't found): its options are
+    // unknown, so keep the choice rather than lose it.
     const optionsAreUnknown = metric === null;
     const metricOffersShowAs =
       metric !== null &&

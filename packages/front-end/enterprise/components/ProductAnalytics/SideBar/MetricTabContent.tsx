@@ -8,6 +8,7 @@ import { getSinglePopulationStep } from "shared/populations";
 import {
   configHasPopulation,
   getMetricIdentifierTypes,
+  hasShowAsChoice,
 } from "shared/enterprise";
 import SelectField, {
   GroupedValue,
@@ -243,7 +244,7 @@ export default function MetricTabContent() {
               getFactMetricById,
             )}
             filterActions={
-              showAsOptions.length > 0 && (
+              hasShowAsChoice(showAsOptions) && (
                 <ShowAsInput
                   options={showAsOptions}
                   value={showAs}
