@@ -26,6 +26,9 @@ runs:
     - name: Install pnpm dependencies
       run: pnpm install
       shell: bash
+      env:
+        # The growthbook CLI is only for `pnpm type-gen`; skip its binary download.
+        GROWTHBOOK_CLI_SKIP_DOWNLOAD: "1"
 
     # Tree hashes, not hashFiles globs: no node_modules or dist can leak in.
     - name: Compute build cache keys
