@@ -57,6 +57,9 @@ import {
 } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   getRampBadgeColor,
   getRampStatusLabel,
@@ -349,19 +352,19 @@ export function scrubRampStateForRuleType(
 
 export function getMonitoringValidationError(
   state: RampSectionState,
-): string | null {
+): MessageDescriptor | null {
   const hasMonitoredSteps = state.steps.some((s) => s.monitored);
   if (!hasMonitoredSteps) return null;
   const m = state.monitoring;
-  if (!m.datasourceId) return "Select a data source for monitoring";
-  if (!m.exposureQueryId) return "Select an assignment table for monitoring";
+  if (!m.datasourceId) return msg`Select a data source for monitoring`;
+  if (!m.exposureQueryId) return msg`Select an assignment table for monitoring`;
   if (m.guardrailMetricIds.length === 0 && m.signalMetricIds.length === 0)
-    return "Add at least one guardrail or signal metric for monitoring";
+    return msg`Add at least one guardrail or signal metric for monitoring`;
   const zeroTrafficStep = state.steps.find(
     (s) => s.monitored && (s.patch.coverage ?? 0) === 0,
   );
   if (zeroTrafficStep)
-    return "Monitored steps must have traffic greater than 0%";
+    return msg`Monitored steps must have traffic greater than 0%`;
   return null;
 }
 
@@ -658,12 +661,23 @@ export function activeFieldsFromState(state: RampSectionState): Set<StepField> {
 
 const POLL_INTERVAL_SECONDS = 60;
 
-function formatReadonlyAction(step: UIStep): string {
-  if (step.triggerType === "approval") return "Approval";
+function formatReadonlyAction(step: UIStep, i18n: I18n): string {
+  if (step.triggerType === "approval") return i18n._(msg`Approval`);
   const value = Math.max(1, step.intervalValue);
-  const unit =
-    value === 1 ? step.intervalUnit.replace(/s$/, "") : step.intervalUnit;
-  return `Hold ${value} ${unit}`;
+  switch (step.intervalUnit) {
+    case "minutes":
+      return value === 1
+        ? i18n._(msg`Hold ${value} minute`)
+        : i18n._(msg`Hold ${value} minutes`);
+    case "hours":
+      return value === 1
+        ? i18n._(msg`Hold ${value} hour`)
+        : i18n._(msg`Hold ${value} hours`);
+    case "days":
+      return value === 1
+        ? i18n._(msg`Hold ${value} day`)
+        : i18n._(msg`Hold ${value} days`);
+  }
 }
 
 function formatReadonlyCoverage(step: UIStep): string {
@@ -715,7 +729,10 @@ function ReadOnlySettingRow({
   );
 }
 
-function formatReadonlyDurationFromSchedule(rs: RampScheduleInterface): string {
+function formatReadonlyDurationFromSchedule(
+  rs: RampScheduleInterface,
+  i18n: I18n,
+): string {
   let totalSeconds = 0;
   let approvals = 0;
   let hasMonitored = false;
@@ -731,22 +748,29 @@ function formatReadonlyDurationFromSchedule(rs: RampScheduleInterface): string {
   const parts: string[] = [];
   if (totalSeconds > 0) parts.push(formatRemainingDuration(totalSeconds));
   if (approvals > 0) {
-    parts.push(`${approvals} approval step${approvals > 1 ? "s" : ""}`);
+    parts.push(
+      approvals > 1
+        ? i18n._(msg`${approvals} approval steps`)
+        : i18n._(msg`${approvals} approval step`),
+    );
   }
-  if (hasMonitored) parts.push("monitored steps");
+  if (hasMonitored) parts.push(i18n._(msg`monitored steps`));
   return parts.join(" + ") || "0";
 }
 
-function formatUserUnitLabel(userIdType?: string): string | null {
+function formatUserUnitLabel(
+  userIdType: string | undefined,
+  i18n: I18n,
+): string | null {
   if (!userIdType) return null;
-  if (userIdType === "anonymous_id") return "Anonymous users";
-  if (userIdType === "user_id") return "Logged-in users";
+  if (userIdType === "anonymous_id") return i18n._(msg`Anonymous users`);
+  if (userIdType === "user_id") return i18n._(msg`Logged-in users`);
   const words = userIdType
     .split("_")
     .filter(Boolean)
     .map((w) => w[0].toUpperCase() + w.slice(1))
     .join(" ");
-  return `${words} users`;
+  return i18n._(msg`${words} users`);
 }
 
 function NoTrafficGracePopoverContent({
@@ -758,6 +782,7 @@ function NoTrafficGracePopoverContent({
   onSave: (value: number | null) => void;
   onClose: () => void;
 }) {
+  const { t } = useLingui();
   const [draft, setDraft] = useState(
     (initialValue ?? null) !== null ? String(initialValue) : "",
   );
@@ -771,18 +796,20 @@ function NoTrafficGracePopoverContent({
   return (
     <Flex direction="column" gap="3" style={{ width: 210 }}>
       <Text weight="medium" size="md">
-        No-traffic grace period
+        <Trans>No-traffic grace period</Trans>
       </Text>
       <Text as="span" size="sm" color="text-mid">
-        Wait before checking for no traffic. Empty defaults to{" "}
-        {DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS}h.
+        <Trans>
+          Wait before checking for no traffic. Empty defaults to{" "}
+          {DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS}h.
+        </Trans>
       </Text>
       <Field
         type="number"
         step="any"
-        placeholder={`${DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS} (default)`}
+        placeholder={t`${DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS} (default)`}
         autoFocus
-        append="hours"
+        append={t`hours`}
         onFocus={(e) => e.target.select()}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -795,10 +822,10 @@ function NoTrafficGracePopoverContent({
       />
       <Flex justify="end" gap="2">
         <Button variant="ghost" size="md" onClick={onClose}>
-          Cancel
+          <Trans>Cancel</Trans>
         </Button>
         <Button size="md" onClick={save}>
-          Done
+          <Trans>Done</Trans>
         </Button>
       </Flex>
     </Flex>
@@ -814,6 +841,7 @@ function MinSampleDialog({
   onSave: (value: number | undefined) => void;
   onCancel: () => void;
 }) {
+  const { t } = useLingui();
   const [draft, setDraft] = useState(
     (initialValue ?? null) !== null ? String(initialValue) : "",
   );
@@ -829,19 +857,21 @@ function MinSampleDialog({
         <Flex direction="column" gap="3">
           <AlertDialog.Title>
             <Text weight="medium" size="md">
-              Minimum sample size
+              <Trans>Minimum sample size</Trans>
             </Text>
           </AlertDialog.Title>
           <AlertDialog.Description>
             <Text as="span" size="sm" color="text-mid">
-              Hold this step until total users reaches this threshold
+              <Trans>
+                Hold this step until total users reaches this threshold
+              </Trans>
             </Text>
           </AlertDialog.Description>
           <Field
             type="number"
             min="0"
             step="1"
-            placeholder="none"
+            placeholder={t`none`}
             autoFocus
             onFocus={(e) => e.target.select()}
             value={draft}
@@ -856,12 +886,12 @@ function MinSampleDialog({
           <Flex justify="end" gap="2">
             <AlertDialog.Cancel>
               <Button variant="ghost" size="md" onClick={onCancel}>
-                Cancel
+                <Trans>Cancel</Trans>
               </Button>
             </AlertDialog.Cancel>
             <AlertDialog.Action>
               <Button size="md" onClick={save}>
-                Done
+                <Trans>Done</Trans>
               </Button>
             </AlertDialog.Action>
           </Flex>
@@ -943,6 +973,7 @@ export default function RampScheduleSection({
   sparse = false,
   hasSavedMonitoring: hasSavedMonitoringProp = false,
 }: Props) {
+  const { t, i18n } = useLingui();
   const [open, setOpen] = useState(embedded || state.mode !== "off");
   const [seedOpen, setSeedOpen] = useState(
     // Mirror RolloutPercentInput: for new schedules (ruleRampSchedule===undefined),
@@ -1353,46 +1384,45 @@ export default function RampScheduleSection({
         return {
           borderColor: "var(--yellow-9)",
           textColor: "var(--yellow-11)",
-          tooltip:
-            "Pending approval: ramp is waiting for manual approval on this step.",
+          tooltip: t`Pending approval: ramp is waiting for manual approval on this step.`,
         };
       }
 
-      switch (ruleRampSchedule.status) {
+      const rampStatus = ruleRampSchedule.status;
+      switch (rampStatus) {
         case "running":
           return {
             borderColor: "var(--green-9)",
             textColor: "var(--green-11)",
-            tooltip: "Live step: ramp is currently running at this step.",
+            tooltip: t`Live step: ramp is currently running at this step.`,
           };
         case "paused":
           return {
             borderColor: "var(--amber-9)",
             textColor: "var(--amber-11)",
-            tooltip: "Paused step: ramp is paused on this step.",
+            tooltip: t`Paused step: ramp is paused on this step.`,
           };
         case "ready":
         case "pending":
           return {
             borderColor: "var(--blue-9)",
             textColor: "var(--blue-11)",
-            tooltip:
-              "Pending start: this is the next step once the ramp starts.",
+            tooltip: t`Pending start: this is the next step once the ramp starts.`,
           };
         default:
           return {
             borderColor: "var(--gray-8)",
             textColor: "var(--gray-11)",
-            tooltip: `Current step pointer (${ruleRampSchedule.status}).`,
+            tooltip: t`Current step pointer (${rampStatus}).`,
           };
       }
     };
     const ruleEffectItems: { field: StepField; label: string }[] = [
-      { field: "savedGroups", label: "Saved group targeting" },
-      { field: "condition", label: "Attribute targeting" },
-      { field: "prerequisites", label: "Prerequisite targeting" },
-      { field: "force", label: "Default value" },
-      { field: "allEnvironments", label: "Environments" },
+      { field: "savedGroups", label: t`Saved group targeting` },
+      { field: "condition", label: t`Attribute targeting` },
+      { field: "prerequisites", label: t`Prerequisite targeting` },
+      { field: "force", label: t`Default value` },
+      { field: "allEnvironments", label: t`Environments` },
     ];
     const hasRuleEffectField = (patch: UIStepPatch, field: StepField) => {
       if (field === "allEnvironments" || field === "environments") {
@@ -1416,7 +1446,7 @@ export default function RampScheduleSection({
       const availableRuleEffects = getAvailableRuleEffects(patch);
       if (!availableRuleEffects.length) return null;
       return (
-        <DropdownMenuGroup label="Rule modifications">
+        <DropdownMenuGroup label={t`Rule modifications`}>
           {availableRuleEffects.map((item) => (
             <DropdownMenuItem
               key={item.field}
@@ -1440,7 +1470,7 @@ export default function RampScheduleSection({
       if (!open) return null;
 
       const removeEffectButton = (onClick: () => void) => (
-        <Tooltip body="Remove effect" tipMinWidth="50px">
+        <Tooltip body={t`Remove effect`} tipMinWidth="50px">
           <IconButton
             variant="ghost"
             color="red"
@@ -1470,8 +1500,8 @@ export default function RampScheduleSection({
                 setPatchFn("savedGroups", mode === "remove" ? null : [])
               }
               onRemoveEffect={() => removePatchFieldFn("savedGroups")}
-              setModeLabel="Set saved group targeting"
-              removeModeLabel="Remove saved group targeting"
+              setModeLabel={t`Set saved group targeting`}
+              removeModeLabel={t`Remove saved group targeting`}
               labelActions={removeEffectButton(() =>
                 removePatchFieldFn("savedGroups"),
               )}
@@ -1499,8 +1529,8 @@ export default function RampScheduleSection({
                 setPatchFn("condition", mode === "remove" ? null : "{}")
               }
               onRemoveEffect={() => removePatchFieldFn("condition")}
-              setModeLabel="Set attribute targeting"
-              removeModeLabel="Remove attribute targeting"
+              setModeLabel={t`Set attribute targeting`}
+              removeModeLabel={t`Remove attribute targeting`}
               labelActions={removeEffectButton(() =>
                 removePatchFieldFn("condition"),
               )}
@@ -1525,8 +1555,8 @@ export default function RampScheduleSection({
                 setPatchFn("prerequisites", mode === "remove" ? null : [])
               }
               onRemoveEffect={() => removePatchFieldFn("prerequisites")}
-              setModeLabel="Set prerequisite targeting"
-              removeModeLabel="Remove prerequisite targeting"
+              setModeLabel={t`Set prerequisite targeting`}
+              removeModeLabel={t`Remove prerequisite targeting`}
               labelActions={removeEffectButton(() =>
                 removePatchFieldFn("prerequisites"),
               )}
@@ -1541,7 +1571,7 @@ export default function RampScheduleSection({
             <Flex align="center" justify="between" mb="1">
               <Flex align="center" gap="2">
                 <Text as="div" weight="semibold">
-                  Default value
+                  <Trans>Default value</Trans>
                 </Text>
                 {sparse &&
                   feature.valueType === "json" &&
@@ -1570,7 +1600,7 @@ export default function RampScheduleSection({
           <Box>
             <Flex align="center" justify="between" mb="1">
               <Text as="div" weight="semibold">
-                Rule environments
+                <Trans>Rule environments</Trans>
               </Text>
               {removeEffectButton(() => {
                 const nextPatch = { ...patch };
@@ -1635,13 +1665,13 @@ export default function RampScheduleSection({
 
       if ("savedGroups" in patch) {
         rows.push(
-          <ReadOnlyEffectRow label="Saved groups">
+          <ReadOnlyEffectRow label={t`Saved groups`}>
             {patch.savedGroups === null ? (
-              "None"
+              t`None`
             ) : patch.savedGroups && patch.savedGroups.length > 0 ? (
               <SavedGroupTargetingDisplay savedGroups={patch.savedGroups} />
             ) : (
-              "None"
+              t`None`
             )}
           </ReadOnlyEffectRow>,
         );
@@ -1649,9 +1679,9 @@ export default function RampScheduleSection({
 
       if ("condition" in patch) {
         rows.push(
-          <ReadOnlyEffectRow label="Attribute targeting">
+          <ReadOnlyEffectRow label={t`Attribute targeting`}>
             {isEmptyConditionValue(patch.condition) ? (
-              "None"
+              t`None`
             ) : (
               <ConditionDisplay condition={patch.condition ?? "{}"} />
             )}
@@ -1661,13 +1691,13 @@ export default function RampScheduleSection({
 
       if ("prerequisites" in patch) {
         rows.push(
-          <ReadOnlyEffectRow label="Prerequisites">
+          <ReadOnlyEffectRow label={t`Prerequisites`}>
             {patch.prerequisites === null ? (
-              "None"
+              t`None`
             ) : patch.prerequisites && patch.prerequisites.length > 0 ? (
               <ConditionDisplay prerequisites={patch.prerequisites} />
             ) : (
-              "None"
+              t`None`
             )}
           </ReadOnlyEffectRow>,
         );
@@ -1675,7 +1705,7 @@ export default function RampScheduleSection({
 
       if ("force" in patch && !hideTemplateSave) {
         rows.push(
-          <ReadOnlyEffectRow label="Default value">
+          <ReadOnlyEffectRow label={t`Default value`}>
             <span style={{ fontFamily: "var(--code-font-family)" }}>
               {patch.force ?? "null"}
             </span>
@@ -1685,12 +1715,12 @@ export default function RampScheduleSection({
 
       if ("allEnvironments" in patch || "environments" in patch) {
         const envLabel = patch.allEnvironments
-          ? "All environments"
+          ? t`All environments`
           : patch.environments && patch.environments.length > 0
             ? patch.environments.join(", ")
-            : "No environments";
+            : t`No environments`;
         rows.push(
-          <ReadOnlyEffectRow label="Rule environments">
+          <ReadOnlyEffectRow label={t`Rule environments`}>
             {envLabel}
           </ReadOnlyEffectRow>,
         );
@@ -1713,14 +1743,14 @@ export default function RampScheduleSection({
             {hasHoldConditions && (
               <Flex direction="column" gap="1">
                 <Text as="div" size="sm" weight="medium" color="text-low">
-                  {step?.triggerType === "approval" ? "Also:" : "Then:"}
+                  {step?.triggerType === "approval" ? t`Also:` : t`Then:`}
                 </Text>
                 <Flex direction="column" gap="1" style={{ paddingLeft: 12 }}>
                   {step?.triggerType !== "approval" &&
                     step?.holdConditions?.requiresApproval && (
                       <Flex wrap="wrap" gap="2" align="baseline">
                         <Text size="sm" weight="medium">
-                          Hold for approval
+                          <Trans>Hold for approval</Trans>
                         </Text>
                         {step?.approvalNotes?.trim() && (
                           <Text size="sm" color="text-low">
@@ -1733,7 +1763,7 @@ export default function RampScheduleSection({
                     (step?.holdConditions?.minSampleSize ?? null) !== null && (
                       <Flex wrap="wrap" gap="2" align="baseline">
                         <Text size="sm" weight="medium">
-                          Hold for min. sample
+                          <Trans>Hold for min. sample</Trans>
                         </Text>
                         <Text size="sm" color="text-low">
                           {step!.holdConditions!.minSampleSize!.toLocaleString()}
@@ -1787,7 +1817,7 @@ export default function RampScheduleSection({
           <Flex align="center" gap="4">
             <Box style={{ width: COL.num, flexShrink: 0, textAlign: "center" }}>
               <Text size="sm" weight="medium" color="text-low">
-                end
+                <Trans>end</Trans>
               </Text>
             </Box>
             {activeFields.has("coverage") && (
@@ -1929,11 +1959,17 @@ export default function RampScheduleSection({
           pl="2"
           style={{ borderBottom: "1px solid var(--gray-a6)" }}
         >
-          <ColHeader width={COL.num}>Step</ColHeader>
+          <ColHeader width={COL.num}>
+            <Trans>Step</Trans>
+          </ColHeader>
           {activeFields.has("coverage") && (
-            <ColHeader width={COL.coverage}>Rollout %</ColHeader>
+            <ColHeader width={COL.coverage}>
+              <Trans>Rollout %</Trans>
+            </ColHeader>
           )}
-          <ColHeader width={COL.trigger}>Action</ColHeader>
+          <ColHeader width={COL.trigger}>
+            <Trans>Action</Trans>
+          </ColHeader>
           <Box flexGrow="1" />
         </Flex>
 
@@ -2073,7 +2109,7 @@ export default function RampScheduleSection({
                   >
                     {isReadOnlyView ? (
                       <Text size="sm" color="text-low">
-                        {formatReadonlyAction(step)}
+                        {formatReadonlyAction(step, i18n)}
                       </Text>
                     ) : (
                       <>
@@ -2083,15 +2119,13 @@ export default function RampScheduleSection({
                             options={[
                               {
                                 value: "interval",
-                                label: "Hold for",
-                                tooltip:
-                                  "Apply this step's effects, then hold for the interval before advancing",
+                                label: t`Hold for`,
+                                tooltip: t`Apply this step's effects, then hold for the interval before advancing`,
                               },
                               {
                                 value: "approval",
-                                label: "Hold for approval",
-                                tooltip:
-                                  "Apply this step's effects, then hold for manual approval before advancing",
+                                label: t`Hold for approval`,
+                                tooltip: t`Apply this step's effects, then hold for manual approval before advancing`,
                               },
                             ]}
                             onChange={(v) => {
@@ -2133,7 +2167,7 @@ export default function RampScheduleSection({
                                 <div>
                                   <div>
                                     {option.value === "interval"
-                                      ? "Hold for time"
+                                      ? t`Hold for time`
                                       : option.label}
                                   </div>
                                   {option.tooltip && (
@@ -2186,9 +2220,9 @@ export default function RampScheduleSection({
                               <SelectField
                                 value={step.intervalUnit}
                                 options={[
-                                  { value: "minutes", label: "minutes" },
-                                  { value: "hours", label: "hours" },
-                                  { value: "days", label: "days" },
+                                  { value: "minutes", label: t`minutes` },
+                                  { value: "hours", label: t`hours` },
+                                  { value: "days", label: t`days` },
                                 ]}
                                 onChange={(v) =>
                                   updateStep(i, {
@@ -2219,7 +2253,7 @@ export default function RampScheduleSection({
                                     verticalAlign: "middle",
                                   }}
                                 />
-                                Approval
+                                <Trans>Approval</Trans>
                               </Link>
                             )}
                           </>
@@ -2249,13 +2283,13 @@ export default function RampScheduleSection({
                                     verticalAlign: "middle",
                                   }}
                                 />
-                                Add approval notes
+                                <Trans>Add approval notes</Trans>
                               </Link>
                             ) : (
                               <Box style={{ flex: 1, minWidth: 192 }}>
                                 <Field
                                   label=""
-                                  placeholder="ex: Check error rates"
+                                  placeholder={t`ex: Check error rates`}
                                   value={step.approvalNotes}
                                   onChange={(e) =>
                                     updateStep(i, {
@@ -2276,8 +2310,8 @@ export default function RampScheduleSection({
                       <Tooltip
                         body={
                           step.monitored
-                            ? "This step is monitored"
-                            : "This step is not monitored"
+                            ? t`This step is monitored`
+                            : t`This step is not monitored`
                         }
                       >
                         <Box
@@ -2302,10 +2336,10 @@ export default function RampScheduleSection({
                         <Tooltip
                           body={
                             !hasSafeRolloutFeature
-                              ? "Monitoring requires a Pro plan"
+                              ? t`Monitoring requires a Pro plan`
                               : step.monitored
-                                ? "This step is monitored"
-                                : "Monitor this step"
+                                ? t`This step is monitored`
+                                : t`Monitor this step`
                           }
                         >
                           <Box
@@ -2377,7 +2411,9 @@ export default function RampScheduleSection({
                                   step.triggerType === "interval" ||
                                   step.triggerType === "approval") && (
                                   <>
-                                    <DropdownMenuGroup label="Hold conditions">
+                                    <DropdownMenuGroup
+                                      label={t`Hold conditions`}
+                                    >
                                       {step.monitored && (
                                         <DropdownMenuItem
                                           onClick={() => {
@@ -2400,7 +2436,9 @@ export default function RampScheduleSection({
                                                 {(step.holdConditions
                                                   ?.minSampleSize ?? null) !==
                                                   null && <PiCheck size={16} />}
-                                                Minimum sample size
+                                                <Trans>
+                                                  Minimum sample size
+                                                </Trans>
                                               </span>
                                             </Flex>
                                             <Box
@@ -2441,7 +2479,7 @@ export default function RampScheduleSection({
                                               ?.requiresApproval && (
                                               <PiCheck size={16} />
                                             )}
-                                            Require approval
+                                            <Trans>Require approval</Trans>
                                           </Flex>
                                         </DropdownMenuItem>
                                       )}
@@ -2460,7 +2498,7 @@ export default function RampScheduleSection({
                                             });
                                           }}
                                         >
-                                          Add hold duration
+                                          <Trans>Add hold duration</Trans>
                                         </DropdownMenuItem>
                                       )}
                                     </DropdownMenuGroup>
@@ -2517,7 +2555,7 @@ export default function RampScheduleSection({
                                       addStepAfter(i);
                                     }}
                                   >
-                                    Add step after
+                                    <Trans>Add step after</Trans>
                                   </DropdownMenuItem>
                                 </DropdownMenuGroup>
                                 {state.steps.length > 1 ? (
@@ -2529,7 +2567,7 @@ export default function RampScheduleSection({
                                         removeStep(i);
                                       }}
                                     >
-                                      Remove step
+                                      <Trans>Remove step</Trans>
                                     </DropdownMenuItem>
                                   </DropdownMenuGroup>
                                 ) : null}
@@ -2557,7 +2595,7 @@ export default function RampScheduleSection({
                       }}
                     >
                       <Text color="text-low" weight="medium">
-                        {step.triggerType === "approval" ? "Also:" : "Then:"}
+                        {step.triggerType === "approval" ? t`Also:` : t`Then:`}
                       </Text>
 
                       {step.holdConditions?.requiresApproval &&
@@ -2569,7 +2607,9 @@ export default function RampScheduleSection({
                           >
                             <Flex align="center" gap="3" flexGrow="1">
                               <Box style={{ flexShrink: 0 }}>
-                                <Text weight="medium">Hold for approval</Text>
+                                <Text weight="medium">
+                                  <Trans>Hold for approval</Trans>
+                                </Text>
                               </Box>
                               {!step.notesOpen ? (
                                 <Link
@@ -2589,13 +2629,13 @@ export default function RampScheduleSection({
                                       verticalAlign: "middle",
                                     }}
                                   />
-                                  Add notes
+                                  <Trans>Add notes</Trans>
                                 </Link>
                               ) : (
                                 <Box style={{ flex: 1, minWidth: 120 }}>
                                   <Field
                                     label=""
-                                    placeholder="ex: Check error rates"
+                                    placeholder={t`ex: Check error rates`}
                                     value={step.approvalNotes}
                                     onChange={(e) =>
                                       updateStep(i, {
@@ -2606,7 +2646,10 @@ export default function RampScheduleSection({
                                 </Box>
                               )}
                             </Flex>
-                            <Tooltip body="Remove condition" tipMinWidth="50px">
+                            <Tooltip
+                              body={t`Remove condition`}
+                              tipMinWidth="50px"
+                            >
                               <IconButton
                                 type="button"
                                 variant="ghost"
@@ -2640,7 +2683,9 @@ export default function RampScheduleSection({
                             style={{ paddingLeft: 16, minHeight: 32 }}
                           >
                             <Box style={{ flexShrink: 0 }}>
-                              <Text weight="medium">Hold for min. sample</Text>
+                              <Text weight="medium">
+                                <Trans>Hold for min. sample</Trans>
+                              </Text>
                             </Box>
                             <Link
                               size="md"
@@ -2651,7 +2696,10 @@ export default function RampScheduleSection({
                               {step.holdConditions!.minSampleSize!.toLocaleString()}
                             </Link>
                             <Box flexGrow="1" />
-                            <Tooltip body="Remove condition" tipMinWidth="50px">
+                            <Tooltip
+                              body={t`Remove condition`}
+                              tipMinWidth="50px"
+                            >
                               <IconButton
                                 type="button"
                                 variant="ghost"
@@ -2711,7 +2759,7 @@ export default function RampScheduleSection({
           <Box py="1">
             <Link size="md" onClick={addStep}>
               <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
-              Add step
+              <Trans>Add step</Trans>
             </Link>
           </Box>
         )}
@@ -2833,7 +2881,7 @@ export default function RampScheduleSection({
           }}
         >
           {selectedTemplate?.name ??
-            (templates.length === 0 ? "No templates" : "None")}
+            (templates.length === 0 ? t`No templates` : t`None`)}
         </span>
       </Flex>
       <PiCaretDown
@@ -2862,12 +2910,12 @@ export default function RampScheduleSection({
             disabled={isIdenticalToExistingTemplate}
             title={
               isIdenticalToExistingTemplate
-                ? "Identical to an existing template"
+                ? t`Identical to an existing template`
                 : undefined
             }
             icon={<PiBookmarkSimple size={16} />}
           >
-            Save as template
+            <Trans>Save as template</Trans>
           </Button>
         }
         content={(() => {
@@ -2894,7 +2942,7 @@ export default function RampScheduleSection({
           return (
             <Flex direction="column" gap="3">
               <Field
-                label="Template name"
+                label={t`Template name`}
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 autoFocus
@@ -2913,7 +2961,7 @@ export default function RampScheduleSection({
                   size="md"
                   onClick={() => setSaveTemplateOpen(false)}
                 >
-                  Cancel
+                  <Trans>Cancel</Trans>
                 </Button>
                 <Button
                   size="md"
@@ -2921,7 +2969,7 @@ export default function RampScheduleSection({
                   disabled={!templateName.trim()}
                   onClick={doSave}
                 >
-                  Save
+                  <Trans>Save</Trans>
                 </Button>
               </Flex>
             </Flex>
@@ -2998,13 +3046,17 @@ export default function RampScheduleSection({
 
   const orgCadenceLabel = useMemo(() => {
     const s = settings?.updateSchedule;
-    if (!s || s.type === "never") return "6 hours";
+    if (!s || s.type === "never") return t`6 hours`;
     if (s.type === "stale" && s.hours) {
-      return `${s.hours} hour${s.hours === 1 ? "" : "s"}`;
+      const hours = s.hours;
+      return hours === 1 ? t`${hours} hour` : t`${hours} hours`;
     }
-    if (s.type === "cron" && s.cron) return `cron: ${s.cron}`;
-    return "6 hours";
-  }, [settings?.updateSchedule]);
+    if (s.type === "cron" && s.cron) {
+      const cron = s.cron;
+      return t`cron: ${cron}`;
+    }
+    return t`6 hours`;
+  }, [settings?.updateSchedule, t]);
 
   const effectiveCadenceSeconds = useMemo(() => {
     if (!state.steps.some((s) => s.monitored)) return null;
@@ -3059,15 +3111,17 @@ export default function RampScheduleSection({
 
   const dsName =
     selectedDatasource?.name ??
-    (datasources.length === 0 ? "No data sources" : "Select data source");
+    (datasources.length === 0 ? t`No data sources` : t`Select data source`);
   const eqName =
     assignmentQuerySelection.exposureQueryOptions.find(
       (o) => o.value === state.monitoring.exposureQueryId,
     )?.label ??
-    (assignmentQuerySelection.exposureQueryOptions.length > 0 ? "Select" : "—");
+    (assignmentQuerySelection.exposureQueryOptions.length > 0
+      ? t`Select`
+      : "—");
   const identifierTypeName =
     assignmentQuerySelection.identifierType ??
-    (assignmentQuerySelection.identifierTypes.length > 0 ? "Select" : "—");
+    (assignmentQuerySelection.identifierTypes.length > 0 ? t`Select` : "—");
   const identifierTypeDisabled =
     !state.monitoring.datasourceId ||
     assignmentQuerySelection.identifierTypes.length === 0;
@@ -3083,12 +3137,38 @@ export default function RampScheduleSection({
   const [showAdvancedMonitoring, setShowAdvancedMonitoring] =
     useState(hasAdvancedOverrides);
 
+  const noTrafficGracePopover = (
+    <Popover
+      open={noTrafficGraceOpen}
+      onOpenChange={setNoTrafficGraceOpen}
+      triggerAsChild
+      showArrow={false}
+      align="center"
+      side="top"
+      trigger={
+        <Link type="button" className="hover-underline">
+          {state.monitoring.noTrafficGracePeriodHours !== null
+            ? `${state.monitoring.noTrafficGracePeriodHours}h`
+            : `${DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS}h`}
+        </Link>
+      }
+      content={
+        <NoTrafficGracePopoverContent
+          initialValue={state.monitoring.noTrafficGracePeriodHours}
+          onSave={(val) => patchMonitoring({ noTrafficGracePeriodHours: val })}
+          onClose={() => setNoTrafficGraceOpen(false)}
+        />
+      }
+      contentStyle={{ padding: "12px 16px" }}
+    />
+  );
+
   const monitoringConfigUI = (
     <Box>
       <Flex direction="column" gap="2">
         <Flex align="center" gap="1">
           <Text as="label" weight="medium" mb="0">
-            Data source:
+            <Trans>Data source:</Trans>
           </Text>
           <DropdownMenu
             trigger={
@@ -3101,28 +3181,32 @@ export default function RampScheduleSection({
             variant="soft"
           >
             <DropdownMenuGroup>
-              {datasources.map((d) => (
-                <DropdownMenuItem
-                  key={d.id}
-                  onClick={() =>
-                    patchMonitoring({
-                      datasourceId: d.id,
-                      exposureQueryId: "",
-                      exposureQueryIdentifierType: undefined,
-                    })
-                  }
-                >
-                  {d.name}
-                  {d.id === settings?.defaultDataSource ? " (default)" : ""}
-                </DropdownMenuItem>
-              ))}
+              {datasources.map((d) => {
+                const dsLabel = d.name;
+                return (
+                  <DropdownMenuItem
+                    key={d.id}
+                    onClick={() =>
+                      patchMonitoring({
+                        datasourceId: d.id,
+                        exposureQueryId: "",
+                        exposureQueryIdentifierType: undefined,
+                      })
+                    }
+                  >
+                    {d.id === settings?.defaultDataSource
+                      ? t`${dsLabel} (default)`
+                      : dsLabel}
+                  </DropdownMenuItem>
+                );
+              })}
             </DropdownMenuGroup>
           </DropdownMenu>
         </Flex>
 
         <Flex align="center" gap="1">
           <Text as="label" weight="medium" mb="0">
-            Identifier type:
+            <Trans>Identifier type:</Trans>
           </Text>
           <DropdownMenu
             trigger={
@@ -3172,7 +3256,7 @@ export default function RampScheduleSection({
 
         <Flex align="center" gap="1">
           <Text as="label" weight="medium" mb="0">
-            Assignment table:
+            <Trans>Assignment table:</Trans>
           </Text>
           <DropdownMenu
             trigger={
@@ -3216,11 +3300,13 @@ export default function RampScheduleSection({
 
         <Box mt="4">
           <Text as="label" weight="medium" mb="1">
-            Guardrail Metrics
+            <Trans>Guardrail Metrics</Trans>
           </Text>
           <Text as="div" size="sm" mb="2">
-            Automatically roll back and disable the rule if any of these metrics
-            show a significant regression.
+            <Trans>
+              Automatically roll back and disable the rule if any of these
+              metrics show a significant regression.
+            </Trans>
           </Text>
           <MetricsSelector
             datasource={state.monitoring.datasourceId}
@@ -3239,12 +3325,14 @@ export default function RampScheduleSection({
 
         <Box>
           <Text as="label" weight="medium" mb="1">
-            Signal Metrics
+            <Trans>Signal Metrics</Trans>
           </Text>
           <Text as="div" size="sm" mb="2">
-            Pause at the current step while any of these metrics show a
-            significant regression. Can be resumed manually or automatically
-            when recovered.
+            <Trans>
+              Pause at the current step while any of these metrics show a
+              significant regression. Can be resumed manually or automatically
+              when recovered.
+            </Trans>
           </Text>
           <MetricsSelector
             datasource={state.monitoring.datasourceId}
@@ -3272,7 +3360,7 @@ export default function RampScheduleSection({
               transition: "transform 0.15s",
             }}
           />
-          Advanced Settings
+          <Trans>Advanced Settings</Trans>
         </Link>
         {showAdvancedMonitoring && (
           <Flex direction="column" gap="3" mt="2">
@@ -3280,24 +3368,34 @@ export default function RampScheduleSection({
               <Field
                 label={
                   <>
-                    Refresh results every{" "}
+                    <Trans>Refresh results every</Trans>{" "}
                     <Tooltip
                       body={
                         <>
-                          {state.steps.some((s) => !s.monitored)
-                            ? "For monitored steps, how"
-                            : "How"}{" "}
-                          frequently your guardrails will be analyzed.
+                          {state.steps.some((s) => !s.monitored) ? (
+                            <Trans>
+                              For monitored steps, how frequently your
+                              guardrails will be analyzed.
+                            </Trans>
+                          ) : (
+                            <Trans>
+                              How frequently your guardrails will be analyzed.
+                            </Trans>
+                          )}
                           {state.steps.some((s) => !s.monitored) && (
                             <p className="mt-2 mb-0">
-                              Does not apply to unmonitored steps, which have a
-                              minimum granularity of 1 minute.
+                              <Trans>
+                                Does not apply to unmonitored steps, which have
+                                a minimum granularity of 1 minute.
+                              </Trans>
                             </p>
                           )}
                           <p className="mt-2 mb-0">
-                            Lower values give more granular data and enable
-                            faster releases, but increase query costs against
-                            your data source.
+                            <Trans>
+                              Lower values give more granular data and enable
+                              faster releases, but increase query costs against
+                              your data source.
+                            </Trans>
                           </p>
                         </>
                       }
@@ -3307,7 +3405,7 @@ export default function RampScheduleSection({
                     </Tooltip>
                   </>
                 }
-                append="hours"
+                append={t`hours`}
                 type="number"
                 step="any"
                 max={168}
@@ -3320,7 +3418,7 @@ export default function RampScheduleSection({
                       )
                     : ""
                 }
-                placeholder="org default"
+                placeholder={t`org default`}
                 onChange={(e) => {
                   const v = e.target.value;
                   patchMonitoring({
@@ -3341,12 +3439,12 @@ export default function RampScheduleSection({
                     });
                   }
                 }}
-                helpText={`Blank = org default (${orgCadenceLabel})`}
+                helpText={t`Blank = org default (${orgCadenceLabel})`}
               />
             </Box>
             <Flex align="center" gap="1">
               <Text as="label" weight="medium" mb="0">
-                If SRM detected:
+                <Trans>If SRM detected:</Trans>
               </Text>
               <DropdownMenu
                 trigger={
@@ -3356,10 +3454,10 @@ export default function RampScheduleSection({
                   >
                     <Text mr="1">
                       {state.monitoring.srmAction === "rollback"
-                        ? "Roll back"
+                        ? t`Roll back`
                         : state.monitoring.srmAction === "warn"
-                          ? "Warn only"
-                          : "Hold step"}
+                          ? t`Warn only`
+                          : t`Hold step`}
                     </Text>
                     <PiCaretDownFill />
                   </Link>
@@ -3371,50 +3469,24 @@ export default function RampScheduleSection({
                   <DropdownMenuItem
                     onClick={() => patchMonitoring({ srmAction: undefined })}
                   >
-                    Hold step (default)
+                    <Trans>Hold step (default)</Trans>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => patchMonitoring({ srmAction: "rollback" })}
                   >
-                    Roll back
+                    <Trans>Roll back</Trans>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => patchMonitoring({ srmAction: "warn" })}
                   >
-                    Warn only
+                    <Trans>Warn only</Trans>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenu>
             </Flex>
             <Flex align="center" gap="1">
               <Text as="span" weight="medium">
-                {"If no traffic ("}
-                <Popover
-                  open={noTrafficGraceOpen}
-                  onOpenChange={setNoTrafficGraceOpen}
-                  triggerAsChild
-                  showArrow={false}
-                  align="center"
-                  side="top"
-                  trigger={
-                    <Link type="button" className="hover-underline">
-                      {state.monitoring.noTrafficGracePeriodHours !== null
-                        ? `${state.monitoring.noTrafficGracePeriodHours}h`
-                        : `${DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS}h`}
-                    </Link>
-                  }
-                  content={
-                    <NoTrafficGracePopoverContent
-                      initialValue={state.monitoring.noTrafficGracePeriodHours}
-                      onSave={(val) =>
-                        patchMonitoring({ noTrafficGracePeriodHours: val })
-                      }
-                      onClose={() => setNoTrafficGraceOpen(false)}
-                    />
-                  }
-                  contentStyle={{ padding: "12px 16px" }}
-                />
-                {"):"}
+                <Trans>If no traffic ({noTrafficGracePopover}):</Trans>
               </Text>
               <DropdownMenu
                 trigger={
@@ -3424,10 +3496,10 @@ export default function RampScheduleSection({
                   >
                     <Text mr="1">
                       {state.monitoring.noTrafficAction === "rollback"
-                        ? "Roll back"
+                        ? t`Roll back`
                         : state.monitoring.noTrafficAction === "warn"
-                          ? "Warn only"
-                          : "Hold step"}
+                          ? t`Warn only`
+                          : t`Hold step`}
                     </Text>
                     <PiCaretDownFill />
                   </Link>
@@ -3441,26 +3513,26 @@ export default function RampScheduleSection({
                       patchMonitoring({ noTrafficAction: undefined })
                     }
                   >
-                    Hold step (default)
+                    <Trans>Hold step (default)</Trans>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() =>
                       patchMonitoring({ noTrafficAction: "rollback" })
                     }
                   >
-                    Roll back
+                    <Trans>Roll back</Trans>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => patchMonitoring({ noTrafficAction: "warn" })}
                   >
-                    Warn only
+                    <Trans>Warn only</Trans>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenu>
             </Flex>
             <Flex align="center" gap="1">
               <Text as="label" weight="medium" mb="0">
-                If multiple exposures:
+                <Trans>If multiple exposures:</Trans>
               </Text>
               <DropdownMenu
                 trigger={
@@ -3470,10 +3542,10 @@ export default function RampScheduleSection({
                   >
                     <Text mr="1">
                       {state.monitoring.multipleExposureAction === "rollback"
-                        ? "Roll back"
+                        ? t`Roll back`
                         : state.monitoring.multipleExposureAction === "warn"
-                          ? "Warn only"
-                          : "Hold step"}
+                          ? t`Warn only`
+                          : t`Hold step`}
                     </Text>
                     <PiCaretDownFill />
                   </Link>
@@ -3487,21 +3559,21 @@ export default function RampScheduleSection({
                       patchMonitoring({ multipleExposureAction: undefined })
                     }
                   >
-                    Hold step (default)
+                    <Trans>Hold step (default)</Trans>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() =>
                       patchMonitoring({ multipleExposureAction: "warn" })
                     }
                   >
-                    Warn only
+                    <Trans>Warn only</Trans>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() =>
                       patchMonitoring({ multipleExposureAction: "rollback" })
                     }
                   >
-                    Roll back
+                    <Trans>Roll back</Trans>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenu>
@@ -3574,14 +3646,14 @@ export default function RampScheduleSection({
           label={
             !hasSafeRolloutFeature ? (
               <>
-                Monitor this release{" "}
+                <Trans>Monitor this release</Trans>{" "}
                 <PaidFeatureBadge commercialFeature="safe-rollout" />
               </>
             ) : (
-              "Monitor this release"
+              t`Monitor this release`
             )
           }
-          description="Enable guardrail monitoring and auto-rollback for monitored steps"
+          description={t`Enable guardrail monitoring and auto-rollback for monitored steps`}
           disabled={!hasSafeRolloutFeature}
         />
       </Flex>
@@ -3590,7 +3662,9 @@ export default function RampScheduleSection({
         <Box mb="4" px="5" pt="3" pb="4" className="bg-highlight rounded">
           <Flex align="center" gap="2" mb="4">
             <MonitoredIcon size={18} />
-            <Text weight="semibold">Monitoring Settings</Text>
+            <Text weight="semibold">
+              <Trans>Monitoring Settings</Trans>
+            </Text>
           </Flex>
           {monitoringConfigUI}
         </Box>
@@ -3615,7 +3689,7 @@ export default function RampScheduleSection({
             className={!selectedTemplateId ? "selected-item" : ""}
             onClick={clearTemplate}
           >
-            None
+            <Trans>None</Trans>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {[...templates]
@@ -3703,19 +3777,23 @@ export default function RampScheduleSection({
       parts.push(formatRemainingDuration(totalSeconds));
     }
     if (approvals > 0) {
-      parts.push(`${approvals} approval step${approvals > 1 ? "s" : ""}`);
+      parts.push(
+        approvals > 1
+          ? t`${approvals} approval steps`
+          : t`${approvals} approval step`,
+      );
     }
     if (hasMonitored) {
-      parts.push("monitored steps");
+      parts.push(t`monitored steps`);
     }
     return { isPure, totalSeconds, label: parts.join(" + ") || "0" };
-  }, [state.steps]);
+  }, [state.steps, t]);
 
   const durationInput = (
     <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
       <Box style={{ width: 70 }}>
         <Text as="label" weight="medium" mb="0">
-          Duration
+          <Trans>Duration</Trans>
         </Text>
       </Box>
       {isSimpleMode ? (
@@ -3740,9 +3818,9 @@ export default function RampScheduleSection({
           <SelectField
             value={state.simpleDurationUnit ?? "days"}
             options={[
-              { value: "minutes", label: "min" },
-              { value: "hours", label: "hrs" },
-              { value: "days", label: "days" },
+              { value: "minutes", label: t`min` },
+              { value: "hours", label: t`hrs` },
+              { value: "days", label: t`days` },
             ]}
             onChange={(v) => {
               const u = v as IntervalUnit;
@@ -3776,12 +3854,14 @@ export default function RampScheduleSection({
         }}
       >
         <PiPlusBold className="mr-1" />
-        Disable on date
+        <Trans>Disable on date</Trans>
         <Tooltip
           body={
             <Text as="div">
-              Automatically disables the rule on this date, whether or not the
-              ramp-up has finished.
+              <Trans>
+                Automatically disables the rule on this date, whether or not the
+                ramp-up has finished.
+              </Trans>
             </Text>
           }
         >
@@ -3794,13 +3874,15 @@ export default function RampScheduleSection({
       <Box style={{ width: 70 }}>
         <Flex align="center" gap="1">
           <Text as="label" weight="medium" mb="0">
-            Disable
+            <Trans>Disable</Trans>
           </Text>
           <Tooltip
             body={
               <Text as="div">
-                Automatically disables the rule on this date, whether or not the
-                ramp-up has finished.
+                <Trans>
+                  Automatically disables the rule on this date, whether or not
+                  the ramp-up has finished.
+                </Trans>
               </Text>
             }
           >
@@ -3847,13 +3929,15 @@ export default function RampScheduleSection({
                     }}
                     icon={<PiCalendarBlank />}
                   >
-                    Edit Ramp-up Steps
+                    <Trans>Edit Ramp-up Steps</Trans>
                   </Button>
                   <Text color="text-low">
-                    Steps:{" "}
-                    <Text as="span" weight="semibold" color="text-mid">
-                      {progression}
-                    </Text>
+                    <Trans>
+                      Steps:{" "}
+                      <Text as="span" weight="semibold" color="text-mid">
+                        {progression}
+                      </Text>
+                    </Trans>
                   </Text>
                 </Flex>
               )}
@@ -3873,7 +3957,7 @@ export default function RampScheduleSection({
                   }}
                   icon={<PiCalendarBlank />}
                 >
-                  Edit Ramp-up Steps
+                  <Trans>Edit Ramp-up Steps</Trans>
                 </Button>
               )}
             </>
@@ -3886,7 +3970,7 @@ export default function RampScheduleSection({
     <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
       <Box style={{ width: 70 }}>
         <Text as="label" weight="medium" mb="0">
-          Start
+          <Trans>Start</Trans>
         </Text>
       </Box>
       <SelectField
@@ -3898,9 +3982,9 @@ export default function RampScheduleSection({
               : "immediately"
         }
         options={[
-          { value: "immediately", label: "Immediately" },
-          { value: "on-date", label: "On date" },
-          { value: "on-approval", label: "On approval" },
+          { value: "immediately", label: t`Immediately` },
+          { value: "on-date", label: t`On date` },
+          { value: "on-approval", label: t`On approval` },
         ]}
         onChange={(v) => {
           // Enum-like: each choice clears the other axis so the two never
@@ -3935,7 +4019,7 @@ export default function RampScheduleSection({
     showAdvancedEditor && !hasTemplate ? (
       <Box mb="3">
         <Tooltip
-          body="Will erase any customizations you have made"
+          body={t`Will erase any customizations you have made`}
           shouldDisplay={hasCustomizedSteps}
           tipPosition="top"
         >
@@ -3955,7 +4039,7 @@ export default function RampScheduleSection({
             icon={<PiArrowCounterClockwise />}
           >
             <Flex align="center" gap="1">
-              Simple View
+              <Trans>Simple View</Trans>
               {hasCustomizedSteps && (
                 <Box
                   style={{
@@ -3992,9 +4076,13 @@ export default function RampScheduleSection({
               monitoringExposureQuery ?? undefined,
               monitoringConfig?.exposureQueryIdentifierType,
             ),
+            i18n,
           );
+          const updateScheduleMinutes = monitoringConfig?.updateScheduleMinutes;
+          const noTrafficGracePeriodHours =
+            monitoringConfig?.noTrafficGracePeriodHours;
           const formatMetricNames = (metricIds: string[] = []) => {
-            if (!metricIds.length) return "None";
+            if (!metricIds.length) return t`None`;
             return metricIds
               .map((id) => getExperimentMetricById(id)?.name || id)
               .join(", ");
@@ -4004,15 +4092,15 @@ export default function RampScheduleSection({
             action: "warn" | "hold" | "rollback" | undefined,
           ) =>
             action === "rollback"
-              ? "Roll back"
+              ? t`Roll back`
               : action === "warn"
-                ? "Warn only"
-                : "Hold step (default)";
+                ? t`Warn only`
+                : t`Hold step (default)`;
 
           return (
             <>
               <Text size="sm" weight="medium" mb="1">
-                Ramp settings
+                <Trans>Ramp settings</Trans>
               </Text>
               <Box
                 px="2"
@@ -4024,48 +4112,48 @@ export default function RampScheduleSection({
                 }}
               >
                 {!hideTemplateSave && (
-                  <ReadOnlySettingRow label="Start">
+                  <ReadOnlySettingRow label={t`Start`}>
                     {ruleRampSchedule.startDate
                       ? formatScheduledDate(ruleRampSchedule.startDate)
-                      : "Immediately"}
+                      : t`Immediately`}
                   </ReadOnlySettingRow>
                 )}
-                <ReadOnlySettingRow label="Duration">
-                  {formatReadonlyDurationFromSchedule(ruleRampSchedule)}
+                <ReadOnlySettingRow label={t`Duration`}>
+                  {formatReadonlyDurationFromSchedule(ruleRampSchedule, i18n)}
                 </ReadOnlySettingRow>
                 {!hideTemplateSave && (
-                  <ReadOnlySettingRow label="Disable">
+                  <ReadOnlySettingRow label={t`Disable`}>
                     {ruleRampSchedule.cutoffDate
                       ? formatScheduledDate(ruleRampSchedule.cutoffDate)
-                      : "Never"}
+                      : t`Never`}
                   </ReadOnlySettingRow>
                 )}
-                <ReadOnlySettingRow label="Lock feature">
+                <ReadOnlySettingRow label={t`Lock feature`}>
                   {ruleRampSchedule.lockdownConfig?.mode === "locked"
-                    ? "Yes"
-                    : "No"}
+                    ? t`Yes`
+                    : t`No`}
                 </ReadOnlySettingRow>
                 {hashAttribute && (
-                  <ReadOnlySettingRow label="Sample by">
+                  <ReadOnlySettingRow label={t`Sample by`}>
                     {hashAttribute}
                   </ReadOnlySettingRow>
                 )}
                 {(seed || hashVersion === 1) && (
                   <>
                     {seed && (
-                      <ReadOnlySettingRow label="Seed">
+                      <ReadOnlySettingRow label={t`Seed`}>
                         {seed}
                       </ReadOnlySettingRow>
                     )}
-                    <ReadOnlySettingRow label="Hashing">
-                      {hashVersion === 1 ? "V1 (Legacy)" : "V2 (Preferred)"}
+                    <ReadOnlySettingRow label={t`Hashing`}>
+                      {hashVersion === 1 ? t`V1 (Legacy)` : t`V2 (Preferred)`}
                     </ReadOnlySettingRow>
                   </>
                 )}
               </Box>
 
               <Text size="sm" weight="medium" mb="1">
-                Monitoring settings
+                <Trans>Monitoring settings</Trans>
               </Text>
               <Box
                 px="2"
@@ -4077,59 +4165,58 @@ export default function RampScheduleSection({
               >
                 {monitoringConfig ? (
                   <>
-                    <ReadOnlySettingRow label="Mode">
+                    <ReadOnlySettingRow label={t`Mode`}>
                       {(monitoringConfig.monitoringMode ??
                         (monitoringConfig.autoUpdate === false
                           ? "manual"
                           : "auto")) === "manual"
-                        ? "Manual updates"
-                        : "Automatic updates"}
+                        ? t`Manual updates`
+                        : t`Automatic updates`}
                     </ReadOnlySettingRow>
-                    <ReadOnlySettingRow label="Datasource">
+                    <ReadOnlySettingRow label={t`Datasource`}>
                       {monitoringDatasource?.name ||
                         monitoringConfig.datasourceId}
                     </ReadOnlySettingRow>
-                    <ReadOnlySettingRow label="Assignment table">
+                    <ReadOnlySettingRow label={t`Assignment table`}>
                       {monitoringExposureQuery?.name ||
                         monitoringConfig.exposureQueryId}
                     </ReadOnlySettingRow>
-                    <ReadOnlySettingRow label="Unit">
-                      {userUnitLabel || "Users"}
+                    <ReadOnlySettingRow label={t`Unit`}>
+                      {userUnitLabel || t`Users`}
                     </ReadOnlySettingRow>
-                    <ReadOnlySettingRow label="Guardrail metrics">
+                    <ReadOnlySettingRow label={t`Guardrail metrics`}>
                       {formatMetricNames(monitoringConfig.guardrailMetricIds)}
                     </ReadOnlySettingRow>
-                    <ReadOnlySettingRow label="Signal metrics">
+                    <ReadOnlySettingRow label={t`Signal metrics`}>
                       {formatMetricNames(
                         monitoringConfig.signalMetricIds ?? [],
                       )}
                     </ReadOnlySettingRow>
-                    <ReadOnlySettingRow label="Update cadence">
-                      {monitoringConfig.updateScheduleMinutes
-                        ? `Every ${monitoringConfig.updateScheduleMinutes} min`
-                        : "Default"}
+                    <ReadOnlySettingRow label={t`Update cadence`}>
+                      {updateScheduleMinutes
+                        ? t`Every ${updateScheduleMinutes} min`
+                        : t`Default`}
                     </ReadOnlySettingRow>
-                    <ReadOnlySettingRow label="SRM detected">
+                    <ReadOnlySettingRow label={t`SRM detected`}>
                       {formatActionLabel(monitoringConfig.srmAction)}
                     </ReadOnlySettingRow>
-                    <ReadOnlySettingRow label="No traffic">
+                    <ReadOnlySettingRow label={t`No traffic`}>
                       {formatActionLabel(monitoringConfig.noTrafficAction)}
-                      {(monitoringConfig.noTrafficGracePeriodHours ?? null) !==
-                        null && (
+                      {(noTrafficGracePeriodHours ?? null) !== null && (
                         <Text size="sm" color="text-low" ml="1">
-                          ({monitoringConfig.noTrafficGracePeriodHours}h grace)
+                          <Trans>({noTrafficGracePeriodHours}h grace)</Trans>
                         </Text>
                       )}
                     </ReadOnlySettingRow>
-                    <ReadOnlySettingRow label="Multiple exposures">
+                    <ReadOnlySettingRow label={t`Multiple exposures`}>
                       {formatActionLabel(
                         monitoringConfig.multipleExposureAction,
                       )}
                     </ReadOnlySettingRow>
                   </>
                 ) : (
-                  <ReadOnlySettingRow label="Status">
-                    Not configured
+                  <ReadOnlySettingRow label={t`Status`}>
+                    {t`Not configured`}
                   </ReadOnlySettingRow>
                 )}
               </Box>
@@ -4142,7 +4229,9 @@ export default function RampScheduleSection({
   const readOnlyHelperText =
     isReadOnlyView && ruleRampSchedule ? (
       <HelperText status="info" size="sm" mb="5">
-        This schedule is read-only. Pause the schedule to make changes.
+        <Trans>
+          This schedule is read-only. Pause the schedule to make changes.
+        </Trans>
       </HelperText>
     ) : null;
 
@@ -4151,7 +4240,7 @@ export default function RampScheduleSection({
       {hasRampSchedulesFeature && !hideTemplateSave && (
         <>
           <Text as="div" weight="semibold" mb="1">
-            Template
+            <Trans>Template</Trans>
           </Text>
           {!isReadOnlyView && (
             <div
@@ -4204,18 +4293,22 @@ export default function RampScheduleSection({
           <Checkbox
             value={state.lockFeature}
             setValue={(v) => patchState({ lockFeature: v })}
-            label="Lock feature while running"
+            label={t`Lock feature while running`}
           />
           <Tooltip
             body={
               <>
                 <Text as="div" mb="2">
-                  Blocks publishing draft changes to this feature while the ramp
-                  is actively progressing.
+                  <Trans>
+                    Blocks publishing draft changes to this feature while the
+                    ramp is actively progressing.
+                  </Trans>
                 </Text>
                 <Text as="div">
-                  Does not apply when Ramp-up is paused, completed, or rolled
-                  back.
+                  <Trans>
+                    Does not apply when Ramp-up is paused, completed, or rolled
+                    back.
+                  </Trans>
                 </Text>
               </>
             }
@@ -4240,9 +4333,11 @@ export default function RampScheduleSection({
                 POLL_INTERVAL_SECONDS,
           ) && (
             <Callout status="warning" mb="3">
-              One or more steps are shorter than the minimum check interval (1
-              min). Short steps may be applied together rather than at their
-              exact scheduled times.
+              <Trans>
+                One or more steps are shorter than the minimum check interval (1
+                min). Short steps may be applied together rather than at their
+                exact scheduled times.
+              </Trans>
             </Callout>
           )}
 
@@ -4258,6 +4353,11 @@ export default function RampScheduleSection({
     </>
   );
 
+  const rampStepsCompleted = ruleRampSchedule
+    ? getRampStepsCompleted(ruleRampSchedule)
+    : 0;
+  const rampStepsTotal = ruleRampSchedule?.steps.length ?? 0;
+
   const content = (
     <>
       {ruleRampSchedule && !hideNameField && (
@@ -4269,7 +4369,7 @@ export default function RampScheduleSection({
             <Badge
               label={
                 pendingDetach
-                  ? "pending removal – save to reinstate"
+                  ? t`pending removal – save to reinstate`
                   : getRampStatusLabel(ruleRampSchedule)
               }
               color={
@@ -4280,8 +4380,9 @@ export default function RampScheduleSection({
             {ruleRampSchedule.steps.length > 0 && (
               <span style={{ flexShrink: 0 }}>
                 <Text size="sm" color="text-low">
-                  Step {getRampStepsCompleted(ruleRampSchedule)} of{" "}
-                  {ruleRampSchedule.steps.length}
+                  <Trans>
+                    Step {rampStepsCompleted} of {rampStepsTotal}
+                  </Trans>
                 </Text>
               </span>
             )}
@@ -4307,7 +4408,9 @@ export default function RampScheduleSection({
         <Flex align="center" gap="1" mb="3">
           <Text weight="medium">
             {state.name || (
-              <span style={{ color: "var(--color-text-low)" }}>ramp up</span>
+              <span style={{ color: "var(--color-text-low)" }}>
+                <Trans>ramp up</Trans>
+              </span>
             )}
           </Text>
         </Flex>
@@ -4331,10 +4434,10 @@ export default function RampScheduleSection({
       <Flex align="center" justify="between" mb="3">
         <Flex align="center" gap="2">
           <Text size="lg" weight="medium">
-            Ramp Schedule
+            <Trans>Ramp Schedule</Trans>
           </Text>
           <Text size="md" color="text-low">
-            (optional)
+            <Trans>(optional)</Trans>
           </Text>
         </Flex>
         <Switch value={open} onChange={handleToggle} />

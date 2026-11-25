@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   filterEnvironmentsByExperiment,
   getReviewSetting,
@@ -164,7 +165,7 @@ const genFormDefaultValues = ({
 
 export default function FeatureFromExperimentModal({
   close,
-  cta = "Add",
+  cta,
   experiment,
   mutate,
   source,
@@ -172,6 +173,8 @@ export default function FeatureFromExperimentModal({
   stage,
   saveWithStagedChanges,
 }: Props) {
+  const { t } = useLingui();
+  const ctaText = cta === undefined ? t`Add` : cta;
   // Staged or saved with staged changes, an existing flag gets a new draft.
   const withStagedChanges = !!(stage || saveWithStagedChanges);
   const { project } = useDefinitions();
@@ -208,16 +211,27 @@ export default function FeatureFromExperimentModal({
     if (!blocker) return null;
     const name = (id: string) => holdoutsMap.get(id)?.name ?? id;
     switch (blocker.reason) {
-      case "different-holdout":
-        return `In holdout "${name(blocker.featureHoldoutId)}", but this experiment is in holdout "${name(blocker.experimentHoldoutId)}".`;
-      case "not-in-holdout":
-        return `Not in holdout "${name(blocker.experimentHoldoutId)}". Add it to that holdout from its Feature Flag page first.`;
-      case "holdout-unavailable":
-        return `In holdout "${name(blocker.featureHoldoutId)}", which isn't available in this experiment's project.`;
-      case "not-draft":
-        return `In holdout "${name(blocker.featureHoldoutId)}", which only a draft experiment can join.`;
-      case "has-linked-changes":
-        return `In holdout "${name(blocker.featureHoldoutId)}". Joining it needs an experiment with nothing else linked.`;
+      case "different-holdout": {
+        const featureHoldoutName = name(blocker.featureHoldoutId);
+        const experimentHoldoutName = name(blocker.experimentHoldoutId);
+        return t`In holdout "${featureHoldoutName}", but this experiment is in holdout "${experimentHoldoutName}".`;
+      }
+      case "not-in-holdout": {
+        const experimentHoldoutName = name(blocker.experimentHoldoutId);
+        return t`Not in holdout "${experimentHoldoutName}". Add it to that holdout from its Feature Flag page first.`;
+      }
+      case "holdout-unavailable": {
+        const featureHoldoutName = name(blocker.featureHoldoutId);
+        return t`In holdout "${featureHoldoutName}", which isn't available in this experiment's project.`;
+      }
+      case "not-draft": {
+        const featureHoldoutName = name(blocker.featureHoldoutId);
+        return t`In holdout "${featureHoldoutName}", which only a draft experiment can join.`;
+      }
+      case "has-linked-changes": {
+        const featureHoldoutName = name(blocker.featureHoldoutId);
+        return t`In holdout "${featureHoldoutName}". Joining it needs an experiment with nothing else linked.`;
+      }
     }
   };
 
@@ -414,18 +428,31 @@ export default function FeatureFromExperimentModal({
 
   const enableOnPublishWarning = useMemo<React.ReactNode>(() => {
     if (envsEnabledByPublish.length === 0) return null;
-    const envNames = <strong>{envsEnabledByPublish.join(", ")}</strong>;
-    const scope =
-      draftMode === "existing"
-        ? "in the selected draft"
-        : "for this Feature Flag";
-    const verb = envsEnabledByPublish.length === 1 ? "is" : "are";
-    const pronoun = envsEnabledByPublish.length === 1 ? "it" : "them";
-    return (
-      <>
-        {envNames} {verb} not enabled {scope}. Publishing will enable {pronoun}{" "}
-        so the rule can take effect.
-      </>
+    const envList = envsEnabledByPublish.join(", ");
+    const single = envsEnabledByPublish.length === 1;
+    if (draftMode === "existing") {
+      return single ? (
+        <Trans>
+          <strong>{envList}</strong> is not enabled in the selected draft.
+          Publishing will enable it so the rule can take effect.
+        </Trans>
+      ) : (
+        <Trans>
+          <strong>{envList}</strong> are not enabled in the selected draft.
+          Publishing will enable them so the rule can take effect.
+        </Trans>
+      );
+    }
+    return single ? (
+      <Trans>
+        <strong>{envList}</strong> is not enabled for this Feature Flag.
+        Publishing will enable it so the rule can take effect.
+      </Trans>
+    ) : (
+      <Trans>
+        <strong>{envList}</strong> are not enabled for this Feature Flag.
+        Publishing will enable them so the rule can take effect.
+      </Trans>
     );
   }, [envsEnabledByPublish, draftMode]);
 
@@ -452,19 +479,19 @@ export default function FeatureFromExperimentModal({
     if (!existing || !existingFeature || !experiment.holdoutId) return null;
     const featureHoldoutId = existingFeature.holdout?.id;
     const holdout = holdoutsMap.get(experiment.holdoutId);
-    const holdoutName = holdout?.name ?? "Unknown holdout";
+    const holdoutName = holdout?.name ?? t`Unknown holdout`;
     if (!featureHoldoutId) {
       const covers =
         !!holdout && holdout.projects.includes(existingFeature.project ?? "");
       return covers
-        ? `This experiment belongs to holdout "${holdoutName}", but the selected feature isn't enrolled in it. Visit the feature page and use "Add to holdout" to enroll it, then try again.`
-        : `This experiment belongs to holdout "${holdoutName}", which is unavailable in the selected feature's project. Update the holdout's project scope, or select a feature in a project covered by the holdout.`;
+        ? t`This experiment belongs to holdout "${holdoutName}", but the selected feature isn't enrolled in it. Visit the feature page and use "Add to holdout" to enroll it, then try again.`
+        : t`This experiment belongs to holdout "${holdoutName}", which is unavailable in the selected feature's project. Update the holdout's project scope, or select a feature in a project covered by the holdout.`;
     }
     if (featureHoldoutId !== experiment.holdoutId) {
-      return `Holdout mismatch: the experiment and the selected feature are in different holdouts. They must share the same holdout to be linked.`;
+      return t`Holdout mismatch: the experiment and the selected feature are in different holdouts. They must share the same holdout to be linked.`;
     }
     return null;
-  }, [existing, existingFeature, experiment.holdoutId, holdoutsMap]);
+  }, [existing, existingFeature, experiment.holdoutId, holdoutsMap, t]);
 
   // A holdout-free experiment linked to an existing feature that IS in a holdout
   // will be enrolled in that holdout on submit — surface it. Name is null when
@@ -473,8 +500,8 @@ export default function FeatureFromExperimentModal({
   const holdoutToAddToExperiment = useMemo<string | null>(() => {
     if (!existing || !existingFeature?.holdout?.id) return null;
     if (experiment.holdoutId) return null;
-    return holdoutsMap.get(existingFeature.holdout.id)?.name ?? "the holdout";
-  }, [existing, existingFeature, experiment.holdoutId, holdoutsMap]);
+    return holdoutsMap.get(existingFeature.holdout.id)?.name ?? t`the holdout`;
+  }, [existing, existingFeature, experiment.holdoutId, holdoutsMap, t]);
 
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
@@ -485,8 +512,7 @@ export default function FeatureFromExperimentModal({
     })
   ) {
     ctaEnabled = false;
-    disabledMessage =
-      "You don't have permission to create feature flag drafts.";
+    disabledMessage = t`You don't have permission to create feature flag drafts.`;
   }
 
   if (holdoutWarning || unscopedRuleBlocksSubmit) {
@@ -537,7 +563,7 @@ export default function FeatureFromExperimentModal({
       trackingEventModalSource={source}
       open
       size="lg"
-      header="Add Feature Flag to Experiment"
+      header={t`Add Feature Flag to Experiment`}
       headerAction={
         existing && existingFeature && !withStagedChanges ? (
           <DraftSelectorDropdown
@@ -552,7 +578,7 @@ export default function FeatureFromExperimentModal({
           />
         ) : null
       }
-      cta={saveWithStagedChanges ? "Save and add" : cta}
+      cta={saveWithStagedChanges ? t`Save and add` : ctaText}
       close={close}
       ctaEnabled={ctaEnabled}
       aboveFooterContent={unscopedRuleBanner}
@@ -588,7 +614,7 @@ export default function FeatureFromExperimentModal({
             };
 
         if (!featureToCreate) {
-          throw new Error("Invalid feature selected");
+          throw new Error(t`Invalid feature selected`);
         }
 
         const rule: ExperimentRefRule = {
@@ -616,12 +642,12 @@ export default function FeatureFromExperimentModal({
             (newRule as ExperimentRefRule).variations,
           );
           throw new Error(
-            "We fixed some errors in the feature. If it looks correct, submit again.",
+            t`We fixed some errors in the feature. If it looks correct, submit again.`,
           );
         }
 
         checkUnscopedRule();
-        if (holdoutWarning) throw new Error("Holdout configuration mismatch.");
+        if (holdoutWarning) throw new Error(t`Holdout configuration mismatch.`);
         if (withStagedChanges) {
           const added: AddedFlag = {
             feature: featureToCreate as FeatureInterface,
@@ -654,10 +680,11 @@ export default function FeatureFromExperimentModal({
             addedFlagChanges(added),
           );
           if (refusal) {
+            const refusalMessage = refusal.message;
             throw new Error(
               refusal.onPage
-                ? `${refusal.message} Close this to resolve it on the page.`
-                : refusal.message,
+                ? t`${refusalMessage} Close this to resolve it on the page.`
+                : refusalMessage,
             );
           }
           if (!existing) flagCreated(featureToCreate);
@@ -677,7 +704,7 @@ export default function FeatureFromExperimentModal({
             },
           );
           if (!created?.feature?.id) {
-            throw new Error("Feature creation failed");
+            throw new Error(t`Feature creation failed`);
           }
           targetFeatureId = created.feature.id;
           flagCreated(featureToCreate);
@@ -706,7 +733,7 @@ export default function FeatureFromExperimentModal({
     >
       <SelectField
         size="legacy"
-        label="Create New or Use Existing?"
+        label={t`Create New or Use Existing?`}
         options={validFeatures
           .map((f) => {
             const why = holdoutBlockReason(f);
@@ -753,7 +780,7 @@ export default function FeatureFromExperimentModal({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  Holdout: {holdoutName}
+                  <Trans>Holdout: {holdoutName}</Trans>
                 </span>
               ) : null}
             </Flex>
@@ -766,7 +793,7 @@ export default function FeatureFromExperimentModal({
             label
           );
         }}
-        initialOption="Create New Feature"
+        initialOption={t`Create New Feature`}
         value={form.watch("existing")}
         onChange={(value) => {
           if (value) {
@@ -810,8 +837,10 @@ export default function FeatureFromExperimentModal({
 
       {holdoutToAddToExperiment && (
         <Callout status="info" mb="3">
-          The selected feature is in holdout &ldquo;{holdoutToAddToExperiment}
-          &rdquo;. Adding this experiment will also add it to that holdout.
+          <Trans>
+            The selected feature is in holdout &ldquo;{holdoutToAddToExperiment}
+            &rdquo;. Adding this experiment will also add it to that holdout.
+          </Trans>
         </Callout>
       )}
 
@@ -839,13 +868,15 @@ export default function FeatureFromExperimentModal({
                 setShowTags(true);
               }}
             >
-              + tags
+              <Trans>+ tags</Trans>
             </a>
           )}
 
           {showDescription ? (
             <div className="form-group">
-              <label>Description</label>
+              <label>
+                <Trans>Description</Trans>
+              </label>
               <MarkdownInput
                 value={form.watch("description") || ""}
                 setValue={(value) => form.setValue("description", value)}
@@ -861,7 +892,7 @@ export default function FeatureFromExperimentModal({
                 setShowDescription(true);
               }}
             >
-              + description
+              <Trans>+ description</Trans>
             </a>
           )}
 
@@ -879,7 +910,7 @@ export default function FeatureFromExperimentModal({
             setAllEnvironments={setRuleAllEnvironments}
             selectedEnvironments={ruleSelectedEnvironments}
             setSelectedEnvironments={setRuleSelectedEnvironments}
-            label="Environments"
+            label={t`Environments`}
             my="5"
           />
 
@@ -899,14 +930,28 @@ export default function FeatureFromExperimentModal({
         <>
           <HelperText status="info">
             <Box>
-              A rule will be added to the bottom of the rule list
-              {withStagedChanges ? ", in a new draft" : ""}. For more control
-              over placement, add Experiment rules directly from the{" "}
-              <Link href={`/features/${existing}`} target="_blank">
-                Feature page
-                <PiArrowSquareOut className="ml-1" />
-              </Link>{" "}
-              instead.
+              {withStagedChanges ? (
+                <Trans>
+                  A rule will be added to the bottom of the rule list, in a new
+                  draft. For more control over placement, add Experiment rules
+                  directly from the{" "}
+                  <Link href={`/features/${existing}`} target="_blank">
+                    Feature page
+                    <PiArrowSquareOut className="ml-1" />
+                  </Link>{" "}
+                  instead.
+                </Trans>
+              ) : (
+                <Trans>
+                  A rule will be added to the bottom of the rule list. For more
+                  control over placement, add Experiment rules directly from the{" "}
+                  <Link href={`/features/${existing}`} target="_blank">
+                    Feature page
+                    <PiArrowSquareOut className="ml-1" />
+                  </Link>{" "}
+                  instead.
+                </Trans>
+              )}
             </Box>
           </HelperText>
 
@@ -917,7 +962,7 @@ export default function FeatureFromExperimentModal({
               setAllEnvironments={setRuleAllEnvironments}
               selectedEnvironments={ruleSelectedEnvironments}
               setSelectedEnvironments={setRuleSelectedEnvironments}
-              label="Environments"
+              label={t`Environments`}
             />
 
             {enableOnPublishWarning && (
@@ -932,7 +977,7 @@ export default function FeatureFromExperimentModal({
       <Flex direction="column" gap="3" pt="2">
         <Flex align="center" gap="3">
           <Text as="label" weight="semibold" mb="0">
-            Variation Values
+            <Trans>Variation Values</Trans>
           </Text>
           {sparseEligible && !isConfigBacked && (
             <SparsePatchToggle

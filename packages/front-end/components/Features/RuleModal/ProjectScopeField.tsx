@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiInfo, PiPlusBold } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioGroup from "@/ui/RadioGroup";
 import Link from "@/ui/Link";
@@ -30,6 +31,7 @@ export default function RuleProjectScopeField({
   allowedProjectIds,
   ...marginProps
 }: ProjectScopeProps) {
+  const { t } = useLingui();
   const { projects } = useDefinitions();
   const [enabled, setEnabled] = useState<boolean>(() => !allProjects);
 
@@ -53,13 +55,12 @@ export default function RuleProjectScopeField({
       .filter((id) => !projects.some((p) => p.id === id))
       .map((id) => ({
         value: id,
-        label: "Hidden Project",
-        tooltip: `A Project you don't have access to (${id})`,
+        label: t`Hidden Project`,
+        tooltip: t`A Project you don't have access to (${id})`,
       })),
   ];
 
-  const help =
-    "Limit this rule to specific Projects. Applies to all of the Feature Flag's Projects by default.";
+  const help = t`Limit this rule to specific Projects. Applies to all of the Feature Flag's Projects by default.`;
 
   return (
     <Box {...marginProps}>
@@ -72,7 +73,7 @@ export default function RuleProjectScopeField({
             onClick={() => setEnabled(true)}
           >
             <PiPlusBold className="mr-1" />
-            Project targeting
+            <Trans>Project targeting</Trans>
             <Tooltip body={<Text as="div">{help}</Text>}>
               <PiInfo color="var(--color-text-low)" className="ml-1" />
             </Tooltip>
@@ -82,7 +83,7 @@ export default function RuleProjectScopeField({
         <>
           <Flex align="center" mb="3">
             <label className="mb-0" style={{ fontWeight: 600 }}>
-              Rule Projects
+              <Trans>Rule Projects</Trans>
             </label>
             <Tooltip body={help}>
               <PiInfo />
@@ -94,10 +95,10 @@ export default function RuleProjectScopeField({
             setValue={(v) => setAllProjects(v === "all")}
             gap="0"
             options={[
-              { value: "all", label: "All Projects" },
+              { value: "all", label: t`All Projects` },
               {
                 value: "specific",
-                label: "Specific Projects",
+                label: t`Specific Projects`,
                 renderOutsideItem: true,
                 renderOnSelect: (
                   <Box pl="5">
@@ -105,15 +106,17 @@ export default function RuleProjectScopeField({
                       value={selectedProjects}
                       onChange={setSelectedProjects}
                       options={options}
-                      placeholder="No Projects selected"
+                      placeholder={t`No Projects selected`}
                       sort={false}
                       showCopyButton={false}
                       containerClassName="w-full"
                     />
                     {selectedProjects.length === 0 && (
                       <Callout status="warning" size="sm" mt="2">
-                        This rule will not apply in any Project until at least
-                        one is selected.
+                        <Trans>
+                          This rule will not apply in any Project until at least
+                          one is selected.
+                        </Trans>
                       </Callout>
                     )}
                   </Box>

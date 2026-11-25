@@ -4,6 +4,7 @@ import { FeatureEnvironment } from "shared/types/feature";
 import { filterProjectsByEnvironment } from "shared/util";
 import { Box, Flex, Grid, Text } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { featureStatusColors } from "@/components/Features/featureStatusColors";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
@@ -48,6 +49,7 @@ const EnvironmentSelect: FC<{
   project = "",
   isEditing = false,
 }) => {
+  const { t } = useLingui();
   const relevantEnvironments = useMemo(() => {
     if (!project) return environments;
     return environments.filter(
@@ -94,19 +96,24 @@ const EnvironmentSelect: FC<{
     MAX_VISIBLE_PREVIEW_ENVIRONMENTS,
   );
   const overflow = relevantEnvironments.slice(MAX_VISIBLE_PREVIEW_ENVIRONMENTS);
+  const overflowCount = overflow.length;
 
   return (
     <div className="form-group">
       <Flex align="center" justify="between" mb="1" gap="3">
         <Text as="label" weight="bold" mb="0">
-          Include in SDK Payloads
+          <Trans>Include in SDK Payloads</Trans>
         </Text>
-        {!expanded && <Link onClick={() => setExpanded(true)}>Edit</Link>}
+        {!expanded && (
+          <Link onClick={() => setExpanded(true)}>
+            <Trans>Edit</Trans>
+          </Link>
+        )}
       </Flex>
 
       {!isEditing && (
         <Text as="p" size="1" color="gray" mb="3">
-          Initial state only, can be changed later.
+          <Trans>Initial state only, can be changed later.</Trans>
         </Text>
       )}
 
@@ -130,7 +137,7 @@ const EnvironmentSelect: FC<{
               }
             >
               <UIText as="span" color="text-low" size="sm">
-                +{overflow.length} more
+                <Trans>+{overflowCount} more</Trans>
               </UIText>
             </Tooltip>
           )}
@@ -157,7 +164,7 @@ const EnvironmentSelect: FC<{
                   setValue(env, v === true);
                 })
               }
-              label="Select All"
+              label={t`Select All`}
               weight="bold"
               mb="5"
             />
@@ -171,7 +178,7 @@ const EnvironmentSelect: FC<{
             {relevantEnvironments.map((env) => (
               <Checkbox
                 disabled={!mayEnable(env.id)}
-                disabledMessage="You don't have permission to enable this environment."
+                disabledMessage={t`You don't have permission to enable this environment.`}
                 value={environmentSettings[env.id]?.enabled ?? false}
                 setValue={(enabled) => setValue(env, enabled === true)}
                 label={env.id}

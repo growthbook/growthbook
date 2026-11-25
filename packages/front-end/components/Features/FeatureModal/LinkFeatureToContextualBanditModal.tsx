@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ensureConfigBacking,
   getApplicableEnvIds,
@@ -131,12 +132,14 @@ const genFormDefaultValues = ({
 
 export default function LinkFeatureToContextualBanditModal({
   close,
-  cta = "Add",
+  cta,
   cb,
   existingLinkedFeatureIds = [],
   mutate,
   source,
 }: Props) {
+  const { t } = useLingui();
+  const ctaText = cta === undefined ? t`Add` : cta;
   const { project, refreshTags } = useDefinitions();
   const selectedProject = cb.project ?? project;
   const allEnvironments = useEnvironments();
@@ -241,8 +244,7 @@ export default function LinkFeatureToContextualBanditModal({
     })
   ) {
     ctaEnabled = false;
-    disabledMessage =
-      "You don't have permission to create feature flag drafts.";
+    disabledMessage = t`You don't have permission to create feature flag drafts.`;
   }
 
   function updateValuesOnTypeChange(val: FeatureValueType) {
@@ -279,8 +281,8 @@ export default function LinkFeatureToContextualBanditModal({
       trackingEventModalSource={source}
       open
       size="lg"
-      header="Add Feature Flag to Contextual Bandit"
-      cta={cta}
+      header={t`Add Feature Flag to Contextual Bandit`}
+      cta={ctaText}
       close={close}
       ctaEnabled={ctaEnabled}
       aboveFooterContent={unscopedRuleBanner}
@@ -331,7 +333,7 @@ export default function LinkFeatureToContextualBanditModal({
         );
         if (unsetVariation) {
           setShowValueErrors(true);
-          throw new Error("Set a value for every variation before saving");
+          throw new Error(t`Set a value for every variation before saving`);
         }
 
         const newRule = validateFeatureRule(
@@ -344,7 +346,7 @@ export default function LinkFeatureToContextualBanditModal({
             (newRule as ContextualBanditRefRule).variations,
           );
           throw new Error(
-            "We fixed some errors in the feature. If it looks correct, submit again.",
+            t`We fixed some errors in the feature. If it looks correct, submit again.`,
           );
         }
 
@@ -356,7 +358,7 @@ export default function LinkFeatureToContextualBanditModal({
           targetFeatureId = existing;
         } else {
           if (!featureToCreate) {
-            throw new Error("Invalid feature selected");
+            throw new Error(t`Invalid feature selected`);
           }
           const created = await apiCall<{ feature: FeatureInterface }>(
             `/feature`,
@@ -366,7 +368,7 @@ export default function LinkFeatureToContextualBanditModal({
             },
           );
           if (!created?.feature?.id) {
-            throw new Error("Feature creation failed");
+            throw new Error(t`Feature creation failed`);
           }
           targetFeatureId = created.feature.id;
 
@@ -396,12 +398,12 @@ export default function LinkFeatureToContextualBanditModal({
       })}
     >
       <SelectField
-        label="Create New or Use Existing?"
+        label={t`Create New or Use Existing?`}
         options={validFeatures.map((f) => ({
           label: f.id + " (" + f.valueType + ")",
           value: f.id,
         }))}
-        initialOption="Create New Feature"
+        initialOption={t`Create New Feature`}
         value={form.watch("existing")}
         onChange={(value) => {
           if (value) {
@@ -454,7 +456,9 @@ export default function LinkFeatureToContextualBanditModal({
             )}
             {showDescription && (
               <div className="form-group" style={{ width: "100%" }}>
-                <label>Description</label>
+                <label>
+                  <Trans>Description</Trans>
+                </label>
                 <Box mt="1">
                   <MarkdownInput
                     value={form.watch("description") || ""}
@@ -467,11 +471,13 @@ export default function LinkFeatureToContextualBanditModal({
 
             <Flex gap="4" mb="4">
               {!showTags && (
-                <Link onClick={() => setShowTags(true)}>+ tags</Link>
+                <Link onClick={() => setShowTags(true)}>
+                  <Trans>+ tags</Trans>
+                </Link>
               )}
               {!showDescription && (
                 <Link onClick={() => setShowDescription(true)}>
-                  + description
+                  <Trans>+ description</Trans>
                 </Link>
               )}
             </Flex>
@@ -491,7 +497,7 @@ export default function LinkFeatureToContextualBanditModal({
             setAllEnvironments={setRuleAllEnvironments}
             selectedEnvironments={ruleSelectedEnvironments}
             setSelectedEnvironments={setRuleSelectedEnvironments}
-            label="Environments"
+            label={t`Environments`}
             my="5"
           />
 
@@ -511,13 +517,15 @@ export default function LinkFeatureToContextualBanditModal({
         <>
           <HelperText status="info">
             <Box>
-              A rule will be added to the bottom of the rule list as a draft.
-              For more control over placement, add the rule directly from the{" "}
-              <Link href={`/features/${existing}`} target="_blank">
-                Feature page
-                <PiArrowSquareOut className="ml-1" />
-              </Link>{" "}
-              instead.
+              <Trans>
+                A rule will be added to the bottom of the rule list as a draft.
+                For more control over placement, add the rule directly from the{" "}
+                <Link href={`/features/${existing}`} target="_blank">
+                  Feature page
+                  <PiArrowSquareOut className="ml-1" />
+                </Link>{" "}
+                instead.
+              </Trans>
             </Box>
           </HelperText>
 
@@ -527,7 +535,7 @@ export default function LinkFeatureToContextualBanditModal({
             setAllEnvironments={setRuleAllEnvironments}
             selectedEnvironments={ruleSelectedEnvironments}
             setSelectedEnvironments={setRuleSelectedEnvironments}
-            label="Environments"
+            label={t`Environments`}
             my="5"
           />
         </>
@@ -535,7 +543,7 @@ export default function LinkFeatureToContextualBanditModal({
 
       <Flex direction="column" gap="3" pt="2">
         <Text as="label" weight="semibold" mb="0">
-          Variation Values
+          <Trans>Variation Values</Trans>
         </Text>
         {variations.map((v, i) => {
           const currentValue = form.watch(`variations.${i}.value`) || "";

@@ -5,6 +5,8 @@
 
 import { ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Heading from "@/ui/Heading";
 import SelectField from "@/components/Forms/SelectField";
 import DatePicker from "@/components/DatePicker";
@@ -44,24 +46,24 @@ export function scheduleAutoName(state: RampSectionState): string {
 const START_OPTIONS = [
   {
     value: "immediately",
-    label: "Immediately",
+    label: msg`Immediately`,
   },
   {
     value: "specific-time",
-    label: "On date",
-    tooltip: "Rule becomes active at a specific date and time",
+    label: msg`On date`,
+    tooltip: msg`Rule becomes active at a specific date and time`,
   },
 ];
 
 const END_OPTIONS = [
   {
     value: "never",
-    label: "Never",
+    label: msg`Never`,
   },
   {
     value: "specific-time",
-    label: "On date",
-    tooltip: "Rule is automatically disabled at a specific date and time",
+    label: msg`On date`,
+    tooltip: msg`Rule is automatically disabled at a specific date and time`,
   },
 ];
 
@@ -90,6 +92,17 @@ export default function ScheduleInputs({
   disabled,
   disableStart,
 }: Props) {
+  const { t, i18n } = useLingui();
+  const startOptions = START_OPTIONS.map((o) => ({
+    value: o.value,
+    label: i18n._(o.label),
+    tooltip: o.tooltip ? i18n._(o.tooltip) : undefined,
+  }));
+  const endOptions = END_OPTIONS.map((o) => ({
+    value: o.value,
+    label: i18n._(o.label),
+    tooltip: o.tooltip ? i18n._(o.tooltip) : undefined,
+  }));
   const endTriggerValue = state.endScheduleAt ? "specific-time" : "never";
   const startDisabled = disabled || disableStart;
 
@@ -122,15 +135,15 @@ export default function ScheduleInputs({
   return (
     <Flex direction="column" gap="1">
       <Heading as="h3" size="sm" mb="2">
-        Schedule
+        <Trans>Schedule</Trans>
       </Heading>
 
       {/* Start row */}
-      <ScheduleRow label="Start">
+      <ScheduleRow label={t`Start`}>
         <SelectField
           size="legacy"
           value={state.startDate ? "specific-time" : "immediately"}
-          options={START_OPTIONS}
+          options={startOptions}
           onChange={handleStartChange}
           disabled={startDisabled}
           containerClassName="mb-0"
@@ -152,11 +165,11 @@ export default function ScheduleInputs({
       </ScheduleRow>
 
       {/* End row */}
-      <ScheduleRow label="End">
+      <ScheduleRow label={t`End`}>
         <SelectField
           size="legacy"
           value={endTriggerValue}
-          options={END_OPTIONS}
+          options={endOptions}
           onChange={handleEndChange}
           disabled={disabled}
           containerClassName="mb-0"

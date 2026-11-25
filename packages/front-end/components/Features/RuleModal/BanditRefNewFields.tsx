@@ -10,6 +10,7 @@ import {
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -136,6 +137,7 @@ export default function BanditRefNewFields({
    */
   assignmentQueryCopySource?: AssignmentQueryCopySource | null;
 }) {
+  const { t } = useLingui();
   const form = useFormContext();
 
   const { hasCommercialFeature } = useUser();
@@ -195,6 +197,10 @@ export default function BanditRefNewFields({
     form.watch("trackingKey"),
   );
   const { namespaces } = useOrgSettings();
+  const coverageTooltip =
+    source === "rule"
+      ? t`Units not included in the Bandit skip this rule`
+      : t`Units not included in the Bandit skip this experiment`;
 
   return (
     <>
@@ -204,27 +210,27 @@ export default function BanditRefNewFields({
             size="legacy"
             required={true}
             minLength={2}
-            label="Bandit name"
+            label={t`Bandit name`}
             {...form.register("name")}
           />
 
           <Field
             size="legacy"
-            label="Tracking key"
+            label={t`Tracking key`}
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
             {...trackingKeyFormatProps}
-            helpText="Unique identifier for this Bandit, used to track impressions and analyze results"
+            helpText={t`Unique identifier for this Bandit, used to track impressions and analyze results`}
           />
 
           <Field
             size="legacy"
-            label="Description"
+            label={t`Description`}
             textarea
             minRows={1}
             maxLength={MAX_DESCRIPTION_LENGTH}
             {...form.register("description")}
-            placeholder="Short human-readable description of the Bandit"
+            placeholder={t`Short human-readable description of the Bandit`}
           />
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
@@ -244,11 +250,13 @@ export default function BanditRefNewFields({
         <>
           <div className="mb-4">
             <Text as="label" weight="semibold" mb="1">
-              Assign Variation by Attribute
+              <Trans>Assign Variation by Attribute</Trans>
             </Text>
             <Text as="div" color="text-mid" mb="2">
-              Will be hashed together with the tracking key to determine which
-              variation to assign
+              <Trans>
+                Will be hashed together with the tracking key to determine which
+                variation to assign
+              </Trans>
             </Text>
             <SelectField
               size="legacy"
@@ -278,19 +286,19 @@ export default function BanditRefNewFields({
             <NewRuleTrafficFields
               kind="bandit"
               feature={feature}
-              coverageTooltip={`Units not included in the Bandit skip this ${source}`}
+              coverageTooltip={coverageTooltip}
             />
           ) : (
             <FeatureVariationsInput
               simple={true}
               hideCoverage={false}
-              label="Traffic Percent & Variations"
+              label={t`Traffic Percent & Variations`}
               defaultValue={
                 feature ? getFeatureDefaultValue(feature) : undefined
               }
               valueType={feature?.valueType ?? "string"}
-              coverageLabel="Traffic included in this Bandit"
-              coverageTooltip={`Units not included in the Bandit skip this ${source}`}
+              coverageLabel={t`Traffic included in this Bandit`}
+              coverageTooltip={coverageTooltip}
               coverage={coverage}
               setCoverage={setCoverage}
               setWeight={setWeight}
@@ -338,8 +346,10 @@ export default function BanditRefNewFields({
           />
           {isCyclic ? (
             <Callout status="error" mt="3">
-              A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
-              dependency. Remove this prerequisite to continue.
+              <Trans>
+                A prerequisite (<code>{cyclicFeatureId}</code>) creates a
+                circular dependency. Remove this prerequisite to continue.
+              </Trans>
             </Callout>
           ) : null}
         </>
@@ -350,7 +360,7 @@ export default function BanditRefNewFields({
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
               size="legacy"
-              label="Data Source"
+              label={t`Data Source`}
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
               onChange={(newDatasource) => {
@@ -373,11 +383,14 @@ export default function BanditRefNewFields({
               }}
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
+                const dataSourceName = d.description
+                  ? `${d.name} — ${d.description}`
+                  : d.name;
                 return {
                   value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  }${isDefaultDataSource ? " (default)" : ""}`,
+                  label: isDefaultDataSource
+                    ? t`${dataSourceName} (default)`
+                    : dataSourceName,
                 };
               })}
               className="portal-overflow-ellipsis"
@@ -411,7 +424,7 @@ export default function BanditRefNewFields({
               setDisableStickyBucketing={(v) =>
                 form.setValue("disableStickyBucketing", v)
               }
-              description="Keep users in their assigned variation across future Bandit update periods."
+              description={t`Keep users in their assigned variation across future Bandit update periods.`}
             />
           )}
 
@@ -466,7 +479,7 @@ export default function BanditRefNewFields({
             trigger={
               <div className="link-purple font-weight-bold mt-4 mb-2">
                 <PiCaretRightFill className="chevron mr-1" />
-                Advanced Settings
+                <Trans>Advanced Settings</Trans>
               </div>
             }
             transitionTime={100}
@@ -476,10 +489,14 @@ export default function BanditRefNewFields({
                 className="mb-4"
                 label={
                   <>
-                    <div>Statistics Engine</div>
+                    <div>
+                      <Trans>Statistics Engine</Trans>
+                    </div>
                     <div className="small text-muted">
-                      Only <strong>Bayesian</strong> is available for Bandit
-                      Experiments.
+                      <Trans>
+                        Only <strong>Bayesian</strong> is available for Bandit
+                        Experiments.
+                      </Trans>
                     </div>
                   </>
                 }
@@ -493,7 +510,7 @@ export default function BanditRefNewFields({
                 className="mb-4"
                 label={
                   <PremiumTooltip commercialFeature="regression-adjustment">
-                    <GBCuped /> Use Regression Adjustment (CUPED)
+                    <GBCuped /> <Trans>Use Regression Adjustment (CUPED)</Trans>
                   </PremiumTooltip>
                 }
                 labelClassName="font-weight-bold"
@@ -503,11 +520,11 @@ export default function BanditRefNewFields({
                 }}
                 options={[
                   {
-                    label: "On",
+                    label: t`On`,
                     value: "on",
                   },
                   {
-                    label: "Off",
+                    label: t`Off`,
                     value: "off",
                   },
                 ]}

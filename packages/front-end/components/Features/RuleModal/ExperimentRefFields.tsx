@@ -11,6 +11,7 @@ import {
   stripDefaultsForSparse,
   expandSparseToFull,
 } from "shared/util";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   useConfigBacking,
   useSeedConfigBackedVariations,
@@ -60,14 +61,17 @@ export default function ExperimentRefFields({
   envScope: EnvScopeProps;
   projectScope: ProjectScopeProps;
 }) {
+  const { t } = useLingui();
   const form = useFormContext();
   const isBandit = kind === "bandit";
-  const noun = isBandit ? "Bandit" : "Experiment";
   const showSchedule = !isBandit && !noSchedule;
 
   const { experiments, experimentsMap } = useExperiments();
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
+  const selectedExperimentHref = selectedExperiment
+    ? `/${kind}/${selectedExperiment.id}#overview`
+    : "";
 
   // Config-backed JSON flags: every arm value is a sparse patch that serves the
   // default's config (the compiler flattens the config under an object arm), so
@@ -98,8 +102,8 @@ export default function ExperimentRefFields({
       {experimentOptions.length > 0 ? (
         <SelectField
           size="legacy"
-          label={noun}
-          initialOption="Choose One..."
+          label={isBandit ? t`Bandit` : t`Experiment`}
+          initialOption={t`Choose One...`}
           options={experimentOptions}
           readOnly={existingRule}
           disabled={existingRule}
@@ -136,13 +140,14 @@ export default function ExperimentRefFields({
           formatOptionLabel={({ value, label }) => {
             const exp = experimentsMap.get(value);
             if (exp) {
+              const createdDate = date(exp.dateCreated);
               return (
                 <div className="d-flex flex-wrap">
                   <div className="flex">
                     <strong>{exp.name}</strong>
                   </div>
                   <div className="ml-4 text-muted">
-                    Created: {date(exp.dateCreated)}
+                    <Trans>Created: {createdDate}</Trans>
                   </div>
                   <div
                     className={
@@ -156,7 +161,7 @@ export default function ExperimentRefFields({
                     {showSchedule ? (
                       <div className="small text-muted ml-3">
                         <PiClock size={14} className="mr-1" />
-                        Scheduled
+                        <Trans>Scheduled</Trans>
                       </div>
                     ) : null}
                   </div>
@@ -169,8 +174,12 @@ export default function ExperimentRefFields({
       ) : !existingRule ? (
         <Callout status="warning" mb="4">
           {experiments.length > 0
-            ? `You don't have any eligible ${noun}s yet.`
-            : `You don't have any existing ${noun}s yet.`}{" "}
+            ? isBandit
+              ? t`You don't have any eligible Bandits yet.`
+              : t`You don't have any eligible Experiments yet.`
+            : isBandit
+              ? t`You don't have any existing Bandits yet.`
+              : t`You don't have any existing Experiments yet.`}{" "}
           <a
             role="button"
             className="link-purple"
@@ -182,23 +191,39 @@ export default function ExperimentRefFields({
               }
             }}
           >
-            Create New {noun}
+            {isBandit ? (
+              <Trans>Create New Bandit</Trans>
+            ) : (
+              <Trans>Create New Experiment</Trans>
+            )}
           </a>
         </Callout>
       ) : (
         <Callout status="error" mb="4">
-          Could not find this {noun}. Has it been deleted?
+          {isBandit ? (
+            <Trans>Could not find this Bandit. Has it been deleted?</Trans>
+          ) : (
+            <Trans>Could not find this Experiment. Has it been deleted?</Trans>
+          )}
         </Callout>
       )}
       {selectedExperiment && existingRule && (
         <HelperText status="info" mb="5">
-          <Link
-            href={`/${kind}/${selectedExperiment.id}#overview`}
-            target="_blank"
-          >
-            View this {noun} <PiArrowSquareOut />
-          </Link>{" "}
-          to make changes to assignment or targeting conditions.
+          {isBandit ? (
+            <Trans>
+              <Link href={selectedExperimentHref} target="_blank">
+                View this Bandit <PiArrowSquareOut />
+              </Link>{" "}
+              to make changes to assignment or targeting conditions.
+            </Trans>
+          ) : (
+            <Trans>
+              <Link href={selectedExperimentHref} target="_blank">
+                View this Experiment <PiArrowSquareOut />
+              </Link>{" "}
+              to make changes to assignment or targeting conditions.
+            </Trans>
+          )}
         </HelperText>
       )}
 
@@ -213,7 +238,9 @@ export default function ExperimentRefFields({
           }
         >
           <Flex align="center" gap="3" mb="3">
-            <label className="mb-0">Variation Values</label>
+            <label className="mb-0">
+              <Trans>Variation Values</Trans>
+            </label>
             {!isConfigBacked &&
               feature.valueType === "json" &&
               parsePlainJSONObject(feature.defaultValue) !== null && (
@@ -262,12 +289,12 @@ export default function ExperimentRefFields({
 
       <Field
         size="legacy"
-        label="Description"
+        label={t`Description`}
         textarea
         minRows={1}
         maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
-        placeholder="Short human-readable description of the rule"
+        placeholder={t`Short human-readable description of the rule`}
       />
 
       <RuleEnvironmentScopeField {...envScope} my="5" />

@@ -14,6 +14,9 @@ import {
 import { ExperimentResultStatus } from "shared/types/experiment";
 import { useEffect, useMemo } from "react";
 import { featureRequiresReview } from "shared/util";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
@@ -38,11 +41,11 @@ type RolloutStatusChoice = "rolled-back" | "released" | "";
 
 function getDefaultStatusAndText(
   decisionStatus: ExperimentResultStatus | undefined,
-): { defaultStatus: RolloutStatusChoice; text: string } {
+): { defaultStatus: RolloutStatusChoice; text: MessageDescriptor | null } {
   if (!decisionStatus) {
     return {
       defaultStatus: "",
-      text: "",
+      text: null,
     };
   }
 
@@ -50,35 +53,35 @@ function getDefaultStatusAndText(
     case "unhealthy":
       return {
         defaultStatus: "rolled-back",
-        text: "The Safe Rollout is marked as unhealthy. We recommend reverting to Control.",
+        text: msg`The Safe Rollout is marked as unhealthy. We recommend reverting to Control.`,
       };
     case "ship-now":
       return {
         defaultStatus: "released",
-        text: "The Safe Rollout has finished and no issues were detected.",
+        text: msg`The Safe Rollout has finished and no issues were detected.`,
       };
     case "rollback-now":
       return {
         defaultStatus: "rolled-back",
-        text: "The Safe Rollout has failing guardrails. We recommend reverting to Control.",
+        text: msg`The Safe Rollout has failing guardrails. We recommend reverting to Control.`,
       };
     case "data-incomplete":
       return {
         defaultStatus: "",
-        text: "Some guardrail metrics could not be computed, so no ship recommendation is available.",
+        text: msg`Some guardrail metrics could not be computed, so no ship recommendation is available.`,
       };
     case "before-min-duration":
     case "days-left":
     case "no-data":
       return {
         defaultStatus: "",
-        text: "The Safe Rollout is still collecting data. Are you sure you want to stop early?",
+        text: msg`The Safe Rollout is still collecting data. Are you sure you want to stop early?`,
       };
     case "ready-for-review":
     case "scheduled-end-review":
       return {
         defaultStatus: "",
-        text: "The Safe Rollout is ready for review. Are you sure you want to stop early?",
+        text: msg`The Safe Rollout is ready for review. Are you sure you want to stop early?`,
       };
   }
 }
@@ -94,6 +97,7 @@ export default function SafeRolloutStatusModal({
   feature,
   mutate,
 }: Props) {
+  const { t, i18n } = useLingui();
   const { apiCall } = useAuth();
   const { snapshot: snapshotWithResults } = useSafeRolloutSnapshot();
 
@@ -147,7 +151,7 @@ export default function SafeRolloutStatusModal({
     <Modal
       open={open}
       close={() => setStatusModalOpen(false)}
-      header={`End Safe Rollout`}
+      header={t`End Safe Rollout`}
       ctaEnabled={!!status}
       submit={form.handleSubmit(async (values) => {
         const res = await apiCall<{ version: number }>(
@@ -171,13 +175,13 @@ export default function SafeRolloutStatusModal({
     >
       {text ? (
         <Text as="div" size="2" mb="4">
-          {text}
+          {i18n._(text)}
         </Text>
       ) : null}
       <div className="mb-4">
         <SelectField
           size="legacy"
-          label="Update Safe Rollout status"
+          label={t`Update Safe Rollout status`}
           value={form.watch("status")}
           required
           onChange={(v: "rolled-back" | "released") => {
@@ -186,11 +190,11 @@ export default function SafeRolloutStatusModal({
           options={[
             {
               value: "rolled-back",
-              label: `Revert to 'Control'`,
+              label: t`Revert to 'Control'`,
             },
             {
               value: "released",
-              label: `Release to 100%`,
+              label: t`Release to 100%`,
             },
           ]}
           sort={false}
@@ -198,7 +202,9 @@ export default function SafeRolloutStatusModal({
       </div>
       {status && selectedValue !== null ? (
         <div className="form-group mb-4">
-          <label>Value to roll out</label>
+          <label>
+            <Trans>Value to roll out</Trans>
+          </label>
           <div>
             <ValueDisplay type={valueType} value={selectedValue} />
           </div>
@@ -206,8 +212,8 @@ export default function SafeRolloutStatusModal({
       ) : null}
       <Callout status="info" my="4">
         {reviewRequired
-          ? "A new draft will be created and the safe rollout will continue running until the draft is reviewed and published."
-          : "A new revision will be published and changes will take effect immediately."}
+          ? t`A new draft will be created and the safe rollout will continue running until the draft is reviewed and published.`
+          : t`A new revision will be published and changes will take effect immediately.`}
       </Callout>
     </Modal>
   );

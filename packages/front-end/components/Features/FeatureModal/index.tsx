@@ -23,6 +23,7 @@ import {
 } from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
@@ -173,10 +174,12 @@ export default function FeatureModal({
   close,
   onSuccess,
   inline,
-  cta = "Create",
+  cta,
   secondaryCTA,
   featureToDuplicate,
 }: Props) {
+  const { t } = useLingui();
+  const ctaText = cta === undefined ? t`Create` : cta;
   const {
     project,
     refreshTags,
@@ -287,9 +290,10 @@ export default function FeatureModal({
     [eligibleBaseConfigs],
   );
 
+  const duplicateId = featureToDuplicate?.id;
   const modalHeader = featureToDuplicate
-    ? `Duplicate Feature (${featureToDuplicate.id})`
-    : "Create Feature";
+    ? t`Duplicate Feature (${duplicateId})`
+    : t`Create Feature`;
 
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
@@ -309,8 +313,8 @@ export default function FeatureModal({
     ctaEnabled = false;
     disabledMessage =
       !selectedProject && projectOptions.length > 0
-        ? "Select a project to continue."
-        : "You don't have permission to create Feature Flags.";
+        ? t`Select a project to continue.`
+        : t`You don't have permission to create Feature Flags.`;
   } else {
     // A new flag's whole targeting set is an addition, duplicated or not.
     const proposedTargeting = {
@@ -328,8 +332,8 @@ export default function FeatureModal({
       ctaEnabled = false;
       disabledMessage =
         refusal.cause === "opted-out"
-          ? "One or more of the selected Projects don't allow targeting from other Projects' Feature Flags."
-          : "You don't have permission to target one or more of the selected Projects.";
+          ? t`One or more of the selected Projects don't allow targeting from other Projects' Feature Flags.`
+          : t`You don't have permission to target one or more of the selected Projects.`;
     }
   }
 
@@ -340,7 +344,7 @@ export default function FeatureModal({
       size="lg"
       inline={inline}
       header={modalHeader}
-      cta={cta}
+      cta={ctaText}
       close={close}
       ctaEnabled={ctaEnabled}
       disabledMessage={disabledMessage}
@@ -351,12 +355,12 @@ export default function FeatureModal({
         const { holdout } = feature;
 
         if (!valueType) {
-          throw new Error("Please select a value type");
+          throw new Error(t`Please select a value type`);
         }
 
         // A "config" flag must actually pick a base config.
         if (configType && !baseConfigKey) {
-          throw new Error("Select a base Config for this Feature Flag");
+          throw new Error(t`Select a base Config for this Feature Flag`);
         }
 
         // When duplicating, skip JSON schema validation since the value is
@@ -377,7 +381,7 @@ export default function FeatureModal({
 
         if (hasChanges) {
           throw new Error(
-            "We fixed some errors in the feature. If it looks correct, submit again.",
+            t`We fixed some errors in the feature. If it looks correct, submit again.`,
           );
         }
 
@@ -429,7 +433,9 @@ export default function FeatureModal({
       <FormProvider {...form}>
         {creatingInDemoProject && (
           <Callout status="warning" mb="3">
-            You are creating a feature in the Sample Data Project.
+            <Trans>
+              You are creating a feature in the Sample Data Project.
+            </Trans>
           </Callout>
         )}
 
@@ -440,15 +446,17 @@ export default function FeatureModal({
             size="legacy"
             label={
               <>
-                Project{" "}
-                <Tooltip body="The dropdown below has been filtered to only include projects where you have permission to update Features" />
+                <Trans>Project</Trans>{" "}
+                <Tooltip
+                  body={t`The dropdown below has been filtered to only include projects where you have permission to update Features`}
+                />
               </>
             }
             value={selectedProject || ""}
             onChange={(v) => {
               form.setValue("project", v);
             }}
-            initialOption={canCreateWithoutProject ? "None" : undefined}
+            initialOption={canCreateWithoutProject ? t`None` : undefined}
             options={projectOptions}
             required={requireProjectForFeatures}
           />
@@ -505,11 +513,13 @@ export default function FeatureModal({
           configType &&
           eligibleBaseConfigs.length === 0 && (
             <Callout status="info" mb="3">
-              No Configs available in this project yet.{" "}
-              <Link href="/configs" target="_blank">
-                Create a Config
-              </Link>{" "}
-              to back this Feature Flag.
+              <Trans>
+                No Configs available in this project yet.{" "}
+                <Link href="/configs" target="_blank">
+                  Create a Config
+                </Link>{" "}
+                to back this Feature Flag.
+              </Trans>
             </Callout>
           )}
 
@@ -517,9 +527,9 @@ export default function FeatureModal({
           configType &&
           eligibleBaseConfigs.length > 0 && (
             <SelectField
-              label="Config"
+              label={t`Config`}
               value={baseConfigKey ?? ""}
-              placeholder="Choose a Config..."
+              placeholder={t`Choose a Config...`}
               options={baseConfigOptions}
               formatOptionLabel={(option, meta) => {
                 const depth = (option as { depth?: number }).depth ?? 0;
@@ -560,11 +570,11 @@ export default function FeatureModal({
               sort={false}
               required
               helpText={
-                <>
+                <Trans>
                   The Config that backs this Feature Flag. The default value and
                   any rules override it with a patch.{" "}
                   <strong>Cannot be changed later!</strong>
-                </>
+                </Trans>
               }
             />
           )}
@@ -580,7 +590,7 @@ export default function FeatureModal({
           !showConfigDefaultValue && (
             <Box mb="5">
               <Link onClick={() => setShowConfigDefaultValue(true)}>
-                + Choose default Config
+                <Trans>+ Choose default Config</Trans>
               </Link>
             </Box>
           )}
@@ -591,15 +601,15 @@ export default function FeatureModal({
             <FeatureValueField
               label={
                 <>
-                  Default Value when Enabled{" "}
+                  <Trans>Default Value when Enabled</Trans>{" "}
                   <Tooltip
                     body={
-                      <>
+                      <Trans>
                         After creating your feature, you will be able to add
                         targeted rules such as <strong>A/B Tests</strong> and{" "}
                         <strong>Percentage Rollouts</strong> to control exactly
                         how it gets released to users.
-                      </>
+                      </Trans>
                     }
                   >
                     <PiInfo style={{ color: "var(--violet-11)" }} />
@@ -673,7 +683,9 @@ export default function FeatureModal({
           )}
           {showDescription && (
             <div className="form-group" style={{ width: "100%" }}>
-              <label>Description</label>
+              <label>
+                <Trans>Description</Trans>
+              </label>
               <Box mt="1">
                 <MarkdownInput
                   value={form.watch("description") || ""}
@@ -687,10 +699,14 @@ export default function FeatureModal({
           )}
 
           <Flex gap="4">
-            {!showTags && <Link onClick={() => setShowTags(true)}>+ tags</Link>}
+            {!showTags && (
+              <Link onClick={() => setShowTags(true)}>
+                <Trans>+ tags</Trans>
+              </Link>
+            )}
             {!showDescription && (
               <Link onClick={() => setShowDescription(true)}>
-                + description
+                <Trans>+ description</Trans>
               </Link>
             )}
           </Flex>
