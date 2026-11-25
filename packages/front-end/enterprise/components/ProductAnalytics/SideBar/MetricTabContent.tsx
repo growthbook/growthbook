@@ -8,7 +8,6 @@ import { getSinglePopulationStep } from "shared/populations";
 import {
   configHasPopulation,
   getMetricIdentifierTypes,
-  hasShowAsChoice,
 } from "shared/enterprise";
 import SelectField, {
   GroupedValue,
@@ -244,18 +243,16 @@ export default function MetricTabContent() {
               getFactMetricById,
             )}
             filterActions={
-              hasShowAsChoice(showAsOptions) && (
-                <ShowAsInput
-                  options={showAsOptions}
-                  value={showAs}
-                  setValue={(next) =>
-                    updateValueInDataset(idx, { ...v, showAs: next })
-                  }
-                  unit={v.unit}
-                  metricName={v.name.trim() || `Metric ${idx + 1}`}
-                  metricType={getFactMetricById(v.metricId)?.metricType}
-                />
-              )
+              <ShowAsInput
+                options={showAsOptions}
+                value={showAs}
+                setValue={(next) =>
+                  updateValueInDataset(idx, { ...v, showAs: next })
+                }
+                unit={v.unit}
+                metricName={v.name.trim() || `Metric ${idx + 1}`}
+                metricType={getFactMetricById(v.metricId)?.metricType}
+              />
             }
           >
             <Flex direction="column">

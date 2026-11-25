@@ -284,13 +284,13 @@ function describeShowAs(
   if (config.dataset?.type !== "metric") return "";
   return config.dataset.values
     .flatMap((v) => {
-      const { options, showAs } = getShowAsChoice(
+      const { showAs } = getShowAsChoice(
         v,
         config.showAs,
         getFactMetricById,
         configHasPopulation(config),
       );
-      return options.length ? [`${v.name}: ${showAs}`] : [];
+      return showAs === null ? [] : [`${v.name}: ${showAs}`];
     })
     .join(", ");
 }
@@ -763,14 +763,20 @@ function describeDroppedShowAs(
     getFactMetricById,
     hasPopulation,
   );
-  // No options (e.g. ratio, quantile) means the metric renders as computed.
-  if (!options.length) {
+  // No mode (e.g. ratio, quantile) means the metric renders as computed.
+  if (showAs === null) {
     return `"${value.name}": ${droppedMode} isn't an option (this metric has no showAs options)`;
   }
-  const reason =
-    dividesByPopulationCount(droppedMode) && !hasPopulation
-      ? `${droppedMode} needs a Population`
-      : `${droppedMode} isn't an option; options: ${options.join(", ")}`;
+  // Only modes this metric type gains from a Population, e.g. not
+  // per_population_member on a proportion.
+  const needsPopulation =
+    !hasPopulation &&
+    getShowAsChoice(value, undefined, getFactMetricById, true).options.includes(
+      droppedMode,
+    );
+  const reason = needsPopulation
+    ? `${droppedMode} needs a Population`
+    : `${droppedMode} isn't an option; options: ${options.join(", ")}`;
   return `"${value.name}": ${reason} (renders as ${showAs})`;
 }
 

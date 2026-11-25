@@ -50,16 +50,18 @@ export default function ShowAsInput({
   metricType,
 }: {
   options: readonly ShowAs[];
-  value: ShowAs;
+  /** Null when the metric has no modes, so there's nothing to pick. */
+  value: ShowAs | null;
   setValue: (value: ShowAs) => void;
   /** The chart's identifier type, when every metric shares one. */
   unit: string | null;
   /** Names the trigger, since every metric card with options has one. */
   metricName: string;
-  /** Undefined when the metric isn't found. */
   metricType: FactMetricType | undefined;
 }) {
   const [open, setOpen] = useState(false);
+  const hasShowAsChoice = options.length > 1;
+  if (value === null || !hasShowAsChoice) return null;
   const optionText = getOptionText(unit);
   const optionKey = (showAs: ShowAs): OptionKey =>
     showAs === "total" && metricType === "mean" ? "event_totals" : showAs;

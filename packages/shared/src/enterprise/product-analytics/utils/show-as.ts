@@ -11,50 +11,92 @@ import type {
 } from "../../../validators/product-analytics";
 import { configHasPopulation } from "../populations";
 
-/**
- * How a value renders when its metric type has no Show as modes: its raw
- * value. Ratios ignore it and always render numerator / denominator.
- */
-const NO_SHOW_AS_CHOICE_DEFAULT: ShowAs = "total";
+/** The parts of a metric definition that decide how its values can render. */
+type ShowAsMetric = Pick<FactMetricInterface, "metricType" | "numerator">;
 
-/**
- * The Show as modes each metric type renders in without a population, in
- * display order. A type with no modes renders as `NO_SHOW_AS_CHOICE_DEFAULT`.
- *
- * - mean: the numerator sums each unit's value, so dividing by the unit count
- *   gives a real per-unit average.
- * - proportion / retention: a count of converting units. Each unit counts
- *   once, so per unit would always be 1.
- * - dailyParticipation: each unit's active days, summed.
- * - ratio: none. Ratios render numerator / denominator.
- * - quantile: none. Quantiles render a percentile.
- * - funnel / compound: none. Explorations can't chart them.
- */
-const SHOW_AS_OPTIONS_BY_METRIC_TYPE: Record<
-  FactMetricType,
-  readonly ShowAs[]
-> = {
-  mean: ["total", "per_unit"],
-  proportion: ["total"],
-  retention: ["total"],
-  dailyParticipation: ["total"],
-  ratio: [],
-  quantile: [],
-  funnel: [],
-  compound: [],
+/** How a metric type's values can render. */
+type MetricTypeShowAs = {
+  /** Modes without a population, in display order. */
+  options: readonly ShowAs[];
+  /**
+   * Modes a population adds after `options`. Each divides by the row's
+   * population member count.
+   */
+  populationOptions: readonly ShowAs[];
+  /**
+   * The mode until the user picks one, without a population; null when there
+   * are no options, so the value renders its raw value.
+   */
+  getDefaultShowAs: (metric: ShowAsMetric) => ShowAs | null;
+  /**
+   * The default with a population, over `getDefaultShowAs`: measuring its
+   * members is what a population is for. Null keeps `getDefaultShowAs`.
+   */
+  populationDefaultShowAs: ShowAs | null;
+};
+
+const NO_SHOW_AS: MetricTypeShowAs = {
+  options: [],
+  populationOptions: [],
+  getDefaultShowAs: () => null,
+  populationDefaultShowAs: null,
 };
 
 /**
- * The modes a population adds after a type's own. Each one divides by the
- * row's population member count: a proportion's converting units as a share
- * of the members, and a mean's total as an average over every member,
- * counting members without events as 0.
+ * Every metric type's Show as modes and defaults.
+ *
+ * If you change a default, also update the two places that describe them in
+ * words:
+ * - the DEFAULT rules in the AI agent's prompt (`show_as_rules` in
+ *   back-end/src/enterprise/services/product-analytics-agent.ts)
+ * - the `showAs` description in shared/src/validators/product-analytics.ts,
+ *   which is published in the REST API docs
  */
-const POPULATION_SHOW_AS_OPTIONS_BY_METRIC_TYPE: Partial<
-  Record<FactMetricType, readonly ShowAs[]>
-> = {
-  mean: ["per_population_member"],
-  proportion: ["percent_of_population"],
+const SHOW_AS_BY_METRIC_TYPE: Record<FactMetricType, MetricTypeShowAs> = {
+  // The numerator sums each unit's value, so dividing by the unit count gives
+  // a real per-unit average. With a population, its total averages over every
+  // member, counting members without events as 0.
+  mean: {
+    options: ["total", "per_unit"],
+    populationOptions: ["per_population_member"],
+    // A total is incoherent for `max` (a sum of per-unit maxes has no
+    // interpretation) and `count distinct` (double-counts values shared
+    // across units).
+    getDefaultShowAs: ({ numerator }) => {
+      const agg = numerator?.aggregation ?? "sum";
+      return agg === "max" || agg === "count distinct" ? "per_unit" : "total";
+    },
+    populationDefaultShowAs: "per_population_member",
+  },
+  // A count of converting units. Each unit counts once, so per unit would
+  // always be 1. With a population, it's a share of the members.
+  proportion: {
+    options: ["total"],
+    populationOptions: ["percent_of_population"],
+    getDefaultShowAs: () => "total",
+    populationDefaultShowAs: "percent_of_population",
+  },
+  // A count of retained units, like a proportion.
+  retention: {
+    options: ["total"],
+    populationOptions: [],
+    getDefaultShowAs: () => "total",
+    populationDefaultShowAs: null,
+  },
+  // Each unit's active days, summed.
+  dailyParticipation: {
+    options: ["total"],
+    populationOptions: [],
+    getDefaultShowAs: () => "total",
+    populationDefaultShowAs: null,
+  },
+  // Ratios render numerator / denominator.
+  ratio: NO_SHOW_AS,
+  // Quantiles render a percentile.
+  quantile: NO_SHOW_AS,
+  // Explorations can't chart these.
+  funnel: NO_SHOW_AS,
+  compound: NO_SHOW_AS,
 };
 
 /** The Show as modes a metric type renders in; empty when it has none. */
@@ -63,11 +105,8 @@ export function getShowAsOptions(
   hasPopulation: boolean,
 ): readonly ShowAs[] {
   if (!metricType) return [];
-  const options = SHOW_AS_OPTIONS_BY_METRIC_TYPE[metricType];
-  if (!hasPopulation) return options;
-  const populationOptions =
-    POPULATION_SHOW_AS_OPTIONS_BY_METRIC_TYPE[metricType] ?? [];
-  return [...options, ...populationOptions];
+  const { options, populationOptions } = SHOW_AS_BY_METRIC_TYPE[metricType];
+  return hasPopulation ? [...options, ...populationOptions] : options;
 }
 
 /** Whether a mode divides by the row's population member count. */
@@ -75,8 +114,8 @@ export function dividesByPopulationCount(
   showAs: ShowAs | null | undefined,
 ): boolean {
   if (!showAs) return false;
-  return Object.values(POPULATION_SHOW_AS_OPTIONS_BY_METRIC_TYPE).some(
-    (populationOptions) => populationOptions?.includes(showAs),
+  return Object.values(SHOW_AS_BY_METRIC_TYPE).some(({ populationOptions }) =>
+    populationOptions.includes(showAs),
   );
 }
 
@@ -105,24 +144,14 @@ export function getShowAsLabel(showAs: ShowAs, unit: string | null): string {
 export type ShowAsChoice = {
   /** Empty when the value's metric type has no modes. */
   options: readonly ShowAs[];
-  showAs: ShowAs;
+  /** Null when there are no options: the value renders its raw value. */
+  showAs: ShowAs | null;
 };
-
-/**
- * Whether the user picks between modes. A value with a single mode renders in
- * it without a picker. The one place that decides whether a picker shows.
- */
-export function hasShowAsChoice(options: readonly ShowAs[]): boolean {
-  return options.length > 1;
-}
 
 const NO_SHOW_AS_CHOICE: ShowAsChoice = {
   options: [],
-  showAs: NO_SHOW_AS_CHOICE_DEFAULT,
+  showAs: null,
 };
-
-/** The parts of a metric definition that decide how its values can render. */
-type ShowAsMetric = Pick<FactMetricInterface, "metricType" | "numerator">;
 
 /**
  * The definition a metric value renders: its unsaved draft in the metric
@@ -137,37 +166,20 @@ export function getDraftOrSavedMetric(
 }
 
 /**
- * The default `showAs` for a value without an explicit choice:
- * - `percent_of_population` for proportions and `per_population_member` for
- *   means when the dataset has a population, since measuring its members is
- *   what a population is for.
- * - `per_unit` for other mean metrics whose total is incoherent — numerator
- *   aggregation `max` (a sum of per-unit maxes has no interpretation) or
- *   `count distinct` (double-counts values shared across units).
- * - Otherwise `total`.
- *
- * If you change these defaults, also update the two places that describe them
- * in words:
- * - the DEFAULT rules in the AI agent's prompt (`show_as_rules` in
- *   back-end/src/enterprise/services/product-analytics-agent.ts)
- * - the `showAs` description in shared/src/validators/product-analytics.ts,
- *   which is published in the REST API docs
+ * The default `showAs` for a value without an explicit choice, from
+ * `SHOW_AS_BY_METRIC_TYPE`.
  */
 export function inferShowAs(
   metric: ShowAsMetric | null,
   hasPopulation: boolean,
-): ShowAs {
-  if (metric?.metricType === "proportion" && hasPopulation) {
-    return "percent_of_population";
+): ShowAs | null {
+  if (!metric) return null;
+  const { getDefaultShowAs, populationDefaultShowAs } =
+    SHOW_AS_BY_METRIC_TYPE[metric.metricType];
+  if (hasPopulation && populationDefaultShowAs !== null) {
+    return populationDefaultShowAs;
   }
-  if (metric?.metricType === "mean" && hasPopulation) {
-    return "per_population_member";
-  }
-  if (metric?.metricType === "mean") {
-    const agg = metric.numerator?.aggregation ?? "sum";
-    return agg === "max" || agg === "count distinct" ? "per_unit" : "total";
-  }
-  return NO_SHOW_AS_CHOICE_DEFAULT;
+  return getDefaultShowAs(metric);
 }
 
 /**
@@ -197,7 +209,9 @@ export function getShowAsChoice(
   const showAs =
     [value.showAs, legacyShowAs, inferShowAs(metric, hasPopulation)].find(
       (candidate): candidate is ShowAs =>
-        candidate !== undefined && options.includes(candidate),
+        candidate !== undefined &&
+        candidate !== null &&
+        options.includes(candidate),
     ) ?? options[0];
   return { options, showAs };
 }
