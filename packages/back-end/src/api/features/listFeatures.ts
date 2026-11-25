@@ -133,7 +133,6 @@ export async function loadFeaturesPage(
       context: context,
       params: {
         ...sdkConnection,
-        sdkConnectionId: sdkConnection.id,
         encryptPayload: false, // Force unencrypted for filtering
         encryptionKey: "", // Ensure no encryption
       },
