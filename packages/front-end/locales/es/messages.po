@@ -507,7 +507,7 @@ msgstr "Completado"
 
 #: components/Layout/sidebarNav.ts
 msgid "Configs"
-msgstr "Configuraciones dinámicas"
+msgstr "Ajustes dinámicos"
 
 #: components/GetStarted/WorkspaceLinks.tsx
 msgid "Configure Metric Library"
@@ -973,7 +973,7 @@ msgstr "EXPLORA FUNCIONALIDADES"
 
 #: components/Layout/sidebarNav.ts
 msgid "Exposures Debugger"
-msgstr "Depurador de exposiciones"
+msgstr "Depurar exposiciones"
 
 #: components/GetStarted/DocumentationSidebar.tsx
 #: components/GetStarted/index.tsx
@@ -1007,7 +1007,7 @@ msgstr "Conceptos básicos de los indicadores de funcionalidades"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr "Indicadores de funcionalidades"
+msgstr "Indicadores"
 
 #: components/GetStarted/NeedingAttention.tsx
 msgid "Feature flags requiring attention"
@@ -1407,7 +1407,7 @@ msgstr "Métrica"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Correlations"
-msgstr "Correlaciones entre métricas"
+msgstr "Correlaciones"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Effects"
@@ -1922,7 +1922,7 @@ msgstr "Separa los valores con comas"
 
 #: components/Layout/sidebarNav.ts
 msgid "Session Replay"
-msgstr "Reproducción de sesiones"
+msgstr "Grabaciones de sesión"
 
 #: components/GetStarted/FeaturedCards.tsx
 #: pages/getstarted/data-source-guide.tsx

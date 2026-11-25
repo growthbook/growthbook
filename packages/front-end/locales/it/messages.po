@@ -973,7 +973,7 @@ msgstr "ESPLORA FUNZIONALITÀ"
 
 #: components/Layout/sidebarNav.ts
 msgid "Exposures Debugger"
-msgstr "Debugger delle esposizioni"
+msgstr "Debug esposizioni"
 
 #: components/GetStarted/DocumentationSidebar.tsx
 #: components/GetStarted/index.tsx
@@ -1007,7 +1007,7 @@ msgstr "Nozioni di base sugli indicatori di funzionalità"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr "Indicatori di funzionalità"
+msgstr "Indicatori"
 
 #: components/GetStarted/NeedingAttention.tsx
 msgid "Feature flags requiring attention"
@@ -1407,7 +1407,7 @@ msgstr "Metrica"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Correlations"
-msgstr "Correlazioni tra metriche"
+msgstr "Correlazioni"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Effects"
@@ -1922,7 +1922,7 @@ msgstr "Separa i valori con una virgola"
 
 #: components/Layout/sidebarNav.ts
 msgid "Session Replay"
-msgstr "Riproduzione delle sessioni"
+msgstr "Registrazioni sessioni"
 
 #: components/GetStarted/FeaturedCards.tsx
 #: pages/getstarted/data-source-guide.tsx

@@ -1007,7 +1007,7 @@ msgstr "Noções básicas de sinalizadores de funcionalidades"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr "Sinalizadores de funcionalidades"
+msgstr "Sinalizadores"
 
 #: components/GetStarted/NeedingAttention.tsx
 msgid "Feature flags requiring attention"
@@ -1407,7 +1407,7 @@ msgstr "Métrica"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Correlations"
-msgstr "Correlações entre métricas"
+msgstr "Correlações"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Effects"
@@ -1730,7 +1730,7 @@ msgstr "Populações"
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Power Calculator"
-msgstr "Calculadora de poder estatístico"
+msgstr "Cálculo de poder"
 
 #: components/GetStarted/DocumentationSidebar.tsx
 msgid "Premium Features"

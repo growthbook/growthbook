@@ -973,7 +973,7 @@ msgstr "ÖZELLİKLERİ KEŞFEDİN"
 
 #: components/Layout/sidebarNav.ts
 msgid "Exposures Debugger"
-msgstr "Maruziyet hata ayıklayıcısı"
+msgstr "Maruziyet ayıklayıcı"
 
 #: components/GetStarted/DocumentationSidebar.tsx
 #: components/GetStarted/index.tsx
