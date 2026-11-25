@@ -303,6 +303,16 @@ export default function ResultsTab({
     />
   );
 
+  const editSettingsLink =
+    !(
+      experiment.type === "multi-armed-bandit" &&
+      experiment.status === "running"
+    ) && permissionsUtil.canUpdateExperiment(experiment, {}) ? (
+      <Link type="button" onClick={() => setAnalysisSettingsOpen(true)} mr="2">
+        {resultsRedesign ? "Edit" : "Edit Settings"}
+      </Link>
+    ) : null;
+
   return (
     <div>
       {isBandit && hasResults ? (
@@ -312,20 +322,9 @@ export default function ResultsTab({
         </Callout>
       ) : null}
 
-      <Box display={resultsRedesign ? "none" : undefined}>
+      <Box>
         <Flex direction="row" align="start" gap="3" mx="1" mb="4">
-          {!(
-            experiment.type === "multi-armed-bandit" &&
-            experiment.status === "running"
-          ) && permissionsUtil.canUpdateExperiment(experiment, {}) ? (
-            <Link
-              type="button"
-              onClick={() => setAnalysisSettingsOpen(true)}
-              mr="2"
-            >
-              Edit Settings
-            </Link>
-          ) : null}
+          {resultsRedesign ? null : editSettingsLink}
           {hasData && (
             <>
               <Flex align="center" gap="1">
@@ -456,6 +455,7 @@ export default function ResultsTab({
               ) : null}
             </>
           )}
+          {resultsRedesign ? editSettingsLink : null}
         </Flex>
       </Box>
 
