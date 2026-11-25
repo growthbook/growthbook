@@ -46,8 +46,8 @@ export default function StagedEditsBar({
         <Flex align="center" gap="3">
           {changes}
           <Box flexGrow="1" />
-          {/* Set apart from the controls it sits beside. */}
-          <Flex align="center" gap="3" mr="3">
+          {/* Set apart from the controls it sits beside, and read out when a save fails. */}
+          <Flex align="center" gap="3" mr="3" aria-live="polite">
             {notes}
           </Flex>
           {target ? <Box mr="3">{target}</Box> : null}
