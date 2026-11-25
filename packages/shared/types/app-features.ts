@@ -37,6 +37,7 @@ export type AppFeatures = {
   "experiment-ideas": boolean;
   "experiment-impact-setting": Record<string, unknown>;
   "experiment-implementation": boolean;
+  "experiment-results-redesign-v1": boolean;
   "experiment-results-timeseries": boolean;
   "experimentation-focused-onboarding": boolean;
   "fact-metric-sql-preview": boolean;

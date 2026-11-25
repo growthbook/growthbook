@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { PiSlidersHorizontal } from "react-icons/pi";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
@@ -81,8 +82,12 @@ import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import Text from "@/ui/Text";
+import Badge from "@/ui/Badge";
+import { useResultsRedesign } from "@/components/Experiment/ResultsRedesign";
 import MigrateResultsToDashboardModal from "@/components/Experiment/ResultsFilter/MigrateResultsToDashboardModal";
 import UpdateDimensionBreakdownModal from "@/components/Experiment/UpdateDimensionBreakdownModal";
+import styles from "./ResultsToolbar.module.scss";
+import ResultsViewOptions from "./ResultsViewOptions";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -115,6 +120,10 @@ export interface Props {
   sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
   onSnapshotSuccessfulUpdate?: () => void;
+  showValue?: boolean;
+  setShowValue?: (show: boolean) => void;
+  setBaselineRow?: (baselineRow: number) => void;
+  setVariationFilter?: (variationFilter: number[]) => void;
 }
 
 const numberFormatter = Intl.NumberFormat();
@@ -142,7 +151,12 @@ export default function AnalysisSettingsSummary({
   sortBy,
   sortDirection,
   onSnapshotSuccessfulUpdate,
+  showValue = true,
+  setShowValue,
+  setBaselineRow,
+  setVariationFilter,
 }: Props) {
+  const resultsRedesign = useResultsRedesign();
   const {
     getDatasourceById,
     getExperimentMetricById,
@@ -743,8 +757,26 @@ export default function AnalysisSettingsSummary({
   // Render if filters are active OR at least one filter type is available
   const shouldRenderMetricFilter = hasActiveFilters || hasAnyAvailableFilter;
 
+  const hiddenVariations = variationFilter?.length ?? 0;
+  const unitCount = (label: string, count: number) =>
+    resultsRedesign ? (
+      <Text size="sm" color="text-low">
+        <Text color="text-high">{numberFormatter.format(count)}</Text> {label}
+      </Text>
+    ) : (
+      <Metadata
+        label={label}
+        value={numberFormatter.format(count)}
+        style={{ whiteSpace: "nowrap" }}
+      />
+    );
+
   return (
-    <Box px="3" pt="3" mb="3">
+    <Box
+      px={resultsRedesign ? "0" : "3"}
+      pt={resultsRedesign ? "0" : "3"}
+      mb="3"
+    >
       <Flex
         align="center"
         justify="between"
@@ -764,27 +796,19 @@ export default function AnalysisSettingsSummary({
           <Flex align="center" gap="4">
             {snapshot && clusterSubUnitIdentifier ? (
               <>
-                {overallClusterUnits !== null && (
-                  <Metadata
-                    label={getUnitDisplayName(clusterIdentifier)}
-                    value={numberFormatter.format(overallClusterUnits)}
-                    style={{ whiteSpace: "nowrap" }}
-                  />
-                )}
-                {overallSubUnits !== null && (
-                  <Metadata
-                    label={getUnitDisplayName(clusterSubUnitIdentifier)}
-                    value={numberFormatter.format(overallSubUnits)}
-                    style={{ whiteSpace: "nowrap" }}
-                  />
-                )}
+                {overallClusterUnits !== null &&
+                  unitCount(
+                    getUnitDisplayName(clusterIdentifier),
+                    overallClusterUnits,
+                  )}
+                {overallSubUnits !== null &&
+                  unitCount(
+                    getUnitDisplayName(clusterSubUnitIdentifier),
+                    overallSubUnits,
+                  )}
               </>
             ) : snapshot ? (
-              <Metadata
-                label={getUnitDisplayName(userIdType)}
-                value={numberFormatter.format(totalUnits)}
-                style={{ whiteSpace: "nowrap" }}
-              />
+              unitCount(getUnitDisplayName(userIdType), totalUnits)
             ) : null}
 
             <Flex align="center" gap="2">
@@ -946,9 +970,13 @@ export default function AnalysisSettingsSummary({
         </Box>
 
         <Box style={{ flex: "1 0 auto", order: -1, whiteSpace: "nowrap" }}>
-          <Flex align="center">
+          <Flex
+            align="center"
+            className={resultsRedesign ? styles.joined : undefined}
+          >
             {setDimension && (
               <DimensionChooser
+                buttonTrigger={resultsRedesign}
                 value={dimension ?? ""}
                 setValue={setDimension}
                 precomputedDimensions={precomputedDimensions}
@@ -966,9 +994,9 @@ export default function AnalysisSettingsSummary({
                 setSnapshotDimension={setSnapshotDimension}
               />
             )}
-            {shouldRenderMetricFilter && (
+            {(shouldRenderMetricFilter || resultsRedesign) && (
               <>
-                {setDimension && (
+                {setDimension && !resultsRedesign && (
                   <Separator orientation="vertical" ml="5" mr="2" />
                 )}
                 <ResultsFilter
@@ -984,6 +1012,42 @@ export default function AnalysisSettingsSummary({
                   showMetricFilter={showMetricFilter}
                   setShowMetricFilter={setShowMetricFilter}
                   dimension={dimension}
+                  {...(resultsRedesign
+                    ? {
+                        title: "View Options",
+                        trigger: (activeFilterCount: number) => (
+                          <Button
+                            variant="outline"
+                            color="gray"
+                            aria-label="View options"
+                            title="View options"
+                          >
+                            <PiSlidersHorizontal size={16} />
+                            {activeFilterCount + hiddenVariations > 0 ? (
+                              <Badge
+                                color="indigo"
+                                variant="solid"
+                                radius="full"
+                                label={String(
+                                  activeFilterCount + hiddenVariations,
+                                )}
+                              />
+                            ) : null}
+                          </Button>
+                        ),
+                        children: (
+                          <ResultsViewOptions
+                            variations={variations}
+                            baselineRow={baselineRow ?? 0}
+                            setBaselineRow={setBaselineRow}
+                            variationFilter={variationFilter ?? []}
+                            setVariationFilter={setVariationFilter}
+                            showValue={showValue}
+                            setShowValue={setShowValue}
+                          />
+                        ),
+                      }
+                    : {})}
                 />
               </>
             )}

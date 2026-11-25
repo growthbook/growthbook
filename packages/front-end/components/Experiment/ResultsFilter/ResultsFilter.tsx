@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from "react";
+import React, { ReactNode, useMemo, useCallback } from "react";
 import { Flex, Box, Heading } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { FactTableColumnType } from "shared/types/fact-table";
@@ -329,6 +329,9 @@ export default function ResultsFilter({
   showMetricFilter,
   setShowMetricFilter,
   dimension,
+  trigger,
+  title = "Filters",
+  children,
 }: {
   availableMetricTags?: string[];
   metricTagFilter?: string[];
@@ -349,6 +352,11 @@ export default function ResultsFilter({
   showMetricFilter: boolean;
   setShowMetricFilter: (show: boolean) => void;
   dimension?: string;
+  // Replaces the "Filters" button; it then stands alone, without "Clear".
+  trigger?: (activeFilterCount: number) => ReactNode;
+  title?: string;
+  // More sections, under the filters.
+  children?: ReactNode;
 }) {
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
@@ -418,20 +426,24 @@ export default function ResultsFilter({
         onOpenChange={setShowMetricFilter}
         triggerAsChild={true}
         trigger={
-          <Button color="violet" variant="ghost" size="md" icon={<PiPlus />}>
-            <Flex align="center" gap="1">
-              <span>Filters</span>
-              {activeFilterCount > 0 && (
-                <Badge
-                  color="indigo"
-                  variant="solid"
-                  radius="full"
-                  label={String(activeFilterCount)}
-                  style={{ minWidth: 18, height: 18, marginTop: 1 }}
-                />
-              )}
-            </Flex>
-          </Button>
+          trigger ? (
+            trigger(activeFilterCount)
+          ) : (
+            <Button color="violet" variant="ghost" size="md" icon={<PiPlus />}>
+              <Flex align="center" gap="1">
+                <span>Filters</span>
+                {activeFilterCount > 0 && (
+                  <Badge
+                    color="indigo"
+                    variant="solid"
+                    radius="full"
+                    label={String(activeFilterCount)}
+                    style={{ minWidth: 18, height: 18, marginTop: 1 }}
+                  />
+                )}
+              </Flex>
+            </Button>
+          )
         }
         content={
           <Flex direction="column" justify="between" style={{ width: 550 }}>
@@ -439,7 +451,7 @@ export default function ResultsFilter({
               <Flex align="center" justify="between" mb="2">
                 <Heading size="2" weight="medium">
                   <Flex align="center" gap="1">
-                    Filters
+                    {title}
                     {activeFilterCount > 0 && (
                       <Badge
                         color="indigo"
@@ -614,12 +626,13 @@ export default function ResultsFilter({
                   </Box>
                 </Flex>
               )}
+              {children}
             </Box>
           </Flex>
         }
       />
 
-      {filteringApplied ? (
+      {filteringApplied && !trigger ? (
         <Link
           color="red"
           className="font-weight-bold"

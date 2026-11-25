@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { DifferenceType } from "shared/types/stats";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import {
@@ -24,6 +25,10 @@ import {
 } from "@/services/experiments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
+import {
+  ResultsRedesignContext,
+  useResultsRedesign,
+} from "@/components/Experiment/ResultsRedesign";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
 import {
@@ -139,12 +144,18 @@ export interface Props {
 
 /** The provider has to sit outside, so the page itself can read its state. */
 export default function TabbedPage(props: Props) {
+  const resultsRedesign =
+    useFeatureIsOn("experiment-results-redesign-v1") &&
+    props.experiment.type !== "multi-armed-bandit" &&
+    props.experiment.type !== "holdout";
   return (
     <ExperimentEditsProvider
       experiment={props.experiment}
       mutate={props.mutate}
     >
-      <TabbedPageContents {...props} />
+      <ResultsRedesignContext.Provider value={resultsRedesign}>
+        <TabbedPageContents {...props} />
+      </ResultsRedesignContext.Provider>
     </ExperimentEditsProvider>
   );
 }
@@ -196,12 +207,13 @@ function TabbedPageContents({
   const [compareModal, setCompareModal] = useState(false);
   const tabName = tab.split("/")[0];
   const onSetup = tabName === "overview";
+  const resultsRedesign = useResultsRedesign();
   // Open state is remembered per experiment; width is a global preference.
   const details = useDetailsPanel({
     openKey: `experiment-details-panel-open__${experiment.id}`,
     widthKey: "experiment-details-panel-width",
     tab: tabName,
-    homeTab: "overview",
+    homeTab: resultsRedesign ? ["overview", "results"] : "overview",
   });
   // The pre-launch checklist and the details panel point at analysis fields.
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
@@ -293,6 +305,11 @@ function TabbedPageContents({
   const [sortDirection, setSortDirection] = useLocalStorage<
     "asc" | "desc" | null
   >(`experiment-page__${experiment.id}__sort_direction`, null);
+
+  const [showValue, setShowValue] = useLocalStorage<boolean>(
+    `experiment-page__${experiment.id}__show_value`,
+    true,
+  );
 
   const setMetricTagFilterWithPriority = (newMetricTagFilter: string[]) => {
     setMetricTagFilter(newMetricTagFilter);
@@ -739,6 +756,10 @@ function TabbedPageContents({
               stagedHoldoutId={stagedHoldout}
               tab={details.panelTab}
               setTab={details.setPanelTab}
+              envs={envs}
+              editAnalysisOnSetup={
+                onSetup ? () => showAnalysisSettings(true) : null
+              }
             />
           ) : null
         }
@@ -957,6 +978,8 @@ function TabbedPageContents({
               setSortBy={setSortBy}
               sortDirection={sortDirection}
               setSortDirection={setSortDirection}
+              showValue={showValue}
+              setShowValue={setShowValue}
             />
           </div>
           <div

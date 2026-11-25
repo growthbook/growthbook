@@ -21,6 +21,7 @@ import EditExperimentInfoModal, {
 } from "@/components/Experiment/TabbedPage/EditExperimentInfoModal";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import { useResultsRedesign } from "@/components/Experiment/ResultsRedesign";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import {
   PreLaunchChecklistPanel,
@@ -28,6 +29,7 @@ import {
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import Metadata from "@/ui/Metadata";
 import { headerDates } from "./statusSchedule";
+import ExperimentAnalysisPanelSection from "./ExperimentAnalysisPanelSection";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -38,6 +40,8 @@ export interface Props {
   disableEditing?: boolean;
   tab: DetailsPanelTab;
   setTab: (tab: DetailsPanelTab) => void;
+  envs: string[];
+  editAnalysisOnSetup: (() => void) | null;
 }
 
 export default function ExperimentDetailsPanel({
@@ -49,7 +53,10 @@ export default function ExperimentDetailsPanel({
   disableEditing,
   tab,
   setTab,
+  envs,
+  editAnalysisOnSetup,
 }: Props) {
+  const resultsRedesign = useResultsRedesign();
   // Editors can't open over the page's unsaved edits; their buttons say why.
   const editsBlocked = useEditsBlockedReason();
   const { canEdit } = useExperimentEditing(experiment, disableEditing, holdout);
@@ -143,6 +150,19 @@ export default function ExperimentDetailsPanel({
             }
           />
         </PanelSection>
+        {resultsRedesign && experiment.status !== "draft" ? (
+          <>
+            <Separator size="4" />
+            <ExperimentAnalysisPanelSection
+              experiment={experiment}
+              envs={envs}
+              mutate={mutate}
+              canEdit={canEdit}
+              editsBlocked={editsBlocked}
+              editOnSetup={editAnalysisOnSetup}
+            />
+          </>
+        ) : null}
         <Separator size="4" />
         <PanelSection title="Data">
           <ExperimentDataFields

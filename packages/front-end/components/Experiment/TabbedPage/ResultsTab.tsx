@@ -4,7 +4,6 @@ import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
 import {
   isDimensionPrecomputed,
-  getEffectiveLookbackOverride,
   getComputableNewMetricIds,
 } from "shared/experiments";
 import React, { useState, useCallback, useMemo } from "react";
@@ -16,7 +15,6 @@ import { useRouter } from "next/router";
 
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -38,7 +36,9 @@ import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import AnalysisSettingInfo from "@/components/AnalysisSettingInfo";
+import { useResultsRedesign } from "@/components/Experiment/ResultsRedesign";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
+import { getAnalysisSettingsDisplay } from "./analysisSettingsDisplay";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -75,6 +75,8 @@ export interface Props {
   setSortBy: (s: "significance" | "change" | null) => void;
   sortDirection: "asc" | "desc" | null;
   setSortDirection: (d: "asc" | "desc" | null) => void;
+  showValue: boolean;
+  setShowValue: (show: boolean) => void;
 }
 
 export default function ResultsTab({
@@ -100,6 +102,8 @@ export default function ResultsTab({
   sortDirection,
   setSortDirection,
   holdoutProjects,
+  showValue,
+  setShowValue,
 }: Props) {
   const {
     getDatasourceById,
@@ -116,6 +120,7 @@ export default function ResultsTab({
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
 
   const router = useRouter();
+  const resultsRedesign = useResultsRedesign();
 
   const {
     snapshot,
@@ -242,21 +247,61 @@ export default function ResultsTab({
     honoredPrecomputedUnitDimensionIds,
   ]);
 
-  const endDate =
-    experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
+  const { priorUsed, cupedUsed, postStratificationUsed, lookbackEnforced } =
+    getAnalysisSettingsDisplay({
+      experiment,
+      snapshot,
+      analysis,
+      disablePrecomputedDimensions:
+        !!organization?.settings?.disablePrecomputedDimensions,
+    });
 
-  const engineIsBayesian =
-    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) !== "frequentist";
-  const anyMetricUsesProperPrior =
-    snapshot?.settings?.metricSettings?.some(
-      (m) => m.computedSettings?.properPrior,
-    ) ?? false;
-  const priorUsed = hasData && engineIsBayesian && anyMetricUsesProperPrior;
-  const cupedUsed = hasData && !!analysis?.settings?.regressionAdjusted;
-  const postStratificationUsed =
-    hasData &&
-    !!analysis?.settings?.postStratificationEnabled &&
-    !organization?.settings?.disablePrecomputedDimensions;
+  const toolbar = (
+    <AnalysisSettingsSummary
+      experiment={experiment}
+      newMetricIds={newMetricIds}
+      mutate={mutate}
+      statsEngine={statsEngine}
+      editMetrics={editMetrics ?? undefined}
+      variationFilter={analysisBarSettings.variationFilter}
+      baselineRow={analysisBarSettings.baselineRow}
+      differenceType={analysisBarSettings.differenceType}
+      dimension={analysisBarSettings.dimension}
+      setDimension={(d: string, resetOtherSettings?: boolean) =>
+        setAnalysisBarSettings({
+          ...analysisBarSettings,
+          dimension: d,
+          ...(resetOtherSettings
+            ? {
+                baselineRow: 0,
+                differenceType: "relative",
+                variationFilter: [],
+              }
+            : {}),
+        })
+      }
+      metricTagFilter={metricTagFilter}
+      setMetricTagFilter={setMetricTagFilter}
+      metricsFilter={metricsFilter}
+      setMetricsFilter={setMetricsFilter}
+      availableMetricsFilters={availableMetricsFilters}
+      availableMetricTags={availableMetricTags}
+      availableSliceTags={availableSliceTags}
+      sliceTagsFilter={sliceTagsFilter}
+      setSliceTagsFilter={setSliceTagsFilter}
+      sortBy={sortBy}
+      sortDirection={sortDirection}
+      onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
+      showValue={showValue}
+      setShowValue={setShowValue}
+      setBaselineRow={(baselineRow) =>
+        setAnalysisBarSettings({ ...analysisBarSettings, baselineRow })
+      }
+      setVariationFilter={(variationFilter) =>
+        setAnalysisBarSettings({ ...analysisBarSettings, variationFilter })
+      }
+    />
+  );
 
   return (
     <div>
@@ -267,7 +312,7 @@ export default function ResultsTab({
         </Callout>
       ) : null}
 
-      <Box>
+      <Box display={resultsRedesign ? "none" : undefined}>
         <Flex direction="row" align="start" gap="3" mx="1" mb="4">
           {!(
             experiment.type === "multi-armed-bandit" &&
@@ -355,18 +400,8 @@ export default function ResultsTab({
                   value={activationMetric.name}
                 />
               ) : null}
-              {getEffectiveLookbackOverride(
-                experiment.attributionModel,
-                experiment.lookbackOverride,
-              ) && experiment.lookbackOverride ? (
-                <Metadata
-                  label="Lookback Enforced"
-                  value={
-                    experiment.lookbackOverride.type === "date"
-                      ? `${date(experiment.lookbackOverride.value, "UTC")} - ${endDate ? date(endDate, "UTC") : "now"}`
-                      : `${experiment.lookbackOverride.value} ${experiment.lookbackOverride.valueUnit}`
-                  }
-                />
+              {lookbackEnforced ? (
+                <Metadata label="Lookback Enforced" value={lookbackEnforced} />
               ) : null}
               {isBandit && snapshot ? (
                 <>
@@ -424,6 +459,7 @@ export default function ResultsTab({
         </Flex>
       </Box>
 
+      {resultsRedesign ? toolbar : null}
       <div className="appbox">
         {analysisSettingsOpen ? (
           <AnalysisForm
@@ -440,42 +476,7 @@ export default function ResultsTab({
           />
         ) : null}
         <div style={{ overflowX: "initial" }}>
-          <AnalysisSettingsSummary
-            experiment={experiment}
-            newMetricIds={newMetricIds}
-            mutate={mutate}
-            statsEngine={statsEngine}
-            editMetrics={editMetrics ?? undefined}
-            variationFilter={analysisBarSettings.variationFilter}
-            baselineRow={analysisBarSettings.baselineRow}
-            differenceType={analysisBarSettings.differenceType}
-            dimension={analysisBarSettings.dimension}
-            setDimension={(d: string, resetOtherSettings?: boolean) =>
-              setAnalysisBarSettings({
-                ...analysisBarSettings,
-                dimension: d,
-                ...(resetOtherSettings
-                  ? {
-                      baselineRow: 0,
-                      differenceType: "relative",
-                      variationFilter: [],
-                    }
-                  : {}),
-              })
-            }
-            metricTagFilter={metricTagFilter}
-            setMetricTagFilter={setMetricTagFilter}
-            metricsFilter={metricsFilter}
-            setMetricsFilter={setMetricsFilter}
-            availableMetricsFilters={availableMetricsFilters}
-            availableMetricTags={availableMetricTags}
-            availableSliceTags={availableSliceTags}
-            sliceTagsFilter={sliceTagsFilter}
-            setSliceTagsFilter={setSliceTagsFilter}
-            sortBy={sortBy}
-            sortDirection={sortDirection}
-            onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
-          />
+          {resultsRedesign ? null : toolbar}
           {experiment.status === "draft" ? (
             <Callout status="info" contentAlign="center" mx="3" my="3">
               This experiment is still a draft. Start it to see results.
@@ -533,6 +534,7 @@ export default function ResultsTab({
                   setSortBy={setSortBy}
                   sortDirection={sortDirection}
                   setSortDirection={setSortDirection}
+                  showValue={showValue}
                 />
               )}
             </>

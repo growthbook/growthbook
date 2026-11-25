@@ -49,6 +49,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 
 // UI-only sentinel values for the two configurable dimensions; never persisted
 export const CUSTOM_CUTOFF_OPTION = "custom:cutoff";
@@ -67,6 +68,8 @@ export interface Props {
   labelClassName?: string;
   showHelp?: boolean;
   newUi?: boolean;
+  // A bordered button, for a toolbar, instead of a labelled link.
+  buttonTrigger?: boolean;
   resetAnalysisBarSettings?: () => void;
   analysis?: ExperimentSnapshotAnalysis;
   snapshot?: ExperimentSnapshotInterface;
@@ -340,6 +343,7 @@ export default function DimensionChooser({
   labelClassName,
   showHelp,
   newUi = true,
+  buttonTrigger = false,
   analysis,
   snapshot,
   mutate,
@@ -701,15 +705,29 @@ export default function DimensionChooser({
 
   return (
     <Flex direction="row" gap="2" align="center">
-      <Text weight="semibold" color="text-high">
-        Unit Dimension:
-      </Text>
+      {buttonTrigger ? null : (
+        <Text weight="semibold" color="text-high">
+          Unit Dimension:
+        </Text>
+      )}
       <DropdownMenu
         trigger={
-          <Link type="button" style={{ color: "var(--color-text-high)" }}>
-            <Text mr="1">{currentDimensionName}</Text>
-            <PiCaretDownFill style={{ fontSize: "12px" }} />
-          </Link>
+          buttonTrigger ? (
+            <Button
+              variant="outline"
+              color="gray"
+              icon={<PiCaretDownFill style={{ fontSize: "12px" }} />}
+              iconPosition="right"
+            >
+              <Text color="text-low">Dimension:</Text>{" "}
+              <Text color="text-high">{currentDimensionName}</Text>
+            </Button>
+          ) : (
+            <Link type="button" style={{ color: "var(--color-text-high)" }}>
+              <Text mr="1">{currentDimensionName}</Text>
+              <PiCaretDownFill style={{ fontSize: "12px" }} />
+            </Link>
+          )
         }
         open={dropdownOpen}
         onOpenChange={setDropdownOpen}

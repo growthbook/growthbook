@@ -1,0 +1,16 @@
+// Two controls drawn as one segmented group.
+.joined {
+  display: inline-flex;
+  align-items: center;
+
+  > :first-child:not(:last-child) :global(.rt-BaseButton) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  > :last-child:not(:first-child) :global(.rt-BaseButton) {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    margin-left: -1px;
+  }
+}

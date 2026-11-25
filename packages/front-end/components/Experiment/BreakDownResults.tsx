@@ -120,6 +120,7 @@ const BreakDownResults: FC<{
   mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
   customMetricSlices?: CustomMetricSlice[];
+  redesign?: { showValue: boolean };
 }> = ({
   experimentId,
   significanceThresholds,
@@ -169,6 +170,7 @@ const BreakDownResults: FC<{
   mutate,
   setDifferenceType,
   customMetricSlices,
+  redesign,
 }) => {
   const {
     getDimensionById,
@@ -314,6 +316,7 @@ const BreakDownResults: FC<{
             </h4>
             <ResultsTable
               key={i}
+              redesign={redesign}
               experimentId={experimentId}
               significanceThresholds={significanceThresholds}
               dateCreated={reportDate}

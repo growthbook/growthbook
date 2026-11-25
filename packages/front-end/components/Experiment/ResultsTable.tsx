@@ -151,6 +151,8 @@ export type ResultsTableProps = {
   // domain/range anchored at 0 rather than the fake (±Infinity) bound.
   oneSided?: boolean;
   sampleSizeFrom?: SampleSizeSource;
+  // The results redesign (experiment-results-redesign-v1).
+  redesign?: { showValue: boolean };
 };
 
 export const ROW_HEIGHT = 46;
@@ -228,6 +230,7 @@ export default function ResultsTable({
   labelMaxWidth = 75,
   oneSided = false,
   sampleSizeFrom,
+  redesign,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -444,6 +447,26 @@ export default function ResultsTable({
     (v) => !variationFilter?.includes(v.index),
   );
   const compactResults = filteredVariations.length <= 2;
+  // The redesign with 3+ variations: every variation, the baseline included,
+  // is a row beside the metric's name, in place of a baseline column.
+  const rowsLayout = !!redesign && !compactResults;
+  const showValue = redesign?.showValue ?? true;
+  const showBaselineColumn =
+    columnsToDisplay.includes("Baseline Average") && !rowsLayout && showValue;
+  // With values hidden, two variations keep the column for its header.
+  const showVariationColumn =
+    columnsToDisplay.includes("Variation Averages") &&
+    (showValue || compactResults);
+  // With fewer columns, the name takes the room the graph otherwise would.
+  const labelColumnWidth =
+    260 + (redesign && compactResults ? 80 : 0) + (showValue ? 0 : 60);
+  const columnCount =
+    columnsToDisplay.filter(
+      (col) => col !== "Baseline Average" && col !== "Variation Averages",
+    ).length +
+    (rowsLayout ? 1 : 0) +
+    (showBaselineColumn ? 1 : 0) +
+    (showVariationColumn ? 1 : 0);
 
   const domain = useDomain(
     filteredVariations,
@@ -560,6 +583,36 @@ export default function ResultsTable({
 
   const drilldownEnabled = !!effectiveOnRowClick && !noTooltip;
 
+  const baselineChooser = (
+    <BaselineChooserColumnLabel
+      variations={variations}
+      baselineRow={baselineRow}
+      setBaselineRow={setBaselineRow}
+      snapshot={snapshot}
+      analysis={analysis}
+      setAnalysisSettings={setAnalysisSettings}
+      mutate={mutate}
+      dropdownEnabled={
+        !redesign && !isHoldout && snapshot?.dimension !== "pre:date"
+      }
+      isHoldout={isHoldout}
+      labelMaxWidth={labelMaxWidth}
+    />
+  );
+  const variationChooser = (
+    <VariationChooserColumnLabel
+      variations={variations}
+      variationFilter={variationFilter ?? []}
+      setVariationFilter={setVariationFilter}
+      baselineRow={baselineRow}
+      dropdownEnabled={
+        !redesign && !isHoldout && snapshot?.dimension !== "pre:date"
+      }
+      isHoldout={isHoldout}
+      labelMaxWidth={labelMaxWidth}
+    />
+  );
+
   return (
     <DrilldownTooltip enabled={drilldownEnabled}>
       {({
@@ -583,7 +636,7 @@ export default function ResultsTable({
                         })}
                         style={{
                           lineHeight: "15px",
-                          width: 260 * tableCellScale,
+                          width: labelColumnWidth * tableCellScale,
                         }}
                       >
                         <div className="row px-0">
@@ -614,47 +667,34 @@ export default function ResultsTable({
 
                     {!noRows ? (
                       <>
-                        {columnsToDisplay.includes("Baseline Average") && (
+                        {rowsLayout && (
                           <th
                             style={{ width: valueColumnWidth * tableCellScale }}
                             className={clsx("axis-col label", {
                               noStickyHeader,
                             })}
                           >
-                            <BaselineChooserColumnLabel
-                              variations={variations}
-                              baselineRow={baselineRow}
-                              setBaselineRow={setBaselineRow}
-                              snapshot={snapshot}
-                              analysis={analysis}
-                              setAnalysisSettings={setAnalysisSettings}
-                              mutate={mutate}
-                              dropdownEnabled={
-                                !isHoldout && snapshot?.dimension !== "pre:date"
-                              }
-                              isHoldout={isHoldout}
-                              labelMaxWidth={labelMaxWidth}
-                            />
+                            Variation
                           </th>
                         )}
-                        {columnsToDisplay.includes("Variation Averages") && (
+                        {showBaselineColumn && (
                           <th
                             style={{ width: valueColumnWidth * tableCellScale }}
                             className={clsx("axis-col label", {
                               noStickyHeader,
                             })}
                           >
-                            <VariationChooserColumnLabel
-                              variations={variations}
-                              variationFilter={variationFilter ?? []}
-                              setVariationFilter={setVariationFilter}
-                              baselineRow={baselineRow}
-                              dropdownEnabled={
-                                !isHoldout && snapshot?.dimension !== "pre:date"
-                              }
-                              isHoldout={isHoldout}
-                              labelMaxWidth={labelMaxWidth}
-                            />
+                            {baselineChooser}
+                          </th>
+                        )}
+                        {showVariationColumn && (
+                          <th
+                            style={{ width: valueColumnWidth * tableCellScale }}
+                            className={clsx("axis-col label", {
+                              noStickyHeader,
+                            })}
+                          >
+                            {rowsLayout ? "Value" : variationChooser}
                           </th>
                         )}
                         {columnsToDisplay.includes("Chance to Win") && (
@@ -771,9 +811,10 @@ export default function ResultsTable({
                       <th
                         className={clsx("axis-col label", { noStickyHeader })}
                         colSpan={
-                          columnsToDisplay.filter(
-                            (col) => col !== "Metric & Variation Names",
-                          ).length
+                          columnCount -
+                          (columnsToDisplay.includes("Metric & Variation Names")
+                            ? 1
+                            : 0)
                         }
                       />
                     )}
@@ -832,12 +873,35 @@ export default function ResultsTable({
                   ) : null;
 
                   const includedLabelColumns = columnsToDisplay.filter((col) =>
-                    [
-                      "Metric & Variation Names",
-                      "Baseline Average",
-                      "Variation Averages",
-                      "Chance to Win",
-                    ].includes(col),
+                    col === "Baseline Average"
+                      ? showBaselineColumn
+                      : col === "Variation Averages"
+                        ? showVariationColumn
+                        : [
+                            "Metric & Variation Names",
+                            "Chance to Win",
+                          ].includes(col),
+                  );
+                  // In the rows layout the metric's name leads its first row.
+                  let alreadyShownLabel = false;
+                  const leadingCell = () => {
+                    if (!rowsLayout) return undefined;
+                    if (alreadyShownLabel) return <td />;
+                    alreadyShownLabel = true;
+                    return (
+                      <td className="position-relative">
+                        {renderLabelColumn({
+                          label: row.label,
+                          metric: row.metric,
+                          row,
+                          location: resultGroup,
+                        })}
+                      </td>
+                    );
+                  };
+                  let alreadyShownTimeSeriesButton = false;
+                  const baselineVariation = orderedVariations.find(
+                    (v) => v.index === baselineRow,
                   );
 
                   return (
@@ -902,8 +966,69 @@ export default function ResultsTable({
                               if (row.labelOnly) {
                                 return drawLabelRow({
                                   ...drawRowProps,
+                                  labelColSpan:
+                                    includedLabelColumns.length +
+                                    (rowsLayout ? 1 : 0),
                                   rowHeight: LABEL_ONLY_ROW_HEIGHT,
                                 });
+                              }
+
+                              if (rowsLayout) {
+                                return showValue &&
+                                  baselineVariation &&
+                                  rowsResults?.[i]?.some(
+                                    (r) => !!r && typeof r === "object",
+                                  ) ? (
+                                  <tr
+                                    className="results-variation-row align-items-center"
+                                    style={{ height: ROW_HEIGHT }}
+                                  >
+                                    {leadingCell()}
+                                    <td className="variation">
+                                      <VariationLabel
+                                        number={baselineVariation.index}
+                                        name={baselineVariation.name}
+                                        size="md"
+                                      />
+                                    </td>
+                                    <MetricValueColumn
+                                      metric={row.metric}
+                                      stats={baseline}
+                                      users={baseline?.users || 0}
+                                      className="value baseline"
+                                      showRatio={!isBandit}
+                                      displayCurrency={displayCurrency}
+                                      getExperimentMetricById={
+                                        ssrPolyfills?.getExperimentMetricById ||
+                                        getExperimentMetricById
+                                      }
+                                      getFactTableById={
+                                        ssrPolyfills?.getFactTableById ||
+                                        getFactTableById
+                                      }
+                                    />
+                                    {columnsToDisplay.includes(
+                                      "Chance to Win",
+                                    ) && <td />}
+                                    {columnsToDisplay.includes("CI Graph") && (
+                                      <td className="graph-cell">
+                                        <AlignedGraph
+                                          id={`${id}_axis`}
+                                          domain={domain}
+                                          significant={true}
+                                          showAxis={false}
+                                          axisOnly={true}
+                                          graphWidth={graphCellWidth}
+                                          height={ROW_HEIGHT}
+                                          ssrPolyfills={ssrPolyfills}
+                                        />
+                                      </td>
+                                    )}
+                                    {columnsToDisplay.includes("Lift") && (
+                                      <td />
+                                    )}
+                                  </tr>
+                                ) : null;
                               }
 
                               if (!compactResults) {
@@ -939,6 +1064,7 @@ export default function ResultsTable({
                                   alreadyShownNewMetricState = true;
                                   return drawEmptyRow({
                                     key: j,
+                                    leadingCell: leadingCell(),
                                     className:
                                       "results-variation-row align-items-center",
                                     labelColSpan: includedLabelColumns.length,
@@ -1001,6 +1127,7 @@ export default function ResultsTable({
 
                                     return drawEmptyRow({
                                       key: j,
+                                      leadingCell: leadingCell(),
                                       className: clsx(
                                         "results-variation-row align-items-center error-row",
                                         {
@@ -1075,6 +1202,7 @@ export default function ResultsTable({
                                   alreadyShownComputeError = true;
                                   return drawEmptyRow({
                                     key: j,
+                                    leadingCell: leadingCell(),
                                     className: clsx(
                                       "results-variation-row align-items-center error-row",
                                       {
@@ -1149,6 +1277,11 @@ export default function ResultsTable({
                                     ? "Scaled impact unavailable. Try updating results."
                                     : undefined;
 
+                                const showTimeSeriesButtonHere =
+                                  compactResults ||
+                                  (rowsLayout && !alreadyShownTimeSeriesButton);
+                                alreadyShownTimeSeriesButton = true;
+
                                 const resultsHighlightClassname = clsx(
                                   rowResults.resultsStatus,
                                   {
@@ -1181,16 +1314,25 @@ export default function ResultsTable({
                                         : ROW_HEIGHT,
                                     }}
                                   >
+                                    {leadingCell()}
                                     {columnsToDisplay.includes(
                                       "Metric & Variation Names",
                                     ) && (
                                       <td
                                         className="variation position-relative"
                                         style={{
-                                          width: 220 * tableCellScale,
+                                          width: rowsLayout
+                                            ? undefined
+                                            : 220 * tableCellScale,
                                         }}
                                       >
-                                        {!compactResults ? (
+                                        {rowsLayout ? (
+                                          <VariationLabel
+                                            number={v.index}
+                                            name={v.name}
+                                            size="md"
+                                          />
+                                        ) : !compactResults ? (
                                           <div
                                             className={`d-flex align-items-center ml-2 ${
                                               row.isChildRow
@@ -1220,9 +1362,7 @@ export default function ResultsTable({
                                         )}
                                       </td>
                                     )}
-                                    {columnsToDisplay.includes(
-                                      "Baseline Average",
-                                    ) && (
+                                    {showBaselineColumn && (
                                       <>
                                         {j > 0 ? (
                                           <MetricValueColumn
@@ -1246,9 +1386,10 @@ export default function ResultsTable({
                                         )}
                                       </>
                                     )}
-                                    {columnsToDisplay.includes(
-                                      "Variation Averages",
-                                    ) && (
+                                    {showVariationColumn && !showValue && (
+                                      <td />
+                                    )}
+                                    {showVariationColumn && showValue && (
                                       <MetricValueColumn
                                         metric={row.metric}
                                         stats={stats}
@@ -1445,7 +1586,7 @@ export default function ResultsTable({
                                             )}
                                             ssrPolyfills={ssrPolyfills}
                                             additionalButton={
-                                              compactResults
+                                              showTimeSeriesButtonHere
                                                 ? timeSeriesButton
                                                 : undefined
                                             }
@@ -1475,7 +1616,7 @@ export default function ResultsTable({
                                   }
                                 >
                                   <td
-                                    colSpan={columnsToDisplay.length}
+                                    colSpan={columnCount}
                                     style={{ padding: 0 }}
                                   >
                                     <div
@@ -1615,6 +1756,7 @@ function drawEmptyRow({
   labelColSpan,
   renderGraph,
   renderLastColumn,
+  leadingCell,
 }: {
   key?: number | string;
   className?: string;
@@ -1630,9 +1772,11 @@ function drawEmptyRow({
   labelColSpan: number;
   renderGraph: boolean;
   renderLastColumn: boolean;
+  leadingCell?: ReactElement;
 }) {
   return (
     <tr key={key} style={{ height: rowHeight, ...style }} className={className}>
+      {leadingCell}
       {renderLabel && (
         <td colSpan={labelColSpan} className="position-relative">
           {label}

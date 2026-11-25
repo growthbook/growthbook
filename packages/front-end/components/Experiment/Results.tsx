@@ -30,6 +30,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { useResultsRedesign } from "@/components/Experiment/ResultsRedesign";
 import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -81,6 +82,7 @@ const Results: FC<{
   setSortBy?: (s: "significance" | "change" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
+  showValue?: boolean;
 }> = ({
   experiment,
   mutateExperiment,
@@ -98,8 +100,11 @@ const Results: FC<{
   setSortBy,
   sortDirection,
   setSortDirection,
+  showValue = true,
 }) => {
   const { apiCall } = useAuth();
+  const resultsRedesign = useResultsRedesign();
+  const redesign = resultsRedesign ? { showValue } : undefined;
 
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
 
@@ -484,6 +489,7 @@ const Results: FC<{
               setSortDirection={setSortDirection}
               analysisBarSettings={analysisBarSettings}
               customMetricSlices={experiment.customMetricSlices}
+              redesign={redesign}
             />
           ) : showCompactResults ? (
             <CompactResults
@@ -564,6 +570,7 @@ const Results: FC<{
               sortDirection={sortDirection}
               setSortDirection={setSortDirection}
               analysisBarSettings={analysisBarSettings}
+              redesign={redesign}
             />
           ) : null}
         </MetricDrilldownProvider>

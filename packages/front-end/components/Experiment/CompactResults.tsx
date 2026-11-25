@@ -115,6 +115,7 @@ const CompactResults: FC<{
   analysisBarSettings?: {
     variationFilter: number[];
   };
+  redesign?: { showValue: boolean };
   setBaselineRow?: (baselineRow: number) => void;
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis;
@@ -173,6 +174,7 @@ const CompactResults: FC<{
   sortDirection,
   setSortDirection,
   analysisBarSettings,
+  redesign,
   setBaselineRow,
   snapshot,
   analysis,
@@ -423,6 +425,7 @@ const CompactResults: FC<{
           onRowClick={onRowClick}
           id={id}
           resultGroup="goal"
+          redesign={redesign}
           tableRowAxis="metric"
           labelHeader={
             experimentType !== "multi-armed-bandit"
@@ -488,6 +491,7 @@ const CompactResults: FC<{
             onRowClick={onRowClick}
             id={id}
             resultGroup="secondary"
+            redesign={redesign}
             tableRowAxis="metric"
             labelHeader="Secondary Metrics"
             editMetrics={editMetrics}
@@ -547,6 +551,7 @@ const CompactResults: FC<{
             onRowClick={onRowClick}
             id={id}
             resultGroup="guardrail"
+            redesign={redesign}
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
