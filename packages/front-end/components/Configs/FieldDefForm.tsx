@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { SchemaField } from "shared/types/feature";
 import { simpleSchemaFieldToJSONSchema } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   PiCaretDownBold,
   PiCaretUpBold,
@@ -78,6 +79,7 @@ export default function FieldDefForm({
   // No value leaves the field's value as it is.
   onSave: (field: SchemaField, value?: unknown) => void | Promise<void>;
 }): React.ReactElement {
+  const { t, i18n } = useLingui();
   // Normalize so a raw schema that's really a simple type opens in simple mode.
   // Pretty-print a raw schema once on open so imported/minified schemas show with
   // readable whitespace in the code editor (typing afterward is preserved as-is).
@@ -131,10 +133,11 @@ export default function FieldDefForm({
   const [typeTouched, setTypeTouched] = useState(false);
 
   const detectType = (v: string): SchemaField["type"] => {
-    const t = v.trim();
-    if (t === "true" || t === "false") return "boolean";
-    if (/^-?\d+$/.test(t)) return "integer";
-    if (/^-?\d*\.\d+$/.test(t) || /^-?\d+\.\d*$/.test(t)) return "float";
+    const trimmed = v.trim();
+    if (trimmed === "true" || trimmed === "false") return "boolean";
+    if (/^-?\d+$/.test(trimmed)) return "integer";
+    if (/^-?\d*\.\d+$/.test(trimmed) || /^-?\d+\.\d*$/.test(trimmed))
+      return "float";
     return "string";
   };
 
@@ -190,8 +193,11 @@ export default function FieldDefForm({
   };
 
   const onBound = (which: "min" | "max", raw: string) => {
-    const t = raw.trim();
-    setField((f) => ({ ...f, [which]: t === "" ? undefined : Number(t) }));
+    const trimmed = raw.trim();
+    setField((f) => ({
+      ...f,
+      [which]: trimmed === "" ? undefined : Number(trimmed),
+    }));
   };
 
   // Entering schema mode seeds from the current definition; leaving drops it.
@@ -230,13 +236,13 @@ export default function FieldDefForm({
   const needsValue = field.required && isNew;
   const parsedValue =
     withValue && (valueTouched || retyped || needsValue)
-      ? parseFieldValueInput(valueText, field, valueIsNull)
+      ? parseFieldValueInput(valueText, field, valueIsNull, i18n)
       : null;
 
   const saveBlockedReason = !trimmedKey
-    ? "Enter a field key"
+    ? t`Enter a field key`
     : duplicate
-      ? `A field named "${trimmedKey}" already exists`
+      ? t`A field named "${trimmedKey}" already exists`
       : parsedValue?.kind === "error"
         ? parsedValue.error
         : null;
@@ -251,11 +257,8 @@ export default function FieldDefForm({
       try {
         JSON.parse(field.jsonSchema || "");
       } catch (e) {
-        setErr(
-          `Invalid JSON Schema: ${
-            e instanceof Error ? e.message : "could not parse"
-          }`,
-        );
+        const reason = e instanceof Error ? e.message : t`could not parse`;
+        setErr(t`Invalid JSON Schema: ${reason}`);
         return;
       }
     }
@@ -265,7 +268,7 @@ export default function FieldDefForm({
     try {
       await onSave(normalizeField({ ...field, key: trimmedKey }), value);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to save field");
+      setErr(e instanceof Error ? e.message : t`Failed to save field`);
     } finally {
       // Reset even on success: callers normally unmount the form after save, but
       // don't leave Save/Cancel permanently disabled if one keeps it mounted.
@@ -281,7 +284,7 @@ export default function FieldDefForm({
     typeValue === OTHER_TYPE_VALUE
       ? [
           ...FIELD_TYPE_OPTIONS,
-          { value: OTHER_TYPE_VALUE, label: "Other", isDisabled: true },
+          { value: OTHER_TYPE_VALUE, label: t`Other`, isDisabled: true },
         ]
       : FIELD_TYPE_OPTIONS;
   const typeSelect = (
@@ -307,7 +310,7 @@ export default function FieldDefForm({
           { value: "true", label: "true" },
           { value: "false", label: "false" },
         ]}
-        placeholder="Choose a value"
+        placeholder={t`Choose a value`}
         sort={false}
       />
     ) : enumValues.length > 0 ? (
@@ -317,7 +320,7 @@ export default function FieldDefForm({
         value={valueText}
         onChange={setValueText}
         options={enumValues.map((v) => ({ value: v, label: v }))}
-        placeholder="Choose a value"
+        placeholder={t`Choose a value`}
         sort={false}
       />
     ) : (
@@ -335,14 +338,14 @@ export default function FieldDefForm({
 
   const modeToggle = (
     <Link size="sm" onClick={() => setMode(rawMode ? "simple" : "schema")}>
-      {rawMode ? "Use simple editor" : "Edit as JSON Schema"}
+      {rawMode ? t`Use simple editor` : t`Edit as JSON Schema`}
     </Link>
   );
 
   // Description lives outside the schema, so it's edited in both modes.
   const descriptionField = (
     <Field
-      label="Description"
+      label={t`Description`}
       labelWeight="medium"
       value={field.description}
       onChange={(e) => setField({ ...field, description: e.target.value })}
@@ -381,11 +384,17 @@ export default function FieldDefForm({
         containerStyle={{ marginBottom: 0 }}
       />
       <Text size="sm" color="text-low">
-        Enter a JSON Schema for this field&apos;s value. See{" "}
-        <Link href="https://json-schema.org/" target="_blank" rel="noreferrer">
-          https://json-schema.org/
-        </Link>{" "}
-        for more information.
+        <Trans>
+          Enter a JSON Schema for this field&apos;s value. See{" "}
+          <Link
+            href="https://json-schema.org/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            https://json-schema.org/
+          </Link>{" "}
+          for more information.
+        </Trans>
       </Text>
     </Box>
   ) : (
@@ -397,7 +406,7 @@ export default function FieldDefForm({
           weight="regular"
           value={field.required === false}
           setValue={(v) => setField({ ...field, required: !v })}
-          label="Optional"
+          label={t`Optional`}
         />
         {canNullable && (
           <Checkbox
@@ -405,7 +414,7 @@ export default function FieldDefForm({
             weight="regular"
             value={field.nullable === true}
             setValue={(v) => setField({ ...field, nullable: v })}
-            label="Nullable"
+            label={t`Nullable`}
           />
         )}
         {canEnum && !showEnum && (
@@ -418,7 +427,7 @@ export default function FieldDefForm({
               setShowValidation(false);
             }}
           >
-            Restrict to specific values
+            <Trans>Restrict to specific values</Trans>
           </Button>
         )}
         {canValidate && !showValidation && (
@@ -428,7 +437,7 @@ export default function FieldDefForm({
             icon={<PiPlus />}
             onClick={() => setShowValidation(true)}
           >
-            Add validation
+            <Trans>Add validation</Trans>
           </Button>
         )}
       </Flex>
@@ -437,9 +446,9 @@ export default function FieldDefForm({
           <Flex gap="3" align="end">
             <Box style={{ flex: 1 }}>
               <MultiSelectField
-                label="Allowed values"
+                label={t`Allowed values`}
                 labelWeight="medium"
-                placeholder="Add a value and press enter"
+                placeholder={t`Add a value and press enter`}
                 value={field.enum}
                 onChange={(vals) => {
                   const cleaned = vals
@@ -461,7 +470,7 @@ export default function FieldDefForm({
               radius="full"
               mb="2"
               style={{ marginLeft: 0, marginRight: 0 }}
-              aria-label="Remove allowed values"
+              aria-label={t`Remove allowed values`}
               onClick={() => {
                 setShowEnum(false);
                 setField({ ...field, enum: [] });
@@ -477,7 +486,7 @@ export default function FieldDefForm({
           <Flex gap="3" align="end">
             <Box style={{ flex: 1 }}>
               <Field
-                label={numeric ? "Minimum" : "Min length"}
+                label={numeric ? t`Minimum` : t`Min length`}
                 labelWeight="medium"
                 type="number"
                 step={field.type === "float" ? "any" : 1}
@@ -489,7 +498,7 @@ export default function FieldDefForm({
             </Box>
             <Box style={{ flex: 1 }}>
               <Field
-                label={numeric ? "Maximum" : "Max length"}
+                label={numeric ? t`Maximum` : t`Max length`}
                 labelWeight="medium"
                 type="number"
                 step={field.type === "float" ? "any" : 1}
@@ -505,7 +514,7 @@ export default function FieldDefForm({
               radius="full"
               mb="2"
               style={{ marginLeft: 0, marginRight: 0 }}
-              aria-label="Remove validation"
+              aria-label={t`Remove validation`}
               onClick={() => {
                 setShowValidation(false);
                 setField({ ...field, min: undefined, max: undefined });
@@ -542,7 +551,7 @@ export default function FieldDefForm({
               <Field
                 size="md"
                 autoFocus={isNew}
-                placeholder="key"
+                placeholder={t`key`}
                 value={field.key}
                 disabled={!isNew}
                 onChange={(e) => setField({ ...field, key: e.target.value })}
@@ -618,7 +627,7 @@ export default function FieldDefForm({
               iconPosition="right"
               onClick={() => setConfigureOpen((open) => !open)}
             >
-              Field settings
+              <Trans>Field settings</Trans>
             </Button>
             <Collapse open={configureOpen}>
               <Box className={styles.drawer}>

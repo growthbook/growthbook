@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { FeatureValueType, SchemaField } from "shared/types/feature";
 import {
   JSON_SCHEMA_PRESETS,
@@ -386,7 +388,8 @@ export function valueEditSeed(
 export function parseFieldValueInput(
   text: string,
   field: SchemaField | null,
-  isNull = false,
+  isNull: boolean,
+  i18n: I18n,
 ): { kind: "value"; value: unknown } | { kind: "error"; error: string } {
   if (isNull) return { kind: "value", value: null };
   const valueType = fieldValueType(field);
@@ -394,7 +397,7 @@ export function parseFieldValueInput(
   if (valueType === "string") {
     // An allow-list without "" needs one of its values.
     return text === "" && allowed.length > 0 && !allowed.includes("")
-      ? { kind: "error", error: "Choose a value" }
+      ? { kind: "error", error: i18n._(msg`Choose a value`) }
       : { kind: "value", value: text };
   }
   const t = text.trim();
@@ -403,7 +406,7 @@ export function parseFieldValueInput(
     const picked = valueType === "boolean" || allowed.length > 0;
     return {
       kind: "error",
-      error: picked ? "Choose a value" : "Enter a value",
+      error: picked ? i18n._(msg`Choose a value`) : i18n._(msg`Enter a value`),
     };
   }
   switch (valueType) {
@@ -413,20 +416,23 @@ export function parseFieldValueInput(
       } catch (e) {
         return {
           kind: "error",
-          error: e instanceof Error ? e.message : "Value must be valid JSON",
+          error:
+            e instanceof Error
+              ? e.message
+              : i18n._(msg`Value must be valid JSON`),
         };
       }
     case "boolean":
       return t === "true" || t === "false"
         ? { kind: "value", value: t === "true" }
-        : { kind: "error", error: "Value must be true or false" };
+        : { kind: "error", error: i18n._(msg`Value must be true or false`) };
     case "number": {
       const n = Number(t);
       if (!Number.isFinite(n)) {
-        return { kind: "error", error: "Value must be a number" };
+        return { kind: "error", error: i18n._(msg`Value must be a number`) };
       }
       if (field?.type === "integer" && !Number.isInteger(n)) {
-        return { kind: "error", error: "Value must be an integer" };
+        return { kind: "error", error: i18n._(msg`Value must be an integer`) };
       }
       return { kind: "value", value: n };
     }

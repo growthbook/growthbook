@@ -8,6 +8,7 @@ import React, {
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import { CONSTANT_REF_PATTERN } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -57,7 +58,7 @@ function ConstantValuePreview({
 
   const preview = !data ? (
     <Text size="sm" color="text-low">
-      Loading…
+      <Trans>Loading…</Trans>
     </Text>
   ) : value ? (
     <Box style={{ minWidth: 220, maxWidth: 340 }}>
@@ -71,7 +72,9 @@ function ConstantValuePreview({
     </Box>
   ) : (
     <Text size="sm" color="text-low">
-      <em>(empty)</em>
+      <em>
+        <Trans>(empty)</Trans>
+      </em>
     </Text>
   );
 
@@ -98,6 +101,7 @@ function ConstantOption({
   constant: ConstantWithoutValue;
   onInsert: (constant: ConstantWithoutValue) => boolean;
 }) {
+  const { t } = useLingui();
   const [failed, setFailed] = useState(false);
   const failTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleClick = () => {
@@ -147,8 +151,8 @@ function ConstantOption({
         {failed && (
           <HelperText status="error" size="md" mt="2">
             {constant.type === "json"
-              ? "Couldn’t add this — the value must be a valid JSON object."
-              : "Couldn’t insert here — place your cursor inside a string value."}
+              ? t`Couldn’t add this — the value must be a valid JSON object.`
+              : t`Couldn’t insert here — place your cursor inside a string value.`}
           </HelperText>
         )}
       </Box>
@@ -207,7 +211,7 @@ export function UsedConstantTags({
           color="text-low"
           weight="medium"
         >
-          Constants used:
+          <Trans>Constants used:</Trans>
         </Text>
       </span>
       {used.map((c) => (
@@ -247,6 +251,7 @@ export default function InsertConstantButton({
   // Keys to scrub from the options (self + cycle prevention).
   excludeKeys?: string[];
 }) {
+  const { t } = useLingui();
   const { constants } = useDefinitions();
 
   // Manage open state so a failed insert keeps the menu open; keepOpen swallows
@@ -277,7 +282,7 @@ export default function InsertConstantButton({
   if (!hasConstants) return null;
 
   const trigger = (
-    <FieldIndicator label="Insert Constant" disabled={disabled} reveal>
+    <FieldIndicator label={t`Insert Constant`} disabled={disabled} reveal>
       <span
         style={{
           fontFamily: "var(--code-font-family)",
@@ -317,7 +322,7 @@ export default function InsertConstantButton({
       ) : (
         <DropdownMenuItem disabled onClick={() => undefined}>
           <Text size="sm" color="text-low">
-            No available Constants
+            <Trans>No available Constants</Trans>
           </Text>
         </DropdownMenuItem>
       )}

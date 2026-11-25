@@ -8,6 +8,7 @@ import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -64,6 +65,7 @@ export default function ConstantModal({
   revisionCtx?: ConstantRevisionContext;
   onSaved?: (revision: Revision) => void | Promise<void>;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const router = useRouter();
   const { mutateDefinitions, getConstantByKey, projects, project } =
@@ -116,7 +118,7 @@ export default function ConstantModal({
   );
   const cta = draftModeCta(draft.draftMode, {
     bypassesApproval: draft.selectorApprovalRequired,
-    publishLabel: "Save",
+    publishLabel: t`Save`,
   });
 
   // Auto-derive the slug key from the name until the user edits the key.
@@ -139,6 +141,11 @@ export default function ConstantModal({
   }, [name, editing]);
 
   const type = form.watch("type");
+  const refKey = form.watch("key") || "key";
+  const refExample =
+    type === "json"
+      ? `"$extends": ["@const:${refKey}"]`
+      : `{{ @const:${refKey} }}`;
 
   // The server refuses a destination the caller cannot author in, so listing
   // those projects only produces a predictable rejection.
@@ -167,10 +174,10 @@ export default function ConstantModal({
     <ModalStandard
       open={true}
       trackingEventModalType="constant-modal"
-      header={editing ? "Edit Information" : "Add Constant"}
+      header={editing ? t`Edit Information` : t`Add Constant`}
       size="lg"
       close={close}
-      cta={editing ? cta.label : "Create"}
+      cta={editing ? cta.label : t`Create`}
       ctaColor={editing && cta.bypass ? "red" : "violet"}
       submit={validatedSubmit(form, async (values) => {
         if (editing && existing) {
@@ -239,19 +246,14 @@ export default function ConstantModal({
           metadataOnly={draft.metadataOnly}
         />
       )}
-      <Field label="Name" required {...form.register("name")} />
+      <Field label={t`Name`} required {...form.register("name")} />
       <Field
-        label="Key"
+        label={t`Key`}
         required
         helpText={
-          <>
-            Referenced as{" "}
-            <code>
-              {type === "json"
-                ? `"$extends": ["@const:${form.watch("key") || "key"}"]`
-                : `{{ @const:${form.watch("key") || "key"} }}`}
-            </code>
-          </>
+          <Trans>
+            Referenced as <code>{refExample}</code>
+          </Trans>
         }
         disabled={editing}
         {...form.register("key", {
@@ -265,13 +267,13 @@ export default function ConstantModal({
         <Box mb="3">
           <Box mb="1">
             <Text as="label" weight="semibold">
-              Description
+              <Trans>Description</Trans>
             </Text>
           </Box>
           <MarkdownInput
             value={form.watch("description")}
             setValue={(v) => form.setValue("description", v)}
-            placeholder="Add notes about this Constant (markdown supported)"
+            placeholder={t`Add notes about this Constant (markdown supported)`}
             autofocus={focusDescription}
             autofocusAtEnd
             showButtons={false}
@@ -288,14 +290,16 @@ export default function ConstantModal({
         >
           <Flex align="center" gap="1">
             <PiPlus />
-            <Text weight="medium">Add a description</Text>
+            <Text weight="medium">
+              <Trans>Add a description</Trans>
+            </Text>
           </Flex>
         </Link>
       )}
 
       {!editing && (
         <SelectField
-          label="Type"
+          label={t`Type`}
           value={type}
           options={[
             { label: "String", value: "string" },
@@ -307,17 +311,17 @@ export default function ConstantModal({
 
       {projectOptions.length > 0 && (
         <SelectField
-          label="Project"
+          label={t`Project`}
           value={form.watch("project")}
           options={projectOptions}
-          initialOption={canGlobalScope ? "All Projects" : undefined}
+          initialOption={canGlobalScope ? t`All Projects` : undefined}
           onChange={(v) => form.setValue("project", v)}
         />
       )}
 
       {!editing && (
         <FeatureValueField
-          label="Value"
+          label={t`Value`}
           id="constant-value"
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
@@ -332,7 +336,7 @@ export default function ConstantModal({
 
       {editing && (
         <SelectOwner
-          placeholder="Optional"
+          placeholder={t`Optional`}
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />

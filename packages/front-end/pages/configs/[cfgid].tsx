@@ -14,6 +14,7 @@ import {
 } from "shared/permissions";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
@@ -267,6 +268,7 @@ type ConfigExportPayloads = {
 
 // "Resolved" variants walk the inheritance tree (and resolve constants for the value).
 function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
+  const { t } = useLingui();
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 2000,
   });
@@ -313,22 +315,22 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
           <Flex align="center" gap="2">
             {copySuccess ? <PiCheck /> : <PiCopy />}
             <Flex align="center" gap="1">
-              Copy
+              <Trans>Copy</Trans>
               <PiCaretDown />
             </Flex>
           </Flex>
         </Button>
       }
     >
-      {item("Copy Config", null, payloads.ownValue, VALUE_ITEM_HEIGHT_PX)}
+      {item(t`Copy Config`, null, payloads.ownValue, VALUE_ITEM_HEIGHT_PX)}
       {item(
-        "Copy resolved Config",
-        "Inheritance + Constants resolved",
+        t`Copy resolved Config`,
+        t`Inheritance + Constants resolved`,
         payloads.resolvedValue,
         VALUE_ITEM_HEIGHT_PX,
       )}
       <DropdownMenuSeparator />
-      <DropdownSubMenu trigger="Copy schema">
+      <DropdownSubMenu trigger={t`Copy schema`}>
         {SCHEMA_EXPORT_FORMATS.map((f) => (
           <React.Fragment key={f.id}>
             {item(f.label, null, payloads.ownSchema[f.id])}
@@ -337,11 +339,11 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
         {payloads.ownProjections.length > 0 && <DropdownMenuSeparator />}
         {payloads.ownProjections.map((p) => (
           <React.Fragment key={p.source}>
-            {item(p.label, "Named projection", p.text)}
+            {item(p.label, t`Named projection`, p.text)}
           </React.Fragment>
         ))}
       </DropdownSubMenu>
-      <DropdownSubMenu trigger="Copy resolved schema">
+      <DropdownSubMenu trigger={t`Copy resolved schema`}>
         {SCHEMA_EXPORT_FORMATS.map((f) => (
           <React.Fragment key={f.id}>
             {item(f.label, null, payloads.effectiveSchema[f.id])}
@@ -351,7 +353,7 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
       {payloads.validationMongrule && (
         <>
           <DropdownMenuSeparator />
-          {item("Validation rules", null, payloads.validationMongrule)}
+          {item(t`Validation rules`, null, payloads.validationMongrule)}
         </>
       )}
     </DropdownMenu>
@@ -359,6 +361,7 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
 }
 
 export default function ConfigDetailPage(): React.ReactElement {
+  const { t, i18n } = useLingui();
   const router = useRouter();
   const { cfgid } = router.query;
   const configKey = typeof cfgid === "string" ? cfgid : "";
@@ -446,7 +449,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   const editsBlocked = editOpen
     ? EDITS_BLOCKED_REASON
     : openingDraft
-      ? "Opening a draft…"
+      ? t`Opening a draft…`
       : null;
   const valueDirty =
     editKey !== null &&
@@ -1128,9 +1131,10 @@ export default function ConfigDetailPage(): React.ReactElement {
   // A failed refresh keeps the revisions already shown.
   const loadError = error ?? (selectionSettled ? undefined : revisionsError);
   if (loadError) {
+    const loadErrorMessage = loadError.message;
     return (
       <Callout status="error" mt="4">
-        An error occurred: {loadError.message}
+        <Trans>An error occurred: {loadErrorMessage}</Trans>
       </Callout>
     );
   }
@@ -1155,6 +1159,12 @@ export default function ConfigDetailPage(): React.ReactElement {
       <LoadingOverlay />
     );
   }
+
+  const configName = config.name;
+  const displayedName = displayedConfig.name;
+  const baseName = baseNode?.name;
+  const lockVersion = config.lock?.version;
+  const lockReason = config.lock?.reason;
 
   const handleLock = async (reason?: string) => {
     await apiCall(`/configs/${config.id}/lock`, {
@@ -1340,7 +1350,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       if (res?.revision) await onRevisionCreated(res.revision);
     } catch (e) {
       setComposeError(
-        e instanceof Error ? e.message : "Failed to update mixins",
+        e instanceof Error ? e.message : t`Failed to update mixins`,
       );
     } finally {
       savingExtendsRef.current = false;
@@ -1370,6 +1380,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       editText,
       resolved.fields.find((f) => f.key === editKey)?.field ?? null,
       editKind === "null",
+      i18n,
     );
     // Save is disabled while the value can't be parsed.
     if (result.kind === "error") return;
@@ -1378,7 +1389,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       await savePropertyValue(editKey, result.value);
       closeEdits();
     } catch (e) {
-      setEditError(e instanceof Error ? e.message : "Failed to save value");
+      setEditError(e instanceof Error ? e.message : t`Failed to save value`);
       setSavingValue(false);
     }
   };
@@ -1448,7 +1459,9 @@ export default function ConfigDetailPage(): React.ReactElement {
         hadOverride ? v : undefined,
       );
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Failed to remove field");
+      setActionError(
+        e instanceof Error ? e.message : t`Failed to remove field`,
+      );
     } finally {
       removingRef.current = false;
     }
@@ -1463,7 +1476,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       await removePropertyValue(key);
     } catch (e) {
       setActionError(
-        e instanceof Error ? e.message : "Failed to remove override",
+        e instanceof Error ? e.message : t`Failed to remove override`,
       );
     } finally {
       removingRef.current = false;
@@ -1493,7 +1506,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         >
           <Flex align="center" gap="1">
             <PiPlus />
-            Add field
+            <Trans>Add field</Trans>
           </Flex>
         </Link>
       </Box>
@@ -1525,7 +1538,9 @@ export default function ConfigDetailPage(): React.ReactElement {
       <TableRow align="start">
         <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>
-            <Text color="text-low">Extends</Text>
+            <Text color="text-low">
+              <Trans>Extends</Trans>
+            </Text>
           </Flex>
         </TableCell>
         <TableCell colSpan={4}>
@@ -1544,7 +1559,9 @@ export default function ConfigDetailPage(): React.ReactElement {
       <TableRow align="start">
         <TableCell>
           <Flex align="center" style={{ minHeight: 32 }}>
-            <Text color="text-low">Composes</Text>
+            <Text color="text-low">
+              <Trans>Composes</Trans>
+            </Text>
           </Flex>
         </TableCell>
         <TableCell colSpan={4}>
@@ -1573,7 +1590,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       color="red"
                       onClick={() => startEdit({ kind: "removeMixin", key: k })}
                     >
-                      Remove mixin &ldquo;{name}&rdquo;
+                      <Trans>Remove mixin &ldquo;{name}&rdquo;</Trans>
                     </DropdownMenuItem>
                   );
                 })}
@@ -1595,8 +1612,8 @@ export default function ConfigDetailPage(): React.ReactElement {
               value=""
               placeholder={
                 composeOptions.length
-                  ? "Select a Config to extend with…"
-                  : "No other Configs available"
+                  ? t`Select a Config to extend with…`
+                  : t`No other Configs available`
               }
               options={composeOptions}
               autoFocus
@@ -1607,7 +1624,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             />
           </Box>
           <Link size="md" onClick={() => setComposeAdding(false)}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Link>
         </Flex>
         {composeError && (
@@ -1624,7 +1641,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         >
           <Flex align="center" gap="1">
             <PiPlus />
-            Add Config mixin
+            <Trans>Add Config mixin</Trans>
           </Flex>
         </Link>
         {composeError && (
@@ -1679,7 +1696,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     } catch (e) {
       if (configKeyRef.current === startedOn) {
         setActionError(
-          e instanceof Error ? e.message : "Failed to open a draft",
+          e instanceof Error ? e.message : t`Failed to open a draft`,
         );
       }
     } finally {
@@ -1730,16 +1747,14 @@ export default function ConfigDetailPage(): React.ReactElement {
   const startEdit = (edit: LiveEdit) =>
     editsFromLive ? editInDraft(edit) : runEdit(edit);
   // Where edits from live go, shown under the sections they edit.
+  const myDraftVersion = myDraft ? revisionNumbers.get(myDraft.id) : undefined;
   const liveDraftNote = !editsFromLive ? null : myDraft ? (
-    <>
+    <Trans>
       Edits go to your draft{" "}
-      <Link onClick={() => selectRevision(myDraft)}>
-        v{revisionNumbers.get(myDraft.id)}
-      </Link>
-      .
-    </>
+      <Link onClick={() => selectRevision(myDraft)}>v{myDraftVersion}</Link>.
+    </Trans>
   ) : (
-    "Edits start a new draft."
+    t`Edits start a new draft.`
   );
   const canPublishSelected = canPublishRevisionEntity(
     permissionsUtil,
@@ -1773,7 +1788,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             {getStatusBadge("live", approvalRequired)}
           </>
         ) : (
-          <>the live Config</>
+          <Trans>the live Config</Trans>
         )
       }
       create={async ({ title, comment }) => {
@@ -1813,7 +1828,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             setShowAuditModal(true);
           }}
         >
-          Audit history
+          <Trans>Audit history</Trans>
         </DropdownMenuItem>
         {allRevisions.length >= 2 && (
           <DropdownMenuItem
@@ -1822,7 +1837,7 @@ export default function ConfigDetailPage(): React.ReactElement {
               setCompareOpen(true);
             }}
           >
-            Compare revisions
+            <Trans>Compare revisions</Trans>
           </DropdownMenuItem>
         )}
       </DropdownMenuGroup>
@@ -1837,7 +1852,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   setLockConfirm("lock");
                 }}
               >
-                Lock…
+                <Trans>Lock…</Trans>
               </DropdownMenuItem>
             ) : (
               // Always shown while locked; disabled (not hidden) when
@@ -1846,7 +1861,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 disabled={!canBypassApproval}
                 tooltip={
                   !canBypassApproval
-                    ? "You don't have permission to unlock this Config."
+                    ? t`You don't have permission to unlock this Config.`
                     : undefined
                 }
                 onClick={() => {
@@ -1854,7 +1869,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   setLockConfirm("unlock");
                 }}
               >
-                Unlock…
+                <Trans>Unlock…</Trans>
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
@@ -1872,7 +1887,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   handleExperimentGuard(true);
                 }}
               >
-                Enable experiment guard
+                <Trans>Enable experiment guard</Trans>
               </DropdownMenuItem>
             ) : (
               // Disabling a protection is gated on bypass-approval
@@ -1882,7 +1897,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 disabled={!canBypassApproval}
                 tooltip={
                   !canBypassApproval
-                    ? "You don't have permission to disable the experiment guard."
+                    ? t`You don't have permission to disable the experiment guard.`
                     : undefined
                 }
                 onClick={() => {
@@ -1890,7 +1905,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   handleExperimentGuard(false);
                 }}
               >
-                Disable experiment guard
+                <Trans>Disable experiment guard</Trans>
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
@@ -1905,9 +1920,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                 disabled={isLocked}
                 tooltip={
                   config.lock
-                    ? `Locked at v${config.lock.version}. Unlock to ${
-                        config.archived ? "unarchive" : "archive"
-                      }.`
+                    ? config.archived
+                      ? t`Locked at v${lockVersion}. Unlock to unarchive.`
+                      : t`Locked at v${lockVersion}. Unlock to archive.`
                     : undefined
                 }
                 onClick={() => {
@@ -1917,7 +1932,7 @@ export default function ConfigDetailPage(): React.ReactElement {
               >
                 {/* LIVE state: the endpoint flips against live, so the
                     projected state labels the opposite action. */}
-                {config.archived ? "Unarchive" : "Archive"}
+                {config.archived ? t`Unarchive` : t`Archive`}
               </DropdownMenuItem>
             )}
             {canDeleteNow && (
@@ -1928,7 +1943,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   setConfirmDelete(true);
                 }}
               >
-                Delete
+                <Trans>Delete</Trans>
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
@@ -1937,9 +1952,10 @@ export default function ConfigDetailPage(): React.ReactElement {
     </DetailsPageMenu>
   );
 
+  const familyFlagCount = familyReferences?.features.length ?? 0;
   const lineage = (
     <DetailsPanel>
-      <PanelSection title={`Configs (${nonFlavorCount})`}>
+      <PanelSection title={t`Configs (${nonFlavorCount})`}>
         <LineageTree
           nodes={data.lineage}
           currentKey={config.key}
@@ -1962,7 +1978,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 <Link onClick={() => setShowCreateChild(true)}>
                   <Flex align="center" gap="1">
                     <PiPlus />
-                    Add override Config
+                    <Trans>Add override Config</Trans>
                   </Flex>
                 </Link>
               ) : (
@@ -1970,7 +1986,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   <Link color="gray">
                     <Flex align="center" gap="1">
                       <PiPlus />
-                      Add override Config
+                      <Trans>Add override Config</Trans>
                     </Flex>
                   </Link>
                 </PremiumTooltip>
@@ -1981,7 +1997,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       {data.composerFamilies?.length ? (
         <>
           <Separator size="4" />
-          <PanelSection title="Used as a mixin by">
+          <PanelSection title={t`Used as a mixin by`}>
             {data.composerFamilies.map((fam) => (
               <Box key={fam.rootKey} mb="2">
                 <LineageTree
@@ -2002,8 +2018,8 @@ export default function ConfigDetailPage(): React.ReactElement {
       <PanelSection
         title={
           familyReferences
-            ? `Feature Flags (${familyReferences.features.length})`
-            : "Feature Flags"
+            ? t`Feature Flags (${familyFlagCount})`
+            : t`Feature Flags`
         }
       >
         <ConfigFeatureReferences
@@ -2021,7 +2037,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     <>
       <PageHead
         breadcrumb={[
-          { display: "Configs", href: "/configs" },
+          { display: t`Configs`, href: "/configs" },
           { display: displayedConfig.name },
         ]}
       />
@@ -2033,18 +2049,20 @@ export default function ConfigDetailPage(): React.ReactElement {
         badges={
           <>
             {/* Live state, like the menu's Archive/Unarchive. */}
-            {config.archived && <Badge label="Archived" color="gray" />}
+            {config.archived && <Badge label={t`Archived`} color="gray" />}
             {config.lock && (
               <Tooltip
-                content={`Locked at v${config.lock.version}${
-                  config.lock.reason ? ` — ${config.lock.reason}` : ""
-                }. Drafts can still be edited, but nothing publishes until it's unlocked.`}
+                content={
+                  lockReason
+                    ? t`Locked at v${lockVersion} — ${lockReason}. Drafts can still be edited, but nothing publishes until it's unlocked.`
+                    : t`Locked at v${lockVersion}. Drafts can still be edited, but nothing publishes until it's unlocked.`
+                }
               >
                 <Badge
                   color="orange"
                   label={
                     <>
-                      <PiLockSimple /> {`Locked · v${config.lock.version}`}
+                      <PiLockSimple /> {t`Locked · v${lockVersion}`}
                     </>
                   }
                 />
@@ -2074,12 +2092,16 @@ export default function ConfigDetailPage(): React.ReactElement {
         }
         triggers={
           <>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="overview">
+              <Trans>Overview</Trans>
+            </TabsTrigger>
             <TabsTrigger value="review">
-              Review &amp; Publish
+              <Trans>Review &amp; Publish</Trans>
               <ReviewTabCount statuses={allRevisions.map((r) => r.status)} />
             </TabsTrigger>
-            <TabsTrigger value="validation">Validation</TabsTrigger>
+            <TabsTrigger value="validation">
+              <Trans>Validation</Trans>
+            </TabsTrigger>
           </>
         }
         revisionPicker={
@@ -2182,7 +2204,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             {tab === "overview" && (
               <>
                 <SectionFrame
-                  title="Fields"
+                  title={t`Fields`}
                   description={liveDraftNote}
                   mb="4"
                   stickyTop={stickyTop}
@@ -2207,7 +2229,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   actions={
                     <>
                       <SegmentedControl
-                        aria-label="View"
+                        aria-label={t`View`}
                         value={activeTab}
                         setValue={(v) => {
                           // JSON and Resolved share one editor, which keeps its buffer.
@@ -2218,9 +2240,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                           }
                         }}
                         options={[
-                          { value: "form", label: "Form" },
+                          { value: "form", label: t`Form` },
                           { value: "json", label: "JSON" },
-                          { value: "resolved", label: "Resolved" },
+                          { value: "resolved", label: t`Resolved` },
                         ]}
                       />
                       <ConfigExportMenu payloads={exportPayloads} />
@@ -2258,11 +2280,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                           <TableHeader>
                             <TableRow>
                               <TableColumnHeader width="200px">
-                                Key
+                                <Trans>Key</Trans>
                               </TableColumnHeader>
                               <TableColumnHeader>
                                 <Flex align="baseline" gap="5">
-                                  Value
+                                  <Trans>Value</Trans>
                                   {overrideCount > 0 && (
                                     <Flex align="center" gap="2">
                                       <Text
@@ -2271,7 +2293,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                                         size="sm"
                                         color="text-low"
                                       >
-                                        Show overrides
+                                        <Trans>Show overrides</Trans>
                                       </Text>
                                       <Switch
                                         id="config-show-overrides"
@@ -2284,17 +2306,17 @@ export default function ConfigDetailPage(): React.ReactElement {
                                 </Flex>
                               </TableColumnHeader>
                               <TableColumnHeader width="110px">
-                                Type
+                                <Trans>Type</Trans>
                               </TableColumnHeader>
                               <TableColumnHeader width="120px">
-                                Source
+                                <Trans>Source</Trans>
                               </TableColumnHeader>
                               <TableColumnHeader
                                 width={`${USAGE_COLUMN_PX + (hideRowMenus ? MENU_COLUMN_PX : 0)}px`}
                               >
                                 <LabelWithHelp
-                                  label="Usage"
-                                  help="Feature Flag rules and defaults that override this key."
+                                  label={t`Usage`}
+                                  help={t`Feature Flag rules and defaults that override this key.`}
                                 />
                               </TableColumnHeader>
                               <TableColumnHeader
@@ -2414,7 +2436,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                             {resolved.fields.length === 0 && !addingField && (
                               <TableRow>
                                 <TableCell colSpan={6}>
-                                  <Text color="text-low">No fields yet.</Text>
+                                  <Text color="text-low">
+                                    <Trans>No fields yet.</Trans>
+                                  </Text>
                                 </TableCell>
                               </TableRow>
                             )}
@@ -2486,12 +2510,14 @@ export default function ConfigDetailPage(): React.ReactElement {
                         size="sm"
                         color="inherit"
                       >
-                        Open base Config
+                        <Trans>Open base Config</Trans>
                       </LinkButton>
                     }
                   >
-                    Rules and hooks here apply to {displayedConfig.name} and its
-                    descendants. Put family-wide ones on {baseNode.name}.
+                    <Trans>
+                      Rules and hooks here apply to {displayedName} and its
+                      descendants. Put family-wide ones on {baseName}.
+                    </Trans>
                   </Callout>
                 )}
                 <ConfigInvariantsEditor
@@ -2613,7 +2639,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 canBypassApproval={canBypassApproval}
                 publishBlockedReason={
                   config.lock
-                    ? `Locked at v${config.lock.version}. Unlock to publish.`
+                    ? t`Locked at v${lockVersion}. Unlock to publish.`
                     : undefined
                 }
                 selectRevision={selectRevision}
@@ -2688,7 +2714,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             labelOnlyEvents: [
               {
                 event: "config.deleted",
-                getLabel: () => "Deleted",
+                getLabel: () => t`Deleted`,
                 alwaysVisible: true,
               },
             ],
@@ -2792,18 +2818,18 @@ export default function ConfigDetailPage(): React.ReactElement {
         <ConfirmDialog
           title={
             navigationGuard.pendingHref
-              ? "Leave without saving?"
-              : "Discard unsaved changes?"
+              ? t`Leave without saving?`
+              : t`Discard unsaved changes?`
           }
           content={
             navigationGuard.pendingHref
-              ? "You have unsaved changes to this Config. Leaving this page discards them."
-              : "You have unsaved changes to this Config. Switching away discards them."
+              ? t`You have unsaved changes to this Config. Leaving this page discards them.`
+              : t`You have unsaved changes to this Config. Switching away discards them.`
           }
           // Staying is the primary action; leaving is the secondary one.
-          yesText="Keep editing"
+          yesText={t`Keep editing`}
           noText={
-            navigationGuard.pendingHref ? "Leave page" : "Discard changes"
+            navigationGuard.pendingHref ? t`Leave page` : t`Discard changes`
           }
           onConfirm={navigationGuard.cancelNavigation}
           onCancel={navigationGuard.confirmNavigation}
@@ -2812,9 +2838,9 @@ export default function ConfigDetailPage(): React.ReactElement {
       ) : null}
       {lockConfirm === "unlock" && (
         <ConfirmDialog
-          title={`Unlock "${config.name}"?`}
-          content="Changes can be published again."
-          yesText="Unlock"
+          title={t`Unlock "${configName}"?`}
+          content={t`Changes can be published again.`}
+          yesText={t`Unlock`}
           onConfirm={async () => {
             await handleUnlock();
             setLockConfirm(null);
@@ -2825,9 +2851,9 @@ export default function ConfigDetailPage(): React.ReactElement {
 
       {confirmDelete && (
         <ConfirmDialog
-          title={`Delete "${config.name}"?`}
-          content="This permanently deletes the Config. This cannot be undone."
-          yesText="Delete"
+          title={t`Delete "${configName}"?`}
+          content={t`This permanently deletes the Config. This cannot be undone.`}
+          yesText={t`Delete`}
           color="red"
           onConfirm={async () => {
             // After deleting, land on the nearest config still in this lineage

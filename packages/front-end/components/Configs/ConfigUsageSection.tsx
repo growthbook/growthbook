@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import SectionFrame from "@/components/SectionFrame";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
@@ -22,6 +23,7 @@ export default function ConfigUsageSection({
   fieldKeys?: string[];
   stickyTop?: number;
 }): React.ReactElement | null {
+  const { t } = useLingui();
   const [groupBy, setGroupBy] = useState("key");
 
   // Scope to THIS config's own fieldset: a family member (e.g. a config that
@@ -76,14 +78,18 @@ export default function ConfigUsageSection({
   return (
     <Tabs value={groupBy} onValueChange={setGroupBy}>
       <SectionFrame
-        title="Usage"
-        description="Feature Flag rules and default values that override this Config's keys."
+        title={t`Usage`}
+        description={t`Feature Flag rules and default values that override this Config's keys.`}
         mb="4"
         stickyTop={stickyTop}
         tabs={
           <TabsList>
-            <TabsTrigger value="key">By key</TabsTrigger>
-            <TabsTrigger value="reference">By reference</TabsTrigger>
+            <TabsTrigger value="key">
+              <Trans>By key</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="reference">
+              <Trans>By reference</Trans>
+            </TabsTrigger>
           </TabsList>
         }
       >

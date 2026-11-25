@@ -1,5 +1,6 @@
 import React, { ReactNode, useEffect, useRef } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   PiPencilSimple,
   PiInfo,
@@ -62,6 +63,7 @@ export const menuColumnHiddenClassName = styles.menuColumnHidden;
 // A row's ⋮ menu, in a slot every row keeps even without one, so the buttons
 // before it line up down the column.
 export function FieldRowMenu({ children }: { children: ReactNode }) {
+  const { t } = useLingui();
   return (
     <Box
       style={{
@@ -76,7 +78,7 @@ export function FieldRowMenu({ children }: { children: ReactNode }) {
       {children ? (
         <DropdownMenu
           variant="soft"
-          trigger={<MoreMenuTrigger label="Field actions" />}
+          trigger={<MoreMenuTrigger label={t`Field actions`} />}
           menuPlacement="end"
         >
           {children}
@@ -147,6 +149,7 @@ export default function ConfigFieldRow({
   // Feature rules / default values that override this field, for the usage badge.
   keyImplementations?: ConfigKeyImplementation[];
 }): React.ReactElement {
+  const { t, i18n } = useLingui();
   const here = f.source === configKey;
   // Read schema-derived info from the canonical simple form so raw-authored
   // fields (enum/nullable/bounds encoded in `jsonSchema`) behave like simple ones.
@@ -154,7 +157,7 @@ export default function ConfigFieldRow({
   const { getConfigByKey } = useDefinitions();
   const sourceName = f.source
     ? (getConfigByKey(f.source)?.name ?? f.source)
-    : "default";
+    : t`default`;
   // Editing is draft-only; ignore stale editing state if inline edit is off.
   const isEditing = editing && canEditInline;
   const hasJsonEditor = isEditing && fieldValueType(nf) === "json";
@@ -186,14 +189,14 @@ export default function ConfigFieldRow({
   const valueEdit =
     canEditInline && !isEditing
       ? f.value === undefined
-        ? "Set value"
+        ? t`Set value`
         : isOwnField || here
-          ? "Edit value"
-          : "Override value"
+          ? t`Edit value`
+          : t`Override value`
       : null;
 
   const parsedEdit = isEditing
-    ? parseFieldValueInput(editText, f.field, editKind === "null")
+    ? parseFieldValueInput(editText, f.field, editKind === "null", i18n)
     : null;
   const saveBlockedReason =
     parsedEdit?.kind === "error" ? parsedEdit.error : null;
@@ -232,7 +235,7 @@ export default function ConfigFieldRow({
                   ...(hasValidationError
                     ? [
                         validationRuleNotice(
-                          validationTooltip ?? "Fails a validation rule",
+                          validationTooltip ?? t`Fails a validation rule`,
                         ),
                       ]
                     : []),
@@ -305,7 +308,7 @@ export default function ConfigFieldRow({
                                 { value: "true", label: "true" },
                                 { value: "false", label: "false" },
                               ]}
-                              placeholder="Choose a value"
+                              placeholder={t`Choose a value`}
                               sort={false}
                               disabled={isNull}
                             />
@@ -319,7 +322,7 @@ export default function ConfigFieldRow({
                                 value: v,
                                 label: v,
                               }))}
-                              placeholder="Choose a value"
+                              placeholder={t`Choose a value`}
                               sort={false}
                               disabled={isNull}
                             />
@@ -346,7 +349,9 @@ export default function ConfigFieldRow({
                         {(deepMerges || nullToggle) && (
                           <Flex align="center" gap="3" mt="1">
                             {deepMerges && (
-                              <Tooltip content="Nested objects merge onto the inherited value. Set only the keys to change.">
+                              <Tooltip
+                                content={t`Nested objects merge onto the inherited value. Set only the keys to change.`}
+                              >
                                 <span
                                   style={{
                                     display: "inline-flex",
@@ -356,7 +361,7 @@ export default function ConfigFieldRow({
                                     fontSize: 11,
                                   }}
                                 >
-                                  <PiInfo /> Deep merge
+                                  <PiInfo /> <Trans>Deep merge</Trans>
                                 </span>
                               </Tooltip>
                             )}
@@ -398,7 +403,9 @@ export default function ConfigFieldRow({
                   >
                     {({ actionsOverlay, extraActions }) =>
                       f.value === undefined ? (
-                        <Text color="text-low">Not set</Text>
+                        <Text color="text-low">
+                          <Trans>Not set</Trans>
+                        </Text>
                       ) : f.value === null ? (
                         <ValueDisplay
                           value="null"
@@ -478,7 +485,7 @@ export default function ConfigFieldRow({
             </code>
             {schemaPreview && (
               // Around the button, so its padding and keyboard focus open it.
-              <Tooltip content="View JSON Schema">
+              <Tooltip content={t`View JSON Schema`}>
                 <span style={{ display: "inline-flex", flexShrink: 0 }}>
                   <Popover
                     side="left"
@@ -492,7 +499,7 @@ export default function ConfigFieldRow({
                         size="1"
                         radius="full"
                         highContrast
-                        aria-label="View JSON Schema"
+                        aria-label={t`View JSON Schema`}
                         style={{ flexShrink: 0 }}
                       >
                         <PiMagnifyingGlass />
@@ -545,7 +552,7 @@ export default function ConfigFieldRow({
                 variant="soft"
                 label={
                   <>
-                    <PiRadioButton /> Defined here
+                    <PiRadioButton /> <Trans>Defined here</Trans>
                   </>
                 }
               />
@@ -555,7 +562,7 @@ export default function ConfigFieldRow({
                 variant="soft"
                 label={
                   <>
-                    <PiPencilSimple /> Override
+                    <PiPencilSimple /> <Trans>Override</Trans>
                   </>
                 }
               />
@@ -610,15 +617,15 @@ export default function ConfigFieldRow({
                     {isOwnField ? (
                       <>
                         <DropdownMenuItem onClick={onEditDefinition}>
-                          Edit field
+                          <Trans>Edit field</Trans>
                         </DropdownMenuItem>
                         <DropdownMenuItem color="red" onClick={onRemoveField}>
-                          Remove field
+                          <Trans>Remove field</Trans>
                         </DropdownMenuItem>
                       </>
                     ) : here ? (
                       <DropdownMenuItem color="red" onClick={onRemoveOverride}>
-                        Remove override
+                        <Trans>Remove override</Trans>
                       </DropdownMenuItem>
                     ) : null}
                   </FieldRowMenu>

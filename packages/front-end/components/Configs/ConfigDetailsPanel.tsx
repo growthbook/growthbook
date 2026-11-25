@@ -1,4 +1,5 @@
 import { Separator } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { Revision } from "shared/enterprise";
 import { ConfigInterface } from "shared/types/config";
 import DetailsPanel, { PanelSection } from "@/components/DetailsPanel";
@@ -44,6 +45,7 @@ export default function ConfigDetailsPanel({
   onRenameRevision: (title: string) => Promise<void>;
   onDescribeRevision: (description: string) => Promise<void>;
 }) {
+  const { t } = useLingui();
   const pencil = (label: string, focus?: "description") =>
     onEditInfo ? (
       <PanelEditButton
@@ -55,30 +57,30 @@ export default function ConfigDetailsPanel({
 
   return (
     <DetailsPanel>
-      <PanelSection title="General">
+      <PanelSection title={t`General`}>
         <Metadata
           size="sm"
           stacked
-          label="Key"
+          label={t`Key`}
           value={<CopyableKey value={config.key} />}
         />
         <Metadata
           size="sm"
           stacked
-          label="Description"
-          action={pencil("Edit description", "description")}
+          label={t`Description`}
+          action={pencil(t`Edit description`, "description")}
           value={<MarkdownValue markdown={config.description} />}
         />
-        <OwnerField owner={config.owner} action={pencil("Edit owner")} />
+        <OwnerField owner={config.owner} action={pencil(t`Edit owner`)} />
         <ProjectField
           project={config.project}
-          action={pencil("Edit Project")}
+          action={pencil(t`Edit Project`)}
         />
         {parent ? (
           <Metadata
             size="sm"
             stacked
-            label="Extends"
+            label={t`Extends`}
             value={
               <Text size="sm">
                 <Link href={`/configs/${parent.key}`}>{parent.name}</Link>

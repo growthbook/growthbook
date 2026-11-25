@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiBracketsCurly } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
   fieldsToTsType,
@@ -268,6 +269,7 @@ export default function ConfigJsonEditor({
   onEditInDraft,
   onSavingChange,
 }: Props) {
+  const { t } = useLingui();
   const [valueText, setValueText] = useState<string>(() =>
     prettyValue(valueJson),
   );
@@ -355,7 +357,7 @@ export default function ConfigJsonEditor({
     if (!canEdit || view === "preview") return;
     const valueObj = parsePlainObject(valueText);
     if (!valueObj) {
-      setParseError(valueText.trim() ? "Value must be a JSON object" : null);
+      setParseError(valueText.trim() ? t`Value must be a JSON object` : null);
       return;
     }
     setParseError(null);
@@ -392,7 +394,7 @@ export default function ConfigJsonEditor({
       };
       return JSON.stringify(next, null, 2);
     });
-  }, [valueText, savedKeys, ancestorOwned, canEdit, schemaLang, view]);
+  }, [valueText, savedKeys, ancestorOwned, canEdit, schemaLang, view, t]);
 
   const parsedSchema = useMemo(
     () => parseSchemaText(schemaText, schemaLang),
@@ -569,7 +571,7 @@ export default function ConfigJsonEditor({
       setSaveCount((n) => n + 1);
     } catch (e) {
       [valueBase.current, schemaBase.current] = bases;
-      setSaveError(e instanceof Error ? e.message : "Failed to save");
+      setSaveError(e instanceof Error ? e.message : t`Failed to save`);
     } finally {
       setSaving(false);
     }
@@ -591,7 +593,7 @@ export default function ConfigJsonEditor({
       setSchemaPreviewSel(null);
     } catch (e) {
       setSaveError(
-        e instanceof Error ? e.message : "Failed to remove projection",
+        e instanceof Error ? e.message : t`Failed to remove projection`,
       );
     } finally {
       setSaving(false);
@@ -600,9 +602,9 @@ export default function ConfigJsonEditor({
 
   const handleNewProjection = async () => {
     const source = newProjSource.trim();
-    if (!source) throw new Error("Enter a source name");
+    if (!source) throw new Error(t`Enter a source name`);
     if (renderProjections?.[source]) {
-      throw new Error(`A projection for "${source}" already exists`);
+      throw new Error(t`A projection for "${source}" already exists`);
     }
     await onSave(savedValueObject(), parseFields(schemaJson), {
       ...(renderProjections ?? {}),
@@ -667,8 +669,10 @@ export default function ConfigJsonEditor({
   const ownSchemaEmptyState: ReactNode =
     parentKey && parentName ? (
       <Text size="md" color="text-low" as="div">
-        No additional schema defined — inherits the base schema from{" "}
-        <Link href={`/configs/${parentKey}`}>{parentName}</Link>.
+        <Trans>
+          No additional schema defined — inherits the base schema from{" "}
+          <Link href={`/configs/${parentKey}`}>{parentName}</Link>.
+        </Trans>
       </Text>
     ) : undefined;
 
@@ -699,7 +703,7 @@ export default function ConfigJsonEditor({
     const entries = Object.entries(projections ?? {});
     if (entries.length) {
       options.push({
-        label: "Named projections",
+        label: t`Named projections`,
         options: entries.map(([source, p]) => ({
           // Fall back so a legacy projection never renders "(undefined)".
           label: `${source} (${
@@ -723,7 +727,7 @@ export default function ConfigJsonEditor({
                   <Flex align="center" justify="between" gap="2">
                     <span>{option.label}</span>
                     {dirtyValues.has(option.value) && (
-                      <Tooltip content="Differs from the published version">
+                      <Tooltip content={t`Differs from the published version`}>
                         {/* Padded, so the small dot is easy to hover. */}
                         <span
                           style={{
@@ -787,7 +791,7 @@ export default function ConfigJsonEditor({
       {schemaFields.length === 0 || jsonString === null
         ? (opts?.emptyState ?? (
             <Text size="md" color="text-low" as="div">
-              No schema defined.
+              <Trans>No schema defined.</Trans>
             </Text>
           ))
         : renderReadonlySchema(
@@ -831,13 +835,13 @@ export default function ConfigJsonEditor({
         }}
       >
         <PiBracketsCurly />{" "}
-        {schemaCodeMode ? "Use text editor" : "Use code editor"}
+        {schemaCodeMode ? t`Use text editor` : t`Use code editor`}
       </Link>
     </Flex>
   );
 
   const schemaHeader = columnHeader(
-    "Schema",
+    t`Schema`,
     <Flex align="center" gap="1">
       {schemaFormatSelect(
         schemaPreviewSel ?? schemaLang,
@@ -849,10 +853,10 @@ export default function ConfigJsonEditor({
         variant="soft"
         menuPlacement="end"
         triggerStyle={{ marginLeft: 0, marginRight: 0 }}
-        trigger={<MoreMenuTrigger label="Schema actions" />}
+        trigger={<MoreMenuTrigger label={t`Schema actions`} />}
       >
         <DropdownMenuItem onClick={() => setShowNewProjection(true)}>
-          New projection
+          <Trans>New projection</Trans>
         </DropdownMenuItem>
         {editingProjection && (
           <DropdownMenuItem
@@ -861,7 +865,7 @@ export default function ConfigJsonEditor({
               if (!saving) handleRemoveProjection();
             }}
           >
-            Remove projection
+            <Trans>Remove projection</Trans>
           </DropdownMenuItem>
         )}
       </DropdownMenu>
@@ -885,10 +889,10 @@ export default function ConfigJsonEditor({
       />
       <HelperText status="info" size="sm" mt="1">
         <span>
-          Editing <code>{projectionSource}</code>
-          {
-            " updates the Config’s schema and recaptures this projection’s named types."
-          }
+          <Trans>
+            Editing <code>{projectionSource}</code> updates the Config’s schema
+            and recaptures this projection’s named types.
+          </Trans>
         </span>
       </HelperText>
       {parsedProjection?.error && (
@@ -902,14 +906,22 @@ export default function ConfigJsonEditor({
     </>
   );
 
+  const conflictNames = conflictKeys.map((k) => `"${k}"`).join(", ");
   const editContent = (
     <>
       {conflictKeys.length > 0 && (
         <Callout status="warning" mb="3">
-          {conflictKeys.map((k) => `"${k}"`).join(", ")}{" "}
-          {conflictKeys.length === 1 ? "is" : "are"} already defined by a parent
-          config. A parent always wins, so remove{" "}
-          {conflictKeys.length === 1 ? "it" : "them"} from the schema to save.
+          {conflictKeys.length === 1 ? (
+            <Trans>
+              {conflictNames} is already defined by a parent config. A parent
+              always wins, so remove it from the schema to save.
+            </Trans>
+          ) : (
+            <Trans>
+              {conflictNames} are already defined by a parent config. A parent
+              always wins, so remove them from the schema to save.
+            </Trans>
+          )}
         </Callout>
       )}
       {saveError && (
@@ -926,7 +938,7 @@ export default function ConfigJsonEditor({
               <Box
                 style={{ display: "flex", alignItems: "center", minHeight: 40 }}
               >
-                Value
+                <Trans>Value</Trans>
               </Box>
             }
             value={valueText}
@@ -1005,7 +1017,7 @@ export default function ConfigJsonEditor({
 
   const previewContent = twoColumns(
     <>
-      {columnHeader("Resolved value")}
+      {columnHeader(t`Resolved value`)}
       {readonlyValue(resolvedValueString)}
     </>,
     readonlySchemaColumn(
@@ -1013,7 +1025,7 @@ export default function ConfigJsonEditor({
       setResolvedSchemaSel,
       effectiveSchema,
       effectiveSchemaString,
-      "Effective schema",
+      t`Effective schema`,
     ),
   );
 
@@ -1021,8 +1033,8 @@ export default function ConfigJsonEditor({
     <Modal
       open
       trackingEventModalType="config-new-projection"
-      header="New projection"
-      cta="Create"
+      header={t`New projection`}
+      cta={t`Create`}
       submit={handleNewProjection}
       close={() => {
         setShowNewProjection(false);
@@ -1031,14 +1043,14 @@ export default function ConfigJsonEditor({
       }}
     >
       <Field
-        label="Source"
-        placeholder="e.g. checkout-service"
+        label={t`Source`}
+        placeholder={t`e.g. checkout-service`}
         value={newProjSource}
         onChange={(e) => setNewProjSource(e.target.value)}
-        helpText="A consumer/service name that identifies this projection."
+        helpText={t`A consumer/service name that identifies this projection.`}
       />
       <SelectField
-        label="Language"
+        label={t`Language`}
         value={newProjLang}
         onChange={(v) => setNewProjLang(v as ProjectionLang)}
         sort={false}
@@ -1083,10 +1095,10 @@ export default function ConfigJsonEditor({
         {twoColumns(
           <>
             {columnHeader(
-              "Value",
+              t`Value`,
               onEditInDraft ? (
                 <Button variant="outline" size="sm" onClick={onEditInDraft}>
-                  Edit
+                  <Trans>Edit</Trans>
                 </Button>
               ) : null,
             )}
@@ -1097,7 +1109,7 @@ export default function ConfigJsonEditor({
             setOwnSchemaSel,
             ownFields,
             ownSchemaString,
-            "Schema",
+            t`Schema`,
             { projections: renderProjections, emptyState: ownSchemaEmptyState },
           ),
         )}

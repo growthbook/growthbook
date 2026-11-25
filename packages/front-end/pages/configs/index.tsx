@@ -1,6 +1,7 @@
 import { canCreateInSelectedScope } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowElbowDownRight } from "react-icons/pi";
@@ -48,6 +49,7 @@ function isConfigsTab(value: string): value is ConfigsTab {
 }
 
 export default function ConfigsPage(): React.ReactElement {
+  const { t } = useLingui();
   const router = useRouter();
   const {
     ready,
@@ -215,11 +217,13 @@ export default function ConfigsPage(): React.ReactElement {
   // license lapses — only creation is gated). Show an upsell tooltip when absent.
   const addButton = hasConfigsFeature ? (
     <Button disabled={!canAdd} onClick={() => setModalOpen(true)}>
-      Add Config
+      <Trans>Add Config</Trans>
     </Button>
   ) : (
     <PremiumTooltip commercialFeature="feature-configs">
-      <Button disabled>Add Config</Button>
+      <Button disabled>
+        <Trans>Add Config</Trans>
+      </Button>
     </PremiumTooltip>
   );
 
@@ -228,27 +232,29 @@ export default function ConfigsPage(): React.ReactElement {
       <Box className="contents container-fluid pagecontents" mb="3" mt="2">
         <Flex align="center" justify="between" mb="3" mt="2">
           <Heading as="h1" size="2xl">
-            Configs
+            <Trans>Configs</Trans>
           </Heading>
           {hasConfigs && canAdd && addButton}
         </Flex>
         <Text as="p" mb="3" color="text-mid">
-          Strongly-typed configuration objects with a base Config and
-          field-level overrides, composed and delivered through your feature
-          flags.
+          <Trans>
+            Strongly-typed configuration objects with a base Config and
+            field-level overrides, composed and delivered through your feature
+            flags.
+          </Trans>
         </Text>
 
         {!hasConfigs ? (
           <EmptyState
-            title="Typed, composable configuration"
-            description="Define a base Config with a field schema, then create override Configs that inherit and override specific fields."
+            title={t`Typed, composable configuration`}
+            description={t`Define a base Config with a field schema, then create override Configs that inherit and override specific fields.`}
             leftButton={
               <LinkButton
                 href="https://docs.growthbook.io/features/configs"
                 variant="outline"
                 external={true}
               >
-                View docs
+                <Trans>View docs</Trans>
               </LinkButton>
             }
             rightButton={canAdd ? addButton : null}
@@ -268,13 +274,13 @@ export default function ConfigsPage(): React.ReactElement {
           >
             <TabsList>
               <TabsTrigger value="all">
-                All Configs
+                <Trans>All Configs</Trans>
                 <span className="ml-2 round-text-background text-main">
                   {allTabCount}
                 </span>
               </TabsTrigger>
               <TabsTrigger value="drafts">
-                Drafts
+                <Trans>Drafts</Trans>
                 <span className="ml-2 round-text-background text-main">
                   {openReviewsCount}
                 </span>
@@ -287,7 +293,7 @@ export default function ConfigsPage(): React.ReactElement {
                   mb="3"
                   search={
                     <Field
-                      placeholder="Search..."
+                      placeholder={t`Search...`}
                       type="search"
                       {...searchInputProps}
                     />
@@ -306,17 +312,19 @@ export default function ConfigsPage(): React.ReactElement {
                   <TableHeader>
                     <TableRow>
                       <SortableTableColumnHeader field="name">
-                        Name
+                        <Trans>Name</Trans>
                       </SortableTableColumnHeader>
                       <SortableTableColumnHeader field="key">
-                        Key
+                        <Trans>Key</Trans>
                       </SortableTableColumnHeader>
-                      <TableColumnHeader>Project</TableColumnHeader>
+                      <TableColumnHeader>
+                        <Trans>Project</Trans>
+                      </TableColumnHeader>
                       <TableColumnHeader style={{ width: "25%" }}>
-                        Description
+                        <Trans>Description</Trans>
                       </TableColumnHeader>
                       <SortableTableColumnHeader field="dateUpdated">
-                        Last Modified
+                        <Trans>Last Modified</Trans>
                       </SortableTableColumnHeader>
                     </TableRow>
                   </TableHeader>
@@ -362,7 +370,7 @@ export default function ConfigsPage(): React.ReactElement {
                                 {c.name}
                               </Link>
                               {c.archived && (
-                                <Badge label="Archived" color="gray" />
+                                <Badge label={t`Archived`} color="gray" />
                               )}
                             </Flex>
                           </TableCell>
@@ -388,8 +396,8 @@ export default function ConfigsPage(): React.ReactElement {
                       <TableRow>
                         <TableCell colSpan={5} style={{ textAlign: "center" }}>
                           {isFiltered
-                            ? "No Configs match the current filter."
-                            : "No Configs found."}
+                            ? t`No Configs match the current filter.`
+                            : t`No Configs found.`}
                         </TableCell>
                       </TableRow>
                     )}

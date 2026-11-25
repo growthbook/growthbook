@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiRadioButton, PiMagnifyingGlass } from "react-icons/pi";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -25,20 +28,27 @@ import styles from "./ConfigUsageTable.module.scss";
 // Shared row formats for config-key usage, rendered both in the per-key hover
 // popover and in grouped tables below the config editor.
 
-const RULE_TYPE_LABELS: Record<string, string> = {
-  force: "Force",
-  rollout: "Rollout",
-  experiment: "Experiment",
-  "experiment-ref": "Experiment",
-  "contextual-bandit-ref": "Bandit",
-  "safe-rollout": "Safe rollout",
+const RULE_TYPE_LABELS: Record<string, MessageDescriptor> = {
+  force: msg`Force`,
+  rollout: msg`Rollout`,
+  experiment: msg`Experiment`,
+  "experiment-ref": msg`Experiment`,
+  "contextual-bandit-ref": msg`Bandit`,
+  "safe-rollout": msg`Safe rollout`,
 };
 
-function locationLabel(impl: ConfigKeyImplementation): string {
-  if (impl.location === "defaultValue") return "Default";
-  if (!impl.ruleType) return "Rule";
-  return RULE_TYPE_LABELS[impl.ruleType] ?? impl.ruleType;
+function locationLabel(impl: ConfigKeyImplementation, i18n: I18n): string {
+  if (impl.location === "defaultValue") return i18n._(msg`Default`);
+  if (!impl.ruleType) return i18n._(msg`Rule`);
+  const label = RULE_TYPE_LABELS[impl.ruleType];
+  return label ? i18n._(label) : impl.ruleType;
 }
+
+const EXPERIMENT_STATUS_LABELS: Record<string, MessageDescriptor> = {
+  running: msg`Running`,
+  stopped: msg`Stopped`,
+  draft: msg`Draft`,
+};
 
 export const EXPERIMENT_STATUS_COLORS: Record<
   string,
@@ -143,7 +153,7 @@ function OverrideValues({
             )}
             {shownKeys.length === 0 ? (
               <Text as="div" size="sm" color="text-low">
-                No override
+                <Trans>No override</Trans>
               </Text>
             ) : (
               // Two-column key/value grid, mirroring the config field table.
@@ -182,10 +192,11 @@ function OverridePopoverTrigger({
   impl: DedupedImplementation;
   keys: string[];
 }): React.ReactElement {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   return (
     // Off while the popover is open, so it can't show on top of it.
-    <Tooltip content="View override values" enabled={!open}>
+    <Tooltip content={t`View override values`} enabled={!open}>
       <span style={{ display: "inline-flex" }}>
         <Popover
           open={open}
@@ -201,9 +212,9 @@ function OverridePopoverTrigger({
               variant="ghost"
               color="violet"
               icon={<PiMagnifyingGlass />}
-              aria-label="View override values"
+              aria-label={t`View override values`}
             >
-              Override
+              <Trans>Override</Trans>
             </Button>
           }
           content={
@@ -222,21 +233,23 @@ function FlagRevisionBadge({
 }: {
   impl: ConfigKeyImplementation;
 }): React.ReactElement {
+  const { t } = useLingui();
   if (impl.state === "draft") {
+    const revisionVersion = impl.revisionVersion;
     return (
       <Badge
         color="amber"
         variant="soft"
         radius="full"
         label={
-          (impl.revisionVersion ?? null) !== null
-            ? `Draft v${impl.revisionVersion}`
-            : "Draft"
+          (revisionVersion ?? null) !== null
+            ? t`Draft v${revisionVersion}`
+            : t`Draft`
         }
       />
     );
   }
-  return <Badge color="green" variant="soft" radius="full" label="Live" />;
+  return <Badge color="green" variant="soft" radius="full" label={t`Live`} />;
 }
 
 // The backing config relative to the config being viewed — mirrors the main
@@ -257,7 +270,7 @@ function ConfigSourceCell({
         radius="full"
         label={
           <Flex align="center" gap="1">
-            <PiRadioButton /> This config
+            <PiRadioButton /> <Trans>This config</Trans>
           </Flex>
         }
       />
@@ -350,14 +363,20 @@ function StatusCell({
 }: {
   impl: ConfigKeyImplementation;
 }): React.ReactElement | null {
+  const { i18n } = useLingui();
   const status = impl.experimentStatus;
   if (!status) return null;
+  const statusLabel = EXPERIMENT_STATUS_LABELS[status];
   return (
     <Badge
       color={EXPERIMENT_STATUS_COLORS[status] ?? "gray"}
       variant="soft"
       radius="full"
-      label={status.charAt(0).toUpperCase() + status.slice(1)}
+      label={
+        statusLabel
+          ? i18n._(statusLabel)
+          : status.charAt(0).toUpperCase() + status.slice(1)
+      }
     />
   );
 }
@@ -394,6 +413,7 @@ function KeyCell({
     : keys;
   const visible = ordered.slice(0, MAX_VISIBLE_KEYS);
   const overflow = ordered.slice(MAX_VISIBLE_KEYS);
+  const overflowCount = overflow.length;
   return (
     <Flex direction="column" gap="1" align="start">
       {visible.map((k) => (
@@ -411,7 +431,7 @@ function KeyCell({
         >
           <span>
             <Text as="span" size="sm" color="text-low">
-              +{overflow.length} more
+              <Trans>+{overflowCount} more</Trans>
             </Text>
           </span>
         </Tooltip>
@@ -442,6 +462,7 @@ export function FeatureUsageTable({
   showKeys?: boolean;
   keyOrder?: string[];
 }): React.ReactElement {
+  const { i18n } = useLingui();
   return (
     <Table
       variant="ghost"
@@ -451,20 +472,20 @@ export function FeatureUsageTable({
       <TableHeader>
         <TableRow>
           <TableColumnHeader style={{ width: FEATURE_WIDTH }}>
-            Feature
+            <Trans>Feature</Trans>
           </TableColumnHeader>
           <TableColumnHeader style={{ width: FLAG_REVISION_WIDTH }}>
-            Status
+            <Trans>Status</Trans>
           </TableColumnHeader>
           <TableColumnHeader style={{ width: LOCATION_WIDTH }}>
-            Location
+            <Trans>Location</Trans>
           </TableColumnHeader>
           <TableColumnHeader style={{ width: CONFIG_SOURCE_WIDTH }}>
-            Config source
+            <Trans>Config source</Trans>
           </TableColumnHeader>
           {showKeys && (
             <TableColumnHeader style={{ width: KEY_WIDTH }}>
-              Overrides
+              <Trans>Overrides</Trans>
             </TableColumnHeader>
           )}
         </TableRow>
@@ -478,7 +499,7 @@ export function FeatureUsageTable({
             <TableCell>
               <FlagRevisionBadge impl={impl} />
             </TableCell>
-            <TableCell>{locationLabel(impl)}</TableCell>
+            <TableCell>{locationLabel(impl, i18n)}</TableCell>
             <TableCell>
               <ConfigSourceCell impl={impl} />
             </TableCell>
@@ -512,21 +533,21 @@ export function ExperimentUsageTable({
       <TableHeader>
         <TableRow>
           <TableColumnHeader style={{ width: EXPERIMENT_WIDTH }}>
-            Experiment
+            <Trans>Experiment</Trans>
           </TableColumnHeader>
           <TableColumnHeader style={{ width: STATUS_WIDTH }} />
           <TableColumnHeader style={{ width: FEATURE_WIDTH }}>
-            Feature
+            <Trans>Feature</Trans>
           </TableColumnHeader>
           <TableColumnHeader style={{ width: FLAG_REVISION_WIDTH }}>
-            Status
+            <Trans>Status</Trans>
           </TableColumnHeader>
           <TableColumnHeader style={{ width: CONFIG_SOURCE_WIDTH }}>
-            Config source
+            <Trans>Config source</Trans>
           </TableColumnHeader>
           {showKeys && (
             <TableColumnHeader style={{ width: KEY_WIDTH }}>
-              Overrides
+              <Trans>Overrides</Trans>
             </TableColumnHeader>
           )}
         </TableRow>
@@ -570,6 +591,7 @@ export function ByKeyUsageTable({
 }: {
   groups: { key: string; impls: DedupedImplementation[] }[];
 }): React.ReactElement {
+  const { i18n } = useLingui();
   return (
     <Table
       variant="ghost"
@@ -579,13 +601,25 @@ export function ByKeyUsageTable({
     >
       <TableHeader>
         <TableRow>
-          <TableColumnHeader width="160px">Key</TableColumnHeader>
-          <TableColumnHeader>Feature</TableColumnHeader>
-          <TableColumnHeader width="90px">Status</TableColumnHeader>
-          <TableColumnHeader>Experiment</TableColumnHeader>
+          <TableColumnHeader width="160px">
+            <Trans>Key</Trans>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Trans>Feature</Trans>
+          </TableColumnHeader>
+          <TableColumnHeader width="90px">
+            <Trans>Status</Trans>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Trans>Experiment</Trans>
+          </TableColumnHeader>
           <TableColumnHeader width="90px" />
-          <TableColumnHeader width="110px">Location</TableColumnHeader>
-          <TableColumnHeader width="130px">Config source</TableColumnHeader>
+          <TableColumnHeader width="110px">
+            <Trans>Location</Trans>
+          </TableColumnHeader>
+          <TableColumnHeader width="130px">
+            <Trans>Config source</Trans>
+          </TableColumnHeader>
           <TableColumnHeader width="110px" />
         </TableRow>
       </TableHeader>
@@ -612,7 +646,7 @@ export function ByKeyUsageTable({
                 <TableCell style={cell}>
                   <StatusCell impl={impl} />
                 </TableCell>
-                <TableCell style={cell}>{locationLabel(impl)}</TableCell>
+                <TableCell style={cell}>{locationLabel(impl, i18n)}</TableCell>
                 <TableCell style={cell}>
                   <ConfigSourceCell impl={impl} />
                 </TableCell>
@@ -638,6 +672,7 @@ export function ByReferenceUsageTable({
   groups: { featureId: string; impls: DedupedImplementation[] }[];
   keyOrder?: string[];
 }): React.ReactElement {
+  const { i18n } = useLingui();
   return (
     <Table
       variant="ghost"
@@ -647,13 +682,25 @@ export function ByReferenceUsageTable({
     >
       <TableHeader>
         <TableRow>
-          <TableColumnHeader>Feature</TableColumnHeader>
-          <TableColumnHeader width="190px">Overrides</TableColumnHeader>
-          <TableColumnHeader width="90px">Status</TableColumnHeader>
-          <TableColumnHeader>Experiment</TableColumnHeader>
+          <TableColumnHeader>
+            <Trans>Feature</Trans>
+          </TableColumnHeader>
+          <TableColumnHeader width="190px">
+            <Trans>Overrides</Trans>
+          </TableColumnHeader>
+          <TableColumnHeader width="90px">
+            <Trans>Status</Trans>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Trans>Experiment</Trans>
+          </TableColumnHeader>
           <TableColumnHeader width="90px" />
-          <TableColumnHeader width="110px">Location</TableColumnHeader>
-          <TableColumnHeader width="130px">Config source</TableColumnHeader>
+          <TableColumnHeader width="110px">
+            <Trans>Location</Trans>
+          </TableColumnHeader>
+          <TableColumnHeader width="130px">
+            <Trans>Config source</Trans>
+          </TableColumnHeader>
           <TableColumnHeader width="110px" />
         </TableRow>
       </TableHeader>
@@ -676,7 +723,7 @@ export function ByReferenceUsageTable({
               <TableCell>
                 <StatusCell impl={impl} />
               </TableCell>
-              <TableCell>{locationLabel(impl)}</TableCell>
+              <TableCell>{locationLabel(impl, i18n)}</TableCell>
               <TableCell>
                 <ConfigSourceCell impl={impl} />
               </TableCell>

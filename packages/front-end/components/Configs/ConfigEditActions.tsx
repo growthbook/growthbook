@@ -1,4 +1,5 @@
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 import { TableRow, TableViewportCell } from "@/ui/Table";
@@ -21,6 +22,7 @@ export default function ConfigEditActions({
   onSave: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useLingui();
   return (
     <TableRow style={background ? { background } : undefined}>
       <TableViewportCell colSpan={colSpan}>
@@ -31,11 +33,11 @@ export default function ConfigEditActions({
             disabled={saving}
             onClick={onCancel}
           >
-            Discard changes
+            <Trans>Discard changes</Trans>
           </Button>
           <Tooltip content={saveBlockedReason} enabled={!!saveBlockedReason}>
             <Button disabled={saving || !!saveBlockedReason} onClick={onSave}>
-              {saving ? "Saving..." : "Save"}
+              {saving ? t`Saving...` : t`Save`}
             </Button>
           </Tooltip>
         </Flex>

@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ConstantWithoutValue } from "shared/types/constant";
 import { isProjectListValidForProject, truncateString } from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -47,6 +48,7 @@ function isConstantsTab(value: string): value is ConstantsTab {
 }
 
 export default function ConstantsPage(): React.ReactElement {
+  const { t } = useLingui();
   const router = useRouter();
   const {
     ready,
@@ -194,35 +196,38 @@ export default function ConstantsPage(): React.ReactElement {
 
   const addButton = (
     <Button disabled={!canAdd} onClick={() => setModalOpen(true)}>
-      Add Constant
+      <Trans>Add Constant</Trans>
     </Button>
   );
+  const refSyntax = "{{ @const:key }}";
 
   return (
     <>
       <Box className="contents container-fluid pagecontents" mb="3" mt="2">
         <Flex align="center" justify="between" mb="3" mt="2">
           <Heading as="h1" size="2xl">
-            Constants
+            <Trans>Constants</Trans>
           </Heading>
           {hasConstants && canAdd && addButton}
         </Flex>
         <Text as="p" mb="3" color="text-mid">
-          Define a value once and reference it across your Feature Flags. Change
-          it in one place and every consumer updates.
+          <Trans>
+            Define a value once and reference it across your Feature Flags.
+            Change it in one place and every consumer updates.
+          </Trans>
         </Text>
 
         {!hasConstants ? (
           <EmptyState
-            title="Reusable values for your Configs"
-            description="Define a value once and reference it from Feature Flags with {{ @const:key }}. Change it in one place and every consumer updates."
+            title={t`Reusable values for your Configs`}
+            description={t`Define a value once and reference it from Feature Flags with ${refSyntax}. Change it in one place and every consumer updates.`}
             leftButton={
               <LinkButton
                 href="https://docs.growthbook.io/features/constants"
                 variant="outline"
                 external={true}
               >
-                View docs
+                <Trans>View docs</Trans>
               </LinkButton>
             }
             rightButton={canAdd ? addButton : null}
@@ -242,13 +247,13 @@ export default function ConstantsPage(): React.ReactElement {
           >
             <TabsList>
               <TabsTrigger value="all">
-                All Constants
+                <Trans>All Constants</Trans>
                 <span className="ml-2 round-text-background text-main">
                   {allTabCount}
                 </span>
               </TabsTrigger>
               <TabsTrigger value="drafts">
-                Drafts
+                <Trans>Drafts</Trans>
                 <span className="ml-2 round-text-background text-main">
                   {openReviewsCount}
                 </span>
@@ -261,7 +266,7 @@ export default function ConstantsPage(): React.ReactElement {
                   mb="3"
                   search={
                     <Field
-                      placeholder="Search..."
+                      placeholder={t`Search...`}
                       type="search"
                       {...searchInputProps}
                     />
@@ -280,20 +285,22 @@ export default function ConstantsPage(): React.ReactElement {
                   <TableHeader>
                     <TableRow>
                       <SortableTableColumnHeader field="name">
-                        Name
+                        <Trans>Name</Trans>
                       </SortableTableColumnHeader>
                       <SortableTableColumnHeader field="key">
-                        Key
+                        <Trans>Key</Trans>
                       </SortableTableColumnHeader>
-                      <TableColumnHeader>Project</TableColumnHeader>
+                      <TableColumnHeader>
+                        <Trans>Project</Trans>
+                      </TableColumnHeader>
                       <SortableTableColumnHeader field="typeLabel">
-                        Type
+                        <Trans>Type</Trans>
                       </SortableTableColumnHeader>
                       <TableColumnHeader style={{ width: "25%" }}>
-                        Description
+                        <Trans>Description</Trans>
                       </TableColumnHeader>
                       <SortableTableColumnHeader field="dateUpdated">
-                        Last Modified
+                        <Trans>Last Modified</Trans>
                       </SortableTableColumnHeader>
                     </TableRow>
                   </TableHeader>
@@ -319,7 +326,7 @@ export default function ConstantsPage(): React.ReactElement {
                                 {c.name}
                               </Link>
                               {c.archived && (
-                                <Badge label="Archived" color="gray" />
+                                <Badge label={t`Archived`} color="gray" />
                               )}
                             </Flex>
                           </TableCell>
@@ -346,8 +353,8 @@ export default function ConstantsPage(): React.ReactElement {
                       <TableRow>
                         <TableCell colSpan={6} style={{ textAlign: "center" }}>
                           {isFiltered
-                            ? "No Constants match the current filter."
-                            : "No Constants found."}
+                            ? t`No Constants match the current filter.`
+                            : t`No Constants found.`}
                         </TableCell>
                       </TableRow>
                     )}
