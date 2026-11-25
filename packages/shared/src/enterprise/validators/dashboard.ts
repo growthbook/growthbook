@@ -75,6 +75,8 @@ export const dashboardInterface = z
     experimentId: z.string().optional(), // If an empty string, it's a general dashboard
     isDefault: z.boolean(), // Deprecated
     isDeleted: z.boolean(), // For soft-deletes (currently unused)
+    isDraft: z.boolean().optional(), // Never published, readable only by its owner
+    publishedVersion: z.number().int().optional(), // Absent on dashboards saved before versioning
     userId: z.string(),
     editLevel: dashboardEditLevel,
     shareLevel: dashboardShareLevel, // Only configurable for orgs with product-analytics-dashboards commercialFeature (PA) or dashboards commercialFeature (Exp)

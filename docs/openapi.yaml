@@ -84929,6 +84929,10 @@ components:
           type: boolean
         isDeleted:
           type: boolean
+        isDraft:
+          type: boolean
+        publishedVersion:
+          type: integer
         userId:
           type: string
         editLevel:

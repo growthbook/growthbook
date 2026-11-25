@@ -233,7 +233,10 @@ export class DashboardModel extends BaseClass {
       return false;
     }
 
-    if (doc.shareLevel === "private" && doc.userId !== this.context.userId) {
+    if (
+      (doc.shareLevel === "private" || doc.isDraft) &&
+      doc.userId !== this.context.userId
+    ) {
       return false;
     }
 
@@ -290,6 +293,13 @@ export class DashboardModel extends BaseClass {
         updates,
       );
     }
+  }
+
+  public canEdit(doc: DashboardInterface): boolean {
+    const isOwner = this.context.userId === doc.userId;
+    const isAdmin = this.context.permissions.canSuperDeleteReport();
+    if (doc.editLevel === "private" && !isOwner && !isAdmin) return false;
+    return this.canUpdate(doc, {});
   }
 
   protected canDelete(doc: DashboardInterface): boolean {
@@ -398,7 +408,9 @@ export class DashboardModel extends BaseClass {
     }
   }
 
-  protected async afterDelete(_doc: DashboardDocument) {}
+  protected async afterDelete(doc: DashboardDocument) {
+    await this.context.models.dashboardVersions.deleteAllForDashboard(doc.id);
+  }
 
   protected async linkSavedQuery(queryId: string, doc: DashboardDocument) {
     const savedQuery = await this.context.models.savedQueries.getById(queryId);

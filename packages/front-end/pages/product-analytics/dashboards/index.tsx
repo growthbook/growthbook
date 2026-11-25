@@ -18,6 +18,7 @@ import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
@@ -385,19 +386,23 @@ export default function DashboardsPage() {
                                 )}
                               </td>
                               <td>
-                                <ShareStatusBadge
-                                  shareLevel={
-                                    d.shareLevel === "published"
-                                      ? "organization"
-                                      : "private"
-                                  }
-                                  editLevel={
-                                    d.editLevel === "private"
-                                      ? "private"
-                                      : "organization"
-                                  }
-                                  isOwner={d.userId === userId}
-                                />
+                                {d.isDraft ? (
+                                  <Badge label="Draft" color="gray" />
+                                ) : (
+                                  <ShareStatusBadge
+                                    shareLevel={
+                                      d.shareLevel === "published"
+                                        ? "organization"
+                                        : "private"
+                                    }
+                                    editLevel={
+                                      d.editLevel === "private"
+                                        ? "private"
+                                        : "organization"
+                                    }
+                                    isOwner={d.userId === userId}
+                                  />
+                                )}
                               </td>
                               <td>
                                 {d && (d.projects || []).length > 0 ? (

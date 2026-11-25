@@ -4,6 +4,7 @@ import {
   blockComparisonValidator,
   createDashboardBlockInterface,
   dashboardBlockInterface,
+  dashboardDraftOpInput,
   dashboardGlobalControlsValidator,
   legacyDashboardBlockInterface,
   dashboardEditLevel,
@@ -31,6 +32,7 @@ export const createDashboardBody = z
     blocks: z.array(createDashboardBlockInterface),
     projects: z.array(z.string()).optional(),
     userId: z.string().optional(),
+    isDraft: z.boolean().optional(),
   })
   .strict();
 
@@ -58,6 +60,10 @@ export const updateDashboardBody = z
       )
       .optional(),
   })
+  .strict();
+
+export const publishDashboardDraftBody = z
+  .object({ note: z.string().optional() })
   .strict();
 
 router.get(
@@ -114,6 +120,38 @@ router.get(
   "/:id/snapshots",
   validateRequestMiddleware({ params: dashboardParams }),
   dashboardsController.getDashboardSnapshots,
+);
+
+router.get(
+  "/:id/draft",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.getDashboardDraft,
+);
+router.post(
+  "/:id/draft",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.createDashboardDraft,
+);
+router.post(
+  "/:id/draft/ops",
+  validateRequestMiddleware({
+    body: dashboardDraftOpInput,
+    params: dashboardParams,
+  }),
+  dashboardsController.editDashboardDraft,
+);
+router.post(
+  "/:id/draft/publish",
+  validateRequestMiddleware({
+    body: publishDashboardDraftBody,
+    params: dashboardParams,
+  }),
+  dashboardsController.publishDashboardDraft,
+);
+router.delete(
+  "/:id/draft",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.discardDashboardDraft,
 );
 
 export { router as dashboardsRouter };

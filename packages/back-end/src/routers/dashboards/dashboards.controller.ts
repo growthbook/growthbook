@@ -5,6 +5,8 @@ import {
   snapshotSatisfiesBlock,
   DashboardInterface,
   DashboardBlockInterface,
+  DashboardDraftOpInput,
+  DashboardVersionInterface,
   resolveGlobalControlsBlockEnrollment,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
@@ -38,7 +40,12 @@ import {
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
 import { NotFoundError } from "back-end/src/util/errors";
-import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
+import * as dashboardVersions from "back-end/src/enterprise/services/dashboardVersions";
+import {
+  createDashboardBody,
+  publishDashboardDraftBody,
+  updateDashboardBody,
+} from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
   dashboard: DashboardInterface;
@@ -106,6 +113,7 @@ export async function createDashboard(
     globalControls,
     comparison,
     userId,
+    isDraft,
   } = req.body;
 
   const createdBlocks = blocks.map((blockData) =>
@@ -120,7 +128,9 @@ export async function createDashboard(
   const dashboard = await context.models.dashboards.create({
     isDefault: false,
     isDeleted: false,
-    userId: userId || context.userId,
+    // A draft always belongs to its creator, since only the owner can read it.
+    userId: isDraft ? context.userId : userId || context.userId,
+    isDraft,
     editLevel,
     shareLevel,
     enableAutoUpdates,
@@ -402,4 +412,72 @@ export async function getDashboardSnapshots(
     metricAnalyses,
     explorations,
   });
+}
+
+interface DraftResponse {
+  status: number;
+  draft: DashboardVersionInterface | null;
+}
+
+export async function getDashboardDraft(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const draft = await dashboardVersions.getDashboardDraft(
+    getContextFromReq(req),
+    req.params.id,
+  );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function createDashboardDraft(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const draft = await dashboardVersions.getOrCreateDashboardDraft(
+    getContextFromReq(req),
+    req.params.id,
+  );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function editDashboardDraft(
+  req: AuthRequest<DashboardDraftOpInput, { id: string }, never>,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const draft = await dashboardVersions.editDashboardDraft(
+    getContextFromReq(req),
+    req.params.id,
+    req.body,
+  );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function publishDashboardDraft(
+  req: AuthRequest<
+    z.infer<typeof publishDashboardDraftBody>,
+    { id: string },
+    never
+  >,
+  res: ResponseWithStatusAndError<
+    SingleDashboardResponse & { version: DashboardVersionInterface }
+  >,
+) {
+  const result = await dashboardVersions.publishDashboardDraft(
+    getContextFromReq(req),
+    req.params.id,
+    req.body.note,
+  );
+  return res.status(200).json({ status: 200, ...result });
+}
+
+export async function discardDashboardDraft(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError,
+) {
+  await dashboardVersions.discardDashboardDraft(
+    getContextFromReq(req),
+    req.params.id,
+  );
+  return res.status(200).json({ status: 200 });
 }
