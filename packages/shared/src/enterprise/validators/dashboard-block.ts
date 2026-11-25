@@ -15,7 +15,7 @@ import {
   dateGranularity,
   ExplorationDateRange,
 } from "../../validators/product-analytics";
-import { calculateProductAnalyticsDateRange } from "../product-analytics/sql";
+import { calculateProductAnalyticsDateRange } from "../product-analytics/common-sql";
 import { hasTimestampColumn } from "../product-analytics/utils";
 import { differenceTypes, pinSources } from "../dashboards/utils";
 

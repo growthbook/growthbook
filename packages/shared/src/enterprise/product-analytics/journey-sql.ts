@@ -25,36 +25,13 @@ import {
   validateJourneyStepColumns,
 } from "../../journeys";
 import {
+  CTE,
   calculateProductAnalyticsDateRange,
   generateDimensionExpression,
   generateDynamicDimensionCTE,
   generateRowFilterSQL,
-} from "./sql";
-
-type CTE = { name: string; sql: string };
-
-type JourneyFactTable = Pick<
-  FactTableInterface,
-  "sql" | "columns" | "filters" | "userIdTypes"
-> & {
-  timestampColumn: string | null;
-  quoteTimestampColumn: boolean;
-};
-
-type FactTableGroup = {
-  index: number;
-  factTable: JourneyFactTable;
-  metrics: [];
-  units: [];
-};
-
-function toJourneyFactTable(factTable: FactTableInterface): JourneyFactTable {
-  return {
-    ...factTable,
-    timestampColumn: getFactTableTimestampColumn(factTable),
-    quoteTimestampColumn: false,
-  };
-}
+  toMinimalFactTable,
+} from "./common-sql";
 
 function lit(dialect: SqlDialect, value: string): string {
   return `'${dialect.escapeStringLiteral(value)}'`;
@@ -347,7 +324,7 @@ export function buildJourneySql(
   // validateJourneyDataset has already rejected a null unit / anchor.
   const unit = dataset.unit as string;
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
-  const journeyFactTable = toJourneyFactTable(factTable);
+  const journeyFactTable = toMinimalFactTable(factTable);
   const timestampColumn = getFactTableTimestampColumn(factTable);
   const unitExpr = columnExpr(unit, factTable, dialect);
   const stepExpr = stepExpression(
@@ -363,12 +340,7 @@ export function buildJourneySql(
   const leadOrLag = dataset.direction === "forward" ? "LEAD" : "LAG";
   const hasDimension = dimension !== null;
 
-  const factTableGroup: FactTableGroup = {
-    index: 0,
-    factTable: journeyFactTable,
-    metrics: [],
-    units: [],
-  };
+  const factTableGroup = { factTable: journeyFactTable };
   const dimensionExpr = dimension
     ? generateDimensionExpression(
         dimension,
