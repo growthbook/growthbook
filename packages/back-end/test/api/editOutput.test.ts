@@ -260,6 +260,19 @@ describe("selectorsFoundByTool", () => {
     ]);
   });
 
+  it("returns a searchPage call's match and parent selectors", () => {
+    expect(
+      selectorsFoundByTool({
+        toolName: "searchPage",
+        input: { text: "Start free trial", selector: "a" },
+        output: {
+          ok: true,
+          matches: [{ selector: "#cta > a", parentSelector: "#cta", tag: "a" }],
+        },
+      }),
+    ).toEqual(["#cta > a", "#cta"]);
+  });
+
   it("trusts nothing from a miss, an error, or another tool", () => {
     expect(
       selectorsFoundByTool({
