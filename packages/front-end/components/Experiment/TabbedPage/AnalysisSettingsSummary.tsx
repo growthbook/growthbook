@@ -775,6 +775,11 @@ export default function AnalysisSettingsSummary({
     hasData &&
     !!breakdownDimensionId &&
     !breakdownDimensionId.startsWith("pre:date");
+  const breakdownDimensionName =
+    getDimensionDisplayName(
+      breakdownDimensionId,
+      (id) => getDimensionById(id)?.name || undefined,
+    ) || "Dimension";
   const unitCount = (label: string, count: number) =>
     resultsRedesign ? (
       <Text size="sm" color="text-low">
@@ -811,6 +816,22 @@ export default function AnalysisSettingsSummary({
           }}
         >
           <Flex align="center" gap="4">
+            {showDimensionBreakdown ? (
+              <Popover
+                align="start"
+                trigger={
+                  <Link type="button">{breakdownDimensionName} breakdown</Link>
+                }
+                content={
+                  <UsersTable
+                    dimension={breakdownDimensionName}
+                    results={analysis?.results ?? []}
+                    variations={variations}
+                    settings={orgSettings}
+                  />
+                }
+              />
+            ) : null}
             {snapshot && clusterSubUnitIdentifier ? (
               <>
                 {overallClusterUnits !== null &&
@@ -826,26 +847,6 @@ export default function AnalysisSettingsSummary({
               </>
             ) : snapshot ? (
               unitCount(getUnitDisplayName(userIdType), totalUnits)
-            ) : null}
-
-            {showDimensionBreakdown ? (
-              <Popover
-                align="end"
-                trigger={<Link type="button">Dimension breakdown</Link>}
-                content={
-                  <UsersTable
-                    dimension={
-                      getDimensionDisplayName(
-                        breakdownDimensionId,
-                        (id) => getDimensionById(id)?.name || undefined,
-                      ) || "Dimension"
-                    }
-                    results={analysis?.results ?? []}
-                    variations={variations}
-                    settings={orgSettings}
-                  />
-                }
-              />
             ) : null}
 
             <Flex align="center" gap="2">
