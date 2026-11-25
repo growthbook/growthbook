@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PanelSection } from "@/components/DetailsPanel";
 import { PanelEditButton } from "@/components/DetailsPanelFields";
@@ -12,6 +12,7 @@ import Badge from "@/ui/Badge";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import { getAnalysisSettingsDisplay } from "./analysisSettingsDisplay";
+import styles from "./ExperimentAnalysisPanelSection.module.scss";
 
 export default function ExperimentAnalysisPanelSection({
   experiment,
@@ -73,6 +74,9 @@ export default function ExperimentAnalysisPanelSection({
   }
   if (display.sequential) adjustments.push({ label: "Sequential" });
 
+  const edit = editOnSetup ?? (() => setFormOpen(true));
+  const editsOnClick = canEdit && !editsBlocked;
+
   return (
     <>
       {formOpen ? (
@@ -88,87 +92,107 @@ export default function ExperimentAnalysisPanelSection({
           source="details-panel"
         />
       ) : null}
-      <PanelSection
-        title="Analysis"
-        action={
-          canEdit ? (
-            <PanelEditButton
-              label="Edit analysis settings"
-              onClick={editOnSetup ?? (() => setFormOpen(true))}
-              blockedReason={editsBlocked}
-            />
-          ) : null
-        }
-      >
-        {display.hasData ? (
-          <>
-            <Metadata
-              size="sm"
-              stacked
-              label="Engine"
-              value={
-                <Flex align="center" gap="1">
-                  <Text size="sm" color="text-high">
-                    {display.engine}
-                  </Text>
-                  {display.priorUsed ? (
-                    <AnalysisSettingInfo
-                      drilldownHint
-                      ariaLabel="How a Bayesian prior affects results"
-                      description="A Bayesian prior shrinks the metric estimate towards the prior mean."
-                    />
-                  ) : null}
-                </Flex>
-              }
-            />
-            {adjustments.length > 0 ? (
-              <Metadata
-                size="sm"
-                stacked
-                label="Adjustments"
-                value={
-                  <Flex gap="2" wrap="wrap">
-                    {adjustments.map(({ label, info }) => (
-                      <Flex key={label} align="center" gap="1">
-                        <Badge label={label} color="gray" variant="soft" />
-                        {info}
+      <Box className={editsOnClick ? styles.editBlock : undefined}>
+        <PanelSection
+          title="Analysis"
+          action={
+            canEdit ? (
+              <PanelEditButton
+                label="Edit analysis settings"
+                onClick={edit}
+                blockedReason={editsBlocked}
+              />
+            ) : null
+          }
+        >
+          <Flex
+            direction="column"
+            gap="3"
+            className={editsOnClick ? styles.fields : undefined}
+            // The pencil is the control; this spares pointing at it. A setting's
+            // own info icon still answers for itself.
+            onClick={
+              editsOnClick
+                ? (e) => {
+                    const control = (e.target as HTMLElement).closest(
+                      "a, button, [tabindex]",
+                    );
+                    if (!control || !e.currentTarget.contains(control)) edit();
+                  }
+                : undefined
+            }
+          >
+            {display.hasData ? (
+              <>
+                <Metadata
+                  size="sm"
+                  stacked
+                  label="Engine"
+                  value={
+                    <Flex align="center" gap="1">
+                      <Text size="sm" color="text-high">
+                        {display.engine}
+                      </Text>
+                      {display.priorUsed ? (
+                        <AnalysisSettingInfo
+                          drilldownHint
+                          ariaLabel="How a Bayesian prior affects results"
+                          description="A Bayesian prior shrinks the metric estimate towards the prior mean."
+                        />
+                      ) : null}
+                    </Flex>
+                  }
+                />
+                {adjustments.length > 0 ? (
+                  <Metadata
+                    size="sm"
+                    stacked
+                    label="Adjustments"
+                    value={
+                      <Flex gap="2" wrap="wrap">
+                        {adjustments.map(({ label, info }) => (
+                          <Flex key={label} align="center" gap="1">
+                            <Badge label={label} color="gray" variant="soft" />
+                            {info}
+                          </Flex>
+                        ))}
                       </Flex>
-                    ))}
-                  </Flex>
-                }
-              />
-            ) : null}
-            {segment ? (
-              <Metadata
-                size="sm"
-                stacked
-                label="Segment"
-                value={segment.name}
-              />
-            ) : null}
-            {activationMetric ? (
-              <Metadata
-                size="sm"
-                stacked
-                label="Activation metric"
-                value={activationMetric.name}
-              />
-            ) : null}
-            {display.lookbackEnforced ? (
-              <Metadata
-                size="sm"
-                stacked
-                label="Lookback enforced"
-                value={display.lookbackEnforced}
-              />
-            ) : null}
-          </>
-        ) : (
-          <Text size="sm" color="text-low">
-            No results yet
-          </Text>
-        )}
-      </PanelSection>
+                    }
+                  />
+                ) : null}
+                {segment ? (
+                  <Metadata
+                    size="sm"
+                    stacked
+                    label="Segment"
+                    value={segment.name}
+                  />
+                ) : null}
+                {activationMetric ? (
+                  <Metadata
+                    size="sm"
+                    stacked
+                    label="Activation metric"
+                    value={activationMetric.name}
+                  />
+                ) : null}
+                {display.lookbackEnforced ? (
+                  <Metadata
+                    size="sm"
+                    stacked
+                    label="Lookback enforced"
+                    value={display.lookbackEnforced}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <Text size="sm" color="text-low">
+                No results yet
+              </Text>
+            )}
+          </Flex>
+        </PanelSection>
+      </Box>
     </>
   );
 }
