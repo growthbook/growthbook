@@ -175,6 +175,8 @@ Health checks appear in two places in the app:
 1. On the results tab -- we insert Experiment Balance and Multiple Exposures warnings for all experiments that might be untrustworthy right into your results tab
 2. On the health tab -- if you have health traffic queries enabled, we can run additional queries to further dig into any experiment health issues
 
+If you've looked into an Experiment Balance or Multiple Exposures warning and decided to keep the experiment running, mute it from its card on the health tab. A muted check no longer marks the experiment Unhealthy or sends alerts for it, but the warning on the results tab stays. Re-enable it from the same card at any time.
+
 ### Experiment Balance (SRM)
 
 Every experiment automatically checks for a Sample Ratio Mismatch (SRM) and will warn you if found. This happens when you expect a certain traffic split (e.g. 50/50) but you see something significantly different (e.g. 46/54). We only show this warning if the p-value is less than `0.001` (customizable in your Organization Settings), which means it's extremely unlikely to occur by chance.
