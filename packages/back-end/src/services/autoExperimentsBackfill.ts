@@ -11,27 +11,40 @@ type Owner = {
   status?: string;
   excludeFromPayload?: boolean;
   releasedVariationId?: string;
+  dateUpdated?: Date;
 };
 
-// Running, or stopped with a temporary rollout that keeps a variation live. A
-// draft is out: starting it asks to enable the feature, and many were added
-// once and never launched. A contextual bandit has no temporary rollout.
-const isServing = (owner: Owner) =>
+// A draft saved more recently than this may be about to launch.
+const RECENT_DRAFT_MS = 14 * 24 * 60 * 60 * 1000;
+
+// Running, stopped with a temporary rollout that keeps a variation live, or a
+// recent draft. An older draft is out: starting it asks to enable the feature,
+// and many were added once and never launched. A contextual bandit has no
+// temporary rollout. `edited` is when the change itself was last saved, which
+// doesn't move its owner's date.
+const isInUse = (
+  owner: Owner | undefined,
+  edited: Date | undefined,
+  since: Date,
+) =>
+  !!owner &&
   !owner.archived &&
   (owner.status === "running" ||
     (owner.status === "stopped" &&
       !owner.excludeFromPayload &&
-      !!owner.releasedVariationId));
+      !!owner.releasedVariationId) ||
+    (owner.status === "draft" &&
+      [owner.dateUpdated, edited].some((date) => !!date && date >= since)));
 
-// The `ids` that belong to an experiment or contextual bandit that exists and
-// is serving.
-async function getServingIds(
+// The experiments or contextual bandits behind `ids`, by id. A deleted one is
+// absent.
+async function getOwners(
   collection: "experiments" | "contextualbandits",
   organization: string,
   ids: (string | undefined)[],
-): Promise<Set<string>> {
+): Promise<Map<string, Owner>> {
   const wanted = [...new Set(ids.filter((id): id is string => !!id))];
-  if (!wanted.length) return new Set();
+  if (!wanted.length) return new Map();
   const owners = await getCollection<Owner>(collection)
     .find(
       { organization, id: { $in: wanted } },
@@ -42,20 +55,22 @@ async function getServingIds(
           status: 1,
           excludeFromPayload: 1,
           releasedVariationId: 1,
+          dateUpdated: 1,
         },
       },
     )
     .toArray();
-  return new Set(owners.filter(isServing).map((o) => o.id));
+  return new Map(owners.map((owner) => [owner.id, owner]));
 }
 
 // A changeset or redirect left behind by a deleted experiment, or held by one
-// that isn't serving it, is not use.
+// that isn't using it, is not use.
 async function getUsage(organization: string): Promise<Settings> {
   const [changesets, redirects] = await Promise.all([
     getCollection<{
       experiment?: string;
       contextualBandit?: string;
+      dateUpdated?: Date;
       visualChanges?: { js?: string }[];
     }>("visualchangesets")
       .find(
@@ -64,6 +79,7 @@ async function getUsage(organization: string): Promise<Settings> {
           projection: {
             experiment: 1,
             contextualBandit: 1,
+            dateUpdated: 1,
             "visualChanges.js": 1,
           },
         },
@@ -71,40 +87,50 @@ async function getUsage(organization: string): Promise<Settings> {
       .toArray(),
     getCollection<{
       experiment?: string;
+      dateUpdated?: Date;
       urlPattern: string;
       destinationURLs: { url: string }[];
     }>("urlredirects")
       .find(
         { organization },
-        { projection: { experiment: 1, urlPattern: 1, destinationURLs: 1 } },
+        {
+          projection: {
+            experiment: 1,
+            dateUpdated: 1,
+            urlPattern: 1,
+            destinationURLs: 1,
+          },
+        },
       )
       .toArray(),
   ]);
   const [experiments, bandits] = await Promise.all([
-    getServingIds(
+    getOwners(
       "experiments",
       organization,
       [...changesets, ...redirects].map((d) => d.experiment),
     ),
-    getServingIds(
+    getOwners(
       "contextualbandits",
       organization,
       changesets.map((c) => c.contextualBandit),
     ),
   ]);
-  const liveChangesets = changesets.filter(
-    (c) =>
-      experiments.has(c.experiment ?? "") ||
-      bandits.has(c.contextualBandit ?? ""),
+  const since = new Date(Date.now() - RECENT_DRAFT_MS);
+  const usedChangesets = changesets.filter((c) =>
+    [
+      experiments.get(c.experiment ?? ""),
+      bandits.get(c.contextualBandit ?? ""),
+    ].some((owner) => isInUse(owner, c.dateUpdated, since)),
   );
-  const liveRedirects = redirects.filter((r) =>
-    experiments.has(r.experiment ?? ""),
+  const usedRedirects = redirects.filter((r) =>
+    isInUse(experiments.get(r.experiment ?? ""), r.dateUpdated, since),
   );
   return {
-    visualEditor: liveChangesets.length > 0,
-    urlRedirects: liveRedirects.length > 0,
-    customJs: liveChangesets.some((c) => hasCustomJs(c.visualChanges ?? [])),
-    crossOriginRedirects: liveRedirects.some((r) =>
+    visualEditor: usedChangesets.length > 0,
+    urlRedirects: usedRedirects.length > 0,
+    customJs: usedChangesets.some((c) => hasCustomJs(c.visualChanges ?? [])),
+    crossOriginRedirects: usedRedirects.some((r) =>
       isCrossOriginRedirect({
         urlPattern: r.urlPattern ?? "",
         destinationURLs: r.destinationURLs ?? [],
