@@ -21,7 +21,9 @@ import {
  * measure code can be restructured without changing the SQL.
  */
 
-const dialect: SqlDialect = {
+// Only the members the explorer's SQL uses. A member it needs but this lacks
+// shows up as "undefined" in a snapshot, so add it here.
+const dialect = {
   escapeStringLiteral: (value) => value.replace(/'/g, "''"),
   stringMatch: createLikeStringMatchFn({
     escapeStringLiteral: (value) => value,
@@ -39,10 +41,11 @@ const dialect: SqlDialect = {
   quantileSketchExtractPoint: (col, quantile) =>
     `KLL_POINT(${col}, ${quantile})`,
   toTimestamp: (d: Date) => `'${d.toISOString().substring(0, 10)} 00:00:00'`,
+  identifierQuote: "`",
   formatDialect: "bigquery",
   castToFloat: (col) => `CAST(${col} AS FLOAT)`,
   castToString: (col) => `CAST(${col} AS STRING)`,
-};
+} as SqlDialect;
 
 const column = (name: string, datatype: string) => ({
   column: name,
@@ -458,5 +461,232 @@ describe("SQL for each kind of measured value", () => {
         ).sql,
       ).toMatchSnapshot();
     });
+  });
+});
+
+describe("SQL for each kind of measured value, continued", () => {
+  it("a retention metric's distinct units", () => {
+    const retained = metric("retained", {
+      metricType: "retention",
+      numerator: ref({ column: "$$distinctUsers" }),
+    });
+    expect(metricSQL([retained])).toMatchSnapshot();
+  });
+
+  // Data source and SQL datasets build their fact table from the dataset's
+  // column types, and take unit columns from the data source's settings.
+  const datasource = {
+    settings: { userIdTypes: [{ userIdType: "user_id" }] },
+  } as Parameters<typeof generateProductAnalyticsSQL>[4];
+  const columnTypes = {
+    user_id: "string",
+    timestamp: "date",
+    event_name: "string",
+    revenue: "number",
+  } as const;
+
+  function simpleValues<T extends "data_source" | "sql">(
+    type: T,
+    unit: string | null,
+  ) {
+    return [
+      { name: "Purchases", valueType: "count", valueColumn: null },
+      { name: "Revenue", valueType: "sum", valueColumn: "revenue" },
+      { name: "Purchasers", valueType: "unit_count", valueColumn: null },
+    ].map((v) => ({
+      ...v,
+      type,
+      unit,
+      rowFilters: purchases,
+      valueType: v.valueType as "count" | "sum" | "unit_count",
+    }));
+  }
+
+  function simpleSQL(dataset: ExplorationConfig["dataset"]): string {
+    const config = {
+      type: dataset.type,
+      datasource: "ds",
+      chartType: "bigNumber",
+      showAs: "total",
+      dateRange: DATE_RANGE,
+      dimensions: [],
+      dataset,
+    } as ExplorationConfig;
+    return generateProductAnalyticsSQL(
+      config,
+      factTableMap,
+      new Map(),
+      dialect,
+      datasource,
+    ).sql;
+  }
+
+  describe("data source values", () => {
+    it.each([
+      ["per unit", "user_id"],
+      ["per event, with no unit", null],
+    ])(
+      "counts rows, sums a column and counts distinct units, %s",
+      (_, unit) => {
+        expect(
+          simpleSQL({
+            type: "data_source",
+            table: "events",
+            path: "analytics.events",
+            timestampColumn: "timestamp",
+            columnTypes,
+            values: simpleValues("data_source", unit),
+          }),
+        ).toMatchSnapshot();
+      },
+    );
+  });
+
+  describe("SQL values", () => {
+    it.each([
+      ["with a timestamp column", "timestamp"],
+      ["without a timestamp column", null],
+    ])("counts rows, sums a column and counts distinct units, %s", (_, ts) => {
+      expect(
+        simpleSQL({
+          type: "sql",
+          sql: "SELECT * FROM events;",
+          timestampColumn: ts,
+          columnTypes,
+          values: simpleValues("sql", "user_id"),
+        }),
+      ).toMatchSnapshot();
+    });
+  });
+});
+
+/*
+ * orderedMetricIds becomes each result row's values[].metricId. Simple values
+ * (fact table, data source, SQL) get a made-up id that includes Date.now(), so
+ * the clock is frozen here.
+ */
+describe("orderedMetricIds", () => {
+  const NOW = new Date("2026-01-01T00:00:00Z");
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const ids = (
+    config: ExplorationConfig,
+    metrics: FactMetricInterface[] = [],
+    population: ResolvedExplorationPopulation | null = null,
+  ) =>
+    generateProductAnalyticsSQL(
+      config,
+      factTableMap,
+      new Map(metrics.map((m) => [m.id, m])),
+      dialect,
+      { settings: { userIdTypes: [{ userIdType: "user_id" }] } },
+      population,
+    ).orderedMetricIds;
+
+  const base = {
+    datasource: "ds",
+    chartType: "bigNumber",
+    showAs: "total",
+    dateRange: DATE_RANGE,
+    dimensions: [],
+  } satisfies Partial<ExplorationConfig>;
+  const simple = [
+    { name: "Purchases", valueType: "count", valueColumn: null },
+    { name: "Revenue", valueType: "sum", valueColumn: "revenue" },
+  ] as const;
+  const simpleIds = [
+    `simple_Purchases_${NOW.getTime()}`,
+    `simple_Revenue_${NOW.getTime()}`,
+  ];
+
+  it("lists metric ids in order, once per ratio, without the Population count", () => {
+    const perPurchase = metric("revenue_per_purchase", {
+      metricType: "ratio",
+      denominator: ref({ column: "$$count" }),
+    });
+    const metrics = [revenueSum, perPurchase, purchasers];
+    const config: ExplorationConfig = {
+      ...base,
+      type: "metric",
+      dataset: {
+        type: "metric",
+        values: metrics.map((m) => ({
+          type: "metric",
+          metricId: m.id,
+          name: m.name,
+          unit: "user_id",
+          denominatorUnit: m.metricType === "ratio" ? "user_id" : null,
+          rowFilters: [],
+        })),
+        population: { populationId: "pop", unit: "user_id" },
+      },
+    };
+    const population: ResolvedExplorationPopulation = {
+      source: { type: "factTable", factTableId: "events" },
+      rowFilters: purchases,
+      unit: "user_id",
+    };
+    expect(ids(config, metrics, population)).toEqual([
+      "revenue_sum",
+      "revenue_per_purchase",
+      "purchasers",
+    ]);
+  });
+
+  it("gives fact table, data source and SQL values a timestamped simple_ id", () => {
+    const values = <T extends "fact_table" | "data_source" | "sql">(type: T) =>
+      simple.map((v) => ({ ...v, type, unit: "user_id", rowFilters: [] }));
+    const datasets: ExplorationConfig["dataset"][] = [
+      {
+        type: "fact_table",
+        factTableId: "events",
+        values: values("fact_table"),
+      },
+      {
+        type: "data_source",
+        table: "events",
+        path: "analytics.events",
+        timestampColumn: "timestamp",
+        columnTypes: { user_id: "string", revenue: "number" },
+        values: values("data_source"),
+      },
+      {
+        type: "sql",
+        sql: "SELECT * FROM events",
+        timestampColumn: "timestamp",
+        columnTypes: { user_id: "string", revenue: "number" },
+        values: values("sql"),
+      },
+    ];
+    for (const dataset of datasets) {
+      expect(
+        ids({ ...base, type: dataset.type, dataset } as ExplorationConfig),
+      ).toEqual(simpleIds);
+    }
+  });
+
+  it("numbers Population values population_0, population_1, ...", () => {
+    const value = (name: string): PopulationValue => ({
+      type: "population",
+      name,
+      unit: "user_id",
+      source: { type: "factTable", factTableId: "events" },
+      rowFilters: purchases,
+    });
+    expect(
+      ids({
+        datasource: "ds",
+        chartType: "bigNumber",
+        dateRange: DATE_RANGE,
+        dimensions: [],
+        type: "population",
+        dataset: { type: "population", values: [value("A"), value("B")] },
+      }),
+    ).toEqual(["population_0", "population_1"]);
   });
 });
