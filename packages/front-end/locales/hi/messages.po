@@ -7,27 +7,275 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: hi\n"
 
+#: ui/VariationStatsTable.tsx
+msgid "(adjusted)"
+msgstr "(समायोजित)"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "(optional)"
+msgstr "(वैकल्पिक)"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "{label} isn't available in a table"
+msgstr "{label} टेबल में उपलब्ध नहीं है"
+
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "{location} · matching “{search}”"
+msgstr "{location} · “{search}” से मेल खाते नतीजे"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "{memberCount, plural, one {# member} other {# members}}"
+msgstr "{memberCount, plural, one {# सदस्य} other {# सदस्य}}"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} column"
+msgstr "{n} कॉलम"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} columns"
+msgstr "{n} कॉलम"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} row"
+msgstr "{n} पंक्ति"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} rows"
+msgstr "{n} पंक्तियां"
+
+#: components/GetStarted/OverviewCard.tsx
+msgid "{playTime} min"
+msgstr "{playTime} मिनट"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{shortcutHint} / to search settings"
+msgstr "सेटिंग खोजने के लिए {shortcutHint} /"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{shortcutHint} slash"
+msgstr "{shortcutHint} स्लैश"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{sizeRows, plural, one {# row} other {# rows}} × {sizeColumns, plural, one {# column} other {# columns}}"
+msgstr "{sizeRows, plural, one {# पंक्ति} other {# पंक्तियां}} × {sizeColumns, plural, one {# कॉलम} other {# कॉलम}}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{total, plural, one {# match} other {# matches}} in {matchedSections, plural, one {# section} other {# sections}}"
+msgstr "{matchedSections, plural, one {# सेक्शन} other {# सेक्शन}} में {total, plural, one {# मिलान} other {# मिलान}}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{total, plural, one {# match} other {# matches}} in {matchedSections, plural, one {# section} other {# sections}} and {pageCount, plural, one {# page} other {# pages}}"
+msgstr "{matchedSections, plural, one {# सेक्शन} other {# सेक्शन}} और {pageCount, plural, one {# पेज} other {# पेज}} में {total, plural, one {# मिलान} other {# मिलान}}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{total, plural, one {# match} other {# matches}} in {pageCount, plural, one {# page} other {# pages}}"
+msgstr "{pageCount, plural, one {# पेज} other {# पेज}} में {total, plural, one {# मिलान} other {# मिलान}}"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "{totalImpact} per year is the summed impact of not shipping the worst variation."
+msgstr "{totalImpact} प्रति वर्ष, सबसे खराब वेरिएशन को शिप न करने का कुल प्रभाव है।"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "{totalImpact} per year is the summed impact of the winning variations."
+msgstr "{totalImpact} प्रति वर्ष, जीतने वाले वेरिएशन का कुल प्रभाव है।"
+
+#: components/HomePage/DiscussionFeed.tsx
+msgid "<0><1/></0> commented on {parentType}"
+msgstr "<0><1/></0> ने {parentType} पर टिप्पणी की"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "<0>Clear Input</0> to include today"
+msgstr "आज को शामिल करने के लिए <0>इनपुट साफ़ करें</0>"
+
+#: ui/MultiSelectField.tsx
+msgid "<0>Create</0> <1/>"
+msgstr "<1/> <0>बनाएं</0>"
+
+#: components/Layout/GuidedGetStartedBar.tsx
+msgid "<0>Current Task:</0> {currentStep}"
+msgstr "<0>मौजूदा टास्क:</0> {currentStep}"
+
+#: components/HomePage/GetStartedStep.tsx
+msgid "<0>Notice:</0> You don't have the required permissions to complete this step."
+msgstr "<0>सूचना:</0> इस चरण को पूरा करने के लिए आपके पास ज़रूरी अनुमतियां नहीं हैं।"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "0 experiments for which we could compute scaled impact match your filters."
+msgstr "आपके फ़िल्टर से मेल खाने वाला ऐसा कोई एक्सपेरिमेंट नहीं है जिसका स्केल्ड प्रभाव निकाला जा सके।"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "1. Connect to your data warehouse"
+msgstr "1. अपने डेटा वेयरहाउस से कनेक्ट करें"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "1M CDN Requests/month"
+msgstr "हर महीने 10 लाख CDN अनुरोध"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "2. Define a metric"
+msgstr "2. एक मेट्रिक तय करें"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "20GB Bandwidth/month"
+msgstr "हर महीने 20GB बैंडविड्थ"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "2M CDN Requests/month"
+msgstr "हर महीने 20 लाख CDN अनुरोध"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "3. Import an experiment"
+msgstr "3. एक एक्सपेरिमेंट इंपोर्ट करें"
+
+#: pages/404.tsx
+msgid "404 - Page Not Found"
+msgstr "404 - पेज नहीं मिला"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "5.2 Feature Highlights"
+msgstr "5.2 की खास बातें"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "5.2 Release Notes"
+msgstr "5.2 रिलीज़ नोट्स"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "5GB Bandwidth/month"
+msgstr "हर महीने 5GB बैंडविड्थ"
+
+#: pages/invitation.tsx
+msgid "Accept Invitation"
+msgstr "आमंत्रण स्वीकार करें"
+
+#: components/Modal/ModalWarningBanner.tsx
+msgid "Acknowledge"
+msgstr "मैंने समझ लिया"
+
 #: components/Layout/Layout.tsx
 #: components/Layout/TopNav.tsx
 msgid "Activity Feed"
 msgstr "गतिविधि फ़ीड"
 
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add a billing address and customize the name displayed on invoices."
+msgstr "बिलिंग पता जोड़ें और इनवॉइस पर दिखने वाला नाम बदलें।"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Add a column"
+msgstr "कॉलम जोड़ें"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Add a row"
+msgstr "पंक्ति जोड़ें"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Add data source"
+msgstr "डेटा सोर्स जोड़ें"
+
+#: pages/oauth/google.tsx
+msgid "Add Data Source"
+msgstr "डेटा सोर्स जोड़ें"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Add Metrics"
+msgstr "मेट्रिक्स जोड़ें"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Add North Star Metric(s)"
+msgstr "नॉर्थ स्टार मेट्रिक जोड़ें"
+
 #: components/Layout/TopNav.tsx
 msgid "Add organization"
 msgstr "संगठन जोड़ें"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add payment method"
+msgstr "पेमेंट का तरीका जोड़ें"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Add Proportion, Mean, Quantile, or Ratio metrics on top of Fact Tables."
+msgstr "फ़ैक्ट टेबल के ऊपर प्रोपोर्शन, मीन, क्वांटाइल या रेशियो मेट्रिक्स जोड़ें।"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Add teammates to your account"
+msgstr "अपने खाते में टीम के साथियों को जोड़ें"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add up to 3 seats"
+msgstr "3 सीट तक जोड़ें"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add up to 50 seats"
+msgstr "50 सीट तक जोड़ें"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Add your first feature flag to test your setup."
+msgstr "अपना सेटअप टेस्ट करने के लिए अपना पहला फ़ीचर फ़्लैग जोड़ें।"
 
 #: components/Layout/sidebarNav.ts
 msgid "Admin"
 msgstr "एडमिन"
 
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Advanced permissions"
+msgstr "एडवांस्ड अनुमतियां"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Advanced statistics"
+msgstr "एडवांस्ड स्टैटिस्टिक्स"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Agent Skills"
+msgstr "एजेंट स्किल्स"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "AI Visual Editor"
+msgstr "AI विज़ुअल एडिटर"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align center"
+msgstr "बीच में संरेखित करें"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align column"
+msgstr "कॉलम संरेखित करें"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align left"
+msgstr "बाएं संरेखित करें"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align right"
+msgstr "दाएं संरेखित करें"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "ALL"
+msgstr "सभी"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+#: components/Layout/ProjectSelector.tsx
+msgid "All Projects"
+msgstr "सभी प्रोजेक्ट"
+
 #: components/Layout/TopNav.tsx
 msgid "Allow celebration"
 msgstr "जश्न की अनुमति दें"
+
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Allow GrowthBook to communicate with your app."
+msgstr "GrowthBook को अपने ऐप से जुड़ने दें।"
+
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Allow GrowthBook to query your warehouse to compute traffic totals and metric results."
+msgstr "ट्रैफ़िक का कुल योग और मेट्रिक के नतीजे निकालने के लिए GrowthBook को अपने वेयरहाउस पर क्वेरी चलाने दें।"
 
 #: components/Auth/Welcome.tsx
 msgid "Already have an account? <0>Log In</0>"
 msgstr "क्या आपका पहले से खाता है? <0>लॉग इन करें</0>"
 
+#: pages/index.tsx
 #: pages/reset-password.tsx
 msgid "An error occurred"
 msgstr "कोई गड़बड़ी हुई"
@@ -36,53 +284,264 @@ msgstr "कोई गड़बड़ी हुई"
 msgid "An error occurred. Please try again."
 msgstr "कोई गड़बड़ी हुई। कृपया फिर से कोशिश करें।"
 
+#: pages/oauth/callback.tsx
+msgid "An unknown error occurred"
+msgstr "कोई अज्ञात गड़बड़ी हुई"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Analyze an Existing Experiment"
+msgstr "किसी मौजूदा एक्सपेरिमेंट का विश्लेषण करें"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Analyze Existing Experiment"
+msgstr "मौजूदा एक्सपेरिमेंट का विश्लेषण करें"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Analyze External Experiments"
+msgstr "बाहरी एक्सपेरिमेंट का विश्लेषण करें"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Analyze Imported Experiments"
+msgstr "इंपोर्ट किए गए एक्सपेरिमेंट का विश्लेषण करें"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Annual Adj. Scaled Impact"
+msgstr "वार्षिक समायोजित स्केल्ड प्रभाव"
+
 #: components/Layout/sidebarNav.ts
 msgid "API Keys"
 msgstr "API कुंजियां"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Approved"
+msgstr "स्वीकृत"
+
+#: components/GetStarted/index.tsx
+msgid "Archetype Overview"
+msgstr "आर्केटाइप ओवरव्यू"
 
 #: components/Layout/sidebarNav.ts
 msgid "Archetypes"
 msgstr "आर्केटाइप"
 
+#: components/Modal/ConfirmButton.tsx
+msgid "Are you sure?"
+msgstr "क्या आपको यकीन है?"
+
+#: ui/DropdownMenu.tsx
+msgid "Are you sure? This action cannot be undone."
+msgstr "क्या आपको यकीन है? इस कार्रवाई को वापस नहीं लिया जा सकता।"
+
 #: components/Layout/TopNav.tsx
 msgid "Ask GrowthBook AI"
 msgstr "GrowthBook AI से पूछें"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Ask your admin to invite you to the organization."
+msgstr "अपने एडमिन से आपको संगठन में आमंत्रित करने के लिए कहें।"
 
 #: components/Layout/sidebarNav.ts
 msgid "Attributes"
 msgstr "एट्रिब्यूट"
 
+#: pages/oauth/google.tsx
+msgid "Authentication failed"
+msgstr "प्रमाणीकरण नहीं हो सका"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "avoided loss / year"
+msgstr "टाला गया नुकसान / वर्ष"
+
+#: components/Auth/SelectInitialPlan.tsx
+#: components/Modal/PagedModal.tsx
+msgid "Back"
+msgstr "पीछे"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Back to Options"
+msgstr "विकल्पों पर वापस जाएं"
+
 #: components/Layout/sidebarNav.ts
 msgid "Bandits"
 msgstr "बैंडिट"
+
+#: ui/VariationStatsTable.tsx
+msgid "BASELINE"
+msgstr "बेसलाइन"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Basic flags and experiments for solo devs and small teams"
+msgstr "अकेले डेवलपर और छोटी टीमों के लिए बेसिक फ़्लैग और एक्सपेरिमेंट"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "Bayesian Priors affect results"
+msgstr "बायेसियन प्रायर नतीजों को प्रभावित करते हैं"
+
+#: components/Layout/SidebarLink.tsx
+msgid "beta"
+msgstr "बीटा"
+
+#: components/Layout/SidebarLink.tsx
+msgid "Beta"
+msgstr "बीटा"
 
 #: components/Layout/sidebarNav.ts
 msgid "Billing"
 msgstr "बिलिंग"
 
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Billing details"
+msgstr "बिलिंग विवरण"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Billing email"
+msgstr "बिलिंग ईमेल"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Bold"
+msgstr "बोल्ड"
+
+#: ui/Breadcrumbs.tsx
+msgid "Breadcrumb"
+msgstr "ब्रेडक्रंब"
+
+#: ui/FileInput.tsx
+msgid "Browse..."
+msgstr "ब्राउज़ करें..."
+
 #: components/Layout/Layout.tsx
 msgid "Build:"
 msgstr "बिल्ड:"
 
+#: ui/RichTextEditorToolbar.tsx
+msgid "Bulleted list"
+msgstr "बुलेट वाली सूची"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Calculate Scaled Impact"
+msgstr "स्केल्ड प्रभाव निकालें"
+
+#: components/Auth/ChangePasswordModal.tsx
+msgid "Can't remember your current password? Log out and click on <0>Forgot Password</0> to reset it."
+msgstr "अपना मौजूदा पासवर्ड याद नहीं है? लॉग आउट करें और उसे रीसेट करने के लिए <0>पासवर्ड भूल गए?</0> पर क्लिक करें।"
+
+#: components/Modal.tsx
+#: ui/ConfirmDialog.tsx
+#: ui/Modal/Patterns/ModalStandard.tsx
+msgid "Cancel"
+msgstr "रद्द करें"
+
+#: components/Auth/ChangePasswordModal.tsx
 #: components/Layout/TopNav.tsx
 msgid "Change Password"
 msgstr "पासवर्ड बदलें"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Changes Requested"
+msgstr "बदलाव का अनुरोध किया गया"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Chat with us on <0><1>Slack</1></0>"
+msgstr "<0><1>Slack</1></0> पर हमसे चैट करें"
+
+#: ui/FileInput.tsx
+msgid "Choose file..."
+msgstr "फ़ाइल चुनें..."
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Clear contents"
+msgstr "सामग्री साफ़ करें"
+
+#: components/Layout/SettingsNav.tsx
+msgid "Clear search"
+msgstr "खोज साफ़ करें"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Click the “Start Experiment” button in the top right corner of the selected experiment."
+msgstr "चुने गए एक्सपेरिमेंट के ऊपर दाएं कोने में “एक्सपेरिमेंट शुरू करें” बटन पर क्लिक करें।"
 
 #: components/Auth/Welcome.tsx
 msgid "Click the link in the email to reset your password."
 msgstr "अपना पासवर्ड रीसेट करने के लिए ईमेल में दिए गए लिंक पर क्लिक करें।"
 
+#: components/Modal.tsx
+#: ui/Modal/index.tsx
+msgid "Close"
+msgstr "बंद करें"
+
 #: components/Layout/TopNav.tsx
 msgid "Close GrowthBook AI assistant"
 msgstr "GrowthBook AI असिस्टेंट बंद करें"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Close help"
+msgstr "मदद बंद करें"
+
+#: components/GetStarted/index.tsx
+msgid "Code Refs"
+msgstr "कोड रेफ़रेंस"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Column options"
+msgstr "कॉलम के विकल्प"
+
+#: ui/ColumnSettingsButton.tsx
+msgid "Columns"
+msgstr "कॉलम"
+
+#: ui/ColumnSettingsButton.tsx
+msgid "Columns, {hiddenCount} hidden"
+msgstr "कॉलम, {hiddenCount} छिपे हुए"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Community"
+msgstr "कम्युनिटी"
 
 #: components/Auth/Welcome.tsx
 msgid "Company name"
 msgstr "कंपनी का नाम"
 
+#: components/HomePage/GetStartedStep.tsx
+msgid "Completed"
+msgstr "पूरा हुआ"
+
 #: components/Layout/sidebarNav.ts
 msgid "Configs"
 msgstr "कॉन्फ़िग"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Configure Metric Library"
+msgstr "मेट्रिक लाइब्रेरी कॉन्फ़िगर करें"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Configure Your Auto-generated Experiment"
+msgstr "अपने ऑटो-जनरेटेड एक्सपेरिमेंट को कॉन्फ़िगर करें"
+
+#: ui/ConfirmDialog.tsx
+msgid "Confirm"
+msgstr "पुष्टि करें"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Confirm your plan"
+msgstr "अपने प्लान की पुष्टि करें"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Connect a Data Source"
+msgstr "डेटा सोर्स कनेक्ट करें"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Connect to Your Data Warehouse"
+msgstr "अपने डेटा वेयरहाउस से कनेक्ट करें"
+
+#: components/GetStarted/index.tsx
+msgid "Connect to your SDK to get started. <0>Launch the setup flow</0>"
+msgstr "शुरू करने के लिए अपने SDK से कनेक्ट करें। <0>सेटअप फ़्लो शुरू करें</0>"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Connect Your Data Source"
+msgstr "अपना डेटा सोर्स कनेक्ट करें"
 
 #: components/Layout/sidebarNav.ts
 msgid "Constants"
@@ -92,9 +551,102 @@ msgstr "कॉन्स्टेंट"
 msgid "Contextual Bandits"
 msgstr "कॉन्टेक्स्चुअल बैंडिट"
 
+#: pages/oauth/lookup.tsx
+msgid "Continue"
+msgstr "जारी रखें"
+
+#: ui/FieldIndicator.tsx
+msgid "Copied"
+msgstr "कॉपी हो गया"
+
+#: ui/ShareUrlPopover.tsx
+msgid "Copied!"
+msgstr "कॉपी हो गया!"
+
+#: ui/ShareUrlPopover.tsx
+msgid "Copy link"
+msgstr "लिंक कॉपी करें"
+
+#: ui/FieldIndicator.tsx
+msgid "Copy to clipboard"
+msgstr "क्लिपबोर्ड पर कॉपी करें"
+
+#: components/GetStarted/index.tsx
+msgid "Create"
+msgstr "बनाएं"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Create a Fact Table"
+msgstr "फ़ैक्ट टेबल बनाएं"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create a new one here."
+msgstr "यहां नया संगठन बनाएं।"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create a new organization"
+msgstr "नया संगठन बनाएं"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create a new organization instead"
+msgstr "इसके बजाय नया संगठन बनाएं"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Create a Test Feature Flag"
+msgstr "एक टेस्ट फ़ीचर फ़्लैग बनाएं"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Create a Test Feature Flag in this Project"
+msgstr "इस प्रोजेक्ट में एक टेस्ट फ़ीचर फ़्लैग बनाएं"
+
 #: components/Auth/Welcome.tsx
 msgid "Create Account"
 msgstr "खाता बनाएं"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Create an experiment and change variations. Choose from Feature Flags, URL Redirects, or the Visual Editor (Pro)."
+msgstr "एक एक्सपेरिमेंट बनाएं और वेरिएशन बदलें। फ़ीचर फ़्लैग, URL रीडायरेक्ट या विज़ुअल एडिटर (Pro) में से चुनें।"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create an organization"
+msgstr "संगठन बनाएं"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Create API Token"
+msgstr "API टोकन बनाएं"
+
+#: components/GetStarted/FeaturedCards.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Create Feature Flags"
+msgstr "फ़ीचर फ़्लैग बनाएं"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create or join one here."
+msgstr "यहां नया संगठन बनाएं या किसी संगठन से जुड़ें।"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create organization"
+msgstr "संगठन बनाएं"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Create Projects"
+msgstr "प्रोजेक्ट बनाएं"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Create your first metric definition. Use this as a goal or guardrail when analyzing your experiment results. With GrowthBook, you can build out an entire metric library to represent all of the KPIs for your organization."
+msgstr "अपनी पहली मेट्रिक परिभाषा बनाएं। एक्सपेरिमेंट के नतीजों का विश्लेषण करते समय इसे लक्ष्य या गार्डरेल के रूप में इस्तेमाल करें। GrowthBook के साथ आप अपने संगठन के सभी KPI के लिए पूरी मेट्रिक लाइब्रेरी बना सकते हैं।"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "CUPED affects results"
+msgstr "CUPED नतीजों को प्रभावित करता है"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "CUPED and Bayesian Priors affect results"
+msgstr "CUPED और बायेसियन प्रायर नतीजों को प्रभावित करते हैं"
+
+#: components/Auth/ChangePasswordModal.tsx
+msgid "Current Password"
+msgstr "मौजूदा पासवर्ड"
 
 #: components/Layout/sidebarNav.ts
 msgid "Custom Fields"
@@ -103,6 +655,26 @@ msgstr "कस्टम फ़ील्ड"
 #: components/Layout/sidebarNav.ts
 msgid "Custom Hooks"
 msgstr "कस्टम हुक"
+
+#: components/GetStarted/index.tsx
+msgid "Custom Roles"
+msgstr "कस्टम रोल"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Customize invoice"
+msgstr "इनवॉइस कस्टमाइज़ करें"
+
+#: components/GetStarted/index.tsx
+msgid "Customize your account setup and learn how to get started with GrowthBook."
+msgstr "अपने खाते का सेटअप अपने हिसाब से करें और जानें कि GrowthBook के साथ शुरुआत कैसे करें।"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Daily Average"
+msgstr "दैनिक औसत"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Daily Count"
+msgstr "दैनिक गिनती"
 
 #: components/Layout/TopNav.tsx
 #: components/Layout/TopNavLite.tsx
@@ -118,17 +690,166 @@ msgstr "एक्सपेरिमेंट डैशबोर्ड"
 msgid "Dashboards"
 msgstr "डैशबोर्ड"
 
+#: pages/getstarted/data-source-guide.tsx
+msgid "Data & Metrics"
+msgstr "डेटा और मेट्रिक्स"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+#: components/GetStarted/index.tsx
+msgid "Data Pipeline Mode"
+msgstr "डेटा पाइपलाइन मोड"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Data Source"
+msgstr "डेटा सोर्स"
+
 #: components/Layout/sidebarNav.ts
 msgid "Data Sources"
 msgstr "डेटा सोर्स"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Date Ended"
+msgstr "खत्म होने की तारीख"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "De-bias?"
+msgstr "बायस हटाएं?"
+
+#: components/GetStarted/index.tsx
+msgid "Debug feature flags & experiments"
+msgstr "फ़ीचर फ़्लैग और एक्सपेरिमेंट डीबग करें"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Define any additional settings, rules and targeting as desired. Then, click “Run experiment.”"
+msgstr "ज़रूरत हो तो अतिरिक्त सेटिंग, नियम और टारगेटिंग तय करें। फिर “एक्सपेरिमेंट चलाएं” पर क्लिक करें।"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Define Fact Tables and Metrics"
+msgstr "फ़ैक्ट टेबल और मेट्रिक्स तय करें"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Define fact tables for the main events in your data warehouse and build metrics based on those events."
+msgstr "अपने डेटा वेयरहाउस के मुख्य इवेंट के लिए फ़ैक्ट टेबल तय करें और उन इवेंट के आधार पर मेट्रिक्स बनाएं।"
+
+#: components/GetStarted/index.tsx
+msgid "Define fine-grained permission control"
+msgstr "अनुमतियों को बारीकी से नियंत्रित करें"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Delete column"
+msgstr "कॉलम हटाएं"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Delete row"
+msgstr "पंक्ति हटाएं"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "Demo"
+msgstr "डेमो"
+
+#: ui/VariationStatsTable.tsx
+msgid "Denom."
+msgstr "हर"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Design a new A/B test from scratch using either <0>Feature Flags</0>, our <1>Visual Editor</1>, or <2>URL Redirects</2>. Then, integrate our SDK into your application and start collecting and analyzing data from your users."
+msgstr "<0>फ़ीचर फ़्लैग</0>, हमारे <1>विज़ुअल एडिटर</1> या <2>URL रीडायरेक्ट</2> का इस्तेमाल करके शुरू से एक नया A/B टेस्ट डिज़ाइन करें। फिर हमारे SDK को अपने ऐप्लिकेशन में इंटीग्रेट करें और अपने यूज़र्स से डेटा इकट्ठा करना और उसका विश्लेषण करना शुरू करें।"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Design and Run a New Experiment"
+msgstr "नया एक्सपेरिमेंट डिज़ाइन करें और चलाएं"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Design New Experiment"
+msgstr "नया एक्सपेरिमेंट डिज़ाइन करें"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Design the First Experiment for this Project"
+msgstr "इस प्रोजेक्ट का पहला एक्सपेरिमेंट डिज़ाइन करें"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Design Your Organization’s First Experiment"
+msgstr "अपने संगठन का पहला एक्सपेरिमेंट डिज़ाइन करें"
+
+#: ui/ErrorDisplay.tsx
+msgid "Details"
+msgstr "विवरण"
+
+#: components/GetStarted/index.tsx
+msgid "Dev Tools"
+msgstr "डेव टूल्स"
 
 #: components/Layout/sidebarNav.ts
 msgid "Dimensions"
 msgstr "डाइमेंशन"
 
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Disabled as there are not enough experiments to shrink estimates"
+msgstr "अनुमानों को श्रिंक करने के लिए पर्याप्त एक्सपेरिमेंट नहीं हैं, इसलिए यह बंद है"
+
+#: ui/Callout.tsx
+#: ui/PremiumCallout.tsx
+msgid "Dismiss"
+msgstr "हटाएं"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Docs"
+msgstr "दस्तावेज़"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Documentation, help & support"
+msgstr "दस्तावेज़, मदद और सहायता"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Does not include Bandits"
+msgstr "इसमें बैंडिट शामिल नहीं हैं"
+
+#: pages/oauth/lookup.tsx
+msgid "Don't have a GrowthBook Enterprise plan yet?<0/>Email <1>sales@growthbook.io</1> to learn more and get a quote."
+msgstr "क्या आपके पास अभी GrowthBook Enterprise प्लान नहीं है?<0/>ज़्यादा जानने और कोटेशन पाने के लिए <1>sales@growthbook.io</1> पर ईमेल करें।"
+
 #: components/Auth/Welcome.tsx
 msgid "Don't have an account yet? <0>Start for free</0>"
 msgstr "अभी तक खाता नहीं है? <0>मुफ़्त में शुरू करें</0>"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Draft"
+msgstr "ड्राफ़्ट"
+
+#: ui/ColumnSettings.tsx
+msgid "Drag to reorder {columnLabel}"
+msgstr "{columnLabel} का क्रम बदलने के लिए खींचें"
+
+#: ui/ColumnSettingsButton.tsx
+msgid "Drag to reorder; check to show or hide. Saved in this browser only, not shared with your team."
+msgstr "क्रम बदलने के लिए खींचें; दिखाने या छिपाने के लिए चेक करें। यह सिर्फ़ इसी ब्राउज़र में सेव होता है, आपकी टीम के साथ शेयर नहीं होता।"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Early access"
+msgstr "अर्ली एक्सेस"
+
+#: components/GetStarted/index.tsx
+msgid "Easily reuse sets of metrics"
+msgstr "मेट्रिक्स के सेट आसानी से दोबारा इस्तेमाल करें"
+
+#: components/Layout/HeaderWithEdit.tsx
+#: components/Layout/RightRailSection.tsx
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "Edit"
+msgstr "बदलाव करें"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Edit link"
+msgstr "लिंक बदलें"
+
+#: components/Layout/DetailsPageHeader.tsx
+msgid "Edit name"
+msgstr "नाम बदलें"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Edit North Star Metric(s)"
+msgstr "नॉर्थ स्टार मेट्रिक बदलें"
 
 #: components/Layout/TopNav.tsx
 msgid "Edit profile"
@@ -138,41 +859,163 @@ msgstr "प्रोफ़ाइल में बदलाव करें"
 msgid "Edit Profile"
 msgstr "प्रोफ़ाइल में बदलाव करें"
 
+#: pages/getstarted/experiment-guide.tsx
+msgid "Editing Your Auto-generated Experiment"
+msgstr "अपने ऑटो-जनरेटेड एक्सपेरिमेंट में बदलाव करना"
+
 #: components/Auth/Welcome.tsx
+#: pages/oauth/lookup.tsx
 msgid "Email Address"
 msgstr "ईमेल पता"
+
+#: components/GetStarted/index.tsx
+msgid "Enable automatic query optimization"
+msgstr "ऑटोमैटिक क्वेरी ऑप्टिमाइज़ेशन चालू करें"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Enter your billing information. You can add your payment method next."
+msgstr "अपनी बिलिंग जानकारी डालें। पेमेंट का तरीका आप अगले चरण में जोड़ सकते हैं।"
+
+#: pages/oauth/lookup.tsx
+msgid "Enter your email address and you will be redirected to your company's SSO portal, if configured."
+msgstr "अपना ईमेल पता डालें। अगर सेट अप है, तो आपको आपकी कंपनी के SSO पोर्टल पर भेज दिया जाएगा।"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Enter your tax id here. E.G. VAT or EIN"
+msgstr "यहां अपना टैक्स आईडी डालें। जैसे VAT या EIN"
+
+#: pages/oauth/lookup.tsx
+msgid "Enterprise SSO Login"
+msgstr "Enterprise SSO लॉग इन"
 
 #: components/Layout/sidebarNav.ts
 msgid "Environments"
 msgstr "एनवायरनमेंट"
 
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Error running the analysis."
+msgstr "विश्लेषण चलाने में गड़बड़ी हुई।"
+
+#: ui/DropdownMenu.tsx
+msgid "Error: {error}. Exit menu and try again."
+msgstr "गड़बड़ी: {error}। मेन्यू बंद करें और फिर से कोशिश करें।"
+
+#: ui/VariationStatsTable.tsx
+msgid "Events"
+msgstr "इवेंट"
+
 #: components/Layout/sidebarNav.ts
 msgid "Events Log"
 msgstr "इवेंट लॉग"
+
+#: components/GetStarted/index.tsx
+#: components/GetStarted/NeedingAttention.tsx
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Experiment"
+msgstr "एक्सपेरिमेंट"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Experiment Impact"
+msgstr "एक्सपेरिमेंट का प्रभाव"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Experiment Results"
+msgstr "एक्सपेरिमेंट के नतीजे"
 
 #: components/Layout/sidebarNav.ts
 msgid "Experimentation"
 msgstr "एक्सपेरिमेंटेशन"
 
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Experimentation Setup"
+msgstr "एक्सपेरिमेंटेशन सेटअप"
+
+#: components/HomePage/ExperimentImpact/index.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Experiments"
 msgstr "एक्सपेरिमेंट"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Experiments > [selected experiment]"
+msgstr "एक्सपेरिमेंट > [चुना गया एक्सपेरिमेंट]"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Experiments requiring attention"
+msgstr "ध्यान देने वाले एक्सपेरिमेंट"
 
 #: components/Layout/sidebarNav.ts
 msgid "Explore"
 msgstr "एक्सप्लोर"
 
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Explore a demo experiment with sample data"
+msgstr "सैंपल डेटा वाला डेमो एक्सपेरिमेंट एक्सप्लोर करें"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Explore a guided setup"
+msgstr "गाइडेड सेटअप एक्सप्लोर करें"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Explore a guided setup & sample results"
+msgstr "गाइडेड सेटअप और सैंपल नतीजे एक्सप्लोर करें"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Explore a Sample Experiment"
+msgstr "सैंपल एक्सपेरिमेंट एक्सप्लोर करें"
+
+#: components/GetStarted/index.tsx
+msgid "EXPLORE ADVANCED FEATURES"
+msgstr "एडवांस्ड फ़ीचर एक्सप्लोर करें"
+
+#: components/GetStarted/index.tsx
+msgid "EXPLORE FEATURES"
+msgstr "फ़ीचर एक्सप्लोर करें"
+
 #: components/Layout/sidebarNav.ts
 msgid "Exposures Debugger"
 msgstr "एक्सपोज़र डीबगर"
 
+#: components/GetStarted/DocumentationSidebar.tsx
+#: components/GetStarted/index.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Fact Tables"
 msgstr "फ़ैक्ट टेबल"
 
+#: pages/getstarted/data-source-guide.tsx
+msgid "Fact Tables are defined by a SQL SELECT statement and serve as the base on which metrics are built."
+msgstr "फ़ैक्ट टेबल एक SQL SELECT स्टेटमेंट से तय होती हैं और इन्हीं के आधार पर मेट्रिक्स बनाए जाते हैं।"
+
+#: ui/RichTextEditor.tsx
+msgid "Failed to upload image"
+msgstr "इमेज अपलोड नहीं हो सकी"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Feature"
+msgstr "फ़ीचर"
+
+#: components/GetStarted/index.tsx
+msgid "Feature Flag"
+msgstr "फ़ीचर फ़्लैग"
+
+#: components/GetStarted/index.tsx
+msgid "Feature Flag Analytics"
+msgstr "फ़ीचर फ़्लैग एनालिटिक्स"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Feature Flag Basics"
+msgstr "फ़ीचर फ़्लैग की बुनियादी बातें"
+
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
 msgstr "फ़ीचर फ़्लैग"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Feature flags requiring attention"
+msgstr "ध्यान देने वाले फ़ीचर फ़्लैग"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Feature Key"
+msgstr "फ़ीचर कुंजी"
 
 #: components/Layout/sidebarNav.ts
 msgid "Features"
@@ -186,17 +1029,52 @@ msgstr "पासवर्ड भूल गए"
 msgid "Forgot Password?"
 msgstr "पासवर्ड भूल गए?"
 
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Free"
+msgstr "मुफ़्त"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Full featured experimentation and growth platform"
+msgstr "पूरी सुविधाओं वाला एक्सपेरिमेंटेशन और ग्रोथ प्लेटफ़ॉर्म"
+
 #: components/Layout/sidebarNav.ts
 msgid "Funnels"
 msgstr "फ़नल"
 
+#: components/Layout/SettingsNav.tsx
+#: components/Layout/SettingsPage.tsx
 #: components/Layout/sidebarNav.ts
 msgid "General"
 msgstr "सामान्य"
 
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "General · {sectionTitle}"
+msgstr "सामान्य · {sectionTitle}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "General settings sections"
+msgstr "सामान्य सेटिंग के सेक्शन"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Get early access June 22"
+msgstr "22 जून को अर्ली एक्सेस पाएं"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Get started"
+msgstr "शुरू करें"
+
+#: components/GetStarted/index.tsx
 #: components/Layout/Layout.tsx
+#: pages/getstarted/data-source-guide.tsx
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+#: pages/getstarted/imported-experiment-guide.tsx
 msgid "Get Started"
 msgstr "शुरू करें"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Get Started for Free"
+msgstr "मुफ़्त में शुरू करें"
 
 #: components/Auth/Welcome.tsx
 msgid "Getting started with GrowthBook only takes a few minutes. <0/>To start, we'll need a bit of information about you."
@@ -206,9 +1084,73 @@ msgstr "GrowthBook के साथ शुरुआत करने में �
 msgid "Go back to Log In"
 msgstr "लॉग इन पर वापस जाएं"
 
+#: ui/Pagination.tsx
+msgid "Go to next page"
+msgstr "अगले पेज पर जाएं"
+
+#: ui/Pagination.tsx
+msgid "Go to page {page}"
+msgstr "पेज {page} पर जाएं"
+
+#: ui/Pagination.tsx
+msgid "Go to previous page"
+msgstr "पिछले पेज पर जाएं"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "GrowthBook FAQs"
+msgstr "GrowthBook के अक्सर पूछे जाने वाले सवाल"
+
+#: components/Layout/Layout.tsx
+msgid "GrowthBook Home"
+msgstr "GrowthBook होम"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "GrowthBook needs read access to where your experiment and metric data lives. We support Snowflake, Redshift, BigQuery, Databricks, Postgres, and more. If you don't see yours, <0>let us know</0> or <1>open a GitHub issue</1>."
+msgstr "GrowthBook को उस जगह का रीड एक्सेस चाहिए जहां आपका एक्सपेरिमेंट और मेट्रिक डेटा रहता है। हम Snowflake, Redshift, BigQuery, Databricks, Postgres और कई अन्य को सपोर्ट करते हैं। अगर आपका वाला नहीं दिख रहा, तो <0>हमें बताएं</0> या <1>GitHub पर इश्यू खोलें</1>।"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "GrowthBook Pro Subscription Created"
+msgstr "GrowthBook Pro सब्सक्रिप्शन शुरू हो गया"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "GrowthBook SDK"
+msgstr "GrowthBook SDK"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "GUARDRAIL"
+msgstr "गार्डरेल"
+
 #: components/Auth/Welcome.tsx
 msgid "Happens to the best of us"
 msgstr "ऐसा किसी के साथ भी हो सकता है"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Have a question?"
+msgstr "कोई सवाल है?"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Have feature flags in LaunchDarkly? <0>View migration instructions</0>"
+msgstr "क्या आपके फ़ीचर फ़्लैग LaunchDarkly में हैं? <0>माइग्रेशन के निर्देश देखें</0>"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Have questions?"
+msgstr "कुछ सवाल हैं?"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Have you already been running A/B tests with another platform? Connect GrowthBook to your data warehouse and use our powerful stats engine to automate the analysis."
+msgstr "क्या आप पहले से किसी दूसरे प्लेटफ़ॉर्म पर A/B टेस्ट चला रहे हैं? GrowthBook को अपने डेटा वेयरहाउस से कनेक्ट करें और हमारे दमदार स्टैट्स इंजन से विश्लेषण ऑटोमेट करें।"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Heading 1"
+msgstr "हेडिंग 1"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Heading 2"
+msgstr "हेडिंग 2"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Heading 3"
+msgstr "हेडिंग 3"
 
 #: components/Auth/Welcome.tsx
 msgid "Hello there, Welcome!"
@@ -218,26 +1160,128 @@ msgstr "नमस्ते, आपका स्वागत है!"
 msgid "Hello! Welcome to GrowthBook"
 msgstr "नमस्ते! GrowthBook में आपका स्वागत है"
 
+#: components/Auth/InAppHelp.tsx
+msgid "Help"
+msgstr "मदद"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Help us tailor your onboarding experience."
+msgstr "अपने ऑनबोर्डिंग अनुभव को आपके हिसाब से बनाने में हमारी मदद करें।"
+
 #: components/Auth/Welcome.tsx
 msgid "Hey there!"
 msgstr "हैलो!"
+
+#: ui/ErrorDisplay.tsx
+msgid "Hide details"
+msgstr "विवरण छिपाएं"
+
+#: components/GetStarted/index.tsx
+msgid "Hide Details"
+msgstr "विवरण छिपाएं"
+
+#: ui/RichTextEditor.tsx
+msgid "Hide formatting"
+msgstr "फ़ॉर्मैटिंग छिपाएं"
 
 #: components/Layout/sidebarNav.ts
 msgid "Holdouts"
 msgstr "होल्डआउट"
 
+#: components/GetStarted/index.tsx
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Home"
 msgstr "होम"
 
+#: components/Auth/InAppHelp.tsx
+msgid "How Can We Help?"
+msgstr "हम आपकी क्या मदद कर सकते हैं?"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "How will your team use Growthbook?"
+msgstr "आपकी टीम GrowthBook का इस्तेमाल कैसे करेगी?"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "If de-biasing is on, we use a James-Stein adjustment to shrink estimates towards zero to mitigate selection bias."
+msgstr "अगर बायस हटाना चालू है, तो सिलेक्शन बायस कम करने के लिए हम जेम्स-स्टीन एडजस्टमेंट से अनुमानों को शून्य की ओर श्रिंक करते हैं।"
+
+#: components/HomePage/IdeasFeed.tsx
+msgid "Impact score"
+msgstr "प्रभाव स्कोर"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Import Experiment"
+msgstr "एक्सपेरिमेंट इंपोर्ट करें"
+
 #: components/Layout/sidebarNav.ts
 msgid "Import Your Data"
 msgstr "डेटा इंपोर्ट"
 
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Import Your First Experiment & View Results"
+msgstr "अपना पहला एक्सपेरिमेंट इंपोर्ट करें और नतीजे देखें"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Import Your First Experiment in this Project & View Results"
+msgstr "इस प्रोजेक्ट में अपना पहला एक्सपेरिमेंट इंपोर्ट करें और नतीजे देखें"
+
+#: components/GetStarted/index.tsx
+msgid "Improve SQL performance and reduce costs"
+msgstr "SQL परफ़ॉर्मेंस बेहतर करें और लागत घटाएं"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Inline code"
+msgstr "इनलाइन कोड"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert column left"
+msgstr "बाईं ओर कॉलम जोड़ें"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert column right"
+msgstr "दाईं ओर कॉलम जोड़ें"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Insert image"
+msgstr "इमेज जोड़ें"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert row above"
+msgstr "ऊपर पंक्ति जोड़ें"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert row below"
+msgstr "नीचे पंक्ति जोड़ें"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Insert table"
+msgstr "टेबल जोड़ें"
+
 #: components/Layout/sidebarNav.ts
 msgid "Insights"
 msgstr "इनसाइट्स"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Install Chrome DevTools Extension"
+msgstr "Chrome DevTools एक्सटेंशन इंस्टॉल करें"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Install Firefox DevTools Extension"
+msgstr "Firefox DevTools एक्सटेंशन इंस्टॉल करें"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Install Visual Editor Extension"
+msgstr "विज़ुअल एडिटर एक्सटेंशन इंस्टॉल करें"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Integrate Slack or Discord"
+msgstr "Slack या Discord इंटीग्रेट करें"
+
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Integrate the GrowthBook SDK into your app"
+msgstr "GrowthBook SDK को अपने ऐप में इंटीग्रेट करें"
 
 #: components/Layout/sidebarNav.ts
 msgid "Interleaving"
@@ -250,6 +1294,42 @@ msgstr "अमान्य रीसेट टोकन"
 #: pages/reset-password.tsx
 msgid "Invalid URL. <0>Go Back</0>"
 msgstr "अमान्य URL। <0>वापस जाएं</0>"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Invitation Required"
+msgstr "आमंत्रण ज़रूरी है"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Invite team"
+msgstr "टीम को आमंत्रित करें"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "It looks like you have a <0>config.yml</0> file. Use that to define data sources and metrics. <1>View Documentation</1>"
+msgstr "लगता है आपके पास <0>config.yml</0> फ़ाइल है। डेटा सोर्स और मेट्रिक्स तय करने के लिए उसका इस्तेमाल करें। <1>दस्तावेज़ देखें</1>"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Italic"
+msgstr "इटैलिक"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join"
+msgstr "जुड़ें"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join an organization instead"
+msgstr "इसके बजाय किसी संगठन से जुड़ें"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join one here."
+msgstr "यहां किसी संगठन से जुड़ें।"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Join the Slack community"
+msgstr "Slack कम्युनिटी से जुड़ें"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join your organization to get started."
+msgstr "शुरू करने के लिए अपने संगठन से जुड़ें।"
 
 #: components/Layout/LanguageMenu.tsx
 msgid "Language"
@@ -272,6 +1352,14 @@ msgstr "चलिए कुछ एक्सपेरिमेंट चलात
 msgid "Light"
 msgstr "लाइट"
 
+#: ui/RichTextEditorToolbar.tsx
+msgid "Link"
+msgstr "लिंक"
+
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "Link title"
+msgstr "लिंक का शीर्षक"
+
 #: components/Auth/Welcome.tsx
 msgid "Log in"
 msgstr "लॉग इन करें"
@@ -280,17 +1368,42 @@ msgstr "लॉग इन करें"
 msgid "Log In Now"
 msgstr "अभी लॉग इन करें"
 
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "log out"
+msgstr "लॉग आउट करें"
+
 #: components/Auth/Welcome.tsx
 msgid "Look up"
 msgstr "खाता खोजें"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Lost"
+msgstr "हारे"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Manage feature flags"
+msgstr "फ़ीचर फ़्लैग मैनेज करना"
+
+#: components/GetStarted/index.tsx
+msgid "Manage member permissions"
+msgstr "सदस्यों की अनुमतियां मैनेज करें"
 
 #: components/Layout/sidebarNav.ts
 msgid "Manage PATs"
 msgstr "PAT प्रबंधन"
 
+#: components/Layout/GuidedGetStartedBar.tsx
+msgid "Mark as Complete"
+msgstr "पूरा हुआ मार्क करें"
+
 #: components/Layout/sidebarNav.ts
 msgid "Members"
 msgstr "सदस्य"
+
+#: components/GetStarted/NeedingAttention.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Metric"
+msgstr "मेट्रिक"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Correlations"
@@ -300,6 +1413,18 @@ msgstr "मेट्रिक कोरिलेशन"
 msgid "Metric Effects"
 msgstr "मेट्रिक पर प्रभाव"
 
+#: components/GetStarted/index.tsx
+msgid "Metric Groups"
+msgstr "मेट्रिक ग्रुप"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "Metric is inverse, lower is better"
+msgstr "इनवर्स मेट्रिक, कम होना बेहतर है"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Metric(s)"
+msgstr "मेट्रिक"
+
 #: components/Layout/sidebarNav.ts
 msgid "Metrics"
 msgstr "मेट्रिक्स"
@@ -308,9 +1433,57 @@ msgstr "मेट्रिक्स"
 msgid "Metrics and Data"
 msgstr "मेट्रिक्स और डेटा"
 
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Migrate from another platform"
+msgstr "किसी दूसरे प्लेटफ़ॉर्म से माइग्रेट करें"
+
+#: pages/invitation.tsx
+msgid "Missing required invite key parameter in URL. Please go back to your email and click the invite link again."
+msgstr "URL में ज़रूरी इनवाइट कुंजी पैरामीटर नहीं है। कृपया अपने ईमेल पर वापस जाएं और आमंत्रण लिंक पर फिर से क्लिक करें।"
+
 #: pages/reset-password.tsx
 msgid "Missing reset token"
 msgstr "रीसेट टोकन मौजूद नहीं है"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Monthly invoices will be sent to this address"
+msgstr "मासिक इनवॉइस इसी पते पर भेजे जाएंगे"
+
+#: ui/Tabs.tsx
+msgid "More ({hiddenCount})"
+msgstr "और ({hiddenCount})"
+
+#: components/Layout/DetailsPageHeader.tsx
+msgid "More actions"
+msgstr "और कार्रवाइयां"
+
+#: ui/LabelWithHelp.tsx
+msgid "More information"
+msgstr "ज़्यादा जानकारी"
+
+#: ui/LabelWithHelp.tsx
+msgid "More information about {label}"
+msgstr "{label} के बारे में ज़्यादा जानकारी"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move down"
+msgstr "नीचे ले जाएं"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move left"
+msgstr "बाईं ओर ले जाएं"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move right"
+msgstr "दाईं ओर ले जाएं"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move up"
+msgstr "ऊपर ले जाएं"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "My Company"
+msgstr "मेरी कंपनी"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/TopNav.tsx
@@ -325,7 +1498,17 @@ msgstr "मेरे Slack लिंक"
 msgid "My Slack Links"
 msgstr "मेरे Slack लिंक"
 
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "N/A"
+msgstr "लागू नहीं"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "N/A values occur if we were unable to compute scaled impact for that experiment, perhaps due to stale experiment data."
+msgstr "“लागू नहीं” तब दिखता है जब हम किसी एक्सपेरिमेंट का स्केल्ड प्रभाव नहीं निकाल पाते, शायद एक्सपेरिमेंट का डेटा पुराना होने की वजह से।"
+
 #: components/Auth/Welcome.tsx
+#: components/GetStarted/NeedingAttention.tsx
 #: components/Layout/TopNav.tsx
 msgid "Name"
 msgstr "नाम"
@@ -334,9 +1517,123 @@ msgstr "नाम"
 msgid "Namespaces"
 msgstr "नेमस्पेस"
 
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Navigate to Experiments > Add Experiment. In the popup, select “Analyze an Existing Experiment”"
+msgstr "एक्सपेरिमेंट > एक्सपेरिमेंट जोड़ें पर जाएं। पॉपअप में “किसी मौजूदा एक्सपेरिमेंट का विश्लेषण करें” चुनें।"
+
+#: components/Auth/ChangePasswordModal.tsx
 #: pages/reset-password.tsx
 msgid "New Password"
 msgstr "नया पासवर्ड"
+
+#: components/Auth/SelectInitialPlan.tsx
+#: components/Modal/PagedModal.tsx
+msgid "Next"
+msgstr "आगे"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Next: Add Payment Details"
+msgstr "आगे: पेमेंट की जानकारी जोड़ें"
+
+#: ui/VariationStatsTable.tsx
+msgid "No data"
+msgstr "कोई डेटा नहीं"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "No data for this metric yet. Click the Refresh Data button below."
+msgstr "इस मेट्रिक के लिए अभी कोई डेटा नहीं है। नीचे “डेटा रीफ़्रेश करें” बटन पर क्लिक करें।"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "No data for this metric yet. Click the Run Analysis button below."
+msgstr "इस मेट्रिक के लिए अभी कोई डेटा नहीं है। नीचे “विश्लेषण चलाएं” बटन पर क्लिक करें।"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "No experiments requiring attention"
+msgstr "ध्यान देने वाला कोई एक्सपेरिमेंट नहीं"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "No feature flags requiring attention"
+msgstr "ध्यान देने वाला कोई फ़ीचर फ़्लैग नहीं"
+
+#: components/Layout/SettingsNav.tsx
+msgid "No matches"
+msgstr "कोई मिलान नहीं"
+
+#: components/HomePage/IdeasFeed.tsx
+msgid "No recent ideas"
+msgstr "हाल का कोई आइडिया नहीं"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "No results available. Check experiment results for errors."
+msgstr "कोई नतीजा उपलब्ध नहीं है। एक्सपेरिमेंट के नतीजों में गड़बड़ियों की जांच करें।"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "No results available. Run experiment update on experiment page."
+msgstr "कोई नतीजा उपलब्ध नहीं है। एक्सपेरिमेंट पेज पर एक्सपेरिमेंट अपडेट चलाएं।"
+
+#: components/Layout/SettingsNav.tsx
+msgid "No sections match."
+msgstr "कोई सेक्शन मेल नहीं खाता।"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "No snapshot with scaled impact available. Click calculate button above."
+msgstr "स्केल्ड प्रभाव वाला कोई स्नैपशॉट उपलब्ध नहीं है। ऊपर दिए गए कैलकुलेट बटन पर क्लिक करें।"
+
+#: pages/oauth/lookup.tsx
+msgid "No SSO Connection found for that email address."
+msgstr "इस ईमेल पते के लिए कोई SSO कनेक्शन नहीं मिला।"
+
+#: ui/VariationStatsTable.tsx
+msgid "Non-zero {sampleSizeLabel}"
+msgstr "गैर-शून्य {sampleSizeLabel}"
+
+#: components/Layout/RightRailSectionGroup.tsx
+msgid "None"
+msgstr "कोई नहीं"
+
+#: components/HomePage/NorthStar.tsx
+msgid "North Star Metric"
+msgstr "नॉर्थ स्टार मेट्रिक"
+
+#: components/HomePage/NorthStar.tsx
+msgid "North Star Metrics"
+msgstr "नॉर्थ स्टार मेट्रिक्स"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Not ready to connect to your data warehouse? Explore a sample experiment first to get a feel for the GrowthBook platform."
+msgstr "अभी अपने डेटा वेयरहाउस से कनेक्ट करने के लिए तैयार नहीं हैं? GrowthBook प्लेटफ़ॉर्म को समझने के लिए पहले एक सैंपल एक्सपेरिमेंट एक्सप्लोर करें।"
+
+#: pages/oauth/lookup.tsx
+msgid "Not using SSO? <0>Go back to login</0>"
+msgstr "SSO इस्तेमाल नहीं करते? <0>लॉग इन पर वापस जाएं</0>"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Numbered list"
+msgstr "क्रमांकित सूची"
+
+#: ui/VariationStatsTable.tsx
+msgid "Numerator"
+msgstr "अंश"
+
+#: components/Layout/RightRailSectionGroup.tsx
+msgid "OFF"
+msgstr "बंद"
+
+#: components/Layout/RightRailSectionGroup.tsx
+msgid "ON"
+msgstr "चालू"
+
+#: ui/StringArrayField.tsx
+msgid "One value per line"
+msgstr "हर लाइन में एक वैल्यू"
+
+#: pages/oauth/lookup.tsx
+msgid "Only available on GrowthBook Cloud"
+msgstr "सिर्फ़ GrowthBook Cloud पर उपलब्ध"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Open an issue on <0><1>GitHub</1></0>"
+msgstr "<0><1>GitHub</1></0> पर इश्यू खोलें"
 
 #: components/Layout/TopNav.tsx
 msgid "Open GrowthBook AI assistant"
@@ -346,9 +1643,44 @@ msgstr "GrowthBook AI असिस्टेंट खोलें"
 msgid "Open main menu"
 msgstr "मुख्य मेन्यू खोलें"
 
+#: components/Auth/SelectInitialPlan.tsx
+#: components/Layout/SettingsNav.tsx
+#: components/Layout/SettingsPage.tsx
 #: components/Layout/TopNav.tsx
 msgid "Organization"
 msgstr "संगठन"
+
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "Organization · {pageName}"
+msgstr "संगठन · {pageName}"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Organization Name"
+msgstr "संगठन का नाम"
+
+#: components/Layout/SettingsNav.tsx
+msgid "Organization settings"
+msgstr "संगठन की सेटिंग"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Other"
+msgstr "अन्य"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Owner"
+msgstr "मालिक"
+
+#: ui/Pagination.tsx
+msgid "Page {page}"
+msgstr "पेज {page}"
+
+#: ui/Pagination.tsx
+msgid "Pagination"
+msgstr "पेज नेविगेशन"
+
+#: components/GetStarted/PaidFeatureBadge.tsx
+msgid "Paid"
+msgstr "पेड"
 
 #: components/Auth/Welcome.tsx
 msgid "Password"
@@ -357,6 +1689,18 @@ msgstr "पासवर्ड"
 #: components/Auth/Welcome.tsx
 msgid "Password reset link sent to <0>{email}</0>."
 msgstr "पासवर्ड रीसेट लिंक <0>{email}</0> पर भेज दिया गया है।"
+
+#: components/Auth/ChangePasswordModal.tsx
+msgid "Password successfully changed"
+msgstr "पासवर्ड बदल दिया गया है"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Pending"
+msgstr "लंबित"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Pending Review"
+msgstr "समीक्षा लंबित"
 
 #: components/Layout/TopNav.tsx
 msgid "Pending Reviews"
@@ -367,6 +1711,18 @@ msgstr "लंबित समीक्षाएं"
 msgid "Personal Access Tokens"
 msgstr "पर्सनल एक्सेस टोकन"
 
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Plan options"
+msgstr "प्लान के विकल्प"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Please contact your organization's admin to approve your membership."
+msgstr "अपनी सदस्यता स्वीकृत करवाने के लिए अपने संगठन के एडमिन से संपर्क करें।"
+
+#: pages/oauth/lookup.tsx
+msgid "Please enter a valid email address"
+msgstr "कृपया सही ईमेल पता डालें"
+
 #: components/Layout/sidebarNav.ts
 msgid "Populations"
 msgstr "पॉपुलेशन"
@@ -376,21 +1732,70 @@ msgstr "पॉपुलेशन"
 msgid "Power Calculator"
 msgstr "पावर कैलकुलेटर"
 
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Premium Features"
+msgstr "प्रीमियम फ़ीचर"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Prepare to analyze experiment results"
+msgstr "एक्सपेरिमेंट के नतीजों के विश्लेषण की तैयारी करें"
+
 #: components/Layout/sidebarNav.ts
 msgid "Presentations"
 msgstr "प्रेज़ेंटेशन"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Product analytics"
+msgstr "प्रोडक्ट एनालिटिक्स"
 
 #: components/Layout/sidebarNav.ts
 msgid "Product Analytics"
 msgstr "प्रोडक्ट एनालिटिक्स"
 
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Project"
+msgstr "प्रोजेक्ट"
+
+#: components/HomePage/ExperimentImpact/index.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Projects"
 msgstr "प्रोजेक्ट"
 
+#: components/GetStarted/index.tsx
+msgid "Query Optimization"
+msgstr "क्वेरी ऑप्टिमाइज़ेशन"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "QUESTIONS?"
+msgstr "कोई सवाल?"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Quote"
+msgstr "उद्धरण"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Ran experiments on another platform? <0>View import instructions</0>"
+msgstr "किसी दूसरे प्लेटफ़ॉर्म पर एक्सपेरिमेंट चलाए हैं? <0>इंपोर्ट के निर्देश देखें</0>"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Read our <0>User Guide</0>"
+msgstr "हमारी <0>यूज़र गाइड</0> पढ़ें"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Recent"
+msgstr "हाल के"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Refresh Data"
+msgstr "डेटा रीफ़्रेश करें"
+
 #: components/Auth/Welcome.tsx
 msgid "Register"
 msgstr "रजिस्टर करें"
+
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "Remove link"
+msgstr "लिंक हटाएं"
 
 #: pages/reset-password.tsx
 msgid "Reset Password"
@@ -400,9 +1805,76 @@ msgstr "पासवर्ड रीसेट करें"
 msgid "Reset password for <0>{email}</0>."
 msgstr "<0>{email}</0> के लिए पासवर्ड रीसेट करें।"
 
+#: ui/ColumnSettings.tsx
+msgid "Reset to default"
+msgstr "डिफ़ॉल्ट पर रीसेट करें"
+
+#: ui/ColumnResizeHandle.tsx
+msgid "Resize {label} column"
+msgstr "{label} कॉलम का आकार बदलें"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "RESOURCES"
+msgstr "संसाधन"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Retry"
+msgstr "फिर से कोशिश करें"
+
+#: components/Layout/GuidedGetStartedBar.tsx
+msgid "Return to Guide"
+msgstr "गाइड पर वापस जाएं"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Review the results of your GrowthBook setup in {appName}."
+msgstr "{appName} में अपने GrowthBook सेटअप के नतीजे देखें।"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Review the results of your GrowthBook setup."
+msgstr "अपने GrowthBook सेटअप के नतीजे देखें।"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Row options"
+msgstr "पंक्ति के विकल्प"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Run an Auto-generated Website Experiment"
+msgstr "ऑटो-जनरेटेड वेबसाइट एक्सपेरिमेंट चलाएं"
+
+#: components/GetStarted/FeaturedCards.tsx
+#: pages/getstarted/experiment-guide.tsx
+msgid "Run an Experiment"
+msgstr "एक्सपेरिमेंट चलाएं"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Run Analysis"
+msgstr "विश्लेषण चलाएं"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Run experiments"
+msgstr "एक्सपेरिमेंट चलाना"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Running an actual A/B test on your application and waiting for results can take a long time, so this is a great way to test out the platform with a fully loaded sample experiment."
+msgstr "अपने ऐप्लिकेशन पर असली A/B टेस्ट चलाने और नतीजों का इंतज़ार करने में काफ़ी समय लग सकता है, इसलिए पूरे डेटा वाले सैंपल एक्सपेरिमेंट के साथ प्लेटफ़ॉर्म को आज़माने का यह बढ़िया तरीका है।"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Running Experiments"
+msgstr "एक्सपेरिमेंट चलाना"
+
+#: components/Modal.tsx
+#: ui/Modal/Patterns/ModalStandard.tsx
+msgid "Save"
+msgstr "सेव करें"
+
 #: components/Layout/sidebarNav.ts
 msgid "Saved Groups"
 msgstr "सेव किए गए ग्रुप"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Scaled Impact"
+msgstr "स्केल्ड प्रभाव"
 
 #: components/Layout/sidebarNav.ts
 msgid "SDK Configuration"
@@ -416,29 +1888,97 @@ msgstr "SDK कनेक्शन"
 msgid "Search"
 msgstr "खोजें"
 
+#: components/Layout/SettingsNav.tsx
+msgid "Search settings"
+msgstr "सेटिंग खोजें"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "Search..."
+msgstr "खोजें..."
+
+#: components/GetStarted/index.tsx
+msgid "See exactly where flags appear in code"
+msgstr "देखें कि कोड में फ़्लैग ठीक कहां इस्तेमाल हुए हैं"
+
 #: components/Layout/sidebarNav.ts
 msgid "Segments"
 msgstr "सेगमेंट"
+
+#: ui/MultiSelectField.tsx
+msgid "Select an option or create one"
+msgstr "कोई विकल्प चुनें या नया बनाएं"
+
+#: ui/MultiSelectField.tsx
+msgid "Select..."
+msgstr "चुनें..."
 
 #: components/Auth/Welcome.tsx
 msgid "Sent to the wrong email or need to resend? <0>Go Back</0>"
 msgstr "गलत ईमेल पर भेजा गया या फिर से भेजना है? <0>वापस जाएं</0>"
 
+#: ui/StringArrayField.tsx
+msgid "Separate values by comma"
+msgstr "वैल्यू को कॉमा से अलग करें"
+
 #: components/Layout/sidebarNav.ts
 msgid "Session Replay"
 msgstr "सेशन रीप्ले"
+
+#: components/GetStarted/FeaturedCards.tsx
+#: pages/getstarted/data-source-guide.tsx
+msgid "Set up Data Source & Metrics"
+msgstr "डेटा सोर्स और मेट्रिक्स सेट अप करें"
 
 #: components/Auth/Welcome.tsx
 msgid "Set up your first account"
 msgstr "अपना पहला खाता सेट अप करें"
 
+#: components/GetStarted/index.tsx
+msgid "SET UP YOUR WORKSPACE"
+msgstr "अपना वर्कस्पेस सेट अप करें"
+
+#: components/Layout/SettingsJumpMenu.tsx
+#: components/Layout/SettingsNav.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Settings"
 msgstr "सेटिंग"
 
+#: components/Layout/SettingsJumpMenu.tsx
+#: components/Layout/SettingsNav.tsx
+msgid "Settings navigation"
+msgstr "सेटिंग नेविगेशन"
+
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "Settings: {location}"
+msgstr "सेटिंग: {location}"
+
+#: components/Layout/LayoutLite.tsx
+msgid "Setup"
+msgstr "सेटअप"
+
 #: components/Layout/TopNav.tsx
 msgid "Show confetti celebrations randomly when you complete certain actions like launching an experiment."
 msgstr "एक्सपेरिमेंट लॉन्च करने जैसे कुछ खास काम पूरे करने पर कभी-कभी कॉन्फ़ेटी वाला जश्न दिखाएं।"
+
+#: ui/ErrorDisplay.tsx
+msgid "Show details"
+msgstr "विवरण दिखाएं"
+
+#: components/GetStarted/index.tsx
+msgid "Show Details"
+msgstr "विवरण दिखाएं"
+
+#: ui/RichTextEditor.tsx
+msgid "Show formatting"
+msgstr "फ़ॉर्मैटिंग दिखाएं"
+
+#: ui/ExpandableBlock.tsx
+msgid "Show less"
+msgstr "कम दिखाएं"
+
+#: ui/ExpandableBlock.tsx
+msgid "Show more"
+msgstr "और दिखाएं"
 
 #: components/Auth/Welcome.tsx
 msgid "Sign in to your GrowthBook account"
@@ -453,17 +1993,82 @@ msgstr "साइन आउट करें"
 msgid "Sign up"
 msgstr "साइन अप करें"
 
+#: components/GetStarted/index.tsx
+msgid "Simulate the result of targeting rules"
+msgstr "टारगेटिंग नियमों के नतीजे का सिमुलेशन करें"
+
+#: components/Modal/PagedModal.tsx
+msgid "Skip"
+msgstr "छोड़ें"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Skip plan selection"
+msgstr "प्लान चुनना छोड़ें"
+
 #: components/Layout/sidebarNav.ts
 msgid "Slack"
 msgstr "Slack"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Slack Logo"
+msgstr "Slack लोगो"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Smoothing<0/>(7 day trailing)"
+msgstr "स्मूदिंग<0/>(पिछले 7 दिन)"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Some experiments are missing scaled impact results."
+msgstr "कुछ एक्सपेरिमेंट के स्केल्ड प्रभाव के नतीजे मौजूद नहीं हैं।"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Something went wrong"
+msgstr "कुछ गड़बड़ हो गई"
 
 #: components/Layout/sidebarNav.ts
 msgid "SQL Explorer"
 msgstr "SQL एक्सप्लोरर"
 
+#: pages/getstarted/experiment-guide.tsx
+msgid "Start the Test"
+msgstr "टेस्ट शुरू करें"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Starts at $40/month"
+msgstr "$40/माह से शुरू"
+
+#: components/GetStarted/NeedingAttention.tsx
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Status"
+msgstr "स्थिति"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Sticky Bucketing"
+msgstr "स्टिकी बकेटिंग"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Strikethrough"
+msgstr "स्ट्राइकथ्रू"
+
 #: pages/reset-password.tsx
 msgid "Successfully reset password for <0>{email}</0>"
 msgstr "<0>{email}</0> का पासवर्ड रीसेट हो गया है"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Summary"
+msgstr "सारांश"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "summed impact / year"
+msgstr "कुल प्रभाव / वर्ष"
+
+#: ui/StringArrayField.tsx
+msgid "Switch to raw text mode"
+msgstr "रॉ टेक्स्ट मोड पर जाएं"
+
+#: ui/StringArrayField.tsx
+msgid "Switch to token mode"
+msgstr "टोकन मोड पर जाएं"
 
 #: components/Layout/TopNav.tsx
 #: components/Layout/TopNavLite.tsx
@@ -474,38 +2079,321 @@ msgstr "सिस्टम डिफ़ॉल्ट"
 msgid "Tags"
 msgstr "टैग"
 
+#: ui/PremiumCallout.tsx
+msgid "Talk to Sales"
+msgstr "सेल्स टीम से बात करें"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Talk to us in our <0><1>Slack channel</1></0>"
+msgstr "हमारे <0><1>Slack चैनल</1></0> में हमसे बात करें"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Targeting Attributes"
+msgstr "टारगेटिंग एट्रिब्यूट"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Tax ID"
+msgstr "टैक्स आईडी"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Tax ID type"
+msgstr "टैक्स आईडी का प्रकार"
+
+#: components/GetStarted/index.tsx
+msgid "Teams"
+msgstr "टीमें"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Teams & Permissions"
+msgstr "टीमें और अनुमतियां"
+
 #: components/Layout/sidebarNav.ts
 msgid "Templates"
 msgstr "टेम्पलेट"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "The plus-minus value represents a 95% confidence interval."
+msgstr "प्लस-माइनस वैल्यू 95% कॉन्फ़िडेंस इंटरवल दिखाती है।"
 
 #: components/Layout/TopNav.tsx
 #: components/Layout/TopNavLite.tsx
 msgid "Theme"
 msgstr "थीम"
 
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "There are a few setup steps before you can analyze an existing experiment."
+msgstr "किसी मौजूदा एक्सपेरिमेंट का विश्लेषण करने से पहले कुछ सेटअप चरण पूरे करने होंगे।"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "There are no other organizations that you are not already a member of."
+msgstr "ऐसा कोई और संगठन नहीं है जिसके आप पहले से सदस्य न हों।"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "There are three ways to get started with experimentation in GrowthBook."
+msgstr "GrowthBook में एक्सपेरिमेंटेशन शुरू करने के तीन तरीके हैं।"
+
+#: pages/invitation.tsx
+msgid "There was an error accepting the invite. Please go back to your email and click the invite link again."
+msgstr "आमंत्रण स्वीकार करने में गड़बड़ी हुई। कृपया अपने ईमेल पर वापस जाएं और आमंत्रण लिंक पर फिर से क्लिक करें।"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This affects metrics results (e.g., lift, chance to win, credible intervals), and estimated lift will often differ from the raw difference between variation and baseline."
+msgstr "इससे मेट्रिक के नतीजों (जैसे लिफ़्ट, जीतने की संभावना, क्रेडिबल इंटरवल) पर असर पड़ता है, और अनुमानित लिफ़्ट अक्सर वेरिएशन और बेसलाइन के बीच के सीधे अंतर से अलग होगी।"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This affects metrics results (e.g., lift, p-values, confidence intervals), and estimated lift will often differ from the raw difference between variation and baseline."
+msgstr "इससे मेट्रिक के नतीजों (जैसे लिफ़्ट, p-वैल्यू, कॉन्फ़िडेंस इंटरवल) पर असर पड़ता है, और अनुमानित लिफ़्ट अक्सर वेरिएशन और बेसलाइन के बीच के सीधे अंतर से अलग होगी।"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "This Daily Scaled Impact, available in your Experiment Results under the \"Scaled Impact\" Difference Type, is adjusted if de-biasing is set to true and multiplied by 365 to yield the Annual Adjusted Scaled Impact."
+msgstr "यह दैनिक स्केल्ड प्रभाव, जो आपके एक्सपेरिमेंट नतीजों में “स्केल्ड प्रभाव” डिफ़रेंस टाइप के तहत मिलता है, बायस हटाना चालू होने पर समायोजित किया जाता है और वार्षिक समायोजित स्केल्ड प्रभाव पाने के लिए 365 से गुणा किया जाता है।"
+
 #: components/Auth/Welcome.tsx
 msgid "This information stays on your servers and is never shared. <0/>You can invite the rest of your team later."
 msgstr "यह जानकारी आपके सर्वर पर ही रहती है और कभी शेयर नहीं की जाती। <0/>आप अपनी टीम के बाकी लोगों को बाद में आमंत्रित कर सकते हैं।"
+
+#: components/GetStarted/PaidFeatureBadge.tsx
+msgid "This is a {planName} feature"
+msgstr "यह {planName} फ़ीचर है"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "This is a demo project with sample data"
+msgstr "यह सैंपल डेटा वाला डेमो प्रोजेक्ट है"
+
+#: components/GetStarted/PaidFeatureBadge.tsx
+msgid "This is an {planName} feature"
+msgstr "यह {planName} फ़ीचर है"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This metric was analyzed with a prior that is normally distributed with mean {priorMean} and standard deviation {priorStdDev}."
+msgstr "इस मेट्रिक का विश्लेषण नॉर्मल डिस्ट्रिब्यूशन वाले प्रायर के साथ किया गया, जिसका मीन {priorMean} और स्टैंडर्ड डेविएशन {priorStdDev} है।"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This metric was analyzed with CUPED, which adjusts for covariates."
+msgstr "इस मेट्रिक का विश्लेषण CUPED के साथ किया गया, जो कोवेरिएट के हिसाब से एडजस्ट करता है।"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "This value is the sum of the adjusted scaled impacts of the winning variations from experiments marked as Won."
+msgstr "यह वैल्यू “जीते” मार्क किए गए एक्सपेरिमेंट के जीतने वाले वेरिएशन के समायोजित स्केल्ड प्रभावों का योग है।"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "This value is the sum of the adjusted scaled impacts of the worst variation from experiments marked as Lost."
+msgstr "यह वैल्यू “हारे” मार्क किए गए एक्सपेरिमेंट के सबसे खराब वेरिएशन के समायोजित स्केल्ड प्रभावों का योग है।"
 
 #: components/Layout/sidebarNav.ts
 msgid "Timeline"
 msgstr "टाइमलाइन"
 
+#: components/HomePage/NorthStar.tsx
+msgid "Title"
+msgstr "शीर्षक"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "to"
+msgstr "से"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "To analyze experiment results, connect an event tracker and data source."
+msgstr "एक्सपेरिमेंट के नतीजों का विश्लेषण करने के लिए कोई इवेंट ट्रैकर और डेटा सोर्स कनेक्ट करें।"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "To estimate the background variance in treatment effects used for the James-Stein estimator, we use all {nExpsUsedForAdjustment} experiments that have ever used this metric and for which we can compute scaled impact, regardless of your project or date filters."
+msgstr "जेम्स-स्टीन एस्टिमेटर में इस्तेमाल होने वाले ट्रीटमेंट इफ़ेक्ट के बैकग्राउंड वेरिएंस का अनुमान लगाने के लिए, हम उन सभी {nExpsUsedForAdjustment} एक्सपेरिमेंट का इस्तेमाल करते हैं जिनमें कभी यह मेट्रिक इस्तेमाल हुई है और जिनका स्केल्ड प्रभाव निकाला जा सकता है, चाहे आपके प्रोजेक्ट या तारीख के फ़िल्टर कुछ भी हों।"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Total Impact"
+msgstr "कुल प्रभाव"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Try again"
+msgstr "फिर से कोशिश करें"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unable to save new payment method"
+msgstr "पेमेंट का नया तरीका सेव नहीं हो सका"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unable to validate payment method inputs"
+msgstr "पेमेंट के तरीके की जानकारी की पुष्टि नहीं हो सकी"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "Unit dimension:"
+msgstr "यूनिट डाइमेंशन:"
+
+#: ui/VariationStatsTable.tsx
+msgid "Units"
+msgstr "यूनिट"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unlimited experiments"
+msgstr "अनलिमिटेड एक्सपेरिमेंट"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unlimited feature flags"
+msgstr "अनलिमिटेड फ़ीचर फ़्लैग"
+
+#: components/Layout/SettingsNav.tsx
+msgid "Unsaved changes"
+msgstr "बिना सेव किए बदलाव"
+
+#: components/GetStarted/DocumentationSidebar.tsx
 #: components/Layout/Layout.tsx
 msgid "Upgrade"
 msgstr "अपग्रेड करें"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Upgrade now"
+msgstr "अभी अपग्रेड करें"
+
+#: ui/PremiumCallout.tsx
+msgid "Upgrade Now"
+msgstr "अभी अपग्रेड करें"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Upgrade to unlock live chat support and premium features."
+msgstr "लाइव चैट सपोर्ट और प्रीमियम फ़ीचर पाने के लिए अपग्रेड करें।"
+
+#: ui/RichTextEditor.tsx
+msgid "Uploading…"
+msgstr "अपलोड हो रहा है…"
+
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "URL"
+msgstr "URL"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "URL Redirects"
+msgstr "URL रीडायरेक्ट"
 
 #: components/Layout/sidebarNav.ts
 msgid "Usage"
 msgstr "उपयोग"
 
+#: components/GetStarted/index.tsx
+msgid "Use temp tables for intermediate steps"
+msgstr "बीच के चरणों के लिए टेम्प टेबल इस्तेमाल करें"
+
 #: components/Layout/sidebarNav.ts
 msgid "User Journeys"
 msgstr "यूज़र जर्नी"
 
+#: ui/VariationStatsTable.tsx
+msgid "Value"
+msgstr "वैल्यू"
+
+#: ui/StringArrayField.tsx
+msgid "value 1\n"
+"value 2..."
+msgstr "वैल्यू 1\n"
+"वैल्यू 2..."
+
+#: ui/StringArrayField.tsx
+msgid "value 1, value 2..."
+msgstr "वैल्यू 1, वैल्यू 2..."
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: ui/VariationStatsTable.tsx
+msgid "Variation"
+msgstr "वेरिएशन"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Vercel Integration Docs"
+msgstr "Vercel इंटीग्रेशन दस्तावेज़"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "View a Sample Experiment"
+msgstr "सैंपल एक्सपेरिमेंट देखें"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "View all experiments"
+msgstr "सभी एक्सपेरिमेंट देखें"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "View all feature flags"
+msgstr "सभी फ़ीचर फ़्लैग देखें"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "View data sources"
+msgstr "डेटा सोर्स देखें"
+
+#: components/Auth/InAppHelp.tsx
 #: components/Layout/Layout.tsx
+#: ui/PremiumCallout.tsx
 msgid "View docs"
 msgstr "दस्तावेज़ देखें"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "View docs for our <0>SDKs</0>"
+msgstr "हमारे <0>SDK</0> के दस्तावेज़ देखें"
+
+#: components/Modal.tsx
+msgid "View Documentation"
+msgstr "दस्तावेज़ देखें"
+
+#: components/GetStarted/index.tsx
+msgid "View flag evaluations in real time"
+msgstr "फ़्लैग इवैल्यूएशन रीयल टाइम में देखें"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "View metrics"
+msgstr "मेट्रिक्स देखें"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "View report"
+msgstr "रिपोर्ट देखें"
+
+#: components/GetStarted/ViewSampleDataButton.tsx
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "View Sample Experiment"
+msgstr "सैंपल एक्सपेरिमेंट देखें"
+
+#: components/GetStarted/ViewSampleDataButton.tsx
+msgid "View Sample Feature"
+msgstr "सैंपल फ़ीचर देखें"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Visual Editor"
+msgstr "विज़ुअल एडिटर"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Want to run a new experiment? <0>View instructions</0>"
+msgstr "नया एक्सपेरिमेंट चलाना चाहते हैं? <0>निर्देश देखें</0>"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Watch a quick <0><1>Video Tour</1></0>"
+msgstr "एक छोटा <0><1>वीडियो टूर</1></0> देखें"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "We compute the Daily Scaled Impact for all variations in all experiments that match your filters."
+msgstr "हम आपके फ़िल्टर से मेल खाने वाले सभी एक्सपेरिमेंट के सभी वेरिएशन के लिए दैनिक स्केल्ड प्रभाव निकालते हैं।"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "We couldn't refresh your organization details. Try again to see your updated plan."
+msgstr "आपके संगठन की जानकारी रीफ़्रेश नहीं हो सकी। अपना अपडेट किया गया प्लान देखने के लिए फिर से कोशिश करें।"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "We found possible organizations for you on GrowthBook!"
+msgstr "हमें GrowthBook पर आपके लिए कुछ संभावित संगठन मिले हैं!"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "We found your organization on GrowthBook!"
+msgstr "हमें GrowthBook पर आपका संगठन मिल गया!"
+
+#: pages/404.tsx
+msgid "We looked, but we couldn't find the page you're looking for"
+msgstr "हमने ढूंढा, लेकिन आप जो पेज खोज रहे हैं वह नहीं मिला"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "We sum the Scaled Impact of the winning variation of experiments marked as won and multiply values by 365 to get an annual value."
+msgstr "हम “जीते” मार्क किए गए एक्सपेरिमेंट के जीतने वाले वेरिएशन के स्केल्ड प्रभाव को जोड़ते हैं और वार्षिक वैल्यू पाने के लिए उसे 365 से गुणा करते हैं।"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "We sum the Scaled Impact of the worst variation of experiments marked as lost and multiply values by 365 to get an annual value."
+msgstr "हम “हारे” मार्क किए गए एक्सपेरिमेंट के सबसे खराब वेरिएशन के स्केल्ड प्रभाव को जोड़ते हैं और वार्षिक वैल्यू पाने के लिए उसे 365 से गुणा करते हैं।"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "We'll scan your data warehouse looking for past experiments that already have some data collected. Choose one to import and start analyzing results."
+msgstr "हम आपके डेटा वेयरहाउस को स्कैन करके ऐसे पुराने एक्सपेरिमेंट ढूंढेंगे जिनका कुछ डेटा पहले से इकट्ठा है। इंपोर्ट करने के लिए एक चुनें और नतीजों का विश्लेषण शुरू करें।"
 
 #: components/Layout/sidebarNav.ts
 msgid "Webhooks"
@@ -519,6 +2407,100 @@ msgstr "आपका फिर से स्वागत है"
 msgid "Welcome back, let's get started with some experiments"
 msgstr "आपका फिर से स्वागत है, चलिए एक्सपेरिमेंट शुरू करते हैं"
 
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Welcome to GrowthBook Pro!"
+msgstr "GrowthBook Pro में आपका स्वागत है!"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
 #: components/Auth/Welcome.tsx
 msgid "Welcome to GrowthBook!"
 msgstr "GrowthBook में आपका स्वागत है!"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "WHAT'S NEW"
+msgstr "नया क्या है"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Whether to use the James-Stein shrinkage estimator to compute an adjustment factor to mitigate selection bias from summing only a subset of experiments (e.g. winners)."
+msgstr "क्या सिर्फ़ कुछ एक्सपेरिमेंट (जैसे जीतने वाले) को जोड़ने से होने वाले सिलेक्शन बायस को कम करने के लिए एडजस्टमेंट फ़ैक्टर निकालने में जेम्स-स्टीन श्रिंकेज एस्टिमेटर का इस्तेमाल करना है।"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Winning Variation"
+msgstr "जीतने वाला वेरिएशन"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Won"
+msgstr "जीते"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Worst Variation"
+msgstr "सबसे खराब वेरिएशन"
+
+#: components/Modal/ConfirmButton.tsx
+msgid "Yes"
+msgstr "हां"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "You aren't part of an organization yet."
+msgstr "आप अभी किसी संगठन का हिस्सा नहीं हैं।"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "You can change this later in your account settings."
+msgstr "आप इसे बाद में अपनी खाता सेटिंग में बदल सकते हैं।"
+
+#: components/Layout/SettingsPage.tsx
+msgid "You do not have access to view this page."
+msgstr "आपके पास यह पेज देखने की अनुमति नहीं है।"
+
+#: components/GetStarted/FeaturedCards.tsx
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "You do not have permission to complete this action"
+msgstr "आपके पास यह कार्रवाई पूरी करने की अनुमति नहीं है"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "You must be invited by an administrator in order to use GrowthBook."
+msgstr "GrowthBook इस्तेमाल करने के लिए किसी एडमिन का आपको आमंत्रित करना ज़रूरी है।"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "You will be charged a pro-rated amount for the remainder of this month, and $40 per month per seat thereafter. Cancel anytime."
+msgstr "इस महीने के बाकी दिनों के लिए आपसे आनुपातिक राशि ली जाएगी, और उसके बाद हर सीट के लिए $40 प्रति माह। कभी भी रद्द करें।"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "You're all set! Go to your GrowthBook dashboard to start your setup."
+msgstr "सब तैयार है! अपना सेटअप शुरू करने के लिए अपने GrowthBook डैशबोर्ड पर जाएं।"
+
+#: pages/invitation.tsx
+msgid "You've been invited to join <0>{organization}</0> on GrowthBook as a {role}!"
+msgstr "आपको GrowthBook पर <0>{organization}</0> में {role} के रूप में शामिल होने के लिए आमंत्रित किया गया है!"
+
+#: pages/invitation.tsx
+msgid "You've been invited to join <0>{organization}</0> on GrowthBook as an {role}!"
+msgstr "आपको GrowthBook पर <0>{organization}</0> में {role} के रूप में शामिल होने के लिए आमंत्रित किया गया है!"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Your analysis is currently running."
+msgstr "आपका विश्लेषण अभी चल रहा है।"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup has {unfinished} required check to review."
+msgstr "आपके GrowthBook सेटअप में {unfinished} ज़रूरी जांच की समीक्षा बाकी है।"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup has {unfinished} required checks to review."
+msgstr "आपके GrowthBook सेटअप में {unfinished} ज़रूरी जांचों की समीक्षा बाकी है।"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup in {appName} has {unfinished} required check to review."
+msgstr "{appName} में आपके GrowthBook सेटअप की {unfinished} ज़रूरी जांच की समीक्षा बाकी है।"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup in {appName} has {unfinished} required checks to review."
+msgstr "{appName} में आपके GrowthBook सेटअप की {unfinished} ज़रूरी जांचों की समीक्षा बाकी है।"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Your membership is pending."
+msgstr "आपकी सदस्यता लंबित है।"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Your role"
+msgstr "आपकी भूमिका"
