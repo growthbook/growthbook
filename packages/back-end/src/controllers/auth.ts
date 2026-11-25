@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { UserInterface } from "shared/types/user";
+import { FinishPasskeySignInBody } from "shared/validators";
 import {
   createForgotPasswordToken,
   deleteForgotPasswordToken,
@@ -29,6 +30,10 @@ import {
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { updatePassword, verifyPassword } from "back-end/src/services/users";
+import {
+  finishPasskeySignIn,
+  startPasskeySignIn,
+} from "back-end/src/services/passkeys";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { _dangerousGetSSOConnectionsByEmailDomain } from "back-end/src/models/SSOConnectionModel";
 import { logger } from "back-end/src/util/logger";
@@ -465,6 +470,19 @@ export async function postResetPassword(
     status: 200,
     email,
   });
+}
+
+export async function postPasskeySignInOptions(req: Request, res: Response) {
+  const options = await startPasskeySignIn();
+  res.status(200).json({ status: 200, options });
+}
+
+export async function postPasskeySignInVerify(
+  req: Request<Record<string, string>, unknown, FinishPasskeySignInBody>,
+  res: Response,
+) {
+  const user = await finishPasskeySignIn(req.body.response);
+  await sendLocalSuccessResponse(req, res, user);
 }
 
 export async function postChangePassword(

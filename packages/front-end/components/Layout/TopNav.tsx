@@ -566,6 +566,16 @@ const TopNav: FC<{
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {renderChangePassword()}
+            {!usingSSO() && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setDropdownOpen(false);
+                  router.push("/account/passkeys");
+                }}
+              >
+                Passkeys
+              </DropdownMenuItem>
+            )}
             {renderLogoutDropDown()}
           </DropdownMenu>
         </div>

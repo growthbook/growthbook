@@ -51,6 +51,10 @@ const otherPageTitles = [
     title: "My Slack Links",
   },
   {
+    path: /^account\/passkeys/,
+    title: "Passkeys",
+  },
+  {
     path: /^getstarted/,
     title: "Get Started",
   },

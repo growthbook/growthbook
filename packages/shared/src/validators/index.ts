@@ -78,6 +78,7 @@ export * from "./projects";
 export * from "./safe-rollout-notifications";
 export * from "./safe-rollout-snapshot";
 export * from "./users";
+export * from "./passkeys";
 export * from "./environment";
 export * from "./exec-report";
 export * from "./experiment-template";

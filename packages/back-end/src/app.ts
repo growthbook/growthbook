@@ -112,6 +112,7 @@ const uploadController = wrapController(uploadControllerRaw);
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
+import { checkPasskeySettings } from "./services/passkeys";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
@@ -122,6 +123,10 @@ import {
   SQLExecutionError,
 } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
+import {
+  passkeySignInRouter,
+  passkeysRouter,
+} from "./routers/passkeys/passkeys.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
 import { eventsRouter } from "./routers/events/events.router";
@@ -531,6 +536,8 @@ if (!useSSO) {
   app.post("/auth/forgot", authController.postForgotPassword);
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
+  app.use("/auth/passkey", passkeySignInRouter);
+  checkPasskeySettings();
 }
 // Pre-auth requests when using SSO
 else {
@@ -592,6 +599,7 @@ if (SENTRY_DSN) {
 // Logged-in auth requests
 if (!useSSO) {
   app.post("/auth/change-password", authController.postChangePassword);
+  app.use("/user/passkeys", passkeysRouter);
 }
 
 app.use("/user", usersRouter);

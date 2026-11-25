@@ -11,6 +11,7 @@ import Button, { WhiteButton } from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import WelcomeFrame from "./WelcomeFrame";
+import PasskeySignInButton from "./PasskeySignInButton";
 
 type LoginHeroContent = {
   headline: string;
@@ -278,6 +279,7 @@ export default function Welcome({
               </Text>
             </Flex>
           )}
+          {state === "login" && <PasskeySignInButton onSuccess={onSuccess} />}
           {state === "forgot" && (
             <div>
               <h3 className="h2">Forgot Password</h3>
@@ -347,7 +349,10 @@ export default function Welcome({
               type="email"
               {...form.register("email")}
               autoFocus={state === "login" || state === "forgot"}
-              autoComplete="username"
+              // "webauthn" lets the browser offer passkeys here too
+              autoComplete={
+                state === "login" ? "username webauthn" : "username"
+              }
             />
           )}
           {(state === "login" ||

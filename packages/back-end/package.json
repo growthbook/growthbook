@@ -72,6 +72,7 @@
     "@resvg/resvg-wasm": "^2.6.2",
     "@sentry/cli-linux-x64": "^2.58.4",
     "@sentry/node": "^10.76.1",
+    "@simplewebauthn/server": "^14.1.0",
     "@stdlib/stats": "^0.1.1",
     "agenda": "^5.0.0",
     "ai": "^6.0.6",
