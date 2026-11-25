@@ -38,6 +38,27 @@ export function toOptionalNumber(value: unknown): number | undefined {
   return Number.isFinite(num) ? num : undefined;
 }
 
+/**
+ * Parse a numeric value from a warehouse query result (users, counts,
+ * conversions, denominator/sum columns, ...) into a finite number, defaulting
+ * to 0 like the surrounding `|| 0` fallbacks.
+ *
+ * Strings are parsed with `parseFloat`, so engines that return DOUBLE-typed
+ * counts in scientific notation (e.g. Athena/Presto's "3.518884E7") yield the
+ * full value instead of the truncated prefix that `parseInt` would return
+ * (`parseInt("3.518884E7") === 3`). Other inputs go through `toOptionalNumber`.
+ * Returns 0 for null/undefined, blank, or non-numeric values; never throws.
+ */
+export function parseNumericValue(value: unknown): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "string") {
+    if (value.trim() === "") return 0;
+    const num = parseFloat(value);
+    return Number.isFinite(num) ? num : 0;
+  }
+  return toOptionalNumber(value) ?? 0;
+}
+
 export function getWarehouseErrorCode(error: unknown): string | undefined {
   const options = [
     "data.data.queries.0.errorCode", // Snowflake
