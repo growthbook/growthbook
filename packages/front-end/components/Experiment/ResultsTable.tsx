@@ -638,6 +638,8 @@ export default function ResultsTable({
                 className={clsx("experiment-results table-sm", {
                   [styles.dimensionBreakdown]:
                     !!redesign && tableRowAxis === "dimension",
+                  [styles.metricSlices]:
+                    !!redesign && tableRowAxis === "metric",
                 })}
               >
                 <thead>

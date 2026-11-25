@@ -432,7 +432,9 @@ const BreakDownResults: FC<{
                   return (
                     <div
                       style={{
-                        paddingLeft: row.isSliceRow ? childIndent : undefined,
+                        // A slice's own label already indents this far in.
+                        paddingLeft:
+                          row.isSliceRow && redesign ? 16 : undefined,
                       }}
                     >
                       {getRenderLabelColumn({ redesign: !!redesign })({

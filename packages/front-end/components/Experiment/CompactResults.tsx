@@ -27,6 +27,8 @@ import {
   PiArrowSquareOut,
   PiCaretCircleRight,
   PiCaretCircleDown,
+  PiCaretDown,
+  PiCaretRight,
   PiFunnelSimple,
 } from "react-icons/pi";
 import {
@@ -673,7 +675,14 @@ export function getRenderLabelColumn({
     // Slice row
     if (isSliceRow) {
       return (
-        <div className="pl-4" style={{ position: "relative" }}>
+        <div
+          className={redesign ? undefined : "pl-4"}
+          // In line with a dimension value under its metric.
+          style={{
+            position: "relative",
+            paddingLeft: redesign ? 38 : undefined,
+          }}
+        >
           <div
             className="ml-2 font-weight-bold"
             style={{
@@ -848,7 +857,13 @@ export function getRenderLabelColumn({
                       row?.labelOnly || sliceTagsFilter?.includes("overall")
                     }
                   >
-                    {isExpanded ? (
+                    {redesign ? (
+                      isExpanded ? (
+                        <PiCaretDown size={15} />
+                      ) : (
+                        <PiCaretRight size={15} />
+                      )
+                    ) : isExpanded ? (
                       <PiCaretCircleDown size={16} />
                     ) : (
                       <PiCaretCircleRight size={16} />

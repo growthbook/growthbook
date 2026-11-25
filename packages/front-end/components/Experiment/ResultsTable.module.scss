@@ -28,24 +28,38 @@
   tbody.labelGroup {
     background-color: transparent;
   }
+}
 
-  // Lines run a touch darker between metrics than between one metric's
-  // values. The :not()s outweigh the table's own last-row rule.
+// Lines run a touch darker between metrics than under one metric's own rows
+// (its dimension values, or its slices). The :not()s outweigh the table's own
+// last-row rule.
+.dimensionBreakdown,
+.metricSlices {
   :global(tbody.results-group-row)
     tr:last-of-type:not(:global(.slice-collapsed)):not(
       :global(.slice-expanded)
     ) {
     box-shadow: rgba(102, 102, 102, 0.08) 0 -1px inset;
   }
+}
 
+.dimensionBreakdown
   tbody.labelGroup:not(:first-of-type)
-    tr:last-of-type:not(:global(.slice-collapsed)):not(
-      :global(.slice-expanded)
-    ) {
-    box-shadow:
-      rgba(102, 102, 102, 0.22) 0 1px inset,
-      rgba(102, 102, 102, 0.05) 0 -1px inset;
-  }
+  tr:last-of-type:not(:global(.slice-collapsed)):not(:global(.slice-expanded)) {
+  box-shadow:
+    rgba(102, 102, 102, 0.22) 0 1px inset,
+    rgba(102, 102, 102, 0.05) 0 -1px inset;
+}
+
+// A metric's first row, where its slices are the rows beneath it.
+.metricSlices
+  :global(tbody.results-group-row):not(:global(.child-row)):not(:first-of-type)
+  tr:first-of-type:not(:global(.slice-collapsed)):not(
+    :global(.slice-expanded)
+  ) {
+  box-shadow:
+    rgba(102, 102, 102, 0.22) 0 1px inset,
+    rgba(102, 102, 102, 0.05) 0 -1px inset;
 }
 
 .timeSeriesCell {
