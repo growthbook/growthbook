@@ -1,5 +1,7 @@
 import { ReactNode, FC, ReactElement, useEffect } from "react";
+import { Box } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import LanguageMenu from "@/components/Layout/LanguageMenu";
 import { trackPageView } from "@/services/track";
 
 type WelcomeFrameProps = {
@@ -26,6 +28,9 @@ const WelcomeFrame: FC<WelcomeFrameProps> = ({
         <div className="row full-height align-items-stretch d-flex flex-fill d-flex justify-content-start">
           <div className="col-sm-6 intro-side">{leftside}</div>
           <div className="col-sm-6 form-side p-0 position-relative">
+            <Box position="absolute" top="4" right="4">
+              <LanguageMenu standalone />
+            </Box>
             <div className="welcomemodal p-4 h-100">
               <div className="h-100 align-items-center justify-content-center d-flex pr-2">
                 <div className="formwrap">{children}</div>

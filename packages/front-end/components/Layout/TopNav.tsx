@@ -50,6 +50,7 @@ import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
+import LanguageMenu from "./LanguageMenu";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -553,6 +554,7 @@ const TopNav: FC<{
             {renderPendingReviewsDropDown()}
             {renderMyActivityFeedsDropDown()}
             {renderThemeSubDropDown()}
+            <LanguageMenu onSelect={() => setDropdownOpen(false)} />
             <DropdownMenuSeparator />
             {renderMyReportsDropDown()}
             {renderPersonalAccessTokensDropDown()}

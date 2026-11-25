@@ -1,6 +1,6 @@
 import Head from "next/head";
 import Link from "next/link";
-import { Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import {
   PiCaretDownFill,
   PiCircleHalf,
@@ -24,6 +24,7 @@ import {
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import styles from "./TopNav.module.scss";
+import LanguageMenu from "./LanguageMenu";
 
 export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
   const { email, name, user } = useUser();
@@ -218,11 +219,15 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
           >
             {renderNameAndEmailDropdownLabel()}
             {renderThemeDropDown()}
+            <LanguageMenu />
             <DropdownMenuSeparator />
             {renderLogoutDropDown()}
           </DropdownMenu>
         ) : (
-          <div className="mr-1">{renderThemeDropDown(true)}</div>
+          <Flex gap="3" mr="1">
+            {renderThemeDropDown(true)}
+            <LanguageMenu standalone />
+          </Flex>
         )}
       </div>
     </div>
