@@ -2,6 +2,7 @@ import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { Dimension } from "shared/types/integrations";
+import { QueryInterface } from "shared/types/query";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import type { BigQuery as BigQueryClient } from "@google-cloud/bigquery";
 import BigQuery from "back-end/src/integrations/BigQuery";
@@ -81,6 +82,51 @@ describe("BigQuery reservation job config", () => {
       useLegacySql: false,
     });
     expect(queryJobConfig).not.toHaveProperty("reservation");
+  });
+
+  it("logs one row for a query, once it has finished", async () => {
+    const create = jest.fn();
+    // @ts-expect-error -- only the query log model is needed here
+    integration.context = { models: { queryLogs: { create } } };
+    integration.params = {};
+
+    await integration.runQuery("SELECT 1", undefined, {
+      queryType: "connectionTest",
+    });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "succeeded",
+        durationMs: expect.any(Number),
+        rowsReturned: 0,
+      }),
+    );
+  });
+
+  it("logs queries that fail without reaching the warehouse", async () => {
+    const create = jest.fn();
+    // @ts-expect-error -- only the query log model is needed here
+    integration.context = { models: { queryLogs: { create } } };
+
+    await expect(
+      integration.runQuery("SELECT 1; SELECT 2", undefined, {
+        queryType: "connectionTest",
+      }),
+    ).rejects.toThrow("Multi-statement queries are not supported");
+    integration.logQueryFailure(
+      { id: "qry_1", createdAt: new Date(0) } as QueryInterface,
+      "dependency-failed",
+      "Dependencies failed: qry_0",
+    );
+
+    expect(mockCreateQueryJob).not.toHaveBeenCalled();
+    expect(create.mock.calls.map(([row]) => [row.status, row.queryId])).toEqual(
+      [
+        ["not-sent", undefined],
+        ["dependency-failed", "qry_1"],
+      ],
+    );
   });
 });
 

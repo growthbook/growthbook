@@ -580,7 +580,8 @@ function RecentQueries({
           .join(", "),
         person: q.userId ? getUserDisplay(q.userId) : "Automated",
         startedAt: new Date(q.startedAt).getTime(),
-        status: q.status,
+        // The API only returns these two statuses; this narrows the type
+        status: q.status === "succeeded" ? q.status : ("failed" as const),
         error: q.error,
       };
     }),

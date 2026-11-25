@@ -1004,6 +1004,55 @@ describe("QueryRunner", () => {
       }
     });
 
+    it("logs a processing failure only when the warehouse query succeeded", async () => {
+      jest.useFakeTimers();
+      const query = createMockQuery("qry_processing", "running");
+      const runner = new CascadeFailureQueryRunner(
+        mockContext,
+        {
+          id: "test-model",
+          organization: "test-org",
+          queries: [{ name: "a", query: query.id, status: "running" }],
+          runStarted: new Date(),
+        },
+        mockIntegration,
+      );
+      mockIntegration.logQueryFailure = jest.fn();
+      jest.mocked(updateQueryIfPending).mockResolvedValue(true);
+      jest.mocked(updateQueryIfRunning).mockResolvedValue(true);
+      jest.mocked(updateQuery).mockRejectedValue(new Error("Result too large"));
+
+      try {
+        // The warehouse fails: the integration has already logged it
+        await runner.executeQuery(query, {
+          run: async () => {
+            throw new Error("Syntax error");
+          },
+          onFailure: jest.fn(),
+        });
+        await jest.advanceTimersByTimeAsync(0);
+        expect(mockIntegration.logQueryFailure).not.toHaveBeenCalled();
+
+        // The warehouse succeeds, then storing the result fails
+        await runner.executeQuery(query, {
+          run: async () => ({ rows: [] }),
+          onFailure: jest.fn(),
+        });
+        await jest.advanceTimersByTimeAsync(0);
+        expect(mockIntegration.logQueryFailure).toHaveBeenCalledWith(
+          query,
+          "processing-failed",
+          "Result too large",
+        );
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        jest.mocked(updateQuery).mockReset();
+        jest.mocked(updateQueryIfRunning).mockReset();
+        delete mockIntegration.logQueryFailure;
+      }
+    });
+
     // Reproduces the swallowed-error bug in the aggregated fact table pipeline.
     // A multi-query DAG (insert + a dependent coverage query) fails when the
     // insert hits invalid SQL. The first refresh flips the runner to failed; a

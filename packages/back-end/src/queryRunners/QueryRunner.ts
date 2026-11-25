@@ -109,6 +109,8 @@ const MAX_NAMES_IN_ERROR = 5;
 
 const GENERIC_QUERY_FAILURE_ERROR =
   "Failed to run a majority of the database queries";
+const RUN_CALLBACKS_NOT_FOUND_ERROR = "Run callbacks not found";
+const RUNNER_CONCLUDED_ERROR = "Query runner concluded before execution";
 
 /**
  * Prefer a root-cause warehouse error over "Dependencies failed: ..."
@@ -789,13 +791,15 @@ export abstract class QueryRunner<
 
       if (failedDependencies.length) {
         logger.debug(`${query.id}: Dependency failed...`);
+        const error = `Dependencies failed: ${failedDependencies.map(
+          (q) => q.query,
+        )}`;
         await updateQuery(this.context, query, {
           finishedAt: new Date(),
           status: "failed",
-          error: `Dependencies failed: ${failedDependencies.map(
-            (q) => q.query,
-          )}`,
+          error,
         });
+        this.integration.logQueryFailure?.(query, "dependency-failed", error);
         this.onQueryFinish();
         continue;
       }
@@ -829,8 +833,13 @@ export abstract class QueryRunner<
           await updateQuery(this.context, query, {
             finishedAt: new Date(),
             status: "failed",
-            error: `Run callbacks not found`,
+            error: RUN_CALLBACKS_NOT_FOUND_ERROR,
           });
+          this.integration.logQueryFailure?.(
+            query,
+            "not-sent",
+            RUN_CALLBACKS_NOT_FOUND_ERROR,
+          );
           this.onQueryFinish();
         } else {
           if (await this.concurrencyLimitReached()) {
@@ -1055,8 +1064,13 @@ export abstract class QueryRunner<
       await updateQuery(this.context, doc, {
         finishedAt: new Date(),
         status: "failed",
-        error: `Run callbacks not found`,
+        error: RUN_CALLBACKS_NOT_FOUND_ERROR,
       });
+      this.integration.logQueryFailure?.(
+        doc,
+        "not-sent",
+        RUN_CALLBACKS_NOT_FOUND_ERROR,
+      );
       return this.onQueryFinish();
     }
     return this.executeQuery(doc, runCallbacks);
@@ -1117,12 +1131,17 @@ export abstract class QueryRunner<
       await updateQueryIfRunning(this.context, doc, {
         finishedAt: new Date(),
         status: "failed",
-        error: "Query runner concluded before execution",
+        error: RUNNER_CONCLUDED_ERROR,
       }).catch((e) =>
         logger.warn(
           e,
           `${doc.id}: Failed to stop query claimed during shutdown`,
         ),
+      );
+      this.integration.logQueryFailure?.(
+        doc,
+        "not-sent",
+        RUNNER_CONCLUDED_ERROR,
       );
       return;
     }
@@ -1149,12 +1168,14 @@ export abstract class QueryRunner<
       }
     };
 
+    let warehouseSucceeded = false;
     run(doc.query, setExternalId, {
       ...metadata,
       queryType: doc.queryType || "unknown",
       queryId: doc.id,
     })
       .then(async ({ rows, statistics }) => {
+        warehouseSucceeded = true;
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);
         await updateQuery(this.context, doc, {
@@ -1172,6 +1193,14 @@ export abstract class QueryRunner<
       .catch(async (e) => {
         clearInterval(timer);
         logger.debug("Query failed: " + e.message);
+        // A warehouse error was already logged by the integration
+        if (warehouseSucceeded) {
+          this.integration.logQueryFailure?.(
+            doc,
+            "processing-failed",
+            getErrorMessage(e),
+          );
+        }
         try {
           const updated = await updateQueryIfRunning(this.context, doc, {
             finishedAt: new Date(),
