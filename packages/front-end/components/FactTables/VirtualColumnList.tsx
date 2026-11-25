@@ -70,9 +70,9 @@ function DeleteVirtualColumnContent({
             {total === 1 ? "it runs" : "they run"}. Open any you still need
             before you delete it.
           </Text>
-          <ul style={{ marginBottom: 0 }}>
+          <Flex direction="column" gap="1">
             {explorations.map((e) => (
-              <li key={e.id}>
+              <Text key={e.id}>
                 {e.url ? (
                   <Link href={e.url} external>
                     {EXPLORER_TYPE_LABELS[e.datasetType]} exploration
@@ -81,12 +81,12 @@ function DeleteVirtualColumnContent({
                   `${EXPLORER_TYPE_LABELS[e.datasetType]} exploration`
                 )}{" "}
                 · last run {ago(e.dateUpdated)}
-              </li>
+              </Text>
             ))}
             {total > explorations.length && (
-              <li>{total - explorations.length} more</li>
+              <Text>{total - explorations.length} more</Text>
             )}
-          </ul>
+          </Flex>
         </Callout>
       ) : null}
       <Text as="p">
