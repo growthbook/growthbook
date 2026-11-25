@@ -1,11 +1,10 @@
 import React, { FC, useState } from "react";
-import { IconButton } from "@radix-ui/themes";
-import { PiDotsThreeVertical } from "react-icons/pi";
 import { SDKAttribute } from "shared/types/organization";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -157,16 +156,11 @@ const AttributeRowMenu: FC<{
   return (
     <DropdownMenu
       trigger={
-        <IconButton
-          variant="ghost"
-          color="gray"
-          radius="full"
-          size="2"
-          highContrast
-          aria-label={`Actions for attribute ${attribute.property}`}
-        >
-          <PiDotsThreeVertical size={18} />
-        </IconButton>
+        <MoreMenuTrigger
+          label={`Actions for attribute ${attribute.property}`}
+          size="sm"
+          style={{ margin: 0 }}
+        />
       }
       open={menuOpen}
       onOpenChange={setMenuOpen}

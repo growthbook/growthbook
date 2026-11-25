@@ -355,12 +355,10 @@ function buildAttributeColumns<T extends SDKAttribute>({
       locked: true,
       resizable: false,
       // Fixed, so the pinned column can't grow over the data it covers.
-      defaultWidth: 40,
-      minWidth: 40,
-      headerProps: { style: { paddingLeft: 4, paddingRight: 4 } },
-      cellProps: () => ({ style: { paddingLeft: 4, paddingRight: 4 } }),
+      defaultWidth: 46,
+      minWidth: 46,
       render: (v) => (
-        <Flex justify="center">
+        <Flex justify="end">
           <AttributeRowMenu
             attribute={v}
             onEdit={() => onEdit(v)}
@@ -505,7 +503,7 @@ function AttributeColumnsTable<T extends SDKAttribute>({
       </TableHeader>
       <TableBody>
         {rows.map((v) => (
-          <TableRow key={v.property}>
+          <TableRow key={v.property} align="start">
             {visibleColumns.map((col) => {
               const { className, style } = col.cellProps?.(v) ?? {};
               return (

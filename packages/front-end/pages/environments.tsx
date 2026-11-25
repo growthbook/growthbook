@@ -5,10 +5,9 @@ import {
   isProjectListValidForProject,
 } from "shared/util";
 import { BiShow } from "react-icons/bi";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { ImBlocked } from "react-icons/im";
 import { PiCheckCircle, PiXCircle } from "react-icons/pi";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
@@ -29,6 +28,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import Table, {
   TableHeader,
@@ -148,7 +148,7 @@ const EnvironmentsPage: FC = () => {
               <TableColumnHeader>Default state</TableColumnHeader>
               <TableColumnHeader>Production</TableColumnHeader>
               <TableColumnHeader>Show on features page</TableColumnHeader>
-              <TableColumnHeader style={{ width: 30 }} />
+              <TableColumnHeader style={{ width: 46 }} />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -174,7 +174,7 @@ const EnvironmentsPage: FC = () => {
                 refreshOrganization();
               };
               return (
-                <TableRow key={e.id}>
+                <TableRow key={e.id} align="start">
                   <TableCell>{e.id}</TableCell>
                   <TableCell>{e.description}</TableCell>
                   <TableCell>
@@ -231,18 +231,14 @@ const EnvironmentsPage: FC = () => {
                     />
                   </TableCell>
                   <TableCell>{e.toggleOnList ? "yes" : ""}</TableCell>
-                  <TableCell>
+                  <TableCell justify="end">
                     <DropdownMenu
                       trigger={
-                        <IconButton
-                          variant="ghost"
-                          color="gray"
-                          radius="full"
-                          size="2"
-                          highContrast
-                        >
-                          <BsThreeDotsVertical size={18} />
-                        </IconButton>
+                        <MoreMenuTrigger
+                          label={`Actions for ${e.id}`}
+                          size="sm"
+                          style={{ margin: 0 }}
+                        />
                       }
                       menuPlacement="end"
                       variant="soft"
