@@ -4,11 +4,15 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { experimentRefSkipReason } from "@/components/Features/ExperimentRefSummary";
 import { contextualBanditSkipReason } from "@/components/ContextualBandit/ContextualBanditRefSummary";
+import { I18nTestProvider } from "@/test/I18nTestProvider";
 
 const text = (node: ReactNode) =>
   node === null
     ? null
-    : renderToStaticMarkup(<>{node}</>).replace(/<[^>]+>/g, "");
+    : renderToStaticMarkup(<I18nTestProvider>{node}</I18nTestProvider>).replace(
+        /<[^>]+>/g,
+        "",
+      );
 
 function experiment(
   overrides: Partial<ExperimentInterfaceStringDates>,

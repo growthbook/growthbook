@@ -1,4 +1,5 @@
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { getFeatureBaseConfigKey } from "shared/util";
 import ForceSummary from "@/components/Features/ForceSummary";
@@ -51,6 +52,7 @@ export default function FeatureValueCell({
   onOpenEditor?: () => void;
   label: string;
 }) {
+  const { t } = useLingui();
   const isJson = feature.valueType === "json";
   const showsCode = value !== undefined && isJson;
   const tall = showsCode && spansLines(feature, value, sparse);
@@ -81,8 +83,8 @@ export default function FeatureValueCell({
           edit={
             editable && isJson && onOpenEditor
               ? {
-                  label: `Edit ${label} value`,
-                  tooltip: "Edit value",
+                  label: t`Edit ${label} value`,
+                  tooltip: t`Edit value`,
                   onEdit: onOpenEditor,
                 }
               : null
@@ -90,7 +92,9 @@ export default function FeatureValueCell({
         >
           {({ actionsOverlay, extraActions }) =>
             value === undefined ? (
-              <HelperText status="warning">No value set</HelperText>
+              <HelperText status="warning">
+                <Trans>No value set</Trans>
+              </HelperText>
             ) : (
               <ForceSummary
                 label={null}

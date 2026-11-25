@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { isActiveDraftStatus, eventUserPersonId } from "shared/validators";
@@ -48,6 +49,7 @@ export default function KillSwitchModal({
   setVersion,
   close,
 }: KillSwitchModalProps) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
@@ -239,7 +241,7 @@ export default function KillSwitchModal({
       header={header}
       close={close}
       open={true}
-      cta={mode === "publish" ? "Publish now" : "Save to draft"}
+      cta={mode === "publish" ? t`Publish now` : t`Save to draft`}
       size="md"
       // Without draft rights, publishing is the only route — and an
       // approval-gated change closes it, leaving nothing to submit.
@@ -252,14 +254,18 @@ export default function KillSwitchModal({
       <div>
         {cannotLandSelectedRoute ? (
           <PermissionBlocker mb="4">
-            You don&apos;t have permission to publish every environment you
-            changed. Save it to a draft instead.
+            <Trans>
+              You don&apos;t have permission to publish every environment you
+              changed. Save it to a draft instead.
+            </Trans>
           </PermissionBlocker>
         ) : null}
         {noRouteAvailable ? (
           <PermissionBlocker mb="4">
-            This change needs review before it can be published, and you
-            don&apos;t have permission to put it in a draft.
+            <Trans>
+              This change needs review before it can be published, and you
+              don&apos;t have permission to put it in a draft.
+            </Trans>
           </PermissionBlocker>
         ) : null}
         <DraftSelectorForChanges
@@ -277,7 +283,7 @@ export default function KillSwitchModal({
         {turningOff.length ? (
           <Box mt="4">
             <Text as="p" mb="1">
-              The following environments will be disabled:
+              <Trans>The following environments will be disabled:</Trans>
             </Text>
             <ol style={{ margin: 0, paddingLeft: "var(--space-5)" }}>
               {turningOff.map((env) => (
@@ -294,10 +300,10 @@ export default function KillSwitchModal({
             <Text as="p" color="text-low">
               <em>
                 {draftHadPendingChanges
-                  ? "This undoes pending draft changes — no net change from live."
+                  ? t`This undoes pending draft changes — no net change from live.`
                   : mode === "publish"
-                    ? "Already matches live — nothing will be published."
-                    : "Already matches live — this will have no effect."}
+                    ? t`Already matches live — nothing will be published.`
+                    : t`Already matches live — this will have no effect.`}
               </em>
             </Text>
           )}

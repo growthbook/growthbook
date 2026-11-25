@@ -3,6 +3,7 @@ import { getConfigBackingPatch, validateJSONFeatureValue } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { ReactNode, useMemo } from "react";
 import { isEqual } from "lodash";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
@@ -57,7 +58,7 @@ export default function ConfigBackedSummary({
   sparse = false,
   isDefault = false,
   environment,
-  label = "Serve",
+  label: labelProp,
   lineHeight,
   actionsOverlay,
 }: {
@@ -75,6 +76,8 @@ export default function ConfigBackedSummary({
   lineHeight?: number;
   actionsOverlay?: ActionsOverlay;
 }) {
+  const { t } = useLingui();
+  const label = labelProp === undefined ? t`Serve` : labelProp;
   const { configs } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -223,7 +226,9 @@ export default function ConfigBackedSummary({
       )}
       {validationErrors && (
         <Callout status="error" mt="2">
-          Value fails validation with the Config&apos;s JSON schema.
+          <Trans>
+            Value fails validation with the Config&apos;s JSON schema.
+          </Trans>
           <ul className="mb-0 mt-1">
             {validationErrors.map((msg, i) => (
               <li key={i}>{msg}</li>

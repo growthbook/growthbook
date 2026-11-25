@@ -1,12 +1,11 @@
 import { useMemo } from "react";
 import { Box } from "@radix-ui/themes";
 import { getConfigAncestorKeys, selectScopedOverride } from "shared/util";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
-
-const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 
 // Environments where the config, or a config it inherits from, serves one of
 // its environment overrides.
@@ -47,9 +46,10 @@ function useConfigOverrideEnvironments(
 
 // "a, b, and c", with each item bolded.
 function StrongList({ items }: { items: string[] }) {
+  const { i18n } = useLingui();
   return (
     <>
-      {listFormat
+      {new Intl.ListFormat(i18n.locale, { type: "conjunction" })
         .formatToParts(items)
         .map((part, i) =>
           part.type === "element" ? (
@@ -63,15 +63,20 @@ function StrongList({ items }: { items: string[] }) {
 }
 
 export function ConfigOverridesBadge({ fields }: { fields: string[] }) {
+  const { t, i18n } = useLingui();
   if (!fields.length) return null;
+  const fieldList = new Intl.ListFormat(i18n.locale, {
+    type: "conjunction",
+  }).format(fields);
+  const count = fields.length;
   return (
     <Tooltip
-      content={`This value overrides ${listFormat.format(fields)} from the Config in all environments.`}
+      content={t`This value overrides ${fieldList} from the Config in all environments.`}
     >
       <Badge
         size="xs"
         color="gray"
-        label={`+${fields.length} ${fields.length === 1 ? "override" : "overrides"}`}
+        label={count === 1 ? t`+${count} override` : t`+${count} overrides`}
       />
     </Tooltip>
   );
@@ -88,32 +93,36 @@ export function ConfigEnvironmentsBadge({
   project: string;
   environment?: string | null;
 }) {
+  const { t } = useLingui();
   const overrideEnvironments = useConfigOverrideEnvironments(
     configKey,
     project,
   );
   if (!overrideEnvironments.length) return null;
+  const count = overrideEnvironments.length;
   return (
     <Tooltip
       content={
         <>
           <div>
-            The Config has environment overrides for{" "}
-            <StrongList items={overrideEnvironments} />.
+            <Trans>
+              The Config has environment overrides for{" "}
+              <StrongList items={overrideEnvironments} />.
+            </Trans>
           </div>
           <Box mt="2">
             {environment === null ? (
-              "The values shown don't include them."
+              <Trans>The values shown don&apos;t include them.</Trans>
             ) : overrideEnvironments.includes(environment) ? (
-              <>
+              <Trans>
                 Showing the Config with <strong>{environment}</strong> overrides
                 applied.
-              </>
+              </Trans>
             ) : (
-              <>
+              <Trans>
                 <strong>{environment}</strong> has none, so the values shown are
                 the Config&apos;s own.
-              </>
+              </Trans>
             )}
           </Box>
         </>
@@ -122,9 +131,11 @@ export function ConfigEnvironmentsBadge({
       <Badge
         size="xs"
         color="gray"
-        label={`${overrideEnvironments.length} environment ${
-          overrideEnvironments.length === 1 ? "override" : "overrides"
-        }`}
+        label={
+          count === 1
+            ? t`${count} environment override`
+            : t`${count} environment overrides`
+        }
       />
     </Tooltip>
   );

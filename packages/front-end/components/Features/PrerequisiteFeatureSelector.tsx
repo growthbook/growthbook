@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { FaRecycle } from "react-icons/fa";
 import clsx from "clsx";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Box } from "@radix-ui/themes";
 import SelectField, {
   GroupedValue,
@@ -54,6 +55,12 @@ export default function PrerequisiteFeatureSelector({
   hasSDKWithPrerequisites,
   disabled,
 }: Props) {
+  const { t } = useLingui();
+  const inProduction =
+    environments.length !== 1 &&
+    (environments.includes("production") || environments.includes("prod"));
+  // A value the SDK serves, shown as is.
+  const falseValue = "false";
   const featureOptionsInProject = useMemo(
     () => featureOptions.filter((f) => (f.project || "") === featureProject),
     [featureOptions, featureProject],
@@ -78,13 +85,13 @@ export default function PrerequisiteFeatureSelector({
     }));
 
     groups.push({
-      label: featureProject === "" ? "In no project" : "In this project",
+      label: featureProject === "" ? t`In no project` : t`In this project`,
       options: projectGroupOptions,
     });
 
     if (featureOptionsInOtherProjects.length > 0) {
       groups.push({
-        label: "In other projects",
+        label: t`In other projects`,
         options: featureOptionsInOtherProjects.map((f) => ({
           label: f.label,
           value: f.value,
@@ -94,12 +101,17 @@ export default function PrerequisiteFeatureSelector({
     }
 
     return groups;
-  }, [featureOptionsInProject, featureOptionsInOtherProjects, featureProject]);
+  }, [
+    featureOptionsInProject,
+    featureOptionsInOtherProjects,
+    featureProject,
+    t,
+  ]);
 
   return (
     <SelectField
       disabled={disabled}
-      placeholder="Select feature"
+      placeholder={t`Select feature`}
       options={groupedFeatureOptions}
       value={value}
       size="legacy"
@@ -118,6 +130,8 @@ export default function PrerequisiteFeatureSelector({
         const targetingProjectNames = foundOption?.targetingProjectNames ?? [];
         const targetingAllProjects = !!foundOption?.targetingAllProjects;
         const isSelectedValue = context === "value" && optionValue;
+        const moreCount = targetingProjectNames.length;
+        const alsoTargets = targetingProjectNames.join(", ");
 
         return (
           <div
@@ -158,13 +172,13 @@ export default function PrerequisiteFeatureSelector({
                     <>
                       {!projectName && (
                         <Text size="inherit" color="text-low">
-                          No Project
+                          <Trans>No Project</Trans>
                         </Text>
                       )}
                       {targetingAllProjects ? (
                         <Text size="inherit" color="text-low">
                           {" "}
-                          + All Projects
+                          <Trans>+ All Projects</Trans>
                         </Text>
                       ) : targetingProjectNames.length > 0 ? (
                         <>
@@ -180,13 +194,13 @@ export default function PrerequisiteFeatureSelector({
                             trigger={
                               <span>
                                 <Text size="inherit" color="text-low">
-                                  + {targetingProjectNames.length} more
+                                  <Trans>+ {moreCount} more</Trans>
                                 </Text>
                               </span>
                             }
                             content={
                               <Text size="sm">
-                                Also targets: {targetingProjectNames.join(", ")}
+                                <Trans>Also targets: {alsoTargets}</Trans>
                               </Text>
                             }
                           />
@@ -201,7 +215,9 @@ export default function PrerequisiteFeatureSelector({
                   flipTheme={false}
                   body={
                     <Text size="sm" color="text-high">
-                      Selecting this feature would create a cyclic dependency.
+                      <Trans>
+                        Selecting this feature would create a cyclic dependency.
+                      </Trans>
                     </Text>
                   }
                   style={{
@@ -219,17 +235,23 @@ export default function PrerequisiteFeatureSelector({
                   flipTheme={false}
                   body={
                     <Text as="div" size="sm" color="text-high">
-                      This feature is{" "}
-                      <strong style={{ color: featureStatusColors.on }}>
-                        live
-                      </strong>{" "}
-                      {environments.length === 1
-                        ? "in this environment"
-                        : environments.includes("production") ||
-                            environments.includes("prod")
-                          ? "in production"
-                          : "in this environment"}
-                      .
+                      {inProduction ? (
+                        <Trans>
+                          This feature is{" "}
+                          <strong style={{ color: featureStatusColors.on }}>
+                            live
+                          </strong>{" "}
+                          in production.
+                        </Trans>
+                      ) : (
+                        <Trans>
+                          This feature is{" "}
+                          <strong style={{ color: featureStatusColors.on }}>
+                            live
+                          </strong>{" "}
+                          in this environment.
+                        </Trans>
+                      )}
                     </Text>
                   }
                   style={{
@@ -247,17 +269,23 @@ export default function PrerequisiteFeatureSelector({
                   flipTheme={false}
                   body={
                     <Text as="div" size="sm" color="text-high">
-                      This feature is{" "}
-                      <strong style={{ color: featureStatusColors.off }}>
-                        not live
-                      </strong>{" "}
-                      {environments.length === 1
-                        ? "in this environment"
-                        : environments.includes("production") ||
-                            environments.includes("prod")
-                          ? "in production"
-                          : "in this environment"}
-                      .
+                      {inProduction ? (
+                        <Trans>
+                          This feature is{" "}
+                          <strong style={{ color: featureStatusColors.off }}>
+                            not live
+                          </strong>{" "}
+                          in production.
+                        </Trans>
+                      ) : (
+                        <Trans>
+                          This feature is{" "}
+                          <strong style={{ color: featureStatusColors.off }}>
+                            not live
+                          </strong>{" "}
+                          in this environment.
+                        </Trans>
+                      )}
                     </Text>
                   }
                   style={{
@@ -275,23 +303,35 @@ export default function PrerequisiteFeatureSelector({
                   flipTheme={false}
                   body={
                     <Text as="div" size="sm" color="text-high">
-                      This feature is currently serving{" "}
-                      <span
-                        style={{
-                          borderRadius: "var(--radius-2)",
-                          padding: "0 var(--space-1)",
-                          backgroundColor: "var(--gray-a3)",
-                        }}
-                      >
-                        false
-                      </span>{" "}
-                      {environments.length === 1
-                        ? "in this environment"
-                        : environments.includes("production") ||
-                            environments.includes("prod")
-                          ? "in production"
-                          : "in this environment"}
-                      .
+                      {inProduction ? (
+                        <Trans>
+                          This feature is currently serving{" "}
+                          <span
+                            style={{
+                              borderRadius: "var(--radius-2)",
+                              padding: "0 var(--space-1)",
+                              backgroundColor: "var(--gray-a3)",
+                            }}
+                          >
+                            {falseValue}
+                          </span>{" "}
+                          in production.
+                        </Trans>
+                      ) : (
+                        <Trans>
+                          This feature is currently serving{" "}
+                          <span
+                            style={{
+                              borderRadius: "var(--radius-2)",
+                              padding: "0 var(--space-1)",
+                              backgroundColor: "var(--gray-a3)",
+                            }}
+                          >
+                            {falseValue}
+                          </span>{" "}
+                          in this environment.
+                        </Trans>
+                      )}
                     </Text>
                   }
                   style={{
@@ -309,16 +349,34 @@ export default function PrerequisiteFeatureSelector({
                   flipTheme={false}
                   body={
                     <Text as="div" size="sm" color="text-high">
-                      This feature is in a{" "}
-                      <strong style={{ color: featureStatusColors.warning }}>
-                        Schrödinger state
-                      </strong>
-                      {environments.length > 1 && " in some environments"}.
+                      {environments.length > 1 ? (
+                        <Trans>
+                          This feature is in a{" "}
+                          <strong
+                            style={{ color: featureStatusColors.warning }}
+                          >
+                            Schrödinger state
+                          </strong>{" "}
+                          in some environments.
+                        </Trans>
+                      ) : (
+                        <Trans>
+                          This feature is in a{" "}
+                          <strong
+                            style={{ color: featureStatusColors.warning }}
+                          >
+                            Schrödinger state
+                          </strong>
+                          .
+                        </Trans>
+                      )}
                       {!hasSDKWithPrerequisites && (
                         <>
                           {" "}
-                          None of your SDK Connections in this project support
-                          evaluating Schrödinger states.
+                          <Trans>
+                            None of your SDK Connections in this project support
+                            evaluating Schrödinger states.
+                          </Trans>
                         </>
                       )}
                     </Text>
@@ -338,7 +396,7 @@ export default function PrerequisiteFeatureSelector({
                   flipTheme={false}
                   body={
                     <Text size="sm" color="text-high">
-                      This feature has a cyclic dependency.
+                      <Trans>This feature has a cyclic dependency.</Trans>
                     </Text>
                   }
                   style={{

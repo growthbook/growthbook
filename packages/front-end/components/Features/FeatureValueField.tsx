@@ -32,6 +32,7 @@ import clsx from "clsx";
 // eslint-disable-next-line no-restricted-imports -- the bare checkbox, inline beside a field label; @/ui/Checkbox brings its own label and layout
 import { Box, Checkbox as RadixCheckbox, Flex } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import {
   DropdownMenu,
@@ -157,6 +158,7 @@ export default function FeatureValueField({
   emptyStringConfirmed = false,
   setEmptyStringConfirmed,
 }: Props) {
+  const { t } = useLingui();
   const { hasCommercialFeature } = useUser();
   const { configs } = useDefinitions();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -443,11 +445,12 @@ export default function FeatureValueField({
       const selectedConfig =
         eligibleConfigs.find((c) => c.key === configKey) ??
         (configKey ? (configs.find((c) => c.key === configKey) ?? null) : null);
+      const selectedConfigName = selectedConfig?.name;
       const selectedConfigLabel = selectedConfig
         ? selectedConfig.archived
-          ? `${selectedConfig.name} (archived)`
+          ? t`${selectedConfigName} (archived)`
           : selectedConfig.name
-        : "None";
+        : t`None`;
 
       return (
         <Box mb="4">
@@ -466,7 +469,7 @@ export default function FeatureValueField({
           >
             <Flex align="center" gap="2">
               <Text as="label" weight="medium" mb="0">
-                Based on Config:
+                <Trans>Based on Config:</Trans>
               </Text>
               {disabled ? (
                 <Text>{selectedConfigLabel}</Text>
@@ -489,7 +492,7 @@ export default function FeatureValueField({
                   <DropdownMenuGroup>
                     {!lockConfigBacking && (
                       <DropdownMenuItem onClick={() => selectConfig(null)}>
-                        None
+                        <Trans>None</Trans>
                       </DropdownMenuItem>
                     )}
                     {orderConfigsByLineage(eligibleConfigs).map(
@@ -537,11 +540,13 @@ export default function FeatureValueField({
                   <>
                     <Box mb="1">
                       <Text as="label" weight="medium">
-                        Additional overrides
+                        <Trans>Additional overrides</Trans>
                       </Text>
                       <Text as="p" size="sm" color="text-low" mb="0">
-                        Nested objects deep-merge onto the Config; arrays and
-                        scalars replace.
+                        <Trans>
+                          Nested objects deep-merge onto the Config; arrays and
+                          scalars replace.
+                        </Trans>
                       </Text>
                     </Box>
                     <ConfigOverrideEditor
@@ -845,6 +850,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
   showDescription?: boolean;
   disabled?: boolean;
 }): ReactElement {
+  const { t } = useLingui();
   const uuid = useId();
 
   const isset = value !== null && value !== undefined;
@@ -853,10 +859,10 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
   let labelClassName = "";
   if (!field.required) {
     const checkbox = (
-      <UITooltip content="Whether or not to include this optional field">
+      <UITooltip content={t`Whether or not to include this optional field`}>
         <RadixCheckbox
           size="1"
-          aria-label="Include this optional field"
+          aria-label={t`Include this optional field`}
           name={`${uuid}_required`}
           style={{
             verticalAlign: "middle",
@@ -1104,6 +1110,7 @@ function SimpleSchemaEditor({
   placeholder?: string;
   disabled?: boolean;
 }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
 
@@ -1175,7 +1182,7 @@ function SimpleSchemaEditor({
             setValue(JSON.stringify(v));
           }
         }}
-        placeholder="Select options"
+        placeholder={t`Select options`}
         creatable={!field.enum.length}
         label={label}
         disabled={disabled}
@@ -1190,7 +1197,7 @@ function SimpleSchemaEditor({
           <Modal
             trackingEventModalType=""
             open={true}
-            header="Edit Value"
+            header={t`Edit Value`}
             size="lg"
             close={() => {
               setOpen(false);
@@ -1198,7 +1205,7 @@ function SimpleSchemaEditor({
             submit={async () => {
               setValue(tempValue);
             }}
-            cta="Save"
+            cta={t`Save`}
             // Render with a higher z-index so it sits on top of other open modals
             increasedElevation={true}
           >
@@ -1225,7 +1232,7 @@ function SimpleSchemaEditor({
           {!disabled && (
             <FieldIndicatorCorner>
               <FieldIndicator
-                label="Edit value"
+                label={t`Edit value`}
                 onClick={() => {
                   setTempValue(value);
                   setOpen(true);
@@ -1288,7 +1295,7 @@ function JSONCodeEditor({
                     editAsForm();
                   }}
                 >
-                  Edit as Form
+                  <Trans>Edit as Form</Trans>
                 </a>
               </div>
             </>
@@ -1379,7 +1386,7 @@ function SimpleSchemaObjectArrayEditor({
                 setRawJSONInput(true);
               }}
             >
-              Edit as JSON
+              <Trans>Edit as JSON</Trans>
             </a>
           )}
         </div>
@@ -1425,7 +1432,7 @@ function SimpleSchemaObjectArrayEditor({
               setRawJSONInput(true);
             }}
           >
-            Edit as JSON
+            <Trans>Edit as JSON</Trans>
           </a>
         </div>
         <div style={{ overflowX: "auto" }} className="mb-3">
@@ -1451,7 +1458,9 @@ function SimpleSchemaObjectArrayEditor({
               {items.length === 0 ? (
                 <tr>
                   <td colSpan={fields.length + 2}>
-                    <em>No items</em>
+                    <em>
+                      <Trans>No items</Trans>
+                    </em>
                   </td>
                 </tr>
               ) : null}
@@ -1528,7 +1537,7 @@ function SimpleSchemaObjectArrayEditor({
               );
             }}
           >
-            <GBAddCircle className="mr-1" /> Add Row
+            <GBAddCircle className="mr-1" /> <Trans>Add Row</Trans>
           </a>
           <a
             href="#"
@@ -1538,7 +1547,7 @@ function SimpleSchemaObjectArrayEditor({
               setValue("[]");
             }}
           >
-            Clear All
+            <Trans>Clear All</Trans>
           </a>
         </div>
       </div>

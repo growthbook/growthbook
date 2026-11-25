@@ -6,6 +6,7 @@ import {
   savedGroupIdsInTargeting,
 } from "shared/sdk-versioning";
 import { Flex } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import {
   DndContext,
   DragOverlay,
@@ -394,7 +395,9 @@ export default function RuleList(props: RuleListProps) {
   if (!items.length && !holdout && !holdoutIsDeleted && !holdoutIsPendingAdd) {
     return (
       <div className="px-3 mb-3">
-        <em>None</em>
+        <em>
+          <Trans>None</Trans>
+        </em>
       </div>
     );
   }
@@ -485,7 +488,9 @@ export default function RuleList(props: RuleListProps) {
       >
         {inactiveRules.length === items.length && hideInactive && (
           <div className="px-3 mb-3">
-            <em>No Active Rules</em>
+            <em>
+              <Trans>No Active Rules</Trans>
+            </em>
           </div>
         )}
         {(holdout || holdoutIsDeleted || holdoutIsPendingAdd) && (

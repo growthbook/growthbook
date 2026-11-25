@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { PiTextAaBold } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import FieldIndicator from "@/ui/FieldIndicator";
 
 /** An operator select's indicator for matching text case-insensitively. */
@@ -12,9 +13,10 @@ export default function CaseInsensitiveToggle({
   onToggle: () => void;
   disabled?: boolean;
 }) {
+  const { t } = useLingui();
   return (
     <FieldIndicator
-      label={`Case insensitive: ${on ? "ON" : "OFF"}`}
+      label={on ? t`Case insensitive: ON` : t`Case insensitive: OFF`}
       onClick={onToggle}
       disabled={disabled}
       aria-pressed={on}

@@ -3,6 +3,7 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
+import { useLingui } from "@lingui/react/macro";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/ui/Frame";
 import JSONValidation from "@/components/Features/JSONValidation";
@@ -21,6 +22,7 @@ export default function FeatureValidationTab({
   setVersion?: (version: number) => void;
   revisionList?: MinimalFeatureRevisionInterface[];
 }) {
+  const { t } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   return (
     <div className="contents container-fluid pagecontents">
@@ -40,10 +42,10 @@ export default function FeatureValidationTab({
         scope={{
           entityType: "feature",
           entityId: feature.id,
-          label: "Feature",
+          label: t`Feature`,
         }}
         projects={[feature.project || ""]}
-        description="Run sandboxed JavaScript validation before this Feature Flag is saved."
+        description={t`Run sandboxed JavaScript validation before this Feature Flag is saved.`}
         canManage={permissionsUtil.canManageFeatureCustomHooks(feature)}
         modalProps={{ feature, revision }}
       />

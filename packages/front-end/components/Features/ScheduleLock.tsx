@@ -1,4 +1,5 @@
 import { CSSProperties } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { MoreMenuTrigger } from "@/ui/DropdownMenu";
 import Tooltip from "@/ui/Tooltip";
 
@@ -14,10 +15,11 @@ export function LockedRowMenu({
   style?: CSSProperties;
   className?: string;
 }) {
+  const { t } = useLingui();
   return (
     <Tooltip content={SCHEDULE_EDIT_LOCK_REASON}>
       <MoreMenuTrigger
-        label="Actions"
+        label={t`Actions`}
         disabled
         className={className}
         style={style}

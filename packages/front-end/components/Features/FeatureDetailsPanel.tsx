@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
@@ -75,6 +76,7 @@ export default function FeatureDetailsPanel({
   tab: DetailsPanelTab;
   setTab: (tab: DetailsPanelTab) => void;
 }) {
+  const { t, i18n } = useLingui();
   const [infoSection, setInfoSection] = useState<FeatureInfoSection | null>(
     null,
   );
@@ -99,7 +101,7 @@ export default function FeatureDetailsPanel({
       />
     ) : null;
   const fieldAction = (section: FeatureInfoSection) =>
-    pencil(SECTION_HEADERS[section], () => editSection(section));
+    pencil(i18n._(SECTION_HEADERS[section]), () => editSection(section));
 
   const liveVersion = baseFeature.version;
 
@@ -108,6 +110,7 @@ export default function FeatureDetailsPanel({
   const dependentFeatures = dependents?.features ?? [];
   const dependentExperiments = dependents?.experiments ?? [];
   const dependentCount = dependentFeatures.length + dependentExperiments.length;
+  const revisionVersion = revision.version;
 
   return (
     <>
@@ -173,18 +176,18 @@ export default function FeatureDetailsPanel({
           allowNewComments: true,
         }}
       >
-        <PanelSection title="General">
+        <PanelSection title={t`General`}>
           <Metadata
             size="sm"
             stacked
-            label="Feature key"
+            label={t`Feature key`}
             value={<CopyableKey value={feature.id} />}
           />
           <Metadata
             size="sm"
             stacked
-            label="Description"
-            action={pencil("Edit description", () =>
+            label={t`Description`}
+            action={pencil(t`Edit description`, () =>
               setEditingDescription(true),
             )}
             value={<MarkdownValue markdown={feature.description} />}
@@ -200,12 +203,12 @@ export default function FeatureDetailsPanel({
             <Metadata
               size="sm"
               stacked
-              label="Targeting Projects"
+              label={t`Targeting Projects`}
               action={fieldAction("targetingProjects")}
               value={
                 feature.targetingAllProjects ? (
                   <Text weight="regular" color="text-mid" size="sm">
-                    All Projects
+                    <Trans>All Projects</Trans>
                   </Text>
                 ) : targetingProjects.length > 0 ? (
                   <Text weight="regular" color="text-mid" size="sm">
@@ -225,7 +228,7 @@ export default function FeatureDetailsPanel({
           <Metadata
             size="sm"
             stacked
-            label="Type"
+            label={t`Type`}
             value={
               <Text weight="regular" color="text-mid" size="sm">
                 <FeatureValueTypeDisplay
@@ -240,7 +243,7 @@ export default function FeatureDetailsPanel({
             <Metadata
               size="sm"
               stacked
-              label="Holdout"
+              label={t`Holdout`}
               value={
                 <Text size="sm">
                   <Link href={`/holdout/${holdout.id}`}>{holdout.name}</Link>
@@ -256,19 +259,20 @@ export default function FeatureDetailsPanel({
           <CustomFieldRows
             section="feature"
             target={feature}
-            action={(field) =>
-              pencil(`Edit ${field.name}`, () =>
+            action={(field) => {
+              const fieldName = field.name;
+              return pencil(t`Edit ${fieldName}`, () =>
                 editSection("customFields", field.id),
-              )
-            }
+              );
+            }}
           />
         </PanelSection>
         <ReferencesPanelSection
-          title="Dependents"
-          intro="This feature is a prerequisite for the following:"
+          title={t`Dependents`}
+          intro={t`This feature is a prerequisite for the following:`}
           rows={[
             {
-              title: "Feature Flags",
+              title: t`Feature Flags`,
               items: dependentFeatures.map((fid) => ({
                 id: fid,
                 label: fid,
@@ -276,7 +280,7 @@ export default function FeatureDetailsPanel({
               })),
             },
             {
-              title: "Experiments",
+              title: t`Experiments`,
               items: dependentExperiments.map((exp) => ({
                 id: exp.id,
                 label: exp.name,
@@ -287,7 +291,7 @@ export default function FeatureDetailsPanel({
         />
         <Separator size="4" />
         <PanelSection
-          title={`Revision ${revision.version}`}
+          title={t`Revision ${revisionVersion}`}
           badge={
             <RevisionStatusBadge
               revision={revision}
@@ -298,9 +302,9 @@ export default function FeatureDetailsPanel({
           <Metadata
             size="sm"
             stacked
-            label="Name"
+            label={t`Name`}
             action={pencil(
-              "Rename revision",
+              t`Rename revision`,
               () => setRenamingRevision(true),
               canEditRevision,
             )}
@@ -317,9 +321,9 @@ export default function FeatureDetailsPanel({
           <Metadata
             size="sm"
             stacked
-            label="Description"
+            label={t`Description`}
             action={pencil(
-              "Edit revision description",
+              t`Edit revision description`,
               () => setDescribingRevision(true),
               canEditRevision,
             )}

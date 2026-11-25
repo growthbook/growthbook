@@ -12,6 +12,7 @@ import { PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import clsx from "clsx";
 import format from "date-fns/format";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Switch from "@/ui/Switch";
@@ -192,8 +193,8 @@ export default function ConditionInput({
   savedGroupProjects,
   attributeSelectIndicator,
   labelClassName,
-  emptyText = "Applied to everyone by default.",
-  label = "Target by Attributes",
+  emptyText: emptyTextProp,
+  label: labelProp,
   labelActions,
   locked = false,
   require,
@@ -207,6 +208,12 @@ export default function ConditionInput({
   setModeLabel,
   removeModeLabel,
 }: Props) {
+  const { t } = useLingui();
+  const emptyText =
+    emptyTextProp === undefined
+      ? t`Applied to everyone by default.`
+      : emptyTextProp;
+  const label = labelProp === undefined ? t`Target by Attributes` : labelProp;
   const attributeFilter = resolveAttributeFilter(attributeProjects, project);
   const [value, setValue] = useState(defaultValue);
   const referencedKeys = useMemo(() => {
@@ -239,8 +246,8 @@ export default function ConditionInput({
         value={addRemoveValue}
         setValue={(v) => onAddRemoveValueChange(v as "set" | "remove")}
         options={[
-          { value: "set", label: setModeLabel ?? "Set targeting" },
-          { value: "remove", label: removeModeLabel ?? "Remove targeting" },
+          { value: "set", label: setModeLabel ?? t`Set targeting` },
+          { value: "remove", label: removeModeLabel ?? t`Remove targeting` },
         ]}
         labelSize="md"
       />
@@ -293,11 +300,15 @@ export default function ConditionInput({
 
     const combinedHelpText = (
       <>
-        <div>JSON format using MongoDB query syntax.</div>
+        <div>
+          <Trans>JSON format using MongoDB query syntax.</Trans>
+        </div>
         {hasSecureAttributes && (
           <HelperText status="warning" mt="2">
-            Secure attribute hashing not guaranteed to work for complicated
-            rules
+            <Trans>
+              Secure attribute hashing not guaranteed to work for complicated
+              rules
+            </Trans>
           </HelperText>
         )}
         <CaseInsensitiveRegexWarning value={value} project={project} />
@@ -332,7 +343,7 @@ export default function ConditionInput({
                       setAdvanced(false);
                     }
                   }}
-                  label="Advanced"
+                  label={t`Advanced`}
                   size="sm"
                   ml="2"
                   disabled={locked}
@@ -347,11 +358,11 @@ export default function ConditionInput({
             <Box flexGrow="1">
               {slimMode ? (
                 <Text as="div" size="md" weight="semibold" color="text-mid">
-                  Target by Attributes
+                  <Trans>Target by Attributes</Trans>
                 </Text>
               ) : (
                 <Text as="div" size="md" weight="semibold">
-                  Target by Attributes
+                  <Trans>Target by Attributes</Trans>
                 </Text>
               )}
             </Box>
@@ -369,7 +380,7 @@ export default function ConditionInput({
                       setAdvanced(false);
                     }
                   }}
-                  label="Advanced"
+                  label={t`Advanced`}
                   size="sm"
                   ml="2"
                   disabled={locked}
@@ -425,11 +436,11 @@ export default function ConditionInput({
           !labelActions &&
           (slimMode ? (
             <Text as="div" size="md" weight="semibold" color="text-mid">
-              Target by Attributes
+              <Trans>Target by Attributes</Trans>
             </Text>
           ) : (
             <Text as="div" size="md" weight="semibold">
-              Target by Attributes
+              <Trans>Target by Attributes</Trans>
             </Text>
           ))}
         {renderAddRemoveSelector()}
@@ -472,7 +483,7 @@ export default function ConditionInput({
                     color={locked ? "text-low" : undefined}
                   >
                     <PiPlusCircleBold className="mr-1" />
-                    Add attribute targeting
+                    <Trans>Add attribute targeting</Trans>
                   </Text>
                 </Link>
               </Box>
@@ -509,7 +520,7 @@ export default function ConditionInput({
                     setAdvanced(false);
                   }
                 }}
-                label="Advanced"
+                label={t`Advanced`}
                 size="sm"
                 ml="2"
                 disabled={locked}
@@ -523,11 +534,11 @@ export default function ConditionInput({
         <Flex justify="between" align="center" mb="1">
           {slimMode ? (
             <Text as="div" size="md" weight="semibold" color="text-mid">
-              Target by Attributes
+              <Trans>Target by Attributes</Trans>
             </Text>
           ) : (
             <Text as="div" size="md" weight="semibold">
-              Target by Attributes
+              <Trans>Target by Attributes</Trans>
             </Text>
           )}
           {!isRemoveSelection && attributes.size > 0 && (
@@ -543,7 +554,7 @@ export default function ConditionInput({
                   setAdvanced(false);
                 }
               }}
-              label="Advanced"
+              label={t`Advanced`}
               size="sm"
               ml="2"
               disabled={locked}
@@ -655,8 +666,10 @@ export default function ConditionInput({
       )}
       {!isRemoveSelection && usingDisabledEqualityAttributes && (
         <Callout status="warning" mt="4">
-          Be careful not to include Personally Identifiable Information (PII) in
-          your targeting conditions.
+          <Trans>
+            Be careful not to include Personally Identifiable Information (PII)
+            in your targeting conditions.
+          </Trans>
         </Callout>
       )}
       {!isRemoveSelection && (
@@ -689,6 +702,7 @@ function ConditionAndGroupInput({
   slimMode?: boolean;
   disabled?: boolean;
 }) {
+  const { t } = useLingui();
   const { savedGroups } = useDefinitions();
 
   const { attributes, attributeSchema } = useScopedAttributes(
@@ -754,18 +768,18 @@ function ConditionAndGroupInput({
               props.allowNestedSavedGroups
                 ? [
                     {
-                      label: "Attributes",
+                      label: t`Attributes`,
                       options: attributeSchema.map(toAttributeOption),
                     },
                     {
-                      label: "Saved Groups",
+                      label: t`Saved Groups`,
                       options: [
                         {
-                          label: "user is in all saved groups",
+                          label: t`user is in all saved groups`,
                           value: "$savedGroups",
                         },
                         {
-                          label: "user is not in the saved groups",
+                          label: t`user is not in the saved groups`,
                           value: "$notSavedGroups",
                         },
                       ],
@@ -880,7 +894,7 @@ function ConditionAndGroupInput({
               key={i}
               prefixSlot={
                 props.slimMode ? undefined : (
-                  <ConditionRowLabel label={i === 0 ? "IF" : "AND"} />
+                  <ConditionRowLabel label={i === 0 ? t`IF` : t`AND`} />
                 )
               }
               attributeSlot={fieldSelector}
@@ -907,7 +921,7 @@ function ConditionAndGroupInput({
                 (conds.length > 1 ||
                   (conds.length === 1 && orGroupsCount > 1) ||
                   !props.require) && (
-                  <Tooltip content="Remove condition">
+                  <Tooltip content={t`Remove condition`}>
                     <IconButton
                       type="button"
                       color="gray"
@@ -1036,7 +1050,7 @@ function ConditionAndGroupInput({
             key={i}
             prefixSlot={
               props.slimMode ? undefined : (
-                <ConditionRowLabel label={i === 0 ? "IF" : "AND"} />
+                <ConditionRowLabel label={i === 0 ? t`IF` : t`AND`} />
               )
             }
             attributeSlot={fieldSelector}
@@ -1095,7 +1109,7 @@ function ConditionAndGroupInput({
                           field,
                         )}
                         name="value"
-                        initialOption="Choose group..."
+                        initialOption={t`Choose group...`}
                         required
                       />
                       {operator === "$notInGroup" && value && (
@@ -1117,7 +1131,7 @@ function ConditionAndGroupInput({
                         placeholder={
                           attribute?.datatype === "number"
                             ? "1, 2..."
-                            : "value 1, value 2..."
+                            : t`value 1, value 2...`
                         }
                         delimiters={["Enter", "Tab", ","]}
                         enableRawTextMode
@@ -1182,7 +1196,7 @@ function ConditionAndGroupInput({
                             handleCondsChange(v, "value");
                           }}
                           name="value"
-                          initialOption="Choose One..."
+                          initialOption={t`Choose One...`}
                           required
                         />
                       )}
@@ -1233,7 +1247,7 @@ function ConditionAndGroupInput({
                           helpText={
                             hasExtraWhitespace ? (
                               <small className="text-danger">
-                                Extra whitespace detected
+                                <Trans>Extra whitespace detected</Trans>
                               </small>
                             ) : undefined
                           }
@@ -1249,7 +1263,7 @@ function ConditionAndGroupInput({
               (conds.length > 1 ||
                 (conds.length === 1 && orGroupsCount > 1) ||
                 !props.require) && (
-                <Tooltip content="Remove condition">
+                <Tooltip content={t`Remove condition`}>
                   <IconButton
                     type="button"
                     color="gray"
@@ -1286,6 +1300,7 @@ export function CaseInsensitiveRegexWarning({
   value: string;
   project?: string;
 }) {
+  const { t } = useLingui();
   const hasCaseInsensitiveOperator =
     value.includes('"$regexi"') ||
     value.includes('"$notRegexi"') ||
@@ -1301,8 +1316,8 @@ export function CaseInsensitiveRegexWarning({
     <SDKCapabilityWarning
       capability="caseInsensitiveMembership"
       project={project}
-      someMessage="Some of your SDK Connections in this project may not support case-insensitive operators."
-      noneMessage="None of your SDK Connections in this project support case-insensitive operators. Either upgrade your SDKs or use case-sensitive operators instead."
+      someMessage={t`Some of your SDK Connections in this project may not support case-insensitive operators.`}
+      noneMessage={t`None of your SDK Connections in this project support case-insensitive operators. Either upgrade your SDKs or use case-sensitive operators instead.`}
       mt="2"
     />
   );

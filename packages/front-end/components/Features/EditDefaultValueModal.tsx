@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import {
@@ -37,6 +38,7 @@ export default function EditDefaultValueModal({
   mutate,
   setVersion,
 }: Props) {
+  const { t } = useLingui();
   const form = useForm({
     defaultValues: {
       defaultValue: getFeatureDefaultValue(feature),
@@ -80,7 +82,7 @@ export default function EditDefaultValueModal({
 
   const conflict = useDraftConflict<{ defaultValue: string }>({
     initial: { defaultValue: getFeatureDefaultValue(feature) },
-    labels: { defaultValue: "Value When Enabled" },
+    labels: { defaultValue: t`Value When Enabled` },
     form,
     isNewDraft: mode === "new",
     entityNoun: "value",
@@ -90,8 +92,8 @@ export default function EditDefaultValueModal({
     <ConflictProvider {...conflict.providerProps}>
       <ModalStandard
         trackingEventModalType=""
-        header="Edit Default Value"
-        cta="Save to draft"
+        header={t`Edit Default Value`}
+        cta={t`Save to draft`}
         ctaEnabled={conflict.resolved}
         submit={validatedSubmit(form, async (value) => {
           const newDefaultValue = validateFeatureValue(
@@ -102,7 +104,7 @@ export default function EditDefaultValueModal({
           if (newDefaultValue !== value.defaultValue) {
             form.setValue("defaultValue", newDefaultValue);
             throw new Error(
-              "We fixed some errors in the value. If it looks correct, submit again.",
+              t`We fixed some errors in the value. If it looks correct, submit again.`,
             );
           }
 
@@ -154,7 +156,7 @@ export default function EditDefaultValueModal({
         />
         {conflict.callouts}
         <FeatureValueField
-          label="Value When Enabled"
+          label={t`Value When Enabled`}
           id="defaultValue"
           value={form.watch("defaultValue")}
           setValue={(v) => form.setValue("defaultValue", v)}

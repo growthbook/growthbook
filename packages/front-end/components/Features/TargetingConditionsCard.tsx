@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Flex, Separator, Card } from "@radix-ui/themes";
 import { PiPlusBold } from "react-icons/pi";
 import clsx from "clsx";
+import { Trans } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 
@@ -100,9 +101,9 @@ export function ConditionGroupHeader({
 }) {
   let label: React.ReactNode;
   if (targetingType === "attribute" || targetingType === "group") {
-    label = `INCLUDE`;
+    label = <Trans>INCLUDE</Trans>;
   } else {
-    label = `INCLUDE IF`;
+    label = <Trans>INCLUDE IF</Trans>;
   }
 
   return (
@@ -266,7 +267,7 @@ export function OrSeparator({ slimMode }: { slimMode?: boolean }) {
     >
       <Separator style={{ flexGrow: 1 }} />
       <Text size="md" weight="medium">
-        OR
+        <Trans>OR</Trans>
       </Text>
       <Separator style={{ flexGrow: 1 }} />
     </Flex>
@@ -296,7 +297,7 @@ export function AddConditionButton({
     >
       <Text weight="semibold" size="md">
         <PiPlusBold className="mr-1" />
-        {children ?? "Add condition"}
+        {children ?? <Trans>Add condition</Trans>}
       </Text>
     </Link>
   );
@@ -326,7 +327,7 @@ export function AddOrGroupButton({
       >
         <Text weight="semibold" size="md">
           <PiPlusBold className="mr-1" />
-          Add OR group
+          <Trans>Add OR group</Trans>
         </Text>
       </Link>
     </Box>

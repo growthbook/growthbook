@@ -4,6 +4,9 @@ import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { getMalformedPrereqConditionError, isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -36,7 +39,7 @@ function operatorToText({
   isPrerequisite?: boolean;
   hasMultipleSavedGroups?: boolean;
   isSavedGroupField?: boolean;
-}): string {
+}): ReactNode {
   switch (operator) {
     case "$eq":
     case "$veq":
@@ -45,13 +48,13 @@ function operatorToText({
     case "$vne":
       return `≠`;
     case "$includes":
-      return `includes`;
+      return <Trans>includes</Trans>;
     case "$notIncludes":
-      return `does not include`;
+      return <Trans>does not include</Trans>;
     case "$empty":
-      return `is empty`;
+      return <Trans>is empty</Trans>;
     case "$notEmpty":
-      return `is not empty`;
+      return <Trans>is not empty</Trans>;
     case "$lt":
     case "$vlt":
       return `<`;
@@ -65,33 +68,63 @@ function operatorToText({
     case "$vgte":
       return `≥`;
     case "$exists":
-      return isPrerequisite ? `is live` : `is not NULL`;
+      return isPrerequisite ? (
+        <Trans>is live</Trans>
+      ) : (
+        <Trans>is not NULL</Trans>
+      );
     case "$notExists":
-      return isPrerequisite ? `is not live` : `is NULL`;
+      return isPrerequisite ? (
+        <Trans>is not live</Trans>
+      ) : (
+        <Trans>is NULL</Trans>
+      );
     case "$in":
-      return `is any of`;
+      return <Trans>is any of</Trans>;
     case "$nin":
-      return `is none of`;
+      return <Trans>is none of</Trans>;
     case "$ini":
-      return `is any of (case insensitive)`;
+      return <Trans>is any of (case insensitive)</Trans>;
     case "$nini":
-      return `is none of (case insensitive)`;
+      return <Trans>is none of (case insensitive)</Trans>;
     case "$inGroup":
-      return `${isSavedGroupField ? "user " : ""}is in ${hasMultipleSavedGroups ? "all" : "the"} saved group${hasMultipleSavedGroups ? "s" : ""}`;
+      if (isSavedGroupField) {
+        return hasMultipleSavedGroups ? (
+          <Trans>user is in all saved groups</Trans>
+        ) : (
+          <Trans>user is in the saved group</Trans>
+        );
+      }
+      return hasMultipleSavedGroups ? (
+        <Trans>is in all saved groups</Trans>
+      ) : (
+        <Trans>is in the saved group</Trans>
+      );
     case "$notInGroup":
-      return `${isSavedGroupField ? "user " : ""}is not in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
+      if (isSavedGroupField) {
+        return hasMultipleSavedGroups ? (
+          <Trans>user is not in the saved groups</Trans>
+        ) : (
+          <Trans>user is not in the saved group</Trans>
+        );
+      }
+      return hasMultipleSavedGroups ? (
+        <Trans>is not in the saved groups</Trans>
+      ) : (
+        <Trans>is not in the saved group</Trans>
+      );
     case "$true":
-      return "is";
+      return <Trans>is</Trans>;
     case "$false":
-      return "is";
+      return <Trans>is</Trans>;
     case "$regex":
-      return `matches regex`;
+      return <Trans>matches regex</Trans>;
     case "$notRegex":
-      return `does not match regex`;
+      return <Trans>does not match regex</Trans>;
     case "$regexi":
-      return `matches regex (case insensitive)`;
+      return <Trans>matches regex (case insensitive)</Trans>;
     case "$notRegexi":
-      return `does not match regex (case insensitive)`;
+      return <Trans>does not match regex (case insensitive)</Trans>;
   }
   return operator;
 }
@@ -105,6 +138,7 @@ function hasMultiValues(operator: string) {
 function getValue(
   operator: string,
   value: string,
+  i18n: I18n,
   savedGroups?: SavedGroupWithoutValues[],
 ): string {
   if (operator === "$true") return "TRUE";
@@ -113,7 +147,7 @@ function getValue(
   // Get the groupName from the associated group.id to display a human readable name.
   if ((operator === "$inGroup" || operator === "$notInGroup") && savedGroups) {
     const index = savedGroups.find((i) => i.id === value);
-    return index?.groupName || "Group was Deleted";
+    return index?.groupName || i18n._(msg`Group was Deleted`);
   }
   return value;
 }
@@ -145,6 +179,7 @@ export function MultiValuesDisplay({
   savedGroupIds?: Set<string>;
 }) {
   const { getSavedGroupById } = useDefinitions();
+  const remainingCount = values.length - MULTI_VALUE_LIMIT;
 
   return (
     <>
@@ -175,7 +210,9 @@ export function MultiValuesDisplay({
           contentStyle={{ maxWidth: 480 }}
           trigger={
             <span className="mr-1">
-              <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
+              <em>
+                <Trans>+ {remainingCount} more</Trans>
+              </em>
             </span>
           }
           content={
@@ -238,7 +275,9 @@ function MultiValueDisplay({
   if (!parts.length) {
     return (
       <Text>
-        <em>empty list</em>
+        <em>
+          <Trans>empty list</Trans>
+        </em>
       </Text>
     );
   }
@@ -260,6 +299,7 @@ function getConditionOrParts({
   conditions,
   savedGroups,
   attributeIds,
+  i18n,
   initialAnd = false,
   renderPrerequisite = false,
   keyPrefix = "",
@@ -267,6 +307,7 @@ function getConditionOrParts({
   budget,
 }: {
   conditions: ConditionWithParentId[][];
+  i18n: I18n;
   savedGroups?: SavedGroupWithoutValues[];
   attributeIds: Set<string>;
   initialAnd?: boolean;
@@ -281,6 +322,7 @@ function getConditionOrParts({
       conditions: conditions[0],
       savedGroups,
       attributeIds,
+      i18n,
       initialAnd,
       renderPrerequisite,
       keyPrefix,
@@ -300,7 +342,9 @@ function getConditionOrParts({
     parts.push(
       <div key={keyPrefix + "and-start"}>
         {prefix}
-        <Text weight="medium">AND {"["}</Text>
+        <Text weight="medium">
+          <Trans>AND</Trans> {"["}
+        </Text>
       </div>,
     );
   }
@@ -310,7 +354,7 @@ function getConditionOrParts({
     if (i > 0) {
       parts.push(
         <Text weight="medium" key={keyPrefix + "or-sep-" + i}>
-          OR
+          <Trans>OR</Trans>
         </Text>,
       );
     }
@@ -319,6 +363,7 @@ function getConditionOrParts({
       conditions: condGroup,
       savedGroups,
       attributeIds,
+      i18n,
       initialAnd: false,
       renderPrerequisite,
       keyPrefix: `${keyPrefix}or-${i}-`,
@@ -355,6 +400,7 @@ function getConditionParts({
   conditions,
   savedGroups,
   attributeIds,
+  i18n,
   initialAnd = false,
   renderPrerequisite = false,
   keyPrefix = "",
@@ -362,6 +408,7 @@ function getConditionParts({
   budget,
 }: {
   conditions: ConditionWithParentId[];
+  i18n: I18n;
   savedGroups?: SavedGroupWithoutValues[];
   attributeIds: Set<string>;
   initialAnd?: boolean;
@@ -392,10 +439,10 @@ function getConditionParts({
           <Tooltip
             className="mr-1 border px-2 alert-danger rounded text-danger"
             body={
-              <>
+              <Trans>
                 Prerequisite targeting conditions must reference{" "}
                 <code>value</code> as the root element
-              </>
+              </Trans>
             }
           >
             {field}
@@ -405,7 +452,9 @@ function getConditionParts({
       if (parentId) {
         parentIdEl = (
           <>
-            <Text>prerequisite</Text>
+            <Text>
+              <Trans>prerequisite</Trans>
+            </Text>
             <FeatureBadge featureId={parentId} />
           </>
         );
@@ -436,12 +485,16 @@ function getConditionParts({
       (operator === "$inGroup" || operator === "$notInGroup") && savedGroups
         ? savedGroups.find((sg) => sg.id === value)
         : undefined;
-    const displayValue = getValue(operator, value, savedGroups);
+    const displayValue = getValue(operator, value, i18n, savedGroups);
 
     return (
       <Flex wrap="wrap" key={keyPrefix + i} gap="2">
         {i === 0 && prefix}
-        {(i > 0 || initialAnd) && <Text weight="medium">AND</Text>}
+        {(i > 0 || initialAnd) && (
+          <Text weight="medium">
+            <Trans>AND</Trans>
+          </Text>
+        )}
         {parentIdEl}
         {fieldEl}
         <Text>
@@ -507,6 +560,7 @@ export default function ConditionDisplay({
   // Builds no more rows than this, where the rest are cut off from view.
   rowLimit?: number;
 }) {
+  const { i18n } = useLingui();
   const rows = variant === "rows";
   const { savedGroups } = useDefinitions();
   const attributes = useAttributeMap();
@@ -566,8 +620,14 @@ export default function ConditionDisplay({
           parts.push(
             <Flex wrap="wrap" gap="2" key={partId++} width="100%">
               {!prefixUsed && prefix}
-              {prefixUsed && <Text weight="medium">AND</Text>}
-              <Text>prerequisite</Text>
+              {prefixUsed && (
+                <Text weight="medium">
+                  <Trans>AND</Trans>
+                </Text>
+              )}
+              <Text>
+                <Trans>prerequisite</Trans>
+              </Text>
               <FeatureBadge featureId={p.id} />
               <ConditionJson code={jsonFormattedCondition} />
               <InvalidPrereqConditionBadge condition={p.condition} />
@@ -597,6 +657,7 @@ export default function ConditionDisplay({
       conditions: prereqConds,
       savedGroups,
       attributeIds,
+      i18n,
       renderPrerequisite: true,
       initialAnd: prefixUsed,
       keyPrefix: `${partId++}-prereq-`,
@@ -620,6 +681,7 @@ export default function ConditionDisplay({
       conditions: conds,
       savedGroups,
       attributeIds,
+      i18n,
       keyPrefix: `${partId++}-condition-`,
       initialAnd: prefixUsed,
       prefix: !prefixUsed ? prefix : undefined,

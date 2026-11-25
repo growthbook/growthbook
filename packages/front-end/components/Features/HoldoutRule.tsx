@@ -1,6 +1,7 @@
 import { FeatureInterface } from "shared/types/feature";
 import React, { forwardRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -76,6 +77,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
     },
     ref,
   ) => {
+    const { t } = useLingui();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [removeModal, setRemoveModal] = useState(false);
     const [reEnableModal, setReEnableModal] = useState(false);
@@ -98,6 +100,8 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
     const holdoutExperiment = data?.experiment;
 
     if (!holdout || !holdoutExperiment) return null;
+
+    const holdoutName = holdout.name;
 
     // Holdout env scope lives on the holdout itself (not the feature link).
     // Show envs where the holdout is enabled as active, the rest as inactive.
@@ -147,15 +151,15 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                   className={ruleHeaderRowClass}
                 >
                   <Heading as="h4" size="md" weight="medium" mb="0">
-                    <>
+                    <Trans>
                       Holdout:{" "}
                       <Link
                         href={`/holdout/${feature.holdout?.id}`}
                         style={{ marginRight: "var(--space-2)" }}
                       >
-                        {holdout.name}
+                        {holdoutName}
                       </Link>
-                    </>
+                    </Trans>
                   </Heading>
                   {/* Its status alone, as the experiment page shows a holdout's. */}
                   {!isDeleted && (
@@ -184,7 +188,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                     label={
                       <>
                         <PiArrowBendRightDown />
-                        Skipped
+                        <Trans>Skipped</Trans>
                       </>
                     }
                   />
@@ -201,7 +205,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                   <DropdownMenu
                     trigger={
                       <MoreMenuTrigger
-                        label="Holdout actions"
+                        label={t`Holdout actions`}
                         className={ruleRowMenuClass}
                       />
                     }
@@ -218,7 +222,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                             setReEnableModal(true);
                           }}
                         >
-                          Re-enable holdout
+                          <Trans>Re-enable holdout</Trans>
                         </DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem
@@ -228,7 +232,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                             setRemoveModal(true);
                           }}
                         >
-                          Remove from holdout
+                          <Trans>Remove from holdout</Trans>
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuGroup>
@@ -238,7 +242,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
             </Flex>
           }
         >
-          <RuleField label="Environments">
+          <RuleField label={t`Environments`}>
             <RuleEnvScopeBadges
               activeEnvironmentIds={activeHoldoutEnvIds}
               environments={environments}
@@ -249,20 +253,26 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
           <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
             {isDeleted ? (
               <Callout status="error" size="sm">
-                This feature has been removed from the holdout in the current
-                draft. Publish or discard the draft to resolve.
+                <Trans>
+                  This feature has been removed from the holdout in the current
+                  draft. Publish or discard the draft to resolve.
+                </Trans>
               </Callout>
             ) : isPendingAdd ? (
               <Callout status="info" size="sm">
-                This feature will be added to the holdout when the current draft
-                is published. Discard the draft to cancel.
+                <Trans>
+                  This feature will be added to the holdout when the current
+                  draft is published. Discard the draft to cancel.
+                </Trans>
               </Callout>
             ) : holdoutExperiment.status === "stopped" ? (
               <Callout status="info">
-                This Holdout is stopped and this rule will be skipped.{" "}
-                <Link href={`/holdout/${holdout.id}#results`}>
-                  View results
-                </Link>
+                <Trans>
+                  This Holdout is stopped and this rule will be skipped.{" "}
+                  <Link href={`/holdout/${holdout.id}#results`}>
+                    View results
+                  </Link>
+                </Trans>
               </Callout>
             ) : null}
           </Box>

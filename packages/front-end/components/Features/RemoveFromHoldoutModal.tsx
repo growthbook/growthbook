@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
@@ -26,6 +27,7 @@ export default function RemoveFromHoldoutModal({
   mutate,
   setVersion,
 }: Props) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   const settings = useOrgSettings();
@@ -73,12 +75,12 @@ export default function RemoveFromHoldoutModal({
   // remove the experiment first
   return (
     <ModalStandard
-      header="Remove from holdout"
+      header={t`Remove from holdout`}
       open={true}
       close={close}
       size="lg"
       trackingEventModalType="remove-from-holdout-modal"
-      cta="Remove"
+      cta={t`Remove`}
       submit={handleSubmit}
     >
       <div style={{ minHeight: 300 }}>
@@ -93,8 +95,10 @@ export default function RemoveFromHoldoutModal({
           gatedEnvSet={gatedEnvSet}
         />
         <Callout status="warning">
-          Removing this feature from its holdout will expose all previously
-          held-out units to the feature on next publish.
+          <Trans>
+            Removing this feature from its holdout will expose all previously
+            held-out units to the feature on next publish.
+          </Trans>
         </Callout>
       </div>
     </ModalStandard>

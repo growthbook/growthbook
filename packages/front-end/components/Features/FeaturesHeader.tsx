@@ -5,6 +5,7 @@ import {
 import { useRouter } from "next/router";
 import React, { ReactNode, useEffect, useRef, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { PiEye } from "react-icons/pi";
@@ -84,6 +85,7 @@ export default function FeaturesHeader({
   // The viewed revision's state, fixed under the tabs.
   statusBar?: ReactNode;
 }) {
+  const { t } = useLingui();
   const router = useRouter();
   const firstFeature = router?.query && "first" in router.query;
   const [auditModal, setAuditModal] = useState(false);
@@ -222,7 +224,7 @@ export default function FeaturesHeader({
                 setDropdownOpen(false);
               }}
             >
-              Show implementation
+              <Trans>Show implementation</Trans>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
@@ -230,7 +232,7 @@ export default function FeaturesHeader({
                 setDropdownOpen(false);
               }}
             >
-              Audit history
+              <Trans>Audit history</Trans>
             </DropdownMenuItem>
             {onCompareRevisions && (
               <DropdownMenuItem
@@ -239,7 +241,7 @@ export default function FeaturesHeader({
                   setDropdownOpen(false);
                 }}
               >
-                Compare revisions
+                <Trans>Compare revisions</Trans>
               </DropdownMenuItem>
             )}
             <DropdownSubMenu
@@ -250,7 +252,7 @@ export default function FeaturesHeader({
                 >
                   <PiEye style={{ marginRight: "5px" }} size={18} />
                   <Box as="span" pr="8">
-                    {isWatching ? "Watching" : "Not watching"}
+                    {isWatching ? t`Watching` : t`Not watching`}
                   </Box>
                 </Flex>
               }
@@ -260,7 +262,7 @@ export default function FeaturesHeader({
                   await handleWatchUpdates(!isWatching);
                 }}
               >
-                {isWatching ? "Stop watching" : "Start watching"}
+                {isWatching ? t`Stop watching` : t`Start watching`}
               </DropdownMenuItem>
             </DropdownSubMenu>
             <DropdownMenuItem
@@ -284,7 +286,7 @@ export default function FeaturesHeader({
                 >
                   {usersWatching.length || 0}
                 </IconButton>
-                {usersWatching.length > 0 ? "View watchers" : "No watchers"}
+                {usersWatching.length > 0 ? t`View watchers` : t`No watchers`}
               </Flex>
             </DropdownMenuItem>
           </DropdownMenuGroup>
@@ -301,7 +303,7 @@ export default function FeaturesHeader({
                     setDropdownOpen(false);
                   }}
                 >
-                  Add to holdout
+                  <Trans>Add to holdout</Trans>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             )}
@@ -313,7 +315,7 @@ export default function FeaturesHeader({
                 setDropdownOpen(false);
               }}
             >
-              Check stale status
+              <Trans>Check stale status</Trans>
             </DropdownMenuItem>
             {canEdit && canPublish && !isReadOnly && (
               <DropdownMenuItem
@@ -323,8 +325,8 @@ export default function FeaturesHeader({
                 }}
               >
                 {feature.neverStale
-                  ? "Enable stale detection"
-                  : "Disable stale detection"}
+                  ? t`Enable stale detection`
+                  : t`Disable stale detection`}
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
@@ -346,7 +348,7 @@ export default function FeaturesHeader({
                         setDropdownOpen(false);
                       }}
                     >
-                      Duplicate
+                      <Trans>Duplicate</Trans>
                     </DropdownMenuItem>
                   )}
                   {canToggleArchive && (
@@ -356,7 +358,7 @@ export default function FeaturesHeader({
                         setDropdownOpen(false);
                       }}
                     >
-                      {isArchived ? "Unarchive" : "Archive"}
+                      {isArchived ? t`Unarchive` : t`Archive`}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuGroup>
@@ -371,7 +373,7 @@ export default function FeaturesHeader({
                           setDropdownOpen(false);
                         }}
                       >
-                        Delete
+                        <Trans>Delete</Trans>
                       </DropdownMenuItem>
                     </DropdownMenuGroup>
                   </>
@@ -402,14 +404,18 @@ export default function FeaturesHeader({
       >
         {isArchived ? (
           <Callout status="info" mt="3">
-            <strong>This Feature Flag is archived.</strong> It will not be
-            included in SDK Endpoints or Webhook payloads.
+            <Trans>
+              <strong>This Feature Flag is archived.</strong> It will not be
+              included in SDK Endpoints or Webhook payloads.
+            </Trans>
           </Callout>
         ) : feature.archived ? (
           <Callout status="warning" mt="3">
-            <strong>This draft will archive the Feature Flag.</strong> Once
-            published it will be removed from SDK Endpoints and Webhook
-            payloads.
+            <Trans>
+              <strong>This draft will archive the Feature Flag.</strong> Once
+              published it will be removed from SDK Endpoints and Webhook
+              payloads.
+            </Trans>
           </Callout>
         ) : null}
       </DetailsPageTitleBar>
@@ -418,17 +424,27 @@ export default function FeaturesHeader({
         onValueChange={setTab}
         triggers={
           <>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="overview">
+              <Trans>Overview</Trans>
+            </TabsTrigger>
             <TabsTrigger value="review">
-              Review &amp; Publish
+              <Trans>Review &amp; Publish</Trans>
               <ReviewTabCount statuses={revisions.map((r) => r.status)} />
             </TabsTrigger>
-            <TabsTrigger value="test">Simulate</TabsTrigger>
-            <TabsTrigger value="stats">Code Refs</TabsTrigger>
-            <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+            <TabsTrigger value="test">
+              <Trans>Simulate</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="stats">
+              <Trans>Code Refs</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="diagnostics">
+              <Trans>Diagnostics</Trans>
+            </TabsTrigger>
             {/* Hooks are self-hosted only and boolean flags have no schema, so Cloud booleans have nothing to validate */}
             {!(isCloud() && feature.valueType === "boolean") && (
-              <TabsTrigger value="validation">Validation</TabsTrigger>
+              <TabsTrigger value="validation">
+                <Trans>Validation</Trans>
+              </TabsTrigger>
             )}
           </>
         }
@@ -456,9 +472,9 @@ export default function FeaturesHeader({
         <Modal
           trackingEventModalType=""
           open={true}
-          header="Feature Watchers"
+          header={t`Feature Watchers`}
           close={() => setWatchersModal(false)}
-          closeCta="Close"
+          closeCta={t`Close`}
         >
           <ul>
             {usersWatching.map((u, i) => (
@@ -469,7 +485,7 @@ export default function FeaturesHeader({
       )}
       {duplicateModal && (
         <FeatureModal
-          cta={"Duplicate"}
+          cta={t`Duplicate`}
           close={() => setDuplicateModal(false)}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}?new`;

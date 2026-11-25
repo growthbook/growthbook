@@ -1,6 +1,7 @@
 import { ScheduleRule } from "shared/types/feature";
 import React, { useEffect, useState } from "react";
 import { getValidDate } from "shared/dates";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function ScheduleInputs(props: Props) {
+  const { t } = useLingui();
   const {
     defaultValue,
     onChange: onRulesChange,
@@ -65,7 +67,7 @@ export default function ScheduleInputs(props: Props) {
       <div className="box mb-3 bg-light pt-2 px-3">
         <div className="row align-items-center py-2">
           <div className="ml-2 mb-2" style={{ width: 100 }}>
-            Launch rule
+            <Trans>Launch rule</Trans>
           </div>
           <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
             <SelectField
@@ -74,9 +76,9 @@ export default function ScheduleInputs(props: Props) {
               name="date-operator"
               value={rules[0].timestamp === null ? "" : "timestamp"}
               options={[
-                { label: "immediately", value: "" },
+                { label: t`immediately`, value: "" },
                 {
-                  label: "at a specific date and time",
+                  label: t`at a specific date and time`,
                   value: "timestamp",
                 },
               ]}
@@ -92,7 +94,9 @@ export default function ScheduleInputs(props: Props) {
           {rules[0].timestamp !== null && (
             <>
               <div className="w-auto mb-2 p-2">
-                <span className="mb-2">ON</span>
+                <span className="mb-2">
+                  <Trans>ON</Trans>
+                </span>
               </div>
               <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
                 <DatePicker
@@ -115,7 +119,7 @@ export default function ScheduleInputs(props: Props) {
         </div>
         <div className="row align-items-center py-2">
           <div className="ml-2 mb-2" style={{ width: 100 }}>
-            Disable rule
+            <Trans>Disable rule</Trans>
           </div>
           <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
             <SelectField
@@ -124,9 +128,9 @@ export default function ScheduleInputs(props: Props) {
               name="date-operator"
               value={rules[1].timestamp === null ? "" : "timestamp"}
               options={[
-                { label: "manually", value: "" },
+                { label: t`manually`, value: "" },
                 {
-                  label: "at a specific date and time",
+                  label: t`at a specific date and time`,
                   value: "timestamp",
                 },
               ]}
@@ -142,7 +146,9 @@ export default function ScheduleInputs(props: Props) {
           {rules[1].timestamp !== null && (
             <>
               <div className="w-auto mb-2 p-2">
-                <span className="mb-2">ON</span>
+                <span className="mb-2">
+                  <Trans>ON</Trans>
+                </span>
               </div>
               <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
                 <DatePicker
@@ -175,7 +181,7 @@ export default function ScheduleInputs(props: Props) {
         </div>
         {dateError && (
           <Callout status="error" mb="4">
-            End date must be greater than the previous rule date
+            <Trans>End date must be greater than the previous rule date</Trans>
           </Callout>
         )}
       </div>
@@ -191,10 +197,10 @@ export default function ScheduleInputs(props: Props) {
         size="lg"
         label={
           <PremiumTooltip commercialFeature="schedule-feature-flag">
-            Apply Schedule
+            <Trans>Apply Schedule</Trans>
           </PremiumTooltip>
         }
-        description="Schedule this rule to be automatically enabled or disabled in the future"
+        description={t`Schedule this rule to be automatically enabled or disabled in the future`}
         value={scheduleToggleEnabled}
         setValue={(v) => {
           setScheduleToggleEnabled(v === true);

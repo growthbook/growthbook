@@ -2,6 +2,7 @@ import { Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { PiWarningCircle } from "react-icons/pi";
+import { Plural, Trans } from "@lingui/react/macro";
 import { Environment } from "shared/types/organization";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
@@ -49,7 +50,12 @@ function disallowedEnvBadge(envId: string) {
   return (
     <Tooltip
       key={`disallowed-${envId}`}
-      body="This environment is not available for this feature. The rule will not apply here."
+      body={
+        <Trans>
+          This environment is not available for this feature. The rule will not
+          apply here.
+        </Trans>
+      }
       tipPosition="top"
       innerClassName="p-2"
       style={{ display: "inline-flex", alignItems: "center" }}
@@ -109,7 +115,11 @@ export default function RuleEnvScopeBadges({
     <Flex gap="4" wrap="wrap" align="center" my={my} {...marginProps}>
       {noActiveEnvs ? (
         <Tooltip
-          body="Rule is not scoped to any environment and will not apply anywhere"
+          body={
+            <Trans>
+              Rule is not scoped to any environment and will not apply anywhere
+            </Trans>
+          }
           tipPosition="top"
           innerClassName="p-2"
           style={{ display: "inline-flex", alignItems: "center" }}
@@ -121,7 +131,7 @@ export default function RuleEnvScopeBadges({
                 fontSize: "var(--font-size-2)",
               }}
             >
-              No environments
+              <Trans>No environments</Trans>
             </span>
             <PiWarningCircle size={16} style={{ color: "var(--amber-11)" }} />
           </Flex>
@@ -136,8 +146,11 @@ export default function RuleEnvScopeBadges({
           body={
             <>
               <Text as="div" weight="regular" mb="1" size="sm" color="text-low">
-                {overflow.length} more environment
-                {overflow.length === 1 ? "" : "s"}
+                <Plural
+                  value={overflow.length}
+                  one="# more environment"
+                  other="# more environments"
+                />
               </Text>
               <Flex gap="4" wrap="wrap">
                 {overflow.map((env) => envBadge(env.id, activeSet.has(env.id)))}

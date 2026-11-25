@@ -5,6 +5,9 @@ import {
   SDKAttributeType,
 } from "shared/types/organization";
 import { PiCaretDown, PiCaretRight, PiInfo, PiPlus } from "react-icons/pi";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Checkbox from "@/ui/Checkbox";
@@ -19,36 +22,36 @@ import AttributeReferencesList from "./AttributeReferencesList";
 
 export const ATTRIBUTE_DATA_TYPES: {
   value: SDKAttributeType;
-  label: string;
-  help: string;
+  label: MessageDescriptor;
+  help: MessageDescriptor;
 }[] = [
-  { value: "boolean", label: "Boolean", help: "true or false" },
-  { value: "number", label: "Number", help: "Floats or integers" },
-  { value: "string", label: "String", help: "Freeform text" },
+  { value: "boolean", label: msg`Boolean`, help: msg`true or false` },
+  { value: "number", label: msg`Number`, help: msg`Floats or integers` },
+  { value: "string", label: msg`String`, help: msg`Freeform text` },
   {
     value: "enum",
-    label: "Enum",
-    help: "For a small list of pre-defined values",
+    label: msg`Enum`,
+    help: msg`For a small list of pre-defined values`,
   },
   {
     value: "secureString",
-    label: "Secure string",
-    help: "Freeform text; values hashed before passing to the SDK",
+    label: msg`Secure string`,
+    help: msg`Freeform text; values hashed before passing to the SDK`,
   },
   {
     value: "number[]",
-    label: "Array of numbers",
-    help: "Useful for multiple numeric values",
+    label: msg`Array of numbers`,
+    help: msg`Useful for multiple numeric values`,
   },
   {
     value: "string[]",
-    label: "Array of strings",
-    help: 'Useful for things like "tags"',
+    label: msg`Array of strings`,
+    help: msg`Useful for things like "tags"`,
   },
   {
     value: "secureString[]",
-    label: "Array of secure strings",
-    help: "Useful for passing multiple values securely",
+    label: msg`Array of secure strings`,
+    help: msg`Useful for passing multiple values securely`,
   },
 ];
 
@@ -67,10 +70,12 @@ export function DataTypeField({
   setValue: (value: SDKAttributeType) => void;
   options: typeof ATTRIBUTE_DATA_TYPES;
 }) {
+  const { t, i18n } = useLingui();
+  const help = options.find((d) => d.value === value)?.help;
   return (
     <Flex direction="column" gap="2">
       <Select
-        label="Data type"
+        label={t`Data type`}
         value={value}
         setValue={(v) =>
           setValue(options.find((d) => d.value === v)?.value ?? "string")
@@ -78,12 +83,12 @@ export function DataTypeField({
       >
         {options.map((d) => (
           <SelectItem key={d.value} value={d.value}>
-            {d.label}
+            {i18n._(d.label)}
           </SelectItem>
         ))}
       </Select>
       <Text size="sm" color="text-mid">
-        {options.find((d) => d.value === value)?.help}
+        {help ? i18n._(help) : null}
       </Text>
       {isSecureDatatype(value) && <SecureStringHelp />}
     </Flex>
@@ -105,27 +110,33 @@ function SecureStringHelp() {
         body={
           <>
             <p>
-              Feature targeting conditions referencing <code>secureString</code>{" "}
-              attributes will be anonymized via SHA-256 hashing. When evaluating
-              feature flags in a public or insecure environment (such as a
-              browser), hashing provides an additional layer of security through
-              obfuscation. This allows you to target users based on sensitive
-              attributes.
+              <Trans>
+                Feature targeting conditions referencing{" "}
+                <code>secureString</code> attributes will be anonymized via
+                SHA-256 hashing. When evaluating feature flags in a public or
+                insecure environment (such as a browser), hashing provides an
+                additional layer of security through obfuscation. This allows
+                you to target users based on sensitive attributes.
+              </Trans>
             </p>
             <p>
-              You must enable this feature in your SDK Connection for it to take
-              effect.
+              <Trans>
+                You must enable this feature in your SDK Connection for it to
+                take effect.
+              </Trans>
             </p>
             <HelperText status="warning" size="sm">
-              When using an insecure environment, do not rely exclusively on
-              hashing as a means of securing highly sensitive data. Hashing is
-              an obfuscation technique that makes it very difficult, but not
-              impossible, to extract sensitive data.
+              <Trans>
+                When using an insecure environment, do not rely exclusively on
+                hashing as a means of securing highly sensitive data. Hashing is
+                an obfuscation technique that makes it very difficult, but not
+                impossible, to extract sensitive data.
+              </Trans>
             </HelperText>
           </>
         }
       >
-        How do secure attributes work? <PiInfo />
+        <Trans>How do secure attributes work?</Trans> <PiInfo />
       </PremiumTooltip>
     </Text>
   );
@@ -133,14 +144,14 @@ function SecureStringHelp() {
 
 export const STRING_FORMATS: {
   value: SDKAttributeFormat;
-  label: string;
+  label: MessageDescriptor;
   example: string;
 }[] = [
-  { value: "version", label: "Version string", example: "1.2.3" },
-  { value: "date", label: "Date string (ISO)", example: "2026-01-31" },
+  { value: "version", label: msg`Version string`, example: "1.2.3" },
+  { value: "date", label: msg`Date string (ISO)`, example: "2026-01-31" },
   {
     value: "isoCountryCode",
-    label: "ISO country code (2 digit)",
+    label: msg`ISO country code (2 digit)`,
     example: "US",
   },
 ];
@@ -200,7 +211,9 @@ export function DescriptionField({
         <Link onClick={() => setOpen(true)}>
           <Flex align="center" gap="1">
             <PiPlus />
-            <Text weight="medium">Add a description</Text>
+            <Text weight="medium">
+              <Trans>Add a description</Trans>
+            </Text>
           </Flex>
         </Link>
       </Box>
@@ -209,7 +222,7 @@ export function DescriptionField({
   return (
     <Flex direction="column" gap="1">
       <Text as="label" htmlFor={id} weight="semibold">
-        Description
+        <Trans>Description</Trans>
       </Text>
       <MarkdownInput
         id={id}
@@ -230,30 +243,33 @@ export function StringFormatField({
   value: SDKAttributeFormat;
   setValue: (value: SDKAttributeFormat) => void;
 }) {
+  const { t, i18n } = useLingui();
   return (
     <Flex direction="column" gap="2">
       <Select
-        label="String format"
+        label={t`String format`}
         value={value || NO_FORMAT}
         setValue={(v) =>
           setValue(STRING_FORMATS.find((f) => f.value === v)?.value ?? "")
         }
       >
-        <SelectItem value={NO_FORMAT}>None</SelectItem>
+        <SelectItem value={NO_FORMAT}>
+          <Trans>None</Trans>
+        </SelectItem>
         {STRING_FORMATS.map((f) => (
           <SelectItem key={f.value} value={f.value}>
-            {f.label}
+            {i18n._(f.label)}
           </SelectItem>
         ))}
       </Select>
       <Text size="sm" color="text-mid">
-        Changes the targeting UI and string comparison logic.
+        <Trans>Changes the targeting UI and string comparison logic.</Trans>
       </Text>
       {value === "version" && (
         <SDKCapabilityWarning
           capability="semverTargeting"
-          someMessage="Some of your SDK Connections do not support version string comparisons. Targeting conditions using this attribute may not work correctly for those connections."
-          noneMessage="None of your SDK Connections support version string comparisons. Do not use this format as it will break targeting conditions based on this attribute."
+          someMessage={t`Some of your SDK Connections do not support version string comparisons. Targeting conditions using this attribute may not work correctly for those connections.`}
+          noneMessage={t`None of your SDK Connections support version string comparisons. Do not use this format as it will break targeting conditions based on this attribute.`}
         />
       )}
     </Flex>
@@ -267,6 +283,7 @@ export function AdvancedSettings({
   disableEqualityConditions: boolean;
   setDisableEqualityConditions: (value: boolean) => void;
 }) {
+  const { t } = useLingui();
   // Open when the setting is already on, so it isn't hidden.
   const [open, setOpen] = useState(disableEqualityConditions);
   return (
@@ -275,14 +292,16 @@ export function AdvancedSettings({
         <Link aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           <Flex align="center" gap="1">
             {open ? <PiCaretDown /> : <PiCaretRight />}
-            <Text weight="medium">Advanced</Text>
+            <Text weight="medium">
+              <Trans>Advanced</Trans>
+            </Text>
           </Flex>
         </Link>
       </Box>
       {open && (
         <Checkbox
-          label="Disable equality comparisons"
-          description="This prevents users from targeting with exact string matches. Only regex and less than/greater than will be allowed. Useful for PII."
+          label={t`Disable equality comparisons`}
+          description={t`This prevents users from targeting with exact string matches. Only regex and less than/greater than will be allowed. Useful for PII.`}
           value={disableEqualityConditions}
           setValue={setDisableEqualityConditions}
         />
@@ -302,7 +321,6 @@ export function RenameWarning({
   secure: boolean;
   identifier?: boolean;
 }) {
-  const noun = identifier ? "identifier" : "attribute";
   const refCount = references
     ? references.features.length +
       references.experiments.length +
@@ -311,25 +329,45 @@ export function RenameWarning({
   return (
     <>
       <Callout status="warning">
-        Be careful changing the {noun} name. Any existing{" "}
-        {identifier
-          ? "experiments, rules and targeting conditions"
-          : "targeting conditions"}{" "}
-        that use this {noun} will NOT be updated automatically and will still
-        reference the old name.
+        {identifier ? (
+          <Trans>
+            Be careful changing the identifier name. Any existing experiments,
+            rules and targeting conditions that use this identifier will NOT be
+            updated automatically and will still reference the old name.
+          </Trans>
+        ) : (
+          <Trans>
+            Be careful changing the attribute name. Any existing targeting
+            conditions that use this attribute will NOT be updated automatically
+            and will still reference the old name.
+          </Trans>
+        )}
         {secure && (
           <Box mt="2">
-            Because this is a secure string, conditions that still use the old
-            name will no longer be hashed, so their values appear in plain text
-            in the SDK payload.
+            <Trans>
+              Because this is a secure string, conditions that still use the old
+              name will no longer be hashed, so their values appear in plain
+              text in the SDK payload.
+            </Trans>
           </Box>
         )}
         {hasJsonManagedWarehouse && (
           <Box mt="2">
-            Renaming doesn&apos;t migrate historical data. Events already sent
-            under the old name keep that name in the Managed Warehouse and will
-            read as null for this {noun}; only events your SDK sends under the
-            new name will populate it going forward.
+            {identifier ? (
+              <Trans>
+                Renaming doesn&apos;t migrate historical data. Events already
+                sent under the old name keep that name in the Managed Warehouse
+                and will read as null for this identifier; only events your SDK
+                sends under the new name will populate it going forward.
+              </Trans>
+            ) : (
+              <Trans>
+                Renaming doesn&apos;t migrate historical data. Events already
+                sent under the old name keep that name in the Managed Warehouse
+                and will read as null for this attribute; only events your SDK
+                sends under the new name will populate it going forward.
+              </Trans>
+            )}
           </Box>
         )}
       </Callout>

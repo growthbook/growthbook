@@ -1,4 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -38,7 +39,7 @@ export function PrerequisiteStatesCols({
                 flipTheme={false}
                 body={
                   <Text size="sm" color="text-high">
-                    Loading prerequisite state...
+                    <Trans>Loading prerequisite state...</Trans>
                   </Text>
                 }
               >
@@ -55,16 +56,16 @@ export function PrerequisiteStatesCols({
                   body={
                     <Text as="div" size="sm" color="text-high">
                       {defaultValues?.[env] === undefined && (
-                        <>
+                        <Trans>
                           This prerequisite is{" "}
                           <strong style={{ color: featureStatusColors.on }}>
                             live
                           </strong>{" "}
                           in this environment.
-                        </>
+                        </Trans>
                       )}
                       {defaultValues?.[env] === "true" && (
-                        <>
+                        <Trans>
                           This prerequisite is{" "}
                           <strong style={{ color: featureStatusColors.on }}>
                             live
@@ -80,10 +81,10 @@ export function PrerequisiteStatesCols({
                             <ValueDisplay value={"true"} type="boolean" />
                           </span>{" "}
                           in this environment.
-                        </>
+                        </Trans>
                       )}
                       {defaultValues?.[env] === "false" && (
-                        <>
+                        <Trans>
                           This prerequisite is currently serving{" "}
                           <span
                             style={{
@@ -95,7 +96,7 @@ export function PrerequisiteStatesCols({
                             <ValueDisplay value={"false"} type="boolean" />
                           </span>{" "}
                           in this environment.
-                        </>
+                        </Trans>
                       )}
                     </Text>
                   }
@@ -115,11 +116,13 @@ export function PrerequisiteStatesCols({
                   flipTheme={false}
                   body={
                     <Text as="div" size="sm" color="text-high">
-                      This prerequisite is{" "}
-                      <strong style={{ color: featureStatusColors.off }}>
-                        not live
-                      </strong>{" "}
-                      in this environment.
+                      <Trans>
+                        This prerequisite is{" "}
+                        <strong style={{ color: featureStatusColors.off }}>
+                          not live
+                        </strong>{" "}
+                        in this environment.
+                      </Trans>
                     </Text>
                   }
                 >
@@ -133,12 +136,14 @@ export function PrerequisiteStatesCols({
                 flipTheme={false}
                 body={
                   <Text as="div" size="sm" color="text-high">
-                    This prerequisite is in a{" "}
-                    <strong style={{ color: featureStatusColors.warning }}>
-                      Schrödinger state
-                    </strong>{" "}
-                    in this environment. We can&apos;t know its value until it
-                    is evaluated at runtime in the SDK.
+                    <Trans>
+                      This prerequisite is in a{" "}
+                      <strong style={{ color: featureStatusColors.warning }}>
+                        Schrödinger state
+                      </strong>{" "}
+                      in this environment. We can&apos;t know its value until it
+                      is evaluated at runtime in the SDK.
+                    </Trans>
                   </Text>
                 }
               >
@@ -152,7 +157,7 @@ export function PrerequisiteStatesCols({
                 flipTheme={false}
                 body={
                   <Text as="div" size="sm" color="text-high">
-                    Circular dependency detected. Please fix.
+                    <Trans>Circular dependency detected. Please fix.</Trans>
                   </Text>
                 }
               >
@@ -167,7 +172,7 @@ export function PrerequisiteStatesCols({
                 flipTheme={false}
                 body={
                   <Text as="div" size="sm" color="text-high">
-                    Unable to determine prerequisite state.
+                    <Trans>Unable to determine prerequisite state.</Trans>
                   </Text>
                 }
               >

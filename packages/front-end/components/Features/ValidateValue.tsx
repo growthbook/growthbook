@@ -1,6 +1,7 @@
 import { FeatureInterface } from "shared/types/feature";
 import React, { useMemo } from "react";
 import { FaCheck } from "react-icons/fa";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { validateJSONFeatureValue } from "shared/util";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
@@ -16,6 +17,7 @@ export default function ValidateValue({
   className?: string;
   showIfValid?: boolean;
 }) {
+  const { t } = useLingui();
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
   const { valid, enabled, errors } = useMemo(() => {
@@ -35,15 +37,15 @@ export default function ValidateValue({
     return (
       <div
         className={`text-success ${className}`}
-        title="This value has been validated against the JSON schema provided"
+        title={t`This value has been validated against the JSON schema provided`}
       >
-        <FaCheck className=" mr-2" title="Value is valid" />
+        <FaCheck className=" mr-2" title={t`Value is valid`} />
       </div>
     );
   }
   return (
     <Callout status="error" mb="2" mt="3">
-      Value fails validation with JSON schema.
+      <Trans>Value fails validation with JSON schema.</Trans>
       <ul className="mb-0 mt-1">
         {errors?.map((msg, i) => (
           <li key={i}>{msg}</li>

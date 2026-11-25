@@ -5,6 +5,7 @@ import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { eventUserCredit } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
@@ -41,6 +42,7 @@ const COL = {
 } as const;
 
 export default function FeaturesDraftTable() {
+  const { t } = useLingui();
   const draftAndReviewData = useApi<{
     status: number;
     revisions: FeaturesAndRevisions[];
@@ -140,17 +142,17 @@ export default function FeaturesDraftTable() {
 
   const statusFilterItems = [
     {
-      name: "Pending review",
+      name: t`Pending review`,
       id: "pending-review",
       searchValue: "pending-review",
     },
-    { name: "Approved", id: "approved", searchValue: "approved" },
+    { name: t`Approved`, id: "approved", searchValue: "approved" },
     {
-      name: "Changes requested",
+      name: t`Changes requested`,
       id: "changes-requested",
       searchValue: "changes-requested",
     },
-    { name: "Draft", id: "draft", searchValue: "draft" },
+    { name: t`Draft`, id: "draft", searchValue: "draft" },
   ];
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
@@ -164,7 +166,7 @@ export default function FeaturesDraftTable() {
           <Box style={{ flexBasis: 300, flexShrink: 0 }}>
             <Field
               size="legacy"
-              placeholder="Search..."
+              placeholder={t`Search...`}
               type="search"
               containerClassName="mb-0"
               {...searchInputProps}
@@ -173,7 +175,7 @@ export default function FeaturesDraftTable() {
           <Flex gap="5" align="center">
             <FilterDropdown
               filter="user"
-              heading="Author"
+              heading={t`Author`}
               syntaxFilters={syntaxFilters}
               open={dropdownFilterOpen}
               setOpen={setDropdownFilterOpen}
@@ -186,7 +188,7 @@ export default function FeaturesDraftTable() {
             />
             <FilterDropdown
               filter="status"
-              heading="Status"
+              heading={t`Status`}
               syntaxFilters={syntaxFilters}
               open={dropdownFilterOpen}
               setOpen={setDropdownFilterOpen}
@@ -200,30 +202,30 @@ export default function FeaturesDraftTable() {
           <TableHeader>
             <TableRow>
               <SortableTableColumnHeader field="featureKey">
-                Feature Key
+                <Trans>Feature Key</Trans>
               </SortableTableColumnHeader>
               <TableColumnHeader
                 style={{ width: COL.REVISION, textAlign: "right" }}
               >
-                Revision
+                <Trans>Revision</Trans>
               </TableColumnHeader>
               <TableColumnHeader style={{ width: COL.NOTES }}>
-                Notes
+                <Trans>Notes</Trans>
               </TableColumnHeader>
               <TableColumnHeader style={{ width: COL.AUTHOR }}>
-                Author
+                <Trans>Author</Trans>
               </TableColumnHeader>
               <SortableTableColumnHeader
                 field="dateUpdated"
                 style={{ width: COL.DATE }}
               >
-                Last Modified
+                <Trans>Last Modified</Trans>
               </SortableTableColumnHeader>
               <SortableTableColumnHeader
                 field="status"
                 style={{ width: COL.DRAFT_STATUS }}
               >
-                Draft Status
+                <Trans>Draft Status</Trans>
               </SortableTableColumnHeader>
             </TableRow>
           </TableHeader>
@@ -279,7 +281,7 @@ export default function FeaturesDraftTable() {
             {!items.length ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center">
-                  No matching drafts
+                  <Trans>No matching drafts</Trans>
                 </TableCell>
               </TableRow>
             ) : null}
@@ -298,7 +300,7 @@ export default function FeaturesDraftTable() {
       </div>
     ) : (
       <div className="callout callout-color-amber">
-        There are no drafts or revisions to review
+        <Trans>There are no drafts or revisions to review</Trans>
       </div>
     );
   };

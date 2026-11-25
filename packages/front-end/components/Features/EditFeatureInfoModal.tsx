@@ -15,6 +15,9 @@ import {
 } from "shared/permissions";
 import { Box } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import TagsInput from "@/components/Tags/TagsInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -52,12 +55,12 @@ export type FeatureInfoSection =
   | "tags"
   | "customFields";
 
-export const SECTION_HEADERS: Record<FeatureInfoSection, string> = {
-  owner: "Edit Owner",
-  project: "Edit Project",
-  targetingProjects: "Edit Targeting Projects",
-  tags: "Edit Tags",
-  customFields: "Edit Additional Fields",
+export const SECTION_HEADERS: Record<FeatureInfoSection, MessageDescriptor> = {
+  owner: msg`Edit Owner`,
+  project: msg`Edit Project`,
+  targetingProjects: msg`Edit Targeting Projects`,
+  tags: msg`Edit Tags`,
+  customFields: msg`Edit Additional Fields`,
 };
 
 // What each section writes. Custom fields are rewritten whole, so that section
@@ -95,6 +98,7 @@ const EditFeatureInfoModal: FC<{
   source,
   dependents,
 }) => {
+  const { t, i18n } = useLingui();
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
@@ -214,16 +218,16 @@ const EditFeatureInfoModal: FC<{
   const conflict = useDraftConflict<Record<string, unknown>>({
     initial: pick(initial, fields),
     labels: {
-      tags: "Tags",
-      owner: "Owner",
-      project: "Project",
-      targetingAllProjects: "Targeting Projects",
-      targetingProjects: "Targeting Projects",
-      customFields: "Additional Fields",
+      tags: t`Tags`,
+      owner: t`Owner`,
+      project: t`Project`,
+      targetingAllProjects: t`Targeting Projects`,
+      targetingProjects: t`Targeting Projects`,
+      customFields: t`Additional Fields`,
     },
     formatters: {
       project: (v) =>
-        v ? (getProjectById(String(v))?.name ?? String(v)) : "None",
+        v ? (getProjectById(String(v))?.name ?? String(v)) : t`None`,
       targetingProjects: namedProjectsFormatter(getProjectById),
     },
     form,
@@ -234,11 +238,13 @@ const EditFeatureInfoModal: FC<{
   const permissionRequired = (project) =>
     permissionsUtil.canEditFeatureDrafts({ project });
   const initialOption =
-    permissionRequired("") && !requireProjectForFeatures ? "None" : "";
+    permissionRequired("") && !requireProjectForFeatures ? t`None` : "";
   const projectOptions = useProjectOptions(
     permissionRequired,
     feature?.project ? [feature.project] : [],
   );
+
+  const customFieldName = shownCustomFields[0]?.name;
 
   return (
     <ConflictProvider {...conflict.providerProps}>
@@ -247,8 +253,10 @@ const EditFeatureInfoModal: FC<{
         trackingEventModalSource={source}
         header={
           section === "customFields" && customFieldId
-            ? `Edit ${shownCustomFields[0]?.name ?? "Field"}`
-            : SECTION_HEADERS[section]
+            ? customFieldName !== undefined
+              ? t`Edit ${customFieldName}`
+              : t`Edit Field`
+            : i18n._(SECTION_HEADERS[section])
         }
         open={true}
         close={cancel}
@@ -280,7 +288,7 @@ const EditFeatureInfoModal: FC<{
           if (resolvedVersion !== null && setVersion)
             setVersion(resolvedVersion);
         })}
-        cta={mode === "publish" ? "Save" : "Save to draft"}
+        cta={mode === "publish" ? t`Save` : t`Save to draft`}
         ctaEnabled={form.formState.isDirty && conflict.resolved}
         size="md"
       >
@@ -307,7 +315,7 @@ const EditFeatureInfoModal: FC<{
           <Box mb="4">
             <SelectField
               size="legacy"
-              label="Project"
+              label={t`Project`}
               value={form.watch("project")}
               onChange={(v) =>
                 form.setValue("project", v, { shouldDirty: true })
@@ -319,18 +327,27 @@ const EditFeatureInfoModal: FC<{
             />
             {dependents > 0 ? (
               <Callout status="warning">
-                This feature has{" "}
-                {dependents === 1
-                  ? "a dependent feature"
-                  : "dependent features"}
-                . Projects cannot be changed until{" "}
-                {dependents === 1 ? "it has" : "they have"} been removed.
+                {dependents === 1 ? (
+                  <Trans>
+                    This feature has a dependent feature. Projects cannot be
+                    changed until it has been removed.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    This feature has dependent features. Projects cannot be
+                    changed until they have been removed.
+                  </Trans>
+                )}
               </Callout>
             ) : form.watch("project") !== (feature.project || "") ? (
               <Callout status="warning">
-                Changing the project may prevent this Feature and any linked
-                Experiments from being sent to users.{" "}
-                <Tooltip content="SDK endpoints are linked to specific environments and (optionally) projects. Changing the project of this feature may result in this feature returning in a different payload.">
+                <Trans>
+                  Changing the project may prevent this Feature and any linked
+                  Experiments from being sent to users.
+                </Trans>{" "}
+                <Tooltip
+                  content={t`SDK endpoints are linked to specific environments and (optionally) projects. Changing the project of this feature may result in this feature returning in a different payload.`}
+                >
                   <span tabIndex={0} style={{ display: "inline-flex" }}>
                     <PiInfo />
                   </span>
@@ -360,7 +377,9 @@ const EditFeatureInfoModal: FC<{
         {section === "tags" ? (
           <Box mb="4">
             <Box mb="2">
-              <Text weight="semibold">Tags</Text>
+              <Text weight="semibold">
+                <Trans>Tags</Trans>
+              </Text>
             </Box>
             <TagsInput
               autoFocus

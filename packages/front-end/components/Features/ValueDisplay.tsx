@@ -13,6 +13,7 @@ import React, {
   useState,
 } from "react";
 import { IconButton } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { PiCheck, PiCopy } from "react-icons/pi";
 import { parsePlainJSONObject } from "shared/util";
 import InlineCode, {
@@ -108,7 +109,7 @@ export default function ValueDisplay({
   actionsOverlay,
   sparse = false,
   defaultValue,
-  fullscreenHeader = "Feature Value",
+  fullscreenHeader,
   linkify,
   lineHeight,
   monochrome,
@@ -150,6 +151,9 @@ export default function ValueDisplay({
   // Every object and array on its own lines, however short.
   multiline?: boolean;
 }) {
+  const { t } = useLingui();
+  const fullscreenHeaderText =
+    fullscreenHeader === undefined ? t`Feature Value` : fullscreenHeader;
   // Link `@const:` references to their constant by default on every surface that
   // renders a value, unless the caller supplies its own linkify config.
   const constantLinkify = useConstantLinkify();
@@ -309,7 +313,7 @@ export default function ValueDisplay({
             <>
               {showCopyButton && (type === "json" || type === "string") ? (
                 <UITooltip
-                  content={copySuccess ? "Copied" : "Copy to clipboard"}
+                  content={copySuccess ? t`Copied` : t`Copy to clipboard`}
                 >
                   <IconButton
                     type="button"
@@ -329,7 +333,7 @@ export default function ValueDisplay({
                 </UITooltip>
               ) : null}
               {showFullscreenButton && (
-                <UITooltip content="View in full screen">
+                <UITooltip content={t`View in full screen`}>
                   <IconButton
                     type="button"
                     radius="full"
@@ -388,7 +392,7 @@ export default function ValueDisplay({
       </CornerActions>
       {modalOpen && (
         <Modal
-          header={fullscreenHeader}
+          header={fullscreenHeaderText}
           open={modalOpen}
           close={() => setModalOpen(false)}
           trackingEventModalType=""
@@ -397,7 +401,7 @@ export default function ValueDisplay({
           secondaryCTA={
             copySuccess ? (
               <Button style={{ width: 100 }} icon={<PiCheck />} color="gray">
-                Copied
+                <Trans>Copied</Trans>
               </Button>
             ) : (
               <Button
@@ -408,11 +412,11 @@ export default function ValueDisplay({
                     performCopy(sparseMerge ? formatted : value);
                 }}
               >
-                Copy
+                <Trans>Copy</Trans>
               </Button>
             )
           }
-          closeCta="Close"
+          closeCta={t`Close`}
         >
           <ValueDisplay
             value={value}
@@ -448,11 +452,13 @@ export function ArchetypeValueDisplay({
         <div className="text-left">
           {!result.enabled ? (
             <div className="text-center p-2 text-muted">
-              Feature disabled for this environment
+              <Trans>Feature disabled for this environment</Trans>
             </div>
           ) : (
             <div className="">
-              <span className="text-muted">Matched rule:</span>{" "}
+              <span className="text-muted">
+                <Trans>Matched rule:</Trans>
+              </span>{" "}
               <strong>{matchedRuleName}</strong>
             </div>
           )}
@@ -462,7 +468,7 @@ export function ArchetypeValueDisplay({
                 className="mt-3 position-relative text-muted"
                 style={{ top: "4px" }}
               >
-                Debug Log
+                <Trans>Debug Log</Trans>
               </h5>
               <div className={`border bg-light border-light rounded px-3 py-1`}>
                 {debugLog.map((log: string, i) => (
@@ -517,7 +523,9 @@ export function ArchetypeValueDisplay({
               showCopyButton={false}
             />
           ) : (
-            <span className="text-muted">disabled</span>
+            <span className="text-muted">
+              <Trans>disabled</Trans>
+            </span>
           )}
         </div>
         <span className="text-muted small">{brief}</span>

@@ -1,6 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiWarningCircle } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
@@ -19,6 +20,7 @@ export default function RuleProjectScopeBadges({
   my = "3",
   ...marginProps
 }: Props) {
+  const { t } = useLingui();
   const { getProjectById } = useDefinitions();
   // Show resolvable project names; collapse any deleted (unresolvable) ids into
   // a single "N deleted project(s)" rather than dumping raw ids.
@@ -28,7 +30,11 @@ export default function RuleProjectScopeBadges({
       .filter((n): n is string => !!n);
     const deleted = ids.length - names.length;
     if (deleted > 0) {
-      names.push(`${deleted} deleted project${deleted > 1 ? "s" : ""}`);
+      names.push(
+        deleted > 1
+          ? t`${deleted} deleted projects`
+          : t`${deleted} deleted project`,
+      );
     }
     return names.join(", ");
   };
@@ -46,7 +52,7 @@ export default function RuleProjectScopeBadges({
   if (reachable.length === 0) {
     return (
       <Tooltip
-        body="This rule is not scoped to any of the feature's Projects and will not apply anywhere"
+        body={t`This rule is not scoped to any of the feature's Projects and will not apply anywhere`}
         tipPosition="top"
         innerClassName="p-2"
         style={{ display: "inline-flex", alignItems: "center" }}
@@ -55,7 +61,7 @@ export default function RuleProjectScopeBadges({
           <span
             style={{ color: "var(--amber-11)", fontSize: "var(--font-size-2)" }}
           >
-            No Projects
+            <Trans>No Projects</Trans>
           </span>
           <PiWarningCircle size={16} style={{ color: "var(--amber-11)" }} />
         </Flex>
@@ -66,12 +72,12 @@ export default function RuleProjectScopeBadges({
   return (
     <Text as="div" weight="regular" size="md" my={my} {...marginProps}>
       <Text as="span" weight="medium">
-        Projects:
+        <Trans>Projects:</Trans>
       </Text>{" "}
       {renderProjects(reachable)}
       {unavailable.length > 0 && (
         <Tooltip
-          body="These Projects aren't available for this feature, so the rule won't apply there"
+          body={t`These Projects aren't available for this feature, so the rule won't apply there`}
           tipPosition="top"
         >
           <span

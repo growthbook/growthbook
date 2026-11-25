@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import { useMemo, useState } from "react";
 import {
@@ -57,6 +58,7 @@ export default function PrerequisiteModal({
   mutate,
   setVersion,
 }: Props) {
+  const { t } = useLingui();
   const { features: featureNames } = useFeatureMetaInfo({
     includeDefaultValue: true,
   });
@@ -274,12 +276,12 @@ export default function PrerequisiteModal({
       open={true}
       close={close}
       size="lg"
-      cta="Save"
+      cta={t`Save`}
       ctaEnabled={canSubmit && !staleList}
       disabledMessage={
-        staleList ? "Reload to edit against the current list." : undefined
+        staleList ? t`Reload to edit against the current list.` : undefined
       }
-      header={prerequisite ? "Edit Prerequisite" : "New Prerequisite"}
+      header={prerequisite ? t`Edit Prerequisite` : t`New Prerequisite`}
       submit={form.handleSubmit(async (values) => {
         if (staleList) return;
         if (!values.condition) {
@@ -332,8 +334,10 @@ export default function PrerequisiteModal({
         alert={
           staleList ? (
             <HelperText status="warning" icon={null}>
-              The prerequisites changed while you were editing, so this edit no
-              longer points at the same one.
+              <Trans>
+                The prerequisites changed while you were editing, so this edit
+                no longer points at the same one.
+              </Trans>
             </HelperText>
           ) : undefined
         }
@@ -341,7 +345,11 @@ export default function PrerequisiteModal({
       {staleList && (
         <ConflictShell
           resolved={false}
-          message={<Text>Reload to edit against the current list.</Text>}
+          message={
+            <Text>
+              <Trans>Reload to edit against the current list.</Trans>
+            </Text>
+          }
           choices={
             <Button
               size="sm"
@@ -350,35 +358,41 @@ export default function PrerequisiteModal({
                 close();
               }}
             >
-              Reload
+              <Trans>Reload</Trans>
             </Button>
           }
         />
       )}
       {malformedConditionError && (
         <Callout status="error" mb="3">
-          Invalid condition: {malformedConditionError}. Saving replaces it with
-          the default.
+          <Trans>
+            Invalid condition: {malformedConditionError}. Saving replaces it
+            with the default.
+          </Trans>
         </Callout>
       )}
       <Text as="div" mt="2" mb="3">
-        Prerequisite features must evaluate to{" "}
-        <ValueDisplay value={"true"} type="boolean" /> for this feature to be
-        enabled.{" "}
+        <Trans>
+          Prerequisite features must evaluate to{" "}
+          <ValueDisplay value={"true"} type="boolean" /> for this feature to be
+          enabled.
+        </Trans>{" "}
         <Tooltip
           body={
             <>
-              Only <strong>boolean</strong> features may be used as top-level
-              prerequisites. To implement prerequisites using non-boolean
-              features or non-standard targeting rules, you may add prerequisite
-              targeting to a feature rule.
+              <Trans>
+                Only <strong>boolean</strong> features may be used as top-level
+                prerequisites. To implement prerequisites using non-boolean
+                features or non-standard targeting rules, you may add
+                prerequisite targeting to a feature rule.
+              </Trans>
             </>
           }
         />
       </Text>
 
       <label className="mt-4 d-block">
-        Select prerequisite from boolean features
+        <Trans>Select prerequisite from boolean features</Trans>
       </label>
 
       <PrerequisiteFeatureSelector
@@ -402,8 +416,10 @@ export default function PrerequisiteModal({
               dismissible={true}
               id="prerequisite-project-mismatch--modal"
             >
-              Project mismatch. Prerequisite evaluation may fail for SDK
-              Connections with non-overlapping project scope.
+              <Trans>
+                Project mismatch. Prerequisite evaluation may fail for SDK
+                Connections with non-overlapping project scope.
+              </Trans>
             </Callout>
           ) : null}
 
@@ -418,8 +434,10 @@ export default function PrerequisiteModal({
 
       {isCyclic && (
         <Callout status="error" mt="2">
-          <code>{cyclicFeatureId}</code> creates a circular dependency. Select a
-          different feature.
+          <Trans>
+            <code>{cyclicFeatureId}</code> creates a circular dependency. Select
+            a different feature.
+          </Trans>
         </Callout>
       )}
 

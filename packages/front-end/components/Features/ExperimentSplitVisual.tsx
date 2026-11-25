@@ -1,5 +1,6 @@
 import React, { CSSProperties, Fragment } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentValue, FeatureValueType } from "shared/types/feature";
 import {
   getVariationColor,
@@ -29,8 +30,8 @@ export interface Props {
   condensed?: boolean;
 }
 export default function ExperimentSplitVisual({
-  label = "Traffic split preview",
-  unallocated = "Not included",
+  label: labelProp,
+  unallocated: unallocatedProp,
   coverage,
   values,
   showValues = false,
@@ -39,11 +40,16 @@ export default function ExperimentSplitVisual({
   showPercentages = true,
   condensed = false,
 }: Props) {
+  const { t } = useLingui();
+  const label = labelProp === undefined ? t`Traffic split preview` : labelProp;
+  const unallocated =
+    unallocatedProp === undefined ? t`Not included` : unallocatedProp;
   const totalWeights = parseFloat(
     values.reduce((partialSum, v) => partialSum + v.weight, 0).toFixed(3),
   );
 
   const coverageVal = coverage ? coverage : 0;
+  const coveragePercent = coveragePercentFormatter.format(coverageVal);
 
   // A segment's left edge is the running total of raw weights in both modes: a
   // stacked segment plus its gap spans the whole weight.
@@ -85,7 +91,7 @@ export default function ExperimentSplitVisual({
     <Box className={condensed ? styles.condensed : undefined}>
       {totalWeights !== 1 ? (
         <Callout status="error" size="sm" mb="3">
-          Please adjust weights to sum to 100%.
+          <Trans>Please adjust weights to sum to 100%.</Trans>
         </Callout>
       ) : null}
       {condensed ? null : (
@@ -96,7 +102,7 @@ export default function ExperimentSplitVisual({
                 {label}
               </Text>{" "}
               <Text as="span" size="md" color="text-mid">
-                ({coveragePercentFormatter.format(coverageVal)} included)
+                <Trans>({coveragePercent} included)</Trans>
               </Text>
             </Box>
             {coverage < 1 && (
@@ -121,6 +127,7 @@ export default function ExperimentSplitVisual({
               additionalStyles.position = "absolute";
               additionalStyles.left = left + "%";
             }
+            const gapPercent = parseFloat(gap.toPrecision(5));
 
             return (
               <Fragment key={i}>
@@ -135,7 +142,7 @@ export default function ExperimentSplitVisual({
                 {stackLeft && gap > 0 && (
                   <div className={styles.gapBar} style={{ width: gap + "%" }}>
                     <Tooltip
-                      body={`Not included: ${parseFloat(gap.toPrecision(5))}%`}
+                      body={t`Not included: ${gapPercent}%`}
                       style={{ width: "100%", height: "100%" }}
                     >
                       <></>

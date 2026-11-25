@@ -1,6 +1,7 @@
 import { ExperimentRule, FeatureInterface } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { calculateNamespaceCoverage } from "shared/util";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -28,6 +29,7 @@ export default function ExperimentSummary({
   experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRule;
 }) {
+  const { t } = useLingui();
   const { namespace, coverage, values, hashAttribute, trackingKey } = rule;
   const type = feature.valueType;
   const { namespaces: allNamespaces } = useOrgSettings();
@@ -37,15 +39,17 @@ export default function ExperimentSummary({
   const namespaceRange =
     hasNamespace && namespace ? calculateNamespaceCoverage(namespace) : 1;
   const effectiveCoverage = namespaceRange * (coverage ?? 1);
+  const namespacePercent = percentFormatter.format(namespaceRange);
+  const exposurePercent = coveragePercentFormatter.format(coverage ?? 1);
 
   return (
     <Box>
-      <RuleField label="Split by">
+      <RuleField label={t`Split by`}>
         <Flex align="center" gap="2" wrap="wrap">
           <AttributeBadge attributeId={hashAttribute || "id"} />
           {hasNamespace && (
             <>
-              in the namespace
+              <Trans>in the namespace</Trans>
               <LinkButton href={`/namespaces`} size="sm" variant="soft">
                 {allNamespaces?.find((n) => n.name === namespace.name)?.label ||
                   namespace.name}
@@ -58,29 +62,31 @@ export default function ExperimentSummary({
         {hasNamespace && (
           <>
             {" "}
-            (
-            <Badge
-              color="gray"
-              label={
-                <Text style={{ color: "var(--slate-12)" }}>
-                  {percentFormatter.format(namespaceRange)}
-                </Text>
-              }
-            />{" "}
-            of the namespace and{" "}
-            <Badge
-              color="gray"
-              label={
-                <Text style={{ color: "var(--slate-12)" }}>
-                  {coveragePercentFormatter.format(coverage ?? 1)}
-                </Text>
-              }
-            />{" "}
-            exposure)
+            <Trans>
+              (
+              <Badge
+                color="gray"
+                label={
+                  <Text style={{ color: "var(--slate-12)" }}>
+                    {namespacePercent}
+                  </Text>
+                }
+              />{" "}
+              of the namespace and{" "}
+              <Badge
+                color="gray"
+                label={
+                  <Text style={{ color: "var(--slate-12)" }}>
+                    {exposurePercent}
+                  </Text>
+                }
+              />{" "}
+              exposure)
+            </Trans>
           </>
         )}
       </RolloutRow>
-      <RuleField label="Serve" align="start">
+      <RuleField label={t`Serve`} align="start">
         <Box>
           <RuleVariationsTable
             rows={values.map((r, j) => ({
@@ -107,8 +113,8 @@ export default function ExperimentSummary({
             values={values}
             coverage={effectiveCoverage}
             condensed
-            label="Traffic split"
-            unallocated="Not included (skips this rule)"
+            label={t`Traffic split`}
+            unallocated={t`Not included (skips this rule)`}
             type={type}
             showValues={false}
             stackLeft={true}
@@ -116,7 +122,7 @@ export default function ExperimentSummary({
           />
         </Box>
       </RuleField>
-      <RuleField label="Tracking key" mb="0">
+      <RuleField label={t`Tracking key`} mb="0">
         <Flex align="center" gap="2" wrap="wrap">
           <Badge
             color="gray"
@@ -132,7 +138,7 @@ export default function ExperimentSummary({
                 href={`/experiment/${experiment.id}#results`}
                 variant="outline"
               >
-                View results
+                <Trans>View results</Trans>
               </LinkButton>
             ) : null}
           </Box>

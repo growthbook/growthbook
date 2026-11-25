@@ -16,6 +16,7 @@ import {
   parseLooseJSON,
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
@@ -53,6 +54,7 @@ function EditSimpleSchema({
   setSchema: (schema: SimpleSchema) => void;
   valueType?: FeatureValueType;
 }) {
+  const { t } = useLingui();
   const [expandedFields, setExpandedFields] = useState(new Set<number>());
 
   const lockedPrimitive = valueType === "string" || valueType === "number";
@@ -62,7 +64,7 @@ function EditSimpleSchema({
       {!lockedPrimitive && (
         <SelectField
           size="legacy"
-          label="Type"
+          label={t`Type`}
           labelClassName="font-weight-bold text-dark"
           value={schema.type}
           sort={false}
@@ -75,19 +77,19 @@ function EditSimpleSchema({
           options={[
             {
               value: "object",
-              label: "Object",
+              label: t`Object`,
             },
             {
               value: "object[]",
-              label: "Array of Objects",
+              label: t`Array of Objects`,
             },
             {
               value: "primitive",
-              label: "Primitive Value (string, number, boolean)",
+              label: t`Primitive Value (string, number, boolean)`,
             },
             {
               value: "primitive[]",
-              label: "Array of Primitive Values",
+              label: t`Array of Primitive Values`,
             },
           ]}
           required
@@ -98,7 +100,11 @@ function EditSimpleSchema({
       schema.type === "primitive" ? (
         <div className="form-group">
           <label className="font-weight-bold text-dark">
-            {schema.type === "primitive[]" ? "Array Items" : "Primitive Value"}
+            {schema.type === "primitive[]" ? (
+              <Trans>Array Items</Trans>
+            ) : (
+              <Trans>Primitive Value</Trans>
+            )}
           </label>
           <div className="appbox p-3 bg-light">
             <EditSchemaField
@@ -129,102 +135,105 @@ function EditSimpleSchema({
       ) : (
         <div className="form-group">
           <label className="font-weight-bold text-dark">
-            Object Properties
+            <Trans>Object Properties</Trans>
           </label>
           <div>
-            {schema.fields.map((field, i) => (
-              <div key={i} className="d-flex align-items-top mb-2">
-                <div className="flex-1 border rounded ">
-                  <a
-                    href="#"
-                    className="d-flex align-items-center cursor-pointer p-2 no-underline"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const newExpandedFields = new Set(expandedFields);
-                      if (expandedFields.has(i)) {
-                        newExpandedFields.delete(i);
-                      } else {
-                        newExpandedFields.add(i);
-                      }
-                      setExpandedFields(newExpandedFields);
-                    }}
-                  >
-                    <strong className="mb-0 text-dark">
-                      {field.key ? field.key : "New Property"}
-                    </strong>
-                    {!expandedFields.has(i) && (
-                      <div className="mx-2 text-muted">
-                        {field.type}{" "}
-                        {field.type !== "boolean" && field.enum.length ? (
-                          <>
-                            (One of:{" "}
-                            <OverflowText maxWidth={400}>
-                              {field.enum.map((v) => (
-                                <span
-                                  className="badge badge-light border mr-1"
-                                  key={v}
-                                >
-                                  {v}
-                                </span>
-                              ))}
-                            </OverflowText>
-                            )
-                          </>
-                        ) : field.type === "string" ? (
-                          `(${field.min} - ${field.max} chars)`
-                        ) : ["integer", "float"].includes(field.type) ? (
-                          `(${field.min} to ${field.max})`
-                        ) : (
-                          ""
-                        )}
-                        {!field.required ? " (Optional)" : ""}
-                      </div>
-                    )}
-                    <div className="ml-auto">
-                      {expandedFields.has(i) ? (
-                        <FaAngleDown />
-                      ) : (
-                        <FaAngleRight />
+            {schema.fields.map((field, i) => {
+              const { min, max } = field;
+              return (
+                <div key={i} className="d-flex align-items-top mb-2">
+                  <div className="flex-1 border rounded ">
+                    <a
+                      href="#"
+                      className="d-flex align-items-center cursor-pointer p-2 no-underline"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const newExpandedFields = new Set(expandedFields);
+                        if (expandedFields.has(i)) {
+                          newExpandedFields.delete(i);
+                        } else {
+                          newExpandedFields.add(i);
+                        }
+                        setExpandedFields(newExpandedFields);
+                      }}
+                    >
+                      <strong className="mb-0 text-dark">
+                        {field.key ? field.key : <Trans>New Property</Trans>}
+                      </strong>
+                      {!expandedFields.has(i) && (
+                        <div className="mx-2 text-muted">
+                          {field.type}{" "}
+                          {field.type !== "boolean" && field.enum.length ? (
+                            <Trans>
+                              (One of:{" "}
+                              <OverflowText maxWidth={400}>
+                                {field.enum.map((v) => (
+                                  <span
+                                    className="badge badge-light border mr-1"
+                                    key={v}
+                                  >
+                                    {v}
+                                  </span>
+                                ))}
+                              </OverflowText>
+                              )
+                            </Trans>
+                          ) : field.type === "string" ? (
+                            t`(${min} - ${max} chars)`
+                          ) : ["integer", "float"].includes(field.type) ? (
+                            t`(${min} to ${max})`
+                          ) : (
+                            ""
+                          )}
+                          {!field.required ? ` ${t`(Optional)`}` : ""}
+                        </div>
                       )}
-                    </div>
-                  </a>
-                  {expandedFields.has(i) ? (
-                    <div className="border-top bg-light p-3 mb-0">
-                      <EditSchemaField
-                        i={i}
-                        value={field}
-                        inObject={true}
-                        onChange={(newValue) => {
-                          const newFields = [...schema.fields];
-                          newFields[i] = newValue;
-                          setSchema({
-                            ...schema,
-                            fields: newFields,
-                          });
-                        }}
-                      />
-                    </div>
-                  ) : null}
+                      <div className="ml-auto">
+                        {expandedFields.has(i) ? (
+                          <FaAngleDown />
+                        ) : (
+                          <FaAngleRight />
+                        )}
+                      </div>
+                    </a>
+                    {expandedFields.has(i) ? (
+                      <div className="border-top bg-light p-3 mb-0">
+                        <EditSchemaField
+                          i={i}
+                          value={field}
+                          inObject={true}
+                          onChange={(newValue) => {
+                            const newFields = [...schema.fields];
+                            newFields[i] = newValue;
+                            setSchema({
+                              ...schema,
+                              fields: newFields,
+                            });
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  <div>
+                    <button
+                      className="btn btn-link text-danger ml-auto"
+                      title={t`Delete Property`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const newFields = [...schema.fields];
+                        newFields.splice(i, 1);
+                        setSchema({
+                          ...schema,
+                          fields: newFields,
+                        });
+                      }}
+                    >
+                      <FaRegTrashAlt />
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <button
-                    className="btn btn-link text-danger ml-auto"
-                    title="Delete Property"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const newFields = [...schema.fields];
-                      newFields.splice(i, 1);
-                      setSchema({
-                        ...schema,
-                        fields: newFields,
-                      });
-                    }}
-                  >
-                    <FaRegTrashAlt />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
             <a
               href="#"
               className="text-purple"
@@ -256,7 +265,7 @@ function EditSimpleSchema({
                 });
               }}
             >
-              <GBAddCircle /> Add property
+              <GBAddCircle /> <Trans>Add property</Trans>
             </a>
           </div>
         </div>
@@ -274,6 +283,7 @@ export default function EditSchemaModal({
   defaultEnable,
   onEnable,
 }: Props) {
+  const { t } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const valueType = feature.valueType;
   const defaultSimpleSchema: SimpleSchema = feature.jsonSchema?.simple?.fields
@@ -350,8 +360,8 @@ export default function EditSchemaModal({
   return (
     <ModalStandard
       trackingEventModalType=""
-      header="Edit Feature Validation"
-      cta={mode === "publish" ? "Publish" : "Save to Draft"}
+      header={t`Edit Feature Validation`}
+      cta={mode === "publish" ? t`Publish` : t`Save to Draft`}
       size="lg"
       submit={validatedSubmit(form, async (value) => {
         if (value.enabled && value.schemaType === "schema") {
@@ -370,15 +380,16 @@ export default function EditSchemaModal({
               ajv.compile(parsedSchema);
             }
           } catch (e) {
+            const validatorError = e.message;
             throw new Error(
-              `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
+              t`The JSON Schema is invalid. Please check it and try again. Validator error: "${validatorError}"`,
             );
           }
 
           if (schemaString !== value.schema) {
             form.setValue("schema", schemaString);
             throw new Error(
-              "We fixed some errors in the schema. If it looks correct, save again.",
+              t`We fixed some errors in the schema. If it looks correct, save again.`,
             );
           }
         } else if (value.enabled && value.schemaType === "simple") {
@@ -389,8 +400,9 @@ export default function EditSchemaModal({
             const ajv = getJSONValidator();
             ajv.compile(parsedSchema);
           } catch (e) {
+            const validatorError = e.message;
             throw new Error(
-              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
+              t`The Simple Schema is invalid. Please check it and try again. Validator error: "${validatorError}"`,
             );
           }
         }
@@ -433,8 +445,8 @@ export default function EditSchemaModal({
       />
       <Switch
         id={"schemaEnabled"}
-        label="Enable Validation"
-        description="These validation rules will only apply going forward. Existing feature values will not be affected."
+        label={t`Enable Validation`}
+        description={t`These validation rules will only apply going forward. Existing feature values will not be affected.`}
         value={form.watch("enabled")}
         onChange={(v) => form.setValue("enabled", v)}
         mb="4"
@@ -443,7 +455,7 @@ export default function EditSchemaModal({
         <>
           <div className="form-group">
             <label className="font-weight-bold text-dark">
-              Validation Type
+              <Trans>Validation Type</Trans>
             </label>
             <div className="d-flex">
               <label className="text-dark d-flex align-items-center">
@@ -454,7 +466,9 @@ export default function EditSchemaModal({
                   checked={form.watch("schemaType") === "simple"}
                   onChange={() => form.setValue("schemaType", "simple")}
                 />
-                <div className="ml-2">Simple</div>
+                <div className="ml-2">
+                  <Trans>Simple</Trans>
+                </div>
               </label>
               <label className="ml-4 text-dark d-flex align-items-center">
                 <input
@@ -498,7 +512,7 @@ export default function EditSchemaModal({
               value={form.watch("schema")}
               setValue={(v) => form.setValue("schema", v)}
               minRows={20}
-              helpText={`Enter a JSON Schema for this feature's value. See https://json-schema.org/ for more information.`}
+              helpText={t`Enter a JSON Schema for this feature's value. See https://json-schema.org/ for more information.`}
             />
           )}
         </>

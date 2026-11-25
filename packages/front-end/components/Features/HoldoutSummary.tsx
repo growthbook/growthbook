@@ -1,5 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { Box } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import ForceSummary from "./ForceSummary";
 import RolloutRow from "./RolloutRow";
 import { SampleByField } from "./RuleField";
@@ -20,10 +21,11 @@ export default function HoldoutSummary({
   // matching env flavor. Absent (all-environments view) = the base value.
   environment?: string;
 }) {
+  const { t } = useLingui();
   return (
     <Box>
       <SampleByField hashAttribute={hashAttribute} />
-      <RolloutRow coverage={holdoutSize} label="Holdout" />
+      <RolloutRow coverage={holdoutSize} label={t`Holdout`} />
       <ForceSummary value={value} feature={feature} environment={environment} />
     </Box>
   );

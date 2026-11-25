@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { isActiveDraftStatus } from "shared/validators";
@@ -65,6 +66,7 @@ export default function DraftSelectorForChanges({
   alert?: React.ReactNode;
   alertActive?: boolean;
 }) {
+  const { t } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
     feature,
@@ -180,7 +182,7 @@ export default function DraftSelectorForChanges({
       />
       {!!affectedEnvs && (
         <AffectedEnvironmentsBadges
-          label="Affected in this draft:"
+          label={t`Affected in this draft:`}
           affectedEnvs={affectedEnvs}
           allEnvironments={filterEnvironmentsByFeature(
             allEnvironments,

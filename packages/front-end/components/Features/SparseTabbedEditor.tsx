@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import type { Ace } from "ace-builds";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import { FeatureValueType } from "shared/types/feature";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { Size } from "@/ui/sizes";
@@ -119,8 +120,12 @@ export default function SparseTabbedEditor({
         <Flex align="center" gap="4" minWidth="0">
           {!fullscreen && headerLeft}
           <TabsList size={tabsSize}>
-            <TabsTrigger value="edit">Edit</TabsTrigger>
-            <TabsTrigger value="preview">Preview</TabsTrigger>
+            <TabsTrigger value="edit">
+              <Trans>Edit</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="preview">
+              <Trans>Preview</Trans>
+            </TabsTrigger>
           </TabsList>
         </Flex>
         {fullscreen ? (
@@ -131,7 +136,7 @@ export default function SparseTabbedEditor({
             variant="ghost"
             onClick={() => setFullscreen(false)}
           >
-            Exit full screen (ESC)
+            <Trans>Exit full screen (ESC)</Trans>
           </Button>
         ) : null}
       </Flex>

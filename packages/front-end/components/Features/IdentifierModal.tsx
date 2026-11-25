@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   SDKAttribute,
@@ -89,6 +90,7 @@ export default function IdentifierModal({
   defaultProjects?: string[];
   source: string;
 }) {
+  const { t } = useLingui();
   const { project, datasources, mutateDefinitions } = useDefinitions();
   const { refreshOrganization } = useUser();
   const { apiCall, orgId } = useAuth();
@@ -158,8 +160,8 @@ export default function IdentifierModal({
   const defaultType = attributeToUserIdTypeName(newProperty);
   const linkedType = (d: DataSourceInterfaceWithParams) =>
     existing
-      ? (d.settings.userIdTypes?.find((t) =>
-          t.attributes?.includes(existing.property),
+      ? (d.settings.userIdTypes?.find((type) =>
+          type.attributes?.includes(existing.property),
         )?.userIdType ?? null)
       : null;
   const canEdit = (d: DataSourceInterfaceWithParams) =>
@@ -249,6 +251,21 @@ export default function IdentifierModal({
     ]),
   ];
 
+  const typeList = shownTypes.map((type, i) => (
+    <span key={type}>
+      {i > 0 && (i === shownTypes.length - 1 ? ` ${t`or`} ` : ", ")}
+      <code>{type}</code>
+    </span>
+  ));
+  const mappedType =
+    shownTypes.length === 1 ? <code>{shownTypes[0]}</code> : t`that type`;
+  const automaticList = new Intl.ListFormat("en").format(
+    automatic.map((d) => d.name),
+  );
+  const lockedList = new Intl.ListFormat("en").format(
+    lockedLinks.map((d) => d.name),
+  );
+
   const finishSave = async (property: string) => {
     await Promise.all([refreshOrganization(), mutateDefinitions()]);
     onSave?.(property);
@@ -259,12 +276,12 @@ export default function IdentifierModal({
       open={true}
       header={
         converting
-          ? "Convert to Identifier"
+          ? t`Convert to Identifier`
           : isEdit
-            ? "Edit Identifier"
-            : "Add Identifier"
+            ? t`Edit Identifier`
+            : t`Add Identifier`
       }
-      cta={converting ? "Convert" : isEdit ? "Save" : "Add Identifier"}
+      cta={converting ? t`Convert` : isEdit ? t`Save` : t`Add Identifier`}
       size="xl"
       ctaEnabled={
         canSave && !!name.trim() && lockedLinks.length === 0 && !savedWithErrors
@@ -277,7 +294,7 @@ export default function IdentifierModal({
             : "add-identifier"
       }
       trackingEventModalSource={source}
-      closeCta={savedWithErrors ? "Close" : "Cancel"}
+      closeCta={savedWithErrors ? t`Close` : t`Cancel`}
       close={async () => {
         if (savedWithErrors) await finishSave(savedWithErrors);
         close();
@@ -313,8 +330,9 @@ export default function IdentifierModal({
           // Refreshing now could unmount this modal (the detail page loses the
           // old name) before the error shows, so it waits until close.
           setSavedWithErrors(property);
+          const failed = res.failedDatasources.join(", ");
           throw new Error(
-            `${property} was saved, but ${res.failedDatasources.join(", ")} couldn't be updated. Link it from each Data Source's identifier types.`,
+            t`${property} was saved, but ${failed} couldn't be updated. Link it from each Data Source's identifier types.`,
           );
         }
         await finishSave(property);
@@ -341,25 +359,16 @@ export default function IdentifierModal({
                 <Flex align="center" gap="2">
                   <PiDatabase />
                   <Text weight="semibold" color="text-mid">
-                    In your Data Sources
+                    <Trans>In your Data Sources</Trans>
                   </Text>
                 </Flex>
                 <Text size="sm">
-                  Each Data Source links <code>{newProperty}</code> to an
-                  identifier type (
-                  {shownTypes.map((t, i) => (
-                    <span key={t}>
-                      {i > 0 && (i === shownTypes.length - 1 ? " or " : ", ")}
-                      <code>{t}</code>
-                    </span>
-                  ))}
-                  ). In your assignment queries and fact tables, map{" "}
-                  {shownTypes.length === 1 ? (
-                    <code>{shownTypes[0]}</code>
-                  ) : (
-                    "that type"
-                  )}{" "}
-                  to the column that holds it, which can have any name.
+                  <Trans>
+                    Each Data Source links <code>{newProperty}</code> to an
+                    identifier type ({typeList}). In your assignment queries and
+                    fact tables, map {mappedType} to the column that holds it,
+                    which can have any name.
+                  </Trans>
                 </Text>
               </Flex>
             )}
@@ -367,24 +376,20 @@ export default function IdentifierModal({
         }
       >
         <TextField
-          label="Name"
+          label={t`Name`}
           autoComplete="off"
           data-1p-ignore
           required
           markRequired
           autoFocus={!isEdit}
           value={name}
-          placeholder="e.g. userId"
+          placeholder={t`e.g. userId`}
           onChange={(e) => setName(e.target.value)}
           onBlur={() => setSettledName(name.trim())}
-          helpText="Must match the key your SDK passes in."
+          helpText={t`Must match the key your SDK passes in.`}
           error={
             lockedLinks.length > 0
-              ? `Can't rename: it's linked in ${new Intl.ListFormat(
-                  "en",
-                ).format(
-                  lockedLinks.map((d) => d.name),
-                )}, which you don't have permission to edit.`
+              ? t`Can't rename: it's linked in ${lockedList}, which you don't have permission to edit.`
               : undefined
           }
         />
@@ -403,7 +408,7 @@ export default function IdentifierModal({
         <DescriptionField
           value={description}
           setValue={setDescription}
-          placeholder="Where this value comes from, e.g. set at login from the account ID"
+          placeholder={t`Where this value comes from, e.g. set at login from the account ID`}
         />
         <DataTypeField
           value={datatype}
@@ -418,16 +423,16 @@ export default function IdentifierModal({
           </Box>
         )}
         <MultiSelectField
-          label="Projects"
+          label={t`Projects`}
           size="md"
           legacyLabelFormatting={false}
-          placeholder="All Projects"
+          placeholder={t`All Projects`}
           value={projects}
           options={projectOptions}
           onChange={setProjects}
         />
         <TagsInput
-          label="Tags"
+          label={t`Tags`}
           size="md"
           legacyLabelFormatting={false}
           value={tags}
@@ -445,30 +450,36 @@ export default function IdentifierModal({
 
         {fileConfig && shown.length > 0 && (
           <Box>
-            <Text weight="semibold">Data Sources</Text>
+            <Text weight="semibold">
+              <Trans>Data Sources</Trans>
+            </Text>
             <Text as="div" size="sm" color="text-mid">
-              Data Sources are managed in <code>config.yml</code>, so this
-              identifier isn&apos;t linked to them here.
+              <Trans>
+                Data Sources are managed in <code>config.yml</code>, so this
+                identifier isn&apos;t linked to them here.
+              </Trans>
             </Text>
           </Box>
         )}
         {!fileConfig && shown.length > 0 && (
           <Flex direction="column" gap="2">
             <Box>
-              <Text weight="semibold">Data Sources</Text>
+              <Text weight="semibold">
+                <Trans>Data Sources</Trans>
+              </Text>
               <Text as="div" size="sm" color="text-mid">
                 {isEdit && !converting ? (
-                  <>
+                  <Trans>
                     Link this identifier in more Data Sources so experiments
                     using it pick the right assignment query. Change existing
                     links from the Data Source.
-                  </>
+                  </Trans>
                 ) : (
-                  <>
+                  <Trans>
                     Links this identifier to an identifier type in each Data
                     Source you check, so experiments using it pick the right
                     assignment query.
-                  </>
+                  </Trans>
                 )}
               </Text>
             </Box>
@@ -480,10 +491,10 @@ export default function IdentifierModal({
                       {selectable.length > 1 ? (
                         <Checkbox
                           label={
-                            <>
+                            <Trans>
                               Data Source
                               <VisuallyHidden> (select all)</VisuallyHidden>
-                            </>
+                            </Trans>
                           }
                           weight="medium"
                           value={
@@ -500,11 +511,11 @@ export default function IdentifierModal({
                           }
                         />
                       ) : (
-                        "Data Source"
+                        t`Data Source`
                       )}
                     </TableColumnHeader>
                     <TableColumnHeader style={{ width: 240 }}>
-                      Identifier type
+                      <Trans>Identifier type</Trans>
                     </TableColumnHeader>
                   </TableRow>
                 </TableHeader>
@@ -514,6 +525,7 @@ export default function IdentifierModal({
                     const linked = linkedType(d);
                     const locked = !!linked || !editable;
                     const checked = isChecked(d);
+                    const datasourceName = d.name;
                     return (
                       <TableRow key={d.id}>
                         <TableCell>
@@ -538,17 +550,17 @@ export default function IdentifierModal({
                             align="center"
                             description={
                               !editable && !linked
-                                ? "You don't have permission to edit this Data Source"
+                                ? t`You don't have permission to edit this Data Source`
                                 : !linked && hasFixedUserIdTypes(d)
-                                  ? "Can only link to its existing identifier types"
+                                  ? t`Can only link to its existing identifier types`
                                   : undefined
                             }
                             value={checked}
                             disabled={locked}
                             disabledMessage={
                               linked
-                                ? `Linked as ${linked}. Change it from the Data Source.`
-                                : "You don't have permission to edit this Data Source"
+                                ? t`Linked as ${linked}. Change it from the Data Source.`
+                                : t`You don't have permission to edit this Data Source`
                             }
                             setValue={(v) => setChecked(d, v)}
                           />
@@ -559,7 +571,7 @@ export default function IdentifierModal({
                               <Text size="sm" color="text-mid" mono>
                                 {linked}
                               </Text>
-                              <Badge label="Linked" color="gray" />
+                              <Badge label={t`Linked`} color="gray" />
                             </Flex>
                           ) : !checked || !settledName ? (
                             <Text color="text-low">—</Text>
@@ -567,14 +579,14 @@ export default function IdentifierModal({
                             <Select
                               size="sm"
                               value={pickFor(d) ?? undefined}
-                              aria-label={`Identifier type in ${d.name}`}
+                              aria-label={t`Identifier type in ${datasourceName}`}
                               setValue={(v) =>
                                 setPicks((p) => ({ ...p, [d.id]: v }))
                               }
                             >
-                              {userIdTypeNames(d).map((t) => (
-                                <SelectItem key={t} value={t}>
-                                  {t}
+                              {userIdTypeNames(d).map((type) => (
+                                <SelectItem key={type} value={type}>
+                                  {type}
                                 </SelectItem>
                               ))}
                               {!hasFixedUserIdTypes(d) &&
@@ -584,7 +596,7 @@ export default function IdentifierModal({
                                       <SelectSeparator />
                                     )}
                                     <SelectItem value={NEW_TYPE}>
-                                      New type: {defaultType}
+                                      <Trans>New type: {defaultType}</Trans>
                                     </SelectItem>
                                   </>
                                 )}
@@ -599,10 +611,9 @@ export default function IdentifierModal({
             )}
             {automatic.length > 0 && (
               <HelperText status="info" icon={<PiLockSimple />}>
-                {new Intl.ListFormat("en").format(automatic.map((d) => d.name))}{" "}
                 {automatic.length === 1
-                  ? "updates its identifiers automatically."
-                  : "update their identifiers automatically."}
+                  ? t`${automaticList} updates its identifiers automatically.`
+                  : t`${automaticList} update their identifiers automatically.`}
               </HelperText>
             )}
           </Flex>

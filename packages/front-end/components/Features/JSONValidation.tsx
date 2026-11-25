@@ -6,6 +6,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import { useRouter } from "next/router";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -30,6 +31,7 @@ export default function JSONValidation({
   setVersion,
   revisionList,
 }: Props) {
+  const { t } = useLingui();
   const { hasCommercialFeature } = useUser();
 
   const router = useRouter();
@@ -48,6 +50,8 @@ export default function JSONValidation({
 
   const [edit, setEdit] = useState(false);
 
+  const updatedAgo = schemaDateUpdated ? ago(schemaDateUpdated) : "";
+
   // Boolean flags can't have a validation schema; json/string/number can.
   if (feature.valueType === "boolean") return null;
 
@@ -59,17 +63,19 @@ export default function JSONValidation({
       <Box>
         <Flex align="center" gap="1" mb="1">
           <Heading as="h3" size="md" mb="0">
-            Schema Validation
+            <Trans>Schema Validation</Trans>
           </Heading>
-          <Badge label="Provided by Config" color="violet" variant="soft" />
+          <Badge label={t`Provided by Config`} color="violet" variant="soft" />
         </Flex>
         <Text as="p" size="sm" color="text-low" fontStyle="italic">
-          This Feature Flag&apos;s default value is backed by the{" "}
-          <Link href={`/configs/${configBackedKey}`}>
-            <code>{configBackedKey}</code>
-          </Link>{" "}
-          Config, which supplies its own schema. The Feature Flag&apos;s own
-          schema is disabled while a Config is attached.
+          <Trans>
+            This Feature Flag&apos;s default value is backed by the{" "}
+            <Link href={`/configs/${configBackedKey}`}>
+              <code>{configBackedKey}</code>
+            </Link>{" "}
+            Config, which supplies its own schema. The Feature Flag&apos;s own
+            schema is disabled while a Config is attached.
+          </Trans>
         </Text>
       </Box>
     );
@@ -101,11 +107,11 @@ export default function JSONValidation({
       )}
       <Flex align="center" gap="1" mb="1">
         <Heading as="h3" size="md" mb="0">
-          Schema Validation
+          <Trans>Schema Validation</Trans>
         </Heading>
         {hasJsonValidator && (
           <Badge
-            label={validationEnabled ? "Enabled" : "Not enabled"}
+            label={validationEnabled ? t`Enabled` : t`Not enabled`}
             color={validationEnabled ? "green" : "gray"}
             variant="soft"
           />
@@ -113,15 +119,15 @@ export default function JSONValidation({
         <div className="ml-auto">
           {!hasJsonValidator ? (
             <Button variant="ghost" onClick={() => setUpgradeModal(true)}>
-              Upgrade
+              <Trans>Upgrade</Trans>
             </Button>
           ) : !validationEnabled ? (
             <Button variant="ghost" onClick={() => setEdit(true)}>
-              Enable
+              <Trans>Enable</Trans>
             </Button>
           ) : (
             <Button variant="ghost" onClick={() => setEdit(true)}>
-              Edit
+              <Trans>Edit</Trans>
             </Button>
           )}
         </div>
@@ -133,8 +139,10 @@ export default function JSONValidation({
       </Flex>
       {!validationEnabled && (
         <Text as="p" size="sm" color="text-low" fontStyle="italic">
-          Prevent typos and mistakes by specifying validation rules using JSON
-          Schema or our Simple Validation Builder
+          <Trans>
+            Prevent typos and mistakes by specifying validation rules using JSON
+            Schema or our Simple Validation Builder
+          </Trans>
         </Text>
       )}
       {validationEnabled && (
@@ -147,14 +155,14 @@ export default function JSONValidation({
           {!hasJsonValidator || !validationEnabled ? (
             <img
               src="/images/empty-states/json_validation.png"
-              alt="JSON Validation"
+              alt={t`JSON Validation`}
               style={{ width: "100%", height: "auto" }}
             />
           ) : (
             <div>
               {schemaDateUpdated && (
                 <div className="text-muted" title={datetime(schemaDateUpdated)}>
-                  Updated {schemaDateUpdated ? ago(schemaDateUpdated) : ""}
+                  <Trans>Updated {updatedAgo}</Trans>
                 </div>
               )}
               <Code

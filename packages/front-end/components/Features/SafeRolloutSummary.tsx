@@ -6,6 +6,7 @@ import {
 } from "shared/experiments";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { SafeRolloutInterface, SafeRolloutRule } from "shared/validators";
 import Tooltip from "@/ui/Tooltip";
 import RuleField, { SampleByField } from "@/components/Features/RuleField";
@@ -30,6 +31,7 @@ export default function SafeRolloutSummary({
   rule: SafeRolloutRule;
   feature: FeatureInterface;
 }) {
+  const { t } = useLingui();
   const coverage = 1;
   const numOfVariations = 2; // Control & Rollout
   const singleVariationCoverage = coverage / numOfVariations;
@@ -76,7 +78,7 @@ export default function SafeRolloutSummary({
   return (
     <Flex direction="column" gap="3">
       <SampleByField hashAttribute={hashAttribute} mb="0" />
-      <RuleField label="Monitor" mb="0">
+      <RuleField label={t`Monitor`} mb="0">
         <Flex direction="row" gap="2">
           <EntityBadge
             label={
@@ -95,12 +97,16 @@ export default function SafeRolloutSummary({
               </Tooltip>
             }
           />
-          metric{metricNames.length > 1 ? "s" : ""}
+          {metricNames.length > 1 ? (
+            <Trans>metrics</Trans>
+          ) : (
+            <Trans>metric</Trans>
+          )}
         </Flex>
       </RuleField>
       <ValidateValue value={controlValue} feature={feature} />
       <ValidateValue value={variationValue} feature={feature} />
-      <RuleField label="Serve" mb="0">
+      <RuleField label={t`Serve`} mb="0">
         <Box
           px="3"
           style={{
@@ -111,13 +117,13 @@ export default function SafeRolloutSummary({
           <Table>
             <TableBody>
               <ValueRow
-                label="Control"
+                label={t`Control`}
                 value={controlValue}
                 valueType={type}
                 coverage={singleVariationCoverage}
               />
               <ValueRow
-                label="Rollout Value"
+                label={t`Rollout Value`}
                 value={variationValue}
                 valueType={type}
                 coverage={singleVariationCoverage}

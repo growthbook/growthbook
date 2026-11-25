@@ -1,4 +1,5 @@
 import React from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import {
   OptionContext,
@@ -48,19 +49,20 @@ export function AttributeOptionTooltipContent({
 }: {
   option: AttributeOptionForTooltip;
 }) {
+  const { t } = useLingui();
   const names = useProjectNames(option.projects);
   return (
     <OptionTooltipShell
       href={`/attributes/${option.value}`}
       title={option.label}
     >
-      <OptionTooltipRow label="Type:">
-        {option.datatype ?? "unknown"}
+      <OptionTooltipRow label={t`Type:`}>
+        {option.datatype ?? t`unknown`}
       </OptionTooltipRow>
       <OptionTooltipProjectsRow names={names} />
       {option.hashAttribute === true && (
         <Text size="sm" as="div" weight="semibold">
-          Identifier
+          <Trans>Identifier</Trans>
         </Text>
       )}
       <OptionTooltipTags tags={option.tags} />

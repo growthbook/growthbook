@@ -1,6 +1,7 @@
 import { Fragment, useMemo } from "react";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { NamespaceUsage } from "shared/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { findGaps } from "@/services/features";
@@ -48,8 +49,10 @@ export default function NamespaceUsageGraph({
   ranges,
   focusedRangeIndex = null,
   setRange,
-  title = "Allocation",
+  title,
 }: Props) {
+  const { t } = useLingui();
+  const titleText = title === undefined ? t`Allocation` : title;
   const { namespaces } = useOrgSettings();
 
   const gaps = useMemo(
@@ -93,6 +96,8 @@ export default function NamespaceUsageGraph({
     ? ranges.reduce((sum, [s, e]) => sum + (e - s), 0)
     : totalUsed;
 
+  const headerTotalText = percentFormatter.format(headerTotal);
+
   const labeledSegments: RangeTuple[] =
     selectedRanges.length > 0 ? selectedRanges : inUseIntervals;
 
@@ -101,30 +106,30 @@ export default function NamespaceUsageGraph({
       <Flex align="center" gap="4" mb="1">
         <Box flexGrow="1">
           <Text as="label" size="md" weight="medium">
-            {title}
+            {titleText}
           </Text>{" "}
           <Text as="span" size="md" color="text-low">
-            ({percentFormatter.format(headerTotal)} total)
+            <Trans>({headerTotalText} total)</Trans>
           </Text>
         </Box>
         {ranges && (
           <Flex align="center" gap="2">
             <Box className={clsx(styles.legend_box, styles.legend_active)} />
             <Text size="sm" color="text-mid">
-              Active
+              <Trans>Active</Trans>
             </Text>
           </Flex>
         )}
         <Flex align="center" gap="2">
           <Box className={clsx(styles.legend_box, styles.legend_available)} />
           <Text size="sm" color="text-mid">
-            Available
+            <Trans>Available</Trans>
           </Text>
         </Flex>
         <Flex align="center" gap="2">
           <Box className={clsx(styles.legend_box, styles.legend_inUse)} />
           <Text size="sm" color="text-mid">
-            In use
+            <Trans>In use</Trans>
           </Text>
         </Flex>
       </Flex>
@@ -261,8 +266,11 @@ export default function NamespaceUsageGraph({
       {overlappingCount > 0 && (
         <div className={styles.overlapWarning}>
           <HelperText status="warning" size="sm">
-            Active range overlaps with {overlappingCount}{" "}
-            {overlappingCount === 1 ? "experiment" : "experiments"}.
+            <Plural
+              value={overlappingCount}
+              one="Active range overlaps with # experiment."
+              other="Active range overlaps with # experiments."
+            />
           </HelperText>
         </div>
       )}

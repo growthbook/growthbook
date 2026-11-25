@@ -23,6 +23,7 @@ import { FeatureUsageLookback } from "shared/types/integrations";
 import { isManagedWarehouseUnavailable, stemRuleId } from "shared/util";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { defaultStyles, TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
@@ -331,6 +332,7 @@ export function FeatureUsageContainer({
   revision?: FeatureRevisionInterface;
   initialTab?: "source" | "value" | "rule";
 }) {
+  const { t } = useLingui();
   const [tab, setTab] = useState<"source" | "value" | "rule">(initialTab);
   const { featureUsage, lookback, setLookback, managedWarehouseUnavailable } =
     useFeatureUsage();
@@ -352,9 +354,10 @@ export function FeatureUsageContainer({
     if (!rule.id) return;
     const stem = stemRuleId(rule.id);
     if (!ruleLabelMapping.has(stem)) {
+      const ruleNumber = i + ruleNumberOffset;
       ruleLabelMapping.set(
         stem,
-        rule.description?.trim() || `Rule #${i + ruleNumberOffset}`,
+        rule.description?.trim() || t`Rule #${ruleNumber}`,
       );
     }
   });
@@ -367,9 +370,15 @@ export function FeatureUsageContainer({
     >
       <Flex align="center" justify="between" mb="1">
         <TabsList>
-          <TabsTrigger value="value">By Value</TabsTrigger>
-          <TabsTrigger value="source">By Source</TabsTrigger>
-          <TabsTrigger value="rule">By Environment &amp; Rule</TabsTrigger>
+          <TabsTrigger value="value">
+            <Trans>By Value</Trans>
+          </TabsTrigger>
+          <TabsTrigger value="source">
+            <Trans>By Source</Trans>
+          </TabsTrigger>
+          <TabsTrigger value="rule">
+            <Trans>By Environment &amp; Rule</Trans>
+          </TabsTrigger>
         </TabsList>
         <Select
           size="md"
@@ -380,11 +389,11 @@ export function FeatureUsageContainer({
           <SelectItem value="15minute">
             <Text weight="medium" as="span">
               <Flex align="center" gap="2">
-                Past 15 Minutes
+                <Trans>Past 15 Minutes</Trans>
                 <Badge
                   label={
                     <>
-                      <FaBoltLightning /> Live
+                      <FaBoltLightning /> <Trans>Live</Trans>
                     </>
                   }
                   color="green"
@@ -396,17 +405,17 @@ export function FeatureUsageContainer({
           </SelectItem>
           <SelectItem value="hour">
             <Text weight="medium" as="span">
-              Past Hour
+              <Trans>Past Hour</Trans>
             </Text>
           </SelectItem>
           <SelectItem value="day">
             <Text weight="medium" as="span">
-              Past Day
+              <Trans>Past Day</Trans>
             </Text>
           </SelectItem>
           <SelectItem value="week">
             <Text weight="medium" as="span">
-              Past Week
+              <Trans>Past Week</Trans>
             </Text>
           </SelectItem>
         </Select>
@@ -484,6 +493,7 @@ export default function FeatureUsageGraph({
   filterKeys?: (key: string) => boolean;
   groupTopN?: boolean;
 }) {
+  const { t } = useLingui();
   data = data?.filter(Boolean);
 
   const [disabledKeys, setDisabledKeys] = useState<Set<string>>(new Set());
@@ -625,7 +635,7 @@ export default function FeatureUsageGraph({
   };
 
   const keyLabel = (k: string) =>
-    formatLabel && k !== OTHER_KEY ? formatLabel(k) : k || '""';
+    k === OTHER_KEY ? t`(other)` : formatLabel ? formatLabel(k) : k || '""';
 
   const swatchStyle = (k: string) => ({
     width: 15,
@@ -704,7 +714,7 @@ export default function FeatureUsageGraph({
                         opacity: 0.5,
                       }}
                     >
-                      No data available
+                      <Trans>No data available</Trans>
                     </text>
                   )}
                   <Group left={margin[3]} top={margin[0]}>
@@ -828,11 +838,11 @@ export default function FeatureUsageGraph({
                             closestIdx = i;
                           }
                         });
-                        const t = xDomain[closestIdx];
-                        const d = displayData.find((p) => p.t === t);
+                        const time = xDomain[closestIdx];
+                        const d = displayData.find((p) => p.t === time);
                         if (!d) return;
-                        const barX = xScale(t) ?? 0;
-                        setHoveredT(t);
+                        const barX = xScale(time) ?? 0;
+                        setHoveredT(time);
 
                         const TOOLTIP_W = 280; // padding (40) + max content (~240)
                         const rawLeft = barX + margin[3] + bandwidth / 2;
@@ -971,7 +981,9 @@ export default function FeatureUsageGraph({
                             }}
                           >
                             <Grid columns={"1fr 50px 40px"} gap="3">
-                              <div style={{ fontWeight: 600 }}>Total</div>
+                              <div style={{ fontWeight: 600 }}>
+                                <Trans>Total</Trans>
+                              </div>
                               <div>
                                 <strong>
                                   {formatter.format(
@@ -1004,7 +1016,7 @@ export default function FeatureUsageGraph({
                   {formatter.format(grandTotal)}
                 </span>
                 <span style={{ fontSize: 12, color: "var(--slate-10)" }}>
-                  total evaluations
+                  <Trans>total evaluations</Trans>
                 </span>
               </Flex>
             )}
@@ -1115,7 +1127,7 @@ export default function FeatureUsageGraph({
                     })}
                   {useGrouping && (
                     <Link onClick={() => setExpanded(true)} size="sm">
-                      expand
+                      <Trans>expand</Trans>
                     </Link>
                   )}
                   {groupTopN &&
@@ -1129,7 +1141,7 @@ export default function FeatureUsageGraph({
                         }}
                         size="sm"
                       >
-                        show fewer groups
+                        <Trans>show fewer groups</Trans>
                       </Link>
                     )}
                 </Flex>
@@ -1153,6 +1165,7 @@ export function FeatureUsageSparkline({
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
 }) {
+  const { t } = useLingui();
   const { sparkFeatureUsage, showFeatureUsage, managedWarehouseUnavailable } =
     useFeatureUsage();
   const [modalOpen, setModalOpen] = useState(false);
@@ -1220,7 +1233,7 @@ export function FeatureUsageSparkline({
 
   return (
     <>
-      <Tooltip content="Usage analytics (15 minutes, live)">
+      <Tooltip content={t`Usage analytics (15 minutes, live)`}>
         <Flex
           align="center"
           gap="1"
@@ -1274,7 +1287,7 @@ export function FeatureUsageSparkline({
                 fontSize={11}
                 fill="var(--slate-9)"
               >
-                no usage data
+                <Trans>no usage data</Trans>
               </text>
             ) : (
               <BarStack
@@ -1365,20 +1378,20 @@ export function FeatureUsageSparkline({
           header={
             useDummyData ? (
               <Flex align="center" gap="2">
-                Usage Analytics
+                <Trans>Usage Analytics</Trans>
                 <Badge
-                  label="Using dummy data"
+                  label={t`Using dummy data`}
                   color="cyan"
                   variant="soft"
                   size="sm"
                 />
               </Flex>
             ) : (
-              "Usage Analytics"
+              t`Usage Analytics`
             )
           }
           submit={undefined}
-          closeCta="Close"
+          closeCta={t`Close`}
           size="lg"
         >
           <FeatureUsageContainer

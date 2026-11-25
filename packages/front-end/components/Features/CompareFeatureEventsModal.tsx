@@ -1,4 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
+import { useLingui } from "@lingui/react/macro";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
@@ -112,10 +113,11 @@ export default function CompareFeatureEventsModal({
   feature,
   onClose,
 }: CompareFeatureEventsModalProps) {
+  const { t } = useLingui();
   return (
     <AuditHistoryExplorerModal<FeatureInterface>
       entityId={feature.id}
-      entityName="Feature"
+      entityName={t`Feature`}
       config={FEATURE_DIFF_CONFIG}
       onClose={onClose}
     />

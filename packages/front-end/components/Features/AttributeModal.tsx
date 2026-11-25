@@ -6,6 +6,7 @@ import {
 } from "shared/types/organization";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAttributeSchema } from "@/services/features";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useAuth } from "@/services/auth";
@@ -81,6 +82,7 @@ export default function AttributeModal({
   defaultProjects,
   onAddIdentifier,
 }: Props) {
+  const { t, i18n } = useLingui();
   const { projects, project, datasources } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
@@ -182,20 +184,49 @@ export default function AttributeModal({
     : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
 
   // Only describes the example value when the type alone doesn't.
+  const enumOptionsList = enumOptions.join(", ");
+  const formatLabel = STRING_FORMATS.find((f) => f.value === format)?.label;
   const snippetHelp =
     supportsEnumOptions && enumOptions.length
-      ? `One of: ${enumOptions.join(", ")}`
-      : datatype === "string"
-        ? STRING_FORMATS.find((f) => f.value === format)?.label
+      ? t`One of: ${enumOptionsList}`
+      : datatype === "string" && formatLabel
+        ? i18n._(formatLabel)
         : undefined;
+
+  const featureRefCount = refs?.features.length ?? 0;
+  const experimentRefCount = refs?.experiments.length ?? 0;
+  const savedGroupRefCount = refs?.savedGroups.length ?? 0;
+  const usedByParts: string[] = [];
+  if (featureRefCount) {
+    usedByParts.push(
+      featureRefCount === 1
+        ? t`${featureRefCount} Feature Flag`
+        : t`${featureRefCount} Feature Flags`,
+    );
+  }
+  if (experimentRefCount) {
+    usedByParts.push(
+      experimentRefCount === 1
+        ? t`${experimentRefCount} experiment`
+        : t`${experimentRefCount} experiments`,
+    );
+  }
+  if (savedGroupRefCount) {
+    usedByParts.push(
+      savedGroupRefCount === 1
+        ? t`${savedGroupRefCount} Saved Group`
+        : t`${savedGroupRefCount} Saved Groups`,
+    );
+  }
+  const usedByList = new Intl.ListFormat(i18n.locale).format(usedByParts);
 
   return (
     <ModalStandard
       trackingEventModalType={attribute ? "edit-attribute" : "add-attribute"}
       open={true}
       close={close}
-      header={attribute ? "Edit Attribute" : "Add Attribute"}
-      cta={attribute ? "Save" : "Add Attribute"}
+      header={attribute ? t`Edit Attribute` : t`Add Attribute`}
+      cta={attribute ? t`Save` : t`Add Attribute`}
       size="xl"
       ctaEnabled={!!property.trim() && hasProjectPermission}
       submit={validatedSubmit(form, async (value) => {
@@ -220,7 +251,7 @@ export default function AttributeModal({
           schema.some((s) => s.property === value.property)
         ) {
           throw new Error(
-            "That attribute name is already being used. Please choose another one.",
+            t`That attribute name is already being used. Please choose another one.`,
           );
         }
 
@@ -276,40 +307,29 @@ export default function AttributeModal({
       >
         {!attribute && onAddIdentifier && (
           <Callout status="info" dismissible id="add-attribute-identifier-hint">
-            Using this to assign users in experiments or percentage rollouts?{" "}
-            <Link onClick={onAddIdentifier}>Add an identifier</Link> instead.
+            <Trans>
+              Using this to assign users in experiments or percentage rollouts?{" "}
+              <Link onClick={onAddIdentifier}>Add an identifier</Link> instead.
+            </Trans>
           </Callout>
         )}
         {refCount > 0 && !constrainingChange && !propertyChanged && refs && (
           <Callout status="info">
-            Used by{" "}
-            {new Intl.ListFormat("en").format(
-              [
-                [refs.features.length, "Feature Flag"],
-                [refs.experiments.length, "experiment"],
-                [refs.savedGroups.length, "Saved Group"],
-              ]
-                .filter(([count]) => count)
-                .map(
-                  ([count, noun]) =>
-                    `${count} ${noun}${count === 1 ? "" : "s"}`,
-                ),
-            )}
-            .
+            <Trans>Used by {usedByList}.</Trans>
           </Callout>
         )}
 
         <TextField
-          label="Name"
+          label={t`Name`}
           autoComplete="off"
           data-1p-ignore
           required
           markRequired
           autoFocus={!attribute}
-          placeholder="e.g. country"
+          placeholder={t`e.g. country`}
           value={property}
           onChange={(e) => form.setValue("property", e.target.value)}
-          helpText="Must match the key your SDK passes in."
+          helpText={t`Must match the key your SDK passes in.`}
         />
         {propertyChanged && (
           <RenameWarning
@@ -322,7 +342,7 @@ export default function AttributeModal({
         <DescriptionField
           value={form.watch("description") || ""}
           setValue={(value) => form.setValue("description", value)}
-          placeholder="What this value means, e.g. the visitor's country from an IP lookup"
+          placeholder={t`What this value means, e.g. the visitor's country from an IP lookup`}
         />
 
         <Flex direction="column" gap="2">
@@ -334,10 +354,12 @@ export default function AttributeModal({
         </Flex>
         {hasJsonManagedWarehouse && datatypeChanged ? (
           <Callout status="info">
-            Changing the data type won&apos;t break existing Managed Warehouse
-            analyses, but historical events whose value doesn&apos;t match the
-            new type are treated as null and dropped from results, so metrics
-            may shift.
+            <Trans>
+              Changing the data type won&apos;t break existing Managed Warehouse
+              analyses, but historical events whose value doesn&apos;t match the
+              new type are treated as null and dropped from results, so metrics
+              may shift.
+            </Trans>
           </Callout>
         ) : null}
 
@@ -356,20 +378,20 @@ export default function AttributeModal({
             )}
             {supportsEnumOptions && (
               <TextField
-                label={datatype === "enum" ? "Values" : "Allowed values"}
+                label={datatype === "enum" ? t`Values` : t`Allowed values`}
                 required={datatype === "enum"}
                 markRequired={datatype === "enum"}
                 placeholder={
                   datatype === "number[]"
-                    ? "e.g. 1, 2, 3"
-                    : "e.g. free, pro, enterprise"
+                    ? t`e.g. 1, 2, 3`
+                    : t`e.g. free, pro, enterprise`
                 }
                 value={enumValue}
                 onChange={(e) => form.setValue("enum", e.target.value)}
                 helpText={
                   datatype === "enum"
-                    ? "Comma-separated."
-                    : "Optional. Restrict this list to a fixed set of comma-separated values. Leave blank to allow any values."
+                    ? t`Comma-separated.`
+                    : t`Optional. Restrict this list to a fixed set of comma-separated values. Leave blank to allow any values.`
                 }
               />
             )}
@@ -378,15 +400,20 @@ export default function AttributeModal({
         {constrainingChange ? (
           <>
             <Callout status="warning">
-              <strong>
-                Include every value already used in targeting before saving.
-              </strong>{" "}
-              Conditions referencing a value outside the list — or using an
-              operator no longer offered — keep running but become hard to edit.
+              <Trans>
+                <strong>
+                  Include every value already used in targeting before saving.
+                </strong>{" "}
+                Conditions referencing a value outside the list — or using an
+                operator no longer offered — keep running but become hard to
+                edit.
+              </Trans>
               <span style={{ display: "block", marginTop: "var(--space-2)" }}>
-                The change is applied in place: no new attribute is created,
-                existing conditions keep evaluating, and features are not
-                updated automatically.
+                <Trans>
+                  The change is applied in place: no new attribute is created,
+                  existing conditions keep evaluating, and features are not
+                  updated automatically.
+                </Trans>
               </span>
             </Callout>
             {refCount > 0 && refs && !propertyChanged ? (
@@ -401,11 +428,11 @@ export default function AttributeModal({
 
         {projects?.length > 0 && (
           <MultiSelectField
-            label="Projects"
+            label={t`Projects`}
             size="md"
             legacyLabelFormatting={false}
             placeholder={
-              canCreateWithoutProject ? "All Projects" : "Select projects..."
+              canCreateWithoutProject ? t`All Projects` : t`Select projects...`
             }
             value={selectedProjects}
             options={projectOptions}
@@ -415,14 +442,14 @@ export default function AttributeModal({
         {!hasProjectPermission && (
           <HelperText status="error">
             {!selectedProjects.length && projectOptions.length > 0
-              ? "Select a Project to continue."
-              : `You don't have permission to ${
-                  attribute ? "update" : "create"
-                } attributes in these Projects.`}
+              ? t`Select a Project to continue.`
+              : attribute
+                ? t`You don't have permission to update attributes in these Projects.`
+                : t`You don't have permission to create attributes in these Projects.`}
           </HelperText>
         )}
         <TagsInput
-          label="Tags"
+          label={t`Tags`}
           size="md"
           legacyLabelFormatting={false}
           value={form.watch("tags") || []}

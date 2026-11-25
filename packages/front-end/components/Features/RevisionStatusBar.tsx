@@ -1,5 +1,6 @@
 import { ReactNode, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import {
   PiArrowRight,
   PiCaretDown,
@@ -65,6 +66,7 @@ export default function RevisionStatusBar({
   setVersion: (version: number) => void;
   mutate: () => Promise<unknown>;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const { userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -134,7 +136,9 @@ export default function RevisionStatusBar({
 
   const drafts = revisionList.filter(isOpenUserDraft);
   const switchToLive = (
-    <Link onClick={() => setVersion(liveVersion)}>Switch to live</Link>
+    <Link onClick={() => setVersion(liveVersion)}>
+      <Trans>Switch to live</Trans>
+    </Link>
   );
   // The live revision, named in the message and opened from it.
   const liveRevisionLink = (
@@ -143,7 +147,7 @@ export default function RevisionStatusBar({
       color="inherit"
       onClick={() => setVersion(liveVersion)}
     >
-      Revision {liveVersion}
+      <Trans>Revision {liveVersion}</Trans>
     </Link>
   );
 
@@ -156,74 +160,90 @@ export default function RevisionStatusBar({
     actions = (
       <>
         {canDiscard ? (
-          <Link onClick={() => setConfirmDiscard(true)}>Discard</Link>
+          <Link onClick={() => setConfirmDiscard(true)}>
+            <Trans>Discard</Trans>
+          </Link>
         ) : null}
         <Button
           icon={<PiArrowRight />}
           iconPosition="right"
           onClick={() => setTab("review")}
         >
-          Review &amp; publish
+          <Trans>Review &amp; publish</Trans>
         </Button>
       </>
     );
     if (status === "scheduled" && revision.scheduledPublishAt) {
       const editsLocked = isRevisionEditLockedBySchedule(revision);
-      const lockClauses = [
-        editsLocked ? "edits are locked" : null,
+      const othersLocked =
         isScheduledPublishLockActive(revision) &&
-        revision.scheduledPublishLockOthers
-          ? "publishing other drafts is locked"
-          : null,
-      ].filter((c): c is string => c !== null);
-      icon = lockClauses.length ? <PiLockSimple /> : <PiClockFill />;
-      label = editsLocked ? "Draft · locked" : "Draft · scheduled";
-      message = (
-        <>
-          Publishes {datetime(revision.scheduledPublishAt)}
-          {inReview ? " once approved" : ""}
-          {lockClauses.length ? `; ${lockClauses.join(" and ")}` : ""}.
-        </>
-      );
+        !!revision.scheduledPublishLockOthers;
+      icon = editsLocked || othersLocked ? <PiLockSimple /> : <PiClockFill />;
+      label = editsLocked ? t`Draft · locked` : t`Draft · scheduled`;
+      const when = datetime(revision.scheduledPublishAt);
+      message = inReview
+        ? editsLocked && othersLocked
+          ? t`Publishes ${when} once approved; edits are locked and publishing other drafts is locked.`
+          : editsLocked
+            ? t`Publishes ${when} once approved; edits are locked.`
+            : othersLocked
+              ? t`Publishes ${when} once approved; publishing other drafts is locked.`
+              : t`Publishes ${when} once approved.`
+        : editsLocked && othersLocked
+          ? t`Publishes ${when}; edits are locked and publishing other drafts is locked.`
+          : editsLocked
+            ? t`Publishes ${when}; edits are locked.`
+            : othersLocked
+              ? t`Publishes ${when}; publishing other drafts is locked.`
+              : t`Publishes ${when}.`;
     } else {
       icon = <PiPencil />;
-      label = "Draft · not live";
+      label = t`Draft · not live`;
       message = (
         <>
-          {changeCount
-            ? `${changeCount} unpublished change${changeCount === 1 ? "" : "s"}.`
-            : "No changes yet."}{" "}
-          SDKs keep serving {liveRevisionLink} until you publish.
+          {changeCount ? (
+            <Plural
+              value={changeCount}
+              one="# unpublished change."
+              other="# unpublished changes."
+            />
+          ) : (
+            <Trans>No changes yet.</Trans>
+          )}{" "}
+          <Trans>SDKs keep serving {liveRevisionLink} until you publish.</Trans>
         </>
       );
     }
   } else if (status === "discarded") {
     icon = <PiProhibit />;
-    label = "Discarded";
-    message = "This revision was never published.";
+    label = t`Discarded`;
+    message = t`This revision was never published.`;
     actions = switchToLive;
   } else if (status === "held") {
     icon = <PiClockFill />;
-    label = "Held · not live";
+    label = t`Held · not live`;
     message = (
-      <>Its ramp schedule will publish it. SDKs serve {liveRevisionLink}.</>
+      <Trans>
+        Its ramp schedule will publish it. SDKs serve {liveRevisionLink}.
+      </Trans>
     );
     actions = switchToLive;
   } else if (status === "superseded") {
     icon = <PiLockSimple />;
-    label = "Published · not live";
-    message = <>SDKs serve {liveRevisionLink}.</>;
+    label = t`Published · not live`;
+    message = <Trans>SDKs serve {liveRevisionLink}.</Trans>;
     actions = switchToLive;
   } else {
     icon = <PiPencil />;
+    const draftCount = drafts.length;
     message =
-      drafts.length === 1
-        ? "This Feature Flag has a draft."
-        : `This Feature Flag has ${drafts.length} drafts.`;
+      draftCount === 1
+        ? t`This Feature Flag has a draft.`
+        : t`This Feature Flag has ${draftCount} drafts.`;
     actions =
       drafts.length === 1 ? (
         <Link onClick={() => setVersion(drafts[0].version)}>
-          Switch to draft
+          <Trans>Switch to draft</Trans>
         </Link>
       ) : (
         <DropdownMenu
@@ -232,26 +252,29 @@ export default function RevisionStatusBar({
           trigger={
             <Link>
               <Flex align="center" gap="1">
-                Switch to draft
+                <Trans>Switch to draft</Trans>
                 <PiCaretDown />
               </Flex>
             </Link>
           }
         >
-          {drafts.map((d) => (
-            <DropdownMenuItem
-              key={d.version}
-              onClick={() => setVersion(d.version)}
-            >
-              <Flex align="center" justify="between" gap="4" width="100%">
-                <Text truncate>
-                  Revision {d.version}
-                  {d.title ? ` · ${d.title}` : ""}
-                </Text>
-                <RevisionStatusBadge revision={d} liveVersion={liveVersion} />
-              </Flex>
-            </DropdownMenuItem>
-          ))}
+          {drafts.map((d) => {
+            const draftVersion = d.version;
+            return (
+              <DropdownMenuItem
+                key={d.version}
+                onClick={() => setVersion(d.version)}
+              >
+                <Flex align="center" justify="between" gap="4" width="100%">
+                  <Text truncate>
+                    <Trans>Revision {draftVersion}</Trans>
+                    {d.title ? ` · ${d.title}` : ""}
+                  </Text>
+                  <RevisionStatusBadge revision={d} liveVersion={liveVersion} />
+                </Flex>
+              </DropdownMenuItem>
+            );
+          })}
         </DropdownMenu>
       );
   }

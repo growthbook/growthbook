@@ -5,6 +5,7 @@ import {
   legacyEnvironmentRefs,
   useFeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
+import { I18nTestProvider } from "@/test/I18nTestProvider";
 
 describe("useFeatureRevisionDiff", () => {
   it("produces a single rule-centric diff (not bucketed by env) when one rule is modified", () => {
@@ -199,7 +200,10 @@ describe("useFeatureRevisionDiff", () => {
     );
     const rulesDiff = result.current.find((d) => d.title === "Rules");
     expect(rulesDiff).toBeDefined();
-    const { container } = render(rulesDiff!.customRender as React.ReactElement);
+    const { container } = render(
+      rulesDiff!.customRender as React.ReactElement,
+      { wrapper: I18nTestProvider },
+    );
     const html = container.innerHTML;
 
     expect(html).toContain("Environments");

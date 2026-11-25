@@ -2,6 +2,7 @@ import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
 import { ReactNode, useMemo, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { PiArrowsClockwise, PiPencilSimple, PiPlusBold } from "react-icons/pi";
 import {
   coverageToPercent,
@@ -76,8 +77,8 @@ export default function FeatureVariationsInput({
   setCoverage,
   valueType,
   defaultValue = "",
-  coverageLabel = "Traffic included in this Experiment",
-  coverageTooltip = "Units not included in the experiment skip this rule",
+  coverageLabel,
+  coverageTooltip,
   valueAsId = false,
   hideVariationIds = false,
   startEditingIndexes = false,
@@ -97,6 +98,15 @@ export default function FeatureVariationsInput({
   onlySafeToEditVariationMetadata,
   sparse,
 }: Props) {
+  const { t } = useLingui();
+  const coverageLabelText =
+    coverageLabel === undefined
+      ? t`Traffic included in this Experiment`
+      : coverageLabel;
+  const coverageTooltipText =
+    coverageTooltip === undefined
+      ? t`Units not included in the experiment skip this rule`
+      : coverageTooltip;
   const weights = useMemo(
     () => variations?.map((v) => v.weight) || [],
     [variations],
@@ -182,12 +192,12 @@ export default function FeatureVariationsInput({
   const label = _label
     ? _label
     : simple
-      ? "Traffic Percentage & Variations"
+      ? t`Traffic Percentage & Variations`
       : setVariations
-        ? "Traffic Percentage, Variations, and Weights"
+        ? t`Traffic Percentage, Variations, and Weights`
         : hideCoverage || hideVariations
-          ? "Traffic Percentage"
-          : "Traffic Percentage & Variation Weights";
+          ? t`Traffic Percentage`
+          : t`Traffic Percentage & Variation Weights`;
   // The slider's own label says it all, and there's nothing to set it apart from.
   const coverageAlone = !simple && !hideCoverage && !!hideVariations;
 
@@ -204,15 +214,15 @@ export default function FeatureVariationsInput({
             <CoverageField
               coverage={coverage}
               setCoverage={setCoverage}
-              label={coverageLabel}
-              tooltip={coverageTooltip}
+              label={coverageLabelText}
+              tooltip={coverageTooltipText}
               disabled={disableCoverage}
               panel
             />
           ) : null}
           <Field
             size="legacy"
-            label="Number of Variations"
+            label={t`Number of Variations`}
             type="number"
             value={numberOfVariations}
             disabled={onlySafeToEditVariationMetadata}
@@ -240,8 +250,8 @@ export default function FeatureVariationsInput({
             <CoverageField
               coverage={coverage}
               setCoverage={setCoverage}
-              label={coverageLabel}
-              tooltip={coverageTooltip}
+              label={coverageLabelText}
+              tooltip={coverageTooltipText}
               disabled={disableCoverage}
               panel={!coverageAlone}
             >
@@ -265,8 +275,10 @@ export default function FeatureVariationsInput({
             !!variations?.length &&
             !idsMatchIndexes && (
               <Callout status="warning" size="sm" mb="3">
-                Turning off Advanced resets variation keys to their position (0,
-                1, 2&hellip;).
+                <Trans>
+                  Turning off Advanced resets variation keys to their position
+                  (0, 1, 2&hellip;).
+                </Trans>
               </Callout>
             )}
 
@@ -293,32 +305,34 @@ export default function FeatureVariationsInput({
                 {!hideVariationIds && (
                   // Centered over the variation numbers.
                   <Text size="md" weight="semibold" align="center">
-                    {editingIds ? "#" : "Key"}
+                    {editingIds ? "#" : t`Key`}
                   </Text>
                 )}
                 {editingIds && (
                   <Text size="md" weight="semibold">
-                    {valueIsKey ? "Key" : "Value to Force"}
+                    {valueIsKey ? t`Key` : t`Value to Force`}
                   </Text>
                 )}
                 <Text size="md" weight="semibold">
-                  Variation Name
+                  <Trans>Variation Name</Trans>
                 </Text>
                 {showDescriptions && (
                   <Text size="md" weight="semibold">
-                    Description
+                    <Trans>Description</Trans>
                   </Text>
                 )}
                 {!hideSplits && (
                   <Text size="md" weight="semibold">
                     <Flex direction="column" gap="1" align="start">
                       <Flex align="center" gap="1">
-                        <span>Split</span>
+                        <span>
+                          <Trans>Split</Trans>
+                        </span>
                         {!disableVariations &&
                           !disableCustomSplit &&
                           !editingSplits &&
                           !onlySafeToEditVariationMetadata && (
-                            <Tooltip content="Customize split" side="top">
+                            <Tooltip content={t`Customize split`} side="top">
                               <IconButton
                                 variant="ghost"
                                 color="violet"
@@ -329,7 +343,7 @@ export default function FeatureVariationsInput({
                                   e.preventDefault();
                                   setEditingSplits(true);
                                 }}
-                                aria-label="Customize split"
+                                aria-label={t`Customize split`}
                               >
                                 <PiPencilSimple size={14} />
                               </IconButton>
@@ -342,7 +356,7 @@ export default function FeatureVariationsInput({
                         !disableCustomSplit &&
                         !hideSplits && (
                           <Tooltip
-                            content="Assign equal weights to all variations"
+                            content={t`Assign equal weights to all variations`}
                             side="top"
                           >
                             <Link
@@ -350,12 +364,12 @@ export default function FeatureVariationsInput({
                                 e.preventDefault();
                                 setEqualWeights();
                               }}
-                              aria-label="Set equal weights"
+                              aria-label={t`Set equal weights`}
                             >
                               <Flex align="center" gap="1">
                                 <PiArrowsClockwise size={12} />
                                 <Box as="span" style={{ fontSize: "11px" }}>
-                                  set equal
+                                  <Trans>set equal</Trans>
                                 </Box>
                               </Flex>
                             </Link>
@@ -377,7 +391,7 @@ export default function FeatureVariationsInput({
                     >
                       <Switch
                         size="sm"
-                        label="Advanced"
+                        label={t`Advanced`}
                         value={editingIds}
                         onChange={(on) =>
                           on ? setEditingIds(true) : exitAdvancedMode()
@@ -441,16 +455,16 @@ export default function FeatureVariationsInput({
                           addVariation();
                         }}
                       >
-                        Add variation
+                        <Trans>Add variation</Trans>
                       </Button>
                     )}
                     {valueType === "boolean" && (
                       <Tooltip
-                        content="Boolean features can only have two variations. Use a different feature type to add multiple variations."
+                        content={t`Boolean features can only have two variations. Use a different feature type to add multiple variations.`}
                         side="top"
                       >
                         <Button variant="ghost" icon={<PiPlusBold />} disabled>
-                          Add variation
+                          <Trans>Add variation</Trans>
                         </Button>
                       </Tooltip>
                     )}
@@ -483,6 +497,7 @@ export function CoverageField({
   panel: boolean;
   children?: ReactNode;
 }) {
+  const { t } = useLingui();
   const unset = isNaN(coverage ?? 0);
   const set = (decimal: number) =>
     setCoverage?.(Math.min(Math.max(decimal, 0), 1));
@@ -502,7 +517,7 @@ export function CoverageField({
             as="span"
             display="inline-block"
             tabIndex={0}
-            aria-label={`More information about ${label}`}
+            aria-label={t`More information about ${label}`}
           >
             <GBInfo />
           </Box>

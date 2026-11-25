@@ -13,6 +13,7 @@ import {
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import RuleModal, {
   type RampToNewValueSeed,
 } from "@/components/Features/RuleModal/index";
@@ -92,6 +93,7 @@ export default function FeatureRules({
   // scroll under it.
   stickyHeaderTop: number;
 }) {
+  const { t } = useLingui();
   const envs = environments.map((e) => e.id);
   const storedEnv = rulesEnv;
   const setEnv = setRulesEnv;
@@ -286,7 +288,7 @@ export default function FeatureRules({
     if (key === FEATURE_RULES_ALL_ENVS) {
       overflowLabels.push({
         key,
-        label: "All Environments",
+        label: t`All Environments`,
         count:
           (feature.rules?.length ?? 0) + (includeHoldoutRuleAllEnvs ? 1 : 0),
       });
@@ -312,6 +314,9 @@ export default function FeatureRules({
       )
     : overflowLabels;
 
+  const overflowCount = overflowLabels.length;
+  const activeEnvId = activeEnv?.id;
+
   // Into the open tab's environment, or every one from "All Environments".
   const addRuleEnv = env === null ? "" : (activeEnv?.id ?? null);
 
@@ -336,7 +341,7 @@ export default function FeatureRules({
             }
           >
             <Flex align="center" gap="2">
-              All Environments
+              <Trans>All Environments</Trans>
               <Badge
                 label={String(
                   (feature.rules?.length ?? 0) +
@@ -386,16 +391,14 @@ export default function FeatureRules({
           onOpenChange={setMoreOpen}
           trigger={
             <TabsMoreTrigger>
-              {overflowLabels.length > 0
-                ? `More (${overflowLabels.length})`
-                : "More"}
+              {overflowLabels.length > 0 ? t`More (${overflowCount})` : t`More`}
             </TabsMoreTrigger>
           }
         >
           <Box px="3">
             <Flex align="center" gap="2" justify="end" py="2">
               <Text size="sm" color="text-low">
-                Show inactive rules
+                <Trans>Show inactive rules</Trans>
               </Text>
               <Switch
                 size="sm"
@@ -406,14 +409,14 @@ export default function FeatureRules({
             </Flex>
             <Flex align="center" gap="2" justify="end" py="2">
               <Text size="sm" color="text-low">
-                Show rule IDs
+                <Trans>Show rule IDs</Trans>
               </Text>
               <Switch size="sm" value={showRuleIds} onChange={setShowRuleIds} />
             </Flex>
             {env === null && hasOrphanedRules && (
               <Flex align="center" gap="2" justify="end" py="2">
                 <Text size="sm" color="text-low">
-                  Show missing environment rules
+                  <Trans>Show missing environment rules</Trans>
                 </Text>
                 <Switch
                   size="sm"
@@ -427,7 +430,7 @@ export default function FeatureRules({
           {showOverflowSearch && (
             <Box px="3" pt="1" pb="2">
               <TextField
-                placeholder="Search..."
+                placeholder={t`Search...`}
                 value={overflowSearch}
                 onChange={(e) => setOverflowSearch(e.target.value)}
                 onKeyDown={(e) => e.stopPropagation()}
@@ -459,7 +462,7 @@ export default function FeatureRules({
           {showOverflowSearch && filteredOverflowLabels.length === 0 && (
             <Box px="3" py="2">
               <Text size="sm" color="text-low">
-                No matches
+                <Trans>No matches</Trans>
               </Text>
             </Box>
           )}
@@ -471,7 +474,7 @@ export default function FeatureRules({
   return (
     <>
       <SectionFrame
-        title="Rules"
+        title={t`Rules`}
         mt="4"
         stickyTop={stickyHeaderTop}
         actions={
@@ -498,7 +501,7 @@ export default function FeatureRules({
                 }}
                 icon={<PiPlusBold />}
               >
-                Add rule
+                <Trans>Add rule</Trans>
               </Button>
             </UITooltip>
           ) : null
@@ -536,7 +539,7 @@ export default function FeatureRules({
               />
             ) : (
               <Text as="p" color="text-low" mb="0">
-                No rules yet. Everyone gets the default value.
+                <Trans>No rules yet. Everyone gets the default value.</Trans>
               </Text>
             )}
           </>
@@ -569,8 +572,10 @@ export default function FeatureRules({
               />
             ) : (
               <Text as="p" color="text-low" mb="0">
-                No rules in {activeEnv.id}. Everyone there gets the default
-                value.
+                <Trans>
+                  No rules in {activeEnvId}. Everyone there gets the default
+                  value.
+                </Trans>
               </Text>
             )}
           </>

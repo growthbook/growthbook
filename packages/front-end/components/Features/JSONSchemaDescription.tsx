@@ -1,3 +1,6 @@
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
@@ -17,7 +20,7 @@ type FieldInfo = FieldData & {
 };
 
 type SchemaSummary =
-  | { kind: "fields"; description: string; fields: FieldInfo[] }
+  | { kind: "fields"; description: MessageDescriptor; fields: FieldInfo[] }
   | { kind: "primitive"; isArray: boolean; field: FieldData };
 
 export default function JSONSchemaDescription({
@@ -25,6 +28,7 @@ export default function JSONSchemaDescription({
 }: {
   jsonSchema: unknown;
 }) {
+  const { t, i18n } = useLingui();
   const summary = getJSONSchemaSummary(jsonSchema);
   if (!summary) return null;
 
@@ -35,7 +39,9 @@ export default function JSONSchemaDescription({
 
     return (
       <div className="d-flex align-items-center">
-        <div className="mr-2">{getPrimitiveDescription(field, isArray)}</div>
+        <div className="mr-2">
+          {getPrimitiveDescription(field, isArray, i18n)}
+        </div>
         {hasExtraDetails ? (
           <Tooltip
             body={
@@ -47,7 +53,7 @@ export default function JSONSchemaDescription({
                 )}
                 {field.details && field.details !== "{}" && (
                   <div>
-                    Other Settings:
+                    <Trans>Other Settings:</Trans>
                     <Code language="json" code={field.details} />
                   </div>
                 )}
@@ -64,119 +70,153 @@ export default function JSONSchemaDescription({
 
   return (
     <div className="d-flex align-items-center">
-      <div className="mr-2">{summary.description}</div>
-      {summary.fields.map((field) => (
-        <div key={field.key} className="mr-2 bg-light px-2 border rounded">
-          <div>
-            <Tooltip
-              body={
-                <div>
-                  {field.key ? (
+      <div className="mr-2">{i18n._(summary.description)}</div>
+      {summary.fields.map((field) => {
+        const fieldKey = field.key;
+        const fieldType = field.type;
+        const requiredText = field.required ? t`yes` : t`no`;
+        const valueMin = field.valueRange?.[0] ?? "-";
+        const valueMax = field.valueRange?.[1] ?? "-";
+        const lengthMin = field.lengthRange?.[0] ?? "-";
+        const lengthMax = field.lengthRange?.[1] ?? "-";
+        return (
+          <div key={field.key} className="mr-2 bg-light px-2 border rounded">
+            <div>
+              <Tooltip
+                body={
+                  <div>
+                    {field.key ? (
+                      <div className="mb-1">
+                        <Trans>
+                          Property: <strong>{fieldKey}</strong>
+                        </Trans>
+                      </div>
+                    ) : null}
                     <div className="mb-1">
-                      Property: <strong>{field.key}</strong>
+                      <Trans>
+                        Type: <strong>{fieldType}</strong>
+                      </Trans>
                     </div>
-                  ) : null}
-                  <div className="mb-1">
-                    Type: <strong>{field.type}</strong>
+                    {field.required !== undefined ? (
+                      <div className="mb-1">
+                        <Trans>
+                          Required: <strong>{requiredText}</strong>
+                        </Trans>
+                      </div>
+                    ) : (
+                      ""
+                    )}
+                    {field.valueRange && (
+                      <div className="mb-1">
+                        <Trans>
+                          Value: Between <strong>{valueMin}</strong> and{" "}
+                          <strong>{valueMax}</strong>
+                        </Trans>
+                      </div>
+                    )}
+                    {field.lengthRange && (
+                      <div className="mb-1">
+                        <Trans>
+                          Length: Between <strong>{lengthMin}</strong> and{" "}
+                          <strong>{lengthMax}</strong>
+                        </Trans>
+                      </div>
+                    )}
+                    {field.enum && field.enum.length > 0 && (
+                      <div className="mb-1">
+                        <Trans>One of:</Trans>{" "}
+                        {field.enum.map((e) => (
+                          <span className="px-1 border bg-light mr-1" key={e}>
+                            {e}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {field.description && (
+                      <div className="bg-light p-2 mb-1 border">
+                        {field.description}
+                      </div>
+                    )}
+                    {field.details && field.details !== "{}" && (
+                      <div>
+                        <Trans>Other Settings:</Trans>
+                        <Code language="json" code={field.details} />
+                      </div>
+                    )}
                   </div>
-                  {field.required !== undefined ? (
-                    <div className="mb-1">
-                      Required: <strong>{field.required ? "yes" : "no"}</strong>
-                    </div>
-                  ) : (
-                    ""
-                  )}
-                  {field.valueRange && (
-                    <div className="mb-1">
-                      Value: Between{" "}
-                      <strong>{field.valueRange[0] ?? "-"}</strong> and{" "}
-                      <strong>{field.valueRange[1] ?? "-"}</strong>
-                    </div>
-                  )}
-                  {field.lengthRange && (
-                    <div className="mb-1">
-                      Length: Between{" "}
-                      <strong>{field.lengthRange[0] ?? "-"}</strong> and{" "}
-                      <strong>{field.lengthRange[1] ?? "-"}</strong>
-                    </div>
-                  )}
-                  {field.enum && field.enum.length > 0 && (
-                    <div className="mb-1">
-                      One of:{" "}
-                      {field.enum.map((e) => (
-                        <span className="px-1 border bg-light mr-1" key={e}>
-                          {e}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {field.description && (
-                    <div className="bg-light p-2 mb-1 border">
-                      {field.description}
-                    </div>
-                  )}
-                  {field.details && field.details !== "{}" && (
-                    <div>
-                      Other Settings:
-                      <Code language="json" code={field.details} />
-                    </div>
-                  )}
-                </div>
-              }
-              tipMinWidth="300px"
-            >
-              <strong>{field.key}</strong> <GBInfo />
-            </Tooltip>
+                }
+                tipMinWidth="300px"
+              >
+                <strong>{field.key}</strong> <GBInfo />
+              </Tooltip>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 // "Value is one of "ON", "OFF"" / "Value is a float between 0 and 24"
-function getPrimitiveDescription(field: FieldData, isArray: boolean): string {
+function getPrimitiveDescription(
+  field: FieldData,
+  isArray: boolean,
+  i18n: I18n,
+): string {
+  // The noun is the schema's type keyword, so it stays untranslated.
   const noun = field.type === "number" ? "float" : field.type;
-  const constraint = getConstraintText(field);
+  const constraint = getConstraintText(field, i18n);
 
   if (isArray) {
-    const itemNoun = noun === "unknown" ? "item" : noun;
-    return `Value is an array of ${itemNoun}s${
-      constraint ? `, each ${constraint}` : ""
-    }`;
+    if (noun === "unknown") {
+      return constraint
+        ? i18n._(msg`Value is an array of items, each ${constraint}`)
+        : i18n._(msg`Value is an array of items`);
+    }
+    return constraint
+      ? i18n._(msg`Value is an array of ${noun}s, each ${constraint}`)
+      : i18n._(msg`Value is an array of ${noun}s`);
   }
 
   if (field.enum && field.enum.length > 0) {
-    return `Value is ${constraint}`;
+    const values = field.enum.join(", ");
+    return i18n._(msg`Value is one of ${values}`);
   }
 
   if (noun === "unknown") {
-    return "Value is an unknown type";
+    return i18n._(msg`Value is an unknown type`);
   }
 
-  const article = /^[aeiou]/i.test(noun) ? "an" : "a";
-  return `Value is ${article} ${noun}${constraint ? ` ${constraint}` : ""}`;
+  if (/^[aeiou]/i.test(noun)) {
+    return constraint
+      ? i18n._(msg`Value is an ${noun} ${constraint}`)
+      : i18n._(msg`Value is an ${noun}`);
+  }
+  return constraint
+    ? i18n._(msg`Value is a ${noun} ${constraint}`)
+    : i18n._(msg`Value is a ${noun}`);
 }
 
-function getConstraintText(field: FieldData): string {
+function getConstraintText(field: FieldData, i18n: I18n): string {
   if (field.enum && field.enum.length > 0) {
-    return `one of ${field.enum.join(", ")}`;
+    const values = field.enum.join(", ");
+    return i18n._(msg`one of ${values}`);
   }
   if (field.valueRange) {
     const [min, max] = field.valueRange;
     if (min !== undefined && max !== undefined) {
-      return `between ${min} and ${max}`;
+      return i18n._(msg`between ${min} and ${max}`);
     }
-    if (min !== undefined) return `of at least ${min}`;
-    if (max !== undefined) return `of at most ${max}`;
+    if (min !== undefined) return i18n._(msg`of at least ${min}`);
+    if (max !== undefined) return i18n._(msg`of at most ${max}`);
   }
   if (field.lengthRange) {
     const [min, max] = field.lengthRange;
     if (min !== undefined && max !== undefined) {
-      return `between ${min} and ${max} characters long`;
+      return i18n._(msg`between ${min} and ${max} characters long`);
     }
-    if (min !== undefined) return `at least ${min} characters long`;
-    if (max !== undefined) return `at most ${max} characters long`;
+    if (min !== undefined) return i18n._(msg`at least ${min} characters long`);
+    if (max !== undefined) return i18n._(msg`at most ${max} characters long`);
   }
   return "";
 }
@@ -266,7 +306,7 @@ function getJSONSchemaSummary(jsonSchema: unknown): SchemaSummary | null {
     );
     return {
       kind: "fields",
-      description: "Value is an object with properties",
+      description: msg`Value is an object with properties`,
       fields: Object.entries(jsonSchema.properties).map(([key, value]) => ({
         key,
         required: required.has(key),
@@ -294,7 +334,7 @@ function getJSONSchemaSummary(jsonSchema: unknown): SchemaSummary | null {
       );
       return {
         kind: "fields",
-        description: "Value is an array of objects with properties",
+        description: msg`Value is an array of objects with properties`,
         fields: Object.entries(jsonSchema.items.properties).map(
           ([key, value]) => ({
             key,

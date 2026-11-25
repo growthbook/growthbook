@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiLockSimple } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { isActiveDraftStatus } from "shared/validators";
@@ -63,6 +64,7 @@ export default function DraftSelectorDropdown({
    */
   eligibleDraftVersions?: Set<number>;
 }) {
+  const { t } = useLingui();
   const ctx = useFeatureRevisionsContext();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -120,10 +122,10 @@ export default function DraftSelectorDropdown({
 
   const triggerLabel: React.ReactNode = (() => {
     if (currentOption === "publish") {
-      return isBypass ? "Apply now (bypass approval)" : "Apply now";
+      return isBypass ? t`Apply now (bypass approval)` : t`Apply now`;
     }
     if (currentOption === "this") {
-      return "Save to this revision";
+      return t`Save to this revision`;
     }
     if (currentOption === "existing") {
       const revLabel = selectedExistingRevision
@@ -133,9 +135,9 @@ export default function DraftSelectorDropdown({
             !!selectedExistingRevision.title,
           )
         : null;
-      return revLabel ? revLabel : "Save to existing draft";
+      return revLabel ? revLabel : t`Save to existing draft`;
     }
-    return "Save to new draft";
+    return t`Save to new draft`;
   })();
 
   if (locked) {
@@ -245,7 +247,7 @@ export default function DraftSelectorDropdown({
           className={currentOption === "new" ? "selected-item" : undefined}
           onClick={handlePickNew}
         >
-          Save to new draft
+          <Trans>Save to new draft</Trans>
         </DropdownMenuItem>
 
         {showExistingOption && (
@@ -260,7 +262,9 @@ export default function DraftSelectorDropdown({
                   currentOption === "existing" ? "selected-item" : undefined
                 }
               >
-                <span>Save to existing draft</span>
+                <span>
+                  <Trans>Save to existing draft</Trans>
+                </span>
               </Flex>
             }
           >
@@ -290,7 +294,11 @@ export default function DraftSelectorDropdown({
               }
               onClick={handlePickPublish}
             >
-              {isBypass ? "Apply now (bypass approval)" : "Apply now"}
+              {isBypass ? (
+                <Trans>Apply now (bypass approval)</Trans>
+              ) : (
+                <Trans>Apply now</Trans>
+              )}
             </DropdownMenuItem>
           </>
         )}
@@ -300,7 +308,7 @@ export default function DraftSelectorDropdown({
             className={currentOption === "this" ? "selected-item" : undefined}
             onClick={handlePickThisRevision}
           >
-            Save to this revision
+            <Trans>Save to this revision</Trans>
           </DropdownMenuItem>
         )}
       </DropdownMenu>
@@ -316,6 +324,7 @@ function DraftRow({
   liveVersion: number;
 }) {
   const revDate = r.status === "published" ? r.datePublished : r.dateUpdated;
+  const createdDate = revDate ? date(revDate) : null;
   return (
     <Flex
       align="center"
@@ -349,9 +358,9 @@ function DraftRow({
         overflow="hidden"
         style={{ textOverflow: "ellipsis" }}
       >
-        {revDate && (
+        {createdDate && (
           <Text size="sm" color="text-low" whiteSpace="nowrap">
-            {"Created " + date(revDate)}
+            <Trans>Created {createdDate}</Trans>
           </Text>
         )}
       </Box>

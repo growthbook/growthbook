@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import { Flex } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import { CustomHookInterface } from "shared/validators";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Text from "@/ui/Text";
@@ -25,14 +26,33 @@ function scopeStr(h: Snap): string {
   return "Global";
 }
 
+// What the settings rows show; the strings above stay for comparing snapshots.
+const onOffNode = (b?: boolean): ReactNode =>
+  b ? <Trans>On</Trans> : <Trans>Off</Trans>;
+
+function statusNode(h: Snap): ReactNode {
+  if (!h || h.enabled === undefined) return "—";
+  return h.enabled ? <Trans>Enabled</Trans> : <Trans>Disabled</Trans>;
+}
+
+function scopeNode(h: Snap): ReactNode {
+  if (!h) return "—";
+  if (h.entityType && h.entityId) return `${h.entityType} · ${h.entityId}`;
+  if (h.projects?.length) {
+    const projectList = h.projects.join(", ");
+    return <Trans>Projects: {projectList}</Trans>;
+  }
+  return <Trans>Global</Trans>;
+}
+
 function ChangeRow({
   label,
   from,
   to,
 }: {
-  label: string;
-  from?: string;
-  to: string;
+  label: ReactNode;
+  from?: ReactNode;
+  to: ReactNode;
 }) {
   return (
     <Flex align="baseline" gap="2" wrap="wrap">
@@ -64,26 +84,62 @@ export function renderCustomHookSettingsSection(
   pre: Snap,
   post: Partial<CustomHookInterface>,
 ): ReactNode {
-  const rows: { label: string; from?: string; to: string }[] = [];
-  const add = (label: string, from: string, to: string) => {
-    if (pre === null) rows.push({ label, to });
-    else if (from !== to) rows.push({ label, from, to });
+  const rows: {
+    id: string;
+    label: ReactNode;
+    from?: ReactNode;
+    to: ReactNode;
+  }[] = [];
+  const add = (
+    id: string,
+    label: ReactNode,
+    [from, fromNode]: [string, ReactNode],
+    [to, toNode]: [string, ReactNode],
+  ) => {
+    if (pre === null) rows.push({ id, label, to: toNode });
+    else if (from !== to) rows.push({ id, label, from: fromNode, to: toNode });
   };
-  add("Name", pre?.name ?? "—", post.name ?? "—");
-  add("Hook type", pre?.hook ?? "—", post.hook ?? "—");
-  add("Status", statusStr(pre), statusStr(post));
-  add("Scope", scopeStr(pre), scopeStr(post));
+  const preName = pre?.name ?? "—";
+  const postName = post.name ?? "—";
+  const preHook = pre?.hook ?? "—";
+  const postHook = post.hook ?? "—";
+  add("name", <Trans>Name</Trans>, [preName, preName], [postName, postName]);
   add(
-    "Incremental only",
-    onOff(pre?.incrementalChangesOnly),
-    onOff(post.incrementalChangesOnly),
+    "hook",
+    <Trans>Hook type</Trans>,
+    [preHook, preHook],
+    [postHook, postHook],
+  );
+  add(
+    "status",
+    <Trans>Status</Trans>,
+    [statusStr(pre), statusNode(pre)],
+    [statusStr(post), statusNode(post)],
+  );
+  add(
+    "scope",
+    <Trans>Scope</Trans>,
+    [scopeStr(pre), scopeNode(pre)],
+    [scopeStr(post), scopeNode(post)],
+  );
+  add(
+    "incremental",
+    <Trans>Incremental only</Trans>,
+    [
+      onOff(pre?.incrementalChangesOnly),
+      onOffNode(pre?.incrementalChangesOnly),
+    ],
+    [
+      onOff(post.incrementalChangesOnly),
+      onOffNode(post.incrementalChangesOnly),
+    ],
   );
 
   if (!rows.length) return null;
   return (
     <Flex direction="column" gap="1">
-      {rows.map((r) => (
-        <ChangeRow key={r.label} {...r} />
+      {rows.map(({ id, ...r }) => (
+        <ChangeRow key={id} {...r} />
       ))}
     </Flex>
   );

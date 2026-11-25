@@ -10,6 +10,7 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureValueType } from "shared/types/feature";
 import { PiArrowRight, PiCaretDown, PiCaretUp, PiMinus } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   displayValue,
   reachedRules,
@@ -91,7 +92,7 @@ function ValueText({
   if (value.kind === "none") {
     return (
       <Text color="text-low" whiteSpace="nowrap">
-        Reaches no one
+        <Trans>Reaches no one</Trans>
       </Text>
     );
   }
@@ -101,7 +102,7 @@ function ValueText({
         {/* Some get true and some false. */}
         {valueType === "boolean" ? <BooleanDot fill="split" /> : null}
         <Text color="text-mid" fontStyle="italic" whiteSpace="nowrap">
-          Varies by user
+          <Trans>Varies by user</Trans>
         </Text>
       </>
     );
@@ -204,7 +205,12 @@ function Attributes({ names }: { names: string[] }) {
     <>
       {names.map((name, i) => (
         <Fragment key={name}>
-          {i ? " or " : null}
+          {i ? (
+            <>
+              {" "}
+              <Trans>or</Trans>{" "}
+            </>
+          ) : null}
           <ClampedName
             name={name}
             className={`${styles.attribute} ${styles.clamped}`}
@@ -233,9 +239,10 @@ function ReasonText({ text }: { text: string }) {
 // The share a partial value reaches, when it's known.
 function Percent({ value }: { value: EnvironmentValue }) {
   if (value.kind !== "partial" || value.percent === null) return null;
+  const percent = percentFormatter.format(value.percent);
   return (
     <Text color="text-mid" whiteSpace="nowrap">
-      for {percentFormatter.format(value.percent)}
+      <Trans>for {percent}</Trans>
     </Text>
   );
 }
@@ -343,23 +350,27 @@ function StepFields({
   step: TrafficStep;
   valueType: FeatureValueType;
 }) {
+  const { t } = useLingui();
   const serves = stepServes(step, valueType === "boolean");
   const targets = stepTargets(step);
   const bucketing = stepBucketing(step);
+  const variationCount = step.variations;
   return (
     <Fields
       fields={[
         ...(serves
           ? [
               {
-                label: "Serves",
+                label: t`Serves`,
                 // Split across an experiment's arms, its values say less than
                 // how many there are.
                 value:
                   serves.kind === "varies" &&
                   valueType !== "boolean" &&
-                  step.variations ? (
-                    <Text color="text-mid">{step.variations} variations</Text>
+                  variationCount ? (
+                    <Text color="text-mid">
+                      <Trans>{variationCount} variations</Trans>
+                    </Text>
                   ) : (
                     <ValueText
                       value={serves}
@@ -373,7 +384,7 @@ function StepFields({
         ...(targets
           ? [
               {
-                label: "Targets",
+                label: t`Targets`,
                 value: <Text color="text-mid">{targets}</Text>,
               },
             ]
@@ -408,18 +419,24 @@ function Drilldown({
   toggle: ReactNode;
   prerequisiteState: PrerequisiteStateRenderer;
 }) {
+  const { t } = useLingui();
   const holdout = status.steps.find(({ step }) => step.kind === "holdout");
   const reached = reachedRules(status);
   const prerequisitesMuted = status.prerequisites === "skipped";
+  const reachedRuleLabel = reached.rule?.label ?? "";
+  const reachedCount = reached.count;
   return (
     <div className={styles.rows}>
-      <Row icon={<StepIcon status={status.environment} />} label="Environment">
+      <Row
+        icon={<StepIcon status={status.environment} />}
+        label={t`Environment`}
+      >
         {toggle}
         {/* Not sent at all, whatever its switch says; the switch is what
             serves once it's unarchived. */}
         {status.reason.kind === "archived" ? (
           <Text color="text-low" whiteSpace="nowrap">
-            Archived, not sent to SDKs
+            <Trans>Archived, not sent to SDKs</Trans>
           </Text>
         ) : null}
       </Row>
@@ -428,19 +445,21 @@ function Drilldown({
         <Row
           icon={<StepIcon status={holdout ? "applies" : "skipped"} />}
           muted={!holdout}
-          label="Holdout"
+          label={t`Holdout`}
         >
           {holdout ? (
             <StepFields step={holdout.step} valueType={valueType} />
           ) : (
-            <Text color="text-low">Not reachable</Text>
+            <Text color="text-low">
+              <Trans>Not reachable</Trans>
+            </Text>
           )}
         </Row>
       ) : null}
       {card.prerequisites.length ? (
         <>
           <Section
-            label="Prerequisites"
+            label={t`Prerequisites`}
             icon={<StepIcon status={status.prerequisites} />}
             muted={prerequisitesMuted}
           />
@@ -471,9 +490,9 @@ function Drilldown({
             icon={<StepIcon status="applies" />}
             // Named as a rule: "Experiment rule", "Force rule".
             label={
-              /rule$/i.test(reached.rule.label)
-                ? reached.rule.label
-                : `${reached.rule.label} rule`
+              /rule$/i.test(reachedRuleLabel)
+                ? reachedRuleLabel
+                : t`${reachedRuleLabel} rule`
             }
           >
             <StepFields step={reached.rule} valueType={valueType} />
@@ -481,33 +500,39 @@ function Drilldown({
         ) : (
           <Row
             icon={<StepIcon status="applies" />}
-            label={`${reached.count} ${reached.count === 1 ? "rule" : "rules"} reached`}
+            label={
+              reachedCount === 1
+                ? t`${reachedCount} rule reached`
+                : t`${reachedCount} rules reached`
+            }
           />
         )
       ) : (
-        <Row icon={<StepIcon status="skipped" />} muted label="Rules">
+        <Row icon={<StepIcon status="skipped" />} muted label={t`Rules`}>
           {/* Rules that reach no one aren't listed, but they're there. */}
           <Text color="text-low">
             {status.rules === "skipped"
-              ? "Not reachable"
+              ? t`Not reachable`
               : status.rules === "none"
-                ? "None"
-                : "None reach anyone"}
+                ? t`None`
+                : t`None reach anyone`}
           </Text>
         </Row>
       )}
       <Row
         icon={<StepIcon status={status.defaultValue} />}
         muted={status.defaultValue === "skipped"}
-        label="Default value"
+        label={t`Default value`}
       >
         {status.defaultValue === "skipped" ? (
-          <Text color="text-low">Not reachable</Text>
+          <Text color="text-low">
+            <Trans>Not reachable</Trans>
+          </Text>
         ) : (
           <Fields
             fields={[
               {
-                label: "Serves",
+                label: t`Serves`,
                 value: (
                   <ValueText
                     value={{ kind: "value", value: status.servedDefault }}
@@ -520,11 +545,13 @@ function Drilldown({
               ...(status.defaultWithout.length
                 ? [
                     {
-                      label: "Targets",
+                      label: t`Targets`,
                       value: (
                         <Text color="text-mid">
-                          Users without{" "}
-                          <Attributes names={status.defaultWithout} />
+                          <Trans>
+                            Users without{" "}
+                            <Attributes names={status.defaultWithout} />
+                          </Trans>
                         </Text>
                       ),
                     },
@@ -548,17 +575,18 @@ function ServedAndEvaluated({
   status: EnvironmentStatus;
   valueType: FeatureValueType;
 }) {
+  const { t } = useLingui();
   if (valueType !== "boolean" || !servesNull(status)) return null;
   return (
-    <Row icon={null} label="Result">
+    <Row icon={null} label={t`Result`}>
       <Fields
         fields={[
           {
-            label: "Evaluates to",
+            label: t`Evaluates to`,
             value: <ValueDisplay value="false" type="boolean" />,
           },
           {
-            label: "Serves",
+            label: t`Serves`,
             value: <ValueCode text="null" muted={false} />,
           },
         ]}
@@ -580,6 +608,7 @@ function Card({
   prerequisiteState: PrerequisiteStateRenderer;
   side?: "bottom" | "right";
 }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const { status } = card;
   const reason = status ? reasonText(status.reason) : null;
@@ -608,7 +637,7 @@ function Card({
           </Flex>
           <span className={styles.fields}>
             <Text size="sm" color="text-low">
-              Evals to:
+              <Trans>Evals to:</Trans>
             </Text>
             {!status ? (
               <span className={styles.line}>
@@ -625,7 +654,7 @@ function Card({
             {reason !== null ? (
               <>
                 <Text size="sm" color="text-low">
-                  Reason:
+                  <Trans>Reason:</Trans>
                 </Text>
                 <ReasonText text={reason} />
               </>
@@ -645,11 +674,13 @@ function Card({
         ) : (
           // The switch stays in reach while what it serves isn't known.
           <div className={styles.rows}>
-            <Row icon={null} label="Environment">
+            <Row icon={null} label={t`Environment`}>
               {toggle}
             </Row>
             <span className={styles.subRow}>
-              <Text color="text-low">What it serves isn&apos;t known yet.</Text>
+              <Text color="text-low">
+                <Trans>What it serves isn&apos;t known yet.</Trans>
+              </Text>
             </span>
           </div>
         )
@@ -671,16 +702,18 @@ function MoreCards({
   renderToggle: (environment: string) => ReactNode;
   prerequisiteState: PrerequisiteStateRenderer;
 }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   // Several environments' switches read as one section of them.
   const changes = mergeDraftChangeSections(
     cards.flatMap((card) => card.environmentChanges ?? []),
   ).map((section) =>
     section.title === "Environment" && section.rows.length > 1
-      ? { ...section, title: "Environments" }
+      ? { ...section, title: t`Environments` }
       : section,
   );
-  const label = `More environments (${cards.length})`;
+  const count = cards.length;
+  const label = t`More environments (${count})`;
   const Caret = open ? PiCaretUp : PiCaretDown;
   return (
     <Popover
@@ -828,10 +861,12 @@ export function PrerequisiteList({
           <Text weight="medium" color="text-high">
             {changes ? (
               <DraftChangesPopover sections={changes}>
-                <span className={styles.changed}>Prerequisites</span>
+                <span className={styles.changed}>
+                  <Trans>Prerequisites</Trans>
+                </span>
               </DraftChangesPopover>
             ) : (
-              "Prerequisites"
+              <Trans>Prerequisites</Trans>
             )}
           </Text>
           <Badge

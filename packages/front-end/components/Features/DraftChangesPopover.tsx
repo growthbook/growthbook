@@ -1,6 +1,8 @@
 import { Fragment, ReactNode } from "react";
 import { PiMinus, PiPlus, PiTriangle } from "react-icons/pi";
 import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import Avatar from "@/ui/Avatar";
@@ -29,9 +31,9 @@ export function mergeDraftChangeSections(
 }
 
 const MARKS = {
-  added: { Icon: PiPlus, color: "green" },
-  removed: { Icon: PiMinus, color: "red" },
-  edited: { Icon: PiTriangle, color: "amber" },
+  added: { Icon: PiPlus, color: "green", label: msg`added` },
+  removed: { Icon: PiMinus, color: "red", label: msg`removed` },
+  edited: { Icon: PiTriangle, color: "amber", label: msg`edited` },
 } as const;
 
 export function DraftChangeMark({
@@ -41,7 +43,9 @@ export function DraftChangeMark({
   change: keyof typeof MARKS;
   spelled?: boolean;
 }) {
-  const { Icon, color } = MARKS[change];
+  const { i18n } = useLingui();
+  const { Icon, color, label } = MARKS[change];
+  const changeLabel = i18n._(label);
   return spelled ? (
     <Badge
       size="xs"
@@ -51,7 +55,7 @@ export function DraftChangeMark({
       label={
         <>
           <Icon size={11} aria-hidden />
-          {change}
+          {changeLabel}
         </>
       }
     />
@@ -59,7 +63,7 @@ export function DraftChangeMark({
     <Avatar size="xs" variant="soft" radius="small" color={color}>
       <Icon size={11} aria-hidden />
       {/* Read out in place of the icon. */}
-      <VisuallyHidden>{change}</VisuallyHidden>
+      <VisuallyHidden>{changeLabel}</VisuallyHidden>
     </Avatar>
   );
 }
@@ -71,6 +75,10 @@ export default function DraftChangesPopover({
   sections: DraftChangeSection[];
   children: ReactNode;
 }) {
+  const { t } = useLingui();
+  const changeList = sections
+    .flatMap((s) => s.rows.map((r) => r.text))
+    .join(", ");
   return (
     <Popover
       openOnHover
@@ -95,11 +103,7 @@ export default function DraftChangesPopover({
           </span>
           {/* The hover can't be reached by keyboard or read out, so what it
               shows is said here instead. */}
-          <VisuallyHidden>
-            {` (${sections
-              .flatMap((s) => s.rows.map((r) => r.text))
-              .join(", ")} in this draft)`}
-          </VisuallyHidden>
+          <VisuallyHidden> {t`(${changeList} in this draft)`}</VisuallyHidden>
         </span>
       }
       contentStyle={{ maxWidth: 320, padding: 0 }}
@@ -117,7 +121,7 @@ export default function DraftChangesPopover({
           <Flex align="center" style={{ gap: 6, color: "var(--amber-11)" }}>
             <StatusDot color={draftStatusDotColor("draft")} />
             <Text size="md" weight="medium">
-              Draft changes:
+              <Trans>Draft changes:</Trans>
             </Text>
           </Flex>
           {sections.map((s) => (

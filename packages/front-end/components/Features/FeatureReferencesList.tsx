@@ -2,6 +2,7 @@ import { FC } from "react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
+import { Trans } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 
@@ -30,7 +31,7 @@ const FeatureReferencesList: FC<FeatureReferencesListProps> = ({
               <Flex align="center" gap="1">
                 <PiCaretRightFill className="chevron" />
                 <Heading size="2" mb="0">
-                  Dependent Features
+                  <Trans>Dependent Features</Trans>
                 </Heading>
                 <Badge radius="full" label={features.length.toString()} />
               </Flex>
@@ -77,7 +78,7 @@ const FeatureReferencesList: FC<FeatureReferencesListProps> = ({
               <Flex align="center" gap="1">
                 <PiCaretRightFill className="chevron" />
                 <Heading size="2" mb="0">
-                  Dependent Experiments
+                  <Trans>Dependent Experiments</Trans>
                 </Heading>
                 <Badge radius="full" label={experiments.length.toString()} />
               </Flex>

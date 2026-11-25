@@ -11,6 +11,7 @@ import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -108,6 +109,7 @@ const FEATURE_TABLE_COLUMN_WIDTH = {
 } as const;
 
 export default function FeaturesPage() {
+  const { t } = useLingui();
   const router = useRouter();
   const { organization } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
@@ -317,7 +319,7 @@ export default function FeaturesPage() {
                 <Box style={{ position: "relative" }}>
                   <Field
                     size="legacy"
-                    placeholder="Search..."
+                    placeholder={t`Search...`}
                     type="search"
                     containerClassName="mb-0"
                     {...searchInputProps}
@@ -357,15 +359,17 @@ export default function FeaturesPage() {
                   style={{ width: FEATURE_TABLE_COLUMN_WIDTH.WATCHING }}
                 />
                 <SortableTableColumnHeader field="id" style={{ width: "20%" }}>
-                  Feature Key
+                  <Trans>Feature Key</Trans>
                 </SortableTableColumnHeader>
                 {showProjectColumn && (
-                  <TableColumnHeader>Project</TableColumnHeader>
+                  <TableColumnHeader>
+                    <Trans>Project</Trans>
+                  </TableColumnHeader>
                 )}
                 <TableColumnHeader
                   style={{ maxWidth: FEATURE_TABLE_COLUMN_WIDTH.TAGS }}
                 >
-                  Tags
+                  <Trans>Tags</Trans>
                 </TableColumnHeader>
                 {toggleEnvs.map((en) => (
                   <TableColumnHeader
@@ -375,23 +379,31 @@ export default function FeaturesPage() {
                     {en.id}
                   </TableColumnHeader>
                 ))}
-                <TableColumnHeader>Data Type</TableColumnHeader>
+                <TableColumnHeader>
+                  <Trans>Data Type</Trans>
+                </TableColumnHeader>
                 <SortableTableColumnHeader field="dateUpdated">
-                  Last Modified
+                  <Trans>Last Modified</Trans>
                 </SortableTableColumnHeader>
                 {showGraphs && (
                   <TableColumnHeader>
-                    Recent Usage{" "}
+                    <Trans>Recent Usage</Trans>{" "}
                     <Tooltip
                       usePortal
                       flipTheme={false}
-                      body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'."
+                      body={t`Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'.`}
                     />
                   </TableColumnHeader>
                 )}
-                <TableColumnHeader>Status</TableColumnHeader>
-                <TableColumnHeader>Stale</TableColumnHeader>
-                <TableColumnHeader>Health</TableColumnHeader>
+                <TableColumnHeader>
+                  <Trans>Status</Trans>
+                </TableColumnHeader>
+                <TableColumnHeader>
+                  <Trans>Stale</Trans>
+                </TableColumnHeader>
+                <TableColumnHeader>
+                  <Trans>Health</Trans>
+                </TableColumnHeader>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -481,13 +493,14 @@ export default function FeaturesPage() {
                                 statusHook.environmentStatus[feature.id]?.[
                                   en.id
                                 ] ?? false;
+                              const envId = en.id;
                               return (
                                 <Tooltip
                                   flipTheme={false}
                                   body={
                                     enabled
-                                      ? `${en.id}: enabled`
-                                      : `${en.id}: disabled`
+                                      ? t`${envId}: enabled`
+                                      : t`${envId}: disabled`
                                   }
                                 >
                                   {enabled ? (
@@ -587,7 +600,7 @@ export default function FeaturesPage() {
                       (showGraphs ? 1 : 0)
                     }
                   >
-                    No matching features
+                    <Trans>No matching features</Trans>
                   </TableCell>
                 </TableRow>
               )}
@@ -626,7 +639,12 @@ export default function FeaturesPage() {
   });
 
   if (error) {
-    return <Callout status="error">An error occurred: {error.message}</Callout>;
+    const errorMessage = error.message;
+    return (
+      <Callout status="error">
+        <Trans>An error occurred: {errorMessage}</Trans>
+      </Callout>
+    );
   }
   if (loading) {
     return <LoadingOverlay />;
@@ -668,7 +686,7 @@ export default function FeaturesPage() {
     <Box className="contents pagecontents" style={{ margin: "0 auto" }}>
       {modalOpen && (
         <FeatureModal
-          cta={featureToDuplicate ? "Duplicate" : "Create"}
+          cta={featureToDuplicate ? t`Duplicate` : t`Create`}
           close={() => {
             setModalOpen(false);
             setFeatureToDuplicate(null);
@@ -686,12 +704,14 @@ export default function FeaturesPage() {
       )}
       <Flex align="center" justify="between" gap="3" mt="4" mb="2">
         <Box style={{ flex: 1 }}>
-          <h1>Feature Flags</h1>
+          <h1>
+            <Trans>Feature Flags</Trans>
+          </h1>
         </Box>
         {!showSetUpFlow && (
           <Box>
             <Tooltip
-              body="You don't have permission to add features in this project."
+              body={t`You don't have permission to add features in this project.`}
               shouldDisplay={!canViewFeatureModal || !canCreateFeatures}
             >
               <Button
@@ -703,7 +723,7 @@ export default function FeaturesPage() {
                   });
                 }}
               >
-                Add Feature
+                <Trans>Add Feature</Trans>
               </Button>
             </Tooltip>
           </Box>
@@ -715,15 +735,15 @@ export default function FeaturesPage() {
       {!hasFeatures ? (
         <>
           <EmptyState
-            title="Change your App's Behavior"
-            description="Use Feature Flags to change your app's behavior. For example, turn a sales banner on or off, or enable new features for Beta users only."
+            title={t`Change your App's Behavior`}
+            description={t`Use Feature Flags to change your app's behavior. For example, turn a sales banner on or off, or enable new features for Beta users only.`}
             leftButton={
               <LinkButton
                 external
                 href="https://docs.growthbook.io/features/basics"
                 variant="outline"
               >
-                View Docs
+                <Trans>View Docs</Trans>
               </LinkButton>
             }
             rightButton={
@@ -735,11 +755,11 @@ export default function FeaturesPage() {
                       : "/setup?exitLocation=features"
                   }
                 >
-                  Connect your SDK
+                  <Trans>Connect your SDK</Trans>
                 </LinkButton>
               ) : (
                 <Tooltip
-                  body="You don't have permission to add features in this project."
+                  body={t`You don't have permission to add features in this project.`}
                   shouldDisplay={!canViewFeatureModal || !canCreateFeatures}
                 >
                   <Button
@@ -751,7 +771,7 @@ export default function FeaturesPage() {
                       });
                     }}
                   >
-                    Add Feature
+                    <Trans>Add Feature</Trans>
                   </Button>
                 </Tooltip>
               )
@@ -762,8 +782,12 @@ export default function FeaturesPage() {
         <Tabs defaultValue="all-features" persistInURL={true}>
           <Box mb="3">
             <TabsList>
-              <TabsTrigger value="all-features">All Features</TabsTrigger>
-              <TabsTrigger value="drafts">Drafts</TabsTrigger>
+              <TabsTrigger value="all-features">
+                <Trans>All Features</Trans>
+              </TabsTrigger>
+              <TabsTrigger value="drafts">
+                <Trans>Drafts</Trans>
+              </TabsTrigger>
             </TabsList>
           </Box>
 
@@ -771,8 +795,11 @@ export default function FeaturesPage() {
             {renderFeaturesTable()}
             {!isDemoProject && (
               <Callout status="info" mt="5" mb="3">
-                Test what values these features will return for your users from
-                the <Link href="/archetypes#simulate">Simulate</Link> page.
+                <Trans>
+                  Test what values these features will return for your users
+                  from the <Link href="/archetypes#simulate">Simulate</Link>{" "}
+                  page.
+                </Trans>
               </Callout>
             )}
           </TabsContent>

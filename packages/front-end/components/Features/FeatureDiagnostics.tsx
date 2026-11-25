@@ -14,6 +14,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { format } from "date-fns";
 import { isNull } from "lodash";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -95,6 +96,7 @@ export default function FeatureDiagnostics({
     > | null,
   ) => void;
 }) {
+  const { t } = useLingui();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorSql, setErrorSql] = useState<string | null>(null);
@@ -222,10 +224,12 @@ export default function FeatureDiagnostics({
     return (
       <Box className="contents container-fluid pagecontents">
         <EmptyState
-          title="Feature Evaluation Diagnostics"
-          description="Set up a data source to view diagnostics for this feature."
+          title={t`Feature Evaluation Diagnostics`}
+          description={t`Set up a data source to view diagnostics for this feature.`}
           leftButton={
-            <LinkButton href="/datasources">Set up a Data Source</LinkButton>
+            <LinkButton href="/datasources">
+              <Trans>Set up a Data Source</Trans>
+            </LinkButton>
           }
           rightButton={null}
         />
@@ -236,14 +240,16 @@ export default function FeatureDiagnostics({
   return (
     <Box className="contents container-fluid pagecontents">
       <p>
-        View recent feature evaluations along with any custom metadata
-        you&apos;ve added.
+        <Trans>
+          View recent feature evaluations along with any custom metadata
+          you&apos;ve added.
+        </Trans>
       </p>
 
       <Box width="400px">
         <SelectField
           size="legacy"
-          label="Select a Data Source"
+          label={t`Select a Data Source`}
           labelClassName="font-weight-bold"
           value={form.watch("datasourceId") ?? ""}
           onChange={(newDatasource) => {
@@ -254,11 +260,14 @@ export default function FeatureDiagnostics({
           }}
           options={validDatasources.map((d) => {
             const isDefaultDataSource = d.id === settings.defaultDataSource;
+            const datasourceLabel = d.description
+              ? `${d.name} — ${d.description}`
+              : d.name;
             return {
               value: d.id,
-              label: `${d.name}${
-                d.description ? ` — ${d.description}` : ""
-              }${isDefaultDataSource ? " (default)" : ""}`,
+              label: isDefaultDataSource
+                ? t`${datasourceLabel} (default)`
+                : datasourceLabel,
             };
           })}
           className="portal-overflow-ellipsis"
@@ -273,10 +282,12 @@ export default function FeatureDiagnostics({
         !awaitingProvisioning &&
         !datasourceHasFeatureUsageQuery && (
           <Callout status="info" mb="4">
-            Feature Evaluation Diagnostics require setting up a feature usage
-            query in your data source.
+            <Trans>
+              Feature Evaluation Diagnostics require setting up a feature usage
+              query in your data source.
+            </Trans>
             <Link href={`/datasources/${datasource.id}`} ml="2">
-              Setup a Feature Usage Query
+              <Trans>Setup a Feature Usage Query</Trans>
             </Link>
           </Callout>
         )}
@@ -291,10 +302,10 @@ export default function FeatureDiagnostics({
                 size="lg"
               >
                 {loading
-                  ? "Running..."
+                  ? t`Running...`
                   : !results
-                    ? "View recent feature evaluations"
-                    : "Refresh feature evaluations"}
+                    ? t`View recent feature evaluations`
+                    : t`Refresh feature evaluations`}
               </Button>
             </Flex>
           ) : (
@@ -302,7 +313,7 @@ export default function FeatureDiagnostics({
               <Box flexBasis="40%" flexShrink="1" flexGrow="0">
                 <Field
                   size="legacy"
-                  placeholder="Search..."
+                  placeholder={t`Search...`}
                   type="search"
                   {...searchInputProps}
                 />
@@ -312,7 +323,7 @@ export default function FeatureDiagnostics({
                 onClick={onRunFeatureUsageQuery}
                 disabled={loading || !datasourceHasFeatureUsageQuery}
               >
-                {loading ? "Running..." : "Refresh feature evaluations"}
+                {loading ? t`Running...` : t`Refresh feature evaluations`}
               </Button>
             </Flex>
           )}
@@ -328,12 +339,14 @@ export default function FeatureDiagnostics({
             </Box>
           ) : error ? (
             <Callout status="error" my="3">
-              <strong>Error:</strong> {error}
+              <Trans>
+                <strong>Error:</strong> {error}
+              </Trans>
             </Callout>
           ) : null}
           {!error && results && results.length === 0 && (
             <Callout status="info" my="3">
-              No feature evaluations found.
+              <Trans>No feature evaluations found.</Trans>
             </Callout>
           )}
 
@@ -342,7 +355,9 @@ export default function FeatureDiagnostics({
               <Table mt="6" className="table gbtable responsive-table">
                 <TableHeader>
                   <TableRow>
-                    <SortableTH field="timestampSort">Timestamp</SortableTH>
+                    <SortableTH field="timestampSort">
+                      <Trans>Timestamp</Trans>
+                    </SortableTH>
                     {columns.map((key) => (
                       <SortableTH key={key} field={key}>
                         {key

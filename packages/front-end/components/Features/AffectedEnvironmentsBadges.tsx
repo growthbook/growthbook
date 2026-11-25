@@ -1,4 +1,5 @@
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Badge from "@/ui/Badge";
 import { useEnvironments } from "@/services/features";
 
@@ -6,7 +7,7 @@ import { useEnvironments } from "@/services/features";
 // Resolves "all" to real env IDs via useEnvironments() when allEnvironments
 // is not provided. Pass gatedEnvSet to color gated envs amber instead of sky.
 export default function AffectedEnvironmentsBadges({
-  label = "Affected environments:",
+  label,
   affectedEnvs,
   allEnvironments: allEnvironmentsProp,
   gatedEnvSet,
@@ -16,6 +17,8 @@ export default function AffectedEnvironmentsBadges({
   allEnvironments?: { id: string }[];
   gatedEnvSet?: Set<string> | "all" | "none";
 }) {
+  const { t } = useLingui();
+  const labelText = label === undefined ? t`Affected environments:` : label;
   const allEnvironmentsFromHook = useEnvironments();
   const allEnvironments = allEnvironmentsProp ?? allEnvironmentsFromHook;
 
@@ -30,7 +33,7 @@ export default function AffectedEnvironmentsBadges({
           color: "var(--color-text-low)",
         }}
       >
-        {label}
+        {labelText}
       </span>
       {envIds.length === 0 ? (
         <span
@@ -40,7 +43,7 @@ export default function AffectedEnvironmentsBadges({
             fontStyle: "italic",
           }}
         >
-          none
+          <Trans>none</Trans>
         </span>
       ) : (
         envIds.map((envId) => {
