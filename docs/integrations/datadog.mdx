@@ -199,7 +199,7 @@ Use **Send test** on the webhook's page to send a `growthbook-test` change to th
 
 | Datadog field             | From GrowthBook                                                                                                                                                                                                                                                                              |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `title`                   | What changed (a Feature Flag key, an experiment's tracking key, or a Saved Group, Constant or Config's name or key), what happened (such as the revision comment), and the environments                                                                                                      |
+| `title`                   | What happened to which Feature Flag, experiment, Saved Group, Constant or Config, where, and the revision comment, such as `Published Feature Flag checkout-flow revision 8 in production: Ramp step 2 of 5`                                                                                 |
 | `changed_resource`        | `feature_flag` for Feature Flags and experiments; `configuration` for Saved Groups, Constants and Configs                                                                                                                                                                                    |
 | `impacted_resources`      | The webhook's Datadog service                                                                                                                                                                                                                                                                |
 | `author`                  | The user, the API key, or the automation (a ramp schedule)                                                                                                                                                                                                                                   |
@@ -210,7 +210,7 @@ Each change is tagged with the environments whose SDK payload it changes, as lis
 
 ### Pair it with rollbacks
 
-Scope a [rollback webhook](#roll-back-ramp-ups) with the same Project or tag filters, such as `tag=checkout`. A ramp step then shows on the `checkout-api` monitor, and if the monitor alerts, its rollback shows there too, titled `Rolled back to "Ramp step 2 of 5"` with the alert in its comment.
+Scope a [rollback webhook](#roll-back-ramp-ups) with the same Project or tag filters, such as `tag=checkout`. A ramp step then shows on the `checkout-api` monitor, and if the monitor alerts, its rollback shows there too, titled like `Published Feature Flag checkout-flow revision 9 in production: Rolled back to "Ramp step 2 of 5"`, with the alert in its revision comment.
 
 ### Known gaps
 

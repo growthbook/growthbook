@@ -130,7 +130,10 @@ function changeEvent(attributes: JsonRecord): JsonRecord {
 type ChangeDetails = {
   resourceType: "feature_flag" | "configuration";
   name: string;
-  what: string;
+  // What happened to what, such as "Published Feature Flag checkout revision 5".
+  action: string;
+  // The revision comment's first line, if any.
+  comment?: string;
   link: string;
   prevValue?: JsonRecord;
   newValue?: JsonRecord;
@@ -149,20 +152,24 @@ function featureChange(
   const version = typeof revision.version === "number" ? revision.version : 0;
   const comment = asString(revision.comment);
 
-  let what = "Updated";
-  if (envelope.event === "feature.created") what = "Created";
-  else if (envelope.event === "feature.deleted") what = "Deleted";
+  const flag = `Feature Flag ${id}`;
+  let action = `Updated ${flag}`;
+  let summary = "";
+  if (envelope.event === "feature.created") action = `Created ${flag}`;
+  else if (envelope.event === "feature.deleted") action = `Deleted ${flag}`;
   else if (typeof previous.archived === "boolean") {
-    what = object.archived ? "Archived" : "Unarchived";
+    action = `${object.archived ? "Archived" : "Unarchived"} ${flag}`;
   } else if (previous.revision !== undefined && version) {
-    what = comment.split("\n")[0].trim() || `Published revision ${version}`;
+    action = `Published ${flag} revision ${version}`;
+    summary = comment.split("\n")[0].trim();
   }
 
   const current = featureState(object, environments);
   return {
     resourceType: "feature_flag",
     name: id,
-    what,
+    action,
+    comment: summary,
     link: `${appOrigin}/features/${encodeURIComponent(id)}${version ? `?v=${version}` : ""}`,
     prevValue:
       envelope.event === "feature.created"
@@ -200,24 +207,26 @@ function experimentChange(
   const id = asString(object.id);
   const isBandit = object.type === "multi-armed-bandit";
 
-  let what = "Updated";
+  const name = asString(object.trackingKey) || id;
+  const experiment = `${isBandit ? "Bandit" : "experiment"} ${name}`;
+  let action = `Updated ${experiment}`;
   if (previous.status !== undefined) {
-    what =
+    action =
       object.status === "running"
-        ? "Started"
+        ? `Started ${experiment}`
         : object.status === "stopped"
-          ? "Stopped"
+          ? `Stopped ${experiment}`
           : object.status === "draft"
-            ? "Moved to draft"
-            : "Updated";
+            ? `Moved ${experiment} to draft`
+            : action;
   } else if (isBandit && previous.phases !== undefined) {
-    what = "Bandit reweighted";
+    action = `Reweighted ${experiment}`;
   }
 
   return {
     resourceType: "feature_flag",
-    name: asString(object.trackingKey) || id,
-    what,
+    name,
+    action,
     link: `${appOrigin}/${isBandit ? "bandit" : "experiment"}/${encodeURIComponent(id)}`,
     prevValue: experimentState({ ...object, ...previous }),
     newValue: experimentState(object),
@@ -245,14 +254,15 @@ function configurationChange(
   const previous = previousAttributes(envelope);
   const id = asString(object.id);
   const deleted = envelope.event.endsWith(".deleted");
-  const what = deleted ? "Deleted" : "Updated";
+  const verb = deleted ? "Deleted" : "Updated";
 
   if (envelope.event.startsWith("savedGroup.")) {
     const current = savedGroupState(object);
+    const name = asString(object.name) || id;
     return {
       resourceType: "configuration",
-      name: asString(object.name) || id,
-      what,
+      name,
+      action: `${verb} Saved Group ${name}`,
       link: `${appOrigin}/saved-groups/${encodeURIComponent(id)}`,
       prevValue: deleted
         ? current
@@ -263,10 +273,11 @@ function configurationChange(
   }
 
   const isConfig = envelope.event.startsWith("config.");
+  const name = asString(object.key) || asString(object.name) || id;
   return {
     resourceType: "configuration",
-    name: asString(object.key) || asString(object.name) || id,
-    what,
+    name,
+    action: `${verb} ${isConfig ? "Config" : "Constant"} ${name}`,
     link: `${appOrigin}/${isConfig ? "configs" : "constants"}/${encodeURIComponent(id)}`,
     metadata: { [isConfig ? "config_id" : "constant_id"]: id },
   };
@@ -295,7 +306,7 @@ export function buildDatadogChangeEvent({
 
   return changeEvent({
     title: truncate(
-      `${change.name}: ${change.what} (${environments.join(", ")})`,
+      `${change.action} in ${environments.join(", ")}${change.comment ? `: ${change.comment}` : ""}`,
       MAX_TITLE,
     ),
     timestamp: new Date(envelope.created).toISOString(),

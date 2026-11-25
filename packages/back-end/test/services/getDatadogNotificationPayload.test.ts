@@ -79,7 +79,8 @@ describe("buildDatadogChangeEvent", () => {
         attributes: {
           category: "change",
           integration_id: "custom-events",
-          title: "new-checkout-flow: Ramp step 3 of 5 (production)",
+          title:
+            "Published Feature Flag new-checkout-flow revision 14 in production: Ramp step 3 of 5",
           timestamp: "2026-11-24T12:00:00.000Z",
           aggregation_key: "growthbook:feature:new-checkout-flow",
           tags: ["env:production", "service:checkout-api"],
@@ -161,7 +162,8 @@ describe("buildDatadogChangeEvent", () => {
     );
     expect(event.data).toMatchObject({
       attributes: {
-        title: "new-checkout-flow: Turn off in production (production)",
+        title:
+          "Published Feature Flag new-checkout-flow revision 15 in production: Turn off in production",
         attributes: {
           author: { type: "user", name: "dev@example.com" },
           prev_value: {
@@ -227,7 +229,7 @@ describe("buildDatadogChangeEvent", () => {
     };
     expect(build(envelope).data).toMatchObject({
       attributes: {
-        title: "checkout-test: Started (production)",
+        title: "Started experiment checkout-test in production",
         tags: ["env:production"],
         attributes: {
           changed_resource: { type: "feature_flag", name: "checkout-test" },
@@ -265,7 +267,7 @@ describe("buildDatadogChangeEvent", () => {
     };
     expect(build(envelope).data).toMatchObject({
       attributes: {
-        title: "hero-bandit: Bandit reweighted (production)",
+        title: "Reweighted Bandit hero-bandit in production",
         attributes: {
           prev_value: { trafficSplit: split(0.5, 0.5) },
           new_value: { trafficSplit: split(0.7, 0.3) },
@@ -295,7 +297,7 @@ describe("buildDatadogChangeEvent", () => {
     const event = build(envelope);
     expect(event.data).toMatchObject({
       attributes: {
-        title: "Beta testers: Updated (production)",
+        title: "Updated Saved Group Beta testers in production",
         attributes: {
           changed_resource: { type: "configuration", name: "Beta testers" },
           author: { type: "api", name: "CI (API)" },
