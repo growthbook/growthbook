@@ -1,14 +1,18 @@
 import isEqual from "lodash/isEqual";
+import uniqBy from "lodash/uniqBy";
 import { z } from "zod";
 import {
   AUTO_EXPERIMENT_FEATURES,
   connectionServesAutoExperimentFeature,
   getAutoExperimentParentFeature,
   hasCustomJs,
+  hasVisualChanges,
   isAutoExperimentFeatureEnabled,
   isCrossOriginRedirect,
   redirectKeepsStoredUrls,
 } from "shared/util";
+import type { AutoExperimentUsage } from "shared/util";
+import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   AutoExperimentFeature,
   OrganizationInterface,
@@ -18,6 +22,11 @@ import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import type { URLRedirectInterface } from "shared/types/url-redirect";
 import type { VisualChange } from "shared/types/visual-changeset";
 import type { ApiReqContext } from "back-end/types/api";
+import type { CbVisualExperiment } from "back-end/src/services/contextualBanditPayload";
+import type {
+  URLRedirectExperiment,
+  VisualExperiment,
+} from "back-end/src/services/features";
 import type { ReqContext } from "back-end/types/request";
 import { BadRequestError } from "back-end/src/util/errors";
 import { AUTO_EXPERIMENTS_MODE } from "back-end/src/util/secrets";
@@ -135,6 +144,82 @@ export function getAutoExperimentAccess(
     urlRedirects: access("urlRedirects"),
     customJs: access("customJs"),
     crossOriginRedirects: access("crossOriginRedirects"),
+  };
+}
+
+type LiveOwner = AutoExperimentUsage[AutoExperimentFeature]["items"][number] & {
+  project?: string;
+};
+
+// What turning each opt-in off would stop serving, from what the payload
+// builder delivers. Takes contextual bandits already narrowed to the served
+// ones. A draft only reaches SDK Connections that ask for drafts, so it is
+// left out.
+export function getLiveAutoExperimentUsage({
+  visualExperiments,
+  redirectExperiments,
+  cbVisualExperiments,
+  canReadProject,
+}: {
+  visualExperiments: VisualExperiment[];
+  redirectExperiments: URLRedirectExperiment[];
+  cbVisualExperiments: CbVisualExperiment[];
+  canReadProject: (project: string | undefined) => boolean;
+}): AutoExperimentUsage {
+  const fromExperiment = (e: ExperimentInterface): LiveOwner => ({
+    kind: "experiment",
+    id: e.id,
+    name: e.name,
+    project: e.project,
+    ...(e.status === "stopped" ? { rollout: true } : {}),
+  });
+  const visual = [
+    ...visualExperiments
+      .filter(
+        (e) =>
+          e.experiment.status !== "draft" &&
+          hasVisualChanges(e.visualChangeset.visualChanges),
+      )
+      .map((e) => ({
+        owner: fromExperiment(e.experiment),
+        changeset: e.visualChangeset,
+      })),
+    ...cbVisualExperiments.map((e) => ({
+      owner: {
+        kind: "contextual-bandit" as const,
+        id: e.contextualBandit.id,
+        name: e.contextualBandit.name,
+        project: e.contextualBandit.project,
+      },
+      changeset: e.visualChangeset,
+    })),
+  ];
+  const redirects = redirectExperiments.filter(
+    (e) => e.experiment.status !== "draft",
+  );
+  // One experiment can hold several changesets.
+  const describe = (list: LiveOwner[]) => {
+    const owners = uniqBy(list, (o) => `${o.kind}:${o.id}`);
+    return {
+      total: owners.length,
+      items: owners
+        .filter((o) => canReadProject(o.project))
+        .map(({ kind, id, name, rollout }) => ({ kind, id, name, rollout })),
+    };
+  };
+  return {
+    visualEditor: describe(visual.map((v) => v.owner)),
+    customJs: describe(
+      visual
+        .filter((v) => hasCustomJs(v.changeset.visualChanges))
+        .map((v) => v.owner),
+    ),
+    urlRedirects: describe(redirects.map((r) => fromExperiment(r.experiment))),
+    crossOriginRedirects: describe(
+      redirects
+        .filter((r) => isCrossOriginRedirect(r.urlRedirect))
+        .map((r) => fromExperiment(r.experiment)),
+    ),
   };
 }
 

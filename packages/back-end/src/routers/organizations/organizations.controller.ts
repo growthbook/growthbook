@@ -155,9 +155,14 @@ import {
 } from "back-end/src/models/UserModel";
 import {
   getAllExperiments,
+  getAllPayloadExperiments,
+  getAllURLRedirectExperiments,
+  getAllVisualExperiments,
   getExperimentsForActivityFeed,
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { getAllCbVisualExperiments } from "back-end/src/models/VisualChangesetModel";
+import { filterServedCbVisualExperiments } from "back-end/src/services/contextualBanditPayload";
 import {
   queueSDKPayloadRefresh,
   refreshSDKPayloadCache,
@@ -166,6 +171,7 @@ import { findServingSDKConnections } from "back-end/src/models/SdkConnectionMode
 import {
   getAutoExperimentAccess,
   getAutoExperimentSettingsUpdate,
+  getLiveAutoExperimentUsage,
 } from "back-end/src/services/autoExperiments";
 import { getAuditHistory } from "back-end/src/models/AuditModel";
 import {
@@ -2379,6 +2385,35 @@ export async function getLegacyWebhooks(req: AuthRequest, res: Response) {
     webhooks: webhooks.filter((webhook) =>
       context.permissions.canReadSingleProjectResource(webhook.project),
     ),
+  });
+}
+
+// What turning each opt-in off would stop serving, so the settings page can
+// say so first.
+export async function getAutoExperimentUsage(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+  // Read with full access: what stops serving doesn't depend on who asks.
+  const full = getContextForAgendaJobByOrgObject(context.org);
+  const experimentMap = await getAllPayloadExperiments(full);
+  const [visualExperiments, redirectExperiments, cbVisualExperiments] =
+    await Promise.all([
+      getAllVisualExperiments(full, experimentMap),
+      getAllURLRedirectExperiments(full, experimentMap),
+      getAllCbVisualExperiments(full),
+    ]);
+  res.status(200).json({
+    status: 200,
+    usage: getLiveAutoExperimentUsage({
+      visualExperiments,
+      redirectExperiments,
+      cbVisualExperiments: filterServedCbVisualExperiments(cbVisualExperiments),
+      // Names stay hidden for Projects the caller can't read.
+      canReadProject: (project) =>
+        context.permissions.canReadSingleProjectResource(project),
+    }),
   });
 }
 

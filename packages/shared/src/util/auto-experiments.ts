@@ -16,6 +16,22 @@ export const AUTO_EXPERIMENT_FEATURES = [
 // be turned on; "disabled" turns everything off.
 export type AutoExperimentsMode = "allowed" | "existing-only" | "disabled";
 
+// What each opt-in is serving to visitors right now. `total` counts
+// everything; `items` holds only what the caller can read.
+export type AutoExperimentUsage = Record<
+  AutoExperimentFeature,
+  {
+    total: number;
+    items: {
+      kind: "experiment" | "contextual-bandit";
+      id: string;
+      name: string;
+      // Stopped, with a temporary rollout still serving one variation.
+      rollout?: boolean;
+    }[];
+  }
+>;
+
 const PARENT_FEATURE: Partial<
   Record<AutoExperimentFeature, AutoExperimentFeature>
 > = {
