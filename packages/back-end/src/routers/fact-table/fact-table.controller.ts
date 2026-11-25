@@ -22,14 +22,11 @@ import {
   ColumnInterface,
   FactTableColumnType,
   FullFactTableColumns,
+  ColumnCachedExplorations,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { QueryStatus } from "shared/types/query";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
-import type {
-  DatasetType,
-  ProductAnalyticsExploration,
-} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -45,7 +42,6 @@ import {
   updateColumn,
   updateColumnsTopValues,
   deleteColumn as deleteColumnInDb,
-  getCachedExplorationsUsingColumn,
   updateFactTable,
   updateFactTableColumns,
   deleteFactTable as deleteFactTableInDb,
@@ -59,7 +55,7 @@ import {
   getDatasourceIdentifierQuote,
 } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getProductAnalyticsExplorationUrl } from "back-end/src/enterprise/services/product-analytics";
+import { getColumnCachedExplorations } from "back-end/src/enterprise/services/product-analytics";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import {
   runColumnDetectionQuery,
@@ -1331,34 +1327,11 @@ export const deleteColumn = async (
   });
 };
 
-// Population previews (and any config the Explorer can't map) have no page.
-function getExplorerUrlOrNull(
-  config: ProductAnalyticsExploration["config"],
-): string | null {
-  if (config.dataset.type === "population") return null;
-  try {
-    return getProductAnalyticsExplorationUrl(config);
-  } catch (e) {
-    logger.warn(e, "Could not build Explorer URL for a cached exploration");
-    return null;
-  }
-}
-
 // Shown in the delete modal so the user can check the cached explorations that
-// use a column before deleting it. Lists the newest few, with Explorer links.
-const CACHED_EXPLORATIONS_LIMIT = 10;
-export const getColumnCachedExplorations = async (
+// use a virtual column before deleting it.
+export const getColumnCachedExplorationsForDelete = async (
   req: AuthRequest<null, { id: string; column: string }>,
-  res: Response<{
-    status: 200;
-    total: number;
-    explorations: {
-      id: string;
-      datasetType: DatasetType;
-      dateUpdated: Date;
-      url: string | null;
-    }[];
-  }>,
+  res: Response<{ status: 200 } & ColumnCachedExplorations>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -1366,35 +1339,17 @@ export const getColumnCachedExplorations = async (
   if (!factTable) {
     throw new NotFoundError("Could not find fact table with that id");
   }
-
-  const cached = await getCachedExplorationsUsingColumn(
-    context,
-    factTable,
-    req.params.column,
-    await getDatasourceIdentifierQuote(context, factTable.datasource),
-  );
-
-  // Every run writes a cache row, so collapse re-runs that open the same
-  // Explorer page. `cached` is newest first, so each kept row is the latest run.
-  const seenUrls = new Set<string>();
-  const explorations = cached
-    .map((e) => ({
-      id: e.id,
-      datasetType: e.config.dataset.type,
-      dateUpdated: e.dateUpdated,
-      url: getExplorerUrlOrNull(e.config),
-    }))
-    .filter((e) => {
-      if (e.url === null) return true;
-      if (seenUrls.has(e.url)) return false;
-      seenUrls.add(e.url);
-      return true;
-    });
+  if (!factTable.columns.some((c) => c.column === req.params.column)) {
+    throw new NotFoundError("Could not find that column");
+  }
 
   res.status(200).json({
     status: 200,
-    total: explorations.length,
-    explorations: explorations.slice(0, CACHED_EXPLORATIONS_LIMIT),
+    ...(await getColumnCachedExplorations(
+      context,
+      factTable,
+      req.params.column,
+    )),
   });
 };
 

@@ -156,7 +156,7 @@ router.get(
   validateRequestMiddleware({
     params: columnParams,
   }),
-  factTableController.getColumnCachedExplorations,
+  factTableController.getColumnCachedExplorationsForDelete,
 );
 
 router.delete(

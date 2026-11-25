@@ -878,7 +878,7 @@ function columnRefReferencesColumn(
 // Cached explorations don't block: `analyticsexploration` rows are a result
 // cache written on every run, with no name or page, so the user could never
 // clear them. The delete modal warns about them instead; see
-// `getCachedExplorationsUsingColumn`.
+// `getColumnCachedExplorations` in the product-analytics service.
 //
 // The scan is org-wide and deliberately ignores the caller's read permissions:
 // deleting a column is destructive and cross-cutting, so a dependent the caller
@@ -925,29 +925,6 @@ async function getDependentDashboards(
     dashboards,
     hiddenCount: dependentDashboards.length - dashboards.length,
   };
-}
-
-// Cached exploration results the caller can read that use `columnName`, newest
-// first. Shown as a warning before a virtual column delete; they never block it.
-export async function getCachedExplorationsUsingColumn(
-  context: ReqContext | ApiReqContext,
-  factTable: FactTableInterface,
-  columnName: string,
-  identifierQuote: SqlIdentifierQuote,
-) {
-  const cached =
-    await context.models.analyticsExplorations.getAllWithoutResultsForDatasource(
-      factTable.datasource,
-    );
-  return cached.filter((e) =>
-    explorationConfigReferencesColumn(
-      e.config,
-      factTable.id,
-      columnName,
-      identifierQuote,
-      factTable.filters,
-    ),
-  );
 }
 
 export async function deleteColumn(

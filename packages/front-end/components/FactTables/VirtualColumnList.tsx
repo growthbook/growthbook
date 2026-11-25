@@ -1,7 +1,10 @@
-import { FactTableInterface, ColumnInterface } from "shared/types/fact-table";
+import {
+  FactTableInterface,
+  ColumnInterface,
+  ColumnCachedExplorations,
+} from "shared/types/fact-table";
 import { useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import type { DatasetType } from "shared/validators";
 import { ago } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
@@ -37,15 +40,7 @@ function DeleteVirtualColumnContent({
   factTableId: string;
   column: string;
 }) {
-  const { data, error } = useApi<{
-    total: number;
-    explorations: {
-      id: string;
-      datasetType: DatasetType;
-      dateUpdated: string;
-      url: string | null;
-    }[];
-  }>(
+  const { data, error } = useApi<ColumnCachedExplorations>(
     `/fact-tables/${factTableId}/column/${encodeURIComponent(column)}/cached-explorations`,
   );
   const total = data?.total ?? 0;
@@ -74,13 +69,9 @@ function DeleteVirtualColumnContent({
           <Flex direction="column" gap="1">
             {explorations.map((e) => (
               <Text key={e.id}>
-                {e.url ? (
-                  <Link href={e.url} external>
-                    {EXPLORER_TYPE_LABELS[e.datasetType]} exploration
-                  </Link>
-                ) : (
-                  `${EXPLORER_TYPE_LABELS[e.datasetType]} exploration`
-                )}{" "}
+                <Link href={e.url} external>
+                  {EXPLORER_TYPE_LABELS[e.datasetType]} exploration
+                </Link>{" "}
                 · last run {ago(e.dateUpdated)}
               </Text>
             ))}
