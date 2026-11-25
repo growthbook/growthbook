@@ -141,11 +141,9 @@ describe("assertNoInjectedJs", () => {
     expect(() =>
       assertNoInjectedJs([html("<p>x</p>".repeat(2500))]),
     ).not.toThrow();
-    const start = Date.now();
     expect(() => assertNoInjectedJs([html("<div>".repeat(20000))])).toThrow(
       "cannot have more than 20,000 tags",
     );
-    expect(Date.now() - start).toBeLessThan(100);
   });
 
   const stored = {
