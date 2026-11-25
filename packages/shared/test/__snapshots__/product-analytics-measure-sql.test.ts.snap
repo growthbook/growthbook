@@ -1,0 +1,1930 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`SQL for each kind of measured value Population values counts units whose column total passes an aggregate filter 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      CASE
+        WHEN (SUM(m0) > 10) THEN 1
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value Population values counts units whose row count passes an aggregate filter 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      CASE
+        WHEN (SUM(m0) >= 2) THEN 1
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value Population values counts units with a matching row 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      MAX(m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value daily participation metrics distinct days counted ($$distinctDates) 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN date_trunc('day', timestamp)
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      COUNT(DISTINCT m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value fact table values counts rows, sums a column and counts distinct units 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m1,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m2
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0,
+      SUM(m1) AS m1,
+      MAX(m2) AS m2
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
+      CAST(SUM(m1) AS FLOAT) AS m1_numerator,
+      CAST(COUNT(m1) AS FLOAT) AS m1_denominator,
+      CAST(SUM(m2) AS FLOAT) AS m2_numerator,
+      CAST(COUNT(m2) AS FLOAT) AS m2_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator,
+  m1_numerator AS m1_numerator,
+  m1_denominator AS m1_denominator,
+  m2_numerator AS m2_numerator,
+  m2_denominator AS m2_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value mean metrics a column capped at a percentile 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_percentile_caps AS (
+    SELECT
+      APPROX_PERCENTILE (
+        CASE
+          WHEN ((event_name = 'Purchase')) THEN revenue
+          ELSE NULL
+        END,
+        0.99
+      ) AS m0_cap
+    FROM
+      _factTable0
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN LEAST(revenue, COALESCE(m0_cap, revenue))
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+      CROSS JOIN _factTable0_percentile_caps
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value mean metrics a column capped at an absolute value 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN LEAST(revenue, 100)
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value mean metrics a column maxed 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      MAX(m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value mean metrics a column summed 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value mean metrics a column summed per event, with no unit 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_event_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator
+    FROM
+      _factTable0_rows
+  )
+SELECT
+  m0_numerator AS m0_numerator
+FROM
+  _factTable0_event_rollup"
+`;
+
+exports[`SQL for each kind of measured value mean metrics a column's distinct values counted 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN product_id
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      COUNT(DISTINCT m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value mean metrics a pre-built HLL sketch merged 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN users_hll
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      HLL_COUNT (HLL_MERGE (m0)) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value mean metrics a pre-built HLL sketch merged per event, with no unit 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN users_hll
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_event_rollup AS (
+    SELECT
+      CAST(HLL_COUNT (HLL_MERGE (m0)) AS FLOAT) AS m0_numerator
+    FROM
+      _factTable0_rows
+  )
+SELECT
+  m0_numerator AS m0_numerator
+FROM
+  _factTable0_event_rollup"
+`;
+
+exports[`SQL for each kind of measured value mean metrics distinct days counted ($$distinctDates) 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN date_trunc('day', timestamp)
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      COUNT(DISTINCT m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value mean metrics matching rows counted ($$count) 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value metrics with a Population restricts each metric to the Population's members 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m1,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS population_count
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0,
+      MAX(m1) AS m1,
+      CASE
+        WHEN (SUM(population_count) > 10) THEN 1
+        ELSE NULL
+      END AS population_count
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
+      CAST(SUM(m1) AS FLOAT) AS m1_numerator,
+      CAST(COUNT(m1) AS FLOAT) AS m1_denominator,
+      CAST(SUM(population_count) AS FLOAT) AS population_count_numerator
+    FROM
+      _factTable0_unit0
+    WHERE
+      population_count IS NOT NULL
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator,
+  m1_numerator AS m1_numerator,
+  m1_denominator AS m1_denominator,
+  population_count_numerator AS population_count_numerator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value proportion metrics ($$distinctUsers) units whose column total passes an aggregate filter 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      CASE
+        WHEN (SUM(m0) > 10) THEN 1
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value proportion metrics ($$distinctUsers) units whose row count passes an aggregate filter 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      CASE
+        WHEN (SUM(m0) >= 2) THEN 1
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value proportion metrics ($$distinctUsers) units with a matching row 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      MAX(m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value quantile metrics a per-event quantile of a column 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_event_rollup AS (
+    SELECT
+      CAST(APPROX_PERCENTILE (m0, 0.9) AS FLOAT) AS m0_numerator
+    FROM
+      _factTable0_rows
+  )
+SELECT
+  m0_numerator AS m0_numerator
+FROM
+  _factTable0_event_rollup"
+`;
+
+exports[`SQL for each kind of measured value quantile metrics a per-event quantile of a pre-built KLL sketch 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue_kll
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_event_rollup AS (
+    SELECT
+      CAST(KLL_POINT (KLL_MERGE (m0), 0.9) AS FLOAT) AS m0_numerator
+    FROM
+      _factTable0_rows
+  )
+SELECT
+  m0_numerator AS m0_numerator
+FROM
+  _factTable0_event_rollup"
+`;
+
+exports[`SQL for each kind of measured value quantile metrics a per-unit quantile of a column sum 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(APPROX_PERCENTILE (m0, 0.9) AS FLOAT) AS m0_numerator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value ratio metrics a column sum over a row count 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0_denominator
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0,
+      SUM(m0_denominator) AS m0_denominator
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(SUM(m0_denominator) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value ratio metrics a column sum over a row count, per event 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0_denominator
+    FROM
+      _factTable0
+  ),
+  _factTable0_event_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(SUM(m0_denominator) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_rows
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_event_rollup"
+`;
+
+exports[`SQL for each kind of measured value ratio metrics a column sum over distinct units 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0_denominator
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0,
+      MAX(m0_denominator) AS m0_denominator
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(SUM(m0_denominator) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value several metrics on one fact table a column's distinct values counted, next to a column sum 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN product_id
+        ELSE NULL
+      END AS m1,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m1_rows
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0,
+      CASE
+        WHEN COUNT(m1_rows) > 0 THEN COUNT(DISTINCT m1)
+        ELSE NULL
+      END AS m1
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
+      CAST(SUM(m1) AS FLOAT) AS m1_numerator,
+      CAST(COUNT(m1) AS FLOAT) AS m1_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator,
+  m1_numerator AS m1_numerator,
+  m1_denominator AS m1_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value several metrics on one fact table a pre-built HLL sketch merged, next to a column sum 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN users_hll
+        ELSE NULL
+      END AS m1,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m1_rows
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0,
+      CASE
+        WHEN COUNT(m1_rows) > 0 THEN HLL_COUNT (HLL_MERGE (m1))
+        ELSE NULL
+      END AS m1
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
+      CAST(SUM(m1) AS FLOAT) AS m1_numerator,
+      CAST(COUNT(m1) AS FLOAT) AS m1_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator,
+  m1_numerator AS m1_numerator,
+  m1_denominator AS m1_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value several metrics on one fact table distinct days counted ($$distinctDates), next to a column sum 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN date_trunc('day', timestamp)
+        ELSE NULL
+      END AS m1,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m1_rows
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0,
+      CASE
+        WHEN COUNT(m1_rows) > 0 THEN COUNT(DISTINCT m1)
+        ELSE NULL
+      END AS m1
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
+      CAST(SUM(m1) AS FLOAT) AS m1_numerator,
+      CAST(COUNT(m1) AS FLOAT) AS m1_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator,
+  m1_numerator AS m1_numerator,
+  m1_denominator AS m1_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value several metrics on one fact table every kind of measured value together 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m1,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN product_id
+        ELSE NULL
+      END AS m2,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m2_rows,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN users_hll
+        ELSE NULL
+      END AS m3,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m3_rows,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m4,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN date_trunc('day', timestamp)
+        ELSE NULL
+      END AS m5,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m5_rows,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m6
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0,
+      MAX(m1) AS m1,
+      CASE
+        WHEN COUNT(m2_rows) > 0 THEN COUNT(DISTINCT m2)
+        ELSE NULL
+      END AS m2,
+      CASE
+        WHEN COUNT(m3_rows) > 0 THEN HLL_COUNT (HLL_MERGE (m3))
+        ELSE NULL
+      END AS m3,
+      SUM(m4) AS m4,
+      CASE
+        WHEN COUNT(m5_rows) > 0 THEN COUNT(DISTINCT m5)
+        ELSE NULL
+      END AS m5,
+      MAX(m6) AS m6
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
+      CAST(SUM(m1) AS FLOAT) AS m1_numerator,
+      CAST(COUNT(m1) AS FLOAT) AS m1_denominator,
+      CAST(SUM(m2) AS FLOAT) AS m2_numerator,
+      CAST(COUNT(m2) AS FLOAT) AS m2_denominator,
+      CAST(SUM(m3) AS FLOAT) AS m3_numerator,
+      CAST(COUNT(m3) AS FLOAT) AS m3_denominator,
+      CAST(SUM(m4) AS FLOAT) AS m4_numerator,
+      CAST(COUNT(m4) AS FLOAT) AS m4_denominator,
+      CAST(SUM(m5) AS FLOAT) AS m5_numerator,
+      CAST(COUNT(m5) AS FLOAT) AS m5_denominator,
+      CAST(SUM(m6) AS FLOAT) AS m6_numerator,
+      CAST(COUNT(m6) AS FLOAT) AS m6_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator,
+  m1_numerator AS m1_numerator,
+  m1_denominator AS m1_denominator,
+  m2_numerator AS m2_numerator,
+  m2_denominator AS m2_denominator,
+  m3_numerator AS m3_numerator,
+  m3_denominator AS m3_denominator,
+  m4_numerator AS m4_numerator,
+  m4_denominator AS m4_denominator,
+  m5_numerator AS m5_numerator,
+  m5_denominator AS m5_denominator,
+  m6_numerator AS m6_numerator,
+  m6_denominator AS m6_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value, continued SQL values counts rows, sums a column and counts distinct units, with a timestamp column 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      \`timestamp\` >= '2026-09-01 00:00:00'
+      AND \`timestamp\` <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m1,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m2
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0,
+      SUM(m1) AS m1,
+      MAX(m2) AS m2
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
+      CAST(SUM(m1) AS FLOAT) AS m1_numerator,
+      CAST(COUNT(m1) AS FLOAT) AS m1_denominator,
+      CAST(SUM(m2) AS FLOAT) AS m2_numerator,
+      CAST(COUNT(m2) AS FLOAT) AS m2_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator,
+  m1_numerator AS m1_numerator,
+  m1_denominator AS m1_denominator,
+  m2_numerator AS m2_numerator,
+  m2_denominator AS m2_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value, continued SQL values counts rows, sums a column and counts distinct units, without a timestamp column 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m1,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m2
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0,
+      SUM(m1) AS m1,
+      MAX(m2) AS m2
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
+      CAST(SUM(m1) AS FLOAT) AS m1_numerator,
+      CAST(COUNT(m1) AS FLOAT) AS m1_denominator,
+      CAST(SUM(m2) AS FLOAT) AS m2_numerator,
+      CAST(COUNT(m2) AS FLOAT) AS m2_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator,
+  m1_numerator AS m1_numerator,
+  m1_denominator AS m1_denominator,
+  m2_numerator AS m2_numerator,
+  m2_denominator AS m2_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value, continued a retention metric's distinct units 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      MAX(m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`SQL for each kind of measured value, continued data source values counts rows, sums a column and counts distinct units, per event, with no unit 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          analytics.events
+      ) t
+    WHERE
+      \`timestamp\` >= '2026-09-01 00:00:00'
+      AND \`timestamp\` <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m1,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m2
+    FROM
+      _factTable0
+  ),
+  _factTable0_event_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(SUM(m1) AS FLOAT) AS m1_numerator,
+      CAST(SUM(m2) AS FLOAT) AS m2_numerator
+    FROM
+      _factTable0_rows
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m1_numerator AS m1_numerator,
+  m2_numerator AS m2_numerator
+FROM
+  _factTable0_event_rollup"
+`;
+
+exports[`SQL for each kind of measured value, continued data source values counts rows, sums a column and counts distinct units, per unit 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          analytics.events
+      ) t
+    WHERE
+      \`timestamp\` >= '2026-09-01 00:00:00'
+      AND \`timestamp\` <= '2026-09-03 00:00:00'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN revenue
+        ELSE NULL
+      END AS m1,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m2
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      SUM(m0) AS m0,
+      SUM(m1) AS m1,
+      MAX(m2) AS m2
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+      CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
+      CAST(SUM(m1) AS FLOAT) AS m1_numerator,
+      CAST(COUNT(m1) AS FLOAT) AS m1_denominator,
+      CAST(SUM(m2) AS FLOAT) AS m2_numerator,
+      CAST(COUNT(m2) AS FLOAT) AS m2_denominator
+    FROM
+      _factTable0_unit0
+  )
+SELECT
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator,
+  m1_numerator AS m1_numerator,
+  m1_denominator AS m1_denominator,
+  m2_numerator AS m2_numerator,
+  m2_denominator AS m2_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;
