@@ -2,6 +2,7 @@ import React, { FC, Fragment, useState } from "react";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import { ArchetypeValueDisplay } from "@/components/Features/ValueDisplay";
@@ -17,6 +18,7 @@ const ArchetypeResults: FC<{
   featureResults: Record<string, FeatureTestResult[]>;
   onChange: () => void;
 }> = ({ feature, archetype, featureResults, onChange }) => {
+  const { t } = useLingui();
   const enableAdvDebug = false;
   const [showExpandedResults, setShowExpandedResults] =
     useState<boolean>(false);
@@ -68,6 +70,8 @@ const ArchetypeResults: FC<{
     if (!details) {
       return null;
     }
+    const archetypeName = details.archetype.name;
+    const resultEnv = details.results.env;
     return (
       <tr className={styles.expandedRow}>
         <td colSpan={numEnvs + 2}>
@@ -89,18 +93,21 @@ const ArchetypeResults: FC<{
               </div>
               <div className="text-center">
                 <span className="uppercase-title text-muted">
-                  Debug info for archetype{" "}
-                  <strong>{details.archetype.name}</strong>{" "}
-                  <strong>{details.results.env}</strong>
+                  <Trans>
+                    Debug info for archetype <strong>{archetypeName}</strong>{" "}
+                    <strong>{resultEnv}</strong>
+                  </Trans>
                 </span>
               </div>
               {!details.results.enabled ? (
                 <div className="text-center p-2 text-muted">
-                  Feature disabled for this environment
+                  <Trans>Feature disabled for this environment</Trans>
                 </div>
               ) : (
                 <div className="">
-                  <span className="text-muted">Matched rule:</span>{" "}
+                  <span className="text-muted">
+                    <Trans>Matched rule:</Trans>
+                  </span>{" "}
                   <strong>{details.matchedRuleName}</strong>
                 </div>
               )}
@@ -110,7 +117,9 @@ const ArchetypeResults: FC<{
             <div className="row mt-3">
               {details.log?.length > 0 && (
                 <div className="col">
-                  <h5>Log</h5>
+                  <h5>
+                    <Trans>Log</Trans>
+                  </h5>
                   <div className="bg-white border border-light rounded">
                     {details.debugLog.map((log, i) => (
                       <div className="row mb-3" key={i}>
@@ -136,7 +145,9 @@ const ArchetypeResults: FC<{
                 </div>
               )}
               <div className="col">
-                <h5>Attributes</h5>
+                <h5>
+                  <Trans>Attributes</Trans>
+                </h5>
                 <Code
                   language="json"
                   code={JSON.stringify(
@@ -148,7 +159,9 @@ const ArchetypeResults: FC<{
               </div>
               {details.results?.result?.experimentResult && (
                 <div className="col">
-                  <h5>Experiment result</h5>
+                  <h5>
+                    <Trans>Experiment result</Trans>
+                  </h5>
                   <Code
                     language="json"
                     code={JSON.stringify(
@@ -161,7 +174,9 @@ const ArchetypeResults: FC<{
               )}
               {details.results?.result?.ruleId && (
                 <div className="col">
-                  <h5>Matched Rule</h5>
+                  <h5>
+                    <Trans>Matched Rule</Trans>
+                  </h5>
                   <Code
                     language="json"
                     code={JSON.stringify(details.matchedRule, null, 2)}
@@ -169,7 +184,9 @@ const ArchetypeResults: FC<{
                 </div>
               )}
               <div className="col">
-                <h5>Feature value</h5>
+                <h5>
+                  <Trans>Feature value</Trans>
+                </h5>
                 <Code
                   language="json"
                   code={JSON.stringify(
@@ -192,7 +209,9 @@ const ArchetypeResults: FC<{
         <thead>
           <tr>
             <th>
-              <Link href="/archetypes">Archetype</Link>
+              <Link href="/archetypes">
+                <Trans>Archetype</Trans>
+              </Link>
             </th>
             {environments.map((env) => (
               <th key={env.id} title={env.description}>
@@ -252,7 +271,7 @@ const ArchetypeResults: FC<{
                         <td
                           key={env.id}
                           className={styles.valueCell}
-                          title="Archetype not evaluated for this environment"
+                          title={t`Archetype not evaluated for this environment`}
                         >
                           <span className="text-muted">—</span>
                         </td>
@@ -288,7 +307,9 @@ const ArchetypeResults: FC<{
                         {result.enabled ? (
                           <>{ArchetypeValueDisplay({ result, feature })}</>
                         ) : (
-                          <span className="text-muted">disabled</span>
+                          <span className="text-muted">
+                            <Trans>disabled</Trans>
+                          </span>
                         )}
                       </td>
                     );
@@ -318,8 +339,8 @@ const ArchetypeResults: FC<{
           initialValues={editArchetype}
           header={
             Object.keys(editArchetype).length === 0
-              ? "Create Archetype"
-              : "Edit Archetype"
+              ? t`Create Archetype`
+              : t`Edit Archetype`
           }
         />
       )}

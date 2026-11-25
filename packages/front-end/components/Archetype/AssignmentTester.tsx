@@ -5,6 +5,7 @@ import { FaChevronRight } from "react-icons/fa";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -39,6 +40,7 @@ export default function AssignmentTester({
   project,
   startOpen = true,
 }: Props) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(startOpen);
   const [formValues, setFormValues] = useState({});
   const [results, setResults] = useState<null | FeatureTestResult[]>(null);
@@ -109,7 +111,11 @@ export default function AssignmentTester({
 
   const showResults = () => {
     if (!results) {
-      return <div>Add attributes to see results</div>;
+      return (
+        <div>
+          <Trans>Add attributes to see results</Trans>
+        </div>
+      );
     }
 
     const displayResults =
@@ -120,7 +126,7 @@ export default function AssignmentTester({
     if (displayResults.length === 0) {
       return (
         <div className="text-muted">
-          No results for the selected environments.
+          <Trans>No results for the selected environments.</Trans>
         </div>
       );
     }
@@ -148,36 +154,36 @@ export default function AssignmentTester({
               tr.result?.experimentResult?.name ||
               tr?.result?.experiment?.key ||
               null;
-            matchedRuleName =
-              "Experiment" + (expName ? " (" + expName + ")" : "");
+            matchedRuleName = expName
+              ? t`Experiment (${expName})`
+              : t`Experiment`;
           } else if (tr?.result?.source === "force") {
-            matchedRuleName = "Forced";
+            matchedRuleName = t`Forced`;
             if (matchedRule && matchedRule?.coverage) {
-              matchedRuleName =
-                "Rollout (" +
-                coveragePercentFormatter.format(matchedRule.coverage) +
-                ")";
+              const coverage = coveragePercentFormatter.format(
+                matchedRule.coverage,
+              );
+              matchedRuleName = t`Rollout (${coverage})`;
             }
           } else if (tr?.result?.source === "defaultValue") {
-            matchedRuleName = "None - Returned Default Value";
+            matchedRuleName = t`None - Returned Default Value`;
           }
           if (tr?.log) {
             tr.log.forEach((log, n) => {
               const reason = log[0];
+              const ruleNumber = n + 1;
               if (reason === "Skip rule because of condition") {
                 debugLog.push(
-                  `Rule ${
-                    n + 1
-                  }: Skipped because user did not match the rule conditions`,
+                  t`Rule ${ruleNumber}: Skipped because user did not match the rule conditions`,
                 );
               } else if (reason === "In experiment") {
                 debugLog.push(
-                  `Rule ${n + 1}: Included user in experiment rule`,
+                  t`Rule ${ruleNumber}: Included user in experiment rule`,
                 );
               } else if (reason === "Use default value") {
-                debugLog.push(`No rules matched, using default value`);
+                debugLog.push(t`No rules matched, using default value`);
               } else {
-                debugLog.push(`Rule ${n + 1}: ${log[0]}`);
+                debugLog.push(t`Rule ${ruleNumber}: ${reason}`);
               }
             });
           }
@@ -190,13 +196,17 @@ export default function AssignmentTester({
                 }`}
               >
                 <div className={`${styles.resultsHeader} border-bottom`}>
-                  <span className="small text-muted">Environment: </span>
+                  <span className="small text-muted">
+                    <Trans>Environment:</Trans>{" "}
+                  </span>
                   <strong>{tr.env}</strong>
                 </div>
                 <div className="px-3 pb-1">
                   <div className="row align-items-top pt-3">
                     <div className="col-auto">
-                      <span className="text-muted">Value served:</span>
+                      <span className="text-muted">
+                        <Trans>Value served:</Trans>
+                      </span>
                     </div>
                     {tr?.result?.value !== undefined ? (
                       <div className="col">
@@ -216,13 +226,17 @@ export default function AssignmentTester({
                 </div>
                 {!tr?.enabled && (
                   <div className="px-3 pb-3">
-                    <strong className="text-muted">Feature disabled</strong>
+                    <strong className="text-muted">
+                      <Trans>Feature disabled</Trans>
+                    </strong>
                   </div>
                 )}
                 {tr?.result && (
                   <>
                     <div className="px-3 pb-3">
-                      <span className="mr-2 text-muted">Matched rule: </span>
+                      <span className="mr-2 text-muted">
+                        <Trans>Matched rule:</Trans>{" "}
+                      </span>
                       <strong>{matchedRuleName}</strong>
                     </div>
                     <div
@@ -251,7 +265,9 @@ export default function AssignmentTester({
                       <div className="p-3">
                         {debugLog && (
                           <div className="mb-3">
-                            <h5>Log</h5>
+                            <h5>
+                              <Trans>Log</Trans>
+                            </h5>
                             <div className="bg-white border border-light rounded  p-3">
                               {debugLog.map((log, i) => (
                                 <div className="row my-2" key={i}>
@@ -263,7 +279,9 @@ export default function AssignmentTester({
                         )}
                         {tr?.result?.experimentResult && (
                           <div>
-                            <h5>Experiment result</h5>
+                            <h5>
+                              <Trans>Experiment result</Trans>
+                            </h5>
                             <Code
                               language="json"
                               code={JSON.stringify(
@@ -276,7 +294,9 @@ export default function AssignmentTester({
                         )}
                         {tr?.result?.ruleId && (
                           <div>
-                            <h5>Matched Rule</h5>
+                            <h5>
+                              <Trans>Matched Rule</Trans>
+                            </h5>
                             <Code
                               language="json"
                               code={JSON.stringify(matchedRule, null, 2)}
@@ -300,36 +320,44 @@ export default function AssignmentTester({
       <Flex align="start" justify="between" mb="5" gap="4">
         <Box flexShrink="1">
           <Heading mb="1" size="4" as="h3">
-            Simulate Feature Rules
+            <Trans>Simulate Feature Rules</Trans>
           </Heading>
           <Text mb="0">
-            Test how your rules will apply to users.{" "}
-            <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
+            <Trans>Test how your rules will apply to users.</Trans>{" "}
+            <Tooltip
+              body={t`Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules.`}
+            ></Tooltip>
           </Text>
         </Box>
         {(hasPrerequisites || hasScheduled) && (
           <Box flexShrink="0">
             {hasPrerequisites && (
               <Flex align="center" justify="end" mb="2" gap="3">
-                <span className="font-weight-bold">Prereq evaluation:</span>{" "}
-                <span>
-                  Top-level: <span className="text-success">pass</span>.
+                <span className="font-weight-bold">
+                  <Trans>Prereq evaluation:</Trans>
                 </span>{" "}
                 <span>
-                  Rules:{" "}
+                  <Trans>
+                    Top-level: <span className="text-success">pass</span>.
+                  </Trans>
+                </span>{" "}
+                <span>
                   {skipRulesWithPrerequisites ? (
-                    <span className="text-danger">fail</span>
+                    <Trans>
+                      Rules: <span className="text-danger">fail</span>.
+                    </Trans>
                   ) : (
-                    <span className="text-success">pass</span>
+                    <Trans>
+                      Rules: <span className="text-success">pass</span>.
+                    </Trans>
                   )}
-                  .
                 </span>
               </Flex>
             )}
             <Flex align="center">
               {hasPrerequisites && (
                 <Switch
-                  label="Skip rules with prerequisite targeting"
+                  label={t`Skip rules with prerequisite targeting`}
                   id="skipRulesWithPrerequisites"
                   value={skipRulesWithPrerequisites}
                   onChange={(c) => setSkipRulesWithPrerequisites(c)}
@@ -341,9 +369,9 @@ export default function AssignmentTester({
                     <label
                       className="small text-muted mr-2 mb-0 small text-muted text-ellipsis"
                       htmlFor="evalDate"
-                      title="When there are scheduled rules, this date select lets you see what values the user will get."
+                      title={t`When there are scheduled rules, this date select lets you see what values the user will get.`}
                     >
-                      Evaluation Date
+                      <Trans>Evaluation Date</Trans>
                     </label>
                     <DatePicker
                       id="evalDate"
@@ -375,7 +403,7 @@ export default function AssignmentTester({
         <Box>
           <Flex align="center" justify="between">
             <Heading as="h4" size="3" mb="0">
-              Ad hoc attributes
+              <Trans>Ad hoc attributes</Trans>
             </Heading>
             <Button variant="ghost" onClick={() => setOpen(!open)}>
               <FaChevronRight
@@ -398,15 +426,15 @@ export default function AssignmentTester({
                     headerContent={
                       featureEnvironments.length > 1 ? (
                         <MultiSelectField
-                          label="Environments"
-                          placeholder="All environments"
+                          label={t`Environments`}
+                          placeholder={t`All environments`}
                           value={selectedEnvs}
                           options={featureEnvironments.map((env) => ({
                             label: env.id,
                             value: env.id,
                           }))}
                           onChange={setSelectedEnvs}
-                          helpText="Limit results and saved archetype to these environments. Leave empty for all."
+                          helpText={t`Limit results and saved archetype to these environments. Leave empty for all.`}
                         />
                       ) : null
                     }
@@ -424,26 +452,36 @@ export default function AssignmentTester({
                         href="#"
                         className="btn btn-outline-primary"
                       >
-                        Save Archetype
+                        <Trans>Save Archetype</Trans>
                       </a>
                     </PremiumTooltip>
                   </div>
                 </div>
                 <div className="mb-2 col-6" style={{ paddingTop: "13px" }}>
                   <h4>
-                    Results{isNow ? " " : ` for ${evalDateStr}`}{" "}
+                    {isNow ? (
+                      <>
+                        <Trans>Results</Trans>{" "}
+                      </>
+                    ) : (
+                      <Trans>Results for {evalDateStr}</Trans>
+                    )}{" "}
                     <div className="text-warning float-right">
                       <Tooltip
                         body={
                           <>
-                            These results use the JS SDK, which supports the V2
-                            hashing algorithm. If you use one of the older or
-                            unsupported SDKs, you may want to change the hashing
-                            algorithm of the experiment to v1 to ensure accurate
-                            results.
+                            <Trans>
+                              These results use the JS SDK, which supports the
+                              V2 hashing algorithm. If you use one of the older
+                              or unsupported SDKs, you may want to change the
+                              hashing algorithm of the experiment to v1 to
+                              ensure accurate results.
+                            </Trans>
                             <br />
                             <br />
-                            The following SDK versions support V2 hashing:
+                            <Trans>
+                              The following SDK versions support V2 hashing:
+                            </Trans>
                             <MinSDKVersionsList capability="bucketingV2" />
                           </>
                         }
@@ -468,7 +506,7 @@ export default function AssignmentTester({
                 setOpenArchetypeModal(null);
               }}
               initialValues={openArchetypeModal}
-              header="Save Archetype"
+              header={t`Save Archetype`}
             />
           ) : (
             <Modal
@@ -477,9 +515,11 @@ export default function AssignmentTester({
               close={() => setOpenArchetypeModal(null)}
             >
               <div className="p-3">
-                Archetypes allow you to set up user attribute traits to test how
-                features will be applied to your real users. This feature is
-                part of our Pro or Enterprise plans.
+                <Trans>
+                  Archetypes allow you to set up user attribute traits to test
+                  how features will be applied to your real users. This feature
+                  is part of our Pro or Enterprise plans.
+                </Trans>
               </div>
             </Modal>
           )}

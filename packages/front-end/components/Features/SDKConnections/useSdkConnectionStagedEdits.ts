@@ -1,6 +1,9 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import useSessionStagedState from "@/hooks/useSessionStagedState";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { isCloud } from "@/services/env";
@@ -24,16 +27,22 @@ function invalidReason(
   next: SDKConnectionFormValue,
   saved: SDKConnectionFormValue,
   requireProject: boolean,
+  i18n: I18n,
 ): string | null {
-  if (!next.languages.length) return "Please select an SDK language";
+  if (!next.languages.length) return i18n._(msg`Please select an SDK language`);
   // Only a connection that already has projects must keep one.
   if (requireProject && saved.projects.length > 0 && !next.projects.length) {
-    return "Your organization requires SDK Connections to belong to at least one project.";
+    return i18n._(
+      msg`Your organization requires SDK Connections to belong to at least one project.`,
+    );
   }
   // The proxy host is only offered on cloud.
   if (isCloud()) {
     const proxyError = proxyHostError(next);
-    if (proxyError) return `Proxy host: ${proxyError}`;
+    if (proxyError) {
+      const proxyErrorText = i18n._(proxyError);
+      return i18n._(msg`Proxy host: ${proxyErrorText}`);
+    }
   }
   return null;
 }
@@ -70,6 +79,7 @@ export function useSdkConnectionStagedEdits(
     NOTHING_STAGED,
   );
   const { requireProjectForSdkConnections } = useOrgSettings();
+  const { i18n } = useLingui();
   if (!connection) return null;
   const saved = valueFromConnection(connection);
   const savedValue = (field: string) =>
@@ -113,6 +123,7 @@ export function useSdkConnectionStagedEdits(
       shown,
       saved,
       !!requireProjectForSdkConnections,
+      i18n,
     ),
     stagedRows,
     fieldsOf,

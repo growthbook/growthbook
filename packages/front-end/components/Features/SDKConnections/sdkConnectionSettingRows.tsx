@@ -2,6 +2,9 @@ import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { SavedGroupFormat, SDKLanguage } from "shared/types/sdk-connection";
 import { SDKCapability } from "shared/sdk-versioning";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -52,6 +55,7 @@ import {
   SAVED_GROUP_FORMAT_LABELS,
   ScheduleDatesLabel,
   SETTING_TITLES,
+  SettingText,
   TagsLabel,
   UrlRedirectLabel,
   VisualEditorLabel,
@@ -77,7 +81,7 @@ type Fields = (keyof SDKConnectionFormValue)[];
 
 export type SettingRow = {
   key: string;
-  label: string;
+  label: MessageDescriptor;
   // The settings it shows, for its change mark; by value where another
   // setting decides which.
   fields: Fields | ((v: SDKConnectionFormValue) => Fields);
@@ -100,7 +104,7 @@ const CIPHER_FIELDS: Fields = ["encryptPayload", "hashSecureAttributes"];
 function NoneValue() {
   return (
     <Text color="text-mid" fontStyle="italic">
-      None
+      <Trans>None</Trans>
     </Text>
   );
 }
@@ -143,14 +147,17 @@ const LANGUAGE_CATEGORIES: LanguageFilter[] = [
   "mobile",
   "edge",
 ];
-const LANGUAGE_OPTIONS = [
+const LANGUAGE_GROUPS: {
+  label: MessageDescriptor | null;
+  options: ReturnType<typeof languageOption>[];
+}[] = [
   ...LANGUAGE_CATEGORIES.map((category) => ({
     label: LANGUAGE_FILTER_LABELS[category],
     options: getLanguagesByFilter(category).map(languageOption),
   })),
   // Uncategorized, under a separator: a group with no label draws only its rule.
   {
-    label: "",
+    label: null,
     options: (Object.keys(languageMapping) as SDKLanguage[])
       .filter(
         (language) =>
@@ -171,16 +178,21 @@ function LanguageField({
   onChange: OnChange;
   disabled?: boolean;
 }) {
+  const { t, i18n } = useLingui();
+  const options = LANGUAGE_GROUPS.map((group) => ({
+    label: group.label ? i18n._(group.label) : "",
+    options: group.options,
+  }));
   // Connections created with several SDKs keep them; new picks are one SDK.
   if (value.length > 1) {
     return (
       <MultiSelectField
         size="lg"
-        aria-label="SDK"
+        aria-label={t`SDK`}
         disabled={disabled}
         value={value}
         onChange={(langs) => onChange(languagesPatch(langs as SDKLanguage[]))}
-        options={LANGUAGE_OPTIONS}
+        options={options}
         formatOptionLabel={({ value: l }) => (
           <SDKLanguageLogo language={l as SDKLanguage} showLabel size={20} />
         )}
@@ -191,12 +203,12 @@ function LanguageField({
   return (
     <SelectField
       size="lg"
-      aria-label="SDK"
+      aria-label={t`SDK`}
       disabled={disabled}
-      placeholder="Choose an SDK..."
+      placeholder={t`Choose an SDK...`}
       value={value[0]}
       onChange={(lang) => onChange(languagesPatch([lang as SDKLanguage]))}
-      options={LANGUAGE_OPTIONS}
+      options={options}
       sort={false}
       formatOptionLabel={({ value: lang }) => (
         <SDKLanguageLogo
@@ -213,7 +225,7 @@ function LanguageField({
 export const CONNECTION_ROWS: SettingRow[] = [
   {
     key: "sdk",
-    label: "SDK",
+    label: msg`SDK`,
     fields: ["languages"],
     shown: () => true,
     read: (v) => (
@@ -246,7 +258,7 @@ export const CONNECTION_ROWS: SettingRow[] = [
   },
   {
     key: "version",
-    label: "SDK version",
+    label: msg`SDK version`,
     fields: ["sdkVersion"],
     shown: (v) => !!versionedLanguage(v.languages),
     read: (v) => (v.sdkVersion ? <Text>{v.sdkVersion}</Text> : <NoneValue />),
@@ -263,7 +275,7 @@ export const CONNECTION_ROWS: SettingRow[] = [
   },
   {
     key: "environment",
-    label: "Environment",
+    label: msg`Environment`,
     fields: ["environment"],
     shown: () => true,
     read: (v) => <Text>{v.environment}</Text>,
@@ -281,7 +293,7 @@ export const CONNECTION_ROWS: SettingRow[] = [
   },
   {
     key: "projects",
-    label: "Projects",
+    label: msg`Projects`,
     fields: ["projects"],
     shown: () => true,
     read: (v, { projectName }) =>
@@ -295,7 +307,9 @@ export const CONNECTION_ROWS: SettingRow[] = [
           ))}
         </Text>
       ) : (
-        <Text>All Projects</Text>
+        <Text>
+          <Trans>All Projects</Trans>
+        </Text>
       ),
     edit: (
       v,
@@ -318,7 +332,7 @@ export const CONNECTION_ROWS: SettingRow[] = [
   },
   {
     key: "prerequisites",
-    label: "Prerequisites",
+    label: msg`Prerequisites`,
     fields: ["includeReferencedPrerequisites"],
     shown: () => true,
     read: (v) => (
@@ -338,10 +352,12 @@ export const CONNECTION_ROWS: SettingRow[] = [
 const readCipherOptions: SettingRow["read"] = (v, { currentCaps }) => (
   <EnabledList
     items={[
-      currentCaps.includes("encryption") &&
-        v.encryptPayload &&
-        SETTING_TITLES.encryptPayload,
-      v.hashSecureAttributes && SETTING_TITLES.hashSecureAttributes,
+      currentCaps.includes("encryption") && v.encryptPayload && (
+        <SettingText text={SETTING_TITLES.encryptPayload} />
+      ),
+      v.hashSecureAttributes && (
+        <SettingText text={SETTING_TITLES.hashSecureAttributes} />
+      ),
     ]}
   />
 );
@@ -354,7 +370,11 @@ export const SECURITY_ROWS: SettingRow[] = [
     fields: (v) =>
       v.delivery === "plain" ? ["delivery", ...CIPHER_FIELDS] : ["delivery"],
     shown: (v) => shouldShowPayloadSecurity(v.languages),
-    read: (v) => <Text>{DELIVERY_LABELS[v.delivery]}</Text>,
+    read: (v) => (
+      <Text>
+        <SettingText text={DELIVERY_LABELS[v.delivery]} />
+      </Text>
+    ),
     edit: (v, onChange, disabled, { keptPremiumSettings }) => (
       <PayloadSecurityField
         value={v}
@@ -453,12 +473,16 @@ export const PAYLOAD_ROWS: SettingRow[] = [
     label: CATEGORY_TITLES.savedGroups,
     fields: ["savedGroupFormat"],
     shown: (v, { currentCaps }) => currentCaps.includes("savedGroupReferences"),
-    read: (v) => (
-      <Text>
-        {SETTING_TITLES.passByReference}:{" "}
-        {SAVED_GROUP_FORMAT_LABELS[v.savedGroupFormat]}
-      </Text>
-    ),
+    read: (v) => {
+      const format = (
+        <SettingText text={SAVED_GROUP_FORMAT_LABELS[v.savedGroupFormat]} />
+      );
+      return (
+        <Text>
+          <Trans>Pass by reference: {format}</Trans>
+        </Text>
+      );
+    },
     edit: (v, onChange, disabled, { storedSavedGroupFormat }) => (
       <Control>
         <SavedGroupFormatField
@@ -526,7 +550,7 @@ export const PAYLOAD_ROWS: SettingRow[] = [
     read: (v) => (
       <EnabledList
         items={[
-          v.includeRuleIds && SETTING_TITLES.ruleIds,
+          v.includeRuleIds && <SettingText text={SETTING_TITLES.ruleIds} />,
           v.includeDraftExperimentRefs && <DraftRulesLabel />,
           v.includeDraftExperiments && <DraftExperimentsLabel />,
         ]}
@@ -553,10 +577,13 @@ export const PAYLOAD_ROWS: SettingRow[] = [
     read: (v) =>
       v.proxyEnabled ? (
         <Text>
-          {v.proxyHost || SETTING_TITLES.useProxy} <ProxyHostTooltip />
+          {v.proxyHost || <SettingText text={SETTING_TITLES.useProxy} />}{" "}
+          <ProxyHostTooltip />
         </Text>
       ) : (
-        <Text>Off</Text>
+        <Text>
+          <Trans>Off</Trans>
+        </Text>
       ),
     edit: (v, onChange, disabled) => (
       <Control>
@@ -568,10 +595,14 @@ export const PAYLOAD_ROWS: SettingRow[] = [
   },
   {
     key: "traces",
-    label: "Traces",
+    label: msg`Traces`,
     fields: ["tracesEnabled"],
     shown: (v, { showTraces }) => showTraces,
-    read: (v) => <EnabledList items={[v.tracesEnabled && TRACES_TITLE]} />,
+    read: (v) => (
+      <EnabledList
+        items={[v.tracesEnabled && <SettingText text={TRACES_TITLE} />]}
+      />
+    ),
     edit: (v, onChange, disabled) => (
       <Checkboxes>
         <TracesSettings value={v} onChange={onChange} disabled={disabled} />

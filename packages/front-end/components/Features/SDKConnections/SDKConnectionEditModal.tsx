@@ -1,6 +1,7 @@
 import { useState } from "react";
 import isEqual from "lodash/isEqual";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { useLingui } from "@lingui/react/macro";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
@@ -91,6 +92,7 @@ export default function SDKConnectionEditModal({
   mutate: () => Promise<unknown> | void;
   close: () => void;
 } & SdkConnectionRevisionProps) {
+  const { t } = useLingui();
   const [name, setName] = useState(connection.name);
   const flow = useSdkConnectionRevisionFlow({
     connection,
@@ -105,11 +107,11 @@ export default function SDKConnectionEditModal({
   return (
     <ModalStandard
       trackingEventModalType="edit-sdk-connection-name"
-      header="Edit Name"
+      header={t`Edit Name`}
       open={true}
       close={close}
       size="md"
-      cta={flow.mode === "publish" ? "Save" : "Save to draft"}
+      cta={flow.mode === "publish" ? t`Save` : t`Save to draft`}
       ctaEnabled={!!name.trim() && name.trim() !== connection.name}
       submit={async () => {
         await flow.save({ name: name.trim() });
@@ -128,7 +130,7 @@ export default function SDKConnectionEditModal({
         metadataOnly={flow.metadataOnly}
       />
       <Field
-        label="Name"
+        label={t`Name`}
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}

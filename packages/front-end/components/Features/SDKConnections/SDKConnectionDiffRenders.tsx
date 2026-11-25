@@ -1,6 +1,9 @@
 import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { Box } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import {
   SDKConnectionRevisionSnapshot,
   SDKConnectionSettingsRevisionSnapshot,
@@ -12,9 +15,9 @@ import { isCloud } from "@/services/env";
 import Text from "@/ui/Text";
 import { ChangeField } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import {
-  CATEGORY_TITLES,
   SAVED_GROUP_FORMAT_LABELS,
   SETTING_TITLES,
+  SettingText,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 import { PAYLOAD_FORMAT_LABELS } from "@/components/Features/SDKConnections/SdkWebhooks";
 import { TRACES_TITLE } from "@/components/Features/SDKConnections/SDKConnectionAdvancedSettings";
@@ -40,12 +43,12 @@ function postConn(
 // On/Off, as the settings cards read.
 function boolDisplay(v: boolean | undefined | null): ReactNode {
   if ((v ?? null) === null) return <em>—</em>;
-  return v ? "On" : "Off";
+  return v ? <Trans>On</Trans> : <Trans>Off</Trans>;
 }
 
 type BoolField = {
   key: keyof SDKConnectionSettingsRevisionSnapshot;
-  label: string;
+  label: MessageDescriptor;
   // Shown the other way round, as its setting is worded.
   inverted?: boolean;
 };
@@ -66,7 +69,7 @@ function boolRows(
     rows.push(
       <ChangeField
         key={key}
-        label={label}
+        label={<SettingText text={label} />}
         changed
         oldNode={boolDisplay(flip(preVal))}
         newNode={boolDisplay(flip(postVal))}
@@ -114,7 +117,7 @@ function renderSDKConnectionScope(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="environment"
-        label="Environment"
+        label={<Trans>Environment</Trans>}
         changed
         oldNode={strDisplay(p0?.environment)}
         newNode={strDisplay(p1.environment)}
@@ -126,7 +129,7 @@ function renderSDKConnectionScope(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="projects"
-        label="Projects"
+        label={<Trans>Projects</Trans>}
         changed
         oldNode={arrayDisplay(p0?.projects)}
         newNode={arrayDisplay(p1.projects)}
@@ -138,7 +141,7 @@ function renderSDKConnectionScope(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="languages"
-        label="Languages / SDKs"
+        label={<Trans>Languages / SDKs</Trans>}
         changed
         oldNode={arrayDisplay(p0?.languages)}
         newNode={arrayDisplay(p1.languages)}
@@ -150,7 +153,7 @@ function renderSDKConnectionScope(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="sdkVersion"
-        label="SDK version"
+        label={<Trans>SDK version</Trans>}
         changed
         oldNode={strDisplay(p0?.sdkVersion)}
         newNode={strDisplay(p1.sdkVersion)}
@@ -238,7 +241,7 @@ function renderSDKConnectionSecurity(pre: Pre, post: Post): ReactNode | null {
         key: "hashSecureAttributes",
         label: SETTING_TITLES.hashSecureAttributes,
       },
-      { key: "remoteEvalEnabled", label: "Remote evaluation" },
+      { key: "remoteEvalEnabled", label: msg`Remote evaluation` },
     ],
     p0,
     p1,
@@ -348,16 +351,20 @@ function renderSDKConnectionMetadata(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="savedGroupFormat"
-        label={SETTING_TITLES.savedGroupReferences}
+        label={<SettingText text={SETTING_TITLES.savedGroupReferences} />}
         changed
         oldNode={
           p0?.savedGroupFormat ? (
-            SAVED_GROUP_FORMAT_LABELS[p0.savedGroupFormat]
+            <SettingText
+              text={SAVED_GROUP_FORMAT_LABELS[p0.savedGroupFormat]}
+            />
           ) : (
             <em>—</em>
           )
         }
-        newNode={SAVED_GROUP_FORMAT_LABELS[p1.savedGroupFormat]}
+        newNode={
+          <SettingText text={SAVED_GROUP_FORMAT_LABELS[p1.savedGroupFormat]} />
+        }
       />,
     );
   }
@@ -372,7 +379,7 @@ function renderSDKConnectionMetadata(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="allowedCustomFieldsInMetadata"
-        label="Allowed custom fields"
+        label={<Trans>Allowed custom fields</Trans>}
         changed
         oldNode={arrayDisplay(p0?.allowedCustomFieldsInMetadata)}
         newNode={arrayDisplay(p1.allowedCustomFieldsInMetadata)}
@@ -388,7 +395,7 @@ function renderSDKConnectionProxy(pre: Pre, post: Post): ReactNode | null {
   const p1 = postConn(post);
   if (!p1) return null;
   const rows = boolRows(
-    [{ key: "proxyEnabled", label: "GrowthBook Proxy" }],
+    [{ key: "proxyEnabled", label: msg`GrowthBook Proxy` }],
     p0,
     p1,
   );
@@ -397,7 +404,7 @@ function renderSDKConnectionProxy(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="proxyHost"
-        label="Proxy host"
+        label={<Trans>Proxy host</Trans>}
         changed
         oldNode={strDisplay(p0?.proxyHost)}
         newNode={strDisplay(p1.proxyHost)}
@@ -434,7 +441,7 @@ function renderSDKConnectionName(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="name"
-        label="Name"
+        label={<Trans>Name</Trans>}
         changed
         oldNode={strDisplay(p0?.name)}
         newNode={strDisplay(p1.name)}
@@ -447,7 +454,7 @@ function renderSDKConnectionName(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="eventTracker"
-        label="Event tracker"
+        label={<Trans>Event tracker</Trans>}
         changed
         oldNode={strDisplay(p0?.eventTracker)}
         newNode={strDisplay(p1.eventTracker)}
@@ -478,16 +485,16 @@ function renderSDKConnectionArchived(pre: Pre, post: Post): ReactNode | null {
   return (
     <Box mt="1">
       <ChangeField
-        label="Status"
+        label={<Trans>Status</Trans>}
         changed
         oldNode={
           <Text color={preArchived ? "text-low" : "text-mid"}>
-            {preArchived ? "Archived" : "Active"}
+            {preArchived ? <Trans>Archived</Trans> : <Trans>Active</Trans>}
           </Text>
         }
         newNode={
           <Text color={postArchived ? "text-low" : "text-mid"}>
-            {postArchived ? "Archived" : "Active"}
+            {postArchived ? <Trans>Archived</Trans> : <Trans>Active</Trans>}
           </Text>
         }
       />
@@ -508,7 +515,13 @@ function getSDKConnectionArchivedBadges(pre: Pre, post: Post): DiffBadge[] {
 }
 
 function timeoutDisplay(v: number | null | undefined): ReactNode {
-  return (v ?? null) === null ? <em>Default</em> : `${v}s`;
+  return (v ?? null) === null ? (
+    <em>
+      <Trans>Default</Trans>
+    </em>
+  ) : (
+    `${v}s`
+  );
 }
 
 function webhookLabel(wh: SDKWebhookRevisionSnapshot): string {
@@ -518,42 +531,59 @@ function webhookLabel(wh: SDKWebhookRevisionSnapshot): string {
 // Headers can carry secrets, so their change is shown without the values.
 const WEBHOOK_DIFF_FIELDS: {
   key: keyof SDKWebhookRevisionSnapshot;
-  label: string;
+  // The row's label, after the webhook's name.
+  label: (webhook: string) => MessageDescriptor;
   display: (value: unknown) => ReactNode;
 }[] = [
-  { key: "name", label: "name", display: (v) => strDisplay(v as string) },
+  {
+    key: "name",
+    label: (webhook) => msg`${webhook} name`,
+    display: (v) => strDisplay(v as string),
+  },
   {
     key: "endpoint",
-    label: "endpoint",
+    label: (webhook) => msg`${webhook} endpoint`,
     display: (v) => strDisplay(v as string),
   },
   {
     key: "httpMethod",
-    label: "method",
+    label: (webhook) => msg`${webhook} method`,
     display: (v) => strDisplay(v as string),
   },
   {
     key: "payloadFormat",
-    label: "payload format",
-    display: (v) =>
-      strDisplay(PAYLOAD_FORMAT_LABELS[v as string] ?? (v as string)),
+    label: (webhook) => msg`${webhook} payload format`,
+    display: (v) => {
+      const formatLabel = PAYLOAD_FORMAT_LABELS[v as string];
+      return formatLabel ? (
+        <SettingText text={formatLabel} />
+      ) : (
+        strDisplay(v as string)
+      );
+    },
   },
   {
     key: "payloadKey",
-    label: "payload key",
+    label: (webhook) => msg`${webhook} payload key`,
     display: (v) => strDisplay(v as string),
   },
   {
     key: "timeoutSeconds",
-    label: "timeout",
+    label: (webhook) => msg`${webhook} timeout`,
     display: (v) => timeoutDisplay(v as number | undefined),
   },
   {
     key: "headers",
-    label: "headers",
+    label: (webhook) => msg`${webhook} headers`,
     display: (v) => {
       const names = headerNames(v);
-      return names.length ? names.join(", ") : <em>none</em>;
+      return names.length ? (
+        names.join(", ")
+      ) : (
+        <em>
+          <Trans>none</Trans>
+        </em>
+      );
     },
   },
 ];
@@ -600,10 +630,18 @@ function renderSDKConnectionWebhooks(pre: Pre, post: Post): ReactNode | null {
       rows.push(
         <ChangeField
           key={`${key}-${wh.id}`}
-          label={`${webhookLabel(wh)} ${label}`}
+          label={<SettingText text={label(webhookLabel(wh))} />}
           changed
           oldNode={display(old[key])}
-          newNode={valuesOnly ? <em>values changed</em> : display(wh[key])}
+          newNode={
+            valuesOnly ? (
+              <em>
+                <Trans>values changed</Trans>
+              </em>
+            ) : (
+              display(wh[key])
+            )
+          }
         />,
       );
     }
@@ -657,7 +695,8 @@ function getSDKConnectionWebhookBadges(pre: Pre, post: Post): DiffBadge[] {
 }
 
 // Settings sections share the `sdkConnection` key; each renders null when its
-// own fields are unchanged.
+// own fields are unchanged. Section labels also key the diff, so they stay
+// plain strings, as the settings cards title them.
 export const REVISION_SDK_CONNECTION_DIFF_CONFIG: RevisionDiffConfig<SDKConnectionRevisionSnapshot> =
   {
     // Rows skip a setting the newer side lacks, so fill both sides first.
@@ -679,23 +718,23 @@ export const REVISION_SDK_CONNECTION_DIFF_CONFIG: RevisionDiffConfig<SDKConnecti
         getBadges: getSDKConnectionScopeBadges,
       },
       {
-        label: CATEGORY_TITLES.payloadSecurity,
+        label: "Payload Security",
         keys: ["sdkConnection"],
         render: renderSDKConnectionSecurity,
         getBadges: getSDKConnectionSecurityBadges,
       },
       {
-        label: CATEGORY_TITLES.experiments,
+        label: "Experiments",
         keys: ["sdkConnection"],
         render: renderSDKConnectionExperiments,
       },
       {
-        label: CATEGORY_TITLES.payloadMetadata,
+        label: "Payload Metadata",
         keys: ["sdkConnection"],
         render: renderSDKConnectionMetadata,
       },
       {
-        label: CATEGORY_TITLES.observability,
+        label: "Observability and QA",
         keys: ["sdkConnection"],
         render: renderSDKConnectionObservability,
       },

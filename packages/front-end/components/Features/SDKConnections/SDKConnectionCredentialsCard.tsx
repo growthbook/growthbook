@@ -2,6 +2,9 @@ import { ReactNode } from "react";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButton";
 import WebhookErrorDetails from "@/components/Features/SDKConnections/WebhookErrorDetails";
@@ -14,15 +17,15 @@ import { Popover } from "@/ui/Popover";
 import LinkButton from "@/ui/LinkButton";
 import Badge from "@/ui/Badge";
 
-const PROXIED = "Requests are routed through your GrowthBook Proxy.";
-const PROXY_FROM_ENV =
-  "Set for the whole instance by the PROXY_ENABLED and PROXY_HOST_PUBLIC environment variables, not on this SDK Connection.";
-
 // What an SDK's configuration names it, as the implementation instructions do.
-export function configSettingsTitle(connection: SDKConnectionInterface) {
+export function configSettingsTitle(
+  connection: SDKConnectionInterface,
+): MessageDescriptor {
   const language = connection.languages[0];
   const mapping = language ? languageMapping[language] : undefined;
-  return `${mapping ? mapping.docLabel || mapping.label : "SDK"} Config Settings`;
+  if (!mapping) return msg`SDK Config Settings`;
+  const sdkName = mapping.docLabel || mapping.label;
+  return msg`${sdkName} Config Settings`;
 }
 
 // A value and what goes with it. In a flex row, not a line of text, so it
@@ -46,6 +49,8 @@ export default function SDKConnectionCredentialsCard({
   canUpdate: boolean;
   mutate: () => void;
 }) {
+  const { t } = useLingui();
+  const proxied = t`Requests are routed through your GrowthBook Proxy.`;
   const proxy = connection.proxy;
   const hasProxy = proxy.enabled;
   const apiHost = getApiBaseUrl(connection);
@@ -62,9 +67,9 @@ export default function SDKConnectionCredentialsCard({
   return (
     <>
       <SetupFieldRow
-        label="Full API Endpoint"
+        label={t`Full API Endpoint`}
         content="text"
-        tooltip={hasProxy ? PROXIED : undefined}
+        tooltip={hasProxy ? proxied : undefined}
       >
         <Value>
           <CopyableCode value={endpoint} />
@@ -76,26 +81,26 @@ export default function SDKConnectionCredentialsCard({
             icon={<PiArrowSquareOut />}
             iconPosition="right"
           >
-            Open
+            <Trans>Open</Trans>
           </LinkButton>
         </Value>
       </SetupFieldRow>
       <SetupFieldRow
-        label="API Host"
+        label={t`API Host`}
         content="text"
-        tooltip={hasProxy ? PROXIED : undefined}
+        tooltip={hasProxy ? proxied : undefined}
       >
         <Value>
           <CopyableCode value={apiHost} />
         </Value>
       </SetupFieldRow>
-      <SetupFieldRow label="Client Key" content="text">
+      <SetupFieldRow label={t`Client Key`} content="text">
         <Value>
           <CopyableCode value={clientKey} />
         </Value>
       </SetupFieldRow>
       {encryptionKey ? (
-        <SetupFieldRow label="Decryption Key" content="text">
+        <SetupFieldRow label={t`Decryption Key`} content="text">
           <Value>
             <CopyableCode value={encryptionKey} />
           </Value>
@@ -103,14 +108,21 @@ export default function SDKConnectionCredentialsCard({
       ) : null}
       {showProxy ? (
         <SetupFieldRow
-          label="Proxy Host"
+          label={t`Proxy Host`}
           content="text"
           labelBadge={
             isCloud() ? null : (
-              <Tooltip content={PROXY_FROM_ENV}>
+              <Tooltip
+                content={t`Set for the whole instance by the PROXY_ENABLED and PROXY_HOST_PUBLIC environment variables, not on this SDK Connection.`}
+              >
                 {/* Focusable, so the tip opens from the keyboard too. */}
                 <span tabIndex={0}>
-                  <Badge label="Env vars" color="gray" variant="soft" ml="1" />
+                  <Badge
+                    label={t`Env vars`}
+                    color="gray"
+                    variant="soft"
+                    ml="1"
+                  />
                 </span>
               </Tooltip>
             )
@@ -123,12 +135,14 @@ export default function SDKConnectionCredentialsCard({
               }
             />
             {!hasProxy ? (
-              <Tooltip content="Proxy was disabled for too many consecutive failures">
+              <Tooltip
+                content={t`Proxy was disabled for too many consecutive failures`}
+              >
                 <Badge
                   color="red"
                   variant="soft"
                   radius="full"
-                  label="Disabled"
+                  label={t`Disabled`}
                 />
               </Tooltip>
             ) : null}
@@ -137,7 +151,7 @@ export default function SDKConnectionCredentialsCard({
                 color="green"
                 variant="soft"
                 radius="full"
-                label="Connected"
+                label={t`Connected`}
               />
             ) : proxyError ? (
               <Popover
@@ -149,13 +163,13 @@ export default function SDKConnectionCredentialsCard({
                     color="red"
                     variant="soft"
                     radius="full"
-                    label="Error"
+                    label={t`Error`}
                     style={{ cursor: "default" }}
                   />
                 }
                 content={
                   <WebhookErrorDetails
-                    name="Could not connect to the proxy"
+                    name={t`Could not connect to the proxy`}
                     error={proxyError}
                   />
                 }
@@ -165,7 +179,7 @@ export default function SDKConnectionCredentialsCard({
                 color="gray"
                 variant="soft"
                 radius="full"
-                label="Not connected"
+                label={t`Not connected`}
               />
             )}
             {canUpdate && proxy.host ? (

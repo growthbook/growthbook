@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ProxyTestResult } from "shared/types/sdk-connection";
 import { PiArrowsClockwise } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Button from "@/ui/Button";
@@ -19,10 +20,15 @@ export default function ProxyTestButton({
   showButton: boolean;
   mutate: () => void;
 }) {
+  const { t } = useLingui();
   const [proxyTestResult, setProxyTestResult] =
     useState<null | ProxyTestResult>(null);
 
   const { apiCall } = useAuth();
+
+  const proxyStatus = proxyTestResult?.status;
+  const proxyError = proxyTestResult?.error;
+  const proxyVersion = proxyTestResult?.version;
 
   useEffect(() => {
     setProxyTestResult(null);
@@ -34,8 +40,8 @@ export default function ProxyTestButton({
         <ModalStandard
           open={true}
           close={() => setProxyTestResult(null)}
-          header="Proxy Status"
-          closeCta="Close"
+          header={t`Proxy Status`}
+          closeCta={t`Close`}
           trackingEventModalType=""
         >
           {proxyTestResult.error ? (
@@ -47,21 +53,27 @@ export default function ProxyTestButton({
               )}
               {proxyTestResult.status > 0 && (
                 <Text as="p" mb="2">
-                  Status Code: <code>{proxyTestResult.status}</code>
+                  <Trans>
+                    Status Code: <code>{proxyStatus}</code>
+                  </Trans>
                 </Text>
               )}
-              <Callout status="error">Error: {proxyTestResult.error}</Callout>
+              <Callout status="error">
+                <Trans>Error: {proxyError}</Trans>
+              </Callout>
             </div>
           ) : (
             <Callout status="success">
-              Successfully Connected. Proxy Server running version{" "}
-              <strong>{proxyTestResult.version}</strong>.
+              <Trans>
+                Successfully Connected. Proxy Server running version{" "}
+                <strong>{proxyVersion}</strong>.
+              </Trans>
             </Callout>
           )}
         </ModalStandard>
       )}
       {showButton && (
-        <Tooltip content="Test connection">
+        <Tooltip content={t`Test connection`}>
           <Button
             variant="ghost"
             size="sm"
@@ -79,7 +91,7 @@ export default function ProxyTestButton({
               }
             }}
           >
-            Re-check
+            <Trans>Re-check</Trans>
           </Button>
         </Tooltip>
       )}

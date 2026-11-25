@@ -3,6 +3,7 @@ import pick from "lodash/pick";
 import { Box, Flex } from "@radix-ui/themes";
 import { Revision, getRevisionNumberById } from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { Trans, useLingui } from "@lingui/react/macro";
 import StagedEditsBar from "@/components/StagedEdits/StagedEditsBar";
 import {
   StagedChange,
@@ -50,6 +51,7 @@ export default function SDKConnectionEditsBar({
   onSelectRevision: (revision: Revision | null) => void;
   mutate: () => Promise<unknown>;
 }) {
+  const { t, i18n } = useLingui();
   const { apiCall } = useAuth();
   const numbers = getRevisionNumberById(allRevisions);
   // Newest first, as the revision selector lists them.
@@ -129,7 +131,9 @@ export default function SDKConnectionEditsBar({
         await mutate();
         setOpen(true);
       } else {
-        setError(e instanceof Error ? e.message : "The changes weren't saved.");
+        setError(
+          e instanceof Error ? e.message : t`The changes weren't saved.`,
+        );
       }
     } finally {
       setSaving(false);
@@ -147,7 +151,7 @@ export default function SDKConnectionEditsBar({
           {staged.stagedRows.map((row) => (
             <StagedChange
               key={row.key}
-              label={row.label}
+              label={i18n._(row.label)}
               review={{
                 before: pick(staged.saved, staged.fieldsOf(row)),
                 after: pick(staged.shown, staged.fieldsOf(row)),
@@ -169,8 +173,10 @@ export default function SDKConnectionEditsBar({
           </HelperText>
         ) : staged.hasConflicts ? (
           <HelperText status="warning" size="sm">
-            Someone else saved changes to what you edited. Keep yours or use
-            theirs.
+            <Trans>
+              Someone else saved changes to what you edited. Keep yours or use
+              theirs.
+            </Trans>
           </HelperText>
         ) : null
       }
@@ -178,16 +184,18 @@ export default function SDKConnectionEditsBar({
         draft ? null : (
           <Flex align="center" gap="2">
             <Text color="text-mid" whiteSpace="nowrap">
-              Save to
+              <Trans>Save to</Trans>
             </Text>
             {/* With no drafts open, there's nothing to choose. */}
             {!drafts.length ? (
-              <Text whiteSpace="nowrap">New draft</Text>
+              <Text whiteSpace="nowrap">
+                <Trans>New draft</Trans>
+              </Text>
             ) : (
               <Box width="220px">
                 <SelectField
                   size="md"
-                  aria-label="Save to"
+                  aria-label={t`Save to`}
                   value={target}
                   onChange={setChosen}
                   options={[
@@ -199,7 +207,7 @@ export default function SDKConnectionEditsBar({
                       ),
                       value: d.id,
                     })),
-                    { label: "New draft", value: NEW_DRAFT },
+                    { label: t`New draft`, value: NEW_DRAFT },
                   ]}
                   sort={false}
                   disabled={saving}

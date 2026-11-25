@@ -8,6 +8,8 @@ import {
   getSDKCapabilityVersion,
 } from "shared/sdk-versioning";
 import { Box, Flex } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
@@ -32,8 +34,8 @@ import {
   WithInfoIcon,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 
-export const CIPHER_OPTIONS_TITLE = "Cipher Options";
-export const REMOTE_EVAL_OPTIONS_TITLE = "Remote Eval Options";
+export const CIPHER_OPTIONS_TITLE = msg`Cipher Options`;
+export const REMOTE_EVAL_OPTIONS_TITLE = msg`Remote Eval Options`;
 
 export type PayloadSecurityValue = {
   delivery: DeliveryMode;
@@ -47,9 +49,6 @@ export type KeptPremiumSettings = Pick<
   SDKConnectionInterface,
   "encryptPayload" | "hashSecureAttributes" | "remoteEvalEnabled"
 >;
-
-const KEPT_SETTING_NOTE =
-  "Your plan no longer includes this setting. It stays on for this SDK Connection, but if you turn it off and save, you'll need to upgrade to turn it back on.";
 
 type FieldProps = {
   value: PayloadSecurityValue;
@@ -68,6 +67,7 @@ function usePayloadSecurity(
   sdkVersion?: string,
   kept?: KeptPremiumSettings,
 ) {
+  const { t } = useLingui();
   const { hasCommercialFeature } = useUser();
   const { currentCaps } = connectionCapabilities({ languages, sdkVersion });
   const singleLanguage = languages.length === 1 ? languages[0] : undefined;
@@ -79,7 +79,9 @@ function usePayloadSecurity(
   );
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
   const keptNote = (hasFeature: boolean, on?: boolean) =>
-    !hasFeature && on ? KEPT_SETTING_NOTE : undefined;
+    !hasFeature && on
+      ? t`Your plan no longer includes this setting. It stays on for this SDK Connection, but if you turn it off and save, you'll need to upgrade to turn it back on.`
+      : undefined;
   return {
     allowed: shouldShowPayloadSecurity(languages),
     hasEncryptionFeature,
@@ -116,29 +118,38 @@ function FieldLabel({ children }: { children: ReactNode }) {
 const remoteEvalTooltip = (
   <>
     <Text as="p" mb="2">
-      <strong>Remote Evaluation</strong> fully secures your SDK by evaluating
-      feature flags exclusively on a private server instead of within a
-      front-end environment. This ensures that any sensitive information within
-      targeting rules or unused feature variations are never seen by the client.
+      <Trans>
+        <strong>Remote Evaluation</strong> fully secures your SDK by evaluating
+        feature flags exclusively on a private server instead of within a
+        front-end environment. This ensures that any sensitive information
+        within targeting rules or unused feature variations are never seen by
+        the client.
+      </Trans>
     </Text>
     <Text as="p" mb="2">
-      Remote evaluation provides the same security benefits as a backend SDK.
-      However, remote evaluation is neither needed nor supported for backend
-      SDKs.
+      <Trans>
+        Remote evaluation provides the same security benefits as a backend SDK.
+        However, remote evaluation is neither needed nor supported for backend
+        SDKs.
+      </Trans>
     </Text>
     <Text as="div" mb="2">
-      Remote evaluation does come with a few cost considerations:
+      <Trans>Remote evaluation does come with a few cost considerations:</Trans>
       <Flex asChild direction="column" gap="2" pl="4" mt="2">
         <ol>
           <li>
-            It will increase network traffic. Evaluated payloads cannot be
-            shared across different users; therefore CDN cache misses will
-            increase.
+            <Trans>
+              It will increase network traffic. Evaluated payloads cannot be
+              shared across different users; therefore CDN cache misses will
+              increase.
+            </Trans>
           </li>
           <li>
-            Any connections using Streaming Updates will incur a slight delay.
-            An additional network hop is required to retrieve the evaluated
-            payload from the server.
+            <Trans>
+              Any connections using Streaming Updates will incur a slight delay.
+              An additional network hop is required to retrieve the evaluated
+              payload from the server.
+            </Trans>
           </li>
         </ol>
       </Flex>
@@ -167,6 +178,7 @@ function CipherCheckboxes({
   kept?: KeptPremiumSettings;
   disabled: boolean;
 }) {
+  const { i18n } = useLingui();
   const {
     canEncrypt,
     canHashSecureAttributes,
@@ -176,6 +188,9 @@ function CipherCheckboxes({
     singleLanguage,
     encryptionVersion,
   } = usePayloadSecurity(languages, sdkVersion, kept);
+  const connectionVersion = singleLanguage
+    ? sdkVersion || getDefaultSDKVersion(singleLanguage)
+    : undefined;
   return (
     <>
       {encryptionSupported && (
@@ -193,24 +208,30 @@ function CipherCheckboxes({
               body={
                 <>
                   <p>
-                    SDK payloads will be encrypted via the AES encryption
-                    algorithm. When evaluating feature flags in a public or
-                    insecure environment (such as a browser), encryption
-                    provides an additional layer of security through
-                    obfuscation. This allows you to target users based on
-                    sensitive attributes.
+                    <Trans>
+                      SDK payloads will be encrypted via the AES encryption
+                      algorithm. When evaluating feature flags in a public or
+                      insecure environment (such as a browser), encryption
+                      provides an additional layer of security through
+                      obfuscation. This allows you to target users based on
+                      sensitive attributes.
+                    </Trans>
                   </p>
                   <HelperText status="warning" size="sm">
-                    When using an insecure environment, do not rely exclusively
-                    on payload encryption as a means of securing highly
-                    sensitive data. Because the client performs the decryption,
-                    the unencrypted payload may be extracted with sufficient
-                    effort.
+                    <Trans>
+                      When using an insecure environment, do not rely
+                      exclusively on payload encryption as a means of securing
+                      highly sensitive data. Because the client performs the
+                      decryption, the unencrypted payload may be extracted with
+                      sufficient effort.
+                    </Trans>
                   </HelperText>
                 </>
               }
             >
-              <WithInfoIcon>{SETTING_TITLES.encryptPayload}</WithInfoIcon>
+              <WithInfoIcon>
+                {i18n._(SETTING_TITLES.encryptPayload)}
+              </WithInfoIcon>
             </PremiumTooltip>
           }
         />
@@ -229,35 +250,46 @@ function CipherCheckboxes({
             body={
               <>
                 <p>
-                  Feature targeting conditions referencing{" "}
-                  <code>secureString</code> attributes will be anonymized via
-                  SHA-256 hashing. When evaluating feature flags in a public or
-                  insecure environment (such as a browser), hashing provides an
-                  additional layer of security through obfuscation. This allows
-                  you to target users based on sensitive attributes.
+                  <Trans>
+                    Feature targeting conditions referencing{" "}
+                    <code>secureString</code> attributes will be anonymized via
+                    SHA-256 hashing. When evaluating feature flags in a public
+                    or insecure environment (such as a browser), hashing
+                    provides an additional layer of security through
+                    obfuscation. This allows you to target users based on
+                    sensitive attributes.
+                  </Trans>
                 </p>
                 <HelperText status="warning" size="sm">
-                  When using an insecure environment, do not rely exclusively on
-                  hashing as a means of securing highly sensitive data. Hashing
-                  is an obfuscation technique that makes it very difficult, but
-                  not impossible, to extract sensitive data.
+                  <Trans>
+                    When using an insecure environment, do not rely exclusively
+                    on hashing as a means of securing highly sensitive data.
+                    Hashing is an obfuscation technique that makes it very
+                    difficult, but not impossible, to extract sensitive data.
+                  </Trans>
                 </HelperText>
               </>
             }
           >
-            <WithInfoIcon>{SETTING_TITLES.hashSecureAttributes}</WithInfoIcon>
+            <WithInfoIcon>
+              {i18n._(SETTING_TITLES.hashSecureAttributes)}
+            </WithInfoIcon>
           </PremiumTooltip>
         }
       />
       {value.encryptPayload && !encryptionSupported && (
         <Callout status="warning" size="sm">
-          Payload decryption may not be available in your current SDK.
+          <Trans>
+            Payload decryption may not be available in your current SDK.
+          </Trans>
           {singleLanguage && encryptionVersion ? (
             <>
               {" "}
-              It was introduced in SDK version <code>{encryptionVersion}</code>.
-              The SDK version specified in this connection is{" "}
-              <code>{sdkVersion || getDefaultSDKVersion(singleLanguage)}</code>.
+              <Trans>
+                It was introduced in SDK version{" "}
+                <code>{encryptionVersion}</code>. The SDK version specified in
+                this connection is <code>{connectionVersion}</code>.
+              </Trans>
             </>
           ) : null}
         </Callout>
@@ -276,6 +308,7 @@ export function CipherOptionsField({
   hideLabel = false,
   disabled = false,
 }: FieldProps) {
+  const { i18n } = useLingui();
   if (!shouldShowPayloadSecurity(languages) || value.delivery !== "ciphered") {
     return null;
   }
@@ -292,7 +325,7 @@ export function CipherOptionsField({
 
   return (
     <Box>
-      {!hideLabel && <FieldLabel>{CIPHER_OPTIONS_TITLE}</FieldLabel>}
+      {!hideLabel && <FieldLabel>{i18n._(CIPHER_OPTIONS_TITLE)}</FieldLabel>}
       <Flex direction="column" gap="3">
         <CipherCheckboxes
           value={value}
@@ -317,38 +350,52 @@ export function RemoteEvalOptionsField({
 }: Pick<FieldProps, "value" | "languages" | "hideLabel"> & {
   includeExperimentNames?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   if (!shouldShowPayloadSecurity(languages) || value.delivery !== "remote") {
     return null;
   }
   const active = [
-    value.encryptPayload && SETTING_TITLES.encryptPayload,
-    value.hashSecureAttributes && SETTING_TITLES.hashSecureAttributes,
-    !includeExperimentNames && "Hide experiment and variation names",
+    value.encryptPayload && i18n._(SETTING_TITLES.encryptPayload),
+    value.hashSecureAttributes && i18n._(SETTING_TITLES.hashSecureAttributes),
+    !includeExperimentNames && t`Hide experiment and variation names`,
   ].filter((a): a is string => !!a);
+  const activeList = active.join(", ");
   if (!isCloud() && !active.length) return null;
 
   return (
     <Box>
-      {!hideLabel && <FieldLabel>{REMOTE_EVAL_OPTIONS_TITLE}</FieldLabel>}
+      {!hideLabel && (
+        <FieldLabel>{i18n._(REMOTE_EVAL_OPTIONS_TITLE)}</FieldLabel>
+      )}
       <Flex direction="column" gap="3">
         {isCloud() && (
           <Callout status="info" size="sm">
-            Cloud customers must self-host a remote evaluation service such as{" "}
-            <Link
-              href="https://github.com/growthbook/growthbook-proxy"
-              external
-            >
-              GrowthBook Proxy
-            </Link>{" "}
-            or a CDN edge worker.
+            <Trans>
+              Cloud customers must self-host a remote evaluation service such as{" "}
+              <Link
+                href="https://github.com/growthbook/growthbook-proxy"
+                external
+              >
+                GrowthBook Proxy
+              </Link>{" "}
+              or a CDN edge worker.
+            </Trans>
           </Callout>
         )}
         {active.length > 0 && (
           <Callout status="warning" size="sm">
-            <strong>{active.join(", ")}</strong>{" "}
-            {active.length === 1 ? "is" : "are"} not recommended for most remote
-            evaluation configurations and {active.length === 1 ? "is" : "are"} a
-            more advanced use case.
+            {active.length === 1 ? (
+              <Trans>
+                <strong>{activeList}</strong> is not recommended for most remote
+                evaluation configurations and is a more advanced use case.
+              </Trans>
+            ) : (
+              <Trans>
+                <strong>{activeList}</strong> are not recommended for most
+                remote evaluation configurations and are a more advanced use
+                case.
+              </Trans>
+            )}
           </Callout>
         )}
       </Flex>
@@ -367,6 +414,7 @@ export default function PayloadSecurityField({
   hideLabel = false,
   disabled = false,
 }: FieldProps) {
+  const { t, i18n } = useLingui();
   const {
     allowed,
     hasEncryptionFeature,
@@ -383,26 +431,30 @@ export default function PayloadSecurityField({
       value: "plain",
       label: (
         <Flex as="span" align="center" gap="1">
-          {DELIVERY_LABELS.plain}
-          <InfoTooltip content="Full feature definitions, including targeting conditions and experiment variations, are viewable by anyone with the Client Key." />
+          {i18n._(DELIVERY_LABELS.plain)}
+          <InfoTooltip
+            content={t`Full feature definitions, including targeting conditions and experiment variations, are viewable by anyone with the Client Key.`}
+          />
         </Flex>
       ),
-      description: "Highly cacheable, but may leak sensitive info to users",
+      description: t`Highly cacheable, but may leak sensitive info to users`,
     },
     {
       value: "ciphered",
       label: (
         <Flex as="span" align="center" gap="2">
           <Flex as="span" align="center" gap="1">
-            {DELIVERY_LABELS.ciphered}
-            <InfoTooltip content="Full feature definitions are encrypted and sensitive targeting conditions are hashed to help avoid leaking business logic to client-side apps. Not 100% secure, but will stop most prying eyes." />
+            {i18n._(DELIVERY_LABELS.ciphered)}
+            <InfoTooltip
+              content={t`Full feature definitions are encrypted and sensitive targeting conditions are hashed to help avoid leaking business logic to client-side apps. Not 100% secure, but will stop most prying eyes.`}
+            />
           </Flex>
           {!hasEncryptionFeature && (
             <PaidFeatureBadge commercialFeature="encrypt-features-endpoint" />
           )}
         </Flex>
       ),
-      description: "Adds obfuscation while remaining cacheable",
+      description: t`Adds obfuscation while remaining cacheable`,
     },
     ...(remoteEvalSupported
       ? [
@@ -415,10 +467,10 @@ export default function PayloadSecurityField({
                 tipMinWidth="600px"
                 body={remoteEvalTooltip}
               >
-                <WithInfoIcon>{DELIVERY_LABELS.remote}</WithInfoIcon>
+                <WithInfoIcon>{i18n._(DELIVERY_LABELS.remote)}</WithInfoIcon>
               </PremiumTooltip>
             ),
-            description: "Completely hides business logic from users",
+            description: t`Completely hides business logic from users`,
             disabled: !canRemoteEval,
             error: remoteEvalKeptNote,
             errorLevel: "warning" as const,
@@ -431,8 +483,12 @@ export default function PayloadSecurityField({
     <Box>
       {!hideLabel && (
         <Flex align="center" gap="1" mb="2">
-          <Text weight="semibold">{CATEGORY_TITLES.payloadSecurity}</Text>
-          <InfoTooltip content="How much of the feature definition the SDK receives, and whether it can be cached." />
+          <Text weight="semibold">
+            {i18n._(CATEGORY_TITLES.payloadSecurity)}
+          </Text>
+          <InfoTooltip
+            content={t`How much of the feature definition the SDK receives, and whether it can be cached.`}
+          />
         </Flex>
       )}
       <RadioGroup

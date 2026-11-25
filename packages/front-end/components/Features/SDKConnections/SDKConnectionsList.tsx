@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { PiWarningFill } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import {
   filterProjectsByEnvironment,
   getDisallowedProjects,
@@ -35,9 +36,12 @@ import WebhookErrorDetails from "./WebhookErrorDetails";
 import CreateSDKConnectionModal from "./CreateSDKConnectionModal";
 import { PayloadSizeRowWarning } from "./PayloadSizeNotices";
 
-const webhookCount = (n: number) => `${n} webhook${n === 1 ? "" : "s"}`;
+function WebhookCount({ count }: { count: number }) {
+  return <Plural value={count} one="# webhook" other="# webhooks" />;
+}
 
 export default function SDKConnectionsList() {
+  const { t } = useLingui();
   const { data, mutate, error } = useSDKConnections({
     includeArchived: true,
   });
@@ -79,27 +83,29 @@ export default function SDKConnectionsList() {
       <Flex align="center" justify="between" gap="3" mt="4" mb="2">
         <Box flexGrow="1">
           <Heading as="h1" size="xl">
-            SDK Connections
+            <Trans>SDK Connections</Trans>
           </Heading>
         </Box>
         {canCreateSDKConnections && connections.length > 0 ? (
-          <Button onClick={() => setModalOpen(true)}>Add SDK Connection</Button>
+          <Button onClick={() => setModalOpen(true)}>
+            <Trans>Add SDK Connection</Trans>
+          </Button>
         ) : null}
       </Flex>
 
       {connections.length === 0 ? (
         <EmptyState
-          title="Connect your apps"
+          title={t`Connect your apps`}
           description={
             canCreateSDKConnections
-              ? "SDK Connections make it easy to integrate GrowthBook into your front-end, back-end, or mobile application."
-              : "You don't have permission to create SDK Connections. Contact your account administrator."
+              ? t`SDK Connections make it easy to integrate GrowthBook into your front-end, back-end, or mobile application.`
+              : t`You don't have permission to create SDK Connections. Contact your account administrator.`
           }
           leftButton={null}
           rightButton={
             canCreateSDKConnections ? (
               <Button onClick={() => setModalOpen(true)}>
-                Add SDK Connection
+                <Trans>Add SDK Connection</Trans>
               </Button>
             ) : null
           }
@@ -112,16 +118,22 @@ export default function SDKConnectionsList() {
             <TableRow>
               <TableColumnHeader style={{ width: 40 }} />
               <TableColumnHeader style={{ width: "30%" }}>
-                Name
+                <Trans>Name</Trans>
               </TableColumnHeader>
               {projects.length > 0 && (
                 <TableColumnHeader style={{ width: "20%" }}>
-                  Projects
+                  <Trans>Projects</Trans>
                 </TableColumnHeader>
               )}
-              <TableColumnHeader>Environment</TableColumnHeader>
-              <TableColumnHeader>Webhooks</TableColumnHeader>
-              <TableColumnHeader>Language</TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Environment</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Webhooks</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Language</Trans>
+              </TableColumnHeader>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -132,8 +144,11 @@ export default function SDKConnectionsList() {
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
               const connectionStatus = connected
-                ? "Connected successfully"
-                : "Could not verify the connection";
+                ? t`Connected successfully`
+                : t`Could not verify the connection`;
+              const managedByType = connection.managedBy?.type
+                ? capitalizeFirstLetter(connection.managedBy.type)
+                : "";
 
               const environment = environments.find(
                 (e) => e.id === connection.environment,
@@ -189,7 +204,7 @@ export default function SDKConnectionsList() {
                     </Link>
                     {connection.archived ? (
                       <Badge
-                        label="Archived"
+                        label={t`Archived`}
                         color="gray"
                         radius="full"
                         ml="2"
@@ -198,11 +213,7 @@ export default function SDKConnectionsList() {
                     <PayloadSizeRowWarning connection={connection} />
                     {connection.managedBy?.type ? (
                       <Box mt="1">
-                        <Badge
-                          label={`Managed by ${capitalizeFirstLetter(
-                            connection.managedBy.type,
-                          )}`}
-                        />
+                        <Badge label={t`Managed by ${managedByType}`} />
                       </Box>
                     ) : null}
                   </TableCell>
@@ -222,7 +233,7 @@ export default function SDKConnectionsList() {
                                 : undefined
                             }
                             invalidProjectIds={disallowedProjectIds}
-                            invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                            invalidProjectMessage={t`This project is not allowed in the selected environment and will not be included in the SDK payload.`}
                             resourceType="sdk connection"
                             skipMargin={true}
                           />
@@ -245,7 +256,7 @@ export default function SDKConnectionsList() {
                             style={{ whiteSpace: "nowrap", cursor: "default" }}
                           >
                             <PiWarningFill color="var(--red-11)" />
-                            {webhookCount(webhooks?.length ?? 0)}
+                            <WebhookCount count={webhooks?.length ?? 0} />
                           </Flex>
                         }
                         content={
@@ -261,7 +272,7 @@ export default function SDKConnectionsList() {
                         }
                       />
                     ) : webhooks?.length ? (
-                      webhookCount(webhooks.length)
+                      <WebhookCount count={webhooks.length} />
                     ) : null}
                   </TableCell>
                   <TableCell>

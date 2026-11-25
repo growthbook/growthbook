@@ -9,6 +9,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { ImBlocked } from "react-icons/im";
 import { PiCheckCircle, PiXCircle } from "react-icons/pi";
 import { Flex, IconButton } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
@@ -52,6 +53,7 @@ const BooleanStatusIcon: FC<{ value: boolean; tooltip: string }> = ({
 );
 
 const EnvironmentsPage: FC = () => {
+  const { t } = useLingui();
   const { project } = useDefinitions();
 
   const environments = useEnvironments();
@@ -89,6 +91,10 @@ const EnvironmentsPage: FC = () => {
 
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<Environment> | null>(null);
+  const connectionsEnvId =
+    showConnectionsModal !== null
+      ? (filteredEnvironments[showConnectionsModal]?.id ?? "")
+      : "";
 
   return (
     <div className="container-fluid pagecontents">
@@ -104,14 +110,14 @@ const EnvironmentsPage: FC = () => {
       {showConnectionsModal !== null &&
         filteredEnvironments[showConnectionsModal] && (
           <Modal
-            header={`'${filteredEnvironments[showConnectionsModal].id}' SDK Connections`}
+            header={t`'${connectionsEnvId}' SDK Connections`}
             trackingEventModalType="show-environment-connections"
             close={() => setShowConnectionsModal(null)}
             open={true}
-            closeCta="Close"
+            closeCta={t`Close`}
           >
             <Text as="p" mb="3">
-              The following SDK connections use this environment.
+              <Trans>The following SDK connections use this environment.</Trans>
             </Text>
             <EnvironmentConnectionsList
               connections={(sdkConnectionData?.connections ?? []).filter((c) =>
@@ -126,33 +132,52 @@ const EnvironmentsPage: FC = () => {
         )}
       <Flex align="center" justify="between" mb="1">
         <Heading as="h1" size="xl" mb="2">
-          Environments
+          <Trans>Environments</Trans>
         </Heading>
         {canCreate && (
-          <Button onClick={() => setModalOpen({})}>Add Environment</Button>
+          <Button onClick={() => setModalOpen({})}>
+            <Trans>Add Environment</Trans>
+          </Button>
         )}
       </Flex>
 
       <Text as="p" color="text-mid" mb="3">
-        Manage which environments are available for your feature flags.
+        <Trans>
+          Manage which environments are available for your feature flags.
+        </Trans>
       </Text>
 
       {filteredEnvironments.length > 0 ? (
         <Table variant="list">
           <TableHeader>
             <TableRow>
-              <TableColumnHeader>Environment</TableColumnHeader>
-              <TableColumnHeader>Description</TableColumnHeader>
-              <TableColumnHeader>Projects</TableColumnHeader>
-              <TableColumnHeader>SDK Connections</TableColumnHeader>
-              <TableColumnHeader>Default state</TableColumnHeader>
-              <TableColumnHeader>Production</TableColumnHeader>
-              <TableColumnHeader>Show on features page</TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Environment</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Description</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Projects</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>SDK Connections</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Default state</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Production</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Show on features page</Trans>
+              </TableColumnHeader>
               <TableColumnHeader style={{ width: 30 }} />
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredEnvironments.map((e, i) => {
+              const envId = e.id;
               const canEdit = permissionsUtil.canUpdateEnvironment(e, {});
               const canDelete = permissionsUtil.canDeleteEnvironment(e);
               const sdkConnectionIds = sdkConnectionsMap?.[e.id] || [];
@@ -193,11 +218,17 @@ const EnvironmentsPage: FC = () => {
                         onClick={() => setShowConnectionsModal(i)}
                         className="nowrap"
                       >
-                        <BiShow /> {numConnections} connection
-                        {numConnections === 1 ? "" : "s"}
+                        <BiShow />{" "}
+                        <Plural
+                          value={numConnections}
+                          one="# connection"
+                          other="# connections"
+                        />
                       </Link>
                     ) : (
-                      <Tooltip body="No SDK connections use this environment.">
+                      <Tooltip
+                        body={t`No SDK connections use this environment.`}
+                      >
                         <span
                           className="nowrap"
                           style={{
@@ -205,7 +236,7 @@ const EnvironmentsPage: FC = () => {
                             cursor: "not-allowed",
                           }}
                         >
-                          <BiShow /> 0 connections
+                          <BiShow /> <Trans>0 connections</Trans>
                         </span>
                       </Tooltip>
                     )}
@@ -215,8 +246,8 @@ const EnvironmentsPage: FC = () => {
                       value={e.defaultState !== false}
                       tooltip={
                         e.defaultState === false
-                          ? "New features default to disabled"
-                          : "New features default to enabled"
+                          ? t`New features default to disabled`
+                          : t`New features default to enabled`
                       }
                     />
                   </TableCell>
@@ -225,12 +256,12 @@ const EnvironmentsPage: FC = () => {
                       value={isProductionEnvironment(e)}
                       tooltip={
                         isProductionEnvironment(e)
-                          ? "Production environment"
-                          : "Non-production environment"
+                          ? t`Production environment`
+                          : t`Non-production environment`
                       }
                     />
                   </TableCell>
-                  <TableCell>{e.toggleOnList ? "yes" : ""}</TableCell>
+                  <TableCell>{e.toggleOnList ? t`yes` : ""}</TableCell>
                   <TableCell>
                     <DropdownMenu
                       trigger={
@@ -250,17 +281,17 @@ const EnvironmentsPage: FC = () => {
                       <DropdownMenuGroup>
                         {canEdit && (
                           <DropdownMenuItem onClick={() => setModalOpen(e)}>
-                            Edit
+                            <Trans>Edit</Trans>
                           </DropdownMenuItem>
                         )}
                         {canMoveUp && (
                           <DropdownMenuItem onClick={() => moveTo(i - 1)}>
-                            Move up
+                            <Trans>Move up</Trans>
                           </DropdownMenuItem>
                         )}
                         {canMoveDown && (
                           <DropdownMenuItem onClick={() => moveTo(i + 1)}>
-                            Move down
+                            <Trans>Move down</Trans>
                           </DropdownMenuItem>
                         )}
                         {canShowDelete &&
@@ -269,24 +300,32 @@ const EnvironmentsPage: FC = () => {
                               usePortal={true}
                               body={
                                 <>
-                                  <ImBlocked className="text-danger" /> This
-                                  environment has{" "}
-                                  <strong>
-                                    {numConnections} SDK Connection
-                                    {numConnections !== 1 && "s"}
-                                  </strong>{" "}
-                                  associated. This environment cannot be deleted
-                                  until{" "}
-                                  {numConnections === 1
-                                    ? "it has"
-                                    : "they have"}{" "}
-                                  been removed.
+                                  <ImBlocked className="text-danger" />{" "}
+                                  {numConnections === 1 ? (
+                                    <Trans>
+                                      This environment has{" "}
+                                      <strong>
+                                        {numConnections} SDK Connection
+                                      </strong>{" "}
+                                      associated. This environment cannot be
+                                      deleted until it has been removed.
+                                    </Trans>
+                                  ) : (
+                                    <Trans>
+                                      This environment has{" "}
+                                      <strong>
+                                        {numConnections} SDK Connections
+                                      </strong>{" "}
+                                      associated. This environment cannot be
+                                      deleted until they have been removed.
+                                    </Trans>
+                                  )}
                                 </>
                               }
                             >
                               <span>
                                 <DropdownMenuItem disabled color="red">
-                                  Delete
+                                  <Trans>Delete</Trans>
                                 </DropdownMenuItem>
                               </span>
                             </Tooltip>
@@ -309,13 +348,13 @@ const EnvironmentsPage: FC = () => {
                                     });
                                     refreshOrganization();
                                   },
-                                  confirmationTitle: `Delete ${e.id} Environment`,
-                                  cta: "Delete",
+                                  confirmationTitle: t`Delete ${envId} Environment`,
+                                  cta: t`Delete`,
                                   getConfirmationContent: async () =>
-                                    "Are you sure? This action cannot be undone.",
+                                    t`Are you sure? This action cannot be undone.`,
                                 }}
                               >
-                                Delete
+                                <Trans>Delete</Trans>
                               </DropdownMenuItem>
                             </>
                           ))}
@@ -328,9 +367,13 @@ const EnvironmentsPage: FC = () => {
           </TableBody>
         </Table>
       ) : canCreate ? (
-        <p>Click the button below to add your first environment</p>
+        <p>
+          <Trans>Click the button below to add your first environment</Trans>
+        </p>
       ) : (
-        <p>You don&apos;t have any environments defined yet.</p>
+        <p>
+          <Trans>You don&apos;t have any environments defined yet.</Trans>
+        </p>
       )}
     </div>
   );

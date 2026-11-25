@@ -204,13 +204,14 @@ describe("proxyHostError", () => {
   it("rejects text that isn't a URL and other protocols", () => {
     const message = "Enter a valid http:// or https:// URL";
     expect(
-      proxyHostError({ proxyEnabled: true, proxyHost: "proxy.example.com" }),
+      proxyHostError({ proxyEnabled: true, proxyHost: "proxy.example.com" })
+        ?.message,
     ).toBe(message);
     expect(
       proxyHostError({
         proxyEnabled: true,
         proxyHost: "ftp://proxy.example.com",
-      }),
+      })?.message,
     ).toBe(message);
   });
 });

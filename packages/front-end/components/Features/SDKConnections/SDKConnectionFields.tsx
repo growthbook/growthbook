@@ -11,6 +11,7 @@ import {
   getDisallowedProjects,
 } from "shared/util";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Badge from "@/ui/Badge";
@@ -71,10 +72,18 @@ export function SDKPackageLink({ languages }: { languages: SDKLanguage[] }) {
   return (
     <Text as="div" size="md" color="text-mid" mt="1">
       <PiPackage style={{ verticalAlign: "-0.15em" }} />{" "}
-      <Link href={packageUrl} external>
-        {packageName ?? repositoryName}
-      </Link>
-      {packageName ? ` on ${repositoryName}` : null}
+      {packageName ? (
+        <Trans>
+          <Link href={packageUrl} external>
+            {packageName}
+          </Link>{" "}
+          on {repositoryName}
+        </Trans>
+      ) : (
+        <Link href={packageUrl} external>
+          {repositoryName}
+        </Link>
+      )}
     </Text>
   );
 }
@@ -85,6 +94,7 @@ export function SDKVersionField({
   hideLabel,
   disabled,
 }: FieldsProps) {
+  const { t } = useLingui();
   const singleLanguage = versionedLanguage(value.languages);
   if (!singleLanguage) return null;
   const latestVersion = getLatestSDKVersion(singleLanguage);
@@ -99,8 +109,8 @@ export function SDKVersionField({
               typed-in version that isn't in the list yet. */}
           <SelectField
             size="md"
-            label={hideLabel ? undefined : "SDK version"}
-            aria-label="SDK version"
+            label={hideLabel ? undefined : t`SDK version`}
+            aria-label={t`SDK version`}
             sort={false}
             placeholder="0.0.0"
             options={getSDKVersions(singleLanguage).map((ver) => ({
@@ -116,7 +126,7 @@ export function SDKVersionField({
               <Flex align="center" justify="between" gap="2">
                 <span>{label}</span>
                 {label === latestVersion ? (
-                  <Badge color="gray" variant="soft" label="LATEST" />
+                  <Badge color="gray" variant="soft" label={t`LATEST`} />
                 ) : null}
               </Flex>
             )}
@@ -129,7 +139,7 @@ export function SDKVersionField({
             size="md"
             onClick={() => onChange({ sdkVersion: latestVersion })}
           >
-            Use latest ({latestVersion})
+            <Trans>Use latest ({latestVersion})</Trans>
           </Button>
         ) : null}
       </Flex>
@@ -145,6 +155,7 @@ export function EnvironmentField({
   error,
   managedByVercel = false,
 }: FieldsProps & { error?: string | null; managedByVercel?: boolean }) {
+  const { t } = useLingui();
   const environments = useEnvironments();
   const filteredEnvironments = managedByVercel
     ? environments.filter(
@@ -157,9 +168,9 @@ export function EnvironmentField({
   return (
     <SelectField
       size="md"
-      label={hideLabel ? undefined : "Environment"}
-      aria-label="Environment"
-      placeholder="Choose one..."
+      label={hideLabel ? undefined : t`Environment`}
+      aria-label={t`Environment`}
+      placeholder={t`Choose one...`}
       error={error ?? undefined}
       disabled={disabled}
       value={value.environment}
@@ -183,9 +194,15 @@ export function EnvironmentField({
             {id}
             <Text size="sm" color="text-mid">
               {numProjects > 0 ? (
-                `Includes ${numProjects} project${numProjects === 1 ? "" : "s"}`
+                <Plural
+                  value={numProjects}
+                  one="Includes # project"
+                  other="Includes # projects"
+                />
               ) : (
-                <em>Includes all projects</em>
+                <em>
+                  <Trans>Includes all projects</Trans>
+                </em>
               )}
             </Text>
           </Flex>
@@ -208,6 +225,7 @@ export function ProjectsField({
   managedByVercel?: boolean;
   requireProjectSelection?: boolean;
 }) {
+  const { t } = useLingui();
   const { projects, getProjectById } = useDefinitions();
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
@@ -249,7 +267,7 @@ export function ProjectsField({
     // Stale ids stay selectable so they can be removed.
     ...value.projects
       .filter((p) => !getProjectById(p))
-      .map((p) => ({ label: "Invalid project", value: p })),
+      .map((p) => ({ label: t`Invalid project`, value: p })),
   ];
 
   return (
@@ -259,18 +277,20 @@ export function ProjectsField({
         label={
           hideLabel ? undefined : (
             <Flex align="center" gap="1" as="span">
-              Filter by Projects
+              <Trans>Filter by Projects</Trans>
               <InfoTooltip
-                content={`The dropdown below has been filtered to only include projects where you have permission to ${
-                  edit ? "update" : "create"
-                } SDK Connections.`}
+                content={
+                  edit
+                    ? t`The dropdown below has been filtered to only include projects where you have permission to update SDK Connections.`
+                    : t`The dropdown below has been filtered to only include projects where you have permission to create SDK Connections.`
+                }
               />
             </Flex>
           )
         }
-        aria-label="Projects"
+        aria-label={t`Projects`}
         placeholder={
-          environmentHasProjects ? "All Environment Projects" : "All Projects"
+          environmentHasProjects ? t`All Environment Projects` : t`All Projects`
         }
         value={value.projects}
         onChange={(p) => onChange({ projects: p })}
@@ -281,7 +301,9 @@ export function ProjectsField({
         closeMenuOnSelect={true}
         formatOptionLabel={({ value: id, label }) =>
           disallowedProjects.some((p) => p.id === id) ? (
-            <Tooltip content="This project is not allowed in the selected environment and will not be included in the SDK payload.">
+            <Tooltip
+              content={t`This project is not allowed in the selected environment and will not be included in the SDK payload.`}
+            >
               <del style={{ color: "var(--red-11)" }}>
                 <PiWarningFill /> {label}
               </del>
@@ -293,17 +315,19 @@ export function ProjectsField({
       />
       {requireProjectSelection && (
         <HelperText status="info" size="sm" mt="2">
-          Your organization requires SDK Connections to belong to at least one
-          project.
+          <Trans>
+            Your organization requires SDK Connections to belong to at least one
+            project.
+          </Trans>
         </HelperText>
       )}
       {disallowedProjects.length > 0 && (
         <HelperText status="error" size="sm" mt="2">
-          This SDK Connection references {disallowedProjects.length} project
-          {disallowedProjects.length !== 1 && "s"} that{" "}
-          {disallowedProjects.length === 1 ? "is" : "are"} not allowed in the
-          selected environment. This may have occurred as a result of a project
-          being removed from the selected environment.
+          <Plural
+            value={disallowedProjects.length}
+            one="This SDK Connection references # project that is not allowed in the selected environment. This may have occurred as a result of a project being removed from the selected environment."
+            other="This SDK Connection references # projects that are not allowed in the selected environment. This may have occurred as a result of a project being removed from the selected environment."
+          />
         </HelperText>
       )}
     </Box>
@@ -339,13 +363,14 @@ export default function SDKConnectionFields({
   environmentError?: string | null;
   requireProjectSelection?: boolean;
 }) {
+  const { t } = useLingui();
   const showVersionPicker = !!versionedLanguage(value.languages);
 
   return (
     <Flex direction="column" gap="4">
       <Field
-        label="Name"
-        placeholder="My Application"
+        label={t`Name`}
+        placeholder={t`My Application`}
         value={value.name}
         onChange={(e) => onChange({ name: e.target.value })}
         required
@@ -355,7 +380,7 @@ export default function SDKConnectionFields({
 
       <Box>
         <Text as="div" weight="semibold" mb="2">
-          SDK language
+          <Trans>SDK language</Trans>
         </Text>
         {languageError ? (
           <HelperText status="error" mb="2">
