@@ -184,7 +184,7 @@ Only after at least one retry should you tell the user no data was found.
 </error_handling>
 `.trim();
 
-async function buildProductAnalyticsSystemPrompt(
+export async function buildProductAnalyticsSystemPrompt(
   ctx: ReqContext,
   datasourceId: string,
 ): Promise<string> {
@@ -1479,6 +1479,64 @@ async function resolveProductAnalyticsMentions(
   );
 }
 
+export function buildProductAnalyticsTools(
+  ctx: ReqContext,
+  buffer: ConversationBuffer,
+  datasourceId: string,
+) {
+  let metricsCache: FactMetricInterface[] | null = null;
+  const getMetrics = async (): Promise<FactMetricInterface[]> => {
+    if (metricsCache) return metricsCache;
+    const all = await ctx.models.factMetrics.getAll();
+    metricsCache = datasourceId
+      ? all.filter((m) => m.datasource === datasourceId)
+      : all;
+    return metricsCache;
+  };
+
+  let factTablesCache: FactTableInterface[] | null = null;
+  const getFactTables = async (): Promise<FactTableInterface[]> => {
+    if (factTablesCache) return factTablesCache;
+    factTablesCache = datasourceId
+      ? await getFactTablesForDatasource(ctx, datasourceId)
+      : await getAllFactTablesForOrganization(ctx);
+    return factTablesCache;
+  };
+
+  return {
+    search: aiTool({
+      description: SEARCH_DESCRIPTION,
+      inputSchema: searchInputSchema,
+      execute: (input) => executeSearch(getMetrics, getFactTables, input),
+    }),
+
+    getAvailableColumns: aiTool({
+      description: GET_AVAILABLE_COLUMNS_DESCRIPTION,
+      inputSchema: getAvailableColumnsInputSchema,
+      execute: (input) => executeGetAvailableColumns(ctx, input),
+    }),
+
+    getColumnValues: aiTool({
+      description: GET_COLUMN_VALUES_DESCRIPTION,
+      inputSchema: getColumnValuesInputSchema,
+      execute: (input) => executeGetColumnValues(ctx, input),
+    }),
+
+    runExploration: aiTool({
+      description: RUN_EXPLORATION_DESCRIPTION,
+      inputSchema: runExplorationInputSchema,
+      execute: ({ config }, { abortSignal }) =>
+        executeRunExploration(ctx, buffer, config, abortSignal),
+    }),
+
+    getSnapshot: aiTool({
+      description: GET_SNAPSHOT_DESCRIPTION,
+      inputSchema: getSnapshotInputSchema,
+      execute: ({ snapshotId }) => executeGetSnapshot(buffer, snapshotId),
+    }),
+  };
+}
+
 const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   agentType: "product-analytics",
   promptType: "product-analytics-chat",
@@ -1493,59 +1551,8 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   resolveMentions: (ctx, mentions, { datasourceId }) =>
     resolveProductAnalyticsMentions(ctx, mentions, datasourceId),
 
-  buildTools: (ctx, buffer, { datasourceId }) => {
-    let metricsCache: FactMetricInterface[] | null = null;
-    const getMetrics = async (): Promise<FactMetricInterface[]> => {
-      if (metricsCache) return metricsCache;
-      const all = await ctx.models.factMetrics.getAll();
-      metricsCache = datasourceId
-        ? all.filter((m) => m.datasource === datasourceId)
-        : all;
-      return metricsCache;
-    };
-
-    let factTablesCache: FactTableInterface[] | null = null;
-    const getFactTables = async (): Promise<FactTableInterface[]> => {
-      if (factTablesCache) return factTablesCache;
-      factTablesCache = datasourceId
-        ? await getFactTablesForDatasource(ctx, datasourceId)
-        : await getAllFactTablesForOrganization(ctx);
-      return factTablesCache;
-    };
-
-    return {
-      search: aiTool({
-        description: SEARCH_DESCRIPTION,
-        inputSchema: searchInputSchema,
-        execute: (input) => executeSearch(getMetrics, getFactTables, input),
-      }),
-
-      getAvailableColumns: aiTool({
-        description: GET_AVAILABLE_COLUMNS_DESCRIPTION,
-        inputSchema: getAvailableColumnsInputSchema,
-        execute: (input) => executeGetAvailableColumns(ctx, input),
-      }),
-
-      getColumnValues: aiTool({
-        description: GET_COLUMN_VALUES_DESCRIPTION,
-        inputSchema: getColumnValuesInputSchema,
-        execute: (input) => executeGetColumnValues(ctx, input),
-      }),
-
-      runExploration: aiTool({
-        description: RUN_EXPLORATION_DESCRIPTION,
-        inputSchema: runExplorationInputSchema,
-        execute: ({ config }, { abortSignal }) =>
-          executeRunExploration(ctx, buffer, config, abortSignal),
-      }),
-
-      getSnapshot: aiTool({
-        description: GET_SNAPSHOT_DESCRIPTION,
-        inputSchema: getSnapshotInputSchema,
-        execute: ({ snapshotId }) => executeGetSnapshot(buffer, snapshotId),
-      }),
-    };
-  },
+  buildTools: (ctx, buffer, { datasourceId }) =>
+    buildProductAnalyticsTools(ctx, buffer, datasourceId),
 
   temperature: 0.1,
   maxSteps: 20,

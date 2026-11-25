@@ -46,6 +46,8 @@ import {
   publishDashboardDraftBody,
   updateDashboardBody,
 } from "./dashboards.router";
+export { postDashboardBuilderChat } from "back-end/src/enterprise/services/dashboard-builder-agent";
+
 interface SingleDashboardResponse {
   status: number;
   dashboard: DashboardInterface;

@@ -44,6 +44,19 @@ function contentOf(dashboard: DashboardInterface): DashboardVersionContent {
   ]);
 }
 
+// The draft when the caller may edit, otherwise what is published.
+export async function getDashboardWorkingContent(
+  context: ReqContext,
+  dashboardId: string,
+): Promise<DashboardVersionContent> {
+  const dashboard = await context.models.dashboards.getById(dashboardId);
+  if (!dashboard) throw new NotFoundError("Cannot find dashboard");
+  const draft = context.models.dashboards.canEdit(dashboard)
+    ? await context.models.dashboardVersions.getDraft(dashboard.id)
+    : null;
+  return draft?.content ?? contentOf(dashboard);
+}
+
 export async function getDashboardDraft(
   context: ReqContext,
   dashboardId: string,
