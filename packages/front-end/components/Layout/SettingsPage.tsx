@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Heading from "@/ui/Heading";
@@ -79,12 +80,13 @@ export default function SettingsPage({
   contentClassName?: string;
   children: ReactNode;
 }) {
+  const { t } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const root: BreadcrumbItem =
     section && permissionsUtil.canManageOrgSettings()
-      ? { display: "General", href: `/settings#${section}` }
+      ? { display: t`General`, href: `/settings#${section}` }
       : {
-          display: "Organization",
+          display: t`Organization`,
           // Organization lands on Projects, so only link it for users who can open it.
           ...(permissionsUtil.canViewProjectsPage()
             ? { href: "/projects" }
@@ -116,7 +118,7 @@ export function SettingsNoAccess({ title }: { title: string }) {
   return (
     <SettingsPage title={title}>
       <Callout status="error">
-        You do not have access to view this page.
+        <Trans>You do not have access to view this page.</Trans>
       </Callout>
     </SettingsPage>
   );

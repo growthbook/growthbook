@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import { PiMagnifyingGlass, PiX } from "react-icons/pi";
 import { IconButton } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { useLingui } from "@lingui/react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import { TextField } from "@/ui/TextField";
@@ -81,7 +81,7 @@ export function useSettingsSearchShortcut(onShortcut: () => void) {
 }
 
 export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
-  const { i18n } = useLingui();
+  const { t, i18n } = useLingui();
   const router = useRouter();
   const { query, setQuery, counts, searchRef, pinSection } = useSettingsNav();
   const { dirtySectionIds } = useSettingsForm();
@@ -106,15 +106,34 @@ export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
 
   const cardTotal = Object.values(counts).reduce((a, b) => a + b, 0);
   const matchedSections = Object.values(counts).filter((n) => n > 0).length;
-  const total = cardTotal + pages.length;
-  const where = [
-    matchedSections &&
-      `${matchedSections} section${matchedSections === 1 ? "" : "s"}`,
-    pages.length && `${pages.length} page${pages.length === 1 ? "" : "s"}`,
-  ].filter(Boolean);
-  const resultText = !total
-    ? "No matches"
-    : `${total} match${total === 1 ? "" : "es"} in ${where.join(" and ")}`;
+  const pageCount = pages.length;
+  const total = cardTotal + pageCount;
+  let resultText: ReactNode;
+  if (!total) {
+    resultText = <Trans>No matches</Trans>;
+  } else if (matchedSections && pageCount) {
+    resultText = (
+      <Trans>
+        <Plural value={total} one="# match" other="# matches" /> in{" "}
+        <Plural value={matchedSections} one="# section" other="# sections" />{" "}
+        and <Plural value={pageCount} one="# page" other="# pages" />
+      </Trans>
+    );
+  } else if (matchedSections) {
+    resultText = (
+      <Trans>
+        <Plural value={total} one="# match" other="# matches" /> in{" "}
+        <Plural value={matchedSections} one="# section" other="# sections" />
+      </Trans>
+    );
+  } else {
+    resultText = (
+      <Trans>
+        <Plural value={total} one="# match" other="# matches" /> in{" "}
+        <Plural value={pageCount} one="# page" other="# pages" />
+      </Trans>
+    );
+  }
 
   const [shortcutHint, setShortcutHint] = useState("");
   useEffect(() => {
@@ -136,15 +155,15 @@ export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
         mx="3"
         mt="0"
         mb="2"
-        aria-label="Search settings"
-        placeholder="Search settings"
+        aria-label={t`Search settings`}
+        placeholder={t`Search settings`}
         prepend={<PiMagnifyingGlass aria-hidden="true" />}
         append={
           !query ? (
             <kbd
               className={styles.kbd}
-              title={`${shortcutHint} / to search settings`}
-              aria-label={`${shortcutHint} slash`}
+              title={t`${shortcutHint} / to search settings`}
+              aria-label={t`${shortcutHint} slash`}
             >
               <span>{shortcutHint}</span>
               <span>/</span>
@@ -155,7 +174,7 @@ export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
               variant="ghost"
               color="gray"
               size="1"
-              aria-label="Clear search"
+              aria-label={t`Clear search`}
               onClick={() => {
                 setQuery("");
                 searchRef.current?.focus();
@@ -178,8 +197,13 @@ export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
       )}
       <div className={styles.scroll}>
         {showGeneral && (
-          <nav aria-label="General settings sections" className={styles.group}>
-            <div className={styles.groupLabel}>General</div>
+          <nav
+            aria-label={t`General settings sections`}
+            className={styles.group}
+          >
+            <div className={styles.groupLabel}>
+              <Trans>General</Trans>
+            </div>
             {sections.map((s) => {
               const active = s.id === current.section?.id;
               return (
@@ -208,7 +232,7 @@ export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
                     <span
                       className={sectionStyles.unsavedDot}
                       role="img"
-                      aria-label="Unsaved changes"
+                      aria-label={t`Unsaved changes`}
                     />
                   )}
                   {hasQuery && (
@@ -223,13 +247,17 @@ export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
               );
             })}
             {hasQuery && !sections.length && (
-              <div className={styles.empty}>No sections match.</div>
+              <div className={styles.empty}>
+                <Trans>No sections match.</Trans>
+              </div>
             )}
           </nav>
         )}
         {pages.length > 0 && (
-          <nav aria-label="Organization settings" className={styles.group}>
-            <div className={styles.groupLabel}>Organization</div>
+          <nav aria-label={t`Organization settings`} className={styles.group}>
+            <div className={styles.groupLabel}>
+              <Trans>Organization</Trans>
+            </div>
             {pages.map((l) => {
               const active = l === current.page;
               return (
@@ -252,16 +280,17 @@ export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export default function SettingsNav() {
+  const { t } = useLingui();
   const { searchRef } = useSettingsNav();
   useSettingsSearchShortcut(() => {
     searchRef.current?.focus();
     searchRef.current?.select();
   });
   return (
-    <aside className={styles.nav} aria-label="Settings navigation">
+    <aside className={styles.nav} aria-label={t`Settings navigation`}>
       <div className={styles.header}>
         <Heading as="h2" size="2xl" mb="0">
-          Settings
+          <Trans>Settings</Trans>
         </Heading>
       </div>
       <SettingsNavBody />

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import { PiCaretDown } from "react-icons/pi";
-import { useLingui } from "@lingui/react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import { Popover } from "@/ui/Popover";
@@ -15,20 +15,26 @@ import { useSettingsNav } from "./SettingsNavContext";
 import styles from "./SettingsJumpMenu.module.scss";
 
 function useSettingsLocation(): string {
-  const { i18n } = useLingui();
+  const { t, i18n } = useLingui();
   const { page, section } = useCurrentSettingsItem();
   const { query } = useSettingsNav();
   const onGeneral = useRouter().route === "/settings";
-  const location = page
-    ? `Organization · ${i18n._(page.name)}`
-    : section
-      ? `General · ${section.title}`
-      : "Settings";
+  let location: string;
+  if (page) {
+    const pageName = i18n._(page.name);
+    location = t`Organization · ${pageName}`;
+  } else if (section) {
+    const sectionTitle = section.title;
+    location = t`General · ${sectionTitle}`;
+  } else {
+    location = t`Settings`;
+  }
   const search = query.trim();
-  return onGeneral && search ? `${location} · matching “${search}”` : location;
+  return onGeneral && search ? t`${location} · matching “${search}”` : location;
 }
 
 function SettingsJumpMenu() {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const location = useSettingsLocation();
   const { query, searchRef } = useSettingsNav();
@@ -86,7 +92,7 @@ function SettingsJumpMenu() {
           iconPosition="right"
           truncate
           className={clsx("dropdown-trigger-select-style", styles.trigger)}
-          aria-label={`Settings: ${location}`}
+          aria-label={t`Settings: ${location}`}
           style={{ justifyContent: "space-between" }}
         >
           {location}
@@ -97,7 +103,7 @@ function SettingsJumpMenu() {
           ref={menuRef}
           className={styles.menu}
           role="navigation"
-          aria-label="Settings navigation"
+          aria-label={t`Settings navigation`}
         >
           <SettingsNavBody onNavigate={() => setOpen(false)} />
         </div>
@@ -114,7 +120,7 @@ export function SettingsPageTop() {
     <>
       <div aria-hidden="true">
         <Heading as="h2" size="2xl" mb="2">
-          Settings
+          <Trans>Settings</Trans>
         </Heading>
       </div>
       <div className={clsx(styles.pinned, onGeneral && styles.general)}>

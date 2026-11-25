@@ -1,6 +1,7 @@
 import { PiCheckCircle, PiX } from "react-icons/pi";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { Trans } from "@lingui/react/macro";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -36,7 +37,9 @@ const GuidedGetStartedBar = () => {
       }}
     >
       <span>
-        <strong>Current Task:</strong> {currentStep}
+        <Trans>
+          <strong>Current Task:</strong> {currentStep}
+        </Trans>
       </span>
 
       <div>
@@ -66,7 +69,9 @@ const GuidedGetStartedBar = () => {
             }}
           >
             <PiCheckCircle />{" "}
-            <span className="align-middle">Mark as Complete</span>
+            <span className="align-middle">
+              <Trans>Mark as Complete</Trans>
+            </span>
           </Button>
         )}
         <Link href={getReturnUrl()} onClick={() => clearStep()}>
@@ -82,7 +87,7 @@ const GuidedGetStartedBar = () => {
               height: "25px",
             }}
           >
-            Return to Guide
+            <Trans>Return to Guide</Trans>
           </button>
         </Link>
         <PiX

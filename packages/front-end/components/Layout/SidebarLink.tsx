@@ -6,7 +6,7 @@ import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
 import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
 import type { MessageDescriptor } from "@lingui/core";
-import { useLingui } from "@lingui/react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { GlobalPermission } from "shared/types/organization";
 import { Permissions, hasSuperAdminPermission } from "shared/permissions";
 import { SuperAdmin } from "shared/validators";
@@ -70,7 +70,7 @@ export function buildSidebarLinkFilterProps(input: {
 }
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const { i18n } = useLingui();
+  const { t, i18n } = useLingui();
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
 
@@ -173,7 +173,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
               className="badge border text-uppercase ml-2"
               style={{ opacity: 0.65 }}
             >
-              beta
+              <Trans>beta</Trans>
             </div>
           )}
           {showSubLinks && (
@@ -227,7 +227,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                   {l.beta && (
                     <Badge
                       color="indigo"
-                      label="Beta"
+                      label={t`Beta`}
                       variant="solid"
                       size="xs"
                       ml="1"

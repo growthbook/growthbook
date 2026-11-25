@@ -4,9 +4,8 @@ import clsx from "clsx";
 import { useRouter } from "next/router";
 import { BsSearch } from "react-icons/bs";
 import { Flex } from "@radix-ui/themes";
-import { useLingui } from "@lingui/react";
 import { msg } from "@lingui/core/macro";
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { inferDocUrl } from "@/components/DocLink";
@@ -64,7 +63,7 @@ const otherPageTitles = [
 ];
 
 const Layout = (): React.ReactElement => {
-  const { i18n } = useLingui();
+  const { t, i18n } = useLingui();
   const { open, setOpen } = useSidebarOpen();
   const permissionsUtil = usePermissionsUtil();
   const { organization, canSubscribe } = useUser();
@@ -135,7 +134,7 @@ const Layout = (): React.ReactElement => {
                 href="/"
                 aria-current="page"
                 className="app-sidebar-logo active"
-                title="GrowthBook Home"
+                title={t`GrowthBook Home`}
                 onClick={() => setOpen(false)}
               >
                 <div className={styles.sidebarlogo}>
@@ -155,8 +154,8 @@ const Layout = (): React.ReactElement => {
             <div className={styles.mainmenu}>
               <ul
                 onClick={(e) => {
-                  const t = (e.target as HTMLElement).closest("a");
-                  if (t && t.href && !t.className.match(/no-close/)) {
+                  const link = (e.target as HTMLElement).closest("a");
+                  if (link && link.href && !link.className.match(/no-close/)) {
                     setOpen(false);
                   }
                 }}
