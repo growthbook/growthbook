@@ -100,6 +100,7 @@ export type AppFeatures = {
   "nps-survey": Record<string, unknown>;
   "october16-ff": boolean;
   "oe-general-agent-gate": boolean;
+  "optimizely-importer": boolean;
   "papercups-config": Record<string, unknown>;
   populations: boolean;
   "pre-computed-dimensions": boolean;

@@ -1,6 +1,6 @@
-import React, { Fragment, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { ApiAutoRun } from "shared/validators";
 import {
   buildImportData,
@@ -29,23 +29,11 @@ import useApi from "@/hooks/useApi";
 import track from "@/services/track";
 import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
-import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
-import HelperText from "@/ui/HelperText";
-import Link from "@/ui/Link";
 import { TextField } from "@/ui/TextField";
 import DatePicker from "@/components/DatePicker";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-  TableRowHeaderCell,
-} from "@/ui/Table";
 import SelectField from "@/components/Forms/SelectField";
-import Code from "@/components/SyntaxHighlighting/Code";
+import ImportReviewTables from "@/components/importing/ImportReviewTables/ImportReviewTables";
 
 const itemId = (category: EppoCategory, key: string) => `${category}:${key}`;
 
@@ -58,31 +46,6 @@ const HREFS: Partial<Record<EppoCategory, (id: string) => string>> = {
 };
 
 const UNTOUCHED: EppoCategory[] = ["environments", "tags"];
-
-function StatusBadge({
-  item,
-  category,
-}: {
-  item: ImportItem<unknown>;
-  category: EppoCategory;
-}) {
-  switch (item.status) {
-    case "invalid":
-      return <Badge color="red" label="Can't import" />;
-    case "failed":
-      return <Badge color="red" label="Failed" />;
-    case "completed":
-      return <Badge color="green" label="Imported" />;
-    case "pending":
-      if (item.match === "name") return <Badge color="amber" label="Exists" />;
-      if (item.existingId && UNTOUCHED.includes(category)) {
-        return <Badge color="gray" label="No change" />;
-      }
-      return (
-        <Badge color="gray" label={item.existingId ? "Update" : "Create"} />
-      );
-  }
-}
 
 const inProject = (project: string, projects?: string[] | null) =>
   !project || !projects?.length || projects.includes(project);
@@ -142,7 +105,6 @@ export default function ImportFromEppo() {
     setResults({});
     setSelection({});
   };
-  const [expanded, setExpanded] = useState<string | null>(null);
 
   const existing: ExistingIds = useMemo(() => {
     const inDatasource = <T extends { id: string; datasource: string }>(
@@ -505,150 +467,24 @@ export default function ImportFromEppo() {
         </Callout>
       ) : null}
 
-      {data
-        ? CATEGORIES.map(({ key: category, label }) => {
-            const items = getItems(category);
-            if (!items.length) return null;
-            const ids = selectable(category).map((i) =>
-              itemId(category, i.key),
-            );
-            const selected = selectable(category).filter((i) =>
-              isSelected(category, i.key),
-            ).length;
-            const href = HREFS[category];
-            const unchanged = items.filter((item) =>
-              untouched(category, item),
-            ).length;
-            return (
-              <Frame key={category}>
-                <Checkbox
-                  label={`${label} (${ids.length})${
-                    unchanged > 0 ? ` · ${unchanged} unchanged` : ""
-                  }`}
-                  value={
-                    selected === ids.length && selected > 0
-                      ? true
-                      : selected
-                        ? "indeterminate"
-                        : false
-                  }
-                  setValue={(v) => setSelected(ids, v)}
-                  disabled={!ids.length}
-                  mb="3"
-                />
-                <Box style={{ maxHeight: 600, overflowY: "auto" }}>
-                  <Table size="sm">
-                    <TableHeader>
-                      <TableRow>
-                        <TableColumnHeader style={{ width: 40 }}>
-                          <VisuallyHidden>Select</VisuallyHidden>
-                        </TableColumnHeader>
-                        <TableColumnHeader>Name</TableColumnHeader>
-                        <TableColumnHeader style={{ width: 140 }}>
-                          Status
-                        </TableColumnHeader>
-                        <TableColumnHeader style={{ width: 100 }}>
-                          <VisuallyHidden>Preview</VisuallyHidden>
-                        </TableColumnHeader>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item) => {
-                        const id = itemId(category, item.key);
-                        return (
-                          <Fragment key={id}>
-                            <TableRow>
-                              <TableCell>
-                                {untouched(category, item) ? null : (
-                                  <Checkbox
-                                    size="sm"
-                                    label={
-                                      <VisuallyHidden>
-                                        {item.name}
-                                      </VisuallyHidden>
-                                    }
-                                    value={
-                                      item.status !== "invalid" &&
-                                      isSelected(category, item.key)
-                                    }
-                                    setValue={(v) => setSelected([id], v)}
-                                    disabled={item.status === "invalid"}
-                                  />
-                                )}
-                              </TableCell>
-                              <TableRowHeaderCell>
-                                {item.name}
-                                {item.existingId && href ? (
-                                  <HelperText status="info" size="sm">
-                                    {item.match === "name"
-                                      ? "Same name as "
-                                      : "Imported before as "}
-                                    <Link href={href(item.existingId)} external>
-                                      {item.name}
-                                    </Link>
-                                  </HelperText>
-                                ) : item.existingId ? (
-                                  <HelperText status="info" size="sm">
-                                    Already in GrowthBook
-                                  </HelperText>
-                                ) : null}
-                                {item.error ? (
-                                  <HelperText status="error" size="sm">
-                                    {item.error}
-                                  </HelperText>
-                                ) : null}
-                              </TableRowHeaderCell>
-                              <TableCell>
-                                <StatusBadge item={item} category={category} />
-                              </TableCell>
-                              <TableCell>
-                                <Link
-                                  aria-expanded={expanded === id}
-                                  onClick={() =>
-                                    setExpanded(expanded === id ? null : id)
-                                  }
-                                >
-                                  {expanded === id ? "Hide JSON" : "View JSON"}
-                                </Link>
-                              </TableCell>
-                            </TableRow>
-                            {expanded === id ? (
-                              <TableRow>
-                                <TableCell colSpan={4}>
-                                  <Grid
-                                    columns={{ initial: "1", md: "2" }}
-                                    gap="3"
-                                  >
-                                    <Code
-                                      language="json"
-                                      filename="Eppo"
-                                      code={JSON.stringify(item.eppo, null, 2)}
-                                      maxHeight="400px"
-                                    />
-                                    <Code
-                                      language="json"
-                                      filename="GrowthBook"
-                                      code={JSON.stringify(
-                                        item.preview ?? null,
-                                        null,
-                                        2,
-                                      )}
-                                      maxHeight="400px"
-                                    />
-                                  </Grid>
-                                </TableCell>
-                              </TableRow>
-                            ) : null}
-                          </Fragment>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </Box>
-              </Frame>
-            );
-          })
-        : null}
+      {data ? (
+        <ImportReviewTables
+          categories={CATEGORIES}
+          sourceName="Eppo"
+          hrefs={HREFS}
+          untouchedCategories={UNTOUCHED}
+          getItems={(category) =>
+            getItems(category).map((item) => ({ ...item, source: item.eppo }))
+          }
+          isSelected={isSelected}
+          setSelected={(category, keys, selected) =>
+            setSelected(
+              keys.map((key) => itemId(category, key)),
+              selected,
+            )
+          }
+        />
+      ) : null}
     </Box>
   );
 }
