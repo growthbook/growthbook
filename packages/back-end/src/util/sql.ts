@@ -215,31 +215,49 @@ function isJSON(str: string) {
   }
 }
 
+function getJSONFieldType(value: unknown): FactTableColumnType {
+  return typeof value === "string"
+    ? value.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}($|[ T])/)
+      ? "date"
+      : "string"
+    : typeof value === "number"
+      ? "number"
+      : typeof value === "boolean"
+        ? "boolean"
+        : "other";
+}
+
+const MAX_JSON_FIELDS = 50;
+const MAX_JSON_FIELD_DEPTH = 3;
+
 function getJSONFields(testValues: unknown[]): JSONColumnFields {
   const fields: JSONColumnFields = {};
+
+  // Nested objects become dotted paths (`address.city`), which every dialect's
+  // jsonExtract resolves.
+  const addFields = (
+    obj: Record<string, unknown>,
+    prefix: string,
+    depth: number,
+  ) => {
+    Object.entries(obj).forEach(([key, value]) => {
+      const path = prefix + key;
+      if (value === null || value === undefined) return;
+      if (value.constructor === Object && depth < MAX_JSON_FIELD_DEPTH) {
+        addFields(value as Record<string, unknown>, `${path}.`, depth + 1);
+        return;
+      }
+      if (fields[path]) return;
+      if (Object.keys(fields).length > MAX_JSON_FIELDS) return;
+      fields[path] = { datatype: getJSONFieldType(value) };
+    });
+  };
 
   testValues.forEach((str) => {
     if (typeof str !== "string") return;
     try {
       const obj = JSON.parse(str);
-      Object.keys(obj).forEach((key) => {
-        if (fields[key]) return;
-        if (obj[key] === null || obj[key] === undefined) return;
-        if (Object.keys(fields).length > 50) return;
-
-        fields[key] = {
-          datatype:
-            typeof obj[key] === "string"
-              ? obj[key].match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}($|[ T])/)
-                ? "date"
-                : "string"
-              : typeof obj[key] === "number"
-                ? "number"
-                : typeof obj[key] === "boolean"
-                  ? "boolean"
-                  : "other",
-        };
-      });
+      if (obj?.constructor === Object) addFields(obj, "", 1);
     } catch (e) {
       // Skip value
     }

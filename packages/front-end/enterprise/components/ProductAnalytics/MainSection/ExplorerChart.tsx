@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import * as echarts from "echarts/core";
@@ -8,6 +15,7 @@ import type {
   ProductAnalyticsExploration,
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
+import { datasetHasValues } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import { parseWarehouseDate } from "shared/dates";
 import {
@@ -19,6 +27,9 @@ import {
   getSecondaryValueAxisName,
 } from "shared/enterprise";
 import {
+  getSeparateChartTitle,
+  showsSeparateValueCharts,
+  sliceExplorationToValue,
   shouldChartSectionShow,
   computeDimensionTotals,
   getExplorationRenderOpts,
@@ -37,6 +48,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import TruncatedText from "@/ui/TruncatedText";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import {
   buildAlignedComparisonOverlayForExplorer,
@@ -67,8 +79,6 @@ import {
 } from "@/components/DataViz/chart-theme";
 import FunnelChart from "./FunnelChart";
 import JourneyChart from "./JourneyChart";
-
-const CHART_ID = "explorer-chart";
 
 // ECharts 6 treats these as a minimum around the plot, then shrinks the grid
 // until axis labels and names fit. (v5's `containLabel` is ignored.)
@@ -135,7 +145,7 @@ function sortSeriesConfigsForCompareLegendOrder(
   ).map((row) => row.cfg);
 }
 
-export default function ExplorerChart({
+function ExplorerChartPanel({
   exploration,
   comparisonExploration = null,
   compareEnabled = false,
@@ -146,6 +156,8 @@ export default function ExplorerChart({
   submittedPreviousTimeFrame = null,
   submittedComparisonMode = null,
   serverBigNumberTrends = null,
+  hideSingleCompareLegend = false,
+  hideSingleSeriesLegend = false,
 }: {
   exploration: ProductAnalyticsExploration | null;
   comparisonExploration?: ProductAnalyticsExploration | null;
@@ -160,11 +172,17 @@ export default function ExplorerChart({
   serverBigNumberTrends?:
     | ProductAnalyticsRunComparisonPayload["bigNumberTrends"]
     | null;
+  /** Skip a compare legend that only names this chart's one series (its heading already does). */
+  hideSingleCompareLegend?: boolean;
+  /** Skip the legend when its only series is the value, e.g. a separate chart whose heading names it. */
+  hideSingleSeriesLegend?: boolean;
 }) {
   const { theme } = useAppearanceUITheme();
   const { textColor, tooltipBackgroundColor, gridLineColor } =
     getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
+  // Distinct per chart so separate charts and dashboard blocks each link
+  const chartId = useId();
   const { getFactMetricById } = useDefinitions();
 
   // ECharts only auto-resizes on window resize, not when its parent container
@@ -599,7 +617,14 @@ export default function ExplorerChart({
       );
     }
 
-    const legendShow = seriesConfigs.length > 0;
+    // A lone series that is the value itself is named by the heading; a lone group still needs its legend
+    const onlySeriesIsTheValue =
+      seriesConfigs.length === 1 &&
+      seriesNameFromEChartsSeriesConfig(seriesConfigs[0]) ===
+        renderOpts.values[0]?.seriesName;
+    const legendShow =
+      seriesConfigs.length > 0 &&
+      !(hideSingleSeriesLegend && onlySeriesIsTheValue);
 
     const axisPointerLabelFormatter =
       resolvedGranularity && !sparseFlatCompareBars
@@ -833,6 +858,7 @@ export default function ExplorerChart({
     customCategoryAxisName,
     valueAxisName,
     chartBoxSize,
+    hideSingleSeriesLegend,
   ]);
 
   // Custom compare-mode legend model, derived from the chart's actual series so
@@ -847,7 +873,9 @@ export default function ExplorerChart({
       submittedComparisonMode ?? "previousPeriod",
     );
     const items = buildCompareChartLegendModel(series, labels);
-    if (!items.length) return null;
+    if (!items.length || (hideSingleCompareLegend && items.length === 1)) {
+      return null;
+    }
     return { ...labels, items };
   }, [
     compareEnabled,
@@ -855,6 +883,7 @@ export default function ExplorerChart({
     submittedExploreState.dateRange,
     submittedPreviousTimeFrame,
     submittedComparisonMode,
+    hideSingleCompareLegend,
   ]);
 
   // Series toggled off via the custom compare legend. Reset whenever the legend
@@ -1158,7 +1187,7 @@ export default function ExplorerChart({
               onChartReady={(chart) => {
                 chartInstanceRef.current = chart ?? null;
                 if (chartsContext && chart) {
-                  chartsContext.registerChart(CHART_ID, chart);
+                  chartsContext.registerChart(chartId, chart);
                 }
               }}
             />
@@ -1169,6 +1198,95 @@ export default function ExplorerChart({
           <HelperText status="error">Unknown chart type</HelperText>
         </Box>
       )}
+    </Flex>
+  );
+}
+
+/**
+ * With `separateValueCharts`, each value is drawn as its own chart so values on
+ * different scales (e.g. a ratio beside a count) each get their own axis.
+ */
+export default function ExplorerChart(
+  props: Parameters<typeof ExplorerChartPanel>[0],
+) {
+  const {
+    submittedExploreState,
+    exploration,
+    comparisonExploration,
+    serverBigNumberTrends,
+  } = props;
+  const { getFactMetricById } = useDefinitions();
+  const separate = showsSeparateValueCharts(submittedExploreState);
+
+  const panels = useMemo(() => {
+    if (!separate || !datasetHasValues(submittedExploreState.dataset)) {
+      return null;
+    }
+    return submittedExploreState.dataset.values.map((value, i) => {
+      const current = sliceExplorationToValue(
+        submittedExploreState,
+        exploration,
+        i,
+      );
+      return {
+        name: getSeparateChartTitle(current.config, i, getFactMetricById),
+        config: current.config,
+        exploration: current.exploration,
+        comparisonExploration: sliceExplorationToValue(
+          submittedExploreState,
+          comparisonExploration ?? null,
+          i,
+        ).exploration,
+        serverBigNumberTrends: serverBigNumberTrends
+          ? [serverBigNumberTrends[i] ?? null]
+          : null,
+      };
+    });
+  }, [
+    separate,
+    submittedExploreState,
+    exploration,
+    comparisonExploration,
+    serverBigNumberTrends,
+    getFactMetricById,
+  ]);
+
+  if (!panels) return <ExplorerChartPanel {...props} />;
+
+  return (
+    <Flex
+      direction="column"
+      gap="3"
+      flexGrow="1"
+      minHeight="0"
+      minWidth="0"
+      overflowY="auto"
+    >
+      {panels.map((panel, i) => (
+        // Values have no stable id; the index is their identity in the config
+        <Flex
+          key={i}
+          direction="column"
+          gap="1"
+          flexGrow="1"
+          flexShrink="0"
+          // Share the height equally; scroll only once a chart would drop below its minimum
+          flexBasis="0"
+          minHeight="140px"
+        >
+          <TruncatedText text={panel.name} weight="medium" />
+          <ExplorerChartPanel
+            {...props}
+            submittedExploreState={panel.config}
+            exploration={panel.exploration}
+            comparisonExploration={panel.comparisonExploration}
+            serverBigNumberTrends={panel.serverBigNumberTrends}
+            // The first chart's legend keys the periods for all; its toggles act on its own metric, which it names
+            hideSingleCompareLegend={i > 0}
+            hideSingleSeriesLegend
+          />
+        </Flex>
+      ))}
     </Flex>
   );
 }

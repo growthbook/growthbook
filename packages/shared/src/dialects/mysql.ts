@@ -91,7 +91,8 @@ export const mysqlDialect: SqlDialect = {
   },
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_EXTRACT(${jsonCol}, '$.${path}')`;
-    return isNumeric ? mysqlDialect.castToFloat(raw) : raw;
+    // JSON_EXTRACT keeps a string's JSON quotes; unquote so values and filters see plain text
+    return isNumeric ? mysqlDialect.castToFloat(raw) : `JSON_UNQUOTE(${raw})`;
   },
   // JSON_TABLE (MySQL 8.0 / MariaDB 10.6) exposes each element as a JSON
   // column named `itemAlias`; the table alias is only there to satisfy syntax

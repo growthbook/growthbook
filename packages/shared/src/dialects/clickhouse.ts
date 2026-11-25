@@ -13,8 +13,25 @@ const SAFE_CH_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 // (may contain spaces/dots/etc.), so backtick-quote it as one identifier when
 // it isn't a safe bare identifier — `attributes.company id` is invalid SQL,
 // `attributes.\`company id\`` is correct.
+// Native JSON stores a literal `a.b` key and nested `a` → `b` as one path.
 const quoteClickHouseJsonPath = (path: string): string =>
   SAFE_CH_IDENTIFIER.test(path) ? path : `\`${path.replace(/`/g, "``")}\``;
+
+// A dotted path reads the literal key when present, else the nested keys
+const clickHouseStringJsonExtract = (
+  fn: "JSONExtractString" | "JSONExtractFloat",
+  jsonCol: string,
+  path: string,
+): string => {
+  const literalKey = `'${clickHouseEscapeStringLiteral(path)}'`;
+  const literal = `${fn}(${jsonCol}, ${literalKey})`;
+  if (!path.includes(".")) return literal;
+  const nestedKeys = path
+    .split(".")
+    .map((key) => `'${clickHouseEscapeStringLiteral(key)}'`)
+    .join(", ");
+  return `if(JSONHas(${jsonCol}, ${literalKey}), ${literal}, ${fn}(${jsonCol}, ${nestedKeys}))`;
+};
 
 export const clickHouseDialect: SqlDialect = {
   ...baseDialect,
@@ -100,7 +117,7 @@ export const clickHouseDialect: SqlDialect = {
 if(
   toTypeName(${jsonCol}) = 'JSON',
   toFloat64OrNull(${jsonCol}.${quoteClickHouseJsonPath(path)}::Nullable(String)),
-  JSONExtractFloat(${jsonCol}, '${path}')
+  ${clickHouseStringJsonExtract("JSONExtractFloat", jsonCol, path)}
 )
       `;
     }
@@ -111,7 +128,7 @@ if(
 if(
   toTypeName(${jsonCol}) = 'JSON',
   ${jsonCol}.${quoteClickHouseJsonPath(path)}::Nullable(String),
-  JSONExtractString(${jsonCol}, '${path}')
+  ${clickHouseStringJsonExtract("JSONExtractString", jsonCol, path)}
 )
       `;
   },

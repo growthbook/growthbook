@@ -425,6 +425,12 @@ const chartSettingsValidator = z.object({
     .describe(
       "Line charts only: whether the y-axis starts at 0. Defaults to true.",
     ),
+  separateValueCharts: z
+    .boolean()
+    .optional()
+    .describe(
+      "Charts with axes and more than one value only: draw one chart per value, each with its own y-axis.",
+    ),
 });
 export type ProductAnalyticsChartSettings = z.infer<
   typeof chartSettingsValidator

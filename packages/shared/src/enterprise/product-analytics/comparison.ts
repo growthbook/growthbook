@@ -15,6 +15,7 @@ import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
 import { configHasPopulation } from "./populations";
 import {
   buildExplorationColumns,
+  isComparedMetricColumn,
   getEffectiveMetricValue,
   getExplorationCellValue,
   getExplorationRenderOpts,
@@ -1069,15 +1070,6 @@ export function computeExplorationComparisonPayload(
     computeBigNumberTrend(primary, exploration, renderOpts, metricIndex),
   );
 
-  if (hasAnyRatio) {
-    return {
-      exploration,
-      previousPeriod,
-      bigNumberTrends,
-      tableTrendsByRow: [],
-    };
-  }
-
   const isTimeseries =
     submittedConfig.dimensions?.[0]?.dimensionType === "date";
   const sortedRows = sortExplorationRows(
@@ -1105,7 +1097,7 @@ export function computeExplorationComparisonPayload(
     const cmpRow = getAlignedCmpRow(row.dimensions);
     const trendRecord: Record<string, number | null> = {};
     for (const col of columns) {
-      if (col.kind !== "metric" || col.sub !== "single") continue;
+      if (!isComparedMetricColumn(col)) continue;
       const rawCurr = getExplorationCellValue(row, col, renderOpts);
       const rawPrev = cmpRow
         ? getExplorationCellValue(cmpRow, col, renderOpts)

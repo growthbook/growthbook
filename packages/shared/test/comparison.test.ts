@@ -1903,7 +1903,7 @@ describe("computeExplorationComparisonPayload", () => {
     expect(out.tableTrendsByRow[1]["__metric_0____trend"]).toBeNull();
   });
 
-  it("returns empty table trends when ratio metric", () => {
+  it("trends a ratio metric's value (N/D) in the table", () => {
     const getRatioMetricById = (id: string) =>
       id === "m1" ? ratioMetric : null;
 
@@ -1920,7 +1920,8 @@ describe("computeExplorationComparisonPayload", () => {
     );
 
     expect(out.bigNumberTrends[0]).not.toBeNull();
-    expect(out.tableTrendsByRow).toEqual([]);
+    // 1/2 vs 1/4
+    expect(out.tableTrendsByRow).toEqual([{ __metric_0_value____trend: 100 }]);
   });
 
   it("densifies empty comparison to full daily zero series for the previous window", () => {

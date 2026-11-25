@@ -364,7 +364,8 @@ export function getColumnInfo(
   }
 
   // Next, look for JSON field match
-  const [baseColumnName, jsonField] = column.split(".", 2);
+  const [baseColumnName, ...jsonPath] = column.split(".");
+  const jsonField = jsonPath.join(".");
   const baseColumnMatch = factTable.columns.find(
     (c) => c.column === baseColumnName,
   );
@@ -376,7 +377,7 @@ export function getColumnInfo(
   ) {
     return {
       datatype: baseColumnMatch.jsonFields[jsonField].datatype,
-      topValues: [],
+      topValues: baseColumnMatch.jsonFields[jsonField].topValues ?? [],
     };
   }
 

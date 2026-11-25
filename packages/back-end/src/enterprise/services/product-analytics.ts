@@ -13,8 +13,10 @@ import {
   getPopulationFactTableIds,
   getPopulationRuleViolations,
 } from "shared/populations";
+import { pick } from "lodash";
 import {
   calculateProductAnalyticsDateRange,
+  EXPLORATION_METRIC_QUERY_FIELDS,
   encodeExplorationConfig,
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
@@ -123,10 +125,28 @@ export async function runProductAnalyticsExploration(
     }
   }
 
+  // Loaded before the cache lookup: the cache is keyed on each metric's query
+  // fields, so an edit to them doesn't serve stale results but a rename hits.
+  const savedFactMetrics =
+    dataset.type === "metric"
+      ? await context.models.factMetrics.getByIds(
+          dataset.values
+            .filter((value) => !value.draftMetric)
+            .map((value) => value.metricId),
+        )
+      : [];
+  const metricDefinitions = new Map<string, object>(
+    savedFactMetrics.map((fm) => [
+      fm.id,
+      pick(fm, EXPLORATION_METRIC_QUERY_FIELDS),
+    ]),
+  );
+
   if (options.cache !== "never") {
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config, {
         savedPopulation,
+        metricDefinitions,
         // Every journey request needs one unused frontier level to project a
         // display payload. Prefix cache hits are reused; a miss runs SQL with
         // the full lookahead still in the dataset.
@@ -179,11 +199,7 @@ export async function runProductAnalyticsExploration(
       );
     }
 
-    const factMetrics = await context.models.factMetrics.getByIds(
-      dataset.values
-        .filter((value) => !value.draftMetric)
-        .map((value) => value.metricId),
-    );
+    const factMetrics = [...savedFactMetrics];
     for (const value of dataset.values) {
       if (!value.draftMetric) continue;
       factMetrics.push(
@@ -438,6 +454,7 @@ export async function runProductAnalyticsExploration(
   const configHashes = context.models.analyticsExplorations.getConfigHashes(
     config,
     savedPopulation,
+    metricDefinitions,
   );
   if (!configHashes) {
     throw new BadRequestError("Invalid config");

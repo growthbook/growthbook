@@ -54,7 +54,10 @@ export function getValueAxisName(
 }
 
 /** A value's display name; "Metric N" when it was saved blank. */
-function getValueName(value: ProductAnalyticsValue, index: number): string {
+export function getValueName(
+  value: ProductAnalyticsValue,
+  index: number,
+): string {
   return value.name.trim() ? value.name : `Metric ${index + 1}`;
 }
 
@@ -63,7 +66,7 @@ function getValueName(value: ProductAnalyticsValue, index: number): string {
  * or "Revenue (total)". Parenthesized so it reads as a note, not part of a
  * name that may already say "per user".
  */
-function getAnnotatedName(
+export function getAnnotatedName(
   value: ProductAnalyticsValue,
   index: number,
   showAs: ShowAs,
@@ -280,6 +283,16 @@ export type ExplorationColumn =
       key: string;
       label: string;
     };
+
+/**
+ * Metric columns that split into current and previous in compare mode. A
+ * ratio compares only its Value; its Numerator / Denominator are hidden.
+ */
+export function isComparedMetricColumn(
+  col: ExplorationColumn,
+): col is Extract<ExplorationColumn, { kind: "metric" }> {
+  return col.kind === "metric" && (col.sub === "single" || col.sub === "value");
+}
 
 /**
  * Compute the human-readable labels used for dimension columns. Date and

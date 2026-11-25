@@ -2,7 +2,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiX } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import Text from "@/ui/Text";
+import TruncatedText from "@/ui/TruncatedText";
 import Button from "@/ui/Button";
 import Switch from "@/ui/Switch";
 import { type FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
@@ -66,13 +66,14 @@ export function ExplorerFilterRow({
         borderRadius: "var(--radius-3)",
         padding: "var(--space-2)",
         backgroundColor: "var(--color-panel-translucent)",
-        opacity: filter.disabled ? 0.5 : 1,
       }}
     >
       <Flex justify="between" align="center" width="100%" gap="2">
-        <Text size="sm" truncate whiteSpace="nowrap" title={getFilterSummary()}>
-          {getFilterSummary()}
-        </Text>
+        <TruncatedText
+          text={getFilterSummary()}
+          size="sm"
+          color={filter.disabled ? "text-disabled" : undefined}
+        />
         <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
           <Switch
             value={!filter.disabled}
@@ -101,32 +102,47 @@ export function ExplorerFilterRow({
         triggerDisabled
         transitionTime={100}
       >
-        <Flex direction="column" gap="2" mt="2">
-          <RowFilterFields
-            filter={filter}
-            columnSource={columnSource}
-            autoFocus={autoFocus}
-            onUpdate={(updates, commit) => onUpdate(updates, commit !== false)}
-          >
-            {({ columnSelect, operatorSelect, valueInput }) => (
-              <>
-                {columnSelect && operatorSelect ? (
-                  <Flex direction="row" gap="2" align="center">
-                    <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 0 }}>
-                      {columnSelect}
-                    </Box>
-                    <Box style={{ minWidth: 0, flex: "0 1 130px" }}>
-                      {operatorSelect}
-                    </Box>
-                  </Flex>
-                ) : (
-                  columnSelect
-                )}
-                {valueInput}
-              </>
-            )}
-          </RowFilterFields>
-        </Flex>
+        {/* A disabled fieldset disables every nested input (react-select and Radix Select) for keyboard and assistive tech; pointer-events stops mouse clicks */}
+        <fieldset
+          disabled={filter.disabled}
+          style={{
+            border: 0,
+            margin: 0,
+            padding: 0,
+            minWidth: 0,
+            opacity: filter.disabled ? 0.5 : 1,
+            pointerEvents: filter.disabled ? "none" : undefined,
+          }}
+        >
+          <Flex direction="column" gap="2" mt="2">
+            <RowFilterFields
+              filter={filter}
+              columnSource={columnSource}
+              autoFocus={autoFocus}
+              onUpdate={(updates, commit) =>
+                onUpdate(updates, commit !== false)
+              }
+            >
+              {({ columnSelect, operatorSelect, valueInput }) => (
+                <>
+                  {columnSelect && operatorSelect ? (
+                    <Flex direction="row" gap="2" align="center">
+                      <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 0 }}>
+                        {columnSelect}
+                      </Box>
+                      <Box style={{ minWidth: 0, flex: "0 1 130px" }}>
+                        {operatorSelect}
+                      </Box>
+                    </Flex>
+                  ) : (
+                    columnSelect
+                  )}
+                  {valueInput}
+                </>
+              )}
+            </RowFilterFields>
+          </Flex>
+        </fieldset>
       </Collapsible>
     </Flex>
   );

@@ -13,7 +13,6 @@ import type {
 import {
   getChosenUnits,
   getMetricIdentifierTypes,
-  getMetricMixClass,
   getPopulationIncompatibility,
   getPopulationMetricFactTableId,
   isPopulationEligible,
@@ -23,55 +22,8 @@ import {
 } from "shared/enterprise";
 import type { PopulationRuleFactTable } from "shared/populations";
 import { isProjectListValidForProject } from "shared/util";
-import type { MetricMixClass } from "shared/enterprise";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 import { metricTypeLabel } from "@/components/Metrics/FactMetricTypeDisplayName";
-
-/**
- * Given the other already-selected metrics in the dataset (excluding the slot
- * being edited), return the class any newly selected metric must match — or
- * null if any class is allowed.
- *
- * Unknown/unselected slots are ignored.
- */
-export function getLockedMixClass(
-  otherMetricTypes: (string | null | undefined)[],
-): "ratio" | "quantile" | "standard" | null {
-  for (const t of otherMetricTypes) {
-    const c = getMetricMixClass(t);
-    if (c !== "unknown") return c;
-  }
-  return null;
-}
-
-const RATIO_CONFLICT = "Ratio metrics can't be combined with other metrics.";
-const QUANTILE_CONFLICT =
-  "Quantile metrics can't be combined with other metrics.";
-
-/** Why a metric can't join a chart locked to `lockedClass`, or null if it can. */
-export function getMixClassConflict(
-  metricType: string | null | undefined,
-  lockedClass: Exclude<MetricMixClass, "unknown"> | null,
-): string | null {
-  const metricClass = getMetricMixClass(metricType);
-  if (!lockedClass || metricClass === lockedClass) return null;
-  // Standard metrics mix freely, so name whichever side can't be combined.
-  const exclusiveClass = lockedClass === "standard" ? metricClass : lockedClass;
-  return exclusiveClass === "ratio" ? RATIO_CONFLICT : QUANTILE_CONFLICT;
-}
-
-/**
- * Why no metric can be added to a chart with these metric types, or null if
- * one can. Ratio and quantile metrics chart alone.
- */
-export function getAddMetricConflict(
-  metricTypes: (string | null | undefined)[],
-): string | null {
-  const classes = metricTypes.map(getMetricMixClass);
-  if (classes.includes("ratio")) return RATIO_CONFLICT;
-  if (classes.includes("quantile")) return QUANTILE_CONFLICT;
-  return null;
-}
 
 /**
  * Why a metric can't join a chart whose Population reads from

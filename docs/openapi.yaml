@@ -44074,6 +44074,12 @@ paths:
                                           Line charts only: whether the y-axis
                                           starts at 0. Defaults to true.
                                         type: boolean
+                                      separateValueCharts:
+                                        description: >-
+                                          Charts with axes and more than one value
+                                          only: draw one chart per value, each
+                                          with its own y-axis.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -44512,6 +44518,12 @@ paths:
                                           Line charts only: whether the y-axis
                                           starts at 0. Defaults to true.
                                         type: boolean
+                                      separateValueCharts:
+                                        description: >-
+                                          Charts with axes and more than one value
+                                          only: draw one chart per value, each
+                                          with its own y-axis.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -44926,6 +44938,12 @@ paths:
                                         description: >-
                                           Line charts only: whether the y-axis
                                           starts at 0. Defaults to true.
+                                        type: boolean
+                                      separateValueCharts:
+                                        description: >-
+                                          Charts with axes and more than one value
+                                          only: draw one chart per value, each
+                                          with its own y-axis.
                                         type: boolean
                                     additionalProperties: false
                                   type:
@@ -45359,6 +45377,12 @@ paths:
                                           Line charts only: whether the y-axis
                                           starts at 0. Defaults to true.
                                         type: boolean
+                                      separateValueCharts:
+                                        description: >-
+                                          Charts with axes and more than one value
+                                          only: draw one chart per value, each
+                                          with its own y-axis.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -45790,6 +45814,12 @@ paths:
                                         description: >-
                                           Line charts only: whether the y-axis
                                           starts at 0. Defaults to true.
+                                        type: boolean
+                                      separateValueCharts:
+                                        description: >-
+                                          Charts with axes and more than one value
+                                          only: draw one chart per value, each
+                                          with its own y-axis.
                                         type: boolean
                                     additionalProperties: false
                                   type:
@@ -47528,6 +47558,12 @@ paths:
                                           Line charts only: whether the y-axis
                                           starts at 0. Defaults to true.
                                         type: boolean
+                                      separateValueCharts:
+                                        description: >-
+                                          Charts with axes and more than one value
+                                          only: draw one chart per value, each
+                                          with its own y-axis.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -47958,6 +47994,12 @@ paths:
                                           Line charts only: whether the y-axis
                                           starts at 0. Defaults to true.
                                         type: boolean
+                                      separateValueCharts:
+                                        description: >-
+                                          Charts with axes and more than one value
+                                          only: draw one chart per value, each
+                                          with its own y-axis.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -48364,6 +48406,12 @@ paths:
                                         description: >-
                                           Line charts only: whether the y-axis
                                           starts at 0. Defaults to true.
+                                        type: boolean
+                                      separateValueCharts:
+                                        description: >-
+                                          Charts with axes and more than one value
+                                          only: draw one chart per value, each
+                                          with its own y-axis.
                                         type: boolean
                                     additionalProperties: false
                                   type:
@@ -48789,6 +48837,12 @@ paths:
                                           Line charts only: whether the y-axis
                                           starts at 0. Defaults to true.
                                         type: boolean
+                                      separateValueCharts:
+                                        description: >-
+                                          Charts with axes and more than one value
+                                          only: draw one chart per value, each
+                                          with its own y-axis.
+                                        type: boolean
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -49212,6 +49266,12 @@ paths:
                                         description: >-
                                           Line charts only: whether the y-axis
                                           starts at 0. Defaults to true.
+                                        type: boolean
+                                      separateValueCharts:
+                                        description: >-
+                                          Charts with axes and more than one value
+                                          only: draw one chart per value, each
+                                          with its own y-axis.
                                         type: boolean
                                     additionalProperties: false
                                   type:
@@ -51177,6 +51237,12 @@ paths:
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
                                     type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -51604,6 +51670,12 @@ paths:
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
                                     type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -52008,6 +52080,12 @@ paths:
                                     description: >-
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
+                                    type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
                                     type: boolean
                                 additionalProperties: false
                               type:
@@ -52431,6 +52509,12 @@ paths:
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
                                     type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -52852,6 +52936,12 @@ paths:
                                     description: >-
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
+                                    type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
                                     type: boolean
                                 additionalProperties: false
                               type:
@@ -54828,6 +54918,12 @@ paths:
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
                                     type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -55255,6 +55351,12 @@ paths:
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
                                     type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -55659,6 +55761,12 @@ paths:
                                     description: >-
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
+                                    type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
                                     type: boolean
                                 additionalProperties: false
                               type:
@@ -56082,6 +56190,12 @@ paths:
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
                                     type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -56503,6 +56617,12 @@ paths:
                                     description: >-
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
+                                    type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
                                     type: boolean
                                 additionalProperties: false
                               type:
@@ -60953,6 +61073,11 @@ paths:
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
                       type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -61427,6 +61552,12 @@ paths:
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
                                     type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -61792,6 +61923,11 @@ paths:
                       description: >-
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
+                      type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
                       type: boolean
                   additionalProperties: false
                 type:
@@ -62250,6 +62386,12 @@ paths:
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
                                     type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -62593,6 +62735,11 @@ paths:
                       description: >-
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
+                      type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
                       type: boolean
                   additionalProperties: false
                 type:
@@ -63068,6 +63215,12 @@ paths:
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
                                     type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -63428,6 +63581,11 @@ paths:
                       description: >-
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
+                      type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
                       type: boolean
                   additionalProperties: false
                 type:
@@ -63906,6 +64064,12 @@ paths:
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
                                     type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -64269,6 +64433,11 @@ paths:
                       description: >-
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
+                      type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
                       type: boolean
                   additionalProperties: false
                 type:
@@ -64740,6 +64909,12 @@ paths:
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
                                     type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
+                                    type: boolean
                                 additionalProperties: false
                               type:
                                 type: string
@@ -65096,6 +65271,11 @@ paths:
                       description: >-
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
+                      type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
                       type: boolean
                   additionalProperties: false
                 type:
@@ -65588,6 +65768,12 @@ paths:
                                     description: >-
                                       Line charts only: whether the y-axis
                                       starts at 0. Defaults to true.
+                                    type: boolean
+                                  separateValueCharts:
+                                    description: >-
+                                      Charts with axes and more than one value
+                                      only: draw one chart per value, each with
+                                      its own y-axis.
                                     type: boolean
                                 additionalProperties: false
                               type:
@@ -86830,6 +87016,12 @@ components:
                               Line charts only: whether the y-axis starts at 0.
                               Defaults to true.
                             type: boolean
+                          separateValueCharts:
+                            description: >-
+                              Charts with axes and more than one value only:
+                              draw one chart per value, each with its own
+                              y-axis.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -87261,6 +87453,12 @@ components:
                               Line charts only: whether the y-axis starts at 0.
                               Defaults to true.
                             type: boolean
+                          separateValueCharts:
+                            description: >-
+                              Charts with axes and more than one value only:
+                              draw one chart per value, each with its own
+                              y-axis.
+                            type: boolean
                         additionalProperties: false
                       type:
                         type: string
@@ -87671,6 +87869,12 @@ components:
                             description: >-
                               Line charts only: whether the y-axis starts at 0.
                               Defaults to true.
+                            type: boolean
+                          separateValueCharts:
+                            description: >-
+                              Charts with axes and more than one value only:
+                              draw one chart per value, each with its own
+                              y-axis.
                             type: boolean
                         additionalProperties: false
                       type:
@@ -88099,6 +88303,12 @@ components:
                             description: >-
                               Line charts only: whether the y-axis starts at 0.
                               Defaults to true.
+                            type: boolean
+                          separateValueCharts:
+                            description: >-
+                              Charts with axes and more than one value only:
+                              draw one chart per value, each with its own
+                              y-axis.
                             type: boolean
                         additionalProperties: false
                       type:
@@ -88530,6 +88740,12 @@ components:
                             description: >-
                               Line charts only: whether the y-axis starts at 0.
                               Defaults to true.
+                            type: boolean
+                          separateValueCharts:
+                            description: >-
+                              Charts with axes and more than one value only:
+                              draw one chart per value, each with its own
+                              y-axis.
                             type: boolean
                         additionalProperties: false
                       type:
@@ -90502,6 +90718,11 @@ components:
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
                       type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -90812,6 +91033,11 @@ components:
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
                       type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -91104,6 +91330,11 @@ components:
                       description: >-
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
+                      type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
                       type: boolean
                   additionalProperties: false
                 type:
@@ -91414,6 +91645,11 @@ components:
                       description: >-
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
+                      type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
                       type: boolean
                   additionalProperties: false
                 type:
@@ -91728,6 +91964,11 @@ components:
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
                       type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
+                      type: boolean
                   additionalProperties: false
                 type:
                   type: string
@@ -92033,6 +92274,11 @@ components:
                       description: >-
                         Line charts only: whether the y-axis starts at 0.
                         Defaults to true.
+                      type: boolean
+                    separateValueCharts:
+                      description: >-
+                        Charts with axes and more than one value only: draw one
+                        chart per value, each with its own y-axis.
                       type: boolean
                   additionalProperties: false
                 type:

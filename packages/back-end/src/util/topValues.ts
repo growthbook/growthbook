@@ -1,9 +1,10 @@
-import { isEqual, omit, pick } from "lodash";
+import { isEqual, mapValues, omit, pick } from "lodash";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import {
   ColumnInterface,
   FactTableInterface,
+  JSONColumnFields,
   TopValuesSnapshot,
 } from "shared/types/fact-table";
 
@@ -160,8 +161,34 @@ export function buildTopValuesWrite(
   const arrayFilters: Record<string, string>[] = [];
   const guards: Record<string, unknown>[] = [];
   let changed = false;
+  // A JSON field's top values live on its jsonFields entry, so the column's
+  // whole map is rewritten
+  const jsonWrites = new Map<
+    ColumnInterface,
+    { fields: JSONColumnFields; refreshedAt: Date }
+  >();
   updates.forEach((update, i) => {
     const column = current.columns.find((c) => c.column === update.column);
+    if (!column && update.snapshot.values.length) {
+      const [base, ...path] = update.column.split(".");
+      const field = path.join(".");
+      const jsonColumn = current.columns.find(
+        (c) => c.column === base && c.datatype === "json" && !c.deleted,
+      );
+      if (!jsonColumn?.jsonFields?.[field]) return;
+      const fields = jsonWrites.get(jsonColumn)?.fields ?? {
+        ...jsonColumn.jsonFields,
+      };
+      fields[field] = {
+        ...fields[field],
+        topValues: update.snapshot.values.map((v) => v.value),
+      };
+      jsonWrites.set(jsonColumn, {
+        fields,
+        refreshedAt: update.snapshot.refreshedAt,
+      });
+      return;
+    }
     if (!column || column.deleted || !update.snapshot.values.length) return;
     const id = `c${i}`;
     const fields = getTopValuesUpdateFields(column, update, maxSliceLevels);
@@ -187,6 +214,23 @@ export function buildTopValuesWrite(
     });
     arrayFilters.push({ [`${id}.column`]: update.column });
   });
+  [...jsonWrites].forEach(([jsonColumn, { fields, refreshedAt }], i) => {
+    const id = `j${i}`;
+    $set[`columns.$[${id}].jsonFields`] = fields;
+    // Fails a whole-column write's storedTopValuesFilter read before this
+    $set[`columns.$[${id}].topValuesDate`] = refreshedAt;
+    arrayFilters.push({ [`${id}.column`]: jsonColumn.column });
+    // A jsonFields edit between the read and the write fails the match
+    guards.push({
+      columns: {
+        $elemMatch: {
+          column: jsonColumn.column,
+          jsonFields: jsonColumn.jsonFields,
+        },
+      },
+    });
+    changed ||= !isEqual(jsonColumn.jsonFields, fields);
+  });
   const filter = guards.length ? { $and: guards } : {};
   return arrayFilters.length
     ? { $set, $unset, arrayFilters, filter, changed }
@@ -200,17 +244,25 @@ function storedArray(values: string[] | undefined) {
 }
 
 // A whole-column write carries each column's stored top values, never the
-// caller's: a column that isn't stored yet gets none
-export function keepStoredTopValues<T extends { column: string }>(
-  stored: ColumnInterface[],
-  incoming: T[],
-): T[] {
+// caller's: a column that isn't stored yet gets none. JSON fields too.
+export function keepStoredTopValues<
+  T extends { column: string; jsonFields?: Record<string, object> },
+>(stored: ColumnInterface[], incoming: T[]): T[] {
   const byColumn = new Map(stored.map((c) => [c.column, c]));
   return incoming.map((column) => {
     const current = byColumn.get(column.column);
     return {
       ...omit(column, TOP_VALUE_FIELDS),
       ...(current && pick(current, TOP_VALUE_FIELDS)),
+      ...(column.jsonFields && {
+        jsonFields: mapValues(column.jsonFields, (field, name) => {
+          const topValues = current?.jsonFields?.[name]?.topValues;
+          return {
+            ...omit(field, "topValues"),
+            ...(topValues && { topValues }),
+          };
+        }),
+      }),
     } as T;
   });
 }

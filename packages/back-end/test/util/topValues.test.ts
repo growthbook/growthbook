@@ -92,6 +92,37 @@ describe("keepStoredTopValues", () => {
       { column: "plan" },
     ]);
   });
+
+  it("keeps each stored JSON field's top values, never the caller's", () => {
+    const stored = [
+      {
+        column: "props",
+        jsonFields: {
+          plan: { datatype: "string", topValues: ["pro"] },
+          gone: { datatype: "string", topValues: ["x"] },
+        },
+      } as ColumnInterface,
+    ];
+    expect(
+      keepStoredTopValues(stored, [
+        {
+          column: "props",
+          jsonFields: {
+            plan: { datatype: "string" as const },
+            added: { datatype: "string" as const, topValues: ["stale"] },
+          },
+        },
+      ]),
+    ).toEqual([
+      {
+        column: "props",
+        jsonFields: {
+          plan: { datatype: "string", topValues: ["pro"] },
+          added: { datatype: "string" },
+        },
+      },
+    ]);
+  });
 });
 
 describe("Auto Slice level policies", () => {
@@ -237,6 +268,45 @@ describe("buildTopValuesWrite", () => {
     expect(buildTopValuesWrite(current, [{ column: "gone", snapshot }])).toBe(
       null,
     );
+  });
+});
+
+describe("buildTopValuesWrite for JSON fields", () => {
+  it("rewrites the JSON column's fields, guarded on the read copy", () => {
+    const jsonFields = {
+      "address.city": { datatype: "string" as const },
+      plan: { datatype: "string" as const },
+    };
+    const current = {
+      userIdTypes: [],
+      columns: [
+        { column: "props", datatype: "json", deleted: false, jsonFields },
+      ] as ColumnInterface[],
+    };
+    const snapshot = {
+      values: [{ value: "Paris" }],
+      refreshedAt: new Date("2026-11-01T00:00:00Z"),
+    };
+    expect(
+      buildTopValuesWrite(current, [
+        { column: "props.address.city", snapshot },
+        { column: "props.unknown", snapshot },
+      ]),
+    ).toEqual({
+      $set: {
+        "columns.$[j0].jsonFields": {
+          "address.city": { datatype: "string", topValues: ["Paris"] },
+          plan: { datatype: "string" },
+        },
+        "columns.$[j0].topValuesDate": snapshot.refreshedAt,
+      },
+      $unset: {},
+      arrayFilters: [{ "j0.column": "props" }],
+      filter: {
+        $and: [{ columns: { $elemMatch: { column: "props", jsonFields } } }],
+      },
+      changed: true,
+    });
   });
 });
 

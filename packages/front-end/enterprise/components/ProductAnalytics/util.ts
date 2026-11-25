@@ -19,6 +19,7 @@ import type {
   JourneyStepGroup,
   ExplorationDateRange,
   ProductAnalyticsChartSettings,
+  ProductAnalyticsExploration,
 } from "shared/validators";
 import {
   explorationConfigValidator,
@@ -54,6 +55,9 @@ import {
   getRelevantFactTableIds,
   normalizeShowAs,
   fillMissingUnits,
+  getAnnotatedName,
+  getExplorationRenderOpts,
+  getValueName,
 } from "shared/enterprise";
 import type {
   DimensionFactTable,
@@ -894,6 +898,10 @@ function cleanChartSettings(
   // Only persist the non-default: anchored to zero is the default.
   if (chartSettings.anchorYAxisToZero === false) {
     next.anchorYAxisToZero = false;
+  }
+  // Only persist the non-default: one shared chart is the default.
+  if (chartSettings.separateValueCharts) {
+    next.separateValueCharts = true;
   }
   return Object.keys(next).length ? next : undefined;
 }
@@ -1872,3 +1880,79 @@ export const comparisonModeQueryParser = createParser<ComparisonMode | null>({
   },
   serialize: (value) => value ?? "",
 });
+
+export const CHART_TYPES_WITH_AXES = new Set<ExplorationConfig["chartType"]>([
+  "line",
+  "area",
+  "bar",
+  "stackedBar",
+  "horizontalBar",
+  "stackedHorizontalBar",
+]);
+
+export function canSeparateValueCharts(config: ExplorationConfig): boolean {
+  return (
+    CHART_TYPES_WITH_AXES.has(config.chartType) &&
+    datasetHasValues(config.dataset) &&
+    config.dataset.values.length > 1
+  );
+}
+
+export function showsSeparateValueCharts(config: ExplorationConfig): boolean {
+  return (
+    canSeparateValueCharts(config) &&
+    !!config.chartSettings?.separateValueCharts
+  );
+}
+
+/**
+ * A separate chart's heading: the value's name with how it's calculated, e.g.
+ * "Revenue (per user_id)", since the chart has no axis title or legend to say so.
+ * Ratios and quantiles have no calculation mode, so they keep the plain name.
+ */
+export function getSeparateChartTitle(
+  config: ExplorationConfig,
+  index: number,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
+  if (!datasetHasValues(config.dataset)) return "";
+  const value = config.dataset.values[0];
+  const { primaryAxisShowAs, sharedUnit } = getExplorationRenderOpts(
+    config,
+    getFactMetricById,
+  );
+  return primaryAxisShowAs === null
+    ? getValueName(value, index)
+    : getAnnotatedName(value, index, primaryAxisShowAs, sharedUnit);
+}
+
+/**
+ * The config and results narrowed to one value, for drawing it as its own
+ * chart. Its heading names the value, so its value axis has no title.
+ */
+export function sliceExplorationToValue(
+  config: ExplorationConfig,
+  exploration: ProductAnalyticsExploration | null,
+  index: number,
+): {
+  config: ExplorationConfig;
+  exploration: ProductAnalyticsExploration | null;
+} {
+  const values = datasetHasValues(config.dataset) ? config.dataset.values : [];
+  return {
+    config: {
+      ...config,
+      dataset: { ...config.dataset, values: [values[index]] },
+      chartSettings: { ...config.chartSettings, valueAxisLabel: "" },
+    } as ExplorationConfig,
+    exploration: exploration && {
+      ...exploration,
+      result: {
+        ...exploration.result,
+        rows: exploration.result.rows.map((row) =>
+          row.values ? { ...row, values: [row.values[index]] } : row,
+        ),
+      },
+    },
+  };
+}
