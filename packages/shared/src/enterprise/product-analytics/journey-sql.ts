@@ -29,7 +29,7 @@ import {
   generateDimensionExpression,
   generateDynamicDimensionCTE,
   generateRowFilterSQL,
-} from "./sql";
+} from "./common-sql";
 
 type CTE = { name: string; sql: string };
 

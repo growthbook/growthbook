@@ -10,6 +10,7 @@ export * from "./power";
 export * from "./decision-criteria";
 export * from "./dashboards";
 export * from "./product-analytics/sql";
+export * from "./product-analytics/common-sql";
 export * from "./product-analytics/columns";
 export * from "./product-analytics/journey-sql";
 export * from "./product-analytics/column-dependencies";

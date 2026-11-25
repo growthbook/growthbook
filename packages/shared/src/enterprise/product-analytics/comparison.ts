@@ -11,7 +11,10 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 // Imported from the module rather than the `shared/validators` barrel: the
 // barrel forms a require cycle with this file, leaving the array undefined.
 import { comparisonMode } from "../../validators/product-analytics";
-import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
+import {
+  calculateProductAnalyticsDateRange,
+  getDateGranularity,
+} from "./common-sql";
 import { configHasPopulation } from "./populations";
 import {
   buildExplorationColumns,
