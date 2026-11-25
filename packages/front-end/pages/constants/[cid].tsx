@@ -441,7 +441,7 @@ export default function ConstantDetailPage(): React.ReactElement {
 
   const newDraft = canDraft ? (
     <NewDraftButton
-      entityNoun="Constant"
+      entityNoun={t`Constant`}
       activeDraftCount={openRevisions.length}
       nextVersion={Math.max(0, ...revisionNumbers.values()) + 1}
       basedOn={
@@ -572,7 +572,7 @@ export default function ConstantDetailPage(): React.ReactElement {
         }
       >
         <ArchiveStateCallout
-          noun="Constant"
+          entityType="constant"
           liveArchived={!!constant.archived}
           viewedArchived={!!displayedConstant.archived}
         />
@@ -614,7 +614,7 @@ export default function ConstantDetailPage(): React.ReactElement {
                 allRevisions={allRevisions}
                 liveSnapshot={constant}
                 diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
-                entityNoun="Constant"
+                entityNoun={t`Constant`}
                 requiresApproval={selectedRevisionRequiresApproval}
                 canDiscard={canDraft || selectedRevision?.authorId === userId}
                 onSelectRevision={selectRevision}
@@ -728,7 +728,7 @@ export default function ConstantDetailPage(): React.ReactElement {
                 currentState={constant}
                 diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
                 entityName={constant.name}
-                entityNoun="Constant"
+                entityNoun={t`Constant`}
                 requiresApproval={selectedRevisionRequiresApproval}
                 reviewRules={reviewRule ? [reviewRule] : []}
                 canEditEntity={permissionsUtil.canRevisionAction(

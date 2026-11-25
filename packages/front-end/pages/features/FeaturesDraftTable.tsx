@@ -42,7 +42,7 @@ const COL = {
 } as const;
 
 export default function FeaturesDraftTable() {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const draftAndReviewData = useApi<{
     status: number;
     revisions: FeaturesAndRevisions[];
@@ -271,7 +271,7 @@ export default function FeaturesDraftTable() {
                         }}
                       />
                       <Text size="md">
-                        {revisionStatusLabel(featureAndRevision.status)}
+                        {revisionStatusLabel(featureAndRevision.status, i18n)}
                       </Text>
                     </Flex>
                   </TableCell>

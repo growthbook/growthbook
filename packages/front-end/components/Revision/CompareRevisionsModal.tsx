@@ -13,6 +13,9 @@ import React, {
   useState,
 } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   PiArrowsLeftRightBold,
   PiCaretDownBold,
@@ -115,13 +118,14 @@ function RevisionCompareLabel({
   mt?: "1" | "2" | "3" | "4";
   requiresApproval?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   return (
     <Flex align="center" gap="4" wrap="nowrap" mb={mb} mt={mt}>
       <Flex direction="column">
         <Flex align="center" justify="between" gap="2">
           <Flex align="center" gap="1">
             {revAFailed && (
-              <Tooltip body="Could not load revision">
+              <Tooltip body={t`Could not load revision`}>
                 <PiWarningBold
                   style={{ color: "var(--red-9)", flexShrink: 0 }}
                 />
@@ -130,7 +134,12 @@ function RevisionCompareLabel({
             <Text weight="medium" size="md">
               <OverflowText
                 maxWidth={250}
-                title={revisionLabelText(revA?.version ?? 0, revA?.title)}
+                title={revisionLabelText(
+                  revA?.version ?? 0,
+                  revA?.title,
+                  undefined,
+                  i18n,
+                )}
               >
                 <RevisionLabel
                   version={revA?.version ?? 0}
@@ -158,7 +167,7 @@ function RevisionCompareLabel({
         <Flex align="center" justify="between" gap="2">
           <Flex align="center" gap="1">
             {revBFailed && (
-              <Tooltip body="Could not load revision">
+              <Tooltip body={t`Could not load revision`}>
                 <PiWarningBold
                   style={{ color: "var(--red-9)", flexShrink: 0 }}
                 />
@@ -167,7 +176,12 @@ function RevisionCompareLabel({
             <Text weight="medium" size="md">
               <OverflowText
                 maxWidth={250}
-                title={revisionLabelText(revB?.version ?? 0, revB?.title)}
+                title={revisionLabelText(
+                  revB?.version ?? 0,
+                  revB?.title,
+                  undefined,
+                  i18n,
+                )}
               >
                 <RevisionLabel
                   version={revB?.version ?? 0}
@@ -257,32 +271,32 @@ function buildActivityTimeline(revision: Revision): ActivityTimelineItem[] {
   return items;
 }
 
-function activityLabel(item: ActivityTimelineItem): string {
+function activityLabel(item: ActivityTimelineItem, i18n: I18n): string {
   if (item.type === "review") {
     switch (item.decision) {
       case "approve":
-        return "Approved changes";
+        return i18n._(msg`Approved changes`);
       case "request-changes":
-        return "Requested changes";
+        return i18n._(msg`Requested changes`);
       case "comment":
-        return "Commented";
+        return i18n._(msg`Commented`);
       default:
-        return "Review";
+        return i18n._(msg`Review`);
     }
   }
   switch (item.action) {
     case "created":
-      return "Revision created";
+      return i18n._(msg`Revision created`);
     case "updated":
-      return "Revision updated";
+      return i18n._(msg`Revision updated`);
     case "merged":
-      return "Published";
+      return i18n._(msg`Published`);
     case "discarded":
-      return "Discarded";
+      return i18n._(msg`Discarded`);
     case "reopened":
-      return "Reopened";
+      return i18n._(msg`Reopened`);
     case "recalled":
-      return "Review recalled";
+      return i18n._(msg`Review recalled`);
     default:
       return item.action;
   }
@@ -315,15 +329,18 @@ function LogEntryPanel({
   // recorded) — shows the whole revision's proposed changes.
   diffMode: "per-entry" | "cumulative";
 }) {
-  const rows: [string, React.ReactNode][] = [
+  const { t, i18n } = useLingui();
+  // [key, display label, value]; the key stays stable across languages.
+  const rows: [string, string, React.ReactNode][] = [
     [
-      "Author",
+      "author",
+      t`Author`,
       <Flex align="center" gap="2" key="author">
         <UserAvatar name={userDisplay} size="sm" variant="soft" />
         <Text>{userDisplay}</Text>
       </Flex>,
     ],
-    ["Date", datetime(item.createdAt)],
+    ["date", t`Date`, datetime(item.createdAt)],
   ];
 
   const comment = item.type === "review" ? item.comment : item.description;
@@ -331,11 +348,11 @@ function LogEntryPanel({
   return (
     <Box>
       <Heading as="h4" size="sm" mb="3">
-        {activityLabel(item)}
+        {activityLabel(item, i18n)}
       </Heading>
       <Flex direction="column" gap="2">
-        {rows.map(([label, value]) => (
-          <Flex key={label} align="center" gap="3">
+        {rows.map(([key, label, value]) => (
+          <Flex key={key} align="center" gap="3">
             <span style={{ minWidth: 72, flexShrink: 0 }}>
               <Text color="text-mid">{label}</Text>
             </span>
@@ -345,7 +362,9 @@ function LogEntryPanel({
         {comment ? (
           <Flex align="start" gap="3" mt="2">
             <span style={{ minWidth: 72, flexShrink: 0 }}>
-              <Text color="text-mid">Comment</Text>
+              <Text color="text-mid">
+                <Trans>Comment</Trans>
+              </Text>
             </span>
             <Box
               pl="2"
@@ -361,22 +380,28 @@ function LogEntryPanel({
       {diff ? (
         <Box mt="4">
           <Heading as="h5" size="sm" color="text-mid" mb="2">
-            {diffMode === "per-entry"
-              ? "Changes in this entry"
-              : "Cumulative changes in this revision"}
+            {diffMode === "per-entry" ? (
+              <Trans>Changes in this entry</Trans>
+            ) : (
+              <Trans>Cumulative changes in this revision</Trans>
+            )}
           </Heading>
           {diffMode === "cumulative" ? (
             <Text as="p" size="sm" color="text-low" mb="2">
-              Per-entry changes weren&apos;t recorded for this revision, so
-              we&apos;re showing the cumulative diff for the whole revision
-              instead.
+              <Trans>
+                Per-entry changes weren&apos;t recorded for this revision, so
+                we&apos;re showing the cumulative diff for the whole revision
+                instead.
+              </Trans>
             </Text>
           ) : null}
           {diff.diffs.length === 0 ? (
             <Text color="text-low">
-              {diffMode === "per-entry"
-                ? "This entry did not change any content."
-                : "No changes proposed in this revision."}
+              {diffMode === "per-entry" ? (
+                <Trans>This entry did not change any content.</Trans>
+              ) : (
+                <Trans>No changes proposed in this revision.</Trans>
+              )}
             </Text>
           ) : (
             <RevisionDiff
@@ -404,6 +429,7 @@ export default function CompareRevisionsModal<
   initialMode,
   requiresApproval = true,
 }: Props<T>) {
+  const { t, i18n } = useLingui();
   // Find the live revision (most recent merged)
   const liveRevision = useMemo(() => {
     return [...allRevisions]
@@ -1022,15 +1048,18 @@ export default function CompareRevisionsModal<
     diffConfig,
   );
 
+  const stepNumber = safeDiffPage + 1;
+  const stepCount = steps.length;
+
   return (
     <Modal
       trackingEventModalType="compare-revisions"
       open={true}
-      header="Compare revisions"
+      header={t`Compare revisions`}
       close={onClose}
       hideCta
       includeCloseCta
-      closeCta="Close"
+      closeCta={t`Close`}
       size="max"
       sizeY="max"
       bodyClassName="p-0"
@@ -1045,7 +1074,7 @@ export default function CompareRevisionsModal<
             quickActionRanges.allRange) && (
             <Box className={`${styles.section} border-bottom`} pb="2">
               <Text size="md" weight="medium" color="text-mid" mb="2" as="p">
-                Quick actions
+                <Trans>Quick actions</Trans>
               </Text>
               <Flex direction="column" className={styles.quickActionsList}>
                 {quickActionRanges.draftPreviewId !== null && (
@@ -1059,57 +1088,68 @@ export default function CompareRevisionsModal<
                   >
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
-                      <Text weight="medium">Most recent draft changes</Text>
+                      <Text weight="medium">
+                        <Trans>Most recent draft changes</Trans>
+                      </Text>
                       <Text size="sm" color="text-low">
-                        <OverflowText
-                          maxWidth={160}
-                          title={revisionLabelText(
-                            revisionById.get(quickActionRanges.draftPreviewId)
-                              ?.version ?? 0,
-                            revisionById.get(quickActionRanges.draftPreviewId)
-                              ?.title,
-                          )}
-                        >
-                          <RevisionLabel
-                            version={
+                        <Trans>
+                          <OverflowText
+                            maxWidth={160}
+                            title={revisionLabelText(
                               revisionById.get(quickActionRanges.draftPreviewId)
-                                ?.version ?? 0
-                            }
-                            title={
+                                ?.version ?? 0,
                               revisionById.get(quickActionRanges.draftPreviewId)
-                                ?.title
-                            }
-                            numbered={false}
-                          />
-                        </OverflowText>{" "}
-                        <PiArrowsLeftRightBold /> live (
-                        <OverflowText
-                          maxWidth={160}
-                          title={revisionLabelText(
-                            liveRevisionId
-                              ? (revisionById.get(liveRevisionId)?.version ?? 0)
-                              : 0,
-                            liveRevisionId
-                              ? revisionById.get(liveRevisionId)?.title
-                              : null,
-                          )}
-                        >
-                          <RevisionLabel
-                            version={
+                                ?.title,
+                              undefined,
+                              i18n,
+                            )}
+                          >
+                            <RevisionLabel
+                              version={
+                                revisionById.get(
+                                  quickActionRanges.draftPreviewId,
+                                )?.version ?? 0
+                              }
+                              title={
+                                revisionById.get(
+                                  quickActionRanges.draftPreviewId,
+                                )?.title
+                              }
+                              numbered={false}
+                            />
+                          </OverflowText>{" "}
+                          <PiArrowsLeftRightBold /> live (
+                          <OverflowText
+                            maxWidth={160}
+                            title={revisionLabelText(
                               liveRevisionId
                                 ? (revisionById.get(liveRevisionId)?.version ??
-                                  0)
-                                : 0
-                            }
-                            title={
+                                    0)
+                                : 0,
                               liveRevisionId
                                 ? revisionById.get(liveRevisionId)?.title
-                                : null
-                            }
-                            numbered={false}
-                          />
-                        </OverflowText>
-                        )
+                                : null,
+                              undefined,
+                              i18n,
+                            )}
+                          >
+                            <RevisionLabel
+                              version={
+                                liveRevisionId
+                                  ? (revisionById.get(liveRevisionId)
+                                      ?.version ?? 0)
+                                  : 0
+                              }
+                              title={
+                                liveRevisionId
+                                  ? revisionById.get(liveRevisionId)?.title
+                                  : null
+                              }
+                              numbered={false}
+                            />
+                          </OverflowText>
+                          )
+                        </Trans>
                       </Text>
                     </Flex>
                   </Box>
@@ -1133,7 +1173,9 @@ export default function CompareRevisionsModal<
                   >
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
-                      <Text weight="medium">Most recent live changes</Text>
+                      <Text weight="medium">
+                        <Trans>Most recent live changes</Trans>
+                      </Text>
                       <Text size="sm" color="text-low">
                         <OverflowText
                           maxWidth={80}
@@ -1142,6 +1184,8 @@ export default function CompareRevisionsModal<
                               ?.version ?? 0,
                             revisionById.get(quickActionRanges.liveRange[0])
                               ?.title,
+                            undefined,
+                            i18n,
                           )}
                         >
                           <RevisionLabel
@@ -1164,6 +1208,8 @@ export default function CompareRevisionsModal<
                               ?.version ?? 0,
                             revisionById.get(quickActionRanges.liveRange[1])
                               ?.title,
+                            undefined,
+                            i18n,
                           )}
                         >
                           <RevisionLabel
@@ -1201,7 +1247,9 @@ export default function CompareRevisionsModal<
                   >
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
-                      <Text weight="medium">All changes</Text>
+                      <Text weight="medium">
+                        <Trans>All changes</Trans>
+                      </Text>
                       <Text size="sm" color="text-low">
                         <OverflowText
                           maxWidth={80}
@@ -1210,6 +1258,8 @@ export default function CompareRevisionsModal<
                               ?.version ?? 0,
                             revisionById.get(quickActionRanges.allRange[0])
                               ?.title,
+                            undefined,
+                            i18n,
                           )}
                         >
                           <RevisionLabel
@@ -1232,6 +1282,8 @@ export default function CompareRevisionsModal<
                               ?.version ?? 0,
                             revisionById.get(quickActionRanges.allRange[1])
                               ?.title,
+                            undefined,
+                            i18n,
                           )}
                         >
                           <RevisionLabel
@@ -1256,7 +1308,7 @@ export default function CompareRevisionsModal<
           <Box className={styles.section} pb="3">
             <Flex align="center" justify="between" mb="2">
               <Text size="md" weight="medium" color="text-mid">
-                Select range of revisions
+                <Trans>Select range of revisions</Trans>
               </Text>
               {(hasDraftRevisions ||
                 hasDiscardedRevisions ||
@@ -1266,7 +1318,8 @@ export default function CompareRevisionsModal<
                     ...(hasMergedRevisions
                       ? [
                           {
-                            label: "Show locked",
+                            key: "merged",
+                            label: t`Show locked`,
                             hidden: !showMerged,
                             toggle: () => setShowMerged((v) => !v),
                           },
@@ -1275,7 +1328,8 @@ export default function CompareRevisionsModal<
                     ...(hasDraftRevisions
                       ? [
                           {
-                            label: "Show drafts",
+                            key: "drafts",
+                            label: t`Show drafts`,
                             hidden: !showDrafts,
                             toggle: () => setShowDrafts((v) => !v),
                           },
@@ -1284,7 +1338,8 @@ export default function CompareRevisionsModal<
                     ...(hasDiscardedRevisions
                       ? [
                           {
-                            label: "Show discarded",
+                            key: "discarded",
+                            label: t`Show discarded`,
                             hidden: !showDiscarded,
                             toggle: () => setShowDiscarded((v) => !v),
                           },
@@ -1302,7 +1357,7 @@ export default function CompareRevisionsModal<
                       modal={true}
                       trigger={
                         <Link>
-                          Filters
+                          <Trans>Filters</Trans>
                           {count > 0 && (
                             <Badge
                               color="indigo"
@@ -1330,7 +1385,7 @@ export default function CompareRevisionsModal<
                             <span style={{ width: 24, display: "inline-flex" }}>
                               <PiX size={16} />
                             </span>
-                            Remove all filters
+                            <Trans>Remove all filters</Trans>
                           </Flex>
                         </DropdownMenuItem>
                       )}
@@ -1346,15 +1401,17 @@ export default function CompareRevisionsModal<
                           <span style={{ width: 24, display: "inline-flex" }}>
                             <PiClockClockwise size={16} />
                           </span>
-                          {isAtDefault
-                            ? "Using default filters"
-                            : "Use default filters"}
+                          {isAtDefault ? (
+                            <Trans>Using default filters</Trans>
+                          ) : (
+                            <Trans>Use default filters</Trans>
+                          )}
                         </Flex>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       {opts.map((opt) => (
                         <DropdownMenuItem
-                          key={opt.label}
+                          key={opt.key}
                           onClick={() => opt.toggle()}
                         >
                           <Flex align="center">
@@ -1439,6 +1496,8 @@ export default function CompareRevisionsModal<
                               title={revisionLabelText(
                                 minRev?.version ?? 0,
                                 minRev?.title,
+                                undefined,
+                                i18n,
                               )}
                             >
                               <RevisionLabel
@@ -1479,7 +1538,7 @@ export default function CompareRevisionsModal<
                               setDiffPage(0);
                             }}
                           >
-                            Compare with live
+                            <Trans>Compare with live</Trans>
                           </Button>
                         </div>
                       )}
@@ -1487,8 +1546,8 @@ export default function CompareRevisionsModal<
                         <Tooltip
                           body={
                             isExpanded
-                              ? "Collapse audit history"
-                              : "Expand audit history"
+                              ? t`Collapse audit history`
+                              : t`Expand audit history`
                           }
                         >
                           <button
@@ -1524,7 +1583,7 @@ export default function CompareRevisionsModal<
                       <div className={styles.logSubRows}>
                         {timeline.length === 0 ? (
                           <Text size="sm" color="text-low" ml="2">
-                            No activity recorded
+                            <Trans>No activity recorded</Trans>
                           </Text>
                         ) : (
                           timeline.map((item) => {
@@ -1558,7 +1617,7 @@ export default function CompareRevisionsModal<
                                       fontWeight: isActive ? "bold" : 500,
                                     }}
                                   >
-                                    {activityLabel(item)}
+                                    {activityLabel(item, i18n)}
                                   </div>
                                   <Text size="sm" color="text-low">
                                     {datetime(item.createdAt)}
@@ -1610,7 +1669,7 @@ export default function CompareRevisionsModal<
                     style={{ borderBottom: "1px solid var(--gray-5)" }}
                   >
                     <Flex align="center" gap="2" wrap="wrap">
-                      <Tooltip body="Return to revision">
+                      <Tooltip body={t`Return to revision`}>
                         <button
                           type="button"
                           className={styles.backButton}
@@ -1620,11 +1679,17 @@ export default function CompareRevisionsModal<
                         </button>
                       </Tooltip>
                       <Heading as="h2" size="sm" mb="0">
-                        Log entry
+                        <Trans>Log entry</Trans>
                       </Heading>
                       {rev ? (
                         <Text size="sm" color="text-low">
-                          · {revisionLabelText(rev.version ?? 0, rev.title)}
+                          ·{" "}
+                          {revisionLabelText(
+                            rev.version ?? 0,
+                            rev.title,
+                            undefined,
+                            i18n,
+                          )}
                         </Text>
                       ) : null}
                     </Flex>
@@ -1649,10 +1714,10 @@ export default function CompareRevisionsModal<
                 <Flex align="center" justify="between" gap="4" wrap="wrap">
                   <Flex align="center" gap="2">
                     <Heading as="h2" size="sm" mb="0">
-                      Preview draft
+                      <Trans>Preview draft</Trans>
                     </Heading>
                     <Text size="sm" color="text-low">
-                      Draft content vs live (two-way)
+                      <Trans>Draft content vs live (two-way)</Trans>
                     </Text>
                   </Flex>
                 </Flex>
@@ -1674,7 +1739,9 @@ export default function CompareRevisionsModal<
             </>
           ) : steps.length === 0 ? (
             <Text color="text-low">
-              Select at least two revisions in the list to see the diff.
+              <Trans>
+                Select at least two revisions in the list to see the diff.
+              </Trans>
             </Text>
           ) : (
             // Standard range comparison mode
@@ -1689,7 +1756,9 @@ export default function CompareRevisionsModal<
                     {diffViewMode === "steps" && (
                       <>
                         <Heading as="h2" size="sm" mb="0">
-                          Step {safeDiffPage + 1} of {steps.length}
+                          <Trans>
+                            Step {stepNumber} of {stepCount}
+                          </Trans>
                         </Heading>
                         <Flex gap="2">
                           <Button
@@ -1700,7 +1769,7 @@ export default function CompareRevisionsModal<
                               setDiffPage((p) => Math.max(0, p - 1))
                             }
                           >
-                            Previous
+                            <Trans>Previous</Trans>
                           </Button>
                           <Button
                             variant="soft"
@@ -1712,7 +1781,7 @@ export default function CompareRevisionsModal<
                               )
                             }
                           >
-                            Next
+                            <Trans>Next</Trans>
                           </Button>
                         </Flex>
                       </>
@@ -1729,7 +1798,7 @@ export default function CompareRevisionsModal<
                   </Flex>
                   <Flex align="center" gap="2">
                     <Text size="md" weight="medium" color="text-mid">
-                      Show diff as
+                      <Trans>Show diff as</Trans>
                     </Text>
                     <Select
                       value={diffViewMode}
@@ -1737,8 +1806,12 @@ export default function CompareRevisionsModal<
                       size="md"
                       mb="0"
                     >
-                      <SelectItem value="steps">Steps</SelectItem>
-                      <SelectItem value="single">Single diff</SelectItem>
+                      <SelectItem value="steps">
+                        <Trans>Steps</Trans>
+                      </SelectItem>
+                      <SelectItem value="single">
+                        <Trans>Single diff</Trans>
+                      </SelectItem>
                     </Select>
                   </Flex>
                 </Flex>
@@ -1765,7 +1838,9 @@ export default function CompareRevisionsModal<
                   customRenderGroups={singleDiff.customRenderGroups}
                 />
               ) : (
-                <Text color="text-low">No diff available.</Text>
+                <Text color="text-low">
+                  <Trans>No diff available.</Trans>
+                </Text>
               )}
             </>
           )}

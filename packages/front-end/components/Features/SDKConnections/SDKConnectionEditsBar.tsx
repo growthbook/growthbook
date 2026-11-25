@@ -204,6 +204,7 @@ export default function SDKConnectionEditsBar({
                         numbers.get(d.id) ?? 1,
                         d.title,
                         !!d.title,
+                        i18n,
                       ),
                       value: d.id,
                     })),

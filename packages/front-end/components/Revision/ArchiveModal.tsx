@@ -1,4 +1,7 @@
 import { ReactNode, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Revision } from "shared/enterprise";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useAuth } from "@/services/auth";
@@ -24,18 +27,19 @@ function getAcknowledgementLabel({
   elevatedWarning: boolean;
   mode: DraftMode;
   lowerNoun: string;
-}): string {
+}): MessageDescriptor {
   if (elevatedWarning) {
     return mode === "publish"
-      ? "I understand this will break live Feature Flags and want to archive anyway."
-      : "I understand this will break live Feature Flags when the draft is published, and want to continue.";
+      ? msg`I understand this will break live Feature Flags and want to archive anyway.`
+      : msg`I understand this will break live Feature Flags when the draft is published, and want to continue.`;
   }
   return mode === "publish"
-    ? `I acknowledge these references and want to archive this ${lowerNoun} anyway.`
-    : `I acknowledge these references and want to archive this ${lowerNoun} when the draft is published.`;
+    ? msg`I acknowledge these references and want to archive this ${lowerNoun} anyway.`
+    : msg`I acknowledge these references and want to archive this ${lowerNoun} when the draft is published.`;
 }
 
 export interface Props {
+  // Translated noun for the header, e.g. t`Constant`.
   entityNoun: string;
   entityId: string;
   isArchived: boolean;
@@ -52,7 +56,9 @@ export interface Props {
   // Soft mode allows an acknowledged server-side warning instead of blocking.
   referenceBlockMode?: "hard" | "soft";
   elevatedWarning?: boolean;
-  preserveNounCase?: boolean;
+  // Translated noun as it reads mid-sentence, e.g. t`constant`. Defaults to
+  // `entityNoun`.
+  entityNounInSentence?: string;
   renderDraftSelector: (opts: {
     mode: DraftMode;
     setMode: (m: DraftMode) => void;
@@ -88,7 +94,7 @@ export default function ArchiveModal({
   referencesList,
   referenceBlockMode = "hard",
   elevatedWarning = false,
-  preserveNounCase = false,
+  entityNounInSentence,
   renderDraftSelector,
   canWriteIntoDraft,
   canStageDraft,
@@ -98,6 +104,7 @@ export default function ArchiveModal({
   selectFlow,
   onSaved,
 }: Props) {
+  const { t, i18n } = useLingui();
   const { apiCall } = useAuth();
 
   // Archive/unarchive always requires review when approval flows are enabled.
@@ -138,21 +145,23 @@ export default function ArchiveModal({
     (soft
       ? !needsAcknowledge || acknowledged
       : !referencesLoading && !referencesError && referenceCount === 0);
-  const lowerNoun = preserveNounCase ? entityNoun : entityNoun.toLowerCase();
+  const lowerNoun = entityNounInSentence ?? entityNoun;
 
   return (
     <ModalStandard
       open={true}
       trackingEventModalType={trackingEventModalType}
-      header={isArchived ? `Unarchive ${entityNoun}` : `Archive ${entityNoun}`}
+      header={
+        isArchived ? t`Unarchive ${entityNoun}` : t`Archive ${entityNoun}`
+      }
       size="lg"
       close={close}
       cta={
         mode === "publish"
           ? isArchived
-            ? "Unarchive"
-            : "Archive"
-          : "Save to draft"
+            ? t`Unarchive`
+            : t`Archive`
+          : t`Save to draft`
       }
       ctaColor={mode === "publish" ? "red" : "violet"}
       ctaEnabled={canSubmit}
@@ -214,30 +223,47 @@ export default function ArchiveModal({
       })}
       {isArchived ? (
         <p>
-          Are you sure you want to continue?{" "}
-          {mode === "publish"
-            ? `This will make the ${lowerNoun} active again.`
-            : `The ${lowerNoun} becomes active again when this draft is published.`}
+          {mode === "publish" ? (
+            <Trans>
+              Are you sure you want to continue? This will make the {lowerNoun}{" "}
+              active again.
+            </Trans>
+          ) : (
+            <Trans>
+              Are you sure you want to continue? The {lowerNoun} becomes active
+              again when this draft is published.
+            </Trans>
+          )}
         </p>
       ) : referencesLoading && !soft ? (
         <Text color="text-disabled">
-          <LoadingSpinner /> Checking {lowerNoun} references...
+          <LoadingSpinner /> <Trans>Checking {lowerNoun} references...</Trans>
         </Text>
       ) : referencesError && !soft ? (
         <Callout status="error" mb="4">
-          Could not check {lowerNoun} references. Archiving is blocked until
-          references can be verified — try again later.
+          <Trans>
+            Could not check {lowerNoun} references. Archiving is blocked until
+            references can be verified — try again later.
+          </Trans>
         </Callout>
       ) : blockedByReferences ? (
         <>
           <Callout status="error" mb="4">
             <Text as="p" weight="semibold" mb="2">
-              Cannot archive {lowerNoun}
+              <Trans>Cannot archive {lowerNoun}</Trans>
             </Text>
             <Text as="p" mb="0">
-              Before you can archive this {lowerNoun}, you will need to remove
-              any references to it. Check the following item
-              {referenceCount > 1 ? "s" : ""} below:
+              {referenceCount > 1 ? (
+                <Trans>
+                  Before you can archive this {lowerNoun}, you will need to
+                  remove any references to it. Check the following items below:
+                </Trans>
+              ) : (
+                <Trans>
+                  Before you can archive this {lowerNoun}, you will need to
+                  remove any references to it. Check the following item below:
+                </Trans>
+              )}
             </Text>
           </Callout>
           {referencesList}
@@ -247,17 +273,17 @@ export default function ArchiveModal({
           <Callout status={elevatedWarning ? "error" : "warning"} mb="4">
             <Text as="p" weight="semibold" mb="2">
               {elevatedWarning
-                ? `This ${lowerNoun} is consumed by live Feature Flags`
-                : `This ${lowerNoun} is still referenced`}
+                ? t`This ${lowerNoun} is consumed by live Feature Flags`
+                : t`This ${lowerNoun} is still referenced`}
             </Text>
             <Text as="p" mb="0">
               {elevatedWarning
-                ? "Archiving it will break the following live Feature Flag" +
-                  (referenceCount > 1 ? "s" : "") +
-                  ":"
-                : `Archiving it will remove it from the following item${
-                    referenceCount > 1 ? "s" : ""
-                  }:`}
+                ? referenceCount > 1
+                  ? t`Archiving it will break the following live Feature Flags:`
+                  : t`Archiving it will break the following live Feature Flag:`
+                : referenceCount > 1
+                  ? t`Archiving it will remove it from the following items:`
+                  : t`Archiving it will remove it from the following item:`}
             </Text>
           </Callout>
           {referencesList}
@@ -266,19 +292,28 @@ export default function ArchiveModal({
             weight="regular"
             value={acknowledged}
             setValue={setAcknowledged}
-            label={getAcknowledgementLabel({
-              elevatedWarning,
-              mode,
-              lowerNoun,
-            })}
+            label={i18n._(
+              getAcknowledgementLabel({
+                elevatedWarning,
+                mode,
+                lowerNoun,
+              }),
+            )}
           />
         </>
       ) : (
         <p>
-          Are you sure you want to continue?{" "}
-          {mode === "publish"
-            ? `This will make the ${lowerNoun} inactive.`
-            : `The ${lowerNoun} becomes inactive when this draft is published.`}
+          {mode === "publish" ? (
+            <Trans>
+              Are you sure you want to continue? This will make the {lowerNoun}{" "}
+              inactive.
+            </Trans>
+          ) : (
+            <Trans>
+              Are you sure you want to continue? The {lowerNoun} becomes
+              inactive when this draft is published.
+            </Trans>
+          )}
         </p>
       )}
     </ModalStandard>

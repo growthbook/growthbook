@@ -1,6 +1,7 @@
 import { Revision, applyTopLevelPatchOps } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ApiSavedGroupUpload } from "shared/validators";
+import { useLingui } from "@lingui/react/macro";
 import useApi from "@/hooks/useApi";
 import SavedGroupDraftSelectorForChanges from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 import { RevisionDiffConfig } from "./useRevisionDiff";
@@ -39,6 +40,7 @@ export interface Props {
 
 // Thin wrapper around the entity-agnostic RevertModal.
 export default function SavedGroupRevertModal({ savedGroup, ...rest }: Props) {
+  const { t } = useLingui();
   // The upload versions the revisions a revert can restore use
   const targetVersions = [
     ...new Set(
@@ -72,18 +74,18 @@ export default function SavedGroupRevertModal({ savedGroup, ...rest }: Props) {
     if (!upload) {
       // Past the first page of results, the server checks it on restore
       if (total > uploads.length) return null;
-      return `This revision uses upload version ${version}, which has been deleted, so it can't be restored.`;
+      return t`This revision uses upload version ${version}, which has been deleted, so it can't be restored.`;
     }
     return upload.status.type === "valid"
       ? null
-      : `This revision uses upload version ${version}, which isn't valid, so it can't be restored.`;
+      : t`This revision uses upload version ${version}, which isn't valid, so it can't be restored.`;
   };
 
   // A version can't be cleared, so reverting keeps the current one
+  const currentVersion = savedGroup.currentUploadVersion;
   const getTargetWarning = (target: SavedGroupInterface) =>
-    target.currentUploadVersion === undefined &&
-    savedGroup.currentUploadVersion !== undefined
-      ? `This revision is from before the group used an upload. Reverting keeps upload version ${savedGroup.currentUploadVersion}.`
+    target.currentUploadVersion === undefined && currentVersion !== undefined
+      ? t`This revision is from before the group used an upload. Reverting keeps upload version ${currentVersion}.`
       : null;
 
   return (
@@ -111,7 +113,7 @@ export default function SavedGroupRevertModal({ savedGroup, ...rest }: Props) {
           approvalRequired={approvalRequired}
           hideExisting
           defaultExpanded
-          triggerPrefix="Revert will be"
+          action="revert"
         />
       )}
       {...rest}

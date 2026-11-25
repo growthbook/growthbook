@@ -1,4 +1,5 @@
 import { Fragment, ReactNode } from "react";
+import { msg } from "@lingui/core/macro";
 import { Flex } from "@radix-ui/themes";
 import { ago, datetime } from "shared/dates";
 import { Revision } from "shared/enterprise";
@@ -20,6 +21,7 @@ export function revisionModelFacts(
 
   facts.push({
     label: "Revised by",
+    displayLabel: msg`Revised by`,
     value: revisionActorValue(
       revisionActor(revision, revision.authorId),
       person,
@@ -32,6 +34,7 @@ export function revisionModelFacts(
   if (coAuthorIds.length > 0) {
     facts.push({
       label: coAuthorIds.length === 1 ? "Co-author" : "Co-authors",
+      displayLabel: coAuthorIds.length === 1 ? msg`Co-author` : msg`Co-authors`,
       value: (
         <Flex direction="column" gap="1">
           {coAuthorIds.map((id) => (
@@ -46,13 +49,22 @@ export function revisionModelFacts(
 
   facts.push(
     revision.status === "merged" && revision.resolution
-      ? { label: "Published", value: datetime(revision.resolution.dateCreated) }
-      : { label: "Last update", value: ago(revision.dateUpdated) },
+      ? {
+          label: "Published",
+          displayLabel: msg`Published`,
+          value: datetime(revision.resolution.dateCreated),
+        }
+      : {
+          label: "Last update",
+          displayLabel: msg`Last update`,
+          value: ago(revision.dateUpdated),
+        },
   );
 
   if (isDraft && revision.scheduledPublishAt) {
     facts.push({
       label: "Publishes",
+      displayLabel: msg`Publishes`,
       value: datetime(revision.scheduledPublishAt),
     });
   }

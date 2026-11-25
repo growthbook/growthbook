@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Flex, Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { datetime } from "shared/dates";
 import { Revision } from "shared/enterprise";
 import Heading from "@/ui/Heading";
@@ -34,6 +35,7 @@ const RevisionList: React.FC<RevisionListProps> = ({
   showEntityType = false,
   showHistory = true,
 }) => {
+  const { t } = useLingui();
   const { getUserDisplay } = useUser();
 
   // Get unique entity types for the filter
@@ -50,8 +52,8 @@ const RevisionList: React.FC<RevisionListProps> = ({
 
   const getEntityTypeLabel = (entityType: string) => {
     const labels: Record<"fact-metric" | "saved-group", string> = {
-      "fact-metric": "Fact Metric",
-      "saved-group": "Saved Group",
+      "fact-metric": t`Fact Metric`,
+      "saved-group": t`Saved Group`,
     };
     return labels[entityType as "fact-metric" | "saved-group"] || entityType;
   };
@@ -134,13 +136,13 @@ const RevisionList: React.FC<RevisionListProps> = ({
 
   const revisionStatusItems = [
     {
-      name: "Pending review",
+      name: t`Pending review`,
       id: "pending-review",
       searchValue: "pending-review",
     },
-    { name: "Approved", id: "approved", searchValue: "approved" },
+    { name: t`Approved`, id: "approved", searchValue: "approved" },
     {
-      name: "Changes requested",
+      name: t`Changes requested`,
       id: "changes-requested",
       searchValue: "changes-requested",
     },
@@ -151,7 +153,11 @@ const RevisionList: React.FC<RevisionListProps> = ({
   }
 
   if (!revisions || revisions.length === 0) {
-    return <Callout status="info">No revisions found for this entity</Callout>;
+    return (
+      <Callout status="info">
+        <Trans>No revisions found for this entity</Trans>
+      </Callout>
+    );
   }
 
   return (
@@ -161,7 +167,7 @@ const RevisionList: React.FC<RevisionListProps> = ({
         <Box style={{ flexBasis: 300, flexShrink: 0 }}>
           <Field
             size="legacy"
-            placeholder="Search"
+            placeholder={t`Search`}
             type="search"
             {...searchInputProps}
           />
@@ -170,21 +176,21 @@ const RevisionList: React.FC<RevisionListProps> = ({
           {showEntityType && (
             <FilterDropdown
               filter="type"
-              heading="Type"
+              heading={t`Type`}
               syntaxFilters={syntaxFilters}
               open={dropdownFilterOpen}
               setOpen={setDropdownFilterOpen}
-              items={entityTypes.map((t) => ({
-                name: getEntityTypeLabel(t),
-                id: t,
-                searchValue: t,
+              items={entityTypes.map((type) => ({
+                name: getEntityTypeLabel(type),
+                id: type,
+                searchValue: type,
               }))}
               updateQuery={updateQuery}
             />
           )}
           <FilterDropdown
             filter="author"
-            heading="Requested by"
+            heading={t`Requested by`}
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
@@ -197,7 +203,7 @@ const RevisionList: React.FC<RevisionListProps> = ({
           />
           <FilterDropdown
             filter="status"
-            heading="Status"
+            heading={t`Status`}
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
@@ -210,26 +216,38 @@ const RevisionList: React.FC<RevisionListProps> = ({
       {/* Approval Requests Section */}
       <Box mb="6">
         <Heading size="md" as="h4" mb="3">
-          Approval Requests
+          <Trans>Approval Requests</Trans>
         </Heading>
 
         {paginatedRequests.length === 0 ? (
           <Text size="md" color="text-low">
-            No approval requests found.
+            <Trans>No approval requests found.</Trans>
           </Text>
         ) : (
           <>
             <table className="table gbtable">
               <thead>
                 <tr>
-                  <SortableTH field="dateCreated">Date</SortableTH>
-                  <th>Revision</th>
-                  <th>Comments</th>
-                  <th>Requested by</th>
+                  <SortableTH field="dateCreated">
+                    <Trans>Date</Trans>
+                  </SortableTH>
+                  <th>
+                    <Trans>Revision</Trans>
+                  </th>
+                  <th>
+                    <Trans>Comments</Trans>
+                  </th>
+                  <th>
+                    <Trans>Requested by</Trans>
+                  </th>
                   {showEntityType && (
-                    <SortableTH field="entityType">Type</SortableTH>
+                    <SortableTH field="entityType">
+                      <Trans>Type</Trans>
+                    </SortableTH>
                   )}
-                  <th>Status</th>
+                  <th>
+                    <Trans>Status</Trans>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -244,7 +262,7 @@ const RevisionList: React.FC<RevisionListProps> = ({
                     <td>
                       {revision.title || (
                         <Text color="text-low" size="sm">
-                          Untitled
+                          <Trans>Untitled</Trans>
                         </Text>
                       )}
                     </td>
@@ -288,22 +306,30 @@ const RevisionList: React.FC<RevisionListProps> = ({
       {showHistory && (
         <Box>
           <Heading size="md" as="h4" mb="3">
-            History
+            <Trans>History</Trans>
           </Heading>
 
           {paginatedHistory.length === 0 ? (
             <Text size="md" color="text-low">
-              No history found.
+              <Trans>No history found.</Trans>
             </Text>
           ) : (
             <>
               <table className="table gbtable">
                 <thead>
                   <tr>
-                    <th>Date</th>
-                    <th>Revision</th>
-                    <th>Comments</th>
-                    <th>Changed by</th>
+                    <th>
+                      <Trans>Date</Trans>
+                    </th>
+                    <th>
+                      <Trans>Revision</Trans>
+                    </th>
+                    <th>
+                      <Trans>Comments</Trans>
+                    </th>
+                    <th>
+                      <Trans>Changed by</Trans>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -323,7 +349,7 @@ const RevisionList: React.FC<RevisionListProps> = ({
                       <td>
                         {revision.title || (
                           <Text color="text-low" size="sm">
-                            Untitled
+                            <Trans>Untitled</Trans>
                           </Text>
                         )}
                       </td>

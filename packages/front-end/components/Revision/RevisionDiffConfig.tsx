@@ -1,4 +1,5 @@
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { msg } from "@lingui/core/macro";
 import {
   renderSavedGroupSettings,
   renderSavedGroupTargeting,
@@ -16,6 +17,7 @@ export const REVISION_SAVED_GROUP_DIFF_CONFIG: RevisionDiffConfig<SavedGroupInte
     sections: [
       {
         label: "Saved Group Settings",
+        displayLabel: msg`Saved Group Settings`,
         keys: [
           "groupName",
           "owner",
@@ -28,18 +30,21 @@ export const REVISION_SAVED_GROUP_DIFF_CONFIG: RevisionDiffConfig<SavedGroupInte
       },
       {
         label: "Targeting",
+        displayLabel: msg`Targeting`,
         keys: ["type", "condition"] as (keyof SavedGroupInterface)[],
         render: renderSavedGroupTargeting,
         getBadges: getSavedGroupTargetingBadges,
       },
       {
         label: "Values",
+        displayLabel: msg`Values`,
         keys: ["attributeKey", "values"] as (keyof SavedGroupInterface)[],
         render: renderSavedGroupValues,
         getBadges: getSavedGroupValuesBadges,
       },
       {
         label: "Uploaded IDs",
+        displayLabel: msg`Uploaded IDs`,
         keys: ["currentUploadVersion"] as (keyof SavedGroupInterface)[],
         render: renderSavedGroupUploadVersion,
         getBadges: getSavedGroupUploadVersionBadges,

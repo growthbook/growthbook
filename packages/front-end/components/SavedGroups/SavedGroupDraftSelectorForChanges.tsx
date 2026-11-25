@@ -1,6 +1,6 @@
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { Revision } from "shared/enterprise";
-import { DraftMode } from "@/components/DraftSelector";
+import { DraftMode, DraftSelectorAction } from "@/components/DraftSelector";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 
 export type { DraftMode };
@@ -25,7 +25,7 @@ export default function SavedGroupDraftSelectorForChanges({
   canDraft?: boolean;
   approvalRequired: boolean;
   defaultExpanded?: boolean;
-  triggerPrefix?: string;
+  action?: DraftSelectorAction;
   metadataOnly?: boolean;
   hideExisting?: boolean;
   alert?: React.ReactNode;

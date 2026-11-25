@@ -1,7 +1,11 @@
 import { ReactNode, useEffect } from "react";
-import DraftSelector, { DraftMode } from "@/components/DraftSelector";
+import { useLingui } from "@lingui/react/macro";
+import DraftSelector, {
+  DraftMode,
+  DraftSelectorAction,
+} from "@/components/DraftSelector";
 
-export type { DraftMode };
+export type { DraftMode, DraftSelectorAction };
 
 export default function DraftSelectorForChanges<K>({
   activeDraftKeys: allActiveDraftKeys,
@@ -16,13 +20,13 @@ export default function DraftSelectorForChanges<K>({
   revisionDropdown,
   defaultExpanded = false,
   hideExisting = false,
-  triggerPrefix = "Changes will be",
+  action = "changes",
   metadataOnly = false,
   canDraft = true,
   maxDrafts = 0,
   isAdmin = false,
   allowNewDraftAtCap = false,
-  capNoun = "This",
+  capSubject = "this",
   alert,
   alertActive,
 }: {
@@ -37,7 +41,7 @@ export default function DraftSelectorForChanges<K>({
   revisionDropdown?: ReactNode;
   defaultExpanded?: boolean;
   hideExisting?: boolean;
-  triggerPrefix?: string;
+  action?: DraftSelectorAction;
   metadataOnly?: boolean;
   canDraft?: boolean;
   // Soft per-entity draft cap (org setting). 0 means no cap.
@@ -45,13 +49,14 @@ export default function DraftSelectorForChanges<K>({
   isAdmin?: boolean;
   // Allow critical flows to exceed the soft draft cap.
   allowNewDraftAtCap?: boolean;
-  // Subject of the cap message, e.g. "This feature". Defaults to "This".
-  capNoun?: string;
+  // Subject of the cap message: "This feature …" or, by default, "This …".
+  capSubject?: "this" | "thisFeature";
   /** Active drafts this flow may write to. */
   writableDraftKeys?: K[];
   alert?: ReactNode;
   alertActive?: boolean;
 }) {
+  const { t } = useLingui();
   const activeDraftKeys = writableDraftKeys ?? allActiveDraftKeys;
   const singleOption =
     !canDraft ||
@@ -100,6 +105,16 @@ export default function DraftSelectorForChanges<K>({
     setSelectedDraft,
   ]);
 
+  // Whole sentences per subject and count, so each language can phrase them.
+  const capReason =
+    capSubject === "thisFeature"
+      ? maxDrafts === 1
+        ? t`This feature is at your organization's cap of ${maxDrafts} active draft. Add to an existing draft, or publish/discard one first.`
+        : t`This feature is at your organization's cap of ${maxDrafts} active drafts. Add to an existing draft, or publish/discard one first.`
+      : maxDrafts === 1
+        ? t`This is at your organization's cap of ${maxDrafts} active draft. Add to an existing draft, or publish/discard one first.`
+        : t`This is at your organization's cap of ${maxDrafts} active drafts. Add to an existing draft, or publish/discard one first.`;
+
   return (
     <DraftSelector
       hasActiveDrafts={!hideExisting && activeDraftKeys.length > 0}
@@ -108,7 +123,7 @@ export default function DraftSelectorForChanges<K>({
       canAutoPublish={canAutoPublish}
       approvalRequired={approvalRequired}
       defaultExpanded={defaultExpanded}
-      triggerPrefix={triggerPrefix}
+      action={action}
       existingDraftLabel={existingDraftLabel}
       revisionDropdown={revisionDropdown}
       metadataOnly={metadataOnly}
@@ -118,13 +133,7 @@ export default function DraftSelectorForChanges<K>({
       alert={alert}
       alertActive={alertActive}
       newDraftDisabled={newDraftBlocked}
-      newDraftDisabledReason={
-        newDraftBlocked
-          ? `${capNoun} is at your organization's cap of ${maxDrafts} active draft${
-              maxDrafts === 1 ? "" : "s"
-            }. Add to an existing draft, or publish/discard one first.`
-          : undefined
-      }
+      newDraftDisabledReason={newDraftBlocked ? capReason : undefined}
     />
   );
 }

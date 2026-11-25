@@ -11,6 +11,7 @@ import {
 } from "react";
 import { diffLines, diffWordsWithSpace } from "diff";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Trans } from "@lingui/react/macro";
 import {
   RenderInFullContext,
   useRenderAfterParentRefs,
@@ -211,6 +212,21 @@ function LineCells({
   );
 }
 
+function ExpandFoldLink({
+  count,
+  onClick,
+}: {
+  count: number;
+  onClick: () => void;
+}) {
+  const countText = count.toLocaleString();
+  return (
+    <Link onClick={onClick}>
+      <Trans>Expand {countText} unchanged lines</Trans>
+    </Link>
+  );
+}
+
 function Row({ row, ...props }: RowProps & { row: DiffRow }) {
   if (row.type === "fold") {
     return (
@@ -221,9 +237,10 @@ function Row({ row, ...props }: RowProps & { row: DiffRow }) {
           textAlign: "center",
         }}
       >
-        <Link onClick={() => props.onExpand(row.id)}>
-          Expand {row.rows.length.toLocaleString()} unchanged lines
-        </Link>
+        <ExpandFoldLink
+          count={row.rows.length}
+          onClick={() => props.onExpand(row.id)}
+        />
       </div>
     );
   }
@@ -366,9 +383,13 @@ const VirtualizedDiff = memo(function VirtualizedDiff({
   if (!built.rows && renderInFull) {
     return (
       <div>
-        <div>Before:</div>
+        <div>
+          <Trans>Before:</Trans>
+        </div>
         <pre>{oldValue}</pre>
-        <div>After:</div>
+        <div>
+          <Trans>After:</Trans>
+        </div>
         <pre>{newValue}</pre>
       </div>
     );
@@ -376,9 +397,11 @@ const VirtualizedDiff = memo(function VirtualizedDiff({
   if (!built.rows) {
     return (
       <div>
-        <em>This change is too large to compare quickly.</em>{" "}
+        <em>
+          <Trans>This change is too large to compare quickly.</Trans>
+        </em>{" "}
         <Link onClick={() => setUnlimitedFor([oldValue, newValue])}>
-          Compare anyway (may take a while)
+          <Trans>Compare anyway (may take a while)</Trans>
         </Link>
       </div>
     );

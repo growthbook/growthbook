@@ -1,4 +1,5 @@
 import { useMemo, ReactNode } from "react";
+import type { MessageDescriptor } from "@lingui/core";
 import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -153,7 +154,10 @@ export type FeatureRevisionDiffInput = Pick<
 };
 
 export type FeatureRevisionDiff = {
+  // English: the Copy-as exports and keys read it.
   title: string;
+  // The heading as shown, when it differs from `title` only by translation.
+  displayTitle?: MessageDescriptor;
   // Stable section id for diff comment refs, independent of the title:
   // `rules`, `defaultValue`, `environmentsEnabled`, `rampAction.<id>`, ...
   key?: string;

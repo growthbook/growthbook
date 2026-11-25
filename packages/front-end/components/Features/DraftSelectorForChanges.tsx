@@ -19,7 +19,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useEnvironments } from "@/services/features";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
-import { DraftMode } from "@/components/DraftSelector";
+import { DraftMode, DraftSelectorAction } from "@/components/DraftSelector";
 import SharedDraftSelectorForChanges from "@/components/DraftSelectorForChanges";
 
 export type { DraftMode };
@@ -37,7 +37,7 @@ export default function DraftSelectorForChanges({
   gatedEnvSet,
   defaultExpanded = false,
   hideExisting = false,
-  triggerPrefix = "Changes will be",
+  action = "changes",
   allowNewDraftAtCap = false,
   canWriteIntoDraft,
   alert,
@@ -57,7 +57,7 @@ export default function DraftSelectorForChanges({
   gatedEnvSet: Set<string> | "all" | "none";
   defaultExpanded?: boolean;
   hideExisting?: boolean;
-  triggerPrefix?: string;
+  action?: DraftSelectorAction;
   // Keep "create a new draft" available even when the org's soft draft cap is
   // reached — for critical flows (revert, archive) that shouldn't be blocked.
   allowNewDraftAtCap?: boolean;
@@ -66,7 +66,7 @@ export default function DraftSelectorForChanges({
   alert?: React.ReactNode;
   alertActive?: boolean;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
     feature,
@@ -153,6 +153,7 @@ export default function DraftSelectorForChanges({
         selectedRevision.version,
         selectedRevision.title,
         !!selectedRevision.title,
+        i18n,
       )
     : null;
 
@@ -218,13 +219,13 @@ export default function DraftSelectorForChanges({
       revisionDropdown={revisionDropdown}
       defaultExpanded={defaultExpanded}
       hideExisting={hideExisting}
-      triggerPrefix={triggerPrefix}
+      action={action}
       alert={alert}
       alertActive={alertActive}
       maxDrafts={maxDrafts}
       isAdmin={isAdmin}
       allowNewDraftAtCap={allowNewDraftAtCap}
-      capNoun="This feature"
+      capSubject="thisFeature"
     />
   );
 }

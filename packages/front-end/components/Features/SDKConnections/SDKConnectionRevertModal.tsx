@@ -85,7 +85,7 @@ export default function SDKConnectionRevertModal({
           approvalRequired={required}
           hideExisting
           defaultExpanded
-          triggerPrefix="Revert will be"
+          action="revert"
         />
       )}
       close={close}

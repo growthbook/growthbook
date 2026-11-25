@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { useLingui } from "@lingui/react/macro";
 import {
   approvalApprovers,
   approvalRoleIds,
@@ -86,6 +87,7 @@ export function useApprovalCoverage({
   // as the primary project's.
   governingRules?: GoverningRule[];
 }): ApprovalCoverage {
+  const { t } = useLingui();
   const { users, teams, organization } = useUser();
   const { getProjectById } = useDefinitions();
 
@@ -202,30 +204,39 @@ export function useApprovalCoverage({
   const uncoveredApproverReasons = useMemo(() => {
     const reason = (approverId: string): string => {
       const member = users.get(approverId);
-      const who = member?.name || member?.email || "this reviewer";
+      const who = member?.name || member?.email || t`this reviewer`;
       const approver = approvers.find((a) => a.id === approverId);
       const user = reviewers.find((r) => r.id === approverId)?.user;
       if (!approver?.roleInfo) {
         return user?.type === "api_key" && user.apiKey === approverId
-          ? "this API key is disabled, expired or removed"
-          : `${who} is no longer a member of this organization`;
+          ? t`this API key is disabled, expired or removed`
+          : t`${who} is no longer a member of this organization`;
       }
       if (approver.assumingKeyRole === null) {
-        return "the API key it came through is disabled, expired or removed";
+        return t`the API key it came through is disabled, expired or removed`;
       }
       if (footprint.scope !== "environments") {
-        return `needs review access with no environment limit`;
+        return t`needs review access with no environment limit`;
       }
       const held = heldEnvsFor(approverId);
       const missing = footprint.environments.filter((e) => !held.includes(e));
+      const missingEnvs = missing.join(", ");
       return missing.length
-        ? `cannot approve changes in ${missing.join(", ")}`
-        : `cannot approve this change`;
+        ? t`cannot approve changes in ${missingEnvs}`
+        : t`cannot approve this change`;
     };
     return new Map(
       [...uncoveredApprovers].map((id) => [id, reason(id)] as const),
     );
-  }, [uncoveredApprovers, users, approvers, reviewers, footprint, heldEnvsFor]);
+  }, [
+    uncoveredApprovers,
+    users,
+    approvers,
+    reviewers,
+    footprint,
+    heldEnvsFor,
+    t,
+  ]);
 
   const uncoveredFootprintEnvs = useMemo(() => {
     if (footprint.scope !== "environments") return [];
@@ -277,7 +288,7 @@ export function useApprovalCoverage({
           r.id,
           organization as OrganizationInterface,
           (teams ?? []) as TeamInterface[],
-        ).map((t) => t.id);
+        ).map((team) => team.id);
         if (!ruleTeams.some((ids) => mine.some((id) => ids.has(id)))) {
           out.add(r.id);
         }
@@ -294,11 +305,11 @@ export function useApprovalCoverage({
     const merged = new Map(uncoveredApproverReasons);
     nonContributingApprovers.forEach((id) => {
       if (!merged.has(id)) {
-        merged.set(id, "the reviewer is not in a required approver team");
+        merged.set(id, t`the reviewer is not in a required approver team`);
       }
     });
     return merged;
-  }, [uncoveredApproverReasons, nonContributingApprovers]);
+  }, [uncoveredApproverReasons, nonContributingApprovers, t]);
 
   return {
     uncoveredApprovers,

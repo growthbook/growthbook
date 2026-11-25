@@ -1,11 +1,15 @@
 import format from "date-fns/format";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { dateNoYear } from "shared/dates";
 import {
   AuditDiffConfig,
   AuditEventMarker,
   CoarsenedAuditEntry,
   type DiffBadge,
+  type DisplayText,
 } from "./types";
+import { OVERFLOW_SECTION_LABEL } from "./useAuditDiff";
 
 // ---- Shared diff-viewer styles ----
 export const COMPACT_DIFF_STYLES = {
@@ -42,7 +46,7 @@ export type NoiseItem = {
   date: Date;
   hiddenCount: number;
   /** Per-event-type marker rollups, in insertion order. */
-  markers: { event: string; label: string; count: number }[];
+  markers: { event: string; label: DisplayText; count: number }[];
 };
 
 export type LeftColItem<T> =
@@ -51,6 +55,34 @@ export type LeftColItem<T> =
   | { type: "marker"; marker: AuditEventMarker };
 
 // ---- Pure functions ----
+
+// Text for the UI: translate a descriptor, pass a plain string through.
+export function resolveDisplayText(text: DisplayText, i18n: I18n): string {
+  return typeof text === "string" ? text : i18n._(text);
+}
+
+// A badge or diff item's translated label, falling back to its English one.
+export function diffLabelText(
+  item: { label: string; displayLabel?: MessageDescriptor },
+  i18n: I18n,
+): string {
+  return item.displayLabel ? i18n._(item.displayLabel) : item.label;
+}
+
+// Section labels key filters and diffs in English; this is the name to show.
+export function sectionLabelText<T>(
+  label: string,
+  config: AuditDiffConfig<T>,
+  i18n: I18n,
+): string {
+  const displayLabel = config.sections?.find(
+    (s) => s.label === label,
+  )?.displayLabel;
+  if (displayLabel) return i18n._(displayLabel);
+  if (label === OVERFLOW_SECTION_LABEL) return i18n._(msg`other changes`);
+  if (label === "Changes") return i18n._(msg`Changes`);
+  return label;
+}
 
 /**
  * Deduplicate diff badges by (label, action) so the same badge from multiple
@@ -68,27 +100,31 @@ export function dedupeDiffBadges(badges: DiffBadge[]): DiffBadge[] {
 }
 
 // Labels for ramp schedule notification events (keyed by suffix after "feature.").
-export const RAMP_EVENT_LABELS: Record<string, string> = {
-  "rampSchedule.created": "Ramp schedule created",
-  "rampSchedule.deleted": "Ramp schedule deleted",
-  "rampSchedule.actions.started": "Ramp schedule started",
-  "rampSchedule.actions.completed": "Ramp schedule completed",
-  "rampSchedule.actions.rolledBack": "Ramp schedule rolled back",
-  "rampSchedule.actions.jumped": "Ramp schedule jumped to step",
-  "rampSchedule.actions.step.advanced": "Ramp step advanced",
-  "rampSchedule.actions.step.approvalRequired": "Ramp step awaiting approval",
-  "rampSchedule.actions.errorPaused": "Ramp schedule paused on error",
-  "rampSchedule.actions.stepHeld": "Ramp step held by a health check",
-  "rampSchedule.actions.stepRetrying": "Ramp step retrying",
-  "rampSchedule.actions.stepRecovered": "Ramp step recovered",
-  "rampSchedule.actions.paused": "Ramp schedule paused",
-  "rampSchedule.actions.resumed": "Ramp schedule resumed",
+export const RAMP_EVENT_LABELS: Record<string, MessageDescriptor> = {
+  "rampSchedule.created": msg`Ramp schedule created`,
+  "rampSchedule.deleted": msg`Ramp schedule deleted`,
+  "rampSchedule.actions.started": msg`Ramp schedule started`,
+  "rampSchedule.actions.completed": msg`Ramp schedule completed`,
+  "rampSchedule.actions.rolledBack": msg`Ramp schedule rolled back`,
+  "rampSchedule.actions.jumped": msg`Ramp schedule jumped to step`,
+  "rampSchedule.actions.step.advanced": msg`Ramp step advanced`,
+  "rampSchedule.actions.step.approvalRequired": msg`Ramp step awaiting approval`,
+  "rampSchedule.actions.errorPaused": msg`Ramp schedule paused on error`,
+  "rampSchedule.actions.stepHeld": msg`Ramp step held by a health check`,
+  "rampSchedule.actions.stepRetrying": msg`Ramp step retrying`,
+  "rampSchedule.actions.stepRecovered": msg`Ramp step recovered`,
+  "rampSchedule.actions.paused": msg`Ramp schedule paused`,
+  "rampSchedule.actions.resumed": msg`Ramp schedule resumed`,
 };
 
 // Derive a human-readable label from a raw event string using the entity type
 // as a prefix to strip. E.g. "savedGroup.created" → "Created",
-// "experiment.phase.delete" → "Phase delete".
-export function formatEventLabel(event: string, entityType: string): string {
+// "experiment.phase.delete" → "Phase delete". Labels derived from the event
+// name stay English; known ramp events get a translatable descriptor.
+export function formatEventLabel(
+  event: string,
+  entityType: string,
+): DisplayText {
   const prefix = `${entityType}.`;
   const suffix = event.startsWith(prefix) ? event.slice(prefix.length) : event;
 
@@ -144,16 +180,19 @@ export function buildSteps(selectedSorted: string[]): [string, string][] {
 export function resolveEntryLabel<T>(
   entry: CoarsenedAuditEntry<T>,
   config: AuditDiffConfig<T>,
-  eventLabels: Record<string, string>,
+  eventLabels: Record<string, DisplayText>,
   entrySectionLabels: Map<string, string[]>,
+  i18n: I18n,
 ): string {
   if (config.overrideEventLabel) {
     const override = config.overrideEventLabel(entry);
-    if (override !== null) return override;
+    if (override !== null) return resolveDisplayText(override, i18n);
   }
-  const base =
+  const base = resolveDisplayText(
     eventLabels[entry.event] ??
-    formatEventLabel(entry.event, config.entityType);
+      formatEventLabel(entry.event, config.entityType),
+    i18n,
+  );
   const isUpdateEvent =
     !config.updateEventNames || config.updateEventNames.includes(entry.event);
   if (isUpdateEvent) {
@@ -161,8 +200,14 @@ export function resolveEntryLabel<T>(
     const sections = (entrySectionLabels.get(entry.id) ?? []).filter(
       (s) => !hiddenLabelSections.has(s),
     );
-    return sections.length ? `${base}: ${sections.join(", ")}` : base;
+    const sectionList = sections
+      .map((s) => sectionLabelText(s, config, i18n))
+      .join(", ");
+    return sections.length ? i18n._(msg`${base}: ${sectionList}`) : base;
   }
+  // entityLabel is a plain English noun glued after the event label, so this
+  // form stays English; configs translate it by returning whole labels from
+  // overrideEventLabel instead.
   return config.entityLabel ? `${base} ${config.entityLabel}` : base;
 }
 
@@ -196,7 +241,7 @@ export function buildLeftColumnItems<T>(
     monthBucket: string;
     date: Date;
     hiddenCount: number;
-    markersByEvent: Map<string, { label: string; count: number }>;
+    markersByEvent: Map<string, { label: DisplayText; count: number }>;
     markerEventOrder: string[];
   };
   let noise: NoiseGroup | null = null;

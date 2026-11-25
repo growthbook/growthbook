@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Plural } from "@lingui/react/macro";
 import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
@@ -25,8 +26,6 @@ export default function CoAuthorsList({
 
   if (coAuthorIds.length === 0) return null;
 
-  const label = `Co-author${coAuthorIds.length > 1 ? "s" : ""} (${coAuthorIds.length})`;
-
   return (
     <Box {...marginProps}>
       <Link
@@ -42,7 +41,11 @@ export default function CoAuthorsList({
             transform: open ? "rotate(90deg)" : "none",
           }}
         />
-        {label}
+        <Plural
+          value={coAuthorIds.length}
+          one="Co-author (#)"
+          other="Co-authors (#)"
+        />
       </Link>
       {open && (
         <Flex direction="column" gap="2" mt="2" ml="3">

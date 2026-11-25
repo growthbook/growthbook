@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { PiGitDiff, PiArrowBendUpRight } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import Markdown from "@/components/Markdown/Markdown";
 import {
@@ -21,12 +22,13 @@ function DiffRefWidget({
   refObj: DiffCommentRef;
   snapshot: DiffRefSnapshot;
 }) {
-  const sideLabel = refObj.side === "L" ? "before" : "after";
+  const { t } = useLingui();
+  const line = refObj.line;
   return (
     <button
       type="button"
       className="gb-diff-ref-widget"
-      title="View in diff"
+      title={t`View in diff`}
       onClick={(e) => {
         e.preventDefault();
         scrollToDiffRef(refObj);
@@ -38,11 +40,17 @@ function DiffRefWidget({
           {refObj.sectionKey}
         </Text>
         <Text size="sm" color="text-low">
-          {sideLabel}, line {refObj.line}
+          {refObj.side === "L" ? (
+            <Trans>before, line {line}</Trans>
+          ) : (
+            <Trans>after, line {line}</Trans>
+          )}
         </Text>
         <Flex align="center" gap="1" ml="auto" className="gb-diff-ref-jump">
           <PiArrowBendUpRight />
-          <Text size="sm">View in diff</Text>
+          <Text size="sm">
+            <Trans>View in diff</Trans>
+          </Text>
         </Flex>
       </Flex>
       {snapshot.lines.length > 0 && (

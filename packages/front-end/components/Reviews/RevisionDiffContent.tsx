@@ -1,4 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import {
   ExpandableDiff,
@@ -11,8 +12,10 @@ import {
   type DiffFormat,
   type FormattedChangeItem,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
-import { capitalizeFirstLetter } from "@/services/utils";
-import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import {
+  COMPACT_DIFF_STYLES,
+  diffLabelText,
+} from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { DiffItem } from "@/components/Revision/useRevisionDiff";
 import { diffSectionAnchorKey } from "@/components/Revision/RevisionDiff";
 
@@ -38,17 +41,19 @@ export function RevisionDiffContent({
   // Gutter comment wiring for the JSON diffs (see ExpandableDiff).
   diffComments?: DiffCommentsProps;
   // Whole before/after of the entity, powering the "Raw JSON" view + the
-  // Copy-as full/LLM formats.
-  raw?: { before: unknown; after: unknown; title?: string };
+  // Copy-as full/LLM formats. `title` is the translated heading of that view.
+  raw?: { before: unknown; after: unknown; title: string };
   // Entity display name, used in the Copy-as exports.
   entityName: string;
-  // Noun for the Copy-as wording ("Changes to <noun> …"); e.g. "saved group".
+  // English noun for the Copy-as exports ("Changes to <noun> …" and the
+  // entity type); e.g. "saved group". Exports aren't translated.
   entityNoun?: string;
   // Which view formats to offer (defaults to JSON + Raw, matching the feature
   // Changes tab; the Conversation tab renders the formatted summary itself).
   formats?: DiffFormat[];
   showCopyAs?: boolean;
 }) {
+  const { i18n } = useLingui();
   const [format, setFormat] = useDiffFormat();
   const allowed = formats;
   // Clamp the shared preference into this surface's formats; fall back from
@@ -71,7 +76,7 @@ export function RevisionDiffContent({
   // FormattedChanges shape for the offscreen render that powers "Copy as →
   // Formatted changes" (matches the feature flow's exact on-screen rich text).
   const formattedItems: FormattedChangeItem[] = diffsWithChanges.map((d) => ({
-    title: d.label,
+    title: diffLabelText(d, i18n),
     a: d.a,
     b: d.b,
     customRender: d.customRender ?? null,
@@ -80,7 +85,9 @@ export function RevisionDiffContent({
   if (diffsWithChanges.length === 0) {
     return (
       <Box p="4">
-        <Text color="text-low">No changes between these revisions.</Text>
+        <Text color="text-low">
+          <Trans>No changes between these revisions.</Trans>
+        </Text>
       </Box>
     );
   }
@@ -112,7 +119,7 @@ export function RevisionDiffContent({
 
       {effective === "raw" && raw ? (
         <ExpandableDiff
-          title={raw.title ?? `${capitalizeFirstLetter(entityNoun)} revision`}
+          title={raw.title}
           a={stringifyForRawDiff(raw.before)}
           b={stringifyForRawDiff(raw.after)}
           defaultOpen={true}
@@ -125,7 +132,7 @@ export function RevisionDiffContent({
           {diffsWithChanges.map((d, i) => (
             <ExpandableDiff
               key={i}
-              title={d.label}
+              title={diffLabelText(d, i18n)}
               a={d.a}
               b={d.b}
               defaultOpen={true}

@@ -20,6 +20,7 @@ import {
   revertFootprint,
 } from "shared/permissions";
 import isEqual from "lodash/isEqual";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Flex, Box } from "@radix-ui/themes";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useEnvironments } from "@/services/features";
@@ -62,6 +63,7 @@ export default function RevertModal({
   mutate,
   setVersion,
 }: Props) {
+  const { t } = useLingui();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const permissionsUtil = usePermissionsUtil();
@@ -246,7 +248,7 @@ export default function RevertModal({
     <Modal
       trackingEventModalType=""
       open={true}
-      header="Revert"
+      header={t`Revert`}
       submit={
         canSubmit && !isLoadingRevision
           ? async () => {
@@ -274,9 +276,9 @@ export default function RevertModal({
             }
           : undefined
       }
-      cta={mode === "publish" ? "Publish Now" : "Create Revert Draft"}
+      cta={mode === "publish" ? t`Publish Now` : t`Create Revert Draft`}
       close={close}
-      closeCta="Cancel"
+      closeCta={t`Cancel`}
       size="lg"
     >
       <DraftSelectorForChanges
@@ -289,15 +291,17 @@ export default function RevertModal({
         canAutoPublish={canAutoPublish}
         gatedEnvSet={gatedEnvSet}
         hideExisting={true}
-        triggerPrefix="Revert will be"
+        action="revert"
         defaultExpanded
       />
 
       <Heading as="h4" size="md" mb="3">
-        Review Changes
+        <Trans>Review Changes</Trans>
       </Heading>
       <Flex align="center" gap="2" mb="3" wrap="wrap">
-        <Text weight="medium">Reverting to:</Text>
+        <Text weight="medium">
+          <Trans>Reverting to:</Trans>
+        </Text>
         <Box style={{ flex: 1, minWidth: 200, maxWidth: 480 }}>
           <RevisionDropdown
             feature={feature}
@@ -311,7 +315,9 @@ export default function RevertModal({
       </Flex>
       <div className="list-group mb-4">
         {isLoadingRevision ? (
-          <div className="text-muted">Loading revision…</div>
+          <div className="text-muted">
+            <Trans>Loading revision…</Trans>
+          </div>
         ) : (
           diffs
             .filter((d) => d.a !== d.b)
@@ -323,7 +329,7 @@ export default function RevertModal({
 
       <Field
         size="legacy"
-        label="Add a Comment (optional)"
+        label={t`Add a Comment (optional)`}
         textarea
         value={comment}
         onChange={(e) => {

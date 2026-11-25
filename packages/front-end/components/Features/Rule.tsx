@@ -144,10 +144,13 @@ function formatSimpleScheduleLabel(
   rs: RampScheduleInterface,
   i18n: I18n,
 ): string {
-  const { start, end } = rampScheduleDates(rs);
+  const { start, end } = rampScheduleDates(rs, i18n);
   const parts = [start, end]
     .filter((d): d is ScheduleDate => d !== null)
-    .map(({ label, date }) => `${label} ${fmtScheduleDate(date)}`);
+    .map(({ label, date }) => {
+      const when = fmtScheduleDate(date);
+      return i18n._(msg`${label} ${when}`);
+    });
   return parts.length > 0 ? parts.join(" · ") : i18n._(msg`USING SCHEDULE`);
 }
 
@@ -609,6 +612,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const rampStepCount = rampSchedule?.steps.length ?? 0;
     const rollbackReason = formatRollbackReason(
       rampSchedule?.lastRollbackReason,
+      i18n,
     );
     // The draft revision a pending ramp waits on, when it names one.
     const pendingActivatingVersion = rampSchedule?.targets.find(
@@ -919,7 +923,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 setSelectedDraft={setDeleteSelectedDraft}
                 canAutoPublish={false}
                 gatedEnvSet={gatedEnvSet}
-                triggerPrefix="Rule deletion will be"
+                action="ruleDeletion"
               />
               <Text color="text-high" as="p">
                 <Trans>

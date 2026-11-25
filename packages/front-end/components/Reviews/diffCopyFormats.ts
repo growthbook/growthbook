@@ -1,4 +1,6 @@
 import { createPatch } from "diff";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import {
   buildFullJson as buildFullJsonShared,
   buildMinimalJsonDiff as buildMinimalJsonDiffShared,
@@ -25,28 +27,28 @@ export type CopyDiffFormat = "formatted" | "minimal-json" | "full-json" | "llm";
 
 export const COPY_DIFF_FORMATS: {
   value: CopyDiffFormat;
-  label: string;
-  description: string;
+  label: MessageDescriptor;
+  description: MessageDescriptor;
 }[] = [
   {
     value: "formatted",
-    label: "Formatted changes",
-    description: "Human-readable details of each change",
+    label: msg`Formatted changes`,
+    description: msg`Human-readable details of each change`,
   },
   {
     value: "minimal-json",
-    label: "Minimal JSON diff",
-    description: "Valid JSON describing only what changed",
+    label: msg`Minimal JSON diff`,
+    description: msg`Valid JSON describing only what changed`,
   },
   {
     value: "full-json",
-    label: "Full JSON",
-    description: "Valid JSON with complete before/after",
+    label: msg`Full JSON`,
+    description: msg`Valid JSON with complete before/after`,
   },
   {
     value: "llm",
-    label: "LLM formatted",
-    description: "XML diff + resulting state per entity",
+    label: msg`LLM formatted`,
+    description: msg`XML diff + resulting state per entity`,
   },
 ];
 

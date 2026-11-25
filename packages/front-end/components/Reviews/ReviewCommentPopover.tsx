@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import RadioGroup from "@/ui/RadioGroup";
@@ -119,6 +120,7 @@ export default function ReviewCommentPopover({
   align = "end",
   storageKey,
 }: Props) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
   const editorRef = useRef<RichTextEditorHandle>(null);
@@ -185,8 +187,8 @@ export default function ReviewCommentPopover({
     !publishBlocked;
 
   const publishCtaLabel = publishHasMoreSteps
-    ? "Submit and Publish →"
-    : "Submit and Publish";
+    ? t`Submit and Publish →`
+    : t`Submit and Publish`;
 
   const doSubmit = async (publish: boolean) => {
     setLoading(true);
@@ -204,7 +206,7 @@ export default function ReviewCommentPopover({
       setOpen(false);
       onSuccess({ publish });
     } catch (e) {
-      setError((e as Error).message || "Something went wrong");
+      setError((e as Error).message || t`Something went wrong`);
     } finally {
       setLoading(false);
     }
@@ -213,14 +215,14 @@ export default function ReviewCommentPopover({
   const content = (
     <Box>
       <Heading as="h5" size="sm" mb="3">
-        Submit review
+        <Trans>Submit review</Trans>
       </Heading>
 
       <RichTextEditor
         ref={editorRef}
         value={comment}
         onChange={setComment}
-        placeholder="Leave a comment…"
+        placeholder={t`Leave a comment…`}
         size="sm"
         height="md"
         autoGrow
@@ -237,20 +239,20 @@ export default function ReviewCommentPopover({
           options={[
             {
               value: "Comment",
-              label: "Comment",
-              description: "General feedback, no decision.",
+              label: t`Comment`,
+              description: t`General feedback, no decision.`,
             },
             {
               value: "Requested Changes",
-              label: "Request changes",
-              description: "Must be addressed before publishing.",
+              label: t`Request changes`,
+              description: t`Must be addressed before publishing.`,
             },
             {
               value: "Approved",
-              label: "Approve",
+              label: t`Approve`,
               description: isBlockedContributor
-                ? "You contributed to this draft and cannot approve it."
-                : "Approve for publishing.",
+                ? t`You contributed to this draft and cannot approve it.`
+                : t`Approve for publishing.`,
               disabled: isBlockedContributor,
             },
           ]}
@@ -277,7 +279,7 @@ export default function ReviewCommentPopover({
             setOpen(false);
           }}
         >
-          Cancel
+          <Trans>Cancel</Trans>
         </Button>
         {showPublishOption && (
           <Button
@@ -294,7 +296,7 @@ export default function ReviewCommentPopover({
           loading={loading}
           disabled={!canSubmit}
         >
-          {willPublish ? publishCtaLabel : "Submit"}
+          {willPublish ? publishCtaLabel : t`Submit`}
         </Button>
       </Flex>
     </Box>

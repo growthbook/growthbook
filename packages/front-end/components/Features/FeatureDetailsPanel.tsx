@@ -331,21 +331,24 @@ export default function FeatureDetailsPanel({
           />
           {revisionFacts(revision, liveVersion, (id) => (
             <PersonValue id={id} />
-          )).map(({ label, value }) => (
-            <Metadata
-              key={label}
-              size="sm"
-              stacked
-              label={label}
-              value={
-                typeof value === "string" ? (
-                  <PanelText>{value}</PanelText>
-                ) : (
-                  value
-                )
-              }
-            />
-          ))}
+          )).map(({ label, displayLabel, value, displayValue }) => {
+            const shown = displayValue ? i18n._(displayValue) : value;
+            return (
+              <Metadata
+                key={label}
+                size="sm"
+                stacked
+                label={i18n._(displayLabel)}
+                value={
+                  typeof shown === "string" ? (
+                    <PanelText>{shown}</PanelText>
+                  ) : (
+                    shown
+                  )
+                }
+              />
+            );
+          })}
         </PanelSection>
       </DetailsPanel>
     </>

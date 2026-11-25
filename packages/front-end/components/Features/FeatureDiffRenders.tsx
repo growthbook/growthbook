@@ -1223,24 +1223,34 @@ export function featureRuleChangeBadges(
     postRules,
   );
   const badges: DiffBadge[] = [];
-  if (added.length)
+  const addedCount = added.length;
+  const removedCount = removed.length;
+  const modifiedCount = modified.length;
+  if (addedCount)
     badges.push({
-      label: `Add rule${added.length > 1 ? ` ×${added.length}` : ""}`,
+      label: `Add rule${addedCount > 1 ? ` ×${addedCount}` : ""}`,
+      displayLabel:
+        addedCount > 1 ? msg`Add rule ×${addedCount}` : msg`Add rule`,
       action: "add rule",
     });
-  if (removed.length)
+  if (removedCount)
     badges.push({
-      label: `Delete rule${removed.length > 1 ? ` ×${removed.length}` : ""}`,
+      label: `Delete rule${removedCount > 1 ? ` ×${removedCount}` : ""}`,
+      displayLabel:
+        removedCount > 1 ? msg`Delete rule ×${removedCount}` : msg`Delete rule`,
       action: "delete rule",
     });
-  if (modified.length)
+  if (modifiedCount)
     badges.push({
-      label: `Edit rule${modified.length > 1 ? ` ×${modified.length}` : ""}`,
+      label: `Edit rule${modifiedCount > 1 ? ` ×${modifiedCount}` : ""}`,
+      displayLabel:
+        modifiedCount > 1 ? msg`Edit rule ×${modifiedCount}` : msg`Edit rule`,
       action: "edit rule",
     });
   if (reordered)
     badges.push({
       label: "Reorder rules",
+      displayLabel: msg`Reorder rules`,
       action: "reorder rules",
     });
   return badges;
@@ -1796,17 +1806,26 @@ export function getFeatureMetadataBadges(
   if (featureArchivedChanged(pre?.archived, post.archived)) {
     badges.push({
       label: post.archived ? "Archived" : "Unarchived",
+      displayLabel: post.archived ? msg`Archived` : msg`Unarchived`,
       action: "archive",
     });
   }
   if ((pre?.owner || "") !== (post.owner || "") && post.owner !== undefined) {
-    badges.push({ label: "Edit owner", action: "edit owner" });
+    badges.push({
+      label: "Edit owner",
+      displayLabel: msg`Edit owner`,
+      action: "edit owner",
+    });
   }
   if (
     (pre?.project || "") !== (post.project || "") &&
     post.project !== undefined
   ) {
-    badges.push({ label: "Edit project", action: "edit project" });
+    badges.push({
+      label: "Edit project",
+      displayLabel: msg`Edit project`,
+      action: "edit project",
+    });
   }
   if (
     (post.targetingAllProjects !== undefined ||
@@ -1820,6 +1839,7 @@ export function getFeatureMetadataBadges(
   ) {
     badges.push({
       label: "Edit Targeting Projects",
+      displayLabel: msg`Edit Targeting Projects`,
       action: "edit targeting",
     });
   }
@@ -1830,14 +1850,22 @@ export function getFeatureMetadataBadges(
       postTags.some((t) => !preTags.includes(t)) ||
       preTags.some((t) => !postTags.includes(t))
     ) {
-      badges.push({ label: "Edit tags", action: "edit tags" });
+      badges.push({
+        label: "Edit tags",
+        displayLabel: msg`Edit tags`,
+        action: "edit tags",
+      });
     }
   }
   if (
     (pre?.description || "") !== (post.description || "") &&
     post.description !== undefined
   ) {
-    badges.push({ label: "Edit description", action: "edit description" });
+    badges.push({
+      label: "Edit description",
+      displayLabel: msg`Edit description`,
+      action: "edit description",
+    });
   }
   return badges;
 }
@@ -1872,6 +1900,9 @@ export function getFeatureRulesBadges(
     ) {
       badges.push({
         label: postEnabled ? `Enabled in ${env}` : `Disabled in ${env}`,
+        displayLabel: postEnabled
+          ? msg`Enabled in ${env}`
+          : msg`Disabled in ${env}`,
         action: "toggle",
       });
     }
@@ -1918,19 +1949,40 @@ export function prerequisiteChangeBadges(
 ): DiffBadge[] {
   const { added, removed, modified } = analyzePrerequisiteChanges(pre, post);
   const badges: DiffBadge[] = [];
-  if (added.length)
+  const addedCount = added.length;
+  const removedCount = removed.length;
+  const modifiedCount = modified.length;
+  // Whole translated sentences exist for the default noun only; a custom
+  // `label` is English and stays so.
+  const translatable = label === "prerequisite";
+  if (addedCount)
     badges.push({
-      label: `Add ${label}${added.length > 1 ? ` ×${added.length}` : ""}`,
+      label: `Add ${label}${addedCount > 1 ? ` ×${addedCount}` : ""}`,
+      displayLabel: !translatable
+        ? undefined
+        : addedCount > 1
+          ? msg`Add prerequisite ×${addedCount}`
+          : msg`Add prerequisite`,
       action: "add prerequisite",
     });
-  if (removed.length)
+  if (removedCount)
     badges.push({
-      label: `Remove ${label}${removed.length > 1 ? ` ×${removed.length}` : ""}`,
+      label: `Remove ${label}${removedCount > 1 ? ` ×${removedCount}` : ""}`,
+      displayLabel: !translatable
+        ? undefined
+        : removedCount > 1
+          ? msg`Remove prerequisite ×${removedCount}`
+          : msg`Remove prerequisite`,
       action: "delete prerequisite",
     });
-  if (modified.length)
+  if (modifiedCount)
     badges.push({
-      label: `Edit ${label}${modified.length > 1 ? ` ×${modified.length}` : ""}`,
+      label: `Edit ${label}${modifiedCount > 1 ? ` ×${modifiedCount}` : ""}`,
+      displayLabel: !translatable
+        ? undefined
+        : modifiedCount > 1
+          ? msg`Edit prerequisite ×${modifiedCount}`
+          : msg`Edit prerequisite`,
       action: "edit prerequisite",
     });
   return badges;
@@ -2232,12 +2284,36 @@ export function getFeatureHoldoutBadges(
 
   if (!isEqual(preHoldout, postHoldout)) {
     if (!preHoldout && postHoldout)
-      return [{ label: "Added to holdout", action: "add holdout" }];
+      return [
+        {
+          label: "Added to holdout",
+          displayLabel: msg`Added to holdout`,
+          action: "add holdout",
+        },
+      ];
     if (preHoldout && !postHoldout)
-      return [{ label: "Removed from holdout", action: "remove holdout" }];
+      return [
+        {
+          label: "Removed from holdout",
+          displayLabel: msg`Removed from holdout`,
+          action: "remove holdout",
+        },
+      ];
     if (preHoldout?.id !== postHoldout?.id)
-      return [{ label: "Changed holdout", action: "change holdout" }];
-    return [{ label: "Edit holdout value", action: "edit holdout value" }];
+      return [
+        {
+          label: "Changed holdout",
+          displayLabel: msg`Changed holdout`,
+          action: "change holdout",
+        },
+      ];
+    return [
+      {
+        label: "Edit holdout value",
+        displayLabel: msg`Edit holdout value`,
+        action: "edit holdout value",
+      },
+    ];
   }
   return [];
 }

@@ -6,10 +6,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { UseAuditEntriesResult } from "./useAuditEntries";
 import { getChangedSectionLabels, useAuditDiff } from "./useAuditDiff";
-import { AuditDiffConfig, AuditDiffItem, CoarsenedAuditEntry } from "./types";
+import {
+  AuditDiffConfig,
+  AuditDiffItem,
+  CoarsenedAuditEntry,
+  DisplayText,
+} from "./types";
 import {
   buildLeftColumnItems,
   buildSteps,
@@ -199,8 +205,9 @@ function computeDisplayIds(
 export function useAuditComparison<T>(
   config: AuditDiffConfig<T>,
   auditEntries: UseAuditEntriesResult<T>,
-  eventLabels: Record<string, string>,
+  eventLabels: Record<string, DisplayText>,
 ) {
+  const { i18n } = useLingui();
   // ---- Section visibility filters ----
   const sectionLabels = useMemo(
     () => [
@@ -570,8 +577,8 @@ export function useAuditComparison<T>(
 
   const getEntryLabel = useCallback(
     (entry: CoarsenedAuditEntry<T>) =>
-      resolveEntryLabel(entry, config, eventLabels, entrySectionLabels),
-    [config, eventLabels, entrySectionLabels],
+      resolveEntryLabel(entry, config, eventLabels, entrySectionLabels, i18n),
+    [config, eventLabels, entrySectionLabels, i18n],
   );
 
   const customRenderGroups = useMemo(

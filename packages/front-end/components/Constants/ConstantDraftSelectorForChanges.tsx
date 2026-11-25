@@ -1,5 +1,5 @@
 import { Revision } from "shared/enterprise";
-import { DraftMode } from "@/components/DraftSelector";
+import { DraftMode, DraftSelectorAction } from "@/components/DraftSelector";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 
 export type { DraftMode };
@@ -25,7 +25,7 @@ export default function ConstantDraftSelectorForChanges({
   approvalRequired: boolean;
   metadataOnly?: boolean;
   defaultExpanded?: boolean;
-  triggerPrefix?: string;
+  action?: DraftSelectorAction;
   hideExisting?: boolean;
 }) {
   return (

@@ -1,4 +1,5 @@
 import React from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
@@ -10,7 +11,10 @@ import {
   FormattedChanges,
   type FormattedChangeItem,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
-import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import {
+  COMPACT_DIFF_STYLES,
+  diffLabelText,
+} from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import { DiffItem, DiffBadge, CustomRenderGroup } from "./useRevisionDiff";
 
@@ -46,6 +50,7 @@ export function RevisionDiff({
   diffComments,
   collapsedMaxHeight,
 }: RevisionDiffProps) {
+  const { i18n } = useLingui();
   const showFormatted = variant !== "json";
   const showJson = variant !== "formatted";
 
@@ -62,7 +67,7 @@ export function RevisionDiff({
     );
   }
   const formattedItems: FormattedChangeItem[] = diffs.map((d) => ({
-    title: d.label,
+    title: diffLabelText(d, i18n),
     a: d.a,
     b: d.b,
     customRender: d.customRender ?? renderByLabel.get(d.label) ?? null,
@@ -72,7 +77,7 @@ export function RevisionDiff({
     <Box>
       {diffs.length === 0 ? (
         <Text size="md" color="text-low">
-          No changes to display.
+          <Trans>No changes to display.</Trans>
         </Text>
       ) : (
         <>
@@ -80,16 +85,16 @@ export function RevisionDiff({
           {showFormatted && (
             <>
               <Heading as="h4" size="md" mb="3">
-                Summary of changes
+                <Trans>Summary of changes</Trans>
               </Heading>
               {badges.length > 0 && (
                 <Flex wrap="wrap" gap="2" mb="3">
-                  {badges.map(({ label, action }, i) => (
+                  {badges.map((badge, i) => (
                     <Badge
-                      key={`${label}-${i}`}
-                      color={logBadgeColor(action)}
+                      key={`${badge.label}-${i}`}
+                      color={logBadgeColor(badge.action)}
                       variant="soft"
-                      label={label}
+                      label={diffLabelText(badge, i18n)}
                     />
                   ))}
                 </Flex>
@@ -120,7 +125,7 @@ export function RevisionDiff({
           {showJson && (
             <>
               <Heading as="h4" size="md" mb="3">
-                Change details
+                <Trans>Change details</Trans>
               </Heading>
               <Flex
                 direction="column"
@@ -136,7 +141,7 @@ export function RevisionDiff({
                   diffs.map((d, i) => (
                     <ExpandableDiff
                       key={i}
-                      title={d.label}
+                      title={diffLabelText(d, i18n)}
                       a={d.a}
                       b={d.b}
                       defaultOpen={true}
@@ -150,7 +155,7 @@ export function RevisionDiff({
                 ) : (
                   <Box p="3">
                     <Text size="md" color="text-low">
-                      No material changes detected
+                      <Trans>No material changes detected</Trans>
                     </Text>
                   </Box>
                 )}

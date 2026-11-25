@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import TextField from "@/ui/TextField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { NamedRevision } from "@/components/Reviews/RevisionLabel";
@@ -16,6 +17,7 @@ export default function EditRevisionTitleModal({
   close: () => void;
   trackingEventModalType?: string;
 }) {
+  const { t } = useLingui();
   const [value, setValue] = useState(initialValue);
 
   return (
@@ -25,20 +27,20 @@ export default function EditRevisionTitleModal({
       close={close}
       // Which revision, by its current name, as the review tab names it.
       header={
-        <>
+        <Trans>
           Rename <NamedRevision version={version} title={initialValue} />
-        </>
+        </Trans>
       }
-      cta="Save"
+      cta={t`Save`}
       submit={async () => {
         await onSubmit(value.trim());
       }}
     >
       <TextField
-        label="Name"
+        label={t`Name`}
         autoFocus
         value={value}
-        placeholder={`Revision ${version}`}
+        placeholder={t`Revision ${version}`}
         onChange={(e) => setValue(e.target.value)}
       />
     </ModalStandard>

@@ -24,6 +24,9 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FeatureMetaInfo } from "shared/types/feature";
 import Link from "next/link";
 import { FaSearch } from "react-icons/fa";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -51,6 +54,7 @@ import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -113,14 +117,16 @@ type ApprovalRow = {
 
 type ScopeValue = "needs-my-review" | "my-requests" | "all";
 
-function getEntityTypeLabel(entityType: string): string {
-  const labels: Record<string, string> = {
-    "saved-group": "Saved Group",
-    constant: "Constant",
-    feature: "Feature",
-    "sdk-connection": "SDK Connection",
-  };
-  return labels[entityType] || entityType;
+const ENTITY_TYPE_LABELS: Record<string, MessageDescriptor> = {
+  "saved-group": msg`Saved Group`,
+  constant: msg`Constant`,
+  feature: msg`Feature`,
+  "sdk-connection": msg`SDK Connection`,
+};
+
+function getEntityTypeLabel(entityType: string, i18n: I18n): string {
+  const label = ENTITY_TYPE_LABELS[entityType];
+  return label ? i18n._(label) : entityType;
 }
 
 // Dot + text rendering per design. Each actionable status is paired with a
@@ -134,17 +140,22 @@ const STATUS_DOT_COLOR: Partial<Record<RevisionStatus, string>> = {
   merged: "var(--grass-9)",
 };
 
-const STATUS_LABEL: Record<RevisionStatus, string> = {
-  "pending-review": "Pending review",
-  "changes-requested": "Changes requested",
-  approved: "Approved",
-  merged: "Published",
-  draft: "Draft",
-  discarded: "Discarded",
+const STATUS_LABEL: Record<RevisionStatus, MessageDescriptor> = {
+  "pending-review": msg`Pending review`,
+  "changes-requested": msg`Changes requested`,
+  approved: msg`Approved`,
+  merged: msg`Published`,
+  draft: msg`Draft`,
+  discarded: msg`Discarded`,
 };
 
-function renderApprovalStatus(status: RevisionStatus) {
-  const label = STATUS_LABEL[status] ?? status;
+function statusLabel(status: string, i18n: I18n): string {
+  const label = STATUS_LABEL[status as RevisionStatus];
+  return label ? i18n._(label) : status;
+}
+
+function renderApprovalStatus(status: RevisionStatus, i18n: I18n) {
+  const label = statusLabel(status, i18n);
   if (status === "discarded") {
     return (
       <span style={{ fontStyle: "italic", color: "var(--gray-10)" }}>
@@ -263,6 +274,7 @@ function featureRevisionToRow(
 }
 
 const ApprovalRequests: FC = () => {
+  const { t, i18n } = useLingui();
   const router = useRouter();
   const { getUserDisplay, hasCommercialFeature, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -528,19 +540,19 @@ const ApprovalRequests: FC = () => {
 
   const statusFilterItems = [
     {
-      name: "Pending review",
+      name: t`Pending review`,
       id: "pending-review",
       searchValue: "pending-review",
     },
-    { name: "Approved", id: "approved", searchValue: "approved" },
+    { name: t`Approved`, id: "approved", searchValue: "approved" },
     {
-      name: "Changes requested",
+      name: t`Changes requested`,
       id: "changes-requested",
       searchValue: "changes-requested",
     },
-    { name: "Draft", id: "draft", searchValue: "draft" },
-    { name: "Published", id: "merged", searchValue: "merged" },
-    { name: "Discarded", id: "discarded", searchValue: "discarded" },
+    { name: t`Draft`, id: "draft", searchValue: "draft" },
+    { name: t`Published`, id: "merged", searchValue: "merged" },
+    { name: t`Discarded`, id: "discarded", searchValue: "discarded" },
   ];
 
   // Per design, each filter trigger button surfaces the currently-applied
@@ -549,33 +561,34 @@ const ApprovalRequests: FC = () => {
   // matches the filter pattern elsewhere in the Figma (Metrics landing etc.).
   const typeHeading = useMemo(() => {
     const f = syntaxFilters.find((s) => s.field === "type");
-    if (!f || f.values.length === 0) return "Type: Any";
-    return `Type: ${f.values.map(getEntityTypeLabel).join(", ")}`;
-  }, [syntaxFilters]);
+    if (!f || f.values.length === 0) return t`Type: Any`;
+    const types = f.values.map((v) => getEntityTypeLabel(v, i18n)).join(", ");
+    return t`Type: ${types}`;
+  }, [syntaxFilters, t, i18n]);
 
   const authorHeading = useMemo(() => {
     const f = syntaxFilters.find((s) => s.field === "author");
-    if (!f || f.values.length === 0) return "Requested by: Any";
-    return `Requested by: ${f.values
+    if (!f || f.values.length === 0) return t`Requested by: Any`;
+    const requesters = f.values
       .map((v) => getUserDisplay(v, false) || authors.get(v) || v)
-      .join(", ")}`;
-  }, [syntaxFilters, getUserDisplay, authors]);
+      .join(", ");
+    return t`Requested by: ${requesters}`;
+  }, [syntaxFilters, getUserDisplay, authors, t]);
 
   const statusHeading = useMemo(() => {
     const values: string[] = hasExplicitStatusFilter
       ? (syntaxFilters.find((s) => s.field === "status")?.values ?? [])
       : [...DEFAULT_STATUSES];
-    if (values.length === 0) return "Status: Any";
-    return `Status: ${values
-      .map((v) => STATUS_LABEL[v as RevisionStatus] ?? v)
-      .join(", ")}`;
-  }, [syntaxFilters, hasExplicitStatusFilter]);
+    if (values.length === 0) return t`Status: Any`;
+    const statuses = values.map((v) => statusLabel(v, i18n)).join(", ");
+    return t`Status: ${statuses}`;
+  }, [syntaxFilters, hasExplicitStatusFilter, t, i18n]);
 
   if (!hasFeature) {
     return (
       <Box width="100%">
         <Callout status="info">
-          Approval flows require an Enterprise plan.
+          <Trans>Approval flows require an Enterprise plan.</Trans>
         </Callout>
       </Box>
     );
@@ -589,13 +602,15 @@ const ApprovalRequests: FC = () => {
     <Box width="100%">
       <Box mb="5">
         <Heading as="h1" size="lg" mb="2">
-          Approval Requests
+          <Trans>Approval Requests</Trans>
         </Heading>
         <Text color="text-low">
-          Review changes across your organization that require approval.{" "}
-          <DocLink useRadix={false} docSection="publishingAndApprovalFlows">
-            View Docs
-          </DocLink>
+          <Trans>
+            Review changes across your organization that require approval.{" "}
+            <DocLink useRadix={false} docSection="publishingAndApprovalFlows">
+              View Docs
+            </DocLink>
+          </Trans>
         </Text>
       </Box>
 
@@ -606,9 +621,15 @@ const ApprovalRequests: FC = () => {
       <Box mb="4">
         <Tabs value={scope} onValueChange={(v) => setScope(v as ScopeValue)}>
           <TabsList>
-            <TabsTrigger value="needs-my-review">Needs a review</TabsTrigger>
-            <TabsTrigger value="my-requests">My requests</TabsTrigger>
-            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="needs-my-review">
+              <Trans>Needs a review</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="my-requests">
+              <Trans>My requests</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="all">
+              <Trans>All</Trans>
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </Box>
@@ -617,7 +638,7 @@ const ApprovalRequests: FC = () => {
       <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
         <Box flexBasis="300px" flexShrink="0">
           <TextField.Root
-            placeholder="Search..."
+            placeholder={t`Search...`}
             type="search"
             size="2"
             {...searchInputProps}
@@ -634,10 +655,10 @@ const ApprovalRequests: FC = () => {
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
-            items={entityTypes.map((t) => ({
-              name: getEntityTypeLabel(t),
-              id: t,
-              searchValue: t,
+            items={entityTypes.map((type) => ({
+              name: getEntityTypeLabel(type, i18n),
+              id: type,
+              searchValue: type,
             }))}
             updateQuery={updateQuery}
           />
@@ -670,7 +691,7 @@ const ApprovalRequests: FC = () => {
       {effectiveItems.length === 0 ? (
         <Callout status="info">
           {scope === "needs-my-review" ? (
-            <>
+            <Trans>
               No approval requests need a review right now.{" "}
               <a
                 href="#"
@@ -682,11 +703,11 @@ const ApprovalRequests: FC = () => {
                 Show all approval requests
               </a>
               .
-            </>
+            </Trans>
           ) : scope === "my-requests" ? (
-            "You haven't submitted any approval requests."
+            <Trans>You haven&apos;t submitted any approval requests.</Trans>
           ) : (
-            "No approval requests found."
+            <Trans>No approval requests found.</Trans>
           )}
         </Callout>
       ) : (
@@ -694,12 +715,24 @@ const ApprovalRequests: FC = () => {
           <table className="table gbtable table-valign-top">
             <thead>
               <tr>
-                <SortableTH field="entityName">Name</SortableTH>
-                <SortableTH field="version">Revision</SortableTH>
-                <SortableTH field="entityType">Type</SortableTH>
-                <SortableTH field="authorDisplay">Requested by</SortableTH>
-                <SortableTH field="dateCreated">Date Requested</SortableTH>
-                <SortableTH field="_sortKey">Status</SortableTH>
+                <SortableTH field="entityName">
+                  <Trans>Name</Trans>
+                </SortableTH>
+                <SortableTH field="version">
+                  <Trans>Revision</Trans>
+                </SortableTH>
+                <SortableTH field="entityType">
+                  <Trans>Type</Trans>
+                </SortableTH>
+                <SortableTH field="authorDisplay">
+                  <Trans>Requested by</Trans>
+                </SortableTH>
+                <SortableTH field="dateCreated">
+                  <Trans>Date Requested</Trans>
+                </SortableTH>
+                <SortableTH field="_sortKey">
+                  <Trans>Status</Trans>
+                </SortableTH>
               </tr>
             </thead>
             <tbody>
@@ -725,10 +758,15 @@ const ApprovalRequests: FC = () => {
                       onClick={(e) => e.stopPropagation()}
                       className="link-purple"
                     >
-                      {row.title || `Revision ${row.version}`}
+                      {revisionLabelText(
+                        row.version,
+                        row.title || null,
+                        false,
+                        i18n,
+                      )}
                     </Link>
                   </td>
-                  <td>{getEntityTypeLabel(row.entityType)}</td>
+                  <td>{getEntityTypeLabel(row.entityType, i18n)}</td>
                   <td>
                     {row.authorId ? (
                       <EventUser
@@ -741,13 +779,13 @@ const ApprovalRequests: FC = () => {
                     )}
                   </td>
                   <td>{datetime(new Date(row.dateCreated))}</td>
-                  <td>{renderApprovalStatus(row.status)}</td>
+                  <td>{renderApprovalStatus(row.status, i18n)}</td>
                 </tr>
               ))}
               {paginatedItems.length === 0 && (
                 <tr>
                   <td colSpan={6} align="center">
-                    No matching approval requests
+                    <Trans>No matching approval requests</Trans>
                   </td>
                 </tr>
               )}

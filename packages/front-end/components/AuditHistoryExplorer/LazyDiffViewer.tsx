@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { diffLines } from "diff";
+import { Trans } from "@lingui/react/macro";
 import ReactDiffViewer, {
   DiffMethod,
   ReactDiffViewerProps,
@@ -88,11 +89,13 @@ const LazyDiffViewer = memo(function LazyDiffViewer({
         size="sm"
         onClick={() => setExpanded([oldValue, newValue])}
       >
-        Show diff (
-        {changedLines === null
-          ? `over ${COLLAPSE_AFTER_CHANGED_LINES} changed lines`
-          : `${changedLines.toLocaleString()} changed lines`}
-        )
+        {changedLines === null ? (
+          <Trans>
+            Show diff (over {COLLAPSE_AFTER_CHANGED_LINES} changed lines)
+          </Trans>
+        ) : (
+          <ChangedLinesLabel count={changedLines} />
+        )}
       </Button>
     );
   }
@@ -120,5 +123,10 @@ const LazyDiffViewer = memo(function LazyDiffViewer({
     />
   );
 });
+
+function ChangedLinesLabel({ count }: { count: number }) {
+  const countText = count.toLocaleString();
+  return <Trans>Show diff ({countText} changed lines)</Trans>;
+}
 
 export default LazyDiffViewer;

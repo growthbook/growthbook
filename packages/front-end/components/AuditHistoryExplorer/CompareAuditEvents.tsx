@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 // eslint-disable-next-line no-restricted-imports
 import { Box, Checkbox as RadixCheckbox, Flex } from "@radix-ui/themes";
 import {
@@ -41,12 +44,15 @@ import {
   stringifyForRawDiff,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { PAGE_LIMIT, UseAuditEntriesResult } from "./useAuditEntries";
-import { AuditDiffConfig, CoarsenedAuditEntry } from "./types";
+import { AuditDiffConfig, CoarsenedAuditEntry, DisplayText } from "./types";
 import {
   COMPACT_DIFF_STYLES,
   LeftColItem,
+  diffLabelText,
   getSeparatorBucketKey,
   getSeparatorLabel,
+  resolveDisplayText,
+  sectionLabelText,
 } from "./CompareAuditEventsUtils";
 import { useAuditComparison } from "./useAuditComparison";
 import styles from "./CompareAuditEvents.module.scss";
@@ -87,12 +93,13 @@ function AuditEntryCompareLabel({
   mb?: "1" | "2" | "3" | "4";
   mt?: "1" | "2" | "3" | "4";
 }) {
+  const { t } = useLingui();
   return (
     <Flex align="start" gap="4" wrap="nowrap" mb={mb} mt={mt}>
       <Flex direction="column">
         <Flex align="center" gap="1">
           {entryAFailed && (
-            <Tooltip body="Could not load entry">
+            <Tooltip body={t`Could not load entry`}>
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
@@ -114,7 +121,7 @@ function AuditEntryCompareLabel({
       <Flex direction="column">
         <Flex align="center" gap="1">
           {entryBFailed && (
-            <Tooltip body="Could not load entry">
+            <Tooltip body={t`Could not load entry`}>
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
@@ -134,6 +141,7 @@ function AuditEntryCompareLabel({
 }
 
 function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const pre = JSON.stringify(entry.preSnapshot ?? {}, null, 2);
   const post = JSON.stringify(entry.postSnapshot, null, 2);
@@ -153,7 +161,7 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
             transform: open ? "rotate(90deg)" : "none",
           }}
         />
-        Full audit record
+        <Trans>Full audit record</Trans>
       </div>
       {open && (
         <Box mt="3">
@@ -161,7 +169,7 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
             {(
               [
                 [
-                  "Event",
+                  t`Event`,
                   <Badge
                     key="e"
                     label={entry.event}
@@ -170,10 +178,13 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
                     radius="full"
                   />,
                 ],
-                ["Date", datetime(entry.dateStart)],
-                ["Author", <AuditEntryAuthor key="author" user={entry.user} />],
+                [t`Date`, datetime(entry.dateStart)],
+                [
+                  t`Author`,
+                  <AuditEntryAuthor key="author" user={entry.user} />,
+                ],
                 ...(entry.count > 1
-                  ? [["Merged events", String(entry.count)]]
+                  ? [[t`Merged events`, String(entry.count)]]
                   : []),
               ] as [string, React.ReactNode][]
             ).map(([label, value]) => (
@@ -188,7 +199,7 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
             ))}
           </Flex>
           <Text size="md" weight="medium" color="text-mid" mb="1" as="div">
-            Details
+            <Trans>Details</Trans>
           </Text>
           <div className="diff-wrapper">
             <div className="list-group-item list-group-item-light">
@@ -210,7 +221,7 @@ export interface CompareAuditEventsProps<T> {
   config: AuditDiffConfig<T>;
   auditEntries: UseAuditEntriesResult<T>;
   /** Human-readable map from event string to display name, e.g. "experiment.start" → "Started" */
-  eventLabels?: Record<string, string>;
+  eventLabels?: Record<string, DisplayText>;
   /**
    * Optional "revert to this version" action. When provided, a CTA is shown
    * while viewing a single entry; `onRevert` receives that entry (its
@@ -225,7 +236,24 @@ export interface CompareAuditEventsProps<T> {
   };
 }
 
-const EMPTY_EVENT_LABELS: Record<string, string> = {};
+const EMPTY_EVENT_LABELS: Record<string, DisplayText> = {};
+
+// `key` names the range in state; `label` is what's shown.
+const TIME_RANGE_ACTIONS: {
+  key: string;
+  label: MessageDescriptor;
+  ms: number;
+}[] = [
+  { key: "Past day", label: msg`Past day`, ms: 24 * 60 * 60 * 1000 },
+  { key: "Past week", label: msg`Past week`, ms: 7 * 24 * 60 * 60 * 1000 },
+  { key: "Past month", label: msg`Past month`, ms: 30 * 24 * 60 * 60 * 1000 },
+];
+
+const GROUP_BY_LABELS: Record<"minute" | "hour" | "day", MessageDescriptor> = {
+  minute: msg`Minute`,
+  hour: msg`Hour`,
+  day: msg`Day`,
+};
 
 export default function CompareAuditEvents<T>({
   config,
@@ -233,6 +261,7 @@ export default function CompareAuditEvents<T>({
   eventLabels = EMPTY_EVENT_LABELS,
   revert,
 }: CompareAuditEventsProps<T>) {
+  const { t, i18n } = useLingui();
   const { allAuditEvents } = auditEntries;
   const {
     sectionLabels,
@@ -390,7 +419,7 @@ export default function CompareAuditEvents<T>({
                 viewSingle(entry.id);
               }}
             >
-              View
+              <Trans>View</Trans>
             </Button>
           </div>
         )}
@@ -413,7 +442,7 @@ export default function CompareAuditEvents<T>({
           <Flex align="center" justify="between" gap="2" width="100%">
             <Flex align="center" gap="1">
               {isSelected && failed && (
-                <Tooltip body="Could not load entry">
+                <Tooltip body={t`Could not load entry`}>
                   <PiWarningBold
                     style={{ color: "var(--red-9)", flexShrink: 0 }}
                   />
@@ -426,7 +455,7 @@ export default function CompareAuditEvents<T>({
                 label={String(entry.count)}
                 color="violet"
                 variant="soft"
-                title={`${entry.count} changes merged`}
+                title={t`${entry.count} changes merged`}
               />
             )}
           </Flex>
@@ -452,7 +481,7 @@ export default function CompareAuditEvents<T>({
                 <PiCaretDownBold
                   style={{ display: "inline", marginRight: 4 }}
                 />
-                {`Expand ${entry.count} changes`}
+                {t`Expand ${entry.count} changes`}
               </Link>
             </Box>
           )}
@@ -461,6 +490,9 @@ export default function CompareAuditEvents<T>({
     );
   };
 
+  const stepNumber = safeDiffPage + 1;
+  const stepCount = steps.length;
+
   return (
     <Flex style={{ flex: 1, minHeight: 0, minWidth: 0, height: "100%" }}>
       {confirmRevertEntry && revert && (
@@ -468,9 +500,9 @@ export default function CompareAuditEvents<T>({
           title={revert.confirmTitle ?? revert.cta}
           content={
             revert.confirmBody ??
-            "This restores the selected version as a new change. Nothing is lost — you can revert again."
+            t`This restores the selected version as a new change. Nothing is lost — you can revert again.`
           }
-          yesText="Revert"
+          yesText={t`Revert`}
           onConfirm={async () => {
             await revert.onRevert(confirmRevertEntry);
             setConfirmRevertEntry(null);
@@ -487,7 +519,7 @@ export default function CompareAuditEvents<T>({
         {!singleSelect && flatEntries.length >= 2 && (
           <Box className={`${styles.section} border-bottom`} pb="2">
             <Text size="md" weight="medium" color="text-mid" mb="2" as="p">
-              Quick actions
+              <Trans>Quick actions</Trans>
             </Text>
             <Flex direction="column" className={styles.quickActionsList}>
               {/* Most recent change */}
@@ -505,7 +537,9 @@ export default function CompareAuditEvents<T>({
               >
                 <Box className={styles.rowSpacer} />
                 <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
-                  <Text weight="semibold">Most recent change</Text>
+                  <Text weight="semibold">
+                    <Trans>Most recent change</Trans>
+                  </Text>
                   <Text size="sm" color="text-low" as="div">
                     <span
                       style={{
@@ -523,16 +557,10 @@ export default function CompareAuditEvents<T>({
               </Box>
 
               {/* Time-range quick actions */}
-              {(
-                [
-                  { label: "Past day", ms: 24 * 60 * 60 * 1000 },
-                  { label: "Past week", ms: 7 * 24 * 60 * 60 * 1000 },
-                  { label: "Past month", ms: 30 * 24 * 60 * 60 * 1000 },
-                ] as const
-              ).map(({ label, ms }) => {
+              {TIME_RANGE_ACTIONS.map(({ key, label, ms }) => {
                 const cutoff = Date.now() - ms;
                 const isActive = isWindowActive(cutoff);
-                const isPending = pendingRange === label;
+                const isPending = pendingRange === key;
                 // Disabled when the window is resolvable but contains no entries.
                 const oldestLoaded =
                   flatEntries.length > 0
@@ -544,17 +572,17 @@ export default function CompareAuditEvents<T>({
                   getWindowSelection(flatEntries, cutoff) === null;
                 return (
                   <Box
-                    key={label}
+                    key={key}
                     className={`${styles.row} ${isActive ? styles.rowSelected : ""} ${isEmpty ? styles.rowDisabled : ""}`}
                     onClick={
                       isEmpty
                         ? undefined
-                        : () => handleTimeRangeAction(label, cutoff)
+                        : () => handleTimeRangeAction(key, cutoff)
                     }
                   >
                     <Box className={styles.rowSpacer} />
                     <Flex align="center" gap="2">
-                      <Text weight="semibold">{label}</Text>
+                      <Text weight="semibold">{i18n._(label)}</Text>
                       {isPending && <LoadingSpinner />}
                     </Flex>
                   </Box>
@@ -579,11 +607,13 @@ export default function CompareAuditEvents<T>({
                 <Box className={styles.rowSpacer} />
                 <Flex direction="column" gap="1">
                   <Flex align="center" gap="2">
-                    <Text weight="semibold">All changes</Text>
+                    <Text weight="semibold">
+                      <Trans>All changes</Trans>
+                    </Text>
                     {loadingAll && !pendingRange && <LoadingSpinner />}
                   </Flex>
                   <Text size="sm" color="text-low">
-                    {total} total
+                    <Trans>{total} total</Trans>
                   </Text>
                 </Flex>
               </Box>
@@ -595,7 +625,11 @@ export default function CompareAuditEvents<T>({
         <Box className={styles.section} pb="3">
           <Flex align="center" justify="between" mb="2">
             <Text size="md" weight="medium" color="text-mid">
-              {singleSelect ? "Select a version" : "Select a range of changes"}
+              {singleSelect ? (
+                <Trans>Select a version</Trans>
+              ) : (
+                <Trans>Select a range of changes</Trans>
+              )}
             </Text>
             {!config.hideFilters &&
               sectionLabels.length > 0 &&
@@ -616,7 +650,7 @@ export default function CompareAuditEvents<T>({
                     modal={true}
                     trigger={
                       <Link>
-                        Filters
+                        <Trans>Filters</Trans>
                         {activeFilterCount > 0 && (
                           <Badge
                             color="indigo"
@@ -647,7 +681,7 @@ export default function CompareAuditEvents<T>({
                           <span style={{ width: 24, display: "inline-flex" }}>
                             <PiX size={16} />
                           </span>
-                          Remove all filters
+                          <Trans>Remove all filters</Trans>
                         </Flex>
                       </DropdownMenuItem>
                     )}
@@ -669,13 +703,16 @@ export default function CompareAuditEvents<T>({
                         <span style={{ width: 24, display: "inline-flex" }}>
                           <PiClockClockwise size={16} />
                         </span>
-                        {isAtDefault
-                          ? "Using default filters"
-                          : "Use default filters"}
+                        {isAtDefault ? (
+                          <Trans>Using default filters</Trans>
+                        ) : (
+                          <Trans>Use default filters</Trans>
+                        )}
                       </Flex>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     {sectionLabels.map((label) => {
+                      const sectionName = sectionLabelText(label, config, i18n);
                       const isOnlyVisible =
                         isSectionVisible(label) &&
                         sectionLabels.every(
@@ -709,13 +746,15 @@ export default function CompareAuditEvents<T>({
                                 color="violet"
                               />
                             </div>
-                            Show {label}
+                            <Trans>Show {sectionName}</Trans>
                           </Flex>
                         </DropdownMenuItem>
                       );
                     })}
                     <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Group items by</DropdownMenuLabel>
+                    <DropdownMenuLabel>
+                      <Trans>Group items by</Trans>
+                    </DropdownMenuLabel>
                     {(["minute", "hour", "day"] as const).map((opt) => (
                       <DropdownMenuItem
                         key={opt}
@@ -725,7 +764,7 @@ export default function CompareAuditEvents<T>({
                           <span style={{ width: 24, display: "inline-flex" }}>
                             {groupBy === opt && <PiCheckBold size={14} />}
                           </span>
-                          {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                          {i18n._(GROUP_BY_LABELS[opt])}
                         </Flex>
                       </DropdownMenuItem>
                     ))}
@@ -739,7 +778,9 @@ export default function CompareAuditEvents<T>({
           ) : error ? (
             <Callout status="error">{error}</Callout>
           ) : flatEntries.length === 0 ? (
-            <Text color="text-low">No change history found.</Text>
+            <Text color="text-low">
+              <Trans>No change history found.</Trans>
+            </Text>
           ) : (
             <Flex direction="column" className={styles.revisionsList}>
               {(leftColumnItems as LeftColItem<T>[]).reduce<React.ReactNode[]>(
@@ -798,21 +839,27 @@ export default function CompareAuditEvents<T>({
                         py="1"
                       >
                         <Text color="text-low" size="sm">
-                          {item.marker.label}
+                          {resolveDisplayText(item.marker.label, i18n)}
                         </Text>
                       </Flex>,
                     );
                   } else {
                     // Noise item: hidden diffable changes + collapsed markers.
                     const lines: string[] = [];
-                    if (item.hiddenCount > 0) {
+                    const hiddenCount = item.hiddenCount;
+                    if (hiddenCount > 0) {
                       lines.push(
-                        `${item.hiddenCount} ${item.hiddenCount === 1 ? "change" : "changes"} hidden`,
+                        hiddenCount === 1
+                          ? t`${hiddenCount} change hidden`
+                          : t`${hiddenCount} changes hidden`,
                       );
                     }
                     for (const m of item.markers) {
+                      const markerLabel = resolveDisplayText(m.label, i18n);
                       lines.push(
-                        m.count > 1 ? `${m.label} ×${m.count}` : m.label,
+                        m.count > 1
+                          ? `${markerLabel} ×${m.count}`
+                          : markerLabel,
                       );
                     }
                     nodes.push(
@@ -851,7 +898,7 @@ export default function CompareAuditEvents<T>({
                         disabled={loading || loadingAll}
                       >
                         {loading && <LoadingSpinner />}
-                        {`Load ${loadMoreCount} more`}
+                        {t`Load ${loadMoreCount} more`}
                       </Button>
                       {remaining > PAGE_LIMIT && (
                         <Button
@@ -861,7 +908,7 @@ export default function CompareAuditEvents<T>({
                           disabled={loading || loadingAll}
                         >
                           {loadingAll && <LoadingSpinner />}
-                          {`Load all (${total})`}
+                          {t`Load all (${total})`}
                         </Button>
                       )}
                     </Flex>
@@ -882,7 +929,9 @@ export default function CompareAuditEvents<T>({
       >
         {steps.length === 0 && !isSingleEntry ? (
           <Text color="text-low">
-            Select at least one entry in the list to see the diff.
+            <Trans>
+              Select at least one entry in the list to see the diff.
+            </Trans>
           </Text>
         ) : (
           <Box pb="4">
@@ -897,7 +946,9 @@ export default function CompareAuditEvents<T>({
                   {diffViewMode === "steps" && (
                     <>
                       <Heading as="h2" size="sm" mb="0">
-                        Step {safeDiffPage + 1} of {steps.length}
+                        <Trans>
+                          Step {stepNumber} of {stepCount}
+                        </Trans>
                       </Heading>
                       <Flex gap="2">
                         <Button
@@ -906,7 +957,7 @@ export default function CompareAuditEvents<T>({
                           disabled={safeDiffPage <= 0}
                           onClick={() => setDiffPage((p) => Math.max(0, p - 1))}
                         >
-                          Previous
+                          <Trans>Previous</Trans>
                         </Button>
                         <Button
                           variant="soft"
@@ -918,7 +969,7 @@ export default function CompareAuditEvents<T>({
                             )
                           }
                         >
-                          Next
+                          <Trans>Next</Trans>
                         </Button>
                       </Flex>
                     </>
@@ -930,7 +981,7 @@ export default function CompareAuditEvents<T>({
                       <Flex direction="column">
                         <Flex align="center" gap="1">
                           {isEntryFailed(singleEntryFirst.id) && (
-                            <Tooltip body="Could not load entry">
+                            <Tooltip body={t`Could not load entry`}>
                               <PiWarningBold
                                 style={{
                                   color: "var(--red-9)",
@@ -964,7 +1015,7 @@ export default function CompareAuditEvents<T>({
                 {!isSingleEntry ? (
                   <Flex align="center" gap="2">
                     <Text size="md" weight="medium" color="text-mid">
-                      Show diff as
+                      <Trans>Show diff as</Trans>
                     </Text>
                     <Select
                       value={diffViewMode}
@@ -972,8 +1023,12 @@ export default function CompareAuditEvents<T>({
                       size="md"
                       mb="0"
                     >
-                      <SelectItem value="steps">Steps</SelectItem>
-                      <SelectItem value="single">Single diff</SelectItem>
+                      <SelectItem value="steps">
+                        <Trans>Steps</Trans>
+                      </SelectItem>
+                      <SelectItem value="single">
+                        <Trans>Single diff</Trans>
+                      </SelectItem>
                     </Select>
                   </Flex>
                 ) : (
@@ -981,7 +1036,7 @@ export default function CompareAuditEvents<T>({
                     {singleSelect && singleEntryFirst && (
                       <Flex align="center" gap="2">
                         <Text size="md" weight="medium" color="text-mid">
-                          Compare against
+                          <Trans>Compare against</Trans>
                         </Text>
                         <Select
                           value={comparisonBase}
@@ -992,10 +1047,10 @@ export default function CompareAuditEvents<T>({
                           mb="0"
                         >
                           <SelectItem value="current">
-                            Current version
+                            <Trans>Current version</Trans>
                           </SelectItem>
                           <SelectItem value="previous">
-                            Previous version
+                            <Trans>Previous version</Trans>
                           </SelectItem>
                           <SelectItem
                             value="next"
@@ -1003,7 +1058,7 @@ export default function CompareAuditEvents<T>({
                               flatEntries[0]?.id === singleEntryFirst.id
                             }
                           >
-                            Next version
+                            <Trans>Next version</Trans>
                           </SelectItem>
                         </Select>
                       </Flex>
@@ -1045,31 +1100,40 @@ export default function CompareAuditEvents<T>({
               <Callout status="error" mt="4">
                 <Flex direction="column" gap="2" align="start">
                   <span>
-                    Could not load change
-                    {displayFailed.length > 1 ? "s" : ""}.
+                    <Plural
+                      value={displayFailed.length}
+                      one="Could not load change."
+                      other="Could not load changes."
+                    />
                   </span>
-                  <span>The audit record may be missing snapshot data.</span>
+                  <span>
+                    <Trans>
+                      The audit record may be missing snapshot data.
+                    </Trans>
+                  </span>
                 </Flex>
               </Callout>
             ) : activeDiffs.length === 0 ? (
-              <Text color="text-low">No changes between these entries.</Text>
+              <Text color="text-low">
+                <Trans>No changes between these entries.</Trans>
+              </Text>
             ) : (
               <Box>
                 <Heading as="h5" size="sm" color="text-mid" mt="4">
-                  Summary of changes
+                  <Trans>Summary of changes</Trans>
                 </Heading>
 
                 {/* Badge strip — same layout as revision comparison modal */}
                 {activeBadges.length > 0 && (
                   <Flex wrap="wrap" gap="2" mt="2">
-                    {activeBadges.map(({ label, action }) => (
+                    {activeBadges.map((badge) => (
                       <Badge
-                        key={label}
+                        key={badge.label}
                         color="gray"
                         variant="soft"
-                        label={label}
+                        label={diffLabelText(badge, i18n)}
                         // action is passed through for future colour mapping
-                        data-action={action}
+                        data-action={badge.action}
                       />
                     ))}
                   </Flex>
@@ -1086,7 +1150,7 @@ export default function CompareAuditEvents<T>({
                         variant={showContent ? "solid" : "outline"}
                         onClick={() => setShowContent(true)}
                       >
-                        {contentView.label}
+                        {resolveDisplayText(contentView.label, i18n)}
                       </Button>
                       <Button
                         size="md"
@@ -1100,7 +1164,7 @@ export default function CompareAuditEvents<T>({
                           setFormat("formatted");
                         }}
                       >
-                        Formatted changes
+                        <Trans>Formatted changes</Trans>
                       </Button>
                       <Button
                         size="md"
@@ -1114,7 +1178,7 @@ export default function CompareAuditEvents<T>({
                           setFormat("json");
                         }}
                       >
-                        JSON diffs
+                        <Trans>JSON diffs</Trans>
                       </Button>
                     </SplitButton>
                   </Box>
@@ -1138,7 +1202,9 @@ export default function CompareAuditEvents<T>({
                       />
                     </Box>
                   ) : (
-                    <Text color="text-low">No content for this version.</Text>
+                    <Text color="text-low">
+                      <Trans>No content for this version.</Trans>
+                    </Text>
                   )
                 ) : effectiveFormat === "formatted" &&
                   customRenderGroups.length > 0 ? (
@@ -1153,7 +1219,7 @@ export default function CompareAuditEvents<T>({
                         >
                           {!suppressCardLabel && (
                             <Heading as="h6" size="sm" color="text-mid" mb="2">
-                              {label}
+                              {sectionLabelText(label, config, i18n)}
                             </Heading>
                           )}
                           {renders.map((r, i) => (
@@ -1167,7 +1233,7 @@ export default function CompareAuditEvents<T>({
                   // Non-sectional: a single diff of the entire before/after shape.
                   <Box my="3">
                     <ExpandableDiff
-                      title="Raw JSON"
+                      title={t`Raw JSON`}
                       a={stringifyForRawDiff(activeRawPre)}
                       b={stringifyForRawDiff(activeRawPost)}
                       defaultOpen
@@ -1183,7 +1249,7 @@ export default function CompareAuditEvents<T>({
                     {activeDiffs.map((d, i) => (
                       <Box key={i}>
                         <ExpandableDiff
-                          title={d.label}
+                          title={sectionLabelText(d.label, config, i18n)}
                           a={d.a}
                           b={d.b}
                           defaultOpen={

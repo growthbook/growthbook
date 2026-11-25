@@ -102,7 +102,7 @@ const COL = {
 } as const;
 
 const ConfigReviews: FC = () => {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const router = useRouter();
   const { getUserDisplay } = useUser();
 
@@ -379,7 +379,9 @@ const ConfigReviews: FC = () => {
                           background: draftStatusDotColor(row.status),
                         }}
                       />
-                      <Text size="md">{revisionStatusLabel(row.status)}</Text>
+                      <Text size="md">
+                        {revisionStatusLabel(row.status, i18n)}
+                      </Text>
                     </Flex>
                   </TableCell>
                 </TableRow>

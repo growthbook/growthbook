@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Revision, getRevisionNumberById } from "shared/enterprise";
 import { isActiveDraftStatus } from "shared/validators";
 import { PanelSection } from "@/components/DetailsPanel";
@@ -36,6 +37,7 @@ export default function RevisionPanelSection({
   onRename: (title: string) => Promise<void>;
   onDescribe: (description: string) => Promise<void>;
 }) {
+  const { t, i18n } = useLingui();
   const [renaming, setRenaming] = useState(false);
   const [describing, setDescribing] = useState(false);
   const version = getRevisionNumberById(allRevisions).get(revision.id) ?? 1;
@@ -59,7 +61,7 @@ export default function RevisionPanelSection({
         />
       ) : null}
       <PanelSection
-        title={`Revision ${version}`}
+        title={t`Revision ${version}`}
         badge={getStatusBadge(
           isLive ? "live" : revision.status,
           requiresApproval,
@@ -68,11 +70,11 @@ export default function RevisionPanelSection({
         <Metadata
           size="sm"
           stacked
-          label="Name"
+          label={t`Name`}
           action={
             editable ? (
               <PanelEditButton
-                label="Rename revision"
+                label={t`Rename revision`}
                 onClick={() => setRenaming(true)}
               />
             ) : null
@@ -90,11 +92,11 @@ export default function RevisionPanelSection({
         <Metadata
           size="sm"
           stacked
-          label="Description"
+          label={t`Description`}
           action={
             editable ? (
               <PanelEditButton
-                label="Edit revision description"
+                label={t`Edit revision description`}
                 onClick={() => setDescribing(true)}
               />
             ) : null
@@ -102,12 +104,12 @@ export default function RevisionPanelSection({
           value={<MarkdownValue markdown={revision.comment} />}
         />
         {revisionModelFacts(revision, (id) => <PersonValue id={id} />).map(
-          ({ label, value }) => (
+          ({ label, displayLabel, value }) => (
             <Metadata
               key={label}
               size="sm"
               stacked
-              label={label}
+              label={i18n._(displayLabel)}
               value={
                 typeof value === "string" ? (
                   <PanelText>{value}</PanelText>

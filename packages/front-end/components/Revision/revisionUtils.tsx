@@ -1,4 +1,5 @@
 import React from "react";
+import { useLingui } from "@lingui/react/macro";
 import {
   Revision,
   RevisionStatus,
@@ -37,6 +38,18 @@ export function getStatusBadge(
   status: RevisionBadgeStatus,
   requiresApproval: boolean = true,
 ) {
+  return <StatusBadge status={status} requiresApproval={requiresApproval} />;
+}
+
+// A component, so the label follows the active language.
+function StatusBadge({
+  status,
+  requiresApproval,
+}: {
+  status: RevisionBadgeStatus;
+  requiresApproval: boolean;
+}) {
+  const { i18n } = useLingui();
   // If approvals are not required, show pending-review as Draft.
   const effective: RevisionBadgeStatus =
     status === "pending-review" && !requiresApproval ? "draft" : status;
@@ -47,7 +60,7 @@ export function getStatusBadge(
   ) as Parameters<typeof revisionStatusColor>[0];
   return (
     <Badge
-      label={revisionStatusLabel(effective)}
+      label={revisionStatusLabel(effective, i18n)}
       color={revisionStatusColor(featureStatus)}
       variant={revisionStatusBadgeVariant(featureStatus)}
       radius="full"

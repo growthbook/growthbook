@@ -24,6 +24,9 @@ import {
 } from "react-icons/pi";
 import { date, datetime } from "shared/dates";
 import React, { useMemo, useState } from "react";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import stringify from "json-stringify-pretty-compact";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
@@ -109,48 +112,49 @@ type RowVisual = {
 // Readable past-tense phrases for system audit actions so inline events read
 // as a sentence ("Bryce created a new revision"). Keys must match the raw
 // `action` strings written to the revision log on the backend.
-const AUDIT_ACTION_VERBS: Record<string, string> = {
-  "new revision": "created a new revision",
-  update: "updated this revision",
-  publish: "published this revision",
-  "re-publish": "re-published this revision",
-  rebase: "rebased this revision",
-  revert: "created this revert",
-  "add rule": "added a rule",
-  "add rule with ramp schedule": "added a rule with a ramp schedule",
-  "add experiment rule": "added an experiment rule",
-  "edit rule": "edited a rule",
-  "edit rule with ramp schedule": "edited a rule and its ramp schedule",
-  "delete rule": "deleted a rule",
-  "move rule": "moved a rule",
-  "reorder rules": "reordered the rules",
-  "edit default value": "edited the default value",
-  "edit prerequisites": "edited the prerequisites",
-  "edit title": "edited the revision title",
-  "edit metadata": "edited the revision metadata",
-  "set ramp schedule": "set a ramp schedule",
-  "clear ramp schedule": "cleared a ramp schedule",
-  "schedule publish": "scheduled this revision to publish",
-  "update scheduled publish": "updated the publish schedule",
-  "cancel scheduled publish": "canceled the publish schedule",
-  "Recall Review": "recalled their review request",
-  "Undo Review": "withdrew their review",
+const AUDIT_ACTION_VERBS: Record<string, MessageDescriptor> = {
+  "new revision": msg`created a new revision`,
+  update: msg`updated this revision`,
+  publish: msg`published this revision`,
+  "re-publish": msg`re-published this revision`,
+  rebase: msg`rebased this revision`,
+  revert: msg`created this revert`,
+  "add rule": msg`added a rule`,
+  "add rule with ramp schedule": msg`added a rule with a ramp schedule`,
+  "add experiment rule": msg`added an experiment rule`,
+  "edit rule": msg`edited a rule`,
+  "edit rule with ramp schedule": msg`edited a rule and its ramp schedule`,
+  "delete rule": msg`deleted a rule`,
+  "move rule": msg`moved a rule`,
+  "reorder rules": msg`reordered the rules`,
+  "edit default value": msg`edited the default value`,
+  "edit prerequisites": msg`edited the prerequisites`,
+  "edit title": msg`edited the revision title`,
+  "edit metadata": msg`edited the revision metadata`,
+  "set ramp schedule": msg`set a ramp schedule`,
+  "clear ramp schedule": msg`cleared a ramp schedule`,
+  "schedule publish": msg`scheduled this revision to publish`,
+  "update scheduled publish": msg`updated the publish schedule`,
+  "cancel scheduled publish": msg`canceled the publish schedule`,
+  "Recall Review": msg`recalled their review request`,
+  "Undo Review": msg`withdrew their review`,
 };
 
-function auditVerb(action: string): string {
-  return (
-    AUDIT_ACTION_VERBS[action] ?? `made a change (${action.toLowerCase()})`
-  );
+function auditVerb(action: string, i18n: I18n): string {
+  const verb = AUDIT_ACTION_VERBS[action];
+  if (verb) return i18n._(verb);
+  const actionName = action.toLowerCase();
+  return i18n._(msg`made a change (${actionName})`);
 }
 
 // Icons and colors mirror RevisionStatusBadge so the timeline and the
 // actions-column header speak the same visual language.
-function rowVisual(action: string): RowVisual {
+function rowVisual(action: string, i18n: I18n): RowVisual {
   switch (action) {
     case "Comment":
       return {
         color: "violet",
-        verb: "commented",
+        verb: i18n._(msg`commented`),
         icon: <PiChatCircleTextFill />,
         showCommentBody: true,
         showAuditDetails: false,
@@ -160,7 +164,7 @@ function rowVisual(action: string): RowVisual {
         color: "green",
         // Standalone glyph — the surrounding circle (solid verdict avatar or
         // soft inline badge) acts as the check's container.
-        verb: "approved these changes",
+        verb: i18n._(msg`approved these changes`),
         icon: <PiCheckBold />,
         showCommentBody: true,
         showAuditDetails: false,
@@ -168,7 +172,7 @@ function rowVisual(action: string): RowVisual {
     case "Requested Changes":
       return {
         color: "red",
-        verb: "requested changes",
+        verb: i18n._(msg`requested changes`),
         icon: <PiPlusMinusBold />,
         showCommentBody: true,
         showAuditDetails: false,
@@ -176,7 +180,7 @@ function rowVisual(action: string): RowVisual {
     case "Review Requested":
       return {
         color: "orange",
-        verb: "requested a review",
+        verb: i18n._(msg`requested a review`),
         // Spinner glyph (not a clock) — distinct from the scheduled-publish clock.
         icon: <PiSpinnerGap />,
         showCommentBody: false,
@@ -185,7 +189,7 @@ function rowVisual(action: string): RowVisual {
     case "edit comment":
       return {
         color: "gray",
-        verb: "edited the revision description",
+        verb: i18n._(msg`edited the revision description`),
         icon: <PiPencilSimple />,
         showCommentBody: false,
         showAuditDetails: false,
@@ -193,7 +197,7 @@ function rowVisual(action: string): RowVisual {
     case "edit title":
       return {
         color: "gray",
-        verb: "edited the revision title",
+        verb: i18n._(msg`edited the revision title`),
         icon: <PiPencilSimple />,
         showCommentBody: false,
         showAuditDetails: false,
@@ -201,7 +205,7 @@ function rowVisual(action: string): RowVisual {
     case "new revision":
       return {
         color: "indigo",
-        verb: auditVerb(action),
+        verb: auditVerb(action, i18n),
         icon: <PiFilePlus />,
         showCommentBody: false,
         // Keep the default-case Details disclosure — the payload carries the
@@ -214,8 +218,8 @@ function rowVisual(action: string): RowVisual {
         color: "indigo",
         verb:
           action === "publish"
-            ? "published this revision"
-            : "re-published this revision",
+            ? i18n._(msg`published this revision`)
+            : i18n._(msg`re-published this revision`),
         icon: <PiRocketLaunch />,
         // Publishes are plain lifecycle markers. Legacy entries may still
         // carry a comment in their payload — ignore it and render the
@@ -226,7 +230,7 @@ function rowVisual(action: string): RowVisual {
     case "discard":
       return {
         color: "gray",
-        verb: "discarded this revision",
+        verb: i18n._(msg`discarded this revision`),
         icon: <PiXCircleFill />,
         showCommentBody: false,
         showAuditDetails: false,
@@ -234,7 +238,7 @@ function rowVisual(action: string): RowVisual {
     case "reopen":
       return {
         color: "indigo",
-        verb: "reopened this revision as a draft",
+        verb: i18n._(msg`reopened this revision as a draft`),
         icon: <PiArrowCounterClockwiseFill />,
         showCommentBody: false,
         showAuditDetails: false,
@@ -243,7 +247,7 @@ function rowVisual(action: string): RowVisual {
     case "update scheduled publish":
       return {
         color: "amber",
-        verb: auditVerb(action),
+        verb: auditVerb(action, i18n),
         icon: <PiClockFill />,
         showCommentBody: false,
         // Keep the Details disclosure so the date + lock payload is inspectable.
@@ -252,7 +256,7 @@ function rowVisual(action: string): RowVisual {
     case "cancel scheduled publish":
       return {
         color: "gray",
-        verb: auditVerb(action),
+        verb: auditVerb(action, i18n),
         icon: <PiProhibitFill />,
         showCommentBody: false,
         showAuditDetails: false,
@@ -260,7 +264,7 @@ function rowVisual(action: string): RowVisual {
     default:
       return {
         color: "gray",
-        verb: auditVerb(action),
+        verb: auditVerb(action, i18n),
         icon: <PiGearFill />,
         showCommentBody: false,
         showAuditDetails: true,
@@ -289,18 +293,19 @@ function VerdictTags({
   retraction?: VerdictRetraction | null;
   mb?: "2";
 }) {
+  const { t } = useLingui();
   if (!uncoveredReason && !retraction) return null;
   return (
     <Flex align="center" gap="2" mb={mb}>
       {uncoveredReason && (
         <Tooltip
           usePortal
-          body={`This approval does not let the draft publish: ${uncoveredReason}.`}
+          body={t`This approval does not let the draft publish: ${uncoveredReason}.`}
         >
           <Badge
             color="gray"
             variant="soft"
-            label="Not a qualifying approval"
+            label={t`Not a qualifying approval`}
             size="xs"
           />
         </Tooltip>
@@ -344,6 +349,7 @@ export function RevisionLogRow({
   // avatar and annotates the row.
   uncoveredApproverReasons?: Map<string, string>;
 }) {
+  const { t, i18n } = useLingui();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const { userId } = useUser();
@@ -364,7 +370,9 @@ export function RevisionLogRow({
     // not JSON
   }
 
-  const visual = rowVisual(log.action);
+  const visual = rowVisual(log.action, i18n);
+  const verb = visual.verb;
+  const when = datetime(log.timestamp);
 
   // The current user owns the entry and we have the wiring (a logId + the
   // matching callback) to mutate it. Edit and delete have different policies:
@@ -390,8 +398,8 @@ export function RevisionLogRow({
   if (editing && canEdit && logId) {
     return (
       <CommentComposer
-        cta="Save"
-        placeholder="Add a comment…"
+        cta={t`Save`}
+        placeholder={t`Add a comment…`}
         initialValue={comment ?? ""}
         autofocus
         onCancel={() => setEditing(false)}
@@ -435,7 +443,7 @@ export function RevisionLogRow({
       <Box data-revision-log-id={log.id ?? undefined}>
         <CommentCard
           user={log.user}
-          metadata={`${visual.verb} on ${datetime(log.timestamp)}`}
+          metadata={t`${verb} on ${when}`}
           stripeColor={visual.color}
           leading={verdictLeading}
           avatarSize="md"
@@ -458,7 +466,7 @@ export function RevisionLogRow({
               >
                 {canEdit && (
                   <DropdownMenuItem onClick={() => setEditing(true)}>
-                    Edit
+                    <Trans>Edit</Trans>
                   </DropdownMenuItem>
                 )}
                 {canRetractVerdict && (
@@ -467,21 +475,21 @@ export function RevisionLogRow({
                       void onRetractVerdict?.();
                     }}
                   >
-                    Retract review
+                    <Trans>Retract review</Trans>
                   </DropdownMenuItem>
                 )}
                 {canDelete && logId && (
                   <DropdownMenuItem
                     color="red"
                     confirmation={{
-                      confirmationTitle: "Delete Comment",
-                      cta: "Delete",
+                      confirmationTitle: t`Delete Comment`,
+                      cta: t`Delete`,
                       submit: async () => {
                         await onDeleteComment?.(logId);
                       },
                     }}
                   >
-                    Delete
+                    <Trans>Delete</Trans>
                   </DropdownMenuItem>
                 )}
               </DropdownMenu>
@@ -531,13 +539,15 @@ export function RevisionLogRow({
           </Flex>
         )}
         <Text size="sm" color="text-high">
-          <Text size="inherit" weight="medium">
-            <EventUser user={log.user} display="name" size="sm" />
-          </Text>{" "}
-          {visual.verb}{" "}
-          <Text size="inherit" color="text-low">
-            on {datetime(log.timestamp)}
-          </Text>
+          <Trans>
+            <Text size="inherit" weight="medium">
+              <EventUser user={log.user} display="name" size="sm" />
+            </Text>{" "}
+            {verb}{" "}
+            <Text size="inherit" color="text-low">
+              on {when}
+            </Text>
+          </Trans>
         </Text>
 
         <VerdictTags
@@ -554,7 +564,7 @@ export function RevisionLogRow({
             icon={open ? <PiCaretDown /> : <PiCaretRight />}
             onClick={() => setOpen((o) => !o)}
           >
-            Details
+            <Trans>Details</Trans>
           </Button>
         )}
       </Flex>
@@ -617,7 +627,7 @@ export default function RevisionTimeline({
   onDeleteComment,
   onRetractVerdict,
   uncoveredApproverReasons,
-  emptyText = "No history for this revision.",
+  emptyText,
 }: {
   logs: RevisionLog[];
   uncoveredApproverReasons?: Map<string, string>;
@@ -632,6 +642,9 @@ export default function RevisionTimeline({
   onRetractVerdict?: () => void | Promise<void>;
   emptyText?: string;
 }) {
+  const { t } = useLingui();
+  const emptyTextContent =
+    emptyText === undefined ? t`No history for this revision.` : emptyText;
   const { userId } = useUser();
   // Which collapsed "N other events" runs the user has expanded.
   const [expandedRuns, setExpandedRuns] = useState<Set<string>>(new Set());
@@ -672,17 +685,17 @@ export default function RevisionTimeline({
             const recallerName = recaller.name || recaller.email || null;
             const isSelfRecall = !!recaller.id && recaller.id === userId;
             const label = isSelfRecall
-              ? "Discarded by you"
+              ? t`Discarded by you`
               : recallerName
-                ? `Discarded by ${recallerName}`
-                : "Discarded";
+                ? t`Discarded by ${recallerName}`
+                : t`Discarded`;
             retractions.set(entry, { kind: "recall", label });
             break;
           }
           const nextUid = eventUserIdentity(next.user ?? null);
           if (nextUid !== uid) continue;
           if (next.action === "Undo Review") {
-            retractions.set(entry, { kind: "self", label: "Retracted" });
+            retractions.set(entry, { kind: "self", label: t`Retracted` });
             break;
           }
           if (
@@ -712,7 +725,7 @@ export default function RevisionTimeline({
         verdictRetractions: retractions,
         activeVerdictForCurrentUser: activeVerdict,
       };
-    }, [logs, userId, collapseFilter]);
+    }, [logs, userId, collapseFilter, t]);
 
   const renderRow = (log: RevisionLog, key: string) => (
     <RevisionLogRow
@@ -802,7 +815,11 @@ export default function RevisionTimeline({
                       })
                     }
                   >
-                    {n} other event{n === 1 ? "" : "s"}
+                    <Plural
+                      value={n}
+                      one="# other event"
+                      other="# other events"
+                    />
                   </Button>
                 </Box>
                 {isOpen &&
@@ -815,7 +832,7 @@ export default function RevisionTimeline({
         </Box>
       ) : (
         <Text as="p" color="text-low" fontStyle="italic" mt="3">
-          {emptyText}
+          {emptyTextContent}
         </Text>
       )}
     </Box>

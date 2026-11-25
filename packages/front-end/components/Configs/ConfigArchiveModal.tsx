@@ -1,6 +1,7 @@
 import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { configPublishEnvironments } from "shared/util";
+import { useLingui } from "@lingui/react/macro";
 import {
   canStageArchiveDraft,
   canWriteArchiveIntoDraft,
@@ -35,6 +36,7 @@ export default function ConfigArchiveModal({
   selectFlow?: (revision: Revision | null) => void;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const { mutateDefinitions } = useDefinitions();
   const { openRevisions, allRevisions, approvalRequired, canBypassApproval } =
     revisionCtx;
@@ -59,7 +61,8 @@ export default function ConfigArchiveModal({
 
   return (
     <ArchiveModal
-      entityNoun="Config"
+      entityNoun={t`Config`}
+      entityNounInSentence={t`config`}
       entityId={config.id}
       isArchived={isArchived}
       apiPathBase="/configs"

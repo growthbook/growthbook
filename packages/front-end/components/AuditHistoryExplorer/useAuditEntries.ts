@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import {
   AuditInterface,
   AuditUserApiKey,
@@ -248,6 +251,7 @@ export function useAuditEntries<T>(
   entityId: string,
 ): UseAuditEntriesResult<T> {
   const { apiCall } = useAuth();
+  const { i18n } = useLingui();
 
   const [groupBy, setGroupBy] = useLocalStorage<GroupByOption>(
     `audit:compare-events:${config.entityType}:groupBy`,
@@ -262,7 +266,8 @@ export function useAuditEntries<T>(
   const [loading, setLoading] = useState(true);
   const [loadingAll, setLoadingAll] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // A descriptor, so the message follows the active language.
+  const [error, setError] = useState<MessageDescriptor | null>(null);
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -383,7 +388,7 @@ export function useAuditEntries<T>(
         setHasMore(!!result.nextCursor);
       } catch (e) {
         if (!cancelled && isMounted.current)
-          setError("Failed to load history.");
+          setError(msg`Failed to load history.`);
       } finally {
         if (!cancelled && isMounted.current) setLoading(false);
       }
@@ -408,7 +413,7 @@ export function useAuditEntries<T>(
         setCursor(result.nextCursor);
         setHasMore(!!result.nextCursor);
       } catch {
-        if (isMounted.current) setError("Failed to load more history.");
+        if (isMounted.current) setError(msg`Failed to load more history.`);
       } finally {
         if (isMounted.current) setLoading(false);
       }
@@ -438,7 +443,7 @@ export function useAuditEntries<T>(
       setCursor(null);
       setHasMore(false);
     } catch {
-      if (isMounted.current) setError("Failed to load all history.");
+      if (isMounted.current) setError(msg`Failed to load all history.`);
     } finally {
       if (isMounted.current) setLoadingAll(false);
     }
@@ -459,7 +464,7 @@ export function useAuditEntries<T>(
       setHasMore(!!result.nextCursor);
       setError(null);
     } catch {
-      if (isMounted.current) setError("Failed to refresh history.");
+      if (isMounted.current) setError(msg`Failed to refresh history.`);
     } finally {
       if (isMounted.current) setRefreshing(false);
     }
@@ -489,7 +494,7 @@ export function useAuditEntries<T>(
     loading,
     loadingAll,
     refreshing,
-    error,
+    error: error ? i18n._(error) : null,
     hasMore,
     total,
     loadMore,

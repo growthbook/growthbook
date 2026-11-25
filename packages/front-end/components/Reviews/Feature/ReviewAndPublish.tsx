@@ -71,6 +71,7 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { format } from "date-fns";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -98,7 +99,9 @@ import Revisionlog, {
 } from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
-import RevisionLabel from "@/components/Reviews/RevisionLabel";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Reviews/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
@@ -225,6 +228,7 @@ export default function ReviewAndPublish({
   experiments: experimentsList,
   rampSchedules,
 }: Props) {
+  const { t, i18n } = useLingui();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envIds = environments.map((e) => e.id);
@@ -670,8 +674,8 @@ export default function ReviewAndPublish({
           ? "changes"
           : "overview";
   const setSubTab = useCallback(
-    (t: ReviewSubTab) => {
-      setUrlHash(t === "changes" ? "review,changes" : "review,overview");
+    (tab: ReviewSubTab) => {
+      setUrlHash(tab === "changes" ? "review,changes" : "review,overview");
     },
     [setUrlHash],
   );
@@ -904,6 +908,7 @@ export default function ReviewAndPublish({
     revision?.version,
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
+  const lockingVersion = lockingScheduledSibling?.version;
 
   const requireReviewSettings = settings?.requireReviews;
   const reviewSetting = Array.isArray(requireReviewSettings)
@@ -1085,35 +1090,39 @@ export default function ReviewAndPublish({
     // Entity-agnostic, explicit wording shared with ScheduledPublishControl so
     // both surfaces read identically: lockEdits freezes this draft's edits,
     // lockOthers freezes publishing of the feature's other drafts.
-    const lockTargets =
-      lockOthers && lockEdits
-        ? "this draft and other drafts of this feature"
+    const lockMessage = lockActive
+      ? lockOthers && lockEdits
+        ? t`Locks this draft and other drafts of this feature`
         : lockOthers
-          ? "other drafts of this feature"
-          : "this draft";
+          ? t`Locks other drafts of this feature`
+          : t`Locks this draft`
+      : lockOthers && lockEdits
+        ? t`Will lock this draft and other drafts of this feature`
+        : lockOthers
+          ? t`Will lock other drafts of this feature`
+          : t`Will lock this draft`;
+    const stuckError = revision.scheduledPublishLastError;
     return (
       <NoticeBanner
         icon={<PiClockFill />}
         iconColor="violet"
-        title="Scheduled to publish"
+        title={t`Scheduled to publish`}
         body={
           <>
             {format(new Date(revision.scheduledPublishAt as Date), "PPp")}
-            {lockActive ? "" : " · pending approval"}
+            {lockActive ? "" : ` · ${t`pending approval`}`}
           </>
         }
         footer={
           <>
             {hasLocks && (
               <HelperText status="warning" size="sm" icon={<PiLock />} mt="2">
-                {lockActive ? "Locks " : "Will lock "}
-                {lockTargets}
+                {lockMessage}
               </HelperText>
             )}
-            {revision.scheduledPublishLastError && (
+            {stuckError && (
               <HelperText status="error" size="sm" mt="2">
-                Publish is stuck and keeps retrying:{" "}
-                {revision.scheduledPublishLastError}
+                <Trans>Publish is stuck and keeps retrying: {stuckError}</Trans>
               </HelperText>
             )}
             {note && (
@@ -1133,7 +1142,7 @@ export default function ReviewAndPublish({
                   disabled={savingSchedule}
                   onClick={onCancel}
                 >
-                  Cancel schedule
+                  <Trans>Cancel schedule</Trans>
                 </Button>
               )}
               {onChange && (
@@ -1142,7 +1151,7 @@ export default function ReviewAndPublish({
                   disabled={savingSchedule}
                   onClick={onChange}
                 >
-                  Change
+                  <Trans>Change</Trans>
                 </Button>
               )}
             </Flex>
@@ -1326,7 +1335,7 @@ export default function ReviewAndPublish({
       await mutate();
     } catch (e) {
       await mutate();
-      failSubmit(e, "Failed to update from live");
+      failSubmit(e, t`Failed to update from live`);
     } finally {
       setRebasing(false);
     }
@@ -1353,11 +1362,11 @@ export default function ReviewAndPublish({
   if (!revision) {
     return pageWrapper(
       <Callout status="info">
-        Select a revision from the dropdown above to review.
+        <Trans>Select a revision from the dropdown above to review.</Trans>
         {onClose && (
           <Box mt="2">
             <Button color="inherit" variant="soft" onClick={() => onClose()}>
-              Back to Overview
+              <Trans>Back to Overview</Trans>
             </Button>
           </Box>
         )}
@@ -1467,11 +1476,11 @@ export default function ReviewAndPublish({
                     centers against it */}
               <Flex align="center" style={{ height: 32 }}>
                 <Heading as="h4" size="sm" mb="0">
-                  Add a comment
+                  <Trans>Add a comment</Trans>
                 </Heading>
               </Flex>
               <CommentComposer
-                placeholder="Leave a comment…"
+                placeholder={t`Leave a comment…`}
                 onSubmit={async (comment) => {
                   await apiCall(
                     `/feature/${feature.id}/${revision.version}/comment`,
@@ -1512,7 +1521,7 @@ export default function ReviewAndPublish({
   const generatedByRow = apiKeyCreator ? (
     <Box mb="3">
       <Text size="md" weight="medium" color="text-high" as="div" mb="2">
-        Created by
+        <Trans>Created by</Trans>
       </Text>
       <EventUser
         user={apiKeyCreator}
@@ -1524,12 +1533,12 @@ export default function ReviewAndPublish({
   ) : systemCreator ? (
     <Box mb="3">
       <Metadata
-        label="Generated by"
+        label={t`Generated by`}
         value={
           <em>
             {systemCreator.subtype === "ramp-schedule"
-              ? "ramp schedule"
-              : "system"}
+              ? t`ramp schedule`
+              : t`system`}
           </em>
         }
       />
@@ -1570,7 +1579,7 @@ export default function ReviewAndPublish({
     // review). The title badge above still shows the precise live/locked state.
     const headerStatus = isDiscarded ? "discarded" : ("published" as const);
     const headerStatusColor = revisionStatusColor(headerStatus);
-    const headerStatusLabel = isDiscarded ? "Discarded" : "Published";
+    const headerStatusLabel = isDiscarded ? t`Discarded` : t`Published`;
     const headerStatusIcon = isDiscarded ? (
       revisionStatusIcon("discarded")
     ) : (
@@ -1579,7 +1588,7 @@ export default function ReviewAndPublish({
     const headerTitle =
       revision.title?.trim() ||
       revision.comment?.trim() ||
-      `Revision ${revision.version}`;
+      revisionLabelText(revision.version, null, false, i18n);
     const baseV = readonlyBaseRevision?.version;
 
     // Errors surface inside the confirm modal via ModalForm's error handling.
@@ -1646,7 +1655,7 @@ export default function ReviewAndPublish({
           {contributorIds.length > 0 && (
             <Box mb="3">
               <Text size="md" weight="medium" color="text-high" as="div" mb="2">
-                Contributors
+                <Trans>Contributors</Trans>
               </Text>
               <Flex direction="column" gap="2">
                 {contributorIds.map((id) => (
@@ -1659,7 +1668,7 @@ export default function ReviewAndPublish({
           {reviewers.length > 0 && (
             <Box mb="3">
               <Text size="md" weight="medium" color="text-high" as="div" mb="2">
-                Reviewers
+                <Trans>Reviewers</Trans>
               </Text>
               <Flex direction="column" gap="2">
                 {reviewers.map(({ id, status, timestamp, stale, user }) => {
@@ -1692,20 +1701,20 @@ export default function ReviewAndPublish({
             <Box mt="5" mb="4">
               <HelperText status="info" size="sm">
                 {isDiscarded ? (
-                  <>
+                  <Trans>
                     This revision was discarded. Reopen it as a draft to
                     continue editing, request review, and publish.
-                  </>
+                  </Trans>
                 ) : isLive ? (
-                  <>
+                  <Trans>
                     This revision is currently live. Rolling back reverts the
                     Feature Flag to a previously published revision.
-                  </>
+                  </Trans>
                 ) : (
-                  <>
+                  <Trans>
                     This revision was published and is now locked. You can
                     revert the Feature Flag back to this revision.
-                  </>
+                  </Trans>
                 )}
               </HelperText>
             </Box>
@@ -1718,7 +1727,7 @@ export default function ReviewAndPublish({
               disabled={!canManageDrafts}
               style={{ width: "100%" }}
             >
-              Reopen as draft
+              <Trans>Reopen as draft</Trans>
             </Button>
           ) : nothingToRevertTo ? null : (
             <Button
@@ -1728,19 +1737,23 @@ export default function ReviewAndPublish({
               disabled={!canRevert}
               style={{ width: "100%" }}
             >
-              {isLive ? "Roll back" : "Revert to this revision"}
+              {isLive ? t`Roll back` : t`Revert to this revision`}
             </Button>
           )}
 
           {isDiscarded && !canManageDrafts && (
             <PermissionBlocker mt="2">
-              You don&apos;t have permission to edit drafts for this Feature
-              Flag.
+              <Trans>
+                You don&apos;t have permission to edit drafts for this Feature
+                Flag.
+              </Trans>
             </PermissionBlocker>
           )}
           {!isDiscarded && !nothingToRevertTo && !canRevertHere && (
             <PermissionBlocker mt="2">
-              You don&apos;t have permission to revert this Feature Flag.
+              <Trans>
+                You don&apos;t have permission to revert this Feature Flag.
+              </Trans>
             </PermissionBlocker>
           )}
         </Box>
@@ -1764,13 +1777,15 @@ export default function ReviewAndPublish({
           <ModalStandard
             trackingEventModalType="reopen-feature-revision"
             open={true}
-            header="Reopen Revision"
-            cta="Reopen"
+            header={t`Reopen Revision`}
+            cta={t`Reopen`}
             close={() => setConfirmReopen(false)}
             submit={doReopen}
           >
-            This will reopen the revision and allow you to make further changes
-            or request review again.
+            <Trans>
+              This will reopen the revision and allow you to make further
+              changes or request review again.
+            </Trans>
           </ModalStandard>
         )}
         {readonlyHeader}
@@ -1791,7 +1806,11 @@ export default function ReviewAndPublish({
 
   // Active draft, but the merge baseline hasn't loaded yet (rare).
   if (!mergeResult) {
-    return pageWrapper(<Callout status="info">Loading draft changes…</Callout>);
+    return pageWrapper(
+      <Callout status="info">
+        <Trans>Loading draft changes…</Trans>
+      </Callout>,
+    );
   }
 
   const allDiffs = [...resultDiffs, ...rampDiffs];
@@ -1912,36 +1931,39 @@ export default function ReviewAndPublish({
     });
   }
 
-  const state = getReviewAndPublishState({
-    // Feature edits demote a changes-requested revision back to `draft`, and the
-    // request-review endpoint only accepts `draft`.
-    editsResetStatus: true,
-    requireReviews,
-    status: revision.status,
-    mergeSuccess: mergeResult.success,
-    hasChanges: hasChanges || isStranded,
-    // Recall is derived from this in the state machine, and revert/delete
-    // authority may recall a review request on a draft they authored — so pass
-    // the widened predicate rather than the bare draft atom.
-    canManageDraft: canAdvanceDraft,
-    isReviewRequester,
-    isContributor: !!userId && contributorIds.includes(userId),
-    // `authoredFeatureDraft` — author OR contributor, matching this engine.
-    isDraftOwner: authoredDraft,
-    isReviewer: !!userId && reviewers.some((r) => r.id === userId),
-    adminPublish,
-    hasSelectedExperiments: selectedExperiments.size > 0,
-    onlyScheduledSelected,
-    scheduledStartDay,
-    experimentsStep,
-    featureLockedByRamp,
-    featureLockedBySchedule,
-    checklistIncomplete,
-    // Publish waits on loading checklists, though they show no blocker yet.
-    checklistBlocked: checklistBlocked || checklistLoading,
-    checklistAcknowledged,
-    governanceCanPublish: governance ? governance.canPublish : true,
-  });
+  const state = getReviewAndPublishState(
+    {
+      // Feature edits demote a changes-requested revision back to `draft`, and the
+      // request-review endpoint only accepts `draft`.
+      editsResetStatus: true,
+      requireReviews,
+      status: revision.status,
+      mergeSuccess: mergeResult.success,
+      hasChanges: hasChanges || isStranded,
+      // Recall is derived from this in the state machine, and revert/delete
+      // authority may recall a review request on a draft they authored — so pass
+      // the widened predicate rather than the bare draft atom.
+      canManageDraft: canAdvanceDraft,
+      isReviewRequester,
+      isContributor: !!userId && contributorIds.includes(userId),
+      // `authoredFeatureDraft` — author OR contributor, matching this engine.
+      isDraftOwner: authoredDraft,
+      isReviewer: !!userId && reviewers.some((r) => r.id === userId),
+      adminPublish,
+      hasSelectedExperiments: selectedExperiments.size > 0,
+      onlyScheduledSelected,
+      scheduledStartDay,
+      experimentsStep,
+      featureLockedByRamp,
+      featureLockedBySchedule,
+      checklistIncomplete,
+      // Publish waits on loading checklists, though they show no blocker yet.
+      checklistBlocked: checklistBlocked || checklistLoading,
+      checklistAcknowledged,
+      governanceCanPublish: governance ? governance.canPublish : true,
+    },
+    i18n,
+  );
 
   const doSubmit = async () => {
     setSubmitError(null);
@@ -1995,7 +2017,7 @@ export default function ReviewAndPublish({
       }
     } catch (e) {
       await mutate();
-      failSubmit(e, "Something went wrong");
+      failSubmit(e, t`Something went wrong`);
     } finally {
       setSubmitting(false);
     }
@@ -2007,9 +2029,11 @@ export default function ReviewAndPublish({
   const armedLaunchWarning =
     armedWhenApproved && launchesExperiments ? (
       <HelperText status="warning" size="sm" mt="2">
-        An automatic publish can&apos;t start {experimentNames}, so this draft
-        won&apos;t publish on its own. Publish it directly once it&apos;s
-        approved.
+        <Trans>
+          An automatic publish can&apos;t start {experimentNames}, so this draft
+          won&apos;t publish on its own. Publish it directly once it&apos;s
+          approved.
+        </Trans>
       </HelperText>
     ) : null;
 
@@ -2028,8 +2052,8 @@ export default function ReviewAndPublish({
     } else if (status === "approved") {
       setArmedPublishMissed(
         launchesExperiments
-          ? `An automatic publish can't start ${experimentNames}; publish this draft directly instead.`
-          : "The automatic publish didn't run.",
+          ? t`An automatic publish can't start ${experimentNames}; publish this draft directly instead.`
+          : t`The automatic publish didn't run.`,
       );
     }
   };
@@ -2080,7 +2104,7 @@ export default function ReviewAndPublish({
       await mutate();
       return true;
     } catch (e) {
-      setScheduleError(e.message || "Could not schedule publish");
+      setScheduleError(e.message || t`Could not schedule publish`);
       return false;
     } finally {
       setSavingSchedule(false);
@@ -2169,7 +2193,7 @@ export default function ReviewAndPublish({
       await mutate();
       setScheduleDate("");
     } catch (e) {
-      setScheduleError(e.message || "Could not cancel schedule");
+      setScheduleError(e.message || t`Could not cancel schedule`);
     } finally {
       setSavingSchedule(false);
     }
@@ -2242,7 +2266,7 @@ export default function ReviewAndPublish({
       // verdict state from the log SWR key, not the revision data.
       await Promise.all([mutate(), mutateReviewLog()]);
     } catch (e) {
-      setSecondaryError(e.message || "Something went wrong");
+      setSecondaryError(e.message || t`Something went wrong`);
     } finally {
       setSecondaryLoading(null);
     }
@@ -2257,7 +2281,7 @@ export default function ReviewAndPublish({
       });
       await Promise.all([mutate(), mutateReviewLog()]);
     } catch (e) {
-      setSecondaryError(e.message || "Something went wrong");
+      setSecondaryError(e.message || t`Something went wrong`);
     } finally {
       setSecondaryLoading(null);
     }
@@ -2318,7 +2342,7 @@ export default function ReviewAndPublish({
         {immediateStartExperiments.length > 0 && (
           <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
             {renderExperimentGroup(
-              "Start running experiments upon publishing:",
+              t`Start running experiments upon publishing:`,
               immediateStartExperiments,
             )}
           </Box>
@@ -2326,7 +2350,7 @@ export default function ReviewAndPublish({
         {scheduledExperiments.length > 0 && (
           <Box>
             {renderExperimentGroup(
-              "Approve scheduled start for experiments:",
+              t`Approve scheduled start for experiments:`,
               scheduledExperiments,
             )}
           </Box>
@@ -2339,7 +2363,7 @@ export default function ReviewAndPublish({
     resolveConflicts && !mergeResult.success ? (
       <PagedModal
         trackingEventModalType="resolve-conflicts"
-        header={"Resolve Conflicts"}
+        header={t`Resolve Conflicts`}
         step={conflictStep}
         setStep={setConflictStep}
         submit={async () => {
@@ -2362,21 +2386,21 @@ export default function ReviewAndPublish({
           // on the same key.
           setStrategies({});
         }}
-        cta={conflictStep === 1 ? "Update Draft" : "Next"}
+        cta={conflictStep === 1 ? t`Update Draft` : t`Next`}
         ctaEnabled={!!resolvedMergeResult?.success}
         close={() => {
           setResolveConflicts(false);
           setConflictStep(0);
         }}
-        closeCta="Cancel"
+        closeCta={t`Cancel`}
         size="max"
       >
         <Page
-          display="Fix Conflicts"
+          display={t`Fix Conflicts`}
           enabled
           validate={async () => {
             if (!resolvedMergeResult?.success) {
-              throw new Error("Please resolve all conflicts first");
+              throw new Error(t`Please resolve all conflicts first`);
             }
           }}
         >
@@ -2385,13 +2409,15 @@ export default function ReviewAndPublish({
             style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}
           >
             <Callout status="info" icon={<PiGitMergeBold size={18} />}>
-              Your draft is based on an older version, and the live version has
-              since been published with conflicting changes. Resolve each
-              conflict below, then click{" "}
-              <Text as="span" weight="medium">
-                Update Draft
-              </Text>{" "}
-              to rebase your draft onto the current live version.
+              <Trans>
+                Your draft is based on an older version, and the live version
+                has since been published with conflicting changes. Resolve each
+                conflict below, then click{" "}
+                <Text as="span" weight="medium">
+                  Update Draft
+                </Text>{" "}
+                to rebase your draft onto the current live version.
+              </Trans>
             </Callout>
           </Box>
           {mergeResult.conflicts.map((conflict) => (
@@ -2407,7 +2433,7 @@ export default function ReviewAndPublish({
             />
           ))}
         </Page>
-        <Page display="Review Changes">
+        <Page display={t`Review Changes`}>
           {hasChanges ? (
             <Flex direction="column" gap="4">
               {resolvedResultDiffs
@@ -2437,7 +2463,7 @@ export default function ReviewAndPublish({
             </Flex>
           ) : (
             <Text as="p" color="text-low">
-              Your draft and the live version are identical.
+              <Trans>Your draft and the live version are identical.</Trans>
             </Text>
           )}
         </Page>
@@ -2546,10 +2572,11 @@ export default function ReviewAndPublish({
 
   // Renders in every phase, so it must claim no status: an uncovered approval
   // can still stand after a later "changes requested" verdict.
+  const uncoveredEnvList = uncoveredFootprintEnvs.join(", ");
   const coverageBlockMessage = hasUncoveredApproval
     ? uncoveredFootprintEnvs.length
-      ? `None of this draft's approvals cover ${uncoveredFootprintEnvs.join(", ")}. Someone with review access there must approve it.`
-      : `None of this draft's approvals cover everything it changes.`
+      ? t`None of this draft's approvals cover ${uncoveredEnvList}. Someone with review access there must approve it.`
+      : t`None of this draft's approvals cover everything it changes.`
     : null;
   const approvalGateUnmet =
     requireReviews &&
@@ -2606,7 +2633,7 @@ export default function ReviewAndPublish({
   const headerTitle =
     revision.title?.trim() ||
     revision.comment?.trim() ||
-    `Revision ${revision.version}`;
+    revisionLabelText(revision.version, null, false, i18n);
 
   const mergeHeader = (
     <ReviewHeader
@@ -2628,22 +2655,36 @@ export default function ReviewAndPublish({
   );
 
   // ── Left column: all of the changes, then history ──
+  const selectedExperimentCount = selectedExperiments.size;
   const changesColumn = experimentsStep ? (
     <Box>
       <Heading as="h3" size="md" mb="1">
-        Review &amp; {onlyScheduledSelected ? "Schedule" : "Publish"}
+        {onlyScheduledSelected ? (
+          <Trans>Review &amp; Schedule</Trans>
+        ) : (
+          <Trans>Review &amp; Publish</Trans>
+        )}
       </Heading>
       <Text as="p" color="text-mid" mb="4">
-        Publishing this draft {onlyScheduledSelected ? "schedules" : "starts"}{" "}
-        {selectedExperiments.size === 1
-          ? "this experiment"
-          : "these experiments"}
-        {onlyScheduledSelected
-          ? " to start"
-          : selectedScheduledCount > 0
-            ? " at the times below"
-            : ""}
-        .
+        {onlyScheduledSelected ? (
+          <Plural
+            value={selectedExperimentCount}
+            one="Publishing this draft schedules this experiment to start."
+            other="Publishing this draft schedules these experiments to start."
+          />
+        ) : selectedScheduledCount > 0 ? (
+          <Plural
+            value={selectedExperimentCount}
+            one="Publishing this draft starts this experiment at the times below."
+            other="Publishing this draft starts these experiments at the times below."
+          />
+        ) : (
+          <Plural
+            value={selectedExperimentCount}
+            one="Publishing this draft starts this experiment."
+            other="Publishing this draft starts these experiments."
+          />
+        )}
       </Text>
       {experiments.map((experiment) => {
         if (!selectedExperiments.has(experiment.id)) return null;
@@ -2657,10 +2698,10 @@ export default function ReviewAndPublish({
               onReady={(status) => handleChecklistReady(experiment.id, status)}
               details={
                 <SummaryGrid>
-                  <SummaryRow label="Start">
+                  <SummaryRow label={t`Start`}>
                     {scheduledStartDate
                       ? scheduledTime(scheduledStartDate)
-                      : "When this draft publishes"}
+                      : t`When this draft publishes`}
                   </SummaryRow>
                 </SummaryGrid>
               }
@@ -2681,6 +2722,10 @@ export default function ReviewAndPublish({
 
   // ── Right column: reviewer / approval-flow actions and state ──
   const statusColor = revisionStatusColor(revision.status);
+  const gaveUpError = revision.scheduledPublishLastError;
+  const unstartedLinks = experimentLinks(unstartedExperiments);
+  const startsThisDraftLinks = experimentLinks(startsThisDraft);
+  const startsOtherDraftLinks = experimentLinks(startsOtherDraft);
   const actionsColumn = (
     <Box className="appbox" style={{ overflow: "hidden" }}>
       {/* Status header – colored tint matching the revision badge */}
@@ -2705,7 +2750,7 @@ export default function ReviewAndPublish({
           )}
           <Heading as="h4" size="sm">
             <span style={{ color: `var(--${statusColor}-11)` }}>
-              {revisionStatusLabel(revision.status)}
+              {revisionStatusLabel(revision.status, i18n)}
             </span>
           </Heading>
         </Flex>
@@ -2739,7 +2784,7 @@ export default function ReviewAndPublish({
                       doRecallReview();
                     }}
                   >
-                    Return to draft state
+                    <Trans>Return to draft state</Trans>
                   </DropdownMenuItem>
                 )}
                 {state.canUndoReview && (
@@ -2750,7 +2795,7 @@ export default function ReviewAndPublish({
                       doUndoReview();
                     }}
                   >
-                    Retract review
+                    <Trans>Retract review</Trans>
                   </DropdownMenuItem>
                 )}
                 {canDiscardDraft && (
@@ -2762,7 +2807,7 @@ export default function ReviewAndPublish({
                       setConfirmDiscard(true);
                     }}
                   >
-                    Discard draft
+                    <Trans>Discard draft</Trans>
                   </DropdownMenuItem>
                 )}
               </DropdownMenuGroup>
@@ -2780,7 +2825,7 @@ export default function ReviewAndPublish({
         {contributorIds.length > 0 && (
           <Box mb="3">
             <Text size="md" weight="medium" color="text-high" as="div" mb="2">
-              Contributors
+              <Trans>Contributors</Trans>
             </Text>
             <Flex direction="column" gap="2">
               {contributorIds.map((id) => (
@@ -2794,12 +2839,12 @@ export default function ReviewAndPublish({
           (reviewers.length > 0 || revision.status === "pending-review") && (
             <Box mb="3">
               <Text size="md" weight="medium" color="text-high" as="div" mb="2">
-                Reviewers
+                <Trans>Reviewers</Trans>
               </Text>
               {reviewers.length === 0 &&
                 revision.status === "pending-review" && (
                   <Text size="sm" color="text-mid" as="div">
-                    No reviews yet.
+                    <Trans>No reviews yet.</Trans>
                   </Text>
                 )}
               <Flex direction="column" gap="2">
@@ -2882,10 +2927,11 @@ export default function ReviewAndPublish({
               ScheduledPublishControl notice. */}
             {isActiveDraft && revision?.scheduledPublishGaveUpAt && (
               <HelperText status="error" size="sm" mb="3">
-                Could not publish
-                {revision.scheduledPublishLastError
-                  ? `: ${revision.scheduledPublishLastError}`
-                  : "."}
+                {gaveUpError ? (
+                  <Trans>Could not publish: {gaveUpError}</Trans>
+                ) : (
+                  <Trans>Could not publish.</Trans>
+                )}
               </HelperText>
             )}
 
@@ -2903,7 +2949,7 @@ export default function ReviewAndPublish({
                         onCancel: canCancelAdminSchedule
                           ? () => doSetAutoPublishArmed(false)
                           : undefined,
-                        note: "Armed by an admin (approval bypassed). Cancel and re-arm to change it.",
+                        note: t`Armed by an admin (approval bypassed). Cancel and re-arm to change it.`,
                       }
                     : {},
                 )
@@ -2911,7 +2957,7 @@ export default function ReviewAndPublish({
                 // "When approved" is just a toggle — show a disabled checkbox.
                 <>
                   <Checkbox
-                    label="Automatically publish when approved"
+                    label={t`Automatically publish when approved`}
                     weight="regular"
                     disabled
                     value={true}
@@ -2935,13 +2981,17 @@ export default function ReviewAndPublish({
                   publishHasMoreSteps={hasChecklistStep}
                   publishNote={
                     unstartedExperiments.length ? (
-                      <>
-                        Publishing doesn&apos;t start{" "}
-                        {experimentLinks(unstartedExperiments)}.{" "}
-                        {unstartedExperiments.length === 1
-                          ? "Start it from its experiment page."
-                          : "Start them from their experiment pages."}
-                      </>
+                      unstartedExperiments.length === 1 ? (
+                        <Trans>
+                          Publishing doesn&apos;t start {unstartedLinks}. Start
+                          it from its experiment page.
+                        </Trans>
+                      ) : (
+                        <Trans>
+                          Publishing doesn&apos;t start {unstartedLinks}. Start
+                          them from their experiment pages.
+                        </Trans>
+                      )
                     ) : null
                   }
                   isBlockedContributor={!!isBlockedContributor}
@@ -2976,7 +3026,7 @@ export default function ReviewAndPublish({
                       icon={<PiCaretDownBold />}
                       iconPosition="right"
                     >
-                      Submit review
+                      <Trans>Submit review</Trans>
                     </Button>
                   }
                   side="bottom"
@@ -3013,7 +3063,7 @@ export default function ReviewAndPublish({
               )}
 
             {(() => {
-              const continueLabel = "Continue to Publish →";
+              const continueLabel = t`Continue to Publish →`;
 
               // A pending schedule does not block publishing: the server answers
               // with a warning the "Save anyway?" retry acknowledges, and the
@@ -3033,10 +3083,10 @@ export default function ReviewAndPublish({
               const primaryFooterLabel = continueToPublish
                 ? continueLabel
                 : scheduledPending
-                  ? "Publish now"
+                  ? t`Publish now`
                   : onlyScheduledSelected
-                    ? scheduleToStartLabel(scheduledStartDay)
-                    : "Publish";
+                    ? scheduleToStartLabel(scheduledStartDay, i18n)
+                    : t`Publish`;
 
               {
                 /* Unified auto-publish arming: one checkbox + a mode selector
@@ -3049,7 +3099,7 @@ export default function ReviewAndPublish({
                 <Box mb="5">
                   <Flex align="center" gap="1">
                     <Checkbox
-                      label="Automatically publish"
+                      label={t`Automatically publish`}
                       weight="regular"
                       disabled={savingSchedule}
                       value={autoPublishArmed}
@@ -3068,11 +3118,11 @@ export default function ReviewAndPublish({
                         }}
                         options={[
                           {
-                            label: "when approved",
+                            label: t`when approved`,
                             value: "approve",
                           },
                           {
-                            label: "on a specific date",
+                            label: t`on a specific date`,
                             value: "date",
                           },
                         ]}
@@ -3085,8 +3135,8 @@ export default function ReviewAndPublish({
                       // or a date ("when approved" would just publish now).
                       <Text size="md">
                         {effectivePublishMode === "approve"
-                          ? "when approved"
-                          : "on a specific date"}
+                          ? t`when approved`
+                          : t`on a specific date`}
                       </Text>
                     )}
                   </Flex>
@@ -3106,7 +3156,7 @@ export default function ReviewAndPublish({
                           />
                           <Flex align="center" gap="1" mt="2">
                             <Checkbox
-                              label="Lock edits to"
+                              label={t`Lock edits to`}
                               weight="regular"
                               value={scheduleLockEnabled}
                               setValue={(v) => onScheduleLockToggle(!!v)}
@@ -3122,8 +3172,8 @@ export default function ReviewAndPublish({
                                 singleValue: (s) => ({ ...s, fontSize: 14 }),
                               }}
                               options={[
-                                { label: "this feature", value: "feature" },
-                                { label: "this draft", value: "draft" },
+                                { label: t`this feature`, value: "feature" },
+                                { label: t`this draft`, value: "draft" },
                               ]}
                               onChange={(v) =>
                                 onScheduleLockScopeChange(
@@ -3137,8 +3187,10 @@ export default function ReviewAndPublish({
                               <Checkbox
                                 label={
                                   <span style={{ color: "var(--red-11)" }}>
-                                    Admin: allow scheduled publish to bypass
-                                    checks
+                                    <Trans>
+                                      Admin: allow scheduled publish to bypass
+                                      checks
+                                    </Trans>
                                   </span>
                                 }
                                 weight="regular"
@@ -3151,7 +3203,9 @@ export default function ReviewAndPublish({
                       ) : (
                         <PremiumTooltip commercialFeature="scheduled-revisions">
                           <Text size="sm" as="div">
-                            Upgrade to publish on a specific date.
+                            <Trans>
+                              Upgrade to publish on a specific date.
+                            </Trans>
                           </Text>
                         </PremiumTooltip>
                       )}
@@ -3182,7 +3236,7 @@ export default function ReviewAndPublish({
                         onCancel: canCancelAdminSchedule
                           ? () => doSetAutoPublishArmed(false)
                           : undefined,
-                        note: "Armed by an admin (approval bypassed). Cancel and re-arm to change it.",
+                        note: t`Armed by an admin (approval bypassed). Cancel and re-arm to change it.`,
                       }
                     : {},
                 )
@@ -3191,22 +3245,28 @@ export default function ReviewAndPublish({
                 !experimentsStep ? (
                 <HelperText status="info" size="sm" mb="5">
                   <span>
-                    {startsThisDraft.length > 0 && (
-                      <>
-                        To publish this draft later, schedule the start of{" "}
-                        {experimentLinks(startsThisDraft)}. Starting{" "}
-                        {startsThisDraft.length === 1 ? "it" : "any of them"}{" "}
-                        publishes this draft.
-                      </>
-                    )}
+                    {startsThisDraft.length > 0 &&
+                      (startsThisDraft.length === 1 ? (
+                        <Trans>
+                          To publish this draft later, schedule the start of{" "}
+                          {startsThisDraftLinks}. Starting it publishes this
+                          draft.
+                        </Trans>
+                      ) : (
+                        <Trans>
+                          To publish this draft later, schedule the start of{" "}
+                          {startsThisDraftLinks}. Starting any of them publishes
+                          this draft.
+                        </Trans>
+                      ))}
                     {startsThisDraft.length > 0 &&
                       startsOtherDraft.length > 0 &&
                       " "}
                     {startsOtherDraft.length > 0 && (
-                      <>
-                        Starting {experimentLinks(startsOtherDraft)} won&apos;t
-                        publish this draft.
-                      </>
+                      <Trans>
+                        Starting {startsOtherDraftLinks} won&apos;t publish this
+                        draft.
+                      </Trans>
                     )}
                   </span>
                 </HelperText>
@@ -3234,8 +3294,10 @@ export default function ReviewAndPublish({
                       {state.submitAction === "request-review" &&
                         !canAdvanceDraft && (
                           <PermissionBlocker mt="2">
-                            You don&apos;t have permission to request review for
-                            this draft.
+                            <Trans>
+                              You don&apos;t have permission to request review
+                              for this draft.
+                            </Trans>
                           </PermissionBlocker>
                         )}
                     </Box>
@@ -3308,7 +3370,9 @@ export default function ReviewAndPublish({
                             <Checkbox
                               label={
                                 <span style={{ color: "var(--red-11)" }}>
-                                  Admin: bypass checks and publish now
+                                  <Trans>
+                                    Admin: bypass checks and publish now
+                                  </Trans>
                                 </span>
                               }
                               weight="regular"
@@ -3324,11 +3388,11 @@ export default function ReviewAndPublish({
                       {state.showChecklistAcknowledgment && (
                         <Box mb="3">
                           <Checkbox
-                            label={`Bypass remaining To Do items and ${
+                            label={
                               onlyScheduledSelected
-                                ? "schedule start"
-                                : "publish"
-                            }`}
+                                ? t`Bypass remaining To Do items and schedule start`
+                                : t`Bypass remaining To Do items and publish`
+                            }
                             weight="regular"
                             disabled={!canDoPrimary}
                             value={checklistAcknowledged}
@@ -3364,63 +3428,84 @@ export default function ReviewAndPublish({
                         {!hasPublishPermission && (
                           <PermissionBlocker>
                             {holdsStagedTargeting
-                              ? "You don't have permission to publish this draft."
+                              ? t`You don't have permission to publish this draft.`
                               : stagedTargetingOptedOut
-                                ? "One or more of the Projects this draft adds don't allow targeting from other Projects' Feature Flags. Remove them to publish."
-                                : "You don't have permission to target one or more of the Projects this draft adds. Remove them, or ask someone who can target them to publish."}
+                                ? t`One or more of the Projects this draft adds don't allow targeting from other Projects' Feature Flags. Remove them to publish.`
+                                : t`You don't have permission to target one or more of the Projects this draft adds. Remove them, or ask someone who can target them to publish.`}
                           </PermissionBlocker>
                         )}
 
                         {experimentsStep && checklistBlocked && (
                           <HelperText status="error" size="sm">
-                            Complete the Must resolve items to{" "}
-                            {onlyScheduledSelected
-                              ? "schedule the start"
-                              : "publish"}
-                            .
+                            {onlyScheduledSelected ? (
+                              <Trans>
+                                Complete the Must resolve items to schedule the
+                                start.
+                              </Trans>
+                            ) : (
+                              <Trans>
+                                Complete the Must resolve items to publish.
+                              </Trans>
+                            )}
                           </HelperText>
                         )}
 
-                        {linkedRamps.map((ramp) => (
-                          <Callout key={ramp.id} status="info" size="sm">
-                            Publishing this draft will activate ramp schedule{" "}
-                            <strong>{ramp.name}</strong>. The ramp will begin
-                            once this revision is live.
+                        {linkedRamps.map(({ id, name: rampName }) => (
+                          <Callout key={id} status="info" size="sm">
+                            <Trans>
+                              Publishing this draft will activate ramp schedule{" "}
+                              <strong>{rampName}</strong>. The ramp will begin
+                              once this revision is live.
+                            </Trans>
                           </Callout>
                         ))}
 
                         {!hasChanges &&
                           (isStranded ? (
                             <Callout status="warning" size="sm">
-                              This revision is already live but was never marked
-                              published — an earlier publish didn&apos;t finish.
-                              Publish it to reconcile; don&apos;t discard it, or
-                              the Feature Flag will keep serving a revision it
-                              reports as unpublished.
+                              <Trans>
+                                This revision is already live but was never
+                                marked published — an earlier publish
+                                didn&apos;t finish. Publish it to reconcile;
+                                don&apos;t discard it, or the Feature Flag will
+                                keep serving a revision it reports as
+                                unpublished.
+                              </Trans>
                             </Callout>
                           ) : (
                             <Callout status="info" size="sm">
-                              No changes to publish. Discard the draft or add
-                              changes first.
+                              <Trans>
+                                No changes to publish. Discard the draft or add
+                                changes first.
+                              </Trans>
                             </Callout>
                           ))}
 
                         {featureLockedBySchedule && !adminPublish && (
                           <Callout status="warning" size="sm">
-                            Another draft
-                            {lockingScheduledSibling?.version
-                              ? ` (revision ${lockingScheduledSibling.version})`
-                              : ""}{" "}
-                            is scheduled to publish and has locked publishing of
-                            other drafts. Cancel that schedule to publish this
-                            revision.
+                            {lockingVersion ? (
+                              <Trans>
+                                Another draft (revision {lockingVersion}) is
+                                scheduled to publish and has locked publishing
+                                of other drafts. Cancel that schedule to publish
+                                this revision.
+                              </Trans>
+                            ) : (
+                              <Trans>
+                                Another draft is scheduled to publish and has
+                                locked publishing of other drafts. Cancel that
+                                schedule to publish this revision.
+                              </Trans>
+                            )}
                           </Callout>
                         )}
 
                         {!requireReviews && !experimentsStep && !blockInfo && (
                           <Text size="sm" color="text-mid" as="p">
-                            No approval necessary — these changes can be
-                            published directly.
+                            <Trans>
+                              No approval necessary — these changes can be
+                              published directly.
+                            </Trans>
                           </Text>
                         )}
                       </Flex>
@@ -3431,7 +3516,7 @@ export default function ReviewAndPublish({
                             color="link"
                             onClick={() => toggleChecklistStep(false)}
                           >
-                            <FaArrowLeft /> Back
+                            <FaArrowLeft /> <Trans>Back</Trans>
                           </LinkButton>
                         </Box>
                       )}
@@ -3444,7 +3529,9 @@ export default function ReviewAndPublish({
                     <Flex direction="column" gap="2" mt="3">
                       {armedPublishNotice && (
                         <Callout status="warning" size="sm">
-                          Approved, but not published. {armedPublishNotice}
+                          <Trans>
+                            Approved, but not published. {armedPublishNotice}
+                          </Trans>
                         </Callout>
                       )}
                       {submitError && (

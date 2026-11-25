@@ -7,6 +7,9 @@ import {
   useState,
 } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Revision,
   checkMergeConflicts,
@@ -120,6 +123,23 @@ function toBadgeStatus(status: Revision["status"]): RevisionStatus {
   return status === "merged" ? "published" : status;
 }
 
+// The Copy-as exports name the entity type in English: they're data for other
+// tools, not UI text.
+const COPY_ENTITY_NOUNS: Record<Revision["target"]["type"], string> = {
+  "saved-group": "Saved Group",
+  constant: "Constant",
+  config: "Config",
+  "sdk-connection": "SDK Connection",
+};
+
+// The "Full JSON" diff's title, whole per entity type so it translates as one.
+const RAW_DIFF_TITLES: Record<Revision["target"]["type"], MessageDescriptor> = {
+  "saved-group": msg`Saved Group revision`,
+  constant: msg`Constant revision`,
+  config: msg`Config revision`,
+  "sdk-connection": msg`SDK Connection revision`,
+};
+
 // Drop top-level null/undefined keys. The backend stores revision snapshots via
 // each entity's `buildSnapshot`, which strips nullish optional fields — so a
 // stored snapshot has no key for e.g. an unset `project`, while the live entity
@@ -160,9 +180,10 @@ export interface ReviewAndPublishTabProps<T> {
   // The live entity (merge target).
   currentState: T;
   diffConfig: RevisionDiffConfig<T>;
-  // Entity display name + noun for the Changes-tab Copy-as exports
-  // (e.g. "Checkout users" / "saved group").
+  // Entity display name for the Changes-tab Copy-as exports (e.g. "Checkout
+  // users").
   entityName?: string;
+  // Translated noun for sentences about the entity, e.g. t`Saved Group`.
   entityNoun?: string;
   // Per-revision approval gate (caller applies org settings + e.g. the
   // metadata-only shortcut).
@@ -245,8 +266,10 @@ export default function ReviewAndPublishTab<T>(
     return (
       <Box pt="4">
         <Callout status="info">
-          You are viewing the live version. Select a revision from the dropdown
-          above to review or publish its changes.
+          <Trans>
+            You are viewing the live version. Select a revision from the
+            dropdown above to review or publish its changes.
+          </Trans>
         </Callout>
       </Box>
     );
@@ -260,7 +283,7 @@ function ReviewAndPublishRevision<T>({
   currentState,
   diffConfig,
   entityName = "",
-  entityNoun = "revision",
+  entityNoun,
   requiresApproval,
   reviewRules,
   canEditEntity,
@@ -286,6 +309,9 @@ function ReviewAndPublishRevision<T>({
   onCompareRevisions,
   mutate,
 }: ReviewAndPublishTabProps<T> & { revision: Revision }) {
+  const { t, i18n } = useLingui();
+  // Callers pass a translated noun; the fallback is generic.
+  const nounText = entityNoun === undefined ? t`revision` : entityNoun;
   const { apiCall } = useAuth();
   const { users, userId, getUserDisplay, organization, hasCommercialFeature } =
     useUser();
@@ -382,8 +408,8 @@ function ReviewAndPublishRevision<T>({
           ? "changes"
           : "overview";
   const setSubTab = useCallback(
-    (t: ReviewSubTab) => {
-      setUrlHash(t === "changes" ? "review,changes" : "review,overview");
+    (tab: ReviewSubTab) => {
+      setUrlHash(tab === "changes" ? "review,changes" : "review,overview");
     },
     [setUrlHash],
   );
@@ -472,6 +498,7 @@ function ReviewAndPublishRevision<T>({
     revision.version,
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
+  const lockingSiblingVersion = lockingScheduledSibling?.version;
 
   const scheduledPending = isScheduledPublishPending(revision);
 
@@ -485,9 +512,9 @@ function ReviewAndPublishRevision<T>({
     let lastContentEditAt: number | null = null;
     for (const e of revision.activityLog) {
       if (e.action !== "updated") continue;
-      const t = new Date(e.dateCreated).getTime();
-      if (lastContentEditAt === null || t > lastContentEditAt) {
-        lastContentEditAt = t;
+      const editedAt = new Date(e.dateCreated).getTime();
+      if (lastContentEditAt === null || editedAt > lastContentEditAt) {
+        lastContentEditAt = editedAt;
       }
     }
     const sorted = [...revision.reviews].sort(
@@ -747,7 +774,7 @@ function ReviewAndPublishRevision<T>({
       });
       await mutate();
     } catch (e) {
-      failSubmit(e, "Failed to request review");
+      failSubmit(e, t`Failed to request review`);
     } finally {
       setSubmitting(false);
     }
@@ -759,7 +786,7 @@ function ReviewAndPublishRevision<T>({
     try {
       await onPublish(revision.id);
     } catch (e) {
-      failSubmit(e, "Failed to publish");
+      failSubmit(e, t`Failed to publish`);
     } finally {
       setSubmitting(false);
     }
@@ -775,7 +802,7 @@ function ReviewAndPublishRevision<T>({
       });
       await mutate();
     } catch (e) {
-      failSubmit(e, "Failed to return to draft");
+      failSubmit(e, t`Failed to return to draft`);
     } finally {
       setSubmitting(false);
     }
@@ -789,7 +816,7 @@ function ReviewAndPublishRevision<T>({
       await apiCall(`/revision/${revision.id}/undo-review`, { method: "POST" });
       await mutate();
     } catch (e) {
-      failSubmit(e, "Failed to retract review");
+      failSubmit(e, t`Failed to retract review`);
     } finally {
       setSubmitting(false);
     }
@@ -818,7 +845,7 @@ function ReviewAndPublishRevision<T>({
       if (res?.revision) selectRevision(res.revision);
       await mutate();
     } catch (e) {
-      failSubmit(e, "Failed to rebase");
+      failSubmit(e, t`Failed to rebase`);
     } finally {
       setSubmitting(false);
     }
@@ -849,36 +876,39 @@ function ReviewAndPublishRevision<T>({
   // ── CTA state machine (shared with the feature tab). Feature-only inputs
   // are neutralized: no experiments, ramps, scheduled-publish locks, or
   // rebase governance here — conflicts gate publishing via `mergeSuccess`. ──
-  const state = getReviewAndPublishState({
-    // The generic engine leaves status alone on edit, so `changes-requested`
-    // re-submits rather than dead-ending.
-    editsResetStatus: false,
-    requireReviews: requiresApproval,
-    status: toBadgeStatus(revision.status),
-    mergeSuccess,
-    hasChanges,
-    canManageDraft: canAdvanceDraft,
-    isReviewRequester: isAuthor,
-    isContributor,
-    // The generic engine grants recall to the AUTHOR only — contributors go
-    // through the permission arm.
-    isDraftOwner: isAuthor,
-    isReviewer,
-    adminPublish,
-    hasSelectedExperiments: false,
-    onlyScheduledSelected: false,
-    scheduledStartDay: null,
-    experimentsStep: false,
-    featureLockedByRamp: false,
-    featureLockedBySchedule,
-    checklistIncomplete: false,
-    checklistBlocked: false,
-    checklistAcknowledged: false,
-    governanceCanPublish:
-      !mustRebase &&
-      (!requiresApproval ||
-        (approvalsCoverFootprint && requiredTeams.satisfied)),
-  });
+  const state = getReviewAndPublishState(
+    {
+      // The generic engine leaves status alone on edit, so `changes-requested`
+      // re-submits rather than dead-ending.
+      editsResetStatus: false,
+      requireReviews: requiresApproval,
+      status: toBadgeStatus(revision.status),
+      mergeSuccess,
+      hasChanges,
+      canManageDraft: canAdvanceDraft,
+      isReviewRequester: isAuthor,
+      isContributor,
+      // The generic engine grants recall to the AUTHOR only — contributors go
+      // through the permission arm.
+      isDraftOwner: isAuthor,
+      isReviewer,
+      adminPublish,
+      hasSelectedExperiments: false,
+      onlyScheduledSelected: false,
+      scheduledStartDay: null,
+      experimentsStep: false,
+      featureLockedByRamp: false,
+      featureLockedBySchedule,
+      checklistIncomplete: false,
+      checklistBlocked: false,
+      checklistAcknowledged: false,
+      governanceCanPublish:
+        !mustRebase &&
+        (!requiresApproval ||
+          (approvalsCoverFootprint && requiredTeams.satisfied)),
+    },
+    i18n,
+  );
 
   // The publish controls (admin-bypass checkbox + Publish button) show only when
   // the revision is publishable or an admin can bypass — mirrors the feature's
@@ -897,10 +927,11 @@ function ReviewAndPublishRevision<T>({
 
   // Renders in every phase, so it must claim no status: an uncovered approval
   // can still stand after a later "changes requested" verdict.
+  const uncoveredEnvList = uncoveredFootprintEnvs.join(", ");
   const coverageBlockMessage = hasUncoveredApproval
     ? uncoveredFootprintEnvs.length
-      ? `None of this draft's approvals cover ${uncoveredFootprintEnvs.join(", ")}. Someone with review access there must approve it.`
-      : `None of this draft's approvals cover everything it changes.`
+      ? t`None of this draft's approvals cover ${uncoveredEnvList}. Someone with review access there must approve it.`
+      : t`None of this draft's approvals cover everything it changes.`
     : null;
   const approvalGateUnmet =
     requiresApproval && (!requiredTeams.satisfied || hasUncoveredApproval);
@@ -953,10 +984,10 @@ function ReviewAndPublishRevision<T>({
       : "published";
   const headerStatusColor = revisionStatusColor(headerStatus);
   const headerStatusLabel = isActiveDraft
-    ? revisionStatusLabel(statusForBadge)
+    ? revisionStatusLabel(statusForBadge, i18n)
     : isDiscarded
-      ? "Discarded"
-      : "Published";
+      ? t`Discarded`
+      : t`Published`;
   const headerStatusIcon = isActiveDraft ? (
     revisionStatusIcon(statusForBadge)
   ) : isDiscarded ? (
@@ -964,10 +995,11 @@ function ReviewAndPublishRevision<T>({
   ) : (
     <PiGitMergeBold />
   );
+  const headerVersion = revision.version ?? "";
   const headerTitle =
     revision.title?.trim() ||
     revision.comment?.trim() ||
-    `Revision ${revision.version ?? ""}`.trim();
+    t`Revision ${headerVersion}`.trim();
 
   // Other active drafts of this entity, surfaced as quick navigation in the
   // header — mirrors the feature flow's "N other drafts need attention" nav.
@@ -1073,9 +1105,13 @@ function ReviewAndPublishRevision<T>({
           <RevisionDiffContent
             diffs={diffs}
             diffComments={diffComments}
-            raw={{ before: baseSnapshot, after: proposedSnapshot }}
+            raw={{
+              before: baseSnapshot,
+              after: proposedSnapshot,
+              title: i18n._(RAW_DIFF_TITLES[revision.target.type]),
+            }}
             entityName={entityName}
-            entityNoun={entityNoun}
+            entityNoun={COPY_ENTITY_NOUNS[revision.target.type]}
             formats={["json", "raw"]}
           />
         </Box>
@@ -1133,11 +1169,11 @@ function ReviewAndPublishRevision<T>({
             <Box flexGrow="1" style={{ minWidth: 0 }}>
               <Flex align="center" style={{ height: 32 }}>
                 <Heading as="h4" size="sm" mb="0">
-                  Add a comment
+                  <Trans>Add a comment</Trans>
                 </Heading>
               </Flex>
               <CommentComposer
-                placeholder="Leave a comment…"
+                placeholder={t`Leave a comment…`}
                 onSubmit={submitComment}
               />
             </Box>
@@ -1152,7 +1188,7 @@ function ReviewAndPublishRevision<T>({
       {contributorIds.length > 0 && (
         <Box mb="3">
           <Text size="md" weight="medium" color="text-high" as="div" mb="2">
-            Contributors
+            <Trans>Contributors</Trans>
           </Text>
           <Flex direction="column" gap="2">
             {contributorIds.map((id) => (
@@ -1165,7 +1201,7 @@ function ReviewAndPublishRevision<T>({
       {requiresApproval && reviewers.length > 0 && (
         <Box mb="3">
           <Text size="md" weight="medium" color="text-high" as="div" mb="2">
-            Reviewers
+            <Trans>Reviewers</Trans>
           </Text>
           <Flex direction="column" gap="2">
             {reviewers.map(({ id, status, timestamp, stale, user }) => {
@@ -1225,7 +1261,10 @@ function ReviewAndPublishRevision<T>({
           <Box ml="auto" style={{ marginRight: -6 }}>
             <DropdownMenu
               trigger={
-                <MoreMenuTrigger label="Draft actions" style={{ margin: 0 }} />
+                <MoreMenuTrigger
+                  label={t`Draft actions`}
+                  style={{ margin: 0 }}
+                />
               }
               open={actionsDropdownOpen}
               onOpenChange={setActionsDropdownOpen}
@@ -1241,7 +1280,7 @@ function ReviewAndPublishRevision<T>({
                       doRecallReview();
                     }}
                   >
-                    Return to draft state
+                    <Trans>Return to draft state</Trans>
                   </DropdownMenuItem>
                 )}
                 {state.canUndoReview && (
@@ -1252,7 +1291,7 @@ function ReviewAndPublishRevision<T>({
                       doUndoReview();
                     }}
                   >
-                    Retract review
+                    <Trans>Retract review</Trans>
                   </DropdownMenuItem>
                 )}
                 {canDiscardDraft && (
@@ -1264,7 +1303,7 @@ function ReviewAndPublishRevision<T>({
                       setConfirmDiscard(true);
                     }}
                   >
-                    Discard draft
+                    <Trans>Discard draft</Trans>
                   </DropdownMenuItem>
                 )}
               </DropdownMenuGroup>
@@ -1291,20 +1330,22 @@ function ReviewAndPublishRevision<T>({
         <Box mt="5" mb="4">
           <HelperText status="info" size="sm">
             {revision.status === "discarded" ? (
-              <>
+              <Trans>
                 This revision was discarded. Reopen it as a draft to continue
                 editing, request review, and publish.
-              </>
+              </Trans>
             ) : isLive ? (
-              <>
+              <Trans>
                 This revision is currently live. Rolling back reverts to a
                 previously published revision.
-              </>
+              </Trans>
+            ) : onRevert ? (
+              <Trans>
+                This revision was published and is now locked. You can revert
+                back to this revision.
+              </Trans>
             ) : (
-              <>
-                This revision was published and is now locked.
-                {onRevert ? " You can revert back to this revision." : ""}
-              </>
+              <Trans>This revision was published and is now locked.</Trans>
             )}
           </HelperText>
         </Box>
@@ -1317,7 +1358,7 @@ function ReviewAndPublishRevision<T>({
             disabled={!canDraftOrEdit && !isAuthor}
             style={{ width: "100%" }}
           >
-            Reopen as draft
+            <Trans>Reopen as draft</Trans>
           </Button>
         ) : isLive ? (
           onRevert ? (
@@ -1334,7 +1375,7 @@ function ReviewAndPublishRevision<T>({
               }
               style={{ width: "100%" }}
             >
-              Roll back
+              <Trans>Roll back</Trans>
             </Button>
           ) : null
         ) : onRevert ? (
@@ -1345,7 +1386,7 @@ function ReviewAndPublishRevision<T>({
             disabled={!canRevertOrEdit || !!revertBlockedReason}
             style={{ width: "100%" }}
           >
-            Revert to this revision
+            <Trans>Revert to this revision</Trans>
           </Button>
         ) : null}
 
@@ -1354,7 +1395,9 @@ function ReviewAndPublishRevision<T>({
             disabled control reads as a bug. */}
         {revision.status === "discarded" && !canDraftOrEdit && !isAuthor && (
           <PermissionBlocker mt="2">
-            You don&apos;t have permission to edit drafts for this {entityNoun}.
+            <Trans>
+              You don&apos;t have permission to edit drafts for this {nounText}.
+            </Trans>
           </PermissionBlocker>
         )}
         {revision.status !== "discarded" && onRevert && revertBlockedReason && (
@@ -1364,13 +1407,18 @@ function ReviewAndPublishRevision<T>({
         )}
         {revision.status !== "discarded" && onRevert && !canRevertOrEdit && (
           <PermissionBlocker mt="2">
-            You don&apos;t have permission to revert this {entityNoun}.
+            <Trans>
+              You don&apos;t have permission to revert this {nounText}.
+            </Trans>
           </PermissionBlocker>
         )}
 
         {!hasAnyAuthority && !canComment && (
           <PermissionBlocker size="md" mt="5">
-            You don&apos;t have permission to manage revisions for this entity.
+            <Trans>
+              You don&apos;t have permission to manage revisions for this
+              entity.
+            </Trans>
           </PermissionBlocker>
         )}
         {isLive &&
@@ -1378,7 +1426,9 @@ function ReviewAndPublishRevision<T>({
           onRevert &&
           !previousPublishedRevision && (
             <HelperText status="info" size="md" mt="5">
-              There is no previously published revision to roll back to.
+              <Trans>
+                There is no previously published revision to roll back to.
+              </Trans>
             </HelperText>
           )}
       </Box>
@@ -1480,7 +1530,7 @@ function ReviewAndPublishRevision<T>({
                         icon={<PiCaretDownBold />}
                         iconPosition="right"
                       >
-                        Submit review
+                        <Trans>Submit review</Trans>
                       </Button>
                     }
                     side="bottom"
@@ -1514,8 +1564,10 @@ function ReviewAndPublishRevision<T>({
                   the Feature flow. */}
                 {!canAdvanceDraft && (
                   <PermissionBlocker mt="2">
-                    You don&apos;t have permission to request review for this
-                    draft.
+                    <Trans>
+                      You don&apos;t have permission to request review for this
+                      draft.
+                    </Trans>
                   </PermissionBlocker>
                 )}
               </Box>
@@ -1587,7 +1639,7 @@ function ReviewAndPublishRevision<T>({
                       lockActive={isScheduledPublishLockActive(revision)}
                       schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
                       toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
-                      entityNoun={entityNoun}
+                      entityNoun={nounText}
                       // Arming a schedule commits a future publish, and the
                       // endpoint requires the publish atom itself — the
                       // narrow-atom landing fallbacks in canPublishOrEdit do not
@@ -1621,7 +1673,7 @@ function ReviewAndPublishRevision<T>({
                     <Checkbox
                       label={
                         <span style={{ color: "var(--red-11)" }}>
-                          Admin: bypass approval and publish now
+                          <Trans>Admin: bypass approval and publish now</Trans>
                         </span>
                       }
                       weight="regular"
@@ -1660,7 +1712,9 @@ function ReviewAndPublishRevision<T>({
                   a bug. */}
                   {!canPublishOrEdit && (
                     <PermissionBlocker>
-                      You don&apos;t have permission to publish this draft.
+                      <Trans>
+                        You don&apos;t have permission to publish this draft.
+                      </Trans>
                     </PermissionBlocker>
                   )}
 
@@ -1674,9 +1728,11 @@ function ReviewAndPublishRevision<T>({
                   {/* A sibling draft's committed lock-others schedule freezes publish. */}
                   {featureLockedBySchedule && !adminPublish && (
                     <Callout status="warning" size="sm">
-                      Another draft (Revision {lockingScheduledSibling?.version}
-                      ) is scheduled to publish and has locked publishing of
-                      other drafts. Cancel that schedule to publish this one.
+                      <Trans>
+                        Another draft (Revision {lockingSiblingVersion}) is
+                        scheduled to publish and has locked publishing of other
+                        drafts. Cancel that schedule to publish this one.
+                      </Trans>
                     </Callout>
                   )}
 
@@ -1690,15 +1746,19 @@ function ReviewAndPublishRevision<T>({
 
                   {!hasChanges && (
                     <Callout status="info" size="sm">
-                      No changes to publish. Discard the draft or add changes
-                      first.
+                      <Trans>
+                        No changes to publish. Discard the draft or add changes
+                        first.
+                      </Trans>
                     </Callout>
                   )}
 
                   {!requiresApproval && hasChanges && (
                     <Text size="sm" color="text-mid" as="p">
-                      No approval necessary — these changes can be published
-                      directly.
+                      <Trans>
+                        No approval necessary — these changes can be published
+                        directly.
+                      </Trans>
                     </Text>
                   )}
                 </Flex>
@@ -1737,15 +1797,17 @@ function ReviewAndPublishRevision<T>({
         <ModalStandard
           trackingEventModalType="reopen-revision"
           open={true}
-          header="Reopen Revision"
-          cta="Reopen"
+          header={t`Reopen Revision`}
+          cta={t`Reopen`}
           close={() => setConfirmReopen(false)}
           submit={async () => {
             await onReopen(revision.id);
           }}
         >
-          This will reopen the revision and allow you to make further changes or
-          request review again.
+          <Trans>
+            This will reopen the revision and allow you to make further changes
+            or request review again.
+          </Trans>
         </ModalStandard>
       )}
 

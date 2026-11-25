@@ -1,5 +1,6 @@
 import { ReactNode, useMemo, useState, useEffect } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Revision,
   applyTopLevelPatchOps,
@@ -128,6 +129,7 @@ export default function RevertModal<T extends RevertableEntity>({
   toRequestBody,
   normalizeState,
 }: Props<T>) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const { getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -281,12 +283,12 @@ export default function RevertModal<T extends RevertableEntity>({
 
   return (
     <ModalStandard
-      header="Revert"
+      header={t`Revert`}
       trackingEventModalType="revert-revision"
       open={true}
       close={close}
-      closeCta="Cancel"
-      cta={publishNow ? "Publish Now" : "Create Revert Draft"}
+      closeCta={t`Cancel`}
+      cta={publishNow ? t`Publish Now` : t`Create Revert Draft`}
       // Each route has its own authority, so the CTA reflects the one selected.
       // A target matching live has no diff to apply, so the endpoint refuses it —
       // the modal says so above and the button follows.
@@ -362,17 +364,19 @@ export default function RevertModal<T extends RevertableEntity>({
       })}
 
       <Heading as="h4" size="md" mb="3">
-        Review Changes
+        <Trans>Review Changes</Trans>
       </Heading>
       <Flex align="center" gap="2" mb="3" wrap="wrap">
-        <Text weight="medium">Reverting to:</Text>
+        <Text weight="medium">
+          <Trans>Reverting to:</Trans>
+        </Text>
         <Box style={{ flex: 1, minWidth: 200, maxWidth: 480 }}>
           <SharedRevisionDropdown
             rows={targetRows}
             selectedKey={targetId}
             onSelect={(key) => setTargetId(key)}
             selectedBadge={getStatusBadge(targetRevision.status)}
-            triggerPlaceholder="Select revision"
+            triggerPlaceholder={t`Select revision`}
             triggerNumbered={false}
             menuPlacement="start"
           />
@@ -389,7 +393,9 @@ export default function RevertModal<T extends RevertableEntity>({
           />
         ) : (
           <Text color="text-low">
-            This revision matches the live state — nothing to revert.
+            <Trans>
+              This revision matches the live state — nothing to revert.
+            </Trans>
           </Text>
         )}
       </Box>
@@ -410,8 +416,8 @@ export default function RevertModal<T extends RevertableEntity>({
           <Checkbox
             label={
               willUnarchive
-                ? "Also un-archive (currently archived)"
-                : "Also archive (currently active)"
+                ? t`Also un-archive (currently archived)`
+                : t`Also archive (currently active)`
             }
             value={includeArchive}
             setValue={setIncludeArchive}
@@ -420,7 +426,7 @@ export default function RevertModal<T extends RevertableEntity>({
       )}
 
       <Field
-        label="Add a Comment (optional)"
+        label={t`Add a Comment (optional)`}
         textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}

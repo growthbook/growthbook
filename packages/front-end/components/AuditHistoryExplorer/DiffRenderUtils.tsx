@@ -1,5 +1,6 @@
 import React, { ReactNode, ReactElement } from "react";
 import isEqual from "lodash/isEqual";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
@@ -67,14 +68,16 @@ export function TextChangedField({
   label,
   pre,
   post,
-  emptyLabel = "unset",
+  emptyLabel,
 }: {
   label?: string;
   pre: string | null | undefined;
   post: string | null | undefined;
   emptyLabel?: string;
 }) {
+  const { t } = useLingui();
   if (isEqual(pre, post)) return null;
+  const emptyText = emptyLabel === undefined ? t`unset` : emptyLabel;
 
   const TextBox = ({
     value,
@@ -107,7 +110,7 @@ export function TextChangedField({
           lineHeight: 1.5,
         }}
       >
-        {value || <em className="text-muted">{emptyLabel}</em>}
+        {value || <em className="text-muted">{emptyText}</em>}
       </div>
     </div>
   );
@@ -147,7 +150,12 @@ export function GenericFieldChange({
   // Skip when both would display as "unset" (e.g. undefined vs "" for rule description)
   if (isEmptyDisplay(preVal) && isEmptyDisplay(postVal)) return null;
   const fmt = (v: unknown): ReactNode => {
-    if (isEmptyDisplay(v)) return <em>unset</em>;
+    if (isEmptyDisplay(v))
+      return (
+        <em>
+          <Trans>unset</Trans>
+        </em>
+      );
     if (typeof v === "boolean") return v ? "true" : "false";
     if (typeof v === "string" || typeof v === "number") return String(v);
     return (

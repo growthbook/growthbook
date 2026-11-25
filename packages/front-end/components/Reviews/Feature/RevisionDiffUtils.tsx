@@ -21,6 +21,9 @@ import {
   PiBracketsCurly,
 } from "react-icons/pi";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { datetime, getValidDate } from "shared/dates";
 import {
   MergeConflict,
@@ -70,6 +73,7 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import {
   COMPACT_DIFF_STYLES,
   dedupeDiffBadges,
+  diffLabelText,
 } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import {
@@ -144,10 +148,10 @@ export function stringifyForRawDiff(value: unknown): string {
 // "Summary of changes" badges. "Formatted changes" shows human-readable
 // renders, "JSON diffs" shows per-section JSON diffs, and "Full JSON" shows a
 // single diff of the entire before/after shape.
-const DIFF_FORMAT_LABELS: Record<DiffFormat, string> = {
-  formatted: "Formatted changes",
-  json: "JSON diffs",
-  raw: "Full JSON",
+const DIFF_FORMAT_LABELS: Record<DiffFormat, MessageDescriptor> = {
+  formatted: msg`Formatted changes`,
+  json: msg`JSON diffs`,
+  raw: msg`Full JSON`,
 };
 
 export function DiffFormatToggle({
@@ -168,6 +172,7 @@ export function DiffFormatToggle({
   mt?: "0" | "1" | "2" | "3" | "4";
   mb?: "0" | "1" | "2" | "3" | "4";
 }) {
+  const { i18n } = useLingui();
   const segment = (target: DiffFormat) => (
     <Button
       key={target}
@@ -175,7 +180,7 @@ export function DiffFormatToggle({
       variant={value === target ? "solid" : "outline"}
       onClick={() => setValue(target)}
     >
-      {DIFF_FORMAT_LABELS[target]}
+      {i18n._(DIFF_FORMAT_LABELS[target])}
     </Button>
   );
 
@@ -244,7 +249,7 @@ export function CollapsedSection({
       {overflowing && (
         <Box mt="2">
           <Link onClick={() => setExpanded((v) => !v)}>
-            {expanded ? "Show less" : "Show more"}
+            {expanded ? <Trans>Show less</Trans> : <Trans>Show more</Trans>}
           </Link>
         </Box>
       )}
@@ -391,6 +396,7 @@ export function CopyAsButton({
   // on-screen detail; without it the copy falls back to a badge summary.
   formattedChanges?: React.ReactNode;
 }) {
+  const { i18n } = useLingui();
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 2000,
   });
@@ -459,7 +465,7 @@ export function CopyAsButton({
               <Box
                 style={{ width: 56, textAlign: "center", whiteSpace: "nowrap" }}
               >
-                {copySuccess ? "Copied!" : "Copy as"}
+                {copySuccess ? <Trans>Copied!</Trans> : <Trans>Copy as</Trans>}
               </Box>
               <PiCaretDown />
             </Flex>
@@ -492,7 +498,7 @@ export function CopyAsButton({
                 {formatIcons[f.value as CopyDiffFormat]}
               </Flex>
               <Flex direction="column" gap="0">
-                <Text weight="medium">{f.label}</Text>
+                <Text weight="medium">{i18n._(f.label)}</Text>
                 <Box
                   as="span"
                   style={{
@@ -502,7 +508,7 @@ export function CopyAsButton({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {f.description}
+                  {i18n._(f.description)}
                 </Box>
               </Flex>
             </Flex>
@@ -582,12 +588,13 @@ function DiffCommentCell({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLingui();
   if (anchored) {
     return (
       <button
         type="button"
         className="gb-diff-comment-trigger has-comment"
-        title="Go to comment"
+        title={t`Go to comment`}
         onClick={(e) => {
           // Keep the click off the gutter cell's onLineNumberClick (which
           // would also jump) so the scroll only fires once.
@@ -610,7 +617,7 @@ function DiffCommentCell({
         open && (
           <Box style={{ width: 560 }}>
             <CommentComposer
-              placeholder="Comment on this line…"
+              placeholder={t`Comment on this line…`}
               initialValue={`${formatDiffRef(refObj, getSnapshot())}\n\n`}
               // The quoted lines take the first rows, so the text needs room below.
               height="lg"
@@ -630,7 +637,7 @@ function DiffCommentCell({
         <button
           type="button"
           className={`gb-diff-comment-trigger${open ? " is-open" : ""}`}
-          title="Add a comment"
+          title={t`Add a comment`}
           // Radix's trigger handles the toggle; just keep the click from
           // bubbling to the gutter cell, whose onLineNumberClick would
           // re-toggle and cancel it out.
@@ -902,7 +909,9 @@ export function ExpandableDiff({
           setOpen(!open);
         }}
       >
-        <Text mr="2">Changed:</Text>
+        <Text mr="2">
+          <Trans>Changed:</Trans>
+        </Text>
         <Text weight="semibold">{title}</Text>
         <Box style={{ marginLeft: "auto" }}>
           {open ? <FaAngleDown /> : <FaAngleRight />}
@@ -950,6 +959,7 @@ export function ExpandableConflict({
   liveRevision?: FeatureRevisionInterface;
   draftRevision?: FeatureRevisionInterface;
 }) {
+  const { i18n } = useLingui();
   const [open, setOpen] = useState(true);
 
   return (
@@ -975,7 +985,7 @@ export function ExpandableConflict({
           </span>
         )}
         <span className="text-muted" style={{ whiteSpace: "nowrap" }}>
-          Conflict:
+          <Trans>Conflict:</Trans>
         </span>
         <strong>{conflict.name}</strong>
         <div className="ml-auto">
@@ -1007,6 +1017,8 @@ export function ExpandableConflict({
                         title={revisionLabelText(
                           liveRevision.version,
                           liveRevision.title,
+                          undefined,
+                          i18n,
                         )}
                       >
                         <RevisionLabel
@@ -1016,7 +1028,7 @@ export function ExpandableConflict({
                         />
                       </OverflowText>
                     ) : (
-                      "External Change"
+                      <Trans>External Change</Trans>
                     )}
                   </Heading>
                   {liveRevision && (
@@ -1051,7 +1063,7 @@ export function ExpandableConflict({
                     setTimeout(() => setOpen(false), 50);
                   }}
                 >
-                  Use External Change
+                  <Trans>Use External Change</Trans>
                 </Button>
               </Flex>
               <LazyDiffViewer
@@ -1071,6 +1083,8 @@ export function ExpandableConflict({
                         title={revisionLabelText(
                           draftRevision.version,
                           draftRevision.title,
+                          undefined,
+                          i18n,
                         )}
                       >
                         <RevisionLabel
@@ -1080,7 +1094,7 @@ export function ExpandableConflict({
                         />
                       </OverflowText>
                     ) : (
-                      "Your Change"
+                      <Trans>Your Change</Trans>
                     )}
                   </Heading>
                   {draftRevision && (
@@ -1113,7 +1127,7 @@ export function ExpandableConflict({
                     setTimeout(() => setOpen(false), 250);
                   }}
                 >
-                  Use My Change
+                  <Trans>Use My Change</Trans>
                 </Button>
               </Flex>
               <LazyDiffViewer
@@ -1171,9 +1185,9 @@ export function buildRampDiffs({
   const draftRuleIndexById = new Map<string, number>(
     draftRules.map((r, i) => [r.id, i + draftRuleNumberOffset]),
   );
-  const ruleRef = (ruleId: string): string => {
+  const ruleRef = (ruleId: string): React.ReactNode => {
     const idx = draftRuleIndexById.get(ruleId);
-    return idx ? `Rule #${idx}` : `Rule ${ruleId}`;
+    return idx ? <Trans>Rule #{idx}</Trans> : <Trans>Rule {ruleId}</Trans>;
   };
 
   const rampDiffs: FeatureRevisionDiff[] = [
@@ -1188,26 +1202,45 @@ export function buildRampDiffs({
       const isSimple = ramp.steps.length === 0;
       const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
       const endAt = ramp.cutoffDate ?? undefined;
-      const detail = isSimple
-        ? (formatSimpleWindow(ramp.startDate, endAt) ?? "starts on publish")
-        : `${ramp.steps.length} step${ramp.steps.length !== 1 ? "s" : ""}${
-            ramp.startDate ? "" : " · starts on publish"
-          }`;
+      const stepCount = ramp.steps.length;
+      const simpleWindow = isSimple
+        ? formatSimpleWindow(ramp.startDate, endAt)
+        : null;
+      const rampName = ramp.name;
+      const detail: React.ReactNode = !isSimple ? (
+        ramp.startDate ? (
+          <Plural value={stepCount} one="# step." other="# steps." />
+        ) : (
+          <Plural
+            value={stepCount}
+            one="# step · starts on publish."
+            other="# steps · starts on publish."
+          />
+        )
+      ) : simpleWindow === null ? (
+        <Trans>starts on publish.</Trans>
+      ) : simpleWindow ? (
+        `${simpleWindow}.`
+      ) : null;
       return {
         key: `rampSchedule.${ramp.id}`,
         title: `${kindLabel} – ${ramp.name}`,
+        displayTitle: rampDiffTitle(isSimple, ramp.name),
         entityName: ramp.name,
         entityType: isSimple ? "schedule" : "ramp-schedule",
         titleSuffix: <RampActionLabel action="activate" />,
         a: "",
         b: JSON.stringify(rampConfig, null, 2),
         customRender: detail ? (
-          <p className="mb-0 text-muted">{detail}.</p>
+          <p className="mb-0 text-muted">{detail}</p>
         ) : null,
         badges: [
           {
             label: `Start ${isSimple ? "schedule" : "ramp"}: ${ramp.name}`,
             action: isSimple ? "start schedule" : "start ramp",
+            displayLabel: isSimple
+              ? msg`Start schedule: ${rampName}`
+              : msg`Start ramp: ${rampName}`,
           },
         ],
       } as FeatureRevisionDiff;
@@ -1232,9 +1265,11 @@ export function buildRampDiffs({
           const isSimple = action.steps.length === 0;
           const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
           const displayName = action.name ?? "schedule";
+          const actionName = action.name;
           return {
             key: `rampAction.${action.ruleId}`,
             title: `${kindLabel} – ${displayName}`,
+            displayTitle: rampDiffTitle(isSimple, displayName),
             entityName: displayName,
             entityType: isSimple ? "schedule" : "ramp-schedule",
             a: "",
@@ -1252,6 +1287,13 @@ export function buildRampDiffs({
                   ? `Create ${isSimple ? "schedule" : "ramp"}: ${action.name}`
                   : `Create ${isSimple ? "schedule" : "ramp schedule"}`,
                 action: isSimple ? "create schedule" : "create ramp",
+                displayLabel: actionName
+                  ? isSimple
+                    ? msg`Create schedule: ${actionName}`
+                    : msg`Create ramp: ${actionName}`
+                  : isSimple
+                    ? msg`Create schedule`
+                    : msg`Create ramp schedule`,
               },
             ],
           } as FeatureRevisionDiff;
@@ -1267,9 +1309,11 @@ export function buildRampDiffs({
           const isSimpleUpdate = action.steps.length === 0;
           const kindLabelUpdate = isSimpleUpdate ? "Schedule" : "Ramp Schedule";
           const displayName = action.name ?? "schedule";
+          const ruleLabel = ruleRef(action.ruleId);
           return {
             key: `rampAction.${action.rampScheduleId}`,
             title: `${kindLabelUpdate} – ${displayName}`,
+            displayTitle: rampDiffTitle(isSimpleUpdate, displayName),
             entityName: displayName,
             entityType: isSimpleUpdate ? "schedule" : "ramp-schedule",
             titleSuffix: <RampActionLabel action="update" />,
@@ -1277,7 +1321,7 @@ export function buildRampDiffs({
             b: JSON.stringify(rampConfig, null, 2),
             customRender: (
               <p className="mb-0 text-muted">
-                {ruleRef(action.ruleId)} · updates schedule configuration.
+                <Trans>{ruleLabel} · updates schedule configuration.</Trans>
               </p>
             ),
             badges: [
@@ -1286,6 +1330,9 @@ export function buildRampDiffs({
                   ? "Update schedule"
                   : "Update ramp schedule",
                 action: "update ramp",
+                displayLabel: isSimpleUpdate
+                  ? msg`Update schedule`
+                  : msg`Update ramp schedule`,
               },
             ],
           } as FeatureRevisionDiff;
@@ -1298,9 +1345,11 @@ export function buildRampDiffs({
           const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
           const kindNoun = isSimple ? "schedule" : "ramp schedule";
           const scheduleName = targetSchedule?.name;
+          const ruleLabel = ruleRef(action.ruleId);
           return {
             key: `rampAction.${action.rampScheduleId}`,
             title: scheduleName ? `${kindLabel} – ${scheduleName}` : kindLabel,
+            displayTitle: rampDiffTitle(isSimple, scheduleName),
             entityName: scheduleName ?? action.rampScheduleId,
             entityType: isSimple ? "schedule" : "ramp-schedule",
             titleSuffix: <RampActionLabel action="remove" />,
@@ -1315,16 +1364,36 @@ export function buildRampDiffs({
             ),
             customRender: (
               <p className="mb-0 text-muted">
-                {ruleRef(action.ruleId)} will be removed from this {kindNoun}
-                {action.deleteScheduleWhenEmpty &&
-                  "; the schedule is deleted if no targets remain"}
-                .
+                {isSimple ? (
+                  action.deleteScheduleWhenEmpty ? (
+                    <Trans>
+                      {ruleLabel} will be removed from this schedule; the
+                      schedule is deleted if no targets remain.
+                    </Trans>
+                  ) : (
+                    <Trans>
+                      {ruleLabel} will be removed from this schedule.
+                    </Trans>
+                  )
+                ) : action.deleteScheduleWhenEmpty ? (
+                  <Trans>
+                    {ruleLabel} will be removed from this ramp schedule; the
+                    schedule is deleted if no targets remain.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    {ruleLabel} will be removed from this ramp schedule.
+                  </Trans>
+                )}
               </p>
             ),
             badges: [
               {
                 label: `Remove from ${kindNoun}`,
                 action: isSimple ? "remove schedule" : "remove ramp",
+                displayLabel: isSimple
+                  ? msg`Remove from schedule`
+                  : msg`Remove from ramp schedule`,
               },
             ],
           } as FeatureRevisionDiff;
@@ -1367,13 +1436,14 @@ export function RevisionCompareLabel({
   mb?: "1" | "2" | "3" | "4";
   mt?: "1" | "2" | "3" | "4";
 }) {
+  const { t, i18n } = useLingui();
   return (
     <Flex align="start" gap="4" wrap="nowrap" mb={mb} mt={mt}>
       <Flex direction="column">
         <Flex align="center" gap="4">
           <Flex align="center" gap="1">
             {revAFailed && (
-              <Tooltip body="Could not load revision">
+              <Tooltip body={t`Could not load revision`}>
                 <PiWarningBold
                   style={{ color: "var(--red-9)", flexShrink: 0 }}
                 />
@@ -1382,7 +1452,12 @@ export function RevisionCompareLabel({
             <Text weight="semibold" size="lg">
               <OverflowText
                 maxWidth={250}
-                title={revisionLabelText(versionA, revA?.title)}
+                title={revisionLabelText(
+                  versionA,
+                  revA?.title,
+                  undefined,
+                  i18n,
+                )}
               >
                 <RevisionLabel
                   version={versionA}
@@ -1398,14 +1473,15 @@ export function RevisionCompareLabel({
         {revA &&
           revA.baseVersion !== 0 &&
           (() => {
+            const baseVersion = revA.baseVersion;
             return DRAFT_REVISION_STATUSES.includes(revA.status) &&
-              revA.baseVersion !== liveVersion ? (
+              baseVersion !== liveVersion ? (
               <HelperText status="info" size="sm">
-                based on: Revision {revA.baseVersion}
+                <Trans>based on: Revision {baseVersion}</Trans>
               </HelperText>
             ) : (
               <Text as="div" size="sm" color="text-low">
-                based on: Revision {revA.baseVersion}
+                <Trans>based on: Revision {baseVersion}</Trans>
               </Text>
             );
           })()}
@@ -1436,7 +1512,7 @@ export function RevisionCompareLabel({
         <Flex align="center" gap="4">
           <Flex align="center" gap="1">
             {revBFailed && (
-              <Tooltip body="Could not load revision">
+              <Tooltip body={t`Could not load revision`}>
                 <PiWarningBold
                   style={{ color: "var(--red-9)", flexShrink: 0 }}
                 />
@@ -1445,7 +1521,12 @@ export function RevisionCompareLabel({
             <Text weight="semibold" size="lg">
               <OverflowText
                 maxWidth={250}
-                title={revisionLabelText(versionB, revB?.title)}
+                title={revisionLabelText(
+                  versionB,
+                  revB?.title,
+                  undefined,
+                  i18n,
+                )}
               >
                 <RevisionLabel
                   version={versionB}
@@ -1461,14 +1542,15 @@ export function RevisionCompareLabel({
         {revB &&
           revB.baseVersion !== 0 &&
           (() => {
+            const baseVersion = revB.baseVersion;
             return DRAFT_REVISION_STATUSES.includes(revB.status) &&
-              revB.baseVersion !== liveVersion ? (
+              baseVersion !== liveVersion ? (
               <HelperText status="info" size="sm">
-                based on: Revision {revB.baseVersion}
+                <Trans>based on: Revision {baseVersion}</Trans>
               </HelperText>
             ) : (
               <Text as="div" size="sm" color="text-low">
-                based on: Revision {revB.baseVersion}
+                <Trans>based on: Revision {baseVersion}</Trans>
               </Text>
             );
           })()}
@@ -1536,6 +1618,7 @@ function RevisionCommentItem({
   canEdit?: boolean;
   onSaved?: () => void;
 }) {
+  const { i18n } = useLingui();
   const { apiCall } = useAuth();
   const { data, mutate } = useApi<{ log: RevisionLog[] }>(
     `/feature/${featureId}/${version}/log`,
@@ -1607,7 +1690,7 @@ function RevisionCommentItem({
           <Text size="sm" color="text-mid">
             <OverflowText
               maxWidth={200}
-              title={revisionLabelText(version, title)}
+              title={revisionLabelText(version, title, undefined, i18n)}
             >
               <RevisionLabel version={version} title={title} />
             </OverflowText>
@@ -1661,6 +1744,15 @@ export function RevisionCommentSection({
   );
 }
 
+// A ramp diff's heading as shown; its English `title` stays for the exports.
+export function rampDiffTitle(
+  isSimple: boolean,
+  name: string | null | undefined,
+): MessageDescriptor {
+  if (!name) return isSimple ? msg`Schedule` : msg`Ramp Schedule`;
+  return isSimple ? msg`Schedule – ${name}` : msg`Ramp Schedule – ${name}`;
+}
+
 // Section-title humanizer shared by the formatted render.
 export function formatSectionTitle(title: string): string {
   if (title === "Default Value") return "Default value";
@@ -1677,6 +1769,8 @@ export function formatSectionTitle(title: string): string {
 export type FormattedChangeItem = {
   // Empty when the surface already names the section: no heading is drawn.
   title: string;
+  // Shown in place of `title`, translated.
+  displayTitle?: MessageDescriptor;
   a: string;
   b: string;
   customRender?: React.ReactNode;
@@ -1696,6 +1790,7 @@ export function FormattedChanges({
   diffs: FormattedChangeItem[];
   jsonFallback?: boolean;
 }) {
+  const { i18n } = useLingui();
   return (
     <Flex direction="column" gap="0">
       {diffs.map((d) =>
@@ -1705,7 +1800,9 @@ export function FormattedChanges({
               <Flex align="center" gap="2" mb="2" wrap="wrap">
                 {d.title && (
                   <Heading as="h6" size="sm" color="text-mid" mb="0">
-                    {formatSectionTitle(d.title)}
+                    {d.displayTitle
+                      ? i18n._(d.displayTitle)
+                      : formatSectionTitle(d.title)}
                   </Heading>
                 )}
                 {d.titleSuffix}
@@ -1713,11 +1810,13 @@ export function FormattedChanges({
             )}
             {d.customRender ?? (
               <Text size="md" as="div" color="text-low">
-                This section changed.{" "}
-                <Link onClick={() => requestReviewSubTab("changes")}>
-                  View the diff on the Changes tab
-                </Link>
-                .
+                <Trans>
+                  This section changed.{" "}
+                  <Link onClick={() => requestReviewSubTab("changes")}>
+                    View the diff on the Changes tab
+                  </Link>
+                  .
+                </Trans>
               </Text>
             )}
           </Box>
@@ -1726,7 +1825,7 @@ export function FormattedChanges({
           // diff so nothing is hidden in formatted mode.
           <Box key={d.title} my="3">
             <ExpandableDiff
-              title={d.title}
+              title={d.displayTitle ? i18n._(d.displayTitle) : d.title}
               a={d.a}
               b={d.b}
               defaultOpen
@@ -1808,6 +1907,7 @@ export function DiffContent({
   // tab instead of falling back to a JSON diff (see FormattedChanges).
   jsonFallback?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const [format, setFormat] = useDiffFormat();
   const allowedFormats: DiffFormat[] = formats ?? ["formatted", "json", "raw"];
   // Clamp the shared preference into this surface's allowed formats, and
@@ -1839,7 +1939,9 @@ export function DiffContent({
 
       {diffsWithChanges.length === 0 ? (
         <Box p={variant === "card" ? "4" : "0"}>
-          <Text color="text-low">No changes between these revisions.</Text>
+          <Text color="text-low">
+            <Trans>No changes between these revisions.</Trans>
+          </Text>
         </Box>
       ) : (
         <Box>
@@ -1864,17 +1966,17 @@ export function DiffContent({
                     : "0"
                 }
               >
-                Summary of changes
+                <Trans>Summary of changes</Trans>
               </Heading>
 
               {diffFallbackBadges.length > 0 && (
                 <Flex wrap="wrap" gap="2" mb={variant === "card" ? "0" : "5"}>
-                  {diffFallbackBadges.map(({ label, action }) => (
+                  {diffFallbackBadges.map((badge) => (
                     <Badge
-                      key={label}
-                      color={logBadgeColor(action)}
+                      key={badge.label}
+                      color={logBadgeColor(badge.action)}
                       variant="soft"
-                      label={label}
+                      label={diffLabelText(badge, i18n)}
                     />
                   ))}
                 </Flex>
@@ -1911,10 +2013,12 @@ export function DiffContent({
 
             {outOfOrderWarning && (
               <Callout status="info" size="sm" mb="4">
-                A draft in this comparison is based on an older version than
-                what is currently live. When you publish, it will be merged with
-                the live version, so the result may differ from the diff shown
-                here.
+                <Trans>
+                  A draft in this comparison is based on an older version than
+                  what is currently live. When you publish, it will be merged
+                  with the live version, so the result may differ from the diff
+                  shown here.
+                </Trans>
               </Callout>
             )}
 
@@ -1933,7 +2037,7 @@ export function DiffContent({
                     {stringifyForRawDiff(raw.before) !==
                       stringifyForRawDiff(raw.after) && (
                       <ExpandableDiff
-                        title={raw.title ?? "Feature revision"}
+                        title={raw.title ?? t`Feature revision`}
                         a={stringifyForRawDiff(raw.before)}
                         b={stringifyForRawDiff(raw.after)}
                         defaultOpen
@@ -1947,7 +2051,9 @@ export function DiffContent({
                       .map((d) => (
                         <ExpandableDiff
                           key={d.title}
-                          title={d.title}
+                          title={
+                            d.displayTitle ? i18n._(d.displayTitle) : d.title
+                          }
                           a={d.a}
                           b={d.b}
                           defaultOpen
@@ -1962,7 +2068,9 @@ export function DiffContent({
                     {diffsWithChanges.map((d) => (
                       <ExpandableDiff
                         key={d.title}
-                        title={d.title}
+                        title={
+                          d.displayTitle ? i18n._(d.displayTitle) : d.title
+                        }
                         a={d.a}
                         b={d.b}
                         defaultOpen

@@ -51,7 +51,7 @@ export default function ConstantValueModal({
   onSaved: (revision: Revision) => void | Promise<void>;
   close: () => void;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
@@ -60,6 +60,7 @@ export default function ConstantValueModal({
   const draft = useConstantDraftTarget(revisionCtx, false);
   const cta = draftModeCta(draft.draftMode, {
     bypassesApproval: draft.selectorApprovalRequired,
+    i18n,
   });
 
   const type = existing.type;

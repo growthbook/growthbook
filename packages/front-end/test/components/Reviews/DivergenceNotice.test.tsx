@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import type { PublishGovernanceResult } from "shared/util";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
+import { I18nTestProvider } from "@/test/I18nTestProvider";
 
 function gov(
   overrides: Partial<PublishGovernanceResult> = {},
@@ -24,6 +25,7 @@ describe("DivergenceNotice", () => {
   it("renders nothing for an up-to-date draft", () => {
     const { container } = render(
       <DivergenceNotice governance={gov()} liveVersion={5} baseVersion={5} />,
+      { wrapper: I18nTestProvider },
     );
     expect(container).toBeEmptyDOMElement();
   });
@@ -44,6 +46,7 @@ describe("DivergenceNotice", () => {
         baseVersion={5}
         onResolveConflicts={onResolve}
       />,
+      { wrapper: I18nTestProvider },
     );
     expect(screen.getByText(/conflicts with live/i)).toBeInTheDocument();
     const btn = screen.getByRole("button", { name: /fix conflicts/i });
@@ -67,6 +70,7 @@ describe("DivergenceNotice", () => {
         onResolveConflicts={vi.fn()}
         canRebase={false}
       />,
+      { wrapper: I18nTestProvider },
     );
     expect(
       screen.queryByRole("button", { name: /fix conflicts/i }),
@@ -89,6 +93,7 @@ describe("DivergenceNotice", () => {
         baseVersion={5}
         onUpdateFromLive={vi.fn()}
       />,
+      { wrapper: I18nTestProvider },
     );
     expect(screen.getByText(/out-of-date with live/i)).toBeInTheDocument();
     expect(
@@ -109,6 +114,7 @@ describe("DivergenceNotice", () => {
         baseVersion={5}
         onUpdateFromLive={vi.fn()}
       />,
+      { wrapper: I18nTestProvider },
     );
     expect(
       screen.getByText(/this approval is out of date/i),
@@ -131,6 +137,7 @@ describe("DivergenceNotice", () => {
         approvedAt={twelveDaysAgo.toISOString()}
         revisionsSinceApproval={2}
       />,
+      { wrapper: I18nTestProvider },
     );
     expect(
       screen.getByText(/approved 12 days ago.*advanced 2 revisions since/i),
@@ -151,6 +158,7 @@ describe("DivergenceNotice", () => {
         approvedAt={new Date().toISOString()}
         revisionsSinceApproval={1}
       />,
+      { wrapper: I18nTestProvider },
     );
     expect(screen.getByText(/advanced 1 revision since/i)).toBeInTheDocument();
   });
@@ -167,6 +175,7 @@ describe("DivergenceNotice", () => {
         liveVersion={9}
         baseVersion={5}
       />,
+      { wrapper: I18nTestProvider },
     );
     expect(
       screen.getByText(
@@ -188,6 +197,7 @@ describe("DivergenceNotice", () => {
         onUpdateFromLive={vi.fn()}
         canRebase={false}
       />,
+      { wrapper: I18nTestProvider },
     );
     expect(
       screen.queryByRole("button", { name: /rebase with live/i }),
@@ -207,6 +217,7 @@ describe("DivergenceNotice", () => {
         baseVersion={5}
         onUpdateFromLive={onUpdate}
       />,
+      { wrapper: I18nTestProvider },
     );
     fireEvent.click(screen.getByRole("button", { name: /rebase with live/i }));
     expect(onUpdate).toHaveBeenCalledTimes(1);

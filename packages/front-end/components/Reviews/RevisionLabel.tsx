@@ -1,12 +1,20 @@
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Size } from "@/ui/sizes";
 import Text from "@/ui/Text";
 
+// Without `i18n` the fallback name is English, for callers not translated yet.
 export function revisionLabelText(
   version: number,
   title?: string | null,
   numbered?: boolean,
+  i18n?: I18n,
 ): string {
-  return `${numbered ? `${version}. ` : ""}${title ?? `Revision ${version}`}`;
+  const fallback = i18n
+    ? i18n._(msg`Revision ${version}`)
+    : `Revision ${version}`;
+  return `${numbered ? `${version}. ` : ""}${title ?? fallback}`;
 }
 
 // Away from the flag's own revision list, where a bare number reads as a step.
@@ -17,15 +25,12 @@ export function NamedRevision({
   version: number;
   title?: string | null;
 }) {
-  return (
-    <>
-      Revision {version}
-      {title ? (
-        <>
-          : <em>{title}</em>
-        </>
-      ) : null}
-    </>
+  return title ? (
+    <Trans>
+      Revision {version}: <em>{title}</em>
+    </Trans>
+  ) : (
+    <Trans>Revision {version}</Trans>
   );
 }
 
@@ -45,6 +50,7 @@ export default function RevisionLabel({
   // Follow the surrounding text's colour, e.g. on a dark tooltip.
   inheritNumberColor?: boolean;
 }) {
+  const { t } = useLingui();
   return (
     <>
       {numbered && (
@@ -65,7 +71,7 @@ export default function RevisionLabel({
           </Text>
         </span>
       )}
-      {title ? title : `Revision ${version}`}
+      {title ? title : t`Revision ${version}`}
     </>
   );
 }

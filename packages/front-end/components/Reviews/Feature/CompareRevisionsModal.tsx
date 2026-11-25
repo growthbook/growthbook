@@ -14,6 +14,8 @@ import React, {
 } from "react";
 
 import { Box, Flex } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import {
   PiArrowsLeftRightBold,
   PiCaretDownBold,
@@ -75,6 +77,7 @@ import {
   ExpandableDiff,
   RevisionCompareLabel,
   DiffContent,
+  rampDiffTitle,
 } from "./RevisionDiffUtils";
 import { NON_CONTENT_ACTIONS } from "./CoAuthors";
 import { computeBeforeAfter } from "./revisionLogReplay";
@@ -132,17 +135,43 @@ function rampDiffsForRevision(
     const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
     const endAt = ramp.cutoffDate ?? undefined;
     const simpleWindow = formatSimpleWindow(ramp.startDate, endAt);
-    const startsClause = alreadyStarted
-      ? "started on publish"
-      : "starts on publish";
-    const detail = isSimple
-      ? (simpleWindow ?? startsClause)
-      : `${ramp.steps.length} step${ramp.steps.length !== 1 ? "s" : ""}${
-          ramp.startDate ? "" : ` · ${startsClause}`
-        }`;
+    const stepCount = ramp.steps.length;
+    const rampName = ramp.name;
+    let detail: React.ReactNode;
+    if (isSimple) {
+      detail =
+        simpleWindow === null ? (
+          alreadyStarted ? (
+            <Trans>started on publish.</Trans>
+          ) : (
+            <Trans>starts on publish.</Trans>
+          )
+        ) : simpleWindow ? (
+          `${simpleWindow}.`
+        ) : null;
+    } else if (ramp.startDate) {
+      detail = <Plural value={stepCount} one="# step." other="# steps." />;
+    } else if (alreadyStarted) {
+      detail = (
+        <Plural
+          value={stepCount}
+          one="# step · started on publish."
+          other="# steps · started on publish."
+        />
+      );
+    } else {
+      detail = (
+        <Plural
+          value={stepCount}
+          one="# step · starts on publish."
+          other="# steps · starts on publish."
+        />
+      );
+    }
 
     diffs.push({
       title: `${kindLabel} – ${ramp.name}`,
+      displayTitle: rampDiffTitle(isSimple, ramp.name),
       titleSuffix: <RampActionLabel action="activate" />,
       a: "",
       b: JSON.stringify(
@@ -156,13 +185,14 @@ function rampDiffsForRevision(
         null,
         2,
       ),
-      customRender: detail ? (
-        <p className="mb-0 text-muted">{detail}.</p>
-      ) : null,
+      customRender: detail ? <p className="mb-0 text-muted">{detail}</p> : null,
       badges: [
         {
           label: `Start ${isSimple ? "schedule" : "ramp"}: ${ramp.name}`,
           action: isSimple ? "start schedule" : "start ramp",
+          displayLabel: isSimple
+            ? msg`Start schedule: ${rampName}`
+            : msg`Start ramp: ${rampName}`,
         },
       ],
     });
@@ -185,9 +215,9 @@ function rampDiffsForRevision(
   );
   // Fall back to the raw ID for any rule we can't number (e.g. a detach
   // action whose rule was deleted from the draft).
-  const ruleRef = (ruleId: string): string => {
+  const ruleRef = (ruleId: string): React.ReactNode => {
     const idx = ruleIndexById.get(ruleId);
-    return idx ? `Rule #${idx}` : `Rule ${ruleId}`;
+    return idx ? <Trans>Rule #{idx}</Trans> : <Trans>Rule {ruleId}</Trans>;
   };
 
   // Pending ramp actions (create/update/detach) queued in the draft
@@ -198,8 +228,10 @@ function rampDiffsForRevision(
         const isSimple = action.steps.length === 0;
         const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
         const displayName = action.name ?? "schedule";
+        const actionName = action.name;
         diffs.push({
           title: `${kindLabel} – ${displayName}`,
+          displayTitle: rampDiffTitle(isSimple, displayName),
           a: "",
           b: JSON.stringify(
             {
@@ -226,6 +258,13 @@ function rampDiffsForRevision(
                 ? `Create ${isSimple ? "schedule" : "ramp"}: ${action.name}`
                 : `Create ${isSimple ? "schedule" : "ramp schedule"}`,
               action: isSimple ? "create schedule" : "create ramp",
+              displayLabel: actionName
+                ? isSimple
+                  ? msg`Create schedule: ${actionName}`
+                  : msg`Create ramp: ${actionName}`
+                : isSimple
+                  ? msg`Create schedule`
+                  : msg`Create ramp schedule`,
             },
           ],
         });
@@ -233,8 +272,10 @@ function rampDiffsForRevision(
         const isSimpleUpdate = action.steps.length === 0;
         const kindLabelUpdate = isSimpleUpdate ? "Schedule" : "Ramp Schedule";
         const displayName = action.name ?? "schedule";
+        const ruleLabel = ruleRef(action.ruleId);
         diffs.push({
           title: `${kindLabelUpdate} – ${displayName}`,
+          displayTitle: rampDiffTitle(isSimpleUpdate, displayName),
           titleSuffix: <RampActionLabel action="update" />,
           a: "",
           b: JSON.stringify(
@@ -251,7 +292,7 @@ function rampDiffsForRevision(
           ),
           customRender: (
             <p className="mb-0 text-muted">
-              {ruleRef(action.ruleId)} · updates schedule configuration.
+              <Trans>{ruleLabel} · updates schedule configuration.</Trans>
             </p>
           ),
           badges: [
@@ -260,6 +301,9 @@ function rampDiffsForRevision(
                 ? "Update schedule"
                 : "Update ramp schedule",
               action: "update ramp",
+              displayLabel: isSimpleUpdate
+                ? msg`Update schedule`
+                : msg`Update ramp schedule`,
             },
           ],
         });
@@ -271,8 +315,10 @@ function rampDiffsForRevision(
         const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
         const kindNoun = isSimple ? "schedule" : "ramp schedule";
         const scheduleName = targetSchedule?.name;
+        const ruleLabel = ruleRef(action.ruleId);
         diffs.push({
           title: scheduleName ? `${kindLabel} – ${scheduleName}` : kindLabel,
+          displayTitle: rampDiffTitle(isSimple, scheduleName),
           titleSuffix: <RampActionLabel action="remove" />,
           a: "",
           b: JSON.stringify(
@@ -286,16 +332,34 @@ function rampDiffsForRevision(
           ),
           customRender: (
             <p className="mb-0 text-muted">
-              {ruleRef(action.ruleId)} will be removed from this {kindNoun}
-              {action.deleteScheduleWhenEmpty &&
-                "; the schedule is deleted if no targets remain"}
-              .
+              {isSimple ? (
+                action.deleteScheduleWhenEmpty ? (
+                  <Trans>
+                    {ruleLabel} will be removed from this schedule; the schedule
+                    is deleted if no targets remain.
+                  </Trans>
+                ) : (
+                  <Trans>{ruleLabel} will be removed from this schedule.</Trans>
+                )
+              ) : action.deleteScheduleWhenEmpty ? (
+                <Trans>
+                  {ruleLabel} will be removed from this ramp schedule; the
+                  schedule is deleted if no targets remain.
+                </Trans>
+              ) : (
+                <Trans>
+                  {ruleLabel} will be removed from this ramp schedule.
+                </Trans>
+              )}
             </p>
           ),
           badges: [
             {
               label: `Remove from ${kindNoun}`,
               action: isSimple ? "remove schedule" : "remove ramp",
+              displayLabel: isSimple
+                ? msg`Remove from schedule`
+                : msg`Remove from ramp schedule`,
             },
           ],
         });
@@ -309,12 +373,13 @@ function rampDiffsForRevision(
 }
 
 function LogEntryMeta({ log }: { log: RevisionLog }) {
+  const { t } = useLingui();
   const rows: [string, React.ReactNode][] = [
     ...(log.subject
-      ? ([["Subject", log.subject]] as [string, React.ReactNode][])
+      ? ([[t`Subject`, log.subject]] as [string, React.ReactNode][])
       : []),
     [
-      "Author",
+      t`Author`,
       <EventUser
         user={log.user}
         display="avatar-name-email"
@@ -323,14 +388,14 @@ function LogEntryMeta({ log }: { log: RevisionLog }) {
         wrap={true}
       />,
     ],
-    ["Date", datetime(log.timestamp)],
+    [t`Date`, datetime(log.timestamp)],
   ];
 
   return (
     <Box>
       <Heading as="h4" size="sm" mb="3">
         {log.action === "edit comment"
-          ? "Edit revision description"
+          ? t`Edit revision description`
           : log.action}
       </Heading>
       <Flex direction="column" gap="2">
@@ -372,7 +437,7 @@ function RawLogDetails({ log }: { log: RevisionLog }) {
             transform: open ? "rotate(90deg)" : "none",
           }}
         />
-        Full log entry
+        <Trans>Full log entry</Trans>
       </div>
       {open && (
         <Box mt="3">
@@ -430,6 +495,7 @@ export default function CompareRevisionsModal({
   initialMode,
   rampSchedules = [],
 }: Props) {
+  const { t, i18n } = useLingui();
   const { apiCall } = useAuth();
   const liveVersion = feature.version;
   const { holdoutsMap } = useHoldouts();
@@ -931,15 +997,60 @@ export default function CompareRevisionsModal({
     [previewDiffs, previewDraftRev, feature.id, rampSchedules, holdoutsMap],
   );
 
+  // Pieces of sentences below, pulled out so each sentence stays whole.
+  const quickDraftVersion = quickActionRanges.draftPreviewVersion;
+  const quickDraftTitle =
+    quickDraftVersion !== null
+      ? (revisionListByVersion.get(quickDraftVersion)?.title ??
+        getFullRevision(quickDraftVersion)?.title)
+      : undefined;
+  const quickDraftLabel =
+    quickDraftVersion !== null ? (
+      <OverflowText
+        maxWidth={160}
+        title={revisionLabelText(
+          quickDraftVersion,
+          quickDraftTitle,
+          undefined,
+          i18n,
+        )}
+      >
+        <RevisionLabel version={quickDraftVersion} title={quickDraftTitle} />
+      </OverflowText>
+    ) : null;
+  const quickLiveTitle =
+    revisionListByVersion.get(liveVersion)?.title ??
+    getFullRevision(liveVersion)?.title;
+  const quickLiveLabel = (
+    <OverflowText
+      maxWidth={160}
+      title={revisionLabelText(liveVersion, quickLiveTitle, undefined, i18n)}
+    >
+      <RevisionLabel version={liveVersion} title={quickLiveTitle} />
+    </OverflowText>
+  );
+  const liveRangeStart = quickActionRanges.liveRange?.[0];
+  const liveRangeEnd = quickActionRanges.liveRange?.[1];
+  const allRangeStart = quickActionRanges.allRange?.[0];
+  const allRangeEnd = quickActionRanges.allRange?.[1];
+  const activeLogVersion = activeLogEntry?.version;
+  const previewDraftBaseVersion = previewDraftRev?.baseVersion;
+  const previewFailedCount = previewDisplayFailed.length;
+  const previewFailedList = previewDisplayFailed.join(", ");
+  const displayFailedCount = displayFailed.length;
+  const displayFailedList = displayFailed.join(", ");
+  const stepNumber = safeDiffPage + 1;
+  const stepTotal = steps.length;
+
   return (
     <Modal
       trackingEventModalType="compare-revisions"
       open={true}
-      header="Compare revisions"
+      header={t`Compare revisions`}
       close={onClose}
       hideCta
       includeCloseCta
-      closeCta="Close"
+      closeCta={t`Close`}
       size="max"
       sizeY="max"
       bodyClassName="p-0"
@@ -954,7 +1065,7 @@ export default function CompareRevisionsModal({
             quickActionRanges.allRange) && (
             <Box className={`${styles.section} border-bottom`} pb="2">
               <Text size="md" weight="medium" color="text-mid" mb="2" as="p">
-                Quick actions
+                <Trans>Quick actions</Trans>
               </Text>
               <Flex direction="column" className={styles.quickActionsList}>
                 {quickActionRanges.draftPreviewVersion !== null && (
@@ -970,50 +1081,14 @@ export default function CompareRevisionsModal({
                   >
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
-                      <Text weight="semibold">Most recent draft changes</Text>
+                      <Text weight="semibold">
+                        <Trans>Most recent draft changes</Trans>
+                      </Text>
                       <Text size="sm" color="text-low">
-                        <OverflowText
-                          maxWidth={160}
-                          title={revisionLabelText(
-                            quickActionRanges.draftPreviewVersion,
-                            revisionListByVersion.get(
-                              quickActionRanges.draftPreviewVersion,
-                            )?.title ??
-                              getFullRevision(
-                                quickActionRanges.draftPreviewVersion,
-                              )?.title,
-                          )}
-                        >
-                          <RevisionLabel
-                            version={quickActionRanges.draftPreviewVersion}
-                            title={
-                              revisionListByVersion.get(
-                                quickActionRanges.draftPreviewVersion,
-                              )?.title ??
-                              getFullRevision(
-                                quickActionRanges.draftPreviewVersion,
-                              )?.title
-                            }
-                          />
-                        </OverflowText>{" "}
-                        <PiArrowsLeftRightBold /> live (
-                        <OverflowText
-                          maxWidth={160}
-                          title={revisionLabelText(
-                            liveVersion,
-                            revisionListByVersion.get(liveVersion)?.title ??
-                              getFullRevision(liveVersion)?.title,
-                          )}
-                        >
-                          <RevisionLabel
-                            version={liveVersion}
-                            title={
-                              revisionListByVersion.get(liveVersion)?.title ??
-                              getFullRevision(liveVersion)?.title
-                            }
-                          />
-                        </OverflowText>
-                        )
+                        <Trans>
+                          {quickDraftLabel} <PiArrowsLeftRightBold /> live (
+                          {quickLiveLabel})
+                        </Trans>
                       </Text>
                     </Flex>
                   </Box>
@@ -1037,11 +1112,14 @@ export default function CompareRevisionsModal({
                   >
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
-                      <Text weight="semibold">Most recent live changes</Text>
+                      <Text weight="semibold">
+                        <Trans>Most recent live changes</Trans>
+                      </Text>
                       <Text size="sm" color="text-low">
-                        Revisions {quickActionRanges.liveRange[0]}{" "}
-                        <PiArrowsLeftRightBold />{" "}
-                        {quickActionRanges.liveRange[1]}
+                        <Trans>
+                          Revisions {liveRangeStart} <PiArrowsLeftRightBold />{" "}
+                          {liveRangeEnd}
+                        </Trans>
                       </Text>
                     </Flex>
                   </Box>
@@ -1065,11 +1143,14 @@ export default function CompareRevisionsModal({
                   >
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
-                      <Text weight="semibold">All changes</Text>
+                      <Text weight="semibold">
+                        <Trans>All changes</Trans>
+                      </Text>
                       <Text size="sm" color="text-low">
-                        Revisions {quickActionRanges.allRange[0]}{" "}
-                        <PiArrowsLeftRightBold />{" "}
-                        {quickActionRanges.allRange[1]}
+                        <Trans>
+                          Revisions {allRangeStart} <PiArrowsLeftRightBold />{" "}
+                          {allRangeEnd}
+                        </Trans>
                       </Text>
                     </Flex>
                   </Box>
@@ -1080,7 +1161,7 @@ export default function CompareRevisionsModal({
           <Box className={styles.section} pb="3">
             <Flex align="center" justify="between" mb="2">
               <Text size="md" weight="medium" color="text-mid">
-                Select range of revisions
+                <Trans>Select range of revisions</Trans>
               </Text>
               {(hasDraftRevisions ||
                 hasDiscardedRevisions ||
@@ -1090,7 +1171,7 @@ export default function CompareRevisionsModal({
                     ...(hasDraftRevisions
                       ? [
                           {
-                            label: "Show drafts",
+                            label: t`Show drafts`,
                             hidden: !showDrafts,
                             toggle: () => setShowDrafts((v) => !v),
                           },
@@ -1099,7 +1180,7 @@ export default function CompareRevisionsModal({
                     ...(hasDiscardedRevisions
                       ? [
                           {
-                            label: "Show discarded",
+                            label: t`Show discarded`,
                             hidden: !showDiscarded,
                             toggle: () => setShowDiscarded((v) => !v),
                           },
@@ -1108,7 +1189,7 @@ export default function CompareRevisionsModal({
                     ...(hasGeneratedRevisions
                       ? [
                           {
-                            label: "Show ramp-generated",
+                            label: t`Show ramp-generated`,
                             hidden: !showGenerated,
                             toggle: () => setShowGenerated((v) => !v),
                           },
@@ -1126,7 +1207,7 @@ export default function CompareRevisionsModal({
                       modal={true}
                       trigger={
                         <Link>
-                          Filters
+                          <Trans>Filters</Trans>
                           {count > 0 && (
                             <Badge
                               color="indigo"
@@ -1154,7 +1235,7 @@ export default function CompareRevisionsModal({
                             <span style={{ width: 24, display: "inline-flex" }}>
                               <PiX size={16} />
                             </span>
-                            Remove all filters
+                            <Trans>Remove all filters</Trans>
                           </Flex>
                         </DropdownMenuItem>
                       )}
@@ -1170,9 +1251,11 @@ export default function CompareRevisionsModal({
                           <span style={{ width: 24, display: "inline-flex" }}>
                             <PiClockClockwise size={16} />
                           </span>
-                          {isAtDefault
-                            ? "Using default filters"
-                            : "Use default filters"}
+                          {isAtDefault ? (
+                            <Trans>Using default filters</Trans>
+                          ) : (
+                            <Trans>Use default filters</Trans>
+                          )}
                         </Flex>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -1224,6 +1307,7 @@ export default function CompareRevisionsModal({
                 const isExpanded = expandedLogVersions.has(v);
                 const versionLogs = fetchedLogs[v];
                 const isLoadingLogs = loadingLogVersions.has(v);
+                const baseVersion = fullRev?.baseVersion;
                 return (
                   <Box key={v} className={styles.rowWrapper}>
                     <label
@@ -1261,7 +1345,7 @@ export default function CompareRevisionsModal({
                             style={{ minWidth: 0, flex: 1, overflow: "hidden" }}
                           >
                             {checkboxChecked && isVersionFailed(v) && (
-                              <Tooltip body="Could not load revision">
+                              <Tooltip body={t`Could not load revision`}>
                                 <PiWarningBold
                                   style={{
                                     color: "var(--red-9)",
@@ -1281,6 +1365,8 @@ export default function CompareRevisionsModal({
                               title={revisionLabelText(
                                 v,
                                 minRev?.title ?? fullRev?.title,
+                                undefined,
+                                i18n,
                               )}
                             >
                               <RevisionLabel
@@ -1306,7 +1392,7 @@ export default function CompareRevisionsModal({
                         ) : null}
                         {showBase && fullRev && fullRev.baseVersion !== 0 ? (
                           <HelperText status="info" size="sm" mt="1">
-                            based on: Revision {fullRev.baseVersion}
+                            <Trans>based on: Revision {baseVersion}</Trans>
                           </HelperText>
                         ) : null}
                       </Flex>
@@ -1323,7 +1409,7 @@ export default function CompareRevisionsModal({
                               setDiffPage(0);
                             }}
                           >
-                            Compare with live
+                            <Trans>Compare with live</Trans>
                           </Button>
                         </div>
                       )}
@@ -1331,8 +1417,8 @@ export default function CompareRevisionsModal({
                         <Tooltip
                           body={
                             isExpanded
-                              ? "Collapse log entries"
-                              : "Expand log entries"
+                              ? t`Collapse log entries`
+                              : t`Expand log entries`
                           }
                         >
                           <button
@@ -1367,7 +1453,7 @@ export default function CompareRevisionsModal({
                       <div className={styles.logSubRows}>
                         {isLoadingLogs ? (
                           <Text size="sm" color="text-low" ml="2">
-                            Loading…
+                            <Trans>Loading…</Trans>
                           </Text>
                         ) : versionLogs && versionLogs.length > 0 ? (
                           (() => {
@@ -1380,7 +1466,7 @@ export default function CompareRevisionsModal({
                             if (contentLogs.length === 0) {
                               return (
                                 <Text size="sm" color="text-low" ml="2">
-                                  No changes in this revision
+                                  <Trans>No changes in this revision</Trans>
                                 </Text>
                               );
                             }
@@ -1433,7 +1519,7 @@ export default function CompareRevisionsModal({
                           })()
                         ) : (
                           <Text size="sm" color="text-low" ml="2">
-                            No log entries
+                            <Trans>No log entries</Trans>
                           </Text>
                         )}
                       </div>
@@ -1460,7 +1546,7 @@ export default function CompareRevisionsModal({
                 style={{ borderBottom: "1px solid var(--gray-5)" }}
               >
                 <Flex align="center" gap="2" wrap="wrap">
-                  <Tooltip body="Return to revision">
+                  <Tooltip body={t`Return to revision`}>
                     <button
                       type="button"
                       className={styles.backButton}
@@ -1470,10 +1556,10 @@ export default function CompareRevisionsModal({
                     </button>
                   </Tooltip>
                   <Heading as="h2" size="sm" mb="0">
-                    Log entry
+                    <Trans>Log entry</Trans>
                   </Heading>
                   <Text size="sm" color="text-low">
-                    · Revision {activeLogEntry.version}
+                    <Trans>· Revision {activeLogVersion}</Trans>
                   </Text>
                 </Flex>
               </Box>
@@ -1505,10 +1591,10 @@ export default function CompareRevisionsModal({
                 <Flex align="center" justify="between" gap="4" wrap="wrap">
                   <Flex align="center" gap="2">
                     <Heading as="h2" size="sm" mb="0">
-                      Preview draft
+                      <Trans>Preview draft</Trans>
                     </Heading>
                     <Text size="sm" color="text-low">
-                      Draft content vs live (two-way)
+                      <Trans>Draft content vs live (two-way)</Trans>
                     </Text>
                   </Flex>
                 </Flex>
@@ -1527,12 +1613,14 @@ export default function CompareRevisionsModal({
                 {previewDraftRev &&
                   previewDraftRev.baseVersion !== liveVersion && (
                     <Callout status="warning" mt="3">
-                      Live has changed since this draft was created (based on
-                      Revision {previewDraftRev.baseVersion}). Publishing uses
-                      three-way merge — only fields the draft explicitly changed
-                      from its base will take effect. Use{" "}
-                      <strong>Review &amp; Publish</strong> to see the exact
-                      changes that will go live.
+                      <Trans>
+                        Live has changed since this draft was created (based on
+                        Revision {previewDraftBaseVersion}). Publishing uses
+                        three-way merge — only fields the draft explicitly
+                        changed from its base will take effect. Use{" "}
+                        <strong>Review &amp; Publish</strong> to see the exact
+                        changes that will go live.
+                      </Trans>
                     </Callout>
                   )}
               </Box>
@@ -1542,13 +1630,20 @@ export default function CompareRevisionsModal({
                 <Callout status="error" mt="4">
                   <Flex gap="4" align="start">
                     <span>
-                      Could not load revision
-                      {previewDisplayFailed.length > 1 ? "s" : ""}{" "}
-                      {previewDisplayFailed.join(", ")}.
+                      <Plural
+                        value={previewFailedCount}
+                        one={<>Could not load revision {previewFailedList}.</>}
+                        other={
+                          <>Could not load revisions {previewFailedList}.</>
+                        }
+                      />
                     </span>
                     <Link onClick={() => fetchRevisions(previewDisplayFailed)}>
-                      Reload revision
-                      {previewDisplayFailed.length > 1 ? "s" : ""}
+                      <Plural
+                        value={previewFailedCount}
+                        one="Reload revision"
+                        other="Reload revisions"
+                      />
                     </Link>
                   </Flex>
                 </Callout>
@@ -1570,7 +1665,9 @@ export default function CompareRevisionsModal({
             </>
           ) : steps.length === 0 ? (
             <Text color="text-low">
-              Select at least two revisions in the list to see the diff.
+              <Trans>
+                Select at least two revisions in the list to see the diff.
+              </Trans>
             </Text>
           ) : (
             // Standard range comparison mode
@@ -1585,7 +1682,9 @@ export default function CompareRevisionsModal({
                     {diffViewMode === "steps" && (
                       <>
                         <Heading as="h2" size="sm" mb="0">
-                          Step {safeDiffPage + 1} of {steps.length}
+                          <Trans>
+                            Step {stepNumber} of {stepTotal}
+                          </Trans>
                         </Heading>
                         <Flex gap="2">
                           <Button
@@ -1596,7 +1695,7 @@ export default function CompareRevisionsModal({
                               setDiffPage((p) => Math.max(0, p - 1))
                             }
                           >
-                            Previous
+                            <Trans>Previous</Trans>
                           </Button>
                           <Button
                             variant="soft"
@@ -1608,7 +1707,7 @@ export default function CompareRevisionsModal({
                               )
                             }
                           >
-                            Next
+                            <Trans>Next</Trans>
                           </Button>
                         </Flex>
                       </>
@@ -1636,7 +1735,7 @@ export default function CompareRevisionsModal({
                   </Flex>
                   <Flex align="center" gap="2">
                     <Text size="md" weight="medium" color="text-mid">
-                      Show diff as
+                      <Trans>Show diff as</Trans>
                     </Text>
                     <Select
                       value={diffViewMode}
@@ -1644,8 +1743,12 @@ export default function CompareRevisionsModal({
                       size="md"
                       mb="0"
                     >
-                      <SelectItem value="steps">Steps</SelectItem>
-                      <SelectItem value="single">Single diff</SelectItem>
+                      <SelectItem value="steps">
+                        <Trans>Steps</Trans>
+                      </SelectItem>
+                      <SelectItem value="single">
+                        <Trans>Single diff</Trans>
+                      </SelectItem>
                     </Select>
                   </Flex>
                 </Flex>
@@ -1670,12 +1773,20 @@ export default function CompareRevisionsModal({
                 <Callout status="error" mt="4">
                   <Flex gap="4" align="start">
                     <span>
-                      Could not load revision
-                      {displayFailed.length > 1 ? "s" : ""}{" "}
-                      {displayFailed.join(", ")}.
+                      <Plural
+                        value={displayFailedCount}
+                        one={<>Could not load revision {displayFailedList}.</>}
+                        other={
+                          <>Could not load revisions {displayFailedList}.</>
+                        }
+                      />
                     </span>
                     <Link onClick={() => fetchRevisions(displayFailed)}>
-                      Reload revision{displayFailed.length > 1 ? "s" : ""}
+                      <Plural
+                        value={displayFailedCount}
+                        one="Reload revision"
+                        other="Reload revisions"
+                      />
                     </Link>
                   </Flex>
                 </Callout>

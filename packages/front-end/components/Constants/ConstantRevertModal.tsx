@@ -59,7 +59,7 @@ export default function ConstantRevertModal({ constant, ...rest }: Props) {
           approvalRequired={approvalRequired}
           hideExisting
           defaultExpanded
-          triggerPrefix="Revert will be"
+          action="revert"
         />
       )}
       {...rest}

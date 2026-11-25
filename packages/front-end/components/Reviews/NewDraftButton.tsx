@@ -1,5 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { QuickEditRow } from "@/components/Experiment/TabbedPage/QuickEditButton";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
@@ -24,6 +26,7 @@ type NewDraftButtonProps = {
 };
 
 export default function NewDraftButton(props: NewDraftButtonProps) {
+  const { t } = useLingui();
   const { entityNoun, activeDraftCount, maxDrafts = 0 } = props;
   const [open, setOpen] = useState(false);
   const atDraftCap = maxDrafts > 0 && activeDraftCount >= maxDrafts;
@@ -32,16 +35,17 @@ export default function NewDraftButton(props: NewDraftButtonProps) {
       <Box position="relative">
         <Tooltip
           enabled={atDraftCap}
-          content={`This ${entityNoun} has ${activeDraftCount} active draft${
-            activeDraftCount === 1 ? "" : "s"
-          }, at your organization's cap of ${maxDrafts} per ${entityNoun}. You can still create one after acknowledging the cap.`}
+          content={t`${plural(activeDraftCount, {
+            one: `This ${entityNoun} has # active draft, at your organization's cap of ${maxDrafts} per ${entityNoun}. You can still create one after acknowledging the cap.`,
+            other: `This ${entityNoun} has # active drafts, at your organization's cap of ${maxDrafts} per ${entityNoun}. You can still create one after acknowledging the cap.`,
+          })}`}
         >
           <Button
             onClick={() => setOpen(true)}
             variant="soft"
             style={{ whiteSpace: "nowrap" }}
           >
-            New draft
+            <Trans>New draft</Trans>
           </Button>
         </Tooltip>
         {atDraftCap && (
@@ -81,6 +85,7 @@ function NewDraftModal({
   create,
   close,
 }: NewDraftButtonProps & { atDraftCap: boolean; close: () => void }) {
+  const { t } = useLingui();
   const [newDraftTitle, setNewDraftTitle] = useState("");
   const [newDraftTitleStash, setNewDraftTitleStash] = useState("");
   const [editingNewDraftTitle, setEditingNewDraftTitle] = useState(false);
@@ -95,10 +100,10 @@ function NewDraftModal({
       trackingEventModalType="create-new-draft"
       open={true}
       close={close}
-      header="Create New Draft"
-      subheader={<>Based on {basedOn}</>}
+      header={t`Create New Draft`}
+      subheader={<Trans>Based on {basedOn}</Trans>}
       size="lg"
-      cta="Create draft"
+      cta={t`Create draft`}
       ctaEnabled={(!atDraftCap || draftCapAcknowledged) && !uploading}
       aboveFooterContent={
         atDraftCap ? (
@@ -106,9 +111,10 @@ function NewDraftModal({
             acknowledged={draftCapAcknowledged}
             setAcknowledged={setDraftCapAcknowledged}
           >
-            This {entityNoun} already has {activeDraftCount} active draft
-            {activeDraftCount === 1 ? "" : "s"}; your organization recommends at
-            most {maxDrafts}.
+            {t`${plural(activeDraftCount, {
+              one: `This ${entityNoun} already has # active draft; your organization recommends at most ${maxDrafts}.`,
+              other: `This ${entityNoun} already has # active drafts; your organization recommends at most ${maxDrafts}.`,
+            })}`}
           </ModalWarningBanner>
         ) : undefined
       }
@@ -120,14 +126,14 @@ function NewDraftModal({
       }}
     >
       <SetupFieldRow
-        label="Name"
+        label={t`Name`}
         content={editingNewDraftTitle ? "control" : "text"}
       >
         {editingNewDraftTitle ? (
           <TextField
             autoFocus
             value={newDraftTitle}
-            placeholder={`Revision ${nextVersion}`}
+            placeholder={t`Revision ${nextVersion}`}
             onChange={(e) => setNewDraftTitle(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -145,23 +151,23 @@ function NewDraftModal({
           />
         ) : (
           <QuickEditRow
-            label="Rename draft"
+            label={t`Rename draft`}
             onEdit={() => {
               setNewDraftTitleStash(newDraftTitle);
               setEditingNewDraftTitle(true);
             }}
           >
             <Text color="text-high">
-              {newDraftTitle.trim() || `Revision ${nextVersion}`}
+              {newDraftTitle.trim() || t`Revision ${nextVersion}`}
             </Text>
           </QuickEditRow>
         )}
       </SetupFieldRow>
-      <SetupFieldRow label="Description">
+      <SetupFieldRow label={t`Description`}>
         <AIRichTextField
           value={newDraftNotes}
           onChange={setNewDraftNotes}
-          placeholder="Describe this revision..."
+          placeholder={t`Describe this revision...`}
           height="xs"
           collapsibleToolbar
           onUploadingChange={setUploading}

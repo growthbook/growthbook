@@ -1,4 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
+import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
@@ -28,7 +29,7 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
   labelOnlyEvents: [
     {
       event: "feature.delete",
-      getLabel: () => "Deleted",
+      getLabel: () => msg`Deleted`,
       alwaysVisible: true,
     },
   ],
@@ -41,7 +42,7 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
     const preVersion = entry.preSnapshot?.version;
     const postVersion = entry.postSnapshot?.version;
     if (postVersion !== undefined && postVersion !== preVersion) {
-      return `Published version ${postVersion}`;
+      return msg`Published version ${postVersion}`;
     }
     // Toggle — find which env changed and produce "Enabled/Disabled in {env}"
     if (entry.event === "feature.toggle") {
@@ -52,19 +53,21 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
       );
       if (changed) {
         const nowEnabled = postEnvs[changed]?.enabled;
-        return `${nowEnabled ? "Enabled" : "Disabled"} in ${changed}`;
+        return nowEnabled
+          ? msg`Enabled in ${changed}`
+          : msg`Disabled in ${changed}`;
       }
     }
     // Holdout add / remove / value change
     const preHoldout = entry.preSnapshot?.holdout;
     const postHoldout = entry.postSnapshot?.holdout;
     if (preHoldout?.id !== postHoldout?.id) {
-      if (!preHoldout && postHoldout) return "Added to holdout";
-      if (preHoldout && !postHoldout) return "Removed from holdout";
-      return "Changed holdout";
+      if (!preHoldout && postHoldout) return msg`Added to holdout`;
+      if (preHoldout && !postHoldout) return msg`Removed from holdout`;
+      return msg`Changed holdout`;
     }
     if (preHoldout && postHoldout && preHoldout.value !== postHoldout.value) {
-      return "Changed holdout value";
+      return msg`Changed holdout value`;
     }
     return null;
   },
@@ -75,11 +78,13 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
   sections: [
     {
       label: "Default value",
+      displayLabel: msg`Default value`,
       keys: ["defaultValue"],
       render: renderFeatureDefaultValueSection,
     },
     {
       label: "Rules",
+      displayLabel: msg`Rules`,
       // Post-v2: rules live on the flat `rules` top-level array; the per-env
       // `enabled` flag still lives on `environmentSettings`. Claim both so the
       // differ's key-picking covers toggles and rule mutations in one section,
@@ -91,12 +96,14 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
     },
     {
       label: "Settings",
+      displayLabel: msg`Settings`,
       keys: ["archived", "description", "owner", "project", "tags"],
       render: renderFeatureMetadataSection,
       getBadges: getFeatureMetadataBadges,
     },
     {
       label: "Holdout value",
+      displayLabel: msg`Holdout value`,
       keys: ["holdout"],
       render: renderFeatureHoldoutSection,
       getBadges: getFeatureHoldoutBadges,

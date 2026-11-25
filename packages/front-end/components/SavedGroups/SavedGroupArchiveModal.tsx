@@ -4,6 +4,7 @@ import {
 } from "shared/permissions";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { Revision, getApprovalFlowSettings } from "shared/enterprise";
+import { useLingui } from "@lingui/react/macro";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
@@ -35,6 +36,7 @@ export default function SavedGroupArchiveModal({
   onRevisionCreated,
   selectFlow,
 }: SavedGroupArchiveModalProps) {
+  const { t } = useLingui();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
   const { userId } = useUser();
@@ -64,7 +66,7 @@ export default function SavedGroupArchiveModal({
 
   return (
     <ArchiveModal
-      entityNoun="Saved Group"
+      entityNoun={t`Saved Group`}
       entityId={savedGroup.id}
       isArchived={isArchived}
       apiPathBase="/saved-groups"
@@ -87,7 +89,6 @@ export default function SavedGroupArchiveModal({
       // Group returns a soft warning the user acknowledges via the shared
       // apiCall handler, rather than a client-side hard block.
       referenceBlockMode="soft"
-      preserveNounCase
       referencesList={
         <SavedGroupReferencesList
           features={references?.features ?? []}

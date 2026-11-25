@@ -117,7 +117,7 @@ const SavedGroupForm: FC<{
   autoBypassApproval = false,
   mutate,
 }) => {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { apiCall, orgId } = useAuth();
   const router = useRouter();
   const settings = useOrgSettings();
@@ -188,6 +188,7 @@ const SavedGroupForm: FC<{
   const cta = draftModeCta(draftMode, {
     bypassesApproval: isApprovalFlowRequired && !autoBypassApproval,
     publishLabel: editInfoOnly ? t`Save` : t`Publish`,
+    i18n,
   });
 
   const allRevisionsForLabel = allRevisions ?? openRevisions;
@@ -288,7 +289,7 @@ const SavedGroupForm: FC<{
     },
     form,
     isNewDraft: draftMode === "new",
-    entityNoun: "saved group",
+    entityNoun: t`saved group`,
   });
 
   const descriptionContested = conflict.providerProps.contested.some(

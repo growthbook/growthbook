@@ -1,5 +1,6 @@
 import { ReactNode, useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import Markdown from "@/components/Markdown/Markdown";
 import { NamedRevision } from "@/components/Reviews/RevisionLabel";
 import useIsOverflowing from "@/hooks/useIsOverflowing";
@@ -46,6 +47,7 @@ export default function RevisionDetailsCard({
   facts: RevisionFact[];
   comment?: string | null;
 }) {
+  const { t, i18n } = useLingui();
   const notes = useRef<HTMLDivElement>(null);
   const notesOverflow = useIsOverflowing(notes, NOTES_MAX_HEIGHT);
 
@@ -58,13 +60,13 @@ export default function RevisionDetailsCard({
         {badge}
       </Flex>
       <Flex direction="column" gap="2">
-        {facts.map(({ label, value }) => (
-          <DetailRow key={label} label={label}>
-            {value}
+        {facts.map(({ label, displayLabel, value, displayValue }) => (
+          <DetailRow key={label} label={i18n._(displayLabel)}>
+            {displayValue ? i18n._(displayValue) : value}
           </DetailRow>
         ))}
         {comment ? (
-          <DetailRow label="Description">
+          <DetailRow label={t`Description`}>
             <Box
               className={notesOverflow ? "fade-mask-bottom-1rem" : undefined}
               style={{ maxHeight: NOTES_MAX_HEIGHT, overflow: "hidden" }}

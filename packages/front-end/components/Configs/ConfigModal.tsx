@@ -79,7 +79,7 @@ export default function ConfigModal({
   onSaved?: (revision: Revision) => void | Promise<void>;
   close: () => void;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const router = useRouter();
   const { apiCall } = useAuth();
   const { organization } = useUser();
@@ -142,6 +142,7 @@ export default function ConfigModal({
   const cta = draftModeCta(draft.draftMode, {
     bypassesApproval: draft.selectorApprovalRequired,
     publishLabel: t`Save`,
+    i18n,
   });
 
   // For create, the base/child distinction follows the selected parent.

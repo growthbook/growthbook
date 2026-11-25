@@ -64,7 +64,7 @@ export default function DraftSelectorDropdown({
    */
   eligibleDraftVersions?: Set<number>;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const ctx = useFeatureRevisionsContext();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -133,6 +133,7 @@ export default function DraftSelectorDropdown({
             selectedExistingRevision.version,
             selectedExistingRevision.title,
             !!selectedExistingRevision.title,
+            i18n,
           )
         : null;
       return revLabel ? revLabel : t`Save to existing draft`;
@@ -323,6 +324,7 @@ function DraftRow({
   r: MinimalFeatureRevisionInterface;
   liveVersion: number;
 }) {
+  const { i18n } = useLingui();
   const revDate = r.status === "published" ? r.datePublished : r.dateUpdated;
   const createdDate = revDate ? date(revDate) : null;
   return (
@@ -343,7 +345,7 @@ function DraftRow({
               whiteSpace: "nowrap",
               maxWidth: 400,
             }}
-            title={revisionLabelText(r.version, r.title)}
+            title={revisionLabelText(r.version, r.title, undefined, i18n)}
           >
             <RevisionLabel
               version={r.version}

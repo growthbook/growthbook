@@ -85,7 +85,7 @@ export default function EditDefaultValueModal({
     labels: { defaultValue: t`Value When Enabled` },
     form,
     isNewDraft: mode === "new",
-    entityNoun: "value",
+    entityNoun: t`value`,
   });
 
   return (

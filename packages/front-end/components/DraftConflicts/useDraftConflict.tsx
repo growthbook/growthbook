@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
+import { useLingui } from "@lingui/react/macro";
 import { DraftConflict } from "shared/types/draft-conflict";
 import HelperText from "@/ui/HelperText";
 import {
@@ -45,6 +46,7 @@ export function useDraftConflict<T extends object>({
   // Offered in place of merge choices when a contested value was too large to ship.
   onReload?: () => void;
 }) {
+  const { t } = useLingui();
   const [baseline, setBaseline] = useState<T>(initial);
   const [conflict, setConflict] = useState<Conflict<T> | null>(null);
   const [resolutions, setResolutions] = useState<
@@ -194,14 +196,14 @@ export function useDraftConflict<T extends object>({
   const alert = conflict ? (
     <HelperText status="warning" icon={null}>
       {!conflict.current
-        ? `This ${entityNoun} was removed while you had it open. Saving re-adds it.`
+        ? t`This ${entityNoun} was removed while you had it open. Saving re-adds it.`
         : newDraftAvoidsConflict
-          ? `This ${entityNoun} was modified while you were editing. Saving to a new draft keeps both versions.`
+          ? t`This ${entityNoun} was modified while you were editing. Saving to a new draft keeps both versions.`
           : resolved
-            ? `This ${entityNoun} was modified while you were editing.`
+            ? t`This ${entityNoun} was modified while you were editing.`
             : isNewDraft
-              ? `This ${entityNoun} was modified while you were editing. Resolve the conflicts below.`
-              : `This ${entityNoun} was modified while you were editing. Resolve the conflicts below, or save to a new draft.`}
+              ? t`This ${entityNoun} was modified while you were editing. Resolve the conflicts below.`
+              : t`This ${entityNoun} was modified while you were editing. Resolve the conflicts below, or save to a new draft.`}
     </HelperText>
   ) : undefined;
 
@@ -223,8 +225,8 @@ export function useDraftConflict<T extends object>({
           chunkKey={WHOLE_KEY}
           message={
             conflict.current
-              ? `This ${entityNoun} was restructured by someone else. Saving keeps your version.`
-              : `This ${entityNoun} was deleted by someone else. Saving re-adds it.`
+              ? t`This ${entityNoun} was restructured by someone else. Saving keeps your version.`
+              : t`This ${entityNoun} was deleted by someone else. Saving re-adds it.`
           }
         />
       )

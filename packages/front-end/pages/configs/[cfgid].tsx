@@ -1770,7 +1770,7 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   const newDraft = canDraft ? (
     <NewDraftButton
-      entityNoun="Config"
+      entityNoun={t`Config`}
       activeDraftCount={openRevisions.length}
       nextVersion={Math.max(0, ...revisionNumbers.values()) + 1}
       basedOn={
@@ -2079,7 +2079,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         }
       >
         <ArchiveStateCallout
-          noun="Config"
+          entityType="config"
           liveArchived={!!config.archived}
           viewedArchived={!!displayedConfig.archived}
         />
@@ -2132,7 +2132,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 allRevisions={allRevisions}
                 liveSnapshot={config}
                 diffConfig={REVISION_CONFIG_DIFF_CONFIG}
-                entityNoun="Config"
+                entityNoun={t`Config`}
                 requiresApproval={selectedRevisionRequiresApproval}
                 canDiscard={
                   canDraft || selectedRevision?.authorId === currentUserId
@@ -2559,7 +2559,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 currentState={config}
                 diffConfig={REVISION_CONFIG_DIFF_CONFIG}
                 entityName={config.name}
-                entityNoun="Config"
+                entityNoun={t`Config`}
                 requiresApproval={selectedRevisionRequiresApproval}
                 reviewRules={reviewRule ? [reviewRule] : []}
                 canEditEntity={canDraft}

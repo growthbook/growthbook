@@ -390,7 +390,7 @@ export default function SDKConnectionPage() {
 
   const newDraft = canUpdate ? (
     <NewDraftButton
-      entityNoun="SDK Connection"
+      entityNoun={t`SDK Connection`}
       activeDraftCount={openRevisions.length}
       nextVersion={Math.max(0, ...revisionNumbers.values()) + 1}
       basedOn={
@@ -735,7 +735,7 @@ export default function SDKConnectionPage() {
                 allRevisions={allRevisions}
                 liveSnapshot={liveSnapshot}
                 diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
-                entityNoun="SDK Connection"
+                entityNoun={t`SDK Connection`}
                 requiresApproval={selectedRevisionRequiresApproval}
                 canDiscard={canUpdate || selectedRevision?.authorId === userId}
                 onSelectRevision={selectFlow}
@@ -828,7 +828,7 @@ export default function SDKConnectionPage() {
                 currentState={liveSnapshot}
                 diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
                 entityName={displayedConnection.name}
-                entityNoun="SDK Connection"
+                entityNoun={t`SDK Connection`}
                 requiresApproval={selectedRevisionRequiresApproval}
                 reviewRules={selectedRevisionReviewRules}
                 canEditEntity={canUpdate}

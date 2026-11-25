@@ -232,7 +232,7 @@ const EditFeatureInfoModal: FC<{
     },
     form,
     isNewDraft: mode === "new",
-    entityNoun: "feature",
+    entityNoun: t`feature`,
   });
 
   const permissionRequired = (project) =>

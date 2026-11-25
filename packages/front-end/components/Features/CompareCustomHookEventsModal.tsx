@@ -1,4 +1,5 @@
 import { CustomHookInterface } from "shared/validators";
+import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
@@ -22,18 +23,19 @@ const CUSTOM_HOOK_DIFF_CONFIG: AuditDiffConfig<CustomHookInterface> = {
   entityLabel: "Custom Hook",
   updateEventNames: ["customHook.update"],
   overrideEventLabel: (entry) =>
-    entry.event === "customHook.revert" ? "Reverted" : null,
+    entry.event === "customHook.revert" ? msg`Reverted` : null,
   defaultGroupBy: "minute",
   singleSelect: true,
   hideFilters: true,
   contentView: {
-    label: "Code",
+    label: msg`Code`,
     language: "javascript",
     get: (hook) => hook.code ?? "",
   },
   sections: [
     {
       label: "Code",
+      displayLabel: msg`Code`,
       keys: ["code"],
       suppressCardLabel: true,
       render: renderCustomHookCodeSection,
@@ -41,6 +43,7 @@ const CUSTOM_HOOK_DIFF_CONFIG: AuditDiffConfig<CustomHookInterface> = {
     },
     {
       label: "Settings",
+      displayLabel: msg`Settings`,
       keys: [
         "name",
         "hook",

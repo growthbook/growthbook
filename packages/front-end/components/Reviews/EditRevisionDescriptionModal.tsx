@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -16,8 +17,8 @@ export default function EditRevisionDescriptionModal({
   onSubmit,
   close,
   trackingEventModalType = "edit-revision-description",
-  header = "Edit Revision Description",
-  placeholder = "Describe this revision...",
+  header,
+  placeholder,
   revision,
   liveVersion,
 }: {
@@ -32,6 +33,11 @@ export default function EditRevisionDescriptionModal({
   // For the badge, which calls the live revision "Live".
   liveVersion?: number;
 }) {
+  const { t } = useLingui();
+  const headerText =
+    header === undefined ? t`Edit Revision Description` : header;
+  const placeholderText =
+    placeholder === undefined ? t`Describe this revision...` : placeholder;
   const [value, setValue] = useState(initialValue);
   // An image still uploading would be dropped from the saved description.
   const [uploading, setUploading] = useState(false);
@@ -41,21 +47,28 @@ export default function EditRevisionDescriptionModal({
       trackingEventModalType={trackingEventModalType}
       open={true}
       close={close}
-      header={header}
+      header={headerText}
       subheader={
         revision ? (
           <>
-            For{" "}
-            <Text as="span" size="inherit" weight="semibold" color="text-high">
-              <RevisionLabel
-                version={revision.version}
-                title={revision.title}
-                // Untitled, it's already "Revision N".
-                numbered={!!revision.title}
-                minWidth={0}
-                numberSize="inherit"
-              />
-            </Text>
+            <Trans>
+              For{" "}
+              <Text
+                as="span"
+                size="inherit"
+                weight="semibold"
+                color="text-high"
+              >
+                <RevisionLabel
+                  version={revision.version}
+                  title={revision.title}
+                  // Untitled, it's already "Revision N".
+                  numbered={!!revision.title}
+                  minWidth={0}
+                  numberSize="inherit"
+                />
+              </Text>
+            </Trans>
             {liveVersion !== undefined ? (
               <>
                 {" "}
@@ -69,18 +82,18 @@ export default function EditRevisionDescriptionModal({
         ) : undefined
       }
       size="lg"
-      cta="Save"
+      cta={t`Save`}
       ctaEnabled={!uploading}
       submit={async () => {
         await onSubmit(value.trim());
       }}
     >
       {/* Laid out as a new draft's details are. */}
-      <SetupFieldRow label="Description">
+      <SetupFieldRow label={t`Description`}>
         <AIRichTextField
           value={value}
           onChange={setValue}
-          placeholder={placeholder}
+          placeholder={placeholderText}
           height="xs"
           collapsibleToolbar
           autoFocus

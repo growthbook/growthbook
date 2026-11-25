@@ -79,19 +79,20 @@ function boolRows(
   return rows;
 }
 
+// A badge's English label (its key) with the text shown for it.
+type BadgeText = { label: string; displayLabel: MessageDescriptor };
+
 // A boolean setting that changed, as an on or off badge.
 function toggleBadge(
   p0: Partial<SDKConnectionSettingsRevisionSnapshot> | null,
   p1: Partial<SDKConnectionSettingsRevisionSnapshot>,
   key: keyof SDKConnectionSettingsRevisionSnapshot,
-  on: string,
-  off: string,
+  on: BadgeText,
+  off: BadgeText,
 ): DiffBadge[] {
   const v = p1[key];
   if (v === undefined || isEqual(p0?.[key], v)) return [];
-  return [
-    v ? { label: on, action: "added" } : { label: off, action: "removed" },
-  ];
+  return [v ? { ...on, action: "added" } : { ...off, action: "removed" }];
 }
 
 function strDisplay(v: string | undefined | null): ReactNode {
@@ -187,7 +188,11 @@ function getSDKConnectionScopeBadges(pre: Pre, post: Post): DiffBadge[] {
     !isEqual(p0?.environment, p1.environment) &&
     p1.environment !== undefined
   ) {
-    badges.push({ label: "Edit environment", action: "edit environment" });
+    badges.push({
+      label: "Edit environment",
+      displayLabel: msg`Edit environment`,
+      action: "edit environment",
+    });
   }
 
   if (!isEqual(p0?.projects, p1.projects) && p1.projects !== undefined) {
@@ -195,26 +200,48 @@ function getSDKConnectionScopeBadges(pre: Pre, post: Post): DiffBadge[] {
     const postProjects = p1.projects;
     const added = postProjects.filter((p) => !preProjects.includes(p));
     const removed = preProjects.filter((p) => !postProjects.includes(p));
-    if (added.length)
+    const addedCount = added.length;
+    const removedCount = removed.length;
+    if (addedCount)
       badges.push({
-        label: `+${added.length} project${added.length !== 1 ? "s" : ""}`,
+        label: `+${addedCount} project${addedCount !== 1 ? "s" : ""}`,
+        displayLabel:
+          addedCount === 1
+            ? msg`+${addedCount} project`
+            : msg`+${addedCount} projects`,
         action: "add project",
       });
-    if (removed.length)
+    if (removedCount)
       badges.push({
-        label: `-${removed.length} project${removed.length !== 1 ? "s" : ""}`,
+        label: `-${removedCount} project${removedCount !== 1 ? "s" : ""}`,
+        displayLabel:
+          removedCount === 1
+            ? msg`-${removedCount} project`
+            : msg`-${removedCount} projects`,
         action: "remove project",
       });
-    if (!added.length && !removed.length)
-      badges.push({ label: "Edit projects", action: "edit projects" });
+    if (!addedCount && !removedCount)
+      badges.push({
+        label: "Edit projects",
+        displayLabel: msg`Edit projects`,
+        action: "edit projects",
+      });
   }
 
   if (!isEqual(p0?.languages, p1.languages) && p1.languages !== undefined) {
-    badges.push({ label: "Edit languages", action: "edit languages" });
+    badges.push({
+      label: "Edit languages",
+      displayLabel: msg`Edit languages`,
+      action: "edit languages",
+    });
   }
 
   if (!isEqual(p0?.sdkVersion, p1.sdkVersion) && p1.sdkVersion !== undefined) {
-    badges.push({ label: "Edit SDK version", action: "edit SDK version" });
+    badges.push({
+      label: "Edit SDK version",
+      displayLabel: msg`Edit SDK version`,
+      action: "edit SDK version",
+    });
   }
 
   badges.push(
@@ -222,8 +249,14 @@ function getSDKConnectionScopeBadges(pre: Pre, post: Post): DiffBadge[] {
       p0,
       p1,
       "includeReferencedPrerequisites",
-      "Prerequisite flags included",
-      "Prerequisite flags excluded",
+      {
+        label: "Prerequisite flags included",
+        displayLabel: msg`Prerequisite flags included`,
+      },
+      {
+        label: "Prerequisite flags excluded",
+        displayLabel: msg`Prerequisite flags excluded`,
+      },
     ),
   );
 
@@ -259,15 +292,27 @@ function getSDKConnectionSecurityBadges(pre: Pre, post: Post): DiffBadge[] {
       p0,
       p1,
       "encryptPayload",
-      "Encrypt payload enabled",
-      "Encrypt payload disabled",
+      {
+        label: "Encrypt payload enabled",
+        displayLabel: msg`Encrypt payload enabled`,
+      },
+      {
+        label: "Encrypt payload disabled",
+        displayLabel: msg`Encrypt payload disabled`,
+      },
     ),
     ...toggleBadge(
       p0,
       p1,
       "hashSecureAttributes",
-      "Hash secure attributes enabled",
-      "Hash secure attributes disabled",
+      {
+        label: "Hash secure attributes enabled",
+        displayLabel: msg`Hash secure attributes enabled`,
+      },
+      {
+        label: "Hash secure attributes disabled",
+        displayLabel: msg`Hash secure attributes disabled`,
+      },
     ),
   ];
 }
@@ -422,11 +467,21 @@ function getSDKConnectionProxyBadges(pre: Pre, post: Post): DiffBadge[] {
   const badges: DiffBadge[] = [];
 
   badges.push(
-    ...toggleBadge(p0, p1, "proxyEnabled", "Proxy enabled", "Proxy disabled"),
+    ...toggleBadge(
+      p0,
+      p1,
+      "proxyEnabled",
+      { label: "Proxy enabled", displayLabel: msg`Proxy enabled` },
+      { label: "Proxy disabled", displayLabel: msg`Proxy disabled` },
+    ),
   );
 
   if (p1.proxyHost !== undefined && !isEqual(p0?.proxyHost, p1.proxyHost)) {
-    badges.push({ label: "Edit proxy host", action: "edit proxy host" });
+    badges.push({
+      label: "Edit proxy host",
+      displayLabel: msg`Edit proxy host`,
+      action: "edit proxy host",
+    });
   }
 
   return badges;
@@ -469,7 +524,9 @@ function getSDKConnectionNameBadges(pre: Pre, post: Post): DiffBadge[] {
   const p1 = postConn(post);
   if (!p1) return [];
   if (!isEqual(p0?.name, p1.name) && p1.name !== undefined) {
-    return [{ label: "Rename", action: "edit name" }];
+    return [
+      { label: "Rename", displayLabel: msg`Rename`, action: "edit name" },
+    ];
   }
   return [];
 }
@@ -510,8 +567,14 @@ function getSDKConnectionArchivedBadges(pre: Pre, post: Post): DiffBadge[] {
   const postArchived = !!p1.archived;
   if (p1.archived === undefined || preArchived === postArchived) return [];
   return postArchived
-    ? [{ label: "Archive", action: "archive" }]
-    : [{ label: "Unarchive", action: "unarchive" }];
+    ? [{ label: "Archive", displayLabel: msg`Archive`, action: "archive" }]
+    : [
+        {
+          label: "Unarchive",
+          displayLabel: msg`Unarchive`,
+          action: "unarchive",
+        },
+      ];
 }
 
 function timeoutDisplay(v: number | null | undefined): ReactNode {
@@ -682,21 +745,29 @@ function getSDKConnectionWebhookBadges(pre: Pre, post: Post): DiffBadge[] {
   if (added)
     badges.push({
       label: `+${added} webhook${added !== 1 ? "s" : ""}`,
+      displayLabel:
+        added === 1 ? msg`+${added} webhook` : msg`+${added} webhooks`,
       action: "add webhook",
     });
   if (removed)
     badges.push({
       label: `-${removed} webhook${removed !== 1 ? "s" : ""}`,
+      displayLabel:
+        removed === 1 ? msg`-${removed} webhook` : msg`-${removed} webhooks`,
       action: "remove webhook",
     });
   if (changed && !added && !removed)
-    badges.push({ label: "Edit webhook", action: "edit webhook" });
+    badges.push({
+      label: "Edit webhook",
+      displayLabel: msg`Edit webhook`,
+      action: "edit webhook",
+    });
   return badges;
 }
 
 // Settings sections share the `sdkConnection` key; each renders null when its
 // own fields are unchanged. Section labels also key the diff, so they stay
-// plain strings, as the settings cards title them.
+// plain English strings; `displayLabel` is what's shown.
 export const REVISION_SDK_CONNECTION_DIFF_CONFIG: RevisionDiffConfig<SDKConnectionRevisionSnapshot> =
   {
     // Rows skip a setting the newer side lacks, so fill both sides first.
@@ -707,51 +778,60 @@ export const REVISION_SDK_CONNECTION_DIFF_CONFIG: RevisionDiffConfig<SDKConnecti
     sections: [
       {
         label: "Connection",
+        displayLabel: msg`Connection`,
         keys: ["sdkConnection"],
         render: renderSDKConnectionName,
         getBadges: getSDKConnectionNameBadges,
       },
       {
         label: "Scope",
+        displayLabel: msg`Scope`,
         keys: ["sdkConnection"],
         render: renderSDKConnectionScope,
         getBadges: getSDKConnectionScopeBadges,
       },
       {
         label: "Payload Security",
+        displayLabel: msg`Payload Security`,
         keys: ["sdkConnection"],
         render: renderSDKConnectionSecurity,
         getBadges: getSDKConnectionSecurityBadges,
       },
       {
         label: "Experiments",
+        displayLabel: msg`Experiments`,
         keys: ["sdkConnection"],
         render: renderSDKConnectionExperiments,
       },
       {
         label: "Payload Metadata",
+        displayLabel: msg`Payload Metadata`,
         keys: ["sdkConnection"],
         render: renderSDKConnectionMetadata,
       },
       {
         label: "Observability and QA",
+        displayLabel: msg`Observability and QA`,
         keys: ["sdkConnection"],
         render: renderSDKConnectionObservability,
       },
       {
         label: "Proxy",
+        displayLabel: msg`Proxy`,
         keys: ["sdkConnection"],
         render: renderSDKConnectionProxy,
         getBadges: getSDKConnectionProxyBadges,
       },
       {
         label: "Archived",
+        displayLabel: msg`Archived`,
         keys: ["sdkConnection"],
         render: renderSDKConnectionArchived,
         getBadges: getSDKConnectionArchivedBadges,
       },
       {
         label: "Webhooks",
+        displayLabel: msg`Webhooks`,
         keys: ["sdkWebhooks"],
         render: renderSDKConnectionWebhooks,
         getBadges: getSDKConnectionWebhookBadges,

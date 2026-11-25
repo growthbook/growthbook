@@ -298,7 +298,7 @@ export default function EditSavedGroupPage() {
       setItemsToAdd((value as string[]) ?? []);
     },
     isNewDraft: addItemsDraftMode === "new",
-    entityNoun: "saved group",
+    entityNoun: t`saved group`,
     onReload: async () => {
       await mutate();
       setAddItems(false);
@@ -311,7 +311,7 @@ export default function EditSavedGroupPage() {
     initial: { values: displayedValues },
     labels: { values: t`List items` },
     isNewDraft: deleteItemsDraftMode === "new",
-    entityNoun: "saved group",
+    entityNoun: t`saved group`,
   });
 
   // Publish/new-draft submits compare against live, which the hook baseline
@@ -489,9 +489,11 @@ export default function EditSavedGroupPage() {
     ]).size > savedGroupSizeLimit;
   const addCta = draftModeCta(addItemsDraftMode, {
     bypassesApproval: approvalRequired && canAdminPublish,
+    i18n,
   });
   const removeCta = draftModeCta(deleteItemsDraftMode, {
     bypassesApproval: approvalRequired && canAdminPublish,
+    i18n,
   });
   const openItemsModal = (operation: "replace" | "append") => {
     setImportOperation(operation);
@@ -553,7 +555,7 @@ export default function EditSavedGroupPage() {
   const revisionNumbers = getRevisionNumberById(allRevisions);
   const newDraft = canDraft ? (
     <NewDraftButton
-      entityNoun="Saved Group"
+      entityNoun={t`Saved Group`}
       activeDraftCount={openRevisions.length}
       nextVersion={Math.max(0, ...revisionNumbers.values()) + 1}
       basedOn={
@@ -1154,7 +1156,7 @@ export default function EditSavedGroupPage() {
         }
       >
         <ArchiveStateCallout
-          noun="Saved Group"
+          entityType="saved-group"
           liveArchived={!!savedGroup.archived}
           viewedArchived={!!displayedSavedGroup?.archived}
         />
@@ -1196,7 +1198,7 @@ export default function EditSavedGroupPage() {
                 allRevisions={allRevisions}
                 liveSnapshot={savedGroup}
                 diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
-                entityNoun="Saved Group"
+                entityNoun={t`Saved Group`}
                 requiresApproval={selectedRevisionRequiresApproval}
                 canDiscard={
                   canManageDrafts || selectedRevision?.authorId === user?.id
@@ -1261,7 +1263,7 @@ export default function EditSavedGroupPage() {
                 currentState={savedGroup}
                 diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
                 entityName={savedGroup.groupName}
-                entityNoun="Saved Group"
+                entityNoun={t`Saved Group`}
                 // Defer to the per-revision gate so metadata-only revisions skip
                 // the review dance when `requireMetadataReview` is off (matching
                 // the server-side rule in the saved-group adapter).

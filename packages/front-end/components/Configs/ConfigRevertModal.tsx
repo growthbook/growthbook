@@ -1,6 +1,5 @@
 import { Revision } from "shared/enterprise";
 import { ConfigInterface } from "shared/types/config";
-import { useLingui } from "@lingui/react/macro";
 import RevertModal from "@/components/Revision/RevertModal";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
@@ -41,7 +40,6 @@ export interface Props {
 
 // Thin wrapper around the entity-agnostic RevertModal.
 export default function ConfigRevertModal({ config, ...rest }: Props) {
-  const { t } = useLingui();
   return (
     <RevertModal<ConfigInterface>
       liveEntity={config}
@@ -69,7 +67,7 @@ export default function ConfigRevertModal({ config, ...rest }: Props) {
           approvalRequired={approvalRequired}
           hideExisting
           defaultExpanded
-          triggerPrefix={t`Revert will be`}
+          action="revert"
         />
       )}
       {...rest}

@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import { Flex } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { CustomHookInterface } from "shared/validators";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
@@ -152,22 +153,53 @@ export function getCustomHookSettingsBadges(
   if (pre === null) return [];
   const badges: DiffBadge[] = [];
   if ((pre.name ?? "") !== (post.name ?? "")) {
-    badges.push({ label: "Renamed", action: "update" });
-  }
-  if ((pre.hook ?? "") !== (post.hook ?? "")) {
-    badges.push({ label: `Type → ${post.hook}`, action: "update" });
-  }
-  if (statusStr(pre) !== statusStr(post)) {
-    badges.push({ label: statusStr(post), action: "update" });
-  }
-  if (scopeStr(pre) !== scopeStr(post)) {
-    badges.push({ label: "Scope changed", action: "update" });
-  }
-  if (!!pre.incrementalChangesOnly !== !!post.incrementalChangesOnly) {
     badges.push({
-      label: post.incrementalChangesOnly ? "Incremental on" : "Incremental off",
+      label: "Renamed",
+      displayLabel: msg`Renamed`,
       action: "update",
     });
+  }
+  if ((pre.hook ?? "") !== (post.hook ?? "")) {
+    const hookType = String(post.hook);
+    badges.push({
+      label: `Type → ${hookType}`,
+      displayLabel: msg`Type → ${hookType}`,
+      action: "update",
+    });
+  }
+  if (statusStr(pre) !== statusStr(post)) {
+    badges.push({
+      label: statusStr(post),
+      displayLabel:
+        post.enabled === undefined
+          ? undefined
+          : post.enabled
+            ? msg`Enabled`
+            : msg`Disabled`,
+      action: "update",
+    });
+  }
+  if (scopeStr(pre) !== scopeStr(post)) {
+    badges.push({
+      label: "Scope changed",
+      displayLabel: msg`Scope changed`,
+      action: "update",
+    });
+  }
+  if (!!pre.incrementalChangesOnly !== !!post.incrementalChangesOnly) {
+    badges.push(
+      post.incrementalChangesOnly
+        ? {
+            label: "Incremental on",
+            displayLabel: msg`Incremental on`,
+            action: "update",
+          }
+        : {
+            label: "Incremental off",
+            displayLabel: msg`Incremental off`,
+            action: "update",
+          },
+    );
   }
   return badges;
 }
@@ -201,6 +233,12 @@ export function getCustomHookCodeBadges(
 ): DiffBadge[] {
   if (pre === null) return [];
   return (pre.code ?? "") !== (post.code ?? "")
-    ? [{ label: "Code edited", action: "update" }]
+    ? [
+        {
+          label: "Code edited",
+          displayLabel: msg`Code edited`,
+          action: "update",
+        },
+      ]
     : [];
 }

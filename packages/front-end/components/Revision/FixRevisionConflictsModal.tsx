@@ -14,6 +14,7 @@ import {
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -86,7 +87,7 @@ export function ExpandableConflict({
           </span>
         )}
         <Text color="text-low" whiteSpace="nowrap">
-          Conflict:
+          <Trans>Conflict:</Trans>
         </Text>
         <Text weight="semibold">{conflict.field}</Text>
         <Box ml="auto">{open ? <FaAngleDown /> : <FaAngleRight />}</Box>
@@ -111,10 +112,10 @@ export function ExpandableConflict({
               <Flex align="center" justify="between" gap="2" mb="2">
                 <Flex align="center" gap="2" wrap="wrap">
                   <Heading as="h4" size="xs" mb="0">
-                    External Change
+                    <Trans>External Change</Trans>
                   </Heading>
                   <Text size="sm" color="text-low">
-                    The change that is currently live
+                    <Trans>The change that is currently live</Trans>
                   </Text>
                 </Flex>
                 <Button
@@ -127,7 +128,7 @@ export function ExpandableConflict({
                     setTimeout(() => setOpen(false), 50);
                   }}
                 >
-                  Use External Change
+                  <Trans>Use External Change</Trans>
                 </Button>
               </Flex>
               <LazyDiffViewer
@@ -141,10 +142,10 @@ export function ExpandableConflict({
               <Flex align="center" justify="between" gap="2" mb="2">
                 <Flex align="center" gap="2" wrap="wrap">
                   <Heading as="h4" size="xs" mb="0">
-                    Your Change
+                    <Trans>Your Change</Trans>
                   </Heading>
                   <Text size="sm" color="text-low">
-                    The change in this draft
+                    <Trans>The change in this draft</Trans>
                   </Text>
                 </Flex>
                 <Button
@@ -157,7 +158,7 @@ export function ExpandableConflict({
                     setTimeout(() => setOpen(false), 250);
                   }}
                 >
-                  Use My Change
+                  <Trans>Use My Change</Trans>
                 </Button>
               </Flex>
               <LazyDiffViewer
@@ -181,6 +182,7 @@ export default function FixRevisionConflictsModal({
   mutate,
   onRebased,
 }: Props) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   const [strategies, setStrategies] = useState<Record<string, MergeStrategy>>(
@@ -291,7 +293,7 @@ export default function FixRevisionConflictsModal({
   return (
     <PagedModal
       trackingEventModalType="resolve-revision-conflicts"
-      header="Resolve Conflicts"
+      header={t`Resolve Conflicts`}
       step={step}
       setStep={setStep}
       submit={async () => {
@@ -319,29 +321,31 @@ export default function FixRevisionConflictsModal({
         if (res?.revision) onRebased?.(res.revision);
         await mutate();
       }}
-      cta={step === 1 ? "Update Draft" : "Next"}
+      cta={step === 1 ? t`Update Draft` : t`Next`}
       ctaEnabled={!!mergeResult.success}
       close={close}
-      closeCta="Cancel"
+      closeCta={t`Cancel`}
       size="max"
     >
       <Page
-        display="Fix Conflicts"
+        display={t`Fix Conflicts`}
         enabled
         validate={async () => {
           if (!mergeResult?.success) {
-            throw new Error("Please resolve all conflicts first");
+            throw new Error(t`Please resolve all conflicts first`);
           }
         }}
       >
         <Box mb="4" style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}>
           <Callout status="info" icon={<PiGitMergeBold size={18} />}>
-            Conflicting changes have been published since you created this
-            revision. Resolve each conflict below, then click{" "}
-            <Text as="span" weight="medium">
-              Update Draft
-            </Text>{" "}
-            to rebase your draft onto the current live version.
+            <Trans>
+              Conflicting changes have been published since you created this
+              revision. Resolve each conflict below, then click{" "}
+              <Text as="span" weight="medium">
+                Update Draft
+              </Text>{" "}
+              to rebase your draft onto the current live version.
+            </Trans>
           </Callout>
         </Box>
 
@@ -356,7 +360,7 @@ export default function FixRevisionConflictsModal({
               setStrategies(newStrategies);
             }}
           >
-            Use All External Changes
+            <Trans>Use All External Changes</Trans>
           </Button>
           <Button
             variant="outline"
@@ -368,7 +372,7 @@ export default function FixRevisionConflictsModal({
               setStrategies(newStrategies);
             }}
           >
-            Use All My Changes
+            <Trans>Use All My Changes</Trans>
           </Button>
         </Flex>
 
@@ -387,21 +391,25 @@ export default function FixRevisionConflictsModal({
         ))}
       </Page>
 
-      <Page display="Review Changes">
+      <Page display={t`Review Changes`}>
         <Box mb="4" style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}>
           <Callout status="info" icon={<PiGitMergeBold size={18} />}>
-            Almost done — your revision has been successfully rebased onto the
-            current live version. Review the changes below, then click{" "}
-            <Text as="span" weight="semibold">
-              Update Draft
-            </Text>{" "}
-            to apply them.
+            <Trans>
+              Almost done — your revision has been successfully rebased onto the
+              current live version. Review the changes below, then click{" "}
+              <Text as="span" weight="semibold">
+                Update Draft
+              </Text>{" "}
+              to apply them.
+            </Trans>
           </Callout>
         </Box>
         {hasChanges ? (
           <Flex direction="column" gap="4">
             <Box mb="3">
-              <Text weight="semibold">Fields changed:</Text>
+              <Text weight="semibold">
+                <Trans>Fields changed:</Trans>
+              </Text>
               <Flex direction="column" gap="5" mt="2">
                 {Object.keys(mergeResult.newProposedChanges || {}).map(
                   (field) => {
@@ -442,7 +450,7 @@ export default function FixRevisionConflictsModal({
           </Flex>
         ) : (
           <Text as="p" color="text-low">
-            Your revision and the live version are identical.
+            <Trans>Your revision and the live version are identical.</Trans>
           </Text>
         )}
       </Page>

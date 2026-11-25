@@ -5,7 +5,7 @@ import { ConfigInterface } from "shared/types/config";
 import { describeInvariantRule } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import type { MessageDescriptor } from "@lingui/core";
-import { msg } from "@lingui/core/macro";
+import { msg, plural } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ChangeField,
@@ -319,21 +319,33 @@ export function getConstantSchemaBadges(pre: Pre, post: Post): DiffBadge[] {
   ).length;
 
   const badges: DiffBadge[] = [];
-  const plural = (n: number) => (n !== 1 ? "s" : "");
+  const suffix = (n: number) => (n !== 1 ? "s" : "");
   if (added)
     badges.push({
-      label: `${added} field${plural(added)} added`,
+      label: `${added} field${suffix(added)} added`,
       action: "add field",
+      displayLabel: msg`${plural(added, {
+        one: "# field added",
+        other: "# fields added",
+      })}`,
     });
   if (removed)
     badges.push({
-      label: `${removed} field${plural(removed)} removed`,
+      label: `${removed} field${suffix(removed)} removed`,
       action: "remove field",
+      displayLabel: msg`${plural(removed, {
+        one: "# field removed",
+        other: "# fields removed",
+      })}`,
     });
   if (edited)
     badges.push({
-      label: `${edited} field${plural(edited)} edited`,
+      label: `${edited} field${suffix(edited)} edited`,
       action: "edit field",
+      displayLabel: msg`${plural(edited, {
+        one: "# field edited",
+        other: "# fields edited",
+      })}`,
     });
   return badges;
 }
@@ -391,21 +403,33 @@ export function getConfigInvariantBadges(pre: Pre, post: Post): DiffBadge[] {
   ).length;
 
   const badges: DiffBadge[] = [];
-  const plural = (n: number) => (n !== 1 ? "s" : "");
+  const suffix = (n: number) => (n !== 1 ? "s" : "");
   if (added)
     badges.push({
-      label: `${added} rule${plural(added)} added`,
+      label: `${added} rule${suffix(added)} added`,
       action: "add rule",
+      displayLabel: msg`${plural(added, {
+        one: "# rule added",
+        other: "# rules added",
+      })}`,
     });
   if (removed)
     badges.push({
-      label: `${removed} rule${plural(removed)} removed`,
+      label: `${removed} rule${suffix(removed)} removed`,
       action: "remove rule",
+      displayLabel: msg`${plural(removed, {
+        one: "# rule removed",
+        other: "# rules removed",
+      })}`,
     });
   if (edited)
     badges.push({
-      label: `${edited} rule${plural(edited)} edited`,
+      label: `${edited} rule${suffix(edited)} edited`,
       action: "edit rule",
+      displayLabel: msg`${plural(edited, {
+        one: "# rule edited",
+        other: "# rules edited",
+      })}`,
     });
   return badges;
 }
@@ -413,19 +437,39 @@ export function getConfigInvariantBadges(pre: Pre, post: Post): DiffBadge[] {
 export function getConstantSettingsBadges(pre: Pre, post: Post): DiffBadge[] {
   const badges: DiffBadge[] = [];
   if (!isEqual(pre?.name, post.name) && post.name !== undefined)
-    badges.push({ label: "Edit name", action: "edit name" });
+    badges.push({
+      label: "Edit name",
+      action: "edit name",
+      displayLabel: msg`Edit name`,
+    });
   if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined)
-    badges.push({ label: "Edit owner", action: "edit owner" });
+    badges.push({
+      label: "Edit owner",
+      action: "edit owner",
+      displayLabel: msg`Edit owner`,
+    });
   if ((pre?.description || "") !== (post.description || ""))
-    badges.push({ label: "Edit description", action: "edit description" });
+    badges.push({
+      label: "Edit description",
+      action: "edit description",
+      displayLabel: msg`Edit description`,
+    });
   if (post.archived !== undefined && !!pre?.archived !== !!post.archived)
     badges.push(
       post.archived
-        ? { label: "Archive", action: "archive" }
-        : { label: "Unarchive", action: "unarchive" },
+        ? { label: "Archive", action: "archive", displayLabel: msg`Archive` }
+        : {
+            label: "Unarchive",
+            action: "unarchive",
+            displayLabel: msg`Unarchive`,
+          },
     );
   if (!isEqual(pre?.project ?? "", post.project ?? ""))
-    badges.push({ label: "Edit project", action: "edit project" });
+    badges.push({
+      label: "Edit project",
+      action: "edit project",
+      displayLabel: msg`Edit project`,
+    });
   return badges;
 }
 
@@ -433,7 +477,11 @@ export function getConstantValuesBadges(pre: Pre, post: Post): DiffBadge[] {
   const badges: DiffBadge[] = [];
   // Values may be parsed objects post-normalization; compare stringified.
   if ((toStr(pre?.value) ?? "") !== (toStr(post.value) ?? ""))
-    badges.push({ label: "Edit value", action: "edit value" });
+    badges.push({
+      label: "Edit value",
+      action: "edit value",
+      displayLabel: msg`Edit value`,
+    });
 
   const preEnvs = pre?.environmentValues ?? {};
   const postEnvs = post.environmentValues ?? {};
@@ -445,6 +493,10 @@ export function getConstantValuesBadges(pre: Pre, post: Post): DiffBadge[] {
     badges.push({
       label: `${changed.length} override${changed.length !== 1 ? "s" : ""}`,
       action: "edit overrides",
+      displayLabel: msg`${plural(changed.length, {
+        one: "# override",
+        other: "# overrides",
+      })}`,
     });
   return badges;
 }
@@ -486,12 +538,14 @@ export const REVISION_CONSTANT_DIFF_CONFIG: RevisionDiffConfig<ConstantInterface
     sections: [
       {
         label: "Settings",
+        displayLabel: msg`Settings`,
         keys: [...SETTINGS_KEYS] as (keyof ConstantInterface)[],
         render: renderConstantSettings,
         getBadges: getConstantSettingsBadges,
       },
       {
         label: "Value",
+        displayLabel: msg`Value`,
         keys: ["value", "environmentValues"] as (keyof ConstantInterface)[],
         render: renderConstantValues,
         getBadges: getConstantValuesBadges,
@@ -527,6 +581,7 @@ function configLineageRows(pre: Pre, post: Post) {
       key: "parent",
       label: <Trans>Parent Config</Trans>,
       badge: "Edit parent",
+      displayBadge: msg`Edit parent`,
       changed: (pre?.parent || "") !== (post.parent || ""),
       oldNode: pre?.parent || none,
       newNode: post.parent || none,
@@ -535,6 +590,7 @@ function configLineageRows(pre: Pre, post: Post) {
       key: "extends",
       label: <Trans>Config mixins</Trans>,
       badge: "Edit mixins",
+      displayBadge: msg`Edit mixins`,
       changed: !isEqual(pre?.extends ?? [], post.extends ?? []),
       oldNode: list(pre?.extends),
       newNode: list(post.extends),
@@ -543,6 +599,7 @@ function configLineageRows(pre: Pre, post: Post) {
       key: "extensible",
       label: <Trans>Allow extra fields</Trans>,
       badge: "Edit extra fields",
+      displayBadge: msg`Edit extra fields`,
       // Only a base Config's setting applies.
       changed:
         !post.parent && (pre?.extensible ?? null) !== (post.extensible ?? null),
@@ -573,6 +630,7 @@ export function getConfigLineageBadges(pre: Pre, post: Post): DiffBadge[] {
   return configLineageRows(pre, post).map((row) => ({
     label: row.badge,
     action: row.badge.toLowerCase(),
+    displayLabel: row.displayBadge,
   }));
 }
 
@@ -625,7 +683,13 @@ export function renderConfigProjections(
 
 export function getConfigProjectionBadges(pre: Pre, post: Post): DiffBadge[] {
   return configProjectionRows(pre, post).length
-    ? [{ label: "Edit projections", action: "edit projections" }]
+    ? [
+        {
+          label: "Edit projections",
+          action: "edit projections",
+          displayLabel: msg`Edit projections`,
+        },
+      ]
     : [];
 }
 
@@ -634,12 +698,14 @@ export const REVISION_CONFIG_DIFF_CONFIG: RevisionDiffConfig<ConfigInterface> =
     sections: [
       {
         label: "Settings",
+        displayLabel: msg`Settings`,
         keys: [...SETTINGS_KEYS] as (keyof ConfigInterface)[],
         render: renderConstantSettings,
         getBadges: getConstantSettingsBadges,
       },
       {
         label: "Inheritance",
+        displayLabel: msg`Inheritance`,
         keys: ["parent", "extends", "extensible"] as (keyof ConfigInterface)[],
         render: renderConfigLineage,
         getBadges: getConfigLineageBadges,
@@ -647,24 +713,28 @@ export const REVISION_CONFIG_DIFF_CONFIG: RevisionDiffConfig<ConfigInterface> =
       {
         // Configs are environment-agnostic — no `environmentValues`.
         label: "Value",
+        displayLabel: msg`Value`,
         keys: ["value"] as (keyof ConfigInterface)[],
         render: renderConstantValues,
         getBadges: getConstantValuesBadges,
       },
       {
         label: "Schema",
+        displayLabel: msg`Schema`,
         keys: ["schema"] as (keyof ConfigInterface)[],
         render: renderConstantSchema,
         getBadges: getConstantSchemaBadges,
       },
       {
         label: "Validation rules",
+        displayLabel: msg`Validation rules`,
         keys: ["schema"] as (keyof ConfigInterface)[],
         render: renderConfigInvariants,
         getBadges: getConfigInvariantBadges,
       },
       {
         label: "Named projections",
+        displayLabel: msg`Named projections`,
         keys: ["renderProjections"] as (keyof ConfigInterface)[],
         render: renderConfigProjections,
         getBadges: getConfigProjectionBadges,

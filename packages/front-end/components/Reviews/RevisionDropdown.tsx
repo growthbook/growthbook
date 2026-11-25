@@ -1,6 +1,7 @@
 import { ReactNode, SyntheticEvent, useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownBold } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import RevisionLabel, {
   revisionLabelText,
 } from "@/components/Reviews/RevisionLabel";
@@ -68,6 +69,7 @@ function DetailsOnHover({
 }
 
 function RevisionRow({ row }: { row: RevisionDropdownRow }) {
+  const { i18n } = useLingui();
   return (
     <Flex align="center" justify="between" gap="3" style={{ width: "100%" }}>
       <Box style={{ flex: 1, minWidth: 0 }}>
@@ -84,7 +86,7 @@ function RevisionRow({ row }: { row: RevisionDropdownRow }) {
             title={
               row.details
                 ? undefined
-                : revisionLabelText(row.version, row.title)
+                : revisionLabelText(row.version, row.title, undefined, i18n)
             }
           >
             <RevisionLabel version={row.version} title={row.title} />
@@ -156,6 +158,7 @@ export default function RevisionDropdown({
   initialPageSize?: number;
   disabled?: boolean;
 }) {
+  const { i18n } = useLingui();
   const [open, setOpen] = useState(false);
   const [extraShown, setExtraShown] = useState(0);
 
@@ -220,6 +223,8 @@ export default function RevisionDropdown({
                       : revisionLabelText(
                           selectedRow.version,
                           selectedRow.title,
+                          undefined,
+                          i18n,
                         )
                   }
                 >
@@ -279,7 +284,7 @@ export default function RevisionDropdown({
             size="md"
             onClick={() => setExtraShown((prev) => prev + remaining)}
           >
-            Show all ({remaining} more)
+            <Trans>Show all ({remaining} more)</Trans>
           </Link>
         </DropdownMenuLabel>
       )}

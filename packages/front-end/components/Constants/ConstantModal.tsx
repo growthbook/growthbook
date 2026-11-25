@@ -65,7 +65,7 @@ export default function ConstantModal({
   revisionCtx?: ConstantRevisionContext;
   onSaved?: (revision: Revision) => void | Promise<void>;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { apiCall } = useAuth();
   const router = useRouter();
   const { mutateDefinitions, getConstantByKey, projects, project } =
@@ -119,6 +119,7 @@ export default function ConstantModal({
   const cta = draftModeCta(draft.draftMode, {
     bypassesApproval: draft.selectorApprovalRequired,
     publishLabel: t`Save`,
+    i18n,
   });
 
   // Auto-derive the slug key from the name until the user edits the key.

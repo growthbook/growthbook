@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex } from "@radix-ui/themes";
 import { DiffMethod } from "react-diff-viewer-continued";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { PiArrowsClockwise } from "react-icons/pi";
-import { AuditInterface, EventType } from "shared/types/audit";
+import { AuditInterface, EntityType, EventType } from "shared/types/audit";
 import { datetime } from "shared/dates";
 import { auditUserToEventUser } from "shared/validators";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
@@ -15,7 +18,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import { AuditDiffConfig } from "./types";
+import { AuditDiffConfig, DisplayText } from "./types";
 import { COMPACT_DIFF_STYLES } from "./CompareAuditEventsUtils";
 import {
   PAGE_LIMIT,
@@ -46,7 +49,11 @@ function EventDetails({
   }, [details]);
 
   if (eventType === "experiment.analysis" && json.report) {
-    return <Link href={`/report/${json.report}`}>View Report</Link>;
+    return (
+      <Link href={`/report/${json.report}`}>
+        <Trans>View Report</Trans>
+      </Link>
+    );
   }
 
   if (json.pre || json.post) {
@@ -54,8 +61,10 @@ function EventDetails({
       <div className="diff-wrapper">
         {reason && (
           <p>
-            <strong>Reason: </strong>
-            {reason}
+            <Trans>
+              <strong>Reason: </strong>
+              {reason}
+            </Trans>
           </p>
         )}
         {json.context && (
@@ -82,8 +91,10 @@ function EventDetails({
     <>
       {reason && (
         <p>
-          <strong>Reason: </strong>
-          {reason}
+          <Trans>
+            <strong>Reason: </strong>
+            {reason}
+          </Trans>
         </p>
       )}
       <Code language="json" code={JSON.stringify(json, null, 2)} />
@@ -174,10 +185,10 @@ function RawAuditLogTab<T>({
     <Box>
       <Flex align="center" gap="3" mb="3">
         <Heading as="h5" size="md">
-          Audit Log
+          <Trans>Audit Log</Trans>
         </Heading>
         <Text size="sm" color="text-low">
-          {total} total event{total !== 1 ? "s" : ""}
+          <Plural value={total} one="# total event" other="# total events" />
         </Text>
         <Box ml="auto">
           <Button
@@ -189,16 +200,22 @@ function RawAuditLogTab<T>({
               setCurrentPage(1);
             }}
           >
-            <PiArrowsClockwise /> refresh
+            <PiArrowsClockwise /> <Trans>refresh</Trans>
           </Button>
         </Box>
       </Flex>
       <table className="table appbox">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>User</th>
-            <th>Event</th>
+            <th>
+              <Trans>Date</Trans>
+            </th>
+            <th>
+              <Trans>User</Trans>
+            </th>
+            <th>
+              <Trans>Event</Trans>
+            </th>
             <th></th>
           </tr>
         </thead>
@@ -213,7 +230,7 @@ function RawAuditLogTab<T>({
                   padding: "12px",
                 }}
               >
-                Loading…
+                <Trans>Loading…</Trans>
               </td>
             </tr>
           ) : (
@@ -231,7 +248,9 @@ function RawAuditLogTab<T>({
       {totalPages > 1 && (
         <Flex justify="between" align="center" mt="3">
           <span style={{ fontSize: 13 }}>
-            Page {currentPage} of {totalPages}
+            <Trans>
+              Page {currentPage} of {totalPages}
+            </Trans>
           </span>
           <Flex gap="2">
             <Button
@@ -239,14 +258,14 @@ function RawAuditLogTab<T>({
               disabled={currentPage <= 1}
               onClick={() => goToPage(currentPage - 1)}
             >
-              Previous
+              <Trans>Previous</Trans>
             </Button>
             <Button
               variant="outline"
               disabled={currentPage >= totalPages || isPageLoading}
               onClick={() => goToPage(currentPage + 1)}
             >
-              {isPageLoading ? "Loading…" : "Next"}
+              {isPageLoading ? <Trans>Loading…</Trans> : <Trans>Next</Trans>}
             </Button>
           </Flex>
         </Flex>
@@ -261,12 +280,24 @@ export interface AuditHistoryExplorerModalProps<T> {
   entityId: string;
   entityName: string;
   config: AuditDiffConfig<T>;
-  eventLabels?: Record<string, string>;
+  eventLabels?: Record<string, DisplayText>;
   onClose: () => void;
   revert?: CompareAuditEventsProps<T>["revert"];
 }
 
-const EMPTY_EVENT_LABELS: Record<string, string> = {};
+const EMPTY_EVENT_LABELS: Record<string, DisplayText> = {};
+
+// Whole titles per entity type, so the noun and its phrasing translate together.
+const AUDIT_HISTORY_TITLES: Partial<Record<EntityType, MessageDescriptor>> = {
+  feature: msg`Feature Audit History`,
+  customHook: msg`Custom Hook Audit History`,
+  experiment: msg`Experiment Audit History`,
+  interleaving: msg`Interleaving Experiment Audit History`,
+  contextualBandit: msg`Contextual Bandit Audit History`,
+  constant: msg`Constant Audit History`,
+  savedGroup: msg`Saved Group Audit History`,
+  config: msg`Config Audit History`,
+};
 
 export default function AuditHistoryExplorerModal<T>({
   entityId,
@@ -276,17 +307,19 @@ export default function AuditHistoryExplorerModal<T>({
   onClose,
   revert,
 }: AuditHistoryExplorerModalProps<T>) {
+  const { t, i18n } = useLingui();
   const auditEntries = useAuditEntries<T>(config, entityId);
+  const title = AUDIT_HISTORY_TITLES[config.entityType];
 
   return (
     <Modal
       trackingEventModalType="audit-history-explorer"
       open={true}
-      header={`${entityName} Audit History`}
+      header={title ? i18n._(title) : t`${entityName} Audit History`}
       close={onClose}
       hideCta
       includeCloseCta
-      closeCta="Close"
+      closeCta={t`Close`}
       size="max"
       sizeY="max"
       bodyClassName="p-0"
@@ -306,8 +339,12 @@ export default function AuditHistoryExplorerModal<T>({
           }}
         >
           <TabsList style={{ boxShadow: "none" }}>
-            <TabsTrigger value="explore">Explore Changes</TabsTrigger>
-            <TabsTrigger value="raw">Audit Log</TabsTrigger>
+            <TabsTrigger value="explore">
+              <Trans>Explore Changes</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="raw">
+              <Trans>Audit Log</Trans>
+            </TabsTrigger>
           </TabsList>
         </Box>
         <TabsContent

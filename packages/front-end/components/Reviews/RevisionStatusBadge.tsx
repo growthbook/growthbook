@@ -8,6 +8,9 @@ import {
   PiSpinnerGap,
   PiXCircleFill,
 } from "react-icons/pi";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, useLingui } from "@lingui/react/macro";
 import type { RevisionStatus, ActiveDraftStatus } from "shared/validators";
 import type { EventUser } from "shared/types/events/event-types";
 import Badge from "@/ui/Badge";
@@ -113,18 +116,43 @@ export function draftStatusDotColor(status: string): string {
 export function draftStatusTooltip(
   counts: Partial<Record<string, number>>,
 ): React.ReactNode {
-  const ordered: Array<[ActiveDraftStatus, (n: number) => string]> = [
+  const ordered: Array<[ActiveDraftStatus, (n: number) => React.ReactNode]> = [
     [
       "changes-requested",
-      (n) =>
-        `${n} ${n === 1 ? "revision" : "revisions"} with changes requested`,
+      (n) => (
+        <Plural
+          value={n}
+          one="# revision with changes requested"
+          other="# revisions with changes requested"
+        />
+      ),
     ],
     [
       "pending-review",
-      (n) => `${n} ${n === 1 ? "revision" : "revisions"} pending approval`,
+      (n) => (
+        <Plural
+          value={n}
+          one="# revision pending approval"
+          other="# revisions pending approval"
+        />
+      ),
     ],
-    ["approved", (n) => `${n} approved ${n === 1 ? "revision" : "revisions"}`],
-    ["draft", (n) => `${n} draft ${n === 1 ? "revision" : "revisions"}`],
+    [
+      "approved",
+      (n) => (
+        <Plural
+          value={n}
+          one="# approved revision"
+          other="# approved revisions"
+        />
+      ),
+    ],
+    [
+      "draft",
+      (n) => (
+        <Plural value={n} one="# draft revision" other="# draft revisions" />
+      ),
+    ],
   ];
   const lines = ordered.flatMap(([status, fmt]) => {
     const n = counts[status] ?? 0;
@@ -147,40 +175,45 @@ export function draftStatusTooltip(
   );
 }
 
+// Without `i18n` the label is English, for callers not translated yet.
 export function revisionStatusLabel(
   status: RevisionStatus | "live" | "merged",
+  i18n?: I18n,
 ): string {
+  const label = (message: MessageDescriptor, english: string) =>
+    i18n ? i18n._(message) : english;
   switch (status) {
     case "live":
-      return "Live";
+      return label(msg`Live`, "Live");
     case "draft":
-      return "Draft";
+      return label(msg`Draft`, "Draft");
     case "pending-review":
-      return "Pending review";
+      return label(msg`Pending review`, "Pending review");
     case "approved":
-      return "Approved";
+      return label(msg`Approved`, "Approved");
     case "changes-requested":
-      return "Changes requested";
+      return label(msg`Changes requested`, "Changes requested");
     case "discarded":
-      return "Discarded";
+      return label(msg`Discarded`, "Discarded");
     // Waiting on its ramp schedule to publish it.
     case "pending-parent":
-      return "Held";
+      return label(msg`Held`, "Held");
     case "merged":
-      return "Locked";
+      return label(msg`Locked`, "Locked");
     case "published":
-      return "Locked";
+      return label(msg`Locked`, "Locked");
     default:
       return status;
   }
 }
 
 export default function RevisionStatusBadge({ revision, liveVersion }: Props) {
+  const { i18n } = useLingui();
   if (!revision) return null;
   const status = revision.version === liveVersion ? "live" : revision.status;
   return (
     <Badge
-      label={revisionStatusLabel(status)}
+      label={revisionStatusLabel(status, i18n)}
       radius="full"
       color={revisionStatusColor(status)}
       variant={revisionStatusBadgeVariant(status)}

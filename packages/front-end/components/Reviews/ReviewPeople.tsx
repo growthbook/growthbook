@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiHourglassHighFill } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import { eventUserKeyName, eventUserPerson } from "shared/validators";
 import { EventUser as EventUserType } from "shared/types/events/event-types";
 import EventUser from "@/components/Avatar/EventUser";
@@ -25,6 +26,7 @@ export function PersonRow({
   user: EventUserType;
   trailing?: React.ReactNode;
 }) {
+  const { t } = useLingui();
   const { users } = useUser();
   // Whoever acted is the top line; the key, or the member a key named, goes
   // below it.
@@ -37,15 +39,21 @@ export function PersonRow({
   const name = (latest?.name || person?.name || "").trim();
   const email = (latest?.email || person?.email || "").trim();
   const primary = person
-    ? name || email || "Unknown"
-    : keyName || (user?.type === "api_key" ? "API key" : "Unknown");
+    ? name || email || t`Unknown`
+    : keyName || (user?.type === "api_key" ? t`API key` : t`Unknown`);
+  const viaKey = keyName || t`API key`;
+  const requesterName = requester
+    ? (requester.id && users.get(requester.id)?.name) ||
+      requester.name ||
+      requester.email
+    : "";
   const secondary = person
     ? requester
-      ? `via ${keyName || "API key"}`
+      ? t`via ${viaKey}`
       : name && email
     : requester
-      ? `for ${(requester.id && users.get(requester.id)?.name) || requester.name || requester.email}`
-      : keyName && "API key";
+      ? t`for ${requesterName}`
+      : keyName && t`API key`;
   return (
     <Flex align="start" gap="2">
       <Box flexShrink="0" mt="1">
@@ -89,18 +97,23 @@ export function ReviewerVerdictIcon({
   // draft changes, so the verdict stands but cannot sanction publishing.
   uncoveredReason?: string;
 }) {
+  const { t } = useLingui();
   const color = revisionStatusColor(status);
-  const who = name || "This reviewer";
-  const verdict =
-    status === "approved"
-      ? `${who} approved these changes`
-      : `${who} requested changes`;
-  const when = timestamp
-    ? ` on ${format(new Date(timestamp), "MMM d, yyyy")}`
-    : "";
-  const staleNote = stale ? " — the draft has changed since" : "";
+  const who = name || t`This reviewer`;
+  const when = timestamp ? format(new Date(timestamp), "MMM d, yyyy") : null;
+  let verdict: string;
+  if (status === "approved") {
+    verdict = when
+      ? t`${who} approved these changes on ${when}`
+      : t`${who} approved these changes`;
+  } else {
+    verdict = when
+      ? t`${who} requested changes on ${when}`
+      : t`${who} requested changes`;
+  }
+  const staleNote = stale ? ` — ${t`the draft has changed since`}` : "";
   const uncoveredNote = uncoveredReason ? ` — ${uncoveredReason}` : "";
-  const content = `${verdict}${when}${staleNote}${uncoveredNote}`;
+  const content = `${verdict}${staleNote}${uncoveredNote}`;
   return (
     <Tooltip content={content}>
       <Box style={{ position: "relative", display: "inline-flex" }}>

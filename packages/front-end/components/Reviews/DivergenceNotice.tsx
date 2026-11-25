@@ -1,5 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { PiGitMergeBold, PiWarningOctagonBold } from "react-icons/pi";
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { PublishGovernanceResult } from "shared/util";
 import Button from "@/ui/Button";
 import NoticeBanner from "@/components/Reviews/NoticeBanner";
@@ -44,6 +46,7 @@ export default function DivergenceNotice({
   approvedAt = null,
   revisionsSinceApproval = null,
 }: DivergenceNoticeProps) {
+  const { t } = useLingui();
   const { divergence, staleApproval, rebaseRequired } = governance;
 
   // Up-to-date drafts with no stale approval have nothing to surface.
@@ -56,8 +59,8 @@ export default function DivergenceNotice({
       <NoticeBanner
         icon={<PiWarningOctagonBold />}
         iconColor="red"
-        title="Draft has conflicts with live"
-        body={`Fix conflicts to rebase onto v${liveVersion} before publishing.`}
+        title={t`Draft has conflicts with live`}
+        body={t`Fix conflicts to rebase onto v${liveVersion} before publishing.`}
         action={
           canRebase && onResolveConflicts ? (
             <Button
@@ -65,7 +68,7 @@ export default function DivergenceNotice({
               color="red"
               onClick={() => onResolveConflicts()}
             >
-              Fix conflicts
+              <Trans>Fix conflicts</Trans>
             </Button>
           ) : undefined
         }
@@ -75,34 +78,40 @@ export default function DivergenceNotice({
 
   // ── Diverged / stale-approval variant ──
   const title = staleApproval
-    ? "This approval is out of date"
-    : "Draft is out-of-date with live revision";
+    ? t`This approval is out of date`
+    : t`Draft is out-of-date with live revision`;
 
   // Quantify the staleness when we can: when the surviving approval was
   // given, and how many revisions live has advanced since.
   const approvedAgo = approvedAt
     ? formatDistanceToNow(new Date(approvedAt), { addSuffix: true })
     : null;
-  const advancedPhrase =
-    (revisionsSinceApproval ?? 0) > 0
-      ? `live has advanced ${revisionsSinceApproval} revision${
-          revisionsSinceApproval === 1 ? "" : "s"
-        } since (now v${liveVersion})`
-      : `changes were published to live (v${liveVersion}) since`;
-
-  const staleBody = approvedAgo
-    ? `Approved ${approvedAgo} — ${advancedPhrase}.`
-    : `Changes were published to the live version (v${liveVersion}) after this draft was approved.`;
+  const revisionsSince = revisionsSinceApproval ?? 0;
+  let staleBody: string;
+  if (!approvedAgo) {
+    staleBody = t`Changes were published to the live version (v${liveVersion}) after this draft was approved.`;
+  } else if (revisionsSince > 0) {
+    staleBody = t`${plural(revisionsSince, {
+      one: `Approved ${approvedAgo} — live has advanced # revision since (now v${liveVersion}).`,
+      other: `Approved ${approvedAgo} — live has advanced # revisions since (now v${liveVersion}).`,
+    })}`;
+  } else {
+    staleBody = t`Approved ${approvedAgo} — changes were published to live (v${liveVersion}) since.`;
+  }
 
   // A draft with no tracked base version is given live's.
-  const branchedFrom =
-    baseVersion === liveVersion ? "" : ` (branched from v${baseVersion})`;
-  const rebaseBody = `Rebase the latest changes from v${liveVersion} into this draft${branchedFrom}.`;
-  const body = staleApproval
-    ? staleBody
-    : rebaseRequired
-      ? `Your organization requires a rebase before publishing. ${rebaseBody}`
-      : rebaseBody;
+  const branched = baseVersion !== liveVersion;
+  let rebaseBody: string;
+  if (rebaseRequired) {
+    rebaseBody = branched
+      ? t`Your organization requires a rebase before publishing. Rebase the latest changes from v${liveVersion} into this draft (branched from v${baseVersion}).`
+      : t`Your organization requires a rebase before publishing. Rebase the latest changes from v${liveVersion} into this draft.`;
+  } else {
+    rebaseBody = branched
+      ? t`Rebase the latest changes from v${liveVersion} into this draft (branched from v${baseVersion}).`
+      : t`Rebase the latest changes from v${liveVersion} into this draft.`;
+  }
+  const body = staleApproval ? staleBody : rebaseBody;
 
   return (
     <NoticeBanner
@@ -118,7 +127,7 @@ export default function DivergenceNotice({
             loading={updating}
             onClick={() => onUpdateFromLive()}
           >
-            Rebase with live
+            <Trans>Rebase with live</Trans>
           </Button>
         ) : undefined
       }

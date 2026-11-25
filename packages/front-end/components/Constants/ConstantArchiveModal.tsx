@@ -6,6 +6,7 @@ import {
 } from "shared/permissions";
 import { ConstantWithoutValue } from "shared/types/constant";
 import { Revision } from "shared/enterprise";
+import { useLingui } from "@lingui/react/macro";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
 import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
@@ -30,6 +31,7 @@ export default function ConstantArchiveModal({
   selectFlow?: (revision: Revision | null) => void;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const { mutateDefinitions } = useDefinitions();
 
   const { openRevisions, allRevisions, approvalRequired, canBypassApproval } =
@@ -49,7 +51,8 @@ export default function ConstantArchiveModal({
 
   return (
     <ArchiveModal
-      entityNoun="Constant"
+      entityNoun={t`Constant`}
+      entityNounInSentence={t`constant`}
       entityId={constant.id}
       isArchived={isArchived}
       apiPathBase="/constants"

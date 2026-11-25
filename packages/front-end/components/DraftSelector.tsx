@@ -1,4 +1,7 @@
 import { ReactNode, useState } from "react";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightBold } from "react-icons/pi";
@@ -9,21 +12,162 @@ import RadioGroup from "@/ui/RadioGroup";
 
 export type DraftMode = "existing" | "new" | "publish";
 
+/** What the trigger sentence says will happen ("Changes will be …"). */
+export type DraftSelectorAction = "changes" | "revert" | "ruleDeletion";
+
+type TriggerTarget =
+  | "publish"
+  | "existingDraft"
+  | "existingRevision"
+  | "newDraft"
+  | "newRevision";
+
+function Emphasis({ children }: { children: ReactNode }) {
+  return (
+    <Text weight="semibold" as="span">
+      {children}
+    </Text>
+  );
+}
+
+// One whole sentence per action and target, so word order can change per language.
+function TriggerSentence({
+  action,
+  target,
+  existingDraftLabel,
+}: {
+  action: DraftSelectorAction;
+  target: TriggerTarget;
+  existingDraftLabel: ReactNode;
+}) {
+  if (action === "revert") {
+    switch (target) {
+      case "publish":
+        return (
+          <Trans>
+            Revert will be <Emphasis>published immediately</Emphasis>
+          </Trans>
+        );
+      case "existingDraft":
+        return (
+          <Trans>
+            Revert will be added to draft:{" "}
+            <Emphasis>{existingDraftLabel}</Emphasis>
+          </Trans>
+        );
+      case "existingRevision":
+        return (
+          <Trans>
+            Revert will be added to revision:{" "}
+            <Emphasis>{existingDraftLabel}</Emphasis>
+          </Trans>
+        );
+      case "newDraft":
+        return (
+          <Trans>
+            Revert will be added to <Emphasis>a new draft</Emphasis>
+          </Trans>
+        );
+      case "newRevision":
+        return (
+          <Trans>
+            Revert will be added to <Emphasis>a new revision</Emphasis>
+          </Trans>
+        );
+    }
+  }
+  if (action === "ruleDeletion") {
+    switch (target) {
+      case "publish":
+        return (
+          <Trans>
+            Rule deletion will be <Emphasis>published immediately</Emphasis>
+          </Trans>
+        );
+      case "existingDraft":
+        return (
+          <Trans>
+            Rule deletion will be added to draft:{" "}
+            <Emphasis>{existingDraftLabel}</Emphasis>
+          </Trans>
+        );
+      case "existingRevision":
+        return (
+          <Trans>
+            Rule deletion will be added to revision:{" "}
+            <Emphasis>{existingDraftLabel}</Emphasis>
+          </Trans>
+        );
+      case "newDraft":
+        return (
+          <Trans>
+            Rule deletion will be added to <Emphasis>a new draft</Emphasis>
+          </Trans>
+        );
+      case "newRevision":
+        return (
+          <Trans>
+            Rule deletion will be added to <Emphasis>a new revision</Emphasis>
+          </Trans>
+        );
+    }
+  }
+  switch (target) {
+    case "publish":
+      return (
+        <Trans>
+          Changes will be <Emphasis>published immediately</Emphasis>
+        </Trans>
+      );
+    case "existingDraft":
+      return (
+        <Trans>
+          Changes will be added to draft:{" "}
+          <Emphasis>{existingDraftLabel}</Emphasis>
+        </Trans>
+      );
+    case "existingRevision":
+      return (
+        <Trans>
+          Changes will be added to revision:{" "}
+          <Emphasis>{existingDraftLabel}</Emphasis>
+        </Trans>
+      );
+    case "newDraft":
+      return (
+        <Trans>
+          Changes will be added to <Emphasis>a new draft</Emphasis>
+        </Trans>
+      );
+    case "newRevision":
+      return (
+        <Trans>
+          Changes will be added to <Emphasis>a new revision</Emphasis>
+        </Trans>
+      );
+  }
+}
+
+// Pass `i18n` (from useLingui) to get the labels in the active language;
+// without it they stay English.
 export function draftModeCta(
   mode: DraftMode,
   {
     bypassesApproval,
-    publishLabel = "Publish",
-  }: { bypassesApproval: boolean; publishLabel?: string },
+    publishLabel,
+    i18n,
+  }: { bypassesApproval: boolean; publishLabel?: string; i18n?: I18n },
 ): { label: string; bypass: boolean } {
   const bypass = mode === "publish" && bypassesApproval;
+  const text = (descriptor: MessageDescriptor, english: string) =>
+    i18n ? i18n._(descriptor) : english;
   return {
     label:
       mode !== "publish"
-        ? "Save to draft"
+        ? text(msg`Save to draft`, "Save to draft")
         : bypass
-          ? "Bypass approval & publish"
-          : publishLabel,
+          ? text(msg`Bypass approval & publish`, "Bypass approval & publish")
+          : (publishLabel ?? text(msg`Publish`, "Publish")),
     bypass,
   };
 }
@@ -41,7 +185,7 @@ export default function DraftSelector({
   canAutoPublish,
   approvalRequired,
   defaultExpanded = false,
-  triggerPrefix = "Changes will be",
+  action = "changes",
   existingDraftLabel,
   revisionDropdown,
   metadataOnly = false,
@@ -59,7 +203,7 @@ export default function DraftSelector({
   canAutoPublish: boolean;
   approvalRequired: boolean;
   defaultExpanded?: boolean;
-  triggerPrefix?: string;
+  action?: DraftSelectorAction;
   /** Label shown in the collapsed trigger when mode === "existing" and a draft
    *  is selected. When null/undefined the fallback "a new draft" copy is used. */
   existingDraftLabel?: ReactNode;
@@ -89,45 +233,29 @@ export default function DraftSelector({
   alert?: ReactNode;
   alertActive?: boolean;
 }) {
+  const { t } = useLingui();
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
 
   const hasAlert = !!alert;
   const showsConflict = hasAlert && alertActive;
 
   const newOptionLabel = metadataOnly
-    ? "Add to a new revision"
-    : "Create a new draft";
+    ? t`Add to a new revision`
+    : t`Create a new draft`;
   const existingOptionLabel = metadataOnly
-    ? "Add to existing revision"
-    : "Add to existing draft";
-  const triggerNewCopy = metadataOnly ? "a new revision" : "a new draft";
-  const triggerExistingCopy = metadataOnly
-    ? "added to revision: "
-    : "added to draft: ";
+    ? t`Add to existing revision`
+    : t`Add to existing draft`;
 
-  const triggerLabel =
-    mode === "publish" ? (
-      <>
-        {" "}
-        <Text weight="semibold" as="span">
-          published immediately
-        </Text>
-      </>
-    ) : mode === "existing" && existingDraftLabel != null ? (
-      <>
-        {` ${triggerExistingCopy}`}
-        <Text weight="semibold" as="span">
-          {existingDraftLabel}
-        </Text>
-      </>
-    ) : (
-      <>
-        {" added to "}
-        <Text weight="semibold" as="span">
-          {triggerNewCopy}
-        </Text>
-      </>
-    );
+  const triggerTarget: TriggerTarget =
+    mode === "publish"
+      ? "publish"
+      : mode === "existing" && (existingDraftLabel ?? null) !== null
+        ? metadataOnly
+          ? "existingRevision"
+          : "existingDraft"
+        : metadataOnly
+          ? "newRevision"
+          : "newDraft";
 
   const existingDraftDisclosure = revisionDropdown ? (
     <Flex
@@ -150,7 +278,9 @@ export default function DraftSelector({
             label: recommendExisting ? (
               <>
                 {existingOptionLabel}{" "}
-                <span style={{ color: "var(--violet-11)" }}>(Recommended)</span>
+                <span style={{ color: "var(--violet-11)" }}>
+                  <Trans>(Recommended)</Trans>
+                </span>
               </>
             ) : (
               existingOptionLabel
@@ -178,10 +308,10 @@ export default function DraftSelector({
             value: "publish",
             label: approvalRequired ? (
               <span style={{ color: "var(--red-11)" }}>
-                Bypass approvals and publish now
+                <Trans>Bypass approvals and publish now</Trans>
               </span>
             ) : (
-              "Publish now"
+              t`Publish now`
             ),
           },
         ]
@@ -211,8 +341,11 @@ export default function DraftSelector({
               whiteSpace: "nowrap",
             }}
           >
-            {triggerPrefix}
-            {triggerLabel}
+            <TriggerSentence
+              action={action}
+              target={triggerTarget}
+              existingDraftLabel={existingDraftLabel}
+            />
           </div>
         </HelperText>
         {alert && (
@@ -232,7 +365,11 @@ export default function DraftSelector({
           style={{ marginLeft: -5 }}
         >
           <Flex align="center" gap="1">
-            {!isOpen && <span style={{ marginRight: 4 }}>edit</span>}
+            {!isOpen && (
+              <span style={{ marginRight: 4 }}>
+                <Trans>edit</Trans>
+              </span>
+            )}
             <PiCaretRightBold
               className="chevron-right"
               size={14}

@@ -40,10 +40,15 @@ function facts(rev: MinimalFeatureRevisionInterface, liveVersion = 5) {
 
 describe("revisionFacts", () => {
   it("names the author and co-authors, without repeating the author", () => {
-    const { labels, named } = facts(
+    const { labels, list, named } = facts(
       revision({ contributors: ["u_author", "u_other"] }),
     );
     expect(labels).toEqual(["Revised by", "Co-author", "Last update"]);
+    expect(list.map((f) => f.displayLabel.message)).toEqual([
+      "Revised by",
+      "Co-author",
+      "Last update",
+    ]);
     expect(named).toEqual(["u_author", "u_other"]);
   });
 
@@ -64,7 +69,12 @@ describe("revisionFacts", () => {
 
   it("notes the base of a draft built on an older revision", () => {
     const { list } = facts(revision({ baseVersion: 3 }), 4);
-    expect(list[0]).toEqual({ label: "Based on", value: "Revision 3" });
+    expect(list[0]).toMatchObject({ label: "Based on", value: "Revision 3" });
+    expect(list[0].displayLabel.message).toBe("Based on");
+    expect(list[0].displayValue).toMatchObject({
+      message: "Revision {baseVersion}",
+      values: { baseVersion: 3 },
+    });
   });
 
   it("dates a published revision by its publish, and a draft's schedule", () => {

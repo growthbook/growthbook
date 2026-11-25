@@ -1,4 +1,6 @@
+import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { format } from "date-fns";
 import { PiCaretDownBold, PiGitDiff } from "react-icons/pi";
 import Heading from "@/ui/Heading";
@@ -90,17 +92,20 @@ export default function ReviewHeader({
   // focused experiments-checklist step). Defaults to showing the bar.
   hideSubTabs?: boolean;
 }) {
+  const { i18n } = useLingui();
+  const otherDraftCount = otherDrafts.length;
   const otherDraftsNav =
     otherDrafts.length === 1 ? (
       <Flex align="center" gap="2">
         <Text color="text-mid" whiteSpace="nowrap">
-          1 other draft needs attention:
+          <Trans>1 other draft needs attention:</Trans>
         </Text>
         <Link weight="medium" onClick={otherDrafts[0].onNavigate}>
           {revisionLabelText(
             otherDrafts[0].version,
             otherDrafts[0].title,
             false,
+            i18n,
           )}
         </Link>
         <RevisionStatusBadge
@@ -112,7 +117,11 @@ export default function ReviewHeader({
       <DropdownMenu
         trigger={
           <Link weight="medium">
-            {otherDrafts.length} other drafts need attention{" "}
+            <Plural
+              value={otherDraftCount}
+              one="# other draft needs attention"
+              other="# other drafts need attention"
+            />{" "}
             <PiCaretDownBold size={11} />
           </Link>
         }
@@ -134,6 +143,95 @@ export default function ReviewHeader({
 
   const staleBase =
     (baseVersion ?? null) !== null && baseVersion !== liveVersion;
+  const hasBase = (baseVersion ?? null) !== null;
+  const publishedOn = publishedDate
+    ? format(new Date(publishedDate), "MMM d, yyyy")
+    : null;
+  const discardedOn = discardedDate
+    ? format(new Date(discardedDate), "MMM d, yyyy")
+    : null;
+
+  let lifecycleLine: ReactNode;
+  if (lifecycle === "merged") {
+    if ((mergedIntoVersion ?? null) !== null) {
+      lifecycleLine = publishedOn ? (
+        <Trans>
+          Revision <strong>{version}</strong> was merged into revision{" "}
+          <strong>{mergedIntoVersion}</strong> and published on {publishedOn}
+        </Trans>
+      ) : (
+        <Trans>
+          Revision <strong>{version}</strong> was merged into revision{" "}
+          <strong>{mergedIntoVersion}</strong> and published
+        </Trans>
+      );
+    } else {
+      lifecycleLine = publishedOn ? (
+        <Trans>
+          Revision <strong>{version}</strong> was published on {publishedOn}
+        </Trans>
+      ) : (
+        <Trans>
+          Revision <strong>{version}</strong> was published
+        </Trans>
+      );
+    }
+  } else if (lifecycle === "discarded") {
+    if (hasBase && discardedOn) {
+      lifecycleLine = (
+        <Trans>
+          Revision <strong>{version}</strong> (based on revision {baseVersion})
+          was discarded on {discardedOn}
+        </Trans>
+      );
+    } else if (hasBase) {
+      lifecycleLine = (
+        <Trans>
+          Revision <strong>{version}</strong> (based on revision {baseVersion})
+          was discarded
+        </Trans>
+      );
+    } else if (discardedOn) {
+      lifecycleLine = (
+        <Trans>
+          Revision <strong>{version}</strong> was discarded on {discardedOn}
+        </Trans>
+      );
+    } else {
+      lifecycleLine = (
+        <Trans>
+          Revision <strong>{version}</strong> was discarded and never published
+        </Trans>
+      );
+    }
+  } else if (reviewRequesterName) {
+    lifecycleLine = staleBase ? (
+      <Trans>
+        <strong>{reviewRequesterName}</strong> requested review to merge
+        revision <strong>{version}</strong> into the live version (revision{" "}
+        <strong>{liveVersion}</strong>) · based on revision {baseVersion}
+      </Trans>
+    ) : (
+      <Trans>
+        <strong>{reviewRequesterName}</strong> requested review to merge
+        revision <strong>{version}</strong> into the live version (revision{" "}
+        <strong>{liveVersion}</strong>)
+      </Trans>
+    );
+  } else {
+    lifecycleLine = staleBase ? (
+      <Trans>
+        Merging revision <strong>{version}</strong> into the live version
+        (revision <strong>{liveVersion}</strong>) · based on revision{" "}
+        {baseVersion}
+      </Trans>
+    ) : (
+      <Trans>
+        Merging revision <strong>{version}</strong> into the live version
+        (revision <strong>{liveVersion}</strong>)
+      </Trans>
+    );
+  }
 
   return (
     <Box>
@@ -155,60 +253,12 @@ export default function ReviewHeader({
                   variant={revisionStatusBadgeVariant(badgeStatus)}
                   radius="full"
                   color={revisionStatusColor(badgeStatus)}
-                  label={revisionStatusLabel(badgeStatus)}
+                  label={revisionStatusLabel(badgeStatus, i18n)}
                 />
               </span>
             </Heading>
             <Text as="span" color="text-low">
-              {lifecycle === "merged" ? (
-                <>
-                  Revision <strong>{version}</strong>
-                  {(mergedIntoVersion ?? null) !== null ? (
-                    <>
-                      {" "}
-                      was merged into revision{" "}
-                      <strong>{mergedIntoVersion}</strong> and published
-                    </>
-                  ) : (
-                    <> was published</>
-                  )}
-                  {publishedDate
-                    ? ` on ${format(new Date(publishedDate), "MMM d, yyyy")}`
-                    : ""}
-                </>
-              ) : lifecycle === "discarded" ? (
-                (baseVersion ?? null) !== null || discardedDate ? (
-                  <>
-                    Revision <strong>{version}</strong>
-                    {(baseVersion ?? null) !== null ? (
-                      <> (based on revision {baseVersion})</>
-                    ) : null}{" "}
-                    was discarded
-                    {discardedDate
-                      ? ` on ${format(new Date(discardedDate), "MMM d, yyyy")}`
-                      : ""}
-                  </>
-                ) : (
-                  <>
-                    Revision <strong>{version}</strong> was discarded and never
-                    published
-                  </>
-                )
-              ) : (
-                <>
-                  {reviewRequesterName ? (
-                    <>
-                      <strong>{reviewRequesterName}</strong> requested review to
-                      merge{" "}
-                    </>
-                  ) : (
-                    <>Merging </>
-                  )}
-                  revision <strong>{version}</strong> into the live version
-                  (revision <strong>{liveVersion}</strong>)
-                  {staleBase ? <> · based on revision {baseVersion}</> : null}
-                </>
-              )}
+              {lifecycleLine}
             </Text>
           </Box>
           {otherDraftsNav && (
@@ -231,8 +281,12 @@ export default function ReviewHeader({
               style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
             >
               <TabsList style={{ boxShadow: "none" }}>
-                <TabsTrigger value="overview">Conversation</TabsTrigger>
-                <TabsTrigger value="changes">Changes</TabsTrigger>
+                <TabsTrigger value="overview">
+                  <Trans>Conversation</Trans>
+                </TabsTrigger>
+                <TabsTrigger value="changes">
+                  <Trans>Changes</Trans>
+                </TabsTrigger>
               </TabsList>
               {onCompareRevisions && (
                 <Box pl="2" flexShrink="0">
@@ -243,7 +297,7 @@ export default function ReviewHeader({
                     onClick={onCompareRevisions}
                     style={{ whiteSpace: "nowrap" }}
                   >
-                    Compare revisions
+                    <Trans>Compare revisions</Trans>
                   </Button>
                 </Box>
               )}

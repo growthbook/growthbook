@@ -1,9 +1,22 @@
 import { ReactNode } from "react";
+import type { MessageDescriptor } from "@lingui/core";
 import { EntityType } from "shared/types/audit";
 import type { EventUserRequestedBy } from "shared/validators";
 import type { Language } from "@/components/SyntaxHighlighting/Code";
 
-export type DiffBadge = { label: string; action: string };
+/**
+ * Text shown in the UI: a descriptor, translated where it renders, or a plain
+ * string (entity data, or copy that isn't marked for translation yet).
+ */
+export type DisplayText = string | MessageDescriptor;
+
+export type DiffBadge = {
+  /** English text. Also the key for deduping, React keys and copied summaries. */
+  label: string;
+  action: string;
+  /** Translated text to show instead of `label`. */
+  displayLabel?: MessageDescriptor;
+};
 
 export type GroupByOption = "minute" | "hour" | "day";
 
@@ -47,7 +60,10 @@ export interface CoarsenedAuditEntry<T> {
 }
 
 export interface AuditDiffSection<T> {
+  /** English name. Also keys the section filters (saved in localStorage). */
   label: string;
+  /** Translated name to show instead of `label`. */
+  displayLabel?: MessageDescriptor;
   keys: (keyof T)[];
   /**
    * When set, array-valued keys are filtered to include *only* these sub-keys
@@ -101,7 +117,7 @@ export interface AuditEventMarker {
   event: string;
   date: Date;
   user: AuditUserInfo;
-  label: string;
+  label: DisplayText;
   /** When true the marker is always rendered inline and never collapsed into a noise group. */
   alwaysVisible?: boolean;
 }
@@ -127,7 +143,7 @@ export interface AuditDiffConfig<T> {
    * Optional per-entry label override. Return a string to replace the default
    * label entirely, or null to fall through to the default logic.
    */
-  overrideEventLabel?: (entry: CoarsenedAuditEntry<T>) => string | null;
+  overrideEventLabel?: (entry: CoarsenedAuditEntry<T>) => DisplayText | null;
   /**
    * Optional view-only snapshot transform applied JIT before diffing.
    * Use this to parse embedded JSON strings (e.g. condition fields) into
@@ -157,7 +173,7 @@ export interface AuditDiffConfig<T> {
    */
   labelOnlyEvents?: {
     event: string;
-    getLabel: (details: Record<string, unknown> | null) => string;
+    getLabel: (details: Record<string, unknown> | null) => DisplayText;
     /** When true the marker is always shown inline and never collapsed into a noise group. */
     alwaysVisible?: boolean;
   }[];
@@ -183,7 +199,7 @@ export interface AuditDiffConfig<T> {
    * a focused content view. Becomes the default view when present.
    */
   contentView?: {
-    label: string;
+    label: DisplayText;
     language: Language;
     get: (snapshot: T) => string;
   };

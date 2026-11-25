@@ -1,6 +1,7 @@
 import { useMemo } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Revision } from "shared/enterprise";
-import { DraftMode } from "@/components/DraftSelector";
+import { DraftMode, DraftSelectorAction } from "@/components/DraftSelector";
 import SharedDraftSelectorForChanges from "@/components/DraftSelectorForChanges";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 
@@ -29,7 +30,7 @@ export default function RevisionDraftSelectorForChanges({
   canDraft,
   approvalRequired,
   defaultExpanded = false,
-  triggerPrefix = "Changes will be",
+  action = "changes",
   metadataOnly = false,
   hideExisting = false,
   dropdownRequiresApproval = true,
@@ -48,7 +49,7 @@ export default function RevisionDraftSelectorForChanges({
   canDraft?: boolean;
   approvalRequired: boolean;
   defaultExpanded?: boolean;
-  triggerPrefix?: string;
+  action?: DraftSelectorAction;
   /**
    * Forwarded to the underlying DraftSelector. Set when the form is editing
    * only metadata fields and the org has metadata review off: hides the
@@ -71,6 +72,7 @@ export default function RevisionDraftSelectorForChanges({
   alert?: React.ReactNode;
   alertActive?: boolean;
 }) {
+  const { t } = useLingui();
   const activeDrafts = useMemo(
     () =>
       openRevisions.filter(
@@ -86,15 +88,15 @@ export default function RevisionDraftSelectorForChanges({
     [allRevisions, selectedDraftId],
   );
 
+  const selectedRevisionNumber = selectedDraftRevision
+    ? allRevisions.filter(
+        (r) =>
+          new Date(r.dateCreated) <=
+          new Date(selectedDraftRevision.dateCreated),
+      ).length
+    : 0;
   const existingDraftLabel = selectedDraftRevision
-    ? selectedDraftRevision.title ||
-      `Revision ${
-        allRevisions.filter(
-          (r) =>
-            new Date(r.dateCreated) <=
-            new Date(selectedDraftRevision.dateCreated),
-        ).length
-      }`
+    ? selectedDraftRevision.title || t`Revision ${selectedRevisionNumber}`
     : null;
 
   // Keep the selected revision visible after permission changes.
@@ -134,7 +136,7 @@ export default function RevisionDraftSelectorForChanges({
       revisionDropdown={revisionDropdown}
       defaultExpanded={defaultExpanded}
       hideExisting={hideExisting}
-      triggerPrefix={triggerPrefix}
+      action={action}
       metadataOnly={metadataOnly}
       alert={alert}
       alertActive={alertActive}

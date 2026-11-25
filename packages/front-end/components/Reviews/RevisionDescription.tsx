@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPencilSimple } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -19,7 +20,7 @@ const NOTES_MAX_COLLAPSED_HEIGHT = 200;
 // and adopts this later.
 export default function RevisionDescription({
   description,
-  heading = "Revision description",
+  heading,
   canEdit = false,
   onEdit,
   editorMeta,
@@ -39,6 +40,8 @@ export default function RevisionDescription({
   // comparing multiple revisions).
   label?: ReactNode;
 }) {
+  const { t } = useLingui();
+  const headingText = heading === undefined ? t`Revision description` : heading;
   const [editing, setEditing] = useState(false);
   // Optimistic value so the saved description shows immediately (the parent's
   // `description` stays stale until it re-fetches).
@@ -81,7 +84,7 @@ export default function RevisionDescription({
       >
         <Flex align="center" gap="2">
           <Heading as="h5" size="sm" color="text-mid" mb="0">
-            {heading}
+            {headingText}
           </Heading>
           {canEditNotes && !editing && (
             <IconButton
@@ -91,7 +94,7 @@ export default function RevisionDescription({
               radius="full"
               mx="1"
               onClick={() => setEditing(true)}
-              aria-label="Edit description"
+              aria-label={t`Edit description`}
             >
               <PiPencilSimple />
             </IconButton>
@@ -114,8 +117,8 @@ export default function RevisionDescription({
       <Box p="4">
         {editing && onEdit ? (
           <CommentComposer
-            cta="Save"
-            placeholder="Describe this revision..."
+            cta={t`Save`}
+            placeholder={t`Describe this revision...`}
             initialValue={comment}
             autofocus
             onCancel={() => setEditing(false)}
@@ -161,14 +164,14 @@ export default function RevisionDescription({
             {notesOverflow && (
               <Box mt="2">
                 <Link onClick={() => setNotesExpanded((v) => !v)}>
-                  {notesExpanded ? "Show less" : "Show more"}
+                  {notesExpanded ? t`Show less` : t`Show more`}
                 </Link>
               </Box>
             )}
           </>
         ) : (
           <Text size="md" as="div" color="text-low" fontStyle="italic">
-            No description yet.
+            <Trans>No description yet.</Trans>
           </Text>
         )}
       </Box>

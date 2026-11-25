@@ -1,5 +1,6 @@
 import { Revision } from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { useLingui } from "@lingui/react/macro";
 import {
   canLandArchiveToggle,
   canStageArchiveDraft,
@@ -33,6 +34,7 @@ export default function SDKConnectionArchiveModal({
   approvalRequired,
   canBypassApproval,
 }: SDKConnectionArchiveModalProps) {
+  const { t } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const { userId } = useUser();
 
@@ -40,8 +42,7 @@ export default function SDKConnectionArchiveModal({
 
   return (
     <ArchiveModal
-      entityNoun="SDK Connection"
-      preserveNounCase
+      entityNoun={t`SDK Connection`}
       entityId={connection.id}
       isArchived={isArchived}
       apiPathBase="/sdk-connections"

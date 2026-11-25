@@ -1,4 +1,5 @@
 import { ReactNode, useMemo, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
 import isEqual from "lodash/isEqual";
 import type { Revision } from "shared/enterprise";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
@@ -8,7 +9,10 @@ export type { DiffBadge };
 
 // Standalone types (not from audit system)
 export interface RevisionDiffSection<T> {
+  /** English name. Also keys renders, visibility and diff-comment anchors. */
   label: string;
+  /** Translated name to show instead of `label`. */
+  displayLabel?: MessageDescriptor;
   keys: (keyof T)[];
   render: (pre: Partial<T> | null, post: Partial<T>) => ReactNode | null;
   getBadges?: (pre: Partial<T> | null, post: Partial<T>) => DiffBadge[];
@@ -31,6 +35,8 @@ export interface RevisionDiffConfig<T> {
 
 export interface DiffItem {
   label: string;
+  /** Translated name to show instead of `label`. */
+  displayLabel?: MessageDescriptor;
   a: string; // JSON string for old value
   b: string; // JSON string for new value
   customRender?: ReactNode;
@@ -40,6 +46,7 @@ export interface DiffItem {
 
 export interface CustomRenderGroup {
   label: string;
+  displayLabel?: MessageDescriptor;
   renders: (ReactNode | null | undefined)[];
   suppressCardLabel: boolean;
 }
@@ -90,6 +97,7 @@ function computeDiff<T>(
 
     diffs.push({
       label: section.label,
+      displayLabel: section.displayLabel,
       a: stringify(prePick),
       b: stringify(postPick),
       customRender,
@@ -143,6 +151,7 @@ export function useRevisionDiff<T>(
   const customRenderGroups = useMemo(() => {
     return diffs.map((d) => ({
       label: d.label,
+      displayLabel: d.displayLabel,
       renders: [d.customRender],
       suppressCardLabel: d.suppressCardLabel ?? false,
     }));

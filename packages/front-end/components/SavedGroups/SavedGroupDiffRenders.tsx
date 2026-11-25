@@ -3,6 +3,7 @@ import isEqual from "lodash/isEqual";
 import { DiffMethod } from "react-diff-viewer-continued";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -652,19 +653,35 @@ export function renderSavedGroupProjects(
 export function getSavedGroupSettingsBadges(pre: Pre, post: Post): DiffBadge[] {
   const badges: DiffBadge[] = [];
   if (!isEqual(pre?.groupName, post.groupName) && post.groupName !== undefined)
-    badges.push({ label: "Edit name", action: "edit name" });
+    badges.push({
+      label: "Edit name",
+      displayLabel: msg`Edit name`,
+      action: "edit name",
+    });
   if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined)
-    badges.push({ label: "Edit owner", action: "edit owner" });
+    badges.push({
+      label: "Edit owner",
+      displayLabel: msg`Edit owner`,
+      action: "edit owner",
+    });
   if (
     !isEqual(pre?.description, post.description) &&
     post.description !== undefined
   )
-    badges.push({ label: "Edit description", action: "edit description" });
+    badges.push({
+      label: "Edit description",
+      displayLabel: msg`Edit description`,
+      action: "edit description",
+    });
   if (post.archived !== undefined && !!pre?.archived !== !!post.archived) {
     badges.push(
       post.archived
-        ? { label: "Archive", action: "archive" }
-        : { label: "Unarchive", action: "unarchive" },
+        ? { label: "Archive", displayLabel: msg`Archive`, action: "archive" }
+        : {
+            label: "Unarchive",
+            displayLabel: msg`Unarchive`,
+            action: "unarchive",
+          },
     );
   }
   const preProjects = pre?.projects ?? [];
@@ -674,20 +691,38 @@ export function getSavedGroupSettingsBadges(pre: Pre, post: Post): DiffBadge[] {
     (id) => !postProjects.includes(id),
   );
   if (addedProjects.length)
-    badges.push({
-      label: `+${addedProjects.length} project${addedProjects.length !== 1 ? "s" : ""}`,
-      action: "add project",
-    });
+    badges.push(addedProjectsBadge(addedProjects.length));
   if (removedProjects.length)
-    badges.push({
-      label: `−${removedProjects.length} project${removedProjects.length !== 1 ? "s" : ""}`,
-      action: "remove project",
-    });
+    badges.push(removedProjectsBadge(removedProjects.length));
   return badges;
 }
 
+function addedProjectsBadge(count: number): DiffBadge {
+  return {
+    label: `+${count} project${count !== 1 ? "s" : ""}`,
+    displayLabel:
+      count === 1 ? msg`+${count} project` : msg`+${count} projects`,
+    action: "add project",
+  };
+}
+
+function removedProjectsBadge(count: number): DiffBadge {
+  return {
+    label: `−${count} project${count !== 1 ? "s" : ""}`,
+    displayLabel:
+      count === 1 ? msg`−${count} project` : msg`−${count} projects`,
+    action: "remove project",
+  };
+}
+
 export function getSavedGroupTargetingBadges(): DiffBadge[] {
-  return [{ label: "Edit targeting", action: "edit targeting" }];
+  return [
+    {
+      label: "Edit targeting",
+      displayLabel: msg`Edit targeting`,
+      action: "edit targeting",
+    },
+  ];
 }
 
 export function getSavedGroupValuesBadges(pre: Pre, post: Post): DiffBadge[] {
@@ -696,22 +731,37 @@ export function getSavedGroupValuesBadges(pre: Pre, post: Post): DiffBadge[] {
     !isEqual(pre?.attributeKey, post.attributeKey) &&
     post.attributeKey !== undefined
   )
-    badges.push({ label: "Edit attribute", action: "edit attribute" });
+    badges.push({
+      label: "Edit attribute",
+      displayLabel: msg`Edit attribute`,
+      action: "edit attribute",
+    });
   const preVals = (pre?.values ?? []) as string[];
   const postVals = (post.values ?? []) as string[];
   if (!isEqual(preVals, postVals)) {
     const diff = postVals.length - preVals.length;
+    const removedCount = Math.abs(diff);
     if (diff > 0)
       badges.push({
         label: `+${diff} value${diff !== 1 ? "s" : ""}`,
+        displayLabel: diff === 1 ? msg`+${diff} value` : msg`+${diff} values`,
         action: "add values",
       });
     else if (diff < 0)
       badges.push({
-        label: `−${Math.abs(diff)} value${Math.abs(diff) !== 1 ? "s" : ""}`,
+        label: `−${removedCount} value${removedCount !== 1 ? "s" : ""}`,
+        displayLabel:
+          removedCount === 1
+            ? msg`−${removedCount} value`
+            : msg`−${removedCount} values`,
         action: "remove values",
       });
-    else badges.push({ label: "Edit values", action: "edit values" });
+    else
+      badges.push({
+        label: "Edit values",
+        displayLabel: msg`Edit values`,
+        action: "edit values",
+      });
   }
   return badges;
 }
@@ -754,7 +804,13 @@ export function getSavedGroupUploadVersionBadges(
 ): DiffBadge[] {
   return isEqual(pre?.currentUploadVersion, post.currentUploadVersion)
     ? []
-    : [{ label: "Edit upload version", action: "edit upload version" }];
+    : [
+        {
+          label: "Edit upload version",
+          displayLabel: msg`Edit upload version`,
+          action: "edit upload version",
+        },
+      ];
 }
 
 export function getSavedGroupProjectsBadges(pre: Pre, post: Post): DiffBadge[] {
@@ -763,17 +819,15 @@ export function getSavedGroupProjectsBadges(pre: Pre, post: Post): DiffBadge[] {
   const added = postProjects.filter((id) => !preProjects.includes(id));
   const removed = preProjects.filter((id) => !postProjects.includes(id));
   const badges: DiffBadge[] = [];
-  if (added.length)
-    badges.push({
-      label: `+${added.length} project${added.length !== 1 ? "s" : ""}`,
-      action: "add project",
-    });
-  if (removed.length)
-    badges.push({
-      label: `−${removed.length} project${removed.length !== 1 ? "s" : ""}`,
-      action: "remove project",
-    });
+  if (added.length) badges.push(addedProjectsBadge(added.length));
+  if (removed.length) badges.push(removedProjectsBadge(removed.length));
   return badges.length
     ? badges
-    : [{ label: "Edit projects", action: "edit projects" }];
+    : [
+        {
+          label: "Edit projects",
+          displayLabel: msg`Edit projects`,
+          action: "edit projects",
+        },
+      ];
 }

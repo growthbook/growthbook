@@ -1,3 +1,5 @@
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import type { RevisionStatus } from "shared/validators";
 import type { ChecklistReadyStatus } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 
@@ -97,23 +99,44 @@ export interface RnPState {
   waitingForReview: boolean;
 }
 
-export function scheduleToStartLabel(scheduledStartDay: string | null) {
+// Without `i18n` labels are English, for callers not translated yet.
+function translate(
+  i18n: I18n | undefined,
+  message: MessageDescriptor,
+  english: string,
+): string {
+  return i18n ? i18n._(message) : english;
+}
+
+export function scheduleToStartLabel(
+  scheduledStartDay: string | null,
+  i18n?: I18n,
+) {
   return scheduledStartDay
-    ? `Schedule to start (${scheduledStartDay})`
-    : "Schedule to start";
+    ? translate(
+        i18n,
+        msg`Schedule to start (${scheduledStartDay})`,
+        `Schedule to start (${scheduledStartDay})`,
+      )
+    : translate(i18n, msg`Schedule to start`, "Schedule to start");
 }
 
 function publishLabel(
   publishLocked: boolean,
   onlyScheduledSelected: boolean,
   scheduledStartDay: string | null,
+  i18n: I18n | undefined,
 ): string {
-  if (publishLocked) return "Publish";
-  if (onlyScheduledSelected) return scheduleToStartLabel(scheduledStartDay);
-  return "Publish";
+  if (publishLocked) return translate(i18n, msg`Publish`, "Publish");
+  if (onlyScheduledSelected)
+    return scheduleToStartLabel(scheduledStartDay, i18n);
+  return translate(i18n, msg`Publish`, "Publish");
 }
 
-export function getReviewAndPublishState(input: RnPStateInput): RnPState {
+export function getReviewAndPublishState(
+  input: RnPStateInput,
+  i18n?: I18n,
+): RnPState {
   const {
     requireReviews,
     status,
@@ -194,8 +217,13 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     return {
       mode,
       ctaLabel: hasNextStep
-        ? "Next"
-        : publishLabel(publishLocked, onlyScheduledSelected, scheduledStartDay),
+        ? translate(i18n, msg`Next`, "Next")
+        : publishLabel(
+            publishLocked,
+            onlyScheduledSelected,
+            scheduledStartDay,
+            i18n,
+          ),
       ctaEnabled: baseEnabled && checklistGateOpen,
       ctaLocked: !hasNextStep && publishLocked,
       submitAction: hasNextStep ? "next-experiments" : "publish",
@@ -213,17 +241,20 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
 
   const canResubmit = !editsResetStatus && status === "changes-requested";
 
-  let ctaLabel = canResubmit ? "Re-request Review" : "Request Review";
+  let ctaLabel = canResubmit
+    ? translate(i18n, msg`Re-request Review`, "Re-request Review")
+    : translate(i18n, msg`Request Review`, "Request Review");
   let ctaLocked = false;
   if (approved && !hasNextStep) {
     ctaLabel = publishLabel(
       publishLocked,
       onlyScheduledSelected,
       scheduledStartDay,
+      i18n,
     );
     ctaLocked = publishLocked;
   } else if (hasNextStep) {
-    ctaLabel = "Next";
+    ctaLabel = translate(i18n, msg`Next`, "Next");
   }
 
   let submitAction: RnPSubmitAction;

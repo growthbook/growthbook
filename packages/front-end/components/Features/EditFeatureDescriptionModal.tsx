@@ -81,7 +81,7 @@ export default function EditFeatureDescriptionModal({
     labels: { description: t`Description` },
     form,
     isNewDraft: mode === "new",
-    entityNoun: "description",
+    entityNoun: t`description`,
   });
 
   return (

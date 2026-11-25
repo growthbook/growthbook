@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
 import { PiClockFill, PiLock } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
@@ -37,19 +38,6 @@ export interface ScheduleControlRevision {
   // Set when the poller gave up on a failing scheduled publish; the schedule was
   // cleared and the draft left open.
   scheduledPublishGaveUpAt?: Date | string | null;
-}
-
-function getLockTargets(
-  revision: ScheduleControlRevision,
-  entityNoun: string,
-): string {
-  const lockEdits = !!revision.scheduledPublishLockEdits;
-  const lockOthers = !!revision.scheduledPublishLockOthers;
-  if (lockOthers && lockEdits) {
-    return `this draft and other drafts of this ${entityNoun}`;
-  }
-  if (lockOthers) return `other drafts of this ${entityNoun}`;
-  return lockEdits ? "this draft" : "";
 }
 
 export default function ScheduledPublishControl({
@@ -124,6 +112,7 @@ export default function ScheduledPublishControl({
   ) => void;
   mutate: () => void | Promise<void>;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
@@ -223,7 +212,22 @@ export default function ScheduledPublishControl({
     !requiresApproval ||
     (canBypassScheduleApproval && bypass);
 
-  const lockTargets = getLockTargets(revision, entityNoun);
+  // What the committed schedule locks, once in force or ahead of it.
+  const savedLockEdits = !!revision.scheduledPublishLockEdits;
+  const savedLockOthers = !!revision.scheduledPublishLockOthers;
+  let lockText: string | null = null;
+  if (savedLockOthers && savedLockEdits) {
+    lockText = lockActive
+      ? t`Locks this draft and other drafts of this ${entityNoun}`
+      : t`Will lock this draft and other drafts of this ${entityNoun}`;
+  } else if (savedLockOthers) {
+    lockText = lockActive
+      ? t`Locks other drafts of this ${entityNoun}`
+      : t`Will lock other drafts of this ${entityNoun}`;
+  } else if (savedLockEdits) {
+    lockText = lockActive ? t`Locks this draft` : t`Will lock this draft`;
+  }
+  const lastError = revision.scheduledPublishLastError;
 
   // ── Persistence ──
   const doDisarm = async () => {
@@ -245,7 +249,7 @@ export default function ScheduledPublishControl({
       }
       await mutate();
     } catch (e) {
-      setError((e as Error).message || "Failed to update");
+      setError((e as Error).message || t`Failed to update`);
     }
   };
 
@@ -259,7 +263,7 @@ export default function ScheduledPublishControl({
       });
       await mutate();
     } catch (e) {
-      setError((e as Error).message || "Failed to arm auto-publish");
+      setError((e as Error).message || t`Failed to arm auto-publish`);
       // Rethrown so the caller can undo its optimistic check.
       throw e;
     }
@@ -288,7 +292,7 @@ export default function ScheduledPublishControl({
       });
       await mutate();
     } catch (e) {
-      setError((e as Error).message || "Failed to schedule publish");
+      setError((e as Error).message || t`Failed to schedule publish`);
     } finally {
       setSaving(false);
     }
@@ -387,7 +391,7 @@ export default function ScheduledPublishControl({
           });
           await mutate();
         } catch (e) {
-          setError((e as Error).message || "Failed to update");
+          setError((e as Error).message || t`Failed to update`);
         }
       })();
     } else {
@@ -437,31 +441,33 @@ export default function ScheduledPublishControl({
         <NoticeBanner
           icon={<PiClockFill />}
           iconColor="violet"
-          title="Scheduled to publish"
+          title={t`Scheduled to publish`}
           body={
             <>
               {format(new Date(scheduledAtIso), "PPp")}
-              {pending && !lockActive ? " · pending approval" : ""}
+              {pending && !lockActive ? ` · ${t`pending approval`}` : ""}
             </>
           }
           footer={
             <>
-              {lockTargets && (
+              {lockText && (
                 <HelperText status="warning" size="sm" icon={<PiLock />} mt="2">
-                  {lockActive ? "Locks " : "Will lock "}
-                  {lockTargets}
+                  {lockText}
                 </HelperText>
               )}
               {scheduleArmedByAdmin && (
                 <HelperText status="info" size="sm" mt="2">
-                  Armed by an admin (approval bypassed). Cancel and re-arm to
-                  change it.
+                  <Trans>
+                    Armed by an admin (approval bypassed). Cancel and re-arm to
+                    change it.
+                  </Trans>
                 </HelperText>
               )}
-              {revision.scheduledPublishLastError && (
+              {lastError && (
                 <HelperText status="error" size="sm" mt="2">
-                  Publish is stuck and keeps retrying:{" "}
-                  {revision.scheduledPublishLastError}
+                  <Trans>
+                    Publish is stuck and keeps retrying: {lastError}
+                  </Trans>
                 </HelperText>
               )}
             </>
@@ -479,7 +485,7 @@ export default function ScheduledPublishControl({
                     size="sm"
                     onClick={doDisarm}
                   >
-                    Cancel schedule
+                    <Trans>Cancel schedule</Trans>
                   </Button>
                 )}
                 {canManageAutoPublish && !scheduleArmedByAdmin && (
@@ -488,7 +494,7 @@ export default function ScheduledPublishControl({
                     size="sm"
                     onClick={() => setEditing(true)}
                   >
-                    Change
+                    <Trans>Change</Trans>
                   </Button>
                 )}
               </Flex>
@@ -508,10 +514,11 @@ export default function ScheduledPublishControl({
   // draft is still open. Shown to every viewer — managers can re-arm to retry.
   const gaveUpNotice = revision.scheduledPublishGaveUpAt ? (
     <HelperText status="error" size="sm" mb="2">
-      Could not publish
-      {revision.scheduledPublishLastError
-        ? `: ${revision.scheduledPublishLastError}`
-        : "."}
+      {lastError ? (
+        <Trans>Could not publish: {lastError}</Trans>
+      ) : (
+        <Trans>Could not publish.</Trans>
+      )}
     </HelperText>
   ) : null;
 
@@ -525,7 +532,7 @@ export default function ScheduledPublishControl({
         <Box mb="5">
           {gaveUpNotice}
           <Checkbox
-            label="Automatically publish when approved"
+            label={t`Automatically publish when approved`}
             weight="regular"
             disabled
             value={true}
@@ -550,13 +557,13 @@ export default function ScheduledPublishControl({
       {gaveUpNotice}
       <Flex align="center" gap="1">
         <Checkbox
-          label="Automatically publish"
+          label={t`Automatically publish`}
           weight="regular"
           // Persisted no-date arms require draft authority to disarm.
           disabled={saving || lockedNoDateArm}
           disabledMessage={
             lockedNoDateArm
-              ? "You need permission to edit drafts to turn off publish-on-approval."
+              ? t`You need permission to edit drafts to turn off publish-on-approval.`
               : undefined
           }
           value={armed}
@@ -574,14 +581,16 @@ export default function ScheduledPublishControl({
               singleValue: (s) => ({ ...s, fontSize: 14 }),
             }}
             options={[
-              { label: "when approved", value: "approve" },
-              { label: "on a specific date", value: "date" },
+              { label: t`when approved`, value: "approve" },
+              { label: t`on a specific date`, value: "date" },
             ]}
             onChange={(v) => onModeChange(v as Mode)}
           />
         ) : (
           // "When approved" would just publish now, so show it as text.
-          <Text size="md">on a specific date</Text>
+          <Text size="md">
+            <Trans>on a specific date</Trans>
+          </Text>
         )}
       </Flex>
       {armed && effectiveMode === "date" && (
@@ -597,7 +606,7 @@ export default function ScheduledPublishControl({
               />
               <Flex align="center" gap="1" mt="2">
                 <Checkbox
-                  label="Lock edits to"
+                  label={t`Lock edits to`}
                   weight="regular"
                   value={lockEnabled}
                   setValue={(v) => onLockToggle(!!v)}
@@ -613,8 +622,8 @@ export default function ScheduledPublishControl({
                     singleValue: (s) => ({ ...s, fontSize: 14 }),
                   }}
                   options={[
-                    { label: `this ${entityNoun}`, value: "feature" },
-                    { label: "this draft", value: "draft" },
+                    { label: t`this ${entityNoun}`, value: "feature" },
+                    { label: t`this draft`, value: "draft" },
                   ]}
                   onChange={(v) => onLockScopeChange(v as "draft" | "feature")}
                 />
@@ -624,7 +633,9 @@ export default function ScheduledPublishControl({
                   <Checkbox
                     label={
                       <span style={{ color: "var(--red-11)" }}>
-                        Admin: allow scheduled publish to bypass checks
+                        <Trans>
+                          Admin: allow scheduled publish to bypass checks
+                        </Trans>
                       </span>
                     }
                     weight="regular"
@@ -638,7 +649,7 @@ export default function ScheduledPublishControl({
           ) : (
             <PremiumTooltip commercialFeature="scheduled-revisions">
               <Text size="sm" as="div">
-                Upgrade to publish on a specific date.
+                <Trans>Upgrade to publish on a specific date.</Trans>
               </Text>
             </PremiumTooltip>
           )}

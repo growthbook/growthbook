@@ -7,6 +7,7 @@ import {
 import { dateNoYear } from "shared/dates";
 import { eventUserLabel, revisionActor } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
@@ -52,6 +53,7 @@ export default function RevisionDropdown({
   width,
   disabled,
 }: RevisionDropdownProps) {
+  const { t } = useLingui();
   const { getUserDisplay } = useUser();
 
   const [showDiscarded, setShowDiscarded] = useLocalStorage(
@@ -137,7 +139,7 @@ export default function RevisionDropdown({
       <DropdownMenuLabel>
         <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
           <Text size="sm" color="text-low">
-            Show discarded ({discardedCount})
+            <Trans>Show discarded ({discardedCount})</Trans>
           </Text>
           <Switch size="sm" value={showDiscarded} onChange={setShowDiscarded} />
         </Flex>
@@ -170,7 +172,7 @@ export default function RevisionDropdown({
             )
           : undefined
       }
-      triggerPlaceholder="Select revision"
+      triggerPlaceholder={t`Select revision`}
       triggerNumbered={false}
       context={context}
       width={width}
