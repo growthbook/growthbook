@@ -4,7 +4,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  MoreMenuTrigger,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -156,11 +156,7 @@ const AttributeRowMenu: FC<{
   return (
     <DropdownMenu
       trigger={
-        <MoreMenuTrigger
-          label={`Actions for attribute ${attribute.property}`}
-          size="sm"
-          style={{ margin: 0 }}
-        />
+        <RowMenuTrigger label={`Actions for attribute ${attribute.property}`} />
       }
       open={menuOpen}
       onOpenChange={setMenuOpen}

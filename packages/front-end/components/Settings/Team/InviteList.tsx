@@ -26,10 +26,10 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import {
-  MoreMenuTrigger,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 import ChangeRoleModal from "./ChangeRoleModal";
 
@@ -193,13 +193,7 @@ const InviteList: FC<{
                 <TableCell />
                 <TableCell justify="end" pl="0">
                   <DropdownMenu
-                    trigger={
-                      <MoreMenuTrigger
-                        label={`Actions for ${email}`}
-                        size="sm"
-                        style={{ margin: 0 }}
-                      />
-                    }
+                    trigger={<RowMenuTrigger label={`Actions for ${email}`} />}
                     menuPlacement="end"
                     variant="soft"
                   >

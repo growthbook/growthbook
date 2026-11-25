@@ -3,7 +3,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
-  MoreMenuTrigger,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 interface ApiKeyRowMenuProps {
@@ -35,10 +35,8 @@ export default function ApiKeyRowMenu({
   return (
     <DropdownMenu
       trigger={
-        <MoreMenuTrigger
+        <RowMenuTrigger
           label={`Actions for ${apiKey.description || "API key"}`}
-          size="sm"
-          style={{ margin: 0 }}
         />
       }
       menuPlacement="end"

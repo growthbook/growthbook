@@ -91,6 +91,22 @@ export const MoreMenuTrigger = forwardRef<
   );
 });
 
+/** A table row's ⋮ menu: small, inside the cell's padding rather than the ghost
+ * button's outset. */
+export const RowMenuTrigger = forwardRef<
+  HTMLButtonElement,
+  Omit<React.ComponentPropsWithoutRef<typeof MoreMenuTrigger>, "size">
+>(function RowMenuTrigger({ style, ...props }, ref) {
+  return (
+    <MoreMenuTrigger
+      ref={ref}
+      size="sm"
+      style={{ margin: 0, ...style }}
+      {...props}
+    />
+  );
+});
+
 export function DropdownMenu({
   trigger,
   triggerClassName,

@@ -25,7 +25,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
-  MoreMenuTrigger,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 export const ArchetypeList: FC<{
@@ -182,10 +182,8 @@ export const ArchetypeList: FC<{
                       {canEdit || canDelete ? (
                         <DropdownMenu
                           trigger={
-                            <MoreMenuTrigger
+                            <RowMenuTrigger
                               label={`Actions for ${archetype.name}`}
-                              size="sm"
-                              style={{ margin: 0 }}
                             />
                           }
                           menuPlacement="end"

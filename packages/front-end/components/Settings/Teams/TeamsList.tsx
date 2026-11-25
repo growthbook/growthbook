@@ -25,10 +25,10 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import {
-  MoreMenuTrigger,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
@@ -129,11 +129,7 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
                     {canManageTeam && !teamIsExternallyManaged ? (
                       <DropdownMenu
                         trigger={
-                          <MoreMenuTrigger
-                            label={`Actions for ${t.name}`}
-                            size="sm"
-                            style={{ margin: 0 }}
-                          />
+                          <RowMenuTrigger label={`Actions for ${t.name}`} />
                         }
                         menuPlacement="end"
                         variant="soft"

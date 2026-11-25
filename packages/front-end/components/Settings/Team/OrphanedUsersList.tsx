@@ -13,10 +13,10 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import {
-  MoreMenuTrigger,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 import AddOrphanedUserModal from "./AddOrphanedUserModal";
 
@@ -84,11 +84,7 @@ const OrphanedUsersList: FC<{
                 <TableCell justify="end">
                   <DropdownMenu
                     trigger={
-                      <MoreMenuTrigger
-                        label={`Actions for ${name || email}`}
-                        size="sm"
-                        style={{ margin: 0 }}
-                      />
+                      <RowMenuTrigger label={`Actions for ${name || email}`} />
                     }
                     menuPlacement="end"
                     variant="soft"

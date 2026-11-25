@@ -69,7 +69,7 @@ function EnumValuesDisplay({ valuesStr }: { valuesStr: string | undefined }) {
 
 export const CUSTOM_FIELD_TABLE_WIDTHS = {
   dragHandle: 32,
-  // The menu inside the cell's padding, as in the webhook secrets table.
+  // The menu plus the cell's padding.
   menu: 46,
   name: "10%",
   key: "14%",

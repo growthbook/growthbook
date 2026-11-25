@@ -14,10 +14,10 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import {
-  MoreMenuTrigger,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 export default function RoleList() {
@@ -62,13 +62,7 @@ export default function RoleList() {
                 <TableCell>{r.description}</TableCell>
                 <TableCell justify="end">
                   <DropdownMenu
-                    trigger={
-                      <MoreMenuTrigger
-                        label={`Actions for ${r.id}`}
-                        size="sm"
-                        style={{ margin: 0 }}
-                      />
-                    }
+                    trigger={<RowMenuTrigger label={`Actions for ${r.id}`} />}
                     menuPlacement="end"
                     variant="soft"
                   >

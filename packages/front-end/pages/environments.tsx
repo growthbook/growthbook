@@ -28,7 +28,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  MoreMenuTrigger,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 import Table, {
   TableHeader,
@@ -233,13 +233,7 @@ const EnvironmentsPage: FC = () => {
                   <TableCell>{e.toggleOnList ? "yes" : ""}</TableCell>
                   <TableCell justify="end">
                     <DropdownMenu
-                      trigger={
-                        <MoreMenuTrigger
-                          label={`Actions for ${e.id}`}
-                          size="sm"
-                          style={{ margin: 0 }}
-                        />
-                      }
+                      trigger={<RowMenuTrigger label={`Actions for ${e.id}`} />}
                       menuPlacement="end"
                       variant="soft"
                     >

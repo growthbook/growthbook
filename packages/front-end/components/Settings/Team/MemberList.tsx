@@ -50,11 +50,11 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import {
-  MoreMenuTrigger,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 // Keyed by the rule, not just the role: the same role can apply with different
@@ -593,10 +593,8 @@ const MemberList: FC<{
                     {member.id !== userId && hasRowActions && (
                       <DropdownMenu
                         trigger={
-                          <MoreMenuTrigger
+                          <RowMenuTrigger
                             label={`Actions for ${member.name || member.email}`}
-                            size="sm"
-                            style={{ margin: 0 }}
                           />
                         }
                         menuPlacement="end"

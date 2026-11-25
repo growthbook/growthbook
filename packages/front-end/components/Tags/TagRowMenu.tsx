@@ -3,7 +3,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
-  MoreMenuTrigger,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 interface TagRowMenuProps {
@@ -28,13 +28,7 @@ export default function TagRowMenu({
   return (
     <>
       <DropdownMenu
-        trigger={
-          <MoreMenuTrigger
-            label={`Actions for ${name}`}
-            size="sm"
-            style={{ margin: 0 }}
-          />
-        }
+        trigger={<RowMenuTrigger label={`Actions for ${name}`} />}
         open={open}
         onOpenChange={setOpen}
         menuPlacement="end"

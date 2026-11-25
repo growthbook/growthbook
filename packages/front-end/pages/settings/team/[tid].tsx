@@ -34,10 +34,10 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import {
-  MoreMenuTrigger,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 const TeamPage: FC = () => {
@@ -368,10 +368,8 @@ const TeamPage: FC = () => {
                   {canManageMembers && isEditable && (
                     <DropdownMenu
                       trigger={
-                        <MoreMenuTrigger
+                        <RowMenuTrigger
                           label={`Actions for ${member.name || member.email}`}
-                          size="sm"
-                          style={{ margin: 0 }}
                         />
                       }
                       menuPlacement="end"

@@ -26,10 +26,10 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import {
-  MoreMenuTrigger,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 const PendingMemberList: FC<{
@@ -146,10 +146,8 @@ const PendingMemberList: FC<{
                 <TableCell justify="end" pl="0">
                   <DropdownMenu
                     trigger={
-                      <MoreMenuTrigger
+                      <RowMenuTrigger
                         label={`Actions for ${member.name || member.email}`}
-                        size="sm"
-                        style={{ margin: 0 }}
                       />
                     }
                     menuPlacement="end"

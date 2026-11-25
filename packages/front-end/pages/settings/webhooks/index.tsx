@@ -10,7 +10,7 @@ import CopyableCode from "@/components/Settings/CopyableCode";
 import {
   DropdownMenu,
   DropdownMenuItem,
-  MoreMenuTrigger,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
@@ -126,11 +126,7 @@ const WebhooksPage: FC = () => {
                     <DropdownMenu
                       variant="soft"
                       trigger={
-                        <MoreMenuTrigger
-                          label={`Actions for ${secret.key}`}
-                          size="sm"
-                          style={{ margin: 0 }}
-                        />
+                        <RowMenuTrigger label={`Actions for ${secret.key}`} />
                       }
                       menuPlacement="end"
                     >

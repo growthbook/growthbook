@@ -5,7 +5,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  MoreMenuTrigger,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 interface CustomFieldRowMenuProps {
@@ -39,14 +39,7 @@ export default function CustomFieldRowMenu({
 
   return (
     <DropdownMenu
-      trigger={
-        <MoreMenuTrigger
-          label={`Actions for ${name}`}
-          size="sm"
-          // Inside the cell's padding, not the ghost button's outset.
-          style={{ margin: 0 }}
-        />
-      }
+      trigger={<RowMenuTrigger label={`Actions for ${name}`} />}
       open={open}
       onOpenChange={setOpen}
       menuPlacement="end"
