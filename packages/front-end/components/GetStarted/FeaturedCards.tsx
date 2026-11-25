@@ -7,6 +7,7 @@ import {
 } from "react-icons/pi";
 import { useRouter } from "next/router";
 import { ProjectInterface } from "shared/types/project";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -15,18 +16,19 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import styles from "./FeaturedCards.module.scss";
 
-export function FeatureFlagFeatureCard({ title = "Create Feature Flags" }) {
+export function FeatureFlagFeatureCard({ title }: { title?: string }) {
+  const { t } = useLingui();
   return (
     <CardLink href="/features">
       <Flex>
         <Heading as="h2" size="4" weight="bold">
-          {title}
+          {title ?? t`Create Feature Flags`}
         </Heading>
         <ActionArrow />
       </Flex>
 
       <Text color="gray" mb="8">
-        Explore a guided setup
+        <Trans>Explore a guided setup</Trans>
       </Text>
 
       <Box mt="auto" mr="-9" className={styles.featureFlagImage} />
@@ -34,19 +36,20 @@ export function FeatureFlagFeatureCard({ title = "Create Feature Flags" }) {
   );
 }
 
-export function ExperimentFeatureCard({ title = "Run an Experiment" }) {
+export function ExperimentFeatureCard({ title }: { title?: string }) {
+  const { t } = useLingui();
   return (
     <CardLink href="/experiments">
       <Flex direction="column" height="100%">
         <Flex>
           <Heading as="h2" size="4" weight="bold">
-            {title}
+            {title ?? t`Run an Experiment`}
           </Heading>
           <ActionArrow />
         </Flex>
 
         <Text color="gray" mb="8">
-          Explore a guided setup & sample results
+          <Trans>Explore a guided setup & sample results</Trans>
         </Text>
 
         <Box mt="auto" mr="-9" className={styles.experimentImage} />
@@ -55,7 +58,8 @@ export function ExperimentFeatureCard({ title = "Run an Experiment" }) {
   );
 }
 
-export function SampleDataFeatureCard({ title = "View a Sample Experiment" }) {
+export function SampleDataFeatureCard({ title }: { title?: string }) {
+  const { t } = useLingui();
   const router = useRouter();
   const { apiCall } = useAuth();
   const { projectId: demoDataSourceProjectId, demoExperimentId } =
@@ -92,13 +96,13 @@ export function SampleDataFeatureCard({ title = "View a Sample Experiment" }) {
       <Flex direction="column" height="100%">
         <Flex>
           <Heading as="h2" size="4" weight="bold">
-            {title}
+            {title ?? t`View a Sample Experiment`}
           </Heading>
           <ActionArrow />
         </Flex>
 
         <Text color="gray" mb="8">
-          Explore a demo experiment with sample data
+          <Trans>Explore a demo experiment with sample data</Trans>
         </Text>
 
         <Box mt="auto" mr="-9" className={styles.experimentImage} />
@@ -113,12 +117,12 @@ export function SetUpDataSourceAndMetricsFeatureCard() {
       <Flex direction="column" height="100%">
         <Flex>
           <Heading as="h2" size="4" weight="bold">
-            Set up Data Source & Metrics
+            <Trans>Set up Data Source & Metrics</Trans>
           </Heading>
           <ActionArrow />
         </Flex>
         <Text color="gray" mb="8">
-          Prepare to analyze experiment results
+          <Trans>Prepare to analyze experiment results</Trans>
         </Text>
         {/* TODO: Replace with actual image once it's ready */}
         <Box mt="auto" ml="auto" mr="-7" className={styles.datasourceImage} />
@@ -128,6 +132,7 @@ export function SetUpDataSourceAndMetricsFeatureCard() {
 }
 
 export function ImportFromOtherPlatformFeatureCard() {
+  const { t } = useLingui();
   const permissionsUtils = usePermissionsUtil();
   const canImportFromPlatform =
     permissionsUtils.canViewFeatureModal() &&
@@ -142,7 +147,7 @@ export function ImportFromOtherPlatformFeatureCard() {
       body={
         canImportFromPlatform
           ? ""
-          : "You do not have permission to complete this action"
+          : t`You do not have permission to complete this action`
       }
       usePortal={true}
     >
@@ -166,7 +171,7 @@ export function ImportFromOtherPlatformFeatureCard() {
           </svg>
           <PiArrowFatLineRight className={styles.migrateArrowIcon} />
           <Text ml="2" weight="bold" size="4">
-            Migrate from another platform
+            <Trans>Migrate from another platform</Trans>
           </Text>
           <ActionArrow />
         </Flex>
@@ -193,7 +198,7 @@ export function AnalyzeExperimentFeatureCard() {
         </svg>
         <PiChartScatter className={styles.chartIcon} />
         <Text ml="2" weight="bold" size="4">
-          Analyze External Experiments
+          <Trans>Analyze External Experiments</Trans>
         </Text>
         <ActionArrow />
       </Flex>

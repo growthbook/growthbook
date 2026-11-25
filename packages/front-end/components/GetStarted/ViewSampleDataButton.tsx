@@ -1,5 +1,6 @@
 import { ProjectInterface } from "shared/types/project";
 import { useRouter } from "next/router";
+import { Trans } from "@lingui/react/macro";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -59,7 +60,11 @@ const ViewSampleDataButton = ({
         (!exists || !demoExperimentId) && !permissionsUtils.canCreateProjects()
       }
     >
-      View Sample {resource === "experiment" ? "Experiment" : "Feature"}
+      {resource === "experiment" ? (
+        <Trans>View Sample Experiment</Trans>
+      ) : (
+        <Trans>View Sample Feature</Trans>
+      )}
     </Button>
   );
 };

@@ -1,6 +1,7 @@
 import React, { ReactElement } from "react";
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { date } from "shared/dates";
 import { getLatestPhaseVariations } from "shared/experiments";
 import Link from "@/ui/Link";
@@ -32,6 +33,7 @@ export default function ExperimentImpactTab({
   formatter,
   formatterOptions,
 }: Props) {
+  const { t, i18n } = useLingui();
   const expRows: ReactElement[] = [];
   let anyNullImpact = false;
   experimentImpactData.experiments.forEach((e, ei) => {
@@ -68,7 +70,9 @@ export default function ExperimentImpactTab({
                 formatterOptions,
               )
             ) : (
-              <span className="text-muted">N/A</span>
+              <span className="text-muted">
+                <Trans>N/A</Trans>
+              </span>
             )}
             {!!impact && (
               <span className="small text-muted">
@@ -97,7 +101,9 @@ export default function ExperimentImpactTab({
                 formatterOptions,
               )
             ) : (
-              <span className="text-muted">N/A</span>
+              <span className="text-muted">
+                <Trans>N/A</Trans>
+              </span>
             )}
             {!!impact && impact.se && (
               <span className="plusminus ml-1">
@@ -128,7 +134,9 @@ export default function ExperimentImpactTab({
                   ?.dateEnded ?? "",
               )
             ) : (
-              <span className="text-muted">N/A</span>
+              <span className="text-muted">
+                <Trans>N/A</Trans>
+              </span>
             )}
           </div>
         </td>
@@ -151,7 +159,7 @@ export default function ExperimentImpactTab({
         {e.error ? (
           <td colSpan={3}>
             <Callout status="error" mb="1" ml="1" size="sm">
-              {e.error}
+              {i18n._(e.error)}
             </Callout>
           </td>
         ) : (
@@ -164,6 +172,11 @@ export default function ExperimentImpactTab({
       </tr>,
     );
   });
+  const totalImpact = formatImpact(
+    experimentImpactData.totalAdjustedImpact * 365,
+    formatter,
+    formatterOptions,
+  );
   return (
     <div className="px-3 pt-3">
       {experimentImpactData.experiments.length === 0 ? (
@@ -176,16 +189,17 @@ export default function ExperimentImpactTab({
               mt="2"
             >
               <span style={{ fontSize: "1.2em" }}>
-                {formatImpact(
-                  experimentImpactData.totalAdjustedImpact * 365,
-                  formatter,
-                  formatterOptions,
-                )}
-                {` per year is the summed impact ${
-                  experimentImpactType === "winner"
-                    ? "of the winning variations."
-                    : "of not shipping the worst variation."
-                } `}
+                {experimentImpactType === "winner" ? (
+                  <Trans>
+                    {totalImpact} per year is the summed impact of the winning
+                    variations.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    {totalImpact} per year is the summed impact of not shipping
+                    the worst variation.
+                  </Trans>
+                )}{" "}
               </span>
             </Callout>
           ) : null}
@@ -195,23 +209,27 @@ export default function ExperimentImpactTab({
               <thead className="bg-light">
                 <tr>
                   <th>
-                    Experiment
+                    <Trans>Experiment</Trans>
                     <Tooltip
                       className="ml-1"
-                      body={"Does not include Bandits"}
+                      body={t`Does not include Bandits`}
                     />
                   </th>
-                  <th>Date Ended</th>
-                  <th>Status</th>
                   <th>
-                    {experimentImpactType === "winner"
-                      ? "Winning Variation"
-                      : experimentImpactType === "loser"
-                        ? "Worst Variation"
-                        : "Variation"}
+                    <Trans>Date Ended</Trans>
                   </th>
                   <th>
-                    Scaled Impact{" "}
+                    <Trans>Status</Trans>
+                  </th>
+                  <th>
+                    {experimentImpactType === "winner"
+                      ? t`Winning Variation`
+                      : experimentImpactType === "loser"
+                        ? t`Worst Variation`
+                        : t`Variation`}
+                  </th>
+                  <th>
+                    <Trans>Scaled Impact</Trans>{" "}
                     <span className="small text-muted">
                       &times; adj &times; 365
                     </span>
@@ -220,29 +238,38 @@ export default function ExperimentImpactTab({
                       body={
                         <>
                           <div className={anyNullImpact ? "mb-2" : ""}>
-                            {`This Daily Scaled Impact, available in your Experiment
-                              Results under the "Scaled Impact" Difference Type, is 
-                              adjusted if de-biasing is set to true and multiplied by
-                              365 to yield the Annual Adjusted Scaled Impact.`}
+                            <Trans>
+                              This Daily Scaled Impact, available in your
+                              Experiment Results under the &quot;Scaled
+                              Impact&quot; Difference Type, is adjusted if
+                              de-biasing is set to true and multiplied by 365 to
+                              yield the Annual Adjusted Scaled Impact.
+                            </Trans>
                           </div>
                           {anyNullImpact ? (
                             <div>
-                              {`N/A values occur if we were unable to compute scaled
-                                impact for that experiment, perhaps due to stale
-                                experiment data.`}
+                              <Trans>
+                                N/A values occur if we were unable to compute
+                                scaled impact for that experiment, perhaps due
+                                to stale experiment data.
+                              </Trans>
                             </div>
                           ) : null}
                         </>
                       }
                     />
                   </th>
-                  <th>Annual Adj. Scaled Impact</th>
+                  <th>
+                    <Trans>Annual Adj. Scaled Impact</Trans>
+                  </th>
                 </tr>
               </thead>
               <tbody>{expRows}</tbody>
               <tbody className="bg-light font-weight-bold">
                 <tr>
-                  <td>Total Impact</td>
+                  <td>
+                    <Trans>Total Impact</Trans>
+                  </td>
                   <td colSpan={4} />
                   <td>
                     {experimentImpactType !== "other" ? (
@@ -267,7 +294,9 @@ export default function ExperimentImpactTab({
                         ) : null}
                       </>
                     ) : (
-                      <span>N/A</span>
+                      <span>
+                        <Trans>N/A</Trans>
+                      </span>
                     )}
                   </td>
                 </tr>

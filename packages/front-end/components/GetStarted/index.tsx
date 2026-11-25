@@ -4,6 +4,9 @@ import { Box, Card, Flex, Grid, Separator, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
 import router from "next/router";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -42,29 +45,29 @@ type AdvancedFeature = (
   | { docSection?: never; href: string }
 ) & {
   imgUrl: string;
-  title: string;
-  description: string;
+  title: MessageDescriptor;
+  description: MessageDescriptor;
   commercialFeature?: CommercialFeature;
 };
 
 const dataScientistFeatureList: AdvancedFeature[] = [
   {
     imgUrl: "/images/get-started/advanced/fact-tables.png",
-    title: "Fact Tables",
-    description: "Enable automatic query optimization",
+    title: msg`Fact Tables`,
+    description: msg`Enable automatic query optimization`,
     href: "/fact-tables",
   },
   {
     imgUrl: "/images/get-started/advanced/metrics.jpg",
-    title: "Metric Groups",
-    description: "Easily reuse sets of metrics",
+    title: msg`Metric Groups`,
+    description: msg`Easily reuse sets of metrics`,
     href: "/metrics#metricgroups",
     commercialFeature: "metric-groups",
   },
   {
     imgUrl: "/images/get-started/advanced/data-pipeline.png",
-    title: "Data Pipeline Mode",
-    description: "Use temp tables for intermediate steps",
+    title: msg`Data Pipeline Mode`,
+    description: msg`Use temp tables for intermediate steps`,
     docSection: "pipelineMode",
     commercialFeature: "pipeline-mode",
   },
@@ -73,42 +76,42 @@ const dataScientistFeatureList: AdvancedFeature[] = [
 const advancedFeatureList: AdvancedFeature[] = [
   {
     imgUrl: "/images/get-started/advanced/features.jpg",
-    title: "Dev Tools",
-    description: "Debug feature flags & experiments",
+    title: msg`Dev Tools`,
+    description: msg`Debug feature flags & experiments`,
     docSection: "devTools",
   },
   {
     imgUrl: "/images/get-started/advanced/archetypes.png",
-    title: "Archetype Overview",
-    description: "Simulate the result of targeting rules",
+    title: msg`Archetype Overview`,
+    description: msg`Simulate the result of targeting rules`,
     href: "/archetypes",
     commercialFeature: "archetypes",
   },
   {
     imgUrl: "/images/get-started/advanced/custom-roles.png",
-    title: "Custom Roles",
-    description: "Define fine-grained permission control",
+    title: msg`Custom Roles`,
+    description: msg`Define fine-grained permission control`,
     href: "/settings/team#roles",
     commercialFeature: "custom-roles",
   },
   {
     imgUrl: "/images/get-started/advanced/teams.png",
-    title: "Teams",
-    description: "Manage member permissions",
+    title: msg`Teams`,
+    description: msg`Manage member permissions`,
     href: "/settings/team#teams",
     commercialFeature: "teams",
   },
   {
     imgUrl: "/images/get-started/advanced/code-refs.png",
-    title: "Code Refs",
-    description: "See exactly where flags appear in code",
+    title: msg`Code Refs`,
+    description: msg`See exactly where flags appear in code`,
     docSection: "codeReferences",
     commercialFeature: "code-references",
   },
   {
     imgUrl: "/images/get-started/advanced/fact-tables.png",
-    title: "Query Optimization",
-    description: "Improve SQL performance and reduce costs",
+    title: msg`Query Optimization`,
+    description: msg`Improve SQL performance and reduce costs`,
     docSection: "queryOptimization",
   },
   ...dataScientistFeatureList,
@@ -119,6 +122,7 @@ const GetStartedAndHomePage = ({
 }: {
   showMarketingBanner?: boolean;
 } = {}): React.ReactElement => {
+  const { t, i18n } = useLingui();
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
@@ -188,8 +192,8 @@ const GetStartedAndHomePage = ({
     if (isCloud()) {
       advancedFeatureListWithAnalytics.push({
         imgUrl: "/images/get-started/advanced/feature-flag.png",
-        title: "Feature Flag Analytics",
-        description: "View flag evaluations in real time",
+        title: msg`Feature Flag Analytics`,
+        description: msg`View flag evaluations in real time`,
         docSection: "managedWarehouseTracking",
       });
     }
@@ -215,7 +219,7 @@ const GetStartedAndHomePage = ({
       )}
       {openNewFeatureFlagModal && (
         <FeatureModal
-          cta={"Create"}
+          cta={t`Create`}
           close={() => setOpenNewFeatureFlagModal(false)}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${
@@ -236,14 +240,14 @@ const GetStartedAndHomePage = ({
         {showMarketingBanner && <HomeMarketingBanner />}
         <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
           <Text size="7" weight="regular" mb="5" as="div">
-            Home
+            <Trans>Home</Trans>
           </Text>
           {orgHasConnectedSDK && (canCreateFeature || canCreateExperiment) && (
             <Flex justify={{ initial: "end", sm: "start" }} align="center">
               <DropdownMenu
                 trigger={
                   <Button icon={<PiCaretDownFill />} iconPosition="right">
-                    Create
+                    <Trans>Create</Trans>
                   </Button>
                 }
               >
@@ -253,7 +257,7 @@ const GetStartedAndHomePage = ({
                       setOpenNewFeatureFlagModal(true);
                     }}
                   >
-                    Feature Flag
+                    <Trans>Feature Flag</Trans>
                   </DropdownMenuItem>
                 )}
                 {canCreateExperiment && (
@@ -262,7 +266,7 @@ const GetStartedAndHomePage = ({
                       setOpenNewExperimentModal(true);
                     }}
                   >
-                    Experiment
+                    <Trans>Experiment</Trans>
                   </DropdownMenuItem>
                 )}
               </DropdownMenu>
@@ -272,7 +276,7 @@ const GetStartedAndHomePage = ({
 
         {!orgIsUsingFeatureOrExperiment && (
           <Text size="4" weight="medium" mb="3" as="div">
-            Get Started
+            <Trans>Get Started</Trans>
           </Text>
         )}
         <Grid
@@ -298,14 +302,16 @@ const GetStartedAndHomePage = ({
                         weight="medium"
                         style={{ color: "var(--color-text-mid)" }}
                       >
-                        EXPLORE ADVANCED FEATURES
+                        <Trans>EXPLORE ADVANCED FEATURES</Trans>
                       </Text>
                     </Box>
                     <Flex direction={{ initial: "column", sm: "row" }} gap="4">
                       {advancedFeatures.map((feature) => (
                         <AdvancedFeaturesCard
-                          key={feature.title}
+                          key={feature.title.id}
                           {...feature}
+                          title={i18n._(feature.title)}
+                          description={i18n._(feature.description)}
                         />
                       ))}
                     </Flex>
@@ -320,7 +326,7 @@ const GetStartedAndHomePage = ({
               >
                 {orgIsUsingFeatureOrExperiment && (
                   <Text size="4" weight="medium" mb="3" as="div">
-                    Get Started
+                    <Trans>Get Started</Trans>
                   </Text>
                 )}
                 {orgIsUsingFeatureOrExperiment && (
@@ -328,7 +334,7 @@ const GetStartedAndHomePage = ({
                     variant="ghost"
                     onClick={() => setShowGettingStarted(!showGettingStarted)}
                   >
-                    {showGettingStarted ? "Hide Details" : "Show Details"}
+                    {showGettingStarted ? t`Hide Details` : t`Show Details`}
                   </Button>
                 )}
               </Flex>
@@ -336,8 +342,10 @@ const GetStartedAndHomePage = ({
               {!showGettingStarted && (
                 <Callout status="info" size="md">
                   <Text size="2">
-                    Customize your account setup and learn how to get started
-                    with GrowthBook.
+                    <Trans>
+                      Customize your account setup and learn how to get started
+                      with GrowthBook.
+                    </Trans>
                   </Text>
                 </Callout>
               )}
@@ -368,14 +376,16 @@ const GetStartedAndHomePage = ({
 
                   {showSetUpFlow && (
                     <Callout status="wizard" size="md" mb="6">
-                      Connect to your SDK to get started.{" "}
-                      <Link
-                        href={agentOnboarding ? "/connect" : "/setup"}
-                        className="font-weight-bold"
-                        style={{ color: "inherit" }}
-                      >
-                        Launch the setup flow
-                      </Link>{" "}
+                      <Trans>
+                        Connect to your SDK to get started.{" "}
+                        <Link
+                          href={agentOnboarding ? "/connect" : "/setup"}
+                          className="font-weight-bold"
+                          style={{ color: "inherit" }}
+                        >
+                          Launch the setup flow
+                        </Link>
+                      </Trans>{" "}
                       <PiArrowSquareOut />
                     </Callout>
                   )}
@@ -388,7 +398,7 @@ const GetStartedAndHomePage = ({
                           weight="medium"
                           style={{ color: "var(--color-text-mid)" }}
                         >
-                          EXPLORE FEATURES
+                          <Trans>EXPLORE FEATURES</Trans>
                         </Text>
                       </Box>
                       <Flex
@@ -397,8 +407,10 @@ const GetStartedAndHomePage = ({
                       >
                         {dataScientistFeatureList.map((feature) => (
                           <AdvancedFeaturesCard
-                            key={feature.title}
+                            key={feature.title.id}
                             {...feature}
+                            title={i18n._(feature.title)}
+                            description={i18n._(feature.description)}
                           />
                         ))}
                       </Flex>
@@ -409,7 +421,7 @@ const GetStartedAndHomePage = ({
                     <Box mb="6">
                       <Box mb="3">
                         <Text size="1" weight="bold">
-                          SET UP YOUR WORKSPACE
+                          <Trans>SET UP YOUR WORKSPACE</Trans>
                         </Text>
                       </Box>
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { useLingui } from "@lingui/react/macro";
 import useAgentOnboarding from "@/hooks/useAgentOnboarding";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -14,6 +15,7 @@ type FeatureExpUsage = {
 };
 
 export default function Home(): React.ReactElement {
+  const { t } = useLingui();
   const router = useRouter();
   const { apiCall } = useAuth();
   const { organization } = useUser();
@@ -88,7 +90,7 @@ export default function Home(): React.ReactElement {
 
   if (error) {
     return (
-      <Callout status="error">{error.message || "An error occurred"}</Callout>
+      <Callout status="error">{error.message || t`An error occurred`}</Callout>
     );
   }
   if (!data || (willRedirect && !stayHere)) return <LoadingOverlay />;

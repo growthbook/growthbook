@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
+import { Trans } from "@lingui/react/macro";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -49,6 +50,7 @@ const DiscussionFeed: FC<{
             email: email ?? "",
             name: name ?? "",
           };
+          const parentType = comment.parentType;
 
           return (
             <li className="mb-3" key={i}>
@@ -63,10 +65,12 @@ const DiscussionFeed: FC<{
                 }}
               >
                 <div className="">
-                  <strong>
-                    <EventUser user={eventUser} display="name" />
-                  </strong>{" "}
-                  commented on {comment.parentType}
+                  <Trans>
+                    <strong>
+                      <EventUser user={eventUser} display="name" />
+                    </strong>{" "}
+                    commented on {parentType}
+                  </Trans>
                   <div className="text-muted">{date(comment.date)}</div>
                 </div>
                 <div

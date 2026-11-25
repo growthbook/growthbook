@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { PiArrowRight } from "react-icons/pi";
 import { FaArrowLeft } from "react-icons/fa";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
@@ -22,6 +23,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
+  const { t } = useLingui();
   const { metrics, datasources, mutateDefinitions, project, projects } =
     useDefinitions();
 
@@ -105,21 +107,27 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                   setShowAnalysisSteps(false);
                 }}
               >
-                <FaArrowLeft /> Back to Options
+                <FaArrowLeft /> <Trans>Back to Options</Trans>
               </a>
             </div>
-            <h1>Analyze an Existing Experiment</h1>
+            <h1>
+              <Trans>Analyze an Existing Experiment</Trans>
+            </h1>
             <p>
-              There are a few setup steps before you can analyze an existing
-              experiment.
+              <Trans>
+                There are a few setup steps before you can analyze an existing
+                experiment.
+              </Trans>
             </p>
             {hasFileConfig() && (
               <Callout status="info">
-                It looks like you have a <code>config.yml</code> file. Use that
-                to define data sources and metrics.{" "}
-                <DocLink useRadix={false} docSection="config_yml">
-                  View Documentation
-                </DocLink>
+                <Trans>
+                  It looks like you have a <code>config.yml</code> file. Use
+                  that to define data sources and metrics.{" "}
+                  <DocLink useRadix={false} docSection="config_yml">
+                    View Documentation
+                  </DocLink>
+                </Trans>
               </Callout>
             )}
             <div className="row mb-3">
@@ -129,9 +137,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     current={currentStep === 1}
                     finished={hasDataSource}
                     image="/images/getstarted-step1.svg"
-                    title="1. Connect to your data warehouse"
+                    title={t`1. Connect to your data warehouse`}
                     text={
-                      <>
+                      <Trans>
                         GrowthBook needs read access to where your experiment
                         and metric data lives. We support Snowflake, Redshift,
                         BigQuery, Databricks, Postgres, and more. If you
@@ -153,7 +161,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                           open a GitHub issue
                         </a>
                         .
-                      </>
+                      </Trans>
                     }
                     hideCTA={hasFileConfig()}
                     permissionsError={
@@ -172,8 +180,8 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                             projects,
                           ))
                     }
-                    cta="Add data source"
-                    finishedCTA="View data sources"
+                    cta={t`Add data source`}
+                    finishedCTA={t`View data sources`}
                     imageLeft={true}
                     onClick={(finished) => {
                       router.push(
@@ -186,14 +194,16 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     finished={hasMetrics}
                     className="border-top"
                     image="/images/getstarted-step2.svg"
-                    title="2. Define a metric"
+                    title={t`2. Define a metric`}
                     text={
                       <p>
-                        Create your first metric definition. Use this as a goal
-                        or guardrail when analyzing your experiment results.
-                        With GrowthBook, you can build out an entire metric
-                        library to represent all of the KPIs for your
-                        organization.
+                        <Trans>
+                          Create your first metric definition. Use this as a
+                          goal or guardrail when analyzing your experiment
+                          results. With GrowthBook, you can build out an entire
+                          metric library to represent all of the KPIs for your
+                          organization.
+                        </Trans>
                       </p>
                     }
                     hideCTA={!envAllowsCreatingMetrics()}
@@ -206,7 +216,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                         showPermissionError: true,
                       },
                     )}
-                    finishedCTA="View metrics"
+                    finishedCTA={t`View metrics`}
                     imageLeft={false}
                     onClick={(finished) => {
                       if (finished) router.push("/metrics");
@@ -217,17 +227,19 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     finished={false}
                     className="border-top"
                     image="/images/getstarted-step3.svg"
-                    title="3. Import an experiment"
+                    title={t`3. Import an experiment`}
                     text={
                       <p>
-                        We&apos;ll scan your data warehouse looking for past
-                        experiments that already have some data collected.
-                        Choose one to import and start analyzing results.
+                        <Trans>
+                          We&apos;ll scan your data warehouse looking for past
+                          experiments that already have some data collected.
+                          Choose one to import and start analyzing results.
+                        </Trans>
                       </p>
                     }
                     hideCTA={false}
-                    cta={"Import Experiment"}
-                    finishedCTA="Import Experiment"
+                    cta={t`Import Experiment`}
+                    finishedCTA={t`Import Experiment`}
                     permissionsError={
                       !permissionsUtil.canViewExperimentModal(project, projects)
                     }
@@ -245,25 +257,32 @@ const ExperimentsGetStarted = (): React.ReactElement => {
             <Callout status="info">
               <Text as="div" align="center">
                 <p>
-                  Not ready to connect to your data warehouse? Explore a sample
-                  experiment first to get a feel for the GrowthBook platform.
+                  <Trans>
+                    Not ready to connect to your data warehouse? Explore a
+                    sample experiment first to get a feel for the GrowthBook
+                    platform.
+                  </Trans>
                 </p>
                 <Button
                   color="inherit"
                   variant="outline"
                   onClick={openSampleExperiment}
                 >
-                  View Sample Experiment
+                  <Trans>View Sample Experiment</Trans>
                 </Button>
               </Text>
             </Callout>
           </div>
         ) : (
           <div>
-            <h1>Experimentation Setup</h1>
+            <h1>
+              <Trans>Experimentation Setup</Trans>
+            </h1>
             <p>
-              There are three ways to get started with experimentation in
-              GrowthBook.
+              <Trans>
+                There are three ways to get started with experimentation in
+                GrowthBook.
+              </Trans>
             </p>
 
             <div className="row mb-3">
@@ -274,18 +293,20 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     finished={false}
                     noActiveBorder={true}
                     image="/images/sample-data-illustration.svg"
-                    title="Explore a Sample Experiment"
+                    title={t`Explore a Sample Experiment`}
                     text={
                       <p>
-                        Running an actual A/B test on your application and
-                        waiting for results can take a long time, so this is a
-                        great way to test out the platform with a fully loaded
-                        sample experiment.
+                        <Trans>
+                          Running an actual A/B test on your application and
+                          waiting for results can take a long time, so this is a
+                          great way to test out the platform with a fully loaded
+                          sample experiment.
+                        </Trans>
                       </p>
                     }
                     hideCTA={false}
-                    cta="View Sample Experiment"
-                    finishedCTA="View Sample Experiment"
+                    cta={t`View Sample Experiment`}
+                    finishedCTA={t`View Sample Experiment`}
                     permissionsError={
                       !permissionsUtil.canViewExperimentModal(project, projects)
                     }
@@ -302,20 +323,22 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     finished={false}
                     noActiveBorder={true}
                     image="/images/design-experiment-illustration.svg"
-                    title="Design and Run a New Experiment"
+                    title={t`Design and Run a New Experiment`}
                     text={
                       <p>
-                        Design a new A/B test from scratch using either{" "}
-                        <strong>Feature Flags</strong>, our{" "}
-                        <strong>Visual Editor</strong>, or{" "}
-                        <strong>URL Redirects</strong>. Then, integrate our SDK
-                        into your application and start collecting and analyzing
-                        data from your users.
+                        <Trans>
+                          Design a new A/B test from scratch using either{" "}
+                          <strong>Feature Flags</strong>, our{" "}
+                          <strong>Visual Editor</strong>, or{" "}
+                          <strong>URL Redirects</strong>. Then, integrate our
+                          SDK into your application and start collecting and
+                          analyzing data from your users.
+                        </Trans>
                       </p>
                     }
                     hideCTA={false}
-                    cta="Design New Experiment"
-                    finishedCTA="Design New Experiment"
+                    cta={t`Design New Experiment`}
+                    finishedCTA={t`Design New Experiment`}
                     permissionsError={
                       !permissionsUtil.canViewExperimentModal(project, projects)
                     }
@@ -331,17 +354,20 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     finished={false}
                     noActiveBorder={true}
                     image="/images/analyze-results-illustration.svg"
-                    title="Analyze an Existing Experiment"
+                    title={t`Analyze an Existing Experiment`}
                     text={
                       <p>
-                        Have you already been running A/B tests with another
-                        platform? Connect GrowthBook to your data warehouse and
-                        use our powerful stats engine to automate the analysis.
+                        <Trans>
+                          Have you already been running A/B tests with another
+                          platform? Connect GrowthBook to your data warehouse
+                          and use our powerful stats engine to automate the
+                          analysis.
+                        </Trans>
                       </p>
                     }
                     hideCTA={false}
-                    cta="Analyze Existing Experiment"
-                    finishedCTA="Analyze Existing Experiment"
+                    cta={t`Analyze Existing Experiment`}
+                    finishedCTA={t`Analyze Existing Experiment`}
                     permissionsError={
                       !permissionsUtil.canViewExperimentModal(project, projects)
                     }
